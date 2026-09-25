@@ -69,7 +69,7 @@ const VERIFICATION_TYPE_LABEL: Record<string, string> = {
 
 const STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
   submitted: { label: "Nueva", color: "#818cf8", bg: "rgba(99,102,241,.12)" },
-  reviewing: { label: "En revisión", color: "#f59e0b", bg: "rgba(245,158,11,.12)" },
+  reviewing: { label: "En revisión", color: "var(--warn)", bg: "rgba(245,158,11,.12)" },
   approved: { label: "Aprobada", color: "var(--ok)", bg: "rgba(16,185,129,.12)" },
   rejected: { label: "Rechazada", color: "var(--error)", bg: "rgba(239,68,68,.12)" },
 };
@@ -164,7 +164,7 @@ function ApplicationRow({ application, onReview, busy }: {
               type="button"
               disabled={busy}
               onClick={() => void onReview(application.id, "reviewing", notes.trim() || undefined)}
-              style={actionButton("#f59e0b")}
+              style={actionButton("var(--warn)")}
             >
               <Clock size={12} /> En revisión
             </button>
@@ -326,7 +326,7 @@ export default function WorkerApplicationsAdminPage() {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10, marginBottom: 20 }}>
         {[
           { label: "Nuevas", value: stats?.submitted ?? "—", icon: UserPlus, color: "#818cf8" },
-          { label: "En revisión", value: stats?.reviewing ?? "—", icon: Clock, color: "#f59e0b" },
+          { label: "En revisión", value: stats?.reviewing ?? "—", icon: Clock, color: "var(--warn)" },
           { label: "Aprobadas", value: stats?.approved ?? "—", icon: CheckCircle2, color: "var(--ok)" },
           { label: "Rechazadas", value: stats?.rejected ?? "—", icon: XCircle, color: "var(--error)" },
           { label: "Workers verificados", value: verification ? `${verification.verifiedCount}/${verification.totalWorkers}` : "—", icon: BadgeCheck, color: "var(--brand)" },
@@ -381,7 +381,7 @@ export default function WorkerApplicationsAdminPage() {
       {/* Verification requests — explicit "Verificar" requests from /worker/profile (2.28) */}
       <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, overflow: "hidden", marginBottom: 20 }}>
         <div style={{ padding: "12px 18px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 8 }}>
-          <UserCheck size={14} color="#f59e0b" />
+          <UserCheck size={14} color="var(--warn)" />
           <span style={{ fontSize: 12, fontWeight: 800 }}>Solicitudes de verificación ({verificationRequests.length})</span>
         </div>
         {verificationRequests.length === 0 ? (

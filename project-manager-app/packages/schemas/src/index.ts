@@ -1,3 +1,5 @@
+export * from "./policy-decision.types.js";
+export * from "./capability-registry.types.js";
 export * from "./agent-action.schema.js";
 export * from "./job.schema.js";
 export * from "./agent.schema.js";
@@ -10,12 +12,23 @@ export * from "./ops.schema.js";
 export * from "./trust.schema.js";
 export * from "./payment.schema.js";
 export * from "./evidence.schema.js";
+export * from "./contributor-program.schema.js";
+export * from "./milestone.schema.js";
+export * from "./rating.schema.js";
 export * from "./dispute.schema.js";
+export * from "./incident.schema.js";
+export * from "./travel.schema.js";
+export * from "./materials.schema.js";
+export * from "./pricing.schema.js";
 export * from "./domain-events.schema.js";
 export * from "./domain-events-v2.schema.js";
 export * from "./domain-events.view.js";
 export * from "./api-input.schema.js";
 export * from "./tracker.schema.js";
+export * from "./labor-engine.schema.js";
+export * from "./user.schema.js";
+export * from "./user-profile.schema.js";
+export * from "./push-notifications.schema.js";
 export * from "./autonomy.schema.js";
 export * from "./anatomy-node.schema.js";
 export * from "./anatomy-relation.schema.js";
@@ -49,3 +62,8 @@ export * from "./admin-settings.schema.js";
 export * from "./workspace.schema.js";
 export * from "./prometeo-orchestration.schema.js";
 export * from "./prometeo-copilot.schema.js";
+// Prometeo LiveSession (spec: prometeo/live-sessions; ADR-026)
+export * from "./live-session.schema.js";
+// Sense Vision — Construction Library + Mi Diccionario (spec: vision/sense-vision-field-library)
+export * from "./vision-library.schema.js";
+export * from "./construction-library.seed.js";

@@ -121,6 +121,23 @@ export async function middleware(req: NextRequest): Promise<NextResponse> {
     return NextResponse.redirect(new URL(defaultDashboardForRole(role), req.url));
   }
 
+  // ── 0.5. Contributor Program dashboard ─────────────────────────────────────
+  // /contributors and /contributors/terms stay public (read-only, no session
+  // needed); only /contributors/dashboard requires login. Contributors aren't
+  // one fixed AppRole (worker/client/admin) — eligibility is a permission
+  // (contributor-program:participate) enforced by the API itself — so this
+  // only checks for a session, not the role-based ownedPrefixes below.
+  if (pathname === "/contributors/dashboard" || pathname.startsWith("/contributors/dashboard/")) {
+    const sessionCookie = req.cookies.get(SESSION_COOKIE)?.value;
+    const session = sessionCookie ? await decodeSession(sessionCookie) : null;
+    if (!session) {
+      const url = new URL("/login", req.url);
+      url.searchParams.set("from", `${pathname}${req.nextUrl.search}`);
+      return NextResponse.redirect(url);
+    }
+    return withSessionHeaders(req, session);
+  }
+
   // ── 1. Skip static + public routes ─────────────────────────────────────────
   if (isPublic(pathname)) {
     const sessionCookie = req.cookies.get(SESSION_COOKIE)?.value;

@@ -172,7 +172,7 @@ function SafetyWidget({ imageUrl, trade }: { imageUrl: string; trade?: string })
           <div style={{ fontSize: 10, color: "#60a5fa", display: "flex", alignItems: "center", gap: 4, marginBottom: 4 }}>
             <Brain size={10} /> Insight Ollama
           </div>
-          <p style={{ margin: 0, fontSize: 11, color: "#94a3b8", lineHeight: 1.5 }}>{result.insight}</p>
+          <p style={{ margin: 0, fontSize: 11, color: "var(--muted)", lineHeight: 1.5 }}>{result.insight}</p>
         </div>
       )}
     </div>

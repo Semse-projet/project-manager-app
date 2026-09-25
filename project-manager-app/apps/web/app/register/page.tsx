@@ -174,7 +174,7 @@ export default function RegisterPage() {
                 width: "40px",
                 height: "40px",
                 borderRadius: "12px",
-                background: "linear-gradient(135deg, var(--brand), #8b5cf6)",
+                background: "linear-gradient(135deg, var(--brand), var(--violet))",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -354,7 +354,7 @@ export default function RegisterPage() {
                 background:
                   loading || passwordMismatch
                     ? "var(--faint, #4b6280)"
-                    : "linear-gradient(135deg, var(--brand), #8b5cf6)",
+                    : "linear-gradient(135deg, var(--brand), var(--violet))",
                 color: "#fff",
                 fontSize: "14px",
                 fontWeight: 700,

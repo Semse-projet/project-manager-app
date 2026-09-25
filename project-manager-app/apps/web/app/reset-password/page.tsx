@@ -105,7 +105,7 @@ function ResetPasswordForm() {
             display: "inline-block",
             padding: "10px 20px",
             borderRadius: "8px",
-            background: "linear-gradient(135deg, var(--brand), #8b5cf6)",
+            background: "linear-gradient(135deg, var(--brand), var(--violet))",
             color: "#fff",
             fontSize: "13px",
             fontWeight: 600,
@@ -229,7 +229,7 @@ function ResetPasswordForm() {
             background:
               loading || passwordMismatch
                 ? "var(--faint, #4b6280)"
-                : "linear-gradient(135deg, var(--brand), #8b5cf6)",
+                : "linear-gradient(135deg, var(--brand), var(--violet))",
             color: "#fff",
             fontSize: "14px",
             fontWeight: 700,
@@ -271,7 +271,7 @@ export default function ResetPasswordPage() {
                 width: "40px",
                 height: "40px",
                 borderRadius: "12px",
-                background: "linear-gradient(135deg, var(--brand), #8b5cf6)",
+                background: "linear-gradient(135deg, var(--brand), var(--violet))",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",

@@ -7,6 +7,7 @@ import type {
   PrometeoToolDescriptor,
   PrometeoToolExecutionResult,
   PrometeoToolInvokeInput,
+  ToolResult,
 } from "@semse/schemas";
 import { randomUUID } from "node:crypto";
 import { normalizeRoles } from "../../common/rbac.js";
@@ -16,6 +17,8 @@ import { AgroDashboardService } from "../agro/agro-dashboard.service.js";
 import { AgroFarmService } from "../agro/agro-farm.service.js";
 import { AgroInventoryService } from "../agro/agro-inventory.service.js";
 import { AgroTaskService } from "../agro/agro-task.service.js";
+import { AgroIncidentService } from "../agro/agro-incident.service.js";
+import { AgroIntakeService } from "../agro/agro-intake.service.js";
 import { FieldOpsService } from "../field-ops/field-ops.service.js";
 import { PaymentsService } from "../payments/payments.service.js";
 import { VisionService } from "../vision/vision.service.js";
@@ -33,6 +36,22 @@ type TrackerStatus = (typeof TRACKER_STATUSES)[number];
 
 function nowIso() {
   return new Date().toISOString();
+}
+
+/**
+ * docs/specs/prometeo/tool-result-multimodal.spec.md pilot. `legacyJson`
+ * keeps the exact VisionAnalysisResult shape callers already depend on.
+ * No `image` part is emitted: verified against VisionAnalysisRecord,
+ * rawResult and apps/vision-service — none of them carry an annotated-image
+ * field today, so checking for one here would be dead code pretending to
+ * cover a case that can never fire. Add it when vision-service actually
+ * produces one.
+ */
+function buildVisionAnalyzeImageToolResult(result: unknown): ToolResult {
+  return {
+    parts: [{ type: "json", data: result }],
+    legacyJson: result,
+  };
 }
 
 function extractBlockedReason(output: unknown): string | null {
@@ -110,6 +129,8 @@ export class PrometeoToolExecutionService {
     private readonly vision: VisionService,
     @Optional() private readonly toolGovernance?: ToolGovernanceRepository,
     @Optional() private readonly payments?: PaymentsService,
+    @Optional() private readonly agroIntake?: AgroIntakeService,
+    @Optional() private readonly agroIncidents?: AgroIncidentService,
   ) {}
 
   async invokeReadTool(
@@ -604,6 +625,23 @@ export class PrometeoToolExecutionService {
           priority: optionalString(input, "priority"),
         });
 
+      case "agro.create_incident":
+        if (!this.agroIncidents) {
+          return { __blockedReason: "AgroIncidentService is not available." };
+        }
+        // Mismo servicio que el endpoint REST: misma política de finca, validación
+        // de relaciones y auditoría. source=PROMETEO → severidad nunca confirmada.
+        return this.agroIncidents.create(requiredString(input, "farmId"), actor.userId, {
+          type: requiredString(input, "type"),
+          title: requiredString(input, "title"),
+          description: optionalString(input, "description"),
+          severity: optionalString(input, "severity"),
+          farmUnitId: optionalString(input, "farmUnitId"),
+          animalGroupId: optionalString(input, "animalGroupId"),
+          animalId: optionalString(input, "animalId"),
+          source: "PROMETEO",
+        });
+
       case "payments.propose_release":
         if (!this.payments) {
           return { __blockedReason: "PaymentsService is not available." };
@@ -715,6 +753,25 @@ export class PrometeoToolExecutionService {
           optionalInteger(input, "days", 1, 365) ?? 30,
         );
 
+      case "agro.propose_intake":
+        if (!this.agroIntake) {
+          throw new BadRequestException("AgroIntakeService is not available");
+        }
+        return this.agroIntake.propose(requiredString(input, "farmId"), actor.userId, {
+          text: requiredString(input, "text"),
+          evidenceIds: Array.isArray(input.evidenceIds) ? input.evidenceIds.filter((v): v is string => typeof v === "string") : undefined,
+        });
+
+      case "agro.list_incidents":
+        if (!this.agroIncidents) {
+          throw new BadRequestException("AgroIncidentService is not available");
+        }
+        return this.agroIncidents.list(requiredString(input, "farmId"), actor.userId, {
+          status: optionalString(input, "status")?.split(","),
+          severity: optionalString(input, "severity")?.split(","),
+          q: optionalString(input, "q"),
+        });
+
       case "vision.get_analysis":
         return this.vision.getAnalysis(requiredString(input, "evidenceId"));
 
@@ -724,13 +781,15 @@ export class PrometeoToolExecutionService {
       case "vision.get_milestone_analyses":
         return this.vision.getByMilestone(requiredString(input, "milestoneId"));
 
-      case "vision.analyze_image":
-        return this.vision.runAnalysis({
+      case "vision.analyze_image": {
+        const result = await this.vision.runAnalysis({
           evidenceId: requiredString(input, "evidenceId"),
           imageUrl: requiredString(input, "imageUrl"),
           jobId: optionalString(input, "jobId"),
           milestoneId: optionalString(input, "milestoneId"),
         });
+        return buildVisionAnalyzeImageToolResult(result);
+      }
 
       case "vision.compare_before_after":
         return this.vision.matchReference(

@@ -1,6 +1,7 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
+import { JobsService } from "../jobs/jobs.service.js";
 import {
   type BuildOpsMilestoneDto,
   type BuildOpsOverviewDto,
@@ -83,6 +84,35 @@ type StoredBuildOpsMilestone = {
   _count?: { evidence: number };
 };
 
+// WS-01C G1 finding (point 16, docs/ws-01c/WS-01C-G1-AS-IS-Reconciliation.md):
+// every read method below used to scope only by tenantId, never by org —
+// structurally identical to the payment-governance/SSE P0s found in the same
+// pass. `projects:read` is held by CLIENT and PRO (packages/auth/src/rbac.ts),
+// not just OPS_ADMIN, so this was reachable by ordinary users, not just
+// admins. `overview`/`listProjects`/`listTasks`/`listMilestones` leaked
+// tenant-wide lists/aggregates (including project titles in
+// `overview().recentActivity`) to any org sharing a tenant; single-resource
+// reads (`getProject`/`getProjectHealth`/`getProjectActivity`/`getTask`) were
+// guessable-ID IDOR once an id leaked from the list endpoints. Fixed the same
+// way as milestones.policy.ts and the payment-governance PR: org is
+// resource-derived, OPS_ADMIN keeps its existing cross-org visibility,
+// nothing here reads a session-level "active org" (ADR-040).
+function isOpsAdminRole(roles: string[]): boolean {
+  return roles.includes("OPS_ADMIN");
+}
+
+// BuildOpsProject/BuildOpsTask carry orgId directly.
+function orgScopeDirect(orgId: string, isAdmin: boolean): { orgId?: string } {
+  return isAdmin ? {} : { orgId };
+}
+
+// Milestone/Evidence/Dispute hang off the canonical Project, which has two
+// legitimate orgs (client + assigned pro) — same shape milestones.policy.ts
+// already uses.
+function orgScopeViaProject(orgId: string, isAdmin: boolean) {
+  return isAdmin ? {} : { OR: [{ assignedProOrgId: orgId }, { job: { clientOrgId: orgId } }] };
+}
+
 const RISK_LEVELS = new Set<BuildOpsRiskLevel>(["low", "medium", "high", "critical"]);
 const MILESTONE_STATUSES = new Set<BuildOpsMilestoneDto["status"]>(["draft", "awaiting_review", "submitted", "approved", "rejected", "paid"]);
 const BUILDOPS_SOURCE_TOOL_RESULT_SCHEMA_VERSION = "1.0";
@@ -114,31 +144,36 @@ function normalizeSourceToolResult(value: Record<string, unknown>): Record<strin
 
 @Injectable()
 export class BuildOpsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly jobs: JobsService,
+  ) {}
 
-  async overview(tenantId: string): Promise<BuildOpsOverviewDto> {
+  async overview(tenantId: string, orgId: string, roles: string[]): Promise<BuildOpsOverviewDto> {
+    const isAdmin = isOpsAdminRole(roles);
     const [projects, tasks, milestones, evidence, disputes] = await Promise.all([
       this.prisma.buildOpsProject.findMany({
-        where: { tenantId },
+        where: { tenantId, ...orgScopeDirect(orgId, isAdmin) },
         select: { status: true, riskLevel: true },
       }),
       this.prisma.buildOpsTask.count({
         where: {
           tenantId,
+          ...orgScopeDirect(orgId, isAdmin),
           dueDate: { lte: new Date(Date.now() + 24 * 60 * 60 * 1000) },
           status: { in: ["todo", "in_progress", "blocked"] },
         },
       }),
       this.prisma.milestone.count({
         where: {
-          project: { tenantId },
+          project: { tenantId, ...orgScopeViaProject(orgId, isAdmin) },
           deletedAt: null,
           status: { in: ["AWAITING_REVIEW", "SUBMITTED"] },
         },
       }),
       this.prisma.evidence.count({
         where: {
-          project: { tenantId },
+          project: { tenantId, ...orgScopeViaProject(orgId, isAdmin) },
           validationStatus: { in: ["pending", "manual_review"] },
         },
       }),
@@ -146,6 +181,7 @@ export class BuildOpsService {
         where: {
           tenantId,
           status: { in: ["OPEN", "ASSIGNED", "UNDER_REVIEW"] },
+          project: orgScopeViaProject(orgId, isAdmin),
         },
       }),
     ]);
@@ -159,7 +195,7 @@ export class BuildOpsService {
       projects.filter((project) => ["high", "critical"].includes(project.riskLevel)).length + disputes;
 
     const recentActivity = (await this.prisma.buildOpsProject.findMany({
-      where: { tenantId },
+      where: { tenantId, ...orgScopeDirect(orgId, isAdmin) },
       orderBy: { updatedAt: "desc" },
       take: 4,
       select: { title: true, trade: true, status: true, updatedAt: true },
@@ -176,10 +212,16 @@ export class BuildOpsService {
     };
   }
 
-  async listTasks(tenantId: string, filters?: { projectId?: string | null; status?: string | null }): Promise<BuildOpsTaskDto[]> {
+  async listTasks(
+    tenantId: string,
+    orgId: string,
+    roles: string[],
+    filters?: { projectId?: string | null; status?: string | null },
+  ): Promise<BuildOpsTaskDto[]> {
     const tasks = (await this.prisma.buildOpsTask.findMany({
       where: {
         tenantId,
+        ...orgScopeDirect(orgId, isOpsAdminRole(roles)),
         ...(filters?.projectId ? { projectId: filters.projectId } : {}),
         ...(filters?.status ? { status: filters.status } : {}),
       },
@@ -190,11 +232,11 @@ export class BuildOpsService {
     return tasks.map((task) => this.toTaskDto(task));
   }
 
-  async listMilestones(tenantId: string): Promise<BuildOpsMilestoneDto[]> {
+  async listMilestones(tenantId: string, orgId: string, roles: string[]): Promise<BuildOpsMilestoneDto[]> {
     const milestones = (await this.prisma.milestone.findMany({
       where: {
         deletedAt: null,
-        project: { tenantId },
+        project: { tenantId, ...orgScopeViaProject(orgId, isOpsAdminRole(roles)) },
       },
       include: {
         project: { select: { job: { select: { title: true } } } },
@@ -206,9 +248,9 @@ export class BuildOpsService {
     return milestones.map((milestone) => this.toMilestoneDto(milestone));
   }
 
-  async getTask(tenantId: string, taskId: string): Promise<BuildOpsTaskDto> {
+  async getTask(tenantId: string, taskId: string, orgId: string, roles: string[]): Promise<BuildOpsTaskDto> {
     const task = (await this.prisma.buildOpsTask.findFirst({
-      where: { tenantId, id: taskId },
+      where: { tenantId, id: taskId, ...orgScopeDirect(orgId, isOpsAdminRole(roles)) },
       include: { project: { select: { title: true } } },
     })) as StoredBuildOpsTask | null;
 
@@ -219,9 +261,9 @@ export class BuildOpsService {
     return this.toTaskDto(task);
   }
 
-  async listProjects(tenantId: string): Promise<BuildOpsProjectDto[]> {
+  async listProjects(tenantId: string, orgId: string, roles: string[]): Promise<BuildOpsProjectDto[]> {
     const projects = (await this.prisma.buildOpsProject.findMany({
-      where: { tenantId },
+      where: { tenantId, ...orgScopeDirect(orgId, isOpsAdminRole(roles)) },
       orderBy: { updatedAt: "desc" },
     })) as StoredBuildOpsProject[];
 
@@ -249,10 +291,11 @@ export class BuildOpsService {
     return projects.map((project) => this.toDto(project, canonicalProjectIds.get(project.id) ?? null));
   }
 
-  async getProject(tenantId: string, projectId: string): Promise<BuildOpsProjectDto> {
+  async getProject(tenantId: string, projectId: string, orgId: string, roles: string[]): Promise<BuildOpsProjectDto> {
+    const isAdmin = isOpsAdminRole(roles);
     const [project, canonicalProject] = await Promise.all([
       this.prisma.buildOpsProject.findFirst({
-        where: { tenantId, id: projectId }
+        where: { tenantId, id: projectId, ...orgScopeDirect(orgId, isAdmin) }
       }),
       this.prisma.project.findFirst({
         where: {
@@ -270,10 +313,10 @@ export class BuildOpsService {
     return this.toDto(project as StoredBuildOpsProject, canonicalProject?.id ?? null);
   }
 
-  async getProjectHealth(tenantId: string, projectId: string) {
+  async getProjectHealth(tenantId: string, projectId: string, orgId: string, roles: string[]) {
     const [project, openSignals, openChangeCandidates, algorithmRun] = await Promise.all([
       this.prisma.buildOpsProject.findFirst({
-        where: { tenantId, id: projectId },
+        where: { tenantId, id: projectId, ...orgScopeDirect(orgId, isOpsAdminRole(roles)) },
         select: { id: true, status: true, riskLevel: true, riskScore: true, completion: true, title: true, trade: true, jobId: true },
       }),
       this.prisma.operationalSignal.count({
@@ -324,7 +367,7 @@ export class BuildOpsService {
     };
   }
 
-  async getProjectActivity(tenantId: string, projectId: string, limit = 40): Promise<{
+  async getProjectActivity(tenantId: string, projectId: string, orgId: string, roles: string[], limit = 40): Promise<{
     projectId: string;
     events: Array<{
       id: string;
@@ -340,6 +383,17 @@ export class BuildOpsService {
     generatedAt: string;
   }> {
     const safeLimit = Math.max(1, Math.min(limit, 200));
+
+    // This method never fetched the BuildOpsProject itself, only sub-records
+    // keyed by projectId — nothing gated org (or, for algorithmRun/evidence,
+    // even tenant) access before this fix. Explicit ownership check first.
+    const ownedProject = await this.prisma.buildOpsProject.findFirst({
+      where: { tenantId, id: projectId, ...orgScopeDirect(orgId, isOpsAdminRole(roles)) },
+      select: { id: true },
+    });
+    if (!ownedProject) {
+      throw new NotFoundException("BuildOps project not found");
+    }
 
     const [milestones, changeOrders, signals, algorithmRuns, evidence] = await Promise.all([
       this.prisma.milestone.findMany({
@@ -543,6 +597,54 @@ export class BuildOpsService {
     })) as StoredBuildOpsProject;
 
     return this.toDto(project);
+  }
+
+  // No other code path sets BuildOpsProject.jobId — createProject() and
+  // createFromToolResult() leave it null. This is the only way a draft
+  // plan reaches a real, marketplace-visible Job.
+  async publishAsJob(input: {
+    tenantId: string;
+    orgId: string;
+    userId: string;
+    buildOpsProjectId: string;
+    requestId: string;
+  }): Promise<{ buildOpsProject: BuildOpsProjectDto; job: Awaited<ReturnType<JobsService["create"]>> }> {
+    const existing = await this.prisma.buildOpsProject.findFirst({
+      where: { id: input.buildOpsProjectId, tenantId: input.tenantId },
+    }) as StoredBuildOpsProject | null;
+    if (!existing) {
+      throw new NotFoundException({
+        code: "BUILDOPS_PROJECT_NOT_FOUND",
+        message: "BuildOps project not found",
+      });
+    }
+    if (existing.jobId) {
+      throw new ConflictException({
+        code: "BUILDOPS_PROJECT_ALREADY_PUBLISHED",
+        message: "This project has already been published as a job",
+      });
+    }
+
+    const budget = existing.budgetEstimate != null ? Number(existing.budgetEstimate) : undefined;
+    const job = await this.jobs.create({
+      tenantId: input.tenantId,
+      orgId: input.orgId,
+      userId: input.userId,
+      title: existing.title,
+      category: existing.trade,
+      scope: existing.description ?? existing.title,
+      budgetMin: budget,
+      budgetMax: budget,
+      city: existing.location,
+      requestId: input.requestId,
+    });
+
+    const updated = (await this.prisma.buildOpsProject.update({
+      where: { id: existing.id },
+      data: { jobId: job.id },
+    })) as StoredBuildOpsProject;
+
+    return { buildOpsProject: this.toDto(updated), job };
   }
 
   async createFromToolResult(input: {

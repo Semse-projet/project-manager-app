@@ -20,9 +20,9 @@ type ToolSchema = {
 };
 
 const CATEGORY_COLORS: Record<string, string> = {
-  mechanical:  "#06b6d4",
-  finish:      "#8b5cf6",
-  remodel:     "#f59e0b",
+  mechanical:  "var(--info)",
+  finish:      "var(--violet)",
+  remodel:     "var(--warn)",
   exterior:    "var(--ok)",
   specialty:   "#ec4899",
   structural:  "var(--error)",
@@ -74,7 +74,6 @@ export default function AdminToolsPage() {
         icon={Wrench}
         iconColor="#22d3ee"
         iconBg="rgba(34,211,238,.12)"
-        showBack={false}
       />
 
       {/* Filters */}

@@ -56,6 +56,28 @@ test("vision.analyze_image: denies without vision:run and calls VisionService.ru
   assert.equal(calledWith?.jobId, "job_1");
 });
 
+test("vision.analyze_image: wraps the result as ToolResult with a json part and legacyJson preserving the exact prior shape (SPEC tool-result-multimodal)", async () => {
+  const visionAnalysisResult = { evidenceId: "ev_1", status: "completed", qualityScore: 0.9 };
+  const vision = {
+    async runAnalysis() {
+      return visionAnalysisResult;
+    },
+  };
+  const result = await makeService(vision).invokeReadTool(actor({ roles: ["PRO"] }) as never, "req_1", {
+    namespace: "vision",
+    name: "analyze_image",
+    input: { evidenceId: "ev_1", imageUrl: "https://example.com/a.jpg" },
+  });
+
+  assert.equal(result.status, "succeeded");
+  const output = result.output as { outputKind: string; data: { parts: unknown[]; legacyJson: unknown } };
+  assert.equal(output.outputKind, "ToolResult");
+  assert.deepEqual(output.data.parts, [{ type: "json", data: visionAnalysisResult }]);
+  // legacyJson is byte-for-byte the same value every pre-ToolResult caller
+  // already reads as output.data — this is the backward-compat guarantee.
+  assert.deepEqual(output.data.legacyJson, visionAnalysisResult);
+});
+
 test("vision.analyze_image: evidenceId is required — missing it fails with a clear 400, not a silent pass-through", async () => {
   const vision = {
     async runAnalysis() {

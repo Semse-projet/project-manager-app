@@ -11,7 +11,7 @@ export const presignEvidenceSchema = z.object({
 });
 
 export const uploadPlanSchema = z.object({
-  domain: z.enum(["evidence", "contract", "dispute", "travel"]),
+  domain: z.enum(["evidence", "contract", "dispute", "travel", "knowledge_contribution"]),
   filename: z.string().min(1),
   contentType: z.string().min(1),
   fileSizeBytes: z.number().int().positive().max(1024 * 1024 * 1024 * 20),
@@ -52,8 +52,44 @@ export const registerEvidenceSchema = z
     path: ["projectId"]
   });
 
+// Matches EvidenceView in apps/api/src/modules/evidence/evidence.repository.ts —
+// the shape returned by GET /v1/jobs/:jobId/evidence and POST /v1/evidence.
+export const evidenceRecordSchema = z.object({
+  id: z.string().min(1),
+  tenantId: z.string().min(1),
+  projectId: z.string().min(1),
+  jobId: z.string().min(1),
+  milestoneId: z.string().min(1).optional(),
+  uploadedById: z.string().min(1),
+  kind: evidenceKindSchema,
+  key: z.string().min(1),
+  filename: z.string().min(1).optional(),
+  validationStatus: z.string().min(1),
+  aiQualityScore: z.number().nullable().optional(),
+  createdAt: z.string().min(1),
+  // m2.2-dispute-docs Bloque 2.2.A — present only on photos registered via
+  // POST /v1/projects/:projectId/evidence/photos (EXIF-derived, not
+  // client-supplied).
+  geoLat: z.number().optional(),
+  geoLng: z.number().optional(),
+  capturedAt: z.string().min(1).optional()
+});
+
+// POST /v1/projects/:projectId/evidence/photos — Bloque 2.2.A. `key` must
+// reference a file already uploaded via the existing presign flow; the API
+// reads it back to extract EXIF timestamp/GPS server-side rather than
+// trusting client-supplied date/location fields.
+export const registerEvidencePhotoSchema = z.object({
+  key: z.string().min(1),
+  filename: z.string().min(1).max(300).optional(),
+  category: z.string().min(1).max(100).optional(),
+  description: z.string().min(1).max(2000).optional()
+});
+
 export type PresignEvidenceInput = z.infer<typeof presignEvidenceSchema>;
 export type UploadPlanInput = z.infer<typeof uploadPlanSchema>;
 export type MultipartUploadSessionCreateInput = z.infer<typeof multipartUploadSessionCreateSchema>;
 export type MultipartUploadSessionCompleteInput = z.infer<typeof multipartUploadSessionCompleteSchema>;
 export type RegisterEvidenceInput = z.infer<typeof registerEvidenceSchema>;
+export type EvidenceRecordView = z.infer<typeof evidenceRecordSchema>;
+export type RegisterEvidencePhotoInput = z.infer<typeof registerEvidencePhotoSchema>;

@@ -12,13 +12,13 @@ import { NotificationBanner } from "../../../../../components/notifications/Noti
 
 const SEVERITY_CONFIG = {
   info:     { color: "var(--brand)", bg: "#1e3a5f", icon: <Info size={14} /> },
-  warning:  { color: "#f59e0b", bg: "#451a03", icon: <AlertTriangle size={14} /> },
+  warning:  { color: "var(--warn)", bg: "#451a03", icon: <AlertTriangle size={14} /> },
   critical: { color: "var(--error)", bg: "#450a0a", icon: <AlertTriangle size={14} /> },
 };
 
 const TYPE_ICON: Record<string, React.ReactNode> = {
   milestone_status:   <CheckCircle size={14} color="var(--ok)" />,
-  change_order:       <FileText size={14} color="#f59e0b" />,
+  change_order:       <FileText size={14} color="var(--warn)" />,
   operational_signal: <Zap size={14} color="#a78bfa" />,
   algorithm_run:      <Activity size={14} color="var(--brand)" />,
   evidence_upload:    <HardHat size={14} color="#22d3ee" />,
@@ -183,7 +183,7 @@ export default function JobTimelinePage() {
             <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
               <span style={{ fontSize: 12, color: "#6b7280", padding: "4px 10px", background: "#1f2937", borderRadius: 20, border: "1px solid #374151" }}>{events.length} eventos</span>
               {criticalCount > 0 && <span style={{ fontSize: 12, color: "var(--error)", padding: "4px 10px", background: "#450a0a", borderRadius: 20, border: "1px solid #ef444440" }}>{criticalCount} crítico{criticalCount > 1 ? "s" : ""}</span>}
-              {warningCount > 0 && <span style={{ fontSize: 12, color: "#f59e0b", padding: "4px 10px", background: "#451a03", borderRadius: 20, border: "1px solid #f59e0b40" }}>{warningCount} atención</span>}
+              {warningCount > 0 && <span style={{ fontSize: 12, color: "var(--warn)", padding: "4px 10px", background: "#451a03", borderRadius: 20, border: "1px solid #f59e0b40" }}>{warningCount} atención</span>}
             </div>
           )}
           {error && (

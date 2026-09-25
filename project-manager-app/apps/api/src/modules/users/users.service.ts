@@ -14,11 +14,22 @@ import {
   type UserActor
 } from "./users.policy.js";
 import {
+  type IdentityAttestationRecord,
   type UserMembershipRecord,
   type UserProfileRecord,
   type UserRecord,
   UsersRepository
 } from "./users.repository.js";
+import {
+  buildAttestationMessage,
+  getAttestationPublicKey as getAttestationPublicKeyMaterial,
+  signAttestationMessage
+} from "./identity-attestation-signer.js";
+
+/** Only `id_document` review is a real identity claim worth a signed
+ * attestation — email/phone/background_check stay plain-flag verifications,
+ * same as before. See docs/specs/core/identity-attestation.spec.md. */
+const ATTESTABLE_VERIFICATION_TYPES = new Set(["id_document"]);
 
 @Injectable()
 export class UsersService {
@@ -59,6 +70,35 @@ export class UsersService {
       userId: actor.userId,
       targetUserId: userId
     });
+  }
+
+  /**
+   * docs/specs/core/universal-identity-multi-role.spec.md §5 — read-only,
+   * no audit_log per that contract. Reuses findMembershipsByUser scoped to
+   * the actor's own tenant (same boundary as every other membership read);
+   * capabilities are the actor's own Membership rows, one per org/role.
+   */
+  async getMyCapabilities(actor: UserActor): Promise<{ role: string; orgId: string; status: string; verifiedAt: string | null }[]> {
+    const memberships = await this.usersRepository.findMembershipsByUser({
+      tenantId: actor.tenantId,
+      orgId: actor.orgId,
+      userId: actor.userId,
+      targetUserId: actor.userId
+    });
+
+    // verifiedAt: no per-Membership verification timestamp exists yet in the
+    // schema (only account-level User.verificationStatus) — null until that
+    // gap is closed, not fabricated.
+    // status: ADR-040/docs/specs/core/org-membership-status.spec.md — surfaces
+    // INVITED/ACTIVE/SUSPENDED/REVOKED so a caller can tell a dormant
+    // capability from one it can actually act on; does not filter here,
+    // callers decide what to do with a non-ACTIVE row.
+    return memberships.map((membership) => ({
+      role: membership.role.key,
+      orgId: membership.orgId,
+      status: membership.status,
+      verifiedAt: null
+    }));
   }
 
   async verifyUser(input: UserActor & {
@@ -117,6 +157,50 @@ export class UsersService {
     });
 
     return user;
+  }
+
+  /**
+   * Produces the cryptographic evidence behind an `id_document` approval —
+   * called only from reviewVerificationRequest(), never reachable directly
+   * from the controller, so it can only ever run right after an OPS_ADMIN
+   * (never the user themselves) has approved a real review. See
+   * docs/specs/core/identity-attestation.spec.md.
+   */
+  private async createIdentityAttestation(input: {
+    tenantId: string;
+    userId: string;
+    verifiedByUserId: string;
+    verificationType: string;
+  }): Promise<IdentityAttestationRecord> {
+    const timestamp = new Date().toISOString();
+    const message = buildAttestationMessage({ ...input, timestamp });
+    const { keyId, signature } = signAttestationMessage(message);
+
+    return this.usersRepository.createIdentityAttestation({
+      tenantId: input.tenantId,
+      userId: input.userId,
+      verifiedByUserId: input.verifiedByUserId,
+      verificationType: input.verificationType,
+      keyId,
+      message,
+      signature
+    });
+  }
+
+  /** Self or OPS_ADMIN only — same boundary as getUser(). */
+  async getIdentityAttestation(actor: UserActor, targetUserId: string): Promise<IdentityAttestationRecord | null> {
+    if (!canReadUser(actor, targetUserId)) {
+      throw new ForbiddenException("Cannot read this user's identity attestation");
+    }
+
+    return this.usersRepository.getLatestIdentityAttestation(actor.tenantId, targetUserId);
+  }
+
+  /** Any authenticated caller — this is what makes the attestation's
+   * signature independently checkable, the entire point of using real
+   * asymmetric crypto instead of a DB flag. No PII in the response. */
+  getAttestationPublicKey(): { keyId: string; publicKeyPem: string } {
+    return getAttestationPublicKeyMaterial();
   }
 
   /**
@@ -207,6 +291,19 @@ export class UsersService {
       ? (JSON.parse(existing[0].body) as { requestedAt?: string }).requestedAt
       : undefined;
 
+    // Sign/persist the attestation BEFORE recording the decision or marking
+    // the user verified — a signing failure (missing keys, DB error) must
+    // never leave an approval on record without the attestation that backs
+    // it. See docs/specs/core/identity-attestation.spec.md.
+    if (input.decision === "approved" && ATTESTABLE_VERIFICATION_TYPES.has(input.verificationType)) {
+      await this.createIdentityAttestation({
+        tenantId: input.tenantId,
+        userId: input.targetUserId,
+        verifiedByUserId: input.userId,
+        verificationType: input.verificationType
+      });
+    }
+
     const record = buildVerificationRequestWorkspaceMemoryRecord({
       tenantId: input.tenantId,
       orgId: input.orgId,
@@ -243,6 +340,7 @@ export class UsersService {
       availability: true,
       unifiedMode: false,
       expertMode: false,
+      proximityCheckInMode: "ask",
       updatedAt: new Date()
     };
   }
@@ -251,7 +349,7 @@ export class UsersService {
     data: {
       displayName?: string; bio?: string; location?: string; trades?: string[]; availability?: boolean;
       assistantTone?: string; assistantLanguage?: string; assistantVerbosity?: string;
-      unifiedMode?: boolean; expertMode?: boolean;
+      unifiedMode?: boolean; expertMode?: boolean; proximityCheckInMode?: "ask" | "auto" | "off";
     };
     requestId: string;
   }): Promise<UserProfileRecord> {

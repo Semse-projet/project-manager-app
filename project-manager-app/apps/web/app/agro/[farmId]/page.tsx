@@ -21,12 +21,14 @@ interface DashboardData {
     pendingTasks: number; blockedTasks: number; overdueTasks: number;
     completedThisWeek: number; inventoryItems: number; lowStockItems: number;
   };
-  monthCostSummary: { total: number; since: string; currency: string };
-  capital?: { livestock: number; currency: string };
+  /** null cuando el rol de finca no ve datos económicos (solo el propietario los ve). */
+  monthCostSummary: { total: number; since: string; currency: string } | null;
+  capital?: { livestock: number; currency: string } | null;
   monthIncomeSummary?: {
     production: number; sales: number; total: number;
     projectedProfit: number; since: string; currency: string;
-  };
+  } | null;
+  viewerRole?: string;
   alerts: Alert[];
   nextBestActions: { priority: number; action: string; detail: string }[];
 }
@@ -141,7 +143,7 @@ function WeatherWidget() {
             <p style={{ fontSize: 10, color: "var(--faint)" }}>Humedad</p>
           </div>
           <div style={{ textAlign: "center" }}>
-            <Wind size={14} color="#94a3b8" style={{ margin: "0 auto 3px" }} />
+            <Wind size={14} color="var(--muted)" style={{ margin: "0 auto 3px" }} />
             <p style={{ fontSize: 11, color: "var(--muted)", fontWeight: 700 }}>{weather.windspeed} km/h</p>
             <p style={{ fontSize: 10, color: "var(--faint)" }}>Viento</p>
           </div>
@@ -339,11 +341,13 @@ export default function FarmDashboardPage() {
               <StatCard label="Completadas / sem." value={counts.completedThisWeek}      icon={TrendingUp} />
               <StatCard label="Inventario"         value={counts.inventoryItems}         icon={Package} />
               <StatCard label="Stock bajo"         value={counts.lowStockItems}          icon={Package} danger={counts.lowStockItems > 0} />
-              <StatCard
-                label="Costo del mes"
-                value={`$${monthCostSummary.total.toLocaleString("es-CO", { minimumFractionDigits: 0 })} ${monthCostSummary.currency}`}
-                icon={DollarSign}
-              />
+              {monthCostSummary && (
+                <StatCard
+                  label="Costo del mes"
+                  value={`$${monthCostSummary.total.toLocaleString("es-CO", { minimumFractionDigits: 0 })} ${monthCostSummary.currency}`}
+                  icon={DollarSign}
+                />
+              )}
               {data.capital && (
                 <StatCard
                   label="Capital vivo"

@@ -42,6 +42,7 @@ import type {
   PrometeoToolExecutionResult,
   PrometeoToolInvokeInput,
   AdminSettings,
+  CapabilityRecord,
 } from "@semse/schemas";
 import {
   buildStoredPrometeoAttachment,
@@ -88,7 +89,8 @@ export type {
   PrometeoResponseBlock,
   PrometeoToolDescriptor,
   PrometeoToolExecutionResult,
-  PrometeoToolInvokeInput
+  PrometeoToolInvokeInput,
+  CapabilityRecord
 } from "@semse/schemas";
 
 export type ApiEnvelope<T> = {
@@ -124,7 +126,8 @@ export class SemseApiError extends Error {
   constructor(
     public readonly status: number,
     public readonly path: string,
-    message?: string
+    message?: string,
+    public readonly code?: string
   ) {
     super(message ?? `SEMSE API ${path} returned ${status}`);
   }
@@ -156,16 +159,20 @@ export function normalizeErrorMessage(value: unknown): string | undefined {
   return undefined;
 }
 
-async function readErrorMessage(response: Response): Promise<string | undefined> {
+async function readErrorPayload(response: Response): Promise<{ message?: string; code?: string }> {
   try {
     const payload = (await response.json()) as {
       error?: unknown;
       message?: unknown;
     };
-
-    return normalizeErrorMessage(payload.error) ?? normalizeErrorMessage(payload.message);
+    const message = normalizeErrorMessage(payload.error) ?? normalizeErrorMessage(payload.message);
+    const code =
+      payload.error && typeof payload.error === "object" && "code" in (payload.error as Record<string, unknown>)
+        ? (payload.error as Record<string, unknown>).code
+        : undefined;
+    return { message, code: typeof code === "string" ? code : undefined };
   } catch {
-    return undefined;
+    return {};
   }
 }
 
@@ -176,8 +183,8 @@ async function fetchSemse<T>(path: string, init?: RequestInit): Promise<T> {
   });
 
   if (!response.ok) {
-    const message = await readErrorMessage(response);
-    throw new SemseApiError(response.status, path, message);
+    const { message, code } = await readErrorPayload(response);
+    throw new SemseApiError(response.status, path, message, code);
   }
 
   const envelope = (await response.json()) as ApiEnvelope<T>;
@@ -604,7 +611,7 @@ export async function transitionJobStatus(
 }
 
 export async function planUpload(input: {
-  domain: "evidence" | "contract" | "dispute" | "travel";
+  domain: "evidence" | "contract" | "dispute" | "travel" | "knowledge_contribution";
   filename: string;
   contentType: string;
   fileSizeBytes: number;
@@ -613,35 +620,61 @@ export async function planUpload(input: {
   return mutateSemse<Record<string, unknown>>(`/api/semse/uploads/plan`, input);
 }
 
+export type MultipartUploadPlan = {
+  sessionId: string;
+  key: string;
+  fileSizeBytes: number;
+  multipart: { recommendedChunkSizeBytes?: number; recommendedPartCount?: number } | null;
+  parts: Array<{ partNumber: number; startByte: number; endByte: number }>;
+};
+
 export async function createMultipartUploadSession(input: {
-  domain: "evidence" | "contract" | "dispute" | "travel";
+  domain: "evidence" | "contract" | "dispute" | "travel" | "knowledge_contribution";
   filename: string;
   contentType: string;
   fileSizeBytes: number;
   source?: "local_device" | "camera_capture" | "field_ops" | "project_copilot" | "external_transfer";
-}): Promise<Record<string, unknown>> {
-  return mutateSemse<Record<string, unknown>>(`/api/semse/uploads/multipart-session`, input);
+}): Promise<MultipartUploadPlan> {
+  return mutateSemse<MultipartUploadPlan>(`/api/semse/uploads/multipart-session`, input);
 }
+
+export type MultipartCompletionResult = {
+  sessionId: string;
+  status: string;
+  completedAt: string;
+  partsReceived: number;
+  totalParts: number;
+  key: string;
+  sizeBytes: number;
+};
 
 export async function completeMultipartUploadSession(input: {
   sessionId: string;
   parts: Array<{ partNumber: number; etag: string }>;
-}): Promise<Record<string, unknown>> {
-  return mutateSemse<Record<string, unknown>>(`/api/semse/uploads/multipart-session/complete`, input);
+}): Promise<MultipartCompletionResult> {
+  return mutateSemse<MultipartCompletionResult>(`/api/semse/uploads/multipart-session/complete`, input);
 }
 
+/**
+ * PUTs one chunk's bytes. Earlier versions of this function (and the BFF
+ * route it calls) never actually sent the chunk body — every "uploaded"
+ * part silently discarded its bytes. See the PR-4 report for the full
+ * chain; this and the BFF/API layers were fixed together.
+ */
 export async function uploadMultipartPart(input: {
   sessionId: string;
   partNumber: number;
-  contentLength: number;
-}): Promise<Record<string, unknown>> {
-  return fetchSemse<Record<string, unknown>>(
+  chunk: Blob;
+}): Promise<{ etag: string; bytesReceived: number }> {
+  return fetchSemse<{ etag: string; bytesReceived: number }>(
     `/api/semse/uploads/multipart-session/${encodeURIComponent(input.sessionId)}/parts/${input.partNumber}`,
     {
       method: "PUT",
       headers: {
-        "x-part-size": String(input.contentLength)
-      }
+        "content-type": "application/octet-stream",
+        "x-part-size": String(input.chunk.size)
+      },
+      body: input.chunk
     }
   );
 }
@@ -1053,6 +1086,40 @@ export async function fetchUserMemberships(userId: string): Promise<UserMembersh
   return fetchSemse<UserMembershipView[]>(`/api/semse/users/${encodeURIComponent(userId)}/memberships`);
 }
 
+/** Cryptographic evidence that a separate verifier (OPS_ADMIN, never the
+ * user themselves) attested this user's identity — see
+ * docs/specs/core/identity-attestation.spec.md. `null` when the user has
+ * no id_document verification approved yet. */
+export type IdentityAttestationView = {
+  id: string;
+  userId: string;
+  verifiedByUserId: string;
+  verificationType: string;
+  keyId: string;
+  message: string;
+  signature: string;
+  createdAt: string;
+};
+
+export async function fetchIdentityAttestation(userId: string): Promise<IdentityAttestationView | null> {
+  return fetchSemse<IdentityAttestationView | null>(
+    `/api/semse/users/${encodeURIComponent(userId)}/identity-attestation`,
+  );
+}
+
+export type UserCapabilityView = {
+  role: string;
+  orgId: string;
+  verifiedAt: string | null;
+};
+
+export async function fetchMyCapabilities(): Promise<UserCapabilityView[]> {
+  const { capabilities } = await fetchSemse<{ capabilities: UserCapabilityView[] }>(
+    "/api/semse/users/me/capabilities",
+  );
+  return capabilities;
+}
+
 export async function verifyUser(
   userId: string,
   verificationType: "email" | "phone" | "id_document" | "background_check" = "email",
@@ -1070,6 +1137,7 @@ export async function updateUserStatus(
 export type AssistantTone      = "friendly" | "formal" | "technical" | "executive";
 export type AssistantLanguage  = "es" | "en";
 export type AssistantVerbosity = "short" | "balanced" | "detailed";
+export type ProximityCheckInMode = "ask" | "auto" | "off";
 
 export type UserProfileView = {
   userId: string;
@@ -1083,6 +1151,7 @@ export type UserProfileView = {
   assistantVerbosity?: AssistantVerbosity;
   unifiedMode: boolean;
   expertMode: boolean;
+  proximityCheckInMode: ProximityCheckInMode;
   updatedAt: string;
 };
 
@@ -1097,6 +1166,7 @@ export type UserProfileUpdateInput = {
   assistantVerbosity?: AssistantVerbosity;
   unifiedMode?: boolean;
   expertMode?: boolean;
+  proximityCheckInMode?: ProximityCheckInMode;
 };
 
 export async function fetchMyProfile(): Promise<UserProfileView> {
@@ -2229,6 +2299,17 @@ export async function fetchAiModelReadiness(): Promise<AiModelReadiness> {
   return fetchSemse<AiModelReadiness>("/api/semse/ai-models/readiness");
 }
 
+/**
+ * Capability Reality Registry (ADR-032) — the source of truth for a
+ * capability's maturity AND its operational reachability/lifecycle
+ * (ADR-037). Callers must read `reachability` from here, not re-derive it
+ * from `maturity` or maintain a parallel local status mapping.
+ */
+export async function fetchCapabilityRegistry(): Promise<CapabilityRecord[]> {
+  const { capabilities } = await fetchSemse<{ capabilities: CapabilityRecord[] }>("/api/semse/capabilities");
+  return capabilities;
+}
+
 export type MissionIncidentSeverity = "critical" | "high" | "medium" | "info";
 export type MissionIncidentSource = "bootstrap" | "manual" | "poll" | "health-stream" | "context-stream";
 
@@ -2971,4 +3052,396 @@ export async function updateAdminSettings(input: Partial<AdminSettings>): Promis
     headers: { "content-type": "application/json" },
     body: JSON.stringify(input),
   });
+}
+
+// ── SEMSE Knowledge Contributor Program ─────────────────────────────────────
+// Public reads go through /api/semse/contributors/public/* (no session
+// required); everything else needs a logged-in contributor or OPS_ADMIN.
+
+export type ContributorTermsVersionView = {
+  id: string;
+  version: string;
+  effectiveAt: string;
+  contentEs: string;
+  contentEn: string;
+  contentHash: string;
+  isActive: boolean;
+};
+
+export type KnowledgeMissionView = {
+  id: string;
+  title: string;
+  trade: string;
+  category: string;
+  description: string;
+  difficulty: string;
+  requirements: string[];
+  evidenceRequested: string[];
+  acceptanceCriteria: string[];
+  baseCompensationCents: number;
+  currency: string;
+  bonus: { description: string; amountCents: number } | null;
+  deadlineAt: string | null;
+  maxParticipants: number | null;
+  acceptedCount?: number;
+  status: string;
+  version: number;
+  isDemo: boolean;
+  createdAt: string;
+};
+
+export type KnowledgeAssetView = {
+  id: string;
+  kind: "VIDEO" | "IMAGE" | "AUDIO" | "TEXT";
+  clipRole: string;
+  mimeType: string | null;
+  sizeBytes: number | null;
+  processingStatus: string;
+  previewUrl: string | null;
+  createdAt: string;
+};
+
+export type KnowledgeSubmissionView = {
+  id: string;
+  acceptanceId: string;
+  missionId: string;
+  missionTitle: string;
+  status: string;
+  notes: string | null;
+  assets: KnowledgeAssetView[];
+  compensationCentsSnapshot: number;
+  currencySnapshot: string;
+  submittedAt: string | null;
+  createdAt: string;
+  reward: { status: string; amountCents: number; currency: string; paidAt: string | null } | null;
+};
+
+export type KnowledgeMissionAcceptanceView = {
+  id: string;
+  missionId: string;
+  missionTitle: string;
+  compensationCentsSnapshot: number;
+  currencySnapshot: string;
+  deadlineAtSnapshot: string | null;
+  status: string;
+  acceptedAt: string;
+};
+
+export type ContributorDashboardView = {
+  profile: { trade: string; status: string } | null;
+  hasAcceptedActiveTerms: boolean;
+  acceptances: KnowledgeMissionAcceptanceView[];
+  submissions: KnowledgeSubmissionView[];
+  totalPaidCents: number;
+  currency: string;
+};
+
+export type ContributorRewardView = {
+  id: string;
+  submissionId: string;
+  userId: string;
+  amountCents: number;
+  currency: string;
+  status: string;
+  missionTitle?: string;
+  createdAt: string;
+  paidAt: string | null;
+};
+
+export async function fetchActiveContributorTerms(): Promise<ContributorTermsVersionView> {
+  return fetchSemse<ContributorTermsVersionView>("/api/semse/contributors/public/terms");
+}
+
+export async function fetchPublicContributorMissions(): Promise<KnowledgeMissionView[]> {
+  return fetchSemse<KnowledgeMissionView[]>("/api/semse/contributors/public/missions");
+}
+
+export async function fetchPublicContributorMission(missionId: string): Promise<KnowledgeMissionView> {
+  return fetchSemse<KnowledgeMissionView>(`/api/semse/contributors/public/missions/${encodeURIComponent(missionId)}`);
+}
+
+export async function acceptContributorTerms(input: {
+  termsVersionId: string;
+  termsContentHash: string;
+  locale: "es" | "en";
+  checkboxes: {
+    isAdult: true;
+    acceptedTerms: true;
+    authorizedToRecord: true;
+    understandsSafetyPriority: true;
+    understandsDataUse: true;
+  };
+}): Promise<{ id: string; acceptedAt: string }> {
+  return mutateSemse<{ id: string; acceptedAt: string }>("/api/semse/contributors/consent", input);
+}
+
+export async function acceptContributorMission(missionId: string): Promise<KnowledgeMissionAcceptanceView> {
+  return mutateSemse<KnowledgeMissionAcceptanceView>(
+    `/api/semse/contributors/missions/${encodeURIComponent(missionId)}/accept`
+  );
+}
+
+export async function createContributorSubmission(acceptanceId: string): Promise<{ id: string; status: string }> {
+  return mutateSemse<{ id: string; status: string }>("/api/semse/contributors/submissions", { acceptanceId });
+}
+
+export async function fetchContributorSubmission(submissionId: string): Promise<KnowledgeSubmissionView> {
+  return fetchSemse<KnowledgeSubmissionView>(`/api/semse/contributors/submissions/${encodeURIComponent(submissionId)}`);
+}
+
+export async function registerContributorAsset(
+  submissionId: string,
+  input: {
+    kind: "VIDEO" | "IMAGE" | "AUDIO" | "TEXT";
+    clipRole?: "BEFORE" | "PLANNING" | "EXECUTION" | "PROBLEM_CORRECTION" | "RESULT" | "OTHER";
+    key?: string;
+    filename?: string;
+    checksum?: string;
+    mimeType?: string;
+    sizeBytes?: number;
+    textContent?: string;
+  }
+): Promise<KnowledgeAssetView> {
+  return mutateSemse<KnowledgeAssetView>(
+    `/api/semse/contributors/submissions/${encodeURIComponent(submissionId)}/assets`,
+    input
+  );
+}
+
+export async function submitContributorSubmission(
+  submissionId: string,
+  notes?: string
+): Promise<KnowledgeSubmissionView> {
+  return mutateSemse<KnowledgeSubmissionView>(
+    `/api/semse/contributors/submissions/${encodeURIComponent(submissionId)}/submit`,
+    notes ? { notes } : {}
+  );
+}
+
+export async function appealContributorSubmission(
+  submissionId: string,
+  reason: string
+): Promise<{ id: string; status: string }> {
+  return mutateSemse<{ id: string; status: string }>(
+    `/api/semse/contributors/submissions/${encodeURIComponent(submissionId)}/appeal`,
+    { reason }
+  );
+}
+
+export async function fetchContributorDashboard(): Promise<ContributorDashboardView> {
+  return fetchSemse<ContributorDashboardView>("/api/semse/contributors/dashboard");
+}
+
+// ── Admin ────────────────────────────────────────────────────────────────
+
+export async function fetchAdminContributorMissions(): Promise<KnowledgeMissionView[]> {
+  return fetchSemse<KnowledgeMissionView[]>("/api/semse/contributors/admin/missions");
+}
+
+export async function createAdminContributorMission(input: {
+  title: string;
+  trade: string;
+  category: string;
+  description: string;
+  difficulty: "beginner" | "intermediate" | "advanced";
+  requirements: string[];
+  evidenceRequested: string[];
+  acceptanceCriteria: string[];
+  baseCompensationCents: number;
+  currency?: string;
+  bonus?: { description: string; amountCents: number };
+  deadlineAt?: string;
+  maxParticipants?: number;
+  isDemo?: boolean;
+}): Promise<KnowledgeMissionView> {
+  return mutateSemse<KnowledgeMissionView>("/api/semse/contributors/admin/missions", input);
+}
+
+export async function publishAdminContributorMission(missionId: string): Promise<KnowledgeMissionView> {
+  return mutateSemse<KnowledgeMissionView>(
+    `/api/semse/contributors/admin/missions/${encodeURIComponent(missionId)}/publish`
+  );
+}
+
+export async function pauseAdminContributorMission(missionId: string): Promise<KnowledgeMissionView> {
+  return mutateSemse<KnowledgeMissionView>(
+    `/api/semse/contributors/admin/missions/${encodeURIComponent(missionId)}/pause`
+  );
+}
+
+export async function closeAdminContributorMission(missionId: string): Promise<KnowledgeMissionView> {
+  return mutateSemse<KnowledgeMissionView>(
+    `/api/semse/contributors/admin/missions/${encodeURIComponent(missionId)}/close`
+  );
+}
+
+export async function fetchAdminContributorSubmissions(status?: string): Promise<KnowledgeSubmissionView[]> {
+  const suffix = status ? `?status=${encodeURIComponent(status)}` : "";
+  return fetchSemse<KnowledgeSubmissionView[]>(`/api/semse/contributors/admin/submissions${suffix}`);
+}
+
+export async function reviewAdminContributorSubmission(
+  submissionId: string,
+  input: { decision: "APPROVED" | "REJECTED" | "CHANGES_REQUESTED"; reason: string; qualityFlags?: string[] }
+): Promise<{ id: string; decision: string }> {
+  return mutateSemse<{ id: string; decision: string }>(
+    `/api/semse/contributors/admin/submissions/${encodeURIComponent(submissionId)}/review`,
+    input
+  );
+}
+
+export type ContributorAppealView = {
+  id: string;
+  submissionId: string;
+  missionTitle?: string;
+  reason: string;
+  status: string;
+  createdAt: string;
+};
+
+export async function fetchAdminContributorAppeals(): Promise<ContributorAppealView[]> {
+  return fetchSemse<ContributorAppealView[]>("/api/semse/contributors/admin/appeals");
+}
+
+export async function resolveAdminContributorAppeal(
+  appealId: string,
+  input: { status: "UPHELD" | "OVERTURNED"; resolutionReason: string }
+): Promise<{ id: string; status: string }> {
+  return mutateSemse<{ id: string; status: string }>(
+    `/api/semse/contributors/admin/appeals/${encodeURIComponent(appealId)}/resolve`,
+    input
+  );
+}
+
+export async function fetchAdminContributorRewards(): Promise<ContributorRewardView[]> {
+  return fetchSemse<ContributorRewardView[]>("/api/semse/contributors/admin/rewards");
+}
+
+export async function authorizeAdminContributorRewardPayout(rewardId: string): Promise<{ id: string; status: string }> {
+  return mutateSemse<{ id: string; status: string }>(
+    `/api/semse/contributors/admin/rewards/${encodeURIComponent(rewardId)}/authorize-payout`
+  );
+}
+
+// ── Extractions: transcript + observation (PR-5) ───────────────────────────
+// docs/specs/core/knowledge-contributor-transcript-observation.spec.md §5
+
+export type TranscriptSegmentView = {
+  id: string;
+  assetId: string;
+  startMs: number;
+  endMs: number;
+  text: string;
+  confidence: number | null;
+  createdAt: string;
+};
+
+export type ObservationPromotionStatus = "PENDING" | "PROMOTED" | "REJECTED";
+
+export type ObservationView = {
+  id: string;
+  objective: string | null;
+  condition: string | null;
+  decision: string | null;
+  reason: string | null;
+  method: string | null;
+  action: string | null;
+  result: string | null;
+  sourceSegmentIds: string[];
+  generatedBy: string;
+  isCorrected: boolean;
+  correctedFields: Record<string, string> | null;
+  correctedByUserId: string | null;
+  correctedReason: string | null;
+  correctedAt: string | null;
+  promotionStatus: ObservationPromotionStatus;
+  promotedByUserId: string | null;
+  promotedAt: string | null;
+  promotionReason: string | null;
+  ragDocumentId: string | null;
+  createdAt: string;
+};
+
+export type KnowledgeExtractionView = {
+  id: string;
+  assetId: string | null;
+  kind: string;
+  status: "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED";
+  failureReason: string | null;
+  extractedAt: string | null;
+  createdAt: string;
+  transcriptSegments: TranscriptSegmentView[];
+  observations: ObservationView[];
+};
+
+export async function fetchAdminContributorExtractions(submissionId: string): Promise<KnowledgeExtractionView[]> {
+  return fetchSemse<KnowledgeExtractionView[]>(
+    `/api/semse/contributors/admin/submissions/${encodeURIComponent(submissionId)}/extractions`
+  );
+}
+
+export async function correctAdminContributorObservation(
+  observationId: string,
+  input: { correctedFields: Record<string, string>; reason: string }
+): Promise<ObservationView> {
+  return mutateSemse<ObservationView>(
+    `/api/semse/contributors/admin/observations/${encodeURIComponent(observationId)}/correct`,
+    input
+  );
+}
+
+export async function promoteAdminContributorObservation(
+  observationId: string,
+  input: { reason: string }
+): Promise<ObservationView> {
+  return mutateSemse<ObservationView>(
+    `/api/semse/contributors/admin/observations/${encodeURIComponent(observationId)}/promote`,
+    input
+  );
+}
+
+export async function rejectAdminContributorObservationPromotion(
+  observationId: string,
+  input: { reason: string }
+): Promise<ObservationView> {
+  return mutateSemse<ObservationView>(
+    `/api/semse/contributors/admin/observations/${encodeURIComponent(observationId)}/reject-promotion`,
+    input
+  );
+}
+
+// PR-8 (docs/specs/core/knowledge-contributor-registry.spec.md)
+export type KnowledgeRegistryEntryView = ObservationView & {
+  missionId: string;
+  missionTitle: string;
+  trade: string;
+  category: string;
+};
+
+export type KnowledgeRegistryPage = {
+  items: KnowledgeRegistryEntryView[];
+  page: number;
+  pageSize: number;
+  total: number;
+  hasMore: boolean;
+};
+
+export type KnowledgeRegistryFilters = {
+  trade?: string;
+  category?: string;
+  missionId?: string;
+  search?: string;
+  page?: number;
+  pageSize?: number;
+};
+
+export async function listAdminContributorKnowledgeRegistry(
+  filters: KnowledgeRegistryFilters = {}
+): Promise<KnowledgeRegistryPage> {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(filters)) {
+    if (value !== undefined && value !== "") params.set(key, String(value));
+  }
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+  return fetchSemse<KnowledgeRegistryPage>(`/api/semse/contributors/admin/observations/registry${suffix}`);
 }

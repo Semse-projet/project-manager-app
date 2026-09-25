@@ -15,6 +15,7 @@ import { AgentsModule } from "./modules/agents/agents.module.js";
 import { PrismaModule } from "./infrastructure/prisma/prisma.module.js";
 import { BidsModule } from "./modules/bids/bids.module.js";
 import { ContractsModule } from "./modules/contracts/contracts.module.js";
+import { CapabilityRegistryModule } from "./modules/capability-registry/capability-registry.module.js";
 import { DisputesModule } from "./modules/disputes/disputes.module.js";
 import { EvidenceModule } from "./modules/evidence/evidence.module.js";
 import { JobsModule } from "./modules/jobs/jobs.module.js";
@@ -26,6 +27,7 @@ import { ReservationsModule } from "./modules/reservations/reservations.module.j
 import { TrustModule } from "./modules/trust/trust.module.js";
 import { FieldOpsModule } from "./modules/field-ops/field-ops.module.js";
 import { LaborEngineModule } from "./modules/labor-engine/labor-engine.module.js";
+import { PushNotificationsModule } from "./modules/push-notifications/push-notifications.module.js";
 import { AgroModule } from "./modules/agro/agro.module.js";
 import { DemoModule } from "./modules/demo/demo.module.js";
 import { DomainEventsModule } from "./modules/domain-events/domain-events.module.js";
@@ -61,6 +63,8 @@ import { ContractorModule } from "./modules/contractor/contractor.module.js";
 import { AssistantModule } from "./modules/assistant/assistant.module.js";
 import { ToolsModule } from "./modules/tools/tools.module.js";
 import { BuildOpsModule } from "./modules/buildops/buildops.module.js";
+import { OriginatorModule } from "./modules/originator/originator.module.js";
+import { ContributorProgramModule } from "./modules/contributor-program/contributor-program.module.js";
 import { SmartIntakeModule } from "./modules/smart-intake/smart-intake.module.js";
 import { IntakeOperationsBridgeModule } from "./modules/intake-operations-bridge/intake-operations-bridge.module.js";
 import { ChangeOrdersModule } from "./modules/change-orders/change-orders.module.js";
@@ -77,6 +81,9 @@ import { BrowserAgentModule } from "./modules/browser-agent/browser-agent.module
 import { VisionModule } from "./modules/vision/vision.module.js";
 import { SatellitesModule } from "./modules/satellites/satellites.module.js";
 import { AdminModule } from "./modules/admin/admin.module.js";
+import { LiensModule } from "./modules/liens/liens.module.js";
+import { WeatherModule } from "./modules/weather/weather.module.js";
+import { LiveSessionsModule } from "./modules/live-sessions/live-sessions.module.js";
 
 const appDir = path.dirname(fileURLToPath(import.meta.url));
 const apiDir = path.resolve(appDir, "..");
@@ -108,6 +115,7 @@ const repoRoot = path.resolve(apiDir, "..", "..");
     JobsModule,
     ContractsModule,
     BidsModule,
+    CapabilityRegistryModule,
     DisputesModule,
     EvidenceModule,
     MilestonesModule,
@@ -118,6 +126,7 @@ const repoRoot = path.resolve(apiDir, "..", "..");
     TrustModule,
     FieldOpsModule,
     LaborEngineModule,
+    PushNotificationsModule,
     AgroModule,
     DemoModule,
     OrganizationsModule,
@@ -150,6 +159,8 @@ const repoRoot = path.resolve(apiDir, "..", "..");
     AssistantModule,
     ToolsModule,
     BuildOpsModule,
+    OriginatorModule,
+    ContributorProgramModule,
     SmartIntakeModule,
     IntakeOperationsBridgeModule,
     ChangeOrdersModule,
@@ -166,6 +177,9 @@ const repoRoot = path.resolve(apiDir, "..", "..");
     VisionModule,
     SatellitesModule,
     AdminModule,
+    LiensModule,
+    WeatherModule,
+    LiveSessionsModule,
   ],
   controllers: [HealthController],
   providers: [

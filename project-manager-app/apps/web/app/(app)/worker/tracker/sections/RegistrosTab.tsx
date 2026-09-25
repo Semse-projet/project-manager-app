@@ -257,7 +257,7 @@ export function RegistrosTab({ jobs }: { jobs: JobRecordView[] }) {
     <div style={{ display: "grid", gap: "16px" }}>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: "10px" }}>
         <KpiCard label="Horas del filtro" value={fmtHours(totals.seconds)} color="var(--brand)" hint={`${filtered.length} registros · ${rangeLabel}`} />
-        <KpiCard label="Días con actividad" value={String(totals.days)} color="#059669" hint={totals.days > 0 ? `${fmtHours(Math.round(totals.seconds / totals.days))} promedio/día` : undefined} />
+        <KpiCard label="Días con actividad" value={String(totals.days)} color="var(--ok)" hint={totals.days > 0 ? `${fmtHours(Math.round(totals.seconds / totals.days))} promedio/día` : undefined} />
         <KpiCard label="Costo estimado" value={totals.costSummary} color="var(--accent)" hint="según tarifas registradas" />
       </div>
 
@@ -317,7 +317,7 @@ export function RegistrosTab({ jobs }: { jobs: JobRecordView[] }) {
         </div>
 
         {notice ? (
-          <p style={{ fontSize: "12px", color: "#059669", margin: "0 0 10px" }}>{notice}</p>
+          <p style={{ fontSize: "12px", color: "var(--ok)", margin: "0 0 10px" }}>{notice}</p>
         ) : null}
         {error ? (
           <p style={{ fontSize: "12px", color: "var(--error)", margin: "0 0 10px" }}>{error}</p>

@@ -553,7 +553,7 @@ export class MilestonesController {
       });
     }
 
-    const result = await this.paymentGovernance.evaluate(milestoneId, actor.tenantId);
+    const result = await this.paymentGovernance.evaluate(milestoneId, actor.tenantId, actor);
     return ok(requestId, result);
   }
 }

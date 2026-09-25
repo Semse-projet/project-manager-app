@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useLanguage } from "../../../../lib/language-context";
 import Link from "next/link";
 import { ArrowDownLeft, Clock, CheckCircle, AlertTriangle, TrendingUp, Settings2, RefreshCw, Inbox, Scale, BadgeDollarSign, ExternalLink } from "lucide-react";
-import { HtmlInCanvasPanel, StatCard, StatusBadge } from "@semse/ui";
+import { ErrorState, HtmlInCanvasPanel, StatCard, StatusBadge } from "@semse/ui";
 import { PayoutMethodForm, type PayoutMethod } from "../../../components/payments/PayoutMethodForm";
 import { fetchMyJobs, fetchJobPayments, fetchDisputes, fetchProjects, fetchMyConnectAccount, createMyConnectAccount, createOnboardingLink, syncConnectAccount, fetchPaymentProviderReadiness, type StripeConnectAccountView, type PaymentProviderReadiness } from "../../../semse-api";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
@@ -206,7 +206,7 @@ export default function WorkerPaymentsPage() {
             </div>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               {paymentReadiness.rails.filter((rail) => rail.professionalPayout).map((rail) => (
-                <span key={rail.key} style={{ padding: "4px 8px", borderRadius: 999, fontSize: 11, fontWeight: 800, color: rail.ready ? "var(--ok)" : "#f59e0b", background: rail.ready ? "rgba(16,185,129,.10)" : "rgba(245,158,11,.10)", border: `1px solid ${rail.ready ? "rgba(16,185,129,.25)" : "rgba(245,158,11,.25)"}` }}>
+                <span key={rail.key} style={{ padding: "4px 8px", borderRadius: 999, fontSize: 11, fontWeight: 800, color: rail.ready ? "var(--ok)" : "var(--warn)", background: rail.ready ? "rgba(16,185,129,.10)" : "rgba(245,158,11,.10)", border: `1px solid ${rail.ready ? "rgba(16,185,129,.25)" : "rgba(245,158,11,.25)"}` }}>
                   {rail.label}{rail.automatic ? "" : " · manual"}
                 </span>
               ))}
@@ -244,8 +244,8 @@ export default function WorkerPaymentsPage() {
               {connectAccount
                 ? connectAccount.status === "active"
                   ? `Activa — transferencias habilitadas. Fee plataforma: ${(platformFeeRate * 100).toFixed(2)}%`
-                  : `Estado: ${connectAccount.status} — completa el onboarding para habilitar pagos`
-                : "Sin cuenta conectada — crea una para recibir pagos automáticos"}
+                  : `Estado: ${connectAccount.status} — tus pagos quedan bloqueados hasta que completes el onboarding`
+                : "Sin cuenta conectada — no podrás cobrar ningún pago hasta que crees una"}
             </div>
           </div>
           {connectAccount?.status === "active" && (
@@ -254,11 +254,7 @@ export default function WorkerPaymentsPage() {
             </span>
           )}
         </div>
-        {connectError && (
-          <div style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(239,68,68,.08)", color: "var(--error)", fontSize: 12, marginBottom: 10 }}>
-            {connectError}
-          </div>
-        )}
+        {connectError && <ErrorState message={connectError} className="mb-2.5" />}
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           {!connectAccount && (
             <button
@@ -311,13 +307,25 @@ export default function WorkerPaymentsPage() {
         </div>
       </HtmlInCanvasPanel>
 
-      {/* Escrow notice */}
-      {totalEscrow > 0 && (
+      {/* Escrow notice — G-PRO-02: si no hay cuenta Connect activa, el cobro
+          está bloqueado de verdad, no es solo "menos automático". La copia
+          y el color deben decirlo explícitamente en vez de sonar neutrales. */}
+      {totalEscrow > 0 && connectAccount?.status !== "active" && (
+        <HtmlInCanvasPanel as="section" style={{ ...card, padding: "14px 18px", marginBottom: "20px", background: "rgba(245,158,11,.08)", borderColor: "rgba(245,158,11,.3)", display: "flex", alignItems: "center", gap: "12px" }} canvasClassName="rounded-2xl" minHeight={66}>
+          <AlertTriangle size={18} color="var(--warn)" style={{ flexShrink: 0 }} />
+          <p style={{ fontSize: "13px", color: "var(--ink)", lineHeight: 1.5 }}>
+            <strong style={{ color: "var(--warn)" }}>${totalEscrow.toLocaleString()} en escrow no se podrán cobrar todavía.</strong>{" "}
+            {connectAccount
+              ? "Tu cuenta Stripe Connect no está activa — completa el onboarding arriba para desbloquear el cobro."
+              : "No tienes una cuenta Stripe Connect — créala arriba para poder cobrar cuando el cliente apruebe cada milestone."}
+          </p>
+        </HtmlInCanvasPanel>
+      )}
+      {totalEscrow > 0 && connectAccount?.status === "active" && (
         <HtmlInCanvasPanel as="section" style={{ ...card, padding: "14px 18px", marginBottom: "20px", background: "rgba(16,185,129,.07)", borderColor: "rgba(16,185,129,.25)", display: "flex", alignItems: "center", gap: "12px" }} canvasClassName="rounded-2xl" minHeight={66}>
           <ArrowDownLeft size={18} color="var(--ok)" style={{ flexShrink: 0 }} />
           <p style={{ fontSize: "13px", color: "var(--ink)", lineHeight: 1.5 }}>
-            <strong style={{ color: "var(--ok)" }}>${totalEscrow.toLocaleString()} en escrow</strong> — se liberan cuando el cliente aprueba cada milestone.
-            Configura tu método de cobro para recibir los fondos automáticamente.
+            <strong style={{ color: "var(--ok)" }}>${totalEscrow.toLocaleString()} en escrow</strong> — se liberan a tu cuenta Stripe Connect cuando el cliente aprueba cada milestone.
           </p>
         </HtmlInCanvasPanel>
       )}

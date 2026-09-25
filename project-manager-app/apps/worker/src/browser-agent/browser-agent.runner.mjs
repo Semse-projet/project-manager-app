@@ -15,14 +15,17 @@ export async function handleBrowserAgent({ run, requestJson, tenantId, logger })
   const missionId = run.input?.missionId;
 
   if (missionId) {
+    if (typeof missionId !== "string" || !/^[a-zA-Z0-9_\-]+$/.test(missionId)) {
+      throw new Error("Invalid missionId format");
+    }
     logger.info({ runId: run.id, missionId }, "Starting stateful browser mission execution");
 
     // 1. Fetch mission details
-    const missionRes = await requestJson(`/v1/browser-agent/missions/${missionId}`);
+    const missionRes = await requestJson(`/v1/browser-agent/missions/${encodeURIComponent(missionId)}`);
     const mission = missionRes.data;
 
     // Update mission status to RUNNING
-    await requestJson(`/v1/browser-agent/missions/${missionId}`, {
+    await requestJson(`/v1/browser-agent/missions/${encodeURIComponent(missionId)}`, {
       method: "PATCH",
       body: { status: "RUNNING" }
     });
@@ -32,9 +35,12 @@ export async function handleBrowserAgent({ run, requestJson, tenantId, logger })
 
     try {
       for (const step of mission.steps) {
+        if (typeof step.id !== "string" || !/^[a-zA-Z0-9_\-]+$/.test(step.id)) {
+          throw new Error("Invalid step ID format");
+        }
         logger.info({ missionId, stepId: step.id, action: step.actionType }, "Executing mission step");
         
-        await requestJson(`/v1/browser-agent/missions/${missionId}/steps/${step.id}`, {
+        await requestJson(`/v1/browser-agent/missions/${encodeURIComponent(missionId)}/steps/${encodeURIComponent(step.id)}`, {
           method: "PATCH",
           body: { status: "RUNNING" }
         });
@@ -61,7 +67,7 @@ export async function handleBrowserAgent({ run, requestJson, tenantId, logger })
         }
 
         if (stepResult.success) {
-          await requestJson(`/v1/browser-agent/missions/${missionId}/steps/${step.id}`, {
+          await requestJson(`/v1/browser-agent/missions/${encodeURIComponent(missionId)}/steps/${encodeURIComponent(step.id)}`, {
             method: "PATCH",
             body: { status: "COMPLETED", evidenceRef: stepResult.finalUrl || null }
           });
@@ -71,7 +77,7 @@ export async function handleBrowserAgent({ run, requestJson, tenantId, logger })
         }
       }
 
-      await requestJson(`/v1/browser-agent/missions/${missionId}`, {
+      await requestJson(`/v1/browser-agent/missions/${encodeURIComponent(missionId)}`, {
         method: "PATCH",
         body: { status: "COMPLETED" }
       });
@@ -86,7 +92,7 @@ export async function handleBrowserAgent({ run, requestJson, tenantId, logger })
 
     } catch (error) {
       logger.error({ missionId, error: error.message }, "Mission execution failed");
-      await requestJson(`/v1/browser-agent/missions/${missionId}`, {
+      await requestJson(`/v1/browser-agent/missions/${encodeURIComponent(missionId)}`, {
         method: "PATCH",
         body: { status: "FAILED" }
       });

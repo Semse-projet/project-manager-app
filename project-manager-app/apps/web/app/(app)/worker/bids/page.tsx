@@ -17,14 +17,14 @@ const STATUS_STYLE: Record<string, { label: string; bg: string; color: string }>
 // docs/AUDIT_REMEDIATION_PLAN.md) — fell back to the raw lowercase status
 // string for any of those. Covers all real JobStatus values.
 const JOB_STATUS_STYLE: Record<string, { label: string; color: string }> = {
-  draft:       { label: "Borrador",    color: "#64748b" },
-  posted:      { label: "Publicado",   color: "#94a3b8" },
-  published:   { label: "Publicado",   color: "#94a3b8" },
-  reserved:    { label: "Reservado",   color: "#f59e0b" },
+  draft:       { label: "Borrador",    color: "var(--faint)" },
+  posted:      { label: "Publicado",   color: "var(--muted)" },
+  published:   { label: "Publicado",   color: "var(--muted)" },
+  reserved:    { label: "Reservado",   color: "var(--warn)" },
   accepted:    { label: "Adjudicado",  color: "var(--ok)" },
   awarded:     { label: "Adjudicado",  color: "var(--ok)" },
-  in_progress: { label: "En progreso", color: "#f59e0b" },
-  review:      { label: "En revisión", color: "#f59e0b" },
+  in_progress: { label: "En progreso", color: "var(--warn)" },
+  review:      { label: "En revisión", color: "var(--warn)" },
   dispute:     { label: "En disputa",  color: "var(--error)" },
   completed:   { label: "Completado",  color: "var(--ok)" },
   cancelled:   { label: "Cancelado",   color: "var(--error)" },

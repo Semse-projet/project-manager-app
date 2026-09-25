@@ -234,7 +234,7 @@ export default function AdminFinancePage() {
               <div key={rail.key} style={{ border: "1px solid var(--border)", borderRadius: 12, padding: 10 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
                   <span style={{ fontSize: 12, fontWeight: 800, color: "var(--ink)" }}>{rail.label}</span>
-                  <span style={{ fontSize: 10, fontWeight: 800, color: rail.ready ? "var(--ok)" : "#f59e0b" }}>{rail.ready ? "READY" : "SETUP"}</span>
+                  <span style={{ fontSize: 10, fontWeight: 800, color: rail.ready ? "var(--ok)" : "var(--warn)" }}>{rail.ready ? "READY" : "SETUP"}</span>
                 </div>
                 <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4 }}>
                   {rail.clientFunding ? "cliente" : ""}{rail.clientFunding && rail.professionalPayout ? " + " : ""}{rail.professionalPayout ? "profesional" : ""} · {rail.automatic ? "automático" : "manual"}
@@ -385,11 +385,11 @@ function EscrowPanel({ txns, escrows, loading, onRefresh }: {
                 <div style={{ fontWeight: 800, fontSize: 14 }}>{fmt(e.amount)}</div>
                 <button
                   data-testid={`admin-escrow-release-${e.escrowId}`}
-                  disabled={releaseBusy === e.escrowId}
-                  onClick={() => { setReleaseTarget(e); setReleaseError(null); setReleaseOk(null); setRefundOk(null); setRefundTarget(null); }}
-                  style={smBtn("rgba(16,185,129,.15)", "var(--ok)")}
+                  disabled
+                  title="Liberación manual temporalmente deshabilitada: este panel no mueve fondos reales todavía (ver SEMSE_EXECUTION_LEDGER.md, bloqueador D02)"
+                  style={smBtn("rgba(148,163,184,.12)", "var(--muted)")}
                 >
-                  Liberar
+                  Liberar (deshabilitado)
                 </button>
                 <button
                   data-testid={`admin-escrow-refund-${e.escrowId}`}

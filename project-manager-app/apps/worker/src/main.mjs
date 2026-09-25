@@ -46,6 +46,7 @@ import { executeGovernedAgentRun } from "@semse/agents";
 import "@semse/agents/verifiers";
 import {
   buildIdentityHeaders,
+  getDeployProvenance,
   parseRoleList,
   SEMSE_AGENT_RUN_QUEUE,
   SEMSE_BOOTSTRAP_HEADER_NAME,
@@ -98,15 +99,23 @@ const connection = new Redis(config.redisUrl, {
 });
 
 const RESERVATION_SWEEP_INTERVAL_MS = 60_000;
+const LIVE_SESSION_SWEEP_INTERVAL_MS = 60_000;
+const CONTRIBUTOR_EXTRACTION_SWEEP_INTERVAL_MS = 60_000;
 const CURATOR_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1_000; // check every 6h, curator decides if 7d passed
 const PI_RETENTION_INTERVAL_MS = 24 * 60 * 60 * 1_000; // PI-03.2: retención diaria
 const PI_ENGINES_INTERVAL_MS = 6 * 60 * 60 * 1_000; // PI-07/08: engines cada 6h
+const LIEN_DEADLINE_CHECK_INTERVAL_MS = 60 * 60 * 1_000; // m2.1-lien-rights: cada hora
+const WEATHER_CHECK_INTERVAL_MS = 60 * 60 * 1_000; // m2.3-weather: cada hora
 
 let shouldStop = false;
 let reclaimTimer;
 let reservationSweepTimer;
+let liveSessionSweepTimer;
+let contributorExtractionSweepTimer;
 let curatorTimer;
 let piRetentionTimer;
+let lienDeadlineTimer;
+let weatherCheckTimer;
 let piEnginesTimer;
 let authState = {
   accessToken: null,
@@ -169,6 +178,10 @@ async function acquireWorkerLock() {
 
 async function main() {
   // ── Startup diagnostic — shows config state without secret values ──────────
+  // ADR-030: worker has no HTTP surface to expose /health-style provenance
+  // on, so gitSha/buildTime are logged at boot instead — queryable via
+  // `railway logs` the same way API/Web expose theirs over HTTP.
+  const { gitSha, buildTime } = getDeployProvenance();
   console.log(JSON.stringify({
     level: "info",
     service: "semse-worker",
@@ -176,6 +189,8 @@ async function main() {
     timestamp: new Date().toISOString(),
     pid: process.pid,
     nodeEnv: process.env.NODE_ENV,
+    gitSha,
+    buildTime,
     apiBaseUrl: config.apiBaseUrl,
     redisUrl: maskRedisUrl(config.redisUrl),
     authSecret: env.AUTH_SECRET ? `SET(len=${env.AUTH_SECRET.length})` : "NOT_SET",
@@ -310,6 +325,27 @@ async function main() {
     void sweepExpiredReservations();
   }, RESERVATION_SWEEP_INTERVAL_MS);
 
+  if (process.env.LIVE_SESSION_SWEEP_ENABLED === "true") {
+    logger.info("live session sweep enabled");
+    void sweepExpiredLiveSessions();
+    liveSessionSweepTimer = setInterval(() => {
+      void sweepExpiredLiveSessions();
+    }, LIVE_SESSION_SWEEP_INTERVAL_MS);
+  }
+
+  // PR-5 (docs/specs/core/knowledge-contributor-transcript-observation.spec.md):
+  // drives KnowledgeExtraction rows PENDING -> PROCESSING -> COMPLETED/FAILED.
+  // No ASR provider is wired up yet (see transcription-provider.ts), so every
+  // row this sweeps ends FAILED with an honest reason today — that's expected,
+  // not a bug; see the spec's §2/§11 for why the worker still ships now.
+  if (process.env.CONTRIBUTOR_EXTRACTION_SWEEP_ENABLED === "true") {
+    logger.info("contributor extraction sweep enabled");
+    void sweepPendingContributorExtractions();
+    contributorExtractionSweepTimer = setInterval(() => {
+      void sweepPendingContributorExtractions();
+    }, CONTRIBUTOR_EXTRACTION_SWEEP_INTERVAL_MS);
+  }
+
   // Skill curator — checks every 6h, actually runs at most once per 7 days
   void runCuratorSafe();
   curatorTimer = setInterval(() => { void runCuratorSafe(); }, CURATOR_CHECK_INTERVAL_MS);
@@ -321,6 +357,25 @@ async function main() {
     // PI-07/08 — engines de fricción/anomalía cada 6h.
     void runProductIntelligenceEnginesSafe();
     piEnginesTimer = setInterval(() => { void runProductIntelligenceEnginesSafe(); }, PI_ENGINES_INTERVAL_MS);
+  }
+
+  // m2.1-lien-rights — chequeo de deadlines de lien cada hora, solo con el
+  // kill switch activo. Transiciona LienCalendar.status y genera notices
+  // automáticos al llegar a ALERTED_3D; el push/email al PRO sigue sin
+  // implementar (ver TODO en lien-alerts.scheduler.ts) — esto solo reemplaza
+  // el trigger manual por uno automático para la parte que sí funciona hoy.
+  if (process.env.LIEN_ALERTS_ENABLED === "true") {
+    void runLienDeadlineCheckSafe();
+    lienDeadlineTimer = setInterval(() => { void runLienDeadlineCheckSafe(); }, LIEN_DEADLINE_CHECK_INTERVAL_MS);
+  }
+
+  // m2.3-weather Bloque 2.3.A — chequeo de clima cada hora para proyectos
+  // IN_PROGRESS con coordenadas, solo con el kill switch activo. Push
+  // notifications, auto-halt y change orders (Bloques 2.3.B/2.3.C) no están
+  // implementados — esto solo crea/actualiza WeatherAlert.
+  if (process.env.WEATHER_CHECK_ENABLED === "true") {
+    void runWeatherCheckSafe();
+    weatherCheckTimer = setInterval(() => { void runWeatherCheckSafe(); }, WEATHER_CHECK_INTERVAL_MS);
   }
 
   // SPEC-AUT-001 — permanent loops (kill switch: AUTONOMY_LOOPS_ENABLED)
@@ -344,9 +399,13 @@ async function main() {
 
   if (reclaimTimer) clearInterval(reclaimTimer);
   if (reservationSweepTimer) clearInterval(reservationSweepTimer);
+  if (liveSessionSweepTimer) clearInterval(liveSessionSweepTimer);
+  if (contributorExtractionSweepTimer) clearInterval(contributorExtractionSweepTimer);
   if (curatorTimer) clearInterval(curatorTimer);
   if (piRetentionTimer) clearInterval(piRetentionTimer);
   if (piEnginesTimer) clearInterval(piEnginesTimer);
+  if (lienDeadlineTimer) clearInterval(lienDeadlineTimer);
+  if (weatherCheckTimer) clearInterval(weatherCheckTimer);
 
   await worker.close();
   await developerRuntimeWorker.close();
@@ -473,6 +532,26 @@ async function runProductIntelligenceRetentionSafe() {
   }
 }
 
+async function runLienDeadlineCheckSafe() {
+  try {
+    const response = await postJson("/v1/admin/liens/check-deadlines", {});
+    logger.info(response?.data ?? {}, "lien deadline check complete");
+  } catch (err) {
+    logger.warn({ error: err instanceof Error ? err.message : String(err) },
+      "lien deadline check failed (non-fatal)");
+  }
+}
+
+async function runWeatherCheckSafe() {
+  try {
+    const response = await postJson("/v1/admin/weather/check", {});
+    logger.info(response?.data ?? {}, "weather check complete");
+  } catch (err) {
+    logger.warn({ error: err instanceof Error ? err.message : String(err) },
+      "weather check failed (non-fatal)");
+  }
+}
+
 async function runCuratorSafe() {
   try {
     // Phase 1: LLM-based skill file review (filesystem skills)
@@ -503,6 +582,28 @@ async function sweepExpiredReservations() {
     }
   } catch (error) {
     logger.warn({ error }, "reservation sweep failed — will retry next interval");
+  }
+}
+
+async function sweepExpiredLiveSessions() {
+  try {
+    const response = await postJson("/v1/prometeo/live-sessions/sweep-expired", { maxItems: 100 });
+    const closed = response?.data?.closed ?? 0;
+    if (closed > 0) logger.info({ closed }, "swept expired live sessions");
+  } catch (error) {
+    logger.warn({ error }, "live session sweep failed -- will retry next interval");
+  }
+}
+
+async function sweepPendingContributorExtractions() {
+  try {
+    const response = await postJson("/v1/contributor-program/admin/extractions/process-pending", { maxItems: 20 });
+    const { processed, completed, failed } = response?.data ?? {};
+    if (processed > 0) {
+      logger.info({ processed, completed, failed }, "swept pending contributor-program extractions");
+    }
+  } catch (error) {
+    logger.warn({ error }, "contributor extraction sweep failed — will retry next interval");
   }
 }
 

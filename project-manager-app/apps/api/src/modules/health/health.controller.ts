@@ -5,6 +5,7 @@ import { databaseEnabled } from "../../infrastructure/persistence/persistence-mo
 import { Public } from "../../common/public.decorator.js";
 import { resolveRequestId } from "../../common/request-id.js";
 import { ReadinessService } from "./readiness.service.js";
+import { getDeployProvenance } from "@semse/shared";
 
 @Controller("v1")
 export class HealthController {
@@ -13,11 +14,13 @@ export class HealthController {
   @Get("health")
   @Public()
   health(@Req() req: FastifyRequest) {
+    const { gitSha, buildTime } = getDeployProvenance();
     return ok(resolveRequestId(req.headers ?? {}), {
       status: "ok",
       service: "semse-api",
       persistence: databaseEnabled() ? "prisma" : "memory",
-      build: "2026-05-18a",
+      gitSha,
+      buildTime,
       authMode: "jwt-crypto-only",
       timestamp: new Date().toISOString()
     });

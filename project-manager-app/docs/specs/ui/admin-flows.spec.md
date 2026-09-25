@@ -4,8 +4,8 @@ title: "Admin and OPS UI Flows"
 type: spec
 feature: "Admin / OPS UI Flows"
 domain: "ui"
-version: "1.0"
-status: "REVIEW"
+version: "1.1"
+status: "DEPRECATED"
 owner: semse-core
 risk: high
 date: "2026-05-20"
@@ -33,7 +33,9 @@ last_verified: 2026-06-09
 
 # Spec: Admin / OPS UI Flows
 
-> **REVIEW 2026-07-20.** La auditoría del 2026-07-20 (código únicamente — sin credencial OPS_ADMIN disponible) encontró varios gaps sobre esta superficie (navegación incompleta, confirmaciones faltantes en acciones financieras, permisos de lectura de arquitectura interna otorgados a todos los roles). Ver `docs/specs/ui/admin-flows-remediation.spec.md`. Ninguno de estos hallazgos se confirmó en pantalla todavía — este spec vuelve a `VERIFIED` solo después de esa verificación en vivo.
+> **DEPRECATED 2026-08-14.** Reemplazado por [`docs/specs/ui/admin-flows-remediation.spec.md`](admin-flows-remediation.spec.md) (`APPROVED`, `supersedes` este archivo en su frontmatter) — ese spec ya tiene la auditoría completa de 2026-07-20, dos rondas de verificación en vivo con OPS_ADMIN real (2026-07-27 y 2026-08-02), y el hallazgo de código+git-log más reciente (2026-08-14, G-ADM-03/04). Este archivo queda solo como referencia histórica; no usar para autorizar implementación nueva.
+>
+> **REVIEW 2026-07-20 (histórico).** La auditoría del 2026-07-20 (código únicamente — sin credencial OPS_ADMIN disponible) encontró varios gaps sobre esta superficie (navegación incompleta, confirmaciones faltantes en acciones financieras, permisos de lectura de arquitectura interna otorgados a todos los roles).
 
 > Flujos de interfaz para OPS_ADMIN en `/admin` de SEMSE OS.
 

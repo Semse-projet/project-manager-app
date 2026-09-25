@@ -4,12 +4,13 @@ import { JobsModule } from "../jobs/jobs.module.js";
 import { KnowledgeModule } from "../knowledge/knowledge.module.js";
 import { MilestonesModule } from "../milestones/milestones.module.js";
 import { IntelligenceModule } from "../intelligence/intelligence.module.js";
+import { OriginatorModule } from "../originator/originator.module.js";
 import { ProjectsController } from "./projects.controller.js";
 import { ProjectsRepository } from "./projects.repository.js";
 import { ProjectsService } from "./projects.service.js";
 
 @Module({
-  imports: [JobsModule, forwardRef(() => MilestonesModule), KnowledgeModule, forwardRef(() => IntelligenceModule), forwardRef(() => AiModelsModule)],
+  imports: [JobsModule, forwardRef(() => MilestonesModule), KnowledgeModule, forwardRef(() => IntelligenceModule), forwardRef(() => AiModelsModule), OriginatorModule],
   controllers: [ProjectsController],
   providers: [ProjectsRepository, ProjectsService],
   exports: [ProjectsRepository, ProjectsService],

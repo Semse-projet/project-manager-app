@@ -24,7 +24,7 @@ function normalizeStatus(value: unknown): DisputeRow["status"] {
 
 const STATUS_META = {
   open:     { label: "Abierta",   color: "var(--error)", Icon: AlertTriangle },
-  assigned: { label: "Asignada",  color: "#f59e0b", Icon: ShieldAlert   },
+  assigned: { label: "Asignada",  color: "var(--warn)", Icon: ShieldAlert   },
   resolved: { label: "Resuelta",  color: "var(--ok)", Icon: CheckCircle2  },
 };
 

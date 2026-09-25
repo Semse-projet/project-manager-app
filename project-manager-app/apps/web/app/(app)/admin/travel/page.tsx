@@ -277,7 +277,7 @@ export default function AdminTravelPage() {
     const expenseHref = `${detailHref}?tab=gastos`;
     const lodgingHref = `${detailHref}?tab=hospedaje`;
     const severity = overBudget ? "red" : item.missingReceipts > 0 ? "amber" : item.status === "PENDING_SETTLEMENT" ? "blue" : "green";
-    const severityColor = severity === "red" ? "#dc2626" : severity === "amber" ? "#d97706" : severity === "blue" ? "#2563eb" : "#059669";
+    const severityColor = severity === "red" ? "var(--error)" : severity === "amber" ? "var(--warn)" : severity === "blue" ? "var(--brand)" : "var(--ok)";
     const severityBg = severity === "red" ? "rgba(220,38,38,.12)" : severity === "amber" ? "rgba(217,119,6,.12)" : severity === "blue" ? "rgba(37,99,235,.12)" : "rgba(5,150,105,.12)";
     const severityLabel = severity === "red" ? "crítico" : severity === "amber" ? "atención" : severity === "blue" ? "por cerrar" : "estable";
     const balanceColor = item.expectedBalance == null ? "var(--faint)" : item.expectedBalance >= 0 ? "#166534" : "#b91c1c";
@@ -341,7 +341,7 @@ export default function AdminTravelPage() {
               </Link>
             )}
             {item.missingLodgingReceipts > 0 && (
-              <Link href={lodgingHref} style={{ fontSize: "10px", fontWeight: 700, padding: "3px 6px", borderRadius: "999px", background: "rgba(139,92,246,.12)", color: "#7c3aed", textDecoration: "none" }}>
+              <Link href={lodgingHref} style={{ fontSize: "10px", fontWeight: 700, padding: "3px 6px", borderRadius: "999px", background: "rgba(139,92,246,.12)", color: "var(--violet)", textDecoration: "none" }}>
                 {item.missingLodgingReceipts} hospedaje{item.missingLodgingReceipts > 1 ? "s" : ""} sin soporte
               </Link>
             )}
@@ -384,7 +384,7 @@ export default function AdminTravelPage() {
         title={t("page.travelOps")}
         subtitle={t("page.travelOps.sub")}
         icon={PlaneTakeoff}
-        iconColor="#8b5cf6"
+        iconColor="var(--violet)"
         iconBg="rgba(139,92,246,0.15)"
         panel
         actions={
@@ -538,7 +538,7 @@ export default function AdminTravelPage() {
                   syncFilters({ grpPending: next });
                 }} aria-expanded={showPending} style={{ display: "grid", gap: "4px", background: "transparent", border: "none", padding: 0, cursor: "pointer", width: "fit-content", textAlign: "left" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                    <Clock3 size={14} color="#d97706" />
+                    <Clock3 size={14} color="var(--warn)" />
                     <h3 style={{ fontSize: "13px", fontWeight: 800, color: "var(--ink)" }}>Pendientes de liquidación</h3>
                     <span style={{ fontSize: "10px", fontWeight: 800, padding: "2px 6px", borderRadius: "999px", background: "rgba(217,119,6,.12)", color: "#b45309" }}>
                       {pendingItems.length}

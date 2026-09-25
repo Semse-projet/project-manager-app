@@ -165,6 +165,9 @@ export class AuthRepository {
         passwordHash: true,
         status: true,
         memberships: {
+          where: {
+            status: "ACTIVE"
+          },
           select: {
             orgId: true,
             role: {

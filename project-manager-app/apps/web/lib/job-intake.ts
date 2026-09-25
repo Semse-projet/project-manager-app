@@ -127,7 +127,7 @@ export const SMART_INTAKE_CATEGORY_IDS = new Set([
 
 export const JOB_URGENCY_OPTIONS: JobUrgencyOption[] = [
   { value: "low", label: "Baja", description: "Sin prisa, flexible", color: "var(--ok)" },
-  { value: "medium", label: "Media", description: "En las próximas semanas", color: "#f59e0b" },
+  { value: "medium", label: "Media", description: "En las próximas semanas", color: "var(--warn)" },
   { value: "high", label: "Alta", description: "Esta semana", color: "#f97316" },
   { value: "urgent", label: "Urgente", description: "Lo antes posible", color: "var(--error)" },
 ];
@@ -223,6 +223,8 @@ export type JobWizardDraft = {
   description: string;
   locationType: JobLocationType;
   city: string;
+  latitude: number | null;
+  longitude: number | null;
   budgetType: JobBudgetType;
   budgetMin: number;
   budgetMax: number;
@@ -257,6 +259,8 @@ export function loadJobWizardDraft(): JobWizardDraft | null {
         ? (parsed.locationType as JobLocationType)
         : "on_site",
       city: String(parsed.city ?? ""),
+      latitude: typeof parsed.latitude === "number" && Number.isFinite(parsed.latitude) ? parsed.latitude : null,
+      longitude: typeof parsed.longitude === "number" && Number.isFinite(parsed.longitude) ? parsed.longitude : null,
       budgetType: ["fixed", "range", "hourly"].includes(parsed.budgetType as string)
         ? (parsed.budgetType as JobBudgetType)
         : "range",

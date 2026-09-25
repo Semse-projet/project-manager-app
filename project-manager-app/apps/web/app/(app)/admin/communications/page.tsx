@@ -866,7 +866,7 @@ export default function AdminCommunicationsPage() {
               { label: "WhatsApp real", value: channelAccounts.some(a => a.provider === "WHATSAPP_CLOUD" && a._envConfigured) ? "Configurado por variables de entorno (sin cuenta DB)" : channelAccounts.some(a => a.provider === "WHATSAPP_CLOUD") ? "Cuenta DB registrada" : "Depende de credenciales Cloud API", ok: channelAccounts.some((account) => account.provider === "WHATSAPP_CLOUD") },
             ].map((item) => (
               <div key={item.label} style={{ display: "flex", alignItems: "flex-start", gap: "10px", padding: "10px", borderRadius: "8px", border: "1px solid var(--border)", background: "var(--bg)" }}>
-                {item.ok ? <CheckCircle2 size={15} style={{ color: "#34d399", marginTop: "2px", flexShrink: 0 }} /> : <XCircle size={15} style={{ color: "#f59e0b", marginTop: "2px", flexShrink: 0 }} />}
+                {item.ok ? <CheckCircle2 size={15} style={{ color: "#34d399", marginTop: "2px", flexShrink: 0 }} /> : <XCircle size={15} style={{ color: "var(--warn)", marginTop: "2px", flexShrink: 0 }} />}
                 <div style={{ minWidth: 0 }}>
                   <p style={{ fontSize: "13px", fontWeight: 800, color: "var(--ink)", margin: 0 }}>{item.label}</p>
                   <p style={{ fontSize: "12px", color: "var(--muted)", marginTop: "2px" }}>{item.value}</p>

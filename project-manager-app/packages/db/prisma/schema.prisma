@@ -137,6 +137,7 @@ model Tenant {
   jobs                          Job[]
   projects                      Project[]
   lifecycleProjections          ProjectLifecycleProjection[]
+  jobsBidsProjections           JobsBidsProjection[]
   disputes                      Dispute[]
   auditLogs                     AuditLog[]
   domainOutboxEvents            DomainOutboxEvent[]
@@ -159,6 +160,7 @@ model Tenant {
   freeProjects                  FreeProject[]
   timeEntries                   TimeEntry[]
   laborSheets                   LaborSheet[]
+  pushDeviceTokens              PushDeviceToken[]
   workspaceMemoryEntries        WorkspaceMemoryEntry[]
   fieldMilestones               FieldMilestone[]
   vendors                       Vendor[]
@@ -190,8 +192,8 @@ model Tenant {
   // Contractor CRM
   contractorLeads               ContractorLead[]
   communicationChannelAccounts  CommunicationChannelAccount[]
-  communicationThreads           CommunicationThread[]
-  communications          Communication[]
+  communicationThreads          CommunicationThread[]
+  communications                Communication[]
   communicationMessageTemplates CommunicationMessageTemplate[]
   outboundDeliveries            OutboundDelivery[]
   contactIdentities             ContactIdentity[]
@@ -200,16 +202,31 @@ model Tenant {
   buildOpsTasks                 BuildOpsTask[]
   forgeRuns                     ForgeRun[]
   tenantSettings                TenantSettings?
+  liveSessions                  LiveSession[]
+  liveSessionParticipants       LiveSessionParticipant[]
+  // Knowledge Contributor Program
+  contributorProfiles           ContributorProfile[]
+  contributorConsents           ContributorConsent[]
+  knowledgeMissions             KnowledgeMission[]
+  knowledgeMissionAcceptances   KnowledgeMissionAcceptance[]
+  knowledgeSubmissions          KnowledgeSubmission[]
+  knowledgeAssets               KnowledgeAsset[]
+  knowledgeReviews              KnowledgeReview[]
+  knowledgeAppeals              KnowledgeAppeal[]
+  knowledgeExtractions          KnowledgeExtraction[]
+  transcriptSegments            TranscriptSegment[]
+  observations                  Observation[]
+  contributorRewards            ContributorReward[]
   createdAt                     DateTime                          @default(now())
   updatedAt                     DateTime                          @updatedAt
 }
 
 model TenantSettings {
-  id            String   @id @default(cuid())
-  tenantId      String   @unique
-  settingsJson  Json     @default("{}")
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id           String   @id @default(cuid())
+  tenantId     String   @unique
+  settingsJson Json     @default("{}")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 }
@@ -225,7 +242,7 @@ model Org {
   projects                      Project[]
   reservations                  JobReservation[]
   communicationChannelAccounts  CommunicationChannelAccount[]
-  communicationThreads           CommunicationThread[]
+  communicationThreads          CommunicationThread[]
   communicationMessageTemplates CommunicationMessageTemplate[]
   contactIdentities             ContactIdentity[]
   clientContracts               Contract[]                     @relation("ContractClientOrg")
@@ -266,38 +283,102 @@ model User {
   auditEvents                         AuditLog[]
   notifications                       Notification[]
   createdCommunicationChannelAccounts CommunicationChannelAccount[] @relation("CommunicationChannelAccountCreatedBy")
-  contactCommunicationThreads          CommunicationThread[]          @relation("CommunicationThreadContactUser")
-  assignedCommunicationThreads         CommunicationThread[]          @relation("CommunicationThreadAssignedUser")
-  sentCommunications            Communication[]         @relation("CommunicationSender")
+  contactCommunicationThreads         CommunicationThread[]         @relation("CommunicationThreadContactUser")
+  assignedCommunicationThreads        CommunicationThread[]         @relation("CommunicationThreadAssignedUser")
+  sentCommunications                  Communication[]               @relation("CommunicationSender")
   requestedOutboundDeliveries         OutboundDelivery[]            @relation("OutboundDeliveryRequestedBy")
   contactIdentities                   ContactIdentity[]
   passwordResetTokens                 PasswordResetToken[]
   profile                             UserProfile?
   contractorRate                      ContractorRateOverride?
   stripeConnect                       StripeConnectAccount?
+  identityAttestations                IdentityAttestation[]
+  createdLiveSessions                 LiveSession[]
+  liveSessionParticipations           LiveSessionParticipant[]
+  // Knowledge Contributor Program
+  contributorProfile                  ContributorProfile?
+  contributorConsents                 ContributorConsent[]
+  createdKnowledgeMissions            KnowledgeMission[]
+  knowledgeMissionAcceptances         KnowledgeMissionAcceptance[]
+  knowledgeSubmissions                KnowledgeSubmission[]
+  uploadedKnowledgeAssets             KnowledgeAsset[]
+  knowledgeReviewsAuthored            KnowledgeReview[]
+  knowledgeAppealsRaised              KnowledgeAppeal[]             @relation("KnowledgeAppealUser")
+  knowledgeAppealsResolved            KnowledgeAppeal[]             @relation("KnowledgeAppealResolver")
+  contributorRewards                  ContributorReward[]
+  // Sense Vision — Mi Diccionario + correcciones
+  visionDictionaryItems               UserDictionaryItem[]
+  visionCorrections                   VisionCorrection[]
   createdAt                           DateTime                      @default(now())
   updatedAt                           DateTime                      @updatedAt
 
   @@index([verificationStatus, riskLevel])
 }
 
+// Cryptographic evidence that a separate verifier (OPS_ADMIN reviewing real
+// credentials, never the user themselves) attested a user's identity — see
+// docs/specs/core/identity-attestation.spec.md and
+// AUDIT_REMEDIATION_PLAN.md 0.9/G-PRO-04. `signature` is an Ed25519
+// signature over `message`, produced with SEMSE's own signing key
+// (`keyId`), independently checkable via the published public key — this
+// is what distinguishes it from the old self-attested DID stub, which
+// only checked that two strings were non-empty.
+model IdentityAttestation {
+  id               String   @id @default(cuid())
+  tenantId         String
+  userId           String
+  verifiedByUserId String
+  verificationType String // id_document | background_check | ...
+  keyId            String
+  message          String
+  signature        String
+  createdAt        DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, userId])
+}
+
 model UserProfile {
-  id                 String   @id @default(cuid())
-  userId             String   @unique
-  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  displayName        String?
-  bio                String?
-  location           String?
-  trades             String[] @default([])
-  availability       Boolean  @default(true)
+  id                   String   @id @default(cuid())
+  userId               String   @unique
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  displayName          String?
+  bio                  String?
+  location             String?
+  trades               String[] @default([])
+  availability         Boolean  @default(true)
   // Assistant AI preferences
-  assistantTone      String? // friendly | formal | technical | executive
-  assistantLanguage  String? // es | en
-  assistantVerbosity String? // short | balanced | detailed
-  unifiedMode        Boolean  @default(false)
-  expertMode         Boolean  @default(false)
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  assistantTone        String? // friendly | formal | technical | executive
+  assistantLanguage    String? // es | en
+  assistantVerbosity   String? // short | balanced | detailed
+  unifiedMode          Boolean  @default(false)
+  expertMode           Boolean  @default(false)
+  // Time Tracker proximity check-in preference: "ask" | "auto" | "off"
+  proximityCheckInMode String?  @default("ask")
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
+
+/// Expo push token per user+device, registered by apps/mobile
+/// (src/notifications/pushRegistration.ts) via POST /v1/push/register.
+/// A user can hold multiple rows (multiple devices); dispatch.service.ts
+/// sends to every non-revoked token for a user.
+model PushDeviceToken {
+  id            String    @id @default(cuid())
+  tenantId      String
+  userId        String
+  deviceId      String
+  expoPushToken String
+  platform      String // ios | android
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  revokedAt     DateTime?
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, deviceId])
+  @@index([tenantId, userId])
 }
 
 model StripeConnectAccount {
@@ -315,6 +396,63 @@ model StripeConnectAccount {
   updatedAt       DateTime @updatedAt
 
   @@index([status])
+}
+
+// F10 — Programa de recompensa para originador/facilitador (Fase 1-2, sin
+// dinero real). docs/specs/core/originador-referral-program.spec.md
+enum ProjectOriginatorStatus {
+  PENDING_OWNER_VALIDATION
+  VALIDATED
+  REJECTED
+}
+
+model ProjectOriginator {
+  id               String                  @id @default(cuid())
+  tenantId         String
+  projectId        String
+  originatorUserId String
+  status           ProjectOriginatorStatus @default(PENDING_OWNER_VALIDATION)
+  validatedAt      DateTime?
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+
+  @@unique([projectId])
+  @@index([tenantId, originatorUserId])
+}
+
+enum OriginatorRewardType {
+  FIXED_BONUS
+  PLATFORM_FEE_SHARE
+}
+
+enum OriginatorRewardStatus {
+  PENDING_REVIEW
+  BLOCKED_NO_PAYOUT_ACCOUNT
+  RELEASED
+  RELEASE_FAILED
+  REVERSED
+}
+
+// Identidad fiscal delegada a StripeConnectAccount (arriba) — no se crea
+// modelo de documento fiscal propio (spec §7).
+model OriginatorReward {
+  id                       String                 @id @default(cuid())
+  tenantId                 String
+  projectOriginatorId      String
+  type                     OriginatorRewardType
+  triggerEvent             String
+  amountCents              Int
+  platformFeeCentsSnapshot Int?
+  status                   OriginatorRewardStatus @default(PENDING_REVIEW)
+  reviewEndsAt             DateTime
+  releasedAt               DateTime?
+  releaseFailedReason      String?
+  createdAt                DateTime               @default(now())
+  updatedAt                DateTime               @updatedAt
+
+  @@unique([projectOriginatorId, type])
+  @@index([tenantId, status])
+  @@index([projectOriginatorId])
 }
 
 model ContractorRateOverride {
@@ -362,17 +500,43 @@ model PasswordResetToken {
 }
 
 model SatelliteToken {
-  id         String    @id @default(cuid())
-  name       String    @unique
-  tokenHash  String    @unique
+  id         String             @id @default(cuid())
+  name       String             @unique
+  tokenHash  String             @unique
   scopes     String[]
-  status     String    @default("ACTIVE")
+  status     String             @default("ACTIVE")
   expiresAt  DateTime?
   revokedAt  DateTime?
   lastUsedAt DateTime?
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
+  webhooks   SatelliteWebhook[]
 
+  @@index([status])
+}
+
+/// SAT-007 — outbound webhook registration for a satellite token. The
+/// secret is encrypted (AES-256-GCM), never hashed: it must be readable in
+/// the clear to sign each delivery's HMAC. secretKeyVersion allows rotating
+/// SATELLITE_WEBHOOK_SECRET_KEY without invalidating existing webhooks.
+model SatelliteWebhook {
+  id                  String         @id @default(cuid())
+  satelliteTokenId    String
+  url                 String
+  events              String[]
+  secretCiphertext    String
+  secretIv            String
+  secretTag           String
+  secretKeyVersion    Int            @default(1)
+  status              String         @default("ACTIVE") // ACTIVE | SUSPENDED
+  consecutiveFailures Int            @default(0)
+  lastDeliveryAt      DateTime?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+  satelliteToken      SatelliteToken @relation(fields: [satelliteTokenId], references: [id], onDelete: Cascade)
+
+  @@unique([satelliteTokenId, url])
+  @@index([satelliteTokenId, status])
   @@index([status])
 }
 
@@ -404,6 +568,11 @@ model Membership {
   userId    String
   orgId     String
   roleId    String
+  // INVITED | ACTIVE | SUSPENDED | REVOKED — WS-01C org-context slice 1
+  // (docs/architecture/ADR-040). Only ACTIVE memberships authorize login/org
+  // selection or count toward @semse/users:me/capabilities; additive column,
+  // backfilled ACTIVE for every pre-existing row.
+  status    String   @default("ACTIVE")
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   org       Org      @relation(fields: [orgId], references: [id], onDelete: Cascade)
   role      Role     @relation(fields: [roleId], references: [id], onDelete: Restrict)
@@ -413,40 +582,44 @@ model Membership {
 }
 
 model Job {
-  id                  String               @id @default(cuid())
-  tenantId            String
-  clientOrgId         String
-  title               String
-  category            String?
-  scope               String
-  status              JobStatus            @default(PUBLISHED)
-  budgetType          String?
-  budgetMin           Decimal?             @db.Decimal(12, 2)
-  budgetMax           Decimal?             @db.Decimal(12, 2)
-  location            String?
+  id                   String                @id @default(cuid())
+  tenantId             String
+  clientOrgId          String
+  title                String
+  category             String?
+  scope                String
+  status               JobStatus             @default(PUBLISHED)
+  budgetType           String?
+  budgetMin            Decimal?              @db.Decimal(12, 2)
+  budgetMax            Decimal?              @db.Decimal(12, 2)
+  location             String?
+  latitude             Decimal?              @db.Decimal(10, 7)
+  longitude            Decimal?              @db.Decimal(10, 7)
+  locationSource       String? // "geocoded" | "manual"
   // ── Active-model fields ──────────────────────────────────────────────────
-  urgency             String? // low | medium | high | urgent
-  deadline            DateTime?
-  policyProfileId     String? // references PolicyRule group
-  scopeSnapshot       Json? // immutable snapshot at ACCEPTED
-  isOutOfTown         Boolean              @default(false) // travel assignment required
-  destinationCity     String? // filled when isOutOfTown = true
+  urgency              String? // low | medium | high | urgent
+  deadline             DateTime?
+  policyProfileId      String? // references PolicyRule group
+  scopeSnapshot        Json? // immutable snapshot at ACCEPTED
+  isOutOfTown          Boolean               @default(false) // travel assignment required
+  destinationCity      String? // filled when isOutOfTown = true
   // ─────────────────────────────────────────────────────────────────────────
-  bids                Bid[]
-  reservations        JobReservation[]
-  contract            Contract?
-  escrow              PaymentEscrow?
-  ratings             Rating[]
+  bids                 Bid[]
+  reservations         JobReservation[]
+  contract             Contract?
+  escrow               PaymentEscrow?
+  ratings              Rating[]
   communicationThreads CommunicationThread[]
-  timeEntries         TimeEntry[]
-  travelAssignments   TravelAssignment[]
-  buildOpsProject     BuildOpsProject?
-  tenant              Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  clientOrg           Org                  @relation(fields: [clientOrgId], references: [id], onDelete: Restrict)
-  project             Project?
-  createdAt           DateTime             @default(now())
-  updatedAt           DateTime             @updatedAt
-  deletedAt           DateTime?
+  timeEntries          TimeEntry[]
+  travelAssignments    TravelAssignment[]
+  buildOpsProject      BuildOpsProject?
+  bidsProjection       JobsBidsProjection?
+  tenant               Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  clientOrg            Org                   @relation(fields: [clientOrgId], references: [id], onDelete: Restrict)
+  project              Project?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  deletedAt            DateTime?
 
   @@index([tenantId, status])
   @@index([tenantId, clientOrgId])
@@ -526,14 +699,14 @@ model Bid {
 }
 
 model Project {
-  id                            String               @id @default(cuid())
+  id                            String                      @id @default(cuid())
   tenantId                      String
-  jobId                         String               @unique
+  jobId                         String                      @unique
   assignedProOrgId              String
-  promotedFromBuildOpsProjectId String?              @unique
+  promotedFromBuildOpsProjectId String?                     @unique
   promotedAt                    DateTime?
   promotedByUserId              String?
-  status                        ProjectStatus        @default(OPEN)
+  status                        ProjectStatus               @default(OPEN)
   startAt                       DateTime?
   dueAt                         DateTime?
   milestones                    Milestone[]
@@ -541,16 +714,18 @@ model Project {
   disputes                      Dispute[]
   lifecycleProjection           ProjectLifecycleProjection?
   escrow                        PaymentEscrow?
-  communicationThreads           CommunicationThread[]
-  tenant                        Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  job                           Job                  @relation(fields: [jobId], references: [id], onDelete: Restrict)
-  assignedProOrg                Org                  @relation(fields: [assignedProOrgId], references: [id], onDelete: Restrict)
+  communicationThreads          CommunicationThread[]
+  tenant                        Tenant                      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  job                           Job                         @relation(fields: [jobId], references: [id], onDelete: Restrict)
+  assignedProOrg                Org                         @relation(fields: [assignedProOrgId], references: [id], onDelete: Restrict)
   // Field Ops
   fieldUnits                    FieldUnit[]
   // Lien management
   lienCalendars                 LienCalendar[]
-  createdAt                     DateTime             @default(now())
-  updatedAt                     DateTime             @updatedAt
+  // Weather alerts
+  weatherAlerts                 WeatherAlert[]
+  createdAt                     DateTime                    @default(now())
+  updatedAt                     DateTime                    @updatedAt
 
   @@index([tenantId, status])
   @@index([tenantId, promotedFromBuildOpsProjectId])
@@ -574,6 +749,33 @@ model ProjectLifecycleProjection {
 
   @@index([tenantId, updatedAt])
   @@index([projectId, revision])
+}
+
+/// Durable, rebuildable snapshot for jobs/bids agent context (see
+/// docs/specs/operations/jobs-bids-event-projection.spec.md). `clientOrgId`
+/// is denormalized from Job for the CLIENT-role scoping filter that
+/// OperationalContextService.buildContext() already applies against Job
+/// directly — avoids joining through `job` just to filter read-through
+/// queries the same way the existing direct query does.
+model JobsBidsProjection {
+  id              String   @id @default(cuid())
+  tenantId        String
+  jobId           String   @unique
+  clientOrgId     String
+  schemaVersion   Int      @default(1)
+  revision        String
+  snapshotJson    Json
+  sourceUpdatedAt DateTime
+  generatedAt     DateTime
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  job    Job    @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, updatedAt])
+  @@index([tenantId, clientOrgId, updatedAt])
+  @@index([jobId, revision])
 }
 
 model Milestone {
@@ -678,7 +880,7 @@ model Evidence {
   // Agro-specific fields to be fully utilized when AgroEvidenceItem migrates (Fase 2)
   mediaType                     String? // NOTE | PHOTO | VIDEO | DOCUMENT | EXTERNAL_URL | OTHER
   title                         String?
-  notes                         String?   @db.Text
+  notes                         String?      @db.Text
   fileUrl                       String?
   capturedById                  String?
   promotedFromBuildOpsProjectId String?
@@ -1173,9 +1375,9 @@ model CommunicationChannelAccount {
   createdAt         DateTime              @default(now())
   updatedAt         DateTime              @updatedAt
 
-  tenant    Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  org       Org?                 @relation(fields: [orgId], references: [id], onDelete: SetNull)
-  createdBy User?                @relation("CommunicationChannelAccountCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  tenant    Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  org       Org?                  @relation(fields: [orgId], references: [id], onDelete: SetNull)
+  createdBy User?                 @relation("CommunicationChannelAccountCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
   threads   CommunicationThread[]
 
   @@unique([tenantId, provider, phoneNumberId])
@@ -1242,9 +1444,9 @@ model Communication {
   readAt            DateTime?
   createdAt         DateTime                   @default(now())
 
-  tenant Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   thread CommunicationThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
-  sender User?              @relation("CommunicationSender", fields: [senderUserId], references: [id], onDelete: SetNull)
+  sender User?               @relation("CommunicationSender", fields: [senderUserId], references: [id], onDelete: SetNull)
 
   @@unique([tenantId, provider, externalMessageId])
   @@index([tenantId, threadId, createdAt])
@@ -1292,10 +1494,10 @@ model OutboundDelivery {
   createdAt         DateTime                   @default(now())
   updatedAt         DateTime                   @updatedAt
 
-  tenant       Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant       Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   thread       CommunicationThread? @relation(fields: [threadId], references: [id], onDelete: SetNull)
-  notification Notification?       @relation(fields: [notificationId], references: [id], onDelete: SetNull)
-  requestedBy  User?               @relation("OutboundDeliveryRequestedBy", fields: [requestedByUserId], references: [id], onDelete: SetNull)
+  notification Notification?        @relation(fields: [notificationId], references: [id], onDelete: SetNull)
+  requestedBy  User?                @relation("OutboundDeliveryRequestedBy", fields: [requestedByUserId], references: [id], onDelete: SetNull)
 
   @@index([tenantId, channel, status, createdAt])
   @@index([tenantId, recipientPhone])
@@ -1411,6 +1613,9 @@ model FreeProject {
   name           String
   color          String   @default("#3B82F6")
   location       String?
+  latitude       Decimal? @db.Decimal(10, 7)
+  longitude      Decimal? @db.Decimal(10, 7)
+  locationSource String? // "geocoded" | "manual"
   description    String?
   status         String   @default("active") // active | archived | converted
   convertedJobId String?
@@ -1428,37 +1633,41 @@ model FreeProject {
 /// Supports realtime (timer) and manual (past entry) modes.
 /// Linked to a formal Job OR a FreeProject, never both.
 model TimeEntry {
-  id                 String    @id @default(cuid())
-  tenantId           String
-  orgId              String
-  createdBy          String
-  mode               String    @default("manual") // realtime | manual
-  purpose            String    @default("personal") // personal | payable | job_linked
-  jobId              String?
-  freeProjectId      String?
-  status             String    @default("completed") // running | paused | completed | pending_review | approved | deleted
-  startedAt          DateTime
-  endedAt            DateTime?
-  resumedAt          DateTime?
-  pausedAt           DateTime?
-  breakMinutes       Int       @default(0)
-  durationMinutes    Int?
-  accumulatedSeconds Int       @default(0)
-  hourlyRate         Decimal?  @db.Decimal(10, 2)
-  currency           String    @default("MXN")
-  location           String?
-  notes              String?
-  editedBy           String?
-  editReason         String?
-  contextEntityType  String? // e.g. FieldUnit, Job, Animal, CropLot
-  contextEntityId    String?
+  id                    String    @id @default(cuid())
+  tenantId              String
+  orgId                 String
+  createdBy             String
+  mode                  String    @default("manual") // realtime | manual
+  purpose               String    @default("personal") // personal | payable | job_linked
+  jobId                 String?
+  freeProjectId         String?
+  status                String    @default("completed") // running | paused | completed | pending_review | approved | deleted
+  startedAt             DateTime
+  endedAt               DateTime?
+  resumedAt             DateTime?
+  pausedAt              DateTime?
+  breakMinutes          Int       @default(0)
+  durationMinutes       Int?
+  accumulatedSeconds    Int       @default(0)
+  hourlyRate            Decimal?  @db.Decimal(10, 2)
+  currency              String    @default("MXN")
+  location              String?
+  checkInLatitude       Decimal?  @db.Decimal(10, 7)
+  checkInLongitude      Decimal?  @db.Decimal(10, 7)
+  checkInDistanceMeters Int?
+  checkInMethod         String? // "proximity_confirmed" | "proximity_auto" | "manual_tagged"
+  notes                 String?
+  editedBy              String?
+  editReason            String?
+  contextEntityType     String? // e.g. FieldUnit, Job, Animal, CropLot
+  contextEntityId       String?
   /// Idempotency key supplied by the client (Time Tracker local queue event id).
   /// Lets a retried "start timer" / "manual entry" sync resolve to the same
   /// row instead of inserting a duplicate payable time entry. Null for entries
   /// created through paths that don't originate from the offline-safe queue.
-  clientEventId      String?
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+  clientEventId         String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
 
   tenant      Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   job         Job?           @relation(fields: [jobId], references: [id], onDelete: SetNull)
@@ -2211,9 +2420,9 @@ model ContractorLead {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  tenant              Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant               Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   communicationThreads CommunicationThread[]
-  contactIdentities   ContactIdentity[]
+  contactIdentities    ContactIdentity[]
 
   @@index([tenantId, orgId, status, createdAt])
   @@index([tenantId, status])
@@ -2264,7 +2473,7 @@ model WorkerApplication {
 
 /// Persistent log of AI system posture incidents detected by Mission Control.
 model MissionControlIncident {
-  id              String   @id @default(cuid())
+  id              String    @id @default(cuid())
   tenantId        String?
   source          String
   posture         String
@@ -2272,9 +2481,9 @@ model MissionControlIncident {
   title           String
   detail          String
   alertIds        String[]
-  kind            String   @default("ai")
+  kind            String    @default("ai")
   orgId           String?
-  status          String   @default("OPEN")
+  status          String    @default("OPEN")
   actorUserId     String?
   targetType      String?
   targetId        String?
@@ -2282,8 +2491,8 @@ model MissionControlIncident {
   runbookId       String?
   actionReceiptId String?
   resolvedAt      DateTime?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   @@index([tenantId, createdAt])
   @@index([tenantId, status, createdAt])
@@ -3048,6 +3257,41 @@ model LienWaiver {
   @@index([requiredBefore])
 }
 
+/// Alerta de clima que puede afectar un proyecto (Tomorrow.io), ver
+/// docs/specs/tools/fase-2/m2.3-weather.spec.md — Bloque 2.3.A (forecast +
+/// clasificación por trade). Push notifications, auto-halt de tareas,
+/// integración con daily log y generación de change orders (Bloques 2.3.B/C
+/// del spec) no están implementados todavía — ver ese spec para el alcance
+/// completo vs. lo que existe hoy.
+model WeatherAlert {
+  id        String  @id @default(cuid())
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  eventType String // "RAIN" | "FROST" | "WIND" | "SNOW" | "HEAT" (ver nota HAIL en el spec §13)
+  severity  String // "MODERATE" | "HIGH"
+
+  startTime    DateTime
+  endTime      DateTime
+  probability  Decimal? @db.Decimal(5, 2) // 0-100 (%)
+  maxIntensity Decimal? @db.Decimal(10, 2)
+
+  affectedTrades Json // string[] — trades con impacto CRITICAL o PARTIAL (Trade-Weather Impact Matrix, spec §6)
+  notCriticalFor Json // string[] — trades con impacto SAFE
+
+  source           String    @default("tomorrow.io")
+  status           String    @default("FORECAST") // FORECAST | IMMINENT | ACTIVE | COMPLETED
+  notificationSent Boolean   @default(false)
+  autoHaltCreated  Boolean   @default(false)
+  alertedAt        DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([projectId, eventType, startTime])
+  @@index([projectId, status])
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // SEMSE AGRO — F1 RanchOps Core
 // ─────────────────────────────────────────────────────────────────────────────
@@ -3062,24 +3306,27 @@ model AgroFarm {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  units             AgroFarmUnit[]
-  animals           AgroAnimal[]
-  animalGroups      AgroAnimalGroup[]
-  tasks             AgroFarmTask[]
-  inventoryItems    AgroInventoryItem[]
-  movements         AgroInventoryMovement[]
-  costEntries       AgroCostEntry[]
-  evidence          AgroEvidenceItem[]
-  auditEvents       AgroAuditEvent[]
-  productionCycles  AgroProductionCycle[]
-  cropCycles        AgroCropCycle[]
-  inputApplications AgroInputApplication[]
-  harvestRecords    AgroHarvestRecord[]
-  traceability      AgroTraceabilityEvent[]
-  complianceChecks  AgroComplianceCheck[]
-  productionRecords AgroProductionRecord[]
-  saleRecords       AgroSaleRecord[]
-  evidenceRecords   Evidence[]            @relation("EvidenceToFarm")
+  units                   AgroFarmUnit[]
+  animals                 AgroAnimal[]
+  animalGroups            AgroAnimalGroup[]
+  tasks                   AgroFarmTask[]
+  inventoryItems          AgroInventoryItem[]
+  movements               AgroInventoryMovement[]
+  costEntries             AgroCostEntry[]
+  evidence                AgroEvidenceItem[]
+  auditEvents             AgroAuditEvent[]
+  productionCycles        AgroProductionCycle[]
+  cropCycles              AgroCropCycle[]
+  inputApplications       AgroInputApplication[]
+  harvestRecords          AgroHarvestRecord[]
+  traceability            AgroTraceabilityEvent[]
+  complianceChecks        AgroComplianceCheck[]
+  productionRecords       AgroProductionRecord[]
+  saleRecords             AgroSaleRecord[]
+  evidenceRecords         Evidence[]                   @relation("EvidenceToFarm")
+  members                 AgroFarmMember[]
+  incidents               AgroIncident[]
+  capabilityVerifications AgroCapabilityVerification[]
 
   @@index([ownerId])
 }
@@ -3099,6 +3346,7 @@ model AgroFarmUnit {
   animals      AgroAnimal[]
   animalGroups AgroAnimalGroup[]
   cropCycles   AgroCropCycle[]
+  incidents    AgroIncident[]
 
   @@index([farmId])
 }
@@ -3128,6 +3376,8 @@ model AgroAnimal {
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
 
+  incidents AgroIncident[]
+
   @@index([farmId])
   @@index([currentUnitId])
   @@index([status])
@@ -3154,6 +3404,8 @@ model AgroAnimalGroup {
   notes             String?       @db.Text
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
+
+  incidents AgroIncident[]
 
   @@index([farmId])
   @@index([currentUnitId])
@@ -3248,6 +3500,7 @@ model AgroInventoryItem {
   updatedAt    DateTime @updatedAt
 
   movements AgroInventoryMovement[]
+  incidents AgroIncident[]
 
   @@index([farmId])
   @@index([category])
@@ -3318,17 +3571,17 @@ model AgroEvidenceItem {
 }
 
 model AgroAuditEvent {
-  id         String   @id @default(cuid())
-  farmId     String
-  farm       AgroFarm @relation(fields: [farmId], references: [id], onDelete: Cascade)
-  actorId    String?
-  entityType String
-  entityId   String
-  action     String
-  before     Json?
-  after      Json?
-  source     String   @default("SYSTEM") // WEB | MOBILE | SYNC | SYSTEM | IMPORT
-  createdAt  DateTime @default(now())
+  id            String   @id @default(cuid())
+  farmId        String
+  farm          AgroFarm @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  actorId       String?
+  entityType    String
+  entityId      String
+  action        String
+  before        Json?
+  after         Json?
+  source        String   @default("SYSTEM") // WEB | MOBILE | SYNC | SYSTEM | IMPORT
+  createdAt     DateTime @default(now())
   // Clave de idempotencia de la cola offline: solo la llevan los marcadores de
   // sync. NULL en el resto de eventos de auditoria, y Postgres no considera
   // iguales dos NULL, asi que el unique no los afecta.
@@ -3385,6 +3638,7 @@ model AgroCropCycle {
 
   inputApplications AgroInputApplication[]
   harvestRecords    AgroHarvestRecord[]
+  incidents         AgroIncident[]
 
   @@index([farmId, status])
 }
@@ -3468,6 +3722,237 @@ model AgroComplianceCheck {
 
   @@index([farmId, status])
   @@index([farmId, checkType])
+}
+
+// ── Agro Workforce & IncidentOps (docs/specs/agro/AGRO_AS_IS_AUDIT_2026-09-25.md) ──
+// Aislamiento: la finca es la frontera (AgroFarm.ownerId), igual que el resto
+// de Agro. Sin tenantId porque ningún modelo Agro lo tiene todavía. Auditoría
+// y timeline: AgroAuditEvent. Evidencia: AgroEvidenceItem. Tareas: referencia
+// polimórfica AgroTaskRef (AGRO_FARM_TASK | JOB_TASK), sin FK a AgroFarmTask.
+
+/// Membresía de recurso de una finca. El propietario es implícito (AgroFarm.ownerId).
+model AgroFarmMember {
+  id          String   @id @default(cuid())
+  farmId      String
+  farm        AgroFarm @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  userId      String
+  role        String // MANAGER | SUPERVISOR | WORKER | TECHNICIAN | SPECIALIST | VETERINARIAN | AGRONOMIST
+  // INVITED | ACTIVE | SUSPENDED | REVOKED — mismo vocabulario que Membership.status.
+  status      String   @default("ACTIVE")
+  displayName String?
+  invitedById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([farmId, userId])
+  @@index([userId, status])
+}
+
+/// Oficio agrícola (Porcicultor, Tractorista, Veterinario…). Catálogo global extensible.
+model AgroRole {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  name        String
+  sector      String // ANIMAL_PRODUCTION | CROP_PRODUCTION | MACHINERY | PROFESSIONAL | GENERAL
+  species     String? // PIG | CATTLE | CHICKEN | BEE | … cuando el oficio es específico de especie
+  description String?
+  isSystem    Boolean  @default(false)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  specialties AgroRoleSpecialty[]
+  workers     AgroWorkerRole[]
+
+  @@index([sector])
+}
+
+/// Especialidad (Maternidad porcina, Ganado lechero, Fertirrigación…).
+model AgroSpecialty {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  name        String
+  sector      String
+  species     String?
+  description String?
+  isSystem    Boolean  @default(false)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  roles        AgroRoleSpecialty[]
+  capabilities AgroCapability[]
+
+  @@index([sector])
+}
+
+/// Una especialidad puede pertenecer a uno o varios oficios.
+model AgroRoleSpecialty {
+  roleId      String
+  specialtyId String
+  role        AgroRole      @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  specialty   AgroSpecialty @relation(fields: [specialtyId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, specialtyId])
+  @@index([specialtyId])
+}
+
+/// Algo concreto que una persona puede ejecutar. Jerárquico vía parentId.
+model AgroCapability {
+  id                   String           @id @default(cuid())
+  key                  String           @unique
+  name                 String
+  description          String?
+  category             String // FEEDING | ANIMAL_HANDLING | HEALTH_WELFARE | CLEANING_BIOSECURITY | MACHINERY | LAND_PREPARATION | IRRIGATION | HARVEST | PROCEDURE | OTHER
+  specialtyId          String?
+  specialty            AgroSpecialty?   @relation(fields: [specialtyId], references: [id], onDelete: SetNull)
+  parentId             String?
+  parent               AgroCapability?  @relation("AgroCapabilityHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children             AgroCapability[] @relation("AgroCapabilityHierarchy")
+  // Solo roles profesionales de finca (VETERINARIAN | AGRONOMIST | TECHNICIAN | SPECIALIST) pueden verificarla.
+  requiresProfessional Boolean          @default(false)
+  // La verificación exige al menos una evidencia (AgroEvidenceItem).
+  evidenceRequired     Boolean          @default(true)
+  // Vigencia por defecto de una verificación, en días (null = no expira).
+  validityDays         Int?
+  isSystem             Boolean          @default(false)
+  active               Boolean          @default(true)
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+
+  workers       AgroWorkerCapability[]
+  verifications AgroCapabilityVerification[]
+
+  @@index([specialtyId])
+  @@index([parentId])
+  @@index([category])
+}
+
+/// Oficio asignado o declarado por una persona (User.id). Portable entre fincas.
+model AgroWorkerRole {
+  id           String   @id @default(cuid())
+  userId       String
+  roleId       String
+  role         AgroRole @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  isPrimary    Boolean  @default(false)
+  source       String   @default("SELF_REPORTED") // SELF_REPORTED | ASSIGNED | IMPORT
+  farmId       String? // finca en cuyo contexto se asignó
+  assignedById String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([userId, roleId])
+  @@index([userId])
+}
+
+/// Capacidad de una persona. Única por persona + capacidad; el historial vive
+/// en AgroCapabilityVerification y AgroAuditEvent.
+model AgroWorkerCapability {
+  id                 String         @id @default(cuid())
+  userId             String
+  capabilityId       String
+  capability         AgroCapability @relation(fields: [capabilityId], references: [id], onDelete: Restrict)
+  level              String         @default("BASIC") // BASIC | INTERMEDIATE | ADVANCED | EXPERT
+  // SELF_REPORTED | IN_REVIEW | VERIFIED | REJECTED | EXPIRED | REVOKED
+  status             String         @default("SELF_REPORTED")
+  source             String         @default("SELF_REPORTED") // SELF_REPORTED | ASSIGNED | VERIFICATION | IMPORT
+  farmId             String? // finca del último cambio (contexto de auditoría)
+  acquiredAt         DateTime?
+  expiresAt          DateTime?
+  verifiedAt         DateTime?
+  lastVerificationId String?
+  metadata           Json?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  verifications AgroCapabilityVerification[]
+
+  @@unique([userId, capabilityId])
+  @@index([userId, status])
+  @@index([capabilityId, status])
+}
+
+/// Registro append-only de cada verificación, rechazo o revocación.
+model AgroCapabilityVerification {
+  id                 String               @id @default(cuid())
+  workerCapabilityId String
+  workerCapability   AgroWorkerCapability @relation(fields: [workerCapabilityId], references: [id], onDelete: Cascade)
+  capabilityId       String
+  capability         AgroCapability       @relation(fields: [capabilityId], references: [id], onDelete: Restrict)
+  userId             String // trabajador verificado
+  verifierId         String
+  verifierFarmRole   String // rol de finca con el que actuó el verificador
+  farmId             String
+  farm               AgroFarm             @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  method             String // DIRECT_OBSERVATION | PRACTICAL_TEST | DOCUMENT_REVIEW | CERTIFICATE | INTERVIEW | OTHER
+  result             String // APPROVED | REJECTED | REVOKED
+  levelAssessed      String?
+  evidenceIds        String[]             @default([]) // AgroEvidenceItem.id de la misma finca
+  notes              String?              @db.Text
+  verifiedAt         DateTime             @default(now())
+  expiresAt          DateTime?
+  createdAt          DateTime             @default(now())
+
+  @@index([workerCapabilityId, verifiedAt])
+  @@index([userId])
+  @@index([farmId, verifiedAt])
+}
+
+/// Incidencia operacional de finca (salud/bienestar, agua, bioseguridad, infraestructura…).
+model AgroIncident {
+  id                String             @id @default(cuid())
+  farmId            String
+  farm              AgroFarm           @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  farmUnitId        String?
+  farmUnit          AgroFarmUnit?      @relation(fields: [farmUnitId], references: [id], onDelete: SetNull)
+  animalId          String?
+  animal            AgroAnimal?        @relation(fields: [animalId], references: [id], onDelete: SetNull)
+  animalGroupId     String?
+  animalGroup       AgroAnimalGroup?   @relation(fields: [animalGroupId], references: [id], onDelete: SetNull)
+  cropCycleId       String?
+  cropCycle         AgroCropCycle?     @relation(fields: [cropCycleId], references: [id], onDelete: SetNull)
+  // Maquinaria/equipo o insumo afectado (AgroInventoryItem, categoría EQUIPMENT/FEED/…)
+  inventoryItemId   String?
+  inventoryItem     AgroInventoryItem? @relation(fields: [inventoryItemId], references: [id], onDelete: SetNull)
+  reportedById      String
+  assignedToId      String?
+  // AgroTaskRef: tarea canónica relacionada, sin FK para no acoplar a AgroFarmTask.
+  relatedTaskSource String? // AGRO_FARM_TASK | JOB_TASK
+  relatedTaskId     String?
+  // ANIMAL_INJURY | ANIMAL_ILLNESS_OBSERVED | ANIMAL_MORTALITY | ANIMAL_ESCAPE | WATER_SHORTAGE | FEED_SHORTAGE
+  // BIOSECURITY_RISK | INFRASTRUCTURE_DAMAGE | EQUIPMENT_FAILURE | CROP_DAMAGE | PEST_OBSERVED | IRRIGATION_FAILURE
+  // SAFETY_HAZARD | OTHER
+  type              String
+  severity          String             @default("MEDIUM") // LOW | MEDIUM | HIGH | CRITICAL
+  // false mientras la severidad sea sugerida (reporte de campo o Prometeo) y nadie con autoridad la confirme.
+  severityConfirmed Boolean            @default(false)
+  // OPEN | TRIAGED | IN_PROGRESS | RESOLVED | CLOSED | CANCELLED | DUPLICATE
+  status            String             @default("OPEN")
+  title             String
+  description       String?            @db.Text
+  occurredAt        DateTime?
+  detectedAt        DateTime           @default(now())
+  triagedAt         DateTime?
+  resolvedAt        DateTime?
+  closedAt          DateTime?
+  resolution        String?            @db.Text
+  duplicateOfId     String?
+  cancelReason      String?
+  source            String             @default("WEB") // WEB | MOBILE | SYNC | PROMETEO | API
+  clientEventId     String? // idempotencia de reportes offline/reintentos
+  metadata          Json?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  @@unique([farmId, clientEventId])
+  @@index([farmId, status])
+  @@index([farmId, severity])
+  @@index([farmId, type])
+  @@index([assignedToId, status])
+  @@index([reportedById])
+  @@index([animalId])
+  @@index([animalGroupId])
+  @@index([farmUnitId])
 }
 
 // ── SPEC-AUT-001 — Permanent Loops v1 (ADR-021 §4.4) ─────────────────────────
@@ -3784,16 +4269,16 @@ enum PrometeoProposedActionStatus {
 }
 
 model PrometeoProposedAction {
-  id                String                        @id @default(cuid())
+  id                String                       @id @default(cuid())
   tenantId          String
   orgId             String
   actorId           String
   namespace         String
   name              String
   approvalPolicy    String
-  status            PrometeoProposedActionStatus  @default(PROPOSED)
+  status            PrometeoProposedActionStatus @default(PROPOSED)
   inputJson         Json
-  requiredApprovals String[]                      @default([])
+  requiredApprovals String[]                     @default([])
   approvedBy        String?
   approvedAt        DateTime?
   rejectedBy        String?
@@ -3801,8 +4286,8 @@ model PrometeoProposedAction {
   rejectionReason   String?
   executedAt        DateTime?
   resultJson        Json?
-  createdAt         DateTime                      @default(now())
-  updatedAt         DateTime                      @updatedAt
+  createdAt         DateTime                     @default(now())
+  updatedAt         DateTime                     @updatedAt
 
   @@index([tenantId, status, createdAt])
   @@map("prometeo_proposed_action")
@@ -3823,4 +4308,782 @@ model PrometeoToolInvocationAudit {
   @@index([tenantId, occurredAt])
   @@index([tenantId, status, occurredAt])
   @@map("prometeo_tool_invocation_audit")
+}
+
+// ── LiveSession (spec: docs/specs/prometeo/live-sessions.spec.md, ADR-026) ──
+// Sesión de vídeo/audio en vivo (inspection|assist) atada a un Job/Project.
+// FSM: docs/foundation/STATE_MACHINES.md §LiveSession. NO muta la FSM de esos
+// recursos. Aditivo; sin backfill.
+
+enum LiveSessionStatus {
+  REQUESTED
+  PERMISSION_PENDING
+  CONNECTING
+  ACTIVE
+  PAUSED
+  ENDING
+  ENDED
+  CANCELLED
+  FAILED
+}
+
+enum LiveSessionScopeType {
+  job
+  project
+}
+
+enum LiveSessionPurpose {
+  inspection
+  assist
+}
+
+enum LiveSessionParticipantRole {
+  owner
+  inspector
+  assistant
+  observer
+}
+
+model LiveSession {
+  id             String               @id @default(cuid())
+  tenantId       String
+  scopeType      LiveSessionScopeType
+  scopeId        String
+  purpose        LiveSessionPurpose
+  status         LiveSessionStatus    @default(REQUESTED)
+  version        Int                  @default(0)
+  createdById    String
+  idempotencyKey String
+  expiresAt      DateTime?
+  endedAt        DateTime?
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  tenant       Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdBy    User                     @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  participants LiveSessionParticipant[]
+
+  @@unique([tenantId, idempotencyKey])
+  @@index([tenantId, status, createdAt])
+  @@index([tenantId, scopeType, scopeId, status])
+  @@index([tenantId, createdById, createdAt])
+  @@index([status, expiresAt])
+  @@map("live_session")
+}
+
+model LiveSessionParticipant {
+  id          String                     @id @default(cuid())
+  tenantId    String
+  sessionId   String
+  userId      String
+  role        LiveSessionParticipantRole
+  invitedById String
+  joinedAt    DateTime?
+  leftAt      DateTime?
+  createdAt   DateTime                   @default(now())
+
+  session LiveSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  tenant  Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, userId])
+  @@index([tenantId, userId])
+  @@index([sessionId])
+  @@map("live_session_participant")
+}
+
+// ─── Capability Reality Registry (Phase 1 — Reliability substrate) ───────
+//
+// General-purpose reality-tracking for product/engineering capabilities.
+// Not the same as the Phase 2 Agent Capability Protocol (risk ceilings,
+// tool bindings, offline modes) — this is the simpler "is X actually done
+// and healthy, with what evidence" registry that supersedes manual
+// spreadsheet-style audits (see SEMSE_EXECUTION_LEDGER.md).
+//
+// Maturity ladder (reconciled from 08_EXECUTION_LEDGER_TEMPLATE.md and
+// 03_PROTOCOLS_AND_CONTRACTS.md §3.2, which used DEPLOYED vs BETA at the
+// same rung — DEPLOYED chosen as the more concrete, checkable state):
+//   DESIGNED -> IMPLEMENTED -> TESTED -> INTEGRATED -> DEPLOYED -> VERIFIED -> PRODUCTION
+
+enum CapabilityMaturity {
+  DESIGNED
+  IMPLEMENTED
+  TESTED
+  INTEGRATED
+  DEPLOYED
+  VERIFIED
+  PRODUCTION
+}
+
+enum CapabilityHealth {
+  HEALTHY
+  DEGRADED
+  BROKEN
+  UNKNOWN
+}
+
+enum CapabilityEvidenceKind {
+  TEST
+  DEPLOYMENT
+  PRODUCTION_OBSERVATION
+  ADR
+}
+
+enum GoldenRegressionStatus {
+  PASSING
+  FAILING
+  NOT_WIRED
+}
+
+// Lifecycle/reachability is a DIFFERENT axis from maturity (ADR-037, AG-03):
+// maturity answers "how much evidence backs this," reachability answers
+// "does anything real invoke it, and should it." A role can be maturity
+// INTEGRATED (a real, tested production-entrypoint chain exists) while its
+// reachability is DEPRECATED (the ADR decided this specific path should
+// stop receiving investment) — the two must never be collapsed into one
+// field, or a DEPRECATE-the-path decision silently reads as
+// DEPRECATE-the-capability for a role whose real feature lives elsewhere
+// (see the `agent-role:project-copilot` seed row and its regression test).
+enum CapabilityReachability {
+  PRODUCTION_REACHABLE
+  INTEGRATION_ONLY
+  DESIGNED_BUT_UNWIRED
+  DEPRECATED
+}
+
+model Capability {
+  id           String                  @id @default(cuid())
+  key          String                  @unique
+  domain       String
+  description  String
+  maturity     CapabilityMaturity
+  health       CapabilityHealth        @default(UNKNOWN)
+  reachability CapabilityReachability?
+  ownerModule  String
+  createdAt    DateTime                @default(now())
+  updatedAt    DateTime                @updatedAt
+
+  evidence CapabilityEvidence[]
+
+  @@index([domain])
+  @@index([maturity])
+  @@index([health])
+  @@index([reachability])
+  @@map("capability")
+}
+
+model CapabilityEvidence {
+  id           String                 @id @default(cuid())
+  capabilityId String
+  kind         CapabilityEvidenceKind
+  reference    String
+  note         String?
+  recordedAt   DateTime               @default(now())
+
+  capability Capability @relation(fields: [capabilityId], references: [id], onDelete: Cascade)
+
+  @@index([capabilityId])
+  @@map("capability_evidence")
+}
+
+model GoldenRegression {
+  id             String                 @id @default(cuid())
+  key            String                 @unique
+  description    String
+  expectedResult String
+  testReference  String
+  status         GoldenRegressionStatus @default(NOT_WIRED)
+  lastCheckedAt  DateTime?
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+
+  @@index([status])
+  @@map("golden_regression")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// SEMSE Knowledge Contributor Program (docs/specs/core/knowledge-contributor-program).
+// Trade-agnostic; the first seeded mission targets electricians. Public
+// pages: /contributors, /contributors/terms, /contributors/dashboard.
+// Provenance chain: KnowledgeAsset -> KnowledgeExtraction -> RAG ingestion
+// (external, not modeled here) always keeps submissionId/assetId/model/
+// version so derived knowledge can be traced back to source evidence.
+// ─────────────────────────────────────────────────────────────────────────
+
+enum KnowledgeMissionStatus {
+  DRAFT
+  PUBLISHED
+  PAUSED
+  CLOSED
+  ARCHIVED
+}
+
+enum KnowledgeMissionAcceptanceStatus {
+  ACCEPTED
+  IN_PROGRESS
+  SUBMITTED
+  CANCELLED
+  EXPIRED
+}
+
+// Mirrors the contract states in the program's public terms (docs/specs) —
+// never collapse REJECTED into a delete; appeal/correction flow needs it.
+enum KnowledgeSubmissionStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  CHANGES_REQUESTED
+  APPROVED
+  REJECTED
+  PAYMENT_PENDING
+  PAID
+  DISPUTED
+  CANCELLED
+}
+
+enum KnowledgeAssetKind {
+  VIDEO
+  IMAGE
+  AUDIO
+  TEXT
+}
+
+enum KnowledgeAssetClipRole {
+  BEFORE
+  PLANNING
+  EXECUTION
+  PROBLEM_CORRECTION
+  RESULT
+  OTHER
+}
+
+enum KnowledgeAssetProcessingStatus {
+  PENDING
+  PROCESSING
+  PROCESSED
+  FAILED
+}
+
+enum KnowledgeReviewDecision {
+  APPROVED
+  REJECTED
+  CHANGES_REQUESTED
+}
+
+enum KnowledgeAppealStatus {
+  OPEN
+  UNDER_REVIEW
+  UPHELD
+  OVERTURNED
+}
+
+// Pipeline stages from AGENTS.md's Prometeo intake — each row is one stage
+// output for one asset (or the whole submission), never original evidence.
+enum KnowledgeExtractionKind {
+  TRANSCRIPTION
+  SEGMENTATION
+  ENTITY
+  TASK_STEP
+  MEASUREMENT
+  TOOL_MATERIAL
+  PROBLEM_SOLUTION
+  QUALITY_FLAG
+}
+
+enum KnowledgeExtractionStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+// PR-6 (docs/specs/core/knowledge-contributor-evidence-promotion.spec.md):
+// an editorial decision, not a fact — unlike Observation's correction
+// fields, this has no "already decided" conflict guard. PENDING is the only
+// non-terminal value; PROMOTED and REJECTED are both freely reachable from
+// each other (a reviewer can change their mind), just never back to
+// PENDING.
+enum ObservationPromotionStatus {
+  PENDING
+  PROMOTED
+  REJECTED
+}
+
+enum ContributorRewardStatus {
+  PENDING_REVIEW
+  APPROVED
+  PAYMENT_PENDING
+  PAID
+  BLOCKED_NO_PAYOUT_ACCOUNT
+  FAILED
+  REVERSED
+}
+
+model ContributorProfile {
+  id        String   @id @default(cuid())
+  tenantId  String
+  userId    String   @unique
+  trade     String   @default("electrician")
+  status    String   @default("active") // active | suspended
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, status])
+}
+
+// Not tenant-scoped: one global, versioned policy document for the whole
+// program (spec §4 "Actualizaciones" — v1.0 acceptance must remain on
+// record even once v1.1 exists). contentHash lets ContributorConsent pin
+// the exact text a user accepted without duplicating it per consent row.
+model ContributorTermsVersion {
+  id          String   @id @default(cuid())
+  version     String   @unique // "1.0"
+  effectiveAt DateTime
+  contentEs   String   @db.Text
+  contentEn   String   @db.Text
+  contentHash String
+  isActive    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  consents ContributorConsent[]
+
+  @@index([isActive])
+}
+
+// Immutable by design: no update/delete path is exposed by the service —
+// spec §5 requires an auditable, unrevisable acceptance record per version.
+model ContributorConsent {
+  id               String   @id @default(cuid())
+  tenantId         String
+  userId           String
+  termsVersionId   String
+  termsContentHash String
+  locale           String
+  source           String   @default("CONTRIBUTOR_PROGRAM")
+  checkboxesJson   Json
+  acceptedAt       DateTime @default(now())
+
+  tenant       Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user         User                    @relation(fields: [userId], references: [id], onDelete: Restrict)
+  termsVersion ContributorTermsVersion @relation(fields: [termsVersionId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, termsVersionId])
+  @@index([tenantId, userId])
+}
+
+model KnowledgeMission {
+  id                     String                 @id @default(cuid())
+  tenantId               String
+  title                  String
+  trade                  String
+  category               String
+  description            String                 @db.Text
+  difficulty             String // beginner | intermediate | advanced
+  requirementsJson       Json
+  evidenceRequestedJson  Json
+  acceptanceCriteriaJson Json
+  baseCompensationCents  Int
+  currency               String                 @default("USD")
+  bonusJson              Json?
+  deadlineAt             DateTime?
+  maxParticipants        Int?
+  status                 KnowledgeMissionStatus @default(DRAFT)
+  version                Int                    @default(1)
+  isDemo                 Boolean                @default(false)
+  createdByUserId        String
+  createdAt              DateTime               @default(now())
+  updatedAt              DateTime               @updatedAt
+
+  tenant      Tenant                       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdBy   User                         @relation(fields: [createdByUserId], references: [id], onDelete: Restrict)
+  acceptances KnowledgeMissionAcceptance[]
+  submissions KnowledgeSubmission[]
+
+  @@index([tenantId, status])
+  @@index([tenantId, trade, status])
+}
+
+// Pins compensation/currency/deadline at acceptance time (spec §4 "No
+// modificar retroactivamente el pago de una misión ya aceptada") — later
+// edits to KnowledgeMission (a new .version) never change these snapshots.
+model KnowledgeMissionAcceptance {
+  id                        String                           @id @default(cuid())
+  tenantId                  String
+  missionId                 String
+  missionVersionSnapshot    Int
+  userId                    String
+  compensationCentsSnapshot Int
+  currencySnapshot          String
+  deadlineAtSnapshot        DateTime?
+  status                    KnowledgeMissionAcceptanceStatus @default(ACCEPTED)
+  acceptedAt                DateTime                         @default(now())
+  updatedAt                 DateTime                         @updatedAt
+
+  tenant      Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  mission     KnowledgeMission      @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  user        User                  @relation(fields: [userId], references: [id], onDelete: Restrict)
+  submissions KnowledgeSubmission[]
+
+  @@unique([missionId, userId])
+  @@index([tenantId, userId, status])
+}
+
+model KnowledgeSubmission {
+  id           String                    @id @default(cuid())
+  tenantId     String
+  acceptanceId String
+  missionId    String
+  userId       String
+  status       KnowledgeSubmissionStatus @default(DRAFT)
+  notes        String?                   @db.Text
+  version      Int                       @default(1)
+  submittedAt  DateTime?
+  createdAt    DateTime                  @default(now())
+  updatedAt    DateTime                  @updatedAt
+
+  tenant             Tenant                     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  acceptance         KnowledgeMissionAcceptance @relation(fields: [acceptanceId], references: [id], onDelete: Cascade)
+  mission            KnowledgeMission           @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  user               User                       @relation(fields: [userId], references: [id], onDelete: Restrict)
+  assets             KnowledgeAsset[]
+  reviews            KnowledgeReview[]
+  appeals            KnowledgeAppeal[]
+  extractions        KnowledgeExtraction[]
+  transcriptSegments TranscriptSegment[]
+  observations       Observation[]
+  reward             ContributorReward?
+
+  @@index([tenantId, userId, status])
+  @@index([tenantId, missionId, status])
+}
+
+// storageKey/mimeType are nullable only for kind=TEXT (inline notes have no
+// uploaded file); every other kind requires them at the service layer.
+model KnowledgeAsset {
+  id               String                         @id @default(cuid())
+  tenantId         String
+  submissionId     String
+  uploadedByUserId String
+  kind             KnowledgeAssetKind
+  clipRole         KnowledgeAssetClipRole         @default(OTHER)
+  storageKey       String?
+  textContent      String?                        @db.Text
+  checksum         String?
+  mimeType         String?
+  sizeBytes        Int?
+  processingStatus KnowledgeAssetProcessingStatus @default(PENDING)
+  createdAt        DateTime                       @default(now())
+  updatedAt        DateTime                       @updatedAt
+
+  tenant             Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  submission         KnowledgeSubmission   @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  uploadedBy         User                  @relation(fields: [uploadedByUserId], references: [id], onDelete: Restrict)
+  extractions        KnowledgeExtraction[]
+  transcriptSegments TranscriptSegment[]
+
+  @@unique([submissionId, storageKey])
+  @@index([tenantId, submissionId])
+}
+
+model KnowledgeReview {
+  id               String                  @id @default(cuid())
+  tenantId         String
+  submissionId     String
+  reviewerUserId   String
+  decision         KnowledgeReviewDecision
+  reason           String                  @db.Text
+  qualityFlagsJson Json?
+  createdAt        DateTime                @default(now())
+
+  tenant     Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  submission KnowledgeSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  reviewer   User                @relation(fields: [reviewerUserId], references: [id], onDelete: Restrict)
+  appeals    KnowledgeAppeal[]
+
+  @@index([tenantId, submissionId])
+}
+
+model KnowledgeAppeal {
+  id               String                @id @default(cuid())
+  tenantId         String
+  submissionId     String
+  userId           String
+  originalReviewId String
+  reason           String                @db.Text
+  status           KnowledgeAppealStatus @default(OPEN)
+  resolverUserId   String?
+  resolutionReason String?               @db.Text
+  resolvedAt       DateTime?
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+
+  tenant         Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  submission     KnowledgeSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  user           User                @relation("KnowledgeAppealUser", fields: [userId], references: [id], onDelete: Restrict)
+  originalReview KnowledgeReview     @relation(fields: [originalReviewId], references: [id], onDelete: Restrict)
+  resolver       User?               @relation("KnowledgeAppealResolver", fields: [resolverUserId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, submissionId])
+  @@index([tenantId, status])
+}
+
+// Provenance record for one pipeline stage on one asset (or the whole
+// submission when assetId is null) — dataJson never overwrites the
+// original KnowledgeAsset; it only ever adds a new row.
+model KnowledgeExtraction {
+  id             String                    @id @default(cuid())
+  tenantId       String
+  submissionId   String
+  assetId        String?
+  kind           KnowledgeExtractionKind
+  status         KnowledgeExtractionStatus @default(PENDING)
+  modelOrProcess String
+  version        Int                       @default(1)
+  timeRangeJson  Json?
+  dataJson       Json?
+  extractedAt    DateTime?
+  createdAt      DateTime                  @default(now())
+
+  tenant             Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  submission         KnowledgeSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  asset              KnowledgeAsset?     @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  transcriptSegments TranscriptSegment[]
+  observations       Observation[]
+
+  @@index([tenantId, submissionId])
+}
+
+// PR-5 (docs/specs/core/knowledge-contributor-transcript-observation.spec.md):
+// one row per timestamped transcript span produced by a TRANSCRIPTION
+// extraction. Never edited in place — a re-run creates a new KnowledgeExtraction
+// (and thus new segments), same append-only provenance principle as
+// KnowledgeExtraction itself.
+model TranscriptSegment {
+  id           String   @id @default(cuid())
+  tenantId     String
+  submissionId String
+  assetId      String
+  extractionId String
+  startMs      Int
+  endMs        Int
+  text         String   @db.Text
+  confidence   Float?
+  createdAt    DateTime @default(now())
+
+  tenant     Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  submission KnowledgeSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  asset      KnowledgeAsset      @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  extraction KnowledgeExtraction @relation(fields: [extractionId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, submissionId])
+  @@index([extractionId])
+  @@index([assetId, startMs])
+}
+
+// OBJECTIVE->CONDITION->DECISION->REASON->METHOD->ACTION->RESULT, each field
+// optional (spec §2 — not every clip yields all seven). sourceSegmentIdsJson
+// (never empty) is what makes an Observation citable instead of invented —
+// same array-of-ids-in-Json convention as requirementsJson/qualityFlagsJson
+// elsewhere in this file, not a join table. correctedBy*/correctedAt are
+// null until a human reviewer corrects a field (spec §3: only a human
+// correction is a write here; the worker only ever creates the original,
+// uncorrected row) — a corrected Observation is never overwritten again by
+// the pipeline (spec §5, 409 on double-correct, enforced at service layer).
+model Observation {
+  id                   String                     @id @default(cuid())
+  tenantId             String
+  submissionId         String
+  extractionId         String
+  objective            String?                    @db.Text
+  condition            String?                    @db.Text
+  decision             String?                    @db.Text
+  reason               String?                    @db.Text
+  method               String?                    @db.Text
+  action               String?                    @db.Text
+  result               String?                    @db.Text
+  sourceSegmentIdsJson Json
+  generatedBy          String
+  correctedFieldsJson  Json?
+  correctedByUserId    String?
+  correctedReason      String?                    @db.Text
+  correctedAt          DateTime?
+  promotionStatus      ObservationPromotionStatus @default(PENDING)
+  promotedByUserId     String?
+  promotedAt           DateTime?
+  promotionReason      String?                    @db.Text
+  // PR-9 (docs/specs/core/knowledge-contributor-rag-ingestion.spec.md):
+  // the PrometeoDocument this Observation was indexed into, null while
+  // not promoted (or after a promotion was rejected and de-indexed).
+  ragDocumentId        String?
+  createdAt            DateTime                   @default(now())
+  updatedAt            DateTime                   @updatedAt
+
+  tenant     Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  submission KnowledgeSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  extraction KnowledgeExtraction @relation(fields: [extractionId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, submissionId])
+  @@index([extractionId])
+}
+
+// One reward per submission (submissionId unique) is the idempotency guard
+// on creation; idempotencyKey + the tenant-scoped unique constraint is the
+// same durable-receipt convention DomainOutboxEvent uses for payout calls.
+model ContributorReward {
+  id                 String                  @id @default(cuid())
+  tenantId           String
+  submissionId       String                  @unique
+  userId             String
+  amountCents        Int
+  currency           String
+  status             ContributorRewardStatus @default(PENDING_REVIEW)
+  idempotencyKey     String
+  authorizedByUserId String?
+  authorizedAt       DateTime?
+  paidAt             DateTime?
+  failureReason      String?
+  // PR-10 (docs/specs/core/knowledge-contributor-reward-hardening.spec.md):
+  // set when a payout succeeds — lets a later transfer.reversed webhook
+  // find this exact reward and move it to REVERSED instead of leaving it
+  // incorrectly PAID forever.
+  transferId         String?                 @unique
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+
+  tenant     Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  submission KnowledgeSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  user       User                @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, idempotencyKey])
+  @@index([tenantId, status])
+}
+
+// ── Sense Vision (spec: docs/specs/vision/sense-vision-field-library.spec.md)
+
+// Global platform catalog — "¿qué cosas conoce SEMSE?". Not tenant-scoped:
+// it is construction knowledge, not customer data. Rows are only written by
+// versioned migrations generated from packages/schemas/src/construction-library.seed.ts.
+// searchText is a denormalized, lowercased, accent-stripped concatenation of
+// names/aliases/searchTerms so manual search can use a single `contains`.
+model ConstructionLibraryItem {
+  id                String   @id @default(cuid())
+  slug              String   @unique
+  canonicalName     String
+  nameEn            String
+  nameEs            String
+  aliasesEn         String[] @default([])
+  aliasesEs         String[] @default([])
+  category          String
+  subcategory       String
+  trades            String[] @default([])
+  descriptionEn     String
+  descriptionEs     String
+  usageEn           String
+  usageEs           String
+  exampleSentenceEn String
+  exampleSentenceEs String
+  searchTerms       String[] @default([])
+  searchText        String
+  imageReferences   String[] @default([])
+  active            Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  dictionaryEntries    UserDictionaryItem[]
+  predictedCorrections VisionCorrection[]   @relation("VisionCorrectionPredicted")
+  selectedCorrections  VisionCorrection[]   @relation("VisionCorrectionSelected")
+
+  @@index([category, active])
+}
+
+// Mi Diccionario — what each professional is learning. References the
+// library row instead of copying its content; removing an entry never
+// touches the global library.
+model UserDictionaryItem {
+  id            String   @id @default(cuid())
+  tenantId      String
+  userId        String
+  libraryItemId String
+  firstSeenAt   DateTime @default(now())
+  lastSeenAt    DateTime @default(now())
+  timesViewed   Int      @default(0)
+  timesScanned  Int      @default(0)
+  favorite      Boolean  @default(false)
+  learned       Boolean  @default(false)
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user        User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  libraryItem ConstructionLibraryItem @relation(fields: [libraryItemId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, libraryItemId])
+  @@index([tenantId, userId, lastSeenAt])
+}
+
+// "No es esto / Not this?" — recorded for evaluation and future model
+// improvement only; never applied automatically to the library or model.
+// selectedLibraryItemId null = "not in the list".
+model VisionCorrection {
+  id                     String   @id @default(cuid())
+  tenantId               String
+  userId                 String
+  predictedLibraryItemId String?
+  selectedLibraryItemId  String?
+  predictedConfidence    Float?
+  source                 String
+  createdAt              DateTime @default(now())
+
+  user          User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  predictedItem ConstructionLibraryItem? @relation("VisionCorrectionPredicted", fields: [predictedLibraryItemId], references: [id], onDelete: SetNull)
+  selectedItem  ConstructionLibraryItem? @relation("VisionCorrectionSelected", fields: [selectedLibraryItemId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, createdAt])
+  @@index([predictedLibraryItemId])
+}
+
+// ── Jev Decision Layer (spec: docs/specs/prometeo/jev-decision-layer.spec.md)
+
+// One row per decision taken while a Jev pilot flag is on, so "Jev decision
+// vs. final system action vs. outcome" can be compared. Not AiInteractionLog
+// (model-call log, no decision/final-action fields) and not AgentDecision
+// (autonomy-loop findings/proposals). Stores decision metadata only — never
+// the input context (messages, frames).
+model JevDecisionEvent {
+  id                    String   @id @default(cuid())
+  tenantId              String
+  userId                String?
+  feature               String // agent_router | vision_gate
+  decision              String // what Jev (or the fallback) decided
+  confidence            Float
+  reasonCode            String
+  source                String // jev | deterministic
+  fallbackUsed          Boolean  @default(false)
+  fallbackReason        String?
+  latencyMs             Int
+  model                 String?
+  finalSystemAction     String
+  outcome               String? // user_corrected | user_saved | ...
+  // Wave 0 closure (handoff §52, §55): baseline vs. Jev vs. final, per mode/canary.
+  provider              String   @default("jev")
+  mode                  String   @default("shadow") // shadow | live
+  canary                String? // all | tenant | user | role | percent
+  deterministicDecision String?
+  jevDecision           String?
+  jevConfidence         Float?
+  jevReasonCode         String?
+  agreement             Boolean?
+  invariantsViolated    String[] @default([])
+  inputClass            String?
+  correlationId         String?
+  costUsd               Float?
+  createdAt             DateTime @default(now())
+
+  @@index([tenantId, feature, createdAt])
+  @@index([feature, source, createdAt])
+  @@index([feature, mode, agreement])
+  @@index([correlationId])
 }

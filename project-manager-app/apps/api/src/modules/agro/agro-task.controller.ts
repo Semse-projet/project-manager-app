@@ -6,9 +6,9 @@ import { ok } from "../../common/api-response.js";
 import { resolveRequestId } from "../../common/request-id.js";
 import { RequirePermissions } from "../../common/permissions.decorator.js";
 import { resolveRequestContext } from "../../common/request-context.js";
-import { AgroTaskService } from "./agro-task.service.js";
+import { AGRO_TASK_TYPES, AgroTaskService } from "./agro-task.service.js";
 
-const taskTypeEnum     = z.enum(["FEEDING","VACCINATION","TREATMENT","WEIGHING","MOVEMENT","CLEANING","INSPECTION","INVENTORY","SALE","WATER_CHECK","OTHER"]);
+const taskTypeEnum     = z.enum(AGRO_TASK_TYPES);
 const priorityEnum     = z.enum(["LOW","MEDIUM","HIGH","URGENT"]);
 const targetTypeEnum   = z.enum(["ANIMAL","ANIMAL_GROUP","FARM_UNIT","INVENTORY","GENERAL"]);
 
@@ -50,7 +50,8 @@ export class AgroTaskController {
   }
 
   @Post("farms/:farmId/tasks")
-  @RequirePermissions("agro:write")
+  // Operativo (T-050): la política de rol de finca decide qué puede cada miembro.
+  @RequirePermissions("agro:report")
   async createTask(@Param("farmId") farmId: string, @Body() body: unknown, @Req() req: any) {
     const ctx = resolveRequestContext(req);
     const input = createTaskSchema.parse(body);
@@ -61,12 +62,14 @@ export class AgroTaskController {
   @Get("tasks/:taskId")
   @RequirePermissions("agro:read")
   async getTask(@Param("taskId") taskId: string, @Req() req: any) {
-    const task = await this.service.getTask(taskId);
+    const ctx = resolveRequestContext(req);
+    const task = await this.service.getTaskForUser(taskId, ctx.userId);
     return ok(resolveRequestId(req.headers ?? {}), { task });
   }
 
   @Patch("tasks/:taskId")
-  @RequirePermissions("agro:write")
+  // Operativo (T-050): la política de rol de finca decide qué puede cada miembro.
+  @RequirePermissions("agro:report")
   async updateTask(@Param("taskId") taskId: string, @Body() body: unknown, @Req() req: any) {
     const ctx = resolveRequestContext(req);
     const input = updateTaskSchema.parse(body);
@@ -75,7 +78,8 @@ export class AgroTaskController {
   }
 
   @Post("tasks/:taskId/start")
-  @RequirePermissions("agro:write")
+  // Operativo (T-050): la política de rol de finca decide qué puede cada miembro.
+  @RequirePermissions("agro:report")
   async startTask(@Param("taskId") taskId: string, @Req() req: any) {
     const ctx = resolveRequestContext(req);
     const task = await this.service.startTask(taskId, ctx.userId);
@@ -83,7 +87,8 @@ export class AgroTaskController {
   }
 
   @Post("tasks/:taskId/complete")
-  @RequirePermissions("agro:write")
+  // Operativo (T-050): la política de rol de finca decide qué puede cada miembro.
+  @RequirePermissions("agro:report")
   async completeTask(@Param("taskId") taskId: string, @Req() req: any) {
     const ctx = resolveRequestContext(req);
     const task = await this.service.completeTask(taskId, ctx.userId);
@@ -91,7 +96,8 @@ export class AgroTaskController {
   }
 
   @Post("tasks/:taskId/block")
-  @RequirePermissions("agro:write")
+  // Operativo (T-050): la política de rol de finca decide qué puede cada miembro.
+  @RequirePermissions("agro:report")
   async blockTask(@Param("taskId") taskId: string, @Body() body: unknown, @Req() req: any) {
     const ctx = resolveRequestContext(req);
     const { reason } = reasonSchema.parse(body);
@@ -100,7 +106,8 @@ export class AgroTaskController {
   }
 
   @Post("tasks/:taskId/cancel")
-  @RequirePermissions("agro:write")
+  // Operativo (T-050): la política de rol de finca decide qué puede cada miembro.
+  @RequirePermissions("agro:report")
   async cancelTask(@Param("taskId") taskId: string, @Body() body: unknown, @Req() req: any) {
     const ctx = resolveRequestContext(req);
     const { reason } = reasonSchema.parse(body);

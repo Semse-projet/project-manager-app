@@ -4,12 +4,19 @@ export const dynamic = "force-dynamic";
 
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { LanguageProvider, useLanguage, type LanguagePreference } from "../../lib/language-context";
-import { buildShellNavItems, isNewNavSection, type ShellNavItem, type ShellNavLink } from "../../lib/navigation-shell";
+import { CapabilityProvider } from "../../lib/capability-context";
+import {
+  buildShellNavItems,
+  isNewNavSection,
+  type ShellNavItem,
+} from "../../lib/navigation-shell";
+import { ADMIN_MODULES } from "../../lib/admin/admin-navigation";
 import { AgentChatPanel } from "../../components/ai/agent-chat-panel";
 import { PrometeoCopilot } from "../components/prometeo/PrometeoCopilot";
 import { AgentPanelStateProvider } from "../../components/ai/agent-panel-state";
 import { MissionControlAlertBanner } from "../../components/ai/mission-control-alert-banner";
 import { NotificationBell } from "../../components/semse/NotificationBell";
+import { CapabilityIndicator } from "../../components/semse/CapabilityIndicator";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AppShell } from "@semse/ui";
@@ -44,7 +51,6 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
-  MessageSquare,
   Package,
   DollarSign,
   Infinity,
@@ -59,12 +65,43 @@ import {
   Wrench,
   X,
   Scale,
+  ScanSearch,
 } from "lucide-react";
 
 type NavRole = "worker" | "client" | "admin";
 type ThemePreference = "dark" | "light";
 
 interface NavItem extends ShellNavItem {}
+
+// Icon per ADMIN_MODULES id — same icon each route already used in the
+// hand-curated list this replaces (see AUDIT_REMEDIATION_PLAN.md 1.17 and
+// the Epic A1 admin-navigation.ts spec).
+const ADMIN_MODULE_ICONS: Record<string, typeof HardHat> = {
+  "mission-control": Activity,
+  workops: Wrench,
+  marketplace: Store,
+  finance: DollarSign,
+  trust: ShieldCheck,
+  intelligence: Brain,
+  "tool-hub": Package,
+  verticals: Layers,
+  settings: Settings,
+};
+
+const ADMIN_NAV_ITEMS: NavItem[] = [
+  ...ADMIN_MODULES.map((module) => ({
+    labelKey: module.label,
+    href: module.href,
+    icon: ADMIN_MODULE_ICONS[module.id] ?? LayoutDashboard,
+  })),
+  // Routes not represented as an ADMIN_MODULES module or child — kept as
+  // quick links so this sidebar swap doesn't drop functionality.
+  { labelKey: "nav.accountSecurity", href: "/admin/account", icon: User },
+  { labelKey: "nav.agro", href: "/agro", icon: Leaf },
+  { labelKey: "nav.buildOps", href: "/buildops", icon: FolderKanban },
+  { labelKey: "nav.semseTools", href: "/tools", icon: Wrench },
+  { labelKey: "nav.agents", href: "/agents", icon: Bot },
+];
 
 const NAV: Record<NavRole, { labelKey: string; color: string; icon: typeof HardHat; items: NavItem[] }> = {
   worker: {
@@ -81,6 +118,8 @@ const NAV: Record<NavRole, { labelKey: string; color: string; icon: typeof HardH
       { labelKey: "nav.timeTracker", href: "/worker/tracker", icon: Clock },
       { labelKey: "nav.evidence", href: "/worker/evidence", icon: Camera },
       { labelKey: "nav.materials", href: "/worker/materials", icon: Package },
+      { labelKey: "nav.senseVision", href: "/worker/sense-vision", icon: ScanSearch },
+      { labelKey: "nav.myDictionary", href: "/worker/dictionary", icon: BookOpen },
       { labelKey: "nav.incidents", href: "/worker/incidents", icon: AlertTriangle },
       { labelKey: "nav.payments", href: "/worker/payments", icon: CreditCard },
       { labelKey: "nav.travel", href: "/worker/travel", icon: PlaneTakeoff },
@@ -128,32 +167,149 @@ const NAV: Record<NavRole, { labelKey: string; color: string; icon: typeof HardH
     labelKey: "role.admin",
     color: "#c58af9",
     icon: ShieldCheck,
-    items: [
-      // ── Core ──────────────────────────────────────────────────────────────
-      { labelKey: "nav.dashboard",      href: "/admin/dashboard",        icon: LayoutDashboard, section: "section.core" },
-      // ── Modules ───────────────────────────────────────────────────────────
-      { labelKey: "nav.missionControl", href: "/admin/mission-control",  icon: Activity,        section: "section.modules" },
-      { labelKey: "nav.workops",        href: "/admin/workops",          icon: Wrench },
-      { labelKey: "nav.laborEngine",    href: "/admin/labor-engine",     icon: Clock },
-      { labelKey: "nav.marketplace",    href: "/admin/marketplace",      icon: Store },
-      { labelKey: "nav.finance",        href: "/admin/finance",          icon: DollarSign },
-      { labelKey: "nav.trust",          href: "/admin/trust",            icon: ShieldCheck },
-      { labelKey: "nav.intelligence",   href: "/admin/intelligence",     icon: Brain },
-      { labelKey: "nav.toolHub",        href: "/admin/tool-hub",         icon: Package },
-      { labelKey: "nav.verticals",      href: "/admin/verticals",        icon: Layers },
-      { labelKey: "nav.settings",       href: "/admin/settings",         icon: Settings },
-      { labelKey: "nav.accountSecurity", href: "/admin/account",          icon: User },
-      // ── Verticals ─────────────────────────────────────────────────────────
-      { labelKey: "nav.agro",           href: "/agro",                   icon: Leaf,            section: "section.verticals" },
-      { labelKey: "nav.buildOps",       href: "/buildops",               icon: FolderKanban },
-      { labelKey: "nav.semseTools",     href: "/tools",                  icon: Wrench },
-      // ── Quick access ──────────────────────────────────────────────────────
-      { labelKey: "nav.users",          href: "/admin/users",            icon: Users,           section: "section.quick" },
-      { labelKey: "nav.communications", href: "/admin/communications",   icon: MessageSquare },
-      { labelKey: "nav.agents",         href: "/agents",                 icon: Bot },
-    ],
+    // Derived from ADMIN_MODULES (apps/web/lib/admin/admin-navigation.ts) —
+    // the single source of truth also used by the /admin/* hub pages. No
+    // per-item `section` markers: admin now renders as a flat list through
+    // the same path worker/client already use (see isNewNavSection below),
+    // instead of its own buildAdminSidebarGroups()-grouped branch. Legacy
+    // leaf routes (Jobs, Users, Contractors, etc.) are reachable as cards on
+    // each module's hub page rather than as direct sidebar links — see
+    // AUDIT_REMEDIATION_PLAN.md 1.17 for why this reduces (not reopens) the
+    // nav-renderer duplication documented there.
+    items: ADMIN_NAV_ITEMS,
   },
 };
+
+// Shared nav-content building blocks — used by both the mobile `Sidebar`
+// drawer and the desktop `AppShell` renderer in `AppLayoutInner` below, so
+// there is exactly one implementation of what a brand block / section
+// header / nav link / sign-out footer looks like. See
+// AUDIT_REMEDIATION_PLAN.md 1.17 for why these used to be two separate,
+// visually-diverging implementations (inline styles vs Tailwind classes).
+function NavBrand({
+  nav,
+  RoleIcon,
+  collapsed,
+  mobile,
+}: {
+  nav: (typeof NAV)[NavRole];
+  RoleIcon: typeof HardHat;
+  collapsed: boolean;
+  mobile?: boolean;
+}) {
+  const { t } = useLanguage();
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+      <div
+        style={{
+          width: "28px",
+          height: "28px",
+          borderRadius: "8px",
+          background: nav.color,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          flexShrink: 0,
+        }}
+      >
+        <RoleIcon size={15} color="#ecfffb" />
+      </div>
+      {(!collapsed || mobile) && (
+        <div>
+          <p style={{ fontSize: "13px", fontWeight: 800, color: "var(--ink)", lineHeight: 1 }}>SEMSE</p>
+          <p style={{ fontSize: "10px", color: nav.color, fontWeight: 600 }}>{t(nav.labelKey)}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function NavSignOutFooter({ collapsed }: { collapsed: boolean }) {
+  const { t } = useLanguage();
+  if (collapsed) return null;
+  return (
+    <a
+      href="/logout"
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "10px",
+        padding: "8px 10px",
+        borderRadius: "8px",
+        textDecoration: "none",
+        color: "var(--muted)",
+        fontSize: "13px",
+        fontWeight: 500,
+      }}
+    >
+      <LogOut size={15} />
+      {t("ui.signOut")}
+    </a>
+  );
+}
+
+function NavSectionHeader({ label, first }: { label: string; first: boolean }) {
+  return (
+    <div
+      style={{
+        fontSize: "10px",
+        fontWeight: 800,
+        color: "var(--faint, #6b7280)",
+        textTransform: "uppercase",
+        letterSpacing: "0.06em",
+        padding: first ? "2px 10px 6px" : "14px 10px 6px",
+      }}
+    >
+      {label}
+    </div>
+  );
+}
+
+function NavLink({
+  item,
+  active,
+  label,
+  color,
+  collapsed,
+  mobile,
+  onClose,
+}: {
+  item: NavItem;
+  active: boolean;
+  label: string;
+  color: string;
+  collapsed: boolean;
+  mobile?: boolean;
+  onClose?: () => void;
+}) {
+  const Icon = item.icon;
+  return (
+    <Link
+      href={item.href}
+      onClick={onClose}
+      title={collapsed ? label : undefined}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "10px",
+        padding: "9px 10px",
+        borderRadius: "8px",
+        marginBottom: "2px",
+        textDecoration: "none",
+        background: active ? `${color}18` : "transparent",
+        color: active ? color : "var(--muted)",
+        fontWeight: active ? 700 : 500,
+        fontSize: "13px",
+        transition: "background 0.12s, color 0.12s",
+        whiteSpace: "nowrap",
+        overflow: "hidden",
+      }}
+    >
+      <Icon size={16} style={{ flexShrink: 0 }} />
+      {(!collapsed || mobile) && <span>{label}</span>}
+    </Link>
+  );
+}
 
 function Sidebar({
   role,
@@ -200,43 +356,7 @@ function Sidebar({
           minHeight: "56px",
         }}
       >
-        {(!collapsed || mobile) && (
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <div
-              style={{
-                width: "28px",
-                height: "28px",
-                borderRadius: "8px",
-                background: nav.color,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexShrink: 0,
-              }}
-            >
-              <RoleIcon size={15} color="#ecfffb" />
-            </div>
-            <div>
-              <p style={{ fontSize: "13px", fontWeight: 800, color: "var(--ink)", lineHeight: 1 }}>SEMSE</p>
-              <p style={{ fontSize: "10px", color: nav.color, fontWeight: 600 }}>{t(nav.labelKey)}</p>
-            </div>
-          </div>
-        )}
-        {collapsed && !mobile && (
-          <div
-            style={{
-              width: "28px",
-              height: "28px",
-              borderRadius: "8px",
-              background: nav.color,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <RoleIcon size={15} color="#ecfffb" />
-          </div>
-        )}
+        <NavBrand nav={nav} RoleIcon={RoleIcon} collapsed={collapsed} mobile={mobile} />
         <button
           onClick={mobile ? onClose : onToggle}
           style={{
@@ -257,52 +377,30 @@ function Sidebar({
 
       <nav style={{ flex: 1, padding: "10px 8px", overflowY: "auto" }}>
         {nav.items.map((item, idx) => {
-          const Icon = item.icon;
-          const active = (pathname ?? "").startsWith(item.href);
-          const label = t(item.labelKey);
-          // A section marker starts a new visual group in the sidebar — e.g.
-          // splitting the Client role's buyer tools (post a job, projects,
-          // milestones) from its contractor tools (leads, marketplace, my
-          // bids), which previously sat in one undifferentiated list and were
-          // a real source of "which hat am I wearing" confusion. See
-          // AUDIT_REMEDIATION_PLAN.md 1.5.
+          // A section marker starts a new visual group in the sidebar —
+          // e.g. splitting the Client role's buyer tools (post a job,
+          // projects, milestones) from its contractor tools (leads,
+          // marketplace, my bids), which previously sat in one
+          // undifferentiated list and were a real source of "which hat am
+          // I wearing" confusion. See AUDIT_REMEDIATION_PLAN.md 1.5. Admin
+          // has no `section` markers (flat list from ADMIN_MODULES), so this
+          // is always false for that role.
           const showSectionHeader = isNewNavSection(nav.items, idx) && (!collapsed || mobile);
 
           return (
             <div key={item.href}>
               {showSectionHeader && (
-                <div style={{
-                  fontSize: "10px", fontWeight: 800, color: "var(--faint, #6b7280)",
-                  textTransform: "uppercase", letterSpacing: "0.06em",
-                  padding: idx === 0 ? "2px 10px 6px" : "14px 10px 6px",
-                }}>
-                  {t(item.section!)}
-                </div>
+                <NavSectionHeader label={t(item.section!)} first={idx === 0} />
               )}
-              <Link
-                href={item.href}
-                onClick={onClose}
-                title={collapsed && !mobile ? label : undefined}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "10px",
-                  padding: "9px 10px",
-                  borderRadius: "8px",
-                  marginBottom: "2px",
-                  textDecoration: "none",
-                  background: active ? `${nav.color}18` : "transparent",
-                  color: active ? nav.color : "var(--muted)",
-                  fontWeight: active ? 700 : 500,
-                  fontSize: "13px",
-                  transition: "background 0.12s, color 0.12s",
-                  whiteSpace: "nowrap",
-                  overflow: "hidden",
-                }}
-              >
-                <Icon size={16} style={{ flexShrink: 0 }} />
-                {(!collapsed || mobile) && <span>{label}</span>}
-              </Link>
+              <NavLink
+                item={item}
+                active={(pathname ?? "").startsWith(item.href)}
+                label={t(item.labelKey)}
+                color={nav.color}
+                collapsed={collapsed}
+                mobile={mobile}
+                onClose={onClose}
+              />
             </div>
           );
         })}
@@ -310,23 +408,7 @@ function Sidebar({
 
       {(!collapsed || mobile) && (
         <div style={{ padding: "12px 8px", borderTop: "1px solid var(--border)" }}>
-          <a
-            href="/logout"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "10px",
-              padding: "8px 10px",
-              borderRadius: "8px",
-              textDecoration: "none",
-              color: "var(--muted)",
-              fontSize: "13px",
-              fontWeight: 500,
-            }}
-          >
-            <LogOut size={15} />
-            {t("ui.signOut")}
-          </a>
+          <NavSignOutFooter collapsed={false} />
         </div>
       )}
     </aside>
@@ -392,6 +474,7 @@ function Topbar({
             <option value="light">{t("ui.light")}</option>
           </select>
         </label>
+        <CapabilityIndicator />
         <NotificationBell />
       </div>
     </header>
@@ -463,138 +546,47 @@ function AppLayoutInner({ children }: { children: ReactNode }) {
 
   const shellNavItems = useMemo(
     () =>
-      role === "admin"
-        ? shellNavModel.map((group) => {
-            const navGroup = group as unknown as { key: string; label: string; items: ShellNavLink[] };
-            return {
-              key: navGroup.key,
-              label: navGroup.label,
-              node: (
-                <div className="space-y-2">
-                  {!collapsed ? (
-                    <div className="px-3 pt-2 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">
-                      {navGroup.label}
-                    </div>
-                  ) : null}
-                  <div className="space-y-1">
-                    {navGroup.items.map((item) => {
-                      const Icon = item.icon;
-                      return (
-                        <Link
-                          key={`${item.href}-${item.labelKey}`}
-                          href={item.href}
-                          title={collapsed ? item.label : undefined}
-                          className={[
-                            "flex items-center gap-3 rounded-2xl px-3 py-2 text-sm transition-colors",
-                            item.active ? "bg-blue-300/10 text-[color:var(--ink)]" : "text-slate-400 hover:bg-blue-300/5 hover:text-[color:var(--ink)]",
-                          ].join(" ")}
-                        >
-                          <span className="flex h-5 w-5 items-center justify-center">
-                            <Icon size={16} />
-                          </span>
-                          {!collapsed ? <span className="truncate">{item.label}</span> : null}
-                        </Link>
-                      );
-                    })}
-                  </div>
-                </div>
-              ),
-            };
-          })
-        : shellNavModel.map((item, idx) => {
-            const navItem = item as ShellNavLink;
-            const Icon = navItem.icon;
-            // Mirrors the section-header grouping added to the mobile Sidebar
-            // component (AUDIT_REMEDIATION_PLAN.md 1.5) — this is the separate
-            // desktop AppShell nav renderer (see 1.17 for the known, deliberately
-            // deferred duplication between the two). The boundary-detection
-            // logic itself is shared via isNewNavSection; only the surrounding
-            // collapse/JSX differs per renderer.
-            const showSectionHeader = isNewNavSection(shellNavModel as ShellNavLink[], idx) && !collapsed;
-            return {
-              key: navItem.key,
-              label: navItem.label,
-              active: navItem.active,
-              node: (
-                <div key={navItem.key}>
-                  {showSectionHeader && (
-                    <div className="px-3 pt-3 pb-1 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">
-                      {t(navItem.section!)}
-                    </div>
-                  )}
-                  <Link
-                    href={navItem.href}
-                    title={collapsed ? navItem.label : undefined}
-                    className={[
-                      "flex items-center gap-3 rounded-2xl px-3 py-2 text-sm transition-colors",
-                      navItem.active ? "bg-blue-300/10 text-[color:var(--ink)]" : "text-slate-400 hover:bg-blue-300/5 hover:text-[color:var(--ink)]",
-                    ].join(" ")}
-                  >
-                    <span className="flex h-5 w-5 items-center justify-center">
-                      <Icon size={16} />
-                    </span>
-                    {!collapsed ? <span className="truncate">{navItem.label}</span> : null}
-                  </Link>
-                </div>
-              ),
-            };
-          }),
-    [shellNavModel, role, collapsed, t],
+      shellNavModel.map((navItem, idx) => {
+        // Mirrors the section-header grouping in the mobile Sidebar component
+        // (AUDIT_REMEDIATION_PLAN.md 1.5). Admin now shares this same flat
+        // renderer with worker/client instead of its own grouped branch (see
+        // AUDIT_REMEDIATION_PLAN.md 1.17) — the boundary-detection logic
+        // itself is shared via isNewNavSection; only the surrounding
+        // collapse/JSX differs between this renderer and the mobile Sidebar.
+        const showSectionHeader = isNewNavSection(shellNavModel, idx) && !collapsed;
+        return {
+          key: navItem.key,
+          label: navItem.label,
+          active: navItem.active,
+          node: (
+            <div key={navItem.key}>
+              {showSectionHeader && (
+                <NavSectionHeader label={t(navItem.section!)} first={idx === 0} />
+              )}
+              <NavLink
+                item={navItem}
+                active={navItem.active}
+                label={navItem.label}
+                color={nav.color}
+                collapsed={collapsed}
+              />
+            </div>
+          ),
+        };
+      }),
+    [shellNavModel, collapsed, t, nav.color],
   );
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: "var(--bg)" }}>
       <div className="desktop-sidebar">
         <AppShell
-          brand={
-            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-              <div
-                style={{
-                  width: "28px",
-                  height: "28px",
-                  borderRadius: "8px",
-                  background: nav.color,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  flexShrink: 0,
-                }}
-              >
-                <RoleIcon size={15} color="#ecfffb" />
-              </div>
-              {!collapsed ? (
-                <div>
-                  <p style={{ fontSize: "13px", fontWeight: 800, color: "var(--ink)", lineHeight: 1 }}>SEMSE</p>
-                  <p style={{ fontSize: "10px", color: nav.color, fontWeight: 600 }}>{t(nav.labelKey)}</p>
-                </div>
-              ) : null}
-            </div>
-          }
+          brand={<NavBrand nav={nav} RoleIcon={RoleIcon} collapsed={collapsed} />}
           navItems={shellNavItems}
           hideHeader
           collapsed={collapsed}
           onCollapsedChange={handleCollapsedChange}
-          sidebarFooter={
-            !collapsed ? (
-              <a
-                href="/logout"
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "10px",
-                  padding: "8px 10px",
-                  borderRadius: "8px",
-                  textDecoration: "none",
-                  color: "var(--muted)",
-                  fontSize: "13px",
-                  fontWeight: 500,
-                }}
-              >
-                <LogOut size={15} />
-                {t("ui.signOut")}
-              </a>
-            ) : null
-          }
+          sidebarFooter={<NavSignOutFooter collapsed={collapsed} />}
           className="min-h-screen"
           contentClassName="hidden"
         >
@@ -705,12 +697,14 @@ function AdminOnlyBanner() {
 export default function AppLayout({ children }: { children: ReactNode }) {
   return (
     <LanguageProvider>
-      <AgentPanelStateProvider>
-        <AppLayoutInner>{children}</AppLayoutInner>
-        <AgentChatPanel />
-        <PrometeoCopilot />
-        <AdminOnlyBanner />
-      </AgentPanelStateProvider>
+      <CapabilityProvider>
+        <AgentPanelStateProvider>
+          <AppLayoutInner>{children}</AppLayoutInner>
+          <AgentChatPanel />
+          <PrometeoCopilot />
+          <AdminOnlyBanner />
+        </AgentPanelStateProvider>
+      </CapabilityProvider>
     </LanguageProvider>
   );
 }

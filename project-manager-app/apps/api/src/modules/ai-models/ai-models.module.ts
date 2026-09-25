@@ -13,9 +13,10 @@ import { AiModelsController } from "./ai-models.controller.js";
 import { OperationalContextService } from "./context/operational-context.service.js";
 import { PrometeoOrchestratorService } from "./orchestrator/prometeo-orchestrator.service.js";
 import { SkillsModule } from "../skills/skills.module.js";
+import { DecisionLayerModule } from "./decision/decision-layer.module.js";
 
 @Module({
-  imports: [LLMModule, PrismaModule, forwardRef(() => FinanceModule), forwardRef(() => IntelligenceModule), SkillsModule, PrometeoModule],
+  imports: [LLMModule, PrismaModule, forwardRef(() => FinanceModule), forwardRef(() => IntelligenceModule), SkillsModule, PrometeoModule, DecisionLayerModule],
   controllers: [AiModelsController],
   providers: [
     AiModelRouterService,

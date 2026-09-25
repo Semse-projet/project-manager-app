@@ -111,7 +111,7 @@ export default function AdminDashboardPage() {
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-          <Activity size={16} color="#8b5cf6" />
+          <Activity size={16} color="var(--violet)" />
           <span style={{ fontSize: "13px", color: "var(--ink)", fontWeight: 500 }}>
             Un nuevo **Mission Control** ejecutivo y centrado en excepciones está disponible.
           </span>
@@ -120,7 +120,7 @@ export default function AdminDashboardPage() {
           href="/admin/mission-control"
           style={{
             fontSize: "12px",
-            color: "#8b5cf6",
+            color: "var(--violet)",
             fontWeight: 700,
             textDecoration: "none",
             background: "rgba(139, 92, 246, 0.15)",
@@ -245,13 +245,13 @@ export default function AdminDashboardPage() {
           {[
             { label: t("nav.operations"),   href: "/admin/ops",           icon: Activity,      color: "var(--brand)" },
             { label: t("nav.communications"), href: "/admin/communications", icon: MessageSquare, color: "#14b8a6" },
-            { label: t("nav.users"),        href: "/admin/users",         icon: Users,         color: "#8b5cf6" },
+            { label: t("nav.users"),        href: "/admin/users",         icon: Users,         color: "var(--violet)" },
             { label: t("nav.disputes"),     href: "/admin/disputes",      icon: AlertTriangle, color: "var(--error)" },
             { label: t("nav.finance"),      href: "/admin/finance",       icon: DollarSign,    color: "var(--ok)" },
-            { label: t("nav.compliance"),   href: "/admin/compliance",    icon: Shield,        color: "#f59e0b" },
+            { label: t("nav.compliance"),   href: "/admin/compliance",    icon: Shield,        color: "var(--warn)" },
             { label: t("nav.autonomy"),     href: "/admin/autonomy",      icon: Bot,           color: "#a855f7" },
             { label: t("nav.llmMetrics"),   href: "/admin/llm-metrics",   icon: Activity,      color: "#6366f1" },
-            { label: t("nav.reports"),      href: "/admin/reports",       icon: BarChart2,     color: "#06b6d4" },
+            { label: t("nav.reports"),      href: "/admin/reports",       icon: BarChart2,     color: "var(--info)" },
             { label: t("nav.fieldOps"),     href: "/admin/field-ops",     icon: Wrench,        color: "#84cc16" },
             { label: t("nav.qaCenter"),     href: "/admin/qa",            icon: CheckSquare,   color: "#f97316" },
             { label: "PMO",                 href: "/admin/pmo",           icon: Briefcase,     color: "#0ea5e9" },

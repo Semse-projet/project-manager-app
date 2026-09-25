@@ -22,8 +22,9 @@ export class LienSchedulerController {
   /**
    * POST /v1/admin/liens/check-deadlines
    *
-   * Ejecutar manualmente el chequeo de deadlines.
-   * Normalmente se ejecutaría por cron/BullMQ.
+   * Disparado automáticamente cada hora por apps/worker/src/main.mjs
+   * (kill switch LIEN_ALERTS_ENABLED); este endpoint sigue disponible para
+   * disparo manual (testing/debugging).
    */
   @Post('check-deadlines')
   async checkDeadlines() {

@@ -1,6 +1,6 @@
 # Roadmap maestro de SEMSEproject
 
-**Actualizado:** 2026-07-31
+**Actualizado:** 2026-09-07
 **Arquitectura:** [`docs/architecture/CURRENT_ARCHITECTURE.md`](docs/architecture/CURRENT_ARCHITECTURE.md)
 **Matriz:** [`docs/architecture/IMPLEMENTATION_STATUS_MATRIX.md`](docs/architecture/IMPLEMENTATION_STATUS_MATRIX.md)
 
@@ -105,13 +105,139 @@ aplicar cambios automaticos.
 - PI-05: instrumentacion auth/registro/wizard y funnel admin, completado;
 - PI-06: funnel economico derivado de Job/Bid/Contract/PaymentEscrow,
   completado;
-- PI-07: Friction Engine, siguiente incremento;
-- PI-08..PI-11: anomaly signals, Observer, Mission Control y hardening,
-  pendientes.
+- PI-07..PI-10: Friction Engine, anomaly signals y Observer
+  `experienceHealth`, completados (PR #322, merge commit ancestro
+  confirmado de `origin/main`, 2026-07-17);
+- PI-11.2: auditoría de privacidad en producción, aprobada — batch
+  adversario 100% redactado, 0 PII persistido, E2E navegador→BFF→API→Postgres
+  verificado (PR #326, 2026-07-17). Programa PI-00..PI-11 declarado
+  completo documentalmente en #326.
 
-El codigo PI-06 esta desplegado. La activacion de
-`PRODUCT_INTELLIGENCE_ENABLED` y
-`NEXT_PUBLIC_PRODUCT_INTELLIGENCE_ENABLED` no fue verificada.
+El código PI-00..PI-10 está desplegado (ancestro de `origin/main`). Según
+PR #326, `PRODUCT_INTELLIGENCE_ENABLED` y
+`NEXT_PUBLIC_PRODUCT_INTELLIGENCE_ENABLED` están activas y los 3 servicios
+reportaron `SUCCESS`; esta pasada no re-verificó esas variables en runtime de
+forma independiente.
+
+## Programa transversal — Consolidación Cognitiva (ADR-023)
+
+Reconcilia el vocabulario de una propuesta de arquitectura agéntica externa
+(Business Kernel, Prometeo Core, Agent Runtime, Model Gateway, etc.) contra
+el código y la taxonomía ya vigentes, sin renombrar ni reordenar F0-F9.
+
+Contrato: [`docs/architecture/ADR-023-sense-agentic-architecture-v1.md`](docs/architecture/ADR-023-sense-agentic-architecture-v1.md)
+(`ACCEPTED`).
+
+- `SPEC-GTW-001` (unificación del Model Gateway) y `SPEC-GTW-002`
+  (cache-control declarativo): escritos, `DRAFT`, precede/child spec de F7.
+- `SPEC-AGT-003` (retrieval de `AgentDecision` vía Prometeo): escrito,
+  `DRAFT`, child spec de F8.
+- `SPEC-AGT-004` (`ToolResult` multimodal tipado): escrito, `DRAFT`, child
+  spec de F7.
+- `SPEC-INT-001` (CLI Agent Adapter + MCP Gateway externo): retirado — ya
+  cubierto por `packages/agents/src/developer-runtime.ts` y por
+  `ADR-024-browser-agent-obscura.md` §12 (pendiente de revisión humana, no
+  de spec nuevo).
+
+Los cuatro specs escritos siguen `DRAFT`, pendientes de sign-off humano
+antes de `APPROVED` y de seguir el flujo `/speckit.plan` → `/speckit.tasks`
+→ `/speckit.implement`.
+
+## Programa transversal — Prometeo OS: Identidad Universal y Orquestación Externa
+
+Alinea el roadmap con la síntesis de producto en
+[`docs/vision/VISION_PROMETEO_OS_2026.md`](docs/vision/VISION_PROMETEO_OS_2026.md):
+Prometeo como orquestador conversacional multicanal, identidad de usuario
+con múltiples capacidades por proyecto, y evaluación (no activación) de
+orquestación de herramientas externas vía MCP. No reordena ni renombra
+F0-F9. Outline previo:
+[`docs/reportes/planning/plan_alineacion_prometeo_os_roadmap_sdd_2026-08-03.md`](docs/reportes/planning/plan_alineacion_prometeo_os_roadmap_sdd_2026-08-03.md).
+
+Dependencias explícitas:
+
+- **F2** (Prometeo Tool Registry gobernado) — la orquestación de
+  herramientas externas, si se aprueba, se conecta al mecanismo de
+  policy/audit/approval que F2 ya construyó; no se levanta un mecanismo
+  paralelo.
+- **F7** (Prometeo Multimodal) — sigue siendo dueño de voz/cámara/video
+  nativos; este programa los consume, no los duplica.
+- **Sin dependencia hacia F0** — F0 ya cerró (sincronizar la verdad
+  documental) y no tiene relación temática con identidad. El cambio de
+  identidad multi-rol se referencia contra el módulo Core
+  (`Membership`/`Role`, `packages/db/prisma/schema.prisma`), no contra una
+  fase F.
+
+Specs nuevos (todos `DRAFT`, pendientes de creación y de sign-off humano
+antes de `APPROVED`):
+
+- `docs/specs/core/universal-identity-multi-role.spec.md` — una cuenta,
+  múltiples capacidades por proyecto. El schema (`Membership` con PK
+  compuesta `[userId, orgId, roleId]`) ya lo permite a nivel de datos; el
+  spec cubre el cambio de producto/UX, no de schema.
+- `docs/specs/core/originador-referral-program.spec.md` — rol
+  originador/facilitador con recompensa atada a hitos verificables (no a
+  publicar). `risk: critical` por el gate §7 "Economía" de
+  `docs/SDD_GOVERNANCE.md`.
+- `docs/architecture/ADR-025-mcp-external-tool-gateway.md` — decisión
+  formal, en estado de propuesta, de si/cómo reabrir `SPEC-INT-001`
+  (retirado más arriba). No es alcance activo hasta que se apruebe.
+
+## Programa transversal — Consolidación del producto móvil (`apps/mobile`)
+
+> Iniciativa transversal (2026-09). No reordena F0-F9; consolida el cliente
+> móvil del ecosistema actual (Expo SDK 57, React Native) contra el API de
+> Railway y `@semse/schemas`, sin reescritura, sin renombrar y sin borrar
+> ninguna de las copias/checkouts de origen.
+
+Contrato: [`docs/specs/ui/mobile-product-consolidation.spec.md`](docs/specs/ui/mobile-product-consolidation.spec.md)
+(`APPROVED`, `risk: high`) + plan/tasks/checklist/analyze +
+[`docs/consolidation/MOBILE_SOURCE_REGISTER.md`](docs/consolidation/MOBILE_SOURCE_REGISTER.md).
+Rama de integración `feat/semse-product-consolidation-20260906`, **PR draft #598**,
+base `main@88171003`.
+
+Entregables al corte (2026-09-07):
+
+- **Capa de sesión** (`ad7cb6f1`): `src/config/environment.ts` + `src/api/client.ts`
+  reescrito — una sola conexión, variable pública histórica y canónica,
+  validación de origen/rutas absolutas, timeout, **refresh concurrente**
+  (una sola renovación compartida), logout que no restaura la sesión previa,
+  expiración comunicada al `AuthProvider`. Autoridad (tenant/org/rol) siempre
+  del backend vía `GET /v1/auth/me`.
+- **Timer offline** (`ad7cb6f1`): `src/timer/localTimer.ts` — modo local sólo
+  ante fallo de red, no acepta sesiones remotas imposibles, no da un stop por
+  sincronizado sin respuesta; API de pausa/reanudar/entrada manual.
+- **Prometeo en móvil** (`ad7cb6f1`): `PrometeoScreen` + `src/api/prometeo.ts`
+  → `POST /v1/ai-models/prometeo/chat`; acciones propuestas sujetas a aprobación.
+- **Pull-to-refresh del dashboard Admin** (`50045d9e`, portado de
+  `Desktop/project-manager-app`).
+- **Bump Expo SDK 57** a último patch (57.0.9→57.0.20, RN 0.86.3), `22ce0a06`.
+- Verificación: `tsc --noEmit` limpio; **jest 45/45 · 213/213**;
+  `expo export` iOS+Android OK; `spec:validate:strict` 119/0; build EAS
+  Android `preview` `680386ee` `finished` desde `22ce0a06`.
+
+Hallazgos de inventario:
+
+- **Pagos móvil: no era un gap.** La superficie Worker (`PaymentsScreen`,
+  `PayoutMethodScreen`, `api/payments.ts`, `config/stripe.ts`) ya estaba en
+  `main@88171003` (PRs #550/#558). El único otro `PaymentsScreen` es del
+  spike retirado (PR #439) con credencial hardcodeada — no se recuperó.
+- `Desktop/project-manager-app` (HEAD `34143dc9`): de sus cambios móviles sin
+  commitear sólo el pull-to-refresh era mejora real; el resto ya está superado
+  por la Fase 7 completa de Admin en `main`.
+
+Gates de salida (abiertos):
+
+- **Canary autenticado por rol en device** (iOS/Android) — no cerrado por
+  compilar (spec §8, T-060);
+- **Build iOS** — cuota EAS del plan Free agotada, resetea 2026-10-01;
+- **Sesiones en vivo (LiveSession)** — recuperación por contrato aparte, con
+  spec propio + migración SQL aditiva + tests de ownership antes de suscribir
+  SSE: [`docs/consolidation/LIVESESSION_RECOVERY_CONTRACT.md`](docs/consolidation/LIVESESSION_RECOVERY_CONTRACT.md);
+- **Procedencia** de los commits `2deefd26…`/`cd534762…` de builds EAS
+  recientes — en otra máquina del propietario, sin pushear;
+- **CI real** — mismo hallazgo transversal de infra (ver matriz §9);
+- **Docs canónicas** — esta entrada y la fila de la matriz; `SPEC_INDEX`
+  regenerado.
 
 ## F2 — Prometeo Tool Registry gobernado (GOBERNANZA EN MAIN — PRs #369/#371/#372; adapters `vision.*` cableados 2026-07-20 salvo `analyze_video`)
 
@@ -172,8 +298,10 @@ abre la implementación reversible.
 
 ## F4 — Mission Control 2.0
 
-**Child SDD 2.0 `operations.mission-control-2` aprobado; implementación local
-completa y pendiente de CI, merge, deploy y canary.**
+**Child SDD 2.0 `operations.mission-control-2` aprobado; implementación
+mergeada y desplegada (PR #486, merge commit `afb2dccd`, 2026-07-31;
+ancestro confirmado de `origin/main`). Canary `tenant_default` no verificado
+en esta pasada — no se infiere activación desde merge/deploy.**
 
 Contrato ejecutable:
 
@@ -195,7 +323,7 @@ Unificar exceptions y acciones de:
 Gate de salida: pause/resume/retry/replay/escalate tienen permisos, motivo,
 auditoria y runbook.
 
-Estado local al 2026-07-31:
+Estado mergeado/desplegado al 2026-07-31:
 
 - cola tenant-safe desde signals, outbox/consumers, AgentRuns, approvals, loops,
   incidents, health/Observer y worker queue;
@@ -274,6 +402,68 @@ Entregables:
 
 Gate de salida: RPO/RTO demostrados, runbooks operables y journeys criticos
 estables durante canary.
+
+## F10 — Identidad Universal y Orquestacion Externa
+
+> Iniciativa transversal nueva (2026-08). No reordena F0-F9; depende de F2 y
+> F7 y extiende Core/Identity (F0). Origen:
+> [`docs/vision/VISION_PROMETEO_OS_2026.md`](docs/vision/VISION_PROMETEO_OS_2026.md).
+
+Contrato ejecutable:
+
+- [`docs/specs/core/universal-identity-multi-role.spec.md`](docs/specs/core/universal-identity-multi-role.spec.md) — `APPROVED` 2026-08-04
+- [`docs/specs/core/originador-referral-program.spec.md`](docs/specs/core/originador-referral-program.spec.md) — `APPROVED` 2026-08-04; recompensa hibrida (bono fijo + % de `platformFeeCents`) gateada por `StripeConnectAccount`, multi-pais (Latinoamerica priorizada tras EE.UU.); Fase 3 bloqueada solo por el gate legal por pais (§12b), la dependencia F5 se retiro tras confirmar que reutiliza el mismo mecanismo de pago que ya usan los profesionales
+- [`docs/architecture/ADR-025-mcp-external-tool-gateway.md`](docs/architecture/ADR-025-mcp-external-tool-gateway.md) — decision de arquitectura, `PROPOSED`, no alcance activo
+
+`APPROVED` autoriza el contrato, no implica código completo: ambas specs
+están `code_status: IN_PROGRESS` (ver `IMPLEMENTATION_STATUS_MATRIX.md`).
+Identidad universal tiene Fase 1-2 (`GET /v1/users/me/capabilities`)
+mergeada y desplegada (PR #539), más el selector de capacidad en Web
+implementado 2026-08-13 y mergeado (PR #568) detrás de un flag de
+canario apagado (`SEMSE_IDENTITY_CAPABILITY_UI_ENABLED`/
+`_CANARY_TENANT_IDS`). Originador tiene el RBAC self-service de Connect
+y la corrección de reward math mergeados y desplegados (PR #538), más
+Fase 1-2 (registro/validación de originador, sin dinero real —
+`POST /v1/projects/:projectId/originator`, modelo `OriginatorReward`) y
+el enganche de `OriginatorReward` a los dos triggers reales del spec
+(primer milestone financiado, proyecto completado) implementados
+2026-08-13 detrás de flag apagado (PR #569, abierto sin mergear). La
+Fase 3 de recompensa real (pago efectivo, bloqueada por gate legal por
+país) sigue sin iniciar.
+
+Entregables:
+
+- modelo de producto/UX para que un usuario tenga mas de una capacidad
+  activa (cliente/profesional/originador) sin forzar un rol fijo por
+  sesion — el schema de `Membership` ya lo permite, el gap es de producto;
+- programa de recompensa para el rol "originador/facilitador", atado a
+  hitos verificables (proyecto validado, primera propuesta, profesional
+  contratado, primer milestone financiado, proyecto completado) — nunca a
+  solo publicar;
+- decision explicita, via ADR, sobre si/como reabrir orquestacion de
+  herramientas externas (GitHub/Vercel/Railway/Docker) via MCP, dado que
+  `SPEC-INT-001` ya se evaluo y se retiro (superseded por
+  `packages/agents/src/developer-runtime.ts`).
+
+Dependencias declaradas:
+
+- **F2 (Tool Registry)** — cualquier tool externa que se apruebe se conecta
+  al mismo mecanismo de policy/audit/approval, no a uno paralelo.
+- **F7 (Prometeo Multimodal)** — sigue siendo el dueno de voz/vision
+  nativas; F10 las consume, no las duplica.
+- **Core/Identity (F0)** — el modelo multi-capacidad es un cambio
+  fundacional de identidad/RBAC, no una feature de UI aislada.
+
+Fuera de alcance explicito hasta que el ADR de MCP se apruebe: ninguna tool
+externa se registra en el Tool Registry, y `prometeo-core.spec.md` mantiene
+su alcance acotado a modulos internos.
+
+Gate de salida: specs indexados (`pnpm spec:index`) y validados
+(`pnpm spec:validate:strict`) — cumplido para las dos specs de este
+tramo (`APPROVED` 2026-08-04, investigacion externa y gate de pagos
+`critical` revisados explicitamente, ver spec de originador §12b) — y el
+ADR de MCP resuelto (aprobado o descartado formalmente) antes de que
+cualquier tool externa entre al registry, todavia pendiente.
 
 ## Reglas del programa
 

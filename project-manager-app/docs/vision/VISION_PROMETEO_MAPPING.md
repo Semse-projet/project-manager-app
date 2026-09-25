@@ -3,6 +3,14 @@
 > Documento vivo. Fecha: 2026-05-25.
 > Compara los componentes de la visión civilizatoria de Prometeo contra el estado real del monorepo.
 
+> **Actualización 2026-08:** la sección 6 (Agentes Autónomos) de este mapeo
+> ya identificaba el módulo de agentes como "el más avanzado del roadmap".
+> Desde esta fecha se construyó bastante más sobre esa misma base (Runtime
+> P2 desplegado, Tool Registry gobernado, workspace multimodal) — ver
+> [VISION_PROMETEO_OS_2026.md](VISION_PROMETEO_OS_2026.md) para el mapeo
+> actualizado de esa parte específicamente. El resto de este documento
+> (identidad soberana, DAO, token, post-quantum) no cambió de estado.
+
 ---
 
 ## Leyenda de estado
@@ -124,6 +132,15 @@
 | Agentes multi-nodo (distribuidos) | ❌ NO EXISTE | — |
 
 **Estado más avanzado del roadmap:** La arquitectura de agentes de SEMSE ya implementa la mayoría de la capa de "agentes autónomos especializados" de la visión. Es el módulo más maduro.
+
+**Actualización 2026-08-04 — Prometeo Runtime P2:** desde esta fecha existe
+además un orquestador conversacional desplegado (no listado arriba, escrito
+en mayo): loop OBSERVE→INTERPRET→PLAN→APROBACIÓN→EXECUTE→VERIFY→LEARN
+(`docs/SEMSE_CONTEXT.md`) con Tool Registry gobernado (`docs/specs/prometeo/tool-registry-governance.spec.md`,
+`status: APPROVED`) y ruteo de intención a los agentes de esta tabla en
+diseño (`docs/specs/agents/prometeo-core.spec.md`, `status: DRAFT`). Ver
+`VISION_PROMETEO_OS_2026.md` — esto es "Prometeo Operativo", distinto del
+"Prometeo Institucional" de la sección 1-2 de este documento.
 
 ---
 

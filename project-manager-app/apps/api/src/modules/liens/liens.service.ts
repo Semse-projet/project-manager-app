@@ -1,5 +1,5 @@
-// @ts-nocheck
 import { Injectable, Logger, BadRequestException, InternalServerErrorException } from '@nestjs/common';
+import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service.js';
 import { LienGridClient, LienGridDeadlines } from '../../integrations/liengrid.js';
 
@@ -28,9 +28,14 @@ export class LiensService {
     this.logger.log(`Creating lien calendar: ${projectId} / ${stateName}`);
 
     // 1. Verificar que el proyecto existe
+    // Project has no address field — the location lives on its parent Job
+    // (checked against packages/db/prisma/schema.prisma 2026-08-27; the old
+    // `select: { address: true }` referenced a field that doesn't exist on
+    // Project and made this query rejected outright by Prisma — this is
+    // the live POST /v1/projects/:projectId/liens/calendar endpoint).
     const project = await this.prisma.project.findUniqueOrThrow({
       where: { id: projectId },
-      select: { id: true, address: true, tenantId: true },
+      select: { id: true, tenantId: true, job: { select: { location: true } } },
     });
 
     // 2. Verificar que no existe ya un calendar para esta combinación
@@ -49,7 +54,7 @@ export class LiensService {
     let deadlines: LienGridDeadlines;
     try {
       deadlines = await this.liengridClient.getDeadlines({
-        address: project.address || 'Unknown',
+        address: project.job.location || 'Unknown',
         state: stateName,
         projectStartDate: projectStartDate.toISOString(),
         apiKey: process.env.LIENGRID_API_KEY || '',
@@ -75,7 +80,7 @@ export class LiensService {
         requiresNotary: deadlines.requiresNotary,
         requiresCertifiedMail: deadlines.requiresCertifiedMail,
         status: 'CREATED',
-        liengridResponseJson: deadlines,
+        liengridResponseJson: deadlines as unknown as Prisma.InputJsonValue,
         lastFetchedAt: new Date(),
       },
     });
@@ -113,6 +118,19 @@ export class LiensService {
         notices: true,
         waivers: true,
       },
+    });
+  }
+
+  /**
+   * Obtener un waiver específico por id.
+   * Usado por WaiverController.getSignUrl() — no existía (llamaba a
+   * getLienWaiver, que nunca fue un método real de esta clase; verificado
+   * con tsc quitando temporalmente el @ts-nocheck de waiver.controller.ts
+   * 2026-08-27).
+   */
+  async getLienWaiver(waiverId: string): Promise<any> {
+    return await this.prisma.lienWaiver.findUniqueOrThrow({
+      where: { id: waiverId },
     });
   }
 
@@ -179,6 +197,11 @@ export class LiensService {
       where: { id: lienCalendarId },
     });
 
+    // `sentVia` es requerido en el schema (sin @default) — faltaba aquí
+    // también (mismo bug que en NoticeGeneratorService.
+    // generateNoticeFromCalendar(), ver ese archivo). Este método
+    // (createNotice) no tiene ningún caller real en el repo, pero se
+    // corrige igual para no dejar una trampa para quien lo conecte.
     return await this.prisma.lienNotice.create({
       data: {
         lienCalendarId,
@@ -188,6 +211,7 @@ export class LiensService {
         generatedAt: new Date(),
         createdBy: data.createdBy,
         status: 'DRAFT',
+        sentVia: 'certified_mail',
       },
     });
   }
@@ -206,11 +230,18 @@ export class LiensService {
       requiredBefore: Date;
     }
   ): Promise<any> {
+    // `releaseAmount` is `Decimal(15,2)` in the schema (dollars, not
+    // integer cents) — checkWaiverRequirements() below already compares
+    // it as a plain dollar number. The old `BigInt(amount * 100)` stored
+    // cents while the read side expected dollars, a ~100x mismatch;
+    // Prisma would also reject a BigInt against a Decimal column outright.
+    // No live caller today (found via the same tsc-against-real-types
+    // sweep as the other liens fixes), fixed for correctness anyway.
     return await this.prisma.lienWaiver.create({
       data: {
         lienCalendarId,
         waiverType: data.waiverType,
-        releaseAmount: data.releaseAmount ? BigInt(Math.floor(data.releaseAmount * 100)) : null,
+        releaseAmount: data.releaseAmount ?? null,
         escrowId: data.escrowId,
         milestoneId: data.milestoneId,
         requiredBefore: data.requiredBefore,

@@ -136,7 +136,7 @@ export function AsistenteTab() {
       <div style={{ ...sectionCard, padding: "14px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           <div style={{ width: "34px", height: "34px", borderRadius: "10px", background: "rgba(139,92,246,.14)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <Bot size={17} color="#8b5cf6" />
+            <Bot size={17} color="var(--violet)" />
           </div>
           <div>
             <h3 style={{ fontSize: "14px", fontWeight: 800, color: "var(--ink)", margin: 0 }}>Cronos — asistente de horas</h3>
@@ -144,7 +144,7 @@ export function AsistenteTab() {
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: "5px", padding: "4px 9px", borderRadius: "999px", background: "rgba(16,185,129,.12)", color: "#059669", fontSize: "10px", fontWeight: 800 }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: "5px", padding: "4px 9px", borderRadius: "999px", background: "rgba(16,185,129,.12)", color: "var(--ok)", fontSize: "10px", fontWeight: 800 }}>
             <Lock size={11} /> 100% local · Ollama
           </span>
           <button type="button" onClick={handleClear} style={clearButton()}>
@@ -177,7 +177,7 @@ export function AsistenteTab() {
                   background: message.role === "user" ? "var(--brand-dim, rgba(59,130,246,.14))" : "rgba(139,92,246,.14)",
                 }}
               >
-                {message.role === "user" ? <User size={13} color="var(--brand)" /> : <Bot size={13} color="#8b5cf6" />}
+                {message.role === "user" ? <User size={13} color="var(--brand)" /> : <Bot size={13} color="var(--violet)" />}
               </div>
               <div style={{ maxWidth: "78%", display: "grid", gap: "3px" }}>
                 <div
@@ -195,7 +195,7 @@ export function AsistenteTab() {
                 >
                   {message.content}
                   {message.degraded ? (
-                    <div style={{ marginTop: "6px", fontSize: "10px", fontWeight: 700, color: "#f59e0b" }}>
+                    <div style={{ marginTop: "6px", fontSize: "10px", fontWeight: 700, color: "var(--warn)" }}>
                       ⚠ Ollama no respondió — mensaje de respaldo
                     </div>
                   ) : null}
@@ -210,7 +210,7 @@ export function AsistenteTab() {
           {sending ? (
             <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
               <div style={{ width: "28px", height: "28px", borderRadius: "999px", background: "rgba(139,92,246,.14)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <Bot size={13} color="#8b5cf6" />
+                <Bot size={13} color="var(--violet)" />
               </div>
               <div style={{ padding: "10px 14px", borderRadius: "14px", border: "1px solid var(--border)", background: "var(--bg)", fontSize: "13px", color: "var(--muted)" }}>
                 Cronos está pensando...

@@ -52,8 +52,19 @@ export default function TasksPage() {
   const [newPriority, setNewPrio] = useState("MEDIUM");
   const [newDue, setNewDue]       = useState("");
   const [reason, setReason]       = useState("");
+  // Rol del usuario en esta finca (T-050). null = desconocido → se muestran todas
+  // las acciones y el API decide, como antes.
+  const [viewerRole, setViewerRole] = useState<string | null>(null);
+  const canManageTasks = viewerRole === null || ["OWNER", "MANAGER", "SUPERVISOR"].includes(viewerRole);
 
   useEffect(() => { if (farmId) void load(); }, [farmId]);
+  useEffect(() => {
+    if (!farmId) return;
+    fetch(`/api/semse/agro/${encodeURIComponent(String(farmId))}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => setViewerRole(json?.data?.farm?.viewerRole ?? null))
+      .catch(() => setViewerRole(null));
+  }, [farmId]);
 
   async function load() {
     setLoading(true); setError(null);
@@ -155,7 +166,11 @@ export default function TasksPage() {
         });
         closeModal();
       } else {
-        setFormError(err?.message); setBusy(false);
+        const forbidden = err instanceof AgroSyncHttpError && err.status === 403;
+        setFormError(forbidden
+          ? "Tu rol en esta finca no permite esta acción (por ejemplo, la tarea está asignada a otra persona)."
+          : err?.message);
+        setBusy(false);
       }
     }
   }
@@ -174,9 +189,11 @@ export default function TasksPage() {
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 20 }}>
         <h1 style={{ fontSize: 20, fontWeight: 800, color: "var(--ink)", letterSpacing: "-0.03em" }}>Tareas operativas</h1>
-        <button className="btn-accent" onClick={() => setModal({ type: "create" })}>
-          <Plus size={13} /> Nueva tarea
-        </button>
+        {canManageTasks && (
+          <button className="btn-accent" onClick={() => setModal({ type: "create" })}>
+            <Plus size={13} /> Nueva tarea
+          </button>
+        )}
       </div>
 
       <nav className="tab-bar">
@@ -208,6 +225,8 @@ export default function TasksPage() {
       </div>
 
       {error && <div className="alert-banner alert-critical" style={{ marginBottom: 16 }}>{error}</div>}
+      {/* Errores de iniciar/completar/bloquear desde la lista (sin modal abierto). */}
+      {!modal && formError && <div className="alert-banner alert-critical" role="alert" style={{ marginBottom: 16 }}>{formError}</div>}
 
       {loading ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -218,7 +237,7 @@ export default function TasksPage() {
           <CheckSquare size={36} className="empty-icon" />
           <p className="empty-title">{filter === "ALL" ? "Sin tareas registradas" : `Sin tareas ${filter}`}</p>
           <p className="empty-desc">Crea tareas para planificar vacunaciones, pesajes, alimentación y más.</p>
-          {filter === "ALL" && (
+          {filter === "ALL" && canManageTasks && (
             <button className="btn-accent" onClick={() => setModal({ type: "create" })}>
               <Plus size={13} /> Nueva tarea
             </button>
@@ -299,10 +318,12 @@ export default function TasksPage() {
                         className="btn-danger" style={{ fontSize: 11, padding: "4px 12px" }}>
                         <Ban size={11} /> Bloquear
                       </button>
-                      <button onClick={() => { setReason(""); setModal({ type: "cancel", task }); }}
-                        className="btn-ghost" style={{ fontSize: 11, padding: "4px 12px" }}>
-                        <XCircle size={11} /> Cancelar
-                      </button>
+                      {canManageTasks && (
+                        <button onClick={() => { setReason(""); setModal({ type: "cancel", task }); }}
+                          className="btn-ghost" style={{ fontSize: 11, padding: "4px 12px" }}>
+                          <XCircle size={11} /> Cancelar
+                        </button>
+                      )}
                     </>
                   )}
                 </div>

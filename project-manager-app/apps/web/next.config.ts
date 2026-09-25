@@ -35,9 +35,18 @@ const securityHeaders = [
   },
   {
     key: "Permissions-Policy",
-    value: "camera=(), microphone=(), geolocation=(), payment=(), usb=(), serial=()",
+    value: "camera=(), microphone=(), geolocation=(self), payment=(), usb=(), serial=()",
   },
 ];
+
+// Sense Vision (spec: vision/sense-vision-field-library) is the one page that
+// opens the camera via getUserMedia, which camera=() blocks outright. Next
+// applies the LAST matching header with the same key, so this narrower entry
+// overrides only camera — same-origin only, every other feature unchanged.
+const senseVisionPermissionsPolicy = {
+  key: "Permissions-Policy",
+  value: "camera=(self), microphone=(), geolocation=(self), payment=(), usb=(), serial=()",
+};
 
 const nextConfig: NextConfig = {
   output: "standalone",
@@ -57,6 +66,10 @@ const nextConfig: NextConfig = {
       {
         source: "/:path*",
         headers: securityHeaders,
+      },
+      {
+        source: "/worker/sense-vision",
+        headers: [senseVisionPermissionsPolicy],
       },
     ];
   },

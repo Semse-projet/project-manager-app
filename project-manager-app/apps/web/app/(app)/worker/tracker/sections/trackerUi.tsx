@@ -35,8 +35,8 @@ export function shouldPreserveLocalEvent(caught: unknown): boolean {
 // Paleta categórica por propósito, validada (contraste/CVD) sobre superficie clara y oscura.
 export const PURPOSE_CHART_COLORS: Record<TimeEntryView["purpose"], string> = {
   job_linked: "var(--brand)",
-  payable: "#d97706",
-  personal: "#8b5cf6",
+  payable: "var(--warn)",
+  personal: "var(--violet)",
 };
 
 export const PURPOSE_SHORT_LABELS: Record<TimeEntryView["purpose"], string> = {
@@ -45,7 +45,7 @@ export const PURPOSE_SHORT_LABELS: Record<TimeEntryView["purpose"], string> = {
   personal: "Personal",
 };
 
-export const FREE_PROJECT_SWATCHES = ["var(--brand)", "#d97706", "#059669", "#dc2626", "#8b5cf6", "#0891b2"];
+export const FREE_PROJECT_SWATCHES = ["var(--brand)", "#d97706", "#059669", "#dc2626", "var(--violet)", "#0891b2"];
 
 export const sectionCard: CSSProperties = {
   background: "var(--surface)",
@@ -216,7 +216,7 @@ export function KpiCard({ label, value, hint, color, badge }: {
 export function ChangeBadge({ value }: { value: number | null }) {
   if (value === null || !Number.isFinite(value)) return null;
   const positive = value >= 0;
-  const color = positive ? "#059669" : "#dc2626";
+  const color = positive ? "var(--ok)" : "var(--error)";
   return (
     <span
       style={{
@@ -606,6 +606,10 @@ function localEntries(state: TrackerLocalState, now: Date, includeSyncedSession:
       hourlyRate: null,
       currency: "MXN",
       location: null,
+      checkInLatitude: null,
+      checkInLongitude: null,
+      checkInDistanceMeters: null,
+      checkInMethod: null,
       notes: session.notes ?? null,
       createdAt: session.startedAt,
       updatedAt: session.updatedAt,
@@ -634,6 +638,10 @@ function localEntries(state: TrackerLocalState, now: Date, includeSyncedSession:
       hourlyRate: event.hourlyRate ?? null,
       currency: event.currency ?? "MXN",
       location: event.location ?? null,
+      checkInLatitude: null,
+      checkInLongitude: null,
+      checkInDistanceMeters: null,
+      checkInMethod: null,
       notes: event.notes ?? null,
       createdAt: startedAt,
       updatedAt: startedAt,

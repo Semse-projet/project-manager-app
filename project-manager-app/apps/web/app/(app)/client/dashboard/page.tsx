@@ -9,6 +9,7 @@
 import { useEffect, useState } from "react";
 import { Briefcase, DollarSign, CheckSquare, AlertTriangle, Plus, ArrowRight, FolderKanban, Users, Star } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import { HtmlInCanvasPanel } from "@semse/ui";
 import type { JobRecordView } from "@semse/schemas";
 import { ClientPageHeader } from "../../../components/client/ClientPageHeader";
@@ -22,15 +23,15 @@ import { fetchRatings, type RatingListItem } from "../../../semse-api";
 // ─────────────────────────────────────────────────────────────
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
-  draft:       { label: "Borrador",    color: "#64748b", bg: "rgba(100,116,139,.12)" },
+  draft:       { label: "Borrador",    color: "var(--faint)", bg: "rgba(100,116,139,.12)" },
   posted:      { label: "Publicado",   color: "var(--brand)", bg: "rgba(59,130,246,.12)" },
-  reserved:    { label: "Reservado",   color: "#f59e0b", bg: "rgba(245,158,11,.12)" },
-  accepted:    { label: "Aceptado",    color: "#8b5cf6", bg: "rgba(139,92,246,.12)" },
-  in_progress: { label: "En progreso", color: "#06b6d4", bg: "rgba(6,182,212,.12)" },
-  review:      { label: "En revisión", color: "#f59e0b", bg: "rgba(245,158,11,.12)" },
+  reserved:    { label: "Reservado",   color: "var(--warn)", bg: "rgba(245,158,11,.12)" },
+  accepted:    { label: "Aceptado",    color: "var(--violet)", bg: "rgba(139,92,246,.12)" },
+  in_progress: { label: "En progreso", color: "var(--info)", bg: "rgba(6,182,212,.12)" },
+  review:      { label: "En revisión", color: "var(--warn)", bg: "rgba(245,158,11,.12)" },
   dispute:     { label: "En disputa",  color: "var(--error)", bg: "rgba(239,68,68,.12)" },
   completed:   { label: "Completado",  color: "var(--ok)", bg: "rgba(16,185,129,.12)" },
-  cancelled:   { label: "Cancelado",   color: "#64748b", bg: "rgba(100,116,139,.12)" },
+  cancelled:   { label: "Cancelado",   color: "var(--faint)", bg: "rgba(100,116,139,.12)" },
 };
 
 function formatBudget(min?: number, max?: number): string {
@@ -58,7 +59,7 @@ function preferredProfessionalLabel(job: JobRecordView): string | null {
 const CLIENT_TIER: Record<string, { label: string; color: string }> = {
   nuevo:        { label: "Nuevo",         color: "#64748b" },
   confiable:    { label: "Confiable",     color: "var(--brand)" },
-  preferido:    { label: "Preferido",     color: "#8b5cf6" },
+  preferido:    { label: "Preferido",     color: "var(--violet)" },
   elite:        { label: "Elite",         color: "var(--ok)" },
 };
 
@@ -146,7 +147,7 @@ export default function ClientDashboardPage() {
               gap: "7px",
               padding: "10px 18px",
               borderRadius: "10px",
-              background: "linear-gradient(135deg, var(--brand), #2563eb)",
+              background: "linear-gradient(135deg, var(--brand), var(--brand-dark))",
               color: "#fff",
               fontWeight: 700,
               fontSize: "13px",
@@ -349,9 +350,9 @@ export default function ClientDashboardPage() {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "10px" }}>
           {[
             { label: "Publicar nuevo trabajo", href: CLIENT_ROUTES.newJob,      icon: Plus,         color: "var(--brand)" },
-            { label: "Proyectos y copiloto",   href: CLIENT_ROUTES.projects,    icon: FolderKanban, color: "#8b5cf6" },
+            { label: "Proyectos y copiloto",   href: CLIENT_ROUTES.projects,    icon: FolderKanban, color: "var(--violet)" },
             { label: "Ver milestones",         href: CLIENT_ROUTES.milestones,  icon: CheckSquare,  color: "var(--ok)" },
-            { label: "Historial pagos",        href: CLIENT_ROUTES.payments,    icon: DollarSign,   color: "#ff6a00" },
+            { label: "Historial pagos",        href: CLIENT_ROUTES.payments,    icon: DollarSign,   color: "var(--accent)" },
             { label: pendingBidCount > 0 ? `Propuestas recibidas (${pendingBidCount})` : "Propuestas recibidas", href: "/client/proposals", icon: Users, color: "#6366f1" },
             { label: "Disputas abiertas",      href: clientDisputesHref({ status: "open" }), icon: AlertTriangle, color: "var(--error)" },
           ].map(action => {
@@ -402,7 +403,7 @@ function EmptyState() {
         borderStyle: "dashed",
       }}
     >
-      <Briefcase size={40} style={{ color: "var(--faint)", margin: "0 auto 14px" }} />
+      <Image src="/brand/empty-states/client-jobs.png" alt="" width={64} height={64} style={{ margin: "0 auto 14px", display: "block" }} />
       <p style={{ fontSize: "15px", fontWeight: 700, color: "var(--ink)", marginBottom: "6px" }}>
         Aún no tienes trabajos
       </p>

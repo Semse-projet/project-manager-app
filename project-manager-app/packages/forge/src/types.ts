@@ -20,6 +20,18 @@ export const forgeRunStates = [
 ] as const;
 export type ForgeRunState = (typeof forgeRunStates)[number];
 
+export const forgeTaskStatuses = [
+  "pending",
+  "ready",
+  "running",
+  "blocked_on_dependency",
+  "blocked_on_approval",
+  "succeeded",
+  "failed",
+  "cancelled"
+] as const;
+export type ForgeTaskStatus = (typeof forgeTaskStatuses)[number];
+
 export const forgeAgentRoles = [
   "forge-supervisor",
   "spec-architect",
@@ -111,6 +123,10 @@ export type ForgeTaskPacket = {
   targetBranch: string;
   environment: "sandbox" | "local" | "ci" | "staging" | "production";
   metadata: Record<string, string>;
+  /** Optional for backward compat with rows persisted before scheduling existed — see dag.ts's deriveTaskStatus(). */
+  status?: ForgeTaskStatus;
+  /** Lower number = higher priority, same convention as AgentQueueService's AGENT_PRIORITY. Unset tasks sort last. */
+  priority?: number;
 };
 
 export type ForgePolicyDecision = "allow" | "deny" | "require_approval";
@@ -167,6 +183,10 @@ export type ForgeRun = {
     status: "pending" | "approved" | "rejected";
     actor?: string;
     at?: string;
+    /** Actor whose action created the need for this approval — used to block self-approval. */
+    requestedBy?: string;
+    /** Distinct actors who have approved so far. dual_control needs 2; every other mode needs 1. */
+    approvedBy?: string[];
   }>;
   events: ForgeEvent[];
   agentRunIds: string[];

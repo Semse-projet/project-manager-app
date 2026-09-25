@@ -99,18 +99,114 @@ activación sigue limitada por flags y allowlists; no es rollout global.
 - `membership.created`
 - `membership.updated`
 
-## Jobs
+## Jobs & Bids Event Projection
+
+Reconciliación 2026-08-26 (ver
+[`../specs/operations/jobs-bids-event-projection.spec.md`](../specs/operations/jobs-bids-event-projection.spec.md)):
+la lista anterior de `## Jobs` (`job.posted`, `job.reserved`, `job.started`,
+`job.review_requested`, `job.partially_paid`, `job.disputed`,
+`job.cancelled`) era aspiracional — orientada a las transiciones FSM, no a
+lo que `jobs.service.ts` emite realmente. El código solo emite tres tipos,
+vía `DomainEventBus` (no outbox) desde `jobs.service.ts`:
 
 - `job.created`
-- `job.posted`
-- `job.reserved`
-- `job.accepted`
-- `job.started`
-- `job.review_requested`
-- `job.partially_paid`
-- `job.completed`
-- `job.disputed`
-- `job.cancelled`
+- `job.status_changed`
+- `job.preferred_professional_selected`
+
+Esta spec agrega el envelope v2 versionado para esos tres (dual-write junto
+al `DomainEventBus` existente, que se mantiene intacto) y dos eventos
+nuevos de `bids` que no existían en ningún catálogo hasta ahora:
+
+- `job.created.v1`
+- `job.status_changed.v1`
+- `job.preferred_professional_selected.v1` (schema reservado — el productor
+  de este evento en outbox no está instrumentado todavía, fuera del
+  alcance de esta spec; ver spec §6)
+- `bid.created.v1`
+- `bid.accepted.v1`
+- `bid.rejected.v1` (emitido por-bid, uno por cada bid competidor que
+  pierde cuando otro es aceptado — no agregado)
+
+Módulo/agregado: `jobs` / `Job` para los tres `job.*`; `bids` / `Bid` para
+los tres `bid.*`. Consumer: `jobs-bids-projection.v1`, registrado en el
+dispatch genérico de `domain-event-consumer.service.ts` (mismo mecanismo
+de idempotencia `DomainEventConsumption` que `evidence-readiness.v1` /
+`project-lifecycle-projection.v1`). Rebuild tenant-scoped desde estado
+actual de `Job`+`Bid` (no aplicación de deltas), persistido con CAS por
+`revision`+`sourceUpdatedAt` en `JobsBidsProjection`, mismo molde que
+`ProjectLifecycleProjection`.
+
+Read-through: `OperationalContextService.buildContext()` lee el campo
+`jobs` desde la proyección solo si `SEMSE_JOBS_PROJECTION_READTHROUGH_ENABLED`
+y el tenant está en `SEMSE_JOBS_PROJECTION_CANARY_TENANT_IDS`, con fallback
+obligatorio a la query directa (`prisma.job.findMany()`) si la lectura
+falla o la proyección todavía no alcanzó la cantidad real de jobs del
+tenant (backfill en curso) — no negociable en el path de `POST
+/prometeo/chat`, que llama `buildContext()` sin `.catch()`.
+
+Activación (`SEMSE_JOBS_PROJECTION_ENABLED`,
+`SEMSE_JOBS_PROJECTION_PERSIST_ENABLED`,
+`SEMSE_JOBS_PROJECTION_CANARY_TENANT_IDS`,
+`SEMSE_JOBS_PROJECTION_READTHROUGH_ENABLED`) sigue
+`docs/runbooks/JOBS_BIDS_PROJECTION_CANARY.md` — no desplegada/activada
+todavía al momento de este cambio (`activation_status: INACTIVE` en el
+frontmatter de la spec).
+
+## Satellite Webhooks (SAT-007)
+
+Ver
+[`../specs/satellites/SAT-007-outbound-webhooks.spec.md`](../specs/satellites/SAT-007-outbound-webhooks.spec.md).
+Cierra un gap de documentación preexistente (spec §6, plan §1.1): tres
+eventos ya se emitían en producción sin figurar en ningún catálogo —
+
+- `job.matched` (`marketplace.agent.ts`, vía `notifications.handleEvent()`)
+- `job.completed` (`jobs.service.ts:systemCompleteJob`, ídem)
+- `rating.requested` (`jobs.service.ts:systemCompleteJob`, ídem)
+
+`milestone.approved`/`milestone.rejected` ya estaban documentados arriba
+(`## Milestones`) — sin gap ahí, solo ganan versión `.v1`.
+
+**Hallazgo crítico de esta spec:** ninguno de los 5 eventos del catálogo
+de webhooks (los tres de arriba + `milestone.approved`/`milestone.rejected`)
+tenía respaldo en el outbox de dominio v2 (`DomainOutboxEvent`) — solo
+vivían en `notifications.handleEvent()`/`DomainEventBus` (v1, legacy,
+sin persistencia). SAT-007 agrega productores de outbox **best-effort**
+(no envueltos en `$transaction` nueva — ninguno de estos call sites tiene
+una escritura de dominio con la que emparejar el insert en ese instante
+exacto; el hecho de dominio ya está durablemente registrado por otro
+evento o ya ocurrió) para las versiones `.v1`:
+
+- `job.matched.v1`
+- `job.completed.v1`
+- `rating.requested.v1`
+- `milestone.approved.v1`
+- `milestone.rejected.v1`
+
+Consumer: `satellite-webhooks.v1`, registrado en el dispatch genérico de
+`domain-event-consumer.service.ts`. A diferencia de los demás consumers
+del registro, éste hace fan-out: por cada evento, entrega HTTP firmada
+(HMAC-SHA256) a todos los `SatelliteWebhook` `ACTIVE` cuyo `events[]`
+incluya el nombre bare correspondiente. El conteo de fallos consecutivos
+que suspende un webhook (5) vive en la fila `SatelliteWebhook` misma, no
+en `DomainEventConsumption` — son mecanismos de retry independientes (uno
+por-evento vía el outbox estándar, otro por-webhook vía
+`consecutiveFailures`).
+
+Un satélite solo puede suscribirse a un evento si su token tiene el scope
+requerido (además del scope general `events:subscribe`):
+
+| Evento | Scope requerido |
+|---|---|
+| `job.matched` | `jobs:read` |
+| `job.completed` | `jobs:read` |
+| `rating.requested` | `jobs:read` |
+| `milestone.approved` | `milestones:read` |
+| `milestone.rejected` | `milestones:read` |
+
+Activación (`SATELLITE_WEBHOOKS_ENABLED`) — no desplegada/activada
+todavía al momento de este cambio (`activation_status: INACTIVE` en el
+frontmatter de la spec); off ⇒ el registro de webhooks devuelve 503 y el
+consumer no entrega, sin perder eventos encolados.
 
 ## Reservations
 
@@ -144,6 +240,30 @@ activación sigue limitada por flags y allowlists; no es rollout global.
 - `evidence.review_started`
 - `evidence.accepted`
 - `evidence.rejected`
+
+## Sense Vision (spec: `docs/specs/vision/sense-vision-field-library.spec.md`)
+
+Eventos de auditoría (`AuditService`), emitidos solo por cambios de dominio del
+usuario — nunca por cada escaneo (ver "Regla anti-ruido"). Ningún payload
+contiene imágenes.
+
+- `vision.dictionary_saved` — `UserDictionaryItem`; `{ libraryItemId, slug, source }`
+- `vision.dictionary_removed` — `UserDictionaryItem`; `{ libraryItemId }`
+- `vision.recognition_corrected` — `VisionCorrection`; `{ predictedLibraryItemId, selectedLibraryItemId, predictedConfidence, source }`
+
+Consumidor: auditoría/evaluación del reconocedor. La telemetría de escaneo
+(`vision.scan_started`, `vision.scan_completed`, …) es ProductEvent de UI,
+no DomainEvent — vive en `PRODUCT_EVENT_ALLOWLIST`
+(`packages/schemas/src/product-events.schema.ts`).
+
+## Project Originator (F10)
+
+- `project.originator_proposed.v1`
+- `project.originator_validated.v1`
+
+`project.originator_reward_earned.v1` (spec §6) no se declara todavía —
+sigue la misma disciplina del resto del catálogo de no registrar un evento
+sin productor real (ver `docs/specs/core/originador-referral-program.spec.md`).
 
 ## Payments / Escrow
 
@@ -196,6 +316,29 @@ Prometeo reutiliza los eventos canónicos existentes; no introduce nombres nuevo
 Ambos se emiten vía `DomainEventBus` (audit + routing canónico). La detección de
 contexto, el chat y las quick-actions read-only del Copilot, y la navegación del
 Workspace, son estado de UI y **no** producen eventos (regla anti-ruido).
+
+### Prometeo — Live Sessions
+
+Reservado por [`../specs/prometeo/live-sessions.spec.md`](../specs/prometeo/live-sessions.spec.md)
+(`APPROVED` 2026-09-07). **Productor pendiente** — no hay módulo `live-sessions`
+en `main` todavía; los nombres quedan reservados para que la implementación no
+invente otros.
+
+- `live_session.requested.v1` — productor: `LiveSessionsService.create`
+  (`POST /v1/prometeo/live-sessions`). `aggregateType: LiveSession`.
+- `live_session.status_changed.v1` — productor: `LiveSessionsService.transition`
+  (`POST /v1/prometeo/live-sessions/:id/transition`) y los drivers de webhook
+  de LiveKit. Payload extiende el mínimo con `previousStatus`, `status`
+  (ver `LiveSessionStatus` en `STATE_MACHINES.md`) y `sessionVersion`.
+
+Entrega: **best-effort** al bus SSE in-process
+(`apps/api/src/infrastructure/sse/sse-event-bus.service.ts`, canal
+`live-session:<tenantId>:<sessionId>`), **no** por el outbox atómico F1. El
+endpoint SSE entrega un `snapshot` al (re)conectar, así que una pérdida de
+evento no deja al cliente inconsistente. Si aparece un consumidor durable
+(analítica, `ObservationMission`), el productor se agrega al outbox F1 en su
+propio incremento. Cada transición deja además `AuditLog`
+(`live_session.<action>`).
 
 ## Notifications
 

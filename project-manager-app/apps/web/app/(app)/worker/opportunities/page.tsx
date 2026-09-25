@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertTriangle, Briefcase, CheckCircle2, ChevronDown, ChevronUp, DollarSign, Filter, MapPin, RefreshCw, Send, SlidersHorizontal, X } from "lucide-react";
-import { HtmlInCanvasPanel } from "@semse/ui";
+import { ErrorState, HtmlInCanvasPanel } from "@semse/ui";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
 import { normalizeErrorMessage } from "../../../semse-api";
 
@@ -261,7 +261,7 @@ export default function WorkerOpportunitiesPage() {
         </div>
       )}
 
-      {error && <div style={{ padding: "10px 14px", borderRadius: 8, background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.2)", marginBottom: 16, fontSize: 13, color: "#fca5a5" }}>{error}</div>}
+      {error && <ErrorState message={error} className="mb-4" />}
 
       {loading ? (
         <div style={{ display: "grid", gap: 10 }}>

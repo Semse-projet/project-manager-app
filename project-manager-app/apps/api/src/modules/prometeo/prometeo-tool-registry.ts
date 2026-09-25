@@ -191,7 +191,9 @@ export const PROMETEO_TOOL_REGISTRY: PrometeoToolDescriptor[] = [
     // evidenceId is required by VisionService.runAnalysis (it keys the persisted
     // VisionAnalysisRecord) even though it wasn't in the original descriptor.
     inputSchema: { type: "object", required: ["evidenceId", "imageUrl"], properties: { evidenceId: { type: "string" }, imageUrl: { type: "string" }, jobId: { type: "string" }, milestoneId: { type: "string" } } },
-    outputKind: "VisionAnalysisResult",
+    // docs/specs/prometeo/tool-result-multimodal.spec.md pilot: the handler
+    // wraps VisionAnalysisResult as ToolResult; legacyJson keeps the old shape.
+    outputKind: "ToolResult",
     tags: ["vision", "image", "evidence"],
     adapterPending: false,
   }),
@@ -345,7 +347,7 @@ export const PROMETEO_TOOL_REGISTRY: PrometeoToolDescriptor[] = [
     label: "Inventario de finca",
     description: "Lista insumos, materiales y existencias configuradas de una finca.",
     permissions: ["agro:read"],
-    endpoint: { method: "GET", path: "/v1/agro/farms/:farmId/inventory" },
+    endpoint: { method: "GET", path: "/v1/agro/farms/:farmId/inventory/items" },
     inputSchema: { type: "object", required: ["farmId"], properties: { farmId: { type: "string" } } },
     outputKind: "AgroInventoryItem[]",
     tags: ["agro", "inventory", "read"],
@@ -375,7 +377,7 @@ export const PROMETEO_TOOL_REGISTRY: PrometeoToolDescriptor[] = [
     label: "Resumen de costos de finca",
     description: "Consulta resumen de costos operativos de una finca por periodo.",
     permissions: ["agro:read"],
-    endpoint: { method: "GET", path: "/v1/agro/farms/:farmId/cost-summary" },
+    endpoint: { method: "GET", path: "/v1/agro/farms/:farmId/costs/summary" },
     inputSchema: {
       type: "object",
       required: ["farmId"],
@@ -405,7 +407,8 @@ export const PROMETEO_TOOL_REGISTRY: PrometeoToolDescriptor[] = [
         type: {
           enum: [
             "FEEDING", "VACCINATION", "TREATMENT", "WEIGHING", "MOVEMENT",
-            "CLEANING", "INSPECTION", "INVENTORY", "SALE", "WATER_CHECK", "OTHER",
+            "CLEANING", "INSPECTION", "INVENTORY", "SALE", "WATER_CHECK",
+            "BREEDING", "PREGNANCY_CHECK", "BIRTH", "WEANING", "HEAT_DETECTION", "OTHER",
           ],
         },
         priority: { enum: ["LOW", "MEDIUM", "HIGH", "URGENT"] },
@@ -413,6 +416,72 @@ export const PROMETEO_TOOL_REGISTRY: PrometeoToolDescriptor[] = [
     },
     outputKind: "AgroFarmTask",
     tags: ["agro", "tasks", "write"],
+    adapterPending: false,
+  }),
+  readTool({
+    namespace: "agro",
+    name: "propose_intake",
+    label: "Estructurar reporte de campo agro",
+    description:
+      "Convierte texto o transcripción de un reporte de campo en una propuesta (incidencia, tarea completada o tarea nueva). " +
+      "No persiste nada ni emite diagnósticos; relaciona con tareas e incidencias existentes antes de proponer crear.",
+    permissions: ["agro:report"],
+    endpoint: { method: "POST", path: "/v1/agro/farms/:farmId/intake/propose" },
+    inputSchema: {
+      type: "object",
+      required: ["farmId", "text"],
+      properties: { farmId: { type: "string" }, text: { type: "string" }, evidenceIds: { type: "array", items: { type: "string" } } },
+    },
+    outputKind: "AgroIntakeProposal",
+    tags: ["agro", "incidents", "intake", "read"],
+  }),
+  readTool({
+    namespace: "agro",
+    name: "list_incidents",
+    label: "Incidencias de la finca",
+    description: "Lista incidencias operativas de una finca con filtros de estado, severidad y tipo.",
+    permissions: ["agro:read"],
+    endpoint: { method: "GET", path: "/v1/agro/farms/:farmId/incidents" },
+    inputSchema: {
+      type: "object",
+      required: ["farmId"],
+      properties: { farmId: { type: "string" }, status: { type: "string" }, severity: { type: "string" }, q: { type: "string" } },
+    },
+    outputKind: "AgroIncident[]",
+    tags: ["agro", "incidents", "read"],
+  }),
+  writeTool({
+    namespace: "agro",
+    name: "create_incident",
+    label: "Registrar incidencia agro",
+    description:
+      "Registra una incidencia propuesta por Prometeo tras confirmación humana. La severidad queda como sugerida " +
+      "(severityConfirmed=false) hasta que un supervisor la confirme.",
+    permissions: ["agro:report"],
+    endpoint: { method: "POST", path: "/v1/agro/farms/:farmId/incidents" },
+    inputSchema: {
+      type: "object",
+      required: ["farmId", "type", "title"],
+      properties: {
+        farmId: { type: "string" },
+        // Must match AGRO_INCIDENT_TYPES in agro-incident.domain.ts.
+        type: {
+          enum: [
+            "ANIMAL_INJURY", "ANIMAL_ILLNESS_OBSERVED", "ANIMAL_MORTALITY", "ANIMAL_ESCAPE", "WATER_SHORTAGE",
+            "FEED_SHORTAGE", "BIOSECURITY_RISK", "INFRASTRUCTURE_DAMAGE", "EQUIPMENT_FAILURE", "CROP_DAMAGE",
+            "PEST_OBSERVED", "IRRIGATION_FAILURE", "SAFETY_HAZARD", "OTHER",
+          ],
+        },
+        title: { type: "string" },
+        description: { type: "string" },
+        severity: { enum: ["LOW", "MEDIUM", "HIGH", "CRITICAL"] },
+        farmUnitId: { type: "string" },
+        animalGroupId: { type: "string" },
+        animalId: { type: "string" },
+      },
+    },
+    outputKind: "AgroIncident",
+    tags: ["agro", "incidents", "write"],
     adapterPending: false,
   }),
   writeTool({

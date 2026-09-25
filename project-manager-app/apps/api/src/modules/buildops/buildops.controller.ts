@@ -50,7 +50,7 @@ export class BuildOpsController {
   @RequirePermissions("projects:read")
   async overview(@Req() req: FastifyRequest) {
     const c = ctx(req);
-    const data = await this.buildOpsService.overview(c.tenantId);
+    const data = await this.buildOpsService.overview(c.tenantId, c.orgId, c.roles);
     return ok(resolveRequestId(req.headers ?? {}), data);
   }
 
@@ -58,7 +58,7 @@ export class BuildOpsController {
   @RequirePermissions("projects:read")
   async listProjects(@Req() req: FastifyRequest) {
     const c = ctx(req);
-    const data = await this.buildOpsService.listProjects(c.tenantId);
+    const data = await this.buildOpsService.listProjects(c.tenantId, c.orgId, c.roles);
     return ok(resolveRequestId(req.headers ?? {}), data);
   }
 
@@ -66,7 +66,7 @@ export class BuildOpsController {
   @RequirePermissions("projects:read")
   async getProjectHealth(@Req() req: FastifyRequest, @Param("projectId") projectId: string) {
     const c = ctx(req);
-    const data = await this.buildOpsService.getProjectHealth(c.tenantId, projectId);
+    const data = await this.buildOpsService.getProjectHealth(c.tenantId, projectId, c.orgId, c.roles);
     return ok(resolveRequestId(req.headers ?? {}), data);
   }
 
@@ -81,6 +81,8 @@ export class BuildOpsController {
     const data = await this.buildOpsService.getProjectActivity(
       c.tenantId,
       projectId,
+      c.orgId,
+      c.roles,
       Math.min(200, Math.max(1, parsePositiveInt(limit, 40))),
     );
     return ok(resolveRequestId(req.headers ?? {}), data);
@@ -90,7 +92,7 @@ export class BuildOpsController {
   @RequirePermissions("projects:read")
   async detail(@Req() req: FastifyRequest, @Param("projectId") projectId: string) {
     const c = ctx(req);
-    const data = await this.buildOpsService.getProject(c.tenantId, projectId);
+    const data = await this.buildOpsService.getProject(c.tenantId, projectId, c.orgId, c.roles);
     return ok(resolveRequestId(req.headers ?? {}), data);
   }
 
@@ -122,6 +124,21 @@ export class BuildOpsController {
     });
 
     return ok(resolveRequestId(req.headers ?? {}), data);
+  }
+
+  @Post("projects/:projectId/publish")
+  @RequirePermissions("projects:create")
+  async publishAsJob(@Req() req: FastifyRequest, @Param("projectId") projectId: string) {
+    const c = ctx(req);
+    const requestId = resolveRequestId(req.headers ?? {});
+    const data = await this.buildOpsService.publishAsJob({
+      tenantId: c.tenantId,
+      orgId: c.orgId,
+      userId: c.userId,
+      buildOpsProjectId: projectId,
+      requestId,
+    });
+    return ok(requestId, data);
   }
 
   @Post("estimates/from-tool-result")
@@ -158,7 +175,7 @@ export class BuildOpsController {
     const query = req.query as Record<string, unknown> | undefined;
     const projectId = typeof query?.projectId === "string" ? query.projectId : null;
     const status = typeof query?.status === "string" && TASK_STATUSES.has(query.status) ? query.status : null;
-    const data = await this.buildOpsService.listTasks(c.tenantId, { projectId, status });
+    const data = await this.buildOpsService.listTasks(c.tenantId, c.orgId, c.roles, { projectId, status });
     return ok(resolveRequestId(req.headers ?? {}), data);
   }
 
@@ -166,7 +183,7 @@ export class BuildOpsController {
   @RequirePermissions("projects:read")
   async detailTask(@Req() req: FastifyRequest, @Param("taskId") taskId: string) {
     const c = ctx(req);
-    const data = await this.buildOpsService.getTask(c.tenantId, taskId);
+    const data = await this.buildOpsService.getTask(c.tenantId, taskId, c.orgId, c.roles);
     return ok(resolveRequestId(req.headers ?? {}), data);
   }
 
@@ -174,7 +191,7 @@ export class BuildOpsController {
   @RequirePermissions("projects:read")
   async listMilestones(@Req() req: FastifyRequest) {
     const c = ctx(req);
-    const data = await this.buildOpsService.listMilestones(c.tenantId);
+    const data = await this.buildOpsService.listMilestones(c.tenantId, c.orgId, c.roles);
     return ok(resolveRequestId(req.headers ?? {}), data);
   }
 
@@ -340,6 +357,8 @@ export class BuildOpsController {
     const opCtx = this.ragCtx ? await this.ragCtx.build({
       projectId,
       tenantId:                c.tenantId,
+      orgId:                   c.orgId,
+      roles:                   c.roles,
       milestoneId:             typeof body.milestoneId === "string" ? body.milestoneId : undefined,
       evidenceItemId:          typeof body.evidenceItemId === "string" ? body.evidenceItemId : undefined,
       changeOrderId:           typeof body.changeOrderId === "string" ? body.changeOrderId : undefined,

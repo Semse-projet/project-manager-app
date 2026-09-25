@@ -1,6 +1,9 @@
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 
+/** Cliente mínimo para escribir auditoría dentro de una transacción ajena. */
+export type AgroAuditWriter = { agroAuditEvent: { create(args: any): Promise<unknown> } };
+
 @Injectable()
 export class AgroAuditRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -14,8 +17,8 @@ export class AgroAuditRepository {
     before?: unknown;
     after?: unknown;
     source?: string;
-  }) {
-    return this.prisma.agroAuditEvent.create({
+  }, client: AgroAuditWriter = this.prisma) {
+    return client.agroAuditEvent.create({
       data: {
         farmId: input.farmId,
         actorId: input.actorId,
@@ -26,6 +29,19 @@ export class AgroAuditRepository {
         after: input.after as any ?? undefined,
         source: input.source ?? "SYSTEM",
       },
+    });
+  }
+
+  /** Timeline de una entidad (incidencia, capacidad…) — misma fuente que la auditoría de finca. */
+  async listForEntity(input: { farmId?: string; entityType: string; entityId: string; limit?: number }) {
+    return this.prisma.agroAuditEvent.findMany({
+      where: {
+        ...(input.farmId && { farmId: input.farmId }),
+        entityType: input.entityType,
+        entityId: input.entityId,
+      },
+      orderBy: { createdAt: "asc" },
+      take: input.limit ?? 200,
     });
   }
 

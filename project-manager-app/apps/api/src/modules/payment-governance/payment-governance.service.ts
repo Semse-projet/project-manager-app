@@ -1,7 +1,30 @@
-import { Injectable, Logger, NotFoundException } from "@nestjs/common";
+import { Injectable, Logger, NotFoundException, ServiceUnavailableException } from "@nestjs/common";
 import { PaymentGovernanceRepository, type PaymentReleaseInput } from "./payment-governance.repository.js";
 import { PaymentGovernanceDiagnosticsService } from "./diagnostics.service.js";
 import { SseEventBusService } from "../../infrastructure/sse/sse-event-bus.service.js";
+import { assertMilestoneReadable, type MilestoneActor, type MilestoneOwnership } from "../milestones/milestones.policy.js";
+
+export type EscrowActor = MilestoneActor;
+
+type EscrowWithOwnership = {
+  project: { assignedProOrgId: string; job: { clientOrgId: string } | null } | null;
+};
+
+// The escrow's own project is the resource an actor needs access to — an
+// org is authorized only if it is the client org or the assigned pro org of
+// that project. Same rule `milestones.policy.ts` already enforces for
+// milestones; escrows previously had no equivalent check at all (only
+// tenantId scoping — see payment-governance.repository.ts#getEscrow), which
+// let any actor with a finance:* permission in one org of a tenant act on
+// another org's escrow within the same tenant. This is resource-derived
+// authorization per ADR-040: never based on a session-level "active org".
+function assertEscrowReadable(actor: EscrowActor, escrow: EscrowWithOwnership): void {
+  const ownership: MilestoneOwnership = {
+    clientOrgId: escrow.project?.job?.clientOrgId ?? "",
+    assignedProOrgId: escrow.project?.assignedProOrgId ?? "",
+  };
+  assertMilestoneReadable(actor, ownership);
+}
 
 export interface PaymentReleaseResult {
   success: boolean;
@@ -39,82 +62,32 @@ export class PaymentGovernanceService {
 
   async releasePayment(
     input: PaymentReleaseInput,
+    actor: EscrowActor,
   ): Promise<PaymentReleaseResult> {
     try {
-      const escrow = await this.repository.getEscrow(input.escrowId);
+      const escrow = await this.repository.getEscrow(input.escrowId, input.tenantId);
       if (!escrow) {
         throw new NotFoundException(
           `Escrow ${input.escrowId} not found`,
         );
       }
+      assertEscrowReadable(actor, escrow);
 
-      // Check release conditions
-      const blockers = await this.checkReleaseBlockers(
-        input.escrowId,
-        input.milestoneId,
+      // D02 mitigation (2026-09-14) — this method used to create a payment
+      // transaction row, log a decision and report success WITHOUT ever
+      // calling Stripe/EscrowReleaseService, the only path that actually
+      // moves money. An admin using the "Liberar escrow" button in
+      // admin/finance was told funds were released when they were not. The
+      // real fix needs a milestone-resolution design (the caller only sends
+      // escrowId+amount, not milestoneId, and a project can have several
+      // milestones) — tracked in SEMSE_EXECUTION_LEDGER.md's Blockers and
+      // tests/unit/payment-release-canonical-path.test.mjs. Until that
+      // design lands, fail loudly here instead of fabricating success:
+      // "unknown is not safe" applies to a fabricated success outcome the
+      // same as to a fabricated value.
+      throw new ServiceUnavailableException(
+        "Manual payment release via this endpoint is temporarily disabled — it does not move real funds. See SEMSE_EXECUTION_LEDGER.md (D02 blocker) for the pending fix.",
       );
-
-      if (blockers.length > 0) {
-        return {
-          success: false,
-          escrowId: input.escrowId,
-          milestoneId: input.milestoneId,
-          message: "Payment release blocked",
-          blockers,
-        };
-      }
-
-      // Calculate payment score
-      const score = await this.calculatePaymentScore(
-        input.escrowId,
-        input.milestoneId,
-      );
-
-      // If score is below threshold (0.6), require additional approval
-      if (score.overall < 0.6 && score.riskLevel === "high") {
-        return {
-          success: false,
-          escrowId: input.escrowId,
-          milestoneId: input.milestoneId,
-          message: "Payment score below threshold (high risk)",
-          blockers: ["high_risk_score"],
-        };
-      }
-
-      // Create payment transaction
-      const transaction = await this.repository.createPaymentTransaction(
-        input,
-      );
-
-      // Log decision
-      await this.repository.logPaymentDecision(
-        input.escrowId,
-        input.milestoneId,
-        "released",
-        input.reason,
-        input.releasedBy,
-      );
-
-      // Emit SSE event if available
-      if (this.sseBus) {
-        const projectId = escrow.projectId;
-        this.sseBus.emit("payment", "released", {
-          projectId,
-          escrowId: input.escrowId,
-          milestoneId: input.milestoneId,
-          transactionId: transaction.id,
-          amount: input.amount,
-          timestamp: new Date().toISOString(),
-        });
-      }
-
-      return {
-        success: true,
-        transactionId: transaction.id,
-        escrowId: input.escrowId,
-        milestoneId: input.milestoneId,
-        message: "Payment released successfully",
-      };
     } catch (error) {
       this.logger.error(
         `Release payment failed: ${error instanceof Error ? error.message : String(error)}`,
@@ -127,12 +100,15 @@ export class PaymentGovernanceService {
     escrowId: string,
     reason: string,
     blockedBy: string,
+    tenantId: string,
+    actor: EscrowActor,
   ): Promise<PaymentBlockResult> {
     try {
-      const escrow = await this.repository.getEscrow(escrowId);
+      const escrow = await this.repository.getEscrow(escrowId, tenantId);
       if (!escrow) {
         throw new NotFoundException(`Escrow ${escrowId} not found`);
       }
+      assertEscrowReadable(actor, escrow);
 
       // Update escrow status to PENDING_SETTLEMENT (blocked state)
       await this.repository.updateEscrowStatus(escrowId, "PENDING_SETTLEMENT");
@@ -171,30 +147,44 @@ export class PaymentGovernanceService {
 
   async getPaymentHistory(
     escrowId: string,
+    tenantId: string,
+    actor: EscrowActor,
   ) {
-    return this.repository.getEscrow(escrowId);
+    const escrow = await this.repository.getEscrow(escrowId, tenantId);
+    if (!escrow) {
+      return null;
+    }
+    assertEscrowReadable(actor, escrow);
+    return escrow;
   }
 
   async calculatePaymentScore(
     escrowId: string,
     milestoneId: string,
+    tenantId: string,
+    actor: EscrowActor,
   ): Promise<PaymentScore> {
     let evidenceQuality = 0.5;
     let contractorVerification = 0.5;
     let operationalReadiness = 0.5;
 
-    try {
-      const escrow = await this.repository.getEscrow(escrowId);
-      if (!escrow) {
-        return {
-          overall: 0.3,
-          evidenceQuality: 0.2,
-          contractorVerification: 0.2,
-          operationalReadiness: 0.2,
-          riskLevel: "high",
-        };
-      }
+    // Fetched and authorized outside the try/catch below on purpose: that
+    // catch-all is for calculation failures and must not swallow a
+    // ForbiddenException into a fabricated low-confidence score — an
+    // unauthorized caller must get denied, not a plausible-looking number.
+    const escrow = await this.repository.getEscrow(escrowId, tenantId);
+    if (!escrow) {
+      return {
+        overall: 0.3,
+        evidenceQuality: 0.2,
+        contractorVerification: 0.2,
+        operationalReadiness: 0.2,
+        riskLevel: "high",
+      };
+    }
+    assertEscrowReadable(actor, escrow);
 
+    try {
       // Check evidence quality
       const evidence = await this.repository.getMilestoneEvidence(
         escrow.projectId,
@@ -245,11 +235,12 @@ export class PaymentGovernanceService {
   private async checkReleaseBlockers(
     escrowId: string,
     milestoneId: string,
+    tenantId: string,
   ): Promise<string[]> {
     const blockers: string[] = [];
 
     try {
-      const escrow = await this.repository.getEscrow(escrowId);
+      const escrow = await this.repository.getEscrow(escrowId, tenantId);
       if (!escrow) {
         blockers.push("escrow_not_found");
         return blockers;

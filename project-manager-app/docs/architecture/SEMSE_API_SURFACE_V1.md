@@ -108,6 +108,17 @@ de Production Health las verifica junto con las nueve páginas `/modules/*`.
 - `POST /v1/prometeo/trade-guide`
 - `POST /v1/prometeo/assets`
 
+### Live Sessions (spec: prometeo/live-sessions; flag `SEMSE_LIVE_SESSIONS_ENABLED`, default off)
+- `POST /v1/prometeo/live-sessions` (crea; siembra al creador como participante `owner`; `live_sessions:write`)
+- `GET /v1/prometeo/live-sessions/:sessionId` (`live_sessions:read`; 404 si el actor no es participante activo)
+- `GET /v1/prometeo/live-sessions/:sessionId/participants` · `POST .../participants` (agrega participante; sólo el `owner`)
+- `GET /v1/prometeo/live-sessions/:sessionId/media-token` (token LiveKit efímero; sólo en `CONNECTING`/`ACTIVE`/`PAUSED` y no vencida)
+- `POST /v1/prometeo/live-sessions/:sessionId/transition` (`accept`/`pause`/`resume`/`end`/`cancel` + `expectedVersion` — concurrencia optimista)
+- `POST /v1/prometeo/live-sessions/:sessionId/participant-ready` (driver `PERMISSION_PENDING -> CONNECTING`)
+- `POST /v1/prometeo/live-sessions/sweep-expired` (barrido de `expiresAt`; lo llama `apps/worker` con `LIVE_SESSION_SWEEP_ENABLED`)
+- `GET /v1/prometeo/live-sessions/:sessionId/events` (SSE: `live_session.snapshot.v1` + `status_changed` + keepalive)
+- `POST /v1/prometeo/live-sessions/webhooks/livekit` (público, firma verificada — drivers de FSM `room_started`/`room_finished`)
+
 ## Disputes
 - `POST /v1/disputes`
 - `GET /v1/disputes`

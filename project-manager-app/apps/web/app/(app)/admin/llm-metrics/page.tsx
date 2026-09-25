@@ -28,7 +28,7 @@ const TASK_LABELS: Record<string, string> = {
 function CircuitBadge({ state }: { state: LLMProviderMetric["circuitState"] }) {
   const meta = {
     closed:     { icon: CheckCircle,  color: "var(--ok)", label: "Cerrado"    },
-    "half-open":{ icon: MinusCircle,  color: "#f59e0b", label: "Half-open"  },
+    "half-open":{ icon: MinusCircle,  color: "var(--warn)", label: "Half-open"  },
     open:       { icon: XCircle,      color: "var(--error)", label: "Abierto"    },
   }[state];
   const Icon = meta.icon;
@@ -41,7 +41,7 @@ function CircuitBadge({ state }: { state: LLMProviderMetric["circuitState"] }) {
 
 function SuccessBar({ rate }: { rate: number }) {
   const pct = Math.round(rate * 100);
-  const color = pct >= 90 ? "var(--ok)" : pct >= 70 ? "#f59e0b" : "var(--error)";
+  const color = pct >= 90 ? "var(--ok)" : pct >= 70 ? "var(--warn)" : "var(--error)";
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
       <div style={{ width: 60, height: 6, borderRadius: 3, background: "var(--border)", overflow: "hidden", flexShrink: 0 }}>
@@ -53,7 +53,7 @@ function SuccessBar({ rate }: { rate: number }) {
 }
 
 function ScorePill({ score }: { score: number }) {
-  const color = score >= 700 ? "var(--ok)" : score >= 400 ? "#f59e0b" : "var(--error)";
+  const color = score >= 700 ? "var(--ok)" : score >= 400 ? "var(--warn)" : "var(--error)";
   return (
     <span style={{
       display: "inline-block", padding: "3px 8px", borderRadius: 6,
@@ -164,7 +164,7 @@ export default function AdminLLMMetricsPage() {
           {
             label: "Latencia media",
             value: stats.avgLatency > 0 ? `${Math.round(stats.avgLatency)}ms` : "—",
-            icon: <Clock size={18} color="#f59e0b" />,
+            icon: <Clock size={18} color="var(--warn)" />,
             bg: "rgba(245,158,11,.08)", border: "rgba(245,158,11,.2)",
           },
           {
@@ -315,7 +315,7 @@ export default function AdminLLMMetricsPage() {
           {[
             { icon: <BarChart2 size={12} color="#6366f1" />, text: "Score = successRate² × 1000 / (latencia_s + 1). Más alto es mejor." },
             { icon: <CheckCircle size={12} color="var(--ok)" />, text: "Circuito cerrado: provider disponible." },
-            { icon: <MinusCircle size={12} color="#f59e0b" />, text: "Half-open: 1 probe permitida después de 30s de fallo." },
+            { icon: <MinusCircle size={12} color="var(--warn)" />, text: "Half-open: 1 probe permitida después de 30s de fallo." },
             { icon: <XCircle size={12} color="var(--error)" />, text: "Circuito abierto: 3+ fallos consecutivos — skipped automáticamente." },
           ].map(({ icon, text }) => (
             <div key={text} style={{ display: "flex", alignItems: "flex-start", gap: 6, fontSize: 11, color: "var(--muted)", maxWidth: 240 }}>

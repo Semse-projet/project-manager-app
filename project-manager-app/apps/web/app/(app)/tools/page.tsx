@@ -41,7 +41,7 @@ const CATEGORIES: Category[] = [
   {
     id: "interior",
     label: "Interior & Acabados",
-    color: "#8b5cf6",
+    color: "var(--violet)",
     bg: "#faf5ff",
     tools: [
       { id: "drywall",    label: "Drywall",           desc: "Paneles, tornillos, compound, finish level y textura.",                href: "/tools/drywall",    icon: "📋", highlight: true },
@@ -55,7 +55,7 @@ const CATEGORIES: Category[] = [
   {
     id: "mep",
     label: "MEP & Sistemas",
-    color: "#f59e0b",
+    color: "var(--warn)",
     bg: "#fffbeb",
     tools: [
       { id: "electrical", label: "Electrical",        desc: "Dashboard completo: load analysis, scope, materiales, milestones y RAG.", href: "/tools/electrical/dashboard", icon: "⚡", highlight: true },

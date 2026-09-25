@@ -26,8 +26,8 @@ interface DocRow {
 const KIND_COLOR: Record<string, string> = {
   PHOTO:    "var(--ok)",
   VIDEO:    "var(--brand)",
-  DOCUMENT: "#8b5cf6",
-  CONTRACT: "#f59e0b",
+  DOCUMENT: "var(--violet)",
+  CONTRACT: "var(--warn)",
 };
 
 const KIND_LABEL: Record<string, string> = {
@@ -196,7 +196,7 @@ export default function ClientDocumentsPage() {
         {[
           { label: "Archivos totales", value: String(docs.length), color: "var(--brand)" },
           { label: "Con acceso directo", value: String(withDirectUrl), color: "var(--ok)" },
-          { label: "Validados", value: String(approvedDocs), color: "#8b5cf6" },
+          { label: "Validados", value: String(approvedDocs), color: "var(--violet)" },
         ].map((item) => (
           <div key={item.label} style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "12px", padding: "14px 16px" }}>
             <p style={{ fontSize: "11px", color: "var(--muted)", fontWeight: 700, marginBottom: "6px" }}>{item.label.toUpperCase()}</p>
@@ -254,7 +254,7 @@ export default function ClientDocumentsPage() {
                     <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "2px", flexWrap: "wrap" }}>
                       <p style={{ fontSize: "13px", fontWeight: 700, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "320px" }}>{doc.name}</p>
                       <span style={{ fontSize: "10px", padding: "2px 6px", borderRadius: "4px", background: `${color}14`, color, fontWeight: 600 }}>{KIND_LABEL[doc.kind] ?? doc.kind}</span>
-                      <span style={{ fontSize: "10px", padding: "2px 6px", borderRadius: "4px", background: doc.accessMode === "direct" ? "rgba(16,185,129,.12)" : "rgba(100,116,139,.12)", color: doc.accessMode === "direct" ? "var(--ok)" : "#64748b", fontWeight: 700 }}>
+                      <span style={{ fontSize: "10px", padding: "2px 6px", borderRadius: "4px", background: doc.accessMode === "direct" ? "rgba(16,185,129,.12)" : "rgba(100,116,139,.12)", color: doc.accessMode === "direct" ? "var(--ok)" : "var(--faint)", fontWeight: 700 }}>
                         {doc.accessMode === "direct" ? "Acceso directo" : "Desde proyecto"}
                       </span>
                     </div>

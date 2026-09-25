@@ -13,6 +13,8 @@ export const SEMSE_TRACE_HEADER_NAME = "x-trace-id";
 
 export * from "./developer-runtime.js";
 export * from "./observability/logger.js";
+export * from "./safe-url.js";
+export * from "./deploy-provenance.js";
 
 export const SEMSE_IDENTITY_HEADER_NAMES = {
   tenantId: "x-tenant-id",

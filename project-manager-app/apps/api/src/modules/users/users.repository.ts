@@ -28,6 +28,7 @@ type StoredUserProfile = {
   assistantVerbosity: string | null;
   unifiedMode: boolean;
   expertMode: boolean;
+  proximityCheckInMode: string | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -36,6 +37,7 @@ type StoredMembership = {
   userId: string;
   orgId: string;
   roleId: string;
+  status: string;
   createdAt: Date;
   org: {
     id: string;
@@ -62,6 +64,18 @@ export type UserRecord = {
   updatedAt: Date;
 };
 
+export type IdentityAttestationRecord = {
+  id: string;
+  tenantId: string;
+  userId: string;
+  verifiedByUserId: string;
+  verificationType: string;
+  keyId: string;
+  message: string;
+  signature: string;
+  createdAt: Date;
+};
+
 export type AssistantTone = "friendly" | "formal" | "technical" | "executive";
 export type AssistantLanguage = "es" | "en";
 export type AssistantVerbosity = "short" | "balanced" | "detailed";
@@ -78,6 +92,7 @@ export type UserProfileRecord = {
   assistantVerbosity?: AssistantVerbosity;
   unifiedMode: boolean;
   expertMode: boolean;
+  proximityCheckInMode: "ask" | "auto" | "off";
   updatedAt: Date;
 };
 
@@ -85,6 +100,7 @@ export type UserMembershipRecord = {
   userId: string;
   orgId: string;
   roleId: string;
+  status: string;
   org: {
     id: string;
     name: string;
@@ -191,6 +207,7 @@ export class UsersRepository {
       userId: membership.userId,
       orgId: membership.orgId,
       roleId: membership.roleId,
+      status: membership.status,
       org: membership.org,
       role: membership.role,
       createdAt: membership.createdAt
@@ -220,6 +237,38 @@ export class UsersRepository {
     })) as StoredUser;
 
     return this.toUserRecord(user);
+  }
+
+  async createIdentityAttestation(input: {
+    tenantId: string;
+    userId: string;
+    verifiedByUserId: string;
+    verificationType: string;
+    keyId: string;
+    message: string;
+    signature: string;
+  }): Promise<IdentityAttestationRecord> {
+    return this.prisma.identityAttestation.create({
+      data: {
+        tenantId: input.tenantId,
+        userId: input.userId,
+        verifiedByUserId: input.verifiedByUserId,
+        verificationType: input.verificationType,
+        keyId: input.keyId,
+        message: input.message,
+        signature: input.signature
+      }
+    });
+  }
+
+  async getLatestIdentityAttestation(
+    tenantId: string,
+    userId: string
+  ): Promise<IdentityAttestationRecord | null> {
+    return this.prisma.identityAttestation.findFirst({
+      where: { tenantId, userId },
+      orderBy: { createdAt: "desc" }
+    });
   }
 
   async updateUserStatus(input: {
@@ -261,7 +310,7 @@ export class UsersRepository {
     data: {
       displayName?: string; bio?: string; location?: string; trades?: string[]; availability?: boolean;
       assistantTone?: string; assistantLanguage?: string; assistantVerbosity?: string;
-      unifiedMode?: boolean; expertMode?: boolean;
+      unifiedMode?: boolean; expertMode?: boolean; proximityCheckInMode?: "ask" | "auto" | "off";
     }
   ): Promise<UserProfileRecord> {
     const profile = (await this.prisma.userProfile.upsert({
@@ -278,6 +327,7 @@ export class UsersRepository {
         assistantVerbosity: data.assistantVerbosity ?? null,
         unifiedMode: data.unifiedMode ?? false,
         expertMode: data.expertMode ?? false,
+        proximityCheckInMode: data.proximityCheckInMode ?? "ask",
       },
       update: {
         ...(data.displayName !== undefined && { displayName: data.displayName }),
@@ -290,6 +340,7 @@ export class UsersRepository {
         ...(data.assistantVerbosity !== undefined && { assistantVerbosity: data.assistantVerbosity }),
         ...(data.unifiedMode !== undefined && { unifiedMode: data.unifiedMode }),
         ...(data.expertMode !== undefined && { expertMode: data.expertMode }),
+        ...(data.proximityCheckInMode !== undefined && { proximityCheckInMode: data.proximityCheckInMode }),
       }
     })) as StoredUserProfile;
 
@@ -309,6 +360,7 @@ export class UsersRepository {
       assistantVerbosity: (profile.assistantVerbosity as AssistantVerbosity | undefined) ?? undefined,
       unifiedMode: profile.unifiedMode,
       expertMode: profile.expertMode,
+      proximityCheckInMode: (profile.proximityCheckInMode as "ask" | "auto" | "off" | null) ?? "ask",
       updatedAt: profile.updatedAt
     };
   }

@@ -1,3 +1,4 @@
+import { listRunnableTasks, validateTaskDependencies } from "./dag.js";
 import { evaluateForgePolicy } from "./policy.js";
 import { getForgeAgentManifest } from "./registry.js";
 import { assertForgeRunTransition } from "./state-machine.js";
@@ -85,6 +86,23 @@ export class ForgeHarness {
     if (run.tasks.some((candidate) => candidate.id === task.id)) {
       throw new Error(`Duplicate Forge task id: ${task.id}`);
     }
+    // Only reject errors the NEW task actually introduces, not ones already
+    // present among existing tasks — dependencies went unvalidated before
+    // this check existed, so a run persisted earlier could already contain
+    // dangling references. Re-flagging those on every future addTask() would
+    // permanently brick task creation on that run over data this call had
+    // no part in creating. A baseline diff still catches what matters: the
+    // new task referencing something nonexistent itself, or completing a
+    // cycle that didn't exist before it was added.
+    const baseline = validateTaskDependencies(run.tasks);
+    const baselineErrors = new Set(baseline.valid ? [] : baseline.errors);
+    const validation = validateTaskDependencies([...run.tasks, task]);
+    if (!validation.valid) {
+      const newErrors = validation.errors.filter((error) => !baselineErrors.has(error));
+      if (newErrors.length > 0) {
+        throw new Error(`Invalid Forge task dependencies: ${newErrors.join("; ")}`);
+      }
+    }
     run.tasks.push(structuredClone(task));
     run.updatedAt = new Date().toISOString();
     return structuredClone(run);
@@ -97,6 +115,13 @@ export class ForgeHarness {
     if (task.requestedRole !== role) {
       throw new Error(`Task ${taskId} requires ${task.requestedRole}, not ${role}`);
     }
+    const unmetDependencies = task.dependencies.filter((depId) => {
+      const dependency = run.tasks.find((candidate) => candidate.id === depId);
+      return dependency?.status !== "succeeded";
+    });
+    if (unmetDependencies.length > 0) {
+      throw new Error(`Task ${taskId} has unmet dependencies: ${unmetDependencies.join(", ")}`);
+    }
 
     const assignments = run.assignedAgents[role] ?? [];
     if (!assignments.includes(taskId)) assignments.push(taskId);
@@ -107,12 +132,23 @@ export class ForgeHarness {
     return structuredClone(run);
   }
 
+  /** Tasks in `runId` whose dependencies have all succeeded and whose own status allows starting. */
+  listRunnableTasks(runId: string): ForgeTaskPacket[] {
+    const run = this.requireRun(runId);
+    // requireRun() returns the harness's internal mutable run — every other
+    // public method clones before returning (getRun/transition/addTask/...)
+    // so callers can't mutate internal state through the result; this needs
+    // the same treatment.
+    return listRunnableTasks(run.tasks).map((task) => structuredClone(task));
+  }
+
   authorizeTaskAction(input: {
     runId: string;
     taskId: string;
     role: ForgeAgentRole;
     action: string;
     changedFiles?: string[];
+    requestedBy?: string;
   }): ForgePolicyResult {
     const run = this.requireRun(input.runId);
     const task = run.tasks.find((candidate) => candidate.id === input.taskId);
@@ -129,7 +165,7 @@ export class ForgeHarness {
     if (policy.decision === "require_approval") {
       for (const mode of policy.requiredApprovals) {
         if (!run.approvals.some((approval) => approval.mode === mode && approval.status === "pending")) {
-          run.approvals.push({ mode, status: "pending" });
+          run.approvals.push({ mode, status: "pending", requestedBy: input.requestedBy });
         }
       }
       this.recordEvent(run, "FORGE_HUMAN_REVIEW_REQUESTED", input.role, {
@@ -155,9 +191,20 @@ export class ForgeHarness {
       (candidate) => candidate.mode === mode && candidate.status === "pending"
     );
     if (!approval) throw new Error(`Pending approval not found: ${mode}`);
-    approval.status = "approved";
+    if (approval.requestedBy && approval.requestedBy === actor) {
+      throw new Error(`Actor ${actor} cannot approve their own requested action (mode: ${mode})`);
+    }
+
+    approval.approvedBy = approval.approvedBy ?? [];
+    if (!approval.approvedBy.includes(actor)) approval.approvedBy.push(actor);
     approval.actor = actor;
     approval.at = new Date().toISOString();
+
+    const requiredDistinctApprovers = mode === "dual_control" ? 2 : 1;
+    if (approval.approvedBy.length >= requiredDistinctApprovers) {
+      approval.status = "approved";
+    }
+
     run.updatedAt = approval.at;
     return structuredClone(run);
   }
@@ -168,6 +215,9 @@ export class ForgeHarness {
       (candidate) => candidate.mode === mode && candidate.status === "pending"
     );
     if (!approval) throw new Error(`Pending approval not found: ${mode}`);
+    if (approval.requestedBy && approval.requestedBy === actor) {
+      throw new Error(`Actor ${actor} cannot reject their own requested action (mode: ${mode})`);
+    }
     approval.status = "rejected";
     approval.actor = actor;
     approval.at = new Date().toISOString();
@@ -177,11 +227,12 @@ export class ForgeHarness {
 
   ensurePendingApproval(
     runId: string,
-    mode: ForgeRun["approvals"][number]["mode"]
+    mode: ForgeRun["approvals"][number]["mode"],
+    requestedBy?: string
   ): ForgeRun {
     const run = this.requireRun(runId);
     if (!run.approvals.some((candidate) => candidate.mode === mode && candidate.status === "pending")) {
-      run.approvals.push({ mode, status: "pending" });
+      run.approvals.push({ mode, status: "pending", requestedBy });
       run.updatedAt = new Date().toISOString();
       this.recordEvent(run, "FORGE_HUMAN_REVIEW_REQUESTED", "forge", {
         approvalMode: mode

@@ -54,9 +54,19 @@ export const rolePermissions: Record<string, string[]> = {
     "weather:read",
     "weather:write",
     "agro:read",
-    "agro:write"
+    "agro:write",
+    // Reporte de campo (incidencias, capacidades autodeclaradas) y verificación
+    // de capacidades Agro. La autoridad real la decide el rol de finca
+    // (apps/api/src/modules/agro/agro-farm-policy.ts), no este permiso solo.
+    "agro:report",
+    "agro:workforce:verify",
+    "live_sessions:read",
+    "live_sessions:write",
+    "payments:connect:self",
+    "project:originate"
   ],
   PRO: [
+    "contributor-program:participate",
     "jobs:read",
     "travel:manage",
     "bids:read",
@@ -103,9 +113,19 @@ export const rolePermissions: Record<string, string[]> = {
     "weather:read",
     "weather:write",
     "agro:read",
-    "agro:write"
+    "agro:write",
+    // Reporte de campo (incidencias, capacidades autodeclaradas) y verificación
+    // de capacidades Agro. La autoridad real la decide el rol de finca
+    // (apps/api/src/modules/agro/agro-farm-policy.ts), no este permiso solo.
+    "agro:report",
+    "agro:workforce:verify",
+    "live_sessions:read",
+    "live_sessions:write",
+    "payments:connect:self",
+    "project:originate"
   ],
   WORKER: [
+    "contributor-program:participate",
     "agents:run:worker",
     "agents:run:manage",
     "agents:run:create",
@@ -113,18 +133,32 @@ export const rolePermissions: Record<string, string[]> = {
     "bids:read",
     "field-ops:read",
     "field-ops:write",
+    // Needed to upload contributor-program evidence (video/photo/audio) via
+    // the shared /v1/uploads/* pipeline — reused rather than duplicated.
+    "evidence:read",
+    "evidence:write",
     "knowledge:read",
     "tools:read",
     "tools:run",
     "vision:read",
     "vision:run",
     "weather:read",
-    "users:verify:request"
+    "users:verify:request",
+    "live_sessions:read",
+    "live_sessions:write",
+    "payments:connect:self",
+    "project:originate",
+    // Trabajador de finca: ve y reporta en fincas donde es miembro activo
+    // (AgroFarmMember). Sin agro:write: no gestiona fincas ajenas.
+    "agro:read",
+    "agro:report"
   ],
   EVENT_CONSUMER: [
     "domain-events:consume"
   ],
   OPS_ADMIN: [
+    "contributor-program:participate",
+    "contributor-program:manage",
     "jobs:read",
     "jobs:create",
     "travel:manage",
@@ -212,13 +246,24 @@ export const rolePermissions: Record<string, string[]> = {
     "weather:write",
     "agro:read",
     "agro:write",
+    // Reporte de campo (incidencias, capacidades autodeclaradas) y verificación
+    // de capacidades Agro. La autoridad real la decide el rol de finca
+    // (apps/api/src/modules/agro/agro-farm-policy.ts), no este permiso solo.
+    "agro:report",
+    "agro:workforce:verify",
+    "agro:workforce:admin",
+    "live_sessions:read",
+    "live_sessions:write",
     "satellites:admin"
   ],
   // Sesión demo pública (ui.demo-sandbox): SOLO agro, nada más — el aislamiento
   // del sandbox depende de que este set nunca crezca hacia jobs/payments/matching.
   DEMO_AGRO: [
     "agro:read",
-    "agro:write"
+    "agro:write",
+    // Los endpoints operativos Agro (tareas, movimientos, evidencia, sync) piden
+    // agro:report desde T-050. Sigue siendo solo Agro: no amplía el sandbox.
+    "agro:report"
   ]
 };
 

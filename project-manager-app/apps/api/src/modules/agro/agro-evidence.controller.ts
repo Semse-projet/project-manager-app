@@ -6,11 +6,11 @@ import { ok } from "../../common/api-response.js";
 import { resolveRequestId } from "../../common/request-id.js";
 import { RequirePermissions } from "../../common/permissions.decorator.js";
 import { resolveRequestContext } from "../../common/request-context.js";
-import { AgroEvidenceService } from "./agro-evidence.service.js";
+import { AGRO_EVIDENCE_ENTITY_TYPES, AGRO_EVIDENCE_MEDIA_TYPES, AgroEvidenceService } from "./agro-evidence.service.js";
 import { parsePositiveInt } from "../../common/parse-query.js";
 
-const entityTypeEnum = z.enum(["FARM","FARM_UNIT","ANIMAL","ANIMAL_GROUP","FARM_TASK","INVENTORY_ITEM","INVENTORY_MOVEMENT","COST_ENTRY","GENERAL"]);
-const mediaTypeEnum  = z.enum(["NOTE","PHOTO","VIDEO","DOCUMENT","EXTERNAL_URL","OTHER"]);
+const entityTypeEnum = z.enum(AGRO_EVIDENCE_ENTITY_TYPES);
+const mediaTypeEnum  = z.enum(AGRO_EVIDENCE_MEDIA_TYPES);
 
 const createEvidenceSchema = z.object({
   entityType: entityTypeEnum,
@@ -48,7 +48,8 @@ export class AgroEvidenceController {
   }
 
   @Post("farms/:farmId/evidence")
-  @RequirePermissions("agro:write")
+  // Operativo (T-050): la política de rol de finca decide qué puede cada miembro.
+  @RequirePermissions("agro:report")
   async createEvidence(@Param("farmId") farmId: string, @Body() body: unknown, @Req() req: any) {
     const ctx = resolveRequestContext(req);
     const input = createEvidenceSchema.parse(body);
@@ -59,12 +60,14 @@ export class AgroEvidenceController {
   @Get("evidence/:evidenceId")
   @RequirePermissions("agro:read")
   async getEvidence(@Param("evidenceId") evidenceId: string, @Req() req: any) {
-    const evidence = await this.service.getEvidence(evidenceId);
+    const ctx = resolveRequestContext(req);
+    const evidence = await this.service.getEvidenceForUser(evidenceId, ctx.userId);
     return ok(resolveRequestId(req.headers ?? {}), { evidence });
   }
 
   @Patch("evidence/:evidenceId")
-  @RequirePermissions("agro:write")
+  // Operativo (T-050): la política de rol de finca decide qué puede cada miembro.
+  @RequirePermissions("agro:report")
   async updateEvidence(@Param("evidenceId") evidenceId: string, @Body() body: unknown, @Req() req: any) {
     const ctx = resolveRequestContext(req);
     const input = updateEvidenceSchema.parse(body);

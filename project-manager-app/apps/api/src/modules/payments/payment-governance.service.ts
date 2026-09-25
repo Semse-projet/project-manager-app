@@ -1,6 +1,10 @@
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { MilestonesRepository } from "../milestones/milestones.repository.js";
+import { WaiverPaymentGateService } from "../liens/waiver-payment-gate.service.js";
+import { assertMilestoneReadable, type MilestoneActor, type MilestoneOwnership } from "../milestones/milestones.policy.js";
+
+export type PaymentGovernanceActor = MilestoneActor;
 
 export type ReleaseStatus = "ready" | "blocked" | "needs_review" | "released" | "disputed";
 export type RiskLevel = "low" | "medium" | "high" | "critical";
@@ -38,9 +42,28 @@ export class PaymentGovernanceService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly milestonesRepo: MilestonesRepository,
+    private readonly waiverGate: WaiverPaymentGateService,
   ) {}
 
-  async evaluate(milestoneId: string, tenantId: string): Promise<PaymentGovernanceResult> {
+  /**
+   * WS-01C G1 finding (point 19, docs/ws-01c/WS-01C-G1-AS-IS-Reconciliation.md):
+   * this evaluate() is a SIBLING class to PaymentGovernanceService in
+   * modules/payment-governance/ (same name, different module — the exact
+   * "duplicate writer" risk ADR-040 documents) and had the identical gap:
+   * scoped only by tenantId, never by org, even though it's reachable
+   * directly by an authenticated actor via GET
+   * /v1/milestones/:milestoneId/payment-governance (milestones:read,
+   * held by CLIENT/PRO, not just OPS_ADMIN) and via the Prometeo
+   * operational RAG context (POST /v1/buildops/projects/:id/rag-query).
+   *
+   * `actor` is optional and intentionally so: MilestonesService.approve()'s
+   * auto-release path (EscrowReleaseService.tryAutoRelease) calls this for a
+   * milestoneId that was already authorized for that exact actor one step
+   * earlier in the same request via assertMilestoneApprovable — that
+   * internal, already-authorized caller passes no actor and skips this
+   * check. Every other (externally-reachable) caller MUST pass one.
+   */
+  async evaluate(milestoneId: string, tenantId: string, actor?: PaymentGovernanceActor): Promise<PaymentGovernanceResult> {
     // 1. Core readiness from existing logic (evidence + dispute + approval)
     const readiness = await this.milestonesRepo.computePaymentReadiness(milestoneId, tenantId);
     const ms = readiness.milestone;
@@ -49,12 +72,30 @@ export class PaymentGovernanceService {
     const milestone = await this.prisma.milestone.findFirst({
       where: { id: milestoneId, project: { tenantId } },
       include: {
-        project: { select: { id: true, jobId: true } },
+        project: { select: { id: true, jobId: true, assignedProOrgId: true, job: { select: { clientOrgId: true } } } },
         evidenceItems: { select: { status: true, required: true, label: true } },
       },
     });
 
+    if (actor && milestone?.project) {
+      const ownership: MilestoneOwnership = {
+        clientOrgId: milestone.project.job?.clientOrgId ?? "",
+        assignedProOrgId: milestone.project.assignedProOrgId ?? "",
+      };
+      assertMilestoneReadable(actor, ownership);
+    }
+
     const projectId = milestone?.project?.id ?? null;
+
+    // 2b. Lien waiver gate — blocks release while a conditional waiver
+    // covering this amount is still pending (see WaiverPaymentGateService).
+    let waiverBlockReason: string | null = null;
+    if (projectId && milestone) {
+      const waiverResult = await this.waiverGate.authorizeRelease(projectId, Number(milestone.amount));
+      if (!waiverResult.approved) {
+        waiverBlockReason = waiverResult.reason ?? "Lien waiver requirements not met";
+      }
+    }
 
     // 3. Evidence summary from items
     const allItems = milestone?.evidenceItems ?? [];
@@ -103,6 +144,11 @@ export class PaymentGovernanceService {
       requiredActions.push("Resolve critical signals in Mission Control before releasing payment");
     }
 
+    if (waiverBlockReason) {
+      blockers.push(waiverBlockReason);
+      requiredActions.push("Resolve pending lien waiver requirements before releasing payment");
+    }
+
     // 7. Determine releaseStatus and canRelease
     const coreStatus = readiness.status;
     let releaseStatus: ReleaseStatus = "blocked";
@@ -117,7 +163,7 @@ export class PaymentGovernanceService {
     } else if (blockers.length === 0 && coreStatus === "ready_to_release") {
       releaseStatus = "ready";
       canRelease = true;
-    } else if (changeOrderBlockers > 0 || criticalSignals > 0) {
+    } else if (changeOrderBlockers > 0 || criticalSignals > 0 || waiverBlockReason) {
       // Has additional blockers beyond evidence — needs human review
       releaseStatus = "needs_review";
       canRelease = false;
@@ -129,13 +175,14 @@ export class PaymentGovernanceService {
     // 8. Risk level
     let riskLevel: RiskLevel = "low";
     if (readiness.status === "disputed" || criticalSignals > 0) riskLevel = "critical";
-    else if (evidenceSummary.rejected > 0 || changeOrderBlockers > 0) riskLevel = "high";
+    else if (evidenceSummary.rejected > 0 || changeOrderBlockers > 0 || waiverBlockReason) riskLevel = "high";
     else if (evidenceSummary.missing > 0 || openSignals > 0) riskLevel = "medium";
 
     // 9. Next best action
     let nextBestAction = readiness.nextAction;
     if (changeOrderBlockers > 0) nextBestAction = `Resolve ${changeOrderBlockers} pending change order(s) before releasing payment`;
     else if (criticalSignals > 0) nextBestAction = "Resolve critical Mission Control signals first";
+    else if (waiverBlockReason) nextBestAction = waiverBlockReason;
     else if (canRelease) nextBestAction = "All conditions met — payment can be released";
 
     // 10. Audit reason

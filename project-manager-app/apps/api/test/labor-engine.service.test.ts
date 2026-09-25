@@ -42,20 +42,39 @@ function createRepoStub(overrides: Partial<Record<string, unknown>> = {}) {
     async listLongEntries(...args: unknown[]) {
       return record("listLongEntries", args, []);
     },
+    async listOffSiteCheckIns(...args: unknown[]) {
+      return record("listOffSiteCheckIns", args, []);
+    },
     async isJobAssignedToWorker(...args: unknown[]) {
       return record("isJobAssignedToWorker", args, true);
     },
     async isFreeProjectOwnedByWorker(...args: unknown[]) {
       return record("isFreeProjectOwnedByWorker", args, true);
     },
+    async getJobCoordinates(...args: unknown[]) {
+      return record("getJobCoordinates", args, null);
+    },
+    async getFreeProjectCoordinates(...args: unknown[]) {
+      return record("getFreeProjectCoordinates", args, null);
+    },
     ...overrides,
   };
   return repo;
 }
 
-function createService(overrides: Partial<Record<string, unknown>> = {}) {
+function createAdminServiceStub(overrides: Partial<Record<string, unknown>> = {}) {
+  return {
+    async getSettings(..._args: unknown[]) {
+      return { proximity: { radiusMeters: 150, cooldownMinutes: 20 } };
+    },
+    ...overrides,
+  };
+}
+
+function createService(overrides: Partial<Record<string, unknown>> = {}, adminOverrides: Partial<Record<string, unknown>> = {}) {
   const repo = createRepoStub(overrides);
-  const service = new LaborEngineService(repo as never);
+  const adminService = createAdminServiceStub(adminOverrides);
+  const service = new LaborEngineService(repo as never, adminService as never);
   return { service, repo };
 }
 
@@ -319,6 +338,11 @@ void test("getAdminOverview flags stale timers, overtime and long entries", asyn
         { id: "te-long", createdBy: "worker-3", durationMinutes: 13 * 60 },
       ];
     },
+    async listOffSiteCheckIns() {
+      return [
+        { id: "te-offsite", createdBy: "worker-4", checkInDistanceMeters: 2200 },
+      ];
+    },
   });
 
   const overview = await service.getAdminOverview("tnt");
@@ -330,6 +354,7 @@ void test("getAdminOverview flags stale timers, overtime and long entries", asyn
   assert.ok(types.includes("stale_timer:worker-1"), "should flag the 14h running timer");
   assert.ok(types.includes("overtime:worker-1"), "should flag 50h week as overtime");
   assert.ok(types.includes("long_entry:worker-3"), "should flag the 13h single entry");
+  assert.ok(types.includes("off_site_checkin:worker-4"), "should flag the 2.2km off-site check-in");
   assert.ok(!types.some((t: string) => t.endsWith(":worker-2")), "worker-2 has no alerts");
 });
 
@@ -339,4 +364,159 @@ void test("getAdminOverview returns empty alerts for a quiet week", async () => 
   assert.deepEqual(overview.alerts, []);
   assert.equal(typeof overview.period.from, "string");
   assert.equal(overview.thresholds.staleTimerHours, 12);
+  assert.equal(overview.thresholds.farFromSiteMeters, 500);
+});
+
+void test("getAdminOverview marks off-site check-ins as critical past 2x the threshold, warning otherwise", async () => {
+  const { service } = createService({
+    async listOffSiteCheckIns() {
+      return [
+        { id: "te-warning", createdBy: "worker-5", checkInDistanceMeters: 600 },
+        { id: "te-critical", createdBy: "worker-6", checkInDistanceMeters: 1500 },
+      ];
+    },
+  });
+
+  const overview = await service.getAdminOverview("tnt");
+  const byWorker = Object.fromEntries(
+    overview.alerts.map((alert: { workerId: string; severity: string }) => [alert.workerId, alert.severity]),
+  );
+  assert.equal(byWorker["worker-5"], "warning");
+  assert.equal(byWorker["worker-6"], "critical");
+});
+
+// ── Proximity check-in ──────────────────────────────────────────────────────
+
+void test("startTimer without checkIn never touches site coordinates", async () => {
+  const { service, repo } = createService();
+
+  await service.startTimer({ tenantId: "tnt", orgId: "org", createdBy: "user-1", purpose: "personal" });
+
+  assert.ok(!repo.calls.some((c) => c.method === "getJobCoordinates" || c.method === "getFreeProjectCoordinates"));
+  const startCall = repo.calls.find((c) => c.method === "startRealtimeEntry");
+  const payload = startCall!.args[0] as Record<string, unknown>;
+  assert.equal(payload.checkInLatitude, undefined);
+});
+
+void test("startTimer with checkIn but no site coordinates records position without distance", async () => {
+  const { service, repo } = createService();
+
+  await service.startTimer({
+    tenantId: "tnt",
+    orgId: "org",
+    createdBy: "user-1",
+    purpose: "payable",
+    freeProjectId: "fp1",
+    checkIn: { latitude: 19.4326, longitude: -99.1332, method: "proximity_confirmed" },
+  });
+
+  const startCall = repo.calls.find((c) => c.method === "startRealtimeEntry");
+  const payload = startCall!.args[0] as Record<string, unknown>;
+  assert.equal(payload.checkInLatitude, 19.4326);
+  assert.equal(payload.checkInLongitude, -99.1332);
+  assert.equal(payload.checkInMethod, "proximity_confirmed");
+  assert.equal(payload.checkInDistanceMeters, undefined);
+});
+
+void test("startTimer with checkIn and known site coordinates computes distance and never blocks on it", async () => {
+  const { service, repo } = createService({
+    async getFreeProjectCoordinates() {
+      return { latitude: 19.4363, longitude: -99.0721 }; // ~6-9km from the checkIn below
+    },
+  });
+
+  const entry = await service.startTimer({
+    tenantId: "tnt",
+    orgId: "org",
+    createdBy: "user-1",
+    purpose: "payable",
+    freeProjectId: "fp1",
+    checkIn: { latitude: 19.4326, longitude: -99.1332, method: "proximity_auto" },
+  });
+
+  assert.ok(entry, "far-away checkIn must not block starting the timer");
+  const startCall = repo.calls.find((c) => c.method === "startRealtimeEntry");
+  const payload = startCall!.args[0] as Record<string, unknown>;
+  assert.equal(typeof payload.checkInDistanceMeters, "number");
+  assert.ok((payload.checkInDistanceMeters as number) > 1000);
+});
+
+void test("startTimer ignores an invalid checkIn coordinate", async () => {
+  const { service, repo } = createService();
+
+  await service.startTimer({
+    tenantId: "tnt",
+    orgId: "org",
+    createdBy: "user-1",
+    purpose: "personal",
+    checkIn: { latitude: 999, longitude: 0, method: "proximity_confirmed" },
+  });
+
+  const startCall = repo.calls.find((c) => c.method === "startRealtimeEntry");
+  const payload = startCall!.args[0] as Record<string, unknown>;
+  assert.equal(payload.checkInLatitude, undefined);
+});
+
+void test("createManualEntry with checkIn always tags method as manual_tagged", async () => {
+  const { service, repo } = createService({
+    async getJobCoordinates() {
+      return { latitude: 19.4326, longitude: -99.1332 };
+    },
+  });
+
+  await service.createManualEntry({
+    tenantId: "tnt",
+    orgId: "org",
+    createdBy: "user-1",
+    purpose: "job_linked",
+    jobId: "job-9",
+    date: "2026-07-08",
+    startTime: "09:00",
+    endTime: "13:00",
+    checkIn: { latitude: 19.4326, longitude: -99.1332 },
+  });
+
+  const createCall = repo.calls.find((c) => c.method === "createTimeEntry");
+  const payload = createCall!.args[0] as Record<string, unknown>;
+  assert.equal(payload.checkInMethod, "manual_tagged");
+  assert.equal(payload.checkInDistanceMeters, 0);
+});
+
+void test("createManualEntry without checkIn omits all check-in fields", async () => {
+  const { service, repo } = createService();
+
+  await service.createManualEntry({
+    tenantId: "tnt",
+    orgId: "org",
+    createdBy: "user-1",
+    purpose: "personal",
+    date: "2026-07-08",
+    startTime: "09:00",
+    endTime: "13:00",
+  });
+
+  const createCall = repo.calls.find((c) => c.method === "createTimeEntry");
+  const payload = createCall!.args[0] as Record<string, unknown>;
+  assert.equal(payload.checkInLatitude, undefined);
+  assert.equal(payload.checkInMethod, undefined);
+});
+
+void test("getProximityConfig returns the tenant's configured radius/cooldown", async () => {
+  const { service } = createService({}, {
+    async getSettings() {
+      return { proximity: { radiusMeters: 300, cooldownMinutes: 45 } };
+    },
+  });
+
+  const config = await service.getProximityConfig("tnt");
+
+  assert.deepEqual(config, { radiusMeters: 300, cooldownMinutes: 45 });
+});
+
+void test("getProximityConfig falls back to schema defaults for a tenant with no custom settings", async () => {
+  const { service } = createService();
+
+  const config = await service.getProximityConfig("tnt");
+
+  assert.deepEqual(config, { radiusMeters: 150, cooldownMinutes: 20 });
 });

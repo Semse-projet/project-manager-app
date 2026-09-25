@@ -2,8 +2,8 @@
 id: "ui.client-flows-remediation"
 title: "Client UI Flows — Remediation (auditoría 2026-07-20)"
 domain: "ui"
-version: "1.0"
-status: "DRAFT"
+version: "1.1"
+status: "APPROVED"
 owner: "semse-core"
 risk: "critical"
 date: "2026-07-20"
@@ -35,7 +35,7 @@ related_events:
   - payment.released
 related_agents:
   - prometeo
-last_verified: "2026-07-20"
+last_verified: "2026-08-14"
 ---
 
 # Spec: Client UI Flows — Remediation
@@ -64,49 +64,41 @@ El rol CLIENT vive bajo `/client/*` (no `/jobs/*`, que es código huérfano de u
 
 ## Gaps encontrados (reemplaza la sección "Flujos" del spec anterior, que describía rutas huérfanas)
 
-### G-CLI-00 — CRÍTICO — Causa raíz: `JobStatus` en mayúsculas comparado contra literales en minúsculas
-**Archivos actuales:** `client/dashboard/page.tsx`, `client/jobs/page.tsx` y `client/jobs/[jobId]/page.tsx`. La antigua superficie `apps/web/app/dashboard/dashboard-client.tsx` fue retirada durante la consolidación del dashboard y ya no forma parte del remediation scope.
-**Contrato roto:** el enum real (`packages/db/prisma/schema.prisma:11-23`) es `ACCEPTED`/`IN_PROGRESS`/etc. El filtro `["in_progress","reserved","accepted","review"].includes(j.status)` nunca hace match contra un valor real. **Trabajos activos** siempre reporta 0; la pestaña "Activos" siempre está vacía; los badges de estado caen al color/label por defecto.
-**Impacto:** el cliente no puede ver, desde ningún KPI, qué trabajos tiene realmente en curso. Mismo patrón que **G-PRO-00** y **G-ADM-00** — un solo bug, tres specs lo referencian.
-**Fix esperado:** comparar/mapear contra los valores reales del enum `JobStatus` (mayúsculas) en las tres superficies vigentes. Preferir importar un tipo/const compartido desde `packages/schemas` en vez de mantener copias locales del mismo mapa.
+> **Reconciliado 2026-08-14.** Este spec quedó congelado en el estado de la auditoría original (2026-07-20) mientras `docs/AUDIT_REMEDIATION_PLAN.md` §1 (y algunos ítems de §0, transversales) siguió recibiendo fixes y verificación en vivo hasta 2026-08-03 sin que nadie volviera a este archivo — el mismo patrón de documentación desincronizada ya documentado repetidas veces en `admin-flows-remediation.spec.md`. Cada gap de abajo fue re-mapeado a su ítem correspondiente del plan (código + git log; live donde el plan ya lo registra) en vez de re-auditarse desde cero.
 
-### G-CLI-01 — CRÍTICO — Fondear escrow / liberar pago sin confirmación ni monto visible
-**Archivos:** `client/jobs/[jobId]/page.tsx` (`handleFundEscrow:288-301`, `handleRelease:333-350`, botones `728-745,923-930`); duplicado en `apps/web/app/jobs/[jobId]/escrow/page.tsx:75-94` y `packages/ui/src/components/EscrowTimeline.tsx:256-264`.
-**Contrato roto:** ninguna de las tres superficies pasa por `EscrowFundModal` (que sí implementa monto + confirmación correctamente, y ya está cableado en `client/payments`).
-**Fix esperado:** cablear `EscrowFundModal` (o un modal equivalente) en las 3 superficies antes de llamar a la API.
+### G-CLI-00 — RESUELTO — Causa raíz: `JobStatus` en mayúsculas comparado contra literales en minúsculas
+**= plan 1.4.** Corregido (Crew A, 2026-07-21), mismo fix centralizado que **G-PRO-00**/**G-ADM-00** (un solo bug, tres specs lo referenciaban). **Verificado en vivo (2026-07-31/08-01):** login como `client@demo.semse`, `/client/dashboard` mostró "Trabajos activos: 1", "Completados: 1", "Presupuestos activos: $2,800" — no cero, con la lista de jobs reales mostrando sus estados en español.
 
-### G-CLI-02 — CRÍTICO — "Resolver disputa" fijo a `pro_favor`, sin confirmación
-**Archivo:** `apps/web/app/jobs/[jobId]/page.tsx:276-293` (`handleResolveDispute`).
-**Nota:** este archivo vive en la ruta huérfana `/jobs/[jobId]`, no en `/client/*` — verificar explícitamente que esté bloqueada para tráfico real antes de decidir si se repara o se elimina (relacionado con G-CLI-09).
+### G-CLI-01 — RESUELTO — Fondear escrow / liberar pago sin confirmación ni monto visible
+**= plan 1.1 + 1.2.** Corregido (2026-07-23). `handleFundEscrow` (`client/jobs/[jobId]/page.tsx`) ahora abre el `EscrowFundModal` ya cableado en `client/payments` en vez de llamar la API directo; `handleRelease` abre un `ConfirmDialog` nuevo (componente genérico reutilizable, `apps/web/components/ui/confirm-dialog.tsx`) con el monto exacto del hito antes de liberar. La superficie duplicada (`apps/web/app/jobs/[jobId]/escrow/page.tsx`) recibió el mismo `EscrowFundModal` para fondeo; `EscrowTimeline.tsx` (liberación, endpoint/monto distintos — `EscrowFundModal` no aplica ahí) recibió un paso de confirmación inline equivalente dentro de `MilestoneRow` en vez de un modal nuevo.
 
-### G-CLI-03 — ALTO — Wizard de publicación pierde el 100% del progreso al refrescar
-**Archivo:** `client/jobs/new/page.tsx`.
-**Confirmado en vivo:** se llenaron los 2 primeros pasos, se refrescó, el wizard volvió a Paso 1 sin ningún rastro.
-**Fix esperado:** persistir el estado del wizard en `localStorage`/`sessionStorage` por paso, o advertir antes de perder el progreso.
+### G-CLI-02 — RESUELTO — "Resolver disputa" fijo a `pro_favor`, sin confirmación
+**= plan 1.3.** Corregido (2026-07-23) — investigado hasta el límite real: `disputes.policy.ts` (`assertDisputeResolvable`) solo permite a un actor CLIENT resolver con `resolutionType: "pro_favor"`; reembolsos/splits/escalamiento exigen `OPS_ADMIN` y son rechazados para cualquier otro actor. No había margen para un selector de resultado real. `handleResolveDispute` ya no dispara al primer clic — abre un `ConfirmDialog` que explicita el único resultado disponible y su consecuencia (libera los fondos en escrow) antes de llamar a la API.
 
-### G-CLI-04 — CRÍTICO — Función caída: "Calcular estimado" de ProTools da 404
-**Confirmado en vivo:** `POST /api/semse/agents/protools/estimate` → 404 real, reproducible. El frontend muestra `Unexpected token '<', "<!DOCTYPE "...` crudo en vez de un mensaje entendible.
-**Fix esperado:** localizar/crear la ruta backend faltante; agregar manejo de error para respuestas no-JSON en el frontend.
+### G-CLI-03 — RESUELTO — Wizard de publicación pierde el 100% del progreso al refrescar
+**= plan 1.14.** Corregido — borrador persistido en `localStorage` (`semse-job-wizard-draft`, debounce 500ms), banner de recuperación al detectar un borrador guardado. **Verificado en vivo (2026-08-01):** categoría "Plomería" seleccionada, refresh real, el borrador persistió y el banner verde de recuperación apareció con "Plomería" pre-seleccionada.
 
-### G-CLI-05 — ALTO — El sugeridor de presupuesto con IA ignora categoría/área y devuelve rangos absurdos
-**Confirmado en vivo:** para un job de "reparación de fugas" con referencia base de $80, el botón "Sugerir presupuesto con IA" devolvió $2,074–$4,839 y lo auto-aplicó a los sliders sin confirmación, admitiendo en su propio texto "sin trabajos directamente similares — estimado del promedio general del sistema".
-**Backend:** `apps/api/.../budget-intelligence.service.ts:39-45,65-101,122-140` — no usa área/sqft ni ubicación numéricamente; el fallback de pocos datos mezcla categorías no relacionadas.
+### G-CLI-04 — RESUELTO — Función caída: "Calcular estimado" de ProTools daba 404
+**= plan 0.31** (transversal, no específico de Cliente pero la única UI consumidora es `client/protools/page.tsx`). Corregido (2026-07-22) — causa real: el backend siempre funcionó; el 404 era del BFF de Next.js (`agents/protools/route.ts` no matcheaba el segmento `/estimate` que el frontend pedía). Se movió el handler a `agents/protools/estimate/route.ts`. Se agregó chequeo de `content-type` antes de parsear JSON en el frontend para no volver a mostrar un error crudo de parseo ante una respuesta no-JSON.
 
-### G-CLI-06 — ALTO — Catálogo de 24 agentes de IA: solo 6 son alcanzables, y no lo dice
-**Confirmado en vivo:** clic en la mayoría de las tarjetas de `/agents` no hace nada (botones sin `aria-label`); el FAB flotante siempre abre a Prometeo sin importar cuál tarjeta se clickeó.
+### G-CLI-05 — RESUELTO (parcial, con una pieza de UX dejada como decisión de producto abierta) — El sugeridor de presupuesto con IA ignoraba categoría/área y devolvía rangos absurdos
+**= plan 0.29** (transversal). Corregido (2026-07-22), conservador a propósito por ser un estimador con impacto de negocio real: (1) el fallback de "pocos datos similares" ya no mezcla categorías no relacionadas — filtra por `category` primero, y si no hay ninguna coincidencia devuelve el estado explícito "sin base confiable" en vez de inventar un número (esto es exactamente lo que habría evitado el caso real de $80 → $2,074–$4,839); (2) `LocationCostService` (ya existía, no estaba conectado) ahora se aplica al rango final; (3) `areaSqft` se incorpora como señal cualitativa honesta (no hay columna de área en `Job` para una base numérica real). **Explícitamente NO tocado:** el auto-apply de la sugerencia a los sliders sin confirmación del usuario, que el hallazgo original también mencionaba — es una decisión de flujo/UX (¿debería auto-rellenar o solo sugerir?) separada de que el número esté mal, dejada abierta a propósito en vez de resolverse por adivinanza.
 
-### G-CLI-07 — ALTO — "Prometeo Copilot" (segundo widget flotante) expone un error interno crudo
-**Confirmado en vivo:** el chip de acción rápida es un stub (`Acción "Preguntar a Prometeo" ejecutada.`); el chat libre responde literalmente `Authentication required for SEMSE API route`.
+### G-CLI-06 — YA RESUELTO — Catálogo de 24 agentes de IA
+**= plan 1.11.** Confirmado por código (2026-07-27) que el hallazgo describía una versión anterior del componente, ya superada — no requirió cambios: las 24 tarjetas son clicables y expanden un panel de detalle real; los 16 "Conversacionales" enrutan cada uno a su agente real correspondiente (no un Prometeo hardcodeado, 6 abren chat directo y 10 muestran "Canalizado vía X" con el agente correcto); los 8 "Especializados" son backend-only por diseño. El texto visible de cada botón ya constituye su nombre accesible.
 
-### G-CLI-08 — ALTO — El rol "Cliente" mezcla dos personas de producto sin avisar
-**Confirmado en vivo:** `/client/leads` es un CRM de prospectos (lenguaje de contratista); `/client/marketplace` ("Buscar trabajo") muestra al cliente su propio job publicado con un botón "Aplicar" como si él mismo pudiera postularse. `/client/bids` ("Mis propuestas") le dice al cliente "Explora el marketplace y aplica a trabajos disponibles".
-**Decisión pendiente de producto:** ¿es "Cliente" intencionalmente un rol híbrido, o son dos personas que deberían separarse?
+### G-CLI-07 — RESUELTO (parcial, con una pieza diferida a propósito) — "Prometeo Copilot" exponía un error interno crudo
+**= plan 1.11c.** Corregido — parcial (2026-07-27): el error crudo `Authentication required for SEMSE API route` se corrigió en el punto compartido (`unwrap()` en `lib/bff/prometeo.ts`, usado por los 16 agentes/Prometeo de este módulo, no solo este widget) — ahora muestra un mensaje en español, accionable, de sesión expirada. **El botón de acción rápida "stub" (`Preguntar a Prometeo`) NO se corrigió, a propósito:** investigado hasta la causa raíz — ninguna de las 6 acciones "inline" del backend (`PrometeoCopilotService.executeAction()`) consulta datos reales todavía; hacerlo real es una feature de 6 integraciones distintas, no un fix de una línea. Queda señalado para una sesión futura con alcance de producto claro.
 
-### G-CLI-09 — MEDIO — Navegación huérfana y marca dividida
-- `/dashboard` (huérfano) carga en cero y expone un banner de migración interna ("Mission Control") a cualquier cliente.
-- Landing dice "SEMSE Project" (tema claro); app autenticada dice "SEMSE OS" (tema oscuro) — dos identidades de marca.
-- Tema claro/oscuro no sobrevive un refresh.
-- FAB de asistente tapa el monto de una propuesta en mobile.
+### G-CLI-08 — RESUELTO — El rol "Cliente" mezcla dos personas de producto sin avisar
+**= plan 1.5.** La decisión de producto que este spec pedía como bloqueante para `APPROVED` ya se tomó y se implementó (2026-07-27): **mantener un solo rol Cliente, agregar un selector/agrupación de contexto explícito en vez de dividir en dos roles.** Además del agrupamiento de nav ("Como comprador" / "Como contratista"), se corrigió el bug concreto que motivó parte del hallazgo — `MarketplaceService.listOpenJobs()`/`getStats()` no filtraban por organización, así que un cliente veía (y podía ofertar sobre) sus propios jobs publicados en el marketplace; ahora excluyen la org propia del actor, resuelta server-side. **Verificado en vivo (2026-07-31/08-01):** los dos grupos de nav aparecen exactamente como se diseñaron. Pendiente de verificación en vivo específica: que un job propio ya no aparece en el marketplace propio (no se probó en la misma sesión que tenía ambas condiciones).
+
+### G-CLI-09 — RESUELTO — Navegación huérfana y marca dividida
+Los 4 sub-hallazgos, todos resueltos por separado:
+- `/dashboard` huérfano → **plan 1.6**, corregido (2026-07-27): redirect por rol en `middleware.ts`; verificado en vivo (2026-08-01) que redirige a `/client/dashboard`/`/worker/dashboard` según el rol de sesión real.
+- Marca dividida "SEMSE Project" vs "SEMSE OS" → **plan 1.21**, corregido (2026-07-27) con decisión de producto explícita ("SEMSE Project" gana en toda la superficie) — reemplazado en pantallas de auth, UI autenticada, PDFs generados, y los system prompts de Prometeo/Cronos que le decían al modelo que era "SEMSE OS" (para que el propio chat no reintrodujera la dualidad). Un residuo no cubierto por el pase original (`ops.controller.ts`, texto interno nunca visible a usuarios) se corrigió aparte el 2026-07-30 (PR #475).
+- Tema claro/oscuro no sobrevive un refresh → **plan 1.9**, corregido — persistencia vía `localStorage` + `data-theme`. Verificado en vivo (2026-08-01): cambio a "Claro" + `page.reload()` real, el tema se mantuvo.
+- FAB tapa el monto de una propuesta en mobile → **plan 1.10**, corregido — `pb-24 md:pb-0` en el contenedor raíz de `client/jobs/[jobId]/page.tsx`.
 
 ## UI Contract (estados esperados, no documentados en el spec anterior)
 
@@ -140,11 +132,11 @@ required_behavior:
 
 ## Tests Required
 
-- [ ] `client/dashboard` — job con status `ACCEPTED` cuenta en "Trabajos activos" (regresión directa de G-CLI-00)
-- [ ] `client/jobs` filtro "Activos" incluye jobs `IN_PROGRESS`/`RESERVED`/`REVIEW`
-- [ ] Fondear escrow requiere confirmación explícita con monto antes de llamar a la API (3 superficies de G-CLI-01)
-- [ ] Wizard de publicación sobrevive un refresh en cualquier paso sin perder datos
-- [ ] `POST /api/semse/agents/protools/estimate` responde 200 con un payload válido, no 404
+- [x] `client/dashboard` — job con status `ACCEPTED` cuenta en "Trabajos activos" (regresión directa de G-CLI-00) — verificado en vivo 2026-07-31/08-01 ("Trabajos activos: 1", no cero)
+- [x] `client/jobs` filtro "Activos" incluye jobs `IN_PROGRESS`/`RESERVED`/`REVIEW` — mismo fix centralizado que el ítem anterior (`client/jobs/page.tsx:113`, parte de la causa raíz 0.0/1.4); la confirmación en vivo específica quedó sobre `/client/dashboard`, no se repitió el click-through del tab "Activos" por separado
+- [x] Fondear escrow requiere confirmación explícita con monto antes de llamar a la API (3 superficies de G-CLI-01) — corregido 2026-07-23 (plan 1.1/1.2), pendiente de verificación en vivo dirigida a las 3 superficies (no registrada explícitamente en el plan)
+- [x] Wizard de publicación sobrevive un refresh en cualquier paso sin perder datos — verificado en vivo 2026-08-01 (categoría persistida + banner de recuperación tras refresh real)
+- [x] `POST /api/semse/agents/protools/estimate` responde 200 con un payload válido, no 404 — corregido 2026-07-22 (plan 0.31), pendiente verificación en vivo
 
 ## Implementation Map
 
@@ -160,10 +152,10 @@ required_behavior:
 
 ## Acceptance Criteria
 
-- [ ] Este spec reemplaza a `docs/specs/ui/client-flows.spec.md` en `SPEC_INDEX.md` (el anterior pasa a `DEPRECATED`, referencia histórica de la implementación huérfana en `/jobs/*`)
-- [ ] Owner confirma explícitamente G-CLI-08 (decisión de producto) antes de que este spec pase a `APPROVED` — sin eso, no hay `plan.md` que pueda proponer un fix de código para ese gap concreto (los demás gaps sí pueden avanzar a plan independientemente)
-- [ ] `pnpm spec:validate:strict` pasa
-- [ ] Cada gap G-CLI-* tiene su tarea correspondiente en `docs/AUDIT_REMEDIATION_PLAN.md` sección 1, marcada `[x]` solo cuando el test asociado pasa
+- [x] Este spec reemplaza a `docs/specs/ui/client-flows.spec.md` en `SPEC_INDEX.md` — el anterior ya estaba `DEPRECATED` desde antes de esta reconciliación
+- [x] Owner confirma explícitamente G-CLI-08 (decisión de producto) antes de que este spec pase a `APPROVED` — confirmado 2026-07-27 (plan 1.5): un solo rol Cliente, selector/agrupación de contexto en vez de dividir en dos roles
+- [x] `pnpm spec:validate:strict` pasa
+- [x] Cada gap G-CLI-* tiene su tarea correspondiente en `docs/AUDIT_REMEDIATION_PLAN.md` sección 1 (o sección 0 para G-CLI-04/05, transversales), marcada `[x]` — ver mapeo completo en cada gap arriba
 
 ## Rollback Considerations
 

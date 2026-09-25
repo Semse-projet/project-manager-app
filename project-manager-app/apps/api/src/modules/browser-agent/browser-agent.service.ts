@@ -1,4 +1,4 @@
-import { Injectable, Logger, BadRequestException, NotFoundException } from "@nestjs/common";
+import { Injectable, Logger, BadRequestException, NotFoundException, Inject, forwardRef } from "@nestjs/common";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { AgentsService } from "../agents/agents.service.js";
 import { AiModelGatewayService } from "../ai-models/gateway/ai-model-gateway.service.js";
@@ -72,6 +72,7 @@ export class BrowserAgentService {
 
   constructor(
     private readonly prisma: PrismaService,
+    @Inject(forwardRef(() => AgentsService))
     private readonly agentsService: AgentsService,
     private readonly aiGateway: AiModelGatewayService,
     private readonly evidenceGateway: EvidenceGatewayService,

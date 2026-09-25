@@ -9,6 +9,8 @@ type QueueRunInput = {
   tenantId: string;
   agentType: string;
   correlationId: string;
+  /** Overrides AGENT_PRIORITY for this one job — e.g. a Forge task's own declared priority. */
+  priority?: number;
 };
 
 // Lower number = higher priority in BullMQ
@@ -50,12 +52,13 @@ export class AgentQueueService implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
+    const { priority, ...jobData } = input;
     await this.queue.add(
       input.agentType,
-      { ...input, ...buildQueueTracePayload() },
+      { ...jobData, ...buildQueueTracePayload() },
       {
         jobId: toQueueJobId(input),
-        priority: resolveJobPriority(input.agentType)
+        priority: priority ?? resolveJobPriority(input.agentType)
       }
     );
   }

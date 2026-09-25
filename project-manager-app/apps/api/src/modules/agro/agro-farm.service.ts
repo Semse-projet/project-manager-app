@@ -1,29 +1,48 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import { AgroAuditRepository } from "./agro-audit.repository.js";
 import { AgroFarmRepository } from "./agro-farm.repository.js";
+import { AgroFarmAccessService, authorizeFarmAction } from "./agro-farm-access.service.js";
+import type { AgroFarmAction } from "./agro-farm-policy.js";
 
 const VALID_OPERATION_TYPES = ["LIVESTOCK", "MIXED", "CROP"] as const;
-const VALID_UNIT_TYPES = [
+export const AGRO_UNIT_TYPES = [
   "PASTURE", "CORRAL", "BARN", "STORAGE",
-  "WATER_SOURCE", "WORK_AREA", "FIELD", "GREENHOUSE", "OTHER",
+  "WATER_SOURCE", "WORK_AREA", "FIELD", "GREENHOUSE",
+  // Pantalla /agro/[farmId]/infrastructure los usaba y el API los rechazaba con 400.
+  "PADDOCK", "MILKING_AREA", "FEEDLOT", "QUARANTINE", "SCALE",
+  "OTHER",
 ] as const;
+
+const VALID_UNIT_TYPES = AGRO_UNIT_TYPES;
 
 @Injectable()
 export class AgroFarmService {
   constructor(
     private readonly repo: AgroFarmRepository,
     private readonly audit: AgroAuditRepository,
+    @Optional() private readonly access?: AgroFarmAccessService,
   ) {}
 
-  async listFarms(ownerId: string) {
-    return this.repo.listFarms(ownerId);
+  /**
+   * Fincas propias y, con AgroFarmAccessService, también aquellas donde el
+   * usuario es miembro ACTIVE. `viewerRole` indica con qué rol las ve (T-050).
+   */
+  async listFarms(userId: string) {
+    const owned = await this.repo.listFarms(userId);
+    if (!this.access) return owned;
+    const memberships = await this.access.listMemberships(userId);
+    return [
+      ...owned.map((farm) => ({ ...farm, viewerRole: "OWNER" })),
+      ...memberships.map((m) => ({ ...m.farm, viewerRole: m.role })),
+    ];
   }
 
-  async getFarm(farmId: string, ownerId: string) {
+  async getFarm(farmId: string, userId: string, action: AgroFarmAction = "farm.read") {
+    const actor = await authorizeFarmAction(this.access, this.repo, farmId, userId, action);
     const farm = await this.repo.findFarm(farmId);
     if (!farm) throw new NotFoundException(`Farm not found: ${farmId}`);
-    if (farm.ownerId !== ownerId) throw new NotFoundException(`Farm not found: ${farmId}`);
-    return farm;
+    // viewerRole permite a la UI ocultar acciones que el rol de finca no puede hacer.
+    return { ...farm, viewerRole: actor.role };
   }
 
   async createFarm(input: {
@@ -57,7 +76,7 @@ export class AgroFarmService {
     locationLabel?: string;
     notes?: string;
   }) {
-    const existing = await this.getFarm(farmId, ownerId);
+    const existing = await this.getFarm(farmId, ownerId, "farm.manage");
     if (input.operationType && !VALID_OPERATION_TYPES.includes(input.operationType as any)) {
       throw new BadRequestException(`Invalid operationType: ${input.operationType}`);
     }
@@ -81,9 +100,15 @@ export class AgroFarmService {
     return this.repo.listUnits(farmId);
   }
 
-  async getUnit(unitId: string) {
+  async getUnit(unitId: string, userId: string, action: AgroFarmAction = "farm.read") {
     const unit = await this.repo.findUnit(unitId);
     if (!unit) throw new NotFoundException(`Farm unit not found: ${unitId}`);
+    try {
+      await authorizeFarmAction(this.access, this.repo, unit.farmId, userId, action);
+    } catch (err) {
+      if (err instanceof NotFoundException) throw new NotFoundException(`Farm unit not found: ${unitId}`);
+      throw err;
+    }
     return unit;
   }
 
@@ -94,7 +119,7 @@ export class AgroFarmService {
     areaUnit?: string;
     notes?: string;
   }) {
-    await this.getFarm(farmId, ownerId);
+    await this.getFarm(farmId, ownerId, "farm.manage");
     if (!input.name?.trim()) throw new BadRequestException("Unit name is required");
     if (input.type && !VALID_UNIT_TYPES.includes(input.type as any)) {
       throw new BadRequestException(`Invalid unit type: ${input.type}. Must be one of: ${VALID_UNIT_TYPES.join(", ")}`);
@@ -120,9 +145,7 @@ export class AgroFarmService {
     areaUnit?: string;
     notes?: string;
   }) {
-    const unit = await this.getUnit(unitId);
-    const farm = await this.repo.findFarm(unit.farmId);
-    if (!farm || farm.ownerId !== ownerId) throw new NotFoundException(`Farm unit not found: ${unitId}`);
+    const unit = await this.getUnit(unitId, ownerId, "farm.manage");
     if (input.type && !VALID_UNIT_TYPES.includes(input.type as any)) {
       throw new BadRequestException(`Invalid unit type: ${input.type}`);
     }
@@ -142,7 +165,7 @@ export class AgroFarmService {
   }
 
   async getAuditEvents(farmId: string, ownerId: string, limit?: number) {
-    await this.getFarm(farmId, ownerId);
+    await this.getFarm(farmId, ownerId, "farm.audit_read");
     return this.audit.list({ farmId, limit });
   }
 }

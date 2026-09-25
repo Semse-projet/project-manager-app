@@ -85,18 +85,24 @@ type MultipartSessionView = UploadPlanView & {
 // CONFIG
 // ─────────────────────────────────────────────────────────────
 
+// Claves alineadas al enum real `DisputeStatus` de Prisma (OPEN/ASSIGNED/
+// UNDER_REVIEW/RESOLVED/REJECTED, todo mayúsculas) — las claves en minúscula
+// que tenía antes (incluyendo "opened"/"escalated"/"closed"/"pending", que ni
+// siquiera existen como valores del enum) nunca calzaban con los datos reales
+// del backend, dejando cada badge en el fallback `label: d.status` (mostraba
+// "OPEN" crudo en vez de "Abierta") y los 3 conteos de KPI en cero. Ver
+// AUDIT_REMEDIATION_PLAN.md 3.45.
 const STATUS_CONFIG: Record<string, { variant: "error" | "warning" | "success" | "neutral" | "info"; label: string }> = {
-  escalated: { variant: "error",   label: "Escalada"  },
-  open:      { variant: "warning", label: "Abierta"   },
-  opened:    { variant: "warning", label: "Abierta"   },
-  resolved:  { variant: "success", label: "Resuelta"  },
-  pending:   { variant: "neutral", label: "Pendiente" },
-  closed:    { variant: "neutral", label: "Cerrada"   },
+  OPEN:         { variant: "warning", label: "Abierta"          },
+  ASSIGNED:     { variant: "error",   label: "Escalada"         },
+  UNDER_REVIEW: { variant: "error",   label: "En revisión"      },
+  RESOLVED:     { variant: "success", label: "Resuelta"         },
+  REJECTED:     { variant: "neutral", label: "Rechazada"        },
 };
 
 const SEVERITY_COLOR: Record<string, string> = {
   high:   "var(--error)",
-  medium: "#f59e0b",
+  medium: "var(--warn)",
   low:    "var(--ok)",
 };
 
@@ -105,7 +111,7 @@ type DisputeResolutionType = "client_favor" | "pro_favor" | "partial_50_50" | "e
 const RESOLVE_OPTIONS = [
   { label: "Resolver a favor del cliente",      value: "Resuelto a favor del cliente",      resolutionType: "client_favor", color: "var(--ok)", icon: CheckCircle },
   { label: "Resolver a favor del profesional",  value: "Resuelto a favor del profesional",  resolutionType: "pro_favor", color: "var(--brand)", icon: CheckCircle },
-  { label: "Solución parcial (50/50)",          value: "Solución parcial acordada: 50%/50% entre ambas partes", resolutionType: "partial_50_50", color: "#f59e0b", icon: Scale      },
+  { label: "Solución parcial (50/50)",          value: "Solución parcial acordada: 50%/50% entre ambas partes", resolutionType: "partial_50_50", color: "var(--warn)", icon: Scale      },
   { label: "Escalar a legal",                   value: "Escalado al equipo legal para revisión", resolutionType: "escalated_legal", color: "var(--error)", icon: XCircle    },
 ] as const;
 
@@ -160,7 +166,7 @@ export default function AdminDisputesPage() {
       void fetchPendingApprovals().then(setPendingApprovals).catch(() => {});
       void Promise.all(
         rows
-          .filter(r => r.status !== "resolved" && r.status !== "closed")
+          .filter(r => r.status !== "RESOLVED" && r.status !== "REJECTED")
           .slice(0, 12)
           .map(async (r) => {
             try {
@@ -214,8 +220,8 @@ export default function AdminDisputesPage() {
 
   const filtered = useMemo(() => {
     return disputes.filter(d => {
-      if (tab === "open")     { if (d.status === "resolved" || d.status === "closed") return false; }
-      if (tab === "resolved") { if (d.status !== "resolved" && d.status !== "closed") return false; }
+      if (tab === "open")     { if (d.status === "RESOLVED" || d.status === "REJECTED") return false; }
+      if (tab === "resolved") { if (d.status !== "RESOLVED" && d.status !== "REJECTED") return false; }
       if (priorityFilter === "pending_approval") return disputeIdsWithPendingApproval.has(d.id);
       if (priorityFilter === "with_comments")    return (commentCounts[d.id] ?? 0) > 0;
       return true;
@@ -267,7 +273,7 @@ export default function AdminDisputesPage() {
         return;
       }
       setDisputes(prev =>
-        prev.map(d => d.id === targetId ? { ...d, status: "resolved", resolution: resolution.trim() } : d)
+        prev.map(d => d.id === targetId ? { ...d, status: "RESOLVED", resolution: resolution.trim() } : d)
       );
       setCustomResolution("");
 
@@ -342,25 +348,32 @@ export default function AdminDisputesPage() {
     if (!multipartSession?.sessionId || !multipartSession.parts?.length || completingMultipart) return;
     setCompletingMultipart(true);
     try {
+      const etagsByPart = new Map<number, string>();
       for (const [index, part] of multipartSession.parts.entries()) {
         const partNumber = part.partNumber ?? index + 1;
+        // No real file input here either (size/name are typed in for
+        // planning purposes) — synthesize a chunk of the declared size so
+        // there are real bytes to hash instead of only a trusted header.
         const bytes = typeof part.endByte === "number" && typeof part.startByte === "number"
           ? Math.max(1, part.endByte - part.startByte + 1)
           : 1024 * 1024;
         setMultipartProgress((current) => ({ ...current, [partNumber]: "uploading" }));
-        await uploadMultipartPart({
+        const { etag } = await uploadMultipartPart({
           sessionId: multipartSession.sessionId,
           partNumber,
-          contentLength: bytes
+          chunk: new Blob([new Uint8Array(bytes)])
         });
+        etagsByPart.set(partNumber, etag);
         setMultipartProgress((current) => ({ ...current, [partNumber]: "uploaded" }));
       }
       await completeMultipartUploadSession({
         sessionId: multipartSession.sessionId,
-        parts: multipartSession.parts.map((part, index) => ({
-          partNumber: part.partNumber ?? index + 1,
-          etag: `etag-part-${part.partNumber ?? index + 1}`
-        }))
+        parts: multipartSession.parts.map((part, index) => {
+          const partNumber = part.partNumber ?? index + 1;
+          const etag = etagsByPart.get(partNumber);
+          if (!etag) throw new Error(`Missing etag for part ${partNumber}`);
+          return { partNumber, etag };
+        })
       });
     } finally {
       setCompletingMultipart(false);
@@ -374,7 +387,7 @@ export default function AdminDisputesPage() {
       id: raw.id,
       projectId: raw.jobId ?? raw.id,
       reason: raw.reason,
-      status: (raw.status === "resolved" || raw.status === "closed" ? "resolved" : raw.status === "escalated" ? "assigned" : "open") as "open" | "assigned" | "resolved",
+      status: (raw.status === "RESOLVED" || raw.status === "REJECTED" ? "resolved" : raw.status === "ASSIGNED" || raw.status === "UNDER_REVIEW" ? "assigned" : "open") as "open" | "assigned" | "resolved",
       resolution: raw.resolution,
       jobId: raw.jobId,
       jobTitle: raw.jobTitle ?? `Disputa #${raw.id.slice(0, 8)}`,
@@ -408,9 +421,9 @@ export default function AdminDisputesPage() {
   };
 
   // Derive KPIs from real data
-  const openCount      = disputes.filter(d => d.status === "open" || d.status === "opened").length;
-  const escalatedCount = disputes.filter(d => d.status === "escalated").length;
-  const resolvedCount  = disputes.filter(d => d.status === "resolved" || d.status === "closed").length;
+  const openCount      = disputes.filter(d => d.status === "OPEN").length;
+  const escalatedCount = disputes.filter(d => d.status === "ASSIGNED" || d.status === "UNDER_REVIEW").length;
+  const resolvedCount  = disputes.filter(d => d.status === "RESOLVED" || d.status === "REJECTED").length;
   const totalAmount    = disputes.reduce((a, d) => a + (d.amount ?? 0), 0);
 
   return (
@@ -424,7 +437,7 @@ export default function AdminDisputesPage() {
           </>
         }
         icon={Scale}
-        iconColor="#f59e0b"
+        iconColor="var(--warn)"
         iconBg="rgba(245,158,11,.15)"
         actions={
           <>
@@ -457,7 +470,7 @@ export default function AdminDisputesPage() {
       {/* Summary KPIs */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "10px", marginBottom: "20px" }}>
         {[
-          { label: "Abiertas",          value: loading ? "—" : openCount,                          color: "#f59e0b", icon: AlertTriangle },
+          { label: "Abiertas",          value: loading ? "—" : openCount,                          color: "var(--warn)", icon: AlertTriangle },
           { label: "Escaladas",         value: loading ? "—" : escalatedCount,                     color: "var(--error)", icon: ShieldAlert  },
           { label: "Approval pendiente",value: loading ? "—" : disputeIdsWithPendingApproval.size, color: "#f97316", icon: CheckCircle  },
           { label: "Resueltas",         value: loading ? "—" : resolvedCount,                      color: "var(--ok)", icon: CheckCircle  },
@@ -506,7 +519,7 @@ export default function AdminDisputesPage() {
                   onClick={() => setPriorityFilter(f.key)}
                   style={{
                     padding: "5px 12px", borderRadius: "7px", border: "none",
-                    background: priorityFilter === f.key ? "#f59e0b" : "transparent",
+                    background: priorityFilter === f.key ? "var(--warn)" : "transparent",
                     color: priorityFilter === f.key ? "#fff" : "var(--muted)",
                     fontSize: "11px", fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap",
                   }}
@@ -535,7 +548,7 @@ export default function AdminDisputesPage() {
             <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
               {pagedDisputes.map(d => {
                 const s = STATUS_CONFIG[d.status] ?? { variant: "neutral" as const, label: d.status };
-                const severityColor = SEVERITY_COLOR[d.severity ?? "medium"] ?? "#f59e0b";
+                const severityColor = SEVERITY_COLOR[d.severity ?? "medium"] ?? "var(--warn)";
                 return (
                   <button
                     key={d.id}
@@ -557,7 +570,7 @@ export default function AdminDisputesPage() {
                         </p>
                         <StatusBadge variant={s.variant} text={s.label} size="sm" />
                         {disputeIdsWithPendingApproval.has(d.id) ? (
-                          <span style={{ fontSize: "10px", fontWeight: 800, padding: "2px 7px", borderRadius: 999, background: "rgba(245,158,11,.15)", color: "#f59e0b", border: "1px solid rgba(245,158,11,.28)" }}>
+                          <span style={{ fontSize: "10px", fontWeight: 800, padding: "2px 7px", borderRadius: 999, background: "rgba(245,158,11,.15)", color: "var(--warn)", border: "1px solid rgba(245,158,11,.28)" }}>
                             APPROVAL PENDIENTE
                           </span>
                         ) : null}

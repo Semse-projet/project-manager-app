@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
-  Activity, AlertTriangle, BadgeCheck, Clock, DollarSign, Pause, Play,
+  Activity, AlertTriangle, BadgeCheck, Clock, DollarSign, MapPin, Pause, Play,
   RefreshCw, Search, ShieldAlert, Timer, Users,
 } from "lucide-react";
 import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
@@ -37,7 +37,7 @@ type TeamMember = {
 };
 
 type QualityAlert = {
-  type: "stale_timer" | "overtime" | "long_entry";
+  type: "stale_timer" | "overtime" | "long_entry" | "off_site_checkin";
   severity: "warning" | "critical";
   workerId: string;
   entryId?: string;
@@ -49,7 +49,7 @@ type AdminOverview = {
   activeTimers: AdminTimeEntry[];
   team: TeamMember[];
   alerts: QualityAlert[];
-  thresholds: { staleTimerHours: number; overtimeWeekMinutes: number; longEntryMinutes: number };
+  thresholds: { staleTimerHours: number; overtimeWeekMinutes: number; longEntryMinutes: number; farFromSiteMeters: number };
   generatedAt: string;
 };
 
@@ -118,7 +118,7 @@ function entryTarget(entry: AdminTimeEntry, jobById: Map<string, JobOption>) {
     const job = jobById.get(entry.jobId);
     return { label: job ? job.title : `Job ${entry.jobId.slice(0, 10)}…`, color: "var(--brand)" };
   }
-  if (entry.freeProjectId) return { label: "Proyecto libre", color: "#f59e0b" };
+  if (entry.freeProjectId) return { label: "Proyecto libre", color: "var(--warn)" };
   return { label: "Personal", color: "#94a3b8" };
 }
 
@@ -126,6 +126,7 @@ const ALERT_META: Record<QualityAlert["type"], { label: string; icon: typeof Ale
   stale_timer: { label: "Timer olvidado", icon: Timer },
   overtime: { label: "Overtime", icon: Clock },
   long_entry: { label: "Jornada excesiva", icon: ShieldAlert },
+  off_site_checkin: { label: "Check-in fuera de sitio", icon: MapPin },
 };
 
 // ── Page ──────────────────────────────────────────────────────────────────────
@@ -332,8 +333,8 @@ export default function AdminLaborEnginePage() {
         {[
           { label: "Timers activos", value: overview ? String(overview.activeTimers.length) : "—", icon: Timer, color: "var(--ok)" },
           { label: "Horas equipo (semana)", value: overview ? fmtHours(totalTeamMinutes) : "—", icon: Clock, color: "var(--brand)" },
-          { label: "Workers con horas", value: overview ? String(overview.team.length) : "—", icon: Users, color: "#8b5cf6" },
-          { label: "Costo estimado", value: overview ? fmtMoney(totalTeamCost) : "—", icon: DollarSign, color: "#f59e0b" },
+          { label: "Workers con horas", value: overview ? String(overview.team.length) : "—", icon: Users, color: "var(--violet)" },
+          { label: "Costo estimado", value: overview ? fmtMoney(totalTeamCost) : "—", icon: DollarSign, color: "var(--warn)" },
           { label: "Alertas QualityGuard", value: overview ? String(overview.alerts.length) : "—", icon: AlertTriangle, color: overview && overview.alerts.length > 0 ? "var(--error)" : "var(--ok)" },
         ].map(({ label, value, icon: Icon, color }) => (
           <div key={label} style={{ padding: "14px 16px", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12 }}>
@@ -359,7 +360,7 @@ export default function AdminLaborEnginePage() {
           </div>
           {overview.alerts.map((alert, index) => {
             const meta = ALERT_META[alert.type];
-            const color = alert.severity === "critical" ? "var(--error)" : "#f59e0b";
+            const color = alert.severity === "critical" ? "var(--error)" : "var(--warn)";
             const workerLabel = displayName(alert.workerId);
             const canAct = Boolean(alert.entryId);
             return (
@@ -416,14 +417,14 @@ export default function AdminLaborEnginePage() {
               const running = entry.status === "running";
               return (
                 <div key={entry.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 18px", borderBottom: "1px solid var(--border)" }}>
-                  {running ? <Play size={13} color="var(--ok)" /> : <Pause size={13} color="#f59e0b" />}
+                  {running ? <Play size={13} color="var(--ok)" /> : <Pause size={13} color="var(--warn)" />}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{ margin: 0, fontSize: 12, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {displayName(entry.createdBy)}
                     </p>
                     <p style={{ margin: 0, fontSize: 10, color: target.color, fontWeight: 700 }}>{target.label}</p>
                   </div>
-                  <span style={{ fontSize: 14, fontWeight: 800, fontVariantNumeric: "tabular-nums", color: running ? "var(--ok)" : "#f59e0b" }}>
+                  <span style={{ fontSize: 14, fontWeight: 800, fontVariantNumeric: "tabular-nums", color: running ? "var(--ok)" : "var(--warn)" }}>
                     {fmtElapsed(entryElapsedSeconds(entry, nowMs))}
                   </span>
                 </div>
@@ -436,7 +437,7 @@ export default function AdminLaborEnginePage() {
         {/* Team hours + cost */}
         <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, overflow: "hidden" }}>
           <div style={{ padding: "12px 18px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 8 }}>
-            <Users size={14} color="#8b5cf6" />
+            <Users size={14} color="var(--violet)" />
             <span style={{ fontSize: 12, fontWeight: 800 }}>Equipo — semana actual</span>
             {baselineRate != null ? (
               <span style={{ marginLeft: "auto", fontSize: 10, color: "var(--muted)" }}>
@@ -458,7 +459,7 @@ export default function AdminLaborEnginePage() {
                   <p style={{ margin: 0, fontSize: 10, color: "var(--muted)" }}>{member.totalEntries} entrada(s)</p>
                 </div>
                 <span style={{ fontSize: 12, fontWeight: 800, color: "var(--brand)" }}>{fmtHours(member.totalMinutes)}</span>
-                <span style={{ fontSize: 12, fontWeight: 800, color: "#f59e0b", minWidth: 64, textAlign: "right" }}>
+                <span style={{ fontSize: 12, fontWeight: 800, color: "var(--warn)", minWidth: 64, textAlign: "right" }}>
                   {fmtMoney(member.estimatedCost)}
                 </span>
               </div>

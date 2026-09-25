@@ -68,14 +68,14 @@ async function apiDelete(path: string) {
 function StatusBadge({ status }: { status: string }) {
   const colors: Record<string, [string, string]> = {
     indexed:    ["var(--ok)", "rgba(16,185,129,.12)"],
-    processing: ["#f59e0b", "rgba(245,158,11,.12)"],
+    processing: ["var(--warn)", "rgba(245,158,11,.12)"],
     pending:    ["#94a3b8", "rgba(148,163,184,.1)"],
     failed:     ["var(--error)", "rgba(239,68,68,.12)"],
     open:       ["#6366f1", "rgba(99,102,241,.12)"],
-    in_progress:["#f59e0b", "rgba(245,158,11,.12)"],
+    in_progress:["var(--warn)", "rgba(245,158,11,.12)"],
     closed:     ["var(--ok)", "rgba(16,185,129,.12)"],
     available:  ["var(--ok)", "rgba(16,185,129,.12)"],
-    in_use:     ["#f59e0b", "rgba(245,158,11,.12)"],
+    in_use:     ["var(--warn)", "rgba(245,158,11,.12)"],
   };
   const [color, bg] = colors[status] ?? ["#94a3b8", "rgba(148,163,184,.1)"];
   return (

@@ -24,9 +24,11 @@ import {
   getPrometeoAttachmentValidationError,
 } from "./prometeo-attachments";
 import {
+  extractToolResultParts,
   getPrometeoToolResultDetail,
   shouldRenderPrometeoToolError,
 } from "./prometeo-response";
+import type { ToolResultPart } from "@semse/schemas";
 
 // ── Tipos ─────────────────────────────────────────────────────
 
@@ -83,11 +85,11 @@ interface PanelAgent {
 
 const PANEL_AGENT_FALLBACKS: Record<AgentId, Omit<PanelAgent, "id">> = {
   assistant: { name: "Prometeo", emoji: "◈", color: "var(--brand)", desc: "Orquestador principal del ecosistema SEMSE" },
-  marta: { name: "Marta", emoji: "⚖", color: "#8b5cf6", desc: "Legal, cumplimiento y contratos" },
+  marta: { name: "Marta", emoji: "⚖", color: "var(--violet)", desc: "Legal, cumplimiento y contratos" },
   felix: { name: "Felix", emoji: "🔍", color: "var(--ok)", desc: "Evidencia, documentos y verificación" },
   pulse: { name: "Pulse", emoji: "📊", color: "#f97316", desc: "Métricas, salud operativa y actividad" },
   justus: { name: "Justus", emoji: "⚡", color: "var(--error)", desc: "Pagos, escrow y disputas" },
-  planner: { name: "Planner", emoji: "🗓", color: "#06b6d4", desc: "Agenda, hitos y próximos pasos" },
+  planner: { name: "Planner", emoji: "🗓", color: "var(--info)", desc: "Agenda, hitos y próximos pasos" },
 };
 
 function isPanelAgentId(value: string | null | undefined): value is AgentId {
@@ -138,6 +140,48 @@ function describeToolOutput(output: unknown): string | null {
     return keys.length > 0 ? `Datos disponibles: ${keys.join(", ")}` : "Resultado disponible";
   }
   return null;
+}
+
+function renderToolResultPart(part: ToolResultPart, key: string) {
+  const wrapperStyle = { marginTop: 5, fontSize: 10, color: "rgba(255,255,255,0.75)" } as const;
+  switch (part.type) {
+    case "text":
+      return <div key={key} style={wrapperStyle}>{part.text}</div>;
+    case "json":
+      return (
+        <pre key={key} style={{ ...wrapperStyle, whiteSpace: "pre-wrap", wordBreak: "break-word", fontFamily: "inherit" }}>
+          {JSON.stringify(part.data, null, 2).slice(0, 500)}
+        </pre>
+      );
+    case "image": {
+      const src = safeCitationUrl(part.url);
+      return src ? (
+        <img
+          key={key}
+          src={src}
+          alt={part.mimeType}
+          style={{ marginTop: 6, maxWidth: "100%", borderRadius: 8, display: "block" }}
+        />
+      ) : null;
+    }
+    case "pdf":
+    case "csv": {
+      const href = safeCitationUrl(part.url);
+      return href ? (
+        <a key={key} href={href} target="_blank" rel="noreferrer" style={{ ...wrapperStyle, display: "block", color: "#93c5fd", textDecoration: "underline" }}>
+          {part.type === "pdf" ? "📄" : "📊"} {part.filename}
+        </a>
+      ) : null;
+    }
+    case "annotation":
+      return <div key={key} style={wrapperStyle}>Anotación sobre {part.targetId}</div>;
+    case "internal_link":
+      return <div key={key} style={wrapperStyle}>{part.entityType}: {part.entityId}</div>;
+    case "approval_request":
+      return <div key={key} style={{ ...wrapperStyle, color: "#fbbf24" }}>Requiere aprobación: {part.approvalId}</div>;
+    default:
+      return null;
+  }
 }
 
 function safeCitationUrl(value: string | undefined): string | null {
@@ -337,7 +381,7 @@ function StructuredResponseCards({ message, color }: { message: ChatMessage; col
           <div style={{ marginTop: 8, display: "grid", gap: 4 }}>
             {mission.steps.slice(0, 5).map((step) => (
               <div key={step.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, color: "rgba(255,255,255,0.58)" }}>
-                <span style={{ width: 7, height: 7, borderRadius: 99, background: step.status === "completed" ? "var(--ok)" : step.status === "pending" ? "#f59e0b" : "rgba(255,255,255,0.25)" }} />
+                <span style={{ width: 7, height: 7, borderRadius: 99, background: step.status === "completed" ? "var(--ok)" : step.status === "pending" ? "var(--warn)" : "rgba(255,255,255,0.25)" }} />
                 <span>{step.label}</span>
               </div>
             ))}
@@ -400,6 +444,7 @@ function StructuredResponseCards({ message, color }: { message: ChatMessage; col
               summary,
               errorMessage: result.errorMessage,
             });
+            const toolResultParts = succeeded ? extractToolResultParts(result.output) : null;
             return (
               <div key={result.id} style={{
                 border: `1px solid ${failed ? "rgba(239,68,68,0.30)" : succeeded ? "rgba(16,185,129,0.28)" : "rgba(255,255,255,0.10)"}`,
@@ -418,6 +463,9 @@ function StructuredResponseCards({ message, color }: { message: ChatMessage; col
                     {result.status}
                   </span>
                 </div>
+                {toolResultParts
+                  ? toolResultParts.map((part, index) => renderToolResultPart(part, `${result.id}-part-${index}`))
+                  : null}
                 {shouldRenderPrometeoToolError({ detail, errorMessage: result.errorMessage }) ? (
                   <div style={{ color: "#fca5a5", fontSize: 9, marginTop: 5 }}>{result.errorMessage}</div>
                 ) : null}

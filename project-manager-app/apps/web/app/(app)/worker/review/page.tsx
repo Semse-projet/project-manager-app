@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { CheckCircle2, Inbox, MessageSquare, Star } from "lucide-react";
-import { HtmlInCanvasPanel } from "@semse/ui";
+import { EmptyState, HtmlInCanvasPanel } from "@semse/ui";
 import { createRating, fetchMyJobs, fetchRatings, type JobRecordView, type RatingListItem } from "../../../semse-api";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
 
@@ -160,10 +160,7 @@ export default function WorkerReviewPage() {
               Pendientes de calificar ({pending.length})
             </h2>
             {pending.length === 0 ? (
-              <HtmlInCanvasPanel as="div" style={{ ...card, textAlign: "center", padding: "32px 20px" }} canvasClassName="rounded-2xl" minHeight={80}>
-                <Inbox size={28} style={{ color: "var(--faint)", margin: "0 auto 8px" }} />
-                <p style={{ fontSize: 13, color: "var(--muted)" }}>No hay trabajos pendientes de calificar.</p>
-              </HtmlInCanvasPanel>
+              <EmptyState title="No hay trabajos pendientes de calificar." icon={Inbox} />
             ) : (
               <div style={{ display: "grid", gap: 12 }}>
                 {pending.map((job) => (
@@ -256,10 +253,7 @@ export default function WorkerReviewPage() {
               Reseñas recibidas ({receivedReviews.length})
             </h2>
             {receivedReviews.length === 0 ? (
-              <div style={{ ...card, display: "flex", alignItems: "center", gap: 8 }}>
-                <MessageSquare size={16} color="var(--muted)" />
-                <p style={{ fontSize: 13, color: "var(--muted)", margin: 0 }}>Aún no tienes reseñas recibidas de clientes.</p>
-              </div>
+              <EmptyState title="Aún no tienes reseñas recibidas de clientes." icon={MessageSquare} />
             ) : (
               <div style={{ display: "grid", gap: 10 }}>
                 {receivedReviews.map((rev) => (

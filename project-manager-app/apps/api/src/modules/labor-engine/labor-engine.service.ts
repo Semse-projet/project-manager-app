@@ -1,5 +1,8 @@
 import { BadRequestException, ForbiddenException, Injectable } from "@nestjs/common";
 import { LaborEngineRepository } from "./labor-engine.repository.js";
+import { geocodeAddressSafe } from "../../integrations/google-maps.js";
+import { distanceMeters, isValidCoordinate } from "../../integrations/geo-distance.js";
+import { AdminService } from "../admin/admin.service.js";
 
 // Calendario lunes-domingo / día 1-fin de mes. Usado a propósito por los KPIs
 // que se etiquetan como "Esta semana"/"Este mes"/"Semana actual" y por la
@@ -43,7 +46,17 @@ function rollingWindowBounds(days: number): { from: Date; to: Date } {
 
 @Injectable()
 export class LaborEngineService {
-  constructor(private readonly repo: LaborEngineRepository) {}
+  constructor(
+    private readonly repo: LaborEngineRepository,
+    private readonly adminService: AdminService,
+  ) {}
+
+  /** Per-org proximity check-in radius/cooldown (falls back to the defaults
+   * baked into adminSettingsSchema when the tenant hasn't customized them). */
+  async getProximityConfig(tenantId: string): Promise<{ radiusMeters: number; cooldownMinutes: number }> {
+    const settings = await this.adminService.getSettings(tenantId);
+    return settings.proximity;
+  }
 
   // ── FreeProject ────────────────────────────────────────────────────────────
 
@@ -53,10 +66,21 @@ export class LaborEngineService {
     name: string;
     color?: string;
     location?: string;
+    latitude?: number;
+    longitude?: number;
     description?: string;
   }) {
     if (!params.name?.trim()) throw new BadRequestException("name is required");
-    return this.repo.createFreeProject(params);
+    const coords = await this.resolveLocationCoordinates(params.location, params.latitude, params.longitude);
+    return this.repo.createFreeProject({
+      tenantId: params.tenantId,
+      createdBy: params.createdBy,
+      name: params.name,
+      color: params.color,
+      location: params.location,
+      description: params.description,
+      ...coords,
+    });
   }
 
   async listFreeProjects(tenantId: string, createdBy: string) {
@@ -67,6 +91,8 @@ export class LaborEngineService {
     name?: string;
     color?: string;
     location?: string;
+    latitude?: number;
+    longitude?: number;
     description?: string;
     status?: string;
   }) {
@@ -81,7 +107,33 @@ export class LaborEngineService {
         "status \"converted\" cannot be set directly. Use POST /free-projects/:id/convert instead.",
       );
     }
-    return this.repo.updateFreeProject(id, tenantId, data);
+    const coords = await this.resolveLocationCoordinates(data.location, data.latitude, data.longitude);
+    return this.repo.updateFreeProject(id, tenantId, {
+      ...(data.name !== undefined && { name: data.name }),
+      ...(data.color !== undefined && { color: data.color }),
+      ...(data.location !== undefined && { location: data.location }),
+      ...(data.description !== undefined && { description: data.description }),
+      ...(data.status !== undefined && { status: data.status }),
+      ...coords,
+    });
+  }
+
+  /** Best-effort: manual lat/lng override wins if valid, else geocode `location`. Never throws. */
+  private async resolveLocationCoordinates(
+    location: string | undefined,
+    latitude: number | undefined,
+    longitude: number | undefined,
+  ): Promise<{ latitude?: number; longitude?: number; locationSource?: "geocoded" | "manual" }> {
+    if (latitude !== undefined && longitude !== undefined && isValidCoordinate(latitude, longitude)) {
+      return { latitude, longitude, locationSource: "manual" };
+    }
+    if (location) {
+      const geocoded = await geocodeAddressSafe(location);
+      if (geocoded?.latitude !== undefined && geocoded.longitude !== undefined) {
+        return { latitude: geocoded.latitude, longitude: geocoded.longitude, locationSource: "geocoded" };
+      }
+    }
+    return {};
   }
 
   async archiveFreeProject(id: string, tenantId: string) {
@@ -102,6 +154,7 @@ export class LaborEngineService {
     jobId?: string;
     freeProjectId?: string;
     notes?: string;
+    checkIn?: { latitude: number; longitude: number; method?: string };
     contextEntityType?: string;
     contextEntityId?: string;
     clientEventId?: string;
@@ -120,7 +173,50 @@ export class LaborEngineService {
       throw new BadRequestException("job_linked purpose requires jobId or freeProjectId");
     }
     await this.assertOwnership(params);
-    return this.repo.startRealtimeEntry(params);
+    const checkInFields = await this.resolveCheckIn(params.tenantId, params.jobId, params.freeProjectId, params.checkIn);
+    return this.repo.startRealtimeEntry({
+      tenantId: params.tenantId,
+      orgId: params.orgId,
+      createdBy: params.createdBy,
+      purpose: params.purpose,
+      jobId: params.jobId,
+      freeProjectId: params.freeProjectId,
+      notes: params.notes,
+      contextEntityType: params.contextEntityType,
+      contextEntityId: params.contextEntityId,
+      clientEventId: params.clientEventId,
+      ...checkInFields,
+    });
+  }
+
+  /** Never blocks the timer/entry on distance — GPS is unreliable indoors. Only records
+   * checkIn coordinates + distance to the site (when the site itself has coordinates) for
+   * auditing/QualityGuard. Distance is omitted (not zero) when the site has no coordinates. */
+  private async resolveCheckIn(
+    tenantId: string,
+    jobId: string | undefined,
+    freeProjectId: string | undefined,
+    checkIn: { latitude: number; longitude: number; method?: string } | undefined,
+  ): Promise<{
+    checkInLatitude?: number;
+    checkInLongitude?: number;
+    checkInDistanceMeters?: number;
+    checkInMethod?: string;
+  }> {
+    if (!checkIn || !isValidCoordinate(checkIn.latitude, checkIn.longitude)) {
+      return {};
+    }
+    const site = jobId
+      ? await this.repo.getJobCoordinates(tenantId, jobId)
+      : freeProjectId
+        ? await this.repo.getFreeProjectCoordinates(tenantId, freeProjectId)
+        : null;
+    return {
+      checkInLatitude: checkIn.latitude,
+      checkInLongitude: checkIn.longitude,
+      checkInMethod: checkIn.method,
+      ...(site && { checkInDistanceMeters: Math.round(distanceMeters(checkIn, site)) }),
+    };
   }
 
   /** A worker may only log time against a job they're actually assigned to, or a free
@@ -200,6 +296,7 @@ export class LaborEngineService {
     hourlyRate?: number;
     currency?: string;
     location?: string;
+    checkIn?: { latitude: number; longitude: number };
     notes?: string;
     contextEntityType?: string;
     contextEntityId?: string;
@@ -232,6 +329,12 @@ export class LaborEngineService {
     }
     this.assertValidRate(params.hourlyRate, params.currency);
     await this.assertOwnership(params);
+    const checkInFields = await this.resolveCheckIn(
+      params.tenantId,
+      params.jobId,
+      params.freeProjectId,
+      params.checkIn ? { ...params.checkIn, method: "manual_tagged" } : undefined,
+    );
     return this.repo.createTimeEntry({
       tenantId: params.tenantId,
       orgId: params.orgId,
@@ -248,6 +351,7 @@ export class LaborEngineService {
       location: params.location,
       notes: params.notes,
       clientEventId: params.clientEventId,
+      ...checkInFields,
     });
   }
 
@@ -323,15 +427,16 @@ export class LaborEngineService {
 
   async getAdminOverview(tenantId: string) {
     const { from, to } = weekBounds();
-    const [activeTimers, team, longEntries] = await Promise.all([
+    const [activeTimers, team, longEntries, offSiteCheckIns] = await Promise.all([
       this.repo.listActiveEntriesForTenant(tenantId),
       this.repo.getTeamSummary({ tenantId, from, to }),
       this.repo.listLongEntries({ tenantId, from, to, minMinutes: QUALITY_GUARD.longEntryMinutes }),
+      this.repo.listOffSiteCheckIns({ tenantId, from, to, minDistanceMeters: QUALITY_GUARD.farFromSiteMeters }),
     ]);
 
     const now = Date.now();
     const alerts: Array<{
-      type: "stale_timer" | "overtime" | "long_entry";
+      type: "stale_timer" | "overtime" | "long_entry" | "off_site_checkin";
       severity: "warning" | "critical";
       workerId: string;
       entryId?: string;
@@ -374,6 +479,18 @@ export class LaborEngineService {
       });
     }
 
+    for (const entry of offSiteCheckIns) {
+      const distanceMeters = entry.checkInDistanceMeters ?? 0;
+      const distanceLabel = distanceMeters >= 1000 ? `${(distanceMeters / 1000).toFixed(1)}km` : `${distanceMeters}m`;
+      alerts.push({
+        type: "off_site_checkin",
+        severity: distanceMeters >= QUALITY_GUARD.farFromSiteMeters * 2 ? "critical" : "warning",
+        workerId: entry.createdBy,
+        entryId: entry.id,
+        detail: `Check-in a ${distanceLabel} del sitio del job/proyecto — revisa si corresponde.`,
+      });
+    }
+
     return {
       period: { from: from.toISOString(), to: to.toISOString() },
       activeTimers,
@@ -389,4 +506,7 @@ const QUALITY_GUARD = {
   staleTimerHours: 12,
   overtimeWeekMinutes: 48 * 60,
   longEntryMinutes: 12 * 60,
+  /** Meters — well past GPS noise around the 150m proximity-check-in radius,
+   * so this flags a check-in that plausibly happened somewhere else entirely. */
+  farFromSiteMeters: 500,
 };

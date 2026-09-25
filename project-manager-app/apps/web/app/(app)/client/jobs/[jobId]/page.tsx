@@ -54,10 +54,10 @@ const JOB_STATUS_META: Record<string, { label: string; color: string; bg: string
   draft: { label: "Borrador", color: "#64748b", bg: "rgba(100,116,139,.12)" },
   posted: { label: "Publicado", color: "var(--brand)", bg: "rgba(59,130,246,.12)" },
   published: { label: "Publicado", color: "var(--brand)", bg: "rgba(59,130,246,.12)" },
-  reserved: { label: "Reservado", color: "#f59e0b", bg: "rgba(245,158,11,.12)" },
-  accepted: { label: "Aceptado", color: "#8b5cf6", bg: "rgba(139,92,246,.12)" },
-  in_progress: { label: "En progreso", color: "#06b6d4", bg: "rgba(6,182,212,.12)" },
-  review: { label: "En revisión", color: "#f59e0b", bg: "rgba(245,158,11,.12)" },
+  reserved: { label: "Reservado", color: "var(--warn)", bg: "rgba(245,158,11,.12)" },
+  accepted: { label: "Aceptado", color: "var(--violet)", bg: "rgba(139,92,246,.12)" },
+  in_progress: { label: "En progreso", color: "var(--info)", bg: "rgba(6,182,212,.12)" },
+  review: { label: "En revisión", color: "var(--warn)", bg: "rgba(245,158,11,.12)" },
   dispute: { label: "En disputa", color: "var(--error)", bg: "rgba(239,68,68,.12)" },
   completed: { label: "Completado", color: "var(--ok)", bg: "rgba(16,185,129,.12)" },
   awarded: { label: "Adjudicado", color: "#6366f1", bg: "rgba(99,102,241,.12)" },
@@ -65,9 +65,9 @@ const JOB_STATUS_META: Record<string, { label: string; color: string; bg: string
 };
 
 const MILESTONE_STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
-  DRAFT: { label: "Borrador", color: "#64748b", bg: "rgba(100,116,139,.12)" },
-  AWAITING_REVIEW: { label: "En revisión", color: "#f59e0b", bg: "rgba(245,158,11,.12)" },
-  SUBMITTED: { label: "Enviado", color: "#06b6d4", bg: "rgba(6,182,212,.12)" },
+  DRAFT: { label: "Borrador", color: "var(--faint)", bg: "rgba(100,116,139,.12)" },
+  AWAITING_REVIEW: { label: "En revisión", color: "var(--warn)", bg: "rgba(245,158,11,.12)" },
+  SUBMITTED: { label: "Enviado", color: "var(--info)", bg: "rgba(6,182,212,.12)" },
   APPROVED: { label: "Aprobado", color: "var(--ok)", bg: "rgba(16,185,129,.12)" },
   REJECTED: { label: "Rechazado", color: "var(--error)", bg: "rgba(239,68,68,.12)" },
   PAID: { label: "Pagado", color: "#22c55e", bg: "rgba(34,197,94,.12)" }
@@ -76,8 +76,8 @@ const MILESTONE_STATUS_META: Record<string, { label: string; color: string; bg: 
 const PAYMENT_TYPE_META: Record<string, { label: string; color: string; bg: string }> = {
   DEPOSIT: { label: "Depósito", color: "var(--brand)", bg: "rgba(59,130,246,.12)" },
   RELEASE: { label: "Liberación", color: "var(--ok)", bg: "rgba(16,185,129,.12)" },
-  HOLDBACK: { label: "Retención", color: "#f59e0b", bg: "rgba(245,158,11,.12)" },
-  FEE: { label: "Fee", color: "#8b5cf6", bg: "rgba(139,92,246,.12)" },
+  HOLDBACK: { label: "Retención", color: "var(--warn)", bg: "rgba(245,158,11,.12)" },
+  FEE: { label: "Fee", color: "var(--violet)", bg: "rgba(139,92,246,.12)" },
   REFUND: { label: "Reembolso", color: "var(--error)", bg: "rgba(239,68,68,.12)" }
 };
 
@@ -85,7 +85,7 @@ const BID_STATUS_META: Record<BidView["status"], { label: string; color: string;
   submitted: { label: "Enviada", color: "var(--brand)", bg: "rgba(59,130,246,.12)" },
   accepted: { label: "Aceptada", color: "var(--ok)", bg: "rgba(16,185,129,.12)" },
   rejected: { label: "Rechazada", color: "var(--error)", bg: "rgba(239,68,68,.12)" },
-  withdrawn: { label: "Retirada", color: "#64748b", bg: "rgba(100,116,139,.12)" },
+  withdrawn: { label: "Retirada", color: "var(--faint)", bg: "rgba(100,116,139,.12)" },
 };
 
 function asString(value: unknown): string | undefined {
@@ -463,9 +463,9 @@ export default function ClientJobDetailPage() {
     reserved:    { label: "Acepta o rechaza la reserva", detail: "Un profesional reservó el trabajo. Acepta para avanzar o libera la reserva.", tone: "#fbbf24" },
     accepted:    escrowStatus === "FUNDED" || escrowStatus === "ACTIVE"
       ? { label: "Escrow fondeado — esperando al profesional", detail: "Los fondos ya están protegidos. El profesional puede iniciar el trabajo en cualquier momento.", tone: "var(--ok)" }
-      : { label: "Fondea el escrow", detail: "El trabajo fue aceptado. Fondea el escrow para que el profesional pueda comenzar.", tone: "#f59e0b" },
-    in_progress: { label: "Revisa el avance", detail: "El profesional está trabajando. Revisa milestones y evidencia.", tone: "#06b6d4" },
-    review:      { label: "Aprueba o pide cambios", detail: "El profesional envió para revisión. Aprueba el milestone o solicita cambios.", tone: "#8b5cf6" },
+      : { label: "Fondea el escrow", detail: "El trabajo fue aceptado. Fondea el escrow para que el profesional pueda comenzar.", tone: "var(--warn)" },
+    in_progress: { label: "Revisa el avance", detail: "El profesional está trabajando. Revisa milestones y evidencia.", tone: "var(--info)" },
+    review:      { label: "Aprueba o pide cambios", detail: "El profesional envió para revisión. Aprueba el milestone o solicita cambios.", tone: "var(--violet)" },
     dispute:     { label: "Disputa activa", detail: "Hay una disputa abierta. El equipo de ops está revisando. Puedes aportar evidencia.", tone: "var(--error)" },
     completed:   { label: "Trabajo completado", detail: "El trabajo se cerró correctamente. Puedes dejar una calificación.", tone: "var(--ok)" },
     cancelled:   { label: "Trabajo cancelado", detail: "Este trabajo fue cancelado.", tone: "#64748b" }
@@ -663,7 +663,7 @@ export default function ClientJobDetailPage() {
                                 {meta.label}
                               </span>
                               {bid.avgRating != null ? (
-                                <span style={{ display: "inline-flex", alignItems: "center", gap: "3px", fontSize: "11px", color: "#f59e0b", fontWeight: 700 }}>
+                                <span style={{ display: "inline-flex", alignItems: "center", gap: "3px", fontSize: "11px", color: "var(--warn)", fontWeight: 700 }}>
                                   &#9733; {bid.avgRating.toFixed(1)}
                                   <span style={{ color: "var(--muted)", fontWeight: 400 }}>({bid.ratingCount})</span>
                                 </span>
@@ -750,10 +750,10 @@ export default function ClientJobDetailPage() {
                   {(asString(job?.location) ?? asString(job?.city)) ? `${asString(job?.city) ?? asString(job?.location)} · ` : ""}abrir contexto →
                 </div>
               </button>
-              <button type="button" onClick={() => setActiveInsight("signals")} style={summaryButtonStyle("#8b5cf6")} onMouseOver={e => { e.currentTarget.style.borderColor = "#8b5cf6"; e.currentTarget.style.boxShadow = "0 2px 8px rgba(139,92,246,.1)"; }} onMouseOut={e => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.boxShadow = ""; }}>
+              <button type="button" onClick={() => setActiveInsight("signals")} style={summaryButtonStyle("var(--violet)")} onMouseOver={e => { e.currentTarget.style.borderColor = "var(--violet)"; e.currentTarget.style.boxShadow = "0 2px 8px rgba(139,92,246,.1)"; }} onMouseOut={e => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.boxShadow = ""; }}>
                 <div style={{ fontSize: "11px", color: "var(--muted)", marginBottom: "4px" }}>Operación y agentes</div>
                 <div style={{ fontSize: "18px", fontWeight: 800, color: "var(--ink)" }}>{approvedSignals.length}</div>
-                <div style={{ fontSize: "11px", color: "#8b5cf6", marginTop: "4px" }}>
+                <div style={{ fontSize: "11px", color: "var(--violet)", marginTop: "4px" }}>
                   {formatDate(asString(job?.deadline))} · abrir contexto →
                 </div>
               </button>
@@ -1052,7 +1052,7 @@ export default function ClientJobDetailPage() {
                         <div style={{ fontSize: "12px", fontWeight: 600, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "210px" }}>
                           {key}
                         </div>
-                        <span style={{ fontSize: "10px", padding: "2px 6px", borderRadius: "4px", background: accessMode === "direct" ? "rgba(16,185,129,.12)" : "rgba(100,116,139,.12)", color: accessMode === "direct" ? "var(--ok)" : "#64748b", fontWeight: 700 }}>
+                        <span style={{ fontSize: "10px", padding: "2px 6px", borderRadius: "4px", background: accessMode === "direct" ? "rgba(16,185,129,.12)" : "rgba(100,116,139,.12)", color: accessMode === "direct" ? "var(--ok)" : "var(--faint)", fontWeight: 700 }}>
                           {accessMode === "direct" ? "Acceso directo" : "Desde proyecto"}
                         </span>
                       </div>
@@ -1363,7 +1363,7 @@ export default function ClientJobDetailPage() {
         onClose={() => setActiveInsight(null)}
         title="Operación y agentes"
         subtitle="Señales de copilotos, confianza y foco humano antes de tomar decisiones de costo, riesgo o cierre."
-        tone="#8b5cf6"
+        tone="var(--violet)"
       >
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "10px" }}>
           {[
@@ -1385,7 +1385,7 @@ export default function ClientJobDetailPage() {
               {approvedSignals.slice(0, 4).map((signal) => (
                 <div key={signal.id} style={{ padding: "10px 12px", borderRadius: "10px", border: "1px solid var(--border)", background: "var(--surface)" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", gap: "8px", marginBottom: "4px" }}>
-                    <span style={{ fontSize: "12px", fontWeight: 700, color: "#8b5cf6" }}>{signal.agentType}</span>
+                    <span style={{ fontSize: "12px", fontWeight: 700, color: "var(--violet)" }}>{signal.agentType}</span>
                     <span style={{ fontSize: "11px", color: "var(--muted)" }}>{signal.confidence != null ? `${Math.round(signal.confidence * 100)}%` : "sin score"}</span>
                   </div>
                   <p style={{ fontSize: "12px", color: "var(--muted)", lineHeight: 1.5 }}>
@@ -1405,7 +1405,7 @@ export default function ClientJobDetailPage() {
           </p>
         </div>
         <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-          <button onClick={() => scrollToSection("signals-section")} style={{ padding: "9px 12px", borderRadius: "10px", border: "none", background: "#8b5cf6", color: "#fff", fontSize: "12px", fontWeight: 700, cursor: "pointer" }}>
+          <button onClick={() => scrollToSection("signals-section")} style={{ padding: "9px 12px", borderRadius: "10px", border: "none", background: "var(--violet)", color: "#fff", fontSize: "12px", fontWeight: 700, cursor: "pointer" }}>
             Ir al bloque señales
           </button>
           <Link href={CLIENT_ROUTES.projects} style={{ padding: "9px 12px", borderRadius: "10px", border: "1px solid var(--border)", background: "transparent", color: "var(--ink)", fontSize: "12px", fontWeight: 700, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "6px" }}>

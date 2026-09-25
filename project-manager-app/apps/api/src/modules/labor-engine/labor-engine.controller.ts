@@ -18,12 +18,39 @@ function rid(req: { headers?: Record<string, unknown> }) {
   return resolveRequestId(req.headers ?? {});
 }
 
+function parseManualCoords(body: Record<string, unknown>): { latitude?: number; longitude?: number } {
+  return {
+    latitude: typeof body["latitude"] === "number" ? body["latitude"] : undefined,
+    longitude: typeof body["longitude"] === "number" ? body["longitude"] : undefined,
+  };
+}
+
+function parseCheckIn(body: Record<string, unknown>): { latitude: number; longitude: number; method?: string } | undefined {
+  const checkIn = body["checkIn"];
+  if (!checkIn || typeof checkIn !== "object") return undefined;
+  const { latitude, longitude, method } = checkIn as Record<string, unknown>;
+  if (typeof latitude !== "number" || typeof longitude !== "number") return undefined;
+  return { latitude, longitude, method: typeof method === "string" ? method : undefined };
+}
+
 @Controller("v1/labor")
 export class LaborEngineController {
   constructor(
     private readonly svc: LaborEngineService,
     private readonly chat: LaborChatService,
   ) {}
+
+  // ── Proximity check-in config ────────────────────────────────────────────
+
+  /** Read-only, worker-scoped (field-ops:read) — never the full admin
+   * settings blob, only the proximity radius/cooldown the tracker needs. */
+  @Get("proximity-config")
+  @RequirePermissions("field-ops:read")
+  async getProximityConfig(@Req() req: { headers?: Record<string, unknown> }) {
+    const a = actor(req);
+    const data = await this.svc.getProximityConfig(a.tenantId);
+    return ok(rid(req), data);
+  }
 
   // ── Free Projects ─────────────────────────────────────────────────────────
 
@@ -49,6 +76,7 @@ export class LaborEngineController {
       name: body["name"],
       color: typeof body["color"] === "string" ? body["color"] : undefined,
       location: typeof body["location"] === "string" ? body["location"] : undefined,
+      ...parseManualCoords(body),
       description: typeof body["description"] === "string" ? body["description"] : undefined,
     });
     return ok(rid(req), data);
@@ -66,6 +94,7 @@ export class LaborEngineController {
       name: typeof body["name"] === "string" ? body["name"] : undefined,
       color: typeof body["color"] === "string" ? body["color"] : undefined,
       location: typeof body["location"] === "string" ? body["location"] : undefined,
+      ...parseManualCoords(body),
       description: typeof body["description"] === "string" ? body["description"] : undefined,
       status: typeof body["status"] === "string" ? body["status"] : undefined,
     });
@@ -122,6 +151,7 @@ export class LaborEngineController {
       jobId: typeof body["jobId"] === "string" ? body["jobId"] : undefined,
       freeProjectId: typeof body["freeProjectId"] === "string" ? body["freeProjectId"] : undefined,
       notes: typeof body["notes"] === "string" ? body["notes"] : undefined,
+      checkIn: parseCheckIn(body),
       clientEventId: typeof body["clientEventId"] === "string" ? body["clientEventId"] : undefined,
     });
     return ok(rid(req), data);
@@ -233,6 +263,7 @@ export class LaborEngineController {
       hourlyRate: typeof body["hourlyRate"] === "number" ? body["hourlyRate"] : undefined,
       currency: typeof body["currency"] === "string" ? body["currency"] : undefined,
       location: typeof body["location"] === "string" ? body["location"] : undefined,
+      checkIn: parseCheckIn(body),
       notes: typeof body["notes"] === "string" ? body["notes"] : undefined,
       clientEventId: typeof body["clientEventId"] === "string" ? body["clientEventId"] : undefined,
     });

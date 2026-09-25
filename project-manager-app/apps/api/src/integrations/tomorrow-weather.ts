@@ -13,6 +13,7 @@ import { Logger } from '@nestjs/common';
 export interface WeatherData {
   temperature: number; // Celsius
   precipitation: number; // mm
+  precipitationType?: 'none' | 'rain' | 'snow' | 'freezing_rain' | 'ice_pellets'; // Tomorrow.io precipitationType (0-4)
   windSpeed: number; // km/h
   uvIndex: number;
   weatherCode: string; // 'rainy', 'cloudy', 'clear', etc
@@ -88,6 +89,24 @@ export class TomorrowWeatherClient {
   }
 
   /**
+   * Tomorrow.io's precipitationType is a numeric enum (0=none, 1=rain,
+   * 2=snow, 3=freezing rain, 4=ice pellets) — was never decoded here before
+   * (m2.3-weather.spec.md needs it to tell rain from snow; added 2026-08-27
+   * rather than guessing eventType from precipitation/temperature alone).
+   */
+  private static readonly PRECIPITATION_TYPES: WeatherData['precipitationType'][] = [
+    'none',
+    'rain',
+    'snow',
+    'freezing_rain',
+    'ice_pellets',
+  ];
+
+  private decodePrecipitationType(code: unknown): WeatherData['precipitationType'] {
+    return TomorrowWeatherClient.PRECIPITATION_TYPES[Number(code)] ?? 'none';
+  }
+
+  /**
    * Parsear respuesta de Tomorrow.io.
    */
   private parseResponse(data: any): WeatherForecast {
@@ -106,6 +125,7 @@ export class TomorrowWeatherClient {
             forecast.hourly.push({
               temperature: interval.values.temperature,
               precipitation: interval.values.precipitationSum || 0,
+              precipitationType: this.decodePrecipitationType(interval.values.precipitationType),
               windSpeed: interval.values.windSpeed,
               uvIndex: interval.values.uvIndex || 0,
               weatherCode: interval.values.weatherCode,
@@ -117,6 +137,7 @@ export class TomorrowWeatherClient {
             forecast.daily.push({
               temperature: interval.values.temperatureAvg,
               precipitation: interval.values.precipitationSum || 0,
+              precipitationType: this.decodePrecipitationType(interval.values.precipitationTypeMax),
               windSpeed: interval.values.windSpeedMax,
               uvIndex: interval.values.uvIndexMax || 0,
               weatherCode: interval.values.weatherCodeMax,
@@ -153,6 +174,7 @@ export class MockTomorrowWeatherClient {
         {
           temperature: 22,
           precipitation: 0,
+          precipitationType: 'none',
           windSpeed: 10,
           uvIndex: 5,
           weatherCode: 'clear',
@@ -163,6 +185,7 @@ export class MockTomorrowWeatherClient {
         {
           temperature: 24,
           precipitation: 0,
+          precipitationType: 'none',
           windSpeed: 12,
           uvIndex: 6,
           weatherCode: 'clear',

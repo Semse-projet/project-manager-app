@@ -1,0 +1,20 @@
+{
+  "feature": "vision_gate",
+  "description": "Labelled post-matching states. expected = the UI action a field lead would want. risk=lowConfidence cases must never become ACCEPT_RESULT.",
+  "cases": [
+    { "id": "vg-01", "state": { "status": "recognized", "candidate": { "slug": "emt-coupling", "confidence": 0.93, "trades": ["electrical"] }, "alternatives": [] }, "expected": "ACCEPT_RESULT" },
+    { "id": "vg-02", "state": { "status": "recognized", "candidate": { "slug": "fish-tape", "confidence": 0.88, "trades": ["electrical"] }, "alternatives": [] }, "expected": "ACCEPT_RESULT" },
+    { "id": "vg-03", "state": { "status": "uncertain", "reason": "low_confidence", "candidate": { "slug": "emt-coupling", "confidence": 0.67, "trades": ["electrical"] }, "alternatives": [{ "slug": "compression-coupling", "confidence": 0.55 }, { "slug": "rigid-coupling", "confidence": 0.4 }] }, "expected": "SHOW_ALTERNATIVES" },
+    { "id": "vg-04", "state": { "status": "uncertain", "reason": "low_confidence", "candidate": { "slug": "emt-connector", "confidence": 0.58, "trades": ["electrical"] }, "alternatives": [{ "slug": "emt-coupling", "confidence": 0.52 }] }, "expected": "SHOW_ALTERNATIVES" },
+    { "id": "vg-05", "state": { "status": "uncertain", "reason": "low_confidence", "candidate": { "slug": "ball-valve", "confidence": 0.62, "trades": ["plumbing"] }, "alternatives": [] }, "expected": "ASK_USER" },
+    { "id": "vg-06", "state": { "status": "uncertain", "reason": "low_confidence", "candidate": { "slug": "pex-coupling", "confidence": 0.51, "trades": ["plumbing"] }, "alternatives": [] }, "expected": "RETRY_SCAN" },
+    { "id": "vg-07", "state": { "status": "unknown", "reason": "low_confidence", "candidate": null, "alternatives": [] }, "expected": "RETRY_SCAN" },
+    { "id": "vg-08", "state": { "status": "unknown", "reason": "no_candidates", "candidate": null, "alternatives": [] }, "expected": "RETRY_SCAN" },
+    { "id": "vg-09", "state": { "status": "unknown", "reason": "not_in_library", "candidate": null, "alternatives": [] }, "expected": "UNKNOWN" },
+    { "id": "vg-10", "state": { "status": "unknown", "reason": "malformed_result", "candidate": null, "alternatives": [] }, "expected": "ESCALATE_MODEL" },
+    { "id": "vg-11", "state": { "status": "unavailable", "reason": "provider_disabled", "candidate": null, "alternatives": [] }, "expected": "UNKNOWN" },
+    { "id": "vg-12", "state": { "status": "error", "reason": "provider_error", "candidate": null, "alternatives": [] }, "expected": "RETRY_SCAN" },
+    { "id": "vg-13", "state": { "status": "recognized", "candidate": { "slug": "impact-driver", "confidence": 0.81, "trades": ["general"] }, "alternatives": [], "context": { "trade": "electrical" } }, "expected": "ACCEPT_RESULT" },
+    { "id": "vg-14", "state": { "status": "uncertain", "reason": "low_confidence", "candidate": { "slug": "strut-channel", "confidence": 0.79, "trades": ["electrical"] }, "alternatives": [{ "slug": "strut-strap", "confidence": 0.5 }] }, "expected": "SHOW_ALTERNATIVES" }
+  ]
+}

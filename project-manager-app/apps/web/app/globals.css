@@ -87,6 +87,7 @@
   --accent:     #ff6a00;
   --accent-dim: rgba(255,106,0,.12);
   --ok:         #10b981;
+  --ok-dark:    #34d399;
   --warn:       #f59e0b;
   --error:      #ef4444;
   --signal:     #06b6d4;
@@ -114,6 +115,7 @@
   --accent:     #ea580c;
   --accent-dim: rgba(234,88,12,.10);
   --ok:         #059669;
+  --ok-dark:    #047857;
   --warn:       #d97706;
   --error:      #dc2626;
   --signal:     #0891b2;
@@ -137,6 +139,7 @@
   --accent:     #ea580c;
   --accent-dim: rgba(234,88,12,.10);
   --ok:         #059669;
+  --ok-dark:    #047857;
   --warn:       #d97706;
   --error:      #dc2626;
   --signal:     #0891b2;
@@ -161,6 +164,7 @@ html[data-theme="dark"] .public-theme,
   --accent:     #ff6a00;
   --accent-dim: rgba(255,106,0,.12);
   --ok:         #10b981;
+  --ok-dark:    #34d399;
   --warn:       #f59e0b;
   --error:      #ef4444;
   --signal:     #06b6d4;
@@ -2395,9 +2399,20 @@ input[type="range"]::-moz-range-thumb {
 .card-lift {
   transition: transform 160ms var(--ease-out), border-color 160ms, box-shadow 160ms var(--ease-out);
 }
-.card-lift:hover {
+.card-lift:hover,
+.card-lift:focus-visible {
   transform: translateY(-2px);
   box-shadow: var(--shadow-md);
+}
+
+/* List-row border highlight (same intent as .card-lift, for flat rows instead of tiles) */
+.row-hover {
+  border-color: var(--border);
+  transition: border-color 160ms;
+}
+.row-hover:hover,
+.row-hover:focus-visible {
+  border-color: var(--row-hover-color, var(--ok));
 }
 
 /* Empty state */
@@ -2424,5 +2439,21 @@ input[type="range"]::-moz-range-thumb {
   max-width: 280px;
   margin: 0 auto 16px;
   line-height: 1.5;
+}
+
+/*
+ * Reduced motion — global safety net (design-system §14/§16). Applies to
+ * every transition/animation in the app, including .card-lift above and
+ * anything future work adds; nothing here needs to opt in per-component.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 }

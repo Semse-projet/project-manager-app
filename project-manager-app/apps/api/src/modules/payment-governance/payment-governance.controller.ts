@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Param, Post, Req } from "@nestjs/common";
 import type { FastifyRequest } from "fastify";
-import { PaymentGovernanceService } from "./payment-governance.service.js";
+import { PaymentGovernanceService, type EscrowActor } from "./payment-governance.service.js";
 import { ok } from "../../common/api-response.js";
 import { resolveRequestContext } from "../../common/request-context.js";
 import { resolveRequestId } from "../../common/request-id.js";
@@ -8,6 +8,10 @@ import { RequirePermissions } from "../../common/permissions.decorator.js";
 
 function actor(req: FastifyRequest) {
   return resolveRequestContext(req as Parameters<typeof resolveRequestContext>[0]);
+}
+
+function toEscrowActor(ctx: ReturnType<typeof actor>): EscrowActor {
+  return { tenantId: ctx.tenantId, orgId: ctx.orgId, userId: ctx.userId, roles: ctx.roles };
 }
 
 @Controller("v1/payments")
@@ -29,7 +33,8 @@ export class PaymentGovernanceController {
       amount: Number(body.amount ?? 0),
       reason: String(body.reason ?? ""),
       releasedBy: ctx.userId,
-    });
+      tenantId: ctx.tenantId,
+    }, toEscrowActor(ctx));
 
     return ok(rid, result);
   }
@@ -47,6 +52,8 @@ export class PaymentGovernanceController {
       String(body.escrowId ?? ""),
       String(body.reason ?? ""),
       ctx.userId,
+      ctx.tenantId,
+      toEscrowActor(ctx),
     );
 
     return ok(rid, result);
@@ -59,7 +66,8 @@ export class PaymentGovernanceController {
     @Param("escrowId") escrowId: string,
   ) {
     const rid = resolveRequestId(req.headers ?? {});
-    const result = await this.service.getPaymentHistory(escrowId);
+    const ctx = actor(req);
+    const result = await this.service.getPaymentHistory(escrowId, ctx.tenantId, toEscrowActor(ctx));
     return ok(rid, result);
   }
 
@@ -71,9 +79,12 @@ export class PaymentGovernanceController {
     @Param("milestoneId") milestoneId: string,
   ) {
     const rid = resolveRequestId(req.headers ?? {});
+    const ctx = actor(req);
     const score = await this.service.calculatePaymentScore(
       escrowId,
       milestoneId,
+      ctx.tenantId,
+      toEscrowActor(ctx),
     );
     return ok(rid, score);
   }

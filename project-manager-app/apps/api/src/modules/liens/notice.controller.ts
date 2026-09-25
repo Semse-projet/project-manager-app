@@ -12,6 +12,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { AuthenticatedAccess } from '../../common/permissions.decorator.js';
 import { resolveRequestContext } from '../../common/request-context.js';
 import { NoticeGeneratorService } from './notice-generator.service.js';
+import { NoticeSendService } from './notice-send.service.js';
 import { LiensService } from './liens.service.js';
 
 /**
@@ -30,6 +31,7 @@ export class NoticeController {
 
   constructor(
     private readonly noticeGeneratorService: NoticeGeneratorService,
+    private readonly noticeSendService: NoticeSendService,
     private readonly liensService: LiensService
   ) {}
 
@@ -94,19 +96,14 @@ export class NoticeController {
     this.logger.log(`GET /notices: ${projectId}`);
 
     try {
-      // Obtener todos los calendarios del proyecto
+      // getLienCalendars() already includes each calendar's non-DRAFT
+      // notices (see LiensService.getLienCalendars) — this endpoint used to
+      // discard that and return a hardcoded empty array instead (found
+      // 2026-08-27 while wiring this module into AppModule; every call to
+      // GET /notices always reported zero notices regardless of what was in
+      // the DB). Flatten what was already fetched instead of re-querying.
       const calendars = await this.liensService.getLienCalendars(projectId);
-
-      // Obtener todos los notices de esos calendarios
-      const allNotices: any[] = [];
-
-      for (const _calendar of calendars) {
-        const notices = await Promise.resolve(
-          // En BD: SELECT * FROM LienNotice WHERE lienCalendarId = calendar.id
-          []
-        );
-        allNotices.push(...notices);
-      }
+      const allNotices = calendars.flatMap((calendar: any) => calendar.notices ?? []);
 
       return {
         success: true,
@@ -148,8 +145,17 @@ export class NoticeController {
   /**
    * POST /v1/projects/:projectId/liens/notices/:noticeId/send
    *
-   * Enviar notice (transición DRAFT → NOTICE_SENT).
-   * Próximo bloque: integración con Lob.com para envío real.
+   * Enviar notice vía Lob.com (correo certificado), transición
+   * DRAFT → NOTICE_SENT.
+   *
+   * Antes (hasta 2026-08-27) este endpoint llamaba directamente a
+   * NoticeGeneratorService.updateNoticeStatus(), que solo cambia el campo
+   * `status` en la fila — nunca invocaba a NoticeSendService (el único
+   * código de este módulo que realmente llama a Lob.com) ni fallaba si la
+   * dirección del proyecto era inválida. Un caller de este endpoint recibía
+   * "Notice marked as sent" con un aviso legal que en realidad nunca se
+   * envió por correo. Corregido para delegar en NoticeSendService.sendNotice(),
+   * que sí falla (fail-closed) si la dirección no es parseable.
    */
   @Post('notices/:noticeId/send')
   async sendNotice(
@@ -159,15 +165,11 @@ export class NoticeController {
     this.logger.log(`POST /notices/:noticeId/send: ${noticeId}`);
 
     try {
-      // Transición de estado
-      const updated = await this.noticeGeneratorService.updateNoticeStatus(
-        noticeId,
-        'NOTICE_SENT'
-      );
+      const updated = await this.noticeSendService.sendNotice(noticeId);
 
       return {
         success: true,
-        message: 'Notice marked as sent (Lob integration in Bloque W)',
+        message: 'Notice sent via certified mail (Lob.com)',
         data: updated,
       };
     } catch (error) {

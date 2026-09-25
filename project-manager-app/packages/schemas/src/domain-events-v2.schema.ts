@@ -6,6 +6,28 @@ export const EVIDENCE_UPLOADED_V1_SCHEMA_REF =
   "semse://schemas/events/evidence.uploaded.v1" as const;
 export const PROJECT_LIFECYCLE_SOURCE_CHANGED_V1_SCHEMA_REF =
   "semse://schemas/events/project.lifecycle-source-changed.v1" as const;
+export const JOB_CREATED_V1_SCHEMA_REF =
+  "semse://schemas/events/job.created.v1" as const;
+export const JOB_STATUS_CHANGED_V1_SCHEMA_REF =
+  "semse://schemas/events/job.status_changed.v1" as const;
+export const JOB_PREFERRED_PROFESSIONAL_SELECTED_V1_SCHEMA_REF =
+  "semse://schemas/events/job.preferred_professional_selected.v1" as const;
+export const BID_CREATED_V1_SCHEMA_REF =
+  "semse://schemas/events/bid.created.v1" as const;
+export const BID_ACCEPTED_V1_SCHEMA_REF =
+  "semse://schemas/events/bid.accepted.v1" as const;
+export const BID_REJECTED_V1_SCHEMA_REF =
+  "semse://schemas/events/bid.rejected.v1" as const;
+export const JOB_MATCHED_V1_SCHEMA_REF =
+  "semse://schemas/events/job.matched.v1" as const;
+export const JOB_COMPLETED_V1_SCHEMA_REF =
+  "semse://schemas/events/job.completed.v1" as const;
+export const RATING_REQUESTED_V1_SCHEMA_REF =
+  "semse://schemas/events/rating.requested.v1" as const;
+export const MILESTONE_APPROVED_V1_SCHEMA_REF =
+  "semse://schemas/events/milestone.approved.v1" as const;
+export const MILESTONE_REJECTED_V1_SCHEMA_REF =
+  "semse://schemas/events/milestone.rejected.v1" as const;
 
 const nonEmptyId = z.string().trim().min(1).max(255);
 const eventTypeSchema = z
@@ -193,6 +215,477 @@ export const projectLifecycleSourceChangedV1EventSchema =
 
 export type ProjectLifecycleSourceChangedV1Event = z.infer<
   typeof projectLifecycleSourceChangedV1EventSchema
+>;
+
+// Jobs & Bids Event Projection (docs/specs/operations/jobs-bids-event-projection.spec.md)
+// module="jobs"/entityType="Job" for job.*, module="bids"/entityType="Bid" for bid.*
+
+export const jobCreatedV1PayloadSchema = z
+  .object({
+    jobId: nonEmptyId,
+    clientOrgId: nonEmptyId,
+    title: z.string().trim().min(1).max(500),
+    category: z.string().trim().min(1).max(255).optional(),
+    scope: z.string().trim().min(1),
+    budgetType: z.string().trim().min(1).max(64).optional(),
+    budgetMin: z.number().nonnegative().optional(),
+    budgetMax: z.number().nonnegative().optional(),
+    location: z.string().trim().min(1).max(500).optional(),
+    urgency: z.string().trim().min(1).max(64).optional(),
+    deadline: z.string().datetime().optional(),
+  })
+  .strict();
+
+const jobCreatedV1EventObjectSchema = semseDomainEventV2ObjectSchema.extend({
+  eventType: z.literal("job.created.v1"),
+  version: z.literal(1),
+  envelopeVersion: z.literal(2),
+  module: z.literal("jobs"),
+  entityType: z.literal("Job"),
+  schemaRef: z.literal(JOB_CREATED_V1_SCHEMA_REF),
+  payload: jobCreatedV1PayloadSchema,
+});
+
+export const jobCreatedV1EventSchema = jobCreatedV1EventObjectSchema.superRefine(
+  (value, ctx) => {
+    validateEnvelopeV2(value, ctx);
+    if (value.entityId !== value.payload.jobId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["entityId"],
+        message: "entityId must match payload.jobId",
+      });
+    }
+  },
+);
+
+export type JobCreatedV1Event = z.infer<typeof jobCreatedV1EventSchema>;
+
+export const jobStatusChangedV1PayloadSchema = z
+  .object({
+    jobId: nonEmptyId,
+    fromStatus: nonEmptyId,
+    toStatus: nonEmptyId,
+  })
+  .strict();
+
+const jobStatusChangedV1EventObjectSchema = semseDomainEventV2ObjectSchema.extend({
+  eventType: z.literal("job.status_changed.v1"),
+  version: z.literal(1),
+  envelopeVersion: z.literal(2),
+  module: z.literal("jobs"),
+  entityType: z.literal("Job"),
+  schemaRef: z.literal(JOB_STATUS_CHANGED_V1_SCHEMA_REF),
+  payload: jobStatusChangedV1PayloadSchema,
+});
+
+export const jobStatusChangedV1EventSchema =
+  jobStatusChangedV1EventObjectSchema.superRefine((value, ctx) => {
+    validateEnvelopeV2(value, ctx);
+    if (value.entityId !== value.payload.jobId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["entityId"],
+        message: "entityId must match payload.jobId",
+      });
+    }
+  });
+
+export type JobStatusChangedV1Event = z.infer<
+  typeof jobStatusChangedV1EventSchema
+>;
+
+export const jobPreferredProfessionalSelectedV1PayloadSchema = z
+  .object({
+    jobId: nonEmptyId,
+    preferredProfessionalUserId: nonEmptyId,
+    preferredProfessionalDisplayName: z.string().trim().min(1).max(255),
+    preferredProfessionalPublicSlug: z.string().trim().min(1).max(255).nullable(),
+  })
+  .strict();
+
+const jobPreferredProfessionalSelectedV1EventObjectSchema =
+  semseDomainEventV2ObjectSchema.extend({
+    eventType: z.literal("job.preferred_professional_selected.v1"),
+    version: z.literal(1),
+    envelopeVersion: z.literal(2),
+    module: z.literal("jobs"),
+    entityType: z.literal("Job"),
+    schemaRef: z.literal(JOB_PREFERRED_PROFESSIONAL_SELECTED_V1_SCHEMA_REF),
+    payload: jobPreferredProfessionalSelectedV1PayloadSchema,
+  });
+
+export const jobPreferredProfessionalSelectedV1EventSchema =
+  jobPreferredProfessionalSelectedV1EventObjectSchema.superRefine((value, ctx) => {
+    validateEnvelopeV2(value, ctx);
+    if (value.entityId !== value.payload.jobId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["entityId"],
+        message: "entityId must match payload.jobId",
+      });
+    }
+  });
+
+export type JobPreferredProfessionalSelectedV1Event = z.infer<
+  typeof jobPreferredProfessionalSelectedV1EventSchema
+>;
+
+export const bidCreatedV1PayloadSchema = z
+  .object({
+    bidId: nonEmptyId,
+    jobId: nonEmptyId,
+    proOrgId: nonEmptyId,
+    professionalUserId: nonEmptyId,
+    amount: z.number().nonnegative(),
+    etaDays: z.number().int().nonnegative(),
+  })
+  .strict();
+
+const bidCreatedV1EventObjectSchema = semseDomainEventV2ObjectSchema.extend({
+  eventType: z.literal("bid.created.v1"),
+  version: z.literal(1),
+  envelopeVersion: z.literal(2),
+  module: z.literal("bids"),
+  entityType: z.literal("Bid"),
+  schemaRef: z.literal(BID_CREATED_V1_SCHEMA_REF),
+  payload: bidCreatedV1PayloadSchema,
+});
+
+export const bidCreatedV1EventSchema = bidCreatedV1EventObjectSchema.superRefine(
+  (value, ctx) => {
+    validateEnvelopeV2(value, ctx);
+    if (value.entityId !== value.payload.bidId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["entityId"],
+        message: "entityId must match payload.bidId",
+      });
+    }
+  },
+);
+
+export type BidCreatedV1Event = z.infer<typeof bidCreatedV1EventSchema>;
+
+export const bidAcceptedV1PayloadSchema = z
+  .object({
+    bidId: nonEmptyId,
+    jobId: nonEmptyId,
+    proOrgId: nonEmptyId,
+  })
+  .strict();
+
+const bidAcceptedV1EventObjectSchema = semseDomainEventV2ObjectSchema.extend({
+  eventType: z.literal("bid.accepted.v1"),
+  version: z.literal(1),
+  envelopeVersion: z.literal(2),
+  module: z.literal("bids"),
+  entityType: z.literal("Bid"),
+  schemaRef: z.literal(BID_ACCEPTED_V1_SCHEMA_REF),
+  payload: bidAcceptedV1PayloadSchema,
+});
+
+export const bidAcceptedV1EventSchema = bidAcceptedV1EventObjectSchema.superRefine(
+  (value, ctx) => {
+    validateEnvelopeV2(value, ctx);
+    if (value.entityId !== value.payload.bidId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["entityId"],
+        message: "entityId must match payload.bidId",
+      });
+    }
+  },
+);
+
+export type BidAcceptedV1Event = z.infer<typeof bidAcceptedV1EventSchema>;
+
+export const bidRejectedV1PayloadSchema = z
+  .object({
+    bidId: nonEmptyId,
+    jobId: nonEmptyId,
+    proOrgId: nonEmptyId,
+    reason: z.literal("competing_bid_accepted"),
+  })
+  .strict();
+
+const bidRejectedV1EventObjectSchema = semseDomainEventV2ObjectSchema.extend({
+  eventType: z.literal("bid.rejected.v1"),
+  version: z.literal(1),
+  envelopeVersion: z.literal(2),
+  module: z.literal("bids"),
+  entityType: z.literal("Bid"),
+  schemaRef: z.literal(BID_REJECTED_V1_SCHEMA_REF),
+  payload: bidRejectedV1PayloadSchema,
+});
+
+export const bidRejectedV1EventSchema = bidRejectedV1EventObjectSchema.superRefine(
+  (value, ctx) => {
+    validateEnvelopeV2(value, ctx);
+    if (value.entityId !== value.payload.bidId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["entityId"],
+        message: "entityId must match payload.bidId",
+      });
+    }
+  },
+);
+
+export type BidRejectedV1Event = z.infer<typeof bidRejectedV1EventSchema>;
+
+// docs/specs/satellites/SAT-007-outbound-webhooks.spec.md — durable outbox
+// backing for 5 legacy (unversioned) events that today only flow through
+// NotificationsService.handleEvent()/DomainEventBus, never DomainOutboxEvent.
+// Best-effort producers (see plan.md §1.1), not a new domain write.
+
+export const jobMatchedV1PayloadSchema = z
+  .object({
+    jobId: nonEmptyId,
+    jobTitle: z.string().trim().min(1).max(500),
+    trade: z.string().trim().min(1).max(255),
+    budgetMin: z.number().nonnegative().optional(),
+    budgetMax: z.number().nonnegative().optional(),
+    location: z.string().trim().max(500).optional(),
+    urgency: z.string().trim().min(1).max(64),
+    matchedUserIds: z.array(nonEmptyId),
+  })
+  .strict();
+
+const jobMatchedV1EventObjectSchema = semseDomainEventV2ObjectSchema.extend({
+  eventType: z.literal("job.matched.v1"),
+  version: z.literal(1),
+  envelopeVersion: z.literal(2),
+  module: z.literal("jobs"),
+  entityType: z.literal("Job"),
+  schemaRef: z.literal(JOB_MATCHED_V1_SCHEMA_REF),
+  payload: jobMatchedV1PayloadSchema,
+});
+
+export const jobMatchedV1EventSchema = jobMatchedV1EventObjectSchema.superRefine(
+  (value, ctx) => {
+    validateEnvelopeV2(value, ctx);
+    if (value.entityId !== value.payload.jobId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["entityId"],
+        message: "entityId must match payload.jobId",
+      });
+    }
+  },
+);
+
+export type JobMatchedV1Event = z.infer<typeof jobMatchedV1EventSchema>;
+
+export const jobCompletedV1PayloadSchema = z
+  .object({
+    jobId: nonEmptyId,
+    proUserId: nonEmptyId.nullable(),
+    clientUserId: nonEmptyId.nullable(),
+  })
+  .strict();
+
+const jobCompletedV1EventObjectSchema = semseDomainEventV2ObjectSchema.extend({
+  eventType: z.literal("job.completed.v1"),
+  version: z.literal(1),
+  envelopeVersion: z.literal(2),
+  module: z.literal("jobs"),
+  entityType: z.literal("Job"),
+  schemaRef: z.literal(JOB_COMPLETED_V1_SCHEMA_REF),
+  payload: jobCompletedV1PayloadSchema,
+});
+
+export const jobCompletedV1EventSchema = jobCompletedV1EventObjectSchema.superRefine(
+  (value, ctx) => {
+    validateEnvelopeV2(value, ctx);
+    if (value.entityId !== value.payload.jobId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["entityId"],
+        message: "entityId must match payload.jobId",
+      });
+    }
+  },
+);
+
+export type JobCompletedV1Event = z.infer<typeof jobCompletedV1EventSchema>;
+
+export const ratingRequestedV1PayloadSchema = z
+  .object({
+    jobId: nonEmptyId,
+    proUserId: nonEmptyId.nullable(),
+    clientUserId: nonEmptyId.nullable(),
+  })
+  .strict();
+
+const ratingRequestedV1EventObjectSchema = semseDomainEventV2ObjectSchema.extend({
+  eventType: z.literal("rating.requested.v1"),
+  version: z.literal(1),
+  envelopeVersion: z.literal(2),
+  module: z.literal("jobs"),
+  entityType: z.literal("Job"),
+  schemaRef: z.literal(RATING_REQUESTED_V1_SCHEMA_REF),
+  payload: ratingRequestedV1PayloadSchema,
+});
+
+export const ratingRequestedV1EventSchema = ratingRequestedV1EventObjectSchema.superRefine(
+  (value, ctx) => {
+    validateEnvelopeV2(value, ctx);
+    if (value.entityId !== value.payload.jobId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["entityId"],
+        message: "entityId must match payload.jobId",
+      });
+    }
+  },
+);
+
+export type RatingRequestedV1Event = z.infer<typeof ratingRequestedV1EventSchema>;
+
+export const milestoneApprovedV1PayloadSchema = z
+  .object({
+    milestoneId: nonEmptyId,
+    projectId: nonEmptyId,
+    jobId: nonEmptyId,
+    reviewerId: nonEmptyId,
+    amount: z.number().nonnegative(),
+  })
+  .strict();
+
+const milestoneApprovedV1EventObjectSchema = semseDomainEventV2ObjectSchema.extend({
+  eventType: z.literal("milestone.approved.v1"),
+  version: z.literal(1),
+  envelopeVersion: z.literal(2),
+  module: z.literal("milestones"),
+  entityType: z.literal("Milestone"),
+  schemaRef: z.literal(MILESTONE_APPROVED_V1_SCHEMA_REF),
+  payload: milestoneApprovedV1PayloadSchema,
+});
+
+export const milestoneApprovedV1EventSchema =
+  milestoneApprovedV1EventObjectSchema.superRefine((value, ctx) => {
+    validateEnvelopeV2(value, ctx);
+    if (value.entityId !== value.payload.milestoneId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["entityId"],
+        message: "entityId must match payload.milestoneId",
+      });
+    }
+  });
+
+export type MilestoneApprovedV1Event = z.infer<typeof milestoneApprovedV1EventSchema>;
+
+export const milestoneRejectedV1PayloadSchema = z
+  .object({
+    milestoneId: nonEmptyId,
+    projectId: nonEmptyId,
+    jobId: nonEmptyId,
+    reviewerId: nonEmptyId,
+    rejectionReason: z.string().trim().min(1).max(2000),
+  })
+  .strict();
+
+const milestoneRejectedV1EventObjectSchema = semseDomainEventV2ObjectSchema.extend({
+  eventType: z.literal("milestone.rejected.v1"),
+  version: z.literal(1),
+  envelopeVersion: z.literal(2),
+  module: z.literal("milestones"),
+  entityType: z.literal("Milestone"),
+  schemaRef: z.literal(MILESTONE_REJECTED_V1_SCHEMA_REF),
+  payload: milestoneRejectedV1PayloadSchema,
+});
+
+export const milestoneRejectedV1EventSchema =
+  milestoneRejectedV1EventObjectSchema.superRefine((value, ctx) => {
+    validateEnvelopeV2(value, ctx);
+    if (value.entityId !== value.payload.milestoneId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["entityId"],
+        message: "entityId must match payload.milestoneId",
+      });
+    }
+  });
+
+export type MilestoneRejectedV1Event = z.infer<typeof milestoneRejectedV1EventSchema>;
+
+// F10 — originador/facilitador (docs/specs/core/originador-referral-program.spec.md)
+export const PROJECT_ORIGINATOR_PROPOSED_V1_SCHEMA_REF =
+  "semse://schemas/events/project.originator_proposed.v1" as const;
+export const PROJECT_ORIGINATOR_VALIDATED_V1_SCHEMA_REF =
+  "semse://schemas/events/project.originator_validated.v1" as const;
+
+export const projectOriginatorProposedV1PayloadSchema = z
+  .object({
+    projectOriginatorId: nonEmptyId,
+    projectId: nonEmptyId,
+    originatorUserId: nonEmptyId,
+  })
+  .strict();
+
+const projectOriginatorProposedV1EventObjectSchema =
+  semseDomainEventV2ObjectSchema.extend({
+    eventType: z.literal("project.originator_proposed.v1"),
+    version: z.literal(1),
+    envelopeVersion: z.literal(2),
+    module: z.literal("originator"),
+    entityType: z.literal("ProjectOriginator"),
+    schemaRef: z.literal(PROJECT_ORIGINATOR_PROPOSED_V1_SCHEMA_REF),
+    payload: projectOriginatorProposedV1PayloadSchema,
+  });
+
+export const projectOriginatorProposedV1EventSchema =
+  projectOriginatorProposedV1EventObjectSchema.superRefine((value, ctx) => {
+    validateEnvelopeV2(value, ctx);
+    if (value.entityId !== value.payload.projectOriginatorId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["entityId"],
+        message: "entityId must match payload.projectOriginatorId",
+      });
+    }
+  });
+
+export type ProjectOriginatorProposedV1Event = z.infer<
+  typeof projectOriginatorProposedV1EventSchema
+>;
+
+export const projectOriginatorValidatedV1PayloadSchema = z
+  .object({
+    projectOriginatorId: nonEmptyId,
+    projectId: nonEmptyId,
+    originatorUserId: nonEmptyId,
+    decision: z.enum(["VALIDATED", "REJECTED"]),
+  })
+  .strict();
+
+const projectOriginatorValidatedV1EventObjectSchema =
+  semseDomainEventV2ObjectSchema.extend({
+    eventType: z.literal("project.originator_validated.v1"),
+    version: z.literal(1),
+    envelopeVersion: z.literal(2),
+    module: z.literal("originator"),
+    entityType: z.literal("ProjectOriginator"),
+    schemaRef: z.literal(PROJECT_ORIGINATOR_VALIDATED_V1_SCHEMA_REF),
+    payload: projectOriginatorValidatedV1PayloadSchema,
+  });
+
+export const projectOriginatorValidatedV1EventSchema =
+  projectOriginatorValidatedV1EventObjectSchema.superRefine((value, ctx) => {
+    validateEnvelopeV2(value, ctx);
+    if (value.entityId !== value.payload.projectOriginatorId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["entityId"],
+        message: "entityId must match payload.projectOriginatorId",
+      });
+    }
+  });
+
+export type ProjectOriginatorValidatedV1Event = z.infer<
+  typeof projectOriginatorValidatedV1EventSchema
 >;
 
 export function toLegacySemseEventV1(event: EvidenceUploadedV1Event) {

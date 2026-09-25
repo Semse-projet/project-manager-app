@@ -334,15 +334,15 @@ function TemplatePicker({ onPick }: { onPick: (prompt: string) => void }) {
 
 // ── WorkPlanCard ──────────────────────────────────────────────────────────────
 
-const RISK_COLORS: Record<string, string> = { low: "var(--ok)", medium: "#f59e0b", high: "var(--error)" };
+const RISK_COLORS: Record<string, string> = { low: "var(--ok)", medium: "var(--warn)", high: "var(--error)" };
 const STEP_STATUS_COLORS: Record<string, string> = {
   pending: "var(--faint)",
   ready: "#818cf8",
   executing: "#6366f1",
   completed: "var(--ok)",
-  blocked: "#f59e0b",
+  blocked: "var(--warn)",
   failed: "var(--error)",
-  skipped: "#64748b",
+  skipped: "var(--faint)",
 };
 
 const CAPABILITY_ICONS: Record<string, any> = {
@@ -562,7 +562,7 @@ function WorkPlanCard({
                   {getCopilotPlanStepStatusLabel(step.status)}
                 </span>
                 {step.requiresApproval ? (
-                  <span style={{ fontSize: 10, color: "#f59e0b" }}>requiere aprobación</span>
+                  <span style={{ fontSize: 10, color: "var(--warn)" }}>requiere aprobación</span>
                 ) : null}
               </div>
               <p style={{ fontSize: 11, color: "var(--muted)", margin: "2px 0 0", lineHeight: 1.5 }}>{step.description}</p>
@@ -611,7 +611,7 @@ function WorkPlanCard({
                       style={{
                         padding: "6px 10px", borderRadius: 8,
                         border: "1px solid rgba(245,158,11,.25)", background: "rgba(245,158,11,.08)",
-                        color: "#f59e0b", fontSize: 11, fontWeight: 700,
+                        color: "var(--warn)", fontSize: 11, fontWeight: 700,
                         cursor: stepBusyId === step.id ? "not-allowed" : "pointer",
                       }}
                     >
@@ -642,7 +642,7 @@ function WorkPlanCard({
 
       {/* Warnings */}
       {(highRiskCount > 0 || requiresApprovalCount > 0) && plan.status === "pending_approval" ? (
-        <p style={{ fontSize: 11, color: "#f59e0b", margin: 0 }}>
+        <p style={{ fontSize: 11, color: "var(--warn)", margin: 0 }}>
           {highRiskCount > 0 ? `${highRiskCount} paso${highRiskCount > 1 ? "s" : ""} de riesgo alto. ` : ""}
           {requiresApprovalCount > 0 ? `${requiresApprovalCount} paso${requiresApprovalCount > 1 ? "s" : ""} requieren aprobación humana.` : ""}
         </p>
@@ -1089,14 +1089,14 @@ export default function ProjectCopilotPage() {
       label: "Documentos",
       note: signals.evidenceCount > 0 ? `${signals.evidenceCount} evidencia(s)` : "sin evidencia indexada",
       icon: FileText,
-      color: "#f59e0b"
+      color: "var(--warn)"
     },
     {
       href: clientProjectCopilotHref(projectId, { tab: "search", q: "evidencia del proyecto" }),
       label: "Buscar evidencia",
       note: "queda dentro del copiloto",
       icon: Search,
-      color: "#8b5cf6"
+      color: "var(--violet)"
     }
   ];
 
@@ -1347,7 +1347,7 @@ export default function ProjectCopilotPage() {
                     {msg.proposedActions.map((action, actionIndex) => {
                       const actionKey = action.id ?? `${msgIndex}-${actionIndex}`;
                       const isBusy = actionBusyId === actionKey;
-                      const riskColors: Record<string, string> = { low: "var(--ok)", medium: "#f59e0b", high: "var(--error)" };
+                      const riskColors: Record<string, string> = { low: "var(--ok)", medium: "var(--warn)", high: "var(--error)" };
                       const riskColor = riskColors[action.riskLevel] ?? "var(--muted)";
                       return (
                         <div key={actionKey} style={{

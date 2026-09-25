@@ -6,6 +6,7 @@ import { dirname, resolve } from "node:path";
 const TASKS = {
   "build:packages": [
     ["pnpm", ["--filter", "@semse/schemas", "build"]],
+    ["pnpm", ["--filter", "@semse/design-tokens", "build"]],
     ["pnpm", ["--filter", "@semse/shared", "build"]],
     ["pnpm", ["--filter", "@semse/auth", "build"]],
     ["pnpm", ["--filter", "@semse/knowledge", "build"]],
@@ -28,6 +29,7 @@ const TASKS = {
     ["pnpm", ["exec", "tsc", "--noEmit", "--project", "apps/api/tsconfig.json"]],
     ["pnpm", ["exec", "tsc", "--noEmit", "--project", "apps/web/tsconfig.json"]],
     ["pnpm", ["run", "check:worker"]],
+    ["pnpm", ["run", "check:mobile"]],
   ],
   "railway:preflight": [
     ["pnpm", ["run", "validate:workspace"]],

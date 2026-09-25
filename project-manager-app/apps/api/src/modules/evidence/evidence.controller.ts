@@ -1,9 +1,23 @@
-import { BadRequestException, Body, Controller, Get, NotFoundException, Param, Post, Put, Req } from "@nestjs/common";
+import {
+  BadRequestException,
+  ConflictException,
+  Body,
+  Controller,
+  Get,
+  NotFoundException,
+  Param,
+  Post,
+  Put,
+  Req,
+  UnprocessableEntityException
+} from "@nestjs/common";
+import type { FastifyRequest } from "fastify";
 import {
   multipartUploadSessionCompleteSchema,
   multipartUploadSessionCreateSchema,
   presignEvidenceSchema,
   registerEvidenceSchema,
+  registerEvidencePhotoSchema,
   uploadPlanSchema
 } from "@semse/schemas";
 import { ok } from "../../common/api-response.js";
@@ -12,18 +26,23 @@ import { RequirePermissions } from "../../common/permissions.decorator.js";
 import { resolveRequestContext } from "../../common/request-context.js";
 import { resolveRequestId } from "../../common/request-id.js";
 import { buildTenantStorageKey } from "../../infrastructure/storage/storage-key.js";
+import { StorageService } from "../../infrastructure/storage/storage.service.js";
+import { validateUploadStream } from "../../infrastructure/storage/uploads.controller.js";
 import { EvidenceService } from "./evidence.service.js";
-import { randomUUID } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { randomUUID, createHash } from "node:crypto";
+import { createReadStream, createWriteStream } from "node:fs";
+import { mkdir, readFile, writeFile, stat, unlink } from "node:fs/promises";
+import { pipeline } from "node:stream/promises";
 import path from "node:path";
 
 type MultipartSessionManifest = {
   sessionId: string;
+  tenantId: string;
   provider: string;
   createdAt: string;
   expiresAt: string;
   key: string;
-  domain: "evidence" | "contract" | "dispute" | "travel";
+  domain: "evidence" | "contract" | "dispute" | "travel" | "knowledge_contribution";
   contentType: string;
   fileSizeBytes: number;
   source: string;
@@ -49,7 +68,10 @@ type MultipartSessionManifest = {
 
 @Controller()
 export class EvidenceController {
-  constructor(private readonly evidenceService: EvidenceService) {}
+  constructor(
+    private readonly evidenceService: EvidenceService,
+    private readonly storageService: StorageService
+  ) {}
 
   private readonly multipartRoot = process.env.SEMSE_MULTIPART_STORAGE_ROOT?.trim().length
     ? path.resolve(process.env.SEMSE_MULTIPART_STORAGE_ROOT)
@@ -57,7 +79,7 @@ export class EvidenceController {
 
   private buildUploadPlan(input: {
     tenantId: string;
-    domain: "evidence" | "contract" | "dispute" | "travel";
+    domain: "evidence" | "contract" | "dispute" | "travel" | "knowledge_contribution";
     filename: string;
     contentType: string;
     fileSizeBytes?: number;
@@ -76,7 +98,7 @@ export class EvidenceController {
         ? Math.ceil(fileSizeBytes / recommendedChunkSizeBytes)
         : undefined;
 
-    const domainGuidance: Record<"evidence" | "contract" | "dispute" | "travel", string> = {
+    const domainGuidance: Record<"evidence" | "contract" | "dispute" | "travel" | "knowledge_contribution", string> = {
       evidence:
         recommendedStrategy === "external_transfer"
           ? "Use transferencia externa o carga por partes para video largo, ZIP pesado, CAD o lotes de evidencia."
@@ -92,7 +114,11 @@ export class EvidenceController {
       travel:
         recommendedStrategy === "external_transfer"
           ? "Para comprobantes de viaje pesados usa transferencia externa o multipart y conserva el soporte final por gasto."
-          : "Carga directa recomendada para tickets, facturas y recibos de viaje."
+          : "Carga directa recomendada para tickets, facturas y recibos de viaje.",
+      knowledge_contribution:
+        recommendedStrategy === "external_transfer"
+          ? "Para clips de video largos usa transferencia externa o multipart; puedes subir varios clips cortos en vez de uno solo."
+          : "Carga directa recomendada para clips cortos, fotos, notas de audio o texto de una misión de conocimiento."
     };
 
     const key = buildTenantStorageKey({
@@ -154,6 +180,26 @@ export class EvidenceController {
     return resolved;
   }
 
+  /**
+   * Path of a part's raw bytes on disk, scoped under the session so cleanup
+   * is a single directory removal. Same path-traversal guard as
+   * getMultipartSessionPath — sessionId is already validated there and
+   * partNumber is a small positive integer, but never trust a param into a
+   * path join without re-confirming the result stays under the root.
+   */
+  private getMultipartPartPath(sessionId: string, partNumber: number) {
+    this.getMultipartSessionPath(sessionId); // validates sessionId shape
+    if (!Number.isInteger(partNumber) || partNumber <= 0) {
+      throw new BadRequestException("Invalid part number");
+    }
+    const root = path.resolve(this.multipartRoot, "parts", sessionId);
+    const resolved = path.resolve(root, `part-${partNumber}.bin`);
+    if (!resolved.startsWith(`${root}${path.sep}`)) {
+      throw new BadRequestException("Invalid multipart part path");
+    }
+    return resolved;
+  }
+
   private async saveMultipartManifest(manifest: MultipartSessionManifest) {
     await mkdir(this.multipartRoot, { recursive: true });
     await writeFile(this.getMultipartSessionPath(manifest.sessionId), JSON.stringify(manifest, null, 2), "utf8");
@@ -175,7 +221,7 @@ export class EvidenceController {
 
   private createMultipartSession(input: {
     tenantId: string;
-    domain: "evidence" | "contract" | "dispute" | "travel";
+    domain: "evidence" | "contract" | "dispute" | "travel" | "knowledge_contribution";
     filename: string;
     contentType: string;
     fileSizeBytes: number;
@@ -191,6 +237,7 @@ export class EvidenceController {
     const manifest: MultipartSessionManifest = {
       ...plan,
       sessionId,
+      tenantId: input.tenantId,
       provider: this.multipartRoot.startsWith("/tmp") ? "filesystem_multipart" : "filesystem_external",
       createdAt: new Date().toISOString(),
       expiresAt,
@@ -279,33 +326,72 @@ export class EvidenceController {
     return this.saveMultipartManifest(manifest).then(() => ok(requestId, this.toMultipartResponse(manifest)));
   }
 
+  /**
+   * Authorization is by tenant match against the manifest, not by any part
+   * -level ACL — a session belongs to whoever created it (`resolveRequestContext`
+   * at session-create time), and every part/complete call must come from that
+   * same tenant. A mismatch is reported as 404, not 403, so a wrong-tenant
+   * caller can't use this to confirm a session id exists.
+   */
+  private assertManifestTenant(manifest: MultipartSessionManifest, actorTenantId: string): void {
+    if (manifest.tenantId !== actorTenantId) {
+      throw new NotFoundException(`Multipart session '${manifest.sessionId}' not found`);
+    }
+  }
+
   @Put("v1/uploads/multipart-session/:sessionId/parts/:partNumber")
   @RequirePermissions("evidence:write")
   async uploadMultipartPart(
-    @Req() req: { headers?: Record<string, unknown> },
+    @Req() req: FastifyRequest,
     @Param("sessionId") sessionId: string,
     @Param("partNumber") partNumberRaw: string
   ) {
     const requestId = resolveRequestId(req.headers ?? {});
+    const actor = resolveRequestContext(req);
     const partNumber = Number(partNumberRaw);
     if (!Number.isInteger(partNumber) || partNumber <= 0) {
       throw new BadRequestException("Invalid part number");
     }
 
     const manifest = await this.readMultipartManifest(sessionId);
+    this.assertManifestTenant(manifest, actor.tenantId);
+    if (new Date(manifest.expiresAt).getTime() <= Date.now()) {
+      throw new ConflictException(`Multipart session '${sessionId}' has expired`);
+    }
     const part = manifest.parts.find((item) => item.partNumber === partNumber);
     if (!part) {
       throw new BadRequestException("Multipart part not found");
     }
 
-    const bytesReceived = Number(req.headers?.["x-part-size"] ?? req.headers?.["content-length"] ?? 0);
-    const etag = `etag-${sessionId}-${partNumber}-${Date.now()}`;
+    // Actually persist the part's bytes — this used to only record the
+    // content-length header and fabricate a timestamp-based etag, silently
+    // discarding the uploaded data (see PR-4 ZOOM report). Write to disk and
+    // hash the real bytes so the etag verified at completion is meaningful.
+    const partPath = this.getMultipartPartPath(sessionId, partNumber);
+    await mkdir(path.dirname(partPath), { recursive: true });
+    const hash = createHash("sha256");
+    const ws = createWriteStream(partPath);
+    await pipeline(
+      (async function* () {
+        for await (const chunk of req.raw) {
+          const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+          hash.update(buffer);
+          yield buffer;
+        }
+      })(),
+      ws
+    );
+
+    const written = await stat(partPath);
+    if (written.size === 0) {
+      await unlink(partPath).catch(() => undefined);
+      throw new UnprocessableEntityException("Empty multipart part is not allowed");
+    }
+
     part.status = "uploaded";
     part.uploadedAt = new Date().toISOString();
-    part.bytesReceived = Number.isFinite(bytesReceived) && bytesReceived > 0
-      ? bytesReceived
-      : Math.max(0, part.endByte - part.startByte + 1);
-    part.etag = etag;
+    part.bytesReceived = written.size;
+    part.etag = hash.digest("hex");
 
     await this.saveMultipartManifest(manifest);
     return ok(requestId, {
@@ -320,35 +406,69 @@ export class EvidenceController {
 
   @Post("v1/uploads/multipart-session/complete")
   @RequirePermissions("evidence:write")
-  async completeMultipartSession(@Req() req: { headers?: Record<string, unknown> }, @Body() body: Record<string, unknown>) {
+  async completeMultipartSession(@Req() req: FastifyRequest, @Body() body: Record<string, unknown>) {
     const parsed = multipartUploadSessionCompleteSchema.safeParse(body);
     if (!parsed.success) {
       throw new BadRequestException(parsed.error.flatten());
     }
 
     const requestId = resolveRequestId(req.headers ?? {});
+    const actor = resolveRequestContext(req);
     const manifest = await this.readMultipartManifest(parsed.data.sessionId);
+    this.assertManifestTenant(manifest, actor.tenantId);
+
+    // Completion only ever confirms parts the server itself received and
+    // hashed in uploadMultipartPart — a client cannot complete a session by
+    // just asserting etags for parts it never actually PUT.
     const providedEtags = new Map(parsed.data.parts.map((part) => [part.partNumber, part.etag]));
-    let partsReceived = 0;
-    manifest.parts = manifest.parts.map((part) => {
-      const etag = providedEtags.get(part.partNumber);
-      if (etag) {
-        part.status = "uploaded";
-        part.etag = etag;
-        part.uploadedAt = part.uploadedAt ?? new Date().toISOString();
-        part.bytesReceived = part.bytesReceived || Math.max(0, part.endByte - part.startByte + 1);
-        partsReceived += 1;
+    const orderedParts = [...manifest.parts].sort((a, b) => a.partNumber - b.partNumber);
+    const invalid = orderedParts.filter(
+      (part) => part.status !== "uploaded" || !part.etag || providedEtags.get(part.partNumber) !== part.etag
+    );
+    if (invalid.length > 0) {
+      throw new ConflictException(
+        `Multipart session '${manifest.sessionId}' is missing or has mismatched parts: ${invalid
+          .map((p) => p.partNumber)
+          .join(", ")}`
+      );
+    }
+
+    const partPaths = orderedParts.map((part) => this.getMultipartPartPath(manifest.sessionId, part.partNumber));
+    async function* readPartsInOrder(): AsyncGenerator<Buffer> {
+      for (const partPath of partPaths) {
+        for await (const chunk of createReadStream(partPath)) {
+          yield chunk as Buffer;
+        }
       }
-      return part;
+    }
+
+    const validated = validateUploadStream(readPartsInOrder(), manifest.contentType, manifest.fileSizeBytes);
+    const stored = await this.storageService.store({
+      key: manifest.key,
+      stream: validated,
+      contentType: manifest.contentType
     });
-    await this.saveMultipartManifest(manifest);
+
+    if (stored.sizeBytes !== manifest.fileSizeBytes) {
+      await this.storageService.delete(manifest.key);
+      throw new ConflictException(
+        `Assembled multipart upload size (${stored.sizeBytes}) does not match the declared size (${manifest.fileSizeBytes}); aborted`
+      );
+    }
+
+    // Best-effort cleanup of the temporary part files — never fails the
+    // response, the completed file at manifest.key is already the source of
+    // truth at this point.
+    await Promise.all(partPaths.map((partPath) => unlink(partPath).catch(() => undefined)));
 
     return ok(requestId, {
-      sessionId: parsed.data.sessionId,
+      sessionId: manifest.sessionId,
       status: "completed",
       completedAt: new Date().toISOString(),
-      partsReceived,
-      totalParts: manifest.parts.length
+      partsReceived: orderedParts.length,
+      totalParts: manifest.parts.length,
+      key: manifest.key,
+      sizeBytes: stored.sizeBytes
     });
   }
 
@@ -374,6 +494,43 @@ export class EvidenceController {
       key: parsed.data.key,
       kind: parsed.data.kind,
       filename: parsed.data.filename
+    });
+
+    return ok(requestId, toVisibleEvidence(evidence));
+  }
+
+  /**
+   * POST /v1/projects/:projectId/evidence/photos
+   * m2.2-dispute-docs Bloque 2.2.A — `key` must already reference an
+   * uploaded file (via the existing presign flow). Reads it back
+   * server-side to extract EXIF timestamp/GPS; returns 400 (EXIF_INVALID)
+   * if the photo has neither, per the spec's own error contract.
+   */
+  @Post("v1/projects/:projectId/evidence/photos")
+  @RequirePermissions("evidence:write")
+  async registerPhoto(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Param("projectId") projectId: string,
+    @Body() body: Record<string, unknown>
+  ) {
+    const parsed = registerEvidencePhotoSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+
+    const actor = resolveRequestContext(req);
+    const requestId = resolveRequestId(req.headers ?? {});
+    const evidence = await this.evidenceService.registerPhotoWithExif({
+      tenantId: actor.tenantId,
+      orgId: actor.orgId,
+      userId: actor.userId,
+      roles: actor.roles,
+      requestId,
+      projectId,
+      key: parsed.data.key,
+      filename: parsed.data.filename,
+      category: parsed.data.category,
+      description: parsed.data.description
     });
 
     return ok(requestId, toVisibleEvidence(evidence));

@@ -3,15 +3,18 @@
 import Link from "next/link";
 import { useLanguage } from "../../../../lib/language-context";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { HtmlInCanvasPanel } from "@semse/ui";
+import { ErrorState, HtmlInCanvasPanel } from "@semse/ui";
 import { BarChart3, Bot, Briefcase, Calculator, ChevronDown, Clock, Download, FolderOpen, LayoutDashboard, ListChecks, Pause, Play, Plus, Receipt, ShieldCheck, Square, Timer } from "lucide-react";
 import {
   fetchJobContract,
   fetchJobEscrow,
   fetchJobPayments,
+  fetchMyProfile,
   fetchTimeTrackerJobs,
   type JobRecordView,
+  type ProximityCheckInMode,
 } from "../../../semse-api";
+import { useProximityCheckIn, type ProximityCheckIn, type ProximitySite } from "./useProximityCheckIn";
 import {
   createManualEntry,
   elapsedSeconds,
@@ -19,6 +22,7 @@ import {
   fetchFreeProjects,
   fetchLaborEntries,
   fetchMonthlySummary,
+  fetchProximityConfig,
   fetchWeeklySummary,
   pauseLaborTimer,
   resumeLaborTimer,
@@ -27,6 +31,7 @@ import {
   updateLaborTimerNotes,
   type FreeProjectView,
   type MonthlySummaryView,
+  type ProximityConfigView,
   type TimeEntryView,
   type WeeklySummaryView,
 } from "../../labor-api";
@@ -64,6 +69,10 @@ import { friendlyConnectionMessage, shouldPreserveLocalEvent } from "./sections/
 const AUTO_SYNC_RETRY_BASE_MS = 5_000;
 const AUTO_SYNC_RETRY_MAX_MS = 5 * 60_000;
 const AUTO_SYNC_MAX_ATTEMPTS = 6;
+
+/** Shown once, before the proximity feature ever asks for a location
+ * permission, so the "why" isn't a surprise buried in a browser prompt. */
+const PROXIMITY_EXPLAINER_DISMISSED_KEY = "semse.tracker.proximity.explainer.dismissed";
 
 function autoSyncRetryDelay(attempts: number) {
   const exponent = Math.max(0, attempts - 1);
@@ -163,6 +172,10 @@ function localSessionToEntry(session: TrackerLocalSession): TimeEntryView {
     hourlyRate: null,
     currency: "MXN",
     location: null,
+    checkInLatitude: null,
+    checkInLongitude: null,
+    checkInDistanceMeters: null,
+    checkInMethod: null,
     notes: session.notes ?? null,
     createdAt: session.startedAt,
     updatedAt: session.updatedAt,
@@ -246,10 +259,10 @@ function trackerHistoryFileLabel(range: TrackerHistoryRange, target: string) {
 
 const ENTRY_STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
   running: { label: "Corriendo", color: "var(--ok)", bg: "rgba(16,185,129,.12)" },
-  paused: { label: "En pausa", color: "#f59e0b", bg: "rgba(245,158,11,.12)" },
+  paused: { label: "En pausa", color: "var(--warn)", bg: "rgba(245,158,11,.12)" },
   completed: { label: "Completada", color: "#64748b", bg: "rgba(100,116,139,.12)" },
   pending_review: { label: "En revisión", color: "var(--brand)", bg: "rgba(59,130,246,.12)" },
-  approved: { label: "Aprobada", color: "#059669", bg: "rgba(5,150,105,.12)" },
+  approved: { label: "Aprobada", color: "var(--ok)", bg: "rgba(5,150,105,.12)" },
 };
 
 function entryStatusMeta(status: string) {
@@ -336,6 +349,7 @@ export default function WorkerTrackerPage() {
   const [manualEnd, setManualEnd] = useState("13:00");
   const [manualBreak, setManualBreak] = useState("0");
   const [manualNotes, setManualNotes] = useState("");
+  const [manualLocationAccuracy, setManualLocationAccuracy] = useState<number | null>(null);
   const [historyRange, setHistoryRange] = useState<TrackerHistoryRange>("week");
   const [historyTarget, setHistoryTarget] = useState<TrackerTargetKey>("all");
   const [historyStatus, setHistoryStatus] = useState<TrackerHistoryStatus>("all");
@@ -349,7 +363,22 @@ export default function WorkerTrackerPage() {
   const [isOnline, setIsOnline] = useState(true);
   const [syncNotice, setSyncNotice] = useState<string | null>(null);
   const [autoSyncStopped, setAutoSyncStopped] = useState(false);
+  const [proximityCheckInMode, setProximityCheckInMode] = useState<ProximityCheckInMode>("ask");
+  const [proximityConfig, setProximityConfig] = useState<ProximityConfigView | null>(null);
+  const [proximityExplainerDismissed, setProximityExplainerDismissed] = useState(true);
   const autoSyncAttemptsRef = useRef(0);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setProximityExplainerDismissed(window.localStorage.getItem(PROXIMITY_EXPLAINER_DISMISSED_KEY) === "1");
+  }, []);
+
+  function dismissProximityExplainer() {
+    setProximityExplainerDismissed(true);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(PROXIMITY_EXPLAINER_DISMISSED_KEY, "1");
+    }
+  }
 
   const persistTrackerLocalState = useCallback((nextState: TrackerLocalState) => {
     setTrackerLocalState(nextState);
@@ -372,18 +401,22 @@ export default function WorkerTrackerPage() {
       .then((value) => ({ ok: true as const, value }))
       .catch((caught: unknown) => ({ ok: false as const, error: caught }));
 
-    const [nextJobs, nextFreeProjects, activeTimerResult, nextWeek, nextMonth] = await Promise.all([
+    const [nextJobs, nextFreeProjects, activeTimerResult, nextWeek, nextMonth, nextProfile, nextProximityConfig] = await Promise.all([
       fetchTimeTrackerJobs().catch(() => [] as JobRecordView[]),
       fetchFreeProjects().catch(() => [] as FreeProjectView[]),
       activeTimerFetch,
       fetchWeeklySummary().catch(() => null),
       fetchMonthlySummary().catch(() => null),
+      fetchMyProfile().catch(() => null),
+      fetchProximityConfig().catch(() => null),
     ]);
 
     setJobs(nextJobs);
     setFreeProjects(nextFreeProjects);
     setWeekSummary(nextWeek);
     setMonthSummary(nextMonth);
+    if (nextProfile) setProximityCheckInMode(nextProfile.proximityCheckInMode ?? "ask");
+    if (nextProximityConfig) setProximityConfig(nextProximityConfig);
 
     if (activeTimerResult.ok) {
       const nextActive = activeTimerResult.value;
@@ -782,19 +815,39 @@ export default function WorkerTrackerPage() {
     await loadFilteredHistory();
     setShowForm(false);
     setManualNotes("");
+    setManualLocationAccuracy(null);
   }
 
-  async function handleStart() {
-    if (startDisabled) return;
+  /** One-shot, best-effort position for "Solo calcular" manual entries — silent on denial/timeout. */
+  async function captureManualCheckIn(): Promise<{ latitude: number; longitude: number } | undefined> {
+    if (typeof navigator === "undefined" || !navigator.geolocation) return undefined;
+    return new Promise((resolve) => {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setManualLocationAccuracy(position.coords.accuracy);
+          resolve({ latitude: position.coords.latitude, longitude: position.coords.longitude });
+        },
+        () => resolve(undefined),
+        { enableHighAccuracy: false, timeout: 8000, maximumAge: 60_000 },
+      );
+    });
+  }
+
+  async function handleStart(overrides?: {
+    jobId?: string;
+    freeProjectId?: string;
+    checkIn?: { latitude: number; longitude: number; method?: "proximity_confirmed" | "proximity_auto" };
+  }) {
+    const jobId = overrides ? overrides.jobId : (mode === "job" ? selectedJob : undefined);
+    const freeProjectId = overrides ? overrides.freeProjectId : (mode === "free" ? selectedFreeProject : undefined);
+    const purpose = overrides ? (jobId ? "job_linked" : "payable") as TrackerPurpose : MODE_META[mode].purpose;
+    if (!overrides && startDisabled) return;
     if (activeEntry || trackerLocalState.activeSession) {
       setError("Ya hay una sesión activa. Pausa o detén la sesión actual antes de iniciar otra.");
       return;
     }
     setSaving(true);
     setError(null);
-    const purpose = MODE_META[mode].purpose;
-    const jobId = mode === "job" ? selectedJob : undefined;
-    const freeProjectId = mode === "free" ? selectedFreeProject : undefined;
     const localStart = startTrackerLocalSession(readTrackerLocalState(window.localStorage), {
       purpose,
       jobId,
@@ -807,7 +860,7 @@ export default function WorkerTrackerPage() {
     setActiveEntry(localSessionToEntry(localStart.localSession));
     setElapsed(0);
     try {
-      const entry = await startLaborTimer({ purpose, jobId, freeProjectId, notes: notes.trim() || undefined, clientEventId: localStart.event.id });
+      const entry = await startLaborTimer({ purpose, jobId, freeProjectId, notes: notes.trim() || undefined, checkIn: overrides?.checkIn, clientEventId: localStart.event.id });
       const remainingEvents = localStart.state.pendingEvents.filter((event) => event.id !== localStart.event.id);
       persistTrackerLocalState({
         ...localStart.state,
@@ -833,6 +886,34 @@ export default function WorkerTrackerPage() {
       setSaving(false);
     }
   }
+
+  function handleProximityStart(site: ProximitySite, checkIn: ProximityCheckIn) {
+    if (site.kind === "job") {
+      setMode("job");
+      setSelectedJob(site.id);
+    } else {
+      setMode("free");
+      setSelectedFreeProject(site.id);
+    }
+    void handleStart({
+      jobId: site.kind === "job" ? site.id : undefined,
+      freeProjectId: site.kind === "free" ? site.id : undefined,
+      checkIn,
+    });
+    if (checkIn.method === "proximity_auto") {
+      setSyncNotice(`Reloj iniciado automáticamente: estás cerca de "${site.name}". Detenlo desde el timer si fue un error.`);
+    }
+  }
+
+  const { banner: proximityBanner, acceptBanner: acceptProximityBanner, dismissBanner: dismissProximityBanner, locationError: proximityLocationError, isWatching: proximityIsWatching } = useProximityCheckIn({
+    enabled: tab === "timer" && !activeEntry && !trackerLocalState.activeSession,
+    mode: proximityCheckInMode,
+    jobs,
+    freeProjects,
+    onStart: handleProximityStart,
+    radiusMeters: proximityConfig?.radiusMeters,
+    cooldownMs: proximityConfig ? proximityConfig.cooldownMinutes * 60_000 : undefined,
+  });
 
   async function handlePause() {
     if (!activeEntry || saving) return;
@@ -989,6 +1070,7 @@ export default function WorkerTrackerPage() {
       localTimestamp,
     };
     try {
+      const checkIn = target.purpose === "personal" ? await captureManualCheckIn() : undefined;
       await createManualEntry({
         purpose: target.purpose,
         jobId: target.jobId,
@@ -998,6 +1080,7 @@ export default function WorkerTrackerPage() {
         endTime: manualEnd,
         breakMinutes: manualBreakMinutes,
         notes: manualNotes.trim() || undefined,
+        checkIn,
         clientEventId: event.id,
       });
       await refreshAfterMutation();
@@ -1113,7 +1196,7 @@ export default function WorkerTrackerPage() {
                     width: "7px",
                     height: "7px",
                     borderRadius: "999px",
-                    background: activeEntry.status === "running" ? "var(--ok)" : "#f59e0b",
+                    background: activeEntry.status === "running" ? "var(--ok)" : "var(--warn)",
                     boxShadow: activeEntry.status === "running" ? "0 0 0 3px rgba(16,185,129,.25)" : "none",
                   }}
                 />
@@ -1175,6 +1258,129 @@ export default function WorkerTrackerPage() {
             ? `${activeStatusMeta.label}: ${activeTitle}`
             : "Elige el modo, selecciona el destino y presiona Iniciar"}
         </p>
+
+        {!activeEntry && proximityCheckInMode !== "off" && !proximityExplainerDismissed ? (
+          <div
+            data-testid="tracker-proximity-explainer"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "12px",
+              flexWrap: "wrap",
+              padding: "10px 14px",
+              marginBottom: "14px",
+              borderRadius: "10px",
+              border: "1px solid var(--border)",
+              background: "var(--bg)",
+            }}
+          >
+            <span style={{ fontSize: "12px", color: "var(--muted)", flex: 1, minWidth: "200px" }}>
+              Vamos a pedirte permiso de ubicación para avisarte (o iniciar el reloj) cuando
+              llegues a un job o proyecto libre. Solo se usa con el tracker abierto, nunca en
+              segundo plano. Puedes cambiarlo en Configuración cuando quieras.
+            </span>
+            <button
+              type="button"
+              data-testid="tracker-proximity-explainer-dismiss"
+              onClick={dismissProximityExplainer}
+              style={{ padding: "6px 14px", borderRadius: "8px", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--ink)", fontSize: "12px", fontWeight: 700, cursor: "pointer", flexShrink: 0 }}
+            >
+              Entendido
+            </button>
+          </div>
+        ) : null}
+
+        {!activeEntry && proximityBanner ? (
+          <div
+            data-testid="tracker-proximity-banner"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "12px",
+              flexWrap: "wrap",
+              padding: "12px 16px",
+              marginBottom: "14px",
+              borderRadius: "10px",
+              border: "1px solid var(--brand)",
+              background: "rgba(37,99,235,.08)",
+            }}
+          >
+            <span style={{ fontSize: "13px", fontWeight: 600 }}>
+              Estás en {proximityBanner.site.name}, ¿iniciar el reloj?
+            </span>
+            <div style={{ display: "flex", gap: "8px" }}>
+              <button
+                type="button"
+                data-testid="tracker-proximity-accept"
+                onClick={acceptProximityBanner}
+                style={{ padding: "6px 14px", borderRadius: "8px", border: "none", background: "var(--brand)", color: "#fff", fontSize: "12px", fontWeight: 700, cursor: "pointer" }}
+              >
+                Iniciar
+              </button>
+              <button
+                type="button"
+                data-testid="tracker-proximity-dismiss"
+                onClick={dismissProximityBanner}
+                style={{ padding: "6px 14px", borderRadius: "8px", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--muted)", fontSize: "12px", fontWeight: 700, cursor: "pointer" }}
+              >
+                Descartar
+              </button>
+            </div>
+          </div>
+        ) : null}
+
+        {!activeEntry && !proximityBanner && proximityLocationError ? (
+          <div
+            data-testid="tracker-proximity-location-error"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              padding: "10px 14px",
+              marginBottom: "14px",
+              borderRadius: "10px",
+              border: "1px solid var(--border)",
+              background: "var(--bg)",
+              fontSize: "12px",
+              color: "var(--muted)",
+            }}
+          >
+            {proximityLocationError === "denied"
+              ? "No podemos detectar cuándo llegas al sitio: el navegador tiene bloqueado el permiso de ubicación. Habilítalo en la configuración del sitio para que el check-in automático funcione."
+              : "No pudimos obtener tu ubicación ahora mismo. El check-in por proximidad se reintentará automáticamente."}
+          </div>
+        ) : null}
+
+        {!activeEntry && !proximityBanner && !proximityLocationError && proximityIsWatching ? (
+          <div
+            data-testid="tracker-proximity-watching"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              padding: "4px 10px",
+              marginBottom: "14px",
+              borderRadius: "999px",
+              background: "var(--bg)",
+              border: "1px solid var(--border)",
+              fontSize: "11px",
+              color: "var(--muted)",
+            }}
+          >
+            <span
+              style={{
+                width: "6px",
+                height: "6px",
+                borderRadius: "50%",
+                background: "var(--ok, #22c55e)",
+                flexShrink: 0,
+              }}
+            />
+            Ubicación activa para check-in
+          </div>
+        ) : null}
 
         {!activeEntry ? (
           <div data-testid="tracker-mode-selector" style={{ display: "flex", justifyContent: "center", gap: "8px", flexWrap: "wrap", marginBottom: "16px" }}>
@@ -1385,7 +1591,7 @@ export default function WorkerTrackerPage() {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: "10px" }}>
         <MetricCard label="Esta semana" value={fmtSeconds(displayedWeekSeconds)} color="var(--brand)" />
         <MetricCard label="Este mes" value={fmtSeconds(displayedMonthSeconds)} color="var(--ok)" />
-        <MetricCard label="Días trabajados" value={loading ? "—" : String(daysWorkedThisWeek)} color="#8b5cf6" />
+        <MetricCard label="Días trabajados" value={loading ? "—" : String(daysWorkedThisWeek)} color="var(--violet)" />
         <MetricCard label="Liberado" value={formatMoney(releasedAmount)} color="var(--accent)" />
       </div>
 
@@ -1572,6 +1778,11 @@ export default function WorkerTrackerPage() {
                 Duración neta: {manualPreviewSeconds === null ? "rango inválido" : fmtSeconds(manualPreviewSeconds)}
               </p>
               <input value={manualNotes} onChange={(event) => setManualNotes(event.target.value)} placeholder="Descripción de la actividad" style={inputStyle()} />
+              {manualTarget === "personal" && manualLocationAccuracy !== null ? (
+                <p style={{ fontSize: "12px", color: "var(--muted)", margin: 0 }}>
+                  Ubicación registrada (~{Math.round(manualLocationAccuracy)}m de precisión)
+                </p>
+              ) : null}
               <div style={{ display: "flex", gap: "8px" }}>
                 <button onClick={() => void handleManualSave()} disabled={manualPreviewSeconds === null || saving} style={primaryButton("var(--brand)", manualPreviewSeconds === null || saving)}>
                   {saving ? "Guardando..." : "Guardar"}
@@ -1697,9 +1908,7 @@ export default function WorkerTrackerPage() {
               {loading ? "Cargando tracker..." : "Cargando historial..."}
             </div>
           ) : error ? (
-            <div style={{ ...card, color: "var(--error)", fontSize: "13px", background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.18)" }}>
-              {error}
-            </div>
+            <ErrorState message={error} />
           ) : entries.length === 0 ? (
             <div style={{ ...card, color: "var(--muted)", fontSize: "13px" }}>Todavía no hay entradas registradas.</div>
           ) : filteredEntries.length === 0 ? (
