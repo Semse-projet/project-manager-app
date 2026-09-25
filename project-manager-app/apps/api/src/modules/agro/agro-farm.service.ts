@@ -48,6 +48,8 @@ export class AgroFarmService {
 
   async createFarm(input: {
     ownerId: string;
+    /** Tenant de la sesión (T-051): habilita el espejo de tareas en JobTask. */
+    tenantId?: string;
     name: string;
     operationType?: string;
     locationLabel?: string;

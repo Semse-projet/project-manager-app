@@ -16,7 +16,8 @@
 | T-050 | Membresía en servicios existentes (finca, tareas, animales, evidencia, inventario, dashboard, sync) | ✅ | agro-membership-operations-integration.test.ts + Playwright |
 | T-056 | MANAGER accede a datos económicos (`farm.finance`: costos, ventas, rentabilidad, reporte semanal) | ✅ | agro-membership-operations-integration.test.ts |
 | T-057 | Pestañas de la finca según el rol (`viewerActions` del API + `useFarmTabs` en la web) | ✅ | agro-farm-policy.test.ts + integración + Playwright |
-| T-051 | Dual-write AgroFarmTask → JobTask(domain=agro) + backfill | ⏳ | plan §7.3 del AS-IS |
+| T-051 | Tenant de la finca + espejo AgroFarmTask → JobTask(domain=agro) + backfill (spec `agro-task-jobtask-convergence.spec.md`) | ✅ | agro-jobtask-mirror-integration.test.ts |
+| T-058 | Cambiar lecturas web/sync/Prometeo a JobTask (paso 3d) y asignar tenant a fincas sin él | ⏳ | depende de T-051 en producción |
 | T-052 | Eventos `agro.*` en EVENT_CATALOG + outbox | ⏳ | requiere aprobación de catálogo |
 | T-053 | Subida binaria de evidencia Agro (flujo presignado) | ⏳ | |
 | T-054 | ASR/visión para el intake (privacyCritical → Ollama/vision-service) | ⏳ | |

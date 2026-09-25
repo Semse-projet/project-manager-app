@@ -53,7 +53,7 @@ export class AgroFarmController {
   async createFarm(@Body() body: unknown, @Req() req: any) {
     const ctx = resolveRequestContext(req);
     const input = createFarmSchema.parse(body);
-    const farm = await this.service.createFarm({ ownerId: ctx.userId, ...input });
+    const farm = await this.service.createFarm({ ownerId: ctx.userId, tenantId: ctx.tenantId, ...input });
     return ok(resolveRequestId(req.headers ?? {}), { farm });
   }
 

@@ -18,14 +18,21 @@ export class AgroFarmRepository {
 
   async createFarm(input: {
     ownerId: string;
+    tenantId?: string;
     name: string;
     operationType?: string;
     locationLabel?: string;
     notes?: string;
   }) {
+    // El tenant solo se guarda si existe: con auth por cabeceras (dev) el
+    // x-tenant-id puede no tener fila en Tenant y la FK rompería el alta.
+    const tenant = input.tenantId
+      ? await this.prisma.tenant.findUnique({ where: { id: input.tenantId }, select: { id: true } })
+      : null;
     return this.prisma.agroFarm.create({
       data: {
         ownerId: input.ownerId,
+        tenantId: tenant?.id ?? null,
         name: input.name,
         operationType: input.operationType ?? "LIVESTOCK",
         locationLabel: input.locationLabel,

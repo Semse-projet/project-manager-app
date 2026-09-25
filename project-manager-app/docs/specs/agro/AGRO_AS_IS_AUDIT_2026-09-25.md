@@ -135,7 +135,7 @@ integración con DB ni E2E Agro.
 | Prometeo Agro operacional | Solo lectura + `create_task` | Intake determinista: texto → propuesta → revisión humana → endpoints normales |
 | Mobile nativo Agro | Ausente | **Pendiente** (el flujo de reporte es web responsive) |
 | Transcripción de audio / visión | Ausente | **Pendiente** (el intake recibe texto; el audio se adjunta como evidencia) |
-| JobTask `domain="agro"` como escritura | DESIGNED_ONLY | **Pendiente** (plan §7, sin migración destructiva) |
+| JobTask `domain="agro"` como escritura | REAL (espejo) | T-051: espejo transaccional de AgroFarmTask en fincas con tenant; las lecturas siguen en AgroFarmTask |
 
 ---
 
@@ -260,8 +260,13 @@ agrupa con esas pantallas.
    para el propietario.
 3. **Tareas → JobTask (progresivo).**
    a. Hoy: lectura dual vía `AgroTaskRefResolver` (hecho).
-   b. Dual-write: `AgroTaskService.createTask` crea también `JobTask{domain:"agro"}` y guarda el vínculo.
-   c. Backfill idempotente `AgroFarmTask → JobTask` con tabla puente.
+   b. Dual-write — **hecho (T-051)**: cada escritura de `AgroFarmTask` (web, API y
+      sync) se refleja en `JobTask{domain:"agro"}` en la misma transacción,
+      vinculada por `AgroFarmTask.jobTaskId`. Requiere `AgroFarm.tenantId`
+      (nuevo, opcional): el tenant de la sesión al crear la finca.
+   c. Backfill idempotente — **hecho (T-051)** en la migración
+      `20260925150000_agro_farm_tenant_jobtask_bridge`: tenant solo si el
+      propietario pertenece a un único tenant; espejo con id `agrotask_<id>`.
    d. Cambiar lecturas web/sync/Prometeo a `JobTask`.
    e. Congelar `AgroFarmTask` (solo lectura) y documentar retirada. Nunca `DROP` sin confirmación explícita.
 4. **Evidencia → `Evidence`.** Requiere `Evidence.projectId` opcional (cambio de

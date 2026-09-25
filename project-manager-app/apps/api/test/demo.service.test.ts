@@ -47,6 +47,7 @@ function makePrismaStub(options: { existingFarmAgeMs?: number } = {}) {
         return { id: "usr_demo", email: "demo-agro@semse.internal" };
       },
     },
+    jobTask: { deleteMany: async () => { track("jobTask.deleteMany"); return { count: 0 }; } },
     agroFarm: {
       findFirst: async () => {
         track("agroFarm.findFirst");
@@ -180,6 +181,7 @@ test("stale demo farm (>6h) is deleted and re-seeded", async () => {
 
     const session = await service.createDemoSession({ vertical: "agro", requestId: "req_1" });
 
+    assert.equal(prisma._calls["jobTask.deleteMany"], 1, "agro JobTask mirrors are removed before the cascade");
     assert.equal(prisma._calls["agroFarm.delete"], 1);
     assert.equal(prisma._calls["agroFarm.create"], 1);
     assert.equal(session.farmId, "farm_demo_new");

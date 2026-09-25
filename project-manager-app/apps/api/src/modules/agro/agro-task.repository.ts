@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
+import { mirrorAgroTaskToJobTask } from "./agro-jobtask-mirror.js";
 
 @Injectable()
 export class AgroTaskRepository {
@@ -31,20 +32,25 @@ export class AgroTaskRepository {
     priority?: string;
     dueAt?: Date;
     notes?: string;
-  }) {
-    return this.prisma.agroFarmTask.create({
-      data: {
-        farmId: input.farmId,
-        title: input.title,
-        type: input.type,
-        targetType: input.targetType,
-        targetId: input.targetId,
-        assignedToId: input.assignedToId,
-        status: "PENDING",
-        priority: input.priority ?? "MEDIUM",
-        dueAt: input.dueAt,
-        notes: input.notes,
-      },
+  }, actorId?: string) {
+    // Espejo JobTask(domain="agro") en la misma transacción (T-051).
+    return this.prisma.$transaction(async (tx) => {
+      const task = await tx.agroFarmTask.create({
+        data: {
+          farmId: input.farmId,
+          title: input.title,
+          type: input.type,
+          targetType: input.targetType,
+          targetId: input.targetId,
+          assignedToId: input.assignedToId,
+          status: "PENDING",
+          priority: input.priority ?? "MEDIUM",
+          dueAt: input.dueAt,
+          notes: input.notes,
+        },
+      });
+      await mirrorAgroTaskToJobTask(tx, task.id, actorId);
+      return tx.agroFarmTask.findUniqueOrThrow({ where: { id: task.id } });
     });
   }
 
@@ -62,22 +68,26 @@ export class AgroTaskRepository {
     blockReason?: string | null;
     cancelReason?: string | null;
   }) {
-    return this.prisma.agroFarmTask.update({
-      where: { id: taskId },
-      data: {
-        ...(input.title !== undefined && { title: input.title }),
-        ...(input.assignedToId !== undefined && { assignedToId: input.assignedToId }),
-        ...(input.priority !== undefined && { priority: input.priority }),
-        ...(input.dueAt !== undefined && { dueAt: input.dueAt }),
-        ...(input.notes !== undefined && { notes: input.notes }),
-        ...(input.status !== undefined && { status: input.status }),
-        ...(input.startedAt !== undefined && { startedAt: input.startedAt }),
-        ...(input.completedAt !== undefined && { completedAt: input.completedAt }),
-        ...(input.blockedAt !== undefined && { blockedAt: input.blockedAt }),
-        ...(input.cancelledAt !== undefined && { cancelledAt: input.cancelledAt }),
-        ...(input.blockReason !== undefined && { blockReason: input.blockReason }),
-        ...(input.cancelReason !== undefined && { cancelReason: input.cancelReason }),
-      },
+    return this.prisma.$transaction(async (tx) => {
+      await tx.agroFarmTask.update({
+        where: { id: taskId },
+        data: {
+          ...(input.title !== undefined && { title: input.title }),
+          ...(input.assignedToId !== undefined && { assignedToId: input.assignedToId }),
+          ...(input.priority !== undefined && { priority: input.priority }),
+          ...(input.dueAt !== undefined && { dueAt: input.dueAt }),
+          ...(input.notes !== undefined && { notes: input.notes }),
+          ...(input.status !== undefined && { status: input.status }),
+          ...(input.startedAt !== undefined && { startedAt: input.startedAt }),
+          ...(input.completedAt !== undefined && { completedAt: input.completedAt }),
+          ...(input.blockedAt !== undefined && { blockedAt: input.blockedAt }),
+          ...(input.cancelledAt !== undefined && { cancelledAt: input.cancelledAt }),
+          ...(input.blockReason !== undefined && { blockReason: input.blockReason }),
+          ...(input.cancelReason !== undefined && { cancelReason: input.cancelReason }),
+        },
+      });
+      await mirrorAgroTaskToJobTask(tx, taskId);
+      return tx.agroFarmTask.findUniqueOrThrow({ where: { id: taskId } });
     });
   }
 
