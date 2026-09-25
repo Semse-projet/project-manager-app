@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
 import { ChevronRight, ClipboardList, AlertTriangle, Info, TrendingUp } from "lucide-react";
-import { farmTabs } from "../farm-tabs";
+import { useFarmTabs } from "../use-farm-viewer";
 
 interface AuditReport {
   farmId: string;
@@ -56,7 +56,7 @@ export default function AuditPage() {
     finally { setLoading(false); }
   }
 
-  const tabs = farmId ? farmTabs(farmId) : [];
+  const tabs = useFarmTabs(farmId);
 
   return (
     <div className="agro-shell">

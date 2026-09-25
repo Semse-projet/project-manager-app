@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
 import { Plus, X, ChevronRight, Users, ArrowRight, BarChart2, Layers } from "lucide-react";
-import { farmTabs } from "../farm-tabs";
+import { useFarmTabs } from "../use-farm-viewer";
 
 interface AnimalGroup {
   id: string;
@@ -83,7 +83,7 @@ export default function GroupsPage() {
     } catch (err: any) { setFormError(err?.message); } finally { setCreating(false); }
   }
 
-  const tabs = farmId ? farmTabs(farmId) : [];
+  const tabs = useFarmTabs(farmId);
   const active = groups.filter(g => g.status === "ACTIVE");
   const totalHead = groups.reduce((s, g) => s + g.count, 0);
 

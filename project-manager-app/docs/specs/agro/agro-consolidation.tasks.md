@@ -15,6 +15,7 @@
 | T-041 | UI Workforce (matriz + perfil + verificación) | ✅ | Playwright 390px |
 | T-050 | Membresía en servicios existentes (finca, tareas, animales, evidencia, inventario, dashboard, sync) | ✅ | agro-membership-operations-integration.test.ts + Playwright |
 | T-056 | MANAGER accede a datos económicos (`farm.finance`: costos, ventas, rentabilidad, reporte semanal) | ✅ | agro-membership-operations-integration.test.ts |
+| T-057 | Pestañas de la finca según el rol (`viewerActions` del API + `useFarmTabs` en la web) | ✅ | agro-farm-policy.test.ts + integración + Playwright |
 | T-051 | Dual-write AgroFarmTask → JobTask(domain=agro) + backfill | ⏳ | plan §7.3 del AS-IS |
 | T-052 | Eventos `agro.*` en EVENT_CATALOG + outbox | ⏳ | requiere aprobación de catálogo |
 | T-053 | Subida binaria de evidencia Agro (flujo presignado) | ⏳ | |

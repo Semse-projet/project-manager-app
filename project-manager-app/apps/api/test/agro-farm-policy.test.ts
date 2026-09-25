@@ -3,7 +3,7 @@ import "reflect-metadata";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { ForbiddenException, NotFoundException } from "@nestjs/common";
-import { canPerformAgroFarmAction, isProfessionalFarmRole } from "../dist/modules/agro/agro-farm-policy.js";
+import { allowedAgroFarmActions, canPerformAgroFarmAction, isProfessionalFarmRole } from "../dist/modules/agro/agro-farm-policy.js";
 import { AgroFarmAccessService } from "../dist/modules/agro/agro-farm-access.service.js";
 import { hasPermission } from "@semse/auth";
 
@@ -142,4 +142,17 @@ test("agro-policy: finances for owner and manager only; vet may change animal st
   assert.equal(canPerformAgroFarmAction("AGRONOMIST", "animal.status"), false);
   assert.equal(canPerformAgroFarmAction("MANAGER", "farm.manage"), true);
   assert.equal(canPerformAgroFarmAction("SUPERVISOR", "farm.manage"), false);
+});
+
+test("agro-policy: allowedAgroFarmActions mirrors the matrix (UI hints)", () => {
+  assert.deepEqual(allowedAgroFarmActions(null), []);
+  const worker = allowedAgroFarmActions("WORKER");
+  assert.ok(worker.includes("farm.read") && worker.includes("incident.report"));
+  // task.execute solo como responsable: no se anuncia a la UI.
+  for (const a of ["farm.finance", "task.update", "task.execute", "members.manage"]) assert.ok(!worker.includes(a as never), a);
+  assert.ok(allowedAgroFarmActions("MANAGER").includes("farm.finance"));
+  assert.ok(!allowedAgroFarmActions("SUPERVISOR").includes("farm.finance"));
+  for (const role of ["OWNER", "SUPERVISOR", "VETERINARIAN"] as const) {
+    for (const a of allowedAgroFarmActions(role)) assert.equal(canPerformAgroFarmAction(role, a), true, `${role} ${a}`);
+  }
 });

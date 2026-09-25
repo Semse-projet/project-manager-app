@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
 import { Plus, X, HandCoins, ChevronRight, TrendingUp } from "lucide-react";
-import { farmTabs } from "../farm-tabs";
+import { useFarmTabs } from "../use-farm-viewer";
 
 interface SaleRecord {
   id: string; targetType: string; targetId: string; buyerName?: string | null;
@@ -104,7 +104,7 @@ export default function SalesPage() {
   }
 
   const selectedTarget = targets.find(t => t.id === sellTarget);
-  const tabs = farmId ? farmTabs(farmId) : [];
+  const tabs = useFarmTabs(farmId);
 
   return (
     <div className="agro-shell">

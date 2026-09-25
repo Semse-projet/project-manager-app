@@ -2,7 +2,7 @@ import { BadRequestException, Injectable, NotFoundException, Optional } from "@n
 import { AgroAuditRepository } from "./agro-audit.repository.js";
 import { AgroFarmRepository } from "./agro-farm.repository.js";
 import { AgroFarmAccessService, authorizeFarmAction } from "./agro-farm-access.service.js";
-import type { AgroFarmAction } from "./agro-farm-policy.js";
+import { allowedAgroFarmActions, type AgroFarmAction } from "./agro-farm-policy.js";
 
 const VALID_OPERATION_TYPES = ["LIVESTOCK", "MIXED", "CROP"] as const;
 export const AGRO_UNIT_TYPES = [
@@ -41,8 +41,9 @@ export class AgroFarmService {
     const actor = await authorizeFarmAction(this.access, this.repo, farmId, userId, action);
     const farm = await this.repo.findFarm(farmId);
     if (!farm) throw new NotFoundException(`Farm not found: ${farmId}`);
-    // viewerRole permite a la UI ocultar acciones que el rol de finca no puede hacer.
-    return { ...farm, viewerRole: actor.role };
+    // viewerRole/viewerActions permiten a la UI ocultar lo que el rol de finca no
+    // puede hacer; el API sigue decidiendo en cada endpoint.
+    return { ...farm, viewerRole: actor.role, viewerActions: allowedAgroFarmActions(actor.role) };
   }
 
   async createFarm(input: {

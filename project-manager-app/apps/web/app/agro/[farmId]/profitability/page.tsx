@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
 import { ChevronRight, TrendingUp, TrendingDown, Scale, AlertTriangle } from "lucide-react";
-import { farmTabs } from "../farm-tabs";
+import { useFarmTabs } from "../use-farm-viewer";
 
 interface ProfitabilityItem {
   targetType: "ANIMAL" | "ANIMAL_GROUP";
@@ -66,7 +66,7 @@ export default function ProfitabilityPage() {
     finally { setLoading(false); }
   }
 
-  const tabs = farmId ? farmTabs(farmId) : [];
+  const tabs = useFarmTabs(farmId);
 
   return (
     <div className="agro-shell">

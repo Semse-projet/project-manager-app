@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
 import { Plus, X, Heart, ChevronRight, Baby, Calendar, Dna } from "lucide-react";
-import { farmTabs } from "../farm-tabs";
+import { useFarmTabs } from "../use-farm-viewer";
 
 interface BreedingTask {
   id: string; title: string; type: string; status: string;
@@ -107,7 +107,7 @@ export default function ReproductionPage() {
   const stats = REPRO_TYPES.reduce<Record<string, number>>((acc, t) => {
     acc[t] = tasks.filter(x => x.type === t).length; return acc;
   }, {});
-  const tabs = farmId ? farmTabs(farmId) : [];
+  const tabs = useFarmTabs(farmId);
 
   return (
     <div className="agro-shell">

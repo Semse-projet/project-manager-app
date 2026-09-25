@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
 import { Plus, X, Building2, ChevronRight, Scale, Fence, Tractor } from "lucide-react";
-import { farmTabs } from "../farm-tabs";
+import { useFarmTabs } from "../use-farm-viewer";
 
 interface FarmUnit {
   id: string; name: string; type: string;
@@ -89,7 +89,7 @@ export default function InfrastructurePage() {
   const byType = UNIT_TYPES.reduce<Record<string, FarmUnit[]>>((acc, t) => {
     acc[t] = units.filter(u => u.type === t); return acc;
   }, {});
-  const tabs = farmId ? farmTabs(farmId) : [];
+  const tabs = useFarmTabs(farmId);
 
   return (
     <div className="agro-shell">

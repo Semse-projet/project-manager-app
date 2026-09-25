@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
-import { farmTabs } from "../farm-tabs";
+import { useFarmTabs } from "../use-farm-viewer";
 import {
   ChevronRight, Plus, X, Wheat, Droplets, Zap, Leaf,
   AlertTriangle, Package, Clock, Check, RefreshCw,
@@ -85,7 +85,7 @@ export default function FeedingPage() {
   /* Week calendar offset */
   const [weekOffset, setWeekOffset] = useState(0);
 
-  const tabs = farmId ? farmTabs(farmId) : [];
+  const tabs = useFarmTabs(farmId);
 
   /* ── Load ── */
   useEffect(() => {

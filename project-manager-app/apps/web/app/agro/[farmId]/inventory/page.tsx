@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
 import { Plus, X, Package, ArrowDown, ArrowUp, SlidersHorizontal, ChevronRight, AlertTriangle } from "lucide-react";
-import { farmTabs } from "../farm-tabs";
+import { useFarmTabs } from "../use-farm-viewer";
 
 interface InventoryItem {
   id: string; name: string; category: string; unit: string;
@@ -106,7 +106,7 @@ export default function InventoryPage() {
   }
 
   const lowStockCount = Object.values(stock).filter(s => s.isLow).length;
-  const tabs = farmId ? farmTabs(farmId) : [];
+  const tabs = useFarmTabs(farmId);
 
   return (
     <div className="agro-shell">

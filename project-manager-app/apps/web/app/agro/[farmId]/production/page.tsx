@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
 import { Plus, X, Milk, ChevronRight, TrendingUp, Trash2 } from "lucide-react";
-import { farmTabs } from "../farm-tabs";
+import { useFarmTabs } from "../use-farm-viewer";
 
 interface ProductionRecord {
   id: string; type: string; targetType: string; targetId?: string | null;
@@ -119,7 +119,7 @@ export default function ProductionPage() {
   const targetLabel = (r: ProductionRecord) =>
     r.targetType === "FARM" ? "Finca" : targets.find(t => t.id === r.targetId)?.label ?? r.targetType;
 
-  const tabs = farmId ? farmTabs(farmId) : [];
+  const tabs = useFarmTabs(farmId);
 
   return (
     <div className="agro-shell">
