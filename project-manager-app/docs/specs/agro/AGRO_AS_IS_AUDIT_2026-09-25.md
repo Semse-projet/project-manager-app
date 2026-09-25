@@ -102,6 +102,8 @@ integración con DB ni E2E Agro.
 | R5 | BFF `api/semse/agro/production/[recordId]` | `v1/agro/production/:id` | Ruta inexistente en API | Documentado (no se usa desde UI) |
 | R6 | `/admin/verticals/agro` | `AgroFarm` | Campos inexistentes y alcance por owner | Documentado (requiere decisión de acceso admin cross-owner) |
 | R7 | Rol `WORKER` | `v1/agro/*` | Sin permisos Agro | **Corregido** para lectura y reporte de campo (ver §5) |
+| R8 | Controllers Agro existentes | `schema.parse(body)` | Un body inválido lanza `ZodError` (no es `HttpException`) → **500** en vez de 400 | Controllers nuevos usan `parseWithSchema` (400). Los existentes quedan documentados (cambio de comportamiento fuera de alcance) |
+| R9 | Miembros de finca | `farms/:id/units`, `animal-groups`, `animals`, `tasks` | Solo el propietario accede: un trabajador no puede elegir contexto ni completar tareas | Nuevo `GET farms/:farmId/incidents/context` para miembros. Pendiente: migrar los servicios existentes a `AgroFarmAccessService` (§7.2) |
 
 ---
 
