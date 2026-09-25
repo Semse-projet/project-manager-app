@@ -78,6 +78,14 @@ export class AgroFarmController {
     return ok(resolveRequestId(req.headers ?? {}), { farm });
   }
 
+  @Post("farms/:farmId/tenant")
+  @RequirePermissions("agro:write")
+  async assignTenant(@Param("farmId") farmId: string, @Req() req: any) {
+    const ctx = resolveRequestContext(req);
+    const farm = await this.service.assignTenant(farmId, ctx.userId, ctx.tenantId);
+    return ok(resolveRequestId(req.headers ?? {}), { farm });
+  }
+
   // ── Farm Units ─────────────────────────────────────────────────────────────
 
   @Get("farms/:farmId/units")

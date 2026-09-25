@@ -31,6 +31,7 @@ related_tests:
 related_endpoints:
   - farms
   - farms/:farmId/tasks
+  - farms/:farmId/tenant
   - tasks/:taskId
   - sync/events
 related_events: []
@@ -71,10 +72,25 @@ Las tareas Agro empiezan a converger hacia `JobTask` (`domain = "agro"`), la pla
 - **Sin duplicados:** `AgroTaskRefResolver.listOpen` excluye los espejos, porque la tarea ya aparece por su fuente `AGRO_FARM_TASK`. Una referencia `JOB_TASK` a un espejo sigue resolviendo.
 - **Reset de la demo:** borra antes los `JobTask(domain="agro")` de la finca, porque el espejo no cuelga de ella por FK.
 
+## 3bis. Asignar tenant a una finca sin tenant (T-058, parcial)
+
+`POST /v1/agro/farms/:farmId/tenant` (sin cuerpo) permite al **propietario**
+asignar tenant a su finca cuando el backfill la dejó ambigua o el tenant de la
+sesión no existía al crearla:
+
+- Solo el propietario (`farm.manage`); un miembro recibe 403, un ajeno 404.
+- Solo si la finca **no tiene tenant todavía**; reasignar (incluso al mismo
+  tenant) es 400.
+- Solo al **tenant de la propia sesión** del propietario, nunca uno arbitrario
+  pasado por parámetro — mismo criterio que `createFarm`.
+- No migra las tareas ya existentes: el espejo llega en su siguiente
+  escritura, igual que cualquier finca que obtiene tenant más tarde (§3).
+- Se audita como `farm.tenant_assigned`.
+
 ## 4. Fuera de alcance
 
 - Cambiar las lecturas de web, sync y Prometeo a `JobTask` (paso 3d), y después retirar `AgroFarmTask`.
-- Asignar tenant a fincas que quedaron sin él: no hay endpoint; queda como tarea aparte.
+- Migrar en bloque las tareas ya existentes de una finca al asignarle tenant (§3bis): siguen lazy, una por una, en su siguiente escritura.
 - Escribir desde `JobTask` hacia `AgroFarmTask`: el espejo es unidireccional. Ningún código escribe hoy `JobTask(domain="agro")` fuera del espejo.
 
 ## 5. Campos SEMSE
