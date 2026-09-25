@@ -41,6 +41,15 @@ export class AgroFarmRepository {
     });
   }
 
+  /** El tenant solo se guarda si existe en Tenant (ver createFarm). */
+  async findTenant(tenantId: string) {
+    return this.prisma.tenant.findUnique({ where: { id: tenantId }, select: { id: true } });
+  }
+
+  async assignTenant(farmId: string, tenantId: string) {
+    return this.prisma.agroFarm.update({ where: { id: farmId }, data: { tenantId } });
+  }
+
   async updateFarm(farmId: string, input: {
     name?: string;
     operationType?: string;

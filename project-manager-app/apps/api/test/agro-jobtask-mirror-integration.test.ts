@@ -145,6 +145,23 @@ dbTest("agro T-051: tasks of a farm with tenant are mirrored into JobTask(domain
     assert.equal(looseTask.status, 201);
     assert.equal(looseTask.data.task.jobTaskId, null);
 
+    // ── T-058: asignar tenant a una finca que quedó sin él ──────────────────
+    // Solo el propietario, y solo al tenant de su propia sesión.
+    assert.equal((await call("worker", "POST", `/v1/agro/farms/${loose.data.farm.id}/tenant`, {})).status, 403, "worker cannot assign a tenant");
+    const assigned = await call("owner", "POST", `/v1/agro/farms/${loose.data.farm.id}/tenant`, {}, tenantId);
+    assert.equal(assigned.status, 201, JSON.stringify(assigned.body));
+    assert.equal(assigned.data.farm.tenantId, tenantId);
+    // Ya tiene tenant: no se puede reasignar, ni siquiera al mismo.
+    const reassigned = await call("owner", "POST", `/v1/agro/farms/${loose.data.farm.id}/tenant`, {}, tenantId);
+    assert.equal(reassigned.status, 400);
+    // La siguiente tarea de esa finca ya se refleja.
+    const nowMirrored = await call("owner", "POST", `/v1/agro/farms/${loose.data.farm.id}/tasks`, { title: "y", type: "OTHER" }, tenantId);
+    assert.equal(nowMirrored.status, 201);
+    assert.ok(nowMirrored.data.task.jobTaskId, "task created after tenant assignment is mirrored");
+    // Tenant de sesión inexistente: 400, la finca sigue sin tenant.
+    const unknownTenant = await call("owner", "POST", `/v1/agro/farms/${farmId}/tenant`, {}, "ten_missing_never_created");
+    assert.equal(unknownTenant.status, 400);
+
     // ── "Buscar → relacionar": sin duplicados por el espejo ─────────────────
     const open = await call("owner", "POST", `/v1/agro/farms/${farmId}/tasks`, { title: "Abierta", type: "OTHER" });
     const { AgroTaskRefResolver } = await import("../dist/modules/agro/agro-task-ref.resolver.js");

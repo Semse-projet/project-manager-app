@@ -73,6 +73,31 @@ export class AgroFarmService {
     return farm;
   }
 
+  /**
+   * Asigna tenant a una finca que quedó sin él (backfill ambiguo o cuando el
+   * tenant de la sesión no existía al crearla). Solo el propietario, solo si
+   * la finca no tiene tenant todavía, y solo al tenant de su propia sesión —
+   * nunca a uno arbitrario. Habilita el espejo JobTask (T-051) en la
+   * siguiente escritura de cada tarea; no migra las ya existentes.
+   */
+  async assignTenant(farmId: string, ownerId: string, tenantId: string) {
+    const farm = await this.getFarm(farmId, ownerId, "farm.manage");
+    if (farm.tenantId) {
+      throw new BadRequestException(`Farm ${farmId} already has a tenant`);
+    }
+    const tenant = await this.repo.findTenant(tenantId);
+    if (!tenant) throw new BadRequestException(`Unknown tenant: ${tenantId}`);
+    const updated = await this.repo.assignTenant(farmId, tenantId);
+    await this.audit.record({
+      farmId, actorId: ownerId,
+      entityType: "AgroFarm", entityId: farmId,
+      action: "farm.tenant_assigned",
+      after: { tenantId },
+      source: "WEB",
+    });
+    return updated;
+  }
+
   async updateFarm(farmId: string, ownerId: string, input: {
     name?: string;
     operationType?: string;

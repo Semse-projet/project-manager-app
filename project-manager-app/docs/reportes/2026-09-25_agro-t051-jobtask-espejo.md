@@ -36,9 +36,18 @@ La web, el sync y Prometeo siguen leyendo `AgroFarmTask`. La FSM y la auditoría
   - `prisma validate` y `migrate diff` (sin drift);
   - `spec:validate:strict`.
 
+## Actualización (T-058a)
+
+Se agregó `POST /v1/agro/farms/:farmId/tenant` para que el propietario asigne
+tenant a su finca cuando el backfill la dejó sin él: solo si no tiene tenant
+todavía, y solo al tenant de su propia sesión (nunca uno arbitrario). No migra
+las tareas existentes; el espejo llega en la siguiente escritura de cada una.
+Test agregado en `agro-jobtask-mirror-integration.test.ts` (asignación,
+rechazo por rol, rechazo por reasignación, rechazo por tenant inexistente).
+
 ## Pendiente
 
-- **T-058:** pasar las lecturas de web, sync y Prometeo a `JobTask`, y asignar tenant a las fincas que quedaron sin él.
+- **T-058b:** pasar las lecturas de web, sync y Prometeo a `JobTask`.
 - **Producción:** confirmar que la migración se aplicó en Railway y cuántas fincas y tareas quedaron con espejo:
   - `SELECT count(*) FROM "AgroFarm" WHERE "tenantId" IS NOT NULL`
   - `SELECT count(*) FROM "AgroFarmTask" WHERE "jobTaskId" IS NOT NULL`
