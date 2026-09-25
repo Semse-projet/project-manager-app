@@ -215,7 +215,7 @@ Decisiones:
 | Acción | OWNER | MANAGER | SUPERVISOR | WORKER | TECHNICIAN / SPECIALIST / AGRONOMIST | VETERINARIAN | Endpoint (RBAC) |
 |---|---|---|---|---|---|---|---|
 | Ver finca, unidades, animales, grupos, tareas, inventario, evidencia, dashboard | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | `agro:read` |
-| Datos económicos del dashboard, costos, ventas, rentabilidad | ✔ | — | — | — | — | — | `agro:read`/`agro:write` |
+| Datos económicos (`farm.finance`): dashboard, costos, ventas, rentabilidad, reporte semanal | ✔ | ✔ | — | — | — | — | `agro:read`/`agro:write` |
 | Editar finca y unidades, alta/edición de animales, grupos e ítems de inventario | ✔ | ✔ | — | — | — | — | `agro:write` |
 | Crear, editar y cancelar tareas | ✔ | ✔ | ✔ | — | — | — | `agro:report` |
 | Iniciar, completar y bloquear tareas | ✔ | ✔ | ✔ | propias o sin asignar | ✔ | ✔ | `agro:report` |
@@ -231,6 +231,11 @@ Decisiones:
 `DEMO_AGRO` recibe `agro:report` (sigue siendo solo Agro) porque la demo usa
 esos endpoints operativos.
 
+**Decisión de producto (2026-09-25, T-056):** el MANAGER ve y opera los datos
+económicos igual que el propietario. Producción, ciclos, trazabilidad,
+cumplimiento, simulador y analítica siguen siendo solo del propietario: no
+son datos económicos y abrirlos es otra tarea.
+
 ## 7. Plan de migración
 
 1. **Esta entrega (aditiva, sin tocar datos existentes).** Migración
@@ -241,8 +246,9 @@ esos endpoints operativos.
 2. **Membresía en servicios existentes — hecho (T-050).** `assertFarmAccess`
    owner-only sustituido por `authorizeFarmAction` en finca, tareas, animales,
    evidencia, inventario, dashboard y sync offline, con la matriz §6.1. Los
-   servicios económicos (costos, ventas, rentabilidad, producción, ciclos,
-   trazabilidad, reporte de auditoría) siguen solo para el propietario.
+   datos económicos (costos, ventas, rentabilidad, reporte semanal) se
+   abrieron al MANAGER en T-056; producción, ciclos y trazabilidad siguen solo
+   para el propietario.
 3. **Tareas → JobTask (progresivo).**
    a. Hoy: lectura dual vía `AgroTaskRefResolver` (hecho).
    b. Dual-write: `AgroTaskService.createTask` crea también `JobTask{domain:"agro"}` y guarda el vínculo.

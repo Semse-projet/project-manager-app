@@ -85,9 +85,10 @@ const MATRIX: Record<AgroFarmAction, readonly AgroFarmRole[]> = {
   // Estructura de la finca (datos de la finca, unidades, alta de animales/grupos, catálogo de inventario).
   "farm.manage": MANAGERS,
   "farm.audit_read": SUPERVISORS,
-  // Datos económicos (costos, ventas, rentabilidad, valores): se mantiene solo
-  // el propietario, como antes de T-050. Ampliar a MANAGER es una decisión de producto.
-  "farm.finance": ["OWNER"],
+  // Datos económicos (costos, ventas, rentabilidad, valores, reporte semanal):
+  // propietario y MANAGER (decisión de producto 2026-09-25). El resto de
+  // miembros no ve cifras económicas.
+  "farm.finance": MANAGERS,
   "task.create": SUPERVISORS,
   "task.update": SUPERVISORS,
   // El trabajador ejecuta (iniciar/completar/bloquear) sus tareas o las no asignadas (ver `isAssignee`).

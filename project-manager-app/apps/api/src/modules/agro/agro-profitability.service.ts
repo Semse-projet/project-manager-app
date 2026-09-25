@@ -1,7 +1,8 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { Injectable, NotFoundException, Optional } from "@nestjs/common";
 import { AgroAnimalRepository } from "./agro-animal.repository.js";
 import { AgroEconomicsRepository } from "./agro-economics.repository.js";
 import { AgroFarmRepository } from "./agro-farm.repository.js";
+import { AgroFarmAccessService, authorizeFarmAction } from "./agro-farm-access.service.js";
 
 export type AgroRecommendation =
   | "MAINTAIN"        // margen sano, mantener
@@ -45,11 +46,14 @@ export class AgroProfitabilityService {
     private readonly economicsRepo: AgroEconomicsRepository,
     private readonly animalRepo: AgroAnimalRepository,
     private readonly farmRepo: AgroFarmRepository,
+    @Optional() private readonly access?: AgroFarmAccessService,
   ) {}
 
-  private async assertFarmAccess(farmId: string, ownerId: string) {
+  /** Datos económicos: propietario y MANAGER (`farm.finance`); el resto de miembros, 403; ajenos, 404. */
+  private async assertFarmAccess(farmId: string, userId: string) {
+    await authorizeFarmAction(this.access, this.farmRepo, farmId, userId, "farm.finance");
     const farm = await this.farmRepo.findFarm(farmId);
-    if (!farm || farm.ownerId !== ownerId) throw new NotFoundException(`Farm not found: ${farmId}`);
+    if (!farm) throw new NotFoundException(`Farm not found: ${farmId}`);
     return farm;
   }
 

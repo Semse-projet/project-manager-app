@@ -54,8 +54,8 @@ dbTest("agro T-050: farm members operate existing Agro services according to the
   const fastify = app.getHttpAdapter().getInstance();
 
   const tenantId = uid("ten");
-  const users = { owner: uid("owner"), sup: uid("sup"), worker: uid("worker"), vet: uid("vet"), stranger: uid("stranger") };
-  const roles: Record<keyof typeof users, string> = { owner: "CLIENT", sup: "WORKER", worker: "WORKER", vet: "PRO", stranger: "WORKER" };
+  const users = { owner: uid("owner"), mgr: uid("mgr"), sup: uid("sup"), worker: uid("worker"), vet: uid("vet"), stranger: uid("stranger") };
+  const roles: Record<keyof typeof users, string> = { owner: "CLIENT", mgr: "WORKER", sup: "WORKER", worker: "WORKER", vet: "PRO", stranger: "WORKER" };
   let farmId = "";
 
   await prisma.tenant.create({ data: { id: tenantId, slug: tenantId, name: "Agro T-050" } });
@@ -80,7 +80,7 @@ dbTest("agro T-050: farm members operate existing Agro services according to the
     const farm = await call("owner", "POST", "/v1/agro/farms", { name: "Granja T-050" });
     assert.equal(farm.status, 201, JSON.stringify(farm.body));
     farmId = farm.data.farm.id;
-    for (const [who, role] of [["sup", "SUPERVISOR"], ["worker", "WORKER"], ["vet", "VETERINARIAN"]] as const) {
+    for (const [who, role] of [["mgr", "MANAGER"], ["sup", "SUPERVISOR"], ["worker", "WORKER"], ["vet", "VETERINARIAN"]] as const) {
       assert.equal((await call("owner", "POST", `/v1/agro/farms/${farmId}/members`, { userId: users[who], role })).status, 201);
     }
     const unitA = await prisma.agroFarmUnit.create({ data: { farmId, name: "Corral 1", type: "CORRAL" } });
@@ -100,8 +100,16 @@ dbTest("agro T-050: farm members operate existing Agro services according to the
 
     // ── Estructura y finanzas: siguen reservadas ────────────────────────────
     assert.equal((await call("worker", "PATCH", `/v1/agro/farms/${farmId}`, { name: "Hack" })).status, 403, "worker cannot edit farm (agro:write)");
-    assert.equal((await call("sup", "GET", `/v1/agro/farms/${farmId}/costs`)).status, 403, "costs stay owner-only");
-    assert.equal((await call("owner", "GET", `/v1/agro/farms/${farmId}/costs`)).status, 200);
+    // Datos económicos: propietario y MANAGER; supervisión y campo, no.
+    for (const url of [`/v1/agro/farms/${farmId}/costs`, `/v1/agro/farms/${farmId}/sales`, `/v1/agro/farms/${farmId}/sales/summary`, `/v1/agro/farms/${farmId}/profitability`, `/v1/agro/animals/${pig.id}/profitability`]) {
+      assert.equal((await call("owner", "GET", url)).status, 200, `owner GET ${url}`);
+      assert.equal((await call("mgr", "GET", url)).status, 200, `manager GET ${url}`);
+      assert.equal((await call("sup", "GET", url)).status, 403, `supervisor GET ${url}`);
+      assert.equal((await call("worker", "GET", url)).status, 403, `worker GET ${url}`);
+      assert.equal((await call("stranger", "GET", url)).status, 404, `stranger GET ${url}`);
+    }
+    assert.equal((await call("mgr", "POST", `/v1/agro/farms/${farmId}/audit-report`, {})).status, 201, "manager weekly report");
+    assert.equal((await call("sup", "POST", `/v1/agro/farms/${farmId}/audit-report`, {})).status, 403);
 
     // ── Tareas ──────────────────────────────────────────────────────────────
     assert.equal((await call("worker", "POST", `/v1/agro/farms/${farmId}/tasks`, { title: "x", type: "FEEDING" })).status, 403, "worker cannot create tasks");
@@ -148,6 +156,8 @@ dbTest("agro T-050: farm members operate existing Agro services according to the
     assert.equal(workerDash.data.dashboard?.monthCostSummary ?? workerDash.data.monthCostSummary, null);
     const ownerDash = await call("owner", "GET", `/v1/agro/farms/${farmId}/dashboard`);
     assert.notEqual(ownerDash.data.dashboard?.monthCostSummary ?? ownerDash.data.monthCostSummary, null);
+    const mgrDash = await call("mgr", "GET", `/v1/agro/farms/${farmId}/dashboard`);
+    assert.notEqual(mgrDash.data.dashboard?.monthCostSummary ?? mgrDash.data.monthCostSummary, null, "manager sees finances");
 
     // ── Sync offline con la misma política ──────────────────────────────────
     const at = new Date().toISOString();
