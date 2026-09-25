@@ -35,6 +35,8 @@ export type AgentStatus = {
   processedMessages: number;
   lastEventAt?: string;
   errors:      number;
+  /** When true, dispatch() drops messages addressed to this agent instead of invoking its handler. */
+  paused:      boolean;
 };
 
 @Injectable()
@@ -51,7 +53,7 @@ export class SemseAgentsService {
       "marketplace", "buildops", "protools", "evidence", "crowd", "prometeo",
     ];
     for (const name of agents) {
-      this.stats.set(name, { name, active: false, processedMessages: 0, errors: 0 });
+      this.stats.set(name, { name, active: false, processedMessages: 0, errors: 0, paused: false });
     }
   }
 
@@ -60,6 +62,8 @@ export class SemseAgentsService {
   /**
    * Dispatch a message from one agent to another (or broadcast).
    * Fire-and-forget: failures are logged but never thrown.
+   * Messages addressed to a paused agent are dropped (not queued) and surfaced
+   * on the SSE feed as an error so the dashboard shows what was skipped.
    */
   dispatch(msg: SemseAgentMessage): void {
     const targets: SemseAgentName[] = msg.to === "broadcast"
@@ -71,11 +75,39 @@ export class SemseAgentsService {
     );
 
     for (const target of targets) {
+      if (this.stats.get(target)?.paused) {
+        this.logger.debug(`[AgentBus] dropped ${msg.from} → ${target} event=${msg.event} (agent paused)`);
+        this.sse?.emit("agents:system", "agent:error", {
+          agent: target, event: msg.event, error: "Agente pausado — mensaje descartado",
+        });
+        continue;
+      }
       const handlers = this.handlers.get(target) ?? [];
       for (const handler of handlers) {
         void this.safeCall(target, handler, msg);
       }
     }
+  }
+
+  // ── Manual control (admin dashboard) ──────────────────────────────────────
+
+  /** Pause an agent: dispatch() will drop messages addressed to it until resume(). */
+  pause(agent: SemseAgentName): AgentStatus | null {
+    const s = this.stats.get(agent);
+    if (!s) return null;
+    s.paused = true;
+    this.logger.log(`[AgentBus] paused agent=${agent}`);
+    this.sse?.emit("agents:system", "agent:paused", { agent });
+    return { ...s };
+  }
+
+  resume(agent: SemseAgentName): AgentStatus | null {
+    const s = this.stats.get(agent);
+    if (!s) return null;
+    s.paused = false;
+    this.logger.log(`[AgentBus] resumed agent=${agent}`);
+    this.sse?.emit("agents:system", "agent:resumed", { agent });
+    return { ...s };
   }
 
   private async safeCall(agent: SemseAgentName, fn: AgentHandlerFn, msg: SemseAgentMessage): Promise<void> {

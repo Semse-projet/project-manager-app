@@ -7,6 +7,8 @@ export type PaymentDecision = {
   blockers:     string[];
   escrowStatus: "locked" | "pending_review" | "released" | "disputed";
   requiredActions: string[];
+  /** Real trace of the readiness evaluation — not LLM-generated. */
+  reasoningSteps: string[];
 };
 
 @Injectable()
@@ -48,11 +50,34 @@ export class CrowdAgent {
     milestoneStatus: string;
   }): PaymentDecision {
     const blockers: string[] = [];
-    if (!input.evidenceApproved)          blockers.push("Evidencia pendiente de aprobación");
-    if (input.changeOrdersPending > 0)    blockers.push(`${input.changeOrdersPending} change order(s) pendiente(s)`);
-    if (input.disputeOpen)                blockers.push("Disputa activa — no se puede liberar");
+    const reasoningSteps: string[] = [];
+
+    if (!input.evidenceApproved) {
+      blockers.push("Evidencia pendiente de aprobación");
+      reasoningSteps.push("Evidencia no aprobada → bloqueador activo.");
+    } else {
+      reasoningSteps.push("Evidencia aprobada → sin bloqueo por este criterio.");
+    }
+
+    if (input.changeOrdersPending > 0) {
+      blockers.push(`${input.changeOrdersPending} change order(s) pendiente(s)`);
+      reasoningSteps.push(`${input.changeOrdersPending} change order(s) sin resolver → bloqueador activo.`);
+    } else {
+      reasoningSteps.push("Sin change orders pendientes → sin bloqueo por este criterio.");
+    }
+
+    if (input.disputeOpen) {
+      blockers.push("Disputa activa — no se puede liberar");
+      reasoningSteps.push("Disputa activa → bloqueador activo, escrow marcado como disputed.");
+    } else {
+      reasoningSteps.push("Sin disputa activa → sin bloqueo por este criterio.");
+    }
+
     if (input.milestoneStatus !== "submitted" && input.milestoneStatus !== "approved") {
       blockers.push(`Milestone en estado: ${input.milestoneStatus}`);
+      reasoningSteps.push(`Milestone en estado "${input.milestoneStatus}" (se requiere "submitted" o "approved") → bloqueador activo.`);
+    } else {
+      reasoningSteps.push(`Milestone en estado "${input.milestoneStatus}" → válido para liberación.`);
     }
 
     const canRelease = blockers.length === 0;
@@ -60,11 +85,18 @@ export class CrowdAgent {
       : canRelease ? "pending_review"
       : "locked";
 
+    reasoningSteps.push(
+      canRelease
+        ? "Sin bloqueadores → pago listo para liberar. Requiere confirmación humana antes de mover fondos (Crowd no libera automáticamente)."
+        : `${blockers.length} bloqueador(es) activo(s) → pago retenido (escrow: ${escrowStatus}).`,
+    );
+
     return {
       canRelease,
       blockers,
       escrowStatus,
       requiredActions: blockers.map((b) => `Resolver: ${b}`),
+      reasoningSteps,
     };
   }
 }

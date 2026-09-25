@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Req } from "@nestjs/common";
+import { Body, Controller, Get, Param, Post, Req } from "@nestjs/common";
 import { ok } from "../../common/api-response.js";
 import { RequirePermissions } from "../../common/permissions.decorator.js";
 import { resolveRequestContext } from "../../common/request-context.js";
@@ -36,6 +36,26 @@ export class SemseAgentsController {
       agents: this.bus.getStatus(),
       policy: "Cada agente tiene dominio claro. Ninguno viola la frontera del otro.",
     });
+  }
+
+  /** Pausar un agente — deja de procesar mensajes del bus hasta que se reanude. */
+  @Post(":agent/pause")
+  @RequirePermissions("ops:dashboard:write")
+  async pauseAgent(@Req() req: { headers?: Record<string, unknown> }, @Param("agent") agent: string) {
+    const rid = resolveRequestId(req.headers ?? {});
+    const status = this.bus.pause(agent as SemseAgentName);
+    if (!status) return ok(rid, { error: `Agente desconocido: ${agent}` });
+    return ok(rid, { agent, status });
+  }
+
+  /** Reanudar un agente pausado. */
+  @Post(":agent/resume")
+  @RequirePermissions("ops:dashboard:write")
+  async resumeAgent(@Req() req: { headers?: Record<string, unknown> }, @Param("agent") agent: string) {
+    const rid = resolveRequestId(req.headers ?? {});
+    const status = this.bus.resume(agent as SemseAgentName);
+    if (!status) return ok(rid, { error: `Agente desconocido: ${agent}` });
+    return ok(rid, { agent, status });
   }
 
   /** ProTools Agent — estimado técnico por trade */
