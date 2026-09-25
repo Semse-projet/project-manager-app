@@ -3,10 +3,15 @@ import { AgroAuditRepository } from "./agro-audit.repository.js";
 import { AgroFarmRepository } from "./agro-farm.repository.js";
 
 const VALID_OPERATION_TYPES = ["LIVESTOCK", "MIXED", "CROP"] as const;
-const VALID_UNIT_TYPES = [
+export const AGRO_UNIT_TYPES = [
   "PASTURE", "CORRAL", "BARN", "STORAGE",
-  "WATER_SOURCE", "WORK_AREA", "FIELD", "GREENHOUSE", "OTHER",
+  "WATER_SOURCE", "WORK_AREA", "FIELD", "GREENHOUSE",
+  // Pantalla /agro/[farmId]/infrastructure los usaba y el API los rechazaba con 400.
+  "PADDOCK", "MILKING_AREA", "FEEDLOT", "QUARANTINE", "SCALE",
+  "OTHER",
 ] as const;
+
+const VALID_UNIT_TYPES = AGRO_UNIT_TYPES;
 
 @Injectable()
 export class AgroFarmService {

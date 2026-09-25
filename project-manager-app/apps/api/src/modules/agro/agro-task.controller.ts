@@ -6,9 +6,9 @@ import { ok } from "../../common/api-response.js";
 import { resolveRequestId } from "../../common/request-id.js";
 import { RequirePermissions } from "../../common/permissions.decorator.js";
 import { resolveRequestContext } from "../../common/request-context.js";
-import { AgroTaskService } from "./agro-task.service.js";
+import { AGRO_TASK_TYPES, AgroTaskService } from "./agro-task.service.js";
 
-const taskTypeEnum     = z.enum(["FEEDING","VACCINATION","TREATMENT","WEIGHING","MOVEMENT","CLEANING","INSPECTION","INVENTORY","SALE","WATER_CHECK","OTHER"]);
+const taskTypeEnum     = z.enum(AGRO_TASK_TYPES);
 const priorityEnum     = z.enum(["LOW","MEDIUM","HIGH","URGENT"]);
 const targetTypeEnum   = z.enum(["ANIMAL","ANIMAL_GROUP","FARM_UNIT","INVENTORY","GENERAL"]);
 

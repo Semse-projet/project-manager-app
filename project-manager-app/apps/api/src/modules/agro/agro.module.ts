@@ -29,6 +29,16 @@ import { AgroProfitabilityService } from "./agro-profitability.service.js";
 import { AgroSaleService } from "./agro-sale.service.js";
 import { AgroSimulatorService } from "./agro-simulator.service.js";
 import { AgroEconomicsController } from "./agro-economics.controller.js";
+import { AgroFarmAccessService } from "./agro-farm-access.service.js";
+import { AgroTaskRefResolver } from "./agro-task-ref.resolver.js";
+import { AgroWorkforceRepository } from "./agro-workforce.repository.js";
+import { AgroWorkforceService } from "./agro-workforce.service.js";
+import { AgroWorkforceController } from "./agro-workforce.controller.js";
+import { AgroIncidentRepository } from "./agro-incident.repository.js";
+import { AgroIncidentService } from "./agro-incident.service.js";
+import { AgroIncidentController } from "./agro-incident.controller.js";
+import { AgroIntakeService } from "./agro-intake.service.js";
+import { AgroIntakeController } from "./agro-intake.controller.js";
 
 @Module({
   controllers: [
@@ -41,6 +51,9 @@ import { AgroEconomicsController } from "./agro-economics.controller.js";
     AgroProductionCycleController,
     AgroTraceabilityController,
     AgroEconomicsController,
+    AgroWorkforceController,
+    AgroIncidentController,
+    AgroIntakeController,
   ],
   providers: [
     AgroFarmRepository,
@@ -64,6 +77,13 @@ import { AgroEconomicsController } from "./agro-economics.controller.js";
     AgroProfitabilityService,
     AgroSaleService,
     AgroSimulatorService,
+    AgroFarmAccessService,
+    AgroTaskRefResolver,
+    AgroWorkforceRepository,
+    AgroWorkforceService,
+    AgroIncidentRepository,
+    AgroIncidentService,
+    AgroIntakeService,
   ],
   exports: [
     AgroFarmService,
@@ -79,6 +99,11 @@ import { AgroEconomicsController } from "./agro-economics.controller.js";
     AgroProfitabilityService,
     AgroSaleService,
     AgroSimulatorService,
+    AgroFarmAccessService,
+    AgroTaskRefResolver,
+    AgroWorkforceService,
+    AgroIncidentService,
+    AgroIntakeService,
   ],
 })
 export class AgroModule {}

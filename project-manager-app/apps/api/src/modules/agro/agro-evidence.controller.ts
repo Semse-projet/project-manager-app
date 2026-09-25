@@ -6,11 +6,11 @@ import { ok } from "../../common/api-response.js";
 import { resolveRequestId } from "../../common/request-id.js";
 import { RequirePermissions } from "../../common/permissions.decorator.js";
 import { resolveRequestContext } from "../../common/request-context.js";
-import { AgroEvidenceService } from "./agro-evidence.service.js";
+import { AGRO_EVIDENCE_ENTITY_TYPES, AGRO_EVIDENCE_MEDIA_TYPES, AgroEvidenceService } from "./agro-evidence.service.js";
 import { parsePositiveInt } from "../../common/parse-query.js";
 
-const entityTypeEnum = z.enum(["FARM","FARM_UNIT","ANIMAL","ANIMAL_GROUP","FARM_TASK","INVENTORY_ITEM","INVENTORY_MOVEMENT","COST_ENTRY","GENERAL"]);
-const mediaTypeEnum  = z.enum(["NOTE","PHOTO","VIDEO","DOCUMENT","EXTERNAL_URL","OTHER"]);
+const entityTypeEnum = z.enum(AGRO_EVIDENCE_ENTITY_TYPES);
+const mediaTypeEnum  = z.enum(AGRO_EVIDENCE_MEDIA_TYPES);
 
 const createEvidenceSchema = z.object({
   entityType: entityTypeEnum,
