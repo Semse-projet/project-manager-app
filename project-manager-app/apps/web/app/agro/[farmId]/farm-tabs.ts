@@ -4,6 +4,8 @@ export function farmTabs(farmId: string) {
     { href: `/agro/${farmId}/animals`,        label: "Animales"        },
     { href: `/agro/${farmId}/groups`,         label: "Grupos"          },
     { href: `/agro/${farmId}/tasks`,          label: "Tareas"          },
+    { href: `/agro/${farmId}/incidents`,      label: "Incidencias"     },
+    { href: `/agro/${farmId}/workforce`,      label: "Equipo"          },
     { href: `/agro/${farmId}/calendar`,       label: "Calendario"      },
     { href: `/agro/${farmId}/feeding`,        label: "Alimentación"    },
     { href: `/agro/${farmId}/health`,         label: "Salud"           },

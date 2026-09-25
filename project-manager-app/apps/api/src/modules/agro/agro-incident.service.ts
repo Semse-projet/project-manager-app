@@ -68,6 +68,12 @@ export class AgroIncidentService {
     return { viewerRole: actor.role, incidents };
   }
 
+  /** Unidades, grupos y animales activos para elegir contexto al reportar (sin datos económicos). */
+  async reportContext(farmId: string, userId: string) {
+    const actor = await this.access.require(farmId, userId, "incident.report");
+    return { viewerRole: actor.role, ...(await this.repo.reportContext(farmId)) };
+  }
+
   async summary(farmId: string, userId: string) {
     await this.access.require(farmId, userId, "incident.read");
     const rows = await this.repo.countByStatus(farmId);

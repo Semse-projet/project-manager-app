@@ -94,6 +94,16 @@ export class AgroIncidentRepository {
     });
   }
 
+  /** Contexto mínimo para reportar (nombres/etiquetas), accesible a miembros de la finca. */
+  async reportContext(farmId: string) {
+    const [units, groups, animals] = await Promise.all([
+      this.prisma.agroFarmUnit.findMany({ where: { farmId }, select: { id: true, name: true, type: true }, orderBy: { name: "asc" } }),
+      this.prisma.agroAnimalGroup.findMany({ where: { farmId, status: "ACTIVE" }, select: { id: true, name: true, species: true, count: true }, orderBy: { name: "asc" } }),
+      this.prisma.agroAnimal.findMany({ where: { farmId, status: "ACTIVE" }, select: { id: true, tagCode: true, species: true }, orderBy: { tagCode: "asc" }, take: 500 }),
+    ]);
+    return { units, groups, animals };
+  }
+
   async countByStatus(farmId: string) {
     const rows = await this.prisma.agroIncident.groupBy({ by: ["status", "severity"], where: { farmId }, _count: { _all: true } });
     return rows.map((r) => ({ status: r.status, severity: r.severity, count: r._count._all }));

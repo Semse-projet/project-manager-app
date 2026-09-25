@@ -98,6 +98,14 @@ export class AgroIncidentController {
     return ok(resolveRequestId(req.headers ?? {}), data);
   }
 
+  @Get("farms/:farmId/incidents/context")
+  @RequirePermissions("agro:read")
+  async context(@Param("farmId") farmId: string, @Req() req: any) {
+    const ctx = resolveRequestContext(req);
+    const data = await this.service.reportContext(farmId, ctx.userId);
+    return ok(resolveRequestId(req.headers ?? {}), data);
+  }
+
   @Get("farms/:farmId/incidents/summary")
   @RequirePermissions("agro:read")
   async summary(@Param("farmId") farmId: string, @Req() req: any) {
