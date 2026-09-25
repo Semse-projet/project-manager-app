@@ -12,6 +12,8 @@ export type ProjectPlan = {
   }>;
   totalDays: number;
   criticalPath: string[];
+  /** Real trace of the planning logic — not LLM-generated. */
+  reasoningSteps: string[];
 };
 
 const TRADE_PHASES: Record<string, ProjectPlan["phases"]> = {
@@ -57,11 +59,22 @@ export class BuildOpsAgent {
   }
 
   createPlan(trade: string, estimatedHours: number): ProjectPlan {
+    const hasTemplate = trade in TRADE_PHASES;
     const phases = TRADE_PHASES[trade] ?? [
       { name: "Ejecución", durationDays: Math.ceil(estimatedHours / 8), tasks: ["Ejecutar trabajo"], milestoneTitle: "Trabajo completado", evidenceRequired: ["Foto antes", "Foto durante", "Foto después"] },
     ];
     const totalDays = phases.reduce((s, p) => s + p.durationDays, 0);
     const criticalPath = phases.map((p) => p.name);
-    return { phases, totalDays, criticalPath };
+
+    const reasoningSteps: string[] = [
+      hasTemplate
+        ? `Trade "${trade}" tiene plantilla de fases predefinida (${phases.length} fases: ${phases.map((p) => p.name).join(", ")}).`
+        : `Trade "${trade}" no tiene plantilla predefinida → genero una fase única de ${Math.ceil(estimatedHours / 8)} día(s) a partir de ${estimatedHours}h estimadas.`,
+      `Duración total: ${totalDays} día(s) = suma de la duración de cada fase.`,
+      `Ruta crítica: ${criticalPath.join(" → ")} (fases tratadas como secuenciales; no hay paralelismo modelado aún).`,
+      `Evidencia requerida por fase queda definida en el plan para que Evidence genere el checklist correspondiente.`,
+    ];
+
+    return { phases, totalDays, criticalPath, reasoningSteps };
   }
 }

@@ -17,6 +17,8 @@ export type JobClassification = {
   suggestedBudgetMax: number;
   requiredSkills: string[];
   matchScore:     number;  // 0-100
+  /** Real trace of the deterministic classification logic — not LLM-generated. */
+  reasoningSteps: string[];
 };
 
 const TRADE_KEYWORDS: Record<string, string[]> = {
@@ -30,14 +32,14 @@ const TRADE_KEYWORDS: Record<string, string[]> = {
   cleaning:   ["limpieza", "limpiar", "cleaning"],
 };
 
-function classifyTrade(description: string): string {
+function classifyTrade(description: string): { trade: string; matchedKeywords: string[] } {
   const lower = description.toLowerCase();
-  let bestMatch = "general"; let bestScore = 0;
+  let bestMatch = "general"; let bestScore = 0; let bestKeywords: string[] = [];
   for (const [trade, keywords] of Object.entries(TRADE_KEYWORDS)) {
-    const score = keywords.filter((kw) => lower.includes(kw)).length;
-    if (score > bestScore) { bestScore = score; bestMatch = trade; }
+    const matched = keywords.filter((kw) => lower.includes(kw));
+    if (matched.length > bestScore) { bestScore = matched.length; bestMatch = trade; bestKeywords = matched; }
   }
-  return bestMatch;
+  return { trade: bestMatch, matchedKeywords: bestKeywords };
 }
 
 function estimateBudget(trade: string, area = 100): { min: number; max: number; hours: number } {
@@ -178,11 +180,22 @@ export class MarketplaceAgent {
   async classifyJob(payload: Record<string, unknown>): Promise<JobClassification> {
     const description = String(payload.description ?? payload.scope ?? "");
     const area        = typeof payload.area === "number" ? payload.area : 100;
-    const trade = classifyTrade(description);
+    const { trade, matchedKeywords } = classifyTrade(description);
     const { min, max, hours } = estimateBudget(trade, area);
 
     const urgency = payload.urgency as "low" | "medium" | "high" | "urgent" ?? "medium";
     const complexity = area > 300 ? "complex" : area > 100 ? "medium" : "simple";
+    const matchScore = description.length > 50 ? 85 : 65;
+
+    const reasoningSteps: string[] = [
+      matchedKeywords.length > 0
+        ? `Encontré ${matchedKeywords.length} palabra(s) clave de "${trade}" en la descripción (${matchedKeywords.join(", ")}) → trade = ${trade}.`
+        : `No encontré palabras clave de ningún trade conocido en la descripción → trade = "general" (fallback).`,
+      `Área declarada: ${area} sqft → complejidad = ${complexity} (simple ≤100 sqft, medium ≤300 sqft, complex >300 sqft).`,
+      `Horas estimadas: ${hours}h, calculadas a partir del área y la tarifa/factor del trade "${trade}".`,
+      `Presupuesto sugerido: $${min.toLocaleString()}–$${max.toLocaleString()} (0.8×–1.4× horas × tarifa/hora del trade, incluye margen de materiales).`,
+      `Match score: ${matchScore}% — ${description.length > 50 ? `descripción con ${description.length} caracteres (>50) → score alto` : `descripción corta (${description.length} caracteres, ≤50) → score reducido`}.`,
+    ];
 
     return {
       trade, urgency, complexity,
@@ -190,7 +203,8 @@ export class MarketplaceAgent {
       suggestedBudgetMin: min,
       suggestedBudgetMax: max,
       requiredSkills:     [trade, "evidence_documentation", "semse_compliance"],
-      matchScore:         description.length > 50 ? 85 : 65,
+      matchScore,
+      reasoningSteps,
     };
   }
 }
