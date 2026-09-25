@@ -37,6 +37,8 @@ import { AgroWorkforceController } from "./agro-workforce.controller.js";
 import { AgroIncidentRepository } from "./agro-incident.repository.js";
 import { AgroIncidentService } from "./agro-incident.service.js";
 import { AgroIncidentController } from "./agro-incident.controller.js";
+import { AgroIntakeService } from "./agro-intake.service.js";
+import { AgroIntakeController } from "./agro-intake.controller.js";
 
 @Module({
   controllers: [
@@ -51,6 +53,7 @@ import { AgroIncidentController } from "./agro-incident.controller.js";
     AgroEconomicsController,
     AgroWorkforceController,
     AgroIncidentController,
+    AgroIntakeController,
   ],
   providers: [
     AgroFarmRepository,
@@ -80,6 +83,7 @@ import { AgroIncidentController } from "./agro-incident.controller.js";
     AgroWorkforceService,
     AgroIncidentRepository,
     AgroIncidentService,
+    AgroIntakeService,
   ],
   exports: [
     AgroFarmService,
@@ -99,6 +103,7 @@ import { AgroIncidentController } from "./agro-incident.controller.js";
     AgroTaskRefResolver,
     AgroWorkforceService,
     AgroIncidentService,
+    AgroIntakeService,
   ],
 })
 export class AgroModule {}
