@@ -46,6 +46,11 @@ Los servicios económicos (costos, ventas, rentabilidad, producción, simulador,
 ciclos, trazabilidad, cumplimiento, reporte de auditoría) siguen siendo solo
 del propietario. Ampliarlos a MANAGER es una decisión de producto.
 
+**Actualización (T-056):** se decidió abrir los datos económicos al MANAGER.
+Costos, ventas, rentabilidad y el reporte semanal usan ahora `farm.finance`
+(propietario + MANAGER). Producción, ciclos, trazabilidad, cumplimiento y
+simulador siguen solo del propietario.
+
 ## Verificación
 
 - Build del API, `tsc` del web y eslint de los archivos tocados.

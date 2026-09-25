@@ -1,6 +1,7 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { Injectable, NotFoundException, Optional } from "@nestjs/common";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { AgroFarmRepository } from "./agro-farm.repository.js";
+import { AgroFarmAccessService, authorizeFarmAction } from "./agro-farm-access.service.js";
 
 interface Finding {
   type: "CRITICAL" | "WARNING" | "INFO";
@@ -13,11 +14,14 @@ export class AgroAuditReportService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly farmRepo: AgroFarmRepository,
+    @Optional() private readonly access?: AgroFarmAccessService,
   ) {}
 
-  private async assertFarmAccess(farmId: string, ownerId: string) {
+  /** Datos económicos: propietario y MANAGER (`farm.finance`); el resto de miembros, 403; ajenos, 404. */
+  private async assertFarmAccess(farmId: string, userId: string) {
+    await authorizeFarmAction(this.access, this.farmRepo, farmId, userId, "farm.finance");
     const farm = await this.farmRepo.findFarm(farmId);
-    if (!farm || farm.ownerId !== ownerId) throw new NotFoundException(`Farm not found: ${farmId}`);
+    if (!farm) throw new NotFoundException(`Farm not found: ${farmId}`);
     return farm;
   }
 

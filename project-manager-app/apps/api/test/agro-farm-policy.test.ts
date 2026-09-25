@@ -132,9 +132,12 @@ test("agro-policy T-050: task execution — supervisors any, workers only own/un
   assert.equal(canPerformAgroFarmAction("WORKER", "task.update", { isAssignee: true }), false);
 });
 
-test("agro-policy T-050: finances stay owner-only; vet may change animal status", () => {
+test("agro-policy: finances for owner and manager only; vet may change animal status", () => {
   assert.equal(canPerformAgroFarmAction("OWNER", "farm.finance"), true);
-  assert.equal(canPerformAgroFarmAction("MANAGER", "farm.finance"), false);
+  assert.equal(canPerformAgroFarmAction("MANAGER", "farm.finance"), true);
+  for (const role of ["SUPERVISOR", "WORKER", "TECHNICIAN", "SPECIALIST", "VETERINARIAN", "AGRONOMIST"] as const) {
+    assert.equal(canPerformAgroFarmAction(role, "farm.finance"), false, role);
+  }
   assert.equal(canPerformAgroFarmAction("VETERINARIAN", "animal.status"), true);
   assert.equal(canPerformAgroFarmAction("AGRONOMIST", "animal.status"), false);
   assert.equal(canPerformAgroFarmAction("MANAGER", "farm.manage"), true);
