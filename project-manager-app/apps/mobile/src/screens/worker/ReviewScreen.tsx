@@ -7,6 +7,8 @@ import { fetchMyBids } from "../../api/bids";
 import { fetchMyRatings } from "../../api/ratings";
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../theme/theme";
+import { EmptyState } from "../../components/EmptyState";
+import { ErrorState } from "../../components/ErrorState";
 import type { WorkerMoreStackParamList } from "../../navigation/types";
 
 type Props = NativeStackScreenProps<WorkerMoreStackParamList, "Review">;
@@ -67,11 +69,11 @@ export default function ReviewScreen({ navigation }: Props) {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {error ? <ErrorState message={error} /> : null}
 
       <Text style={styles.sectionLabel}>Por calificar</Text>
       {reviewable.length === 0 ? (
-        <Text style={styles.hint}>No tienes jobs pendientes de calificar.</Text>
+        <EmptyState title="No tienes jobs pendientes de calificar." />
       ) : (
         reviewable.map((bid) => (
           <Pressable
@@ -94,7 +96,7 @@ export default function ReviewScreen({ navigation }: Props) {
 
       <Text style={styles.sectionLabel}>Dadas</Text>
       {given.length === 0 ? (
-        <Text style={styles.hint}>Aún no has calificado a nadie.</Text>
+        <EmptyState title="Aún no has calificado a nadie." />
       ) : (
         given.map((r) => (
           <View key={r.id} style={styles.card}>
@@ -107,7 +109,7 @@ export default function ReviewScreen({ navigation }: Props) {
 
       <Text style={styles.sectionLabel}>Recibidas</Text>
       {received.length === 0 ? (
-        <Text style={styles.hint}>Aún no has recibido calificaciones.</Text>
+        <EmptyState title="Aún no has recibido calificaciones." />
       ) : (
         received.map((r) => (
           <View key={r.id} style={styles.card}>

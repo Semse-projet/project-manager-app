@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { submitRating } from "../../api/ratings";
 import { useTheme } from "../../theme/theme";
+import { ErrorState } from "../../components/ErrorState";
 import type { WorkerMoreStackParamList } from "../../navigation/types";
 
 type Props = NativeStackScreenProps<WorkerMoreStackParamList, "ReviewForm">;
@@ -60,7 +61,7 @@ export default function WorkerReviewFormScreen({ route, navigation }: Props) {
     <View style={styles.container}>
       <Text style={styles.title}>Calificar a {toUserEmail || "cliente"}</Text>
       <Text style={styles.hint}>{jobTitle}</Text>
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {error ? <ErrorState message={error} /> : null}
 
       <View style={styles.stars}>
         {SCORES.map((value) => (

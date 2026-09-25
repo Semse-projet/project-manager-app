@@ -6,6 +6,7 @@ import type { DisputeRecordView } from "@semse/schemas";
 import { fetchDisputes, submitDisputeEvidence } from "../../api/disputes";
 import { EvidenceCapture } from "../../components/EvidenceCapture";
 import { useTheme } from "../../theme/theme";
+import { ErrorState } from "../../components/ErrorState";
 import type { WorkerMoreStackParamList } from "../../navigation/types";
 import { DISPUTE_STATUS_COLOR_KEY, DISPUTE_STATUS_LABEL } from "./jobStatus";
 
@@ -73,7 +74,7 @@ export default function DisputeDetailScreen({ route }: Props) {
   if (!dispute) {
     return (
       <View style={styles.center}>
-        <Text style={styles.error}>{error ?? "Disputa no encontrada."}</Text>
+        <ErrorState message={error ?? "Disputa no encontrada."} />
       </View>
     );
   }
@@ -83,7 +84,7 @@ export default function DisputeDetailScreen({ route }: Props) {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {error ? <ErrorState message={error} /> : null}
 
       <View style={styles.badge}>
         <Text style={[styles.badgeText, { color: theme.colors[colorKey] }]}>

@@ -10,6 +10,7 @@ import { fetchActiveTimer, startTimer } from "../../api/labor";
 import { createLiveSession } from "../../api/liveSessions";
 import { useTheme } from "../../theme/theme";
 import { formatCurrency } from "../../utils/format";
+import { ErrorState } from "../../components/ErrorState";
 import type { WorkerJobsStackParamList } from "../../navigation/types";
 import {
   BID_STATUS_COLOR_KEY,
@@ -131,7 +132,7 @@ export default function JobDetailScreen({ route, navigation }: Props) {
   if (!job) {
     return (
       <View style={styles.center}>
-        <Text style={styles.error}>{error ?? "Job no encontrado."}</Text>
+        <ErrorState message={error ?? "Job no encontrado."} />
       </View>
     );
   }
@@ -140,7 +141,7 @@ export default function JobDetailScreen({ route, navigation }: Props) {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {error ? <ErrorState message={error} /> : null}
 
       <Text style={styles.title}>{job.title}</Text>
       {(() => {
