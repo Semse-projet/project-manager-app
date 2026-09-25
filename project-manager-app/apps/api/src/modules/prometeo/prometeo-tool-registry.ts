@@ -347,7 +347,7 @@ export const PROMETEO_TOOL_REGISTRY: PrometeoToolDescriptor[] = [
     label: "Inventario de finca",
     description: "Lista insumos, materiales y existencias configuradas de una finca.",
     permissions: ["agro:read"],
-    endpoint: { method: "GET", path: "/v1/agro/farms/:farmId/inventory" },
+    endpoint: { method: "GET", path: "/v1/agro/farms/:farmId/inventory/items" },
     inputSchema: { type: "object", required: ["farmId"], properties: { farmId: { type: "string" } } },
     outputKind: "AgroInventoryItem[]",
     tags: ["agro", "inventory", "read"],
@@ -377,7 +377,7 @@ export const PROMETEO_TOOL_REGISTRY: PrometeoToolDescriptor[] = [
     label: "Resumen de costos de finca",
     description: "Consulta resumen de costos operativos de una finca por periodo.",
     permissions: ["agro:read"],
-    endpoint: { method: "GET", path: "/v1/agro/farms/:farmId/cost-summary" },
+    endpoint: { method: "GET", path: "/v1/agro/farms/:farmId/costs/summary" },
     inputSchema: {
       type: "object",
       required: ["farmId"],
@@ -407,7 +407,8 @@ export const PROMETEO_TOOL_REGISTRY: PrometeoToolDescriptor[] = [
         type: {
           enum: [
             "FEEDING", "VACCINATION", "TREATMENT", "WEIGHING", "MOVEMENT",
-            "CLEANING", "INSPECTION", "INVENTORY", "SALE", "WATER_CHECK", "OTHER",
+            "CLEANING", "INSPECTION", "INVENTORY", "SALE", "WATER_CHECK",
+            "BREEDING", "PREGNANCY_CHECK", "BIRTH", "WEANING", "HEAT_DETECTION", "OTHER",
           ],
         },
         priority: { enum: ["LOW", "MEDIUM", "HIGH", "URGENT"] },

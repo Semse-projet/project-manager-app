@@ -7,7 +7,7 @@ import { ok } from "../../common/api-response.js";
 import { resolveRequestId } from "../../common/request-id.js";
 import { RequirePermissions } from "../../common/permissions.decorator.js";
 import { resolveRequestContext } from "../../common/request-context.js";
-import { AgroFarmService } from "./agro-farm.service.js";
+import { AGRO_UNIT_TYPES, AgroFarmService } from "./agro-farm.service.js";
 import { parsePositiveInt } from "../../common/parse-query.js";
 
 const createFarmSchema = z.object({
@@ -26,7 +26,7 @@ const updateFarmSchema = z.object({
 
 const createUnitSchema = z.object({
   name:      z.string().min(1),
-  type:      z.enum(["PASTURE", "CORRAL", "BARN", "STORAGE", "WATER_SOURCE", "WORK_AREA", "FIELD", "GREENHOUSE", "OTHER"]).optional(),
+  type:      z.enum(AGRO_UNIT_TYPES).optional(),
   areaValue: z.number().positive().optional(),
   areaUnit:  z.enum(["SQFT", "ACRE", "HECTARE", "MANZANA", "OTHER"]).optional(),
   notes:     z.string().optional(),

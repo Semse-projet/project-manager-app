@@ -3,10 +3,15 @@ import { AgroAuditRepository } from "./agro-audit.repository.js";
 import { AgroFarmRepository } from "./agro-farm.repository.js";
 import { AgroTaskRepository } from "./agro-task.repository.js";
 
-const VALID_TYPES = [
+export const AGRO_TASK_TYPES = [
   "FEEDING", "VACCINATION", "TREATMENT", "WEIGHING", "MOVEMENT",
-  "CLEANING", "INSPECTION", "INVENTORY", "SALE", "WATER_CHECK", "OTHER",
+  "CLEANING", "INSPECTION", "INVENTORY", "SALE", "WATER_CHECK",
+  // Reproducción (pantalla /agro/[farmId]/reproduction los usaba y el API los rechazaba con 400).
+  "BREEDING", "PREGNANCY_CHECK", "BIRTH", "WEANING", "HEAT_DETECTION",
+  "OTHER",
 ] as const;
+
+const VALID_TYPES = AGRO_TASK_TYPES;
 
 const VALID_PRIORITIES = ["LOW", "MEDIUM", "HIGH", "URGENT"] as const;
 
