@@ -29,6 +29,11 @@ import { AgroProfitabilityService } from "./agro-profitability.service.js";
 import { AgroSaleService } from "./agro-sale.service.js";
 import { AgroSimulatorService } from "./agro-simulator.service.js";
 import { AgroEconomicsController } from "./agro-economics.controller.js";
+import { AgroFarmAccessService } from "./agro-farm-access.service.js";
+import { AgroTaskRefResolver } from "./agro-task-ref.resolver.js";
+import { AgroWorkforceRepository } from "./agro-workforce.repository.js";
+import { AgroWorkforceService } from "./agro-workforce.service.js";
+import { AgroWorkforceController } from "./agro-workforce.controller.js";
 
 @Module({
   controllers: [
@@ -41,6 +46,7 @@ import { AgroEconomicsController } from "./agro-economics.controller.js";
     AgroProductionCycleController,
     AgroTraceabilityController,
     AgroEconomicsController,
+    AgroWorkforceController,
   ],
   providers: [
     AgroFarmRepository,
@@ -64,6 +70,10 @@ import { AgroEconomicsController } from "./agro-economics.controller.js";
     AgroProfitabilityService,
     AgroSaleService,
     AgroSimulatorService,
+    AgroFarmAccessService,
+    AgroTaskRefResolver,
+    AgroWorkforceRepository,
+    AgroWorkforceService,
   ],
   exports: [
     AgroFarmService,
@@ -79,6 +89,9 @@ import { AgroEconomicsController } from "./agro-economics.controller.js";
     AgroProfitabilityService,
     AgroSaleService,
     AgroSimulatorService,
+    AgroFarmAccessService,
+    AgroTaskRefResolver,
+    AgroWorkforceService,
   ],
 })
 export class AgroModule {}

@@ -16,6 +16,11 @@ export class AgroEvidenceRepository {
     });
   }
 
+  async findEvidenceByIds(farmId: string, ids: string[]) {
+    if (ids.length === 0) return [];
+    return this.prisma.agroEvidenceItem.findMany({ where: { farmId, id: { in: ids } } });
+  }
+
   async findEvidence(evidenceId: string) {
     return this.prisma.agroEvidenceItem.findUnique({ where: { id: evidenceId } });
   }

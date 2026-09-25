@@ -3306,24 +3306,27 @@ model AgroFarm {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  units             AgroFarmUnit[]
-  animals           AgroAnimal[]
-  animalGroups      AgroAnimalGroup[]
-  tasks             AgroFarmTask[]
-  inventoryItems    AgroInventoryItem[]
-  movements         AgroInventoryMovement[]
-  costEntries       AgroCostEntry[]
-  evidence          AgroEvidenceItem[]
-  auditEvents       AgroAuditEvent[]
-  productionCycles  AgroProductionCycle[]
-  cropCycles        AgroCropCycle[]
-  inputApplications AgroInputApplication[]
-  harvestRecords    AgroHarvestRecord[]
-  traceability      AgroTraceabilityEvent[]
-  complianceChecks  AgroComplianceCheck[]
-  productionRecords AgroProductionRecord[]
-  saleRecords       AgroSaleRecord[]
-  evidenceRecords   Evidence[]              @relation("EvidenceToFarm")
+  units                   AgroFarmUnit[]
+  animals                 AgroAnimal[]
+  animalGroups            AgroAnimalGroup[]
+  tasks                   AgroFarmTask[]
+  inventoryItems          AgroInventoryItem[]
+  movements               AgroInventoryMovement[]
+  costEntries             AgroCostEntry[]
+  evidence                AgroEvidenceItem[]
+  auditEvents             AgroAuditEvent[]
+  productionCycles        AgroProductionCycle[]
+  cropCycles              AgroCropCycle[]
+  inputApplications       AgroInputApplication[]
+  harvestRecords          AgroHarvestRecord[]
+  traceability            AgroTraceabilityEvent[]
+  complianceChecks        AgroComplianceCheck[]
+  productionRecords       AgroProductionRecord[]
+  saleRecords             AgroSaleRecord[]
+  evidenceRecords         Evidence[]                   @relation("EvidenceToFarm")
+  members                 AgroFarmMember[]
+  incidents               AgroIncident[]
+  capabilityVerifications AgroCapabilityVerification[]
 
   @@index([ownerId])
 }
@@ -3343,6 +3346,7 @@ model AgroFarmUnit {
   animals      AgroAnimal[]
   animalGroups AgroAnimalGroup[]
   cropCycles   AgroCropCycle[]
+  incidents    AgroIncident[]
 
   @@index([farmId])
 }
@@ -3372,6 +3376,8 @@ model AgroAnimal {
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
 
+  incidents AgroIncident[]
+
   @@index([farmId])
   @@index([currentUnitId])
   @@index([status])
@@ -3398,6 +3404,8 @@ model AgroAnimalGroup {
   notes             String?       @db.Text
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
+
+  incidents AgroIncident[]
 
   @@index([farmId])
   @@index([currentUnitId])
@@ -3492,6 +3500,7 @@ model AgroInventoryItem {
   updatedAt    DateTime @updatedAt
 
   movements AgroInventoryMovement[]
+  incidents AgroIncident[]
 
   @@index([farmId])
   @@index([category])
@@ -3629,6 +3638,7 @@ model AgroCropCycle {
 
   inputApplications AgroInputApplication[]
   harvestRecords    AgroHarvestRecord[]
+  incidents         AgroIncident[]
 
   @@index([farmId, status])
 }
@@ -3712,6 +3722,237 @@ model AgroComplianceCheck {
 
   @@index([farmId, status])
   @@index([farmId, checkType])
+}
+
+// ── Agro Workforce & IncidentOps (docs/specs/agro/AGRO_AS_IS_AUDIT_2026-09-25.md) ──
+// Aislamiento: la finca es la frontera (AgroFarm.ownerId), igual que el resto
+// de Agro. Sin tenantId porque ningún modelo Agro lo tiene todavía. Auditoría
+// y timeline: AgroAuditEvent. Evidencia: AgroEvidenceItem. Tareas: referencia
+// polimórfica AgroTaskRef (AGRO_FARM_TASK | JOB_TASK), sin FK a AgroFarmTask.
+
+/// Membresía de recurso de una finca. El propietario es implícito (AgroFarm.ownerId).
+model AgroFarmMember {
+  id          String   @id @default(cuid())
+  farmId      String
+  farm        AgroFarm @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  userId      String
+  role        String // MANAGER | SUPERVISOR | WORKER | TECHNICIAN | SPECIALIST | VETERINARIAN | AGRONOMIST
+  // INVITED | ACTIVE | SUSPENDED | REVOKED — mismo vocabulario que Membership.status.
+  status      String   @default("ACTIVE")
+  displayName String?
+  invitedById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([farmId, userId])
+  @@index([userId, status])
+}
+
+/// Oficio agrícola (Porcicultor, Tractorista, Veterinario…). Catálogo global extensible.
+model AgroRole {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  name        String
+  sector      String // ANIMAL_PRODUCTION | CROP_PRODUCTION | MACHINERY | PROFESSIONAL | GENERAL
+  species     String? // PIG | CATTLE | CHICKEN | BEE | … cuando el oficio es específico de especie
+  description String?
+  isSystem    Boolean  @default(false)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  specialties AgroRoleSpecialty[]
+  workers     AgroWorkerRole[]
+
+  @@index([sector])
+}
+
+/// Especialidad (Maternidad porcina, Ganado lechero, Fertirrigación…).
+model AgroSpecialty {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  name        String
+  sector      String
+  species     String?
+  description String?
+  isSystem    Boolean  @default(false)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  roles        AgroRoleSpecialty[]
+  capabilities AgroCapability[]
+
+  @@index([sector])
+}
+
+/// Una especialidad puede pertenecer a uno o varios oficios.
+model AgroRoleSpecialty {
+  roleId      String
+  specialtyId String
+  role        AgroRole      @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  specialty   AgroSpecialty @relation(fields: [specialtyId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, specialtyId])
+  @@index([specialtyId])
+}
+
+/// Algo concreto que una persona puede ejecutar. Jerárquico vía parentId.
+model AgroCapability {
+  id                   String           @id @default(cuid())
+  key                  String           @unique
+  name                 String
+  description          String?
+  category             String // FEEDING | ANIMAL_HANDLING | HEALTH_WELFARE | CLEANING_BIOSECURITY | MACHINERY | LAND_PREPARATION | IRRIGATION | HARVEST | PROCEDURE | OTHER
+  specialtyId          String?
+  specialty            AgroSpecialty?   @relation(fields: [specialtyId], references: [id], onDelete: SetNull)
+  parentId             String?
+  parent               AgroCapability?  @relation("AgroCapabilityHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children             AgroCapability[] @relation("AgroCapabilityHierarchy")
+  // Solo roles profesionales de finca (VETERINARIAN | AGRONOMIST | TECHNICIAN | SPECIALIST) pueden verificarla.
+  requiresProfessional Boolean          @default(false)
+  // La verificación exige al menos una evidencia (AgroEvidenceItem).
+  evidenceRequired     Boolean          @default(true)
+  // Vigencia por defecto de una verificación, en días (null = no expira).
+  validityDays         Int?
+  isSystem             Boolean          @default(false)
+  active               Boolean          @default(true)
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+
+  workers       AgroWorkerCapability[]
+  verifications AgroCapabilityVerification[]
+
+  @@index([specialtyId])
+  @@index([parentId])
+  @@index([category])
+}
+
+/// Oficio asignado o declarado por una persona (User.id). Portable entre fincas.
+model AgroWorkerRole {
+  id           String   @id @default(cuid())
+  userId       String
+  roleId       String
+  role         AgroRole @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  isPrimary    Boolean  @default(false)
+  source       String   @default("SELF_REPORTED") // SELF_REPORTED | ASSIGNED | IMPORT
+  farmId       String? // finca en cuyo contexto se asignó
+  assignedById String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([userId, roleId])
+  @@index([userId])
+}
+
+/// Capacidad de una persona. Única por persona + capacidad; el historial vive
+/// en AgroCapabilityVerification y AgroAuditEvent.
+model AgroWorkerCapability {
+  id                 String         @id @default(cuid())
+  userId             String
+  capabilityId       String
+  capability         AgroCapability @relation(fields: [capabilityId], references: [id], onDelete: Restrict)
+  level              String         @default("BASIC") // BASIC | INTERMEDIATE | ADVANCED | EXPERT
+  // SELF_REPORTED | IN_REVIEW | VERIFIED | REJECTED | EXPIRED | REVOKED
+  status             String         @default("SELF_REPORTED")
+  source             String         @default("SELF_REPORTED") // SELF_REPORTED | ASSIGNED | VERIFICATION | IMPORT
+  farmId             String? // finca del último cambio (contexto de auditoría)
+  acquiredAt         DateTime?
+  expiresAt          DateTime?
+  verifiedAt         DateTime?
+  lastVerificationId String?
+  metadata           Json?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  verifications AgroCapabilityVerification[]
+
+  @@unique([userId, capabilityId])
+  @@index([userId, status])
+  @@index([capabilityId, status])
+}
+
+/// Registro append-only de cada verificación, rechazo o revocación.
+model AgroCapabilityVerification {
+  id                 String               @id @default(cuid())
+  workerCapabilityId String
+  workerCapability   AgroWorkerCapability @relation(fields: [workerCapabilityId], references: [id], onDelete: Cascade)
+  capabilityId       String
+  capability         AgroCapability       @relation(fields: [capabilityId], references: [id], onDelete: Restrict)
+  userId             String // trabajador verificado
+  verifierId         String
+  verifierFarmRole   String // rol de finca con el que actuó el verificador
+  farmId             String
+  farm               AgroFarm             @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  method             String // DIRECT_OBSERVATION | PRACTICAL_TEST | DOCUMENT_REVIEW | CERTIFICATE | INTERVIEW | OTHER
+  result             String // APPROVED | REJECTED | REVOKED
+  levelAssessed      String?
+  evidenceIds        String[]             @default([]) // AgroEvidenceItem.id de la misma finca
+  notes              String?              @db.Text
+  verifiedAt         DateTime             @default(now())
+  expiresAt          DateTime?
+  createdAt          DateTime             @default(now())
+
+  @@index([workerCapabilityId, verifiedAt])
+  @@index([userId])
+  @@index([farmId, verifiedAt])
+}
+
+/// Incidencia operacional de finca (salud/bienestar, agua, bioseguridad, infraestructura…).
+model AgroIncident {
+  id                String             @id @default(cuid())
+  farmId            String
+  farm              AgroFarm           @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  farmUnitId        String?
+  farmUnit          AgroFarmUnit?      @relation(fields: [farmUnitId], references: [id], onDelete: SetNull)
+  animalId          String?
+  animal            AgroAnimal?        @relation(fields: [animalId], references: [id], onDelete: SetNull)
+  animalGroupId     String?
+  animalGroup       AgroAnimalGroup?   @relation(fields: [animalGroupId], references: [id], onDelete: SetNull)
+  cropCycleId       String?
+  cropCycle         AgroCropCycle?     @relation(fields: [cropCycleId], references: [id], onDelete: SetNull)
+  // Maquinaria/equipo o insumo afectado (AgroInventoryItem, categoría EQUIPMENT/FEED/…)
+  inventoryItemId   String?
+  inventoryItem     AgroInventoryItem? @relation(fields: [inventoryItemId], references: [id], onDelete: SetNull)
+  reportedById      String
+  assignedToId      String?
+  // AgroTaskRef: tarea canónica relacionada, sin FK para no acoplar a AgroFarmTask.
+  relatedTaskSource String? // AGRO_FARM_TASK | JOB_TASK
+  relatedTaskId     String?
+  // ANIMAL_INJURY | ANIMAL_ILLNESS_OBSERVED | ANIMAL_MORTALITY | ANIMAL_ESCAPE | WATER_SHORTAGE | FEED_SHORTAGE
+  // BIOSECURITY_RISK | INFRASTRUCTURE_DAMAGE | EQUIPMENT_FAILURE | CROP_DAMAGE | PEST_OBSERVED | IRRIGATION_FAILURE
+  // SAFETY_HAZARD | OTHER
+  type              String
+  severity          String             @default("MEDIUM") // LOW | MEDIUM | HIGH | CRITICAL
+  // false mientras la severidad sea sugerida (reporte de campo o Prometeo) y nadie con autoridad la confirme.
+  severityConfirmed Boolean            @default(false)
+  // OPEN | TRIAGED | IN_PROGRESS | RESOLVED | CLOSED | CANCELLED | DUPLICATE
+  status            String             @default("OPEN")
+  title             String
+  description       String?            @db.Text
+  occurredAt        DateTime?
+  detectedAt        DateTime           @default(now())
+  triagedAt         DateTime?
+  resolvedAt        DateTime?
+  closedAt          DateTime?
+  resolution        String?            @db.Text
+  duplicateOfId     String?
+  cancelReason      String?
+  source            String             @default("WEB") // WEB | MOBILE | SYNC | PROMETEO | API
+  clientEventId     String? // idempotencia de reportes offline/reintentos
+  metadata          Json?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  @@unique([farmId, clientEventId])
+  @@index([farmId, status])
+  @@index([farmId, severity])
+  @@index([farmId, type])
+  @@index([assignedToId, status])
+  @@index([reportedById])
+  @@index([animalId])
+  @@index([animalGroupId])
+  @@index([farmUnitId])
 }
 
 // ── SPEC-AUT-001 — Permanent Loops v1 (ADR-021 §4.4) ─────────────────────────

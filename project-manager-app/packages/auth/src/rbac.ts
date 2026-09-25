@@ -55,6 +55,11 @@ export const rolePermissions: Record<string, string[]> = {
     "weather:write",
     "agro:read",
     "agro:write",
+    // Reporte de campo (incidencias, capacidades autodeclaradas) y verificación
+    // de capacidades Agro. La autoridad real la decide el rol de finca
+    // (apps/api/src/modules/agro/agro-farm-policy.ts), no este permiso solo.
+    "agro:report",
+    "agro:workforce:verify",
     "live_sessions:read",
     "live_sessions:write",
     "payments:connect:self",
@@ -109,6 +114,11 @@ export const rolePermissions: Record<string, string[]> = {
     "weather:write",
     "agro:read",
     "agro:write",
+    // Reporte de campo (incidencias, capacidades autodeclaradas) y verificación
+    // de capacidades Agro. La autoridad real la decide el rol de finca
+    // (apps/api/src/modules/agro/agro-farm-policy.ts), no este permiso solo.
+    "agro:report",
+    "agro:workforce:verify",
     "live_sessions:read",
     "live_sessions:write",
     "payments:connect:self",
@@ -137,7 +147,11 @@ export const rolePermissions: Record<string, string[]> = {
     "live_sessions:read",
     "live_sessions:write",
     "payments:connect:self",
-    "project:originate"
+    "project:originate",
+    // Trabajador de finca: ve y reporta en fincas donde es miembro activo
+    // (AgroFarmMember). Sin agro:write: no gestiona fincas ajenas.
+    "agro:read",
+    "agro:report"
   ],
   EVENT_CONSUMER: [
     "domain-events:consume"
@@ -232,6 +246,12 @@ export const rolePermissions: Record<string, string[]> = {
     "weather:write",
     "agro:read",
     "agro:write",
+    // Reporte de campo (incidencias, capacidades autodeclaradas) y verificación
+    // de capacidades Agro. La autoridad real la decide el rol de finca
+    // (apps/api/src/modules/agro/agro-farm-policy.ts), no este permiso solo.
+    "agro:report",
+    "agro:workforce:verify",
+    "agro:workforce:admin",
     "live_sessions:read",
     "live_sessions:write",
     "satellites:admin"
