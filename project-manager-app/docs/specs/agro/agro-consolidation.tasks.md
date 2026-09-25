@@ -18,7 +18,7 @@
 | T-057 | Pestañas de la finca según el rol (`viewerActions` del API + `useFarmTabs` en la web) | ✅ | agro-farm-policy.test.ts + integración + Playwright |
 | T-051 | Tenant de la finca + espejo AgroFarmTask → JobTask(domain=agro) + backfill (spec `agro-task-jobtask-convergence.spec.md`) | ✅ | agro-jobtask-mirror-integration.test.ts |
 | T-058a | Asignar tenant a una finca que quedó sin él (`POST farms/:farmId/tenant`, solo propietario, solo al tenant de su sesión) | ✅ | agro-jobtask-mirror-integration.test.ts |
-| T-058b | Cambiar lecturas web/sync/Prometeo a JobTask (paso 3d) | ⏳ | depende de T-051 en producción |
+| T-058b | Conectar Agro a "mis tareas" entre dominios (`GET /v1/tasks`, permiso nuevo `tasks:read:self`); el cambio de lecturas de Agro a JobTask no procede aún (spec §3ter) | ✅ | agro-jobtask-mirror-integration.test.ts + domain-rbac-permissions.test.ts + agro-farm-policy.test.ts |
 | T-052 | Eventos `agro.*` en EVENT_CATALOG + outbox | ⏳ | requiere aprobación de catálogo |
 | T-053 | Subida binaria de evidencia Agro (flujo presignado) | ⏳ | |
 | T-054 | ASR/visión para el intake (privacyCritical → Ollama/vision-service) | ⏳ | |

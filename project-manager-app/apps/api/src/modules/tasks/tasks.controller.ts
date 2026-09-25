@@ -24,8 +24,12 @@ const updateStatusSchema = z.object({
 export class TasksController {
   constructor(private readonly tasksService: TasksService) {}
 
+  // "Mis tareas" entre dominios (jobs, buildops, agro): JobTask es la
+  // plataforma canónica. Permiso más angosto que jobs:read — un rol que solo
+  // ve sus propias tareas (p. ej. WORKER de Agro) no gana acceso al resto de
+  // endpoints de Jobs (by-job, materiales, incidencias, pagos, viáticos).
   @Get()
-  @RequirePermissions("jobs:read")
+  @RequirePermissions("tasks:read:self")
   async listByWorker(
     @Req() req: { headers?: Record<string, unknown> },
     @Query("status") status?: string

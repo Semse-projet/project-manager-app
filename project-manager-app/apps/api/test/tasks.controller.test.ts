@@ -34,7 +34,8 @@ const STUB_TASK = {
 
 test("tasks controller declares correct @RequirePermissions", () => {
   const expectations: Array<[string, string]> = [
-    ["listByWorker", "jobs:read"],
+    // T-058b: más angosto que jobs:read — ver domain-rbac-permissions.test.ts.
+    ["listByWorker", "tasks:read:self"],
     ["listByJob",    "jobs:read"],
     ["create",       "jobs:create"],
     ["updateStatus", "jobs:update"],

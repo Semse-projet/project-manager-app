@@ -32,13 +32,14 @@ async function buildApp() {
   const { FastifyAdapter } = await import("@nestjs/platform-fastify");
   const { PrismaModule } = await import("../dist/infrastructure/prisma/prisma.module.js");
   const { AgroModule } = await import("../dist/modules/agro/agro.module.js");
+  const { TasksModule } = await import("../dist/modules/tasks/tasks.module.js");
   const { RbacGuard } = await import("../dist/common/rbac.guard.js");
   const { HttpExceptionFilter } = await import("../dist/common/http-exception.filter.js");
   const { SemseLoggerService } = await import("../dist/infrastructure/observability/semse-logger.service.js");
 
   class AgroJobTaskMirrorE2EModule {}
   Module({
-    imports: [ConfigModule.forRoot({ isGlobal: true }), PrismaModule, AgroModule],
+    imports: [ConfigModule.forRoot({ isGlobal: true }), PrismaModule, AgroModule, TasksModule],
     providers: [{ provide: APP_GUARD, useClass: RbacGuard }],
   })(AgroJobTaskMirrorE2EModule);
 
@@ -235,6 +236,75 @@ dbTest("agro T-051: migration backfill assigns unambiguous tenants and mirrors t
     await prisma.role.deleteMany({ where: { key: roleKey } });
     await prisma.user.deleteMany({ where: { id: { in: [single, multi] } } });
     await prisma.tenant.deleteMany({ where: { id: { in: [t1, t2] } } });
+    await prisma.$disconnect();
+  }
+});
+
+dbTest("agro T-058b: a farm worker's mirrored task appears in the cross-domain GET /v1/tasks", async () => {
+  const prisma = new PrismaClient();
+  const app = await buildApp();
+  const fastify = app.getHttpAdapter().getInstance();
+  const tenantId = uid("ten");
+  const users = { owner: uid("owner"), worker: uid("worker"), other: uid("other") };
+  const farmIds: string[] = [];
+
+  await prisma.tenant.create({ data: { id: tenantId, slug: tenantId, name: "Agro T-058b" } });
+  for (const id of Object.values(users)) await prisma.user.create({ data: { id, email: `${id}@agro-t058b.test` } });
+
+  const call = async (as: keyof typeof users, roles: string, method: string, url: string, payload?: unknown) => {
+    const res = await fastify.inject({
+      method: method as any,
+      url,
+      headers: {
+        "x-user-id": users[as], "x-tenant-id": tenantId, "x-org-id": "org_t058b", "x-roles": roles,
+        "content-type": "application/json",
+      },
+      ...(payload !== undefined && { payload: JSON.stringify(payload) }),
+    });
+    const body = res.body ? JSON.parse(res.body) : null;
+    return { status: res.statusCode, data: body?.data, body };
+  };
+
+  try {
+    const farm = await call("owner", "CLIENT", "POST", "/v1/agro/farms", { name: "Granja T-058b" });
+    assert.equal(farm.status, 201, JSON.stringify(farm.body));
+    const farmId = farm.data.farm.id;
+    farmIds.push(farmId);
+    assert.equal(farm.data.farm.tenantId, tenantId);
+    assert.equal((await call("owner", "CLIENT", "POST", `/v1/agro/farms/${farmId}/members`, { userId: users.worker, role: "WORKER" })).status, 201);
+
+    const created = await call("owner", "CLIENT", "POST", `/v1/agro/farms/${farmId}/tasks`, {
+      title: "Revisar cercas", type: "INSPECTION", assignedToId: users.worker,
+    });
+    assert.equal(created.status, 201, JSON.stringify(created.body));
+    const task = created.data.task;
+    assert.ok(task.jobTaskId, "task is mirrored (farm has tenant)");
+
+    // WORKER ve su tarea en la lista entre dominios, con tasks:read:self — no jobs:read.
+    const myTasks = await call("worker", "WORKER", "GET", "/v1/tasks");
+    assert.equal(myTasks.status, 200, JSON.stringify(myTasks.body));
+    assert.ok(myTasks.data.some((t: any) => t.id === task.jobTaskId), "mirrored task appears in GET /v1/tasks");
+
+    // Alguien sin ninguna tarea asignada no ve nada — no es una lista global.
+    const otherTasks = await call("other", "WORKER", "GET", "/v1/tasks");
+    assert.equal(otherTasks.status, 200);
+    assert.ok(!otherTasks.data.some((t: any) => t.id === task.jobTaskId));
+
+    // El resto de Jobs (by-job) sigue exigiendo jobs:read — WORKER no lo tiene.
+    const byJob = await call("worker", "WORKER", "GET", `/v1/tasks/by-job/${uid("job")}`);
+    assert.equal(byJob.status, 403);
+
+    // Completar la tarea (Agro) se refleja también en la lista entre dominios.
+    assert.equal((await call("worker", "WORKER", "POST", `/v1/agro/tasks/${task.id}/start`, {})).status, 201);
+    assert.equal((await call("worker", "WORKER", "POST", `/v1/agro/tasks/${task.id}/complete`, {})).status, 201);
+    const afterComplete = await call("worker", "WORKER", "GET", "/v1/tasks?status=done");
+    assert.ok(afterComplete.data.some((t: any) => t.id === task.jobTaskId));
+  } finally {
+    if (farmIds.length) await prisma.agroFarm.deleteMany({ where: { id: { in: farmIds } } });
+    await prisma.jobTask.deleteMany({ where: { tenantId } });
+    await prisma.user.deleteMany({ where: { id: { in: Object.values(users) } } });
+    await prisma.tenant.deleteMany({ where: { id: tenantId } });
+    await app.close();
     await prisma.$disconnect();
   }
 });

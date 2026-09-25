@@ -24,16 +24,22 @@ related_files:
   - apps/api/src/modules/agro/agro-farm.repository.ts
   - apps/api/src/modules/agro/agro-task-ref.resolver.ts
   - apps/api/src/modules/demo/demo.service.ts
+  - apps/api/src/modules/tasks/tasks.controller.ts
+  - packages/auth/src/rbac.ts
 related_tests:
   - apps/api/test/agro-jobtask-mirror-integration.test.ts
   - apps/api/test/agro-sync.service.test.ts
   - apps/api/test/demo.service.test.ts
+  - apps/api/test/agro-farm-policy.test.ts
+  - apps/api/test/domain-rbac-permissions.test.ts
+  - apps/api/test/tasks.controller.test.ts
 related_endpoints:
   - farms
   - farms/:farmId/tasks
   - farms/:farmId/tenant
   - tasks/:taskId
   - sync/events
+  - v1/tasks
 related_events: []
 related_agents: []
 last_verified: "2026-09-25"
@@ -87,11 +93,49 @@ sesión no existía al crearla:
   escritura, igual que cualquier finca que obtiene tenant más tarde (§3).
 - Se audita como `farm.tenant_assigned`.
 
+## 3ter. "Mis tareas" entre dominios (T-058b)
+
+**Decisión (sesión 2026-09-25):** en vez de cambiar lo que leen las pantallas
+de Agro, sync y Prometeo — que ya leen bien de `AgroFarmTask` y no ganan nada
+leyendo la copia derivada mientras existan fincas sin tenant (ver análisis
+abajo) — se conecta Agro al consumidor real de `JobTask` como plataforma
+única: `GET /v1/tasks` ("mis tareas", cualquier dominio), que ya existía sin
+usarlo ningún rol de Agro.
+
+- **Por qué no "cambiar las lecturas" tal cual decía el plan:** el espejo se
+  escribe en la misma transacción que `AgroFarmTask`, así que leer la copia en
+  vez del origen no cambia nada visible y sí añade riesgo (traducir el estado
+  de vuelta) y una ruta doble de respaldo, porque las fincas sin tenant no
+  tienen copia. Ese paso solo tiene sentido justo antes de retirar
+  `AgroFarmTask`, y hoy no todas las fincas tienen tenant (T-058a solo migra
+  una por una). Se deja documentado como no procedente por ahora, no como
+  hecho.
+- **Permiso nuevo, angosto:** `tasks:read:self` en vez de `jobs:read` para
+  `GET /v1/tasks` (`TasksController.listByWorker`). El endpoint ya filtra
+  server-side por `assignedTo = actor`, así que el permiso solo decide quién
+  puede pedir *sus* tareas — no abre el resto de Jobs (`by-job`, materiales,
+  incidencias, pagos, viáticos), que siguen exigiendo `jobs:read` completo.
+- **Roles:** `CLIENT`, `PRO` y `OPS_ADMIN` lo reciben porque ya tenían
+  `jobs:read` (sin regresión). `WORKER` lo recibe de nuevo — ya opera en
+  varios dominios (`bids:read`, `travel:manage`, `payments:connect:self`), así
+  que ver sus tareas Agro junto con las de otros dominios encaja con el rol.
+  **`DEMO_AGRO` no lo recibe**: su comentario explícito dice que el
+  aislamiento del sandbox depende de que ese set nunca crezca hacia `jobs`.
+- **Resultado:** un trabajador de finca cuya finca tiene tenant ve su tarea
+  Agro (por su `jobTaskId` espejado) en `GET /v1/tasks`, junto con tareas de
+  otros dominios si las tiene. Nadie ve tareas de otra persona.
+- **Sin UI todavía:** ninguna pantalla consume hoy `GET /v1/tasks` ni su BFF
+  (`/api/semse/tasks`) — ni para Jobs ni para Agro. Construir esa pantalla es
+  trabajo de producto/UX aparte, no alcance de este cambio.
+
 ## 4. Fuera de alcance
 
-- Cambiar las lecturas de web, sync y Prometeo a `JobTask` (paso 3d), y después retirar `AgroFarmTask`.
+- Cambiar las lecturas de las pantallas de Agro, el sync o Prometeo a
+  `JobTask` (ver §3ter: no procede mientras existan fincas sin tenant), y
+  después retirar `AgroFarmTask`.
 - Migrar en bloque las tareas ya existentes de una finca al asignarle tenant (§3bis): siguen lazy, una por una, en su siguiente escritura.
 - Escribir desde `JobTask` hacia `AgroFarmTask`: el espejo es unidireccional. Ningún código escribe hoy `JobTask(domain="agro")` fuera del espejo.
+- Construir la pantalla "mis tareas" entre dominios (§3ter): solo se conecta el permiso y el endpoint ya existente.
 
 ## 5. Campos SEMSE
 
@@ -112,4 +156,9 @@ paymentGovernance: false
   - finca sin tenant, sin espejo;
   - `listOpen` sin duplicados, y la referencia `JOB_TASK` al espejo sigue resolviendo;
   - backfill de la migración ejecutado dos veces: idempotente, y el propietario ambiguo queda sin tenant.
+  - T-058b: la tarea espejada de un WORKER aparece en `GET /v1/tasks`; otra
+    persona sin tareas no ve nada; `by-job` sigue en 403 para WORKER; completar
+    la tarea en Agro se refleja al filtrar por `status=done`.
+- `domain-rbac-permissions.test.ts`: `listByWorker` exige `tasks:read:self`, distinto de `listByJob` (`jobs:read`) y del resto de métodos.
+- `agro-farm-policy.test.ts`: `tasks:read:self` para WORKER/PRO/CLIENT/OPS_ADMIN, no para DEMO_AGRO; WORKER sigue sin `jobs:read`.
 - `prisma migrate diff` sin drift después de aplicar la migración.

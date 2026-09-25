@@ -3,6 +3,8 @@ export const RBAC_DEFAULT_POLICY = "deny_by_default" as const;
 export const rolePermissions: Record<string, string[]> = {
   CLIENT: [
     "jobs:read",
+    // "Mis tareas" (GET /v1/tasks) es más angosto que jobs:read (ver TasksController).
+    "tasks:read:self",
     "jobs:create",
     "travel:manage",
     "jobs:archive",
@@ -68,6 +70,8 @@ export const rolePermissions: Record<string, string[]> = {
   PRO: [
     "contributor-program:participate",
     "jobs:read",
+    // "Mis tareas" (GET /v1/tasks) es más angosto que jobs:read (ver TasksController).
+    "tasks:read:self",
     "travel:manage",
     "bids:read",
     "bids:create",
@@ -151,7 +155,10 @@ export const rolePermissions: Record<string, string[]> = {
     // Trabajador de finca: ve y reporta en fincas donde es miembro activo
     // (AgroFarmMember). Sin agro:write: no gestiona fincas ajenas.
     "agro:read",
-    "agro:report"
+    "agro:report",
+    // T-058b: sus tareas Agro (espejadas en JobTask, T-051) aparecen junto con
+    // las de otros dominios en GET /v1/tasks — no jobs:read completo.
+    "tasks:read:self"
   ],
   EVENT_CONSUMER: [
     "domain-events:consume"
@@ -160,6 +167,8 @@ export const rolePermissions: Record<string, string[]> = {
     "contributor-program:participate",
     "contributor-program:manage",
     "jobs:read",
+    // "Mis tareas" (GET /v1/tasks) es más angosto que jobs:read (ver TasksController).
+    "tasks:read:self",
     "jobs:create",
     "travel:manage",
     "jobs:archive",
