@@ -98,7 +98,8 @@ export class AgroAnimalController {
   @Get("animals/:animalId")
   @RequirePermissions("agro:read")
   async getAnimal(@Param("animalId") animalId: string, @Req() req: any) {
-    const animal = await this.service.getAnimal(animalId);
+    const ctx = resolveRequestContext(req);
+    const animal = await this.service.getAnimalForUser(animalId, ctx.userId);
     return ok(resolveRequestId(req.headers ?? {}), { animal });
   }
 
@@ -112,7 +113,8 @@ export class AgroAnimalController {
   }
 
   @Post("animals/:animalId/move")
-  @RequirePermissions("agro:write")
+  // Operativo (T-050): la política de rol de finca decide qué puede cada miembro.
+  @RequirePermissions("agro:report")
   async moveAnimal(@Param("animalId") animalId: string, @Body() body: unknown, @Req() req: any) {
     const ctx = resolveRequestContext(req);
     const { targetUnitId, notes } = moveSchema.parse(body);
@@ -121,7 +123,8 @@ export class AgroAnimalController {
   }
 
   @Post("animals/:animalId/weigh")
-  @RequirePermissions("agro:write")
+  // Operativo (T-050): la política de rol de finca decide qué puede cada miembro.
+  @RequirePermissions("agro:report")
   async weighAnimal(@Param("animalId") animalId: string, @Body() body: unknown, @Req() req: any) {
     const ctx = resolveRequestContext(req);
     const { weight, notes } = weighSchema.parse(body);
@@ -130,7 +133,8 @@ export class AgroAnimalController {
   }
 
   @Post("animals/:animalId/status")
-  @RequirePermissions("agro:write")
+  // Operativo (T-050): la política de rol de finca decide qué puede cada miembro.
+  @RequirePermissions("agro:report")
   async changeAnimalStatus(@Param("animalId") animalId: string, @Body() body: unknown, @Req() req: any) {
     const ctx = resolveRequestContext(req);
     const { status, reason } = statusSchema.parse(body);
@@ -168,7 +172,8 @@ export class AgroAnimalController {
   @Get("animal-groups/:groupId")
   @RequirePermissions("agro:read")
   async getGroup(@Param("groupId") groupId: string, @Req() req: any) {
-    const group = await this.service.getGroup(groupId);
+    const ctx = resolveRequestContext(req);
+    const group = await this.service.getGroupForUser(groupId, ctx.userId);
     return ok(resolveRequestId(req.headers ?? {}), { group });
   }
 
@@ -182,7 +187,8 @@ export class AgroAnimalController {
   }
 
   @Post("animal-groups/:groupId/move")
-  @RequirePermissions("agro:write")
+  // Operativo (T-050): la política de rol de finca decide qué puede cada miembro.
+  @RequirePermissions("agro:report")
   async moveGroup(@Param("groupId") groupId: string, @Body() body: unknown, @Req() req: any) {
     const ctx = resolveRequestContext(req);
     const { targetUnitId, notes } = moveSchema.parse(body);
@@ -191,7 +197,8 @@ export class AgroAnimalController {
   }
 
   @Post("animal-groups/:groupId/adjust-count")
-  @RequirePermissions("agro:write")
+  // Operativo (T-050): la política de rol de finca decide qué puede cada miembro.
+  @RequirePermissions("agro:report")
   async adjustGroupCount(@Param("groupId") groupId: string, @Body() body: unknown, @Req() req: any) {
     const ctx = resolveRequestContext(req);
     const { count, reason } = adjustCountSchema.parse(body);
@@ -200,7 +207,8 @@ export class AgroAnimalController {
   }
 
   @Post("animal-groups/:groupId/status")
-  @RequirePermissions("agro:write")
+  // Operativo (T-050): la política de rol de finca decide qué puede cada miembro.
+  @RequirePermissions("agro:report")
   async changeGroupStatus(@Param("groupId") groupId: string, @Body() body: unknown, @Req() req: any) {
     const ctx = resolveRequestContext(req);
     const { status, reason } = statusSchema.parse(body);

@@ -22,5 +22,5 @@ Specs: [agro-workforce](./agro-workforce.spec.md) · [agro-incident-ops](./agro-
 ## Riesgos
 
 - Migración pendiente en Railway: es aditiva, pero requiere `prisma migrate deploy` en el deploy normal.
-- Los servicios Agro existentes siguen siendo solo del propietario: un trabajador miembro todavía no puede completar tareas desde `/tasks` (siguiente PR, §7.2 del AS-IS).
+- ~~Los servicios Agro existentes siguen siendo solo del propietario~~ → resuelto en T-050 (§6.1 del AS-IS). Sigue pendiente decidir si MANAGER ve datos económicos (hoy solo el propietario).
 - La evidencia por URL no sube binarios: falta integrar el flujo presignado (`semse-upload-flow`) para Agro.

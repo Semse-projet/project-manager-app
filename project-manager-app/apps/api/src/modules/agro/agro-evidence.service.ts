@@ -1,7 +1,9 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import { AgroAuditRepository } from "./agro-audit.repository.js";
 import { AgroEvidenceRepository } from "./agro-evidence.repository.js";
 import { AgroFarmRepository } from "./agro-farm.repository.js";
+import { AgroFarmAccessService, authorizeFarmAction } from "./agro-farm-access.service.js";
+import type { AgroFarmAction } from "./agro-farm-policy.js";
 
 export const AGRO_EVIDENCE_ENTITY_TYPES = [
   "FARM", "FARM_UNIT", "ANIMAL", "ANIMAL_GROUP",
@@ -38,16 +40,16 @@ export class AgroEvidenceService {
     private readonly repo: AgroEvidenceRepository,
     private readonly farmRepo: AgroFarmRepository,
     private readonly audit: AgroAuditRepository,
+    @Optional() private readonly access?: AgroFarmAccessService,
   ) {}
 
-  private async assertFarmAccess(farmId: string, ownerId: string) {
-    const farm = await this.farmRepo.findFarm(farmId);
-    if (!farm || farm.ownerId !== ownerId) throw new NotFoundException(`Farm not found: ${farmId}`);
-    return farm;
+  /** Política de rol de finca (T-050); sin AgroFarmAccessService, solo el propietario. */
+  private authorize(farmId: string, userId: string, action: AgroFarmAction, opts: { isAssignee?: boolean } = {}) {
+    return authorizeFarmAction(this.access, this.farmRepo, farmId, userId, action, opts);
   }
 
   async listEvidence(farmId: string, ownerId: string, filters?: { entityType?: string; entityId?: string }) {
-    await this.assertFarmAccess(farmId, ownerId);
+    await this.authorize(farmId, ownerId, "farm.read");
     return this.repo.listEvidence(farmId, filters);
   }
 
@@ -57,8 +59,15 @@ export class AgroEvidenceService {
     return evidence;
   }
 
+  /** Lectura autorizada por finca (evita leer registros de fincas ajenas por id). */
+  async getEvidenceForUser(evidenceId: string, userId: string) {
+    const row = await this.getEvidence(evidenceId);
+    await this.authorize(row.farmId, userId, "farm.read");
+    return row;
+  }
+
   async createEvidence(farmId: string, ownerId: string, input: AgroEvidenceInput) {
-    await this.assertFarmAccess(farmId, ownerId);
+    await this.authorize(farmId, ownerId, "evidence.create");
     return this.recordEvidence(farmId, ownerId, input);
   }
 
@@ -133,7 +142,8 @@ export class AgroEvidenceService {
     fileUrl?: string;
   }) {
     const evidence = await this.getEvidence(evidenceId);
-    await this.assertFarmAccess(evidence.farmId, ownerId);
+    // Cada miembro edita su propia evidencia; la de otros, solo supervisión.
+    await this.authorize(evidence.farmId, ownerId, evidence.capturedById === ownerId ? "evidence.create" : "evidence.update_any");
 
     const updated = await this.repo.updateEvidence(evidenceId, input);
     await this.audit.record({
@@ -148,12 +158,12 @@ export class AgroEvidenceService {
   }
 
   async getEntityEvidence(farmId: string, ownerId: string, entityType: string, entityId: string) {
-    await this.assertFarmAccess(farmId, ownerId);
+    await this.authorize(farmId, ownerId, "farm.read");
     return this.repo.listEvidence(farmId, { entityType, entityId });
   }
 
   async getRecentEvidence(farmId: string, ownerId: string, limit = 10) {
-    await this.assertFarmAccess(farmId, ownerId);
+    await this.authorize(farmId, ownerId, "farm.read");
     return this.repo.recentEvidence(farmId, Math.min(limit, 50));
   }
 }

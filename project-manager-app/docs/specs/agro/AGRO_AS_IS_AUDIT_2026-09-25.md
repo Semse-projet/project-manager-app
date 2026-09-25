@@ -103,7 +103,8 @@ integración con DB ni E2E Agro.
 | R6 | `/admin/verticals/agro` | `AgroFarm` | Campos inexistentes y alcance por owner | Documentado (requiere decisión de acceso admin cross-owner) |
 | R7 | Rol `WORKER` | `v1/agro/*` | Sin permisos Agro | **Corregido** para lectura y reporte de campo (ver §5) |
 | R8 | Controllers Agro existentes | `schema.parse(body)` | Un body inválido lanza `ZodError` (no es `HttpException`) → **500** en vez de 400 | Controllers nuevos usan `parseWithSchema` (400). Los existentes quedan documentados (cambio de comportamiento fuera de alcance) |
-| R9 | Miembros de finca | `farms/:id/units`, `animal-groups`, `animals`, `tasks` | Solo el propietario accede: un trabajador no puede elegir contexto ni completar tareas | Nuevo `GET farms/:farmId/incidents/context` para miembros. Pendiente: migrar los servicios existentes a `AgroFarmAccessService` (§7.2) |
+| R9 | Miembros de finca | `farms/:id/units`, `animal-groups`, `animals`, `tasks` | Solo el propietario accede: un trabajador no puede elegir contexto ni completar tareas | Nuevo `GET farms/:farmId/incidents/context` para miembros. **Cerrado en T-050** (§6.1): los servicios operativos usan la política de rol de finca |
+| R10 | `GET animals/:id`, `animal-groups/:id`, `tasks/:id`, `evidence/:id`, `inventory/items/:id` | servicio `getX(id)` | **IDOR**: no comprobaban la finca; cualquiera con `agro:read` leía registros ajenos por id | **Corregido en T-050**: `getXForUser(id, userId)` exige ser miembro (404 si no); cubierto en el E2E |
 
 ---
 
@@ -209,6 +210,27 @@ Decisiones:
 
 ---
 
+### 6.1 Operación diaria en servicios existentes (T-050)
+
+| Acción | OWNER | MANAGER | SUPERVISOR | WORKER | TECHNICIAN / SPECIALIST / AGRONOMIST | VETERINARIAN | Endpoint (RBAC) |
+|---|---|---|---|---|---|---|---|
+| Ver finca, unidades, animales, grupos, tareas, inventario, evidencia, dashboard | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | `agro:read` |
+| Datos económicos del dashboard, costos, ventas, rentabilidad | ✔ | — | — | — | — | — | `agro:read`/`agro:write` |
+| Editar finca y unidades, alta/edición de animales, grupos e ítems de inventario | ✔ | ✔ | — | — | — | — | `agro:write` |
+| Crear, editar y cancelar tareas | ✔ | ✔ | ✔ | — | — | — | `agro:report` |
+| Iniciar, completar y bloquear tareas | ✔ | ✔ | ✔ | propias o sin asignar | ✔ | ✔ | `agro:report` |
+| Mover y pesar animales | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | `agro:report` |
+| Cambiar estado de animal o grupo, ajustar conteo | ✔ | ✔ | ✔ | — | — | ✔ | `agro:report` |
+| Crear evidencia y editar la propia | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | `agro:report` |
+| Editar evidencia ajena | ✔ | ✔ | ✔ | — | — | — | `agro:report` |
+| Registrar consumo de inventario (salida sin costo) | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | `agro:report` |
+| Entradas, ajustes o movimientos con costo | ✔ | ✔ | ✔ | — | — | — | `agro:report` |
+| Actividad auditada de la finca | ✔ | ✔ | ✔ | — | — | — | `agro:read` |
+| Sync offline | misma política por acción; las tareas de un trabajador se limitan a las propias o sin asignar dentro del `WHERE` | | | | | | `agro:report` |
+
+`DEMO_AGRO` recibe `agro:report` (sigue siendo solo Agro) porque la demo usa
+esos endpoints operativos.
+
 ## 7. Plan de migración
 
 1. **Esta entrega (aditiva, sin tocar datos existentes).** Migración
@@ -216,10 +238,11 @@ Decisiones:
    de taxonomía, FKs `ON DELETE SET NULL`/`CASCADE` coherentes con Agro. Ninguna
    columna existente cambia; los servicios existentes mantienen el control
    owner-only.
-2. **Membresía en servicios existentes (siguiente PR).** Sustituir
-   `assertFarmAccess` owner-only de tareas/animales/evidencia por
-   `AgroFarmAccessService` para que trabajadores miembros operen tareas.
-   Requiere revisar cada acción mutante contra la matriz §6.
+2. **Membresía en servicios existentes — hecho (T-050).** `assertFarmAccess`
+   owner-only sustituido por `authorizeFarmAction` en finca, tareas, animales,
+   evidencia, inventario, dashboard y sync offline, con la matriz §6.1. Los
+   servicios económicos (costos, ventas, rentabilidad, producción, ciclos,
+   trazabilidad, reporte de auditoría) siguen solo para el propietario.
 3. **Tareas → JobTask (progresivo).**
    a. Hoy: lectura dual vía `AgroTaskRefResolver` (hecho).
    b. Dual-write: `AgroTaskService.createTask` crea también `JobTask{domain:"agro"}` y guarda el vínculo.

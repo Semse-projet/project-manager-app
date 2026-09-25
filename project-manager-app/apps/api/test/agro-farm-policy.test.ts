@@ -64,12 +64,16 @@ test("agro-rbac: WORKER can read and report Agro but not write or verify", () =>
   assert.equal(hasPermission(["FIELD_WORKER"], "agro:report"), true);
 });
 
-test("agro-rbac: catalog admin only for OPS_ADMIN; DEMO_AGRO unchanged", () => {
+test("agro-rbac: catalog admin only for OPS_ADMIN; DEMO_AGRO stays agro-only", () => {
   assert.equal(hasPermission(["OPS_ADMIN"], "agro:workforce:admin"), true);
   assert.equal(hasPermission(["CLIENT"], "agro:workforce:admin"), false);
   assert.equal(hasPermission(["PRO"], "agro:workforce:verify"), true);
-  assert.equal(hasPermission(["DEMO_AGRO"], "agro:report"), false);
+  // T-050: la demo sigue operando tareas/movimientos, que ahora piden agro:report.
+  assert.equal(hasPermission(["DEMO_AGRO"], "agro:report"), true);
   assert.equal(hasPermission(["DEMO_AGRO"], "agro:workforce:verify"), false);
+  for (const p of ["jobs:read", "payments:connect:self", "matching:read", "evidence:write"]) {
+    assert.equal(hasPermission(["DEMO_AGRO"], p), false, p);
+  }
 });
 
 // ── AgroFarmAccessService ────────────────────────────────────────────────────
@@ -107,4 +111,32 @@ test("agro-access: non-member gets 404 (existence not leaked), member without ri
   await assert.rejects(() => svc.require("farm_1", "w1", "incident.assign"), ForbiddenException);
   const actor = await svc.require("farm_1", "w1", "incident.report");
   assert.equal(actor.role, "WORKER");
+});
+
+// ── T-050: operación diaria de la finca ──────────────────────────────────────
+
+test("agro-policy T-050: workers operate the field but not structure or finances", () => {
+  for (const a of ["farm.read", "animal.operate", "evidence.create", "inventory.consume"] as const) {
+    assert.equal(canPerformAgroFarmAction("WORKER", a), true, a);
+  }
+  for (const a of ["farm.manage", "farm.finance", "farm.audit_read", "task.create", "task.update", "animal.status", "inventory.manage", "evidence.update_any"] as const) {
+    assert.equal(canPerformAgroFarmAction("WORKER", a), false, a);
+  }
+});
+
+test("agro-policy T-050: task execution — supervisors any, workers only own/unassigned", () => {
+  assert.equal(canPerformAgroFarmAction("SUPERVISOR", "task.execute"), true);
+  assert.equal(canPerformAgroFarmAction("WORKER", "task.execute"), false);
+  assert.equal(canPerformAgroFarmAction("WORKER", "task.execute", { isAssignee: true }), true);
+  // isAssignee no abre cancelar/editar
+  assert.equal(canPerformAgroFarmAction("WORKER", "task.update", { isAssignee: true }), false);
+});
+
+test("agro-policy T-050: finances stay owner-only; vet may change animal status", () => {
+  assert.equal(canPerformAgroFarmAction("OWNER", "farm.finance"), true);
+  assert.equal(canPerformAgroFarmAction("MANAGER", "farm.finance"), false);
+  assert.equal(canPerformAgroFarmAction("VETERINARIAN", "animal.status"), true);
+  assert.equal(canPerformAgroFarmAction("AGRONOMIST", "animal.status"), false);
+  assert.equal(canPerformAgroFarmAction("MANAGER", "farm.manage"), true);
+  assert.equal(canPerformAgroFarmAction("SUPERVISOR", "farm.manage"), false);
 });

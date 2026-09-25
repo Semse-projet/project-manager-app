@@ -87,7 +87,8 @@ export class AgroInventoryController {
   @Get("inventory/items/:itemId")
   @RequirePermissions("agro:read")
   async getItem(@Param("itemId") itemId: string, @Req() req: any) {
-    const item = await this.service.getItem(itemId);
+    const ctx = resolveRequestContext(req);
+    const item = await this.service.getItemForUser(itemId, ctx.userId);
     return ok(resolveRequestId(req.headers ?? {}), { item });
   }
 
@@ -128,7 +129,8 @@ export class AgroInventoryController {
   }
 
   @Post("farms/:farmId/inventory/movements")
-  @RequirePermissions("agro:write")
+  // Operativo (T-050): la política de rol de finca decide qué puede cada miembro.
+  @RequirePermissions("agro:report")
   async recordMovement(@Param("farmId") farmId: string, @Body() body: unknown, @Req() req: any) {
     const ctx = resolveRequestContext(req);
     const input = movementSchema.parse(body);
@@ -137,7 +139,8 @@ export class AgroInventoryController {
   }
 
   @Post("farms/:farmId/inventory/consume")
-  @RequirePermissions("agro:write")
+  // Operativo (T-050): la política de rol de finca decide qué puede cada miembro.
+  @RequirePermissions("agro:report")
   async consumeInventory(@Param("farmId") farmId: string, @Body() body: unknown, @Req() req: any) {
     const ctx = resolveRequestContext(req);
     const input = consumeSchema.parse(body);

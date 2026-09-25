@@ -77,3 +77,25 @@ export function assertAgroFarmAction(
     });
   }
 }
+
+/**
+ * Autoriza una acción en una finca para los servicios Agro existentes.
+ *
+ * Con `AgroFarmAccessService` (inyectado por Nest) aplica la política de rol de
+ * finca: propietario + miembros ACTIVE. Sin él (tests unitarios que construyen
+ * el servicio a mano) conserva el comportamiento anterior a T-050: solo el
+ * propietario, cualquier otro recibe 404.
+ */
+export async function authorizeFarmAction(
+  access: AgroFarmAccessService | undefined,
+  farmRepo: { findFarm(farmId: string): Promise<{ ownerId: string | null } | null> },
+  farmId: string,
+  userId: string,
+  action: AgroFarmAction,
+  opts: { isAssignee?: boolean } = {},
+): Promise<AgroFarmActor> {
+  if (access) return access.require(farmId, userId, action, opts);
+  const farm = await farmRepo.findFarm(farmId);
+  if (!farm || farm.ownerId !== userId) throw new NotFoundException(`Farm not found: ${farmId}`);
+  return { farmId, userId, role: "OWNER" };
+}

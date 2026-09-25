@@ -13,7 +13,7 @@
 | T-030 | Prometeo intake + tools | ✅ | 11 tests |
 | T-040 | UI Incident Center / detalle / reporte móvil | ✅ | Playwright 390px |
 | T-041 | UI Workforce (matriz + perfil + verificación) | ✅ | Playwright 390px |
-| T-050 | Membresía en servicios existentes (tareas/animales/evidencia) | ⏳ | siguiente PR |
+| T-050 | Membresía en servicios existentes (finca, tareas, animales, evidencia, inventario, dashboard, sync) | ✅ | agro-membership-operations-integration.test.ts + Playwright |
 | T-051 | Dual-write AgroFarmTask → JobTask(domain=agro) + backfill | ⏳ | plan §7.3 del AS-IS |
 | T-052 | Eventos `agro.*` en EVENT_CATALOG + outbox | ⏳ | requiere aprobación de catálogo |
 | T-053 | Subida binaria de evidencia Agro (flujo presignado) | ⏳ | |

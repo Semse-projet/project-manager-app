@@ -1,6 +1,8 @@
-import { BadRequestException, Injectable } from "@nestjs/common";
+import { BadRequestException, Injectable, Optional } from "@nestjs/common";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { AgroFarmRepository } from "./agro-farm.repository.js";
+import { AgroFarmAccessService } from "./agro-farm-access.service.js";
+import { canPerformAgroFarmAction, type AgroFarmAction, type AgroFarmRole } from "./agro-farm-policy.js";
 import { AgroInventoryRepository } from "./agro-inventory.repository.js";
 
 const SUPPORTED_ACTIONS = [
@@ -50,7 +52,30 @@ export class AgroSyncService {
     private readonly prisma: PrismaService,
     private readonly farmRepo: AgroFarmRepository,
     private readonly inventoryRepo: AgroInventoryRepository,
+    @Optional() private readonly access?: AgroFarmAccessService,
   ) {}
+
+  /** Rol del actor en la finca: con AgroFarmAccessService, propietario o miembro ACTIVE; sin él, solo propietario. */
+  private async resolveRole(farmId: string, userId: string): Promise<AgroFarmRole | null> {
+    if (this.access) return this.access.resolveRole(farmId, userId);
+    const farm = await this.farmRepo.findFarm(farmId);
+    return farm && farm.ownerId === userId ? "OWNER" : null;
+  }
+
+  /** Misma política que los endpoints REST equivalentes (T-050). */
+  private policyFor(action: SupportedAction, payload: Record<string, unknown>): AgroFarmAction {
+    switch (action) {
+      case "farm_task.create": return "task.create";
+      case "farm_task.complete":
+      case "farm_task.block": return "task.execute";
+      case "animal.move":
+      case "animal.weigh":
+      case "animal_group.move": return "animal.operate";
+      case "inventory_movement.create":
+        return String(payload.movementType) === "OUT" && !payload.unitCost ? "inventory.consume" : "inventory.manage";
+      case "evidence.note.create": return "evidence.create";
+    }
+  }
 
   async processSyncEvents(ownerId: string, events: SyncEvent[]): Promise<SyncResult[]> {
     const results: SyncResult[] = [];
@@ -66,14 +91,26 @@ export class AgroSyncService {
   private async processSingleEvent(ownerId: string, event: SyncEvent): Promise<SyncResult> {
     const { clientEventId, farmId, action, payload, occurredAt } = event;
 
-    // Validate farm ownership
-    const farm = await this.farmRepo.findFarm(farmId);
-    if (!farm || farm.ownerId !== ownerId) {
+    // Propietario o miembro activo de la finca (T-050).
+    const role = await this.resolveRole(farmId, ownerId);
+    if (!role) {
       return { clientEventId, status: "FAILED", error: `Farm not found: ${farmId}` };
     }
 
     if (!SUPPORTED_ACTIONS.includes(action as SupportedAction)) {
       return { clientEventId, status: "FAILED", error: `Unsupported action: ${action}` };
+    }
+
+    const policy = this.policyFor(action, payload);
+    // Un trabajador puede completar/bloquear solo sus tareas o las no asignadas:
+    // se restringe en el WHERE para que la comprobación sea atómica con la escritura.
+    let onlyOwnOrUnassignedTasks = false;
+    if (!canPerformAgroFarmAction(role, policy)) {
+      if (policy === "task.execute" && canPerformAgroFarmAction(role, policy, { isAssignee: true })) {
+        onlyOwnOrUnassignedTasks = true;
+      } else {
+        return { clientEventId, status: "FAILED", error: `Forbidden: farm role ${role} cannot ${action}` };
+      }
     }
 
     try {
@@ -97,7 +134,7 @@ export class AgroSyncService {
           },
         });
 
-        await this.applyAction(tx, farmId, ownerId, action, payload, new Date(occurredAt));
+        await this.applyAction(tx, farmId, ownerId, action, payload, new Date(occurredAt), onlyOwnOrUnassignedTasks);
       });
 
       return { clientEventId, status: "SYNCED" };
@@ -118,7 +155,11 @@ export class AgroSyncService {
     action: string,
     payload: Record<string, unknown>,
     occurredAt: Date,
+    onlyOwnOrUnassignedTasks = false,
   ) {
+    const taskScope = onlyOwnOrUnassignedTasks
+      ? { OR: [{ assignedToId: null }, { assignedToId: actorId }] }
+      : {};
     // Un updateMany que no toca ninguna fila significa que la entidad no
     // existe o no pertenece a la finca. Antes eso devolvia SYNCED sin haber
     // hecho nada: el cliente borraba el evento de su cola creyendo que se
@@ -146,7 +187,7 @@ export class AgroSyncService {
       }
       case "farm_task.complete": {
         const res = await tx.agroFarmTask.updateMany({
-          where: { id: String(payload.taskId), farmId },
+          where: { id: String(payload.taskId), farmId, ...taskScope },
           data:  { status: "COMPLETED", completedAt: occurredAt },
         });
         mustAffectRows(res, `Task ${String(payload.taskId)}`);
@@ -154,7 +195,7 @@ export class AgroSyncService {
       }
       case "farm_task.block": {
         const res = await tx.agroFarmTask.updateMany({
-          where: { id: String(payload.taskId), farmId },
+          where: { id: String(payload.taskId), farmId, ...taskScope },
           data:  { status: "BLOCKED", blockedAt: occurredAt, blockReason: payload.reason ? String(payload.reason) : null },
         });
         mustAffectRows(res, `Task ${String(payload.taskId)}`);
