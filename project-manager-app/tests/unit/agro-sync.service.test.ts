@@ -41,7 +41,12 @@ function makePrisma(overrides: Record<string, any> = {}) {
     agroFarmTask: {
       create: async ({ data }: any) => { tasks.push(data); return { ...data, id: `task_${tasks.length}` }; },
       updateMany: async () => ({ count: 1 }),
+      // Espejo JobTask (T-051): el stub no persiste filas completas; sin tarea no hay espejo.
+      findUnique: async () => null,
+      update: async () => ({}),
     },
+    agroFarm: { findUnique: async () => ({ tenantId: null, ownerId: "usr_1" }) },
+    jobTask: { upsert: async () => { throw new Error("unexpected JobTask mirror in stub"); } },
     agroAnimal: {
       updateMany: async () => ({ count: 1 }),
     },

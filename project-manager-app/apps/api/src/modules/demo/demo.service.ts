@@ -101,6 +101,8 @@ export class DemoService {
         return existing;
       }
       // Reset lazy: borrar la granja restaura todo el árbol vía onDelete: Cascade.
+      // Los espejos JobTask(domain="agro") no cuelgan de la finca (T-051): se borran antes.
+      await this.prisma.jobTask.deleteMany({ where: { farmId: existing.id, domain: "agro" } });
       await this.prisma.agroFarm.delete({ where: { id: existing.id } });
       this.logger.log(`[demo] farm ${existing.id} reset after ${Math.round(ageMs / 3_600_000)}h`);
     }

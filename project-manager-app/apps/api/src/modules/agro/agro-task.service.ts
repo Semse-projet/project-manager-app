@@ -99,7 +99,7 @@ export class AgroTaskService {
 
     if (input.assignedToId) await this.assertAssignable(farmId, input.assignedToId);
 
-    const task = await this.repo.createTask({ farmId, ...input });
+    const task = await this.repo.createTask({ farmId, ...input }, ownerId);
     await this.audit.record({
       farmId, actorId: ownerId,
       entityType: "AgroFarmTask", entityId: task.id,

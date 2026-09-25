@@ -134,6 +134,7 @@ model Tenant {
   name                          String
   status                        String                            @default("active")
   orgs                          Org[]
+  agroFarms                     AgroFarm[]
   jobs                          Job[]
   projects                      Project[]
   lifecycleProjections          ProjectLifecycleProjection[]
@@ -2023,6 +2024,9 @@ model JobTask {
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
+  // Origen Agro durante la convergencia (T-051): AgroFarmTask.jobTaskId.
+  agroFarmTask AgroFarmTask?
+
   @@unique([jobId, promotedFromBuildOpsTaskId])
   @@index([tenantId, jobId, status])
   @@index([tenantId, assignedTo, status])
@@ -3299,6 +3303,10 @@ model WeatherAlert {
 model AgroFarm {
   id            String   @id @default(cuid())
   ownerId       String?
+  // Tenant de la finca (T-051). Opcional: las fincas sin tenant siguen solo con
+  // AgroFarmTask; con tenant, sus tareas se reflejan en JobTask(domain="agro").
+  tenantId      String?
+  tenant        Tenant?  @relation(fields: [tenantId], references: [id], onDelete: SetNull)
   name          String
   operationType String   @default("LIVESTOCK") // LIVESTOCK | MIXED | CROP
   locationLabel String?
@@ -3329,6 +3337,7 @@ model AgroFarm {
   capabilityVerifications AgroCapabilityVerification[]
 
   @@index([ownerId])
+  @@index([tenantId])
 }
 
 model AgroFarmUnit {
@@ -3478,6 +3487,9 @@ model AgroFarmTask {
   blockReason  String?
   cancelReason String?
   notes        String?   @db.Text
+  // Espejo en JobTask(domain="agro") mientras dura la convergencia (T-051).
+  jobTaskId    String?   @unique
+  jobTask      JobTask?  @relation(fields: [jobTaskId], references: [id], onDelete: SetNull)
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 

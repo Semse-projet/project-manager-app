@@ -4,6 +4,7 @@ import { AgroFarmRepository } from "./agro-farm.repository.js";
 import { AgroFarmAccessService } from "./agro-farm-access.service.js";
 import { canPerformAgroFarmAction, type AgroFarmAction, type AgroFarmRole } from "./agro-farm-policy.js";
 import { AgroInventoryRepository } from "./agro-inventory.repository.js";
+import { mirrorAgroTaskToJobTask, type AgroFarmTaskRow } from "./agro-jobtask-mirror.js";
 
 const SUPPORTED_ACTIONS = [
   "farm_task.create",
@@ -39,7 +40,15 @@ interface SyncResult {
  */
 export type AgroSyncTxClient = {
   agroAuditEvent:        { create(args: any): Promise<unknown> };
-  agroFarmTask:          { create(args: any): Promise<unknown>; updateMany(args: any): Promise<{ count: number }> };
+  agroFarmTask: {
+    create(args: any): Promise<{ id: string }>;
+    updateMany(args: any): Promise<{ count: number }>;
+    findUnique(args: any): Promise<AgroFarmTaskRow | null>;
+    update(args: any): Promise<unknown>;
+  };
+  // Espejo JobTask (T-051); solo se usan si la finca tiene tenant.
+  agroFarm:              { findUnique(args: any): Promise<{ tenantId: string | null; ownerId: string | null } | null> };
+  jobTask:               { upsert(args: any): Promise<{ id: string }> };
   agroAnimal:            { updateMany(args: any): Promise<{ count: number }> };
   agroAnimalGroup:       { updateMany(args: any): Promise<{ count: number }> };
   agroEvidenceItem:      { create(args: any): Promise<unknown> };
@@ -172,7 +181,7 @@ export class AgroSyncService {
 
     switch (action) {
       case "farm_task.create": {
-        await tx.agroFarmTask.create({
+        const created = await tx.agroFarmTask.create({
           data: {
             farmId,
             title:    String(payload.title ?? "Offline task"),
@@ -183,6 +192,7 @@ export class AgroSyncService {
             notes:    payload.notes ? String(payload.notes) : undefined,
           },
         });
+        await mirrorAgroTaskToJobTask(tx, created.id, actorId);
         break;
       }
       case "farm_task.complete": {
@@ -191,6 +201,7 @@ export class AgroSyncService {
           data:  { status: "COMPLETED", completedAt: occurredAt },
         });
         mustAffectRows(res, `Task ${String(payload.taskId)}`);
+        await mirrorAgroTaskToJobTask(tx, String(payload.taskId));
         break;
       }
       case "farm_task.block": {
@@ -199,6 +210,7 @@ export class AgroSyncService {
           data:  { status: "BLOCKED", blockedAt: occurredAt, blockReason: payload.reason ? String(payload.reason) : null },
         });
         mustAffectRows(res, `Task ${String(payload.taskId)}`);
+        await mirrorAgroTaskToJobTask(tx, String(payload.taskId));
         break;
       }
       case "animal.move": {

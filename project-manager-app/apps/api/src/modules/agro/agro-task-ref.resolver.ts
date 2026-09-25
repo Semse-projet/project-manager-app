@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
+import { AGRO_JOBTASK_SOURCE_TOOL } from "./agro-jobtask-mirror.js";
 
 /**
  * Referencia a una tarea Agro sin acoplarse a un modelo concreto.
@@ -100,7 +101,11 @@ export class AgroTaskRefResolver {
     return fromJobTask(row, farmId);
   }
 
-  /** Tareas abiertas de la finca en ambas fuentes (para "buscar → relacionar"). */
+  /**
+   * Tareas abiertas de la finca en ambas fuentes (para "buscar → relacionar").
+   * Los espejos de AgroFarmTask en JobTask (T-051) no se listan: la tarea ya
+   * aparece por su fuente AGRO_FARM_TASK.
+   */
   async listOpen(farmId: string, limit = 100): Promise<ResolvedAgroTask[]> {
     const [farmTasks, jobTasks] = await Promise.all([
       this.prisma.agroFarmTask.findMany({
@@ -109,7 +114,10 @@ export class AgroTaskRefResolver {
         take: limit,
       }),
       this.prisma.jobTask.findMany({
-        where: { farmId, domain: "agro", deletedAt: null, status: { in: ["pending", "in_progress", "blocked"] } },
+        where: {
+          farmId, domain: "agro", deletedAt: null, status: { in: ["pending", "in_progress", "blocked"] },
+          OR: [{ sourceTool: null }, { sourceTool: { not: AGRO_JOBTASK_SOURCE_TOOL } }],
+        },
         orderBy: [{ dueDate: "asc" }, { createdAt: "desc" }],
         take: limit,
       }),
