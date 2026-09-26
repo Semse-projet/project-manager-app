@@ -7,6 +7,8 @@ import type { JobRecordView } from "@semse/schemas";
 import { fetchJobsList } from "../../api/jobs";
 import { useTheme } from "../../theme/theme";
 import { formatCurrency } from "../../utils/format";
+import { EmptyState } from "../../components/EmptyState";
+import { ErrorState } from "../../components/ErrorState";
 import type { ClientJobsStackParamList } from "../../navigation/types";
 import { CLIENT_JOB_TAB_BUCKETS, CLIENT_JOB_TAB_HEADER_COPY, JOB_STATUS_COLOR_KEY, JOB_STATUS_LABEL } from "../worker/jobStatus";
 
@@ -86,7 +88,7 @@ export default function JobsListScreen({ navigation }: Props) {
       refreshing={refreshing}
       ListHeaderComponent={
         <View style={styles.header}>
-          {error ? <Text style={styles.error}>{error}</Text> : null}
+          {error ? <ErrorState message={error} /> : null}
 
           <View style={styles.searchRow}>
             <Ionicons name="search" size={16} color={theme.colors.muted} />
@@ -123,9 +125,9 @@ export default function JobsListScreen({ navigation }: Props) {
         </View>
       }
       ListEmptyComponent={
-        <Text style={styles.hint}>
-          {jobs.length === 0 ? "Aún no tienes jobs publicados." : "Sin resultados para este filtro."}
-        </Text>
+        <EmptyState
+          title={jobs.length === 0 ? "Aún no tienes jobs publicados." : "Sin resultados para este filtro."}
+        />
       }
       renderItem={({ item }) => {
         const badgeColor = theme.colors[JOB_STATUS_COLOR_KEY[item.status]];

@@ -10,7 +10,7 @@ import { useLanguage } from "../../../../lib/language-context";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Plus, Search, Briefcase, DollarSign, ArrowRight } from "lucide-react";
-import { HtmlInCanvasPanel } from "@semse/ui";
+import { ErrorState, HtmlInCanvasPanel } from "@semse/ui";
 import type { JobRecordView } from "@semse/schemas";
 import { ClientPageHeader } from "../../../components/client/ClientPageHeader";
 import { CLIENT_ROUTES } from "../../../lib/client-routes";
@@ -198,9 +198,7 @@ export default function ClientJobsPage() {
           ))}
         </div>
       ) : apiError ? (
-        <div style={{ padding: "20px", background: "rgba(239,68,68,.06)", border: "1px solid rgba(239,68,68,.2)", borderRadius: "12px", color: "var(--error)", fontSize: "13px" }}>
-          {apiError} — configura <code>SEMSE_API_BASE_URL</code> para conectar el backend.
-        </div>
+        <ErrorState message={apiError} action={<span>Configura <code>SEMSE_API_BASE_URL</code> para conectar el backend.</span>} />
       ) : filtered.length === 0 ? (
         <HtmlInCanvasPanel as="section" style={{
           padding: "48px 24px", textAlign: "center",
@@ -237,15 +235,14 @@ export default function ClientJobsPage() {
               <Link
                 key={job.id}
                 href={`/client/jobs/${job.id}`}
+                className="row-hover"
                 style={{
                   display: "flex", alignItems: "center", gap: "14px",
                   padding: "14px 16px",
                   background: "var(--surface)", border: "1px solid var(--border)",
                   borderRadius: "10px", textDecoration: "none",
-                  transition: "border-color .15s",
+                  ["--row-hover-color" as string]: "var(--brand)",
                 }}
-                onMouseOver={e => (e.currentTarget.style.borderColor = "var(--brand)")}
-                onMouseOut={e => (e.currentTarget.style.borderColor = "var(--border)")}
               >
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <p style={{ fontSize: "14px", fontWeight: 700, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>

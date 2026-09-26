@@ -11,6 +11,8 @@ import { buildEvidenceFileUrl, fetchEvidenceByJob } from "../../api/evidence";
 import { createLiveSession } from "../../api/liveSessions";
 import { useTheme } from "../../theme/theme";
 import { formatCurrency } from "../../utils/format";
+import { EmptyState } from "../../components/EmptyState";
+import { ErrorState } from "../../components/ErrorState";
 import type { ClientJobsStackParamList } from "../../navigation/types";
 import {
   BID_STATUS_COLOR_KEY,
@@ -131,7 +133,7 @@ export default function JobDetailScreen({ route, navigation }: Props) {
   if (!job) {
     return (
       <View style={styles.center}>
-        <Text style={styles.error}>{error ?? "Job no encontrado."}</Text>
+        <ErrorState message={error ?? "Job no encontrado."} />
       </View>
     );
   }
@@ -140,7 +142,7 @@ export default function JobDetailScreen({ route, navigation }: Props) {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {error ? <ErrorState message={error} /> : null}
 
       <Text style={styles.title}>{job.title}</Text>
       {(() => {
@@ -214,7 +216,7 @@ export default function JobDetailScreen({ route, navigation }: Props) {
 
       <Text style={styles.sectionLabel}>Propuestas recibidas</Text>
       {bids.length === 0 ? (
-        <Text style={styles.hint}>Todavía no llegaron propuestas para este job.</Text>
+        <EmptyState title="Todavía no llegaron propuestas para este job." />
       ) : (
         bids.map((bid) => {
           const colorKey = BID_STATUS_COLOR_KEY[bid.status] ?? "brand";
@@ -246,7 +248,7 @@ export default function JobDetailScreen({ route, navigation }: Props) {
 
       <Text style={styles.sectionLabel}>Milestones</Text>
       {milestones.length === 0 ? (
-        <Text style={styles.hint}>Este job todavía no tiene milestones.</Text>
+        <EmptyState title="Este job todavía no tiene milestones." />
       ) : (
         milestones.map((milestone) => (
           <View key={milestone.id} style={styles.card}>
@@ -272,7 +274,7 @@ export default function JobDetailScreen({ route, navigation }: Props) {
 
       <Text style={styles.sectionLabel}>Evidencia</Text>
       {evidence.length === 0 ? (
-        <Text style={styles.hint}>Todavía no hay evidencia subida para este job.</Text>
+        <EmptyState title="Todavía no hay evidencia subida para este job." />
       ) : (
         <View style={styles.evidenceGrid}>
           {evidence.map((item) => (

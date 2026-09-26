@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useLanguage } from "../../../../lib/language-context";
 import Link from "next/link";
 import { AlertCircle, CheckCircle, Clock, DollarSign, FileText, Plus, Receipt, RefreshCw, Scan, TrendingUp, X } from "lucide-react";
+import { ErrorState } from "@semse/ui";
 import { DownloadPdfButton } from "../../../../components/finance/download-pdf-button";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
 import {
@@ -157,11 +158,7 @@ export default function FinancePage() {
         </div>
       </div>
 
-      {error && (
-        <div style={{ background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.2)", borderRadius: 12, padding: 12, color: "#fca5a5", fontSize: 13 }}>
-          {error}
-        </div>
-      )}
+      {error && <ErrorState message={error} />}
 
       {/* KPIs */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 14 }}>

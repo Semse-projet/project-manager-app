@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLanguage } from "../../../../lib/language-context";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { DollarSign, Lock, CheckCircle, Clock, Plus, ChevronRight, RefreshCw, Inbox, AlertTriangle, Scale } from "lucide-react";
-import { HtmlInCanvasPanel, StatCard, StatusBadge } from "@semse/ui";
+import { ErrorState, HtmlInCanvasPanel, StatCard, StatusBadge } from "@semse/ui";
 import Link from "next/link";
 import { fetchJobPaymentReadiness, fetchJobPayments, fetchJobs, fetchJobMilestones, mutateMilestone, releaseMilestoneEscrow, fetchDisputes, fetchPaymentProviderReadiness, type PaymentProviderReadiness } from "../../../semse-api";
 import { EscrowFundModal } from "../../../components/payments/EscrowFundModal";
@@ -469,7 +469,7 @@ export default function ClientPaymentsPage() {
             {[1, 2, 3, 4].map(i => <div key={i} style={{ height: "60px", borderRadius: "10px", background: "var(--raised)", animation: "pulse 1.5s ease-in-out infinite" }} />)}
           </div>
         ) : error ? (
-          <div style={{ padding: "18px", color: "var(--error)", fontSize: "13px", background: "rgba(239,68,68,.08)" }}>{error}</div>
+          <ErrorState message={error} />
         ) : filtered.length === 0 ? (
           <div data-testid="client-payments-empty" style={{ padding: "48px 24px", textAlign: "center" }}>
             <Inbox size={32} style={{ color: "var(--faint)", margin: "0 auto 12px" }} />
