@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
 import { Plus, X, FileText, Camera, Video, Link2, ChevronRight, Paperclip, StickyNote } from "lucide-react";
 import { useFarmTabs } from "../use-farm-viewer";
+import { uploadAgroEvidenceFile } from "../agro-evidence-upload";
 
 interface Evidence {
   id: string;
@@ -42,6 +43,24 @@ export default function EvidencePage() {
   const [mediaType, setMediaType] = useState("NOTE");
   const [title, setTitle] = useState("");
   const [fileUrl, setFileUrl] = useState("");
+  const [uploading, setUploading] = useState(false);
+
+  // T-053: sube el archivo elegido (presign → PUT) y deja el fileUrl real listo
+  // para el submit — antes este campo era una URL escrita a mano.
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true); setFormError(null);
+    try {
+      setFileUrl(await uploadAgroEvidenceFile(file));
+    } catch (err: any) {
+      setFormError(err?.message ?? "No se pudo subir el archivo");
+      setFileUrl("");
+    } finally {
+      setUploading(false);
+      e.target.value = "";
+    }
+  }
 
   useEffect(() => { if (farmId) void load(); }, [farmId]);
 
@@ -196,11 +215,20 @@ export default function EvidencePage() {
                 <textarea className="fi" rows={3} value={noteText} onChange={e => setNoteText(e.target.value)}
                   style={{ resize: "vertical" }} placeholder="Describe lo observado..." />
               </div>
-              {(mediaType === "PHOTO" || mediaType === "VIDEO" || mediaType === "DOCUMENT" || mediaType === "EXTERNAL_URL") && (
-                <div><label className="fl">URL del archivo</label><input className="fi" type="url" value={fileUrl} onChange={e => setFileUrl(e.target.value)} placeholder="https://..." /></div>
+              {mediaType === "EXTERNAL_URL" ? (
+                <div><label className="fl">URL externa</label><input className="fi" type="url" value={fileUrl} onChange={e => setFileUrl(e.target.value)} placeholder="https://..." /></div>
+              ) : (mediaType === "PHOTO" || mediaType === "VIDEO" || mediaType === "DOCUMENT" || mediaType === "OTHER") && (
+                <div>
+                  <label className="fl">Archivo</label>
+                  <input className="fi" type="file"
+                    accept={mediaType === "PHOTO" ? "image/*" : mediaType === "VIDEO" ? "video/*" : undefined}
+                    onChange={e => void handleFileChange(e)} disabled={uploading} />
+                  {uploading && <p style={{ fontSize: 11, color: "var(--muted)", marginTop: 4 }}>Subiendo…</p>}
+                  {!uploading && fileUrl && <p style={{ fontSize: 11, color: "var(--ok)", marginTop: 4 }}>Archivo listo ✓</p>}
+                </div>
               )}
               <div style={{ display: "flex", gap: 10 }}>
-                <button type="submit" className="btn-accent" disabled={creating} style={{ flex: 1 }}>{creating ? "Guardando…" : "Guardar"}</button>
+                <button type="submit" className="btn-accent" disabled={creating || uploading} style={{ flex: 1 }}>{creating ? "Guardando…" : "Guardar"}</button>
                 <button type="button" className="btn-ghost" onClick={closeModal}>Cancelar</button>
               </div>
             </form>

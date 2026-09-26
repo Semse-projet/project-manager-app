@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { AlertTriangle, ExternalLink } from "lucide-react";
 import { AgroFarmNav } from "../../AgroFarmNav";
+import { uploadAgroEvidenceFile } from "../../agro-evidence-upload";
 import {
   agroFetch, FARM_ROLE_LABEL, fmtDateTime, INCIDENT_TYPE_LABEL, INCIDENT_TYPES, isForbidden, MEDIA_LABEL, MEDIA_TYPES,
   SEVERITIES, SEVERITY_BADGE, SEVERITY_LABEL, shortId, STATUS_BADGE, STATUS_LABEL, TIMELINE_LABEL, TRANSITION_LABEL,
@@ -64,6 +65,16 @@ export default function IncidentDetailPage() {
   const [commentKind, setCommentKind] = useState<"COMMENT" | "ASSESSMENT">("COMMENT");
   const [evMedia, setEvMedia] = useState("PHOTO");
   const [evValue, setEvValue] = useState("");
+  const [evUploading, setEvUploading] = useState(false);
+
+  // T-053: sube el archivo elegido y deja la URL real en evValue; antes era
+  // una URL escrita a mano y nadie subía nada.
+  async function handleEvidenceFile(file: File) {
+    setEvUploading(true); setActionError(null);
+    try { setEvValue(await uploadAgroEvidenceFile(file)); }
+    catch (e: any) { setActionError(e?.message ?? "No se pudo subir el archivo"); }
+    finally { setEvUploading(false); }
+  }
   const [taskSource, setTaskSource] = useState("AGRO_FARM_TASK");
   const [taskId, setTaskId] = useState("");
 
@@ -260,12 +271,24 @@ export default function IncidentDetailPage() {
               const isNote = evMedia === "NOTE" || evMedia === "MEASUREMENT";
               if (await act("/evidence", { mediaType: evMedia, ...(isNote ? { note: evValue } : { fileUrl: evValue }) })) setEvValue("");
             }}>
-            <select className="fi" aria-label="Tipo de evidencia" value={evMedia} onChange={(e) => setEvMedia(e.target.value)}>
+            <select className="fi" aria-label="Tipo de evidencia" value={evMedia} onChange={(e) => { setEvMedia(e.target.value); setEvValue(""); }}>
               {MEDIA_TYPES.map((m) => <option key={m} value={m}>{MEDIA_LABEL[m]}</option>)}
             </select>
-            <input className="fi" aria-label="Contenido" value={evValue} onChange={(e) => setEvValue(e.target.value)}
-              type={evMedia === "NOTE" || evMedia === "MEASUREMENT" ? "text" : "url"} placeholder={evMedia === "NOTE" ? "Nota" : evMedia === "MEASUREMENT" ? "Ej. 38.5 °C" : "https://…"} />
-            <button type="submit" className="btn-ghost" disabled={busy || !evValue.trim()}>Agregar</button>
+            {evMedia === "NOTE" || evMedia === "MEASUREMENT" ? (
+              <input className="fi" aria-label="Contenido" value={evValue} onChange={(e) => setEvValue(e.target.value)}
+                placeholder={evMedia === "MEASUREMENT" ? "Ej. 38.5 °C" : "Nota"} />
+            ) : evMedia === "EXTERNAL_URL" ? (
+              <input className="fi" aria-label="Enlace" type="url" value={evValue} onChange={(e) => setEvValue(e.target.value)} placeholder="https://…" />
+            ) : (
+              <div>
+                <input className="fi" aria-label="Archivo" type="file" disabled={evUploading}
+                  accept={evMedia === "PHOTO" ? "image/*" : evMedia === "VIDEO" ? "video/*" : evMedia === "AUDIO" ? "audio/*" : undefined}
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleEvidenceFile(f); e.target.value = ""; }} />
+                {evUploading && <p style={{ fontSize: 11, color: "var(--muted)" }}>Subiendo…</p>}
+                {!evUploading && evValue && <p style={{ fontSize: 11, color: "var(--ok)" }}>Archivo listo ✓</p>}
+              </div>
+            )}
+            <button type="submit" className="btn-ghost" disabled={busy || evUploading || !evValue.trim()}>Agregar</button>
           </form>
         )}
       </section>

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { ExternalLink, ShieldAlert } from "lucide-react";
 import { AgroFarmNav } from "../../AgroFarmNav";
+import { uploadAgroEvidenceFile } from "../../agro-evidence-upload";
 import {
   agroFetch, CAP_LEVEL_LABEL, CAP_LEVELS, CAP_STATUS_BADGE, CAP_STATUS_LABEL, FARM_ROLE_LABEL, fmtDateTime, isForbidden,
   MEDIA_LABEL, MEDIA_TYPES, shortId, VERIFICATION_METHOD_LABEL,
@@ -40,6 +41,16 @@ export default function WorkerProfilePage() {
   const [newLevel, setNewLevel] = useState("BASIC");
   const [open, setOpen] = useState<{ id: string; mode: "verify" | "revoke" | "evidence" } | null>(null);
   const [vForm, setVForm] = useState({ result: "APPROVED", method: "DIRECT_OBSERVATION", levelAssessed: "", notes: "", evidenceIds: [] as string[], reason: "", mediaType: "PHOTO", value: "" });
+  const [evUploading, setEvUploading] = useState(false);
+
+  // T-053: sube el archivo elegido y deja la URL real en vForm.value; antes
+  // era una URL escrita a mano y nadie subía nada.
+  async function handleEvidenceFile(file: File) {
+    setEvUploading(true); setActionError(null);
+    try { const url = await uploadAgroEvidenceFile(file); setVForm((f) => ({ ...f, value: url })); }
+    catch (e: any) { setActionError(e?.message ?? "No se pudo subir el archivo"); }
+    finally { setEvUploading(false); }
+  }
 
   const base = `/farms/${encodeURIComponent(farmId)}`;
   const load = useCallback(async () => {
@@ -169,11 +180,23 @@ export default function WorkerProfilePage() {
                     const isNote = vForm.mediaType === "NOTE" || vForm.mediaType === "MEASUREMENT";
                     if (await act(`${base}/worker-capabilities/${c.id}/evidence`, { mediaType: vForm.mediaType, ...(isNote ? { note: vForm.value } : { fileUrl: vForm.value }) })) { setOpen(null); setVForm((f) => ({ ...f, value: "" })); }
                   }}>
-                    <select className="fi" aria-label="Tipo" value={vForm.mediaType} onChange={(e) => setVForm({ ...vForm, mediaType: e.target.value })}>
+                    <select className="fi" aria-label="Tipo" value={vForm.mediaType} onChange={(e) => setVForm({ ...vForm, mediaType: e.target.value, value: "" })}>
                       {MEDIA_TYPES.map((m) => <option key={m} value={m}>{MEDIA_LABEL[m]}</option>)}
                     </select>
-                    <input className="fi" aria-label="Contenido" value={vForm.value} onChange={(e) => setVForm({ ...vForm, value: e.target.value })} placeholder="https://… o nota" />
-                    <button type="submit" className="btn-ghost" disabled={busy || !vForm.value.trim()}>Guardar</button>
+                    {vForm.mediaType === "NOTE" || vForm.mediaType === "MEASUREMENT" ? (
+                      <input className="fi" aria-label="Nota" value={vForm.value} onChange={(e) => setVForm({ ...vForm, value: e.target.value })} placeholder={vForm.mediaType === "MEASUREMENT" ? "Ej. 38.5 °C" : "Nota"} />
+                    ) : vForm.mediaType === "EXTERNAL_URL" ? (
+                      <input className="fi" aria-label="Enlace" type="url" value={vForm.value} onChange={(e) => setVForm({ ...vForm, value: e.target.value })} placeholder="https://…" />
+                    ) : (
+                      <div>
+                        <input className="fi" aria-label="Archivo" type="file" disabled={evUploading}
+                          accept={vForm.mediaType === "PHOTO" ? "image/*" : vForm.mediaType === "VIDEO" ? "video/*" : vForm.mediaType === "AUDIO" ? "audio/*" : undefined}
+                          onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleEvidenceFile(f); e.target.value = ""; }} />
+                        {evUploading && <p style={{ fontSize: 11, color: "var(--muted)" }}>Subiendo…</p>}
+                        {!evUploading && vForm.value && <p style={{ fontSize: 11, color: "var(--ok)" }}>Archivo listo ✓</p>}
+                      </div>
+                    )}
+                    <button type="submit" className="btn-ghost" disabled={busy || evUploading || !vForm.value.trim()}>Guardar</button>
                   </form>
                 )}
 
