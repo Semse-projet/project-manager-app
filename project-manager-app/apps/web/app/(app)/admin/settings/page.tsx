@@ -2,11 +2,17 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useLanguage } from "../../../../lib/language-context";
-import { Settings, Bell, Shield, Globe, Database, Key, MapPin, Save, AlertCircle, Loader2 } from "lucide-react";
+import { Settings, Bell, Shield, Globe, Key, MapPin, Save, AlertCircle, Loader2, RefreshCw } from "lucide-react";
 import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
-import { fetchAdminSettings, updateAdminSettings } from "../../../semse-api";
-import type { AdminSettings } from "@semse/schemas";
+import {
+  fetchAdminIntegrationStatuses,
+  fetchAdminSettings,
+  updateAdminSettings,
+  verifyAdminIntegration,
+} from "../../../semse-api";
+import type { AdminIntegrationId, AdminIntegrationStatus, AdminSettings } from "@semse/schemas";
+import styles from "./settings.module.css";
 
 type SettingSection = "general" | "notifications" | "security" | "integrations" | "time-tracker";
 
@@ -23,7 +29,7 @@ const DEFAULT_SETTINGS: AdminSettings = {
   timezone: "America/Mexico_City",
   notifications: { email: true, disputes: true, payments: true, system: false },
   security: { mfaRequired: false, sessionLog: true },
-  integrations: { openai: false, github: false },
+  integrations: { openai: false, github: false, checks: {} },
   proximity: { radiusMeters: 150, cooldownMinutes: 20 },
 };
 
@@ -35,6 +41,9 @@ export default function AdminSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saved" | "error">("idle");
+  const [integrationStatuses, setIntegrationStatuses] = useState<AdminIntegrationStatus[]>([]);
+  const [integrationLoading, setIntegrationLoading] = useState(true);
+  const [verifyingIntegration, setVerifyingIntegration] = useState<AdminIntegrationId | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -45,6 +54,34 @@ export default function AdminSettingsPage() {
       })
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false));
+  }, []);
+
+  const loadIntegrationStatuses = useCallback(async () => {
+    setIntegrationLoading(true);
+    try {
+      setIntegrationStatuses(await fetchAdminIntegrationStatuses());
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "No se pudo cargar el estado de las integraciones");
+    } finally {
+      setIntegrationLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadIntegrationStatuses();
+  }, [loadIntegrationStatuses]);
+
+  const handleVerifyIntegration = useCallback(async (integrationId: AdminIntegrationId) => {
+    setVerifyingIntegration(integrationId);
+    setError(null);
+    try {
+      const verified = await verifyAdminIntegration(integrationId);
+      setIntegrationStatuses((current) => current.map((item) => item.id === integrationId ? verified : item));
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "No se pudo probar la conexión");
+    } finally {
+      setVerifyingIntegration(null);
+    }
   }, []);
 
   const persist = useCallback(async (next: AdminSettings) => {
@@ -83,7 +120,7 @@ export default function AdminSettingsPage() {
   }, [persist]);
 
   return (
-    <main style={{ padding: "32px", color: "var(--ink)" }}>
+    <main className={styles.page} style={{ color: "var(--ink)" }}>
       <AdminPageHeader
         title={t("page.settings")}
         subtitle="Ajustes del sistema SEMSE Project"
@@ -100,8 +137,8 @@ export default function AdminSettingsPage() {
         </div>
       )}
 
-      <div style={{ display: "grid", gridTemplateColumns: "220px 1fr", gap: "24px", alignItems: "start" }}>
-        <nav style={{ border: "1px solid var(--border)", borderRadius: "20px", background: "var(--surface)", overflow: "hidden" }}>
+      <div className={styles.layout}>
+        <nav className={styles.nav}>
           {SECTIONS.map((s) => {
             const Icon = s.icon;
             const isActive = active === s.id;
@@ -131,7 +168,7 @@ export default function AdminSettingsPage() {
           })}
         </nav>
 
-        <div style={{ border: "1px solid var(--border)", borderRadius: "20px", background: "var(--surface)", padding: "28px" }}>
+        <div className={styles.panel}>
           {loading ? (
             <div style={{ display: "flex", alignItems: "center", gap: "8px", color: "var(--muted)" }}>
               <Loader2 size={16} className="animate-spin" /> Cargando ajustes…
@@ -141,7 +178,17 @@ export default function AdminSettingsPage() {
               {active === "general" && <GeneralSection value={settings} onChange={update} />}
               {active === "notifications" && <NotificationsSection value={settings.notifications} onChange={(v) => updateNested("notifications", v)} />}
               {active === "security" && <SecuritySection value={settings.security} onChange={(v) => updateNested("security", v)} />}
-              {active === "integrations" && <IntegrationsSection value={settings.integrations} onChange={(v) => updateNested("integrations", v)} />}
+              {active === "integrations" && (
+                <IntegrationsSection
+                  value={settings.integrations}
+                  statuses={integrationStatuses}
+                  loading={integrationLoading}
+                  verifying={verifyingIntegration}
+                  onChange={(v) => updateNested("integrations", v)}
+                  onRefresh={loadIntegrationStatuses}
+                  onVerify={handleVerifyIntegration}
+                />
+              )}
               {active === "time-tracker" && <TimeTrackerSection value={settings.proximity} onChange={(v) => updateNested("proximity", v)} />}
 
               <div style={{ marginTop: "24px", display: "flex", alignItems: "center", gap: "12px", justifyContent: "flex-end" }}>
@@ -169,7 +216,7 @@ export default function AdminSettingsPage() {
 
 function SettingRow({ label, description, children }: { label: string; description?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 0", borderBottom: "1px solid var(--border)" }}>
+    <div className={styles.settingRow}>
       <div style={{ flex: 1, paddingRight: "24px" }}>
         <div style={{ fontWeight: 600 }}>{label}</div>
         {description && <div style={{ color: "var(--muted)", fontSize: "0.875rem", marginTop: "4px" }}>{description}</div>}
@@ -303,39 +350,109 @@ function SecuritySection({ value, onChange }: { value: AdminSettings["security"]
   );
 }
 
-function IntegrationsSection({ value, onChange }: { value: AdminSettings["integrations"]; onChange: (v: AdminSettings["integrations"]) => void }) {
-  const update = (key: keyof AdminSettings["integrations"]) => (checked: boolean) => onChange({ ...value, [key]: checked });
+const INTEGRATION_STATE_LABELS: Record<AdminIntegrationStatus["state"], string> = {
+  UNCONFIGURED: "Sin configurar",
+  SIMULATION: "Simulación",
+  CONFIGURED_UNVERIFIED: "Configurada sin verificar",
+  VERIFIED: "Verificada",
+  ERROR: "Con error",
+};
+
+const INTEGRATION_STATE_COLORS: Record<AdminIntegrationStatus["state"], string> = {
+  UNCONFIGURED: "#94a3b8",
+  SIMULATION: "#fbbf24",
+  CONFIGURED_UNVERIFIED: "#60a5fa",
+  VERIFIED: "#34d399",
+  ERROR: "#f87171",
+};
+
+function IntegrationsSection({
+  value,
+  statuses,
+  loading,
+  verifying,
+  onChange,
+  onRefresh,
+  onVerify,
+}: {
+  value: AdminSettings["integrations"];
+  statuses: AdminIntegrationStatus[];
+  loading: boolean;
+  verifying: AdminIntegrationId | null;
+  onChange: (v: AdminSettings["integrations"]) => void;
+  onRefresh: () => Promise<void>;
+  onVerify: (integrationId: AdminIntegrationId) => Promise<void>;
+}) {
+  const update = (key: "openai" | "github") => (checked: boolean) => onChange({ ...value, [key]: checked });
   return (
     <div>
-      <h2 style={{ marginTop: 0, fontSize: "1.1rem" }}>Integraciones</h2>
-      <SettingRow
-        label="OpenAI"
-        description="Habilita planes de tareas con IA para Autonomous PR Core"
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-          <Toggle checked={value.openai} onChange={update("openai")} />
-          <span style={{ fontSize: "0.8rem", color: value.openai ? "#34d399" : "var(--muted)" }}>
-            {value.openai ? "Configurado vía OPENAI_API_KEY" : "Requiere OPENAI_API_KEY en el servidor"}
-          </span>
+      <div className={styles.integrationHeader}>
+        <div>
+          <h2 style={{ margin: 0, fontSize: "1.1rem" }}>Integraciones externas</h2>
+          <p style={{ color: "var(--muted)", margin: "6px 0 0", fontSize: "0.9rem" }}>
+            Los interruptores habilitan una función para este tenant. El estado indica si el proveedor externo está realmente conectado.
+          </p>
         </div>
-      </SettingRow>
-      <SettingRow
-        label="GitHub"
-        description="Push de branches y apertura de PRs reales"
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-          <Toggle checked={value.github} onChange={update("github")} />
-          <span style={{ fontSize: "0.8rem", color: value.github ? "#34d399" : "var(--muted)" }}>
-            {value.github ? "Configurado vía SEMSE_AUTONOMY_GITHUB_TOKEN" : "Requiere SEMSE_AUTONOMY_GITHUB_TOKEN en el servidor"}
-          </span>
+        <button className={styles.secondaryButton} onClick={() => void onRefresh()} disabled={loading}>
+          <RefreshCw size={15} className={loading ? "animate-spin" : undefined} />
+          Actualizar
+        </button>
+      </div>
+
+      {loading && statuses.length === 0 ? (
+        <div className={styles.integrationLoading}><Loader2 size={17} className="animate-spin" /> Comprobando configuración…</div>
+      ) : statuses.length === 0 ? (
+        <div className={styles.integrationLoading}>No se pudo obtener el estado de las integraciones.</div>
+      ) : (
+        <div className={styles.integrationList}>
+          {statuses.map((integration) => {
+            const color = INTEGRATION_STATE_COLORS[integration.state];
+            const isVerifying = verifying === integration.id;
+            return (
+              <section key={integration.id} className={styles.integrationItem} aria-labelledby={`integration-${integration.id}`}>
+                <div className={styles.integrationTopline}>
+                  <div>
+                    <h3 id={`integration-${integration.id}`} style={{ margin: 0, fontSize: "1rem" }}>{integration.label}</h3>
+                    <p style={{ color: "var(--muted)", margin: "5px 0 0", fontSize: "0.85rem" }}>{integration.purpose}</p>
+                  </div>
+                  <span className={styles.statusBadge} style={{ color, borderColor: `${color}66`, background: `${color}14` }}>
+                    {INTEGRATION_STATE_LABELS[integration.state]}
+                  </span>
+                </div>
+
+                <p className={styles.integrationMessage}>{integration.message}</p>
+
+                {integration.missingVariables.length > 0 && (
+                  <div className={styles.variableList}>
+                    {integration.missingVariables.map((name) => <code key={name}>{name}</code>)}
+                  </div>
+                )}
+
+                <div className={styles.integrationActions}>
+                  {integration.enabledForTenant !== null && (
+                    <label className={styles.tenantToggle}>
+                      <Toggle checked={value[integration.id as "openai" | "github"]} onChange={update(integration.id as "openai" | "github")} />
+                      <span>Habilitada para este tenant</span>
+                    </label>
+                  )}
+                  <button
+                    className={styles.verifyButton}
+                    onClick={() => void onVerify(integration.id)}
+                    disabled={!integration.canVerify || isVerifying}
+                  >
+                    {isVerifying ? <Loader2 size={15} className="animate-spin" /> : <RefreshCw size={15} />}
+                    {isVerifying ? "Probando…" : "Probar conexión"}
+                  </button>
+                </div>
+
+                {integration.checkedAt && (
+                  <div className={styles.checkedAt}>Última prueba: {new Date(integration.checkedAt).toLocaleString()}</div>
+                )}
+              </section>
+            );
+          })}
         </div>
-      </SettingRow>
-      <SettingRow label="Base de datos" description="PostgreSQL — estado de conexión">
-        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <Database size={14} color="#34d399" />
-          <span style={{ color: "#34d399", fontSize: "0.875rem" }}>Conectado</span>
-        </div>
-      </SettingRow>
+      )}
     </div>
   );
 }
