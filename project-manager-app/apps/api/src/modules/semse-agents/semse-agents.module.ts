@@ -6,6 +6,7 @@ import { PrometeoModule } from "../prometeo/prometeo.module.js";
 import { SseInfraModule } from "../../infrastructure/sse/sse-infra.module.js";
 import { MatchingModule } from "../matching/matching.module.js";
 import { NotificationsModule } from "../notifications/notifications.module.js";
+import { DecisionLayerModule } from "../ai-models/decision/decision-layer.module.js";
 import { SemseAgentsController } from "./semse-agents.controller.js";
 import { SemseAgentsService } from "./semse-agents.service.js";
 import { ProToolsAgent } from "./protools.agent.js";
@@ -18,7 +19,7 @@ import { PrometeoAgent } from "./prometeo.agent.js";
 const ALL_AGENTS = [SemseAgentsService, ProToolsAgent, MarketplaceAgent, BuildOpsAgent, EvidenceAgent, CrowdAgent, PrometeoAgent];
 
 @Module({
-  imports:     [PrismaModule, ToolsModule, PricingModule, SseInfraModule, forwardRef(() => PrometeoModule), MatchingModule, NotificationsModule],
+  imports:     [PrismaModule, ToolsModule, PricingModule, SseInfraModule, forwardRef(() => PrometeoModule), MatchingModule, NotificationsModule, DecisionLayerModule],
   controllers: [SemseAgentsController],
   providers:   ALL_AGENTS,
   exports:     ALL_AGENTS,

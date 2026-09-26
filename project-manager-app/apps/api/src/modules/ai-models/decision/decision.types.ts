@@ -17,6 +17,13 @@ export const AGENT_ROUTE_ACTIONS = [
 ] as const;
 export type AgentRouteAction = (typeof AGENT_ROUTE_ACTIONS)[number];
 
+// Wave: Marketplace confidence gate (spec: docs/specs/prometeo/jev-human-review-queue.spec.md).
+// Purely deterministic — no Jev/LLM call involved. Registered here only so
+// the feature shares DECISION_FEATURES' closed vocabulary and JevDecisionEvent
+// telemetry with agent_router/vision_gate; see marketplace-confidence-gate.ts.
+export const MARKETPLACE_CLASSIFY_ACTIONS = ["AUTO_PROCEED", "HUMAN_REVIEW"] as const;
+export type MarketplaceClassifyAction = (typeof MARKETPLACE_CLASSIFY_ACTIONS)[number];
+
 export const VISION_GATE_ACTIONS = [
   "ACCEPT_RESULT",
   "SHOW_ALTERNATIVES",
@@ -113,12 +120,30 @@ export const DECISION_FEATURES = {
       },
     },
   } satisfies FeaturePolicy<VisionGateAction>,
+  marketplace_classify: {
+    actions: MARKETPLACE_CLASSIFY_ACTIONS,
+    caution: {
+      AUTO_PROCEED: 0,
+      HUMAN_REVIEW: 1,
+    },
+    certaintyActions: ["AUTO_PROCEED"],
+    question: {
+      instructions:
+        "Marketplace clasificó un job publicado con un matchScore de confianza. " +
+        "¿La clasificación (trade, presupuesto, urgencia) tiene suficiente certeza para avanzar sola, o necesita revisión humana?",
+      criteria: {
+        AUTO_PROCEED: "El matchScore está por encima del umbral mínimo de confianza — avanzar sin intervención.",
+        HUMAN_REVIEW: "El matchScore está por debajo del umbral — un humano debe confirmar o corregir la clasificación antes de avanzar.",
+      },
+    },
+  } satisfies FeaturePolicy<MarketplaceClassifyAction>,
 } as const;
 
 /** Back-compat alias: feature → allowed actions. */
 export const DECISION_FEATURE_ACTIONS = {
   agent_router: DECISION_FEATURES.agent_router.actions,
   vision_gate: DECISION_FEATURES.vision_gate.actions,
+  marketplace_classify: DECISION_FEATURES.marketplace_classify.actions,
 } as const;
 
 export type DecisionFeature = keyof typeof DECISION_FEATURES;

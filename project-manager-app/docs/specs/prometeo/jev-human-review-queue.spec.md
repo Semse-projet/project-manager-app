@@ -7,7 +7,7 @@ version: "1.0"
 status: "APPROVED"
 owner: "semse-core"
 risk: "medium"
-code_status: "NOT_STARTED"
+code_status: "COMPLETE"
 ci_status: "NOT_RUN"
 merge_status: "UNMERGED"
 deploy_status: "NOT_DEPLOYED"
@@ -22,15 +22,25 @@ production_evidence: []
 related_files:
   - "apps/api/src/modules/ai-models/decision/decision.types.ts"
   - "apps/api/src/modules/ai-models/decision/decision-flags.ts"
-  - "apps/api/src/modules/ai-models/decision/decision-layer.service.ts"
-  - "apps/api/src/modules/ai-models/decision/decision-eval.ts"
+  - "apps/api/src/modules/ai-models/decision/decision-layer.module.ts"
+  - "apps/api/src/modules/semse-agents/marketplace-confidence-gate.ts"
   - "apps/api/src/modules/semse-agents/marketplace.agent.ts"
   - "apps/api/src/modules/semse-agents/semse-agents.service.ts"
   - "apps/api/src/modules/semse-agents/semse-agents.controller.ts"
+  - "apps/api/src/modules/semse-agents/semse-agents.module.ts"
   - "apps/web/app/(app)/admin/agents/page.tsx"
+  - "apps/web/app/api/semse/agents/review/route.ts"
+  - "apps/web/app/api/semse/agents/review/[eventId]/approve/route.ts"
+  - "apps/web/app/api/semse/agents/review/[eventId]/reject/route.ts"
   - "packages/db/prisma/schema.prisma"
-related_tests: []
-related_endpoints: []
+related_tests:
+  - "apps/api/test/marketplace-confidence-gate.test.ts"
+  - "apps/api/test/marketplace-agent-review-gate.test.ts"
+  - "apps/api/test/jev-decision-layer.test.ts"
+related_endpoints:
+  - "GET /v1/agents/semse/review"
+  - "POST /v1/agents/semse/review/:eventId/approve"
+  - "POST /v1/agents/semse/review/:eventId/reject"
 related_events: []
 related_agents:
   - "marketplace"
@@ -322,3 +332,12 @@ forbidden_behavior:
 - [ ] Activación/canary verificada por separado
 - [ ] `production_evidence` y `last_verified` actualizados
 - [ ] Sólo entonces `status: VERIFIED`
+
+## 13. Nota de implementación (post-código, 2026-09-26)
+
+Escrita después de implementar, para que el spec no quede desincronizado con el código real (Artículo XII).
+
+- **Desviación deliberada de §5/§7**: el gate NO llama a `DecisionLayerService.decide()`. Ese método está diseñado para pedirle una segunda opinión a Jev (LLM externo) sobre un baseline determinístico, con su propia máquina de circuit-breaker/provider/canary. La decisión AUTO_PROCEED/HUMAN_REVIEW de esta wave ya es 100% determinística (`matchScore` vs. `SEMSE_JEV_MIN_CONFIDENCE`) — no hay ninguna pregunta que hacerle a un LLM. En cambio, `marketplace-confidence-gate.ts` (función pura, sin DI, sin red) reutiliza `isFeatureActive`/`resolveCanary`/`config.minConfidence` del mismo `decision-flags.ts`, y persiste directo vía `DECISION_TELEMETRY` (el mismo repositorio Prisma detrás de `decide()`). Esto significa que el flujo shadow de esta wave **no requiere credenciales de Jev AI configuradas** para producir telemetría — una diferencia real respecto a `agent_router`/`vision_gate`, que si las requieren.
+- **`JevDecisionEvent.inputClass` reutilizado como payload pendiente**: para poder reanudar el dispatch retenido al aprobar, se serializa un JSON compacto (`jobId`, `projectId`, `originalPayload`, `classification`) en `inputClass` en vez de crear una tabla nueva (evita migración). Es un uso más allá de su comentario original ("short telemetry label"); si esta wave gradúa a `live` general, una columna JSON dedicada sería más limpio.
+- **Gap conocido**: no hay test de contrato HTTP de punta a punta para los 3 endpoints nuevos (`GET review`, `approve`, `reject`) — la cobertura actual ejercita los métodos del agente (`listPendingReviews`/`approveReview`/`rejectReview`) directamente, no a través del controller/BFF. Ver tasks.md T-034.
+- **Hallazgo no relacionado, reportado por separado**: `pnpm typecheck` del workspace completo y `pnpm --filter @semse/api build` fallan hoy en `main` por ~20 errores preexistentes en `@semse/schemas` (`AdminIntegrationId`/`AdminIntegrationStatus` no exportados) que afectan `admin-integrations.service.ts`, `admin.service.ts`, `apps/web/.../admin/settings/page.tsx` y varios archivos de `agro/`. No causado por esta feature, no arreglado aquí — código de esta wave verificado limpio de forma aislada (`grep` del output de `tsc` por los archivos tocados, cero coincidencias).

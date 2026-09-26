@@ -47,10 +47,12 @@ export function resolveDecisionLayerConfig(env: NodeJS.ProcessEnv = process.env)
     features: {
       agent_router: flag(env.SEMSE_JEV_AGENT_ROUTER_ENABLED),
       vision_gate: flag(env.SEMSE_JEV_VISION_GATE_ENABLED),
+      marketplace_classify: flag(env.SEMSE_JEV_MARKETPLACE_GATE_ENABLED),
     },
     modes: {
       agent_router: mode(env.SEMSE_JEV_AGENT_ROUTER_MODE),
       vision_gate: mode(env.SEMSE_JEV_VISION_GATE_MODE),
+      marketplace_classify: mode(env.SEMSE_JEV_MARKETPLACE_GATE_MODE),
     },
     canary: {
       tenantIds: list(env.SEMSE_JEV_CANARY_TENANT_IDS),

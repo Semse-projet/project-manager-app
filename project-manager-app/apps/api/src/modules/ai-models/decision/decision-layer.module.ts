@@ -13,6 +13,10 @@ import { JevHttpProvider } from "./jev.provider.js";
     { provide: DECISION_TELEMETRY, useClass: PrismaDecisionTelemetry },
     DecisionLayerService,
   ],
-  exports: [DecisionLayerService],
+  // DECISION_TELEMETRY is also exported directly for callers that write their
+  // own JevDecisionEvent rows without going through decide() — e.g. the
+  // Marketplace confidence gate, which is fully deterministic (no Jev/LLM
+  // call) and only reuses the telemetry table for a consistent review UX.
+  exports: [DecisionLayerService, DECISION_TELEMETRY],
 })
 export class DecisionLayerModule {}
