@@ -121,7 +121,7 @@ retroactiva.
 | [prometeo.agent-decision-retrieval](specs/prometeo/agent-decision-retrieval.spec.md) | prometeo | REVIEW | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | no | 2026-08-17 |
 | [prometeo.cache-control](specs/prometeo/cache-control.spec.md) | prometeo | REVIEW | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | no | 2026-08-17 |
 | [prometeo.jev-decision-layer](specs/prometeo/jev-decision-layer.spec.md) | prometeo | APPROVED | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | yes | 2026-09-24 |
-| [prometeo.jev-human-review-queue](specs/prometeo/jev-human-review-queue.spec.md) | prometeo | APPROVED | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | no | 2026-09-26 |
+| [prometeo.jev-human-review-queue](specs/prometeo/jev-human-review-queue.spec.md) | prometeo | APPROVED | COMPLETE | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | yes | 2026-09-26 |
 | [prometeo.live-sessions](specs/prometeo/live-sessions.spec.md) | prometeo | APPROVED | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | no | 2026-09-07 |
 | [prometeo.model-gateway-unification](specs/prometeo/model-gateway-unification.spec.md) | prometeo | APPROVED | legacy | legacy | legacy | legacy | legacy | critical | yes | 2026-08-27 |
 | [prometeo.tool-registry-governance-f2](specs/prometeo/tool-registry-governance.spec.md) | prometeo | APPROVED | legacy | legacy | legacy | legacy | legacy | critical | no | 2026-07-20 |

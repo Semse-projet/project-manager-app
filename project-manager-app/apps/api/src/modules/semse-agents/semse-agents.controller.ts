@@ -164,4 +164,56 @@ export class SemseAgentsController {
     });
     return ok(rid, { agentName: "crowd", ...decision });
   }
+
+  // ── Human review queue (Jev Decision Layer, Wave: Marketplace) ───────────
+  // docs/specs/prometeo/jev-human-review-queue.spec.md
+
+  /** Listar clasificaciones de Marketplace pendientes de revisión humana. */
+  @Get("review")
+  @RequirePermissions("ops:dashboard:read")
+  async listReview(@Req() req: { headers?: Record<string, unknown> }) {
+    const rid = resolveRequestId(req.headers ?? {});
+    const ctx = resolveRequestContext(req);
+    const items = await this.marketplaceAgent.listPendingReviews({ tenantId: ctx.tenantId });
+    return ok(rid, { items });
+  }
+
+  /** Aprobar (con override opcional) una clasificación pendiente — reanuda el dispatch. */
+  @Post("review/:eventId/approve")
+  @RequirePermissions("ops:dashboard:write")
+  async approveReview(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Param("eventId") eventId: string,
+    @Body() body: Record<string, unknown>,
+  ) {
+    const rid = resolveRequestId(req.headers ?? {});
+    const ctx = resolveRequestContext(req);
+    const override = (body.override ?? undefined) as Record<string, unknown> | undefined;
+    const result = await this.marketplaceAgent.approveReview({ tenantId: ctx.tenantId, eventId, override });
+
+    if (result.status === "not_found") return ok(rid, { error: "Evento no encontrado", eventId });
+    if (result.status === "malformed") return ok(rid, { error: "Evento sin payload de revisión válido", eventId });
+    if (result.status === "already_resolved") return ok(rid, { eventId, duplicate: true, outcome: result.outcome });
+    if (result.status === "approved") return ok(rid, { eventId, outcome: result.outcome, dispatched: true });
+    return ok(rid, { error: "Estado de revisión inesperado", eventId });
+  }
+
+  /** Rechazar una clasificación pendiente — el job NO avanza a Protools/BuildOps. */
+  @Post("review/:eventId/reject")
+  @RequirePermissions("ops:dashboard:write")
+  async rejectReview(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Param("eventId") eventId: string,
+    @Body() body: Record<string, unknown>,
+  ) {
+    const rid = resolveRequestId(req.headers ?? {});
+    const ctx = resolveRequestContext(req);
+    const reason = typeof body.reason === "string" && body.reason.trim() ? body.reason.trim() : undefined;
+    if (!reason) return ok(rid, { error: "reason es requerido" });
+
+    const result = await this.marketplaceAgent.rejectReview({ tenantId: ctx.tenantId, eventId, reason });
+    if (result.status === "not_found") return ok(rid, { error: "Evento no encontrado", eventId });
+    if (result.status === "already_resolved") return ok(rid, { eventId, duplicate: true, outcome: result.outcome });
+    return ok(rid, { eventId, outcome: "rejected" });
+  }
 }
