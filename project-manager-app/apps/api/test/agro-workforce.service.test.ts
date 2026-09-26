@@ -50,7 +50,7 @@ const CAP_STD = { id: "cap_feed", key: "lechones_alimentacion", name: "Alimentar
 const CAP_PRO = { id: "cap_vacc", key: "vacunacion_aplicacion", name: "Aplicar vacunas", category: "HEALTH_WELFARE", active: true, requiresProfessional: true, evidenceRequired: true, validityDays: 365, parentId: null };
 const ROLE = { id: "role_pig", key: "porcicultor", name: "Porcicultor", sector: "ANIMAL_PRODUCTION", species: "PIG", active: true, specialties: [] };
 
-function setup(extraMembers: Member[] = []) {
+function setup(extraMembers: Member[] = [], domainEventBus?: { emit: (event: any, ctx: any) => Promise<void> }) {
   const members: Member[] = [
     { id: "m_sup", farmId: "farm_1", userId: "sup", role: "SUPERVISOR", status: "ACTIVE", displayName: "Capataz" },
     { id: "m_w", farmId: "farm_1", userId: "worker", role: "WORKER", status: "ACTIVE", displayName: "Ana" },
@@ -67,7 +67,8 @@ function setup(extraMembers: Member[] = []) {
   let seq = 0;
 
   const prisma = {
-    agroFarm: { findUnique: async ({ where }: any) => (where.id === "farm_1" ? { ownerId: "owner" } : null) },
+    // T-052: farm_1 tiene tenant, así que verifyCapability emite agro.worker_capability.verified.
+    agroFarm: { findUnique: async ({ where }: any) => (where.id === "farm_1" ? { ownerId: "owner", tenantId: "tenant_1" } : null) },
     agroFarmMember: {
       findUnique: async ({ where }: any) =>
         members.find((m) => m.farmId === where.farmId_userId.farmId && m.userId === where.farmId_userId.userId) ?? null,
@@ -133,7 +134,7 @@ function setup(extraMembers: Member[] = []) {
   } as never;
 
   const audit = { listForEntity: async () => auditEvents, record: async (e: any) => { auditEvents.push(e); } } as never;
-  const svc = new AgroWorkforceService(repo, new AgroFarmAccessService(prisma), evidenceSvc, audit);
+  const svc = new AgroWorkforceService(repo, new AgroFarmAccessService(prisma), evidenceSvc, audit, domainEventBus as never);
   return { svc, members, workerCaps, verifications, auditEvents };
 }
 
@@ -326,4 +327,44 @@ test("agro-workforce: catalog key validation", async () => {
   const { svc } = setup();
   await assert.rejects(() => svc.createCatalogCapability({ key: "Bad Key", name: "x", category: "FEEDING" }), BadRequestException);
   await assert.rejects(() => svc.createCatalogCapability({ key: "ok_key", name: "x", category: "NOPE" }), BadRequestException);
+});
+
+// ── T-052: agro.worker_capability.verified (DomainEventBus) ────────────────
+// Mismo criterio que agro-incident.service.test.ts: stub de DomainEventBus,
+// sin cargar DomainEventsModule real.
+
+function busStub() {
+  const calls: Array<{ type: string; payload: any; ctx: any }> = [];
+  const bus = { emit: async (event: any, ctx: any) => { calls.push({ type: event.type, payload: event.payload, ctx }); } };
+  return { bus, calls };
+}
+
+test("agro-workforce T-052: verifyCapability(APPROVED) emits agro.worker_capability.verified", async () => {
+  const { bus, calls } = busStub();
+  const { svc } = setup([], bus);
+  const wc = await svc.declareCapability("farm_1", "worker", "worker", { capability: "lechones_alimentacion" });
+  await svc.verifyCapability("farm_1", "sup", wc.id, { result: "APPROVED", method: "DIRECT_OBSERVATION", evidenceIds: ["ev_1"] });
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0]!.type, "agro.worker_capability.verified");
+  assert.equal(calls[0]!.payload.workerCapabilityId, wc.id);
+  assert.equal(calls[0]!.payload.workerId, "worker");
+  assert.equal(calls[0]!.payload.capabilityKey, "lechones_alimentacion");
+  assert.equal(calls[0]!.payload.verifiedById, "sup");
+  assert.equal(calls[0]!.ctx.tenantId, "tenant_1");
+  assert.equal(calls[0]!.ctx.orgId, "agro:farm_1");
+});
+
+test("agro-workforce T-052: a REJECTED verification does not emit agro.worker_capability.verified", async () => {
+  const { bus, calls } = busStub();
+  const { svc } = setup([], bus);
+  const wc = await svc.declareCapability("farm_1", "worker", "worker", { capability: "lechones_alimentacion" });
+  await svc.verifyCapability("farm_1", "sup", wc.id, { result: "REJECTED", method: "INTERVIEW", notes: "No domina la técnica" });
+  assert.equal(calls.length, 0);
+});
+
+test("agro-workforce T-052: without a DomainEventBus at all (optional dependency), verifyCapability still works", async () => {
+  const { svc } = setup();
+  const wc = await svc.declareCapability("farm_1", "worker", "worker", { capability: "lechones_alimentacion" });
+  const { workerCapability } = await svc.verifyCapability("farm_1", "sup", wc.id, { result: "APPROVED", method: "DIRECT_OBSERVATION", evidenceIds: ["ev_1"] });
+  assert.equal(workerCapability.status, "VERIFIED");
 });
