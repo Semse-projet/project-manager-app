@@ -1,0 +1,110 @@
+.page {
+  padding: 32px;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.nav,
+.panel {
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--surface);
+}
+
+.nav { overflow: hidden; }
+.panel { padding: 28px; min-width: 0; }
+
+.settingRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.integrationHeader,
+.integrationTopline,
+.integrationActions,
+.tenantToggle,
+.secondaryButton,
+.verifyButton,
+.integrationLoading {
+  display: flex;
+  align-items: center;
+}
+
+.integrationHeader,
+.integrationTopline,
+.integrationActions {
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.integrationHeader { align-items: flex-start; margin-bottom: 20px; }
+.integrationList { border-top: 1px solid var(--border); }
+.integrationItem { padding: 20px 0; border-bottom: 1px solid var(--border); }
+
+.integrationMessage,
+.checkedAt { color: var(--muted); font-size: 0.85rem; }
+.integrationMessage { margin: 12px 0; }
+.checkedAt { margin-top: 10px; }
+
+.statusBadge {
+  flex-shrink: 0;
+  border: 1px solid;
+  border-radius: 999px;
+  padding: 5px 9px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.variableList { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 14px; }
+.variableList code {
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--panel);
+  padding: 3px 6px;
+  color: var(--ink);
+  font-size: 0.72rem;
+  overflow-wrap: anywhere;
+}
+
+.tenantToggle { gap: 9px; font-size: 0.82rem; }
+
+.secondaryButton,
+.verifyButton {
+  justify-content: center;
+  gap: 7px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--ink);
+  padding: 8px 11px;
+  cursor: pointer;
+  font-weight: 650;
+}
+
+.secondaryButton:disabled,
+.verifyButton:disabled { cursor: not-allowed; opacity: 0.5; }
+.integrationLoading { gap: 8px; color: var(--muted); padding: 18px 0; }
+
+@media (max-width: 760px) {
+  .page { padding: 18px 14px 32px; }
+  .layout { grid-template-columns: 1fr; gap: 16px; }
+  .nav { display: flex; overflow-x: auto; border-radius: 14px; }
+  .nav button { min-width: max-content; }
+  .panel { padding: 20px 16px; border-radius: 16px; }
+  .settingRow,
+  .integrationHeader,
+  .integrationTopline,
+  .integrationActions { align-items: flex-start; flex-direction: column; }
+  .integrationActions,
+  .verifyButton,
+  .secondaryButton { width: 100%; }
+}

@@ -144,6 +144,12 @@ de Production Health las verifica junto con las nueve páginas `/modules/*`.
 - `POST /v1/ops/mission-control/actions` (F4; `ops:dashboard:write` + `OPS_ADMIN`; reason, allowlisted runbook, idempotency key, lease, durable receipt and owning-domain adapter)
 - `POST /v1/ops/approvals/:approvalId/decision`
 
+## Admin / Integrations
+- `GET /v1/admin/settings`
+- `PUT /v1/admin/settings`
+- `GET /v1/admin/integrations/status` (`ops:dashboard:read`; estados sanitizados, sin valores de secretos)
+- `POST /v1/admin/integrations/:integrationId/verify` (`ops:dashboard:write`; prueba GET de solo lectura y persiste último resultado)
+
 ## Agents
 - `GET /v1/agents/catalog`
 - `POST /v1/agents/runs` (acepta `maxAttempts` opcional)

@@ -1,6 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service.js';
-import { adminSettingsSchema, type AdminSettings, type AdminSettingsPatch } from '@semse/schemas';
+import {
+  adminSettingsSchema,
+  type AdminIntegrationCheck,
+  type AdminIntegrationId,
+  type AdminSettings,
+  type AdminSettingsPatch,
+} from '@semse/schemas';
 
 @Injectable()
 export class AdminService {
@@ -14,14 +20,48 @@ export class AdminService {
     return adminSettingsSchema.parse(raw);
   }
 
+  /**
+   * Client-facing settings write. `integrations.checks` is server-owned —
+   * only `recordIntegrationCheck` may change it — so a stale or forged value
+   * in the patch is discarded and the stored verification history is kept.
+   */
   async updateSettings(
     tenantId: string,
     patch: AdminSettingsPatch,
     actor: { userId: string; requestId: string }
   ): Promise<AdminSettings> {
     const current = await this.getSettings(tenantId);
-    const next = adminSettingsSchema.parse({ ...current, ...patch });
+    const merged = { ...current, ...patch };
+    const next = adminSettingsSchema.parse({
+      ...merged,
+      integrations: { ...merged.integrations, checks: current.integrations.checks },
+    });
+    return this.write(tenantId, current, next, actor);
+  }
 
+  async recordIntegrationCheck(
+    tenantId: string,
+    integrationId: AdminIntegrationId,
+    check: AdminIntegrationCheck,
+    actor: { userId: string; requestId: string }
+  ): Promise<AdminSettings> {
+    const current = await this.getSettings(tenantId);
+    const next = adminSettingsSchema.parse({
+      ...current,
+      integrations: {
+        ...current.integrations,
+        checks: { ...current.integrations.checks, [integrationId]: check },
+      },
+    });
+    return this.write(tenantId, current, next, actor);
+  }
+
+  private async write(
+    tenantId: string,
+    current: AdminSettings,
+    next: AdminSettings,
+    actor: { userId: string; requestId: string }
+  ): Promise<AdminSettings> {
     await this.prisma.tenantSettings.upsert({
       where: { tenantId },
       create: {

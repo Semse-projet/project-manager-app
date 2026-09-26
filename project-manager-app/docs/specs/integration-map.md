@@ -139,7 +139,7 @@ API NestJS  →  PaymentProviderRegistry
 Meta WhatsApp Business API
   │
   ├── Verificación webhook  ←  GET /v1/communications/webhooks/whatsapp
-  │   verify_token: WHATSAPP_VERIFY_TOKEN
+  │   verify_token: WHATSAPP_CLOUD_VERIFY_TOKEN
   │
   └── Mensajes entrantes    ←  POST /v1/communications/webhooks/whatsapp
       X-Hub-Signature-256: validar con WHATSAPP_APP_SECRET
@@ -148,10 +148,10 @@ Meta WhatsApp Business API
 ```
 
 **Variables Railway:**
-- `WHATSAPP_VERIFY_TOKEN`
+- `WHATSAPP_CLOUD_VERIFY_TOKEN`
 - `WHATSAPP_APP_SECRET`
-- `WHATSAPP_PHONE_NUMBER_ID`
-- `WHATSAPP_ACCESS_TOKEN`
+- `WHATSAPP_CLOUD_PHONE_NUMBER_ID`
+- `WHATSAPP_CLOUD_ACCESS_TOKEN`
 
 ---
 
@@ -188,7 +188,7 @@ web-assistant-portal (semseproject repo)
 | `OLLAMA_BASE_URL` | API | LLM local privacyCritical |
 | `STRIPE_SECRET_KEY` | API | Pagos |
 | `STRIPE_WEBHOOK_SECRET` | API | Validación webhook |
-| `WHATSAPP_VERIFY_TOKEN` | API | Meta verification |
+| `WHATSAPP_CLOUD_VERIFY_TOKEN` | API | Meta verification |
 | `WHATSAPP_APP_SECRET` | API | Meta signature |
-| `WHATSAPP_PHONE_NUMBER_ID` | API | Canal WhatsApp |
-| `WHATSAPP_ACCESS_TOKEN` | API | Meta API token |
+| `WHATSAPP_CLOUD_PHONE_NUMBER_ID` | API | Canal WhatsApp |
+| `WHATSAPP_CLOUD_ACCESS_TOKEN` | API | Meta API token |

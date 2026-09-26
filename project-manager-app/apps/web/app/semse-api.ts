@@ -42,6 +42,8 @@ import type {
   PrometeoToolExecutionResult,
   PrometeoToolInvokeInput,
   AdminSettings,
+  AdminIntegrationId,
+  AdminIntegrationStatus,
   CapabilityRecord,
 } from "@semse/schemas";
 import {
@@ -3052,6 +3054,20 @@ export async function updateAdminSettings(input: Partial<AdminSettings>): Promis
     headers: { "content-type": "application/json" },
     body: JSON.stringify(input),
   });
+}
+
+export async function fetchAdminIntegrationStatuses(): Promise<AdminIntegrationStatus[]> {
+  if (!semseRuntimeEnabled()) {
+    return [];
+  }
+  return fetchSemse<AdminIntegrationStatus[]>("/api/semse/admin/integrations/status");
+}
+
+export async function verifyAdminIntegration(integrationId: AdminIntegrationId): Promise<AdminIntegrationStatus> {
+  return fetchSemse<AdminIntegrationStatus>(
+    `/api/semse/admin/integrations/${encodeURIComponent(integrationId)}/verify`,
+    { method: "POST" },
+  );
 }
 
 // ── SEMSE Knowledge Contributor Program ─────────────────────────────────────
