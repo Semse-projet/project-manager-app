@@ -4,7 +4,7 @@ title: "Bandeja de revisión humana — Jev Decision Layer, Wave: Marketplace co
 domain: "prometeo"
 sdd_version: "2.0"
 version: "1.0"
-status: "DRAFT"
+status: "APPROVED"
 owner: "semse-core"
 risk: "medium"
 code_status: "NOT_STARTED"
@@ -35,7 +35,7 @@ related_events: []
 related_agents:
   - "marketplace"
   - "prometeo"
-last_verified: "2026-09-25"
+last_verified: "2026-09-26"
 ---
 
 # Spec: Bandeja de revisión humana — Jev Decision Layer, Wave: Marketplace confidence gate
@@ -44,6 +44,10 @@ last_verified: "2026-09-25"
 > cambiar `status` a `APPROVED` antes de implementar. Código, CI, merge,
 > deploy y activación se registran por separado; un deploy no demuestra
 > activación ni verificación funcional.
+
+**Aprobación:** sign-off explícito del product owner en PR #687, 2026-09-26 —
+alcance acotado a §2 (Marketplace únicamente, shadow-mode por defecto, sin
+reentrenamiento). No se amplió el alcance en la aprobación.
 
 ## 1. Problema y resultado
 
