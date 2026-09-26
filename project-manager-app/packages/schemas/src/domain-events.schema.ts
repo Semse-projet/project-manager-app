@@ -465,6 +465,59 @@ export const disputeEscalatedEventSchema = domainEvent(
 );
 
 // ─────────────────────────────────────────────────────────────────────────────
+// AGRO EVENTS (T-052)
+// ─────────────────────────────────────────────────────────────────────────────
+// Agro ya audita todo internamente vía AgroAuditEvent (append-only, por finca);
+// estos 3 eventos son para consumo *cruzado* (Notifications hoy; Trust más
+// adelante), no para completar una auditoría que ya existe. Análogos elegidos
+// del catálogo ya aprobado: incident.created/resolved ~ dispute.opened/resolved
+// (misma forma: alguien reporta, alguien más resuelve); worker_capability.verified
+// ~ milestone.approved (señal de confianza). Solo se emiten para fincas con
+// tenant (AgroFarm.tenantId, T-051): sin tenant, AgroAuditEvent sigue siendo el
+// único registro, igual que el espejo a JobTask (agro-jobtask-mirror.ts).
+
+export const agroIncidentCreatedEventSchema = domainEvent(
+  "agro.incident.created",
+  z.object({
+    incidentId:   z.string(),
+    farmId:       z.string(),
+    type:         z.string(),
+    severity:     z.string(),
+    title:        z.string(),
+    reportedById: z.string(),
+    assignedToId: z.string().optional(),
+    ownerId:      z.string().optional(),
+  }),
+  ["notification", "audit"]
+);
+
+export const agroIncidentResolvedEventSchema = domainEvent(
+  "agro.incident.resolved",
+  z.object({
+    incidentId:   z.string(),
+    farmId:       z.string(),
+    resolvedById: z.string(),
+    resolution:   z.string(),
+    reportedById: z.string(),
+    assignedToId: z.string().optional(),
+  }),
+  ["notification", "audit"]
+);
+
+export const agroWorkerCapabilityVerifiedEventSchema = domainEvent(
+  "agro.worker_capability.verified",
+  z.object({
+    workerCapabilityId: z.string(),
+    farmId:             z.string(),
+    workerId:           z.string(),
+    capabilityKey:      z.string(),
+    level:              z.string(),
+    verifiedById:       z.string(),
+  }),
+  ["notification", "audit"]
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
 // RATING EVENTS
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -645,6 +698,10 @@ export const semseEventSchema = z.discriminatedUnion("type", [
   disputeUnderReviewEventSchema,
   disputeResolvedEventSchema,
   disputeEscalatedEventSchema,
+  // Agro
+  agroIncidentCreatedEventSchema,
+  agroIncidentResolvedEventSchema,
+  agroWorkerCapabilityVerifiedEventSchema,
   // Rating
   ratingSubmittedEventSchema,
   // Risk
@@ -696,6 +753,9 @@ export const SEMSE_EVENT_TYPES = [
   "dispute.under_review",
   "dispute.resolved",
   "dispute.escalated",
+  "agro.incident.created",
+  "agro.incident.resolved",
+  "agro.worker_capability.verified",
   "rating.submitted",
   "risk.recalculated",
   "risk.flag_raised",
@@ -742,6 +802,9 @@ export const EVENT_AGENT_MAP: Record<SemseEventType, string[]> = {
   "dispute.under_review":           [],
   "dispute.resolved":               ["trust-match", "risk", "notification", "audit"],
   "dispute.escalated":              ["notification", "audit"],
+  "agro.incident.created":          ["notification", "audit"],
+  "agro.incident.resolved":         ["notification", "audit"],
+  "agro.worker_capability.verified": ["notification", "audit"],
   "rating.submitted":               ["trust-match", "audit"],
   "risk.recalculated":              ["notification", "audit"],
   "risk.flag_raised":               ["notification", "audit"],

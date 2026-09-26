@@ -1,7 +1,9 @@
 import {
-  BadRequestException, ConflictException, Injectable, NotFoundException,
+  BadRequestException, ConflictException, Injectable, NotFoundException, Optional,
 } from "@nestjs/common";
+import { DomainEventBus } from "../domain-events/domain-event-bus.service.js";
 import { AgroAuditRepository } from "./agro-audit.repository.js";
+import { emitAgroIncidentCreated, emitAgroIncidentResolved } from "./agro-domain-events.js";
 import { AgroEvidenceService, type AgroEvidenceInput } from "./agro-evidence.service.js";
 import { AgroFarmAccessService, assertAgroFarmAction, type AgroFarmActor } from "./agro-farm-access.service.js";
 import { canPerformAgroFarmAction, type AgroFarmAction } from "./agro-farm-policy.js";
@@ -55,6 +57,7 @@ export class AgroIncidentService {
     private readonly evidence: AgroEvidenceService,
     private readonly tasks: AgroTaskRefResolver,
     private readonly audit: AgroAuditRepository,
+    @Optional() private readonly domainEventBus?: DomainEventBus,
   ) {}
 
   // ── Lectura ────────────────────────────────────────────────────────────────
@@ -179,6 +182,10 @@ export class AgroIncidentService {
     for (const item of input.evidence ?? []) {
       evidence.push(await this.attachEvidence(incident.farmId, incident.id, userId, item, source));
     }
+
+    const farm = await this.access.getFarmContext(farmId);
+    await emitAgroIncidentCreated(this.domainEventBus, farm, userId, incident);
+
     return { incident, duplicate: false, evidence };
   }
 
@@ -265,11 +272,21 @@ export class AgroIncidentService {
     }
     if (to === "IN_PROGRESS" && input.reason?.trim()) after.reason = input.reason.trim();
 
-    return this.applyUpdate(incident, patch, [{
+    const updated = await this.applyUpdate(incident, patch, [{
       farmId: incident.farmId, actorId: userId, entityType: "AgroIncident", entityId: incident.id,
       action: incidentTransitionAuditAction(incident.status, to),
       before: { status: incident.status }, after, source: "WEB",
     }]);
+
+    if (to === "RESOLVED") {
+      const farm = await this.access.getFarmContext(incident.farmId);
+      await emitAgroIncidentResolved(this.domainEventBus, farm, userId, {
+        id: incident.id, farmId: incident.farmId, resolution: updated.resolution ?? "",
+        reportedById: incident.reportedById, assignedToId: incident.assignedToId,
+      });
+    }
+
+    return updated;
   }
 
   async assign(incidentId: string, userId: string, assignedToId: string | null) {

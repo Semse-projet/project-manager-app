@@ -19,7 +19,7 @@
 | T-051 | Tenant de la finca + espejo AgroFarmTask → JobTask(domain=agro) + backfill (spec `agro-task-jobtask-convergence.spec.md`) | ✅ | agro-jobtask-mirror-integration.test.ts |
 | T-058a | Asignar tenant a una finca que quedó sin él (`POST farms/:farmId/tenant`, solo propietario, solo al tenant de su sesión) | ✅ | agro-jobtask-mirror-integration.test.ts |
 | T-058b | Conectar Agro a "mis tareas" entre dominios (`GET /v1/tasks`, permiso nuevo `tasks:read:self`); el cambio de lecturas de Agro a JobTask no procede aún (spec §3ter) | ✅ | agro-jobtask-mirror-integration.test.ts + domain-rbac-permissions.test.ts + agro-farm-policy.test.ts |
-| T-052 | Eventos `agro.*` en EVENT_CATALOG + outbox | ⏳ | requiere aprobación de catálogo |
+| T-052 | Eventos `agro.*` en EVENT_CATALOG + Notifications (spec `agro-domain-events.spec.md`); catálogo aprobado: incident.created/resolved + worker_capability.verified | ✅ | agro-incident.service.test.ts + agro-workforce.service.test.ts + agro-domain-events-notifications-integration.test.ts |
 | T-053 | Subida binaria de evidencia Agro (flujo presignado, spec `agro-evidence-upload.spec.md`) | ✅ | verificación manual (presign→PUT→registro→descarga) |
 | T-054 | ASR/visión para el intake (privacyCritical → Ollama/vision-service) | ⏳ | |
 | T-055 | Pantallas Agro en apps/mobile (hoy el reporte es web responsive) | ⏳ | |

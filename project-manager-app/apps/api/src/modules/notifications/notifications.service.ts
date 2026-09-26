@@ -199,6 +199,62 @@ function mapEventToNotifications(
       return notifications;
     }
 
+    // T-052: agro.* — mismo patrón que dispute.opened/resolved (reportante /
+    // resolutor). "farm.owner" y "assignedToId" son opcionales en el payload
+    // (una incidencia puede no tener ninguno al crearse).
+    case "agro.incident.created": {
+      const reportedById = extractStr(payload, "reportedById");
+      const assignedToId = extractStr(payload, "assignedToId");
+      const ownerId = extractStr(payload, "ownerId");
+      const notifications: NotificationSpec[] = [];
+
+      if (assignedToId && assignedToId !== reportedById) {
+        notifications.push({
+          userId: assignedToId,
+          type: "agro_incident_assigned",
+          title: "Se te asignó una incidencia",
+          body: "Se reportó una incidencia agro y quedó asignada a ti. Revisa los detalles.",
+          payload: { incidentId: payload.incidentId, farmId: payload.farmId, severity: payload.severity },
+        });
+      }
+      if (ownerId && ownerId !== reportedById && ownerId !== assignedToId) {
+        notifications.push({
+          userId: ownerId,
+          type: "agro_incident_reported",
+          title: "Nueva incidencia en tu finca",
+          body: "Se reportó una incidencia en tu finca. Revisa los detalles.",
+          payload: { incidentId: payload.incidentId, farmId: payload.farmId, severity: payload.severity, title: payload.title },
+        });
+      }
+      return notifications;
+    }
+
+    case "agro.incident.resolved": {
+      const reportedById = extractStr(payload, "reportedById");
+      const resolvedById = extractStr(payload, "resolvedById");
+      if (!reportedById || reportedById === resolvedById) return [];
+      return [{
+        userId: reportedById,
+        type: "agro_incident_resolved",
+        title: "Incidencia resuelta",
+        body: "La incidencia que reportaste fue marcada como resuelta.",
+        payload: { incidentId: payload.incidentId, farmId: payload.farmId, resolution: payload.resolution },
+      }];
+    }
+
+    case "agro.worker_capability.verified": {
+      const workerId = extractStr(payload, "workerId");
+      const verifiedById = extractStr(payload, "verifiedById");
+      if (!workerId || workerId === verifiedById) return [];
+      return [{
+        userId: workerId,
+        type: "agro_capability_verified",
+        title: "Capacidad verificada",
+        body: "Un supervisor verificó una capacidad que declaraste.",
+        payload: { workerCapabilityId: payload.workerCapabilityId, farmId: payload.farmId, capabilityKey: payload.capabilityKey, level: payload.level },
+      }];
+    }
+
     case "job.assigned": {
       const proUserId = extractStr(payload, "proUserId");
       if (!proUserId) return [];
