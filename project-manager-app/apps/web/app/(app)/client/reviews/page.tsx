@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Star, ChevronDown, MessageSquare, Inbox } from "lucide-react";
-import { HtmlInCanvasPanel } from "@semse/ui";
+import { EmptyState, ErrorState, HtmlInCanvasPanel } from "@semse/ui";
 import { ClientPageHeader } from "../../../components/client/ClientPageHeader";
 import { fetchRatings, type RatingListItem } from "../../../semse-api";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
@@ -133,17 +133,13 @@ export default function ClientReviewsPage() {
           ))}
         </div>
       ) : error ? (
-        <HtmlInCanvasPanel as="section" style={{ ...card, color: "var(--error)", background: "rgba(239,68,68,.06)", borderColor: "rgba(239,68,68,.2)" }} canvasClassName="rounded-2xl" minHeight={90}>
-          {error}
-        </HtmlInCanvasPanel>
+        <ErrorState message={error} />
       ) : reviews.length === 0 ? (
-        <HtmlInCanvasPanel as="section" style={{ ...card, textAlign: "center", padding: "42px 24px" }} canvasClassName="rounded-2xl" minHeight={180}>
-          <Inbox size={34} style={{ color: "var(--faint)", margin: "0 auto 12px" }} />
-          <p style={{ fontSize: "14px", fontWeight: 700, color: "var(--ink)" }}>Aún no hay reseñas reales en tu historial</p>
-          <p style={{ fontSize: "13px", color: "var(--muted)", marginTop: "4px" }}>
-            Cuando cierres trabajos y existan calificaciones entre actores, aparecerán aquí.
-          </p>
-        </HtmlInCanvasPanel>
+        <EmptyState
+          title="Aún no hay reseñas reales en tu historial"
+          description="Cuando cierres trabajos y existan calificaciones entre actores, aparecerán aquí."
+          icon={Inbox}
+        />
       ) : (
         <>
           <HtmlInCanvasPanel as="section" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", padding: "10px 12px", marginBottom: "16px", flexWrap: "wrap" }} canvasClassName="rounded-2xl" minHeight={58}>

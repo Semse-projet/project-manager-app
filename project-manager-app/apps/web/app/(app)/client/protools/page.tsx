@@ -6,6 +6,7 @@ import {
   AlertTriangle, Brain, CheckCircle2, ChevronDown, ChevronUp,
   DollarSign, Send, Wrench, Briefcase, ExternalLink,
 } from "lucide-react";
+import { ErrorState } from "@semse/ui";
 import { BuildOpsPlanCard } from "@/components/semse/BuildOpsPlanCard";
 import { EvidenceChecklistCard } from "@/components/semse/EvidenceChecklistCard";
 
@@ -151,7 +152,7 @@ export default function ProToolsPage() {
             </div>
           </div>
 
-          {error && <div style={{ padding: "10px 14px", background: "rgba(239,68,68,.1)", borderRadius: 8, fontSize: 12, color: "#fca5a5" }}>{error}</div>}
+          {error && <ErrorState message={error} />}
 
           <button onClick={runEstimate} disabled={loading}
             style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: 13, borderRadius: 12, background: "rgba(252,211,77,.15)", border: "1px solid rgba(252,211,77,.3)", cursor: loading ? "wait" : "pointer", fontSize: 14, fontWeight: 800, color: "#fcd34d", opacity: loading ? 0.7 : 1 }}>

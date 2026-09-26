@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { JobRecordView } from "@semse/schemas";
+import { ErrorState } from "@semse/ui";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -477,16 +478,17 @@ export default function ClientJobDetailPage() {
     setActiveInsight(null);
   }
 
-  const summaryButtonStyle = (accent: string): React.CSSProperties => ({
+  const summaryButtonStyle = (accent: string, glow: string): React.CSSProperties => ({
     textDecoration: "none",
     padding: "12px 14px",
     borderRadius: "12px",
     background: "var(--bg)",
     border: "1px solid var(--border)",
-    transition: "border-color .15s, box-shadow .15s",
     cursor: "pointer",
     display: "block",
     textAlign: "left",
+    ["--row-hover-color" as string]: accent,
+    ["--row-hover-shadow" as string]: `0 2px 8px ${glow}`,
   });
 
   const drawerCard: React.CSSProperties = {
@@ -547,9 +549,7 @@ export default function ClientJobDetailPage() {
           ))}
         </div>
       ) : error ? (
-        <div style={{ padding: "18px 20px", background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.18)", borderRadius: "14px", color: "var(--error)", fontSize: "13px" }}>
-          {error}
-        </div>
+        <ErrorState message={error} />
       ) : (
         <>
           {nextActionGuide ? (
@@ -727,7 +727,7 @@ export default function ClientJobDetailPage() {
               </div>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "14px" }}>
-              <button type="button" onClick={() => setActiveInsight("escrow")} style={summaryButtonStyle("var(--brand)")} onMouseOver={e => { e.currentTarget.style.borderColor = "var(--brand)"; e.currentTarget.style.boxShadow = "0 2px 8px rgba(59,130,246,.12)"; }} onMouseOut={e => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.boxShadow = ""; }}>
+              <button type="button" onClick={() => setActiveInsight("escrow")} className="row-hover-glow" style={summaryButtonStyle("var(--brand)", "rgba(59,130,246,.12)")}>
                 <div style={{ fontSize: "11px", color: "var(--muted)", marginBottom: "4px" }}>Presupuesto y escrow</div>
                 <div style={{ fontSize: "18px", fontWeight: 800, color: "var(--ink)" }}>
                   {formatMoney(asNumber(job?.budgetMin))} {asNumber(job?.budgetMax) ? `- ${formatMoney(asNumber(job?.budgetMax))}` : ""}
@@ -736,21 +736,21 @@ export default function ClientJobDetailPage() {
                   {escrowStatus || "PENDING"} · abrir contexto →
                 </div>
               </button>
-              <button type="button" onClick={() => setActiveInsight("milestones")} style={summaryButtonStyle("var(--accent)")} onMouseOver={e => { e.currentTarget.style.borderColor = "var(--accent)"; e.currentTarget.style.boxShadow = "0 2px 8px rgba(255,106,0,.1)"; }} onMouseOut={e => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.boxShadow = ""; }}>
+              <button type="button" onClick={() => setActiveInsight("milestones")} className="row-hover-glow" style={summaryButtonStyle("var(--accent)", "rgba(255,106,0,.1)")}>
                 <div style={{ fontSize: "11px", color: "var(--muted)", marginBottom: "4px" }}>Milestones</div>
                 <div style={{ fontSize: "18px", fontWeight: 800, color: "var(--ink)" }}>{milestoneSummary.approved}/{milestoneSummary.total}</div>
                 <div style={{ fontSize: "11px", color: "var(--accent)", marginTop: "4px" }}>
                   {asString(job?.urgency) ?? "normal"} · abrir contexto →
                 </div>
               </button>
-              <button type="button" onClick={() => setActiveInsight("evidence")} style={summaryButtonStyle("var(--ok)")} onMouseOver={e => { e.currentTarget.style.borderColor = "var(--ok)"; e.currentTarget.style.boxShadow = "0 2px 8px rgba(16,185,129,.1)"; }} onMouseOut={e => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.boxShadow = ""; }}>
+              <button type="button" onClick={() => setActiveInsight("evidence")} className="row-hover-glow" style={summaryButtonStyle("var(--ok)", "rgba(16,185,129,.1)")}>
                 <div style={{ fontSize: "11px", color: "var(--muted)", marginBottom: "4px" }}>Evidencias</div>
                 <div style={{ fontSize: "18px", fontWeight: 800, color: "var(--ink)" }}>{evidence.length}</div>
                 <div style={{ fontSize: "11px", color: "var(--ok)", marginTop: "4px" }}>
                   {(asString(job?.location) ?? asString(job?.city)) ? `${asString(job?.city) ?? asString(job?.location)} · ` : ""}abrir contexto →
                 </div>
               </button>
-              <button type="button" onClick={() => setActiveInsight("signals")} style={summaryButtonStyle("var(--violet)")} onMouseOver={e => { e.currentTarget.style.borderColor = "var(--violet)"; e.currentTarget.style.boxShadow = "0 2px 8px rgba(139,92,246,.1)"; }} onMouseOut={e => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.boxShadow = ""; }}>
+              <button type="button" onClick={() => setActiveInsight("signals")} className="row-hover-glow" style={summaryButtonStyle("var(--violet)", "rgba(139,92,246,.1)")}>
                 <div style={{ fontSize: "11px", color: "var(--muted)", marginBottom: "4px" }}>Operación y agentes</div>
                 <div style={{ fontSize: "18px", fontWeight: 800, color: "var(--ink)" }}>{approvedSignals.length}</div>
                 <div style={{ fontSize: "11px", color: "var(--violet)", marginTop: "4px" }}>

@@ -9,7 +9,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { HtmlInCanvasPanel } from "@semse/ui";
+import { ErrorState, HtmlInCanvasPanel } from "@semse/ui";
 import {
   ArrowLeft, ArrowRight, CheckCircle, Upload, MapPin, Briefcase,
   Globe, Home, AlertCircle, Sparkles,
@@ -809,12 +809,7 @@ export default function NewJobPage() {
       </HtmlInCanvasPanel>
 
       {/* Submit error */}
-      {submitError && (
-        <div style={{ marginTop: "14px", padding: "12px 16px", background: "rgba(239,68,68,.06)", border: "1px solid rgba(239,68,68,.25)", borderRadius: "10px", color: "var(--error)", fontSize: "13px", display: "flex", alignItems: "center", gap: "8px" }}>
-          <AlertCircle size={15} style={{ flexShrink: 0 }} />
-          {submitError}
-        </div>
-      )}
+      {submitError && <ErrorState message={submitError} className="mt-3.5" />}
 
       {/* Navigation */}
       <div style={{ display: "flex", justifyContent: "space-between", marginTop: "20px" }}>

@@ -2415,6 +2415,18 @@ input[type="range"]::-moz-range-thumb {
   border-color: var(--row-hover-color, var(--ok));
 }
 
+/* Same as .row-hover, plus a colored glow (e.g. toggle buttons with a per-item accent) */
+.row-hover-glow {
+  border-color: var(--border);
+  box-shadow: none;
+  transition: border-color 160ms, box-shadow 160ms;
+}
+.row-hover-glow:hover,
+.row-hover-glow:focus-visible {
+  border-color: var(--row-hover-color, var(--ok));
+  box-shadow: var(--row-hover-shadow, none);
+}
+
 /* Empty state */
 .empty-state {
   text-align: center;

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { FileText, Download, Eye, Upload, Clock, Search, ImageIcon, Video } from "lucide-react";
 import Link from "next/link";
-import { HtmlInCanvasPanel, StatusBadge } from "@semse/ui";
+import { ErrorState, HtmlInCanvasPanel, StatusBadge } from "@semse/ui";
 import { CLIENT_ROUTES } from "../../../lib/client-routes";
 import { fetchJobs, fetchJobEvidence } from "../../../semse-api";
 import { ClientPageHeader } from "../../../components/client/ClientPageHeader";
@@ -223,9 +223,7 @@ export default function ClientDocumentsPage() {
             ))}
           </div>
         ) : error ? (
-          <div style={{ padding: "16px 18px", borderRadius: "12px", background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.18)", color: "var(--error)", fontSize: "13px" }}>
-            {error}
-          </div>
+          <ErrorState message={error} />
         ) : filtered.length === 0 ? (
           <div style={{ padding: "48px", textAlign: "center" }}>
             <FileText size={36} style={{ color: "var(--faint)", margin: "0 auto 12px" }} />
