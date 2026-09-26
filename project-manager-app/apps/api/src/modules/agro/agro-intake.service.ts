@@ -1,7 +1,11 @@
-import { BadRequestException, Injectable } from "@nestjs/common";
+import { BadRequestException, Injectable, Optional } from "@nestjs/common";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
+import { resolveTranscriptionProvider } from "../contributor-program/transcription-provider.js";
+import { HttpUrlStorageReader } from "./agro-asr.js";
+import { AgroEvidenceService } from "./agro-evidence.service.js";
 import { AgroFarmAccessService } from "./agro-farm-access.service.js";
 import { AgroTaskRefResolver, type ResolvedAgroTask } from "./agro-task-ref.resolver.js";
+import { AgroVisionService, type AgroVisionResult } from "./agro-vision.service.js";
 import {
   AGRO_INTAKE_DISCLAIMER, AGRO_INTAKE_ENGINE, buildIncidentTitle, classifyIncident, detectCompletion,
   detectSpecies, incidentProposalBase, matchEntities, normalizeText, scoreTaskMatch, type IntakeCandidate,
@@ -11,7 +15,8 @@ const MAX_TEXT = 4000;
 const TASK_MATCH_THRESHOLD = 0.5;
 
 export type AgroIntakeInput = {
-  text: string;
+  /** Requerido salvo que `evidenceIds` incluya audio transcribible (T-054). */
+  text?: string;
   /** Evidencias ya capturadas (AgroEvidenceItem de la finca) — p. ej. el audio original. */
   evidenceIds?: string[];
   occurredAt?: Date;
@@ -24,17 +29,28 @@ export type AgroIntakeInput = {
  */
 @Injectable()
 export class AgroIntakeService {
+  // Swappable only by tests (plain instance property, not DI) — producción
+  // siempre usa el resolver real (mismo flag SEMSE_ASR_PROVIDER que
+  // Contributor Program, ver agro-asr.ts).
+  transcriptionProviderResolver = resolveTranscriptionProvider;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly access: AgroFarmAccessService,
     private readonly tasks: AgroTaskRefResolver,
+    private readonly evidence: AgroEvidenceService,
+    @Optional() private readonly vision?: AgroVisionService,
   ) {}
 
   async propose(farmId: string, userId: string, input: AgroIntakeInput) {
     const actor = await this.access.require(farmId, userId, "incident.report");
-    const text = input.text?.trim() ?? "";
-    if (!text) throw new BadRequestException("text is required");
+
+    const evidenceIds = [...new Set(input.evidenceIds ?? [])];
+    const evidenceRows = evidenceIds.length ? await this.evidence.findEvidenceInFarm(farmId, evidenceIds) : [];
+
+    const { text, transcribedFrom } = await this.resolveText(input.text, evidenceRows);
     if (text.length > MAX_TEXT) throw new BadRequestException(`text exceeds ${MAX_TEXT} characters`);
+    const visionSignals = await this.recognizePhotos(evidenceRows);
 
     const normalized = normalizeText(text);
     const [units, groups, animals] = await Promise.all([
@@ -63,6 +79,11 @@ export class AgroIntakeService {
       reporter: { userId, farmRole: actor.role },
       entities,
       evidenceIds: input.evidenceIds ?? [],
+      // T-054: evidencia de audio/foto que se procesó automáticamente para
+      // llegar a esta propuesta — nunca reemplaza la revisión humana, solo
+      // la informa (candidatos de objetos, no diagnóstico).
+      transcribedFrom,
+      visionSignals,
       requiresHumanReview: true as const,
       disclaimer: AGRO_INTAKE_DISCLAIMER,
     };
@@ -158,4 +179,60 @@ export class AgroIntakeService {
       targetType: task.targetType, targetId: task.targetId, dueAt: task.dueAt,
     };
   }
+
+  /**
+   * T-054: si no vino `text`, busca audio entre las evidencias referenciadas
+   * y lo transcribe. Si tampoco hay audio (o `text` sí vino), no cambia nada.
+   * Un fallo real de transcripción (proveedor caído, red) se propaga — a
+   * diferencia de la visión, el audio es la única fuente del texto, no un
+   * enriquecimiento best-effort.
+   */
+  private async resolveText(
+    inputText: string | undefined,
+    evidenceRows: EvidenceRow[],
+  ): Promise<{ text: string; transcribedFrom: string[] }> {
+    let text = inputText?.trim() ?? "";
+    const transcribedFrom: string[] = [];
+
+    if (!text) {
+      const audioRows = evidenceRows.filter((e) => e.mediaType === "AUDIO" && e.fileUrl);
+      if (audioRows.length) {
+        const provider = this.transcriptionProviderResolver(new HttpUrlStorageReader());
+        if (!provider) {
+          throw new BadRequestException(
+            "text is required (no automatic transcription provider is configured for audio evidence — set SEMSE_ASR_PROVIDER or include text manually)",
+          );
+        }
+        for (const row of audioRows) {
+          const segments = await provider.transcribe({ storageKey: row.fileUrl!, mimeType: null });
+          const transcript = segments.map((s) => s.text).join(" ").trim();
+          if (transcript) {
+            text = text ? `${text}\n${transcript}` : transcript;
+            transcribedFrom.push(row.id);
+          }
+        }
+      }
+    }
+
+    text = text.trim();
+    if (!text) throw new BadRequestException("text is required");
+    return { text, transcribedFrom };
+  }
+
+  /** T-054: enriquecimiento best-effort — nunca bloquea la propuesta. */
+  private async recognizePhotos(
+    evidenceRows: EvidenceRow[],
+  ): Promise<Array<{ evidenceId: string } & AgroVisionResult>> {
+    if (!this.vision) return [];
+    const photoRows = evidenceRows.filter((e) => e.mediaType === "PHOTO" && e.fileUrl);
+    const results = await Promise.all(
+      photoRows.map(async (row) => {
+        const result = await this.vision!.recognize(row.fileUrl!);
+        return result ? { evidenceId: row.id, ...result } : null;
+      }),
+    );
+    return results.filter((r): r is { evidenceId: string } & AgroVisionResult => r !== null);
+  }
 }
+
+type EvidenceRow = Awaited<ReturnType<AgroEvidenceService["findEvidenceInFarm"]>>[number];
