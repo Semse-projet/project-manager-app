@@ -39,6 +39,8 @@ import { AgroIncidentService } from "./agro-incident.service.js";
 import { AgroIncidentController } from "./agro-incident.controller.js";
 import { AgroIntakeService } from "./agro-intake.service.js";
 import { AgroIntakeController } from "./agro-intake.controller.js";
+import { AgroVisionService } from "./agro-vision.service.js";
+import { VisionServiceClient } from "../vision/clients/vision-service.client.js";
 
 @Module({
   controllers: [
@@ -83,6 +85,8 @@ import { AgroIntakeController } from "./agro-intake.controller.js";
     AgroWorkforceService,
     AgroIncidentRepository,
     AgroIncidentService,
+    VisionServiceClient,
+    AgroVisionService,
     AgroIntakeService,
   ],
   exports: [

@@ -57,7 +57,9 @@ test("agro-intake: Prometeo tools registered with correct governance", () => {
 
 // ── Servicio ─────────────────────────────────────────────────────────────────
 
-function setup(opts: { openIncidents?: any[]; openTasks?: any[] } = {}) {
+function setup(opts: {
+  openIncidents?: any[]; openTasks?: any[]; evidenceRows?: any[]; vision?: any;
+} = {}) {
   const writes: string[] = [];
   const readOnly = (rows: any[]) => ({ findMany: async () => rows, create: async () => { writes.push("create"); } });
   const prisma = {
@@ -69,7 +71,9 @@ function setup(opts: { openIncidents?: any[]; openTasks?: any[] } = {}) {
     agroIncident: { findMany: async () => opts.openIncidents ?? [], create: async () => { writes.push("incident"); } },
   } as never;
   const tasks = { listOpen: async () => opts.openTasks ?? [] } as never;
-  return { svc: new AgroIntakeService(prisma, new AgroFarmAccessService(prisma), tasks), writes };
+  const evidence = { findEvidenceInFarm: async () => opts.evidenceRows ?? [] } as never;
+  const svc = new AgroIntakeService(prisma, new AgroFarmAccessService(prisma), tasks, evidence, opts.vision);
+  return { svc, writes };
 }
 
 test("agro-intake: 'Al lote 15 le falta agua' → WATER_SHORTAGE proposal on Lote 15, HIGH suggested, human review", async () => {
@@ -133,4 +137,65 @@ test("agro-intake: unknown text asks the human; empty and non-member rejected", 
   assert.equal(p.recommendedAction.kind, "ASK_HUMAN");
   await assert.rejects(() => svc.propose("farm_1", "worker", { text: "  " }), BadRequestException);
   await assert.rejects(() => svc.propose("farm_1", "stranger", { text: "falta agua" }), NotFoundException);
+});
+
+// ── T-054: ASR (audio → texto) y visión (fotos) ─────────────────────────────
+
+function withTranscriptionStub(svc: any, segmentsByUrl: Record<string, Array<{ text: string }>>) {
+  svc.transcriptionProviderResolver = () => ({
+    transcribe: async ({ storageKey }: { storageKey: string }) => segmentsByUrl[storageKey] ?? [],
+  });
+}
+
+test("agro-intake T-054: no text, audio evidence present → transcribes and proceeds", async () => {
+  const evidenceRows = [{ id: "ev_audio", mediaType: "AUDIO", fileUrl: "https://cdn.test/audio1.m4a" }];
+  const { svc } = setup({ evidenceRows });
+  withTranscriptionStub(svc, { "https://cdn.test/audio1.m4a": [{ text: "Al lote 15 le falta agua." }] });
+
+  const p = await svc.propose("farm_1", "worker", { evidenceIds: ["ev_audio"] });
+  assert.equal(p.intent, "INCIDENT");
+  assert.equal(p.incident.type, "WATER_SHORTAGE");
+  assert.deepEqual(p.transcribedFrom, ["ev_audio"]);
+});
+
+test("agro-intake T-054: no text, no audio, no ASR provider configured → clear error, not a generic one", async () => {
+  const evidenceRows = [{ id: "ev_audio", mediaType: "AUDIO", fileUrl: "https://cdn.test/audio1.m4a" }];
+  const { svc } = setup({ evidenceRows });
+  svc.transcriptionProviderResolver = () => null; // SEMSE_ASR_PROVIDER not set — real default
+
+  await assert.rejects(
+    () => svc.propose("farm_1", "worker", { evidenceIds: ["ev_audio"] }),
+    (err: unknown) => err instanceof BadRequestException && /transcription provider is configured/.test((err as Error).message),
+  );
+});
+
+test("agro-intake T-054: text already provided → does not attempt transcription even with audio evidence", async () => {
+  const evidenceRows = [{ id: "ev_audio", mediaType: "AUDIO", fileUrl: "https://cdn.test/audio1.m4a" }];
+  const { svc } = setup({ evidenceRows });
+  let called = false;
+  svc.transcriptionProviderResolver = () => { called = true; return { transcribe: async () => [] }; };
+
+  const p = await svc.propose("farm_1", "worker", { text: "Al lote 15 le falta agua.", evidenceIds: ["ev_audio"] });
+  assert.equal(p.intent, "INCIDENT");
+  assert.equal(called, false, "text was already provided — no need to transcribe");
+  assert.deepEqual(p.transcribedFrom, []);
+});
+
+test("agro-intake T-054: photo evidence → vision candidates attached, best-effort", async () => {
+  const evidenceRows = [{ id: "ev_photo", mediaType: "PHOTO", fileUrl: "https://cdn.test/photo1.jpg" }];
+  const vision = { recognize: async (url: string) => (url === "https://cdn.test/photo1.jpg" ? { provider: "ollama", model: "qwen2.5vl:3b", candidates: [{ slug: "pig", label: "Pig", confidence: 0.8 }] } : null) };
+  const { svc } = setup({ evidenceRows, vision });
+
+  const p = await svc.propose("farm_1", "worker", { text: "Este cerdito tiene una herida en el cachete.", evidenceIds: ["ev_photo"] });
+  assert.equal(p.visionSignals.length, 1);
+  assert.equal(p.visionSignals[0].evidenceId, "ev_photo");
+  assert.equal(p.visionSignals[0].candidates[0].slug, "pig");
+});
+
+test("agro-intake T-054: vision disabled/unavailable → empty signals, proposal still returned", async () => {
+  const evidenceRows = [{ id: "ev_photo", mediaType: "PHOTO", fileUrl: "https://cdn.test/photo1.jpg" }];
+  const { svc } = setup({ evidenceRows }); // sin vision inyectada (@Optional())
+
+  const p = await svc.propose("farm_1", "worker", { text: "Al lote 15 le falta agua.", evidenceIds: ["ev_photo"] });
+  assert.deepEqual(p.visionSignals, []);
 });

@@ -45,7 +45,7 @@ retroactiva.
 | [agro.domain-events](specs/agro/agro-domain-events.spec.md) | agro | IMPLEMENTED | COMPLETE | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | low | yes | 2026-09-26 |
 | [agro.evidence-upload](specs/agro/agro-evidence-upload.spec.md) | agro | IMPLEMENTED | COMPLETE | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | low | yes | 2026-09-25 |
 | [agro.incident-ops](specs/agro/agro-incident-ops.spec.md) | agro | IMPLEMENTED | COMPLETE | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | yes | 2026-09-25 |
-| [agro.prometeo-intake](specs/agro/agro-prometeo-intake.spec.md) | agro | IMPLEMENTED | COMPLETE | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | yes | 2026-09-25 |
+| [agro.prometeo-intake](specs/agro/agro-prometeo-intake.spec.md) | agro | IMPLEMENTED | COMPLETE | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | yes | 2026-09-26 |
 | [agro.task-jobtask-convergence](specs/agro/agro-task-jobtask-convergence.spec.md) | agro | IMPLEMENTED | COMPLETE | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | yes | 2026-09-25 |
 | [agro.workforce-taxonomy](specs/agro/agro-workforce.spec.md) | agro | IMPLEMENTED | COMPLETE | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | yes | 2026-09-25 |
 | [api-agents-runtime](specs/api/agents.spec.md) | agents | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-06-09 |
