@@ -1,5 +1,13 @@
-import { Injectable } from "@nestjs/common";
-import type { WorkspaceMemoryQuery, WorkspaceMemoryRecord } from "@semse/knowledge";
+import { Injectable, NotFoundException } from "@nestjs/common";
+import type {
+  WorkspaceMemoryEpistemicStatus,
+  WorkspaceMemoryProvenance,
+  WorkspaceMemoryQuery,
+  WorkspaceMemoryRecord,
+  WorkspaceMemorySensitivity,
+  WorkspaceMemoryStatus,
+} from "@semse/knowledge";
+import { WORKSPACE_SENSITIVITY_RANK } from "@semse/knowledge";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 
 type StoredWorkspaceMemoryEntry = {
@@ -20,6 +28,21 @@ type StoredWorkspaceMemoryEntry = {
   sourceRef: string | null;
   createdAt: Date;
   updatedAt: Date;
+  sensitivity: string;
+  epistemicStatus: string;
+  confidence: number | null;
+  provenance: unknown;
+  subjectType: string | null;
+  subjectId: string | null;
+  status: string;
+  supersedesId: string | null;
+  supersededById: string | null;
+  correctedFromId: string | null;
+  conflictsWith: string[];
+  invalidatedAt: Date | null;
+  invalidatedBy: string | null;
+  invalidationReason: string | null;
+  retentionUntil: Date | null;
 };
 
 function parseStoredEntry(entry: StoredWorkspaceMemoryEntry): WorkspaceMemoryRecord {
@@ -39,8 +62,31 @@ function parseStoredEntry(entry: StoredWorkspaceMemoryEntry): WorkspaceMemoryRec
     body: entry.body ?? undefined,
     tags: entry.tags,
     sourceRef: entry.sourceRef ?? undefined,
-    updatedAtIso: entry.updatedAt.toISOString()
+    updatedAtIso: entry.updatedAt.toISOString(),
+    sensitivity: (entry.sensitivity as WorkspaceMemorySensitivity) ?? "internal",
+    epistemicStatus: (entry.epistemicStatus as WorkspaceMemoryEpistemicStatus) ?? "remembered_context",
+    confidence: entry.confidence ?? undefined,
+    provenance: (entry.provenance as WorkspaceMemoryProvenance | null) ?? undefined,
+    subjectType: entry.subjectType ?? undefined,
+    subjectId: entry.subjectId ?? undefined,
+    status: (entry.status as WorkspaceMemoryStatus) ?? "active",
+    supersedesId: entry.supersedesId ?? undefined,
+    supersededById: entry.supersededById ?? undefined,
+    correctedFromId: entry.correctedFromId ?? undefined,
+    conflictsWith: entry.conflictsWith ?? [],
+    invalidatedAt: entry.invalidatedAt?.toISOString() ?? undefined,
+    invalidatedBy: entry.invalidatedBy ?? undefined,
+    invalidationReason: entry.invalidationReason ?? undefined,
+    retentionUntil: entry.retentionUntil?.toISOString() ?? undefined,
   };
+}
+
+function sensitivityFilter(max?: WorkspaceMemorySensitivity) {
+  if (!max) return {};
+  const allowed = (Object.keys(WORKSPACE_SENSITIVITY_RANK) as WorkspaceMemorySensitivity[]).filter(
+    (s) => WORKSPACE_SENSITIVITY_RANK[s] <= WORKSPACE_SENSITIVITY_RANK[max],
+  );
+  return { sensitivity: { in: allowed } };
 }
 
 function matchesQuery(record: WorkspaceMemoryRecord, input: WorkspaceMemoryQuery): boolean {
@@ -81,7 +127,9 @@ export class WorkspaceMemoryRepository {
     const entries = await this.prisma.workspaceMemoryEntry.findMany({
       where: {
         tenantId: input.tenantId,
-        workspaceId: input.workspaceId
+        workspaceId: input.workspaceId,
+        ...(input.includeInactive ? {} : { status: "active" }),
+        ...sensitivityFilter(input.maxSensitivity)
       },
       orderBy: {
         updatedAt: "desc"
@@ -113,11 +161,13 @@ export class WorkspaceMemoryRepository {
     tags: string[];
     kinds?: WorkspaceMemoryRecord["kind"][];
     limit?: number;
+    includeInactive?: boolean;
   }): Promise<WorkspaceMemoryRecord[]> {
     const entries = await this.prisma.workspaceMemoryEntry.findMany({
       where: {
         tenantId: input.tenantId,
         tags: { hasEvery: input.tags },
+        ...(input.includeInactive ? {} : { status: "active" }),
         ...(input.kinds && input.kinds.length > 0 ? { kind: { in: input.kinds } } : {})
       },
       orderBy: {
@@ -140,6 +190,7 @@ export class WorkspaceMemoryRepository {
     term: string;
     limit?: number;
     kinds?: WorkspaceMemoryRecord["kind"][];
+    maxSensitivity?: WorkspaceMemorySensitivity;
   }): Promise<Array<WorkspaceMemoryRecord & { rank: number }>> {
     const term = input.term.trim();
     if (!term) return [];
@@ -158,6 +209,10 @@ export class WorkspaceMemoryRepository {
     // Each token gets :* for prefix matching — "reparacion:* & techo:*"
     const ftsQuery = tokens.map((t) => `${t}:*`).join(" & ");
 
+    const allowedSensitivities = (Object.keys(WORKSPACE_SENSITIVITY_RANK) as WorkspaceMemorySensitivity[]).filter(
+      (s) => WORKSPACE_SENSITIVITY_RANK[s] <= WORKSPACE_SENSITIVITY_RANK[input.maxSensitivity ?? "internal"],
+    );
+
     try {
       // Two queries: with and without kinds filter to keep raw SQL simple
       const rows: SearchHit[] = input.kinds && input.kinds.length > 0
@@ -171,6 +226,8 @@ export class WorkspaceMemoryRepository {
             WHERE e."tenantId" = ${input.tenantId}
               AND e."workspaceId" = ${input.workspaceId}
               AND e.kind = ANY(${input.kinds})
+              AND e."status" = 'active'
+              AND e."sensitivity" = ANY(${allowedSensitivities})
               AND to_tsvector('spanish', coalesce(e.title,'') || ' ' || coalesce(e.summary,'') || ' ' || coalesce(e.body,''))
                   @@ to_tsquery('spanish', ${ftsQuery})
             ORDER BY rank DESC
@@ -185,6 +242,8 @@ export class WorkspaceMemoryRepository {
             FROM "WorkspaceMemoryEntry" e
             WHERE e."tenantId" = ${input.tenantId}
               AND e."workspaceId" = ${input.workspaceId}
+              AND e."status" = 'active'
+              AND e."sensitivity" = ANY(${allowedSensitivities})
               AND to_tsvector('spanish', coalesce(e.title,'') || ' ' || coalesce(e.summary,'') || ' ' || coalesce(e.body,''))
                   @@ to_tsquery('spanish', ${ftsQuery})
             ORDER BY rank DESC
@@ -221,7 +280,14 @@ export class WorkspaceMemoryRepository {
         summary: record.summary,
         body: record.body,
         tags: record.tags,
-        sourceRef: record.sourceRef
+        sourceRef: record.sourceRef,
+        sensitivity: record.sensitivity ?? "internal",
+        epistemicStatus: record.epistemicStatus ?? "remembered_context",
+        confidence: record.confidence ?? null,
+        provenance: (record.provenance as never) ?? undefined,
+        subjectType: record.subjectType ?? null,
+        subjectId: record.subjectId ?? null,
+        retentionUntil: record.retentionUntil ? new Date(record.retentionUntil) : null
       },
       update: {
         orgId: record.orgId,
@@ -236,9 +302,158 @@ export class WorkspaceMemoryRepository {
         body: record.body,
         tags: record.tags,
         sourceRef: record.sourceRef
+        // Governance fields (status/supersession/etc.) are never touched by a
+        // plain append() — use correct()/invalidate()/supersede() for those.
       }
     });
 
-    return record;
+    return (await this.findById({ tenantId: record.tenantId, id: record.id }))!;
+  }
+
+  // ── C85 governance: read one (tenant-scoped) ─────────────────────────────────
+
+  async findById(input: { tenantId: string; id: string }): Promise<WorkspaceMemoryRecord | null> {
+    const row = await this.prisma.workspaceMemoryEntry.findFirst({
+      where: { id: input.id, tenantId: input.tenantId }
+    });
+    return row ? parseStoredEntry(row as StoredWorkspaceMemoryEntry) : null;
+  }
+
+  // ── C85 governance: invalidate ───────────────────────────────────────────────
+
+  async invalidate(input: {
+    tenantId: string;
+    id: string;
+    invalidatedBy: string;
+    reason: string;
+  }): Promise<WorkspaceMemoryRecord> {
+    const result = await this.prisma.workspaceMemoryEntry.updateMany({
+      where: { id: input.id, tenantId: input.tenantId },
+      data: {
+        status: "invalidated",
+        invalidatedAt: new Date(),
+        invalidatedBy: input.invalidatedBy,
+        invalidationReason: input.reason
+      }
+    });
+    if (result.count === 0) throw new NotFoundException(`WorkspaceMemoryEntry ${input.id} not found for tenant`);
+    return (await this.findById({ tenantId: input.tenantId, id: input.id }))!;
+  }
+
+  // ── C85 governance: correct ──────────────────────────────────────────────────
+  // Never mutates content in place — the old row is marked `corrected` and a
+  // new row carries the fixed content, linked both ways.
+
+  async correct(input: {
+    tenantId: string;
+    id: string;
+    correctedBy: string;
+    patch: { title?: string; summary?: string; body?: string; tags?: string[] };
+  }): Promise<WorkspaceMemoryRecord> {
+    const original = await this.findById({ tenantId: input.tenantId, id: input.id });
+    if (!original) throw new NotFoundException(`WorkspaceMemoryEntry ${input.id} not found for tenant`);
+
+    const replacementId = `${original.id}:corrected:${Date.now()}`;
+    const replacement: WorkspaceMemoryRecord = {
+      ...original,
+      id: replacementId,
+      title: input.patch.title ?? original.title,
+      summary: input.patch.summary ?? original.summary,
+      body: input.patch.body ?? original.body,
+      tags: input.patch.tags ?? original.tags,
+      updatedAtIso: new Date().toISOString(),
+      provenance: { producedBy: input.correctedBy, method: "correction", correlationId: original.id },
+      status: "active"
+    };
+
+    await this.prisma.workspaceMemoryEntry.create({
+      data: {
+        id: replacement.id,
+        tenantId: replacement.tenantId,
+        orgId: replacement.orgId,
+        createdBy: replacement.createdBy,
+        workspaceId: replacement.workspaceId,
+        repoId: replacement.repoId,
+        runId: replacement.runId,
+        taskId: replacement.taskId,
+        kind: replacement.kind,
+        scope: replacement.scope,
+        title: replacement.title,
+        summary: replacement.summary,
+        body: replacement.body,
+        tags: replacement.tags,
+        sourceRef: replacement.sourceRef,
+        sensitivity: replacement.sensitivity ?? "internal",
+        epistemicStatus: replacement.epistemicStatus ?? "remembered_context",
+        provenance: replacement.provenance as never,
+        subjectType: replacement.subjectType ?? null,
+        subjectId: replacement.subjectId ?? null,
+        correctedFromId: original.id
+      }
+    });
+
+    await this.prisma.workspaceMemoryEntry.updateMany({
+      where: { id: original.id, tenantId: input.tenantId },
+      data: { status: "corrected", supersededById: replacement.id }
+    });
+
+    return (await this.findById({ tenantId: input.tenantId, id: replacement.id }))!;
+  }
+
+  // ── C85 governance: supersede ────────────────────────────────────────────────
+
+  async supersede(input: { tenantId: string; oldId: string; newId: string }): Promise<void> {
+    const [oldResult, newResult] = await Promise.all([
+      this.prisma.workspaceMemoryEntry.updateMany({
+        where: { id: input.oldId, tenantId: input.tenantId },
+        data: { status: "superseded", supersededById: input.newId }
+      }),
+      this.prisma.workspaceMemoryEntry.updateMany({
+        where: { id: input.newId, tenantId: input.tenantId },
+        data: { supersedesId: input.oldId }
+      })
+    ]);
+    if (oldResult.count === 0 || newResult.count === 0) {
+      throw new NotFoundException("One or both WorkspaceMemoryEntry ids not found for tenant");
+    }
+  }
+
+  // ── C85 governance: conflicts ─────────────────────────────────────────────────
+
+  async flagConflict(input: { tenantId: string; id: string; conflictsWithId: string }): Promise<void> {
+    const [a, b] = await Promise.all([
+      this.findById({ tenantId: input.tenantId, id: input.id }),
+      this.findById({ tenantId: input.tenantId, id: input.conflictsWithId })
+    ]);
+    if (!a || !b) throw new NotFoundException("One or both WorkspaceMemoryEntry ids not found for tenant");
+
+    await Promise.all([
+      this.prisma.workspaceMemoryEntry.update({
+        where: { id: a.id },
+        data: { conflictsWith: Array.from(new Set([...(a.conflictsWith ?? []), b.id])) }
+      }),
+      this.prisma.workspaceMemoryEntry.update({
+        where: { id: b.id },
+        data: { conflictsWith: Array.from(new Set([...(b.conflictsWith ?? []), a.id])) }
+      })
+    ]);
+  }
+
+  // ── C85 governance: lineage ───────────────────────────────────────────────────
+
+  async getLineage(input: { tenantId: string; id: string }): Promise<WorkspaceMemoryRecord[]> {
+    const chain: WorkspaceMemoryRecord[] = [];
+    let cursor: string | undefined = input.id;
+    const seen = new Set<string>();
+
+    while (cursor && !seen.has(cursor) && chain.length < 50) {
+      seen.add(cursor);
+      const row = await this.findById({ tenantId: input.tenantId, id: cursor });
+      if (!row) break;
+      chain.push(row);
+      cursor = row.supersedesId ?? row.correctedFromId;
+    }
+
+    return chain.reverse();
   }
 }

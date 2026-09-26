@@ -1,8 +1,29 @@
+import crypto from "node:crypto";
 import { Injectable, Logger } from "@nestjs/common";
-import { buildWorkspaceMemoryId, type WorkspaceMemoryKind, type WorkspaceMemoryRecord } from "@semse/knowledge";
-import type { AgentMemoryRecord, AgentMemoryType } from "./agent-memory.repository.js";
+import {
+  buildWorkspaceMemoryId,
+  type WorkspaceMemoryKind,
+  type WorkspaceMemoryRecord,
+  type WorkspaceMemorySensitivity
+} from "@semse/knowledge";
+import { AuditService } from "../../infrastructure/audit/audit.service.js";
+import type {
+  AgentMemoryEpistemicStatus,
+  AgentMemoryProvenance,
+  AgentMemoryRecord,
+  AgentMemorySensitivity,
+  AgentMemoryType
+} from "./agent-memory.repository.js";
 import { AgentMemoryRepository } from "./agent-memory.repository.js";
 import { WorkspaceMemoryRepository } from "./workspace-memory.repository.js";
+
+// C85 (Agent Memory governance): every block of memory injected into an agent's
+// context must carry this disclaimer. Memory is remembered context, never a
+// canonical fact or standalone authorization to act — see
+// docs/specs/knowledge/agent-memory-governance.spec.md.
+const MEMORY_DISCLAIMER =
+  "_Memoria: contexto recordado del historial del proyecto, no verdad canónica ni autorización para actuar. " +
+  "Verificar contra el estado real del sistema antes de tomar una acción basada en esto._";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -67,6 +88,12 @@ export type CreateMemoryInput = {
   importanceScore?: number;
   tags?: string[];
   sourceRef?: string;
+  sensitivity?: AgentMemorySensitivity;
+  epistemicStatus?: AgentMemoryEpistemicStatus;
+  confidence?: number;
+  provenance?: AgentMemoryProvenance;
+  subjectType?: string;
+  subjectId?: string;
 };
 
 export type InjectContextInput = {
@@ -77,6 +104,8 @@ export type InjectContextInput = {
   query: string;
   tokenBudgetChars?: number;
   topK?: number;
+  /** C85 governance: ceiling on sensitivity surfaced to this caller. Defaults to "internal". */
+  maxSensitivity?: AgentMemorySensitivity;
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -113,23 +142,25 @@ function estimateChars(record: WorkspaceMemoryRecord | AgentMemoryRecord): numbe
 function formatWorkspaceBlock(records: ScoredMemory[]): string {
   if (records.length === 0) return "";
   const lines = records.map((m) => [
-    `[${m.kind}] ${m.title}`,
+    `[${m.kind} · ${m.epistemicStatus ?? "remembered_context"}] ${m.title}`,
+    m.conflictsWith?.length ? `⚠ En conflicto con ${m.conflictsWith.length} memoria(s) más — no tratar como resuelto.` : "",
     `> ${m.summary}`,
     m.body ? m.body.slice(0, 300) : "",
     `Actualizado: ${new Date(m.updatedAtIso).toLocaleDateString("es-MX")}`,
   ].filter(Boolean).join("\n"));
-  return `## Contexto del proyecto\n\n${lines.join("\n\n")}`;
+  return `## Contexto del proyecto\n\n${MEMORY_DISCLAIMER}\n\n${lines.join("\n\n")}`;
 }
 
 function formatAgentBlock(records: ScoredAgentMemory[]): string {
   if (records.length === 0) return "";
   const lines = records.map((m) => [
-    `[${m.type}] ${m.summary}`,
+    `[${m.type} · ${m.epistemicStatus}] ${m.summary}`,
+    m.conflictsWith?.length ? `⚠ En conflicto con ${m.conflictsWith.length} memoria(s) más — no tratar como resuelto.` : "",
     m.content.slice(0, 300),
     m.tags.length ? `Etiquetas: ${m.tags.join(", ")}` : "",
     `Importancia: ${m.importanceScore}/5 · ${new Date(m.updatedAt).toLocaleDateString("es-MX")}`,
   ].filter(Boolean).join("\n"));
-  return `## Memoria del agente\n\n${lines.join("\n\n")}`;
+  return `## Memoria del agente\n\n${MEMORY_DISCLAIMER}\n\n${lines.join("\n\n")}`;
 }
 
 // ── Service ───────────────────────────────────────────────────────────────────
@@ -141,6 +172,11 @@ export class AgentMemoryService {
   constructor(
     private readonly repo: WorkspaceMemoryRepository,
     private readonly agentRepo: AgentMemoryRepository,
+    // Optional so existing test doubles that build this service with only the
+    // two repos keep compiling; NestJS still injects the real AuditService
+    // (globally provided by PrismaModule) in production regardless of this
+    // TS-level optionality.
+    private readonly audit?: AuditService,
   ) {}
 
   // ── createMemory ──────────────────────────────────────────────────────────
@@ -158,6 +194,12 @@ export class AgentMemoryService {
       importanceScore: input.importanceScore ?? 3,
       tags: input.tags ?? [],
       sourceRef: input.sourceRef,
+      sensitivity: input.sensitivity,
+      epistemicStatus: input.epistemicStatus,
+      confidence: input.confidence,
+      provenance: input.provenance,
+      subjectType: input.subjectType,
+      subjectId: input.subjectId,
     });
   }
 
@@ -170,6 +212,7 @@ export class AgentMemoryService {
     agentId?: string;
     types?: AgentMemoryType[];
     limit?: number;
+    maxSensitivity?: AgentMemorySensitivity;
   }): Promise<Array<AgentMemoryRecord & { rank: number }>> {
     return this.agentRepo.search({
       tenantId: input.tenantId,
@@ -178,7 +221,140 @@ export class AgentMemoryService {
       agentId: input.agentId,
       types: input.types,
       limit: input.limit ?? 20,
+      maxSensitivity: input.maxSensitivity,
     });
+  }
+
+  // ── C85 governance: correct / invalidate / supersede / conflicts / lineage ──
+  // Every mutation here is audited (best-effort — never blocks the caller) and
+  // never edits content in place: corrections create a new record, invalidation
+  // and supersession only flip status fields. See docs/specs/knowledge/
+  // agent-memory-governance.spec.md for the full contract.
+
+  async correctMemory(input: {
+    tenantId: string;
+    orgId: string;
+    id: string;
+    correctedBy: string;
+    patch: { content?: string; summary?: string; tags?: string[] };
+    reason: string;
+    requestId?: string;
+  }): Promise<AgentMemoryRecord> {
+    const replacement = await this.agentRepo.correct({
+      tenantId: input.tenantId,
+      id: input.id,
+      correctedBy: input.correctedBy,
+      patch: input.patch,
+      reason: input.reason,
+    });
+    await this.recordAudit({
+      tenantId: input.tenantId,
+      orgId: input.orgId,
+      actorUserId: input.correctedBy,
+      action: "agent_memory.corrected",
+      entityId: input.id,
+      requestId: input.requestId,
+      afterJson: { replacementId: replacement.id, reason: input.reason },
+    });
+    return replacement;
+  }
+
+  async invalidateMemory(input: {
+    tenantId: string;
+    orgId: string;
+    id: string;
+    invalidatedBy: string;
+    reason: string;
+    requestId?: string;
+  }): Promise<AgentMemoryRecord> {
+    const result = await this.agentRepo.invalidate({
+      tenantId: input.tenantId,
+      id: input.id,
+      invalidatedBy: input.invalidatedBy,
+      reason: input.reason,
+    });
+    await this.recordAudit({
+      tenantId: input.tenantId,
+      orgId: input.orgId,
+      actorUserId: input.invalidatedBy,
+      action: "agent_memory.invalidated",
+      entityId: input.id,
+      requestId: input.requestId,
+      afterJson: { reason: input.reason },
+    });
+    return result;
+  }
+
+  async supersedeMemory(input: {
+    tenantId: string;
+    orgId: string;
+    oldId: string;
+    newId: string;
+    actorUserId: string;
+    requestId?: string;
+  }): Promise<void> {
+    await this.agentRepo.supersede({ tenantId: input.tenantId, oldId: input.oldId, newId: input.newId });
+    await this.recordAudit({
+      tenantId: input.tenantId,
+      orgId: input.orgId,
+      actorUserId: input.actorUserId,
+      action: "agent_memory.superseded",
+      entityId: input.oldId,
+      requestId: input.requestId,
+      afterJson: { newId: input.newId },
+    });
+  }
+
+  async flagMemoryConflict(input: {
+    tenantId: string;
+    orgId: string;
+    id: string;
+    conflictsWithId: string;
+    actorUserId: string;
+    requestId?: string;
+  }): Promise<void> {
+    await this.agentRepo.flagConflict({ tenantId: input.tenantId, id: input.id, conflictsWithId: input.conflictsWithId });
+    await this.recordAudit({
+      tenantId: input.tenantId,
+      orgId: input.orgId,
+      actorUserId: input.actorUserId,
+      action: "agent_memory.conflict_flagged",
+      entityId: input.id,
+      requestId: input.requestId,
+      afterJson: { conflictsWithId: input.conflictsWithId },
+    });
+  }
+
+  async getMemoryLineage(input: { tenantId: string; id: string }): Promise<AgentMemoryRecord[]> {
+    return this.agentRepo.getLineage(input);
+  }
+
+  private async recordAudit(input: {
+    tenantId: string;
+    orgId: string;
+    actorUserId: string;
+    action: string;
+    entityId: string;
+    requestId?: string;
+    afterJson?: Record<string, unknown>;
+  }): Promise<void> {
+    if (!this.audit) return;
+    try {
+      await this.audit.append({
+        tenantId: input.tenantId,
+        orgId: input.orgId,
+        actorUserId: input.actorUserId,
+        action: input.action,
+        entityType: "AgentMemory",
+        entityId: input.entityId,
+        requestId: input.requestId ?? crypto.randomUUID(),
+        timestamp: new Date().toISOString(),
+        afterJson: input.afterJson,
+      });
+    } catch (err) {
+      // Audit is best-effort — never let a logging failure block a governance action.
+      this.logger.warn(`[memory-governance] audit append failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
   }
 
   // ── rankRelevantMemories ──────────────────────────────────────────────────
@@ -201,15 +377,18 @@ export class AgentMemoryService {
     const budget = input.tokenBudgetChars ?? TOKEN_BUDGET_CHARS;
     const topK = input.topK ?? MAX_MEMORIES_TO_INJECT;
 
+    const maxSensitivity = input.maxSensitivity ?? "internal";
+    const wsMaxSensitivity = maxSensitivity as unknown as WorkspaceMemorySensitivity;
+
     const [ftsAgentResults, recentAgentResults, ftsWsResults, recentWsResults] = await Promise.all([
       input.query.trim().length > 2
-        ? this.agentRepo.search({ tenantId: input.tenantId, projectId: input.projectId, term: input.query, limit: topK * 3 })
+        ? this.agentRepo.search({ tenantId: input.tenantId, projectId: input.projectId, term: input.query, limit: topK * 3, maxSensitivity })
         : Promise.resolve([] as Array<AgentMemoryRecord & { rank: number }>),
-      this.agentRepo.listByProject({ tenantId: input.tenantId, projectId: input.projectId, limit: topK * 2 }),
+      this.agentRepo.listByProject({ tenantId: input.tenantId, projectId: input.projectId, limit: topK * 2, maxSensitivity }),
       input.query.trim().length > 2
-        ? this.repo.search({ tenantId: input.tenantId, workspaceId: `project:${input.projectId}`, term: input.query, limit: topK * 2 })
+        ? this.repo.search({ tenantId: input.tenantId, workspaceId: `project:${input.projectId}`, term: input.query, limit: topK * 2, maxSensitivity: wsMaxSensitivity })
         : Promise.resolve([] as Array<WorkspaceMemoryRecord & { rank: number }>),
-      this.repo.query({ tenantId: input.tenantId, orgId: input.orgId, workspaceId: `project:${input.projectId}`, kinds: ["decision", "run_summary"] }),
+      this.repo.query({ tenantId: input.tenantId, orgId: input.orgId, workspaceId: `project:${input.projectId}`, kinds: ["decision", "run_summary"], maxSensitivity: wsMaxSensitivity }),
     ]);
 
     const seenAgent = new Set<string>();
