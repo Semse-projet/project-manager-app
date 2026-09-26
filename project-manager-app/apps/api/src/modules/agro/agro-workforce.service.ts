@@ -1,7 +1,9 @@
 import {
-  BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException,
+  BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, Optional,
 } from "@nestjs/common";
+import { DomainEventBus } from "../domain-events/domain-event-bus.service.js";
 import { AgroEvidenceService, type AgroEvidenceInput } from "./agro-evidence.service.js";
+import { emitAgroWorkerCapabilityVerified } from "./agro-domain-events.js";
 import { AgroFarmAccessService, assertAgroFarmAction, type AgroFarmActor } from "./agro-farm-access.service.js";
 import { AGRO_FARM_MEMBER_ROLES, isAgroFarmMemberRole, type AgroFarmRole } from "./agro-farm-policy.js";
 import { AgroAuditRepository } from "./agro-audit.repository.js";
@@ -28,6 +30,7 @@ export class AgroWorkforceService {
     private readonly access: AgroFarmAccessService,
     private readonly evidence: AgroEvidenceService,
     private readonly audit: AgroAuditRepository,
+    @Optional() private readonly domainEventBus?: DomainEventBus,
   ) {}
 
   // ── Catálogo (taxonomía) ────────────────────────────────────────────────────
@@ -325,7 +328,7 @@ export class AgroWorkforceService {
     const now = new Date();
     const approved = input.result === "APPROVED";
     const expiresAt = approved ? verificationExpiry(now, wc.capability.validityDays, input.expiresAt) : null;
-    return this.repo.applyVerification({
+    const result = await this.repo.applyVerification({
       verification: {
         workerCapabilityId: wc.id, capabilityId: wc.capabilityId, userId: wc.userId,
         verifierId: userId, verifierFarmRole: actor.role, farmId,
@@ -345,6 +348,16 @@ export class AgroWorkforceService {
       },
       source: "WEB",
     });
+
+    if (approved) {
+      const farm = await this.access.getFarmContext(farmId);
+      await emitAgroWorkerCapabilityVerified(this.domainEventBus, farm, userId, {
+        workerCapabilityId: wc.id, farmId, workerId: wc.userId,
+        capabilityKey: wc.capability.key, level: input.levelAssessed ?? wc.level,
+      });
+    }
+
+    return result;
   }
 
   async revokeVerification(farmId: string, userId: string, workerCapabilityId: string, input: { reason: string; evidenceIds?: string[] }) {

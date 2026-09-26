@@ -284,6 +284,20 @@ sin productor real (ver `docs/specs/core/originador-referral-program.spec.md`).
 - `dispute.resolution_proposed`
 - `dispute.resolved`
 
+## Agro (T-052)
+
+Agro ya audita cada mutación en `AgroAuditEvent` (append-only, por finca), así
+que estos eventos no existen para completar una auditoría que ya existe —
+son para consumo *cruzado* (Notifications hoy). Solo se emiten para fincas
+con tenant (`AgroFarm.tenantId`, opcional desde T-051); sin tenant,
+`AgroAuditEvent` sigue siendo el único registro, igual que el espejo a
+`JobTask` (`agro-jobtask-mirror.ts`). Ver
+`docs/specs/agro/agro-domain-events.spec.md`.
+
+- `agro.incident.created`
+- `agro.incident.resolved`
+- `agro.worker_capability.verified`
+
 ## Trust
 
 - `trust.signal_recorded`
@@ -371,6 +385,9 @@ Consume:
 - `payment.released`
 - `dispute.opened`
 - `dispute.resolved`
+- `agro.incident.created`
+- `agro.incident.resolved`
+- `agro.worker_capability.verified`
 
 ### Trust
 

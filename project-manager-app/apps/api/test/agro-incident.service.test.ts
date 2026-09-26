@@ -46,7 +46,7 @@ test("agro-incident-severity: suggested defaults", () => {
 
 // ── Servicio ─────────────────────────────────────────────────────────────────
 
-function setup() {
+function setup(domainEventBus?: { emit: (event: any, ctx: any) => Promise<void> }) {
   const members = [
     { farmId: "farm_1", userId: "sup", role: "SUPERVISOR", status: "ACTIVE" },
     { farmId: "farm_1", userId: "worker", role: "WORKER", status: "ACTIVE" },
@@ -62,7 +62,9 @@ function setup() {
   let seq = 0;
 
   const prisma = {
-    agroFarm: { findUnique: async ({ where }: any) => (where.id === "farm_1" ? { ownerId: "owner" } : where.id === "farm_2" ? { ownerId: "other" } : null) },
+    // T-052: farm_1 tiene tenant (emite agro.incident.*), farm_2 no (T-051: sin
+    // tenant, sin evento cruzado — AgroAuditEvent sigue siendo el registro).
+    agroFarm: { findUnique: async ({ where }: any) => (where.id === "farm_1" ? { ownerId: "owner", tenantId: "tenant_1" } : where.id === "farm_2" ? { ownerId: "other", tenantId: null } : null) },
     agroFarmMember: {
       findUnique: async ({ where }: any) =>
         members.find((m) => m.farmId === where.farmId_userId.farmId && m.userId === where.farmId_userId.userId) ?? null,
@@ -110,7 +112,7 @@ function setup() {
   } as never;
 
   const audit = { listForEntity: async ({ entityId }: any) => audits.filter((a) => a.entityId === entityId) } as never;
-  const svc = new AgroIncidentService(repo, new AgroFarmAccessService(prisma), evidenceSvc, tasks, audit);
+  const svc = new AgroIncidentService(repo, new AgroFarmAccessService(prisma), evidenceSvc, tasks, audit, domainEventBus as never);
   return { svc, incidents, audits, evidence };
 }
 
@@ -288,4 +290,72 @@ test("agro-incident: detail exposes timeline, evidence, task and viewer capabili
   const asSup = await svc.get(incident.id, "sup");
   assert.equal(asSup.viewer.canTriage, true);
   assert.ok(asSup.viewer.transitions.includes("TRIAGED"));
+});
+
+// ── T-052: agro.incident.created/resolved (DomainEventBus) ─────────────────
+// Mismo mecanismo que dispute.opened/resolved (packages/schemas/src/
+// domain-events.schema.ts + DomainEventBus.emit), no el envelope v2 +
+// DomainOutboxEvent. Aquí se prueba con un stub de DomainEventBus (sin cargar
+// DomainEventsModule real, que arrastra Agents/AiModels/Matching/
+// Notifications) — igual que el resto de este archivo prueba el servicio sin
+// Nest ni Postgres reales.
+
+function busStub() {
+  const calls: Array<{ type: string; payload: any; ctx: any }> = [];
+  const bus = { emit: async (event: any, ctx: any) => { calls.push({ type: event.type, payload: event.payload, ctx }); } };
+  return { bus, calls };
+}
+
+test("agro-incident T-052: create() emits agro.incident.created only for a farm with tenant", async () => {
+  const { bus, calls } = busStub();
+  const { svc } = setup(bus);
+  const { incident } = await svc.create("farm_1", "worker", BASE);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0]!.type, "agro.incident.created");
+  assert.equal(calls[0]!.payload.incidentId, incident.id);
+  assert.equal(calls[0]!.payload.farmId, "farm_1");
+  assert.equal(calls[0]!.payload.reportedById, "worker");
+  assert.equal(calls[0]!.payload.ownerId, "owner");
+  assert.equal(calls[0]!.ctx.tenantId, "tenant_1");
+  assert.equal(calls[0]!.ctx.orgId, "agro:farm_1");
+});
+
+test("agro-incident T-052: transition to RESOLVED emits agro.incident.resolved with resolution text", async () => {
+  const { bus, calls } = busStub();
+  const { svc } = setup(bus);
+  const { incident } = await svc.create("farm_1", "worker", BASE);
+  await svc.transition(incident.id, "sup", { to: "IN_PROGRESS" });
+  calls.length = 0; // solo el evento de la transición a RESOLVED
+  await svc.transition(incident.id, "sup", { to: "RESOLVED", resolution: "Se aisló y trató al animal" });
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0]!.type, "agro.incident.resolved");
+  assert.equal(calls[0]!.payload.incidentId, incident.id);
+  assert.equal(calls[0]!.payload.resolvedById, "sup");
+  assert.equal(calls[0]!.payload.resolution, "Se aisló y trató al animal");
+  assert.equal(calls[0]!.payload.reportedById, "worker");
+});
+
+test("agro-incident T-052: a non-RESOLVED transition does not emit agro.incident.resolved", async () => {
+  const { bus, calls } = busStub();
+  const { svc } = setup(bus);
+  const { incident } = await svc.create("farm_1", "worker", BASE);
+  calls.length = 0;
+  await svc.transition(incident.id, "sup", { to: "TRIAGED" });
+  assert.equal(calls.length, 0);
+});
+
+test("agro-incident T-052: a farm without tenant (T-051) emits no agro.incident.* — AgroAuditEvent still records it", async () => {
+  const { bus, calls } = busStub();
+  const { svc, audits } = setup(bus);
+  const { incident } = await svc.create("farm_2", "other", BASE);
+  assert.equal(calls.length, 0, "no tenant on farm_2 — DomainEventBus must not be called");
+  assert.ok(audits.some((a) => a.entityId === incident.id && a.action === "incident.created"), "AgroAuditEvent still records the incident regardless of tenant");
+});
+
+test("agro-incident T-052: without a DomainEventBus at all (optional dependency), create()/transition() still work", async () => {
+  const { svc } = setup(undefined);
+  const { incident } = await svc.create("farm_1", "worker", BASE);
+  await svc.transition(incident.id, "sup", { to: "IN_PROGRESS" });
+  const resolved = await svc.transition(incident.id, "sup", { to: "RESOLVED", resolution: "ok" });
+  assert.equal(resolved.status, "RESOLVED");
 });

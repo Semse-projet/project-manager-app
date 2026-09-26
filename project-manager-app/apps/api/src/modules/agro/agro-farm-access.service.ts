@@ -54,6 +54,15 @@ export class AgroFarmAccessService {
     return actor;
   }
 
+  /**
+   * Tenant + owner de la finca, para emitir eventos de dominio (T-052) igual
+   * que el espejo a JobTask (agro-jobtask-mirror.ts): sin tenant, no hay
+   * evento cruzado — AgroAuditEvent sigue siendo el registro.
+   */
+  async getFarmContext(farmId: string): Promise<{ tenantId: string | null; ownerId: string | null } | null> {
+    return this.prisma.agroFarm.findUnique({ where: { id: farmId }, select: { tenantId: true, ownerId: true } });
+  }
+
   /** Fincas donde el usuario es miembro activo (no incluye las propias). */
   async listMemberships(userId: string) {
     return this.prisma.agroFarmMember.findMany({
