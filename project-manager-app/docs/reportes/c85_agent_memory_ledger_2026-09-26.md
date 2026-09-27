@@ -98,7 +98,7 @@ canónica" en el contexto inyectado a los prompts.
 - `pnpm --filter @semse/db exec prisma validate` — schema válido.
 - `pnpm verify:modules` / `audit:prisma-usage` / `check:toolchain` / `check:dockerfiles` (los 4 chequeos estáticos de `verify:workspace`) — corridos individualmente, los 4 limpios.
 - `pnpm --filter @semse/api test:unit` (**suite completa del API, no sólo los archivos de C85**) — **2504 tests, 2503 PASS, 0 FAIL, 1 SKIPPED** (312.9s). Mejor resultado que el reportado por el traspaso de C85 previo (2451 PASS / 8 FAIL / 37 SKIP) — los 8 FAIL de SAT-007 que aquel reportó por DNS del entorno no reaparecieron aquí.
-- `pnpm verify:workspace` completo (incluye `railway:preflight` = `validate:workspace` + rebuild completo de packages/apps + `typecheck:all` + este mismo `test:unit`) — lanzado; es el único chequeo que no llegó a confirmarse dentro de esta sesión por su duración (rebuild completo de `apps/web` incluido). Todos sus componentes individuales ya se verificaron por separado arriba.
+- `pnpm verify:workspace` completo (`verify:modules` + `audit:prisma-usage` + `check:toolchain` + `check:dockerfiles` + `railway:preflight` [`validate:workspace` + rebuild completo de packages/apps incl. `apps/web` + `typecheck:all`] + `pnpm --filter @semse/api test:unit`) — **terminó limpio, exit code 0** (~24 min, confirmado después de abrir el PR). Gate local completo verde.
 
 ## Migraciones
 
