@@ -7,6 +7,7 @@ import { resolveRequestContext } from "../../common/request-context.js";
 import { resolveRequestId } from "../../common/request-id.js";
 import { parseWithSchema } from "../../common/zod-validation.js";
 import { parsePositiveInt } from "../../common/parse-query.js";
+import { AgentMemoryService } from "./agent-memory.service.js";
 import { AgentSkillRepository, type CreateAgentSkillInput } from "./agent-skill.repository.js";
 import { KnowledgeCuratorService } from "./knowledge-curator.service.js";
 import { KnowledgeService } from "./knowledge.service.js";
@@ -18,6 +19,7 @@ export class KnowledgeController {
     private readonly knowledgeService: KnowledgeService,
     private readonly skillRepo: AgentSkillRepository,
     private readonly curator: KnowledgeCuratorService,
+    private readonly agentMemory: AgentMemoryService,
   ) {}
 
   // Estas dos exponen el mapa de dominios de conocimiento del repo y el estado
@@ -118,6 +120,130 @@ export class KnowledgeController {
     const actor = resolveRequestContext(req);
     const skill = await this.skillRepo.recordUse({ tenantId: actor.tenantId, agentId, name, succeeded: body.succeeded });
     return ok(resolveRequestId(req.headers ?? {}), skill);
+  }
+
+  // ── Agent Memory governance (C85) ───────────────────────────────────────────
+  // Memory is remembered context, never canonical truth or standalone
+  // authorization to act — see docs/specs/knowledge/agent-memory-governance.spec.md.
+  // Mutations (correct/invalidate/supersede/conflicts) are restricted to
+  // knowledge:manage (OPS_ADMIN today) and are audited via AuditService.
+
+  @Get("agent-memory")
+  async listAgentMemory(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Query("projectId") projectId: string,
+    @Query("limit") limit?: string,
+  ) {
+    const actor = resolveRequestContext(req);
+    const data = await this.agentMemory.getRecentJournal({
+      tenantId: actor.tenantId,
+      projectId,
+      limit: limit ? parsePositiveInt(limit, 10) : undefined,
+    });
+    return ok(resolveRequestId(req.headers ?? {}), data);
+  }
+
+  @Get("agent-memory/search")
+  async searchAgentMemory(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Query("projectId") projectId: string,
+    @Query("query") query: string,
+    @Query("agentId") agentId?: string,
+    @Query("limit") limit?: string,
+  ) {
+    const actor = resolveRequestContext(req);
+    const data = await this.agentMemory.searchMemories({
+      tenantId: actor.tenantId,
+      projectId,
+      query: query ?? "",
+      agentId,
+      limit: limit ? parsePositiveInt(limit, 20) : undefined,
+    });
+    return ok(resolveRequestId(req.headers ?? {}), data);
+  }
+
+  @Get("agent-memory/:id/lineage")
+  async agentMemoryLineage(@Req() req: { headers?: Record<string, unknown> }, @Param("id") id: string) {
+    const actor = resolveRequestContext(req);
+    const data = await this.agentMemory.getMemoryLineage({ tenantId: actor.tenantId, id });
+    return ok(resolveRequestId(req.headers ?? {}), data);
+  }
+
+  @Post("agent-memory/:id/correct")
+  @RequirePermissions("knowledge:manage")
+  async correctAgentMemory(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Param("id") id: string,
+    @Body() body: { content?: string; summary?: string; tags?: string[]; reason: string },
+  ) {
+    const actor = resolveRequestContext(req);
+    const data = await this.agentMemory.correctMemory({
+      tenantId: actor.tenantId,
+      orgId: actor.orgId,
+      id,
+      correctedBy: actor.userId,
+      patch: { content: body.content, summary: body.summary, tags: body.tags },
+      reason: body.reason,
+      requestId: resolveRequestId(req.headers ?? {}),
+    });
+    return ok(resolveRequestId(req.headers ?? {}), data);
+  }
+
+  @Post("agent-memory/:id/invalidate")
+  @RequirePermissions("knowledge:manage")
+  async invalidateAgentMemory(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Param("id") id: string,
+    @Body() body: { reason: string },
+  ) {
+    const actor = resolveRequestContext(req);
+    const data = await this.agentMemory.invalidateMemory({
+      tenantId: actor.tenantId,
+      orgId: actor.orgId,
+      id,
+      invalidatedBy: actor.userId,
+      reason: body.reason,
+      requestId: resolveRequestId(req.headers ?? {}),
+    });
+    return ok(resolveRequestId(req.headers ?? {}), data);
+  }
+
+  @Post("agent-memory/:id/supersede")
+  @RequirePermissions("knowledge:manage")
+  async supersedeAgentMemory(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Param("id") id: string,
+    @Body() body: { newId: string },
+  ) {
+    const actor = resolveRequestContext(req);
+    await this.agentMemory.supersedeMemory({
+      tenantId: actor.tenantId,
+      orgId: actor.orgId,
+      oldId: id,
+      newId: body.newId,
+      actorUserId: actor.userId,
+      requestId: resolveRequestId(req.headers ?? {}),
+    });
+    return ok(resolveRequestId(req.headers ?? {}), { oldId: id, newId: body.newId });
+  }
+
+  @Post("agent-memory/:id/conflicts")
+  @RequirePermissions("knowledge:manage")
+  async flagAgentMemoryConflict(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Param("id") id: string,
+    @Body() body: { conflictsWithId: string },
+  ) {
+    const actor = resolveRequestContext(req);
+    await this.agentMemory.flagMemoryConflict({
+      tenantId: actor.tenantId,
+      orgId: actor.orgId,
+      id,
+      conflictsWithId: body.conflictsWithId,
+      actorUserId: actor.userId,
+      requestId: resolveRequestId(req.headers ?? {}),
+    });
+    return ok(resolveRequestId(req.headers ?? {}), { id, conflictsWithId: body.conflictsWithId });
   }
 
   // ── Curator ───────────────────────────────────────────────────────────────────

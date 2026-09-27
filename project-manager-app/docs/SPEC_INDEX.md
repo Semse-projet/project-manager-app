@@ -109,6 +109,7 @@ retroactiva.
 | [fsm-job-lifecycle](specs/fsm/job-lifecycle.spec.md) | jobs | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-17 |
 | [fsm-milestone-lifecycle](specs/fsm/milestone-lifecycle.spec.md) | milestones | VERIFIED | legacy | legacy | legacy | legacy | legacy | critical | yes | 2026-07-17 |
 | [fsm-reservation-lifecycle](specs/fsm/reservation-lifecycle.spec.md) | reservations | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-06-09 |
+| [knowledge.agent-memory-governance](specs/knowledge/agent-memory-governance.spec.md) | knowledge | IMPLEMENTED | COMPLETE | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | yes | 2026-09-26 |
 | [labor.time-tracking-consolidation](specs/labor/time-tracking-consolidation.spec.md) | labor | IMPLEMENTED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-19 |
 | [operations.jobs-bids-event-projection](specs/operations/jobs-bids-event-projection.spec.md) | operations | IMPLEMENTED | COMPLETE | PASS | MERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-08-26 |
 | [operations.mission-control-2](specs/operations/mission-control-2.spec.md) | operations | IMPLEMENTED | COMPLETE | PASS | MERGED | DEPLOYED | INACTIVE | critical | yes | 2026-08-12 |
