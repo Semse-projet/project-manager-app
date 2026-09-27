@@ -54,9 +54,9 @@ date: "2026-09-26"
 
 ## Fase 5 — PR, CI y merge
 
-- [ ] [T-050] Revisar diff y secretos — pendiente antes de push
-- [ ] [T-051] Abrir PR con migración, rollback y evidencia
-- [ ] [T-052] Esperar CI terminal (GitHub Actions) y registrar `ci_status`
+- [x] [T-050] Diff y secretos revisados (sin `.env`, sin credenciales) antes de push
+- [x] [T-051] [PR #691](https://github.com/Semse-projet/project-manager-app/pull/691) abierto con migración, rollback y evidencia
+- [x] [T-052] CI terminal — todos los checks requeridos `SUCCESS` sobre HEAD `cc16e7a8`; `ci_status: PASS`
 - [ ] [T-053] Resolver review
 - [ ] [T-054] Fusionar y registrar SHA; actualizar `merge_status`
 

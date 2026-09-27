@@ -8,7 +8,7 @@ status: "IMPLEMENTED"
 owner: "knowledge"
 risk: "medium"
 code_status: "COMPLETE"
-ci_status: "NOT_RUN"
+ci_status: "PASS"
 merge_status: "UNMERGED"
 deploy_status: "NOT_DEPLOYED"
 activation_status: "INACTIVE"
@@ -322,9 +322,9 @@ Evidencia real de esta sesión:
 - [ ] Spec enlazado por `pnpm spec:index`
 - [x] Spec, plan, tasks coherentes (ver `agent-memory-governance.plan.md` / `.tasks.md`)
 - [x] Tests derivados del spec y verdes (unitarios + integración; UI/canary N/A por alcance)
-- [ ] `pnpm spec:validate:strict` verde (pendiente de correr en esta sesión)
+- [x] `pnpm spec:validate:strict` verde — 142 specs, 0 errores, 0 warnings
 - [x] Migración reproducible y rollback/forward-fix documentado (local; no en Railway)
-- [ ] CI `PASS`
+- [x] CI `PASS` — [PR #691](https://github.com/Semse-projet/project-manager-app/pull/691), todos los checks requeridos en `SUCCESS` sobre el HEAD `cc16e7a8` (integration, autonomy-staged-smoke, quality-gates ×2, unit-coverage ×2, e2e, CodeQL ×2, verify-operacion-asistida-api)
 - [ ] PR fusionado y SHA registrado
 - [ ] Deployment terminal `DEPLOYED`
 - [ ] Activación/canary verificada por separado
