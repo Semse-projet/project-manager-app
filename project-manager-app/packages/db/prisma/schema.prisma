@@ -1766,12 +1766,32 @@ model WorkspaceMemoryEntry {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  // ── C85 governance (see AgentMemory above for field semantics) ─────────────
+  sensitivity        String    @default("internal")
+  epistemicStatus    String    @default("remembered_context")
+  confidence         Float?
+  provenance         Json?
+  subjectType        String?
+  subjectId          String?
+  status             String    @default("active")
+  supersedesId       String?
+  supersededById     String?
+  correctedFromId    String?
+  conflictsWith      String[]  @default([])
+  invalidatedAt      DateTime?
+  invalidatedBy      String?
+  invalidationReason String?
+  retentionUntil     DateTime?
+
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, workspaceId, updatedAt])
   @@index([tenantId, workspaceId, kind, updatedAt])
   @@index([tenantId, workspaceId, runId])
   @@index([tenantId, workspaceId, taskId])
+  @@index([tenantId, workspaceId, status])
+  @@index([tenantId, subjectType, subjectId])
+  @@index([tenantId, retentionUntil])
 }
 
 /// Directional graph edge between two KnowledgeFacts.
@@ -1883,6 +1903,12 @@ model AgentDelegation {
 
 /// Durable agent memory: session summaries, decisions, observations, action proposals.
 /// Scoped by (tenantId, projectId) — never cross-project. Importância 1-5.
+///
+/// C85 (Agent Memory governance): memory is context, never canonical truth or
+/// action authorization on its own (see `docs/specs/knowledge/agent-memory-governance.spec.md`).
+/// The governance fields below let callers distinguish remembered context from
+/// verified fact, track who/what produced a memory, and correct/invalidate/
+/// supersede entries without ever mutating history in place.
 model AgentMemory {
   id              String   @id @default(cuid())
   tenantId        String
@@ -1900,11 +1926,31 @@ model AgentMemory {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
+  // ── C85 governance ──────────────────────────────────────────────────────────
+  sensitivity        String    @default("internal") // public | internal | restricted | confidential
+  epistemicStatus    String    @default("remembered_context") // remembered_context | inference | verified_fact
+  confidence         Float? // 0..1 — only meaningful when epistemicStatus != verified_fact
+  provenance         Json? // { producedBy, method, model?, correlationId? } — how this memory came to exist
+  subjectType        String? // generic entity association, e.g. "project" | "job" | "milestone" | "vendor"
+  subjectId          String?
+  status             String    @default("active") // active | superseded | corrected | invalidated
+  supersedesId       String? // id of the memory this one replaces
+  supersededById     String? // id of the memory that replaced this one
+  correctedFromId    String? // id of the pre-correction version, when status = corrected's successor
+  conflictsWith      String[]  @default([]) // ids of other memories flagged as contradicting this one
+  invalidatedAt      DateTime?
+  invalidatedBy      String?
+  invalidationReason String?
+  retentionUntil     DateTime? // hard deletion boundary driven by sensitivity/retention policy
+
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, projectId, type, updatedAt])
   @@index([tenantId, agentId, sessionId])
   @@index([tenantId, projectId, importanceScore])
+  @@index([tenantId, projectId, status])
+  @@index([tenantId, subjectType, subjectId])
+  @@index([tenantId, retentionUntil])
 }
 
 /// Procedural memory for agents — inspired by Hermes skill_manager_tool.py.

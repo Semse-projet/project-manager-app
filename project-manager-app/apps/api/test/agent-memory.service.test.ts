@@ -63,10 +63,12 @@ function makeAgentRepo(opts: {
 } = {}) {
   const created: ReturnType<typeof makeAgentRecord>[] = [];
   const upserted: ReturnType<typeof makeAgentRecord>[] = [];
+  const governanceCalls: Array<{ op: string; input: unknown }> = [];
 
   return {
     get created() { return created; },
     get upserted() { return upserted; },
+    get governanceCalls() { return governanceCalls; },
     repo: {
       async create(input: Record<string, unknown>) {
         const r = makeAgentRecord(input);
@@ -82,7 +84,30 @@ function makeAgentRepo(opts: {
       async listByProject(_input: unknown) { return opts.listHits ?? []; },
       async listBySession(_input: unknown) { return []; },
       async deleteBySession(_input: unknown) { return 0; },
+      async correct(input: unknown) {
+        governanceCalls.push({ op: "correct", input });
+        return makeAgentRecord({ id: "mem_corrected", correctedFromId: (input as { id: string }).id });
+      },
+      async invalidate(input: unknown) {
+        governanceCalls.push({ op: "invalidate", input });
+        return makeAgentRecord({ id: (input as { id: string }).id, status: "invalidated" });
+      },
+      async supersede(input: unknown) {
+        governanceCalls.push({ op: "supersede", input });
+      },
+      async flagConflict(input: unknown) {
+        governanceCalls.push({ op: "flagConflict", input });
+      },
+      async getLineage(_input: unknown) { return [makeAgentRecord(), makeAgentRecord()]; },
     },
+  };
+}
+
+function makeAuditService() {
+  const entries: Array<Record<string, unknown>> = [];
+  return {
+    get entries() { return entries; },
+    audit: { async append(entry: Record<string, unknown>) { entries.push(entry); } },
   };
 }
 
@@ -91,11 +116,20 @@ function makeService(opts: {
   wsQuery?: ReturnType<typeof makeWsRecord>[];
   agentHits?: ReturnType<typeof makeAgentRecord>[];
   agentList?: ReturnType<typeof makeAgentRecord>[];
+  withAudit?: boolean;
 } = {}) {
   const ws = makeWsRepo({ searchHits: opts.wsHits, queryRecords: opts.wsQuery });
   const ag = makeAgentRepo({ searchHits: opts.agentHits, listHits: opts.agentList });
-  const service = new AgentMemoryService(ws.repo as never, ag.repo as never);
-  return { service, wsAppended: ws.appended, agCreated: ag.created, agUpserted: ag.upserted };
+  const audit = makeAuditService();
+  const service = new AgentMemoryService(
+    ws.repo as never,
+    ag.repo as never,
+    opts.withAudit === false ? undefined : (audit.audit as never),
+  );
+  return {
+    service, wsAppended: ws.appended, agCreated: ag.created, agUpserted: ag.upserted,
+    agGovernance: ag.governanceCalls, auditEntries: audit.entries,
+  };
 }
 
 // ── fetchRelevant (backward-compat) ──────────────────────────────────────────
@@ -470,4 +504,74 @@ test("searchMemories is scoped to projectId — does not return other project me
   const service = new AgentMemoryService(ws.repo as never, isolatedAgRepo as never);
   await service.searchMemories({ tenantId: "t", projectId: "project_A", query: "escrow" });
   assert.equal(capturedProjectId, "project_A");
+});
+
+// ── C85 governance ────────────────────────────────────────────────────────────
+
+test("memory blocks always carry the non-authoritative disclaimer", async () => {
+  const agHits = [makeAgentRecord({ summary: "Escrow liberado en hito 3" })];
+  const { service } = makeService({ agentHits: agHits });
+  const ctx = await service.injectRelevantContext({
+    tenantId: "tnt_t", orgId: "org_t", agentId: "project-copilot", projectId: "p1", query: "escrow",
+  });
+  assert.match(ctx, /no verdad canónica ni autorización para actuar/i);
+});
+
+test("correctMemory delegates to agentRepo.correct and audits the change", async () => {
+  const { service, agGovernance, auditEntries } = makeService();
+  const result = await service.correctMemory({
+    tenantId: "tnt_t", orgId: "org_t", id: "mem_1", correctedBy: "usr_admin",
+    patch: { content: "dato corregido" }, reason: "el dato original estaba desactualizado",
+  });
+  assert.equal(agGovernance.length, 1);
+  assert.equal(agGovernance[0]!.op, "correct");
+  assert.equal(result.id, "mem_corrected");
+  assert.equal(auditEntries.length, 1);
+  assert.equal(auditEntries[0]!.action, "agent_memory.corrected");
+  assert.equal(auditEntries[0]!.entityType, "AgentMemory");
+});
+
+test("invalidateMemory delegates to agentRepo.invalidate and audits the change", async () => {
+  const { service, agGovernance, auditEntries } = makeService();
+  await service.invalidateMemory({
+    tenantId: "tnt_t", orgId: "org_t", id: "mem_1", invalidatedBy: "usr_admin", reason: "falso positivo",
+  });
+  assert.equal(agGovernance[0]!.op, "invalidate");
+  assert.equal(auditEntries[0]!.action, "agent_memory.invalidated");
+});
+
+test("supersedeMemory delegates to agentRepo.supersede and audits the change", async () => {
+  const { service, agGovernance, auditEntries } = makeService();
+  await service.supersedeMemory({
+    tenantId: "tnt_t", orgId: "org_t", oldId: "mem_old", newId: "mem_new", actorUserId: "usr_admin",
+  });
+  assert.equal(agGovernance[0]!.op, "supersede");
+  assert.equal(auditEntries[0]!.action, "agent_memory.superseded");
+  assert.equal(auditEntries[0]!.entityId, "mem_old");
+});
+
+test("flagMemoryConflict delegates to agentRepo.flagConflict and audits the change", async () => {
+  const { service, agGovernance, auditEntries } = makeService();
+  await service.flagMemoryConflict({
+    tenantId: "tnt_t", orgId: "org_t", id: "mem_a", conflictsWithId: "mem_b", actorUserId: "usr_admin",
+  });
+  assert.equal(agGovernance[0]!.op, "flagConflict");
+  assert.equal(auditEntries[0]!.action, "agent_memory.conflict_flagged");
+});
+
+test("getMemoryLineage delegates to agentRepo.getLineage", async () => {
+  const { service } = makeService();
+  const lineage = await service.getMemoryLineage({ tenantId: "tnt_t", id: "mem_1" });
+  assert.equal(lineage.length, 2);
+});
+
+test("governance methods do not throw when no AuditService is configured", async () => {
+  const { service } = makeService({ withAudit: false });
+  await assert.doesNotReject(() => service.correctMemory({
+    tenantId: "tnt_t", orgId: "org_t", id: "mem_1", correctedBy: "usr_admin",
+    patch: {}, reason: "test",
+  }));
+  await assert.doesNotReject(() => service.invalidateMemory({
+    tenantId: "tnt_t", orgId: "org_t", id: "mem_1", invalidatedBy: "usr_admin", reason: "test",
+  }));
 });

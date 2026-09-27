@@ -162,3 +162,16 @@ de Production Health las verifica junto con las nueve páginas `/modules/*`.
 - `POST /v1/agents/runs/:runId/heartbeat`
 - `POST /v1/agents/runs/:runId/complete`
 - `POST /v1/agents/runs/:runId/fail`
+
+## Knowledge — Agent Memory governance (C85)
+Memoria de agente es contexto recordado, nunca verdad canónica ni
+autorización para actuar — ver
+`docs/specs/knowledge/agent-memory-governance.spec.md`. Lectura con
+`knowledge:read`; mutaciones con `knowledge:manage`.
+- `GET /v1/knowledge/agent-memory`
+- `GET /v1/knowledge/agent-memory/search`
+- `GET /v1/knowledge/agent-memory/:id/lineage`
+- `POST /v1/knowledge/agent-memory/:id/correct` (crea un reemplazo enlazado; nunca sobrescribe el original)
+- `POST /v1/knowledge/agent-memory/:id/invalidate`
+- `POST /v1/knowledge/agent-memory/:id/supersede`
+- `POST /v1/knowledge/agent-memory/:id/conflicts`
