@@ -22,4 +22,4 @@
 | T-052 | Eventos `agro.*` en EVENT_CATALOG + Notifications (spec `agro-domain-events.spec.md`); catálogo aprobado: incident.created/resolved + worker_capability.verified | ✅ | agro-incident.service.test.ts + agro-workforce.service.test.ts + agro-domain-events-notifications-integration.test.ts |
 | T-053 | Subida binaria de evidencia Agro (flujo presignado, spec `agro-evidence-upload.spec.md`) | ✅ | verificación manual (presign→PUT→registro→descarga) |
 | T-054 | ASR (reusa OpenAI Whisper de Contributor Program, excepción de producto explícita a privacyCritical) + visión (vision-service, local vía Ollama) para el intake (spec `agro-prometeo-intake.spec.md` §3ter) | ✅ | agro-intake.service.test.ts + agro-vision.service.test.ts |
-| T-055 | Pantallas Agro en apps/mobile (hoy el reporte es web responsive) | ⏳ | |
+| T-055 | Pantallas Agro en apps/mobile: reporte + mis tareas, pestaña "Agro" en WORKER (spec `agro-mobile-report.spec.md`); audio diferido (sin `expo-av`/`expo-audio`) | ✅ | 4 nuevas suites de test (Farms/Incidents/ReportIncident/Tasks) |

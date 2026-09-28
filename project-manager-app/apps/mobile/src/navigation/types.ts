@@ -31,6 +31,20 @@ export type WorkerTabParamList = {
   Bids: undefined;
   /** Mounts WorkerMoreStackNavigator — everything used less than daily (Proyectos libres, Disputas, Incidentes, Viajes, Ajustes) lives behind this one tab so the bottom bar stays at 4 items. */
   More: NavigatorScreenParams<WorkerMoreStackParamList> | undefined;
+  /**
+   * Mounts AgroStackNavigator (T-055) — always visible for WORKER/PRO, even
+   * with zero farm memberships (honest empty state instead of a conditional
+   * tab, which would need an extra startup API call). Reporte + mis tareas
+   * only in this first cut; see docs/specs/agro/agro-mobile-report.spec.md.
+   */
+  Agro: NavigatorScreenParams<AgroStackParamList> | undefined;
+};
+
+export type AgroStackParamList = {
+  AgroFarms: undefined;
+  AgroIncidents: { farmId: string; farmName: string };
+  AgroReportIncident: { farmId: string; farmName: string };
+  AgroTasks: undefined;
 };
 
 export type WorkerJobsStackParamList = {
