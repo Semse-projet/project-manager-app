@@ -1,6 +1,15 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, type ComponentType, type Ref } from "react";
 import { StyleSheet, View } from "react-native";
-import { WebView, type WebViewMessageEvent } from "react-native-webview";
+import { WebView, type WebViewMessageEvent, type WebViewProps } from "react-native-webview";
+
+// react-native-webview's `WebView` is declared as a generic class component
+// (`class WebView<P = undefined> extends Component<WebViewProps & P>`), which
+// React 19.3's stricter JSX resolution can no longer match directly — the
+// `P = undefined` default collapses the JSX overload to `never`. Casting to a
+// plain component type sidesteps that resolution without touching upstream
+// typings; the underlying runtime component and its imperative handle are
+// unchanged.
+const TypedWebView = WebView as unknown as ComponentType<WebViewProps & { ref?: Ref<WebView> }>;
 
 export interface LocationPickerMapProps {
   latitude?: number;
@@ -53,7 +62,7 @@ export function LocationPickerMap({ latitude, longitude, onChange, height = 260 
 
   return (
     <View style={[styles.container, { height }]}>
-      <WebView
+      <TypedWebView
         ref={webviewRef}
         originWhitelist={["*"]}
         source={{ html }}

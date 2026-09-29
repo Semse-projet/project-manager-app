@@ -68,7 +68,7 @@ export default function PaymentsScreen() {
       contentContainerStyle={styles.container}
       data={rows}
       keyExtractor={(item) => item.id}
-      ListHeaderComponent={error ? <ErrorState message={error} /> : null}
+      ListHeaderComponent={error ? <ErrorState message={error} /> : undefined}
       ListEmptyComponent={<EmptyState title="No tienes movimientos de pago todavía." />}
       onRefresh={() => void load(true)}
       refreshing={refreshing}

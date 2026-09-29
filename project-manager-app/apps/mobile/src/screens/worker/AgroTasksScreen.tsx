@@ -84,7 +84,7 @@ export default function AgroTasksScreen(_props: Props) {
       keyExtractor={(task) => task.id}
       onRefresh={() => void load(true)}
       refreshing={refreshing}
-      ListHeaderComponent={error ? <ErrorState message={error} /> : null}
+      ListHeaderComponent={error ? <ErrorState message={error} /> : undefined}
       ListEmptyComponent={<EmptyState icon="checkbox-outline" title="No tienes tareas Agro asignadas." />}
       renderItem={({ item }) => {
         const done = item.status === "done";
