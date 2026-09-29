@@ -6,6 +6,7 @@ import { ok } from "../../common/api-response.js";
 import { resolveRequestId } from "../../common/request-id.js";
 import { RequirePermissions } from "../../common/permissions.decorator.js";
 import { resolveRequestContext } from "../../common/request-context.js";
+import { parseWithSchema } from "../../common/zod-validation.js";
 import { AgroProductionCycleService } from "./agro-production-cycle.service.js";
 
 const cycleTypeEnum = z.enum(["CATTLE_ROUND", "CROP_SEASON", "MIXED"]);
@@ -81,7 +82,7 @@ export class AgroProductionCycleController {
     @Req() req: any,
   ) {
     const ctx = resolveRequestContext(req);
-    const parsed = createCycleSchema.parse(body);
+    const parsed = parseWithSchema(createCycleSchema, body);
     const cycle = await this.service.createCycle(farmId, ctx.userId, parsed);
     return ok(resolveRequestId(req.headers ?? {}), { cycle });
   }
@@ -102,7 +103,7 @@ export class AgroProductionCycleController {
     @Req() req: any,
   ) {
     const ctx = resolveRequestContext(req);
-    const parsed = updateCycleSchema.parse(body);
+    const parsed = parseWithSchema(updateCycleSchema, body);
     const cycle = await this.service.updateCycle(cycleId, ctx.userId, parsed);
     return ok(resolveRequestId(req.headers ?? {}), { cycle });
   }
@@ -129,7 +130,7 @@ export class AgroProductionCycleController {
     @Req() req: any,
   ) {
     const ctx = resolveRequestContext(req);
-    const parsed = createCropSchema.parse(body);
+    const parsed = parseWithSchema(createCropSchema, body);
     const cropCycle = await this.service.createCropCycle(farmId, ctx.userId, parsed);
     return ok(resolveRequestId(req.headers ?? {}), { cropCycle });
   }
@@ -144,7 +145,7 @@ export class AgroProductionCycleController {
     @Req() req: any,
   ) {
     const ctx = resolveRequestContext(req);
-    const parsed = inputApplicationSchema.parse(body);
+    const parsed = parseWithSchema(inputApplicationSchema, body);
     const input = await this.service.addInputApplication(cropCycleId, ctx.userId, parsed);
     return ok(resolveRequestId(req.headers ?? {}), { input });
   }
@@ -159,7 +160,7 @@ export class AgroProductionCycleController {
     @Req() req: any,
   ) {
     const ctx = resolveRequestContext(req);
-    const parsed = harvestSchema.parse(body);
+    const parsed = parseWithSchema(harvestSchema, body);
     const harvest = await this.service.recordHarvest(cropCycleId, ctx.userId, parsed);
     return ok(resolveRequestId(req.headers ?? {}), { harvest });
   }
