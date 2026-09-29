@@ -6,6 +6,7 @@ import { ok } from "../../common/api-response.js";
 import { resolveRequestId } from "../../common/request-id.js";
 import { RequirePermissions } from "../../common/permissions.decorator.js";
 import { resolveRequestContext } from "../../common/request-context.js";
+import { parseWithSchema } from "../../common/zod-validation.js";
 import { AgroInventoryService } from "./agro-inventory.service.js";
 import { parsePositiveInt } from "../../common/parse-query.js";
 
@@ -79,7 +80,7 @@ export class AgroInventoryController {
   @RequirePermissions("agro:write")
   async createItem(@Param("farmId") farmId: string, @Body() body: unknown, @Req() req: any) {
     const ctx = resolveRequestContext(req);
-    const input = createItemSchema.parse(body);
+    const input = parseWithSchema(createItemSchema, body);
     const item = await this.service.createItem(farmId, ctx.userId, input);
     return ok(resolveRequestId(req.headers ?? {}), { item });
   }
@@ -96,7 +97,7 @@ export class AgroInventoryController {
   @RequirePermissions("agro:write")
   async updateItem(@Param("itemId") itemId: string, @Body() body: unknown, @Req() req: any) {
     const ctx = resolveRequestContext(req);
-    const input = updateItemSchema.parse(body);
+    const input = parseWithSchema(updateItemSchema, body);
     const item = await this.service.updateItem(itemId, ctx.userId, input);
     return ok(resolveRequestId(req.headers ?? {}), { item });
   }
@@ -133,7 +134,7 @@ export class AgroInventoryController {
   @RequirePermissions("agro:report")
   async recordMovement(@Param("farmId") farmId: string, @Body() body: unknown, @Req() req: any) {
     const ctx = resolveRequestContext(req);
-    const input = movementSchema.parse(body);
+    const input = parseWithSchema(movementSchema, body);
     const movement = await this.service.recordMovement(farmId, ctx.userId, input as any);
     return ok(resolveRequestId(req.headers ?? {}), { movement });
   }
@@ -143,7 +144,7 @@ export class AgroInventoryController {
   @RequirePermissions("agro:report")
   async consumeInventory(@Param("farmId") farmId: string, @Body() body: unknown, @Req() req: any) {
     const ctx = resolveRequestContext(req);
-    const input = consumeSchema.parse(body);
+    const input = parseWithSchema(consumeSchema, body);
     const movement = await this.service.consumeInventory(farmId, ctx.userId, input);
     return ok(resolveRequestId(req.headers ?? {}), { movement });
   }
@@ -167,7 +168,7 @@ export class AgroInventoryController {
   @RequirePermissions("agro:write")
   async createCost(@Param("farmId") farmId: string, @Body() body: unknown, @Req() req: any) {
     const ctx = resolveRequestContext(req);
-    const input = manualCostSchema.parse(body);
+    const input = parseWithSchema(manualCostSchema, body);
     const cost = await this.service.createManualCost(farmId, ctx.userId, input);
     return ok(resolveRequestId(req.headers ?? {}), { cost });
   }

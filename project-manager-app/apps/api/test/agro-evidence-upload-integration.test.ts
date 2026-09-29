@@ -16,9 +16,10 @@
  *
  * También documenta el hallazgo real de esta tarea: una URL *relativa*
  * (lo que el proxy BFF devuelve tal cual) no pasa la validación `.url()` del
- * esquema Agro y el controller no captura ese ZodError — 500, no 400 (mismo
- * hallazgo R8 del AS-IS). Por eso agro-evidence-upload.ts arma la URL
- * absoluta con window.location.origin antes de registrar la evidencia.
+ * esquema Agro — hallazgo R8 del AS-IS, corregido para todos los controllers
+ * Agro (ver R8 fix): ahora responde 400, no 500. `agro-evidence-upload.ts`
+ * sigue armando la URL absoluta con window.location.origin de todas formas,
+ * porque una URL relativa nunca es válida para este campo.
  *
  * E2E por HTTP contra Postgres real. Se salta sin DATABASE_URL.
  */
@@ -120,14 +121,13 @@ dbTest("agro T-053: a real uploaded file's absolute URL is accepted and persiste
     assert.equal(listed.status, 200);
     assert.ok(listed.data.evidence.some((e: any) => e.id === created.data.evidence.id && e.fileUrl === absoluteFileUrl));
 
-    // Regresión documentada (R8, AS-IS): una URL relativa —lo que el proxy BFF
-    // devuelve, sin window.location.origin— no pasa `.url()` y el controller
-    // no captura el ZodError: 500, no 400. agro-evidence-upload.ts evita esto
-    // enviando siempre una URL absoluta; este assert deja la causa documentada.
+    // R8 (fix): una URL relativa —lo que el proxy BFF devuelve, sin
+    // window.location.origin— no pasa `.url()`; el controller ahora captura
+    // ese ZodError vía parseWithSchema y responde 400, no 500.
     const relative = await call("worker", "POST", `/v1/agro/farms/${farmId}/evidence`, {
       entityType: "GENERAL", mediaType: "PHOTO", fileUrl: "/api/semse/uploads/files/whatever.jpg",
     });
-    assert.equal(relative.status, 500, "R8: relative fileUrl still 500s, not 400 — not fixed by T-053, only avoided");
+    assert.equal(relative.status, 400, "R8 fix: relative fileUrl now 400s, not 500");
   } finally {
     if (farmIds.length) await prisma.agroFarm.deleteMany({ where: { id: { in: farmIds } } });
     await prisma.user.deleteMany({ where: { id: { in: Object.values(users) } } });

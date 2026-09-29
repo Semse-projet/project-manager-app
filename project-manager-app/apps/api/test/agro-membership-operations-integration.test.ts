@@ -119,6 +119,12 @@ dbTest("agro T-050: farm members operate existing Agro services according to the
     assert.equal((await call("sup", "POST", `/v1/agro/farms/${farmId}/audit-report`, {})).status, 403);
 
     // ── Tareas ──────────────────────────────────────────────────────────────
+    // R8 (fix): un body inválido (falta `type`, requerido) ahora captura el
+    // ZodError vía parseWithSchema y responde 400, no 500 (antes del fix, los
+    // controllers Agro "existentes" — task, animal, inventory, evidence,
+    // dashboard, farm, production-cycle, economics, traceability — dejaban
+    // pasar el ZodError crudo hasta el filtro global, que lo convertía en 500).
+    assert.equal((await call("sup", "POST", `/v1/agro/farms/${farmId}/tasks`, { title: "x" })).status, 400, "R8 fix: invalid task body is 400, not 500");
     assert.equal((await call("worker", "POST", `/v1/agro/farms/${farmId}/tasks`, { title: "x", type: "FEEDING" })).status, 403, "worker cannot create tasks");
     const toStranger = await call("sup", "POST", `/v1/agro/farms/${farmId}/tasks`, { title: "x", type: "FEEDING", assignedToId: users.stranger });
     assert.equal(toStranger.status, 400, "assignee must be a farm member");
@@ -152,6 +158,8 @@ dbTest("agro T-050: farm members operate existing Agro services according to the
     assert.equal((await call("worker", "PATCH", `/v1/agro/evidence/${workerEv.data.evidence.id}`, { title: "Pesaje C-1" })).status, 200, "worker edits own evidence");
 
     // ── Inventario ──────────────────────────────────────────────────────────
+    // R8 (fix): falta `movementType` (requerido) → 400, no 500.
+    assert.equal((await call("sup", "POST", `/v1/agro/farms/${farmId}/inventory/movements`, { itemId: feed.id })).status, 400, "R8 fix: invalid inventory movement body is 400, not 500");
     assert.equal((await call("worker", "POST", `/v1/agro/farms/${farmId}/inventory/consume`, { itemId: feed.id, quantity: 5 })).status, 201, "worker records consumption");
     assert.equal((await call("worker", "POST", `/v1/agro/farms/${farmId}/inventory/consume`, { itemId: feed.id, quantity: 5, unitCost: 2 })).status, 403, "costed movements are supervision");
     assert.equal((await call("worker", "POST", `/v1/agro/farms/${farmId}/inventory/movements`, { itemId: feed.id, movementType: "IN", quantity: 100 })).status, 403, "stock entries are supervision");
