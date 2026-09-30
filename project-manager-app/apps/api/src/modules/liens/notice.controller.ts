@@ -14,6 +14,7 @@ import { resolveRequestContext } from '../../common/request-context.js';
 import { NoticeGeneratorService } from './notice-generator.service.js';
 import { NoticeSendService } from './notice-send.service.js';
 import { LiensService } from './liens.service.js';
+import { LienAccessService } from './lien-access.service.js';
 
 /**
  * Notice Controller — endpoints para generar y gestionar notices.
@@ -32,7 +33,8 @@ export class NoticeController {
   constructor(
     private readonly noticeGeneratorService: NoticeGeneratorService,
     private readonly noticeSendService: NoticeSendService,
-    private readonly liensService: LiensService
+    private readonly liensService: LiensService,
+    private readonly access: LienAccessService,
   ) {}
 
   /**
@@ -51,6 +53,7 @@ export class NoticeController {
     this.logger.log(`POST /generate-notice: ${calendarId}`);
 
     const actor = resolveRequestContext(req);
+    await this.access.assertCalendar(actor, projectId, calendarId, 'pro');
 
     try {
       // Si no especifica recipientType, generar todos
@@ -91,9 +94,11 @@ export class NoticeController {
    */
   @Get('notices')
   async getNotices(
+    @Req() req: { headers?: Record<string, unknown> },
     @Param('projectId') projectId: string
   ) {
     this.logger.log(`GET /notices: ${projectId}`);
+    await this.access.assertProject(resolveRequestContext(req), projectId, 'read');
 
     try {
       // getLienCalendars() already includes each calendar's non-DRAFT
@@ -124,10 +129,12 @@ export class NoticeController {
    */
   @Get('notices/:noticeId/preview')
   async getNoticePreview(
+    @Req() req: { headers?: Record<string, unknown> },
     @Param('projectId') projectId: string,
     @Param('noticeId') noticeId: string
   ) {
     this.logger.log(`GET /notices/:noticeId/preview: ${noticeId}`);
+    await this.access.assertNotice(resolveRequestContext(req), projectId, noticeId, 'read');
 
     try {
       const preview = await this.noticeGeneratorService.getNoticePreview(noticeId);
@@ -159,10 +166,13 @@ export class NoticeController {
    */
   @Post('notices/:noticeId/send')
   async sendNotice(
+    @Req() req: { headers?: Record<string, unknown> },
     @Param('projectId') projectId: string,
     @Param('noticeId') noticeId: string
   ) {
     this.logger.log(`POST /notices/:noticeId/send: ${noticeId}`);
+    // Certified mail has real-world/legal effect: claimant (pro) or OPS_ADMIN only.
+    await this.access.assertNotice(resolveRequestContext(req), projectId, noticeId, 'pro');
 
     try {
       const updated = await this.noticeSendService.sendNotice(noticeId);
