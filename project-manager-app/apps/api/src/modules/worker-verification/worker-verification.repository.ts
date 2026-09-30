@@ -24,6 +24,18 @@ export class WorkerVerificationRepository {
 
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * Tenant-scoped worker lookup (C10): User rows are global, so a worker
+   * "belongs" to a tenant through a Membership in one of the tenant's orgs —
+   * the same relation getUnverifiedWorkers() already uses.
+   */
+  async getWorkerInTenant(workerId: string, tenantId: string) {
+    return this.prisma.user.findFirst({
+      where: { id: workerId, memberships: { some: { org: { tenantId } } } },
+      select: { id: true, verificationStatus: true },
+    }).catch(() => null);
+  }
+
   async getWorker(workerId: string) {
     return this.prisma.user.findUnique({
       where: { id: workerId },
@@ -75,20 +87,6 @@ export class WorkerVerificationRepository {
     }
   }
 
-  async getVerificationHistory(workerId: string) {
-    // Return synthetic history for now
-    return {
-      workerId,
-      verifications: [
-        {
-          type: "DID_SIGNATURE",
-          status: "verified",
-          verifiedAt: new Date(),
-        },
-      ],
-      overallStatus: "verified",
-    };
-  }
 
   async storeDidSignature(
     workerId: string,

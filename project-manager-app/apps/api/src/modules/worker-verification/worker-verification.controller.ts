@@ -59,8 +59,9 @@ export class WorkerVerificationController {
     @Param("workerId") workerId: string,
   ) {
     const rid = resolveRequestId(req.headers ?? {});
+    const ctx = actor(req);
 
-    const state = await this.service.getVerificationStatus(workerId);
+    const state = await this.service.getVerificationStatus(workerId, ctx.tenantId);
 
     return ok(rid, state);
   }
@@ -72,8 +73,9 @@ export class WorkerVerificationController {
     @Param("workerId") workerId: string,
   ) {
     const rid = resolveRequestId(req.headers ?? {});
+    const ctx = actor(req);
 
-    const history = await this.service.getVerificationHistory(workerId);
+    const history = await this.service.getVerificationHistory(workerId, ctx.tenantId);
 
     return ok(rid, history);
   }
