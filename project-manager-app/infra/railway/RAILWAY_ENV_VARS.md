@@ -40,7 +40,7 @@ These must be set in Railway console as Service Variables (not build args):
 | `AWS_SECRET_ACCESS_KEY` | string | optional | User secret | S3 credentials |
 | `PAYMENT_PROVIDER` | enum | optional | Value: `mock` or `stripe` | Default provider for escrow deposit/release/refund when request body omits `provider` |
 | `STRIPE_SECRET_KEY` | string | required for Stripe | Stripe Dashboard | Runtime secret only; enables the Stripe provider |
-| `STRIPE_WEBHOOK_SECRET` | string | required for Stripe production webhooks | Stripe Dashboard webhook endpoint | Required when Stripe webhooks are active in production |
+| `STRIPE_WEBHOOK_SECRET` | string | required for Stripe production webhooks | Stripe Dashboard webhook endpoint | Required in EVERY environment that receives Stripe webhooks (production, staging, previews). Without it `POST /v1/payments/webhook` returns 503 (fail-closed). For local, non-production testing only, `STRIPE_WEBHOOK_ALLOW_UNSIGNED=true` skips verification; it is ignored in production. |
 | `STRIPE_CONNECT_ACCOUNT_ID` | string | optional | Stripe Connect | Legacy fallback destination when a contractor-specific Connect account is unavailable |
 | `PAYPAL_CLIENT_ID` | string | required for PayPal | PayPal Developer | Enables PayPal Orders and PayPal Payouts |
 | `PAYPAL_CLIENT_SECRET` | string | required for PayPal | PayPal Developer | Runtime secret only |
