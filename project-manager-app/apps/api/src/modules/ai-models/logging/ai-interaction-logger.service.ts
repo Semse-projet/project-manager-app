@@ -2,6 +2,8 @@ import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../infrastructure/prisma/prisma.service.js";
 import type { AiGenerateRequest } from "../dto/ai-generate-request.dto.js";
 import type { AiGenerateResponse } from "../dto/ai-generate-response.dto.js";
+import { requiresPrivateProvider } from "../router/privacy-policy.js";
+import { estimateCostUsd } from "./ai-cost.js";
 
 export type AiInteractionMode = "runtime" | "report" | "context_only" | "fallback";
 
@@ -130,10 +132,21 @@ export class AiInteractionLoggerService {
       }),
     };
 
+    const str = (v: unknown) => (typeof v === "string" && v.length > 0 ? v : undefined);
+    const privacyLevel = request.privacyLevel
+      ?? (request.privacyCritical ? "privacy_critical" : request.localOnly ? "local_only" : undefined);
     this.persistInteraction(log, {
       tenantId: request.metadata?.tenantId as string | undefined,
       modelName: response.modelName,
-      estimatedCostUsd: response.estimatedCost,
+      estimatedCostUsd: response.estimatedCost
+        ?? estimateCostUsd(response.modelSlug, response.inputTokens, response.outputTokens),
+      // C39 — who acted and under which privacy policy (server-stamped metadata).
+      orgId: str(request.metadata?.orgId),
+      actorRoles: str(request.metadata?.actorRoles),
+      privacyLevel,
+      policyDecision: requiresPrivateProvider(request)
+        ? (response.success ? "private_enforced" : "denied")
+        : "standard",
     });
   }
 
@@ -236,6 +249,10 @@ export class AiInteractionLoggerService {
       tenantId?: string;
       modelName?: string;
       estimatedCostUsd?: number;
+      orgId?: string;
+      actorRoles?: string;
+      privacyLevel?: string;
+      policyDecision?: string;
     },
   ) {
     this.buffer.push(log);
@@ -264,6 +281,10 @@ export class AiInteractionLoggerService {
         success: log.success,
         errorMessage: log.errorMessage,
         eligibleForTraining: log.eligibleForTraining,
+        orgId: options?.orgId,
+        actorRoles: options?.actorRoles,
+        privacyLevel: options?.privacyLevel,
+        policyDecision: options?.policyDecision,
       },
     }).catch((err: unknown) => this.logger.warn(`[ai-log] DB persist failed: ${String(err)}`));
 

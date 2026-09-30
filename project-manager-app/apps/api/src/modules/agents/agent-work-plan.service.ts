@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { ForbiddenException, Injectable, Logger, NotFoundException, Optional } from "@nestjs/common";
 import { getActionPolicy } from "@semse/agents";
 import { Prisma } from "@prisma/client";
@@ -46,6 +47,8 @@ export type PlanStep = {
 };
 
 export type PlanMeta = {
+  /** C46 — fingerprint of the approval-relevant plan definition at approval time. */
+  approvedDefinitionHash?: string;
   goal?: string;
   rationale?: string;
   risks?: string[];
@@ -65,6 +68,14 @@ export type WorkPlanRecord = {
   status: PlanStatus;
   steps: PlanStep[];
   meta?: PlanMeta;
+  /** C46 — revision counter of the plan definition (starts at 1). */
+  version: number;
+  /**
+   * C46 — false when the definition (tools/capabilities/risk/approval flags)
+   * changed after approval: the approval no longer covers what would run.
+   * Legacy approved plans (no stored hash) stay true.
+   */
+  approvalValid: boolean;
   threadId?: string;
   approvedAt?: string;
   approvedBy?: string;
@@ -89,6 +100,7 @@ type StoredPlan = {
   stepsJson: unknown;
   contextJson: unknown;
   metaJson: unknown;
+  version?: number;
   threadId: string | null;
   approvedAt: Date | null;
   approvedBy: string | null;
@@ -222,10 +234,36 @@ function normalizePlanStep(raw: unknown, idx: number): PlanStep {
   return normalized;
 }
 
+/**
+ * Fingerprint of what an approval actually covers: which tools each step may
+ * use and under which gates. Execution progress (status, timestamps, evidence)
+ * is deliberately excluded, so completing a step never changes it.
+ */
+export function planDefinitionFingerprint(steps: PlanStep[]): string {
+  const canonical = [...steps]
+    .sort((a, b) => a.id.localeCompare(b.id))
+    .map((s) => ({
+      id: s.id,
+      capability: s.capability,
+      toolsAllowed: [...s.toolsAllowed].map((t) => t.toLowerCase()).sort(),
+      actionType: s.actionType ?? null,
+      riskLevel: s.riskLevel,
+      requiresApproval: s.requiresApproval,
+      requiresApprovedPlan: s.requiresApprovedPlan,
+      dependsOnStepIds: [...(s.dependsOnStepIds ?? [])].sort(),
+    }));
+  return createHash("sha256").update(JSON.stringify(canonical)).digest("hex");
+}
+
 function toRecord(plan: StoredPlan): WorkPlanRecord {
   const steps = Array.isArray(plan.stepsJson)
     ? plan.stepsJson.map((step, idx) => normalizePlanStep(step, idx))
     : [];
+  const meta = plan.metaJson && typeof plan.metaJson === "object" && !Array.isArray(plan.metaJson)
+    ? plan.metaJson as PlanMeta
+    : undefined;
+  const approvedHash = meta?.approvedDefinitionHash;
+  const approvalValid = !approvedHash || approvedHash === planDefinitionFingerprint(steps);
 
   return {
     id: plan.id,
@@ -238,9 +276,9 @@ function toRecord(plan: StoredPlan): WorkPlanRecord {
     description: plan.description ?? undefined,
     status: readPlanStatus(plan.status),
     steps,
-    meta: plan.metaJson && typeof plan.metaJson === "object" && !Array.isArray(plan.metaJson)
-      ? plan.metaJson as PlanMeta
-      : undefined,
+    meta,
+    version: plan.version ?? 1,
+    approvalValid,
     threadId: plan.threadId ?? undefined,
     approvedAt: plan.approvedAt?.toISOString(),
     approvedBy: plan.approvedBy ?? undefined,
@@ -357,9 +395,15 @@ export class AgentWorkPlanService {
       throw new ForbiddenException(`Plan '${input.planId}' is not in draft status (current: ${plan.status})`);
     }
 
+    const approvedDefinitionHash = planDefinitionFingerprint(plan.steps);
     const updated = await this.prisma.agentWorkPlan.update({
       where: { id: input.planId },
-      data: { status: "active", approvedAt: new Date(), approvedBy: input.userId },
+      data: {
+        status: "active",
+        approvedAt: new Date(),
+        approvedBy: input.userId,
+        metaJson: { ...(plan.meta ?? {}), approvedDefinitionHash } as unknown as Prisma.InputJsonValue,
+      },
     });
 
     this.logger.log(`[plan] approved id=${input.planId} by=${input.userId}`);
@@ -470,14 +514,24 @@ export class AgentWorkPlanService {
     steps: PlanStep[];
     status?: PlanStatus;
   }): Promise<WorkPlanRecord> {
-    await this.findById(input.tenantId, input.planId);
+    const current = await this.findById(input.tenantId, input.planId);
+    // Bump the revision only when the approval-relevant definition changed;
+    // plain execution progress (status/timestamps/evidence) keeps the version.
+    const definitionChanged =
+      planDefinitionFingerprint(current.steps) !== planDefinitionFingerprint(input.steps);
     const updated = await this.prisma.agentWorkPlan.update({
       where: { id: input.planId },
       data: {
         stepsJson: input.steps,
         ...(input.status ? { status: input.status } : {}),
+        ...(definitionChanged ? { version: { increment: 1 } } : {}),
       },
     });
+    if (definitionChanged && current.meta?.approvedDefinitionHash) {
+      this.logger.warn(
+        `[plan] definition changed after approval id=${input.planId} — approval no longer valid until re-approved`,
+      );
+    }
     return toRecord(updated as StoredPlan);
   }
 

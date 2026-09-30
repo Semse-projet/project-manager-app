@@ -1867,6 +1867,7 @@ model AgentWorkPlan {
   rejectedBy  String?
   cancelledAt DateTime?
   cancelledBy String?
+  version     Int       @default(1) // C46 — bumped on every revision of stepsJson
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
@@ -2421,6 +2422,11 @@ model AiInteractionLog {
   errorMessage        String?
   threadId            String?
   eligibleForTraining Boolean  @default(false)
+  // C39 — who/under which policy this route was taken (all additive, nullable).
+  orgId               String?
+  actorRoles          String? // comma-separated roles of the authenticated actor
+  privacyLevel        String? // requested privacy level (local_only | sensitive | ...)
+  policyDecision      String? // private_enforced | standard | denied
   createdAt           DateTime @default(now())
 
   @@index([tenantId, taskType, createdAt])

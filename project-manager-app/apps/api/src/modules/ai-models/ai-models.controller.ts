@@ -238,7 +238,7 @@ export class AiModelsController {
     const request = {
       ...raw,
       userId: actor.userId,
-      metadata: { ...rawMetadata, tenantId: actor.tenantId, orgId: actor.orgId },
+      metadata: { ...rawMetadata, tenantId: actor.tenantId, orgId: actor.orgId, actorRoles: actor.roles.join(",") },
     } as unknown as AiGenerateRequest;
     const response = await this.gateway.generate(request);
     await this.logger.logInteraction(request, response);
@@ -474,6 +474,7 @@ export class AiModelsController {
       metadata: {
         tenantId: actor.tenantId,
         orgId: actor.orgId,
+        actorRoles: actor.roles.join(","),
         intent,
         primaryAgent: route.primaryAgent,
         requestKind: runtimeRequest.attachments.length > 0 || runtimeRequest.requestedAction ? "prometeo_multimodal_request" : "prometeo_text_chat",
