@@ -1,0 +1,1302 @@
+{
+ "baseline": "audit 2026-09-11 (C01–C80) + C81",
+ "main": "69c4f044a32aace1883c259dbf493566103430b9",
+ "capabilities": [
+  {
+   "id": "C01",
+   "title": "Origen configurado API/Web/Worker/Vision",
+   "domain": "Infraestructura",
+   "priority": "P0",
+   "historical": "REAL",
+   "batch": "A6",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C02",
+   "title": "Trazabilidad de versiones activas",
+   "domain": "Entrega",
+   "priority": "P0",
+   "historical": "PARCIAL",
+   "batch": "A5",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C03",
+   "title": "Compilación candidato web 5-sep",
+   "domain": "Entrega",
+   "priority": "P1",
+   "historical": "ROTA",
+   "batch": "B2",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C04",
+   "title": "Página pública app.semseproject.com",
+   "domain": "Web",
+   "priority": "P2",
+   "historical": "REAL",
+   "batch": "C3",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C05",
+   "title": "Health de API (Railway y dominio)",
+   "domain": "API",
+   "priority": "P0",
+   "historical": "REAL",
+   "batch": "A6",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C06",
+   "title": "Health propio del BFF web",
+   "domain": "Web",
+   "priority": "P2",
+   "historical": "REAL",
+   "batch": "C3",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C07",
+   "title": "Rechazo de acceso anónimo",
+   "domain": "Identidad",
+   "priority": "P1",
+   "historical": "REAL",
+   "batch": "B1",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C08",
+   "title": "Login, sesión y recuperación",
+   "domain": "Identidad",
+   "priority": "P1",
+   "historical": "PARCIAL",
+   "batch": "B1",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C09",
+   "title": "Identidad universal y múltiples roles",
+   "domain": "Identidad",
+   "priority": "P1",
+   "historical": "PARCIAL",
+   "batch": "B1",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C10",
+   "title": "Aislamiento tenant + organización",
+   "domain": "Identidad",
+   "priority": "P0",
+   "historical": "ROTA",
+   "batch": "A3",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C11",
+   "title": "Precondiciones de atestación de identidad",
+   "domain": "Trust",
+   "priority": "P0",
+   "historical": "PARCIAL",
+   "batch": "A3",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C12",
+   "title": "Relación compañía/profesional/worker",
+   "domain": "Actores",
+   "priority": "P1",
+   "historical": "PARCIAL",
+   "batch": "B1",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C13",
+   "title": "Originador, referidos e incentivos",
+   "domain": "Actores",
+   "priority": "P2",
+   "historical": "PARCIAL",
+   "batch": "C2",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C14",
+   "title": "Intake público y wizard",
+   "domain": "Demanda",
+   "priority": "P1",
+   "historical": "PARCIAL",
+   "batch": "B1",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C15",
+   "title": "Estimación y cobertura por categoría",
+   "domain": "Estimación",
+   "priority": "P1",
+   "historical": "PARCIAL",
+   "batch": "B1",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C16",
+   "title": "Paquete de herramientas por oficio",
+   "domain": "ProTools",
+   "priority": "P2",
+   "historical": "PARCIAL",
+   "batch": "C2",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C17",
+   "title": "BuildOps: planificación y cuadrillas",
+   "domain": "Operaciones",
+   "priority": "P1",
+   "historical": "PARCIAL",
+   "batch": "B3",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C18",
+   "title": "Hitos y aprobación de avances",
+   "domain": "Operaciones",
+   "priority": "P0",
+   "historical": "PARCIAL",
+   "batch": "A4",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C19",
+   "title": "Persistencia de archivos de evidencia",
+   "domain": "Evidence",
+   "priority": "P0",
+   "historical": "PARCIAL",
+   "batch": "A4",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C20",
+   "title": "Estados, rechazo, reemplazo y archivo",
+   "domain": "Evidence",
+   "priority": "P1",
+   "historical": "PARCIAL",
+   "batch": "B3",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C21",
+   "title": "Integración de análisis visual",
+   "domain": "Evidence",
+   "priority": "P1",
+   "historical": "PARCIAL",
+   "batch": "B3",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C22",
+   "title": "Timer y proyectos libres",
+   "domain": "Labor",
+   "priority": "P1",
+   "historical": "PARCIAL",
+   "batch": "B2",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C23",
+   "title": "Offline, ubicación y captura móvil",
+   "domain": "Labor",
+   "priority": "P1",
+   "historical": "PARCIAL",
+   "batch": "B2",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C24",
+   "title": "Proyectos, propuestas y contratación",
+   "domain": "Marketplace",
+   "priority": "P1",
+   "historical": "PARCIAL",
+   "batch": "B3",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C25",
+   "title": "Change Orders y control de alcance",
+   "domain": "Operaciones",
+   "priority": "P1",
+   "historical": "PARCIAL",
+   "batch": "B3",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C26",
+   "title": "Configuración de Stripe",
+   "domain": "Payments",
+   "priority": "P0",
+   "historical": "PARCIAL",
+   "batch": "A2",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C27",
+   "title": "Gobernanza de liberación y dual approval",
+   "domain": "Payments",
+   "priority": "P0",
+   "historical": "DUPLICADA",
+   "batch": "A2",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C28",
+   "title": "Gate de lien waivers en escrow",
+   "domain": "Payments",
+   "priority": "P0",
+   "historical": "PARCIAL",
+   "batch": "A2",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C29",
+   "title": "Fondeo, liberación, refunds y payouts",
+   "domain": "Payments",
+   "priority": "P0",
+   "historical": "PARCIAL",
+   "batch": "A2",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C30",
+   "title": "Registros de pagos y costeo por recurso",
+   "domain": "Economía",
+   "priority": "P1",
+   "historical": "PARCIAL",
+   "batch": "B4",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C31",
+   "title": "Integración de firma electrónica",
+   "domain": "Contratos",
+   "priority": "P1",
+   "historical": "PARCIAL",
+   "batch": "B4",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C32",
+   "title": "Resolución de controversias",
+   "domain": "Disputas",
+   "priority": "P1",
+   "historical": "PARCIAL",
+   "batch": "B4",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C33",
+   "title": "Reputación, credenciales y Trust Score",
+   "domain": "Trust",
+   "priority": "P1",
+   "historical": "PARCIAL",
+   "batch": "B4",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C34",
+   "title": "Propuestas, votos y créditos",
+   "domain": "Governance",
+   "priority": "P2",
+   "historical": "PARCIAL",
+   "batch": "C2",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C35",
+   "title": "Descubrimiento y matching",
+   "domain": "Connect",
+   "priority": "P2",
+   "historical": "PARCIAL",
+   "batch": "C2",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C36",
+   "title": "Configuración WhatsApp",
+   "domain": "Comunicaciones",
+   "priority": "P1",
+   "historical": "PARCIAL",
+   "batch": "B5",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C37",
+   "title": "Inbox y continuidad de conversación",
+   "domain": "Comunicaciones",
+   "priority": "P2",
+   "historical": "PARCIAL",
+   "batch": "C2",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C38",
+   "title": "Configuración de correo",
+   "domain": "Comunicaciones",
+   "priority": "P2",
+   "historical": "PARCIAL",
+   "batch": "C2",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C39",
+   "title": "Configuración del router de modelos",
+   "domain": "AI",
+   "priority": "P0",
+   "historical": "PARCIAL",
+   "batch": "A1",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C40",
+   "title": "Servicio Ollama",
+   "domain": "AI",
+   "priority": "P2",
+   "historical": "REAL",
+   "batch": "C3",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C41",
+   "title": "Chat Ollama 6-sep (smoke e2e)",
+   "domain": "AI",
+   "priority": "P1",
+   "historical": "ROTA",
+   "batch": "B2",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C42",
+   "title": "RAG, embeddings y fuentes",
+   "domain": "Knowledge",
+   "priority": "P1",
+   "historical": "PARCIAL",
+   "batch": "B5",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C43",
+   "title": "Ciclos de curación / Product Intelligence",
+   "domain": "Worker",
+   "priority": "P2",
+   "historical": "REAL",
+   "batch": "C3",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C44",
+   "title": "Endpoint público de overview",
+   "domain": "Intelligence",
+   "priority": "P2",
+   "historical": "PARCIAL",
+   "batch": "C2",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C45",
+   "title": "Mission Control unificado",
+   "domain": "Operación AI",
+   "priority": "P1",
+   "historical": "PARCIAL",
+   "batch": "B5",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C46",
+   "title": "Plan Mode, políticas de herramientas y aprobación",
+   "domain": "Operación AI",
+   "priority": "P0",
+   "historical": "PARCIAL",
+   "batch": "A1",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C47",
+   "title": "LiveKit / Prometeo Live",
+   "domain": "AI Live",
+   "priority": "P1",
+   "historical": "PARCIAL",
+   "batch": "B5",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C48",
+   "title": "App Expo, distribución y cobros",
+   "domain": "Móvil",
+   "priority": "P2",
+   "historical": "PARCIAL",
+   "batch": "C2",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C49",
+   "title": "Animales, lotes, costos, tareas y offline",
+   "domain": "Agro",
+   "priority": "P0",
+   "historical": "PARCIAL",
+   "batch": "A3",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C50",
+   "title": "Asistente electricidad de campo",
+   "domain": "Campo",
+   "priority": "P2",
+   "historical": "SOLO_DISEÑADA",
+   "batch": "C2",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C51",
+   "title": "ResourceScope y ciclo de vida transversal",
+   "domain": "Arquitectura",
+   "priority": "P0",
+   "historical": "PARCIAL",
+   "batch": "A3",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C52",
+   "title": "Outbox y consumidores",
+   "domain": "Eventos",
+   "priority": "P1",
+   "historical": "PARCIAL",
+   "batch": "B5",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C53",
+   "title": "Postgres servicio persistente",
+   "domain": "Datos",
+   "priority": "P1",
+   "historical": "REAL",
+   "batch": "B5",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C54",
+   "title": "Redis servicio persistente",
+   "domain": "Datos",
+   "priority": "P2",
+   "historical": "REAL",
+   "batch": "C3",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C55",
+   "title": "Backups y restauración Postgres/archivos",
+   "domain": "Continuidad",
+   "priority": "P0",
+   "historical": "PARCIAL",
+   "batch": "A5",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C56",
+   "title": "Migraciones y esquema productivo",
+   "domain": "Datos",
+   "priority": "P0",
+   "historical": "PARCIAL",
+   "batch": "A5",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C57",
+   "title": "Deduplicación histórica",
+   "domain": "Datos",
+   "priority": "P0",
+   "historical": "PARCIAL",
+   "batch": "A5",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C58",
+   "title": "Cabeceras de protección web",
+   "domain": "Seguridad web",
+   "priority": "P1",
+   "historical": "PARCIAL",
+   "batch": "B5",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C59",
+   "title": "Permisos cámara/micrófono/ubicación web",
+   "domain": "Campo / Live",
+   "priority": "P1",
+   "historical": "PARCIAL",
+   "batch": "B5",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C60",
+   "title": "Inventarios públicos de módulos",
+   "domain": "Producto",
+   "priority": "P2",
+   "historical": "DUPLICADA",
+   "batch": "C1",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C61",
+   "title": "Bilingüismo y unidades de trabajo",
+   "domain": "Experiencia",
+   "priority": "P2",
+   "historical": "PARCIAL",
+   "batch": "C2",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C62",
+   "title": "CI, SDD, dependencias y cobertura",
+   "domain": "Calidad",
+   "priority": "P0",
+   "historical": "PARCIAL",
+   "batch": "A5",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C63",
+   "title": "Métricas de siete servicios 24h",
+   "domain": "Observabilidad",
+   "priority": "P2",
+   "historical": "REAL",
+   "batch": "C3",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C64",
+   "title": "Proyectos secundarios y cambios preparados",
+   "domain": "Infraestructura",
+   "priority": "P2",
+   "historical": "PARCIAL",
+   "batch": "C2",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C65",
+   "title": "Escritores paralelos de TimeEntry",
+   "domain": "Labor",
+   "priority": "P1",
+   "historical": "DUPLICADA",
+   "batch": "B2",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C66",
+   "title": "Frontend canónico y superficies de transición",
+   "domain": "Superficies",
+   "priority": "P2",
+   "historical": "DUPLICADA",
+   "batch": "C1",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C67",
+   "title": "Rutas canónica y EvidenceGateway",
+   "domain": "Evidence",
+   "priority": "P0",
+   "historical": "DUPLICADA",
+   "batch": "A4",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C68",
+   "title": "Ledger compartido F5 doble entrada",
+   "domain": "Economía",
+   "priority": "P1",
+   "historical": "SOLO_DISEÑADA",
+   "batch": "B4",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C69",
+   "title": "Gateway MCP externo",
+   "domain": "Integraciones",
+   "priority": "P3",
+   "historical": "SOLO_DISEÑADA",
+   "batch": "D1",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C70",
+   "title": "Planificación, DAG y control de Forge",
+   "domain": "Forge",
+   "priority": "P2",
+   "historical": "PARCIAL",
+   "batch": "C2",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C71",
+   "title": "Forge LiveToolAdapter",
+   "domain": "Forge",
+   "priority": "P3",
+   "historical": "SOLO_DISEÑADA",
+   "batch": "D1",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C72",
+   "title": "Backend de objetos S3/R2",
+   "domain": "Storage",
+   "priority": "P1",
+   "historical": "SOLO_DISEÑADA",
+   "batch": "B4",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C73",
+   "title": "Satélites, SDK y webhooks salientes",
+   "domain": "Integraciones",
+   "priority": "P2",
+   "historical": "PARCIAL",
+   "batch": "C2",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C74",
+   "title": "Clima, avisos y agenda",
+   "domain": "Operación",
+   "priority": "P2",
+   "historical": "PARCIAL",
+   "batch": "C2",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C75",
+   "title": "Materiales, viajes, facturas y gastos",
+   "domain": "Operación",
+   "priority": "P2",
+   "historical": "PARCIAL",
+   "batch": "C2",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C76",
+   "title": "Push y navegación móvil",
+   "domain": "Comunicaciones",
+   "priority": "P2",
+   "historical": "PARCIAL",
+   "batch": "C2",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C77",
+   "title": "Browser Agent de inspección",
+   "domain": "IA",
+   "priority": "P2",
+   "historical": "PARCIAL",
+   "batch": "C2",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C78",
+   "title": "Conocimiento repo/runtime y Graphify",
+   "domain": "Knowledge",
+   "priority": "P2",
+   "historical": "PARCIAL",
+   "batch": "C2",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C79",
+   "title": "Registro único y verdad de entrega",
+   "domain": "Gobierno",
+   "priority": "P1",
+   "historical": "PARCIAL",
+   "batch": "B5",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C80",
+   "title": "Propagación política local-only",
+   "domain": "Privacidad IA",
+   "priority": "P0",
+   "historical": "ROTA",
+   "batch": "A1",
+   "current_truth": "IMPLEMENTED_NOT_VERIFIED (PR #698)",
+   "evidence": {
+    "code": true,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C81",
+   "title": "Experimentation (flags, cohortes, guardrails, rollback)",
+   "domain": "Experimentación",
+   "priority": "P3",
+   "historical": "NUEVA",
+   "batch": "E1",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  }
+ ]
+}
