@@ -25,13 +25,14 @@
    "priority": "P0",
    "historical": "PARCIAL",
    "batch": "A5",
-   "current_truth": "NOT_STARTED",
+   "current_truth": "PARTIAL — en main (#706): deploymentId/environment/imageDigest; faltan CI result y digest (requiere CI/CD); sin evidencia de producción aún",
    "evidence": {
-    "code": false,
-    "ci": false,
-    "merge": null,
-    "deploy": false,
-    "activation": false
+    "code": "partial",
+    "ci": "PR checks green; main auto-deploy (Railway Deploy/Production Health Gate) — sin smoke autenticado",
+    "merge": "08aed04fba0a58880e83a105a75cf20235b82892",
+    "deploy": "auto-deploy on merge to main (per GitHub Actions); runtime not verified from sandbox",
+    "activation": false,
+    "pr": "#706"
    }
   },
   {
@@ -153,13 +154,14 @@
    "priority": "P0",
    "historical": "ROTA",
    "batch": "A3",
-   "current_truth": "NOT_STARTED",
+   "current_truth": "OPEN — en main: evidence-gateway (#702), liens (#703), worker-verification (#704); persistir verificación, URLs de archivos (C19) e intelligence pendientes",
    "evidence": {
-    "code": false,
-    "ci": false,
-    "merge": null,
-    "deploy": false,
-    "activation": false
+    "code": "partial",
+    "ci": "PR checks green; main auto-deploy (Railway Deploy/Production Health Gate) — sin smoke autenticado",
+    "merge": "f36a22bd6e90f11c6ef17ddf84cabe281c873287",
+    "deploy": "auto-deploy on merge to main (per GitHub Actions); runtime not verified from sandbox",
+    "activation": false,
+    "pr": "#702,#703,#704"
    }
   },
   {
@@ -297,7 +299,7 @@
    "priority": "P0",
    "historical": "PARCIAL",
    "batch": "A4",
-   "current_truth": "NOT_STARTED",
+   "current_truth": "PARTIAL — hallazgo abierto: GET /v1/uploads/files/* público; requiere spec de URLs firmadas",
    "evidence": {
     "code": false,
     "ci": false,
@@ -409,13 +411,14 @@
    "priority": "P0",
    "historical": "PARCIAL",
    "batch": "A2",
-   "current_truth": "NOT_STARTED",
+   "current_truth": "PARTIAL — en main (#705): webhook Stripe fail-closed; falta proveedor/modo por entorno y reconciliación",
    "evidence": {
-    "code": false,
-    "ci": false,
-    "merge": null,
-    "deploy": false,
-    "activation": false
+    "code": "partial",
+    "ci": "PR checks green; main auto-deploy (Railway Deploy/Production Health Gate) — sin smoke autenticado",
+    "merge": "5b82a5b9795bbfcf339be7cd06af4c85fa72794c",
+    "deploy": "auto-deploy on merge to main (per GitHub Actions); runtime not verified from sandbox",
+    "activation": false,
+    "pr": "#705"
    }
   },
   {
@@ -425,7 +428,7 @@
    "priority": "P0",
    "historical": "DUPLICADA",
    "batch": "A2",
-   "current_truth": "NOT_STARTED",
+   "current_truth": "DESIGN — ADR-041 en main como PROPOSED, spec DRAFT (#701); bloqueado por D1–D4",
    "evidence": {
     "code": false,
     "ci": false,
@@ -441,13 +444,14 @@
    "priority": "P0",
    "historical": "PARCIAL",
    "batch": "A2",
-   "current_truth": "NOT_STARTED",
+   "current_truth": "PARTIAL — en main (#703): firma de waivers protegida; falta gate único en release manual (ADR-041)",
    "evidence": {
-    "code": false,
-    "ci": false,
-    "merge": null,
-    "deploy": false,
-    "activation": false
+    "code": "partial",
+    "ci": "PR checks green; main auto-deploy (Railway Deploy/Production Health Gate) — sin smoke autenticado",
+    "merge": "a52bca61611f1a5eeb152ad2545334d563bb43f1",
+    "deploy": "auto-deploy on merge to main (per GitHub Actions); runtime not verified from sandbox",
+    "activation": false,
+    "pr": "#703"
    }
   },
   {
@@ -457,7 +461,7 @@
    "priority": "P0",
    "historical": "PARCIAL",
    "batch": "A2",
-   "current_truth": "NOT_STARTED",
+   "current_truth": "DESIGN — cubierto por ADR-041 (#701); bloqueado por D1–D4",
    "evidence": {
     "code": false,
     "ci": false,
@@ -569,7 +573,7 @@
    "priority": "P1",
    "historical": "PARCIAL",
    "batch": "B5",
-   "current_truth": "NOT_STARTED",
+   "current_truth": "PARTIAL — hallazgo: webhook WhatsApp en modo mock sin firma (pendiente B5)",
    "evidence": {
     "code": false,
     "ci": false,
@@ -617,12 +621,12 @@
    "priority": "P0",
    "historical": "PARCIAL",
    "batch": "A1",
-   "current_truth": "NOT_STARTED",
+   "current_truth": "PARTIAL — en main (#700): logs IA tenant-scoped; faltan costo y actor/política (migración)",
    "evidence": {
-    "code": false,
-    "ci": false,
-    "merge": null,
-    "deploy": false,
+    "code": "partial",
+    "ci": "PR checks green; main auto-deploy (Railway Deploy/Production Health Gate) — sin smoke autenticado",
+    "merge": "2797188c4badfc933c80ac763464b54f4fa5a989",
+    "deploy": "auto-deploy on merge to main (per GitHub Actions); runtime not verified from sandbox",
     "activation": false
    }
   },
@@ -729,12 +733,12 @@
    "priority": "P0",
    "historical": "PARCIAL",
    "batch": "A1",
-   "current_truth": "NOT_STARTED",
+   "current_truth": "PARTIAL — en main (#700): piso de aprobación determinista; falta versionado de plan (migración)",
    "evidence": {
-    "code": false,
-    "ci": false,
-    "merge": null,
-    "deploy": false,
+    "code": "partial",
+    "ci": "PR checks green; main auto-deploy (Railway Deploy/Production Health Gate) — sin smoke autenticado",
+    "merge": "2797188c4badfc933c80ac763464b54f4fa5a989",
+    "deploy": "auto-deploy on merge to main (per GitHub Actions); runtime not verified from sandbox",
     "activation": false
    }
   },
@@ -985,7 +989,7 @@
    "priority": "P0",
    "historical": "PARCIAL",
    "batch": "A5",
-   "current_truth": "NOT_STARTED",
+   "current_truth": "PARTIAL — no iniciado (siguiente)",
    "evidence": {
     "code": false,
     "ci": false,
@@ -1065,13 +1069,14 @@
    "priority": "P0",
    "historical": "DUPLICADA",
    "batch": "A4",
-   "current_truth": "NOT_STARTED",
+   "current_truth": "PARTIAL — en main (#702): gateway usa política canónica; consolidación de código pendiente",
    "evidence": {
-    "code": false,
-    "ci": false,
-    "merge": null,
-    "deploy": false,
-    "activation": false
+    "code": "partial",
+    "ci": "PR checks green; main auto-deploy (Railway Deploy/Production Health Gate) — sin smoke autenticado",
+    "merge": "f36a22bd6e90f11c6ef17ddf84cabe281c873287",
+    "deploy": "auto-deploy on merge to main (per GitHub Actions); runtime not verified from sandbox",
+    "activation": false,
+    "pr": "#702"
    }
   },
   {
@@ -1225,13 +1230,14 @@
    "priority": "P2",
    "historical": "PARCIAL",
    "batch": "C2",
-   "current_truth": "NOT_STARTED",
+   "current_truth": "PARTIAL — en main (#702): subida de evidencia del Browser Agent verifica proyecto",
    "evidence": {
     "code": false,
-    "ci": false,
-    "merge": null,
-    "deploy": false,
-    "activation": false
+    "ci": "PR checks green; main auto-deploy (Railway Deploy/Production Health Gate) — sin smoke autenticado",
+    "merge": "f36a22bd6e90f11c6ef17ddf84cabe281c873287",
+    "deploy": "auto-deploy on merge to main (per GitHub Actions); runtime not verified from sandbox",
+    "activation": false,
+    "pr": "#702"
    }
   },
   {
@@ -1273,12 +1279,12 @@
    "priority": "P0",
    "historical": "ROTA",
    "batch": "A1",
-   "current_truth": "IMPLEMENTED_NOT_VERIFIED (merged #698; deploy+smoke pendientes)",
+   "current_truth": "IMPLEMENTED_NOT_VERIFIED — en main (#698); deploy por pipeline sin smoke autenticado con Ollama caído",
    "evidence": {
     "code": true,
-    "ci": "partial: quality-gates/unit/integration/CodeQL green; e2e still running at merge",
+    "ci": "PR checks green; main auto-deploy (Railway Deploy/Production Health Gate) — sin smoke autenticado",
     "merge": "21ccbebb9ba295f05cbe9335140385c0952d1c7f",
-    "deploy": false,
+    "deploy": "auto-deploy on merge to main (per GitHub Actions); runtime not verified from sandbox",
     "activation": false
    }
   },
@@ -1298,5 +1304,16 @@
     "activation": false
    }
   }
- ]
+ ],
+ "updated": "2026-09-30",
+ "merge_shas": {
+  "#698": "21ccbebb9ba295f05cbe9335140385c0952d1c7f",
+  "#700": "2797188c4badfc933c80ac763464b54f4fa5a989",
+  "#701": "87fa20b06e1d94cc633b1d4b2a0341b43102a0ce",
+  "#702": "f36a22bd6e90f11c6ef17ddf84cabe281c873287",
+  "#703": "a52bca61611f1a5eeb152ad2545334d563bb43f1",
+  "#704": "ee8c3d9abfe74d85501a36d4ac8d0f111a7f0bd8",
+  "#705": "5b82a5b9795bbfcf339be7cd06af4c85fa72794c",
+  "#706": "08aed04fba0a58880e83a105a75cf20235b82892"
+ }
 }

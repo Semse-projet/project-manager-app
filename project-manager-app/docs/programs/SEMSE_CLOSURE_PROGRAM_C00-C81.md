@@ -41,7 +41,7 @@
 | **D1** | D | Extensiones experimentales (sin autoridad financiera) | C69, C71 | A1, A2, C2 (C70) |
 | **E1** | E | Experimentation (shadow → canary interno) | C81 | B5 (flags/obs), A1 |
 
-**Estado de lotes:** A1 en curso (C80 fusionado en `21ccbeb` vía #698, sin deploy/smoke aún; C39 y C46 pendientes). Resto: no iniciado.
+**Estado de lotes (2026-09-30):** A1 — C80/C39/C46 en main (#698, #700); faltan migraciones (C39 actor/política, C46 versionado), costo y smoke. A2 — ADR-041 en main como PROPOSED (#701), bloqueado por D1–D4; C26 (#705) y C28 (#703) con avance en main. A3 — C10: evidence-gateway (#702), liens (#703) y worker-verification (#704) en main; inventario de endpoints hecho, hallazgos abiertos (archivos públicos C19, persistencia de verificación). A5 — C02 (#706) en main; C62/C56/C55/C57 pendientes (C62: evidencia de Actions; C55/C56/C57 requieren lectura de producción autorizada). **Importante:** el merge a `main` despliega solo a Railway (GitHub Actions `Railway Deploy` + `Production Health Gate`); ninguna capacidad es VERIFIED sin smoke autenticado. Resto: no iniciado.
 
 Notas de orden: A2 va antes que A3 porque el scope de pagos define el patrón tenant+org+recurso; C65 (B2) y C67 (A4) consolidan a través de su propietario canónico (Labor Engine / `evidence/`); C69/C71 (D1) nunca tienen autoridad financiera directa; C81 (E1) prohíbe aleatorizar autorización, identidad, liberación de pagos, decisiones legales o compuertas de seguridad.
 
@@ -49,7 +49,7 @@ Notas de orden: A2 va antes que A3 porque el scope de pagos define el patrón te
 | ID | Capacidad | Dominio | Prio | Histórico | Lote | Estado actual |
 |---|---|---|---|---|---|---|
 | C01 | Origen configurado API/Web/Worker/Vision | Infraestructura | P0 | REAL | A6 | NOT_STARTED |
-| C02 | Trazabilidad de versiones activas | Entrega | P0 | PARCIAL | A5 | NOT_STARTED |
+| C02 | Trazabilidad de versiones activas | Entrega | P0 | PARCIAL | A5 | PARTIAL — en main (#706): deploymentId/environment/imageDigest; faltan CI result y digest (requiere CI/CD); sin evidencia de producción aún |
 | C03 | Compilación candidato web 5-sep | Entrega | P1 | ROTA | B2 | NOT_STARTED |
 | C04 | Página pública app.semseproject.com | Web | P2 | REAL | C3 | NOT_STARTED |
 | C05 | Health de API (Railway y dominio) | API | P0 | REAL | A6 | NOT_STARTED |
@@ -57,7 +57,7 @@ Notas de orden: A2 va antes que A3 porque el scope de pagos define el patrón te
 | C07 | Rechazo de acceso anónimo | Identidad | P1 | REAL | B1 | NOT_STARTED |
 | C08 | Login, sesión y recuperación | Identidad | P1 | PARCIAL | B1 | NOT_STARTED |
 | C09 | Identidad universal y múltiples roles | Identidad | P1 | PARCIAL | B1 | NOT_STARTED |
-| C10 | Aislamiento tenant + organización | Identidad | P0 | ROTA | A3 | NOT_STARTED |
+| C10 | Aislamiento tenant + organización | Identidad | P0 | ROTA | A3 | OPEN — en main: evidence-gateway (#702), liens (#703), worker-verification (#704); persistir verificación, URLs de archivos (C19) e intelligence pendientes |
 | C11 | Precondiciones de atestación de identidad | Trust | P0 | PARCIAL | A3 | NOT_STARTED |
 | C12 | Relación compañía/profesional/worker | Actores | P1 | PARCIAL | B1 | NOT_STARTED |
 | C13 | Originador, referidos e incentivos | Actores | P2 | PARCIAL | C2 | NOT_STARTED |
@@ -66,34 +66,34 @@ Notas de orden: A2 va antes que A3 porque el scope de pagos define el patrón te
 | C16 | Paquete de herramientas por oficio | ProTools | P2 | PARCIAL | C2 | NOT_STARTED |
 | C17 | BuildOps: planificación y cuadrillas | Operaciones | P1 | PARCIAL | B3 | NOT_STARTED |
 | C18 | Hitos y aprobación de avances | Operaciones | P0 | PARCIAL | A4 | NOT_STARTED |
-| C19 | Persistencia de archivos de evidencia | Evidence | P0 | PARCIAL | A4 | NOT_STARTED |
+| C19 | Persistencia de archivos de evidencia | Evidence | P0 | PARCIAL | A4 | PARTIAL — hallazgo abierto: GET /v1/uploads/files/* público; requiere spec de URLs firmadas |
 | C20 | Estados, rechazo, reemplazo y archivo | Evidence | P1 | PARCIAL | B3 | NOT_STARTED |
 | C21 | Integración de análisis visual | Evidence | P1 | PARCIAL | B3 | NOT_STARTED |
 | C22 | Timer y proyectos libres | Labor | P1 | PARCIAL | B2 | NOT_STARTED |
 | C23 | Offline, ubicación y captura móvil | Labor | P1 | PARCIAL | B2 | NOT_STARTED |
 | C24 | Proyectos, propuestas y contratación | Marketplace | P1 | PARCIAL | B3 | NOT_STARTED |
 | C25 | Change Orders y control de alcance | Operaciones | P1 | PARCIAL | B3 | NOT_STARTED |
-| C26 | Configuración de Stripe | Payments | P0 | PARCIAL | A2 | NOT_STARTED |
-| C27 | Gobernanza de liberación y dual approval | Payments | P0 | DUPLICADA | A2 | NOT_STARTED |
-| C28 | Gate de lien waivers en escrow | Payments | P0 | PARCIAL | A2 | NOT_STARTED |
-| C29 | Fondeo, liberación, refunds y payouts | Payments | P0 | PARCIAL | A2 | NOT_STARTED |
+| C26 | Configuración de Stripe | Payments | P0 | PARCIAL | A2 | PARTIAL — en main (#705): webhook Stripe fail-closed; falta proveedor/modo por entorno y reconciliación |
+| C27 | Gobernanza de liberación y dual approval | Payments | P0 | DUPLICADA | A2 | DESIGN — ADR-041 en main como PROPOSED, spec DRAFT (#701); bloqueado por D1–D4 |
+| C28 | Gate de lien waivers en escrow | Payments | P0 | PARCIAL | A2 | PARTIAL — en main (#703): firma de waivers protegida; falta gate único en release manual (ADR-041) |
+| C29 | Fondeo, liberación, refunds y payouts | Payments | P0 | PARCIAL | A2 | DESIGN — cubierto por ADR-041 (#701); bloqueado por D1–D4 |
 | C30 | Registros de pagos y costeo por recurso | Economía | P1 | PARCIAL | B4 | NOT_STARTED |
 | C31 | Integración de firma electrónica | Contratos | P1 | PARCIAL | B4 | NOT_STARTED |
 | C32 | Resolución de controversias | Disputas | P1 | PARCIAL | B4 | NOT_STARTED |
 | C33 | Reputación, credenciales y Trust Score | Trust | P1 | PARCIAL | B4 | NOT_STARTED |
 | C34 | Propuestas, votos y créditos | Governance | P2 | PARCIAL | C2 | NOT_STARTED |
 | C35 | Descubrimiento y matching | Connect | P2 | PARCIAL | C2 | NOT_STARTED |
-| C36 | Configuración WhatsApp | Comunicaciones | P1 | PARCIAL | B5 | NOT_STARTED |
+| C36 | Configuración WhatsApp | Comunicaciones | P1 | PARCIAL | B5 | PARTIAL — hallazgo: webhook WhatsApp en modo mock sin firma (pendiente B5) |
 | C37 | Inbox y continuidad de conversación | Comunicaciones | P2 | PARCIAL | C2 | NOT_STARTED |
 | C38 | Configuración de correo | Comunicaciones | P2 | PARCIAL | C2 | NOT_STARTED |
-| C39 | Configuración del router de modelos | AI | P0 | PARCIAL | A1 | NOT_STARTED |
+| C39 | Configuración del router de modelos | AI | P0 | PARCIAL | A1 | PARTIAL — en main (#700): logs IA tenant-scoped; faltan costo y actor/política (migración) |
 | C40 | Servicio Ollama | AI | P2 | REAL | C3 | NOT_STARTED |
 | C41 | Chat Ollama 6-sep (smoke e2e) | AI | P1 | ROTA | B2 | NOT_STARTED |
 | C42 | RAG, embeddings y fuentes | Knowledge | P1 | PARCIAL | B5 | NOT_STARTED |
 | C43 | Ciclos de curación / Product Intelligence | Worker | P2 | REAL | C3 | NOT_STARTED |
 | C44 | Endpoint público de overview | Intelligence | P2 | PARCIAL | C2 | NOT_STARTED |
 | C45 | Mission Control unificado | Operación AI | P1 | PARCIAL | B5 | NOT_STARTED |
-| C46 | Plan Mode, políticas de herramientas y aprobación | Operación AI | P0 | PARCIAL | A1 | NOT_STARTED |
+| C46 | Plan Mode, políticas de herramientas y aprobación | Operación AI | P0 | PARCIAL | A1 | PARTIAL — en main (#700): piso de aprobación determinista; falta versionado de plan (migración) |
 | C47 | LiveKit / Prometeo Live | AI Live | P1 | PARCIAL | B5 | NOT_STARTED |
 | C48 | App Expo, distribución y cobros | Móvil | P2 | PARCIAL | C2 | NOT_STARTED |
 | C49 | Animales, lotes, costos, tareas y offline | Agro | P0 | PARCIAL | A3 | NOT_STARTED |
@@ -109,12 +109,12 @@ Notas de orden: A2 va antes que A3 porque el scope de pagos define el patrón te
 | C59 | Permisos cámara/micrófono/ubicación web | Campo / Live | P1 | PARCIAL | B5 | NOT_STARTED |
 | C60 | Inventarios públicos de módulos | Producto | P2 | DUPLICADA | C1 | NOT_STARTED |
 | C61 | Bilingüismo y unidades de trabajo | Experiencia | P2 | PARCIAL | C2 | NOT_STARTED |
-| C62 | CI, SDD, dependencias y cobertura | Calidad | P0 | PARCIAL | A5 | NOT_STARTED |
+| C62 | CI, SDD, dependencias y cobertura | Calidad | P0 | PARCIAL | A5 | PARTIAL — no iniciado (siguiente) |
 | C63 | Métricas de siete servicios 24h | Observabilidad | P2 | REAL | C3 | NOT_STARTED |
 | C64 | Proyectos secundarios y cambios preparados | Infraestructura | P2 | PARCIAL | C2 | NOT_STARTED |
 | C65 | Escritores paralelos de TimeEntry | Labor | P1 | DUPLICADA | B2 | NOT_STARTED |
 | C66 | Frontend canónico y superficies de transición | Superficies | P2 | DUPLICADA | C1 | NOT_STARTED |
-| C67 | Rutas canónica y EvidenceGateway | Evidence | P0 | DUPLICADA | A4 | NOT_STARTED |
+| C67 | Rutas canónica y EvidenceGateway | Evidence | P0 | DUPLICADA | A4 | PARTIAL — en main (#702): gateway usa política canónica; consolidación de código pendiente |
 | C68 | Ledger compartido F5 doble entrada | Economía | P1 | SOLO_DISEÑADA | B4 | NOT_STARTED |
 | C69 | Gateway MCP externo | Integraciones | P3 | SOLO_DISEÑADA | D1 | NOT_STARTED |
 | C70 | Planificación, DAG y control de Forge | Forge | P2 | PARCIAL | C2 | NOT_STARTED |
@@ -124,10 +124,10 @@ Notas de orden: A2 va antes que A3 porque el scope de pagos define el patrón te
 | C74 | Clima, avisos y agenda | Operación | P2 | PARCIAL | C2 | NOT_STARTED |
 | C75 | Materiales, viajes, facturas y gastos | Operación | P2 | PARCIAL | C2 | NOT_STARTED |
 | C76 | Push y navegación móvil | Comunicaciones | P2 | PARCIAL | C2 | NOT_STARTED |
-| C77 | Browser Agent de inspección | IA | P2 | PARCIAL | C2 | NOT_STARTED |
+| C77 | Browser Agent de inspección | IA | P2 | PARCIAL | C2 | PARTIAL — en main (#702): subida de evidencia del Browser Agent verifica proyecto |
 | C78 | Conocimiento repo/runtime y Graphify | Knowledge | P2 | PARCIAL | C2 | NOT_STARTED |
 | C79 | Registro único y verdad de entrega | Gobierno | P1 | PARCIAL | B5 | NOT_STARTED |
-| C80 | Propagación política local-only | Privacidad IA | P0 | ROTA | A1 | IMPLEMENTED_NOT_VERIFIED (merged #698; deploy+smoke pendientes) |
+| C80 | Propagación política local-only | Privacidad IA | P0 | ROTA | A1 | IMPLEMENTED_NOT_VERIFIED — en main (#698); deploy por pipeline sin smoke autenticado con Ollama caído |
 | C81 | Experimentation (flags, cohortes, guardrails, rollback) | Experimentación | P3 | NUEVA | E1 | NOT_STARTED |
 
 Recuentos: ROTA 4 · DUPLICADA 5 · SOLO_DISEÑADA 5 · PARCIAL 56 · REAL 10 · NUEVA 1 (C81) = 81.
