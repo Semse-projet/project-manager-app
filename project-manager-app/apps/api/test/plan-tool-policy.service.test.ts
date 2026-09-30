@@ -137,3 +137,56 @@ test("tool not permitted by capability is blocked", () => {
     assert.match(result.reason, /no está permitida/i);
   }
 });
+
+// C46: plan drafts are model-generated; the approval floor must not be
+// lowerable by the plan itself.
+import { defaultRequiresApprovedPlan, inferToolsAllowed, toolRequiresApprovedPlan } from "../dist/modules/agents/plan-tool-policy.service.js";
+
+test("C46: a low-risk searching step cannot smuggle propose_escrow_release without an approved plan", () => {
+  const toolsAllowed = inferToolsAllowed({ capability: "searching", toolsAllowed: ["propose_escrow_release"] });
+  const result = service.validateToolExecution({
+    step: makeStep({ toolsAllowed, requiresApprovedPlan: false, riskLevel: "low" }),
+    toolName: "propose_escrow_release",
+    planApproved: false,
+  });
+  assert.equal(result.allowed, false);
+  if (!result.allowed) assert.match(result.reason, /plan aprobado/i);
+});
+
+test("C46: same smuggled tool is allowed once the plan is approved (human gate preserved)", () => {
+  const toolsAllowed = inferToolsAllowed({ capability: "searching", toolsAllowed: ["propose_escrow_release"] });
+  const result = service.validateToolExecution({
+    step: makeStep({ toolsAllowed }),
+    toolName: "propose_escrow_release",
+    planApproved: true,
+  });
+  assert.equal(result.allowed, true);
+});
+
+test("C46: explicit requiresApprovedPlan:false cannot lower the floor for worker/dispute/browser-form/high-risk", () => {
+  for (const capability of ["worker", "dispute", "browser-form"] as const) {
+    assert.equal(defaultRequiresApprovedPlan({ capability, riskLevel: "low", explicit: false }), true, capability);
+  }
+  assert.equal(defaultRequiresApprovedPlan({ capability: "searching", riskLevel: "high", explicit: false }), true);
+});
+
+test("C46: explicit true can still raise the requirement; low-risk read-only stays unapproved", () => {
+  assert.equal(defaultRequiresApprovedPlan({ capability: "searching", riskLevel: "low", explicit: true }), true);
+  assert.equal(defaultRequiresApprovedPlan({ capability: "searching", riskLevel: "low" }), false);
+});
+
+test("C46: browser-form steps declared low-risk still require an approved plan", () => {
+  const result = service.validateToolExecution({
+    step: makeStep({ capability: "browser-form", toolsAllowed: ["browser_fill_input"], requiresApprovedPlan: false }),
+    toolName: "browser_fill_input",
+    planApproved: false,
+  });
+  assert.equal(result.allowed, false);
+});
+
+test("C46: tool classification", () => {
+  for (const t of ["propose_escrow_release", "PROPOSE_DISPUTE_OPEN", "enqueue_worker_job", "browser_click_submit"]) {
+    assert.equal(toolRequiresApprovedPlan(t), true, t);
+  }
+  for (const t of ["read_file", "search_patterns", "browser_goto"]) assert.equal(toolRequiresApprovedPlan(t), false, t);
+});
