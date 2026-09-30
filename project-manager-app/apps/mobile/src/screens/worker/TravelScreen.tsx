@@ -54,7 +54,7 @@ export default function TravelScreen({ navigation }: Props) {
       contentContainerStyle={styles.container}
       data={assignments}
       keyExtractor={(item) => item.id}
-      ListHeaderComponent={error ? <ErrorState message={error} /> : null}
+      ListHeaderComponent={error ? <ErrorState message={error} /> : undefined}
       ListEmptyComponent={<EmptyState title="No tienes asignaciones de viaje." />}
       onRefresh={() => void load(true)}
       refreshing={refreshing}

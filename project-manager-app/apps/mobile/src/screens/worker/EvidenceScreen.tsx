@@ -52,7 +52,7 @@ export default function EvidenceScreen({ route }: Props) {
           <Text style={styles.sectionLabel}>Evidencia subida</Text>
         </View>
       }
-      ListEmptyComponent={!loading ? <Text style={styles.hint}>Aún no hay evidencia para este job.</Text> : null}
+      ListEmptyComponent={!loading ? <Text style={styles.hint}>Aún no hay evidencia para este job.</Text> : undefined}
       renderItem={({ item }) => (
         <View style={styles.thumbWrap}>
           <Image source={{ uri: buildEvidenceFileUrl(item.key) }} style={styles.thumb} />
