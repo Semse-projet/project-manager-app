@@ -14,6 +14,10 @@ export interface AiGenerateRequest {
   retrievedContext?: unknown[];
   requiredCapabilities?: AiModelCapability[];
   privacyLevel?: AiPrivacyLevel;
+  /** Hard constraint: never resolve to a non-private provider (SPEC-GTW-001). */
+  privacyCritical?: boolean;
+  /** Hard constraint: never resolve to a non-private provider (SPEC-GTW-001). */
+  localOnly?: boolean;
   maxCostTier?: AiCostTier;
   preferredModelSlug?: string;
   forceModelSlug?: string;
