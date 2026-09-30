@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import type { PlanStepCapability } from "./plan-mode.types.js";
+import { BROWSER_CAPABILITY_POLICY, type PlanStepCapability } from "./plan-mode.types.js";
 
 type StepLike = {
   capability: PlanStepCapability;
@@ -102,14 +102,35 @@ export function inferToolsAllowed(input: {
   return Array.from(new Set([...getCapabilityTools(input.capability), ...boundAction, ...explicit]));
 }
 
+/**
+ * Deterministic approval floor (C46). Plan drafts are model-generated, so a
+ * step may not lower this floor by declaring a low riskLevel, a different
+ * capability or `requiresApprovedPlan: false`; it may only raise it.
+ */
+export function capabilityRequiresApprovedPlan(capability: PlanStepCapability): boolean {
+  if (capability === "dispute" || capability === "worker") return true;
+  if (capability in BROWSER_CAPABILITY_POLICY) {
+    return BROWSER_CAPABILITY_POLICY[capability as keyof typeof BROWSER_CAPABILITY_POLICY].requiresApproval;
+  }
+  return false;
+}
+
+/** True when the tool belongs to a capability whose floor requires an approved plan. */
+export function toolRequiresApprovedPlan(toolName: string): boolean {
+  const tool = normalizePlanToolName(toolName);
+  return (Object.keys(CAPABILITY_TOOL_MAP) as PlanStepCapability[]).some(
+    (capability) => capabilityRequiresApprovedPlan(capability) && CAPABILITY_TOOL_MAP[capability].includes(tool),
+  );
+}
+
 export function defaultRequiresApprovedPlan(input: {
   capability: PlanStepCapability;
   riskLevel: "low" | "medium" | "high";
   explicit?: unknown;
 }): boolean {
+  if (capabilityRequiresApprovedPlan(input.capability) || input.riskLevel === "high") return true;
   if (typeof input.explicit === "boolean") return input.explicit;
-  if (input.capability === "dispute" || input.capability === "worker") return true;
-  return input.riskLevel === "high";
+  return false;
 }
 
 @Injectable()
@@ -137,6 +158,19 @@ export class PlanToolPolicyService {
       return {
         allowed: false,
         reason: `La tool '${toolName}' no puede correr porque el step está '${input.step.status}'.`,
+      };
+    }
+
+    // Floor independent of anything the plan declared about itself: money /
+    // dispute / form-submit tools never run without an approved plan, even if
+    // the step's capability, riskLevel or requiresApprovedPlan say otherwise.
+    if (
+      !input.planApproved &&
+      (toolRequiresApprovedPlan(toolName) || capabilityRequiresApprovedPlan(input.step.capability))
+    ) {
+      return {
+        allowed: false,
+        reason: `La tool '${toolName}' requiere plan aprobado (política determinista, independiente de lo declarado por el plan).`,
       };
     }
 

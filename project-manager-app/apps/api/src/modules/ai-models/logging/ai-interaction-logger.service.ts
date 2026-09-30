@@ -6,7 +6,7 @@ import type { AiGenerateResponse } from "../dto/ai-generate-response.dto.js";
 export type AiInteractionMode = "runtime" | "report" | "context_only" | "fallback";
 
 export type AiInteractionLog = {
-  id: string; timestamp: string; createdAt: string; agentId?: string; projectId?: string; userId?: string;
+  id: string; timestamp: string; createdAt: string; tenantId?: string; agentId?: string; projectId?: string; userId?: string;
   threadId?: string;
   taskType: string; provider: string; modelSlug: string;
   inputLength: number; outputLength: number; inputTokens?: number; outputTokens?: number;
@@ -104,6 +104,7 @@ export class AiInteractionLoggerService {
       id: `ai_log_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       timestamp: createdAt,
       createdAt,
+      tenantId: typeof request.metadata?.tenantId === "string" ? request.metadata.tenantId : undefined,
       agentId: request.agentId,
       projectId: request.projectId,
       userId: request.userId,
@@ -142,6 +143,7 @@ export class AiInteractionLoggerService {
       id: `ai_log_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       timestamp: createdAt,
       createdAt,
+      tenantId: input.tenantId,
       agentId: input.agentId,
       projectId: input.projectId,
       userId: input.userId,
@@ -173,25 +175,33 @@ export class AiInteractionLoggerService {
     });
   }
 
-  getRecentLogs(limit = 50): AiInteractionLog[] {
-    return this.buffer.slice(-limit).reverse();
+  /**
+   * Reads are always tenant-scoped (C10/C39): logs carry prompts' metadata,
+   * user/project ids and error messages. Rows without a tenantId (legacy)
+   * are never returned to a tenant caller — fail closed.
+   */
+  getRecentLogs(tenantId: string, limit = 50): AiInteractionLog[] {
+    return this.buffer.filter((l) => l.tenantId === tenantId).slice(-limit).reverse();
   }
 
-  async getDbLogs(limit = 100): Promise<Array<Record<string, unknown>>> {
+  async getDbLogs(tenantId: string, limit = 100): Promise<Array<Record<string, unknown>>> {
     const rows = await this.prisma.aiInteractionLog.findMany({
+      where: { tenantId },
       orderBy: { createdAt: "desc" },
       take: limit,
     });
     return rows.map((row: PersistedAiInteractionRow) => this.toLogView(row));
   }
 
-  async getStats(): Promise<Record<string, unknown>> {
+  async getStats(tenantId: string): Promise<Record<string, unknown>> {
+    const scope = { tenantId };
     const [total, successes, byModel, byTask, rows] = await Promise.all([
-      this.prisma.aiInteractionLog.count(),
-      this.prisma.aiInteractionLog.count({ where: { success: true } }),
-      this.prisma.aiInteractionLog.groupBy({ by: ["modelSlug"], _count: { id: true } }),
-      this.prisma.aiInteractionLog.groupBy({ by: ["taskType"], _count: { id: true } }),
+      this.prisma.aiInteractionLog.count({ where: scope }),
+      this.prisma.aiInteractionLog.count({ where: { ...scope, success: true } }),
+      this.prisma.aiInteractionLog.groupBy({ by: ["modelSlug"], where: scope, _count: { id: true } }),
+      this.prisma.aiInteractionLog.groupBy({ by: ["taskType"], where: scope, _count: { id: true } }),
       this.prisma.aiInteractionLog.findMany({
+        where: scope,
         select: {
           provider: true,
           modelSlug: true,
@@ -234,7 +244,7 @@ export class AiInteractionLoggerService {
     void this.prisma.aiInteractionLog.create({
       data: {
         id: log.id,
-        tenantId: options?.tenantId,
+        tenantId: options?.tenantId ?? log.tenantId,
         agentId: log.agentId,
         projectId: log.projectId,
         userId: log.userId,

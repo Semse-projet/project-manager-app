@@ -64,7 +64,7 @@ test("logger classifies context guard interactions as context_only", async () =>
     output: "No tengo proyecto seleccionado.",
   });
 
-  const recent = service.getRecentLogs(1)[0];
+  const recent = service.getRecentLogs("tenant_default", 1)[0];
   assert.equal(recent?.mode, "context_only");
   assert.equal(createdRows.length, 1);
 });
@@ -123,7 +123,7 @@ test("logger maps persisted rows to report/runtime/fallback modes", async () => 
     },
   );
 
-  const logs = await service.getDbLogs(10);
+  const logs = await service.getDbLogs("tenant_default", 10);
   assert.equal(logs[0]?.mode, "report");
   assert.equal(logs[1]?.mode, "fallback");
 });
@@ -182,7 +182,7 @@ test("logger stats include byMode breakdown", async () => {
     },
   );
 
-  const stats = await service.getStats();
+  const stats = await service.getStats("tenant_default");
   assert.deepEqual(stats.byMode, {
     runtime: 1,
     context_only: 1,
