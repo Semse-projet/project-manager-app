@@ -9,6 +9,7 @@ import { NoticeSendService } from './notice-send.service.js';
 import { NoticeController } from './notice.controller.js';
 import { WaiverController } from './waiver.controller.js';
 import { WaiverPaymentGateService } from './waiver-payment-gate.service.js';
+import { LienAccessService } from './lien-access.service.js';
 import { LienGridClient, createLienGridClient } from '../../integrations/liengrid.js';
 import { LobClient, createLobClient } from '../../integrations/lob.js';
 
@@ -21,6 +22,7 @@ import { LobClient, createLobClient } from '../../integrations/lob.js';
     NoticeGeneratorService,
     NoticeSendService,
     WaiverPaymentGateService,
+    LienAccessService,
     {
       provide: LienGridClient,
       useFactory: () => {
