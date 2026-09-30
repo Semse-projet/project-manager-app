@@ -30,11 +30,20 @@ export class WorkerVerificationService {
     private readonly sseBus?: SseEventBusService,
   ) {}
 
+  /** 404 (no existence oracle) unless the worker is a member of one of the actor's tenant orgs. */
+  private async requireWorkerInTenant(workerId: string, tenantId: string) {
+    const worker = await this.repository.getWorkerInTenant(workerId, tenantId);
+    if (!worker) {
+      throw new NotFoundException(`Worker ${workerId} not found`);
+    }
+    return worker;
+  }
+
   async initiateVerification(
     request: VerificationRequest,
   ): Promise<VerificationState> {
     try {
-      const worker = await this.repository.getWorker(request.workerId);
+      const worker = await this.repository.getWorkerInTenant(request.workerId, request.tenantId);
       if (!worker) {
         throw new NotFoundException(
           `Worker ${request.workerId} not found`,
@@ -75,6 +84,7 @@ export class WorkerVerificationService {
     didPublicKey: string,
   ): Promise<VerificationState> {
     try {
+      await this.requireWorkerInTenant(workerId, tenantId);
       let state = this.verificationStates.get(workerId);
       if (!state) {
         state = {
@@ -174,7 +184,8 @@ export class WorkerVerificationService {
     }
   }
 
-  async getVerificationStatus(workerId: string): Promise<VerificationState> {
+  async getVerificationStatus(workerId: string, tenantId: string): Promise<VerificationState> {
+    await this.requireWorkerInTenant(workerId, tenantId);
     let state = this.verificationStates.get(workerId);
     if (!state) {
       state = {
@@ -185,8 +196,20 @@ export class WorkerVerificationService {
     return state;
   }
 
-  async getVerificationHistory(workerId: string) {
-    return this.repository.getVerificationHistory(workerId);
+  /**
+   * Honest history: no per-verification log is persisted yet
+   * (createVerificationLog only writes to the application log), so this
+   * reports the real User.verificationStatus and an empty list — it used to
+   * return a synthetic "verified" entry for every workerId.
+   */
+  async getVerificationHistory(workerId: string, tenantId: string) {
+    const worker = await this.requireWorkerInTenant(workerId, tenantId);
+    return {
+      workerId,
+      verifications: [] as Array<{ type: string; status: string; verifiedAt: Date }>,
+      overallStatus: worker.verificationStatus,
+      historyAvailable: false,
+    };
   }
 
   async listUnverifiedWorkers(tenantId: string) {
