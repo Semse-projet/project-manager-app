@@ -21,6 +21,7 @@ import { PaymentProviderRegistry } from "./providers/payment-provider.registry.j
 import { StripeConnectService } from "./stripe-connect.service.js";
 import { StripeConnectController } from "./stripe-connect.controller.js";
 import { EscrowReleaseService } from "./escrow-release.service.js";
+import { ReleaseGovernanceGate } from "./release-governance.gate.js";
 
 const stripeProviders = process.env.STRIPE_SECRET_KEY?.trim()
   ? [StripePaymentProvider]
@@ -47,7 +48,8 @@ const adyenProviders = process.env.ADYEN_API_KEY?.trim() && process.env.ADYEN_ME
     PaymentProviderRegistry,
     StripeConnectService,
     EscrowReleaseService,
+    ReleaseGovernanceGate,
   ],
-  exports: [PaymentsRepository, PaymentsService, PaymentGovernanceService, StripeConnectService, EscrowReleaseService]
+  exports: [PaymentsRepository, PaymentsService, PaymentGovernanceService, StripeConnectService, EscrowReleaseService, ReleaseGovernanceGate]
 })
 export class PaymentsModule {}

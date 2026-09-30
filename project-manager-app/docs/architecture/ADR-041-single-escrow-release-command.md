@@ -1,7 +1,7 @@
 # ADR-041 — Un único comando de release de escrow (C27/C28/C29)
 
 - **Date:** 2026-09-30
-- **Status:** PROPOSED — requiere aprobación humana (Artículo IV de la constitución: release de fondos pasa por revisión de Payment Governance). No implementar hasta `APPROVED`.
+- **Status:** ACCEPTED (2026-09-30) — aprobado explícitamente por el owner ("Apruebo con valores recomendados"): D1 `PaymentProviderRegistry`, D3 `milestoneId` en la UI, D4 fuera de alcance. **D2 (umbral/segundo aprobador) sigue sin definir**: el dual approval se implementa apagado. Slice 1 en `docs/specs/payments/escrow-release-command.spec.md`.
 - **Supersedes (parcial):** ADR-034 §"future ADR" (la mitigación fail-safe sigue vigente hasta que este ADR se implemente).
 - **Affected:** `payments/`, `payment-governance/`, `milestones/`, `agents/harnesses`, `prometeo/prometeo-tool-execution`, admin/finance (web).
 
