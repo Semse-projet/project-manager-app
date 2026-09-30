@@ -25,13 +25,14 @@
    "priority": "P0",
    "historical": "PARCIAL",
    "batch": "A5",
-   "current_truth": "NOT_STARTED",
+   "current_truth": "PARTIAL — avance: deploymentId/environment/imageDigest (#706 abierto); faltan CI result y digest (requiere CI/CD)",
    "evidence": {
-    "code": false,
+    "code": "partial",
     "ci": false,
     "merge": null,
     "deploy": false,
-    "activation": false
+    "activation": false,
+    "pr": "#706"
    }
   },
   {
@@ -153,13 +154,14 @@
    "priority": "P0",
    "historical": "ROTA",
    "batch": "A3",
-   "current_truth": "NOT_STARTED",
+   "current_truth": "OPEN — avance: evidence-gateway (#702), liens (#703), worker-verification (#704) abiertos; inventario de endpoints hecho",
    "evidence": {
-    "code": false,
+    "code": "partial",
     "ci": false,
     "merge": null,
     "deploy": false,
-    "activation": false
+    "activation": false,
+    "pr": "#702,#703,#704"
    }
   },
   {
@@ -297,7 +299,7 @@
    "priority": "P0",
    "historical": "PARCIAL",
    "batch": "A4",
-   "current_truth": "NOT_STARTED",
+   "current_truth": "PARTIAL — hallazgo abierto: GET /v1/uploads/files/* público; requiere spec de URLs firmadas",
    "evidence": {
     "code": false,
     "ci": false,
@@ -409,13 +411,14 @@
    "priority": "P0",
    "historical": "PARCIAL",
    "batch": "A2",
-   "current_truth": "NOT_STARTED",
+   "current_truth": "PARTIAL — avance: webhook Stripe fail-closed (#705 abierto); falta proveedor/modo por entorno",
    "evidence": {
-    "code": false,
+    "code": "partial",
     "ci": false,
     "merge": null,
     "deploy": false,
-    "activation": false
+    "activation": false,
+    "pr": "#705"
    }
   },
   {
@@ -425,7 +428,7 @@
    "priority": "P0",
    "historical": "DUPLICADA",
    "batch": "A2",
-   "current_truth": "NOT_STARTED",
+   "current_truth": "DESIGN — ADR-041 + spec DRAFT (#701); bloqueado por D1–D4",
    "evidence": {
     "code": false,
     "ci": false,
@@ -441,13 +444,14 @@
    "priority": "P0",
    "historical": "PARCIAL",
    "batch": "A2",
-   "current_truth": "NOT_STARTED",
+   "current_truth": "PARTIAL — avance: firma de waivers protegida (#703 abierto); falta gate único en release manual (ADR-041)",
    "evidence": {
-    "code": false,
+    "code": "partial",
     "ci": false,
     "merge": null,
     "deploy": false,
-    "activation": false
+    "activation": false,
+    "pr": "#703"
    }
   },
   {
@@ -457,7 +461,7 @@
    "priority": "P0",
    "historical": "PARCIAL",
    "batch": "A2",
-   "current_truth": "NOT_STARTED",
+   "current_truth": "DESIGN — cubierto por ADR-041 (#701); bloqueado por D1–D4",
    "evidence": {
     "code": false,
     "ci": false,
@@ -569,7 +573,7 @@
    "priority": "P1",
    "historical": "PARCIAL",
    "batch": "B5",
-   "current_truth": "NOT_STARTED",
+   "current_truth": "PARTIAL — hallazgo: webhook WhatsApp en modo mock sin firma (pendiente B5)",
    "evidence": {
     "code": false,
     "ci": false,
@@ -617,11 +621,11 @@
    "priority": "P0",
    "historical": "PARCIAL",
    "batch": "A1",
-   "current_truth": "NOT_STARTED",
+   "current_truth": "PARTIAL — avance: logs IA tenant-scoped (merged #700); faltan costo y actor/política (migración)",
    "evidence": {
-    "code": false,
+    "code": "partial",
     "ci": false,
-    "merge": null,
+    "merge": "#700",
     "deploy": false,
     "activation": false
    }
@@ -729,11 +733,11 @@
    "priority": "P0",
    "historical": "PARCIAL",
    "batch": "A1",
-   "current_truth": "NOT_STARTED",
+   "current_truth": "PARTIAL — avance: piso de aprobación determinista (merged #700); falta versionado de plan (migración)",
    "evidence": {
-    "code": false,
+    "code": "partial",
     "ci": false,
-    "merge": null,
+    "merge": "#700",
     "deploy": false,
     "activation": false
    }
@@ -985,7 +989,7 @@
    "priority": "P0",
    "historical": "PARCIAL",
    "batch": "A5",
-   "current_truth": "NOT_STARTED",
+   "current_truth": "PARTIAL — no iniciado (siguiente)",
    "evidence": {
     "code": false,
     "ci": false,
@@ -1065,13 +1069,14 @@
    "priority": "P0",
    "historical": "DUPLICADA",
    "batch": "A4",
-   "current_truth": "NOT_STARTED",
+   "current_truth": "PARTIAL — avance: gateway usa política canónica (#702 abierto); consolidación de código pendiente",
    "evidence": {
-    "code": false,
+    "code": "partial",
     "ci": false,
     "merge": null,
     "deploy": false,
-    "activation": false
+    "activation": false,
+    "pr": "#702"
    }
   },
   {
@@ -1225,13 +1230,14 @@
    "priority": "P2",
    "historical": "PARCIAL",
    "batch": "C2",
-   "current_truth": "NOT_STARTED",
+   "current_truth": "PARTIAL — avance indirecto: subida de evidencia del Browser Agent ahora verifica proyecto (#702 abierto)",
    "evidence": {
     "code": false,
     "ci": false,
     "merge": null,
     "deploy": false,
-    "activation": false
+    "activation": false,
+    "pr": "#702"
    }
   },
   {
@@ -1298,5 +1304,6 @@
     "activation": false
    }
   }
- ]
+ ],
+ "updated": "2026-09-30"
 }
