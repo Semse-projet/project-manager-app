@@ -16,6 +16,7 @@ import { StripeConnectService } from "./stripe-connect.service.js";
 import { ProjectLifecycleProjectionEventProducer } from "../domain-events/project-lifecycle-projection-event-producer.service.js";
 import { OriginatorService } from "../originator/originator.service.js";
 import { ContributorProgramService } from "../contributor-program/contributor-program.service.js";
+import { ReleaseGovernanceGate } from "./release-governance.gate.js";
 
 /**
  * Maps a provider webhook event to the PaymentTxn status it confirms.
@@ -69,6 +70,7 @@ export class PaymentsService {
     @Optional() private readonly originator?: OriginatorService,
     @Optional() @Inject(forwardRef(() => ContributorProgramService))
     private readonly contributorProgram?: ContributorProgramService,
+    @Optional() private readonly releaseGate?: ReleaseGovernanceGate,
   ) {}
 
   async paymentReadinessByJob(input: {
@@ -635,6 +637,8 @@ export class PaymentsService {
     provider?: PaymentProviderKey;
     methodType?: PaymentMethodType;
     requestId: string;
+    /** Entrypoint, for release-governance observability only (default "manual"). */
+    source?: "manual" | "agent";
   }) {
     const milestone = await this.paymentsRepository.ensureMilestone(input);
     const project = await this.paymentsRepository.ensureProject({
@@ -671,6 +675,16 @@ export class PaymentsService {
     if (hasOpenDispute) {
       throw new ConflictException("escrow release is blocked while an open dispute exists")
     }
+
+    // Shared economic authorization (ADR-041): same gate as the auto-release
+    // path — lien waivers enforced, full governance in shadow/enforce mode.
+    await this.releaseGate?.assertReleasable({
+      actor: { tenantId: input.tenantId, orgId: input.orgId, userId: input.userId, roles: input.roles },
+      milestoneId: milestone.id,
+      projectId: milestone.projectId,
+      amount,
+      source: input.source ?? "manual",
+    });
 
     const escrow = await this.paymentsRepository.findEscrowByProject(milestone.projectId);
 

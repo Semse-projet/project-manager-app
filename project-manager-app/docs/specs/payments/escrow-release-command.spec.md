@@ -3,17 +3,17 @@ id: "payments.escrow-release-command"
 title: "Comando único de release de escrow"
 domain: "payments"
 sdd_version: "2.0"
-version: "0.1"
-status: "DRAFT"
+version: "0.2"
+status: "APPROVED"
 owner: "semse-core"
 risk: "critical"
-code_status: "NOT_STARTED"
+code_status: "IN_PROGRESS"
 ci_status: "NOT_RUN"
 merge_status: "UNMERGED"
 deploy_status: "NOT_DEPLOYED"
 activation_status: "INACTIVE"
 migration_status: "PENDING"
-feature_flags: ["PAYMENTS_SINGLE_RELEASE_COMMAND"]
+feature_flags: ["PAYMENTS_RELEASE_WAIVER_GATE", "PAYMENTS_RELEASE_GOVERNANCE_MODE"]
 production_evidence: []
 related_files:
   - apps/api/src/modules/payments/escrow-release.service.ts
@@ -22,7 +22,8 @@ related_files:
   - apps/api/src/modules/payment-governance/payment-governance.service.ts
   - apps/api/src/modules/liens/waiver-payment-gate.service.ts
   - apps/api/src/modules/milestones/milestones.service.ts
-related_tests: []
+related_tests:
+  - apps/api/test/release-governance-gate.test.ts
 related_endpoints: []
 related_events: []
 related_agents: []
@@ -31,7 +32,13 @@ last_verified: "2026-09-30"
 
 # Spec: Comando único de release de escrow (C27 · C28 · C29)
 
-> Borrador para aprobación humana. Decisiones abiertas D1–D4 en `docs/architecture/ADR-041-single-escrow-release-command.md`. No implementar mientras `status: DRAFT`.
+> **Aprobado el 2026-09-30 por el owner (Samuelcastella), respuesta explícita en la sesión de trabajo**: "Apruebo con valores recomendados" para ADR-041 y este spec. Decisiones: **D1** `PaymentProviderRegistry` como puerto canónico; **D3** la UI admin/finance exigirá `milestoneId`; **D4** payouts de contributor fuera de alcance. **D2 (dual approval)**: umbral por monto y segundo aprobador **sin definir**; se implementará configurable y **apagado** hasta que el owner fije el valor (requiere migración aditiva planificada).
+
+## Slices de implementación
+1. **Slice 1 — autorización económica única**: `ReleaseGovernanceGate` aplicado en `PaymentsService.release()` (REST, harness del copilot, tool de Prometeo). Gate de lien waivers **enforced por defecto** (`PAYMENTS_RELEASE_WAIVER_GATE=off` = rollback); `evaluate()` completo en **shadow** por defecto (`PAYMENTS_RELEASE_GOVERNANCE_MODE=shadow|enforce|off`). Sin migraciones.
+2. Slice 2 — comando único `EscrowReleaseCommand` (idempotencia por clave, estado ambiguo/reconciliación) y auto-release como adaptador.
+3. Slice 3 — dual approval (migración aditiva `PaymentReleaseApproval`), tras definir D2.
+4. Slice 4 — re-habilitar "Liberar" en admin/finance con `milestoneId` y retirar `payment-governance/releasePayment()`.
 
 ## 1. Problema y resultado
 **Para quién:** cliente (fondos), profesional (cobro), admin/finanzas, agentes.
