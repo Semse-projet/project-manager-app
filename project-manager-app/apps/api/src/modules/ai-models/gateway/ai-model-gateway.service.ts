@@ -3,6 +3,7 @@ import { LLMOrchestrator } from "../../../infrastructure/llm/orchestrator.js";
 import type { AiGenerateRequest } from "../dto/ai-generate-request.dto.js";
 import type { AiGenerateResponse } from "../dto/ai-generate-response.dto.js";
 import { AiModelRouterService } from "../router/ai-model-router.service.js";
+import { isPrivateModelSlug, requiresPrivateProvider } from "../router/privacy-policy.js";
 import { DeepSeekProvider } from "../providers/deepseek.provider.js";
 import { KimiProvider } from "../providers/kimi.provider.js";
 import { GlmProvider } from "../providers/glm.provider.js";
@@ -85,6 +86,14 @@ export class AiModelGatewayService {
   }
 
   private async executeWithSlug(slug: string, request: AiGenerateRequest, routeReason: string, fallbackUsed: boolean): Promise<AiGenerateResponse> {
+    // Defense in depth (C80): the router already resolves restricted requests
+    // to a private slug, but this is the last gate before any provider sees
+    // the payload, so it must hold even if a route or fallback is wrong.
+    const privacyRestricted = requiresPrivateProvider(request);
+    if (privacyRestricted && !isPrivateModelSlug(slug)) {
+      throw new Error(`Privacy policy blocked non-private model "${slug}" for a restricted request.`);
+    }
+
     // Prometeo-native providers
     if (slug === "deepseek-chat") {
       const resp = { ...(await this.deepseekChat.generate(request)), routeReason, fallbackUsed };
@@ -116,16 +125,10 @@ export class AiModelGatewayService {
     const providerName = slug === "claude-sonnet" ? "anthropic" : slug === "openai-gpt4" ? "openai" : slug === "ollama-local" ? "ollama" : undefined;
     const startedAt = Date.now();
 
-    // Privacy is immutable through this call: whenever the request's own
-    // privacyLevel requires a local/private provider, the orchestrator must
-    // enforce that itself too (not just rely on the router having picked
-    // "ollama-local") — otherwise its own fallback chain could still fall
-    // through to a cloud provider if the local one errors.
-    const privacyRestricted =
-      request.privacyLevel === "local_only" ||
-      request.privacyLevel === "sensitive" ||
-      request.privacyLevel === "restricted";
-
+    // Privacy is immutable through this call: the orchestrator must enforce
+    // it too (not just rely on the router having picked "ollama-local") —
+    // otherwise its own fallback chain could fall through to a cloud
+    // provider if the local one errors.
     const result = await this.llmOrchestrator.chat({
       systemPrompt: buildSafeSystemPrompt(
         request.systemPrompt,
