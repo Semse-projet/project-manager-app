@@ -111,3 +111,33 @@ test("plan becomes completed when all steps finish", async () => {
   assert.equal(completed.status, "completed");
   assert.equal(completed.steps[0]?.status, "completed");
 });
+
+// C46: an approval only covers the definition that was approved. If the
+// plan's tools/gates changed afterwards (approvalValid=false) money tools
+// must not run until it is re-approved; a valid approval still works.
+test("invalidated approval blocks a money tool; valid approval allows it", async () => {
+  const step = makeStep({
+    id: "step_pay",
+    capability: "worker",
+    toolsAllowed: ["propose_escrow_release"],
+    actionType: "payments.propose_release",
+    requiresApprovedPlan: true,
+    riskLevel: "medium",
+    status: "ready",
+  });
+  const run = async (approvalValid: boolean) => {
+    const { service } = makeService(makePlan({ steps: [step], approvalValid }));
+    return service.resolveActionExecution({
+      tenantId: "tnt_t",
+      projectId: "proj_1",
+      actionType: "payments.propose_release",
+      riskLevel: "medium",
+      toolName: "propose_escrow_release",
+    });
+  };
+  const valid = await run(true);
+  assert.equal(valid.allowed, true);
+  const invalid = await run(false);
+  assert.equal(invalid.allowed, false);
+  if (!invalid.allowed) assert.match(invalid.reason, /plan aprobado/i);
+});

@@ -41,6 +41,7 @@ These must be set in Railway console as Service Variables (not build args):
 | `PAYMENT_PROVIDER` | enum | optional | Value: `mock` or `stripe` | Default provider for escrow deposit/release/refund when request body omits `provider` |
 | `STRIPE_SECRET_KEY` | string | required for Stripe | Stripe Dashboard | Runtime secret only; enables the Stripe provider |
 | `STRIPE_WEBHOOK_SECRET` | string | required for Stripe production webhooks | Stripe Dashboard webhook endpoint | Required in EVERY environment that receives Stripe webhooks (production, staging, previews). Without it `POST /v1/payments/webhook` returns 503 (fail-closed). For local, non-production testing only, `STRIPE_WEBHOOK_ALLOW_UNSIGNED=true` skips verification; it is ignored in production. |
+| `AI_MODEL_PRICING_JSON` | json (optional) | no | Operator-supplied, e.g. `{"claude-sonnet":{"inputPer1K":0.003,"outputPer1K":0.015}}` (USD per 1K tokens) | Enables `AiInteractionLog.estimatedCostUsd`. There is no built-in price list; without an entry for a model the cost stays null (C39). |
 | `STRIPE_CONNECT_ACCOUNT_ID` | string | optional | Stripe Connect | Legacy fallback destination when a contractor-specific Connect account is unavailable |
 | `PAYPAL_CLIENT_ID` | string | required for PayPal | PayPal Developer | Enables PayPal Orders and PayPal Payouts |
 | `PAYPAL_CLIENT_SECRET` | string | required for PayPal | PayPal Developer | Runtime secret only |
