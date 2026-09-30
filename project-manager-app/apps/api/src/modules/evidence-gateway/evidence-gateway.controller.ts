@@ -32,6 +32,8 @@ export class EvidenceGatewayController {
 
     const result = await this.service.uploadEvidence({
       tenantId: ctx.tenantId,
+      orgId: ctx.orgId,
+      roles: ctx.roles,
       projectId: String(body.projectId ?? ""),
       milestoneId: body.milestoneId ? String(body.milestoneId) : undefined,
       uploadedById: ctx.userId,
@@ -58,6 +60,8 @@ export class EvidenceGatewayController {
     @Param("projectId") projectId: string,
   ) {
     const safeProjectId = assertSafeRouteId(projectId, "projectId");
+    // Authorize before any bytes are streamed (tenant + org + project).
+    await this.service.assertProjectAccess(actor(req), safeProjectId, "read");
     // Set SSE headers
     res.header("Content-Type", "text/event-stream");
     res.header("Cache-Control", "no-cache");
@@ -103,6 +107,7 @@ export class EvidenceGatewayController {
     const rid = resolveRequestId(req.headers ?? {});
 
     const status = await this.service.getMilestoneValidationStatus(
+      actor(req),
       projectId,
       milestoneId,
     );
@@ -118,7 +123,7 @@ export class EvidenceGatewayController {
   ) {
     const rid = resolveRequestId(req.headers ?? {});
 
-    const evidence = await this.service.getPassedEvidence(projectId);
+    const evidence = await this.service.getPassedEvidence(actor(req), projectId);
 
     return ok(rid, { count: evidence.length, items: evidence });
   }
@@ -131,7 +136,7 @@ export class EvidenceGatewayController {
   ) {
     const rid = resolveRequestId(req.headers ?? {});
 
-    const evidence = await this.service.getFailedEvidence(projectId);
+    const evidence = await this.service.getFailedEvidence(actor(req), projectId);
 
     return ok(rid, { count: evidence.length, items: evidence });
   }
@@ -144,7 +149,7 @@ export class EvidenceGatewayController {
   ) {
     const rid = resolveRequestId(req.headers ?? {});
 
-    const evidence = await this.service.getPendingEvidence(projectId);
+    const evidence = await this.service.getPendingEvidence(actor(req), projectId);
 
     return ok(rid, { count: evidence.length, items: evidence });
   }

@@ -118,7 +118,7 @@ export class BrowserAgentService {
 
   async getInspectionResult(
     runId: string,
-    context: { tenantId: string; orgId: string; userId: string },
+    context: { tenantId: string; orgId: string; userId: string; roles: string[] },
   ) {
     // Get the run using agentsService
     const run = await this.agentsService.detail({
@@ -174,7 +174,7 @@ export class BrowserAgentService {
         const projectId = (run.input as any)?.projectId;
         if (projectId) {
           try {
-            await this.saveAsEvidence(projectId, (run.input as any)?.milestoneId, context.tenantId, context.userId, result, aiSummary);
+            await this.saveAsEvidence(projectId, (run.input as any)?.milestoneId, context, result, aiSummary);
           } catch (evidenceError) {
             this.logger.error("Failed to automatically upload inspection to Evidence Gateway", evidenceError);
           }
@@ -273,18 +273,19 @@ ${result.visibleTextSample || "(None extracted)"}
   private async saveAsEvidence(
     projectId: string,
     milestoneId: string | undefined,
-    tenantId: string,
-    userId: string,
+    actor: { tenantId: string; orgId: string; userId: string; roles: string[] },
     result: any,
     aiSummary: any,
   ) {
     const bucketKey = `browser-agent/screenshot-${Date.now()}-${Math.random().toString(36).substring(2, 7)}.png`;
 
     await this.evidenceGateway.uploadEvidence({
-      tenantId,
+      tenantId: actor.tenantId,
+      orgId: actor.orgId,
+      roles: actor.roles,
       projectId,
       milestoneId,
-      uploadedById: userId,
+      uploadedById: actor.userId,
       kind: "DOCUMENT",
       bucketKey,
       metadataJson: {
