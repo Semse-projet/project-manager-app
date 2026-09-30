@@ -43,6 +43,7 @@ export class BrowserAgentController {
       tenantId: ctx.tenantId,
       orgId: ctx.orgId,
       userId: ctx.userId,
+      roles: ctx.roles,
     });
 
     return ok(rid, result);

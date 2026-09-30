@@ -1,4 +1,5 @@
-import { Injectable, Logger, BadRequestException } from "@nestjs/common";
+import { Injectable, Logger, BadRequestException, NotFoundException } from "@nestjs/common";
+import { assertEvidenceReadable, assertEvidenceWritable, type EvidenceActor } from "../evidence/evidence.policy.js";
 import { EvidenceGatewayRepository } from "./evidence-gateway.repository.js";
 import { SseEventBusService } from "../../infrastructure/sse/sse-event-bus.service.js";
 import { VisionService } from "../vision/vision.service.js";
@@ -6,6 +7,8 @@ import { StorageService } from "../../infrastructure/storage/storage.service.js"
 
 export interface EvidenceUploadRequest {
   tenantId: string;
+  orgId: string;
+  roles: string[];
   projectId: string;
   milestoneId?: string;
   uploadedById: string;
@@ -34,12 +37,41 @@ export class EvidenceGatewayService {
     private readonly sseBus?: SseEventBusService,
   ) {}
 
+  /**
+   * Tenant + organization + resource scoping (C10/C67). The canonical
+   * evidence policy (`evidence/evidence.policy.ts`, ADR-028) decides; this
+   * gateway is only an adapter and must not widen it. A project outside the
+   * caller's tenant is reported as not found (no existence oracle).
+   */
+  async assertProjectAccess(actor: EvidenceActor, projectId: string, mode: "read" | "write"): Promise<void> {
+    const ownership = projectId
+      ? await this.repository.getProjectOwnership(projectId, actor.tenantId)
+      : null;
+    if (!ownership) {
+      throw new NotFoundException("Project not found");
+    }
+    if (mode === "write") assertEvidenceWritable(actor, ownership);
+    else assertEvidenceReadable(actor, ownership);
+  }
+
   async uploadEvidence(
     request: EvidenceUploadRequest,
   ): Promise<{ evidenceId: string; status: string }> {
     try {
       if (!request.projectId || !request.uploadedById) {
         throw new BadRequestException("Missing required fields");
+      }
+
+      await this.assertProjectAccess(
+        { tenantId: request.tenantId, orgId: request.orgId, userId: request.uploadedById, roles: request.roles },
+        request.projectId,
+        "write",
+      );
+      if (
+        request.milestoneId &&
+        !(await this.repository.milestoneBelongsToProject(request.milestoneId, request.projectId, request.tenantId))
+      ) {
+        throw new NotFoundException("Milestone not found for this project");
       }
 
       // Create evidence record
@@ -186,13 +218,19 @@ export class EvidenceGatewayService {
   }
 
   async getMilestoneValidationStatus(
+    actor: EvidenceActor,
     projectId: string,
     milestoneId: string,
   ) {
     try {
+      await this.assertProjectAccess(actor, projectId, "read");
+      if (!(await this.repository.milestoneBelongsToProject(milestoneId, projectId, actor.tenantId))) {
+        throw new NotFoundException("Milestone not found for this project");
+      }
       const status = await this.repository.getMilestoneEvidenceValidationStatus(
         projectId,
         milestoneId,
+        actor.tenantId,
       );
 
       return {
@@ -218,16 +256,19 @@ export class EvidenceGatewayService {
     }
   }
 
-  async getFailedEvidence(projectId: string) {
-    return this.repository.getProjectEvidenceByStatus(projectId, "failed");
+  async getFailedEvidence(actor: EvidenceActor, projectId: string) {
+    await this.assertProjectAccess(actor, projectId, "read");
+    return this.repository.getProjectEvidenceByStatus(projectId, "failed", actor.tenantId);
   }
 
-  async getPendingEvidence(projectId: string) {
-    return this.repository.getProjectEvidenceByStatus(projectId, "pending");
+  async getPendingEvidence(actor: EvidenceActor, projectId: string) {
+    await this.assertProjectAccess(actor, projectId, "read");
+    return this.repository.getProjectEvidenceByStatus(projectId, "pending", actor.tenantId);
   }
 
-  async getPassedEvidence(projectId: string) {
-    return this.repository.getProjectEvidenceByStatus(projectId, "passed");
+  async getPassedEvidence(actor: EvidenceActor, projectId: string) {
+    await this.assertProjectAccess(actor, projectId, "read");
+    return this.repository.getProjectEvidenceByStatus(projectId, "passed", actor.tenantId);
   }
 
   private async assessQuality(evidence: any): Promise<number> {

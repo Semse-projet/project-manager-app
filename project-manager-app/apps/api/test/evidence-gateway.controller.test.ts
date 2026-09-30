@@ -117,7 +117,7 @@ test("evidence-gateway controller: getMilestoneValidationStatus routes params to
   const controller = new EvidenceGatewayController({
     async uploadEvidence() { return STUB_UPLOAD_RESULT; },
     async validateEvidenceAsync() {},
-    async getMilestoneValidationStatus(projectId: string, milestoneId: string) {
+    async getMilestoneValidationStatus(_actor: unknown, projectId: string, milestoneId: string) {
       calls.push([projectId, milestoneId]);
       return { ...STUB_MILESTONE_STATUS, milestoneId };
     },
@@ -138,7 +138,7 @@ test("evidence-gateway controller: getPassedEvidence returns items with count", 
     async uploadEvidence() { return STUB_UPLOAD_RESULT; },
     async validateEvidenceAsync() {},
     async getMilestoneValidationStatus() { return STUB_MILESTONE_STATUS; },
-    async getPassedEvidence(projectId: string) {
+    async getPassedEvidence(_actor: unknown, projectId: string) {
       return projectId === "proj_1" ? STUB_EVIDENCE_ITEMS : [];
     },
     async getFailedEvidence() { return []; },

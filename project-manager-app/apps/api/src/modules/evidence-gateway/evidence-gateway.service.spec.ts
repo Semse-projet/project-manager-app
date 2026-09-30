@@ -16,7 +16,12 @@ describe("EvidenceGatewayService", () => {
     getMilestoneEvidenceValidationStatus: jest.fn(),
     getProjectEvidenceByStatus: jest.fn(),
     logValidationEvent: jest.fn(),
+    getProjectOwnership: jest.fn(),
+    milestoneBelongsToProject: jest.fn(),
   };
+
+  // Caller belongs to the project's pro org (C10/C67 scope checks).
+  const actor = { tenantId: "tenant-1", orgId: "org-pro", userId: "user-123", roles: ["PRO"] };
 
   const mockVisionService = {
     runAnalysis: jest.fn().mockResolvedValue({ qualityScore: 0.85, canAutoApprove: true }),
@@ -44,9 +49,17 @@ describe("EvidenceGatewayService", () => {
     jest.clearAllMocks();
   });
 
+  beforeEach(() => {
+    mockRepository.getProjectOwnership.mockResolvedValue({ clientOrgId: "org-client", assignedProOrgId: "org-pro" });
+    mockRepository.milestoneBelongsToProject.mockResolvedValue(true);
+  });
+
   describe("uploadEvidence", () => {
     it("should upload evidence successfully", async () => {
       const request = {
+        tenantId: "tenant-1",
+        orgId: "org-pro",
+        roles: ["PRO"],
         projectId: "proj-123",
         milestoneId: "mile-123",
         uploadedById: "user-123",
@@ -178,6 +191,7 @@ describe("EvidenceGatewayService", () => {
       } as any);
 
       const status = await service.getMilestoneValidationStatus(
+        actor,
         projectId,
         milestoneId,
       );
@@ -200,6 +214,7 @@ describe("EvidenceGatewayService", () => {
       } as any);
 
       const status = await service.getMilestoneValidationStatus(
+        actor,
         "proj-123",
         "mile-123",
       );
@@ -220,7 +235,7 @@ describe("EvidenceGatewayService", () => {
         },
       ] as any);
 
-      const evidence = await service.getFailedEvidence("proj-123");
+      const evidence = await service.getFailedEvidence(actor, "proj-123");
 
       expect(evidence).toHaveLength(1);
       expect(evidence[0].validationStatus).toBe("failed");
@@ -237,7 +252,7 @@ describe("EvidenceGatewayService", () => {
         },
       ] as any);
 
-      const evidence = await service.getPendingEvidence("proj-123");
+      const evidence = await service.getPendingEvidence(actor, "proj-123");
 
       expect(evidence).toHaveLength(1);
       expect(evidence[0].validationStatus).toBe("pending");
@@ -255,7 +270,7 @@ describe("EvidenceGatewayService", () => {
         },
       ] as any);
 
-      const evidence = await service.getPassedEvidence("proj-123");
+      const evidence = await service.getPassedEvidence(actor, "proj-123");
 
       expect(evidence).toHaveLength(1);
       expect(evidence[0].validationStatus).toBe("passed");
