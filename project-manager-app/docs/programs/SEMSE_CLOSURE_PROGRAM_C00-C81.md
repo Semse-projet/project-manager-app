@@ -41,7 +41,7 @@
 | **D1** | D | Extensiones experimentales (sin autoridad financiera) | C69, C71 | A1, A2, C2 (C70) |
 | **E1** | E | Experimentation (shadow → canary interno) | C81 | B5 (flags/obs), A1 |
 
-**Estado de lotes (2026-09-30):** A1 — C80/C39/C46 en main (#698, #700, #710); migración aditiva 105 (actor/política en logs de IA, versión de plan) en despliegue; faltan precios (costo) y eventos de denegación. A2 — ADR-041 ACCEPTED/spec APPROVED (aprobación explícita del owner); slice 1 en main (#709); D2 (dual approval) sin definir; C26 (#705) y C28 (#703, #709) con avance. A3 — C10: evidence-gateway (#702), liens (#703), worker-verification (#704) en main; archivos públicos (C19) con spec DRAFT (#708). A5 — C02 (#706) en main; C56/C57/C55 con evidencia de producción de solo lectura (#711); C57 propuesta de dry-run y retiro de funciones huérfanas pendiente de autorización; C55 backups pendiente de confirmación del operador. C03 build verificado en main. **Importante:** el merge a `main` despliega solo a Railway tras el CI de main (los commits fusionados seguidos se agrupan en un único despliegue); ninguna capacidad es VERIFIED sin smoke autenticado. Resto: no iniciado.
+**Estado de lotes (2026-09-30):** A1 — C80/C39/C46 en main (#698, #700, #710); migración aditiva 105 (actor/política en logs de IA, versión de plan) APLICADA en producción (deploy 70ca14b8, aecbd8d; 4 servicios online); faltan precios (costo) y eventos de denegación. A2 — ADR-041 ACCEPTED/spec APPROVED (aprobación explícita del owner); slice 1 en main (#709); D2 (dual approval) sin definir; C26 (#705) y C28 (#703, #709) con avance. A3 — C10: evidence-gateway (#702), liens (#703), worker-verification (#704) en main; archivos públicos (C19) con spec DRAFT (#708). A5 — C02 (#706) en main; C56/C57/C55 con evidencia de producción de solo lectura (#711); C57 propuesta de dry-run y retiro de funciones huérfanas pendiente de autorización; C55 backups pendiente de confirmación del operador. C03 build verificado en main. **Importante:** el merge a `main` despliega solo a Railway tras el CI de main (los commits fusionados seguidos se agrupan en un único despliegue); ninguna capacidad es VERIFIED sin smoke autenticado. Resto: no iniciado.
 
 Notas de orden: A2 va antes que A3 porque el scope de pagos define el patrón tenant+org+recurso; C65 (B2) y C67 (A4) consolidan a través de su propietario canónico (Labor Engine / `evidence/`); C69/C71 (D1) nunca tienen autoridad financiera directa; C81 (E1) prohíbe aleatorizar autorización, identidad, liberación de pagos, decisiones legales o compuertas de seguridad.
 
@@ -50,7 +50,7 @@ Notas de orden: A2 va antes que A3 porque el scope de pagos define el patrón te
 |---|---|---|---|---|---|---|
 | C01 | Origen configurado API/Web/Worker/Vision | Infraestructura | P0 | REAL | A6 | REAL — 4 servicios de app con origen repo Semse-projet/project-manager-app (Railway) |
 | C02 | Trazabilidad de versiones activas | Entrega | P0 | PARCIAL | A5 | PARTIAL — en main (#706): deploymentId/environment/imageDigest; faltan CI result y digest (requiere CI/CD); sin evidencia de producción aún |
-| C03 | Compilación candidato web 5-sep | Entrega | P1 | ROTA | B2 | IMPLEMENTED_NOT_VERIFIED — defecto reparado (BASE_RATES[input.laborType]); build reproducible en main aecbd8d: install --frozen-lockfile + db:generate + build:packages + build:web exit 0 (local) y CI main success; falta deploy web verificado |
+| C03 | Compilación candidato web 5-sep | Entrega | P1 | ROTA | B2 | IMPLEMENTED_NOT_VERIFIED — defecto reparado; build reproducible en main aecbd8d (local exit 0 + CI main success); web desplegada (deploy 4e7f4c4d SUCCESS, online); falta smoke autenticado |
 | C04 | Página pública app.semseproject.com | Web | P2 | REAL | C3 | NOT_STARTED |
 | C05 | Health de API (Railway y dominio) | API | P0 | REAL | A6 | NOT_STARTED |
 | C06 | Health propio del BFF web | Web | P2 | REAL | C3 | NOT_STARTED |
@@ -74,9 +74,9 @@ Notas de orden: A2 va antes que A3 porque el scope de pagos define el patrón te
 | C24 | Proyectos, propuestas y contratación | Marketplace | P1 | PARCIAL | B3 | NOT_STARTED |
 | C25 | Change Orders y control de alcance | Operaciones | P1 | PARCIAL | B3 | NOT_STARTED |
 | C26 | Configuración de Stripe | Payments | P0 | PARCIAL | A2 | PARTIAL — en main (#705): webhook Stripe fail-closed; falta proveedor/modo por entorno y reconciliación |
-| C27 | Gobernanza de liberación y dual approval | Payments | P0 | DUPLICADA | A2 | PARTIAL — ADR-041 ACCEPTED/spec APPROVED; slice 1 (autorización única) en main (#709); faltan comando único con idempotencia, dual approval (D2 sin definir) y retiro del camino falso |
-| C28 | Gate de lien waivers en escrow | Payments | P0 | PARCIAL | A2 | PARTIAL — en main: firma de waivers protegida (#703) y gate de waivers en release manual/agente (#709, enforced por defecto; rollback PAYMENTS_RELEASE_WAIVER_GATE=off); gobernanza completa en shadow; deploy aecbd8d en curso |
-| C29 | Fondeo, liberación, refunds y payouts | Payments | P0 | PARCIAL | A2 | PARTIAL — cubierto por ADR-041 (slice 1 en main); idempotencia/reconciliación (slice 2) pendiente |
+| C27 | Gobernanza de liberación y dual approval | Payments | P0 | DUPLICADA | A2 | PARTIAL — ADR-041 ACCEPTED/spec APPROVED; slice 1 (autorización única) en producción (deploy 70ca14b8, aecbd8d); faltan comando único con idempotencia, dual approval (D2 sin definir) y retiro del camino falso |
+| C28 | Gate de lien waivers en escrow | Payments | P0 | PARCIAL | A2 | PARTIAL — en producción (aecbd8d): firma de waivers protegida (#703) y gate de waivers en release manual/agente (#709, enforced por defecto; rollback PAYMENTS_RELEASE_WAIVER_GATE=off); gobernanza completa en shadow (revisar logs release_governance_shadow_would_block antes de enforce); sin smoke |
+| C29 | Fondeo, liberación, refunds y payouts | Payments | P0 | PARCIAL | A2 | PARTIAL — slice 1 de ADR-041 en producción; idempotencia/reconciliación (slice 2) pendiente |
 | C30 | Registros de pagos y costeo por recurso | Economía | P1 | PARCIAL | B4 | NOT_STARTED |
 | C31 | Integración de firma electrónica | Contratos | P1 | PARCIAL | B4 | NOT_STARTED |
 | C32 | Resolución de controversias | Disputas | P1 | PARCIAL | B4 | NOT_STARTED |
@@ -86,14 +86,14 @@ Notas de orden: A2 va antes que A3 porque el scope de pagos define el patrón te
 | C36 | Configuración WhatsApp | Comunicaciones | P1 | PARCIAL | B5 | PARTIAL — hallazgo: webhook WhatsApp en modo mock sin firma (pendiente B5) |
 | C37 | Inbox y continuidad de conversación | Comunicaciones | P2 | PARCIAL | C2 | NOT_STARTED |
 | C38 | Configuración de correo | Comunicaciones | P2 | PARCIAL | C2 | NOT_STARTED |
-| C39 | Configuración del router de modelos | AI | P0 | PARCIAL | A1 | PARTIAL — en main (#700, #710): logs IA tenant-scoped + actor/org/política persistidos (migración aditiva 105); costo habilitado por AI_MODEL_PRICING_JSON, faltan precios del owner |
+| C39 | Configuración del router de modelos | AI | P0 | PARCIAL | A1 | PARTIAL — en producción: logs IA tenant-scoped + actor/org/política persistidos; migración aditiva 20260930230513 aplicada (deploy 70ca14b8); costo habilitado por AI_MODEL_PRICING_JSON, faltan precios del owner; sin smoke |
 | C40 | Servicio Ollama | AI | P2 | REAL | C3 | REAL — ollama online pero imagen :latest y SIN volumen (modelos no persistentes) |
 | C41 | Chat Ollama 6-sep (smoke e2e) | AI | P1 | ROTA | B2 | NOT_STARTED |
 | C42 | RAG, embeddings y fuentes | Knowledge | P1 | PARCIAL | B5 | NOT_STARTED |
 | C43 | Ciclos de curación / Product Intelligence | Worker | P2 | REAL | C3 | NOT_STARTED |
 | C44 | Endpoint público de overview | Intelligence | P2 | PARCIAL | C2 | NOT_STARTED |
 | C45 | Mission Control unificado | Operación AI | P1 | PARCIAL | B5 | NOT_STARTED |
-| C46 | Plan Mode, políticas de herramientas y aprobación | Operación AI | P0 | PARCIAL | A1 | PARTIAL — en main (#700, #710): piso de aprobación determinista + versión de plan y aprobación ligada a la definición; falta denegación con eventos (EVENT_CATALOG) |
+| C46 | Plan Mode, políticas de herramientas y aprobación | Operación AI | P0 | PARCIAL | A1 | PARTIAL — en producción: piso de aprobación determinista + versión de plan y aprobación ligada a la definición (migración aplicada); falta denegación con eventos (EVENT_CATALOG); sin smoke |
 | C47 | LiveKit / Prometeo Live | AI Live | P1 | PARCIAL | B5 | NOT_STARTED |
 | C48 | App Expo, distribución y cobros | Móvil | P2 | PARCIAL | C2 | NOT_STARTED |
 | C49 | Animales, lotes, costos, tareas y offline | Agro | P0 | PARCIAL | A3 | NOT_STARTED |
@@ -103,7 +103,7 @@ Notas de orden: A2 va antes que A3 porque el scope de pagos define el patrón te
 | C53 | Postgres servicio persistente | Datos | P1 | REAL | B5 | REAL — Postgres online (postgres-ssl:18, 1 réplica, 5 GB); 1 warning sin detalle; plan de restauración pendiente (C55) |
 | C54 | Redis servicio persistente | Datos | P2 | REAL | C3 | REAL — Redis en sfo vs servicios en us-east4 (dependencia regional confirmada); recuperación de colas no verificada |
 | C55 | Backups y restauración Postgres/archivos | Continuidad | P0 | PARCIAL | A5 | PARTIAL — inventario hecho (3 volúmenes 5 GB, archivos en /data local, sin buckets); estado de backups/restauración DESCONOCIDO vía MCP: requiere confirmación del operador |
-| C56 | Migraciones y esquema productivo | Datos | P0 | PARCIAL | A5 | PARTIAL — evidencia prod: 104 migraciones, 'No pending migrations' (deploy aebd7ed4); deriva schema↔tablas no medida |
+| C56 | Migraciones y esquema productivo | Datos | P0 | PARCIAL | A5 | PARTIAL — evidencia prod: migración 105 (20260930230513) aplicada con 'migrate deploy completo' (deploy 70ca14b8); antes 104 sin pendientes; deriva schema↔tablas no medida |
 | C57 | Deduplicación histórica | Datos | P0 | PARCIAL | A5 | PARTIAL — hallazgo: pre-migrate.mjs borra duplicados (Project/Milestone/JobTask/BuildOps*) en CADA arranque, sin dry-run; hoy 0 filas; funciones huérfanas db-dedup-script y t051-t058a; propuesta pendiente de autorización |
 | C58 | Cabeceras de protección web | Seguridad web | P1 | PARCIAL | B5 | NOT_STARTED |
 | C59 | Permisos cámara/micrófono/ubicación web | Campo / Live | P1 | PARCIAL | B5 | NOT_STARTED |
