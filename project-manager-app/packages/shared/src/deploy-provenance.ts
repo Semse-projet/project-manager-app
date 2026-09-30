@@ -16,6 +16,16 @@
 export type DeployProvenance = {
   gitSha: string;
   buildTime: string;
+  /** C02 — Railway deployment id (RAILWAY_DEPLOYMENT_ID), "unknown" off-Railway. */
+  deploymentId: string;
+  /** Railway environment name (RAILWAY_ENVIRONMENT_NAME), e.g. "production". */
+  environment: string;
+  /**
+   * Container image digest. Railway does not expose it to the running
+   * service, so it is only reported when the operator/build supplies
+   * SEMSE_IMAGE_DIGEST; otherwise "unknown" — never inferred or fabricated.
+   */
+  imageDigest: string;
 };
 
 function nonEmpty(value: string | undefined): string | undefined {
@@ -28,5 +38,8 @@ export function getDeployProvenance(
   return {
     gitSha: nonEmpty(env.RAILWAY_GIT_COMMIT_SHA) ?? "unknown",
     buildTime: nonEmpty(env.RAILWAY_DEPLOYMENT_CREATED_AT) ?? "unknown",
+    deploymentId: nonEmpty(env.RAILWAY_DEPLOYMENT_ID) ?? "unknown",
+    environment: nonEmpty(env.RAILWAY_ENVIRONMENT_NAME) ?? "unknown",
+    imageDigest: nonEmpty(env.SEMSE_IMAGE_DIGEST) ?? "unknown",
   };
 }

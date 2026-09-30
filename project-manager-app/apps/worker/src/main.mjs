@@ -181,7 +181,7 @@ async function main() {
   // ADR-030: worker has no HTTP surface to expose /health-style provenance
   // on, so gitSha/buildTime are logged at boot instead — queryable via
   // `railway logs` the same way API/Web expose theirs over HTTP.
-  const { gitSha, buildTime } = getDeployProvenance();
+  const { gitSha, buildTime, deploymentId, environment, imageDigest } = getDeployProvenance();
   console.log(JSON.stringify({
     level: "info",
     service: "semse-worker",
@@ -191,6 +191,9 @@ async function main() {
     nodeEnv: process.env.NODE_ENV,
     gitSha,
     buildTime,
+    deploymentId,
+    environment,
+    imageDigest,
     apiBaseUrl: config.apiBaseUrl,
     redisUrl: maskRedisUrl(config.redisUrl),
     authSecret: env.AUTH_SECRET ? `SET(len=${env.AUTH_SECRET.length})` : "NOT_SET",
