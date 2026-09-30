@@ -9,7 +9,7 @@
    "priority": "P0",
    "historical": "REAL",
    "batch": "A6",
-   "current_truth": "NOT_STARTED",
+   "current_truth": "REAL — 4 servicios de app con origen repo Semse-projet/project-manager-app (Railway)",
    "evidence": {
     "code": false,
     "ci": false,
@@ -626,7 +626,7 @@
     "code": "partial",
     "ci": "PR checks green; main auto-deploy (Railway Deploy/Production Health Gate) — sin smoke autenticado",
     "merge": "2797188c4badfc933c80ac763464b54f4fa5a989",
-    "deploy": "auto-deploy on merge to main (per GitHub Actions); runtime not verified from sandbox",
+    "deploy": "en producción a nivel de commit: deploy aebd7ed4 (87fa20b), SUCCESS; sin smoke autenticado",
     "activation": false
    }
   },
@@ -637,7 +637,7 @@
    "priority": "P2",
    "historical": "REAL",
    "batch": "C3",
-   "current_truth": "NOT_STARTED",
+   "current_truth": "REAL — ollama online pero imagen :latest y SIN volumen (modelos no persistentes)",
    "evidence": {
     "code": false,
     "ci": false,
@@ -738,7 +738,7 @@
     "code": "partial",
     "ci": "PR checks green; main auto-deploy (Railway Deploy/Production Health Gate) — sin smoke autenticado",
     "merge": "2797188c4badfc933c80ac763464b54f4fa5a989",
-    "deploy": "auto-deploy on merge to main (per GitHub Actions); runtime not verified from sandbox",
+    "deploy": "en producción a nivel de commit: deploy aebd7ed4 (87fa20b), SUCCESS; sin smoke autenticado",
     "activation": false
    }
   },
@@ -845,7 +845,7 @@
    "priority": "P1",
    "historical": "REAL",
    "batch": "B5",
-   "current_truth": "NOT_STARTED",
+   "current_truth": "REAL — Postgres online (postgres-ssl:18, 1 réplica, 5 GB); 1 warning sin detalle; plan de restauración pendiente (C55)",
    "evidence": {
     "code": false,
     "ci": false,
@@ -861,7 +861,7 @@
    "priority": "P2",
    "historical": "REAL",
    "batch": "C3",
-   "current_truth": "NOT_STARTED",
+   "current_truth": "REAL — Redis en sfo vs servicios en us-east4 (dependencia regional confirmada); recuperación de colas no verificada",
    "evidence": {
     "code": false,
     "ci": false,
@@ -877,7 +877,7 @@
    "priority": "P0",
    "historical": "PARCIAL",
    "batch": "A5",
-   "current_truth": "NOT_STARTED",
+   "current_truth": "PARTIAL — inventario hecho (3 volúmenes 5 GB, archivos en /data local, sin buckets); estado de backups/restauración DESCONOCIDO vía MCP: requiere confirmación del operador",
    "evidence": {
     "code": false,
     "ci": false,
@@ -893,7 +893,7 @@
    "priority": "P0",
    "historical": "PARCIAL",
    "batch": "A5",
-   "current_truth": "NOT_STARTED",
+   "current_truth": "PARTIAL — evidencia prod: 104 migraciones, 'No pending migrations' (deploy aebd7ed4); deriva schema↔tablas no medida",
    "evidence": {
     "code": false,
     "ci": false,
@@ -909,7 +909,7 @@
    "priority": "P0",
    "historical": "PARCIAL",
    "batch": "A5",
-   "current_truth": "NOT_STARTED",
+   "current_truth": "PARTIAL — hallazgo: pre-migrate.mjs borra duplicados (Project/Milestone/JobTask/BuildOps*) en CADA arranque, sin dry-run; hoy 0 filas; funciones huérfanas db-dedup-script y t051-t058a; propuesta pendiente de autorización",
    "evidence": {
     "code": false,
     "ci": false,
@@ -1021,7 +1021,7 @@
    "priority": "P2",
    "historical": "PARCIAL",
    "batch": "C2",
-   "current_truth": "NOT_STARTED",
+   "current_truth": "PARTIAL — recursos huérfanos en Railway: db-dedup-script (vacío), t051-t058a-onetime-count, parche staged vacío",
    "evidence": {
     "code": false,
     "ci": false,
@@ -1150,7 +1150,7 @@
    "priority": "P1",
    "historical": "SOLO_DISEÑADA",
    "batch": "B4",
-   "current_truth": "NOT_STARTED",
+   "current_truth": "DESIGNED_ONLY — confirmado: sin buckets; almacenamiento solo en volumen local /data",
    "evidence": {
     "code": false,
     "ci": false,
@@ -1284,7 +1284,7 @@
     "code": true,
     "ci": "PR checks green; main auto-deploy (Railway Deploy/Production Health Gate) — sin smoke autenticado",
     "merge": "21ccbebb9ba295f05cbe9335140385c0952d1c7f",
-    "deploy": "auto-deploy on merge to main (per GitHub Actions); runtime not verified from sandbox",
+    "deploy": "en producción a nivel de commit: deploy aebd7ed4 (87fa20b), SUCCESS; sin smoke autenticado",
     "activation": false
    }
   },
@@ -1315,5 +1315,6 @@
   "#704": "ee8c3d9abfe74d85501a36d4ac8d0f111a7f0bd8",
   "#705": "5b82a5b9795bbfcf339be7cd06af4c85fa72794c",
   "#706": "08aed04fba0a58880e83a105a75cf20235b82892"
- }
+ },
+ "prod_readonly_evidence": "docs/reportes/2026-09-30_prod-readonly-evidence-c53-c57.md"
 }

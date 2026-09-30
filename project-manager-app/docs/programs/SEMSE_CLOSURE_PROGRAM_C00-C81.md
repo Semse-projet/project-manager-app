@@ -48,7 +48,7 @@ Notas de orden: A2 va antes que A3 porque el scope de pagos define el patrón te
 ## Registro de capacidades
 | ID | Capacidad | Dominio | Prio | Histórico | Lote | Estado actual |
 |---|---|---|---|---|---|---|
-| C01 | Origen configurado API/Web/Worker/Vision | Infraestructura | P0 | REAL | A6 | NOT_STARTED |
+| C01 | Origen configurado API/Web/Worker/Vision | Infraestructura | P0 | REAL | A6 | REAL — 4 servicios de app con origen repo Semse-projet/project-manager-app (Railway) |
 | C02 | Trazabilidad de versiones activas | Entrega | P0 | PARCIAL | A5 | PARTIAL — en main (#706): deploymentId/environment/imageDigest; faltan CI result y digest (requiere CI/CD); sin evidencia de producción aún |
 | C03 | Compilación candidato web 5-sep | Entrega | P1 | ROTA | B2 | NOT_STARTED |
 | C04 | Página pública app.semseproject.com | Web | P2 | REAL | C3 | NOT_STARTED |
@@ -87,7 +87,7 @@ Notas de orden: A2 va antes que A3 porque el scope de pagos define el patrón te
 | C37 | Inbox y continuidad de conversación | Comunicaciones | P2 | PARCIAL | C2 | NOT_STARTED |
 | C38 | Configuración de correo | Comunicaciones | P2 | PARCIAL | C2 | NOT_STARTED |
 | C39 | Configuración del router de modelos | AI | P0 | PARCIAL | A1 | PARTIAL — en main (#700): logs IA tenant-scoped; faltan costo y actor/política (migración) |
-| C40 | Servicio Ollama | AI | P2 | REAL | C3 | NOT_STARTED |
+| C40 | Servicio Ollama | AI | P2 | REAL | C3 | REAL — ollama online pero imagen :latest y SIN volumen (modelos no persistentes) |
 | C41 | Chat Ollama 6-sep (smoke e2e) | AI | P1 | ROTA | B2 | NOT_STARTED |
 | C42 | RAG, embeddings y fuentes | Knowledge | P1 | PARCIAL | B5 | NOT_STARTED |
 | C43 | Ciclos de curación / Product Intelligence | Worker | P2 | REAL | C3 | NOT_STARTED |
@@ -100,18 +100,18 @@ Notas de orden: A2 va antes que A3 porque el scope de pagos define el patrón te
 | C50 | Asistente electricidad de campo | Campo | P2 | SOLO_DISEÑADA | C2 | NOT_STARTED |
 | C51 | ResourceScope y ciclo de vida transversal | Arquitectura | P0 | PARCIAL | A3 | NOT_STARTED |
 | C52 | Outbox y consumidores | Eventos | P1 | PARCIAL | B5 | NOT_STARTED |
-| C53 | Postgres servicio persistente | Datos | P1 | REAL | B5 | NOT_STARTED |
-| C54 | Redis servicio persistente | Datos | P2 | REAL | C3 | NOT_STARTED |
-| C55 | Backups y restauración Postgres/archivos | Continuidad | P0 | PARCIAL | A5 | NOT_STARTED |
-| C56 | Migraciones y esquema productivo | Datos | P0 | PARCIAL | A5 | NOT_STARTED |
-| C57 | Deduplicación histórica | Datos | P0 | PARCIAL | A5 | NOT_STARTED |
+| C53 | Postgres servicio persistente | Datos | P1 | REAL | B5 | REAL — Postgres online (postgres-ssl:18, 1 réplica, 5 GB); 1 warning sin detalle; plan de restauración pendiente (C55) |
+| C54 | Redis servicio persistente | Datos | P2 | REAL | C3 | REAL — Redis en sfo vs servicios en us-east4 (dependencia regional confirmada); recuperación de colas no verificada |
+| C55 | Backups y restauración Postgres/archivos | Continuidad | P0 | PARCIAL | A5 | PARTIAL — inventario hecho (3 volúmenes 5 GB, archivos en /data local, sin buckets); estado de backups/restauración DESCONOCIDO vía MCP: requiere confirmación del operador |
+| C56 | Migraciones y esquema productivo | Datos | P0 | PARCIAL | A5 | PARTIAL — evidencia prod: 104 migraciones, 'No pending migrations' (deploy aebd7ed4); deriva schema↔tablas no medida |
+| C57 | Deduplicación histórica | Datos | P0 | PARCIAL | A5 | PARTIAL — hallazgo: pre-migrate.mjs borra duplicados (Project/Milestone/JobTask/BuildOps*) en CADA arranque, sin dry-run; hoy 0 filas; funciones huérfanas db-dedup-script y t051-t058a; propuesta pendiente de autorización |
 | C58 | Cabeceras de protección web | Seguridad web | P1 | PARCIAL | B5 | NOT_STARTED |
 | C59 | Permisos cámara/micrófono/ubicación web | Campo / Live | P1 | PARCIAL | B5 | NOT_STARTED |
 | C60 | Inventarios públicos de módulos | Producto | P2 | DUPLICADA | C1 | NOT_STARTED |
 | C61 | Bilingüismo y unidades de trabajo | Experiencia | P2 | PARCIAL | C2 | NOT_STARTED |
 | C62 | CI, SDD, dependencias y cobertura | Calidad | P0 | PARCIAL | A5 | PARTIAL — no iniciado (siguiente) |
 | C63 | Métricas de siete servicios 24h | Observabilidad | P2 | REAL | C3 | NOT_STARTED |
-| C64 | Proyectos secundarios y cambios preparados | Infraestructura | P2 | PARCIAL | C2 | NOT_STARTED |
+| C64 | Proyectos secundarios y cambios preparados | Infraestructura | P2 | PARCIAL | C2 | PARTIAL — recursos huérfanos en Railway: db-dedup-script (vacío), t051-t058a-onetime-count, parche staged vacío |
 | C65 | Escritores paralelos de TimeEntry | Labor | P1 | DUPLICADA | B2 | NOT_STARTED |
 | C66 | Frontend canónico y superficies de transición | Superficies | P2 | DUPLICADA | C1 | NOT_STARTED |
 | C67 | Rutas canónica y EvidenceGateway | Evidence | P0 | DUPLICADA | A4 | PARTIAL — en main (#702): gateway usa política canónica; consolidación de código pendiente |
@@ -119,7 +119,7 @@ Notas de orden: A2 va antes que A3 porque el scope de pagos define el patrón te
 | C69 | Gateway MCP externo | Integraciones | P3 | SOLO_DISEÑADA | D1 | NOT_STARTED |
 | C70 | Planificación, DAG y control de Forge | Forge | P2 | PARCIAL | C2 | NOT_STARTED |
 | C71 | Forge LiveToolAdapter | Forge | P3 | SOLO_DISEÑADA | D1 | NOT_STARTED |
-| C72 | Backend de objetos S3/R2 | Storage | P1 | SOLO_DISEÑADA | B4 | NOT_STARTED |
+| C72 | Backend de objetos S3/R2 | Storage | P1 | SOLO_DISEÑADA | B4 | DESIGNED_ONLY — confirmado: sin buckets; almacenamiento solo en volumen local /data |
 | C73 | Satélites, SDK y webhooks salientes | Integraciones | P2 | PARCIAL | C2 | NOT_STARTED |
 | C74 | Clima, avisos y agenda | Operación | P2 | PARCIAL | C2 | NOT_STARTED |
 | C75 | Materiales, viajes, facturas y gastos | Operación | P2 | PARCIAL | C2 | NOT_STARTED |
