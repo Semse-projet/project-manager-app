@@ -14,13 +14,16 @@ export class HealthController {
   @Get("health")
   @Public()
   health(@Req() req: FastifyRequest) {
-    const { gitSha, buildTime } = getDeployProvenance();
+    const { gitSha, buildTime, deploymentId, environment, imageDigest } = getDeployProvenance();
     return ok(resolveRequestId(req.headers ?? {}), {
       status: "ok",
       service: "semse-api",
       persistence: databaseEnabled() ? "prisma" : "memory",
       gitSha,
       buildTime,
+      deploymentId,
+      environment,
+      imageDigest,
       authMode: "jwt-crypto-only",
       timestamp: new Date().toISOString()
     });
