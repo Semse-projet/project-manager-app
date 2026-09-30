@@ -42,11 +42,11 @@
    "priority": "P1",
    "historical": "ROTA",
    "batch": "B2",
-   "current_truth": "NOT_STARTED",
+   "current_truth": "IMPLEMENTED_NOT_VERIFIED — defecto reparado (BASE_RATES[input.laborType]); build reproducible en main aecbd8d: install --frozen-lockfile + db:generate + build:packages + build:web exit 0 (local) y CI main success; falta deploy web verificado",
    "evidence": {
-    "code": false,
-    "ci": false,
-    "merge": null,
+    "code": true,
+    "ci": "CI main aecbd8d success; build local exit 0",
+    "merge": "aecbd8dd7e885022dd1b46e913cb01cfd82f7cb8",
     "deploy": false,
     "activation": false
    }
@@ -428,11 +428,11 @@
    "priority": "P0",
    "historical": "DUPLICADA",
    "batch": "A2",
-   "current_truth": "DESIGN — ADR-041 en main como PROPOSED, spec DRAFT (#701); bloqueado por D1–D4",
+   "current_truth": "PARTIAL — ADR-041 ACCEPTED/spec APPROVED; slice 1 (autorización única) en main (#709); faltan comando único con idempotencia, dual approval (D2 sin definir) y retiro del camino falso",
    "evidence": {
     "code": false,
     "ci": false,
-    "merge": null,
+    "merge": "6312454a27b981ec0bd46f6c406cdb13fff1c185",
     "deploy": false,
     "activation": false
    }
@@ -444,11 +444,11 @@
    "priority": "P0",
    "historical": "PARCIAL",
    "batch": "A2",
-   "current_truth": "PARTIAL — en main (#703): firma de waivers protegida; falta gate único en release manual (ADR-041)",
+   "current_truth": "PARTIAL — en main: firma de waivers protegida (#703) y gate de waivers en release manual/agente (#709, enforced por defecto; rollback PAYMENTS_RELEASE_WAIVER_GATE=off); gobernanza completa en shadow; deploy aecbd8d en curso",
    "evidence": {
     "code": "partial",
     "ci": "PR checks green; main auto-deploy (Railway Deploy/Production Health Gate) — sin smoke autenticado",
-    "merge": "a52bca61611f1a5eeb152ad2545334d563bb43f1",
+    "merge": "6312454a27b981ec0bd46f6c406cdb13fff1c185",
     "deploy": "auto-deploy on merge to main (per GitHub Actions); runtime not verified from sandbox",
     "activation": false,
     "pr": "#703"
@@ -461,11 +461,11 @@
    "priority": "P0",
    "historical": "PARCIAL",
    "batch": "A2",
-   "current_truth": "DESIGN — cubierto por ADR-041 (#701); bloqueado por D1–D4",
+   "current_truth": "PARTIAL — cubierto por ADR-041 (slice 1 en main); idempotencia/reconciliación (slice 2) pendiente",
    "evidence": {
     "code": false,
     "ci": false,
-    "merge": null,
+    "merge": "6312454a27b981ec0bd46f6c406cdb13fff1c185",
     "deploy": false,
     "activation": false
    }
@@ -621,11 +621,11 @@
    "priority": "P0",
    "historical": "PARCIAL",
    "batch": "A1",
-   "current_truth": "PARTIAL — en main (#700): logs IA tenant-scoped; faltan costo y actor/política (migración)",
+   "current_truth": "PARTIAL — en main (#700, #710): logs IA tenant-scoped + actor/org/política persistidos (migración aditiva 105); costo habilitado por AI_MODEL_PRICING_JSON, faltan precios del owner",
    "evidence": {
     "code": "partial",
     "ci": "PR checks green; main auto-deploy (Railway Deploy/Production Health Gate) — sin smoke autenticado",
-    "merge": "2797188c4badfc933c80ac763464b54f4fa5a989",
+    "merge": "aecbd8dd7e885022dd1b46e913cb01cfd82f7cb8",
     "deploy": "en producción a nivel de commit: deploy aebd7ed4 (87fa20b), SUCCESS; sin smoke autenticado",
     "activation": false
    }
@@ -733,11 +733,11 @@
    "priority": "P0",
    "historical": "PARCIAL",
    "batch": "A1",
-   "current_truth": "PARTIAL — en main (#700): piso de aprobación determinista; falta versionado de plan (migración)",
+   "current_truth": "PARTIAL — en main (#700, #710): piso de aprobación determinista + versión de plan y aprobación ligada a la definición; falta denegación con eventos (EVENT_CATALOG)",
    "evidence": {
     "code": "partial",
     "ci": "PR checks green; main auto-deploy (Railway Deploy/Production Health Gate) — sin smoke autenticado",
-    "merge": "2797188c4badfc933c80ac763464b54f4fa5a989",
+    "merge": "aecbd8dd7e885022dd1b46e913cb01cfd82f7cb8",
     "deploy": "en producción a nivel de commit: deploy aebd7ed4 (87fa20b), SUCCESS; sin smoke autenticado",
     "activation": false
    }
@@ -1314,7 +1314,11 @@
   "#703": "a52bca61611f1a5eeb152ad2545334d563bb43f1",
   "#704": "ee8c3d9abfe74d85501a36d4ac8d0f111a7f0bd8",
   "#705": "5b82a5b9795bbfcf339be7cd06af4c85fa72794c",
-  "#706": "08aed04fba0a58880e83a105a75cf20235b82892"
+  "#706": "08aed04fba0a58880e83a105a75cf20235b82892",
+  "#708": "0d7b8d481b276ad4cd60b8a1fe94ae94a595ddcf",
+  "#709": "6312454a27b981ec0bd46f6c406cdb13fff1c185",
+  "#710": "aecbd8dd7e885022dd1b46e913cb01cfd82f7cb8",
+  "#711": "81110acb3a52f5933506f6c15909720640e1627c"
  },
  "prod_readonly_evidence": "docs/reportes/2026-09-30_prod-readonly-evidence-c53-c57.md"
 }
