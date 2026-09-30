@@ -41,7 +41,7 @@
 | **D1** | D | Extensiones experimentales (sin autoridad financiera) | C69, C71 | A1, A2, C2 (C70) |
 | **E1** | E | Experimentation (shadow → canary interno) | C81 | B5 (flags/obs), A1 |
 
-**Estado de lotes:** A1 en curso (C80 implementado en PR #698; C39 y C46 pendientes). Resto: no iniciado.
+**Estado de lotes:** A1 en curso (C80 fusionado en `21ccbeb` vía #698, sin deploy/smoke aún; C39 y C46 pendientes). Resto: no iniciado.
 
 Notas de orden: A2 va antes que A3 porque el scope de pagos define el patrón tenant+org+recurso; C65 (B2) y C67 (A4) consolidan a través de su propietario canónico (Labor Engine / `evidence/`); C69/C71 (D1) nunca tienen autoridad financiera directa; C81 (E1) prohíbe aleatorizar autorización, identidad, liberación de pagos, decisiones legales o compuertas de seguridad.
 
@@ -127,7 +127,7 @@ Notas de orden: A2 va antes que A3 porque el scope de pagos define el patrón te
 | C77 | Browser Agent de inspección | IA | P2 | PARCIAL | C2 | NOT_STARTED |
 | C78 | Conocimiento repo/runtime y Graphify | Knowledge | P2 | PARCIAL | C2 | NOT_STARTED |
 | C79 | Registro único y verdad de entrega | Gobierno | P1 | PARCIAL | B5 | NOT_STARTED |
-| C80 | Propagación política local-only | Privacidad IA | P0 | ROTA | A1 | IMPLEMENTED_NOT_VERIFIED (PR #698) |
+| C80 | Propagación política local-only | Privacidad IA | P0 | ROTA | A1 | IMPLEMENTED_NOT_VERIFIED (merged #698; deploy+smoke pendientes) |
 | C81 | Experimentation (flags, cohortes, guardrails, rollback) | Experimentación | P3 | NUEVA | E1 | NOT_STARTED |
 
 Recuentos: ROTA 4 · DUPLICADA 5 · SOLO_DISEÑADA 5 · PARCIAL 56 · REAL 10 · NUEVA 1 (C81) = 81.

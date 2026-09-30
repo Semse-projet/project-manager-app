@@ -1273,11 +1273,11 @@
    "priority": "P0",
    "historical": "ROTA",
    "batch": "A1",
-   "current_truth": "IMPLEMENTED_NOT_VERIFIED (PR #698)",
+   "current_truth": "IMPLEMENTED_NOT_VERIFIED (merged #698; deploy+smoke pendientes)",
    "evidence": {
     "code": true,
-    "ci": false,
-    "merge": null,
+    "ci": "partial: quality-gates/unit/integration/CodeQL green; e2e still running at merge",
+    "merge": "21ccbebb9ba295f05cbe9335140385c0952d1c7f",
     "deploy": false,
     "activation": false
    }
