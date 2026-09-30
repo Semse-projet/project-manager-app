@@ -231,10 +231,15 @@ export class AiModelsController {
   async generate(@Req() req: { headers?: Record<string, unknown> }, @Body() body: unknown) {
     const actor = resolveRequestContext(req);
     const rid = resolveRequestId(req.headers ?? {});
+    const raw = (body ?? {}) as Record<string, unknown>;
+    const rawMetadata = raw.metadata && typeof raw.metadata === "object" ? (raw.metadata as Record<string, unknown>) : {};
+    // Identity/tenant always come from the authenticated actor, never the body
+    // (a client-supplied tenantId would forge the audit trail and log scope).
     const request = {
-      ...(body as Record<string, unknown>),
-      userId: (body as Record<string, unknown>).userId ?? actor.userId,
-    } as AiGenerateRequest;
+      ...raw,
+      userId: actor.userId,
+      metadata: { ...rawMetadata, tenantId: actor.tenantId, orgId: actor.orgId },
+    } as unknown as AiGenerateRequest;
     const response = await this.gateway.generate(request);
     await this.logger.logInteraction(request, response);
     return ok(rid, response);
@@ -254,25 +259,28 @@ export class AiModelsController {
     @Query("limit") limit?: string,
     @Query("source") source?: string,
   ) {
+    const actor = resolveRequestContext(req);
     const rid = resolveRequestId(req.headers ?? {});
     const parsedLimit = parsePositiveInt(limit, 50);
     const data = source === "buffer"
-      ? this.logger.getRecentLogs(parsedLimit)
-      : await this.logger.getDbLogs(parsedLimit);
+      ? this.logger.getRecentLogs(actor.tenantId, parsedLimit)
+      : await this.logger.getDbLogs(actor.tenantId, parsedLimit);
     return ok(rid, data);
   }
 
   @Get("logs/stats")
   @RequirePermissions("agents:run:create")
   async getStats(@Req() req: { headers?: Record<string, unknown> }) {
-    return ok(resolveRequestId(req.headers ?? {}), await this.logger.getStats());
+    const actor = resolveRequestContext(req);
+    return ok(resolveRequestId(req.headers ?? {}), await this.logger.getStats(actor.tenantId));
   }
 
   @Get("logs/db")
   @RequirePermissions("agents:run:create")
   async getDbLogs(@Req() req: { headers?: Record<string, unknown> }, @Query("limit") limit?: string) {
+    const actor = resolveRequestContext(req);
     const rid = resolveRequestId(req.headers ?? {});
-    return ok(rid, await this.logger.getDbLogs(parsePositiveInt(limit, 100)));
+    return ok(rid, await this.logger.getDbLogs(actor.tenantId, parsePositiveInt(limit, 100)));
   }
 
   @Get("operational-context")
