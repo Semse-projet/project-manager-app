@@ -143,14 +143,16 @@ jobs:
             && echo "semse-web healthy ✅ (HTTP $code)" \
             || { echo "semse-web returned $code ❌"; exit 1; }
 
-      # C02 — procedencia en RUNTIME. MODO INFORMATIVO: NUNCA bloquea el deploy.
+      # C02 — procedencia en RUNTIME. GATE BLOQUEANTE (antes informativo; dos ciclos
+      # verdes con gitSha === DEPLOY_SHA en API y web: f59d1b0 y 7c9df29).
       # El paso "Verify fresh deployments" ya comprueba que Railway tiene el commit
-      # exacto en SUCCESS; aqui se comprueba ademas que lo que CORRE (/v1/health y
-      # /api/semse/healthz) reporta ese mismo gitSha, y se deja el resultado en el
-      # resumen del job. Un imageDigest "unknown" se tolera (Railway no lo expone al
-      # runtime). Tras un ciclo verde se podra convertir en gate (PR aparte).
+      # exacto en SUCCESS; aqui se exige ademas que lo que CORRE (/v1/health y
+      # /api/semse/healthz) responda 2xx y reporte el MISMO gitSha (igualdad exacta)
+      # y un deploymentId. Discrepancia, campo desconocido, o health caido/sin
+      # respuesta tras los reintentos => el job falla (nunca se acepta procedencia
+      # desconocida). imageDigest "unknown" se tolera como WARNING (Railway no lo
+      # expone al runtime) hasta que el build inyecte un digest verificable.
       - name: Checkout provenance verifier (sparse, read-only)
-        continue-on-error: true
         uses: actions/checkout@v7
         with:
           ref: ${{ needs.deploy.outputs.deploy_sha }}
@@ -158,23 +160,26 @@ jobs:
           sparse-checkout-cone-mode: false
           persist-credentials: false
 
-      - name: Runtime provenance report (informational, non-blocking)
-        continue-on-error: true
+      - name: Runtime provenance gate (blocking)
         env:
           DEPLOY_SHA: ${{ needs.deploy.outputs.deploy_sha }}
         run: |
-          set +e
+          set -uo pipefail
           out=$(mktemp)
+          rc=0
           node project-manager-app/scripts/verify-deploy-provenance.mjs \
             --url=https://project-manager-app-production-977f.up.railway.app --path=/v1/health \
             --expect-sha="$DEPLOY_SHA" --allow-unknown-digest --retries=6 --interval=10 \
-            --markdown --label="semse-API" >> "$out"
+            --markdown --label="semse-API" >> "$out" || rc=1
           node project-manager-app/scripts/verify-deploy-provenance.mjs \
             --url=https://semse-web-production.up.railway.app --path=/api/semse/healthz \
             --expect-sha="$DEPLOY_SHA" --allow-unknown-digest --retries=6 --interval=10 \
-            --markdown --label="semse-web" >> "$out"
+            --markdown --label="semse-web" >> "$out" || rc=1
           cat "$out" | tee -a "$GITHUB_STEP_SUMMARY"
-          if grep -q "⚠️" "$out"; then
-            echo "::warning title=Procedencia en runtime::El commit reportado por producción no coincide con $DEPLOY_SHA (o hay campos desconocidos). Informativo: no bloquea el deploy."
+          if grep -q "🟡" "$out"; then
+            echo "::warning title=Procedencia en runtime::imageDigest desconocido (tolerado hasta inyectar un digest verificable)."
           fi
-          exit 0
+          if [ "$rc" -ne 0 ]; then
+            echo "::error title=Procedencia en runtime::producción no reporta gitSha === $DEPLOY_SHA o el health no respondió. El deploy se marca como fallido."
+            exit 1
+          fi
