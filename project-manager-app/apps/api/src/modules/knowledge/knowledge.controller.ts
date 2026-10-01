@@ -139,6 +139,8 @@ export class KnowledgeController {
     @Query("limit") limit?: string,
   ) {
     const actor = resolveRequestContext(req);
+    // C51: la memoria del agente del proyecto sigue la misma regla (tenant + ProjectScope) que workspace-memory.
+    await this.workspaceAccess.assertCanRead(actor, `project:${projectId ?? ""}`);
     const data = await this.agentMemory.getRecentJournal({
       tenantId: actor.tenantId,
       projectId,
@@ -156,6 +158,7 @@ export class KnowledgeController {
     @Query("limit") limit?: string,
   ) {
     const actor = resolveRequestContext(req);
+    await this.workspaceAccess.assertCanRead(actor, `project:${projectId ?? ""}`);
     const data = await this.agentMemory.searchMemories({
       tenantId: actor.tenantId,
       projectId,
@@ -170,6 +173,10 @@ export class KnowledgeController {
   async agentMemoryLineage(@Req() req: { headers?: Record<string, unknown> }, @Param("id") id: string) {
     const actor = resolveRequestContext(req);
     const data = await this.agentMemory.getMemoryLineage({ tenantId: actor.tenantId, id });
+    // C51: la cadena pertenece a un proyecto; se autoriza por cada proyecto presente (vacía ⇒ nada que filtrar).
+    for (const projectId of new Set(data.map((record) => record.projectId))) {
+      await this.workspaceAccess.assertCanRead(actor, `project:${projectId}`);
+    }
     return ok(resolveRequestId(req.headers ?? {}), data);
   }
 

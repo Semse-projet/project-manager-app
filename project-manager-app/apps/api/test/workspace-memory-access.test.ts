@@ -216,3 +216,29 @@ test("controller: acceso concedido ⇒ list y search se llaman por tenant+worksp
     assert.doesNotMatch(c, /orgId/, "orgId no debe viajar como filtro");
   }
 });
+
+test("agent-memory (list/search/lineage por proyecto) sigue la misma regla: 404 otro tenant, 403 otra org, 200 participantes", async () => {
+  const calls: string[] = [];
+  const agentMemory = {
+    getRecentJournal: async () => (calls.push("journal"), []),
+    searchMemories: async () => (calls.push("search"), []),
+    getMemoryLineage: async () => (calls.push("lineage"), [{ id: "m1", projectId: "p1" }]),
+  };
+  const controller = new (KnowledgeController as any)({}, {}, {}, agentMemory, policy);
+  const ops = {
+    journal: (a: ReturnType<typeof actor>) => status(controller.listAgentMemory(req(a), "p1")),
+    search: (a: ReturnType<typeof actor>) => status(controller.searchAgentMemory(req(a), "p1", "techo")),
+    lineage: (a: ReturnType<typeof actor>) => status(controller.agentMemoryLineage(req(a), "m1")),
+  };
+  for (const [name, run] of Object.entries(ops)) {
+    assert.equal(await run(actor(CLIENT, { tenantId: T2 })), 404, `${name} cross-tenant`);
+    assert.equal(await run(actor(OTHER)), 403, `${name} otra org`);
+    assert.equal(await run(actor("")), 403, `${name} org vacía`);
+  }
+  // journal y search no tocan el servicio cuando se deniega (lineage consulta primero y filtra después: no devuelve datos)
+  assert.deepEqual(calls.filter((c) => c !== "lineage"), []);
+  for (const run of Object.values(ops)) {
+    assert.equal(await run(actor(CLIENT)), 200);
+    assert.equal(await run(actor(PRO)), 200);
+  }
+});
