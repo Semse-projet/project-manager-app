@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { canReadUser, canReadUserMemberships, canRequestVerification, canVerifyUser, canUpdateUserStatus } from "../dist/modules/users/users.policy.js";
 import { assertOwnsResource, assertIsOpsAdmin } from "../dist/modules/contributor-program/contributor-program.policy.js";
 import { assertDomainEventEmittable } from "../dist/modules/domain-events/domain-events.policy.js";
+import { projectOriginatorValidatedV1EventSchema, PROJECT_ORIGINATOR_VALIDATED_V1_SCHEMA_REF } from "@semse/schemas";
 import { OriginatorService } from "../dist/modules/originator/originator.service.js";
 
 // C51 etapa 2b — users, contributor-program, domain-events y originator NO autorizan por org: la propiedad es por
@@ -54,5 +55,18 @@ test("originator.validate: solo el creador del proyecto valida (misma org u org 
   await assert.rejects(call("t1", "org_a", "not_owner"), (e: any) => e.getResponse().code === "ORIGINATOR_VALIDATION_REQUIRES_OWNER");
   await assert.rejects(call("t1", "", "not_owner"), (e: any) => e.getResponse().code === "ORIGINATOR_VALIDATION_REQUIRES_OWNER");
   await assert.rejects(call("t2", "org_a", "owner"), (e: any) => e.getResponse().code === "ORIGINATOR_NOT_FOUND");
-  await assert.doesNotReject(call("t1", "", "owner")); // el dueño valida; la org solo se registra en auditoría/evento
+  await assert.doesNotReject(call("t1", "org_a", "owner")); // el dueño valida; la org solo se registra en auditoría/evento
+});
+
+test("originator: una org vacía no pasa el esquema real del evento de validación (el repositorio real la rechazaría)", () => {
+  const base = {
+    eventId: crypto.randomUUID(), eventType: "project.originator_validated.v1", version: 1, envelopeVersion: 2,
+    occurredAt: new Date().toISOString(), recordedAt: new Date().toISOString(), tenantId: "t1",
+    module: "originator", entityType: "ProjectOriginator", entityId: "po1", actor: { type: "user", id: "owner" },
+    correlationId: "r1", idempotencyKey: "k1", schemaRef: PROJECT_ORIGINATOR_VALIDATED_V1_SCHEMA_REF,
+    payload: { projectOriginatorId: "po1", projectId: "p1", originatorUserId: "uo", decision: "VALIDATED" },
+    metadata: { source: "originator.validate" },
+  };
+  assert.equal(projectOriginatorValidatedV1EventSchema.safeParse({ ...base, orgId: "org_a" }).success, true);
+  assert.equal(projectOriginatorValidatedV1EventSchema.safeParse({ ...base, orgId: "" }).success, false);
 });
