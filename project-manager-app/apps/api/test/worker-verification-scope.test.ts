@@ -22,7 +22,8 @@ function build() {
     async storeDidSignature() { calls.push("store"); },
     async createVerificationLog() { calls.push("log"); },
     async verifyDidSignature() { return false; },
-    async updateWorkerVerificationStatus() { return null; },
+    async markPendingIfUnverified() { return false; },
+    async markVerified() { return false; },
   };
   return { service: new WorkerVerificationService(repository as never), calls };
 }
@@ -51,15 +52,15 @@ test("history is honest: real User.verificationStatus, no fabricated verified en
 test("verify/sign: foreign tenant cannot initiate or sign, and nothing is stored", async () => {
   const { service, calls } = build();
   await assert.rejects(
-    service.initiateVerification({ workerId: "worker_1", tenantId: "tenant_2", verificationType: "DID_SIGNATURE" } as never),
+    service.initiateVerification({ workerId: "worker_1", tenantId: "tenant_2", actor: { userId: "worker_1", roles: [] }, verificationType: "DID_SIGNATURE" } as never),
     NotFoundException,
   );
-  await assert.rejects(service.submitDidSignature("worker_1", "tenant_2", "sig", "pub"), NotFoundException);
+  await assert.rejects(service.submitDidSignature("worker_1", "tenant_2", "sig", "pub", { userId: "worker_1", roles: [] }), NotFoundException);
   assert.ok(!calls.includes("store") && !calls.includes("log"));
 });
 
 test("verify: owning tenant can initiate", async () => {
   const { service } = build();
-  const state = await service.initiateVerification({ workerId: "worker_1", tenantId: "tenant_1", verificationType: "DID_SIGNATURE" } as never);
+  const state = await service.initiateVerification({ workerId: "worker_1", tenantId: "tenant_1", actor: { userId: "worker_1", roles: [] }, verificationType: "DID_SIGNATURE" } as never);
   assert.equal(state.status, "pending");
 });

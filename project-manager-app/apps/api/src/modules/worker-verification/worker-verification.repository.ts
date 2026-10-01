@@ -47,22 +47,28 @@ export class WorkerVerificationRepository {
     }).catch(() => null);
   }
 
-  async updateWorkerVerificationStatus(
-    workerId: string,
-    status: "verified" | "failed" | "pending_review",
-  ) {
-    try {
-      // Log verification status update (actual persistence depends on domain model)
-      this.logger.log(
-        `[WorkerVerification] Status updated: worker=${workerId}, status=${status}`,
-      );
-      return { id: workerId, status };
-    } catch (error) {
-      this.logger.error(
-        `Failed to update verification status: ${error instanceof Error ? error.message : String(error)}`,
-      );
-      return null;
-    }
+  /**
+   * C11 — persistencia REAL en User.verificationStatus (antes solo se logueaba).
+   * Transiciones permitidas, atomicas y sin degradar:
+   *   unverified -> pending      (markPendingIfUnverified)
+   *   unverified|pending -> verified   (markVerified)
+   * Nunca se toca "suspended" ni se baja un "verified" desde este flujo.
+   * Devuelve true si cambio una fila.
+   */
+  async markPendingIfUnverified(workerId: string): Promise<boolean> {
+    const result = await this.prisma.user.updateMany({
+      where: { id: workerId, verificationStatus: "unverified" },
+      data: { verificationStatus: "pending" },
+    });
+    return result.count > 0;
+  }
+
+  async markVerified(workerId: string): Promise<boolean> {
+    const result = await this.prisma.user.updateMany({
+      where: { id: workerId, verificationStatus: { in: ["unverified", "pending"] } },
+      data: { verificationStatus: "verified" },
+    });
+    return result.count > 0;
   }
 
   async createVerificationLog(

@@ -26,6 +26,7 @@ export class WorkerVerificationController {
     const state = await this.service.initiateVerification({
       workerId,
       tenantId: ctx.tenantId,
+      actor: { userId: ctx.userId, roles: ctx.roles },
       verificationType: "DID_SIGNATURE",
     });
 
@@ -47,6 +48,7 @@ export class WorkerVerificationController {
       ctx.tenantId,
       String(body.didSignature ?? ""),
       String(body.didPublicKey ?? ""),
+      { userId: ctx.userId, roles: ctx.roles },
     );
 
     return ok(rid, state);

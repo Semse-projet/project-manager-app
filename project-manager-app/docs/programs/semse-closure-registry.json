@@ -173,7 +173,7 @@
    "priority": "P0",
    "historical": "PARCIAL",
    "batch": "A3",
-   "current_truth": "NOT_STARTED",
+   "current_truth": "PARTIAL — en PR claude/c11-worker-verification: sin Map en memoria (estado derivado de User.verificationStatus, durable y común a réplicas); precondición de atestación (solo el propio trabajador u OPS_ADMIN; sin actor ⇒ 403); transiciones atómicas sin degradar (unverified→pending, unverified|pending→verified; nunca toca suspended ni baja verified), probadas contra Postgres real; persistencia real en lugar de solo logs. NO cerrado: no existe criptografía DID real (la verificación sigue fallando cerrada), el desafío es constante y reutilizable (`verify_<workerId>`), el historial no se persiste (requiere tabla) y verificationStatus es GLOBAL por User, no por tenant",
    "evidence": {
     "code": false,
     "ci": false,
