@@ -285,7 +285,7 @@
    "priority": "P0",
    "historical": "PARCIAL",
    "batch": "A4",
-   "current_truth": "NOT_STARTED",
+   "current_truth": "PARTIAL — en PR claude/c18-milestone-approval: transiciones de hito compare-and-set (aprobar/rechazar/entregar concurrentes ya no se pisan; la perdedora recibe 409) y un hito con RELEASE activo (PENDING/SUCCEEDED) ya no puede rechazarse ni devolverse a cambios. Abierto: el auto-release no revalida el estado del hito al reservar; posible auto-aprobación cuando clientOrgId == assignedProOrgId; la aprobación no revalida evidencia validada (solo se exige en submit)",
    "evidence": {
     "code": false,
     "ci": false,

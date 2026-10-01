@@ -199,10 +199,7 @@ export class MilestonesRepository {
     const snapshot = await this.getLifecycleSnapshot(input);
     assertMilestoneSubmittable(this.toActor(input), snapshot);
 
-    const updated = (await this.prisma.milestone.update({
-      where: { id: snapshot.milestoneId },
-      data: { status: milestoneStatusMap.submitted }
-    })) as StoredMilestone;
+    const updated = await this.transitionStatus(snapshot, milestoneStatusMap.submitted);
 
     return toMilestoneRecord(updated, input.tenantId);
   }
@@ -223,10 +220,7 @@ export class MilestonesRepository {
     const snapshot = await this.getLifecycleSnapshot(input);
     assertMilestoneApprovable(this.toActor(input), snapshot);
 
-    const updated = (await this.prisma.milestone.update({
-      where: { id: snapshot.milestoneId },
-      data: { status: milestoneStatusMap.approved }
-    })) as StoredMilestone;
+    const updated = await this.transitionStatus(snapshot, milestoneStatusMap.approved);
 
     return toMilestoneRecord(updated, input.tenantId);
   }
@@ -248,10 +242,7 @@ export class MilestonesRepository {
     const snapshot = await this.getLifecycleSnapshot(input);
     assertMilestoneRejectable(this.toActor(input), snapshot);
 
-    const updated = (await this.prisma.milestone.update({
-      where: { id: snapshot.milestoneId },
-      data: { status: milestoneStatusMap.rejected }
-    })) as StoredMilestone;
+    const updated = await this.transitionStatus(snapshot, milestoneStatusMap.rejected);
 
     return {
       ...toMilestoneRecord(updated, input.tenantId),
@@ -281,10 +272,7 @@ export class MilestonesRepository {
     const snapshot = await this.getLifecycleSnapshot(input);
     assertMilestoneRejectable(this.toActor(input), snapshot);
 
-    const updated = (await this.prisma.milestone.update({
-      where: { id: snapshot.milestoneId },
-      data: { status: milestoneStatusMap.draft }
-    })) as StoredMilestone;
+    const updated = await this.transitionStatus(snapshot, milestoneStatusMap.draft);
 
     return {
       ...toMilestoneRecord(updated, input.tenantId),
@@ -457,6 +445,29 @@ export class MilestonesRepository {
       | null;
   }
 
+  /**
+   * C18 — transicion de estado atomica (compare-and-set). Antes: leer snapshot,
+   * validar y `update where id` sin condicion de estado; dos peticiones
+   * concurrentes (aprobar vs rechazar, doble aprobacion) pasaban ambas la
+   * politica y el estado final dependia del orden mientras los dos emitian sus
+   * eventos (y el auto-release). Ahora solo gana la que encuentra el estado
+   * esperado; la otra recibe 409.
+   */
+  private async transitionStatus(
+    snapshot: MilestoneLifecycleSnapshot,
+    to: (typeof milestoneStatusMap)[keyof typeof milestoneStatusMap],
+  ): Promise<StoredMilestone> {
+    const from = milestoneStatusMap[snapshot.currentStatus];
+    const result = await this.prisma.milestone.updateMany({
+      where: { id: snapshot.milestoneId, status: from },
+      data: { status: to }
+    });
+    if (result.count === 0) {
+      throw new ConflictException("milestone status changed concurrently; reload and retry");
+    }
+    return (await this.prisma.milestone.findUniqueOrThrow({ where: { id: snapshot.milestoneId } })) as StoredMilestone;
+  }
+
   private async getLifecycleSnapshot(input: {
     tenantId: string;
     milestoneId: string;
@@ -474,11 +485,18 @@ export class MilestonesRepository {
       }
     });
 
+    // C18: un RELEASE activo (PENDING/SUCCEEDED) bloquea rechazar/devolver el hito.
+    const activeRelease = await this.prisma.paymentTxn.findFirst({
+      where: { milestoneId: input.milestoneId, type: "RELEASE", status: { in: ["PENDING", "SUCCEEDED"] } },
+      select: { id: true }
+    });
+
     return {
       milestoneId: milestone.id,
       currentStatus: milestone.status.toLowerCase() as MilestoneRecord["status"],
       ownership: this.toOwnership(milestone.project!),
-      evidenceCount
+      evidenceCount,
+      hasActiveRelease: activeRelease !== null
     };
   }
 
