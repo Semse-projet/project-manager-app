@@ -4,7 +4,7 @@ title: "Catálogo de precios de modelos de IA versionado (C39)"
 domain: "prometeo"
 sdd_version: "2.0"
 version: "0.1"
-status: "DRAFT"
+status: "APPROVED"
 owner: "semse-core"
 risk: "medium"
 code_status: "NOT_STARTED"
@@ -29,7 +29,7 @@ last_verified: "2026-10-01"
 
 # Spec: Catálogo de precios de modelos de IA versionado (C39)
 
-> **Estado: DRAFT con D1–D3 RESUELTAS por el dueño (2026-10-01).** Pasa a `APPROVED` por orden del dueño tras confirmar el gate bloqueante de provenance (#734) en producción; hasta entonces no se escribe código ni migración. Decisión original: el costo sale de un catálogo versionado por proveedor/modelo/vigencia; un precio desconocido **nunca** se trata como $0.
+> **Estado: APPROVED (2026-10-01).** D1–D3 resueltas por el dueño. Aprobado tras confirmar el gate bloqueante de provenance (#734) en producción: deploy `7a823ae` con `gitSha === DEPLOY_SHA` en API (`9f26391d`) y web (`c274a6e4`), HTTP 200, `imageDigest` unknown como warning. La implementación va detrás de `AI_PRICING_CATALOG_MODE=off`; `shadow`/`on` son activaciones aparte. Decisión original: el costo sale de un catálogo versionado por proveedor/modelo/vigencia; un precio desconocido **nunca** se trata como $0.
 
 ## 1. Problema y resultado
 **Hoy (verificado en `main`):** `estimateCostUsd` lee `AI_MODEL_PRICING_JSON` (variable de entorno, sin historial) y devuelve `undefined` si el modelo no está. `AiInteractionLog.estimatedCostUsd` (`Decimal(10,6)`, nullable) guarda el resultado. Evidencia: el dueño confirmó el 2026-10-01 (revisión de variables de la API tras el deploy `7c9df29`) que `AI_MODEL_PRICING_JSON` no está configurada en producción; por tanto las filas nuevas guardan `null` (no se ha verificado el contenido histórico de la tabla, solo el código y esa configuración).
