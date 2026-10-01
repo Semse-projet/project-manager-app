@@ -173,7 +173,7 @@
    "priority": "P0",
    "historical": "PARCIAL",
    "batch": "A3",
-   "current_truth": "PARTIAL — en main (#723): estado de verificación durable (derivado de User.verificationStatus; sin Map en memoria), precondición de atestación (solo el propio trabajador u OPS_ADMIN; sin actor ⇒ 403), transiciones atómicas sin degradar (probadas contra Postgres real). NO cerrado: sin criptografía DID real (verificación falla cerrada), desafío constante reutilizable, historial no persistido, y verificationStatus es GLOBAL por User. Pendiente de despliegue y smoke",
+   "current_truth": "PARTIAL — #723 en main (estado durable, precondición) + en PR claude/c11-tenant-verification: verificación POR TENANT (tablas WorkerVerification/Challenge/Event, migración aditiva 20261001020000 con rollback), nonce aleatorio de un solo uso con TTL y consumedAt (probado con carrera real en Postgres: gana 1 de 5), historial auditable append-only, transiciones monotónicas; matching/stats usan el estado efectivo (global legado solo como compatibilidad). Migración pendiente de aplicar en producción. NO cerrado: sigue sin criptografía DID real (fail-closed, nada llega a verified) — requiere proveedor criptográfico",
    "evidence": {
     "code": true,
     "ci": "PR checks green",
