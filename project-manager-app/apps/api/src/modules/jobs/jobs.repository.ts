@@ -17,6 +17,7 @@ import {
   isJobsBidsProjectionPersistenceEnabled,
   type JobsBidsProjectionSnapshot,
 } from "./jobs-bids-projection.js";
+import { sameOrg } from "../../common/resource-scope.js";
 
 const jobStatusMap = {
   draft: "DRAFT",
@@ -266,7 +267,7 @@ export class JobsRepository {
     if (!job) {
       throw new NotFoundException(`Job '${input.jobId}' not found`);
     }
-    if (job.clientOrgId !== input.orgId && !input.roles.includes("OPS_ADMIN")) {
+    if (!sameOrg(job.clientOrgId, input.orgId) && !input.roles.includes("OPS_ADMIN")) {
       throw new NotFoundException(`Job '${input.jobId}' not found`);
     }
 
@@ -308,7 +309,7 @@ export class JobsRepository {
     if (!job) {
       throw new NotFoundException(`Job '${input.jobId}' not found`);
     }
-    if (job.clientOrgId !== input.orgId && !input.roles.includes("OPS_ADMIN")) {
+    if (!sameOrg(job.clientOrgId, input.orgId) && !input.roles.includes("OPS_ADMIN")) {
       throw new NotFoundException(`Job '${input.jobId}' not found`);
     }
 

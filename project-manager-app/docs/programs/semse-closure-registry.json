@@ -76,12 +76,12 @@
    "priority": "P0",
    "historical": "REAL",
    "batch": "A6",
-   "current_truth": "NOT_STARTED",
+   "current_truth": "PARTIAL — health del dominio público de Railway (project-manager-app-production-977f.up.railway.app) VERIFICADO en producción por el job health-check de Railway Deploy en cada deploy desde 2026-10-01: GET /v1/health responde HTTP 200 con provenance (gitSha === DEPLOY_SHA, deploymentId, environment) — runs 36806442810 (7c9df29, 02:38Z), 36843242183 (f59d1b0, 09:32Z), 36847254925 (7a823ae, primer deploy con el gate bloqueante, 10:12Z) y 36856601208 (92d8e9ea, deploymentId bf6ee8ee, 11:42Z). Desde #734 un health caído o no-2xx FALLA el workflow. NO verificado: el dominio propio/custom (ver docs/runbooks/API_CUSTOM_DOMAIN_TLS_HANDOFF.md) — el sandbox no puede alcanzar los hosts de producción; y la comprobación del health desde fuera de GitHub Actions.",
    "evidence": {
     "code": false,
-    "ci": false,
+    "ci": "job health-check (gate bloqueante) en success",
     "merge": null,
-    "deploy": false,
+    "deploy": "run 36856601208: API HTTP 200 /v1/health gitSha=92d8e9ea deploymentId bf6ee8ee-5225-4ab5-873d-49e20c16488d",
     "activation": false
    }
   },
@@ -898,7 +898,7 @@
    "priority": "P0",
    "historical": "PARCIAL",
    "batch": "A5",
-   "current_truth": "PARTIAL — evidencia prod: migración 105 (20260930230513) aplicada con 'migrate deploy completo' (deploy 70ca14b8); antes 104 sin pendientes; deriva schema↔tablas no medida",
+   "current_truth": "PARTIAL — evidencia de producción (logs de arranque de la API, solo lectura): migración 105 (20260930230513, deploy 70ca14b8); 106 (20261001020000_c11_worker_verification_per_tenant) aplicada en el deploy de 7c9df29 (2026-10-01T02:37Z, '106 migrations found', 'migrate deploy completo'); 107 (20261001100000_c39_ai_model_price_catalog, con CREATE EXTENSION btree_gist) aplicada el 2026-10-01T11:23:09Z en el deployment b024794c y confirmada sin pendientes en bf6ee8ee (11:41:17Z, '107 migrations found / No pending migrations to apply'). Sin errores de migración en esos arranques. GAP: la deriva schema↔tablas de PRODUCCIÓN sigue sin medirse (la ausencia de drift se verificó solo en una base local con las 107 migraciones: 'No difference detected'); sin acceso de lectura a la base de producción desde esta sesión. | Histórico: PARTIAL — evidencia prod: migración 105 (20260930230513) aplicada con 'migrate deploy completo' (deploy 70ca14b8); antes 104 sin pendientes; deriva schema↔tablas no medida",
    "evidence": {
     "code": false,
     "ci": false,
