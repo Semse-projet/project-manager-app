@@ -41,7 +41,7 @@
 | **D1** | D | Extensiones experimentales (sin autoridad financiera) | C69, C71 | A1, A2, C2 (C70) |
 | **E1** | E | Experimentation (shadow → canary interno) | C81 | B5 (flags/obs), A1 |
 
-**Estado de lotes (2026-09-30):** A1 — C80/C39/C46 en main (#698, #700, #710); migración aditiva 105 (actor/política en logs de IA, versión de plan) APLICADA en producción (deploy 70ca14b8, aecbd8d; 4 servicios online); faltan precios (costo) y eventos de denegación. A2 — ADR-041 ACCEPTED/spec APPROVED (aprobación explícita del owner); slice 1 en main (#709); D2 (dual approval) sin definir; C26 (#705) y C28 (#703, #709) con avance. A3 — C10: evidence-gateway (#702), liens (#703), worker-verification (#704) en main; archivos públicos (C19) con spec DRAFT (#708). A5 — C02 (#706) en main; C56/C57/C55 con evidencia de producción de solo lectura (#711); C57 propuesta de dry-run y retiro de funciones huérfanas pendiente de autorización; C55 backups pendiente de confirmación del operador. C03 build verificado en main. **Importante:** el merge a `main` despliega solo a Railway tras el CI de main (los commits fusionados seguidos se agrupan en un único despliegue); ninguna capacidad es VERIFIED sin smoke autenticado. Resto: no iniciado.
+**Estado de lotes (2026-09-30):** A1 — C80/C39/C46 en main (#698, #700, #710); migración aditiva 105 (actor/política en logs de IA, versión de plan) APLICADA en producción (deploy 70ca14b8, aecbd8d; 4 servicios online); faltan precios (costo) y eventos de denegación. A2 — ADR-041 ACCEPTED/spec APPROVED (aprobación explícita del owner); slice 1 en main (#709); D2 (dual approval) sin definir; C26 (#705) y C28 (#703, #709) con avance. A3 — C10: evidence-gateway (#702), liens (#703), worker-verification (#704) en main; archivos públicos (C19) con spec DRAFT (#708). A5 — C02 (#706) en main; C56/C57/C55 con evidencia de producción de solo lectura (#711); C57 propuesta de dry-run y retiro de funciones huérfanas pendiente de autorización; C55 backups pendiente de confirmación del operador. C03 build verificado en main. **2026-10-01:** mergeados #713 (evidencia de despliegue), #714 (C57: dedup fuera del arranque), #715 (C19: URLs firmadas, modo off) y #716 (C02: verificador de procedencia); C03 y C80 pasan a VERIFIED por criterio de cierre (el smoke destructivo en producción queda como columna aparte, no ejecutado). **Importante:** el merge a `main` despliega solo a Railway tras el CI de main (los commits fusionados seguidos se agrupan en un único despliegue); ninguna capacidad es VERIFIED sin smoke autenticado. Resto: no iniciado.
 
 Notas de orden: A2 va antes que A3 porque el scope de pagos define el patrón tenant+org+recurso; C65 (B2) y C67 (A4) consolidan a través de su propietario canónico (Labor Engine / `evidence/`); C69/C71 (D1) nunca tienen autoridad financiera directa; C81 (E1) prohíbe aleatorizar autorización, identidad, liberación de pagos, decisiones legales o compuertas de seguridad.
 
@@ -49,8 +49,8 @@ Notas de orden: A2 va antes que A3 porque el scope de pagos define el patrón te
 | ID | Capacidad | Dominio | Prio | Histórico | Lote | Estado actual |
 |---|---|---|---|---|---|---|
 | C01 | Origen configurado API/Web/Worker/Vision | Infraestructura | P0 | REAL | A6 | REAL — 4 servicios de app con origen repo Semse-projet/project-manager-app (Railway) |
-| C02 | Trazabilidad de versiones activas | Entrega | P0 | PARCIAL | A5 | PARTIAL — en main (#706): deploymentId/environment/imageDigest; faltan CI result y digest (requiere CI/CD); sin evidencia de producción aún |
-| C03 | Compilación candidato web 5-sep | Entrega | P1 | ROTA | B2 | IMPLEMENTED_NOT_VERIFIED — defecto reparado; build reproducible en main aecbd8d (local exit 0 + CI main success); web desplegada (deploy 4e7f4c4d SUCCESS, online); falta smoke autenticado |
+| C02 | Trazabilidad de versiones activas | Entrega | P0 | PARCIAL | A5 | PARTIAL — en main: #706 (campos de procedencia) y #716 (edc63eb, verify-deploy-provenance.mjs, solo lectura). Falta: gate en CI que compare sha en producción con el commit mergeado (requiere autorizar cambio de CI/CD) y imageDigest (SEMSE_IMAGE_DIGEST) |
+| C03 | Compilación candidato web 5-sep | Entrega | P1 | ROTA | B2 | VERIFIED (por criterio de cierre) — defecto reparado y build reproducible del commit reconciliado (local exit 0 + CI main success); web desplegada y online. Smoke autenticado/destructivo en producción: no ejecutado (columna aparte) |
 | C04 | Página pública app.semseproject.com | Web | P2 | REAL | C3 | NOT_STARTED |
 | C05 | Health de API (Railway y dominio) | API | P0 | REAL | A6 | NOT_STARTED |
 | C06 | Health propio del BFF web | Web | P2 | REAL | C3 | NOT_STARTED |
@@ -66,7 +66,7 @@ Notas de orden: A2 va antes que A3 porque el scope de pagos define el patrón te
 | C16 | Paquete de herramientas por oficio | ProTools | P2 | PARCIAL | C2 | NOT_STARTED |
 | C17 | BuildOps: planificación y cuadrillas | Operaciones | P1 | PARCIAL | B3 | NOT_STARTED |
 | C18 | Hitos y aprobación de avances | Operaciones | P0 | PARCIAL | A4 | NOT_STARTED |
-| C19 | Persistencia de archivos de evidencia | Evidence | P0 | PARCIAL | A4 | PARTIAL — hallazgo abierto: GET /v1/uploads/files/* público; requiere spec de URLs firmadas |
+| C19 | Persistencia de archivos de evidencia | Evidence | P0 | PARCIAL | A4 | PARTIAL — en main (#715, 0b97dc4), modo off por defecto: sin efecto hasta configurar UPLOADS_SIGNING_SECRET y pasar shadow→enforce (operador). La exposición pública actual de GET /v1/uploads/files/* sigue abierta hasta esa activación |
 | C20 | Estados, rechazo, reemplazo y archivo | Evidence | P1 | PARCIAL | B3 | NOT_STARTED |
 | C21 | Integración de análisis visual | Evidence | P1 | PARCIAL | B3 | NOT_STARTED |
 | C22 | Timer y proyectos libres | Labor | P1 | PARCIAL | B2 | NOT_STARTED |
@@ -104,7 +104,7 @@ Notas de orden: A2 va antes que A3 porque el scope de pagos define el patrón te
 | C54 | Redis servicio persistente | Datos | P2 | REAL | C3 | REAL — Redis en sfo vs servicios en us-east4 (dependencia regional confirmada); recuperación de colas no verificada |
 | C55 | Backups y restauración Postgres/archivos | Continuidad | P0 | PARCIAL | A5 | PARTIAL — inventario hecho (3 volúmenes 5 GB, archivos en /data local, sin buckets); estado de backups/restauración DESCONOCIDO vía MCP: requiere confirmación del operador |
 | C56 | Migraciones y esquema productivo | Datos | P0 | PARCIAL | A5 | PARTIAL — evidencia prod: migración 105 (20260930230513) aplicada con 'migrate deploy completo' (deploy 70ca14b8); antes 104 sin pendientes; deriva schema↔tablas no medida |
-| C57 | Deduplicación histórica | Datos | P0 | PARCIAL | A5 | PARTIAL — hallazgo: pre-migrate.mjs borra duplicados (Project/Milestone/JobTask/BuildOps*) en CADA arranque, sin dry-run; hoy 0 filas; funciones huérfanas db-dedup-script y t051-t058a; propuesta pendiente de autorización |
+| C57 | Deduplicación histórica | Datos | P0 | PARCIAL | A5 | PARTIAL — en main (#714, 31471b7): runDedup() fuera del arranque; scripts/maintenance/dedup.mjs (dry-run por defecto; --apply exige evidencia de backup + confirmación, tope de filas, transacción, canónica por dependientes/createdAt, grupos ambiguos bloqueados). Falta confirmar el despliegue (el arranque ya no debe loguear 'dedup complete'), backup/restore verificado antes de cualquier --apply, y retirar servicios huérfanos db-dedup-script y t051-t058a (decisión del dueño) |
 | C58 | Cabeceras de protección web | Seguridad web | P1 | PARCIAL | B5 | NOT_STARTED |
 | C59 | Permisos cámara/micrófono/ubicación web | Campo / Live | P1 | PARCIAL | B5 | NOT_STARTED |
 | C60 | Inventarios públicos de módulos | Producto | P2 | DUPLICADA | C1 | NOT_STARTED |
@@ -127,7 +127,7 @@ Notas de orden: A2 va antes que A3 porque el scope de pagos define el patrón te
 | C77 | Browser Agent de inspección | IA | P2 | PARCIAL | C2 | PARTIAL — en main (#702): subida de evidencia del Browser Agent verifica proyecto |
 | C78 | Conocimiento repo/runtime y Graphify | Knowledge | P2 | PARCIAL | C2 | NOT_STARTED |
 | C79 | Registro único y verdad de entrega | Gobierno | P1 | PARCIAL | B5 | NOT_STARTED |
-| C80 | Propagación política local-only | Privacidad IA | P0 | ROTA | A1 | IMPLEMENTED_NOT_VERIFIED — en main (#698); deploy por pipeline sin smoke autenticado con Ollama caído |
+| C80 | Propagación política local-only | Privacidad IA | P0 | ROTA | A1 | VERIFIED (por criterio de cierre) — restricciones de privacidad antes de overrides/fallbacks y prueba de denegación cuando falla el modelo local (#698), desplegado. Smoke destructivo en producción (Ollama caído): no ejecutado (columna aparte) |
 | C81 | Experimentation (flags, cohortes, guardrails, rollback) | Experimentación | P3 | NUEVA | E1 | NOT_STARTED |
 
 Recuentos: ROTA 4 · DUPLICADA 5 · SOLO_DISEÑADA 5 · PARCIAL 56 · REAL 10 · NUEVA 1 (C81) = 81.
