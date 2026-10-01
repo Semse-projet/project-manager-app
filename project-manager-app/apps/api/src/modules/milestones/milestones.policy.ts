@@ -17,6 +17,12 @@ export type MilestoneLifecycleSnapshot = {
   currentStatus: "draft" | "awaiting_review" | "submitted" | "approved" | "rejected" | "paid";
   ownership: MilestoneOwnership;
   evidenceCount: number;
+  /**
+   * C18: hay un RELEASE de escrow activo (PENDING en vuelo o SUCCEEDED) para este
+   * hito. Mientras exista, el hito no puede rechazarse ni devolverse a cambios:
+   * el dinero ya esta en movimiento o se movio.
+   */
+  hasActiveRelease?: boolean;
 };
 
 function isOpsAdmin(actor: MilestoneActor): boolean {
@@ -78,6 +84,10 @@ export function assertMilestoneRejectable(actor: MilestoneActor, snapshot: Miles
 
   if (snapshot.currentStatus === "paid") {
     throw new ConflictException("cannot reject milestone in paid status");
+  }
+
+  if (snapshot.hasActiveRelease) {
+    throw new ConflictException("cannot reject milestone while an escrow release is in progress or completed");
   }
 
   if (snapshot.currentStatus !== "submitted" && snapshot.currentStatus !== "approved") {
