@@ -30,6 +30,7 @@
     "db:generate": "pnpm --filter @semse/db prisma:generate",
     "db:migrate": "pnpm --filter @semse/db prisma:deploy",
     "db:repair-soft-delete": "pnpm --filter @semse/db prisma:repair-soft-delete",
+    "db:dedup": "node scripts/maintenance/dedup.mjs",
     "db:seed": "pnpm --filter @semse/db prisma:seed",
     "db:reset": "pnpm --filter @semse/db prisma:reset",
     "check:worker": "pnpm --filter @semse/worker check",

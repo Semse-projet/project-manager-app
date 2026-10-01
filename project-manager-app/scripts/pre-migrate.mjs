@@ -8,13 +8,10 @@
  * 2. Repara migraciones fantasma: registradas como aplicadas por el bug
  *    anterior a #447, pero sin ejecutar su SQL. Las reabre para que el paso 4
  *    las aplique de verdad.
- * 3. Deduplica filas que violarian constraints unicos.
- * 4. Aplica las migraciones pendientes con prisma migrate deploy.
+ * 3. Aplica las migraciones pendientes con prisma migrate deploy.
  *
- * El paso 3 es la unica via por la que el SQL de una migracion se ejecuta en
- * produccion. Antes no existia, y el paso 1 marcaba como aplicada cualquier
- * migracion nueva, asi que ningun backfill ni limpieza de datos llegaba a
- * correr — ni en el arranque ni despues a mano.
+ * C57: este script NUNCA borra filas de negocio. La deduplicacion es una
+ * operacion de mantenimiento explicita (scripts/maintenance/dedup.mjs).
  *
  * Uses require.resolve("prisma/build/index.js") for the Prisma CLI so it works
  * regardless of symlink state or package manager (npm/pnpm).
@@ -302,70 +299,6 @@ async function repairFailedMigrations() {
 }
 
 // ---------------------------------------------------------------------------
-// Dedup rows that would block unique-constraint migrations
-// ---------------------------------------------------------------------------
-
-async function runDedup() {
-  let total = 0;
-
-  const steps = [
-    {
-      name: "BuildOpsProject (same jobId)",
-      sql: `DELETE FROM "BuildOpsProject" b1 USING "BuildOpsProject" b2
-            WHERE b1."jobId" = b2."jobId" AND b1.id > b2.id`,
-    },
-    {
-      name: "BuildOpsTask (same projectId+templateKey)",
-      sql: `DELETE FROM "BuildOpsTask" t1 USING "BuildOpsTask" t2
-            WHERE t1."projectId" = t2."projectId"
-              AND t1."templateKey" = t2."templateKey"
-              AND t1.id > t2.id`,
-    },
-    {
-      name: "Milestone (same projectId+sequence, not deleted)",
-      sql: `DELETE FROM "Milestone" m1 USING "Milestone" m2
-            WHERE m1."projectId" = m2."projectId"
-              AND m1."sequence" = m2."sequence"
-              AND m1."deletedAt" IS NULL AND m2."deletedAt" IS NULL
-              AND m1.id > m2.id`,
-    },
-    {
-      name: "Project (same promotedFromBuildOpsProjectId)",
-      sql: `DELETE FROM "Project" p1 USING "Project" p2
-            WHERE p1."promotedFromBuildOpsProjectId" = p2."promotedFromBuildOpsProjectId"
-              AND p1."promotedFromBuildOpsProjectId" IS NOT NULL
-              AND p1.id > p2.id`,
-    },
-    {
-      name: "JobTask (same jobId+promotedFromBuildOpsTaskId)",
-      sql: `DELETE FROM "JobTask" jt1 USING "JobTask" jt2
-            WHERE jt1."jobId" = jt2."jobId"
-              AND jt1."promotedFromBuildOpsTaskId" = jt2."promotedFromBuildOpsTaskId"
-              AND jt1.id > jt2.id`,
-    },
-  ];
-
-  for (const step of steps) {
-    try {
-      const deleted = await prisma.$executeRawUnsafe(step.sql);
-      if (deleted > 0) {
-        console.log(`  [pre-migrate] dedup ${step.name}: ${deleted} rows removed`);
-        total += deleted;
-      }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      if (/does not exist|relation .* does not exist/i.test(msg)) {
-        // Table not yet created — normal on first deploy
-      } else {
-        console.warn(`  [pre-migrate] warn dedup ${step.name}: ${msg}`);
-      }
-    }
-  }
-
-  console.log(`[pre-migrate] dedup complete — ${total} rows removed`);
-}
-
-// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
@@ -398,18 +331,14 @@ try {
   console.warn("[pre-migrate] warn: repair de migraciones fallidas fallo:", err?.message ?? err);
 }
 
-try {
-  await runDedup();
-} catch (err) {
-  console.warn("[pre-migrate] warn: dedup error:", err?.message ?? err);
-}
-
 // ---------------------------------------------------------------------------
 // Aplicar migraciones pendientes
 // ---------------------------------------------------------------------------
 //
-// Va DESPUES del dedup, que existe precisamente para limpiar filas que
-// impedirian crear un constraint unico.
+// C57: el arranque ya NO borra datos de negocio. Si una migracion fallara por
+// filas duplicadas, `migrate deploy` falla y el contenedor no arranca; la
+// limpieza es una operacion explicita: scripts/maintenance/dedup.mjs
+// (dry-run por defecto, `pnpm db:dedup`).
 //
 // Si esto falla, se sale con codigo 1 y el contenedor no arranca: es
 // deliberado. Arrancar la API con un cliente Prisma que conoce columnas que la

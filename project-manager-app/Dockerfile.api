@@ -97,6 +97,6 @@ RUN apk add --no-cache py3-pip && pip3 install graphifyy --quiet --break-system-
 
 EXPOSE 4000
 
-# 1. baseline + dedup via pre-migrate.mjs (handles P3005, missing migrations, row cleanup)
+# 1. baseline + migrate via pre-migrate.mjs (handles P3005, missing migrations; never deletes business rows)
 # 2. start the API
 CMD ["sh", "-c", "node scripts/pre-migrate.mjs && echo '[CMD] starting node main.js now' && node apps/api/dist/main.js"]
