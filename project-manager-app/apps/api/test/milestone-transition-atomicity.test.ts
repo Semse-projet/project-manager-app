@@ -34,6 +34,7 @@ function build(initialStatus: string, opts: { activeRelease?: boolean } = {}) {
       },
     },
     evidence: { async count() { return 3; } },
+    milestoneEvidenceItem: { async findMany() { return []; } },
     paymentTxn: { async findFirst() { return opts.activeRelease ? { id: "txn_1" } : null; } },
   };
   const repo = new MilestonesRepository(prisma as never, { async ensureActorContext() {} } as never);

@@ -286,7 +286,7 @@
    "priority": "P0",
    "historical": "PARCIAL",
    "batch": "A4",
-   "current_truth": "PARTIAL — en main (#724): transiciones de hito compare-and-set (aprobar/rechazar/entregar concurrentes ya no se pisan; la perdedora recibe 409) y un hito con RELEASE activo ya no puede rechazarse ni devolverse a cambios. Abierto: el auto-release no revalida el estado del hito al reservar; posible auto-aprobación con clientOrgId == assignedProOrgId; aprobar no revalida evidencia validada. Pendiente de despliegue y smoke",
+   "current_truth": "PARTIAL — #724 en main (transiciones CAS, bloqueo de reject con payout activo) + en PR claude/c18-invariants: predicado único de evidencia requerida validada (todo requisito `required` debe estar `approved`; antes submitted/archived NO bloqueaban el pago) aplicado al aprobar y DENTRO de la transacción que reserva fondos junto con la revalidación de hito APPROVED (cubre manual y auto-release); auto-aprobación (cliente==profesional) prohibida salvo OPS_ADMIN o flag sandbox solo en no-producción. Modo MILESTONE_EVIDENCE_REVALIDATION enforce por defecto (shadow/off = rollback). Pendiente de despliegue y smoke; el auto-release como adaptador del comando (ADR-041 2b) sigue pendiente",
    "evidence": {
     "code": true,
     "ci": "PR checks green",
