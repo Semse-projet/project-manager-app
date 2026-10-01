@@ -1,6 +1,6 @@
 {
  "baseline": "audit 2026-09-11 (C01–C80) + C81",
- "main": "69c4f044a32aace1883c259dbf493566103430b9",
+ "main": "de89db4d7504cee69619e5875611631dff7ef0c0",
  "capabilities": [
   {
    "id": "C01",
@@ -173,7 +173,7 @@
    "priority": "P0",
    "historical": "PARCIAL",
    "batch": "A3",
-   "current_truth": "PARTIAL — #723 en main (estado durable, precondición) + en PR claude/c11-tenant-verification: verificación POR TENANT (tablas WorkerVerification/Challenge/Event, migración aditiva 20261001020000 con rollback), nonce aleatorio de un solo uso con TTL y consumedAt (probado con carrera real en Postgres: gana 1 de 5), historial auditable append-only, transiciones monotónicas; matching/stats usan el estado efectivo (global legado solo como compatibilidad). Migración pendiente de aplicar en producción. NO cerrado: sigue sin criptografía DID real (fail-closed, nada llega a verified) — requiere proveedor criptográfico",
+   "current_truth": "MERGEADO en main (#728, 862b380): verificación por tenant + migración aditiva 20261001020000. NO en producción aún: falta deployment que aplique la migración (esperado: 106 migraciones) y smoke. Sigue sin criptografía DID real fail-closed verificada end-to-end. | Histórico: PARTIAL — #723 en main (estado durable, precondición) + en PR claude/c11-tenant-verification: verificación POR TENANT (tablas WorkerVerification/Challenge/Event, migración aditiva 20261001020000 con rollback), nonce aleatorio de un solo uso con TTL y consumedAt (probado con carrera real en Postgres: gana 1 de 5), historial auditable append-only, transiciones monotónicas; matching/stats usan el estado efectivo (global legado solo como compatibilidad). Migración pendiente de aplicar en producción. NO cerrado: sigue sin criptografía DID real (fail-closed, nada llega a verified) — requiere proveedor criptográfico",
    "evidence": {
     "code": true,
     "ci": "PR checks green",
@@ -286,7 +286,7 @@
    "priority": "P0",
    "historical": "PARCIAL",
    "batch": "A4",
-   "current_truth": "PARTIAL — #724 en main (transiciones CAS, bloqueo de reject con payout activo) + en PR claude/c18-invariants: predicado único de evidencia requerida validada (todo requisito `required` debe estar `approved`; antes submitted/archived NO bloqueaban el pago) aplicado al aprobar y DENTRO de la transacción que reserva fondos junto con la revalidación de hito APPROVED (cubre manual y auto-release); auto-aprobación (cliente==profesional) prohibida salvo OPS_ADMIN o flag sandbox solo en no-producción. Modo MILESTONE_EVIDENCE_REVALIDATION enforce por defecto (shadow/off = rollback). Pendiente de despliegue y smoke; el auto-release como adaptador del comando (ADR-041 2b) sigue pendiente",
+   "current_truth": "MERGEADO en main (#729, 4c8acd4): evidencia validada al aprobar y al reservar fondos, hito APPROVED revalidado, sin auto-aprobación en producción. NO en producción aún; sin smoke. | Histórico: PARTIAL — #724 en main (transiciones CAS, bloqueo de reject con payout activo) + en PR claude/c18-invariants: predicado único de evidencia requerida validada (todo requisito `required` debe estar `approved`; antes submitted/archived NO bloqueaban el pago) aplicado al aprobar y DENTRO de la transacción que reserva fondos junto con la revalidación de hito APPROVED (cubre manual y auto-release); auto-aprobación (cliente==profesional) prohibida salvo OPS_ADMIN o flag sandbox solo en no-producción. Modo MILESTONE_EVIDENCE_REVALIDATION enforce por defecto (shadow/off = rollback). Pendiente de despliegue y smoke; el auto-release como adaptador del comando (ADR-041 2b) sigue pendiente",
    "evidence": {
     "code": true,
     "ci": "PR checks green",
@@ -433,7 +433,7 @@
    "priority": "P0",
    "historical": "DUPLICADA",
    "batch": "A2",
-   "current_truth": "PARTIAL — ADR-041 ACCEPTED/spec APPROVED; slice 1 (autorización única) en producción (deploy 70ca14b8, aecbd8d); faltan comando único con idempotencia, dual approval (D2 sin definir) y retiro del camino falso | Slice 2a en PR claude/escrow-release-command: núcleo del comando + guarda de 1 RELEASE activo por milestone + adaptador manual tras PAYMENTS_RELEASE_COMMAND=on (off por defecto); falta 2b (auto-release como adaptador, reconciliador), D2 y slices 3-4 | Worker 2b en PR claude/escrow-reconcile-worker: job de solo lectura (PAYMENTS_RECONCILE_ENABLED, off) que alerta+audita RELEASE PENDING estancados; falta auto-release como adaptador, D2 y slices 3-4",
+   "current_truth": "Worker 2b MERGEADO en main (#727, de89db4), job off por defecto (PAYMENTS_RECONCILE_ENABLED); PAYMENTS_RELEASE_COMMAND sigue OFF; falta deploy/ensayo de runbook, D2 y adaptador auto-release. | Histórico: PARTIAL — ADR-041 ACCEPTED/spec APPROVED; slice 1 (autorización única) en producción (deploy 70ca14b8, aecbd8d); faltan comando único con idempotencia, dual approval (D2 sin definir) y retiro del camino falso | Slice 2a en PR claude/escrow-release-command: núcleo del comando + guarda de 1 RELEASE activo por milestone + adaptador manual tras PAYMENTS_RELEASE_COMMAND=on (off por defecto); falta 2b (auto-release como adaptador, reconciliador), D2 y slices 3-4 | Worker 2b en PR claude/escrow-reconcile-worker: job de solo lectura (PAYMENTS_RECONCILE_ENABLED, off) que alerta+audita RELEASE PENDING estancados; falta auto-release como adaptador, D2 y slices 3-4",
    "evidence": {
     "code": false,
     "ci": false,
@@ -466,7 +466,7 @@
    "priority": "P0",
    "historical": "PARCIAL",
    "batch": "A2",
-   "current_truth": "PARTIAL — slice 1 de ADR-041 en producción; idempotencia/reconciliación (slice 2) pendiente | Slice 2a en PR claude/escrow-release-command: núcleo del comando + guarda de 1 RELEASE activo por milestone + adaptador manual tras PAYMENTS_RELEASE_COMMAND=on (off por defecto); falta 2b (auto-release como adaptador, reconciliador), D2 y slices 3-4 | Worker 2b en PR claude/escrow-reconcile-worker: job de solo lectura (PAYMENTS_RECONCILE_ENABLED, off) que alerta+audita RELEASE PENDING estancados; falta auto-release como adaptador, D2 y slices 3-4",
+   "current_truth": "Worker 2b MERGEADO en main (#727); sin activar; falta deploy, D2 y slices 3-4. | Histórico: PARTIAL — slice 1 de ADR-041 en producción; idempotencia/reconciliación (slice 2) pendiente | Slice 2a en PR claude/escrow-release-command: núcleo del comando + guarda de 1 RELEASE activo por milestone + adaptador manual tras PAYMENTS_RELEASE_COMMAND=on (off por defecto); falta 2b (auto-release como adaptador, reconciliador), D2 y slices 3-4 | Worker 2b en PR claude/escrow-reconcile-worker: job de solo lectura (PAYMENTS_RECONCILE_ENABLED, off) que alerta+audita RELEASE PENDING estancados; falta auto-release como adaptador, D2 y slices 3-4",
    "evidence": {
     "code": false,
     "ci": false,
@@ -818,7 +818,7 @@
    "priority": "P0",
    "historical": "PARCIAL",
    "batch": "A3",
-   "current_truth": "PARTIAL — etapa 1 en PR claude/c51-resource-scope: contrato común common/resource-scope.ts (OPS_ADMIN no cruza tenants; cross-tenant 404; org vacía nunca coincide) y políticas de evidence, milestones, disputes, projects y liens delegadas con paridad probada; cierra el caso '' === '' en 5 políticas. Etapas 2 (resto de políticas y comparaciones manuales de orgId) y 3 (resolutor único + guarda de arquitectura en CI, requiere PR de CI autorizado) pendientes",
+   "current_truth": "MERGEADO en main (#726, e0f2618): etapa 1 (contrato común + 5 políticas delegadas, defensa en profundidad por ownership.tenantId). NO en producción aún; etapas 2–3 pendientes. | Histórico: PARTIAL — etapa 1 en PR claude/c51-resource-scope: contrato común common/resource-scope.ts (OPS_ADMIN no cruza tenants; cross-tenant 404; org vacía nunca coincide) y políticas de evidence, milestones, disputes, projects y liens delegadas con paridad probada; cierra el caso '' === '' en 5 políticas. Etapas 2 (resto de políticas y comparaciones manuales de orgId) y 3 (resolutor único + guarda de arquitectura en CI, requiere PR de CI autorizado) pendientes",
    "evidence": {
     "code": false,
     "ci": false,
@@ -1312,7 +1312,7 @@
    }
   }
  ],
- "updated": "2026-09-30",
+ "updated": "2026-10-01",
  "merge_shas": {
   "#698": "21ccbebb9ba295f05cbe9335140385c0952d1c7f",
   "#700": "2797188c4badfc933c80ac763464b54f4fa5a989",
@@ -1329,7 +1329,11 @@
   "#713": "2f451a15f3cdf47a8c3e4fe1ef198d506fe9d80e",
   "#714": "31471b72973f650f0d4eabfb45272615bfdadeff",
   "#715": "0b97dc4b41af915041a1f6eb47c52e37e6f3a11c",
-  "#716": "edc63eb4945dcec26c3c10532b0b8ad9cadc418e"
+  "#716": "edc63eb4945dcec26c3c10532b0b8ad9cadc418e",
+  "#726": "e0f26185b9aa81a231a61ac6e0c3d8bc6b687c36",
+  "#727": "de89db4d7504cee69619e5875611631dff7ef0c0",
+  "#728": "862b380d414578d08fcdf548a5dc41d0b398989f",
+  "#729": "4c8acd49b171f80bcfbe1568d8b0d2915223a276"
  },
  "prod_readonly_evidence": "docs/reportes/2026-09-30_prod-readonly-evidence-c53-c57.md",
  "deploy_evidence": {
