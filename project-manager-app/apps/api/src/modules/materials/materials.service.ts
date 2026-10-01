@@ -2,6 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable } from "@nestjs/com
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { databaseEnabled } from "../../infrastructure/persistence/persistence-mode.js";
 import { findProjectLinkByJobIdOrThrow } from "../projects/project-link.repository.js";
+import { sameOrg } from "../../common/resource-scope.js";
 
 async function assertJobAccess(
   prisma: PrismaService,
@@ -9,7 +10,7 @@ async function assertJobAccess(
 ): Promise<void> {
   if (input.roles.includes("OPS_ADMIN")) return;
   const project = await findProjectLinkByJobIdOrThrow(prisma, { tenantId: input.tenantId, jobId: input.jobId });
-  if (input.orgId !== project.job.clientOrgId && input.orgId !== project.assignedProOrgId) {
+  if (!sameOrg(input.orgId, project.job.clientOrgId) && !sameOrg(input.orgId, project.assignedProOrgId)) {
     throw new ForbiddenException("actor is not assigned to this job");
   }
 }

@@ -4,6 +4,7 @@ import { type ContractRecord } from "../../common/domain-store.js";
 import { ActorContextService } from "../../infrastructure/persistence/actor-context.service.js";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { ReservationsRepository } from "../reservations/reservations.repository.js";
+import { sameOrg } from "../../common/resource-scope.js";
 
 type ActorInput = {
   tenantId: string;
@@ -75,7 +76,7 @@ export class ContractsRepository {
     if (!job) {
       throw new NotFoundException(`Job '${input.jobId}' not found`);
     }
-    if (job.clientOrgId !== input.orgId && !input.roles.includes("OPS_ADMIN")) {
+    if (!sameOrg(job.clientOrgId, input.orgId) && !input.roles.includes("OPS_ADMIN")) {
       throw new ForbiddenException("actor cannot create contract for this job");
     }
 
@@ -142,8 +143,8 @@ export class ContractsRepository {
     }
 
     const professionalOrgId = row.professionalOrgId ?? await this.resolveProfessionalOrgId(input.tenantId, row.professionalUserId);
-    const canSignAsClient = row.job.clientOrgId === input.orgId && row.clientUserId === input.userId;
-    const canSignAsProfessional = professionalOrgId === input.orgId && row.professionalUserId === input.userId;
+    const canSignAsClient = sameOrg(row.job.clientOrgId, input.orgId) && row.clientUserId === input.userId;
+    const canSignAsProfessional = sameOrg(professionalOrgId, input.orgId) && row.professionalUserId === input.userId;
     const isOps = input.roles.includes("OPS_ADMIN");
 
     if (!canSignAsClient && !canSignAsProfessional && !isOps) {
@@ -214,8 +215,8 @@ export class ContractsRepository {
   ): boolean {
     return (
       actor.roles.includes("OPS_ADMIN") ||
-      actor.orgId === row.job.clientOrgId ||
-      actor.orgId === professionalOrgId
+      sameOrg(actor.orgId, row.job.clientOrgId) ||
+      sameOrg(actor.orgId, professionalOrgId)
     );
   }
 
