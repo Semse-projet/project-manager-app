@@ -88,10 +88,13 @@ export function assertScopeAccess(
  * Para las politicas de dominio cuyo `ownership` ya se resolvio desde la base
  * FILTRADO por el tenant del actor (los repositorios lo hacen): el tenant del
  * alcance es el del actor. El cruce de tenant lo cierra el repositorio (404).
+ * Defensa en profundidad: si el ownership trae `tenantId` y difiere del actor,
+ * el alcance conserva ese tenant y `hasScopeAccess` niega (tampoco OPS_ADMIN).
  */
 export function scopeFromOwnership(
   actor: Pick<ScopeActor, "tenantId">,
-  ownership: { clientOrgId?: string | null; assignedProOrgId?: string | null },
+  ownership: { clientOrgId?: string | null; assignedProOrgId?: string | null; tenantId?: string | null },
 ): ProjectScope {
-  return { tenantId: actor.tenantId, clientOrgId: ownership.clientOrgId, assignedProOrgId: ownership.assignedProOrgId };
+  const tenantId = typeof ownership.tenantId === "string" && ownership.tenantId.length > 0 ? ownership.tenantId : actor.tenantId;
+  return { tenantId, clientOrgId: ownership.clientOrgId, assignedProOrgId: ownership.assignedProOrgId };
 }

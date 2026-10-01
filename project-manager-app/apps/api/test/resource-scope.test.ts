@@ -97,3 +97,16 @@ test("las politicas de dominio tambien cierran el caso de org vacia", () => {
   assert.equal(passes(() => assertDisputeReadable(noOrg, emptyOwnership)), false);
   assert.equal(canReadProject(noOrg, emptyOwnership), false);
 });
+
+test("politicas migradas: ownership de otro tenant se niega para todos (incl. OPS_ADMIN)", () => {
+  const foreign = { ...ownership, tenantId: "t2" };
+  for (const [name, a] of actors) {
+    assert.equal(passes(() => assertEvidenceReadable(a, foreign)), false, `evidence ${name}`);
+    assert.equal(passes(() => assertEvidenceWritable(a, foreign)), false, `evidence write ${name}`);
+    assert.equal(passes(() => assertMilestoneReadable(a, foreign)), false, `milestone ${name}`);
+    assert.equal(passes(() => assertDisputeReadable(a, foreign)), false, `dispute ${name}`);
+    assert.equal(canReadProject(a, foreign), false, `project ${name}`);
+    assert.equal(canReadProjectFinancials(a, foreign), false, `project financials ${name}`);
+    assert.equal(passes(() => assertLienAccess(a, foreign, "read")), false, `lien ${name}`);
+  }
+});
