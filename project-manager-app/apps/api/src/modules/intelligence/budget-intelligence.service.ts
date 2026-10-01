@@ -4,6 +4,7 @@ import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { AiModelGatewayService } from "../ai-models/gateway/ai-model-gateway.service.js";
 import { LocationCostService } from "../pricing/location-cost.service.js";
 import { ContractorRateService } from "../pricing/contractor-rate.service.js";
+import { sameOrg } from "../../common/resource-scope.js";
 
 export type BudgetSuggestion = {
   min: number;
@@ -210,7 +211,7 @@ export class BudgetIntelligenceService {
           where: { id: input.jobId, tenantId: input.tenantId },
           select: { clientOrgId: true, contract: { select: { professionalUserId: true } } },
         });
-        const isOwner = job && (job.clientOrgId === input.orgId || (input.roles ?? []).includes("OPS_ADMIN"));
+        const isOwner = job && (sameOrg(job.clientOrgId, input.orgId) || (input.roles ?? []).includes("OPS_ADMIN"));
         const proUserId = isOwner ? job?.contract?.professionalUserId : undefined;
         if (proUserId) {
           const rate = await this.contractorRate.getOverride(proUserId);

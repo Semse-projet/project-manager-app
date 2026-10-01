@@ -7,6 +7,7 @@ import {
 } from "@nestjs/common";
 import { ActorContextService } from "../../infrastructure/persistence/actor-context.service.js";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
+import { sameOrg } from "../../common/resource-scope.js";
 
 type StoredRating = {
   id: string;
@@ -273,9 +274,9 @@ export class RatingsRepository {
     const professionalOrgId = job.contract?.professionalOrgId ?? job.reservations[0]?.professionalOrgId ?? null;
 
     const actorIsClient =
-      input.orgId === job.clientOrgId || (clientUserId !== null && input.userId === clientUserId);
+      sameOrg(input.orgId, job.clientOrgId) || (clientUserId !== null && input.userId === clientUserId);
     const actorIsProfessional =
-      input.userId === professionalUserId || (professionalOrgId !== null && input.orgId === professionalOrgId);
+      input.userId === professionalUserId || (professionalOrgId !== null && sameOrg(input.orgId, professionalOrgId));
 
     if (!actorIsClient && !actorIsProfessional) {
       throw new ForbiddenException("Only job participants can submit ratings");
