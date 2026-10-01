@@ -62,7 +62,7 @@ test("putFile stores the real request body bytes via req.raw (Fastify shape)", a
 
     const headerCalls: Array<Record<string, string>> = [];
     const fakeRes = { headers: (h: Record<string, string>) => headerCalls.push(h) };
-    const file = await controller.getFile("regression/test.txt", fakeRes as never);
+    const file = await controller.getFile("regression/test.txt", { headers: {}, query: {} } as never, fakeRes as never);
     assert.equal(headerCalls.length, 1, "getFile must call reply.headers() (Fastify), not res.set() (Express)");
     assert.equal(headerCalls[0]["Content-Type"], "application/octet-stream");
 

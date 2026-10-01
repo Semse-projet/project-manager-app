@@ -299,7 +299,7 @@
    "priority": "P0",
    "historical": "PARCIAL",
    "batch": "A4",
-   "current_truth": "PARTIAL — hallazgo abierto: GET /v1/uploads/files/* público; requiere spec de URLs firmadas",
+   "current_truth": "PARTIAL — spec signed-file-access APPROVED; código en PR claude/c19-signed-file-access (firma HMAC+exp, modo off|shadow|enforce, tenant/OPS_ADMIN, rotación, vision 5 min). Entregado en off: sin efecto hasta shadow→enforce en producción",
    "evidence": {
     "code": false,
     "ci": false,

@@ -3,11 +3,11 @@ id: "platform.signed-file-access"
 title: "Acceso firmado y con alcance a archivos subidos (evidencia)"
 domain: "platform"
 sdd_version: "2.0"
-version: "0.1"
-status: "DRAFT"
+version: "0.2"
+status: "APPROVED"
 owner: "semse-core"
 risk: "high"
-code_status: "NOT_STARTED"
+code_status: "COMPLETE"
 ci_status: "NOT_RUN"
 merge_status: "UNMERGED"
 deploy_status: "NOT_DEPLOYED"
@@ -22,7 +22,9 @@ related_files:
   - apps/api/src/modules/vision/vision.service.ts
   - apps/api/src/modules/evidence-gateway/evidence-gateway.service.ts
   - apps/web/app/api/semse/uploads/files/[...key]/route.ts
-related_tests: []
+related_tests:
+  - apps/api/test/signed-file-access.test.ts
+  - apps/api/test/uploads.controller.test.ts
 related_endpoints: []
 related_events: []
 related_agents: []
@@ -31,7 +33,7 @@ last_verified: "2026-09-30"
 
 # Spec: Acceso firmado y con alcance a archivos subidos (C19 · C10)
 
-> **Borrador para aprobación humana — no implementar.** Las preguntas abiertas (§9) deben resolverse antes de pasar a `APPROVED`. Riesgo `high`: toca lectura de evidencia (fotos/PDF de obra) y a los consumidores browser + vision-service.
+> **Aprobado por el dueño en sesión (2026-09-30, "Acepto los propuestos") con los valores de §9 abajo.** Riesgo `high`: toca lectura de evidencia y a los consumidores browser + vision-service. Se entrega con `UPLOADS_SIGNED_GET_MODE=off` por defecto; pasar a `shadow` y luego `enforce` es una activación aparte.
 
 ## 1. Problema y resultado
 **Para quién:** clientes, profesionales y ops que suben/consultan evidencia; vision-service que la analiza.
@@ -64,7 +66,8 @@ last_verified: "2026-09-30"
 ## 5. Contratos
 - `publicUrl(key, { ttlSeconds })` → `…/v1/uploads/files/{key}?exp={unix}&sig={hmac}`; `sig = HMAC-SHA256(secret, "GET\n{key}\n{exp}")`, comparación en tiempo constante.
 - `GET files/*` valida `exp`/`sig` o sesión; respuesta sin cambios de formato.
-- Secreto: `UPLOADS_SIGNING_SECRET` (distinto de `AUTH_SECRET`); soporte de dos secretos activos para rotación.
+- Secreto: `UPLOADS_SIGNING_SECRET` (≥16 caracteres, distinto de `AUTH_SECRET`); `UPLOADS_SIGNING_SECRET_PREVIOUS` acepta firmas del secreto anterior durante la rotación (rotar: mover el actual a `_PREVIOUS`, poner uno nuevo, retirar `_PREVIOUS` tras el TTL máximo).
+- Reglas implementadas (`signed-url.ts`): firma mala/expirada → 403 siempre (también en shadow); sesión de otro tenant → 403 (también en shadow); clave legacy sin tenant solo por firma u OPS_ADMIN; la autorización se decide antes de tocar el storage (403 idéntico exista o no la clave).
 
 ## 6. FSM, eventos y reconstrucción
 Sin cambios de FSM. Observabilidad: contador `uploads_reads{mode,signed,authenticated,result}` y log estructurado `uploads_unsigned_read` (sin PII; solo tenant de la clave y `Referer` host).
@@ -75,13 +78,13 @@ Sin migración de datos ni de esquema. Las URLs ya emitidas (guardadas en respue
 ## 8. Observabilidad, despliegue y activación
 Rollout: `off` → `shadow` (≥ 7 días, revisar lecturas sin firma por origen) → `enforce` por entorno. Canary con tenant interno. Activación solo con evidencia de que browser y vision-service no dependen de URLs sin firma.
 
-## 9. Preguntas abiertas (requieren decisión humana)
-1. **TTL**: ¿cuánto vive una URL para el navegador (p. ej. 15 min) y para el vision-service (p. ej. 5 min)?
-2. **Clientes que guardan URLs** (web, mobile, reportes/PDF generados): ¿se acepta recalcular la URL en cada lectura de la entidad, o hay URLs persistidas que deban seguir vivas?
-3. **Vision-service**: ¿firma corta por llamada (propuesta) o credencial de servicio propia?
-4. **Mobile/offline**: ¿la app móvil cachea URLs? Afecta a la expiración.
-5. **Contributor-program `previewUrl`**: ¿debe ser pública por diseño (assets de marketing) y quedar fuera de la regla?
-6. **Activos públicos legítimos** (p. ej. logos): ¿prefijo de clave explícitamente público?
+## 9. Decisiones (resueltas — valores propuestos aceptados por el dueño)
+1. **TTL**: 15 min navegador (`UPLOADS_SIGNED_URL_TTL_SECONDS`), 5 min vision (`UPLOADS_SIGNED_URL_TTL_VISION_SECONDS`); máximo 1 h.
+2. **Clientes que guardan URLs**: se recalcula la URL en cada lectura de la entidad; las persistidas dejan de valer en `enforce`.
+3. **Vision-service**: firma corta generada por llamada (`publicUrl(key,{ttl:"vision"})`).
+4. **Mobile/offline**: no cachea URLs persistentes (se recalculan); a verificar en shadow con los logs `uploads_unsigned_read`.
+5. **Contributor `previewUrl`**: queda fuera de la regla de exigir sesión; se emite igualmente firmada (compatible con `enforce`).
+6. **Activos públicos**: prefijo explícito `UPLOADS_PUBLIC_KEY_PREFIXES` (por defecto `public/`).
 
 ## 10. Tests requeridos
 Firma válida/expirada/alterada/otra clave; comparación en tiempo constante; sesión de otro tenant; modos off/shadow/enforce; vision-service con URL firmada; compatibilidad con rotación de secreto; no-regresión de subida (PUT) y del proxy BFF.
