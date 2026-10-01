@@ -13,9 +13,10 @@ merge_status: "UNMERGED"
 deploy_status: "NOT_DEPLOYED"
 activation_status: "INACTIVE"
 migration_status: "PENDING"
-feature_flags: ["PAYMENTS_RELEASE_WAIVER_GATE", "PAYMENTS_RELEASE_GOVERNANCE_MODE"]
+feature_flags: ["PAYMENTS_RELEASE_WAIVER_GATE", "PAYMENTS_RELEASE_GOVERNANCE_MODE", "PAYMENTS_RELEASE_COMMAND"]
 production_evidence: []
 related_files:
+  - apps/api/src/modules/payments/escrow-release.command.ts
   - apps/api/src/modules/payments/escrow-release.service.ts
   - apps/api/src/modules/payments/payments.service.ts
   - apps/api/src/modules/payments/payment-governance.service.ts
@@ -24,6 +25,7 @@ related_files:
   - apps/api/src/modules/milestones/milestones.service.ts
 related_tests:
   - apps/api/test/release-governance-gate.test.ts
+  - apps/api/test/escrow-release-command.test.ts
 related_endpoints: []
 related_events: []
 related_agents: []
@@ -36,7 +38,7 @@ last_verified: "2026-09-30"
 
 ## Slices de implementación
 1. **Slice 1 — autorización económica única**: `ReleaseGovernanceGate` aplicado en `PaymentsService.release()` (REST, harness del copilot, tool de Prometeo). Gate de lien waivers **enforced por defecto** (`PAYMENTS_RELEASE_WAIVER_GATE=off` = rollback); `evaluate()` completo en **shadow** por defecto (`PAYMENTS_RELEASE_GOVERNANCE_MODE=shadow|enforce|off`). Sin migraciones.
-2. Slice 2 — comando único `EscrowReleaseCommand` (idempotencia por clave, estado ambiguo/reconciliación) y auto-release como adaptador.
+2. Slice 2 — comando único `EscrowReleaseCommand` (idempotencia por clave, estado ambiguo/reconciliación) y auto-release como adaptador. **2a (código):** núcleo `runEscrowRelease` (reserva→transferencia→finalización con estados `released|pending|failed|unknown`), guarda de un RELEASE activo por milestone en `releaseFunds` (Serializable), adaptador en `PaymentsService.release()` tras `PAYMENTS_RELEASE_COMMAND=on` (apagado por defecto), clasificación de reconciliación (solo informe). **2b (pendiente):** adaptador del auto-release (`EscrowReleaseService`/Stripe Connect con fee) y job/endpoint de reconciliación proveedor↔DB.
 3. Slice 3 — dual approval (migración aditiva `PaymentReleaseApproval`), tras definir D2.
 4. Slice 4 — re-habilitar "Liberar" en admin/finance con `milestoneId` y retirar `payment-governance/releasePayment()`.
 
