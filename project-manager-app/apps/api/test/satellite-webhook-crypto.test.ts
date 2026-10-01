@@ -28,11 +28,33 @@ test("encryptWebhookSecret/decryptWebhookSecret roundtrip exactly", () => {
   assert.equal(decryptWebhookSecret(encrypted, testKeyHex), secret);
 });
 
+// Invierte el primer byte del ciphertext (XOR 0xff): el resultado SIEMPRE difiere del original.
+// (Antes se reemplazaba por la constante "ff": como el ciphertext es aleatorio, 1 de cada 256
+// ejecuciones el primer byte ya era "ff", el "manipulado" era idéntico al original y el test
+// fallaba con "Missing expected exception".)
+const flipFirstByte = (hex: string) => (parseInt(hex.slice(0, 2), 16) ^ 0xff).toString(16).padStart(2, "0") + hex.slice(2);
+
 test("decryptWebhookSecret fails closed (throws) when the auth tag doesn't match — tampered ciphertext", () => {
   const secret = generateWebhookSecret();
   const encrypted = encryptWebhookSecret(secret, testKeyHex);
-  const tampered = { ...encrypted, ciphertext: encrypted.ciphertext.replace(/^../, "ff") };
+  const tampered = { ...encrypted, ciphertext: flipFirstByte(encrypted.ciphertext) };
+  assert.notEqual(tampered.ciphertext, encrypted.ciphertext);
   assert.throws(() => decryptWebhookSecret(tampered, testKeyHex));
+});
+
+test("tampered ciphertext falla cerrado en TODAS las ejecuciones, incluido el caso en que el primer byte ya era ff", () => {
+  for (let i = 0; i < 600; i++) {
+    const encrypted = encryptWebhookSecret(generateWebhookSecret(), testKeyHex);
+    const tampered = { ...encrypted, ciphertext: flipFirstByte(encrypted.ciphertext) };
+    assert.notEqual(tampered.ciphertext, encrypted.ciphertext);
+    assert.throws(() => decryptWebhookSecret(tampered, testKeyHex));
+  }
+  // el caso exacto que rompía el test anterior: primer byte "ff"
+  const withFf = { ...encryptWebhookSecret(generateWebhookSecret(), testKeyHex) };
+  withFf.ciphertext = "ff" + withFf.ciphertext.slice(2);
+  const tamperedFf = { ...withFf, ciphertext: flipFirstByte(withFf.ciphertext) };
+  assert.notEqual(tamperedFf.ciphertext, withFf.ciphertext);
+  assert.throws(() => decryptWebhookSecret(tamperedFf, testKeyHex));
 });
 
 test("decryptWebhookSecret fails with the wrong key", () => {

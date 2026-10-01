@@ -1,6 +1,6 @@
 {
  "baseline": "audit 2026-09-11 (C01–C80) + C81",
- "main": "de89db4d7504cee69619e5875611631dff7ef0c0",
+ "main": "92d8e9ea0bfe941f1477e7010f2f1c20b6af83b3",
  "capabilities": [
   {
    "id": "C01",
@@ -25,7 +25,7 @@
    "priority": "P0",
    "historical": "PARCIAL",
    "batch": "A5",
-   "current_truth": "PARTIAL — runtime provenance demonstrated, awaiting second green cycle before enforcement. Deploy 7c9df29 (2026-10-01): /v1/health (deploymentId 26d406f8) y /api/semse/healthz (deploymentId 5c55ddb9) reportaron gitSha === DEPLOY_SHA; paso informativo de #730 en verde. Siguiente: tras un deploy verde adicional con la misma coincidencia, PR de CI aislado que lo convierte en gate (HTTP ok, gitSha existe y coincide, deploymentId existe, discrepancia o caída del health => falla; imageDigest unknown => warning; sin tocar branch protections ni secretos). imageDigest sigue 'unknown' hasta que el build inyecte SEMSE_IMAGE_DIGEST. | Histórico: PARTIAL — #706/#716 en main (campos de procedencia y verificador). En PR claude/ci-provenance-informational (PR de CI aislado, autorizado por el dueño): el job health-check de railway-deploy.yml añade, en MODO INFORMATIVO (continue-on-error, nunca bloquea), la comprobación de que /v1/health y /api/semse/healthz reportan el gitSha desplegado, con resumen en el job y ::warning si no coincide; permisos: solo contents:read en ese job. Tras un ciclo verde se convierte en gate (PR aparte). imageDigest sigue 'unknown' (tolerado) hasta que el build inyecte SEMSE_IMAGE_DIGEST; /v1/health en producción aún sin evidencia propia",
+   "current_truth": "PARTIAL — gate BLOQUEANTE de provenance en runtime VERIFICADO en producción (#734, e4c7322): en el deploy 92d8e9ea (run 36856601208) el paso 'Runtime provenance gate (blocking)' terminó en success con API HTTP 200 gitSha===DEPLOY_SHA deploymentId bf6ee8ee y web HTTP 200 gitSha===DEPLOY_SHA deploymentId e5407147; antes, el mismo cumplimiento en 7c9df29 y f59d1b0 (ciclos informativos) y en 7a823ae (primer deploy con el gate). GAP SEPARADO ABIERTO: imageDigest sigue 'unknown' (warning tolerado); NO resuelto hasta que el build inyecte un digest verificable (SEMSE_IMAGE_DIGEST). Se exige además: HTTP 2xx, gitSha exacto, deploymentId y environment; caída del health => falla. | Histórico: PARTIAL — runtime provenance demonstrated, awaiting second green cycle before enforcement. Deploy 7c9df29 (2026-10-01): /v1/health (deploymentId 26d406f8) y /api/semse/healthz (deploymentId 5c55ddb9) reportaron gitSha === DEPLOY_SHA; paso informativo de #730 en verde. Siguiente: tras un deploy verde adicional con la misma coincidencia, PR de CI aislado que lo convierte en gate (HTTP ok, gitSha existe y coincide, deploymentId existe, discrepancia o caída del health => falla; imageDigest unknown => warning; sin tocar branch protections ni secretos). imageDigest sigue 'unknown' hasta que el build inyecte SEMSE_IMAGE_DIGEST. | Histórico: PARTIAL — #706/#716 en main (campos de procedencia y verificador). En PR claude/ci-provenance-informational (PR de CI aislado, autorizado por el dueño): el job health-check de railway-deploy.yml añade, en MODO INFORMATIVO (continue-on-error, nunca bloquea), la comprobación de que /v1/health y /api/semse/healthz reportan el gitSha desplegado, con resumen en el job y ::warning si no coincide; permisos: solo contents:read en ese job. Tras un ciclo verde se convierte en gate (PR aparte). imageDigest sigue 'unknown' (tolerado) hasta que el build inyecte SEMSE_IMAGE_DIGEST; /v1/health en producción aún sin evidencia propia",
    "evidence": {
     "code": "partial",
     "ci": "PR checks green; main auto-deploy (Railway Deploy/Production Health Gate) — sin smoke autenticado",
@@ -626,12 +626,12 @@
    "priority": "P0",
    "historical": "PARCIAL",
    "batch": "A1",
-   "current_truth": "PARTIAL — en producción: logs IA tenant-scoped + actor/org/política persistidos; migración aditiva 20260930230513 aplicada (deploy 70ca14b8); costo habilitado por AI_MODEL_PRICING_JSON, faltan precios del owner; sin smoke",
+   "current_truth": "IMPLEMENTED + DEPLOYED + MIGRATION VERIFIED — feature INACTIVA (AI_PRICING_CATALOG_MODE=off por defecto; NO VERIFIED funcional: shadow/on no activados). Catálogo global AiModelPrice (excepción tenantId autorizada solo para esta tabla; inmutable; exclusión de intervalos, CHECKs y triggers), priceId/costBasis en AiInteractionLog, unknown != $0, sin fallback legado en on, pricingSchemaVersion+metadataJson, carga solo OPS_ADMIN con fuente oficial y auditoría. En producción (92d8e9ea): migración 20261001100000 aplicada el 2026-10-01T11:23:09Z (deployment b024794c, #736) sin error de btree_gist; hoy '107 migrations found / No pending migrations'; 4 servicios SUCCESS. Falta: smoke funcional con shadow→on (orden del dueño), carga de precios oficiales por OPS_ADMIN, T-042 (importador legado) diferido. | Histórico: PARTIAL — en producción: logs IA tenant-scoped + actor/org/política persistidos; migración aditiva 20260930230513 aplicada (deploy 70ca14b8); costo habilitado por AI_MODEL_PRICING_JSON, faltan precios del owner; sin smoke",
    "evidence": {
-    "code": "partial",
+    "code": true,
     "ci": "PR checks green; main auto-deploy (Railway Deploy/Production Health Gate) — sin smoke autenticado",
-    "merge": "aecbd8dd7e885022dd1b46e913cb01cfd82f7cb8",
-    "deploy": "deploy 70ca14b8 (aecbd8d) SUCCESS; 4 servicios online 1/1; migración 20260930230513 aplicada en prod ('migrate deploy completo', dedup 0 filas); sin smoke autenticado",
+    "merge": "92d8e9ea0bfe941f1477e7010f2f1c20b6af83b3 (#737; #736 contenía el mismo árbol)",
+    "deploy": "deployments API bf6ee8ee / web e5407147 / worker c045da92 / vision b98e0d4f en SUCCESS con 92d8e9ea; migración 20261001100000 aplicada en deployment b024794c (11:23:09Z)",
     "activation": false
    }
   },
@@ -1333,23 +1333,29 @@
   "#726": "e0f26185b9aa81a231a61ac6e0c3d8bc6b687c36",
   "#727": "de89db4d7504cee69619e5875611631dff7ef0c0",
   "#728": "862b380d414578d08fcdf548a5dc41d0b398989f",
-  "#729": "4c8acd49b171f80bcfbe1568d8b0d2915223a276"
+  "#729": "4c8acd49b171f80bcfbe1568d8b0d2915223a276",
+  "#733": "7a823ae8a4395f5e1961024bd410d1c73286a473",
+  "#734": "e4c73228ac7a72b4ed69f05759b6e1442f57f2fd",
+  "#735": "b2d58ce62095b49ede95661c376061264739e511",
+  "#736": "6d3f594cb22f019cb724fe74dc1b46776dc204b7",
+  "#737": "92d8e9ea0bfe941f1477e7010f2f1c20b6af83b3"
  },
  "prod_readonly_evidence": "docs/reportes/2026-09-30_prod-readonly-evidence-c53-c57.md",
  "deploy_evidence": {
-  "api": "70ca14b8-1f20-4770-bbd4-f17185d6d3ca",
-  "web": "4e7f4c4d-cf7a-4929-a614-6819b7081ac0",
-  "worker": "96f6044c-0fe6-405e-8828-c4e479fbae7f",
-  "vision": "fbbc062a-0795-481a-90f1-6ccf54e76e72",
-  "commit": "aecbd8dd7e885022dd1b46e913cb01cfd82f7cb8",
-  "checked_at": "2026-09-30T23:41Z",
-  "migration_applied": "20260930230513_c39_c46_ai_log_actor_policy_plan_version"
+  "api": "bf6ee8ee-5225-4ab5-873d-49e20c16488d",
+  "web": "e5407147-2e37-4e35-a2d6-8f2362ba80c3",
+  "worker": "c045da92-d468-48cd-b663-7337947e68e5",
+  "vision": "b98e0d4f-163b-4cda-897e-e49379a1d2fb",
+  "commit": "92d8e9ea0bfe941f1477e7010f2f1c20b6af83b3",
+  "checked_at": "2026-10-01T11:52Z",
+  "migration_applied": "20261001100000_c39_ai_model_price_catalog",
+  "migration_applied_in": "deployment API b024794c (commit 6d3f594c, #736) a las 2026-10-01T11:23:09Z: 'Applying migration `20261001100000_c39_ai_model_price_catalog`' + 'migrate deploy completo', sin error de CREATE EXTENSION btree_gist; deployment bf6ee8ee (92d8e9ea) a las 11:41:17Z: '107 migrations found' + 'No pending migrations to apply'",
+  "provenance_gate": "Railway Deploy run 36856601208, paso 'Runtime provenance gate (blocking)' success: API HTTP 200 gitSha=92d8e9ea… deploymentId bf6ee8ee…; web HTTP 200 gitSha=92d8e9ea… deploymentId e5407147…; imageDigest unknown (warning)"
  },
  "runtime_snapshot": {
-  "checked_at": "2026-10-01T01:1xZ",
-  "api_active": "f27a2abb-9d97-441b-be20-b7d908167cf6",
-  "api_active_commit": "a20c25b35a0308e9169ead19b0d0b4f9992bcbcd",
-  "api_building": "9b43679d-4b76-459a-99a9-fc17aad3e0ee (0307f4a, #721)",
-  "note": "Railway MCP solo lectura. Las 4 merges #714–#719 están en producción en el deployment activo; #720/#721 en build."
+  "checked_at": "2026-10-01T11:52Z",
+  "api_active": "bf6ee8ee-5225-4ab5-873d-49e20c16488d",
+  "api_active_commit": "92d8e9ea0bfe941f1477e7010f2f1c20b6af83b3",
+  "note": "Railway MCP solo lectura + logs del job health-check. 4 servicios SUCCESS en 92d8e9ea. #736 (squash titulado «docs(spec)…») contenía en realidad TODO el código y la migración de C39 y se desplegó primero (deployment b024794c, 11:23Z); #737 resultó con árbol idéntico (diff vacío), por eso su deploy dice 'No pending migrations'."
  }
 }
