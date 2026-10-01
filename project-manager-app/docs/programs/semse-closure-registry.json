@@ -42,12 +42,12 @@
    "priority": "P1",
    "historical": "ROTA",
    "batch": "B2",
-   "current_truth": "IMPLEMENTED_NOT_VERIFIED — defecto reparado (BASE_RATES[input.laborType]); build reproducible en main aecbd8d: install --frozen-lockfile + db:generate + build:packages + build:web exit 0 (local) y CI main success; falta deploy web verificado",
+   "current_truth": "IMPLEMENTED_NOT_VERIFIED — defecto reparado; build reproducible en main aecbd8d (local exit 0 + CI main success); web desplegada (deploy 4e7f4c4d SUCCESS, online); falta smoke autenticado",
    "evidence": {
     "code": true,
     "ci": "CI main aecbd8d success; build local exit 0",
     "merge": "aecbd8dd7e885022dd1b46e913cb01cfd82f7cb8",
-    "deploy": false,
+    "deploy": "deploy 70ca14b8 (aecbd8d) SUCCESS; 4 servicios online 1/1; migración 20260930230513 aplicada en prod ('migrate deploy completo', dedup 0 filas); sin smoke autenticado",
     "activation": false
    }
   },
@@ -428,12 +428,12 @@
    "priority": "P0",
    "historical": "DUPLICADA",
    "batch": "A2",
-   "current_truth": "PARTIAL — ADR-041 ACCEPTED/spec APPROVED; slice 1 (autorización única) en main (#709); faltan comando único con idempotencia, dual approval (D2 sin definir) y retiro del camino falso",
+   "current_truth": "PARTIAL — ADR-041 ACCEPTED/spec APPROVED; slice 1 (autorización única) en producción (deploy 70ca14b8, aecbd8d); faltan comando único con idempotencia, dual approval (D2 sin definir) y retiro del camino falso",
    "evidence": {
     "code": false,
     "ci": false,
     "merge": "6312454a27b981ec0bd46f6c406cdb13fff1c185",
-    "deploy": false,
+    "deploy": "deploy 70ca14b8 (aecbd8d) SUCCESS; 4 servicios online 1/1; migración 20260930230513 aplicada en prod ('migrate deploy completo', dedup 0 filas); sin smoke autenticado",
     "activation": false
    }
   },
@@ -444,12 +444,12 @@
    "priority": "P0",
    "historical": "PARCIAL",
    "batch": "A2",
-   "current_truth": "PARTIAL — en main: firma de waivers protegida (#703) y gate de waivers en release manual/agente (#709, enforced por defecto; rollback PAYMENTS_RELEASE_WAIVER_GATE=off); gobernanza completa en shadow; deploy aecbd8d en curso",
+   "current_truth": "PARTIAL — en producción (aecbd8d): firma de waivers protegida (#703) y gate de waivers en release manual/agente (#709, enforced por defecto; rollback PAYMENTS_RELEASE_WAIVER_GATE=off); gobernanza completa en shadow (revisar logs release_governance_shadow_would_block antes de enforce); sin smoke",
    "evidence": {
     "code": "partial",
     "ci": "PR checks green; main auto-deploy (Railway Deploy/Production Health Gate) — sin smoke autenticado",
     "merge": "6312454a27b981ec0bd46f6c406cdb13fff1c185",
-    "deploy": "auto-deploy on merge to main (per GitHub Actions); runtime not verified from sandbox",
+    "deploy": "deploy 70ca14b8 (aecbd8d) SUCCESS; 4 servicios online 1/1; migración 20260930230513 aplicada en prod ('migrate deploy completo', dedup 0 filas); sin smoke autenticado",
     "activation": false,
     "pr": "#703"
    }
@@ -461,12 +461,12 @@
    "priority": "P0",
    "historical": "PARCIAL",
    "batch": "A2",
-   "current_truth": "PARTIAL — cubierto por ADR-041 (slice 1 en main); idempotencia/reconciliación (slice 2) pendiente",
+   "current_truth": "PARTIAL — slice 1 de ADR-041 en producción; idempotencia/reconciliación (slice 2) pendiente",
    "evidence": {
     "code": false,
     "ci": false,
     "merge": "6312454a27b981ec0bd46f6c406cdb13fff1c185",
-    "deploy": false,
+    "deploy": "deploy 70ca14b8 (aecbd8d) SUCCESS; 4 servicios online 1/1; migración 20260930230513 aplicada en prod ('migrate deploy completo', dedup 0 filas); sin smoke autenticado",
     "activation": false
    }
   },
@@ -621,12 +621,12 @@
    "priority": "P0",
    "historical": "PARCIAL",
    "batch": "A1",
-   "current_truth": "PARTIAL — en main (#700, #710): logs IA tenant-scoped + actor/org/política persistidos (migración aditiva 105); costo habilitado por AI_MODEL_PRICING_JSON, faltan precios del owner",
+   "current_truth": "PARTIAL — en producción: logs IA tenant-scoped + actor/org/política persistidos; migración aditiva 20260930230513 aplicada (deploy 70ca14b8); costo habilitado por AI_MODEL_PRICING_JSON, faltan precios del owner; sin smoke",
    "evidence": {
     "code": "partial",
     "ci": "PR checks green; main auto-deploy (Railway Deploy/Production Health Gate) — sin smoke autenticado",
     "merge": "aecbd8dd7e885022dd1b46e913cb01cfd82f7cb8",
-    "deploy": "en producción a nivel de commit: deploy aebd7ed4 (87fa20b), SUCCESS; sin smoke autenticado",
+    "deploy": "deploy 70ca14b8 (aecbd8d) SUCCESS; 4 servicios online 1/1; migración 20260930230513 aplicada en prod ('migrate deploy completo', dedup 0 filas); sin smoke autenticado",
     "activation": false
    }
   },
@@ -733,12 +733,12 @@
    "priority": "P0",
    "historical": "PARCIAL",
    "batch": "A1",
-   "current_truth": "PARTIAL — en main (#700, #710): piso de aprobación determinista + versión de plan y aprobación ligada a la definición; falta denegación con eventos (EVENT_CATALOG)",
+   "current_truth": "PARTIAL — en producción: piso de aprobación determinista + versión de plan y aprobación ligada a la definición (migración aplicada); falta denegación con eventos (EVENT_CATALOG); sin smoke",
    "evidence": {
     "code": "partial",
     "ci": "PR checks green; main auto-deploy (Railway Deploy/Production Health Gate) — sin smoke autenticado",
     "merge": "aecbd8dd7e885022dd1b46e913cb01cfd82f7cb8",
-    "deploy": "en producción a nivel de commit: deploy aebd7ed4 (87fa20b), SUCCESS; sin smoke autenticado",
+    "deploy": "deploy 70ca14b8 (aecbd8d) SUCCESS; 4 servicios online 1/1; migración 20260930230513 aplicada en prod ('migrate deploy completo', dedup 0 filas); sin smoke autenticado",
     "activation": false
    }
   },
@@ -893,7 +893,7 @@
    "priority": "P0",
    "historical": "PARCIAL",
    "batch": "A5",
-   "current_truth": "PARTIAL — evidencia prod: 104 migraciones, 'No pending migrations' (deploy aebd7ed4); deriva schema↔tablas no medida",
+   "current_truth": "PARTIAL — evidencia prod: migración 105 (20260930230513) aplicada con 'migrate deploy completo' (deploy 70ca14b8); antes 104 sin pendientes; deriva schema↔tablas no medida",
    "evidence": {
     "code": false,
     "ci": false,
@@ -1320,5 +1320,14 @@
   "#710": "aecbd8dd7e885022dd1b46e913cb01cfd82f7cb8",
   "#711": "81110acb3a52f5933506f6c15909720640e1627c"
  },
- "prod_readonly_evidence": "docs/reportes/2026-09-30_prod-readonly-evidence-c53-c57.md"
+ "prod_readonly_evidence": "docs/reportes/2026-09-30_prod-readonly-evidence-c53-c57.md",
+ "deploy_evidence": {
+  "api": "70ca14b8-1f20-4770-bbd4-f17185d6d3ca",
+  "web": "4e7f4c4d-cf7a-4929-a614-6819b7081ac0",
+  "worker": "96f6044c-0fe6-405e-8828-c4e479fbae7f",
+  "vision": "fbbc062a-0795-481a-90f1-6ccf54e76e72",
+  "commit": "aecbd8dd7e885022dd1b46e913cb01cfd82f7cb8",
+  "checked_at": "2026-09-30T23:41Z",
+  "migration_applied": "20260930230513_c39_c46_ai_log_actor_policy_plan_version"
+ }
 }
