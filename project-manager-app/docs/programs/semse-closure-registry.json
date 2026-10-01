@@ -1069,7 +1069,7 @@
    "priority": "P0",
    "historical": "DUPLICADA",
    "batch": "A4",
-   "current_truth": "PARTIAL — en main (#702): gateway usa política canónica; consolidación de código pendiente",
+   "current_truth": "PARTIAL — en main (#702): gateway usa política canónica. En PR claude/c67-evidence-consolidation: el gateway valida bucketKey con la regla canónica (cerraba una brecha: aceptaba claves de otro tenant). Convergencia de escritura (outbox/audit/idempotencia vía EvidenceService.register) pendiente: requiere decidir el contrato de metadataJson/browser-agent",
    "evidence": {
     "code": "partial",
     "ci": "PR checks green; main auto-deploy (Railway Deploy/Production Health Gate) — sin smoke autenticado",

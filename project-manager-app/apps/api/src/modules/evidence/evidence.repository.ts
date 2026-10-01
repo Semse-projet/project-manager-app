@@ -573,7 +573,7 @@ function toRecord(value: unknown): Record<string, unknown> | undefined {
   return undefined;
 }
 
-function normalizeEvidenceBucketKey(key: string, tenantId: string): string {
+export function normalizeEvidenceBucketKey(key: string, tenantId: string): string {
   try {
     const normalized = normalizeStorageKey(key);
     if (
