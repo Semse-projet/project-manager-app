@@ -30,7 +30,7 @@
     "code": "partial",
     "ci": "PR checks green; main auto-deploy (Railway Deploy/Production Health Gate) — sin smoke autenticado",
     "merge": "08aed04fba0a58880e83a105a75cf20235b82892",
-    "deploy": "auto-deploy on merge to main (per GitHub Actions); runtime not verified from sandbox",
+    "deploy": "verify-deploy-provenance.mjs en main (#716) y desplegado (Railway MCP (solo lectura) 2026-10-01T01:1xZ, deployment API f27a2abb (commit a20c25b = #719, incluye #714–#719) SUCCESS); /v1/health no consultado desde el sandbox (hosts bloqueados): campos de procedencia sin verificar en producción",
     "activation": false,
     "pr": "#706",
     "pr_2": "#716"
@@ -306,7 +306,7 @@
     "code": true,
     "ci": "PR checks green",
     "merge": "0b97dc4b41af915041a1f6eb47c52e37e6f3a11c",
-    "deploy": false,
+    "deploy": "en producción desde Railway MCP (solo lectura) 2026-10-01T01:1xZ, deployment API f27a2abb (commit a20c25b = #719, incluye #714–#719) SUCCESS; UPLOADS_SIGNED_GET_MODE sin configurar (=off): sin efecto",
     "activation": false,
     "pr": "#715"
    }
@@ -912,13 +912,13 @@
    "priority": "P0",
    "historical": "PARCIAL",
    "batch": "A5",
-   "current_truth": "PARTIAL — en main (#714, 31471b7): runDedup() fuera del arranque; scripts/maintenance/dedup.mjs (dry-run por defecto; --apply exige evidencia de backup + confirmación, tope de filas, transacción, canónica por dependientes/createdAt, grupos ambiguos bloqueados). Falta confirmar el despliegue (el arranque ya no debe loguear 'dedup complete'), backup/restore verificado antes de cualquier --apply, y retirar servicios huérfanos db-dedup-script y t051-t058a (decisión del dueño)",
+   "current_truth": "PARTIAL — runtime verificado para el arranque: en Railway MCP (solo lectura) 2026-10-01T01:1xZ, deployment API f27a2abb (commit a20c25b = #719, incluye #714–#719) SUCCESS el arranque NO ejecuta dedup (sin ninguna línea 'dedup'; '105 migrations found', 'No pending migrations to apply', 'migrate deploy completo'); el deployment anterior (3b88637b) sí logueaba 'dedup complete'. Falta: backup/restore verificado antes de cualquier `--apply` del mantenimiento (C55), y retirar servicios huérfanos db-dedup-script y t051-t058a (decisión del dueño)",
    "evidence": {
     "code": true,
     "ci": "PR checks green",
     "merge": "31471b72973f650f0d4eabfb45272615bfdadeff",
-    "deploy": false,
-    "activation": false,
+    "deploy": "Railway MCP (solo lectura) 2026-10-01T01:1xZ, deployment API f27a2abb (commit a20c25b = #719, incluye #714–#719) SUCCESS",
+    "activation": true,
     "pr": "#714"
    }
   },
@@ -1075,12 +1075,12 @@
    "batch": "A4",
    "current_truth": "PARTIAL — en main (#702): gateway usa política canónica. En PR claude/c67-evidence-consolidation: el gateway valida bucketKey con la regla canónica (cerraba una brecha: aceptaba claves de otro tenant). Convergencia de escritura (outbox/audit/idempotencia vía EvidenceService.register) pendiente: requiere decidir el contrato de metadataJson/browser-agent",
    "evidence": {
-    "code": "partial",
+    "code": true,
     "ci": "PR checks green; main auto-deploy (Railway Deploy/Production Health Gate) — sin smoke autenticado",
-    "merge": "f36a22bd6e90f11c6ef17ddf84cabe281c873287",
-    "deploy": "auto-deploy on merge to main (per GitHub Actions); runtime not verified from sandbox",
+    "merge": "01036a8156275664c485950d6c3abe05485c60e2",
+    "deploy": "#717 desplegado en Railway MCP (solo lectura) 2026-10-01T01:1xZ, deployment API f27a2abb (commit a20c25b = #719, incluye #714–#719) SUCCESS",
     "activation": false,
-    "pr": "#702"
+    "pr": "#717"
    }
   },
   {
@@ -1340,11 +1340,10 @@
   "migration_applied": "20260930230513_c39_c46_ai_log_actor_policy_plan_version"
  },
  "runtime_snapshot": {
-  "checked_at": "2026-10-01T00:3xZ",
-  "note": "Railway MCP (solo lectura): API/web/worker/vision SUCCESS online con deployments creados 2026-09-30T23:48 (commit 754030f según el dueño). Los merges #713-#716 (00:27Z) aún no mostraban deployment al consultar.",
-  "api": "3b88637b-350d-4245-93c0-732ce9dcb7a0",
-  "web": "9d617c81-daba-446a-9966-4083bf6f86d1",
-  "worker": "5deb95bb-5490-46f6-a8c1-ce48b9f44af2",
-  "vision": "d6581acc-9340-4376-9c90-7c447db3ea82"
+  "checked_at": "2026-10-01T01:1xZ",
+  "api_active": "f27a2abb-9d97-441b-be20-b7d908167cf6",
+  "api_active_commit": "a20c25b35a0308e9169ead19b0d0b4f9992bcbcd",
+  "api_building": "9b43679d-4b76-459a-99a9-fc17aad3e0ee (0307f4a, #721)",
+  "note": "Railway MCP solo lectura. Las 4 merges #714–#719 están en producción en el deployment activo; #720/#721 en build."
  }
 }
