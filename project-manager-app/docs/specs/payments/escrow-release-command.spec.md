@@ -13,11 +13,14 @@ merge_status: "UNMERGED"
 deploy_status: "NOT_DEPLOYED"
 activation_status: "INACTIVE"
 migration_status: "PENDING"
-feature_flags: ["PAYMENTS_RELEASE_WAIVER_GATE", "PAYMENTS_RELEASE_GOVERNANCE_MODE", "PAYMENTS_RELEASE_COMMAND"]
+feature_flags: ["PAYMENTS_RELEASE_WAIVER_GATE", "PAYMENTS_RELEASE_GOVERNANCE_MODE", "PAYMENTS_RELEASE_COMMAND", "PAYMENTS_RECONCILE_ENABLED"]
 production_evidence: []
 related_files:
   - apps/api/src/modules/payments/escrow-release.command.ts
   - apps/api/src/modules/payments/escrow-release.reconcile.ts
+  - apps/api/src/modules/payments/escrow-release-reconcile.service.ts
+  - apps/api/src/modules/payments/escrow-release-reconcile.controller.ts
+  - apps/worker/src/main.mjs
   - apps/api/src/modules/payments/escrow-release.service.ts
   - apps/api/src/modules/payments/payments.service.ts
   - apps/api/src/modules/payments/payment-governance.service.ts
@@ -30,6 +33,7 @@ related_tests:
   - apps/api/test/escrow-release-provider-adapter.test.ts
   - apps/api/test/escrow-release-service-replay.test.ts
   - apps/api/test/escrow-release-reconcile.test.ts
+  - apps/api/test/escrow-release-reconcile-job.test.ts
 related_endpoints: []
 related_events: []
 related_agents: []
@@ -42,7 +46,7 @@ last_verified: "2026-09-30"
 
 ## Slices de implementación
 1. **Slice 1 — autorización económica única**: `ReleaseGovernanceGate` aplicado en `PaymentsService.release()` (REST, harness del copilot, tool de Prometeo). Gate de lien waivers **enforced por defecto** (`PAYMENTS_RELEASE_WAIVER_GATE=off` = rollback); `evaluate()` completo en **shadow** por defecto (`PAYMENTS_RELEASE_GOVERNANCE_MODE=shadow|enforce|off`). Sin migraciones.
-2. Slice 2 — comando único `EscrowReleaseCommand` (idempotencia por clave, estado ambiguo/reconciliación) y auto-release como adaptador. **2a (código, con hotfix de identidad/replay/clasificación):** núcleo `runEscrowRelease` (reserva→transferencia→finalización con estados `released|pending|failed|unknown`), guarda de un RELEASE activo por milestone en `releaseFunds` (Serializable), adaptador en `PaymentsService.release()` tras `PAYMENTS_RELEASE_COMMAND=on` (apagado por defecto), clasificación de reconciliación (solo informe). **2b (parcial):** informe de reconciliación de PENDING estancados de solo lectura (`escrow-release.reconcile.ts`, `pnpm payments:reconcile-report`, runbook `ESCROW_RELEASE_RECONCILIATION.md`). **2b (pendiente):** adaptador del auto-release (`EscrowReleaseService`/Stripe Connect con fee), consulta automática al proveedor / resolución asistida y alerta programada (job de worker).
+2. Slice 2 — comando único `EscrowReleaseCommand` (idempotencia por clave, estado ambiguo/reconciliación) y auto-release como adaptador. **2a (código, con hotfix de identidad/replay/clasificación):** núcleo `runEscrowRelease` (reserva→transferencia→finalización con estados `released|pending|failed|unknown`), guarda de un RELEASE activo por milestone en `releaseFunds` (Serializable), adaptador en `PaymentsService.release()` tras `PAYMENTS_RELEASE_COMMAND=on` (apagado por defecto), clasificación de reconciliación (solo informe). **2b (parcial):** informe de reconciliación de PENDING estancados de solo lectura (`escrow-release.reconcile.ts`, `pnpm payments:reconcile-report`, runbook `ESCROW_RELEASE_RECONCILIATION.md`). **2b-job (código, decisión del dueño 2026-10-01):** job de worker (`PAYMENTS_RECONCILE_ENABLED`, off por defecto, cada ~15 min) que llama al endpoint interno `POST /v1/admin/payments/release-reconcile/check` (`ops:dashboard:write`, no público); **solo lectura sobre dinero** (jamás cambia estados ni reintenta), emite alerta (log `alert:true`) y auditoría append-only (`AuditLog` `escrow.release.reconcile_alert`, sin actor), como mucho 1 vez/24 h por transacción; la resolución sigue siendo humana. **2b (pendiente):** adaptador del auto-release (`EscrowReleaseService`/Stripe Connect con fee), consulta automática al proveedor / resolución asistida.
 3. Slice 3 — dual approval (migración aditiva `PaymentReleaseApproval`), tras definir D2.
 4. Slice 4 — re-habilitar "Liberar" en admin/finance con `milestoneId` y retirar `payment-governance/releasePayment()`.
 

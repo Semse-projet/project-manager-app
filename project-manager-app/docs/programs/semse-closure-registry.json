@@ -433,7 +433,7 @@
    "priority": "P0",
    "historical": "DUPLICADA",
    "batch": "A2",
-   "current_truth": "PARTIAL — ADR-041 ACCEPTED/spec APPROVED; slice 1 (autorización única) en producción (deploy 70ca14b8, aecbd8d); faltan comando único con idempotencia, dual approval (D2 sin definir) y retiro del camino falso | Slice 2a en PR claude/escrow-release-command: núcleo del comando + guarda de 1 RELEASE activo por milestone + adaptador manual tras PAYMENTS_RELEASE_COMMAND=on (off por defecto); falta 2b (auto-release como adaptador, reconciliador), D2 y slices 3-4",
+   "current_truth": "PARTIAL — ADR-041 ACCEPTED/spec APPROVED; slice 1 (autorización única) en producción (deploy 70ca14b8, aecbd8d); faltan comando único con idempotencia, dual approval (D2 sin definir) y retiro del camino falso | Slice 2a en PR claude/escrow-release-command: núcleo del comando + guarda de 1 RELEASE activo por milestone + adaptador manual tras PAYMENTS_RELEASE_COMMAND=on (off por defecto); falta 2b (auto-release como adaptador, reconciliador), D2 y slices 3-4 | Worker 2b en PR claude/escrow-reconcile-worker: job de solo lectura (PAYMENTS_RECONCILE_ENABLED, off) que alerta+audita RELEASE PENDING estancados; falta auto-release como adaptador, D2 y slices 3-4",
    "evidence": {
     "code": false,
     "ci": false,
@@ -449,7 +449,7 @@
    "priority": "P0",
    "historical": "PARCIAL",
    "batch": "A2",
-   "current_truth": "PARTIAL — en producción (aecbd8d): firma de waivers protegida (#703) y gate de waivers en release manual/agente (#709, enforced por defecto; rollback PAYMENTS_RELEASE_WAIVER_GATE=off); gobernanza completa en shadow (revisar logs release_governance_shadow_would_block antes de enforce); sin smoke | Slice 2a en PR claude/escrow-release-command: núcleo del comando + guarda de 1 RELEASE activo por milestone + adaptador manual tras PAYMENTS_RELEASE_COMMAND=on (off por defecto); falta 2b (auto-release como adaptador, reconciliador), D2 y slices 3-4",
+   "current_truth": "PARTIAL — en producción (aecbd8d): firma de waivers protegida (#703) y gate de waivers en release manual/agente (#709, enforced por defecto; rollback PAYMENTS_RELEASE_WAIVER_GATE=off); gobernanza completa en shadow (revisar logs release_governance_shadow_would_block antes de enforce); sin smoke | Slice 2a en PR claude/escrow-release-command: núcleo del comando + guarda de 1 RELEASE activo por milestone + adaptador manual tras PAYMENTS_RELEASE_COMMAND=on (off por defecto); falta 2b (auto-release como adaptador, reconciliador), D2 y slices 3-4 | Worker 2b en PR claude/escrow-reconcile-worker: job de solo lectura (PAYMENTS_RECONCILE_ENABLED, off) que alerta+audita RELEASE PENDING estancados; falta auto-release como adaptador, D2 y slices 3-4",
    "evidence": {
     "code": "partial",
     "ci": "PR checks green; main auto-deploy (Railway Deploy/Production Health Gate) — sin smoke autenticado",
@@ -466,7 +466,7 @@
    "priority": "P0",
    "historical": "PARCIAL",
    "batch": "A2",
-   "current_truth": "PARTIAL — slice 1 de ADR-041 en producción; idempotencia/reconciliación (slice 2) pendiente | Slice 2a en PR claude/escrow-release-command: núcleo del comando + guarda de 1 RELEASE activo por milestone + adaptador manual tras PAYMENTS_RELEASE_COMMAND=on (off por defecto); falta 2b (auto-release como adaptador, reconciliador), D2 y slices 3-4",
+   "current_truth": "PARTIAL — slice 1 de ADR-041 en producción; idempotencia/reconciliación (slice 2) pendiente | Slice 2a en PR claude/escrow-release-command: núcleo del comando + guarda de 1 RELEASE activo por milestone + adaptador manual tras PAYMENTS_RELEASE_COMMAND=on (off por defecto); falta 2b (auto-release como adaptador, reconciliador), D2 y slices 3-4 | Worker 2b en PR claude/escrow-reconcile-worker: job de solo lectura (PAYMENTS_RECONCILE_ENABLED, off) que alerta+audita RELEASE PENDING estancados; falta auto-release como adaptador, D2 y slices 3-4",
    "evidence": {
     "code": false,
     "ci": false,

@@ -16,5 +16,8 @@ pnpm payments:reconcile-report -- --stale-minutes=30 --report=reconcile.json   #
 3. No existe / falló → marcar `FAILED` (libera el saldo y permite reintentar con otra `Idempotency-Key`).
 4. Registrar quién resolvió, la evidencia (id/captura del proveedor) y el `transactionId` en el reporte de la sesión. Cualquier escritura en `PaymentTxn` la hace un operador autorizado; el informe nunca escribe.
 
-## 3. Lo que NO hace todavía (pendiente)
-Consulta automática al proveedor, resolución asistida y alerta programada (job de worker). Hasta entonces **`PAYMENTS_RELEASE_COMMAND` debe seguir apagado en producción**.
+## 3. Detección automática (job de worker)
+Con `PAYMENTS_RECONCILE_ENABLED=true` en el worker, cada ~15 min llama a `POST /v1/admin/payments/release-reconcile/check` (permiso `ops:dashboard:write`). Solo lectura sobre dinero: emite un log `escrow_release_reconcile_alert` (`alert:true`, nivel error en la API y warn en el worker) y un registro `AuditLog` `escrow.release.reconcile_alert` (sin actor), como mucho una vez cada 24 h por transacción. Nunca cambia estados ni reintenta pagos. Configura una alerta de logs sobre `alert:true` / `escrow_release_reconcile_alert`.
+
+## 4. Lo que NO hace todavía (pendiente)
+Consulta automática al proveedor y resolución asistida. **`PAYMENTS_RELEASE_COMMAND` debe seguir apagado en producción** hasta ensayar este runbook con el job activo.
