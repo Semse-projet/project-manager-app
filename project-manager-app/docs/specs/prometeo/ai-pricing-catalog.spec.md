@@ -29,7 +29,7 @@ last_verified: "2026-10-01"
 
 # Spec: Catálogo de precios de modelos de IA versionado (C39)
 
-> **Estado: DRAFT. No se escribe código ni migración hasta que el dueño la apruebe.** Decisión del dueño ya tomada: el costo debe salir de un catálogo versionado por proveedor/modelo/vigencia; un precio desconocido **nunca** se trata como $0.
+> **Estado: DRAFT con D1–D3 RESUELTAS por el dueño (2026-10-01).** Pasa a `APPROVED` por orden del dueño tras confirmar el gate bloqueante de provenance (#734) en producción; hasta entonces no se escribe código ni migración. Decisión original: el costo sale de un catálogo versionado por proveedor/modelo/vigencia; un precio desconocido **nunca** se trata como $0.
 
 ## 1. Problema y resultado
 **Hoy (verificado en `main`):** `estimateCostUsd` lee `AI_MODEL_PRICING_JSON` (variable de entorno, sin historial) y devuelve `undefined` si el modelo no está. `AiInteractionLog.estimatedCostUsd` (`Decimal(10,6)`, nullable) guarda el resultado. Evidencia: el dueño confirmó el 2026-10-01 (revisión de variables de la API tras el deploy `7c9df29`) que `AI_MODEL_PRICING_JSON` no está configurada en producción; por tanto las filas nuevas guardan `null` (no se ha verificado el contenido histórico de la tabla, solo el código y esa configuración).
@@ -39,7 +39,7 @@ last_verified: "2026-10-01"
 **Resultado esperado:** cada interacción registra el costo calculado con el precio **vigente en su fecha**, y la fila guarda qué entrada de catálogo se usó; si no hay precio vigente, el costo queda `null` con `costBasis = "unknown"` (nunca 0).
 
 ## 2. Alcance
-**Incluido:** tabla aditiva `AiModelPrice` (provider, modelSlug, **providerModelName**, inputPer1K, outputPer1K, currency, effectiveFrom, effectiveTo?, source, createdBy, createdAt); resolución «vigente en `t`»; columnas aditivas en `AiInteractionLog` (`priceId?`, `costBasis`); semilla opcional desde `AI_MODEL_PRICING_JSON` (compatibilidad); flag de modo.
+**Incluido:** tabla aditiva `AiModelPrice` (provider, modelSlug, **providerModelName**, inputPer1K, outputPer1K, currency, effectiveFrom, effectiveTo?, **pricingSchemaVersion**, **metadataJson** validado, **sourceUrl**, **sourcePublishedAt?**, **sourceCheckedAt**, createdBy, createdAt); resolución «vigente en `t`»; columnas aditivas en `AiInteractionLog` (`priceId?`, `costBasis`); semilla opcional desde `AI_MODEL_PRICING_JSON` (compatibilidad); flag de modo.
 **Fuera de alcance:** facturar o cobrar a clientes; presupuestos/cuotas; precios por tier de volumen o caché de prompts (extensión futura); UI de edición del catálogo (primera entrega: script/endpoint interno de solo ops).
 
 ## 3. Reglas de dominio
@@ -50,7 +50,9 @@ last_verified: "2026-10-01"
 3. **Identidad real del modelo (no solo el alias).** La clave tarifaria es (`provider`, `modelSlug`, `providerModelName`), donde `providerModelName` es el nombre real que reporta el proveedor (los providers de Kimi/GLM devuelven siempre el mismo slug aunque su modelo es configurable por variable de entorno). Si cambia el modelo físico detrás de un slug, no hay vigencia para la nueva identidad ⇒ el costo queda `unknown` hasta que un `OPS_ADMIN` cargue la nueva entrada; el log guarda `providerModelName` junto a `priceId`.
 4. **Reproducibilidad:** `priceId` en el log permite recalcular el costo; el log histórico no cambia si el catálogo cambia después.
 5. **Solo USD** en la primera entrega (`currency` = `USD` validado); otra moneda se rechaza.
-6. Alta de precios: solo `OPS_ADMIN`, con auditoría (`AuditLog`); no hay evento nuevo de dominio.
+6. **Carga (D2, aprobada):** el alta inicial y cada nueva vigencia las realiza un `OPS_ADMIN` mediante una operación auditable (`AuditLog`). La **fuente debe ser la documentación/página oficial de precios del proveedor**; se guardan al menos `sourceUrl`, `sourcePublishedAt` (si la página lo indica), `sourceCheckedAt`, actor (`createdBy`) y `createdAt`. **Prohibido** hardcodear una tabla «de fábrica» en el código o inferir precios; sin precio verificable ⇒ `costBasis = "unknown"` y costo `null`. No hay evento nuevo de dominio.
+7. **Evolución del esquema de precios sin romper el histórico.** Los precios modernos no son solo input/output: pueden incluir lectura/escritura de caché, batch, tokens de razonamiento u otras unidades. La v1 calcula con `inputPer1K`/`outputPer1K`; el resto se admite en `metadataJson`, **validado contra el esquema de su `pricingSchemaVersion`** (versión `1` = solo input/output, `metadataJson` vacío o `{}`; una versión superior define sus campos y su fórmula de costo). Una entrada **histórica es inmutable**: nunca se reinterpreta con una versión de esquema nueva; el cálculo de cada log usa la `pricingSchemaVersion` de la fila a la que apunta `priceId`. Una unidad no soportada por esa versión ⇒ costo `unknown`, no se ignora silenciosamente.
+8. **Alcance del catálogo (D1, aprobada): global de plataforma.** Es lo que Semse paga a cada proveedor (infraestructura), no se duplica por cliente. Markup, presupuestos o precios cobrados al cliente pertenecen a otro dominio y **no** se modelan aquí.
 
 ## 4. Escenarios y criterios de aceptación
 1. Precio vigente hoy ⇒ costo = tokens × precio, redondeo a 6 decimales, `costBasis = "catalog"`, `priceId` poblado.
@@ -59,11 +61,13 @@ last_verified: "2026-10-01"
 4. Entrada solapada (intervalos que se intersecan, incluido inicio distinto) ⇒ rechazada por la base; dos altas concurrentes del mismo rango ⇒ una sola gana (test de concurrencia contra Postgres real, patrón de C11).
 5. Cambio del modelo físico detrás de un slug sin nueva vigencia ⇒ `unknown`, nunca la tarifa del modelo anterior.
 6. Con `AI_PRICING_CATALOG_MODE=off` (default) el comportamiento actual (`AI_MODEL_PRICING_JSON`) no cambia; `shadow` calcula ambos y registra discrepancias sin cambiar lo guardado; `on` usa el catálogo.
+7. **Sin fallback silencioso (D3):** con `on` y sin entrada vigente ⇒ `null` + `unknown` aunque `AI_MODEL_PRICING_JSON` contenga ese modelo (test explícito).
+8. Entrada con `metadataJson` inválido para su `pricingSchemaVersion`, sin `sourceUrl`/`sourceCheckedAt`, o con unidades no soportadas ⇒ rechazada al cargar. `UPDATE`/`DELETE` de una entrada existente ⇒ rechazados (inmutabilidad).
 
 ## 5. Datos y migración (aditiva, con rollback)
 - `CREATE EXTENSION IF NOT EXISTS btree_gist` (verificar disponibilidad en el Postgres de Railway antes del PR de código; si no estuviera, alternativa: serializar altas con `pg_advisory_xact_lock` por clave tarifaria + test de concurrencia).
 - `CREATE TABLE "AiModelPrice"` con la restricción de exclusión de §3.2.
-- `ALTER TABLE "AiInteractionLog" ADD COLUMN "priceId" TEXT NULL, ADD COLUMN "costBasis" TEXT NULL`.
+- `ALTER TABLE "AiInteractionLog" ADD COLUMN "priceId" TEXT NULL, ADD COLUMN "costBasis" TEXT NULL, ADD COLUMN "providerModelName" TEXT NULL`. Triggers (o equivalente) que rechazan `UPDATE`/`DELETE` sobre `AiModelPrice` salvo el cierre de `effectiveTo` de la vigencia abierta.
 - Sin backfill (los logs históricos quedan con `NULL`).
 - **Rollback operativo = `AI_PRICING_CATALOG_MODE=off`** conservando tabla y columnas: no destruye el historial que permite reconstruir costos (`priceId`). Retirar el esquema NO es un rollback: solo se haría con una migración posterior, con respaldo/exportación del historial y decisión explícita del dueño sobre la pérdida de procedencia.
 - Migración planificada y validada en Postgres local antes de PR (patrón de C11).
@@ -77,7 +81,7 @@ last_verified: "2026-10-01"
 | Resto de roles | ninguno | — | — | leer ni escribir el catálogo |
 
 - **Sin PII.** Los precios no son secretos.
-- **Tenant boundary — PENDIENTE DE DECISIÓN (D1).** La propuesta es un catálogo **global de plataforma** (sin `tenantId`): los precios de un proveedor son los mismos para todos. La constitución exige `tenantId` en los modelos de datos, por lo que esto es una **excepción que requiere autorización explícita del dueño y su registro como excepción documentada**; hasta entonces no está aprobada. Alternativa: `tenantId` nullable (NULL = global) o catálogo por tenant. `AiInteractionLog` ya es por tenant.
+- **Tenant boundary — EXCEPCIÓN AUTORIZADA (D1, dueño, 2026-10-01).** `AiModelPrice` es un catálogo **global de plataforma, sin `tenantId`**. La constitución exige `tenantId` en los modelos de datos; el dueño autorizó explícitamente esta excepción **solo para `AiModelPrice`** (precio que la plataforma paga, infraestructura compartida). Escritura restringida a `OPS_ADMIN`; ningún dato de tenant se guarda en la tabla. `AiInteractionLog` sigue siendo por tenant.
 - **Auditoría:** cada alta/cierre genera `AuditLog` (actor, antes/después). Sin eventos nuevos en `EVENT_CATALOG.md`.
 - `privacyCritical`: no aplica (no se envía contenido de usuario).
 
@@ -98,7 +102,7 @@ last_verified: "2026-10-01"
 3. Servicio de catálogo + integración en `ai-interaction-logger` detrás de `AI_PRICING_CATALOG_MODE=off`.
 4. `shadow` en producción solo con orden del dueño; `on` es activación aparte.
 
-## 8. Decisiones abiertas (necesitan al dueño)
-- **D1.** ¿Catálogo global de plataforma (propuesto; requiere excepción autorizada a la regla de `tenantId`), `tenantId` nullable o por tenant?
-- **D2.** ¿Quién carga los precios iniciales y de qué fuente (documentación pública de cada proveedor, con fecha)? No se incluye lista por defecto en código.
-- **D3.** ¿Aceptas la semilla desde `AI_MODEL_PRICING_JSON` como compatibilidad, o se retira la variable al activar el catálogo?
+## 8. Decisiones del dueño
+- **D1 — RESUELTA (aprobada):** catálogo global de plataforma; excepción a `tenantId` autorizada solo para `AiModelPrice`.
+- **D2 — RESUELTA (aprobada):** carga por `OPS_ADMIN` con fuentes oficiales del proveedor, auditable, con `sourceUrl`/`sourcePublishedAt`/`sourceCheckedAt`/actor/`createdAt`; sin tabla por defecto en código; sin precio verificable ⇒ `unknown`.
+- **D3 — RESUELTA (aprobada):** `AI_MODEL_PRICING_JSON` se conserva **solo como puente de migración**: puede sembrar/importar (con provenance explícita) en `off`/`shadow`. **Con `AI_PRICING_CATALOG_MODE=on` no hay fallback silencioso a la variable**: catálogo ausente ⇒ costo `unknown`, nunca precio legacy. La variable se retira en una limpieza posterior cuando el catálogo esté estable.
