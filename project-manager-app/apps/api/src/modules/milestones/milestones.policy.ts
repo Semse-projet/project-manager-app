@@ -1,4 +1,5 @@
 import { ConflictException, ForbiddenException } from "@nestjs/common";
+import { hasScopeAccess, scopeFromOwnership } from "../../common/resource-scope.js";
 
 export type MilestoneActor = {
   tenantId: string;
@@ -25,16 +26,12 @@ export type MilestoneLifecycleSnapshot = {
   hasActiveRelease?: boolean;
 };
 
-function isOpsAdmin(actor: MilestoneActor): boolean {
-  return actor.roles.includes("OPS_ADMIN");
+function access(actor: MilestoneActor, ownership: MilestoneOwnership, relation: "read" | "client" | "pro"): boolean {
+  return hasScopeAccess(actor, scopeFromOwnership(actor, ownership), relation);
 }
 
 export function assertMilestoneReadable(actor: MilestoneActor, ownership: MilestoneOwnership): void {
-  if (
-    isOpsAdmin(actor) ||
-    actor.orgId === ownership.clientOrgId ||
-    actor.orgId === ownership.assignedProOrgId
-  ) {
+  if (access(actor, ownership, "read")) {
     return;
   }
 
@@ -42,7 +39,7 @@ export function assertMilestoneReadable(actor: MilestoneActor, ownership: Milest
 }
 
 export function assertMilestoneCreatable(actor: MilestoneActor, ownership: MilestoneOwnership): void {
-  if (isOpsAdmin(actor) || actor.orgId === ownership.clientOrgId) {
+  if (access(actor, ownership, "client")) {
     return;
   }
 
@@ -50,7 +47,7 @@ export function assertMilestoneCreatable(actor: MilestoneActor, ownership: Miles
 }
 
 export function assertMilestoneSubmittable(actor: MilestoneActor, snapshot: MilestoneLifecycleSnapshot): void {
-  if (!(isOpsAdmin(actor) || actor.orgId === snapshot.ownership.assignedProOrgId)) {
+  if (!access(actor, snapshot.ownership, "pro")) {
     throw new ForbiddenException("actor cannot submit this milestone");
   }
 
@@ -68,7 +65,7 @@ export function assertMilestoneSubmittable(actor: MilestoneActor, snapshot: Mile
 }
 
 export function assertMilestoneApprovable(actor: MilestoneActor, snapshot: MilestoneLifecycleSnapshot): void {
-  if (!(isOpsAdmin(actor) || actor.orgId === snapshot.ownership.clientOrgId)) {
+  if (!access(actor, snapshot.ownership, "client")) {
     throw new ForbiddenException("actor cannot approve this milestone");
   }
 
@@ -78,7 +75,7 @@ export function assertMilestoneApprovable(actor: MilestoneActor, snapshot: Miles
 }
 
 export function assertMilestoneRejectable(actor: MilestoneActor, snapshot: MilestoneLifecycleSnapshot): void {
-  if (!(isOpsAdmin(actor) || actor.orgId === snapshot.ownership.clientOrgId)) {
+  if (!access(actor, snapshot.ownership, "client")) {
     throw new ForbiddenException("actor cannot reject this milestone");
   }
 
