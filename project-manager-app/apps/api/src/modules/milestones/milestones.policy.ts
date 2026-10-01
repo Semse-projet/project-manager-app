@@ -1,4 +1,5 @@
 import { ConflictException, ForbiddenException } from "@nestjs/common";
+import { hasScopeAccess, isOpsAdmin, sameOrg, scopeFromOwnership } from "../../common/resource-scope.js";
 import { selfApprovalAllowedInSandbox, type EvidenceRevalidationMode } from "./evidence-readiness.js";
 
 export type MilestoneActor = {
@@ -28,16 +29,12 @@ export type MilestoneLifecycleSnapshot = {
   evidenceBlockers?: string[];
 };
 
-function isOpsAdmin(actor: MilestoneActor): boolean {
-  return actor.roles.includes("OPS_ADMIN");
+function access(actor: MilestoneActor, ownership: MilestoneOwnership, relation: "read" | "client" | "pro"): boolean {
+  return hasScopeAccess(actor, scopeFromOwnership(actor, ownership), relation);
 }
 
 export function assertMilestoneReadable(actor: MilestoneActor, ownership: MilestoneOwnership): void {
-  if (
-    isOpsAdmin(actor) ||
-    actor.orgId === ownership.clientOrgId ||
-    actor.orgId === ownership.assignedProOrgId
-  ) {
+  if (access(actor, ownership, "read")) {
     return;
   }
 
@@ -45,7 +42,7 @@ export function assertMilestoneReadable(actor: MilestoneActor, ownership: Milest
 }
 
 export function assertMilestoneCreatable(actor: MilestoneActor, ownership: MilestoneOwnership): void {
-  if (isOpsAdmin(actor) || actor.orgId === ownership.clientOrgId) {
+  if (access(actor, ownership, "client")) {
     return;
   }
 
@@ -53,7 +50,7 @@ export function assertMilestoneCreatable(actor: MilestoneActor, ownership: Miles
 }
 
 export function assertMilestoneSubmittable(actor: MilestoneActor, snapshot: MilestoneLifecycleSnapshot): void {
-  if (!(isOpsAdmin(actor) || actor.orgId === snapshot.ownership.assignedProOrgId)) {
+  if (!access(actor, snapshot.ownership, "pro")) {
     throw new ForbiddenException("actor cannot submit this milestone");
   }
 
@@ -75,16 +72,15 @@ export function assertMilestoneApprovable(
   snapshot: MilestoneLifecycleSnapshot,
   options: { evidenceMode?: EvidenceRevalidationMode; env?: NodeJS.ProcessEnv } = {},
 ): void {
-  if (!(isOpsAdmin(actor) || actor.orgId === snapshot.ownership.clientOrgId)) {
+  if (!access(actor, snapshot.ownership, "client")) {
     throw new ForbiddenException("actor cannot approve this milestone");
   }
 
   // C18: el mismo org no puede entregar y aprobar su propio hito (conflicto de interes).
   // OPS_ADMIN decide por encima; en no-produccion, el flag de sandbox lo permite para demos.
-  const { clientOrgId, assignedProOrgId } = snapshot.ownership;
   if (
     !isOpsAdmin(actor) &&
-    typeof clientOrgId === "string" && clientOrgId.length > 0 && clientOrgId === assignedProOrgId &&
+    sameOrg(snapshot.ownership.clientOrgId, snapshot.ownership.assignedProOrgId) &&
     !selfApprovalAllowedInSandbox(options.env)
   ) {
     throw new ForbiddenException(
@@ -106,7 +102,7 @@ export function assertMilestoneApprovable(
 }
 
 export function assertMilestoneRejectable(actor: MilestoneActor, snapshot: MilestoneLifecycleSnapshot): void {
-  if (!(isOpsAdmin(actor) || actor.orgId === snapshot.ownership.clientOrgId)) {
+  if (!access(actor, snapshot.ownership, "client")) {
     throw new ForbiddenException("actor cannot reject this milestone");
   }
 

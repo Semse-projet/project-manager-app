@@ -1,3 +1,5 @@
+import { isOpsAdmin, sameOrg } from "../../common/resource-scope.js";
+
 export type OrgActor = {
   tenantId: string;
   orgId: string;
@@ -6,5 +8,5 @@ export type OrgActor = {
 };
 
 export function canReadOrg(actor: OrgActor, orgId: string): boolean {
-  return actor.roles.includes("OPS_ADMIN") || actor.orgId === orgId;
+  return isOpsAdmin(actor) || sameOrg(actor.orgId, orgId);
 }

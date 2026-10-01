@@ -818,7 +818,7 @@
    "priority": "P0",
    "historical": "PARCIAL",
    "batch": "A3",
-   "current_truth": "NOT_STARTED",
+   "current_truth": "PARTIAL — etapa 1 en PR claude/c51-resource-scope: contrato común common/resource-scope.ts (OPS_ADMIN no cruza tenants; cross-tenant 404; org vacía nunca coincide) y políticas de evidence, milestones, disputes, projects y liens delegadas con paridad probada; cierra el caso '' === '' en 5 políticas. Etapas 2 (resto de políticas y comparaciones manuales de orgId) y 3 (resolutor único + guarda de arquitectura en CI, requiere PR de CI autorizado) pendientes",
    "evidence": {
     "code": false,
     "ci": false,

@@ -1,5 +1,6 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service.js';
+import { hasScopeAccess, scopeFromOwnership } from '../../common/resource-scope.js';
 
 export type LienActor = {
   tenantId: string;
@@ -20,11 +21,9 @@ export type LienAccessMode = 'read' | 'pro' | 'ops';
 
 /** Pure policy (C10/C28): same org-ownership rule as evidence/milestones. */
 export function assertLienAccess(actor: LienActor, ownership: LienOwnership, mode: LienAccessMode): void {
-  const isOps = actor.roles.includes('OPS_ADMIN');
-  if (isOps) return;
+  const scope = scopeFromOwnership(actor, ownership);
+  if (hasScopeAccess(actor, scope, mode === 'read' ? 'read' : mode === 'pro' ? 'pro' : 'ops')) return;
   if (mode === 'ops') throw new ForbiddenException('operation restricted to operations admins');
-  if (actor.orgId && actor.orgId === ownership.assignedProOrgId) return;
-  if (mode === 'read' && actor.orgId && actor.orgId === ownership.clientOrgId) return;
   throw new ForbiddenException(
     mode === 'read' ? 'actor does not have access to this project' : 'only the project professional can perform this lien action',
   );
