@@ -20,6 +20,7 @@ import { ProjectLifecycleProjectionEventProducer } from "../domain-events/projec
 import { OriginatorService } from "../originator/originator.service.js";
 import { ContributorProgramService } from "../contributor-program/contributor-program.service.js";
 import { ReleaseGovernanceGate } from "./release-governance.gate.js";
+import { classifyStripeKey, stripeKeyWarning } from "./stripe-key.js";
 
 /**
  * Maps a provider webhook event to the PaymentTxn status it confirms.
@@ -266,6 +267,9 @@ export class PaymentsService {
     const configuredDefaultProvider = this.resolveConfiguredDefaultProvider();
     const availableProviders = this.paymentProviderRegistry.availableKeys();
     const stripeSecretConfigured = Boolean(process.env.STRIPE_SECRET_KEY?.trim());
+    // La forma de la clave se evalúa sin exponerla (incidente 2026-10-01: llegó un ID mk_… en lugar de sk_/rk_).
+    const stripeKey = classifyStripeKey(process.env.STRIPE_SECRET_KEY);
+    const stripeKeyUsable = !stripeSecretConfigured || stripeKey.usable;
     const stripeWebhookSecretConfigured = Boolean(process.env.STRIPE_WEBHOOK_SECRET?.trim());
     const paypalConfigured = Boolean(process.env.PAYPAL_CLIENT_ID?.trim() && process.env.PAYPAL_CLIENT_SECRET?.trim());
     const adyenConfigured = Boolean(process.env.ADYEN_API_KEY?.trim() && process.env.ADYEN_MERCHANT_ACCOUNT?.trim());
@@ -278,6 +282,10 @@ export class PaymentsService {
     }
     if (configuredDefaultProvider !== "stripe" && !availableProviders.includes(configuredDefaultProvider)) {
       warnings.push(`PAYMENT_PROVIDER is ${configuredDefaultProvider} but that provider is not implemented`);
+    }
+    const stripeKeyProblem = stripeKeyWarning(process.env.STRIPE_SECRET_KEY);
+    if (stripeKeyProblem) {
+      warnings.push(stripeKeyProblem);
     }
     if (productionRuntime && configuredDefaultProvider === "stripe" && !stripeWebhookSecretConfigured) {
       warnings.push("STRIPE_WEBHOOK_SECRET is required for Stripe webhooks in production");
@@ -303,7 +311,7 @@ export class PaymentsService {
           professionalPayout: true,
           automatic: true,
           configured: stripeSecretConfigured,
-          ready: availableProviders.includes("stripe") && (!productionRuntime || stripeWebhookSecretConfigured),
+          ready: availableProviders.includes("stripe") && stripeKeyUsable && (!productionRuntime || stripeWebhookSecretConfigured),
           requiredEnv: ["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"]
         },
         {
@@ -359,8 +367,9 @@ export class PaymentsService {
       ],
       stripe: {
         secretConfigured: stripeSecretConfigured,
+        keyShape: stripeKey.shape,
         webhookSecretConfigured: stripeWebhookSecretConfigured,
-        ready: availableProviders.includes("stripe") && (!productionRuntime || stripeWebhookSecretConfigured)
+        ready: availableProviders.includes("stripe") && stripeKeyUsable && (!productionRuntime || stripeWebhookSecretConfigured)
       },
       paypal: {
         configured: paypalConfigured,

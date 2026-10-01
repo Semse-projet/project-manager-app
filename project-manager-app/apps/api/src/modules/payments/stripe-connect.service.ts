@@ -293,6 +293,11 @@ export class StripeConnectService {
     const message = rawMessage.length > 220 ? `${rawMessage.slice(0, 220)}...` : rawMessage;
     const code = typeof record.code === "string" ? record.code : undefined;
     const type = typeof record.type === "string" ? record.type : undefined;
+    // Un fallo de autenticación es de CONFIGURACIÓN del servidor: no se devuelve al cliente el texto de
+    // Stripe (incluye un prefijo enmascarado de la clave); el detalle queda en el log del servidor.
+    if (type === "StripeAuthenticationError") {
+      return "La integración con Stripe no está configurada correctamente. Contacta a soporte.";
+    }
     const parts = [
       code ? `code=${code}` : null,
       type ? `type=${type}` : null,
