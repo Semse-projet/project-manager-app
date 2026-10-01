@@ -32,6 +32,19 @@ test("live-sessions: org vacía no abre sesión de un job con org de cliente vac
   assert.equal(await crossTenant("", ["OPS_ADMIN"]), false);
 });
 
+test("buildops-plan-approval: aprobar/gestionar un plan exige misma org no vacía; OPS_ADMIN gestiona", () => {
+  const proto = BuildOpsPlanApprovalService.prototype as any;
+  const plan = (clientOrgId: string) => ({ jobId: "j1", job: { clientOrgId } });
+  const act = (orgId: string, roles: string[] = []) => ({ actorUserId: "u1", orgId, roles });
+  assert.equal(throws(() => proto.assertApprovePermission.call({}, plan(""), act(""), "client", null)), true);
+  assert.equal(throws(() => proto.assertApprovePermission.call({}, plan("org_client"), act("org_x"), "client", null)), true);
+  assert.equal(throws(() => proto.assertApprovePermission.call({}, plan("org_client"), act("org_client"), "client", null)), false);
+  assert.equal(throws(() => proto.assertManagementPermission.call({}, plan(""), act(""))), true);
+  assert.equal(throws(() => proto.assertManagementPermission.call({}, plan("org_client"), act("org_x"))), true);
+  assert.equal(throws(() => proto.assertManagementPermission.call({}, plan("org_client"), act("org_client"))), false);
+  assert.equal(throws(() => proto.assertManagementPermission.call({}, plan("org_client"), act("", ["OPS_ADMIN"]))), false);
+});
+
 test("intake-operations-bridge / legacy-promotion: org vacía y cross-org denegadas; cliente y OPS_ADMIN permitidos", () => {
   const job = (clientOrgId: string) => ({ clientOrgId, jobId: "j1", job: { clientOrgId } });
   const cases: Array<[string, (org: string, roles: string[], client: string) => void]> = [
