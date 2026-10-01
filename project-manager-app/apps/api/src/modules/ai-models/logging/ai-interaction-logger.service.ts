@@ -1,9 +1,11 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
 import { PrismaService } from "../../../infrastructure/prisma/prisma.service.js";
 import type { AiGenerateRequest } from "../dto/ai-generate-request.dto.js";
 import type { AiGenerateResponse } from "../dto/ai-generate-response.dto.js";
 import { requiresPrivateProvider } from "../router/privacy-policy.js";
 import { estimateCostUsd } from "./ai-cost.js";
+import { parsePricingCatalogMode, type CostResult } from "../pricing/ai-pricing-catalog.js";
+import { AiPricingCatalogService } from "../pricing/ai-pricing-catalog.service.js";
 
 export type AiInteractionMode = "runtime" | "report" | "context_only" | "fallback";
 
@@ -98,7 +100,68 @@ export class AiInteractionLoggerService {
   private readonly buffer: AiInteractionLog[] = [];
   private readonly MAX_BUFFER = 200;
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    // C39 — opcional: sin catálogo (o con AI_PRICING_CATALOG_MODE=off) el comportamiento es el legado.
+    @Optional() private readonly pricingCatalog?: AiPricingCatalogService,
+  ) {}
+
+  /**
+   * C39 — costo según AI_PRICING_CATALOG_MODE (off por defecto):
+   *  - off:    comportamiento legado (AI_MODEL_PRICING_JSON), sin tocar nada más.
+   *  - shadow: se guarda el valor legado; se calcula el del catálogo y se registra la discrepancia.
+   *  - on:     SOLO catálogo. Sin entrada vigente ⇒ costo null + costBasis "unknown"; nunca
+   *            hay fallback silencioso al JSON legado (ni a un costo reportado por el proveedor).
+   */
+  private async resolveCostFields(
+    response: AiGenerateResponse,
+    at: Date,
+  ): Promise<{ estimatedCostUsd?: number; costBasis?: string; priceId?: string }> {
+    const legacy = response.estimatedCost
+      ?? estimateCostUsd(response.modelSlug, response.inputTokens, response.outputTokens);
+    const mode = parsePricingCatalogMode();
+    if (mode === "off") return { estimatedCostUsd: legacy };
+
+    const catalog = await this.catalogCost(response, at);
+    if (mode === "shadow") {
+      if ((legacy ?? null) !== (catalog.costUsd ?? null)) {
+        this.logger.warn(JSON.stringify({
+          event: "ai_pricing_catalog_mismatch", provider: response.provider, modelSlug: response.modelSlug,
+          modelName: response.modelName ?? null, legacyCostUsd: legacy ?? null, catalogCostUsd: catalog.costUsd,
+          catalogBasis: catalog.costBasis,
+        }));
+      }
+      return { estimatedCostUsd: legacy };
+    }
+    if (catalog.costBasis === "unknown") {
+      this.logger.warn(JSON.stringify({
+        event: "ai_cost_unknown", provider: response.provider, modelSlug: response.modelSlug,
+        modelName: response.modelName ?? null, reason: catalog.reason ?? null,
+      }));
+    }
+    return {
+      estimatedCostUsd: catalog.costUsd ?? undefined,
+      costBasis: catalog.costBasis,
+      priceId: catalog.priceId ?? undefined,
+    };
+  }
+
+  /** Nunca lanza: ante cualquier fallo del catálogo el resultado es unknown (jamás $0 ni precio legado). */
+  private async catalogCost(response: AiGenerateResponse, at: Date): Promise<CostResult> {
+    const unknown = (reason: string): CostResult => ({ costUsd: null, costBasis: "unknown", priceId: null, reason });
+    if (!this.pricingCatalog) return unknown("catalog_unavailable");
+    if (!response.modelName) return unknown("no_model_name");
+    try {
+      return await this.pricingCatalog.resolveCost(
+        { provider: response.provider, modelSlug: response.modelSlug, providerModelName: response.modelName },
+        at,
+        { inputTokens: response.inputTokens, outputTokens: response.outputTokens },
+      );
+    } catch (err) {
+      this.logger.warn(`[ai-cost] catalog lookup failed: ${String(err)}`);
+      return unknown("catalog_error");
+    }
+  }
 
   async logInteraction(request: AiGenerateRequest, response: AiGenerateResponse): Promise<void> {
     const createdAt = new Date().toISOString();
@@ -135,11 +198,13 @@ export class AiInteractionLoggerService {
     const str = (v: unknown) => (typeof v === "string" && v.length > 0 ? v : undefined);
     const privacyLevel = request.privacyLevel
       ?? (request.privacyCritical ? "privacy_critical" : request.localOnly ? "local_only" : undefined);
+    const cost = await this.resolveCostFields(response, new Date(createdAt));
     this.persistInteraction(log, {
       tenantId: request.metadata?.tenantId as string | undefined,
       modelName: response.modelName,
-      estimatedCostUsd: response.estimatedCost
-        ?? estimateCostUsd(response.modelSlug, response.inputTokens, response.outputTokens),
+      estimatedCostUsd: cost.estimatedCostUsd,
+      costBasis: cost.costBasis,
+      priceId: cost.priceId,
       // C39 — who acted and under which privacy policy (server-stamped metadata).
       orgId: str(request.metadata?.orgId),
       actorRoles: str(request.metadata?.actorRoles),
@@ -249,6 +314,8 @@ export class AiInteractionLoggerService {
       tenantId?: string;
       modelName?: string;
       estimatedCostUsd?: number;
+      costBasis?: string;
+      priceId?: string;
       orgId?: string;
       actorRoles?: string;
       privacyLevel?: string;
@@ -275,6 +342,8 @@ export class AiInteractionLoggerService {
         inputTokens: log.inputTokens,
         outputTokens: log.outputTokens,
         estimatedCostUsd: options?.estimatedCostUsd,
+        costBasis: options?.costBasis,
+        priceId: options?.priceId,
         latencyMs: log.latencyMs,
         routeReason: log.routeReason,
         fallbackUsed: log.fallbackUsed,

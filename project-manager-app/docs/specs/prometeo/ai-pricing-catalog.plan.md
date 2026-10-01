@@ -31,10 +31,10 @@ Aditivo y detrás de `AI_PRICING_CATALOG_MODE=off` (default). Primero el dominio
 
 ## 4. Diseño
 1. **Dominio puro** `ai-pricing-catalog.ts`: `resolvePrice(entries, key, at)` (intervalos `[from,to)`), `computeCost(price, usage)` por `pricingSchemaVersion` (v1 = input/output; unidad no soportada ⇒ `unknown`), validación de `metadataJson` por versión.
-2. **Datos** (migración `<ts>_c39_ai_model_price_catalog`): `btree_gist`; tabla `AiModelPrice` con exclusión por (`provider`,`modelSlug`,`providerModelName`,`tstzrange`); triggers de inmutabilidad; columnas aditivas en `AiInteractionLog` (`priceId`,`costBasis`,`providerModelName`).
+2. **Datos** (migración `<ts>_c39_ai_model_price_catalog`): `btree_gist`; tabla `AiModelPrice` con exclusión por (`provider`,`modelSlug`,`providerModelName`,`tsrange`); triggers de inmutabilidad; columnas aditivas en `AiInteractionLog` (`priceId`,`costBasis`; la identidad real del modelo es la columna existente `modelName`).
 3. **Servicio** `AiPricingCatalogService`: alta/cierre en una transacción, `OPS_ADMIN`, `AuditLog`; lectura vigente.
 4. **Integración** en `ai-interaction-logger`: `off` = comportamiento actual; `shadow` = calcula ambos y registra `ai_pricing_catalog_mismatch`; `on` = catálogo, sin fallback.
-5. **Importador** de la variable legada solo en `off`/`shadow` con provenance explícita.
+5. **Importador** de la variable legada: DIFERIDO (la variable no tiene fuente oficial por entrada y D2 la exige). El puente D3 se cumple por los modos: la variable solo se usa en `off`/`shadow`; en `on` no hay fallback.
 6. **Schemas** en `packages/schemas` (contrato de alta y de `metadataJson` v1).
 
 ## 5. Riesgos

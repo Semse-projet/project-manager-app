@@ -139,6 +139,7 @@ de Production Health las verifica junto con las nueve páginas `/modules/*`.
 - `GET /v1/ops/trust-overview`
 - `GET /v1/ops/dashboard`
 - `POST /v1/admin/payments/release-reconcile/check` (interno: lo dispara el worker con `PAYMENTS_RECONCILE_ENABLED`; `ops:dashboard:write`; solo lectura sobre dinero, alerta + auditoría append-only; ADR-041 2b)
+- `GET /v1/admin/ai-pricing/prices` (`ops:dashboard:read`; catálogo GLOBAL de precios de modelos de IA, C39) y `POST /v1/admin/ai-pricing/prices` (`ops:dashboard:write` + rol `OPS_ADMIN`; alta de una vigencia con fuente oficial `sourceUrl`/`sourceCheckedAt`, entradas inmutables, auditada; sin efecto sobre costos hasta `AI_PRICING_CATALOG_MODE=shadow|on`)
 - `GET /v1/ops/mission-control/summary` (legacy-compatible aggregate)
 - `GET /v1/ops/mission-control/exceptions` (F4; `ops:dashboard:read`; normalized, paginated and tenant-scoped read model with partial-source errors)
 - `GET /v1/ops/mission-control/runbooks` (F4; approved code-versioned catalog)
