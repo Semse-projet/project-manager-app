@@ -1,8 +1,17 @@
-import { ForbiddenException, Injectable, Logger, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import {
   WorkerVerificationRepository,
 } from "./worker-verification.repository.js";
 import { SseEventBusService } from "../../infrastructure/sse/sse-event-bus.service.js";
+
+import {
+  attestationMessage,
+  canTransition,
+  challengeTtlSeconds,
+  generateNonce,
+  hashNonce,
+  type TenantVerificationStatus,
+} from "./worker-verification.state.js";
 
 export interface VerificationState {
   workerId: string;
@@ -10,6 +19,8 @@ export interface VerificationState {
   didSignature?: string;
   feedback?: string;
   verifiedAt?: Date;
+  /** Solo al iniciar: nonce de UN SOLO USO que el trabajador debe firmar (no se vuelve a mostrar). */
+  challenge?: { nonce: string; expiresAt: Date; message: string };
 }
 
 /** Quien ejecuta la accion (identidad autenticada, nunca del body). */
@@ -47,9 +58,8 @@ export class WorkerVerificationService {
 
   /**
    * C11 — precondicion de atestacion: solo el propio trabajador (o OPS_ADMIN)
-   * puede iniciar o presentar una atestacion de identidad sobre un trabajador.
-   * Tener `worker:write` en el tenant NO basta: antes cualquier holder podia
-   * atestar a otro trabajador. Sin actor => se rechaza (fail closed).
+   * puede iniciar o presentar una atestacion sobre un trabajador. Sin actor =>
+   * se rechaza (fail closed).
    */
   private assertMayAttest(actor: VerificationActor | undefined, workerId: string): void {
     if (actor && (actor.userId === workerId || actor.roles.includes("OPS_ADMIN"))) return;
@@ -57,52 +67,69 @@ export class WorkerVerificationService {
   }
 
   /**
-   * C11 — el estado se DERIVA de User.verificationStatus (fuente durable y
-   * unica entre instancias). Antes vivia en un Map en memoria: se perdia al
-   * reiniciar y cada replica veia un estado distinto. Los estados intermedios
-   * (signing/signed) y "failed" son transitorios de una sola peticion y no se
-   * persisten.
+   * Estado de la API derivado del estado EFECTIVO por tenant (WorkerVerification,
+   * con el global legado solo como compatibilidad). `signing/signed/failed` son
+   * transitorios de una peticion y no se persisten.
    */
-  private stateFromPersisted(workerId: string, verificationStatus: string): VerificationState {
-    switch (verificationStatus) {
+  private toState(workerId: string, status: TenantVerificationStatus): VerificationState {
+    switch (status) {
       case "verified":
         return { workerId, status: "verified" };
       case "suspended":
         return { workerId, status: "failed", feedback: "worker verification is suspended" };
-      default: // "unverified" | "pending"
+      default:
         return { workerId, status: "pending" };
     }
   }
 
-  async initiateVerification(
-    request: VerificationRequest,
-  ): Promise<VerificationState> {
+  async initiateVerification(request: VerificationRequest): Promise<VerificationState> {
     try {
-      const worker = await this.repository.getWorkerInTenant(request.workerId, request.tenantId);
-      if (!worker) {
-        throw new NotFoundException(
-          `Worker ${request.workerId} not found`,
-        );
+      await this.requireWorkerInTenant(request.workerId, request.tenantId);
+      this.assertMayAttest(request.actor, request.workerId);
+
+      const current = await this.repository.getEffectiveStatus(request.tenantId, request.workerId);
+      // Verificado o suspendido: no se emite desafio ni se cambia nada.
+      if (current === "verified" || current === "suspended") {
+        return this.toState(request.workerId, current);
       }
 
-      this.assertMayAttest(request.actor, request.workerId);
-      // Persiste "pending" solo desde "unverified"; nunca degrada verified/suspended.
-      await this.repository.markPendingIfUnverified(request.workerId);
-      const refreshed = await this.repository.getWorkerInTenant(request.workerId, request.tenantId);
-      const state = this.stateFromPersisted(request.workerId, refreshed?.verificationStatus ?? worker.verificationStatus);
+      // unverified -> pending (monotonico, atomico, con evento). Si ya es pending, no-op.
+      if (canTransition(current, "pending")) {
+        await this.repository.transitionTenantStatus({
+          tenantId: request.tenantId,
+          userId: request.workerId,
+          from: ["unverified"],
+          to: "pending",
+          eventType: "status_changed",
+          actorUserId: request.actor?.userId,
+        });
+      }
 
-      // Emit SSE event
+      const nonce = generateNonce();
+      const expiresAt = new Date(Date.now() + challengeTtlSeconds() * 1000);
+      await this.repository.issueChallenge({
+        tenantId: request.tenantId,
+        userId: request.workerId,
+        nonceHash: hashNonce(nonce),
+        expiresAt,
+        actorUserId: request.actor?.userId,
+      });
+
       if (this.sseBus) {
         this.sseBus.emit("worker-verification", "initiated", {
           workerId: request.workerId,
           tenantId: request.tenantId,
           verificationType: request.verificationType,
-          status: state.status,
+          status: "pending",
           timestamp: new Date().toISOString(),
         });
       }
 
-      return state;
+      return {
+        workerId: request.workerId,
+        status: "pending",
+        challenge: { nonce, expiresAt, message: attestationMessage(request.tenantId, request.workerId, nonce) },
+      };
     } catch (error) {
       this.logger.error(
         `Initiate verification failed: ${error instanceof Error ? error.message : String(error)}`,
@@ -116,16 +143,37 @@ export class WorkerVerificationService {
     tenantId: string,
     didSignature: string,
     didPublicKey: string,
+    nonce: string,
     actor?: VerificationActor,
   ): Promise<VerificationState> {
     try {
-      const worker = await this.requireWorkerInTenant(workerId, tenantId);
+      await this.requireWorkerInTenant(workerId, tenantId);
       this.assertMayAttest(actor, workerId);
 
-      // Un trabajador suspendido no se re-verifica por esta via (hace falta una
-      // decision humana explicita fuera de este flujo).
-      if (worker.verificationStatus === "suspended") {
-        return this.stateFromPersisted(workerId, worker.verificationStatus);
+      const current = await this.repository.getEffectiveStatus(tenantId, workerId);
+      if (current === "suspended") return this.toState(workerId, current);
+      if (current === "verified") return this.toState(workerId, current); // idempotente
+
+      if (typeof nonce !== "string" || nonce.length < 16 || nonce.length > 128) {
+        throw new BadRequestException("A valid challenge nonce is required (start verification first)");
+      }
+
+      // Un solo uso, ligado a tenant+trabajador, con caducidad. Se consume ANTES de
+      // validar la firma: un intento fallido tambien quema el desafio (no se reintenta).
+      const consumed = await this.repository.consumeChallenge({
+        tenantId,
+        userId: workerId,
+        nonceHash: hashNonce(nonce),
+      });
+      if (!consumed) {
+        await this.repository.appendEvent({
+          tenantId,
+          userId: workerId,
+          type: "signature_rejected",
+          actorUserId: actor?.userId,
+          metadata: { reason: "challenge_invalid_expired_or_used" },
+        });
+        return { workerId, status: "failed", feedback: "challenge is invalid, expired or already used" };
       }
 
       if (this.sseBus) {
@@ -134,23 +182,30 @@ export class WorkerVerificationService {
 
       await this.repository.storeDidSignature(workerId, didSignature, didPublicKey);
 
-      if (this.sseBus) {
-        this.sseBus.emit("worker-verification", "signed", { workerId, tenantId, progress: 60 });
-      }
-
-      const isValid = await this.verifyDidSignature(workerId, didSignature, didPublicKey);
+      const isValid = await this.verifyDidSignature(
+        workerId,
+        didSignature,
+        didPublicKey,
+        attestationMessage(tenantId, workerId, nonce),
+      );
 
       if (isValid) {
-        // "verified" solo llega aqui si la criptografia DID REAL valido la firma
-        // (hoy verifyDidSignature falla cerrado). Se persiste de verdad.
-        const changed = await this.repository.markVerified(workerId);
+        // "verified" solo llega aqui si la criptografia DID REAL valido la firma sobre el
+        // mensaje ligado al nonce (hoy verifyDidSignature falla cerrado).
+        const changed = await this.repository.transitionTenantStatus({
+          tenantId,
+          userId: workerId,
+          from: ["unverified", "pending"],
+          to: "verified",
+          eventType: "verified",
+          actorUserId: actor?.userId,
+          metadata: { method: "DID_SIGNATURE" },
+        });
         const verifiedAt = new Date();
-
         await this.repository.createVerificationLog(workerId, tenantId, "DID_SIGNATURE", {
           status: "verified",
           verifiedAt,
         });
-
         if (this.sseBus) {
           this.sseBus.emit("worker-verification", "verified", {
             workerId,
@@ -162,6 +217,13 @@ export class WorkerVerificationService {
         return { workerId, status: "verified", verifiedAt: changed ? verifiedAt : undefined };
       }
 
+      await this.repository.appendEvent({
+        tenantId,
+        userId: workerId,
+        type: "signature_rejected",
+        actorUserId: actor?.userId,
+        metadata: { reason: "signature_invalid" },
+      });
       if (this.sseBus) {
         this.sseBus.emit("worker-verification", "verification_failed", {
           workerId,
@@ -169,7 +231,7 @@ export class WorkerVerificationService {
           reason: "DID signature invalid",
         });
       }
-      // Fallo transitorio de esta peticion: no se persiste ni se degrada el estado.
+      // Fallo de esta peticion: no se persiste ni se degrada el estado.
       return { workerId, status: "failed", feedback: "DID signature verification failed" };
     } catch (error) {
       this.logger.error(
@@ -180,23 +242,31 @@ export class WorkerVerificationService {
   }
 
   async getVerificationStatus(workerId: string, tenantId: string): Promise<VerificationState> {
-    const worker = await this.requireWorkerInTenant(workerId, tenantId);
-    return this.stateFromPersisted(workerId, worker.verificationStatus);
+    await this.requireWorkerInTenant(workerId, tenantId);
+    return this.toState(workerId, await this.repository.getEffectiveStatus(tenantId, workerId));
   }
 
-  /**
-   * Honest history: no per-verification log is persisted yet
-   * (createVerificationLog only writes to the application log), so this
-   * reports the real User.verificationStatus and an empty list — it used to
-   * return a synthetic "verified" entry for every workerId.
-   */
+  /** Historial REAL y auditable (append-only) de la verificacion del trabajador en este tenant. */
   async getVerificationHistory(workerId: string, tenantId: string) {
-    const worker = await this.requireWorkerInTenant(workerId, tenantId);
+    await this.requireWorkerInTenant(workerId, tenantId);
+    const [overallStatus, events] = await Promise.all([
+      this.repository.getEffectiveStatus(tenantId, workerId),
+      this.repository.listEvents(tenantId, workerId),
+    ]);
     return {
       workerId,
-      verifications: [] as Array<{ type: string; status: string; verifiedAt: Date }>,
-      overallStatus: worker.verificationStatus,
-      historyAvailable: false,
+      overallStatus,
+      historyAvailable: true,
+      verifications: events
+        .filter((e) => e.type === "verified")
+        .map((e) => ({ type: "DID_SIGNATURE", status: "verified", verifiedAt: e.occurredAt })),
+      events: events.map((e) => ({
+        type: e.type,
+        fromStatus: e.fromStatus,
+        toStatus: e.toStatus,
+        occurredAt: e.occurredAt,
+        reason: (e.metadataJson as { reason?: string } | null)?.reason ?? null,
+      })),
     };
   }
 
@@ -205,17 +275,13 @@ export class WorkerVerificationService {
   }
 
   async getVerificationStats(tenantId: string) {
-    const verified = await this.repository.countVerifiedWorkers(tenantId);
-    const unverified = await this.repository.getUnverifiedWorkers(tenantId);
-
+    const { total, verified } = await this.repository.getVerificationCounts(tenantId);
     return {
       tenantId,
-      totalWorkers: verified + unverified.length,
+      totalWorkers: total,
       verifiedCount: verified,
-      unverifiedCount: unverified.length,
-      verificationRate: Math.round(
-        (verified / (verified + unverified.length)) * 100,
-      ),
+      unverifiedCount: total - verified,
+      verificationRate: total === 0 ? 0 : Math.round((verified / total) * 100),
     };
   }
 
@@ -223,17 +289,11 @@ export class WorkerVerificationService {
     workerId: string,
     didSignature: string,
     didPublicKey: string,
+    message: string,
   ): Promise<boolean> {
     try {
-      // In production, use crypto.subtle or tweetnacl library
-      const isValid = await this.repository.verifyDidSignature(
-        workerId,
-        didSignature,
-        didPublicKey,
-        `verify_${workerId}`,
-      );
-
-      return isValid;
+      // En produccion se usara crypto real (crypto.subtle / tweetnacl) sobre `message`.
+      return await this.repository.verifyDidSignature(workerId, didSignature, didPublicKey, message);
     } catch (error) {
       this.logger.error(
         `DID verification error: ${error instanceof Error ? error.message : String(error)}`,

@@ -22,8 +22,12 @@ function build() {
     async storeDidSignature() { calls.push("store"); },
     async createVerificationLog() { calls.push("log"); },
     async verifyDidSignature() { return false; },
-    async markPendingIfUnverified() { return false; },
-    async markVerified() { return false; },
+    async getEffectiveStatus() { return "unverified"; },
+    async listEvents() { return []; },
+    async appendEvent() { calls.push("event"); },
+    async consumeChallenge() { calls.push("consume"); return false; },
+    async transitionTenantStatus() { calls.push("transition"); return false; },
+    async issueChallenge() { calls.push("challenge"); },
   };
   return { service: new WorkerVerificationService(repository as never), calls };
 }
@@ -41,12 +45,13 @@ test("status: owning tenant reads the state", async () => {
   assert.equal(state.workerId, "worker_1");
 });
 
-test("history is honest: real User.verificationStatus, no fabricated verified entry", async () => {
+test("history is honest: real per-tenant events, no fabricated verified entry", async () => {
   const { service } = build();
   const history = await service.getVerificationHistory("worker_1", "tenant_1");
   assert.equal(history.overallStatus, "unverified");
   assert.deepEqual(history.verifications, []);
-  assert.equal(history.historyAvailable, false);
+  assert.equal(history.historyAvailable, true);
+  assert.deepEqual(history.events, []);
 });
 
 test("verify/sign: foreign tenant cannot initiate or sign, and nothing is stored", async () => {
@@ -55,7 +60,7 @@ test("verify/sign: foreign tenant cannot initiate or sign, and nothing is stored
     service.initiateVerification({ workerId: "worker_1", tenantId: "tenant_2", actor: { userId: "worker_1", roles: [] }, verificationType: "DID_SIGNATURE" } as never),
     NotFoundException,
   );
-  await assert.rejects(service.submitDidSignature("worker_1", "tenant_2", "sig", "pub", { userId: "worker_1", roles: [] }), NotFoundException);
+  await assert.rejects(service.submitDidSignature("worker_1", "tenant_2", "sig", "pub", "n".repeat(43), { userId: "worker_1", roles: [] }), NotFoundException);
   assert.ok(!calls.includes("store") && !calls.includes("log"));
 });
 

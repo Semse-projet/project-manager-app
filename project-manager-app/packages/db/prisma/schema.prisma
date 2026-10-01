@@ -5151,3 +5151,51 @@ model JevDecisionEvent {
   @@index([feature, mode, agreement])
   @@index([correlationId])
 }
+
+// ── C11: verificación de trabajadores POR TENANT ──────────────────────────────
+// Sustituye al estado GLOBAL de User.verificationStatus (que se mantiene solo
+// como compatibilidad temporal de lectura). Spec: docs/specs/trust/worker-verification-tenant.spec.md
+// Sin FK a Tenant/User a propósito: migración puramente aditiva y de bajo riesgo.
+
+/// Estado de verificación de un trabajador DENTRO de un tenant. Transiciones monotónicas:
+/// unverified -> pending -> verified; `suspended` solo por decisión explícita de OPS.
+model WorkerVerification {
+  id         String    @id @default(cuid())
+  tenantId   String
+  userId     String
+  status     String    @default("unverified") // unverified | pending | verified | suspended
+  verifiedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@unique([tenantId, userId])
+  @@index([tenantId, status])
+}
+
+/// Desafío de atestación: nonce aleatorio de UN SOLO USO con caducidad. Solo se guarda el hash.
+model WorkerVerificationChallenge {
+  id         String    @id @default(cuid())
+  tenantId   String
+  userId     String
+  nonceHash  String    @unique // sha256(nonce) en hex; el nonce en claro nunca se persiste
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([tenantId, userId, createdAt])
+}
+
+/// Historial auditable (append-only) de la verificación de un trabajador en un tenant.
+model WorkerVerificationEvent {
+  id           String   @id @default(cuid())
+  tenantId     String
+  userId       String
+  type         String // challenge_issued | signature_rejected | verified | status_changed
+  fromStatus   String?
+  toStatus     String?
+  actorUserId  String?
+  metadataJson Json?
+  occurredAt   DateTime @default(now())
+
+  @@index([tenantId, userId, occurredAt])
+}
