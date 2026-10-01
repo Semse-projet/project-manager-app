@@ -517,13 +517,46 @@ export class PaymentsRepository {
   }
 
   /** RELEASE PENDING creados antes de `before`: entrada de la reconciliacion proveedor<->DB. */
-  async findStalePendingReleases(before: Date): Promise<Array<{ id: string; milestoneId: string | null; providerRef: string; amount: number; createdAt: Date }>> {
+  async findStalePendingReleases(before: Date): Promise<Array<{ id: string; tenantId: string; milestoneId: string | null; providerRef: string; amount: number; createdAt: Date }>> {
     const rows = await this.prisma.paymentTxn.findMany({
       where: { type: "RELEASE", status: "PENDING", createdAt: { lt: before } },
+      include: { escrow: { select: { project: { select: { tenantId: true } } } } },
       orderBy: { createdAt: "asc" },
       take: 200
     });
-    return rows.map((r) => ({ id: r.id, milestoneId: r.milestoneId, providerRef: r.providerRef, amount: r.amount.toNumber(), createdAt: r.createdAt }));
+    return rows.map((r) => ({
+      id: r.id,
+      tenantId: r.escrow.project.tenantId,
+      milestoneId: r.milestoneId,
+      providerRef: r.providerRef,
+      amount: r.amount.toNumber(),
+      createdAt: r.createdAt
+    }));
+  }
+
+  /** ADR-041 2b: ya se alerto este PENDING desde `since`? (evita una alerta cada 15 min por el mismo caso). */
+  async hasRecentReleaseReconcileAlert(transactionId: string, since: Date): Promise<boolean> {
+    const found = await this.prisma.auditLog.findFirst({
+      where: { entityType: "PaymentTxn", entityId: transactionId, action: "escrow.release.reconcile_alert", occurredAt: { gte: since } },
+      select: { id: true }
+    });
+    return found !== null;
+  }
+
+  /**
+   * Registro append-only de la alerta (AuditLog, sin actor: la emite el sistema).
+   * NO modifica PaymentTxn, Milestone ni Escrow.
+   */
+  async recordReleaseReconcileAlert(input: { tenantId: string; transactionId: string; payload: Record<string, unknown> }): Promise<void> {
+    await this.prisma.auditLog.create({
+      data: {
+        tenantId: input.tenantId,
+        entityType: "PaymentTxn",
+        entityId: input.transactionId,
+        action: "escrow.release.reconcile_alert",
+        afterJson: input.payload as never
+      }
+    });
   }
 
   /**
