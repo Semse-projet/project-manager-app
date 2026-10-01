@@ -12,23 +12,33 @@ import { ReservationsRepository } from "../dist/modules/reservations/reservation
 const throws = (fn: () => void) => { try { fn(); return false; } catch { return true; } };
 const own = (professionalOrgId: string | null) => ({ clientOrgId: "org_client", professionalOrgId });
 
-test("jobs: transición por defecto con org vacía y SIN profesional asignado => denegada (antes: '' !== '' la permitía)", () => {
-  // Brecha real: actorOrgId "" vs (professionalOrgId ?? "") === "" => se concedía la transición.
-  assert.equal(throws(() => assertTransitionAuthorized("COMPLETED" as never, "", [], own(null))), true);
-  assert.equal(throws(() => assertTransitionAuthorized("CANCELLED" as never, "", [], own(null))), true);
+test("jobs: org vacía => denegada en las tres ramas (cliente, profesional, por defecto); antes '' !== '' la permitía en la por defecto", () => {
+  // Estados reales (minúsculas): completed/cancelled = solo cliente; review/dispute = solo profesional; resto = por defecto.
+  for (const status of ["completed", "cancelled", "review", "dispute", "in_progress", "accepted"] as const) {
+    assert.equal(throws(() => assertTransitionAuthorized(status as never, "", [], own(null))), true, `${status} sin profesional`);
+    assert.equal(throws(() => assertTransitionAuthorized(status as never, "", [], own(""))), true, `${status} profesional vacío`);
+  }
 });
 
-test("jobs: transiciones autorizadas siguen funcionando (no regresión)", () => {
-  // cliente, profesional asignado, OPS_ADMIN y SYSTEM
-  assert.equal(throws(() => assertTransitionAuthorized("COMPLETED" as never, "org_client", [], own("org_pro"))), false);
-  assert.equal(throws(() => assertTransitionAuthorized("COMPLETED" as never, "org_pro", [], own("org_pro"))), false);
-  assert.equal(throws(() => assertTransitionAuthorized("COMPLETED" as never, "", ["OPS_ADMIN"], own(null))), false);
-  assert.equal(throws(() => assertTransitionAuthorized("COMPLETED" as never, "", ["SYSTEM"], own(null))), false);
+test("jobs: transiciones autorizadas siguen funcionando en cada rama (no regresión)", () => {
+  const ok = (status: string, org: string, roles: string[], pro: string | null) =>
+    throws(() => assertTransitionAuthorized(status as never, org, roles, own(pro))) === false;
+  assert.equal(ok("completed", "org_client", [], "org_pro"), true); // rama solo-cliente
+  assert.equal(ok("review", "org_pro", [], "org_pro"), true); // rama solo-profesional
+  assert.equal(ok("in_progress", "org_client", [], "org_pro"), true); // por defecto: cliente
+  assert.equal(ok("in_progress", "org_pro", [], "org_pro"), true); // por defecto: profesional
+  assert.equal(ok("completed", "", ["OPS_ADMIN"], null), true);
+  assert.equal(ok("review", "", ["SYSTEM"], null), true);
 });
 
-test("jobs: otra org => denegada en cualquier transición", () => {
-  for (const status of ["COMPLETED", "CANCELLED", "IN_PROGRESS", "ACCEPTED"] as const) {
-    assert.equal(throws(() => assertTransitionAuthorized(status as never, "org_x", [], own("org_pro"))), true, status);
+test("jobs: restricciones por rama — el profesional no completa/cancela, el cliente no revisa/disputa; otra org denegada en todas", () => {
+  const denied = (status: string, org: string) => throws(() => assertTransitionAuthorized(status as never, org, [], own("org_pro")));
+  assert.equal(denied("completed", "org_pro"), true);
+  assert.equal(denied("cancelled", "org_pro"), true);
+  assert.equal(denied("review", "org_client"), true);
+  assert.equal(denied("dispute", "org_client"), true);
+  for (const status of ["completed", "cancelled", "review", "dispute", "in_progress", "accepted"]) {
+    assert.equal(denied(status, "org_x"), true, status);
   }
 });
 
