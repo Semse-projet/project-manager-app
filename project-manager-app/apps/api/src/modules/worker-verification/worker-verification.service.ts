@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from "@nestjs/common";
+import { ForbiddenException, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import {
   WorkerVerificationRepository,
 } from "./worker-verification.repository.js";
@@ -12,9 +12,16 @@ export interface VerificationState {
   verifiedAt?: Date;
 }
 
+/** Quien ejecuta la accion (identidad autenticada, nunca del body). */
+export interface VerificationActor {
+  userId: string;
+  roles: string[];
+}
+
 export interface VerificationRequest {
   workerId: string;
   tenantId: string;
+  actor?: VerificationActor;
   verificationType: "DID_SIGNATURE" | "BACKGROUND_CHECK" | "LICENSE" | "INSURANCE";
   didSignature?: string;
   didPublicKey?: string;
@@ -23,7 +30,6 @@ export interface VerificationRequest {
 @Injectable()
 export class WorkerVerificationService {
   private readonly logger = new Logger(WorkerVerificationService.name);
-  private verificationStates = new Map<string, VerificationState>();
 
   constructor(
     private readonly repository: WorkerVerificationRepository,
@@ -39,6 +45,35 @@ export class WorkerVerificationService {
     return worker;
   }
 
+  /**
+   * C11 — precondicion de atestacion: solo el propio trabajador (o OPS_ADMIN)
+   * puede iniciar o presentar una atestacion de identidad sobre un trabajador.
+   * Tener `worker:write` en el tenant NO basta: antes cualquier holder podia
+   * atestar a otro trabajador. Sin actor => se rechaza (fail closed).
+   */
+  private assertMayAttest(actor: VerificationActor | undefined, workerId: string): void {
+    if (actor && (actor.userId === workerId || actor.roles.includes("OPS_ADMIN"))) return;
+    throw new ForbiddenException("Only the worker themself or an OPS_ADMIN can attest this worker's identity");
+  }
+
+  /**
+   * C11 — el estado se DERIVA de User.verificationStatus (fuente durable y
+   * unica entre instancias). Antes vivia en un Map en memoria: se perdia al
+   * reiniciar y cada replica veia un estado distinto. Los estados intermedios
+   * (signing/signed) y "failed" son transitorios de una sola peticion y no se
+   * persisten.
+   */
+  private stateFromPersisted(workerId: string, verificationStatus: string): VerificationState {
+    switch (verificationStatus) {
+      case "verified":
+        return { workerId, status: "verified" };
+      case "suspended":
+        return { workerId, status: "failed", feedback: "worker verification is suspended" };
+      default: // "unverified" | "pending"
+        return { workerId, status: "pending" };
+    }
+  }
+
   async initiateVerification(
     request: VerificationRequest,
   ): Promise<VerificationState> {
@@ -50,12 +85,11 @@ export class WorkerVerificationService {
         );
       }
 
-      const state: VerificationState = {
-        workerId: request.workerId,
-        status: "pending",
-      };
-
-      this.verificationStates.set(request.workerId, state);
+      this.assertMayAttest(request.actor, request.workerId);
+      // Persiste "pending" solo desde "unverified"; nunca degrada verified/suspended.
+      await this.repository.markPendingIfUnverified(request.workerId);
+      const refreshed = await this.repository.getWorkerInTenant(request.workerId, request.tenantId);
+      const state = this.stateFromPersisted(request.workerId, refreshed?.verificationStatus ?? worker.verificationStatus);
 
       // Emit SSE event
       if (this.sseBus) {
@@ -63,7 +97,7 @@ export class WorkerVerificationService {
           workerId: request.workerId,
           tenantId: request.tenantId,
           verificationType: request.verificationType,
-          status: "pending",
+          status: state.status,
           timestamp: new Date().toISOString(),
         });
       }
@@ -82,100 +116,61 @@ export class WorkerVerificationService {
     tenantId: string,
     didSignature: string,
     didPublicKey: string,
+    actor?: VerificationActor,
   ): Promise<VerificationState> {
     try {
-      await this.requireWorkerInTenant(workerId, tenantId);
-      let state = this.verificationStates.get(workerId);
-      if (!state) {
-        state = {
-          workerId,
-          status: "pending",
-        };
-        this.verificationStates.set(workerId, state);
+      const worker = await this.requireWorkerInTenant(workerId, tenantId);
+      this.assertMayAttest(actor, workerId);
+
+      // Un trabajador suspendido no se re-verifica por esta via (hace falta una
+      // decision humana explicita fuera de este flujo).
+      if (worker.verificationStatus === "suspended") {
+        return this.stateFromPersisted(workerId, worker.verificationStatus);
       }
 
-      state.status = "signing";
-
-      // Emit signing progress
       if (this.sseBus) {
-        this.sseBus.emit("worker-verification", "signing", {
-          workerId,
-          tenantId,
-          progress: 30,
-        });
+        this.sseBus.emit("worker-verification", "signing", { workerId, tenantId, progress: 30 });
       }
 
-      // Store signature
-      await this.repository.storeDidSignature(
-        workerId,
-        didSignature,
-        didPublicKey,
-      );
+      await this.repository.storeDidSignature(workerId, didSignature, didPublicKey);
 
-      state.status = "signed";
-      state.didSignature = didSignature;
-
-      // Emit signed event
       if (this.sseBus) {
-        this.sseBus.emit("worker-verification", "signed", {
-          workerId,
-          tenantId,
-          progress: 60,
-        });
+        this.sseBus.emit("worker-verification", "signed", { workerId, tenantId, progress: 60 });
       }
 
-      // Verify signature
-      const isValid = await this.verifyDidSignature(
-        workerId,
-        didSignature,
-        didPublicKey,
-      );
+      const isValid = await this.verifyDidSignature(workerId, didSignature, didPublicKey);
 
       if (isValid) {
-        state.status = "verified";
-        state.verifiedAt = new Date();
+        // "verified" solo llega aqui si la criptografia DID REAL valido la firma
+        // (hoy verifyDidSignature falla cerrado). Se persiste de verdad.
+        const changed = await this.repository.markVerified(workerId);
+        const verifiedAt = new Date();
 
-        // Update worker status
-        await this.repository.updateWorkerVerificationStatus(
-          workerId,
-          "verified",
-        );
+        await this.repository.createVerificationLog(workerId, tenantId, "DID_SIGNATURE", {
+          status: "verified",
+          verifiedAt,
+        });
 
-        // Log verification
-        await this.repository.createVerificationLog(
-          workerId,
-          tenantId,
-          "DID_SIGNATURE",
-          {
-            status: "verified",
-            verifiedAt: new Date(),
-          },
-        );
-
-        // Emit verified event
         if (this.sseBus) {
           this.sseBus.emit("worker-verification", "verified", {
             workerId,
             tenantId,
             status: "verified",
-            timestamp: new Date().toISOString(),
+            timestamp: verifiedAt.toISOString(),
           });
         }
-      } else {
-        state.status = "failed";
-        state.feedback = "DID signature verification failed";
-
-        // Emit failed event
-        if (this.sseBus) {
-          this.sseBus.emit("worker-verification", "verification_failed", {
-            workerId,
-            tenantId,
-            reason: "DID signature invalid",
-          });
-        }
+        return { workerId, status: "verified", verifiedAt: changed ? verifiedAt : undefined };
       }
 
-      return state;
+      if (this.sseBus) {
+        this.sseBus.emit("worker-verification", "verification_failed", {
+          workerId,
+          tenantId,
+          reason: "DID signature invalid",
+        });
+      }
+      // Fallo transitorio de esta peticion: no se persiste ni se degrada el estado.
+      return { workerId, status: "failed", feedback: "DID signature verification failed" };
     } catch (error) {
       this.logger.error(
         `Submit DID signature failed: ${error instanceof Error ? error.message : String(error)}`,
@@ -185,15 +180,8 @@ export class WorkerVerificationService {
   }
 
   async getVerificationStatus(workerId: string, tenantId: string): Promise<VerificationState> {
-    await this.requireWorkerInTenant(workerId, tenantId);
-    let state = this.verificationStates.get(workerId);
-    if (!state) {
-      state = {
-        workerId,
-        status: "pending",
-      };
-    }
-    return state;
+    const worker = await this.requireWorkerInTenant(workerId, tenantId);
+    return this.stateFromPersisted(workerId, worker.verificationStatus);
   }
 
   /**
