@@ -189,7 +189,6 @@ export class ProjectCopilotHarness {
   ): Promise<ProjectWorkspaceView["preferredProfessional"]> {
     const entries = await this.safeCall(() => this.workspaceMemoryRepository.query({
       tenantId: actor.tenantId,
-      orgId: actor.orgId,
       workspaceId: `job:${jobId}`,
       kinds: ["decision"],
       tags: ["preferred-professional"],

@@ -388,7 +388,7 @@ export class AgentMemoryService {
       input.query.trim().length > 2
         ? this.repo.search({ tenantId: input.tenantId, workspaceId: `project:${input.projectId}`, term: input.query, limit: topK * 2, maxSensitivity: wsMaxSensitivity })
         : Promise.resolve([] as Array<WorkspaceMemoryRecord & { rank: number }>),
-      this.repo.query({ tenantId: input.tenantId, orgId: input.orgId, workspaceId: `project:${input.projectId}`, kinds: ["decision", "run_summary"], maxSensitivity: wsMaxSensitivity }),
+      this.repo.query({ tenantId: input.tenantId, workspaceId: `project:${input.projectId}`, kinds: ["decision", "run_summary"], maxSensitivity: wsMaxSensitivity }),
     ]);
 
     const seenAgent = new Set<string>();

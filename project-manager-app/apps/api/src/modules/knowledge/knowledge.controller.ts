@@ -11,6 +11,7 @@ import { AgentMemoryService } from "./agent-memory.service.js";
 import { AgentSkillRepository, type CreateAgentSkillInput } from "./agent-skill.repository.js";
 import { KnowledgeCuratorService } from "./knowledge-curator.service.js";
 import { KnowledgeService } from "./knowledge.service.js";
+import { WorkspaceMemoryAccessPolicy } from "./workspace-memory.access-policy.js";
 
 @Controller("v1/knowledge")
 @RequirePermissions("knowledge:read")
@@ -20,6 +21,7 @@ export class KnowledgeController {
     private readonly skillRepo: AgentSkillRepository,
     private readonly curator: KnowledgeCuratorService,
     private readonly agentMemory: AgentMemoryService,
+    private readonly workspaceAccess: WorkspaceMemoryAccessPolicy,
   ) {}
 
   // Estas dos exponen el mapa de dominios de conocimiento del repo y el estado
@@ -47,6 +49,8 @@ export class KnowledgeController {
     @Query("kinds") kinds?: string | string[]
   ) {
     const actor = resolveRequestContext(req);
+    // C51: primero la relación del actor con el recurso (404 otro tenant / 403 fuera de las orgs participantes).
+    await this.workspaceAccess.assertCanRead(actor, workspaceId ?? "");
     const kindsArr = kinds ? (Array.isArray(kinds) ? kinds : [kinds]) : undefined;
     const data = await this.knowledgeService.searchWorkspaceMemory({
       tenantId: actor.tenantId,
@@ -62,11 +66,11 @@ export class KnowledgeController {
   async workspaceMemory(@Req() req: { headers?: Record<string, unknown> }, @Query() query: Record<string, unknown>) {
     const actor = resolveRequestContext(req);
     const parsed = parseWithSchema(workspaceMemoryQuerySchema, query);
+    await this.workspaceAccess.assertCanRead(actor, parsed.workspaceId);
     const kinds = parsed.kinds ? (Array.isArray(parsed.kinds) ? parsed.kinds : [parsed.kinds]) : undefined;
     const tags = parsed.tags ? (Array.isArray(parsed.tags) ? parsed.tags : [parsed.tags]) : undefined;
     const data = await this.knowledgeService.listWorkspaceMemory({
       tenantId: actor.tenantId,
-      orgId: actor.orgId,
       workspaceId: parsed.workspaceId,
       repoId: parsed.repoId,
       runId: parsed.runId,
