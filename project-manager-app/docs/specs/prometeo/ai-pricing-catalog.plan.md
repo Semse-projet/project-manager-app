@@ -4,7 +4,7 @@ feature: "C39 — Catálogo de precios de modelos de IA versionado"
 domain: "prometeo"
 spec: "docs/specs/prometeo/ai-pricing-catalog.spec.md"
 version: "1.0"
-status: "DRAFT"
+status: "APPROVED"
 branch: "feat/c39-ai-pricing-catalog"
 date: "2026-10-01"
 ---
