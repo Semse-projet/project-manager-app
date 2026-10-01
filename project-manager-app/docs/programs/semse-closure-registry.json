@@ -1073,7 +1073,7 @@
    "priority": "P0",
    "historical": "DUPLICADA",
    "batch": "A4",
-   "current_truth": "PARTIAL — en main (#702): gateway usa política canónica. En PR claude/c67-evidence-consolidation: el gateway valida bucketKey con la regla canónica (cerraba una brecha: aceptaba claves de otro tenant). Convergencia de escritura (outbox/audit/idempotencia vía EvidenceService.register) pendiente: requiere decidir el contrato de metadataJson/browser-agent",
+   "current_truth": "PARTIAL — #717 (bucketKey tenant-scoped en el gateway) en main. En PR claude/c67-canonical-adapter: EvidenceGateway pasa a ADAPTADOR de EvidenceService.register (outbox evidence.uploaded.v1, audit, idempotencia, invalidación de contexto) con contrato validado de metadataJson (evidence-metadata.ts: objeto JSON ≤64 KB, sin claves reservadas jobId/filename/category/description); browser-agent guarda la captura como archivo tenant-scoped en vez de base64 en metadataJson; escritura duplicada del gateway eliminada. Falta: deprecar POST /v1/evidence/upload a favor de POST /v1/evidence + ruta de validación, y smoke autenticado en producción",
    "evidence": {
     "code": "partial",
     "ci": "PR checks green; main auto-deploy (Railway Deploy/Production Health Gate) — sin smoke autenticado",

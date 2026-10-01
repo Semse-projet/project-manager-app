@@ -1,3 +1,7 @@
+import { randomUUID } from "node:crypto";
+import { Readable } from "node:stream";
+import { StorageService } from "../../infrastructure/storage/storage.service.js";
+import { buildTenantStorageKey } from "../../infrastructure/storage/storage-key.js";
 import { Injectable, Logger, BadRequestException, NotFoundException, Inject, forwardRef } from "@nestjs/common";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { AgentsService } from "../agents/agents.service.js";
@@ -76,6 +80,7 @@ export class BrowserAgentService {
     private readonly agentsService: AgentsService,
     private readonly aiGateway: AiModelGatewayService,
     private readonly evidenceGateway: EvidenceGatewayService,
+    private readonly storageService: StorageService,
   ) {}
 
   async createInspection(
@@ -277,7 +282,23 @@ ${result.visibleTextSample || "(None extracted)"}
     result: any,
     aiSummary: any,
   ) {
-    const bucketKey = `browser-agent/screenshot-${Date.now()}-${Math.random().toString(36).substring(2, 7)}.png`;
+    // C67: la evidencia apunta a un ARCHIVO real y tenant-scoped (captura PNG, o el
+    // informe JSON si no hubo captura), no a una clave sintetica. Antes la captura
+    // iba como base64 dentro de metadataJson (MBs en la base de datos); el
+    // contrato canonico de metadatos (64 KB) ya no lo admite. La captura sigue
+    // disponible en la salida de la inspeccion (run.output).
+    const hasScreenshot = typeof result.screenshotBase64 === "string" && result.screenshotBase64.length > 0;
+    const body = hasScreenshot
+      ? Buffer.from(result.screenshotBase64, "base64")
+      : Buffer.from(JSON.stringify({ url: result.url, finalUrl: result.finalUrl, title: result.title, status: result.status, severity: result.severity, aiSummary }), "utf8");
+    const contentType = hasScreenshot ? "image/png" : "application/json";
+    const bucketKey = buildTenantStorageKey({
+      tenantId: actor.tenantId,
+      domain: "evidence",
+      filename: hasScreenshot ? "browser-agent-screenshot.png" : "browser-agent-report.json",
+      nonce: randomUUID(),
+    });
+    await this.storageService.store({ key: bucketKey, stream: Readable.from([body]), contentType });
 
     await this.evidenceGateway.uploadEvidence({
       tenantId: actor.tenantId,
@@ -288,7 +309,7 @@ ${result.visibleTextSample || "(None extracted)"}
       uploadedById: actor.userId,
       kind: "DOCUMENT",
       bucketKey,
-      trustedSyntheticKey: true, // clave sintetica: la captura va en metadataJson, no en storage
+      requestId: `browser-agent-${randomUUID()}`,
       metadataJson: {
         source: "browser-agent",
         url: result.url,
@@ -300,8 +321,6 @@ ${result.visibleTextSample || "(None extracted)"}
         consoleErrorsCount: result.consoleErrors?.length || 0,
         networkFailuresCount: result.networkFailures?.length || 0,
         aiSummary,
-        // Save base64 screenshot in metadata
-        screenshotBase64: result.screenshotBase64,
       },
     });
   }

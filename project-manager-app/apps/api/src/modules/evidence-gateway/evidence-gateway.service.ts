@@ -1,6 +1,8 @@
 import { Injectable, Logger, BadRequestException, NotFoundException } from "@nestjs/common";
 import { assertEvidenceReadable, assertEvidenceWritable, type EvidenceActor } from "../evidence/evidence.policy.js";
 import { normalizeEvidenceBucketKey } from "../evidence/evidence.repository.js";
+import { EvidenceService } from "../evidence/evidence.service.js";
+import { randomUUID } from "node:crypto";
 import { EvidenceGatewayRepository } from "./evidence-gateway.repository.js";
 import { SseEventBusService } from "../../infrastructure/sse/sse-event-bus.service.js";
 import { VisionService } from "../vision/vision.service.js";
@@ -17,12 +19,10 @@ export interface EvidenceUploadRequest {
   bucketKey: string;
   metadataJson?: Record<string, unknown>;
   /**
-   * Solo para llamadores internos de confianza (p. ej. browser-agent) cuya
-   * clave es sintetica y no apunta a storage. El controller HTTP NUNCA lo
-   * rellena desde el body: toda clave que llega de un cliente se valida con
-   * la misma regla canonica que `EvidenceRepository.create`.
+   * Correlacion/idempotencia del registro canonico (EvidenceService.register).
+   * Si falta se genera uno: cada llamada sin requestId es un registro nuevo.
    */
-  trustedSyntheticKey?: boolean;
+  requestId?: string;
 }
 
 export interface ValidationScore {
@@ -42,6 +42,7 @@ export class EvidenceGatewayService {
     private readonly repository: EvidenceGatewayRepository,
     private readonly visionService: VisionService,
     private readonly storageService: StorageService,
+    private readonly evidenceService: EvidenceService,
     private readonly sseBus?: SseEventBusService,
   ) {}
 
@@ -82,22 +83,24 @@ export class EvidenceGatewayService {
         throw new NotFoundException("Milestone not found for this project");
       }
 
-      // C67: misma regla de clave que la ruta canonica (evidence.repository):
-      // clave de storage con prefijo del tenant. Antes el gateway aceptaba
-      // cualquier bucketKey del body, incluida la de otro tenant.
-      const bucketKey = request.trustedSyntheticKey
-        ? request.bucketKey
-        : normalizeEvidenceBucketKey(request.bucketKey, request.tenantId);
-
-      // Create evidence record
-      const evidence = await this.repository.createEvidence({
+      // C67: el gateway es un ADAPTADOR del propietario canonico de Evidence.
+      // La escritura (clave tenant-scoped, idempotencia, outbox
+      // evidence.uploaded.v1, audit, invalidacion de contexto, contrato de
+      // metadataJson) la hace EvidenceService.register; aqui solo se adapta la
+      // forma de la peticion. La clave se valida tambien antes de delegar
+      // (defensa en profundidad y fallo temprano con 400).
+      const bucketKey = normalizeEvidenceBucketKey(request.bucketKey, request.tenantId);
+      const evidence = await this.evidenceService.register({
         tenantId: request.tenantId,
+        orgId: request.orgId,
+        userId: request.uploadedById,
+        roles: request.roles,
+        requestId: request.requestId ?? `evidence-gateway-${randomUUID()}`,
         projectId: request.projectId,
         milestoneId: request.milestoneId,
-        uploadedById: request.uploadedById,
+        key: bucketKey,
         kind: request.kind,
-        bucketKey,
-        metadataJson: request.metadataJson,
+        metadata: request.metadataJson,
       });
 
       // Log event

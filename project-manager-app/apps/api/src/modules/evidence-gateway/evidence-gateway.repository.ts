@@ -27,22 +27,6 @@ export class EvidenceGatewayRepository {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  async createEvidence(input: EvidenceValidationInput) {
-    return this.prisma.evidence.create({
-      data: {
-        tenantId: input.tenantId,
-        projectId: input.projectId,
-        milestoneId: input.milestoneId,
-        uploadedById: input.uploadedById,
-        kind: input.kind as any,
-        bucketKey: input.bucketKey,
-        metadataJson: input.metadataJson as any,
-        validationStatus: "pending",
-        capturedAt: new Date(),
-      },
-    });
-  }
-
   async updateEvidenceValidation(
     evidenceId: string,
     result: Partial<EvidenceValidationResult>,

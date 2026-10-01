@@ -34,11 +34,19 @@ function build() {
       calls.push(`status:${tenantId}`);
       return { total: 1, passed: 1, failed: 0, pending: 0, manualReview: 0, avgScore: 1, isComplete: true, isReady: true };
     },
-    async createEvidence() { calls.push("create"); return { id: "ev_new" }; },
     async logValidationEvent() {},
   };
-  const service = new EvidenceGatewayService(repository as never, {} as never, {} as never);
-  return { service, calls };
+  // C67: el gateway delega la escritura en EvidenceService.register (propietario canonico).
+  const registered: Record<string, unknown>[] = [];
+  const evidenceService = {
+    async register(input: Record<string, unknown>) {
+      calls.push("create");
+      registered.push(input);
+      return { id: "ev_new" };
+    },
+  };
+  const service = new EvidenceGatewayService(repository as never, {} as never, {} as never, evidenceService as never);
+  return { service, calls, registered };
 }
 
 const actor = (over: Record<string, unknown> = {}) =>
@@ -129,14 +137,41 @@ test("upload (C67): bucketKey de otro tenant, sin prefijo de tenant o malformada
   }
 });
 
-test("upload (C67): clave sintetica solo con trustedSyntheticKey (llamador interno), nunca desde el body", async () => {
-  const { service, calls } = build();
-  const base = {
+test("upload (C67): delega en EvidenceService.register con requestId, clave validada y metadata; no escribe por su cuenta", async () => {
+  const { service, calls, registered } = build();
+  const res = await service.uploadEvidence({
     tenantId: "tenant_1", orgId: PRO_ORG, roles: ["PRO"], uploadedById: "u1",
-    projectId: "proj_1", kind: "DOCUMENT" as const, bucketKey: "browser-agent/screenshot-1.png",
-  };
-  await assert.rejects(service.uploadEvidence(base as never), BadRequestException);
-  const res = await service.uploadEvidence({ ...base, trustedSyntheticKey: true } as never);
+    projectId: "proj_1", milestoneId: "ms_1", kind: "PHOTO",
+    bucketKey: "tenants/tenant_1/evidence/a.jpg", requestId: "req_9",
+    metadataJson: { resolution: "1920x1080" },
+  });
   assert.equal(res.evidenceId, "ev_new");
-  assert.ok(calls.includes("create"));
+  assert.equal(res.status, "pending_validation");
+  assert.equal(calls.filter((c) => c === "create").length, 1);
+  assert.deepEqual(registered[0], {
+    tenantId: "tenant_1", orgId: PRO_ORG, userId: "u1", roles: ["PRO"], requestId: "req_9",
+    projectId: "proj_1", milestoneId: "ms_1", key: "tenants/tenant_1/evidence/a.jpg", kind: "PHOTO",
+    metadata: { resolution: "1920x1080" },
+  });
+});
+
+test("upload (C67): sin requestId se genera uno distinto por llamada (cada una es un registro nuevo)", async () => {
+  const { service, registered } = build();
+  const req = { tenantId: "tenant_1", orgId: PRO_ORG, roles: ["PRO"], uploadedById: "u1", projectId: "proj_1", kind: "PHOTO" as const, bucketKey: "tenants/tenant_1/evidence/a.jpg" };
+  await service.uploadEvidence(req as never);
+  await service.uploadEvidence(req as never);
+  assert.notEqual(registered[0].requestId, registered[1].requestId);
+  assert.match(String(registered[0].requestId), /^evidence-gateway-/);
+});
+
+test("upload (C67): una clave sintetica ya NO se acepta (el gateway no escribe claves que no apuntan a storage)", async () => {
+  const { service, calls } = build();
+  await assert.rejects(
+    service.uploadEvidence({
+      tenantId: "tenant_1", orgId: PRO_ORG, roles: ["PRO"], uploadedById: "u1",
+      projectId: "proj_1", kind: "DOCUMENT" as const, bucketKey: "browser-agent/screenshot-1.png",
+    } as never),
+    BadRequestException,
+  );
+  assert.ok(!calls.includes("create"));
 });

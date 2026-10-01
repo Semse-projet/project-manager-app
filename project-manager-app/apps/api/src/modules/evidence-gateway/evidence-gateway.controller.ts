@@ -40,6 +40,7 @@ export class EvidenceGatewayController {
       kind: String(body.kind ?? "PHOTO") as "PHOTO" | "VIDEO" | "DOCUMENT",
       bucketKey: String(body.bucketKey ?? ""),
       metadataJson: body.metadataJson as Record<string, unknown> | undefined,
+      requestId: rid,
     });
 
     // Trigger async validation (fire-and-forget)
