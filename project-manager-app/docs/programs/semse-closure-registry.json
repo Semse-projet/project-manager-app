@@ -76,7 +76,7 @@
    "priority": "P0",
    "historical": "REAL",
    "batch": "A6",
-   "current_truth": "PARTIAL — health del dominio público de Railway (project-manager-app-production-977f.up.railway.app) VERIFICADO en producción por el job health-check de Railway Deploy en cada deploy desde 2026-10-01: GET /v1/health responde HTTP 200 con provenance (gitSha === DEPLOY_SHA, deploymentId, environment) — runs 36801387700 (abec4ff), 36806442810 (7c9df29→f59d1b0, 02:34Z/09:31Z), 36847254925 (7a823ae) y 36856601208 (92d8e9ea, deploymentId bf6ee8ee). Desde #734 un health caído o no-2xx FALLA el workflow. NO verificado: el dominio propio/custom (ver docs/runbooks/API_CUSTOM_DOMAIN_TLS_HANDOFF.md) — el sandbox no puede alcanzar los hosts de producción; y la comprobación del health desde fuera de GitHub Actions.",
+   "current_truth": "PARTIAL — health del dominio público de Railway (project-manager-app-production-977f.up.railway.app) VERIFICADO en producción por el job health-check de Railway Deploy en cada deploy desde 2026-10-01: GET /v1/health responde HTTP 200 con provenance (gitSha === DEPLOY_SHA, deploymentId, environment) — runs 36806442810 (7c9df29, 02:38Z), 36843242183 (f59d1b0, 09:32Z), 36847254925 (7a823ae, primer deploy con el gate bloqueante, 10:12Z) y 36856601208 (92d8e9ea, deploymentId bf6ee8ee, 11:42Z). Desde #734 un health caído o no-2xx FALLA el workflow. NO verificado: el dominio propio/custom (ver docs/runbooks/API_CUSTOM_DOMAIN_TLS_HANDOFF.md) — el sandbox no puede alcanzar los hosts de producción; y la comprobación del health desde fuera de GitHub Actions.",
    "evidence": {
     "code": false,
     "ci": "job health-check (gate bloqueante) en success",
