@@ -2401,7 +2401,7 @@ model WorkOrder {
 
 /// Persistent log of every AI model call — enables cost tracking, routing analytics and future training data.
 model AiInteractionLog {
-  id                  String   @id @default(cuid())
+  id                  String        @id @default(cuid())
   tenantId            String?
   agentId             String?
   projectId           String?
@@ -2410,29 +2410,64 @@ model AiInteractionLog {
   provider            String
   modelSlug           String
   modelName           String?
-  inputLength         Int      @default(0)
-  outputLength        Int      @default(0)
+  inputLength         Int           @default(0)
+  outputLength        Int           @default(0)
   inputTokens         Int?
   outputTokens        Int?
-  estimatedCostUsd    Decimal? @db.Decimal(10, 6)
+  estimatedCostUsd    Decimal?      @db.Decimal(10, 6)
   latencyMs           Int?
   routeReason         String?
-  fallbackUsed        Boolean  @default(false)
-  success             Boolean  @default(true)
+  fallbackUsed        Boolean       @default(false)
+  success             Boolean       @default(true)
   errorMessage        String?
   threadId            String?
-  eligibleForTraining Boolean  @default(false)
+  eligibleForTraining Boolean       @default(false)
   // C39 — who/under which policy this route was taken (all additive, nullable).
   orgId               String?
   actorRoles          String? // comma-separated roles of the authenticated actor
   privacyLevel        String? // requested privacy level (local_only | sensitive | ...)
   policyDecision      String? // private_enforced | standard | denied
-  createdAt           DateTime @default(now())
+  // C39 — catálogo de precios (aditivo, nullable): qué entrada del catálogo justificó el costo y su base.
+  // `modelName` (arriba) es la identidad real del modelo reportada por el proveedor.
+  priceId             String?
+  costBasis           String? // catalog | unknown (null = cálculo legado o sin intentar)
+  price               AiModelPrice? @relation(fields: [priceId], references: [id], onDelete: Restrict)
+  createdAt           DateTime      @default(now())
 
   @@index([tenantId, taskType, createdAt])
   @@index([provider, modelSlug, createdAt])
   @@index([agentId, projectId, createdAt])
   @@index([threadId])
+  @@index([priceId])
+}
+
+/// C39 — Catálogo GLOBAL de plataforma de precios de modelos de IA (lo que Semse paga al proveedor).
+/// EXCEPCIÓN autorizada por el dueño a la regla de tenantId (solo este modelo). Entradas inmutables:
+/// un cambio de precio cierra la vigencia anterior y abre otra. La exclusión de intervalos solapados,
+/// los CHECK y los triggers de inmutabilidad viven en la migración SQL (Prisma no los modela).
+/// Spec: docs/specs/prometeo/ai-pricing-catalog.spec.md
+model AiModelPrice {
+  id                   String             @id @default(cuid())
+  provider             String
+  modelSlug            String
+  providerModelName    String
+  inputPer1K           Decimal            @db.Decimal(14, 8)
+  outputPer1K          Decimal            @db.Decimal(14, 8)
+  currency             String             @default("USD")
+  /// Vigencia semicerrada [effectiveFrom, effectiveTo); effectiveTo nulo = abierta.
+  effectiveFrom        DateTime
+  effectiveTo          DateTime?
+  pricingSchemaVersion Int                @default(1)
+  metadataJson         Json               @default("{}")
+  /// Fuente oficial del proveedor (D2): url, fecha de publicación (si consta) y de comprobación.
+  sourceUrl            String
+  sourcePublishedAt    DateTime?
+  sourceCheckedAt      DateTime
+  createdBy            String
+  createdAt            DateTime           @default(now())
+  logs                 AiInteractionLog[]
+
+  @@index([provider, modelSlug, providerModelName, effectiveFrom])
 }
 
 // ── Contractor CRM ────────────────────────────────────────────────────────────

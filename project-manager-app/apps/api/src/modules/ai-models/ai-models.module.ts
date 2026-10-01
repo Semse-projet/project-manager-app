@@ -7,6 +7,8 @@ import { PrometeoModule } from "../prometeo/prometeo.module.js";
 import { AiModelGatewayService } from "./gateway/ai-model-gateway.service.js";
 import { AiInteractionLoggerService } from "./logging/ai-interaction-logger.service.js";
 import { AiMissionIncidentService } from "./logging/ai-mission-incident.service.js";
+import { AiPricingCatalogController } from "./pricing/ai-pricing-catalog.controller.js";
+import { AiPricingCatalogService } from "./pricing/ai-pricing-catalog.service.js";
 import { OPERATIONAL_CONTEXT_SERVICE } from "./context/operational-context.token.js";
 import { AiModelRouterService } from "./router/ai-model-router.service.js";
 import { AiModelsController } from "./ai-models.controller.js";
@@ -17,12 +19,13 @@ import { DecisionLayerModule } from "./decision/decision-layer.module.js";
 
 @Module({
   imports: [LLMModule, PrismaModule, forwardRef(() => FinanceModule), forwardRef(() => IntelligenceModule), SkillsModule, PrometeoModule, DecisionLayerModule],
-  controllers: [AiModelsController],
+  controllers: [AiModelsController, AiPricingCatalogController],
   providers: [
     AiModelRouterService,
     AiModelGatewayService,
     AiInteractionLoggerService,
     AiMissionIncidentService,
+    AiPricingCatalogService,
     OperationalContextService,
     { provide: OPERATIONAL_CONTEXT_SERVICE, useExisting: OperationalContextService },
     PrometeoOrchestratorService,
@@ -32,6 +35,7 @@ import { DecisionLayerModule } from "./decision/decision-layer.module.js";
     AiModelRouterService,
     AiInteractionLoggerService,
     AiMissionIncidentService,
+    AiPricingCatalogService,
     OperationalContextService,
     OPERATIONAL_CONTEXT_SERVICE,
     PrometeoOrchestratorService,
