@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import { type MilestoneRecord } from "../../common/domain-store.js";
 import { ActorContextService } from "../../infrastructure/persistence/actor-context.service.js";
+import { evaluateRequiredEvidence, resolveEvidenceRevalidationMode } from "./evidence-readiness.js";
 import { databaseEnabled } from "../../infrastructure/persistence/persistence-mode.js";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { findProjectLinkByJobIdOrThrow, findProjectLinkByProjectIdOrThrow } from "../projects/project-link.repository.js";
@@ -218,7 +219,12 @@ export class MilestonesRepository {
     await this.actorContextService.ensureActorContext(input);
 
     const snapshot = await this.getLifecycleSnapshot(input);
-    assertMilestoneApprovable(this.toActor(input), snapshot);
+    const evidenceMode = resolveEvidenceRevalidationMode();
+    if (evidenceMode === "shadow" && snapshot.evidenceBlockers && snapshot.evidenceBlockers.length > 0) {
+      // eslint-disable-next-line no-console
+      console.warn(JSON.stringify({ event: "milestone_approve_evidence_shadow_would_block", milestoneId: snapshot.milestoneId, blockers: snapshot.evidenceBlockers }));
+    }
+    assertMilestoneApprovable(this.toActor(input), snapshot, { evidenceMode });
 
     const updated = await this.transitionStatus(snapshot, milestoneStatusMap.approved);
 
@@ -485,6 +491,11 @@ export class MilestonesRepository {
       }
     });
 
+    const evidenceItems = await this.prisma.milestoneEvidenceItem.findMany({
+      where: { milestoneId: input.milestoneId },
+      select: { required: true, status: true }
+    });
+
     // C18: un RELEASE activo (PENDING/SUCCEEDED) bloquea rechazar/devolver el hito.
     const activeRelease = await this.prisma.paymentTxn.findFirst({
       where: { milestoneId: input.milestoneId, type: "RELEASE", status: { in: ["PENDING", "SUCCEEDED"] } },
@@ -496,7 +507,8 @@ export class MilestonesRepository {
       currentStatus: milestone.status.toLowerCase() as MilestoneRecord["status"],
       ownership: this.toOwnership(milestone.project!),
       evidenceCount,
-      hasActiveRelease: activeRelease !== null
+      hasActiveRelease: activeRelease !== null,
+      evidenceBlockers: evaluateRequiredEvidence(evidenceItems).blockers
     };
   }
 
@@ -888,19 +900,22 @@ export class MilestonesRepository {
       }};
     }
 
-    // Evidence checklist
+    // Evidence checklist — C18: predicado unico (todo requisito `required` debe estar `approved`).
     const requiredItems = milestone.evidenceItems.filter(e => e.required);
     const approvedItems = requiredItems.filter(e => e.status === "approved");
-    const missingItems  = requiredItems.filter(e => e.status === "missing");
-    const rejectedItems = requiredItems.filter(e => e.status === "rejected");
     const submittedItems = requiredItems.filter(e => e.status === "submitted");
+    const evidence = evaluateRequiredEvidence(milestone.evidenceItems);
+    const evidenceMode = resolveEvidenceRevalidationMode();
 
     if (requiredItems.length > 0) {
-      if (approvedItems.length === requiredItems.length) {
+      if (evidence.complete) {
         reasons.push(`All ${requiredItems.length} required evidence item(s) approved`);
+      } else if (evidenceMode === "enforce") {
+        blockers.push(...evidence.blockers);
       } else {
-        if (missingItems.length > 0)  blockers.push(`${missingItems.length} required evidence item(s) still missing`);
-        if (rejectedItems.length > 0) blockers.push(`${rejectedItems.length} evidence item(s) rejected — must be resubmitted`);
+        // shadow/off: comportamiento anterior (solo faltante/rechazada bloquean).
+        if (evidence.counts.missing > 0)  blockers.push(`${evidence.counts.missing} required evidence item(s) still missing`);
+        if (evidence.counts.rejected > 0) blockers.push(`${evidence.counts.rejected} evidence item(s) rejected — must be resubmitted`);
         if (submittedItems.length > 0) reasons.push(`${submittedItems.length} evidence item(s) submitted — pending review`);
       }
     }

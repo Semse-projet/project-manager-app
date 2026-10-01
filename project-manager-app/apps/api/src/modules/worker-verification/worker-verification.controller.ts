@@ -48,6 +48,7 @@ export class WorkerVerificationController {
       ctx.tenantId,
       String(body.didSignature ?? ""),
       String(body.didPublicKey ?? ""),
+      String(body.nonce ?? ""),
       { userId: ctx.userId, roles: ctx.roles },
     );
 

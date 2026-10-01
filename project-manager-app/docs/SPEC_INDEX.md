@@ -158,6 +158,7 @@ retroactiva.
 | [m5-2-public-api](specs/tools/fase-5/m5.2-public-api.spec.md) | api | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-06-09 |
 | [m5-3-monetization](specs/tools/fase-5/m5.3-monetization.spec.md) | tools | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-06-09 |
 | [tools.materials-calculator](specs/tools/materials-calculator.spec.md) | tools | VERIFIED | legacy | legacy | legacy | legacy | legacy | low | yes | 2026-07-19 |
+| [trust.worker-verification-tenant](specs/trust/worker-verification-tenant.spec.md) | trust | APPROVED | COMPLETE | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-10-01 |
 | [ui.admin-flows-remediation](specs/ui/admin-flows-remediation.spec.md) | ui | APPROVED | legacy | legacy | legacy | legacy | legacy | critical | no | 2026-08-14 |
 | [ui-admin-flows](specs/ui/admin-flows.spec.md) | ui | DEPRECATED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-06-09 |
 | [ui.admin-modular-navigation](specs/ui/admin-modular-navigation.spec.md) | ui | VERIFIED | COMPLETE | PASS | MERGED | DEPLOYED | ACTIVE | medium | yes | 2026-08-02 |

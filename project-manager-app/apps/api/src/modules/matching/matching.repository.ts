@@ -189,6 +189,14 @@ export class MatchingRepository {
 
     const completedByUser = new Map(completedCounts.map((r) => [r.professionalId, r._count.id]));
 
+    // C11: la verificacion es POR TENANT; el global User.verificationStatus solo cuenta
+    // como compatibilidad temporal cuando no hay fila por tenant.
+    const tenantVerification = await this.prisma.workerVerification.findMany({
+      where: { tenantId, userId: { in: activeUserIds } },
+      select: { userId: true, status: true },
+    });
+    const verificationByUser = new Map(tenantVerification.map((r) => [r.userId, r.status]));
+
     return users.map((u) => {
       const rating = ratingByUser.get(u.id) ?? { avg: 0, total: 0 };
       const rawTrustScore = typeof u.trustScore === "object"
@@ -207,7 +215,7 @@ export class MatchingRepository {
         userId: u.id,
         email: u.email,
         trustScore,
-        verificationStatus: u.verificationStatus,
+        verificationStatus: verificationByUser.get(u.id) ?? u.verificationStatus,
         avgRating: rating.avg,
         totalRatings: rating.total,
         completedJobs,

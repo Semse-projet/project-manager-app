@@ -3,6 +3,7 @@ import prismaClientPackage from "@prisma/client";
 import type { Prisma as PrismaTypes } from "@prisma/client";
 import { type PaymentTxnRecord } from "../../common/domain-store.js";
 import { ReleaseAlreadyActiveError } from "./escrow-release.command.js";
+import { evaluateRequiredEvidence, resolveEvidenceRevalidationMode } from "../milestones/evidence-readiness.js";
 import { ActorContextService } from "../../infrastructure/persistence/actor-context.service.js";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { findProjectLinkByJobIdOrThrow, findProjectLinkByProjectIdOrThrow } from "../projects/project-link.repository.js";
@@ -428,6 +429,34 @@ export class PaymentsRepository {
 
         if (input.amount > available) {
           throw new ConflictException("insufficient escrow funds for release");
+        }
+
+        // C18 — revalidacion DENTRO de la misma transaccion que reserva los fondos
+        // (Serializable): el hito debe seguir APPROVED y su evidencia requerida validada.
+        // Cierra la ventana aprobar -> rechazar/cambiar evidencia -> reservar, tanto en
+        // el camino manual como en el auto-release.
+        const milestoneRow = await db.milestone.findUnique({
+          where: { id: input.milestoneId },
+          select: { status: true, evidenceItems: { select: { required: true, status: true } } }
+        });
+        if (!milestoneRow || milestoneRow.status !== "APPROVED") {
+          throw new ConflictException(
+            `milestone '${input.milestoneId}' must be APPROVED to reserve funds (current: ${milestoneRow?.status ?? "not found"})`
+          );
+        }
+        const evidenceMode = resolveEvidenceRevalidationMode();
+        if (evidenceMode !== "off") {
+          const evidence = evaluateRequiredEvidence(milestoneRow.evidenceItems);
+          if (!evidence.complete) {
+            if (evidenceMode === "enforce") {
+              throw new ConflictException({
+                message: "cannot reserve funds: required evidence is not validated",
+                blockers: evidence.blockers
+              });
+            }
+            // eslint-disable-next-line no-console
+            console.warn(JSON.stringify({ event: "release_evidence_shadow_would_block", milestoneId: input.milestoneId, blockers: evidence.blockers }));
+          }
         }
 
         // ADR-041 slice 2: a milestone has at most ONE active (PENDING or
