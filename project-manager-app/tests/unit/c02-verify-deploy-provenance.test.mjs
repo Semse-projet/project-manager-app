@@ -92,3 +92,24 @@ test("CLI: servicio caido (sin respuesta) => exit 1, nunca se acepta procedencia
   const r = await runCli("http://127.0.0.1:9", good.gitSha);
   assert.equal(r.status, 1);
 });
+
+test("markdown: HTTP no 2xx nunca se muestra como coincide, aunque el cuerpo coincida", () => {
+  const md = toMarkdown("api", evaluateProvenance(good, { expectSha: good.gitSha }), 503);
+  assert.doesNotMatch(md, /✅/);
+  assert.match(md, /⚠️ HTTP 503/);
+});
+test("markdown: la advertencia del digest se conserva aunque el sha no coincida", () => {
+  const r = evaluateProvenance({ ...good, imageDigest: "unknown" }, { expectSha: "f".repeat(40), allowUnknownDigest: true });
+  assert.equal(r.ok, false);
+  const md = toMarkdown("api", r, 200);
+  assert.match(md, /⚠️ gitSha .* != esperado/);
+  assert.match(md, /🟡 imageDigest desconocido/);
+});
+test("CLI: health que envia cabeceras y deja el cuerpo abierto => timeout por intento y exit 1 (no se cuelga)", async () => {
+  await withServer((_req, res) => { res.writeHead(200, { "content-type": "application/json" }); res.write('{"gitSha":'); /* nunca termina */ }, async (url) => {
+    const t0 = Date.now();
+    const r = await runCli(url, good.gitSha, ["--timeout=1"]);
+    assert.equal(r.status, 1);
+    assert.ok(Date.now() - t0 < 10000, "debe terminar por el plazo, no esperar indefinidamente");
+  });
+});
