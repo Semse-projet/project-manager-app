@@ -2,6 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { databaseEnabled } from "../../infrastructure/persistence/persistence-mode.js";
+import { sameOrg } from "../../common/resource-scope.js";
 
 // ── Record types ──────────────────────────────────────────────────────────────
 
@@ -306,7 +307,7 @@ export class TravelService {
       where: { id: assignment.jobId, tenantId: assignment.tenantId },
       select: { clientOrgId: true },
     });
-    if (job && actor.orgId === job.clientOrgId) return;
+    if (job && sameOrg(actor.orgId, job.clientOrgId)) return;
 
     throw new ForbiddenException("actor is not assigned to this travel");
   }

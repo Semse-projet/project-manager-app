@@ -13,6 +13,7 @@ import { ActorContextService } from "../../infrastructure/persistence/actor-cont
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { type BidRecord } from "../../common/domain-store.js";
 import { OutboxRepository } from "../domain-events/outbox.repository.js";
+import { sameOrg } from "../../common/resource-scope.js";
 
 type StoredBid = {
   id: string;
@@ -349,7 +350,7 @@ export class BidsRepository {
     if (!bid) {
       throw new NotFoundException(`Bid '${input.bidId}' not found`);
     }
-    if (bid.job.clientOrgId !== input.orgId && !input.roles.includes("OPS_ADMIN")) {
+    if (!sameOrg(bid.job.clientOrgId, input.orgId) && !input.roles.includes("OPS_ADMIN")) {
       throw new ForbiddenException("actor cannot accept this bid");
     }
     if (bid.status === "ACCEPTED") {
@@ -574,7 +575,7 @@ export class BidsRepository {
     userId: string;
     roles?: string[];
   }): Promise<void> {
-    if (input.proOrgId !== input.orgId && !input.roles?.includes("OPS_ADMIN")) {
+    if (!sameOrg(input.proOrgId, input.orgId) && !input.roles?.includes("OPS_ADMIN")) {
       throw new ForbiddenException("actor cannot create bids for a different professional org");
     }
 

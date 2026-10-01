@@ -33,6 +33,7 @@ import type {
   IntakeOperationsBridgeResult,
   IntakeOperationsBridgeTaskTemplate,
 } from "./intake-operations-bridge.types.js";
+import { sameOrg } from "../../common/resource-scope.js";
 
 type StoredJob = {
   id: string;
@@ -1132,7 +1133,7 @@ export class IntakeOperationsBridgeService {
     if (actor.roles.includes("OPS_ADMIN")) {
       return;
     }
-    if (job.clientOrgId !== actor.orgId) {
+    if (!sameOrg(job.clientOrgId, actor.orgId)) {
       throw new ForbiddenException("Only the client org or ops admin can bridge this job");
     }
   }

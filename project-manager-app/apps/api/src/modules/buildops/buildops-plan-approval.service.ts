@@ -20,6 +20,7 @@ import type {
   RequestChangesInput,
   UnapproveClientPlanInput,
 } from "./buildops-plan-approval.types.js";
+import { sameOrg } from "../../common/resource-scope.js";
 
 type StoredPlan = {
   id: string;
@@ -394,7 +395,7 @@ export class BuildOpsPlanApprovalService {
     if (!plan.jobId || !plan.job) {
       throw new ForbiddenException("client approval requires a job-linked buildops plan");
     }
-    if (plan.job.clientOrgId !== actor.orgId) {
+    if (!sameOrg(plan.job.clientOrgId, actor.orgId)) {
       throw new ForbiddenException("actor is not allowed to approve this client plan");
     }
   }
@@ -403,7 +404,7 @@ export class BuildOpsPlanApprovalService {
     if (actor.roles.includes("OPS_ADMIN")) {
       return;
     }
-    if (!plan.jobId || !plan.job || plan.job.clientOrgId !== actor.orgId) {
+    if (!plan.jobId || !plan.job || !sameOrg(plan.job.clientOrgId, actor.orgId)) {
       throw new ForbiddenException("actor is not allowed to manage this client plan");
     }
   }
