@@ -818,7 +818,7 @@
    "priority": "P0",
    "historical": "PARCIAL",
    "batch": "A3",
-   "current_truth": "MERGEADO en main (#726, e0f2618): etapa 1 (contrato común + 5 políticas delegadas, defensa en profundidad por ownership.tenantId). DESPLEGADO (7c9df29) — sigue PARTIAL: falta smoke funcional dirigido; etapas 2–3 pendientes. | Histórico: PARTIAL — etapa 1 en PR claude/c51-resource-scope: contrato común common/resource-scope.ts (OPS_ADMIN no cruza tenants; cross-tenant 404; org vacía nunca coincide) y políticas de evidence, milestones, disputes, projects y liens delegadas con paridad probada; cierra el caso '' === '' en 5 políticas. Etapas 2 (resto de políticas y comparaciones manuales de orgId) y 3 (resolutor único + guarda de arquitectura en CI, requiere PR de CI autorizado) pendientes",
+   "current_truth": "MERGEADO y DESPLEGADO — sigue PARTIAL (sin smoke autenticado multi-tenant/multi-org). Etapa 1 (#726, e0f2618; desplegada 7c9df29). Etapa 2a (#742, de33e974): comparaciones de orgId a mano que deciden acceso en jobs, materials, incidents, change-orders, contracts y reservations migradas a sameOrg (cierra el caso '' === '' en assertTransitionAuthorized); desplegada en de33e974 (Railway Deploy run 36893918128: gate de provenance success, API/Web gitSha === DEPLOY_SHA). Etapa 2b (#743, 4c80d8fe): buildops-plan-approval, buildops-legacy-promotion, intake-operations-bridge, travel, bids, budget-intelligence, live-sessions.resource-access y ratings migrados a sameOrg; desplegada en 4c80d8fe (run 36906234546: 4 servicios SUCCESS, gate de provenance success, API/Web gitSha === DEPLOY_SHA, sin errores de arranque). Pruebas negativas de org vacía/cross-org en unit tests; NO hay smoke funcional autenticado con dos tenants/orgs. Etapa 2c (originator, users, contributor-program, domain-events): inventariada, no autorizan por org (propiedad por userId/OPS_ADMIN/tenant); solo pruebas y spec en PR #744 (abierta al momento de este registro). workspace-memory pendiente de definir su semántica de ownership/scope. Etapa 3 (resolutor único + guarda de arquitectura en CI) pendiente: requiere PR de CI autorizado. | Anterior: MERGEADO en main (#726, e0f2618): etapa 1 (contrato común + 5 políticas delegadas, defensa en profundidad por ownership.tenantId). DESPLEGADO (7c9df29) — sigue PARTIAL: falta smoke funcional dirigido; etapas 2–3 pendientes. | Histórico: PARTIAL — etapa 1 en PR claude/c51-resource-scope: contrato común common/resource-scope.ts (OPS_ADMIN no cruza tenants; cross-tenant 404; org vacía nunca coincide) y políticas de evidence, milestones, disputes, projects y liens delegadas con paridad probada; cierra el caso '' === '' en 5 políticas. Etapas 2 (resto de políticas y comparaciones manuales de orgId) y 3 (resolutor único + guarda de arquitectura en CI, requiere PR de CI autorizado) pendientes",
    "evidence": {
     "code": false,
     "ci": false,
@@ -1338,24 +1338,28 @@
   "#734": "e4c73228ac7a72b4ed69f05759b6e1442f57f2fd",
   "#735": "b2d58ce62095b49ede95661c376061264739e511",
   "#736": "6d3f594cb22f019cb724fe74dc1b46776dc204b7",
-  "#737": "92d8e9ea0bfe941f1477e7010f2f1c20b6af83b3"
+  "#737": "92d8e9ea0bfe941f1477e7010f2f1c20b6af83b3",
+  "#738": "87e5ac162d8e618895be40ac7c93360dd3fe7d61",
+  "#741": "f495713bc42c3ae903e3758a1a45a1a5f6e3f074",
+  "#742": "de33e974c88a9f2db9255277f2cdb37ecbc89c3a",
+  "#743": "4c80d8fefe47c18b6fb40c422bffd3b6b3cce7b0"
  },
  "prod_readonly_evidence": "docs/reportes/2026-09-30_prod-readonly-evidence-c53-c57.md",
  "deploy_evidence": {
-  "api": "bf6ee8ee-5225-4ab5-873d-49e20c16488d",
-  "web": "e5407147-2e37-4e35-a2d6-8f2362ba80c3",
-  "worker": "c045da92-d468-48cd-b663-7337947e68e5",
-  "vision": "b98e0d4f-163b-4cda-897e-e49379a1d2fb",
-  "commit": "92d8e9ea0bfe941f1477e7010f2f1c20b6af83b3",
-  "checked_at": "2026-10-01T11:52Z",
+  "api": "e9e812fa-63f0-476b-b7d1-01f9b5e7b3bb",
+  "web": "19f6d5f1-8fb5-4cb4-84cd-3b484d25c2d3",
+  "worker": "453b65b0-c1d9-4c18-9d74-522cd8f46f96",
+  "vision": "57a98ed3-6c42-4e5d-ae2a-a026982e5d7f",
+  "commit": "4c80d8fefe47c18b6fb40c422bffd3b6b3cce7b0",
+  "checked_at": "2026-10-01T18:30Z",
   "migration_applied": "20261001100000_c39_ai_model_price_catalog",
   "migration_applied_in": "deployment API b024794c (commit 6d3f594c, #736) a las 2026-10-01T11:23:09Z: 'Applying migration `20261001100000_c39_ai_model_price_catalog`' + 'migrate deploy completo', sin error de CREATE EXTENSION btree_gist; deployment bf6ee8ee (92d8e9ea) a las 11:41:17Z: '107 migrations found' + 'No pending migrations to apply'",
-  "provenance_gate": "Railway Deploy run 36856601208, paso 'Runtime provenance gate (blocking)' success: API HTTP 200 gitSha=92d8e9ea… deploymentId bf6ee8ee…; web HTTP 200 gitSha=92d8e9ea… deploymentId e5407147…; imageDigest unknown (warning)"
+  "provenance_gate": "Railway Deploy run 36906234546, paso 'Runtime provenance gate (blocking)' success: API HTTP 200 gitSha=4c80d8fe… deploymentId e9e812fa…; web HTTP 200 gitSha=4c80d8fe… deploymentId 19f6d5f1…; imageDigest unknown (warning, gap abierto aparte). Despliegue previo de de33e974 (#742, #738, #741): run 36893918128, mismo resultado (API 7485f2f0, web 2d66d912)."
  },
  "runtime_snapshot": {
-  "checked_at": "2026-10-01T11:52Z",
-  "api_active": "bf6ee8ee-5225-4ab5-873d-49e20c16488d",
-  "api_active_commit": "92d8e9ea0bfe941f1477e7010f2f1c20b6af83b3",
-  "note": "Railway MCP solo lectura + logs del job health-check. 4 servicios SUCCESS en 92d8e9ea. #736 (squash titulado «docs(spec)…») contenía en realidad TODO el código y la migración de C39 y se desplegó primero (deployment b024794c, 11:23Z); #737 resultó con árbol idéntico (diff vacío), por eso su deploy dice 'No pending migrations'."
+  "checked_at": "2026-10-01T18:30Z",
+  "api_active": "e9e812fa-63f0-476b-b7d1-01f9b5e7b3bb",
+  "api_active_commit": "4c80d8fefe47c18b6fb40c422bffd3b6b3cce7b0",
+  "note": "Railway MCP solo lectura + logs del job health-check. 4 servicios SUCCESS en 4c80d8fe; sin errores de arranque en la API (filtro 'rror' vacío). #738 (diagnóstico de STRIPE_SECRET_KEY) ya está desplegado: no resuelve producción por sí solo, la clave real sk_/rk_ sigue pendiente del dueño. Flags sensibles sin tocar (PAYMENTS_RELEASE_COMMAND, reconciliación con escritura, UPLOADS_SIGNED_GET_MODE, AI_PRICING_CATALOG_MODE)."
  }
 }
