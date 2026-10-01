@@ -15,6 +15,12 @@ import { resolveStripeWebhookMode, verifyStripeWebhookSignature } from "./stripe
 // (stripe.createToken, browser → Stripe's servers directly) before this
 // endpoint is ever called; only the resulting token id and the last4 Stripe's
 // own response includes reach our BFF/backend. See AUDIT_REMEDIATION_PLAN.md.
+function readIdempotencyKey(headers: Record<string, unknown> | undefined): string | undefined {
+  const raw = headers?.["idempotency-key"];
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
+}
+
 const workerPayoutMethodSchema = z.object({
   type: z.enum(["bank_account", "debit_card", "paypal", "zelle", "cashapp"]),
   bankName: z.string().trim().min(1).optional(),
@@ -213,7 +219,8 @@ export class PaymentsController {
       amount: parsed.data.amount,
       provider: parsed.data.provider,
       methodType: parsed.data.methodType,
-      requestId
+      requestId,
+      idempotencyKey: readIdempotencyKey(req.headers)
     });
 
     return ok(requestId, {

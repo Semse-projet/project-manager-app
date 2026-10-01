@@ -1,30 +1,31 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { BadRequestException, ConflictException, InternalServerErrorException } from "@nestjs/common";
+import { BadRequestException } from "@nestjs/common";
 import {
   ReleaseAlreadyActiveError,
+  ReleaseIdempotencyConflictError,
   classifyStalePendingRelease,
-  isDefinitiveProviderFailure,
   isReleaseCommandEnabled,
-  releaseReservationRef,
+  releaseRefBase,
   runEscrowRelease,
 } from "../dist/modules/payments/escrow-release.command.js";
 
-type Txn = { id: string; status: string; providerRef: string; milestoneId: string };
+type Txn = { id: string; status: string; providerRef: string; milestoneId: string; amount: number };
+type Outcome = any;
 
-function harness(opts: { transfer?: () => Promise<any>; finalizeFails?: boolean } = {}) {
+function harness(opts: { transfer?: (ref: string) => Promise<Outcome>; finalizeFails?: boolean } = {}) {
   const txns: Txn[] = [];
   const calls: string[] = [];
   const criticals: string[] = [];
   const ports = {
     async reserve(r: any) {
       calls.push("reserve");
-      // misma garantia que el repositorio: 1 RELEASE activo por milestone
       if (txns.some((t) => t.milestoneId === r.milestoneId && ["PENDING", "SUCCEEDED"].includes(t.status))) {
         throw new ReleaseAlreadyActiveError(r.milestoneId);
       }
-      if (txns.some((t) => t.providerRef === r.providerRef)) throw new Error("unique providerRef");
-      const t = { id: `tx${txns.length + 1}`, status: "PENDING", providerRef: r.providerRef, milestoneId: r.milestoneId };
+      // PaymentTxn.providerRef es UNIQUE
+      if (txns.some((t) => t.providerRef === r.providerRef)) throw Object.assign(new Error("unique providerRef"), { code: "P2002" });
+      const t = { id: `tx${txns.length + 1}`, status: "PENDING", providerRef: r.providerRef, milestoneId: r.milestoneId, amount: r.amount };
       txns.push(t);
       return { id: t.id };
     },
@@ -39,17 +40,24 @@ function harness(opts: { transfer?: () => Promise<any>; finalizeFails?: boolean 
     async findActiveRelease(milestoneId: string) {
       return txns.find((t) => t.milestoneId === milestoneId && ["PENDING", "SUCCEEDED"].includes(t.status)) ?? null;
     },
+    async findReleaseByRef(ref: string) {
+      return txns.find((t) => t.providerRef === ref) ?? null;
+    },
+    async countFailedAttempts(prefix: string) {
+      return txns.filter((t) => t.status === "FAILED" && t.providerRef.startsWith(prefix)).length;
+    },
     async transfer(ref: string) {
       calls.push("transfer");
-      return opts.transfer ? opts.transfer() : { status: "paid", providerRef: `po_${ref.length}` };
+      return opts.transfer ? opts.transfer(ref) : { kind: "paid", providerRef: `po_${txns.length}` };
     },
     onCritical(m: string) { criticals.push(m); },
   };
   return { ports, txns, calls, criticals };
 }
-const input = { escrowId: "e1", milestoneId: "m1", amount: 100, idempotencyKey: "req1" };
+const input = { escrowId: "e1", milestoneId: "m1", amount: 100 };
+const transfers = (h: { calls: string[] }) => h.calls.filter((c) => c === "transfer").length;
 
-test("camino feliz: released, una transferencia, milestone con 1 txn SUCCEEDED", async () => {
+test("camino feliz: released, una transferencia, 1 txn SUCCEEDED", async () => {
   const h = harness();
   const r = await runEscrowRelease(h.ports, input);
   assert.equal(r.status, "released");
@@ -58,26 +66,33 @@ test("camino feliz: released, una transferencia, milestone con 1 txn SUCCEEDED",
   assert.equal(h.txns[0].status, "SUCCEEDED");
 });
 
-test("llamada repetida (misma clave u otra): una sola transferencia, devuelve el resultado de la primera", async () => {
+test("identidad independiente de la fuente: manual + agente + auto => una sola transferencia", async () => {
+  const h = harness();
+  const manual = await runEscrowRelease(h.ports, input);
+  const agent = await runEscrowRelease(h.ports, { ...input });
+  const auto = await runEscrowRelease(h.ports, { ...input });
+  assert.equal(manual.replay, false);
+  assert.ok(agent.replay && auto.replay);
+  assert.equal(transfers(h), 1);
+  assert.equal(releaseRefBase("m1", 100), "pending_release_m1_10000");
+});
+
+test("importe distinto sobre un release activo => conflicto, no replay ni 2.a transferencia", async () => {
   const h = harness();
   await runEscrowRelease(h.ports, input);
-  const again = await runEscrowRelease(h.ports, input);
-  const other = await runEscrowRelease(h.ports, { ...input, idempotencyKey: "req2" });
-  assert.equal(again.replay, true);
-  assert.equal(again.status, "released");
-  assert.equal(other.replay, true);
-  assert.equal(h.calls.filter((c) => c === "transfer").length, 1);
+  await assert.rejects(runEscrowRelease(h.ports, { ...input, amount: 250 }), ReleaseIdempotencyConflictError);
+  assert.equal(transfers(h), 1);
 });
 
 test("concurrencia: dos releases simultaneos => una transferencia", async () => {
-  const h = harness({ transfer: () => new Promise((res) => setTimeout(() => res({ status: "paid", providerRef: "po1" }), 10)) });
-  const [a, b] = await Promise.all([runEscrowRelease(h.ports, input), runEscrowRelease(h.ports, { ...input, idempotencyKey: "req2" })]);
-  assert.equal(h.calls.filter((c) => c === "transfer").length, 1);
+  const h = harness({ transfer: () => new Promise((res) => setTimeout(() => res({ kind: "paid", providerRef: "po1" }), 10)) });
+  const [a, b] = await Promise.all([runEscrowRelease(h.ports, input), runEscrowRelease(h.ports, { ...input, idempotencyKey: "k2" })]);
+  assert.equal(transfers(h), 1);
   assert.deepEqual([a.replay, b.replay].sort(), [false, true]);
 });
 
-test("proveedor en proceso: queda pending (webhook finaliza), reintento = replay pending", async () => {
-  const h = harness({ transfer: async () => ({ status: "processing", providerRef: "po_p" }) });
+test("proveedor en proceso: pending; reintento = replay pending", async () => {
+  const h = harness({ transfer: async () => ({ kind: "processing", providerRef: "po_p" }) });
   const r = await runEscrowRelease(h.ports, input);
   assert.equal(r.status, "pending");
   assert.equal(h.txns[0].status, "PENDING");
@@ -86,29 +101,71 @@ test("proveedor en proceso: queda pending (webhook finaliza), reintento = replay
   assert.equal(again.replay, true);
 });
 
-test("rechazo definitivo 4xx => failed y la reserva se libera (permite reintento)", async () => {
-  const h = harness({ transfer: async () => { throw new BadRequestException("bad payout method"); } });
+test("rechazo definitivo: failed, la reserva CONSERVA su referencia (no la cambia por la del proveedor)", async () => {
+  const h = harness({ transfer: async () => ({ kind: "definitive_failure", message: "no payout method", providerRef: "po_x" }) });
   const r = await runEscrowRelease(h.ports, input);
   assert.equal(r.status, "failed");
   assert.equal(h.txns[0].status, "FAILED");
-  const h2 = await runEscrowRelease({ ...h.ports, transfer: async () => ({ status: "paid", providerRef: "po2" }) }, { ...input, idempotencyKey: "req2" });
-  assert.equal(h2.status, "released");
+  assert.equal(h.txns[0].providerRef, "pending_release_m1_10000_a0");
 });
 
-test("fallo AMBIGUO (timeout/5xx/red) => unknown, reserva sigue PENDING, bloquea doble pago", async () => {
-  const h = harness({ transfer: async () => { throw new Error("ETIMEDOUT"); } });
+test("MISMA clave explicita tras un FAILED definitivo: replay de failed, sin unique violation ni 2.a transferencia", async () => {
+  const h = harness({ transfer: async () => ({ kind: "definitive_failure", message: "declined" }) });
+  const first = await runEscrowRelease(h.ports, { ...input, idempotencyKey: "abc" });
+  assert.equal(first.status, "failed");
+  assert.equal(first.replay, false);
+  const again = await runEscrowRelease(h.ports, { ...input, idempotencyKey: "abc" });
+  assert.equal(again.status, "failed");
+  assert.equal(again.replay, true);
+  assert.equal(again.transactionId, first.transactionId);
+  assert.equal(transfers(h), 1, "no debe volver a transferir");
+  assert.equal(h.txns.length, 1);
+});
+
+test("otra clave explicita tras FAILED => intento nuevo legitimo", async () => {
+  let ok = false;
+  const h = harness({ transfer: async () => (ok ? { kind: "paid", providerRef: "po_ok" } : { kind: "definitive_failure", message: "declined" }) });
+  await runEscrowRelease(h.ports, { ...input, idempotencyKey: "abc" });
+  ok = true;
+  const retry = await runEscrowRelease(h.ports, { ...input, idempotencyKey: "def" });
+  assert.equal(retry.status, "released");
+  assert.equal(retry.replay, false);
+  assert.equal(transfers(h), 2);
+});
+
+test("sin clave tras FAILED: el reintento es un intento nuevo (a1) y repetirlo despues es replay", async () => {
+  let ok = false;
+  const h = harness({ transfer: async () => (ok ? { kind: "paid", providerRef: "po_ok" } : { kind: "definitive_failure", message: "declined" }) });
+  await runEscrowRelease(h.ports, input); // a0 -> FAILED
+  ok = true;
+  const retry = await runEscrowRelease(h.ports, input); // a1 -> released
+  assert.equal(retry.status, "released");
+  assert.equal(h.txns[1].providerRef, "po_ok");
+  const again = await runEscrowRelease(h.ports, input);
+  assert.equal(again.replay, true);
+  assert.equal(transfers(h), 2);
+});
+
+test("fallo AMBIGUO => unknown, reserva PENDING, bloquea doble pago", async () => {
+  const h = harness({ transfer: async () => ({ kind: "ambiguous_failure", message: "ETIMEDOUT" }) });
   const r = await runEscrowRelease(h.ports, input);
   assert.equal(r.status, "unknown");
   assert.equal(h.txns[0].status, "PENDING");
   assert.equal(h.criticals.length, 1);
-  assert.ok(!h.calls.some((c) => c.startsWith("finalize")), "no debe finalizar");
-  // un reintento NO vuelve a transferir
-  const again = await runEscrowRelease(h.ports, { ...input, idempotencyKey: "req2" });
+  assert.ok(!h.calls.some((c) => c.startsWith("finalize")));
+  const again = await runEscrowRelease(h.ports, { ...input, idempotencyKey: "otra" });
   assert.equal(again.replay, true);
-  assert.equal(h.calls.filter((c) => c === "transfer").length, 1);
+  assert.equal(transfers(h), 1);
 });
 
-test("transferencia OK + fallo al finalizar => unknown con transferConfirmed (no released:false, no silencio)", async () => {
+test("si el puerto lanza (bug), se trata como ambiguo y no como FAILED", async () => {
+  const h = harness({ transfer: async () => { throw new Error("boom"); } });
+  const r = await runEscrowRelease(h.ports, input);
+  assert.equal(r.status, "unknown");
+  assert.equal(h.txns[0].status, "PENDING");
+});
+
+test("transferencia OK + fallo al finalizar => unknown con transferConfirmed", async () => {
   const h = harness({ finalizeFails: true });
   const r = await runEscrowRelease(h.ports, input);
   assert.equal(r.status, "unknown");
@@ -116,19 +173,16 @@ test("transferencia OK + fallo al finalizar => unknown con transferConfirmed (no
   assert.equal(h.criticals.length, 1);
 });
 
-test("clasificacion de errores del proveedor", () => {
-  assert.equal(isDefinitiveProviderFailure(new BadRequestException("x")), true);
-  assert.equal(isDefinitiveProviderFailure(new ConflictException("x")), true);
-  assert.equal(isDefinitiveProviderFailure(new InternalServerErrorException("x")), false);
-  assert.equal(isDefinitiveProviderFailure(new Error("socket hang up")), false);
-  assert.equal(isDefinitiveProviderFailure(Object.assign(new Error("declined"), { definitive: true })), true);
+test("Idempotency-Key invalida => 400 antes de tocar nada", async () => {
+  const h = harness();
+  await assert.rejects(runEscrowRelease(h.ports, { ...input, idempotencyKey: "con espacios!" }), BadRequestException);
+  assert.deepEqual(h.calls, []);
 });
 
 test("flag: apagado por defecto; solo 'on' lo activa", () => {
   assert.equal(isReleaseCommandEnabled({} as never), false);
   assert.equal(isReleaseCommandEnabled({ PAYMENTS_RELEASE_COMMAND: "true" } as never), false);
   assert.equal(isReleaseCommandEnabled({ PAYMENTS_RELEASE_COMMAND: "on" } as never), true);
-  assert.equal(releaseReservationRef("m", "k"), "pending_release_m_k");
 });
 
 test("reconciliacion: clasifica RELEASE PENDING antiguos", () => {
