@@ -25,14 +25,15 @@
    "priority": "P0",
    "historical": "PARCIAL",
    "batch": "A5",
-   "current_truth": "PARTIAL — en main (#706): deploymentId/environment/imageDigest; faltan CI result y digest (requiere CI/CD); sin evidencia de producción aún",
+   "current_truth": "PARTIAL — en main: #706 (campos de procedencia) y #716 (edc63eb, verify-deploy-provenance.mjs, solo lectura). Falta: gate en CI que compare sha en producción con el commit mergeado (requiere autorizar cambio de CI/CD) y imageDigest (SEMSE_IMAGE_DIGEST)",
    "evidence": {
     "code": "partial",
     "ci": "PR checks green; main auto-deploy (Railway Deploy/Production Health Gate) — sin smoke autenticado",
     "merge": "08aed04fba0a58880e83a105a75cf20235b82892",
     "deploy": "auto-deploy on merge to main (per GitHub Actions); runtime not verified from sandbox",
     "activation": false,
-    "pr": "#706"
+    "pr": "#706",
+    "pr_2": "#716"
    }
   },
   {
@@ -42,13 +43,14 @@
    "priority": "P1",
    "historical": "ROTA",
    "batch": "B2",
-   "current_truth": "IMPLEMENTED_NOT_VERIFIED — defecto reparado; build reproducible en main aecbd8d (local exit 0 + CI main success); web desplegada (deploy 4e7f4c4d SUCCESS, online); falta smoke autenticado",
+   "current_truth": "VERIFIED (por criterio de cierre) — defecto reparado y build reproducible del commit reconciliado (local exit 0 + CI main success); web desplegada y online. Smoke autenticado/destructivo en producción: no ejecutado (columna aparte)",
    "evidence": {
     "code": true,
     "ci": "CI main aecbd8d success; build local exit 0",
     "merge": "aecbd8dd7e885022dd1b46e913cb01cfd82f7cb8",
     "deploy": "deploy 70ca14b8 (aecbd8d) SUCCESS; 4 servicios online 1/1; migración 20260930230513 aplicada en prod ('migrate deploy completo', dedup 0 filas); sin smoke autenticado",
-    "activation": false
+    "activation": false,
+    "smoke_destructive_prod": "no ejecutado"
    }
   },
   {
@@ -299,13 +301,14 @@
    "priority": "P0",
    "historical": "PARCIAL",
    "batch": "A4",
-   "current_truth": "PARTIAL — spec signed-file-access APPROVED; código en PR claude/c19-signed-file-access (firma HMAC+exp, modo off|shadow|enforce, tenant/OPS_ADMIN, rotación, vision 5 min). Entregado en off: sin efecto hasta shadow→enforce en producción",
+   "current_truth": "PARTIAL — en main (#715, 0b97dc4), modo off por defecto: sin efecto hasta configurar UPLOADS_SIGNING_SECRET y pasar shadow→enforce (operador). La exposición pública actual de GET /v1/uploads/files/* sigue abierta hasta esa activación",
    "evidence": {
-    "code": false,
-    "ci": false,
-    "merge": null,
+    "code": true,
+    "ci": "PR checks green",
+    "merge": "0b97dc4b41af915041a1f6eb47c52e37e6f3a11c",
     "deploy": false,
-    "activation": false
+    "activation": false,
+    "pr": "#715"
    }
   },
   {
@@ -909,13 +912,14 @@
    "priority": "P0",
    "historical": "PARCIAL",
    "batch": "A5",
-   "current_truth": "PARTIAL — código en PR (claude/c57-dedup-maintenance): runDedup() fuera del arranque; scripts/maintenance/dedup.mjs (dry-run por defecto; --apply exige evidencia de backup + confirmación, tope de filas, transacción, canónica por dependientes/createdAt, grupos ambiguos bloqueados). Probado en Postgres local. Falta merge/deploy y retirar servicios huérfanos db-dedup-script y t051-t058a (decisión del dueño)",
+   "current_truth": "PARTIAL — en main (#714, 31471b7): runDedup() fuera del arranque; scripts/maintenance/dedup.mjs (dry-run por defecto; --apply exige evidencia de backup + confirmación, tope de filas, transacción, canónica por dependientes/createdAt, grupos ambiguos bloqueados). Falta confirmar el despliegue (el arranque ya no debe loguear 'dedup complete'), backup/restore verificado antes de cualquier --apply, y retirar servicios huérfanos db-dedup-script y t051-t058a (decisión del dueño)",
    "evidence": {
-    "code": false,
-    "ci": false,
-    "merge": null,
+    "code": true,
+    "ci": "PR checks green",
+    "merge": "31471b72973f650f0d4eabfb45272615bfdadeff",
     "deploy": false,
-    "activation": false
+    "activation": false,
+    "pr": "#714"
    }
   },
   {
@@ -1279,13 +1283,14 @@
    "priority": "P0",
    "historical": "ROTA",
    "batch": "A1",
-   "current_truth": "IMPLEMENTED_NOT_VERIFIED — en main (#698); deploy por pipeline sin smoke autenticado con Ollama caído",
+   "current_truth": "VERIFIED (por criterio de cierre) — restricciones de privacidad antes de overrides/fallbacks y prueba de denegación cuando falla el modelo local (#698), desplegado. Smoke destructivo en producción (Ollama caído): no ejecutado (columna aparte)",
    "evidence": {
     "code": true,
     "ci": "PR checks green; main auto-deploy (Railway Deploy/Production Health Gate) — sin smoke autenticado",
     "merge": "21ccbebb9ba295f05cbe9335140385c0952d1c7f",
     "deploy": "en producción a nivel de commit: deploy aebd7ed4 (87fa20b), SUCCESS; sin smoke autenticado",
-    "activation": false
+    "activation": false,
+    "smoke_destructive_prod": "no ejecutado"
    }
   },
   {
@@ -1318,7 +1323,11 @@
   "#708": "0d7b8d481b276ad4cd60b8a1fe94ae94a595ddcf",
   "#709": "6312454a27b981ec0bd46f6c406cdb13fff1c185",
   "#710": "aecbd8dd7e885022dd1b46e913cb01cfd82f7cb8",
-  "#711": "81110acb3a52f5933506f6c15909720640e1627c"
+  "#711": "81110acb3a52f5933506f6c15909720640e1627c",
+  "#713": "2f451a15f3cdf47a8c3e4fe1ef198d506fe9d80e",
+  "#714": "31471b72973f650f0d4eabfb45272615bfdadeff",
+  "#715": "0b97dc4b41af915041a1f6eb47c52e37e6f3a11c",
+  "#716": "edc63eb4945dcec26c3c10532b0b8ad9cadc418e"
  },
  "prod_readonly_evidence": "docs/reportes/2026-09-30_prod-readonly-evidence-c53-c57.md",
  "deploy_evidence": {
@@ -1329,5 +1338,13 @@
   "commit": "aecbd8dd7e885022dd1b46e913cb01cfd82f7cb8",
   "checked_at": "2026-09-30T23:41Z",
   "migration_applied": "20260930230513_c39_c46_ai_log_actor_policy_plan_version"
+ },
+ "runtime_snapshot": {
+  "checked_at": "2026-10-01T00:3xZ",
+  "note": "Railway MCP (solo lectura): API/web/worker/vision SUCCESS online con deployments creados 2026-09-30T23:48 (commit 754030f según el dueño). Los merges #713-#716 (00:27Z) aún no mostraban deployment al consultar.",
+  "api": "3b88637b-350d-4245-93c0-732ce9dcb7a0",
+  "web": "9d617c81-daba-446a-9966-4083bf6f86d1",
+  "worker": "5deb95bb-5490-46f6-a8c1-ce48b9f44af2",
+  "vision": "d6581acc-9340-4376-9c90-7c447db3ea82"
  }
 }
