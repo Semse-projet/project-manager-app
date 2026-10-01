@@ -3,6 +3,7 @@ import type { Prisma } from "@prisma/client";
 import { type ReservationRecord } from "../../common/domain-store.js";
 import { ActorContextService } from "../../infrastructure/persistence/actor-context.service.js";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
+import { sameOrg } from "../../common/resource-scope.js";
 
 type ActorInput = {
   tenantId: string;
@@ -213,7 +214,7 @@ export class ReservationsRepository {
     if (!row) {
       throw new NotFoundException(`Reservation '${input.reservationId}' not found`);
     }
-    if (row.job.clientOrgId !== input.orgId && !input.roles.includes("OPS_ADMIN")) {
+    if (!sameOrg(row.job.clientOrgId, input.orgId) && !input.roles.includes("OPS_ADMIN")) {
       throw new ForbiddenException("actor cannot accept this reservation");
     }
     if (row.status === "ACCEPTED") {
@@ -279,8 +280,8 @@ export class ReservationsRepository {
 
     const row = await this.findReservationOrThrow(input);
     if (
-      (await this.resolveProfessionalOrgId(input.tenantId, row.professionalId)) !== input.orgId &&
-      row.job.clientOrgId !== input.orgId &&
+      !sameOrg(await this.resolveProfessionalOrgId(input.tenantId, row.professionalId), input.orgId) &&
+      !sameOrg(row.job.clientOrgId, input.orgId) &&
       !input.roles.includes("OPS_ADMIN")
     ) {
       throw new ForbiddenException("actor cannot release this reservation");
@@ -456,8 +457,8 @@ export class ReservationsRepository {
   private canReadReservation(actor: ActorInput, row: StoredReservation & { professionalOrgId?: string | null }): boolean {
     return (
       actor.roles.includes("OPS_ADMIN") ||
-      actor.orgId === row.job.clientOrgId ||
-      actor.orgId === row.professionalOrgId
+      sameOrg(actor.orgId, row.job.clientOrgId) ||
+      sameOrg(actor.orgId, row.professionalOrgId)
     );
   }
 
@@ -468,8 +469,8 @@ export class ReservationsRepository {
   ): boolean {
     return (
       actor.roles.includes("OPS_ADMIN") ||
-      actor.orgId === clientOrgId ||
-      rows.some((row) => row.professionalOrgId === actor.orgId)
+      sameOrg(actor.orgId, clientOrgId) ||
+      rows.some((row) => sameOrg(row.professionalOrgId, actor.orgId))
     );
   }
 

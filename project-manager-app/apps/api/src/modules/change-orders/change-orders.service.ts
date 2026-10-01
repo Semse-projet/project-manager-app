@@ -5,6 +5,7 @@ import { SseEventBusService } from "../../infrastructure/sse/sse-event-bus.servi
 import { OperationalSignalsService } from "../operational-intelligence/operational-signals.service.js";
 import { PaymentsRepository } from "../payments/payments.repository.js";
 import { findProjectLinkByJobIdOrThrow } from "../projects/project-link.repository.js";
+import { sameOrg } from "../../common/resource-scope.js";
 
 type ActorContext = {
   tenantId: string;
@@ -466,7 +467,7 @@ export class ChangeOrdersService {
         tenantId: actor.tenantId,
         jobId: candidate.jobId,
       });
-      if (actor.orgId !== project.job.clientOrgId && actor.orgId !== project.assignedProOrgId) {
+      if (!sameOrg(actor.orgId, project.job.clientOrgId) && !sameOrg(actor.orgId, project.assignedProOrgId)) {
         throw new ForbiddenException("actor does not have access to this change order");
       }
     }
