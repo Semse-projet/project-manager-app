@@ -2,6 +2,7 @@ import { ConflictException, Injectable, NotFoundException } from "@nestjs/common
 import prismaClientPackage from "@prisma/client";
 import type { Prisma as PrismaTypes } from "@prisma/client";
 import { type PaymentTxnRecord } from "../../common/domain-store.js";
+import { ReleaseAlreadyActiveError } from "./escrow-release.command.js";
 import { ActorContextService } from "../../infrastructure/persistence/actor-context.service.js";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { findProjectLinkByJobIdOrThrow, findProjectLinkByProjectIdOrThrow } from "../projects/project-link.repository.js";
@@ -429,6 +430,23 @@ export class PaymentsRepository {
           throw new ConflictException("insufficient escrow funds for release");
         }
 
+        // ADR-041 slice 2: a milestone has at most ONE active (PENDING or
+        // SUCCEEDED) RELEASE. Without this, auto-release and a manual release
+        // of the same approved milestone (or two repeated calls) could each
+        // reserve and both trigger a real transfer when the escrow covers
+        // several milestones. Serializable isolation makes the check + create atomic.
+        const active = await db.paymentTxn.findFirst({
+          where: {
+            milestoneId: input.milestoneId,
+            type: "RELEASE",
+            status: { in: ["PENDING", "SUCCEEDED"] }
+          },
+          select: { id: true }
+        });
+        if (active) {
+          throw new ReleaseAlreadyActiveError(input.milestoneId);
+        }
+
         // Reserve only — status stays PENDING until the caller confirms the
         // real provider outcome via finalizeRelease(). The milestone is not
         // marked PAID here: it must wait for confirmed success, otherwise a
@@ -458,6 +476,26 @@ export class PaymentsRepository {
         isolationLevel: Prisma.TransactionIsolationLevel.Serializable
       }
     );
+  }
+
+  /** RELEASE activo (PENDING/SUCCEEDED) de un milestone, para idempotencia/replay. */
+  async findActiveRelease(milestoneId: string): Promise<{ id: string; status: string; providerRef: string } | null> {
+    const txn = await this.prisma.paymentTxn.findFirst({
+      where: { milestoneId, type: "RELEASE", status: { in: ["PENDING", "SUCCEEDED"] } },
+      select: { id: true, status: true, providerRef: true },
+      orderBy: { createdAt: "desc" }
+    });
+    return txn ?? null;
+  }
+
+  /** RELEASE PENDING creados antes de `before`: entrada de la reconciliacion proveedor<->DB. */
+  async findStalePendingReleases(before: Date): Promise<Array<{ id: string; milestoneId: string | null; providerRef: string; amount: number; createdAt: Date }>> {
+    const rows = await this.prisma.paymentTxn.findMany({
+      where: { type: "RELEASE", status: "PENDING", createdAt: { lt: before } },
+      orderBy: { createdAt: "asc" },
+      take: 200
+    });
+    return rows.map((r) => ({ id: r.id, milestoneId: r.milestoneId, providerRef: r.providerRef, amount: r.amount.toNumber(), createdAt: r.createdAt }));
   }
 
   /**
