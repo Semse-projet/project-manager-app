@@ -25,7 +25,7 @@
    "priority": "P0",
    "historical": "PARCIAL",
    "batch": "A5",
-   "current_truth": "PARTIAL — en main: #706 (campos de procedencia) y #716 (edc63eb, verify-deploy-provenance.mjs, solo lectura). Falta: gate en CI que compare sha en producción con el commit mergeado (requiere autorizar cambio de CI/CD) y imageDigest (SEMSE_IMAGE_DIGEST)",
+   "current_truth": "PARTIAL — #706/#716 en main (campos de procedencia y verificador). En PR claude/ci-provenance-informational (PR de CI aislado, autorizado por el dueño): el job health-check de railway-deploy.yml añade, en MODO INFORMATIVO (continue-on-error, nunca bloquea), la comprobación de que /v1/health y /api/semse/healthz reportan el gitSha desplegado, con resumen en el job y ::warning si no coincide; permisos: solo contents:read en ese job. Tras un ciclo verde se convierte en gate (PR aparte). imageDigest sigue 'unknown' (tolerado) hasta que el build inyecte SEMSE_IMAGE_DIGEST; /v1/health en producción aún sin evidencia propia",
    "evidence": {
     "code": "partial",
     "ci": "PR checks green; main auto-deploy (Railway Deploy/Production Health Gate) — sin smoke autenticado",
@@ -995,7 +995,7 @@
    "priority": "P0",
    "historical": "PARCIAL",
    "batch": "A5",
-   "current_truth": "PARTIAL — no iniciado (siguiente)",
+   "current_truth": "PARTIAL — primer paso en PR claude/ci-provenance-informational: gate de procedencia en runtime en modo informativo (ver C02). Pendiente: dependencias, cobertura y guarda de arquitectura de ResourceScope (C51 etapa 3) en CI, siempre en PRs de CI aislados y primero informativos",
    "evidence": {
     "code": false,
     "ci": false,
