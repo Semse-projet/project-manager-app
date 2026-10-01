@@ -1,3 +1,4 @@
+import { payoutErrorFromHttp } from "./provider-errors.js";
 import { BadRequestException, Injectable, Logger } from "@nestjs/common";
 import type {
   CreateFundingIntentInput,
@@ -174,7 +175,7 @@ export class AdyenPaymentProvider implements PaymentProviderPort {
     });
     const payload = await response.json().catch(() => ({})) as T & { message?: string; errorCode?: string };
     if (!response.ok) {
-      throw new Error(payload.message || payload.errorCode || `Adyen request failed with ${response.status}`);
+      throw payoutErrorFromHttp(payload.message || payload.errorCode || `Adyen request failed with ${response.status}`, response.status);
     }
     return payload;
   }

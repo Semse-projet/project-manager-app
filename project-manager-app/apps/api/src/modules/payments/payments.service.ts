@@ -1,5 +1,7 @@
 import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, Logger, Optional, forwardRef } from "@nestjs/common";
-import { isReleaseCommandEnabled, runEscrowRelease } from "./escrow-release.command.js";
+import { isReleaseCommandEnabled, runEscrowRelease, type ReleaseCommandResult } from "./escrow-release.command.js";
+import { normalizePayoutIntent, normalizeProviderError } from "./escrow-release.provider-adapter.js";
+import type { PaymentTxnRecord } from "../../common/domain-store.js";
 import { AuditService } from "../../infrastructure/audit/audit.service.js";
 import { WorkspaceMemoryRepository } from "../knowledge/workspace-memory.repository.js";
 import {
@@ -8,7 +10,7 @@ import {
 } from "../knowledge/workspace-memory.business-records.js";
 import { PaymentsRepository } from "./payments.repository.js";
 import { PaymentProviderRegistry } from "./providers/payment-provider.registry.js";
-import { paymentProviderKeys, type PaymentMethodType, type PaymentProviderKey } from "./payments.types.js";
+import { paymentProviderKeys, type PaymentMethodType, type PaymentProviderKey, type PayoutIntentRecord } from "./payments.types.js";
 import { ProjectsService } from "../projects/projects.service.js";
 import { ContractsRepository } from "../contracts/contracts.repository.js";
 import { ReservationsRepository } from "../reservations/reservations.repository.js";
@@ -640,9 +642,16 @@ export class PaymentsService {
     provider?: PaymentProviderKey;
     methodType?: PaymentMethodType;
     requestId: string;
-    /** Entrypoint, for release-governance observability only (default "manual"). */
+    /** Entrypoint, for release-governance observability only (default "manual"). NO forma parte de la identidad de idempotencia. */
     source?: "manual" | "agent";
-  }) {
+    /** Idempotency-Key del cliente (opcional); ver escrow-release.command.ts. */
+    idempotencyKey?: string;
+  }): Promise<{
+    transaction: PaymentTxnRecord;
+    payoutIntent?: PayoutIntentRecord;
+    replay?: boolean;
+    command?: ReleaseCommandResult;
+  }> {
     const milestone = await this.paymentsRepository.ensureMilestone(input);
     const project = await this.paymentsRepository.ensureProject({
       tenantId: input.tenantId,
@@ -750,9 +759,8 @@ export class PaymentsService {
     let payoutIntent;
 
     if (isReleaseCommandEnabled()) {
-      // ADR-041 slice 2 — comando unico: idempotencia por (milestone, requestId),
-      // resultado ambiguo => reserva PENDING + estado explicito `unknown`.
-      let providerError: unknown;
+      // ADR-041 slice 2 — comando unico: identidad (milestone, importe), independiente
+      // de la fuente; fallo ambiguo => reserva PENDING + estado explicito `unknown`.
       let lastRecord: Awaited<ReturnType<PaymentsRepository["finalizeRelease"]>> | undefined;
       const result = await runEscrowRelease(
         {
@@ -776,28 +784,32 @@ export class PaymentsService {
             return lastRecord;
           },
           findActiveRelease: (milestoneId) => this.paymentsRepository.findActiveRelease(milestoneId),
+          findReleaseByRef: (ref) => this.paymentsRepository.findReleaseByRef(ref),
+          countFailedAttempts: (prefix) => this.paymentsRepository.countFailedReleaseAttempts(prefix),
           transfer: async (reservationRef) => {
             try {
               payoutIntent = await paymentProvider.createPayoutIntent(providerIntentInput(reservationRef));
             } catch (err) {
-              providerError = err;
-              throw err;
+              return normalizeProviderError(err);
             }
-            return {
-              status: payoutIntent.status === "paid" ? "paid"
-                : payoutIntent.status === "failed" || payoutIntent.status === "cancelled" ? "failed"
-                : "processing",
-              providerRef: payoutIntent.providerRef
-            };
+            return normalizePayoutIntent(payoutIntent);
           },
           onCritical: (message, ctx) => this.logger.error(`[EscrowReleaseCommand] CRITICAL: ${message} ${JSON.stringify(ctx)}`),
         },
-        { escrowId: escrow.id, milestoneId: milestone.id, amount, idempotencyKey: input.requestId },
+        { escrowId: escrow.id, milestoneId: milestone.id, amount, idempotencyKey: input.idempotencyKey },
       );
 
-      if (result.status === "failed" && providerError) throw providerError;
       if (result.status === "failed") {
-        throw new ConflictException({ message: "escrow release failed at the provider", status: "failed", transactionId: result.transactionId });
+        // Rechazo definitivo en ESTA llamada: relanzar el error original (misma semantica HTTP que antes).
+        if (!result.replay && result.cause) throw result.cause;
+        throw new ConflictException({
+          message: result.replay
+            ? "a previous release attempt with this idempotency key failed; use a new Idempotency-Key to retry"
+            : "escrow release failed at the provider",
+          status: "failed",
+          replay: result.replay,
+          transactionId: result.transactionId,
+        });
       }
       if (result.status === "unknown") {
         throw new ConflictException({
@@ -808,7 +820,9 @@ export class PaymentsService {
         });
       }
       if (result.replay) {
-        return { transaction: undefined, payoutIntent: undefined, replay: true, command: result } as never;
+        // Siempre un PaymentTxn valido: los llamadores (controller, copilot, Prometeo) lo leen.
+        const existing = await this.paymentsRepository.getReleaseTransaction(result.transactionId!);
+        return { transaction: existing, payoutIntent: undefined, replay: true, command: result };
       }
       transaction = lastRecord!;
     } else {

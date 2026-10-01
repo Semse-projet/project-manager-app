@@ -479,13 +479,41 @@ export class PaymentsRepository {
   }
 
   /** RELEASE activo (PENDING/SUCCEEDED) de un milestone, para idempotencia/replay. */
-  async findActiveRelease(milestoneId: string): Promise<{ id: string; status: string; providerRef: string } | null> {
+  async findActiveRelease(milestoneId: string): Promise<{ id: string; status: string; providerRef: string; amount: number } | null> {
     const txn = await this.prisma.paymentTxn.findFirst({
       where: { milestoneId, type: "RELEASE", status: { in: ["PENDING", "SUCCEEDED"] } },
-      select: { id: true, status: true, providerRef: true },
+      select: { id: true, status: true, providerRef: true, amount: true },
       orderBy: { createdAt: "desc" }
     });
-    return txn ?? null;
+    return txn ? { id: txn.id, status: txn.status, providerRef: txn.providerRef, amount: txn.amount.toNumber() } : null;
+  }
+
+  /** RELEASE (cualquier estado) con esa providerRef exacta (UNIQUE): identidad de idempotencia. */
+  async findReleaseByRef(providerRef: string): Promise<{ id: string; status: string; providerRef: string; amount: number } | null> {
+    const txn = await this.prisma.paymentTxn.findFirst({
+      where: { type: "RELEASE", providerRef },
+      select: { id: true, status: true, providerRef: true, amount: true }
+    });
+    return txn ? { id: txn.id, status: txn.status, providerRef: txn.providerRef, amount: txn.amount.toNumber() } : null;
+  }
+
+  /** Intentos RELEASE FAILED que conservan una referencia con ese prefijo. */
+  async countFailedReleaseAttempts(refPrefix: string): Promise<number> {
+    return this.prisma.paymentTxn.count({
+      where: { type: "RELEASE", status: "FAILED", providerRef: { startsWith: refPrefix } }
+    });
+  }
+
+  /** Registro visible de un RELEASE ya existente (para devolverlo en un replay). */
+  async getReleaseTransaction(transactionId: string): Promise<PaymentTxnRecord> {
+    const txn = await this.prisma.paymentTxn.findUnique({
+      where: { id: transactionId },
+      include: { escrow: { include: { project: true } } }
+    });
+    if (!txn) {
+      throw new NotFoundException(`Payment transaction '${transactionId}' not found`);
+    }
+    return this.toRecord(txn);
   }
 
   /** RELEASE PENDING creados antes de `before`: entrada de la reconciliacion proveedor<->DB. */
