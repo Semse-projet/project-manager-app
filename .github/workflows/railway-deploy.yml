@@ -89,6 +89,9 @@ jobs:
   health-check:
     needs: deploy
     runs-on: ubuntu-latest
+    # Solo lectura del repo, y solo para traer el verificador de procedencia (C02).
+    permissions:
+      contents: read
     steps:
       # La URL pública responde con el deployment ANTERIOR mientras el nuevo
       # compila — verificar que el deployment del commit exacto existe y llega
@@ -139,3 +142,39 @@ jobs:
           [ "$code" = "200" ] \
             && echo "semse-web healthy ✅ (HTTP $code)" \
             || { echo "semse-web returned $code ❌"; exit 1; }
+
+      # C02 — procedencia en RUNTIME. MODO INFORMATIVO: NUNCA bloquea el deploy.
+      # El paso "Verify fresh deployments" ya comprueba que Railway tiene el commit
+      # exacto en SUCCESS; aqui se comprueba ademas que lo que CORRE (/v1/health y
+      # /api/semse/healthz) reporta ese mismo gitSha, y se deja el resultado en el
+      # resumen del job. Un imageDigest "unknown" se tolera (Railway no lo expone al
+      # runtime). Tras un ciclo verde se podra convertir en gate (PR aparte).
+      - name: Checkout provenance verifier (sparse, read-only)
+        continue-on-error: true
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.deploy.outputs.deploy_sha }}
+          sparse-checkout: project-manager-app/scripts/verify-deploy-provenance.mjs
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
+      - name: Runtime provenance report (informational, non-blocking)
+        continue-on-error: true
+        env:
+          DEPLOY_SHA: ${{ needs.deploy.outputs.deploy_sha }}
+        run: |
+          set +e
+          out=$(mktemp)
+          node project-manager-app/scripts/verify-deploy-provenance.mjs \
+            --url=https://project-manager-app-production-977f.up.railway.app --path=/v1/health \
+            --expect-sha="$DEPLOY_SHA" --allow-unknown-digest --retries=6 --interval=10 \
+            --markdown --label="semse-API" >> "$out"
+          node project-manager-app/scripts/verify-deploy-provenance.mjs \
+            --url=https://semse-web-production.up.railway.app --path=/api/semse/healthz \
+            --expect-sha="$DEPLOY_SHA" --allow-unknown-digest --retries=6 --interval=10 \
+            --markdown --label="semse-web" >> "$out"
+          cat "$out" | tee -a "$GITHUB_STEP_SUMMARY"
+          if grep -q "⚠️" "$out"; then
+            echo "::warning title=Procedencia en runtime::El commit reportado por producción no coincide con $DEPLOY_SHA (o hay campos desconocidos). Informativo: no bloquea el deploy."
+          fi
+          exit 0

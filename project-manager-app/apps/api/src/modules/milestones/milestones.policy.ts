@@ -1,5 +1,6 @@
 import { ConflictException, ForbiddenException } from "@nestjs/common";
-import { hasScopeAccess, scopeFromOwnership } from "../../common/resource-scope.js";
+import { hasScopeAccess, isOpsAdmin, sameOrg, scopeFromOwnership } from "../../common/resource-scope.js";
+import { selfApprovalAllowedInSandbox, type EvidenceRevalidationMode } from "./evidence-readiness.js";
 
 export type MilestoneActor = {
   tenantId: string;
@@ -24,6 +25,8 @@ export type MilestoneLifecycleSnapshot = {
    * el dinero ya esta en movimiento o se movio.
    */
   hasActiveRelease?: boolean;
+  /** C18: motivos por los que la evidencia REQUERIDA no esta validada (vacio = validada). */
+  evidenceBlockers?: string[];
 };
 
 function access(actor: MilestoneActor, ownership: MilestoneOwnership, relation: "read" | "client" | "pro"): boolean {
@@ -64,13 +67,37 @@ export function assertMilestoneSubmittable(actor: MilestoneActor, snapshot: Mile
   }
 }
 
-export function assertMilestoneApprovable(actor: MilestoneActor, snapshot: MilestoneLifecycleSnapshot): void {
+export function assertMilestoneApprovable(
+  actor: MilestoneActor,
+  snapshot: MilestoneLifecycleSnapshot,
+  options: { evidenceMode?: EvidenceRevalidationMode; env?: NodeJS.ProcessEnv } = {},
+): void {
   if (!access(actor, snapshot.ownership, "client")) {
     throw new ForbiddenException("actor cannot approve this milestone");
   }
 
+  // C18: el mismo org no puede entregar y aprobar su propio hito (conflicto de interes).
+  // OPS_ADMIN decide por encima; en no-produccion, el flag de sandbox lo permite para demos.
+  if (
+    !isOpsAdmin(actor) &&
+    sameOrg(snapshot.ownership.clientOrgId, snapshot.ownership.assignedProOrgId) &&
+    !selfApprovalAllowedInSandbox(options.env)
+  ) {
+    throw new ForbiddenException(
+      "self-approval is not allowed: the client and the assigned professional are the same organization",
+    );
+  }
+
   if (snapshot.currentStatus !== "submitted") {
     throw new ConflictException(`cannot approve milestone in status '${snapshot.currentStatus}'`);
+  }
+
+  // C18: revalidar la evidencia REQUERIDA en el momento de aprobar (no solo al entregar).
+  if ((options.evidenceMode ?? "enforce") === "enforce" && snapshot.evidenceBlockers && snapshot.evidenceBlockers.length > 0) {
+    throw new ConflictException({
+      message: "cannot approve milestone: required evidence is not validated",
+      blockers: snapshot.evidenceBlockers,
+    });
   }
 }
 
