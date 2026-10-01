@@ -279,7 +279,7 @@ export class EvidenceGatewayService {
 
       // Execute OpenCV real-time visual assessment through our Vision module
       const imageUrl = evidence.bucketKey
-        ? this.storageService.publicUrl(evidence.bucketKey)
+        ? this.storageService.publicUrl(evidence.bucketKey, { ttl: "vision" })
         : `mock://evidence/${evidence.id}`;
       const analysis = await this.visionService.runAnalysis({
         evidenceId: evidence.id,
@@ -318,7 +318,7 @@ export class EvidenceGatewayService {
     if (referenceImageUrl && (evidence.kind === "PHOTO" || evidence.kind === "VIDEO")) {
       try {
         const imageUrl = evidence.bucketKey
-          ? this.storageService.publicUrl(evidence.bucketKey)
+          ? this.storageService.publicUrl(evidence.bucketKey, { ttl: "vision" })
           : `mock://evidence/${evidence.id}`;
         const matchResult = await this.visionService.matchReference(imageUrl, referenceImageUrl);
         referenceSimilarity = typeof matchResult?.similarityScore === "number" ? matchResult.similarityScore : null;
