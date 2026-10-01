@@ -1,0 +1,6 @@
+# ADR-041 slice 2b (parcial) — informe de reconciliación (2026-10-01)
+
+- `escrow-release.reconcile.ts` (`buildReconciliationReport`) + `scripts/maintenance/release-reconcile-report.mjs` (`pnpm payments:reconcile-report`): lista RELEASE `PENDING` estancados, separa `stale_no_provider_ref` (resultado desconocido; incluye la clave de búsqueda en el proveedor) de `stale_awaiting_webhook`, con acción recomendada. **Solo lectura**: no escribe ni llama al proveedor; exit 3 si hay estancados.
+- Pruebas: `escrow-release-reconcile.test.ts` (4: frontera de antigüedad 29/30 min, clasificación y orden, informe vacío, script sin escrituras). Además prueba real contra Postgres 16 local con el esquema migrado: 5 filas sembradas (2 PENDING estancados, 1 fresco, 1 SUCCEEDED, 1 DEPOSIT) → el informe devuelve solo los 2 correctos, la tabla queda intacta y sale con código 3.
+- Runbook `ESCROW_RELEASE_RECONCILIATION.md` con el procedimiento manual de resolución.
+- **No hecho:** consulta automática al proveedor, resolución asistida, alerta programada (job de worker), adaptador del auto-release. `PAYMENTS_RELEASE_COMMAND` sigue apagado y **no debe activarse** hasta tener al menos la alerta programada y haber ensayado el runbook.
