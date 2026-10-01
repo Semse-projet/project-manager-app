@@ -288,6 +288,7 @@ ${result.visibleTextSample || "(None extracted)"}
       uploadedById: actor.userId,
       kind: "DOCUMENT",
       bucketKey,
+      trustedSyntheticKey: true, // clave sintetica: la captura va en metadataJson, no en storage
       metadataJson: {
         source: "browser-agent",
         url: result.url,

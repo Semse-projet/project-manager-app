@@ -1,5 +1,6 @@
 import { Injectable, Logger, BadRequestException, NotFoundException } from "@nestjs/common";
 import { assertEvidenceReadable, assertEvidenceWritable, type EvidenceActor } from "../evidence/evidence.policy.js";
+import { normalizeEvidenceBucketKey } from "../evidence/evidence.repository.js";
 import { EvidenceGatewayRepository } from "./evidence-gateway.repository.js";
 import { SseEventBusService } from "../../infrastructure/sse/sse-event-bus.service.js";
 import { VisionService } from "../vision/vision.service.js";
@@ -15,6 +16,13 @@ export interface EvidenceUploadRequest {
   kind: "PHOTO" | "VIDEO" | "DOCUMENT";
   bucketKey: string;
   metadataJson?: Record<string, unknown>;
+  /**
+   * Solo para llamadores internos de confianza (p. ej. browser-agent) cuya
+   * clave es sintetica y no apunta a storage. El controller HTTP NUNCA lo
+   * rellena desde el body: toda clave que llega de un cliente se valida con
+   * la misma regla canonica que `EvidenceRepository.create`.
+   */
+  trustedSyntheticKey?: boolean;
 }
 
 export interface ValidationScore {
@@ -74,6 +82,13 @@ export class EvidenceGatewayService {
         throw new NotFoundException("Milestone not found for this project");
       }
 
+      // C67: misma regla de clave que la ruta canonica (evidence.repository):
+      // clave de storage con prefijo del tenant. Antes el gateway aceptaba
+      // cualquier bucketKey del body, incluida la de otro tenant.
+      const bucketKey = request.trustedSyntheticKey
+        ? request.bucketKey
+        : normalizeEvidenceBucketKey(request.bucketKey, request.tenantId);
+
       // Create evidence record
       const evidence = await this.repository.createEvidence({
         tenantId: request.tenantId,
@@ -81,7 +96,7 @@ export class EvidenceGatewayService {
         milestoneId: request.milestoneId,
         uploadedById: request.uploadedById,
         kind: request.kind,
-        bucketKey: request.bucketKey,
+        bucketKey,
         metadataJson: request.metadataJson,
       });
 
@@ -90,7 +105,7 @@ export class EvidenceGatewayService {
         request.projectId,
         evidence.id,
         "evidence_uploaded",
-        { kind: request.kind, bucketKey: request.bucketKey },
+        { kind: request.kind, bucketKey },
       );
 
       // Emit initial SSE event

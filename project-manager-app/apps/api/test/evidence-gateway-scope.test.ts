@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { ForbiddenException, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, NotFoundException } from "@nestjs/common";
 import { EvidenceGatewayService } from "../dist/modules/evidence-gateway/evidence-gateway.service.js";
 
 // C10 / C67 — the evidence gateway must enforce tenant + organization +
@@ -84,7 +84,7 @@ test("assertProjectAccess rejects an empty projectId", async () => {
 });
 
 test("upload: foreign-tenant project, foreign org and foreign milestone are all rejected before any write", async () => {
-  const base = { uploadedById: "u1", kind: "PHOTO" as const, bucketKey: "k" };
+  const base = { uploadedById: "u1", kind: "PHOTO" as const, bucketKey: "tenants/tenant_1/evidence/a.jpg" };
   const cases: Array<[Record<string, unknown>, unknown]> = [
     [{ tenantId: "tenant_2", orgId: PRO_ORG, roles: ["PRO"], projectId: "proj_1" }, NotFoundException],
     [{ tenantId: "tenant_1", orgId: "org_other", roles: ["PRO"], projectId: "proj_1" }, ForbiddenException],
@@ -101,8 +101,42 @@ test("upload: owning org with a milestone of the same project succeeds", async (
   const { service, calls } = build();
   const res = await service.uploadEvidence({
     tenantId: "tenant_1", orgId: PRO_ORG, roles: ["PRO"], uploadedById: "u1",
-    projectId: "proj_1", milestoneId: "ms_1", kind: "PHOTO", bucketKey: "k",
+    projectId: "proj_1", milestoneId: "ms_1", kind: "PHOTO", bucketKey: "tenants/tenant_1/evidence/a.jpg",
   });
+  assert.equal(res.evidenceId, "ev_new");
+  assert.ok(calls.includes("create"));
+});
+
+test("upload (C67): bucketKey de otro tenant, sin prefijo de tenant o malformada => 400 y no se crea evidencia", async () => {
+  const keys = [
+    "tenants/tenant_2/evidence/a.jpg", // tenant ajeno
+    "k", // sin prefijo
+    "../../etc/passwd",
+    "tenants/tenant_1/contract/a.pdf", // otro dominio
+    "s3://bucket/ev.jpg",
+  ];
+  for (const bucketKey of keys) {
+    const { service, calls } = build();
+    await assert.rejects(
+      service.uploadEvidence({
+        tenantId: "tenant_1", orgId: PRO_ORG, roles: ["PRO"], uploadedById: "u1",
+        projectId: "proj_1", kind: "PHOTO", bucketKey,
+      } as never),
+      BadRequestException,
+      bucketKey,
+    );
+    assert.ok(!calls.includes("create"), `no debe crear con ${bucketKey}`);
+  }
+});
+
+test("upload (C67): clave sintetica solo con trustedSyntheticKey (llamador interno), nunca desde el body", async () => {
+  const { service, calls } = build();
+  const base = {
+    tenantId: "tenant_1", orgId: PRO_ORG, roles: ["PRO"], uploadedById: "u1",
+    projectId: "proj_1", kind: "DOCUMENT" as const, bucketKey: "browser-agent/screenshot-1.png",
+  };
+  await assert.rejects(service.uploadEvidence(base as never), BadRequestException);
+  const res = await service.uploadEvidence({ ...base, trustedSyntheticKey: true } as never);
   assert.equal(res.evidenceId, "ev_new");
   assert.ok(calls.includes("create"));
 });
