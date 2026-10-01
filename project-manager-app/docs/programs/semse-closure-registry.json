@@ -909,7 +909,7 @@
    "priority": "P0",
    "historical": "PARCIAL",
    "batch": "A5",
-   "current_truth": "PARTIAL — hallazgo: pre-migrate.mjs borra duplicados (Project/Milestone/JobTask/BuildOps*) en CADA arranque, sin dry-run; hoy 0 filas; funciones huérfanas db-dedup-script y t051-t058a; propuesta pendiente de autorización",
+   "current_truth": "PARTIAL — código en PR (claude/c57-dedup-maintenance): runDedup() fuera del arranque; scripts/maintenance/dedup.mjs (dry-run por defecto; --apply exige evidencia de backup + confirmación, tope de filas, transacción, canónica por dependientes/createdAt, grupos ambiguos bloqueados). Probado en Postgres local. Falta merge/deploy y retirar servicios huérfanos db-dedup-script y t051-t058a (decisión del dueño)",
    "evidence": {
     "code": false,
     "ci": false,
