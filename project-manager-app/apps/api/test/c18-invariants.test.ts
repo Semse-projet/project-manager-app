@@ -86,7 +86,7 @@ function reserveHarness(milestone: { status: string; evidenceItems: Array<{ requ
     },
   };
   const prisma = { async $transaction(fn: (t: unknown) => Promise<unknown>) { return fn(tx); } };
-  const repo = new PaymentsRepository(prisma as never, {} as never, {} as never);
+  const repo = new PaymentsRepository(prisma as never, {} as never);
   return { repo, created };
 }
 const reserve = (repo: PaymentsRepository) => repo.releaseFunds({ escrowId: "e1", milestoneId: "m1", amount: 100, providerRef: "pending_release_m1_10000_a0" });
