@@ -58,14 +58,14 @@ Notas de orden: A2 va antes que A3 porque el scope de pagos define el patrón te
 | C08 | Login, sesión y recuperación | Identidad | P1 | PARCIAL | B1 | NOT_STARTED |
 | C09 | Identidad universal y múltiples roles | Identidad | P1 | PARCIAL | B1 | NOT_STARTED |
 | C10 | Aislamiento tenant + organización | Identidad | P0 | ROTA | A3 | OPEN — en main: evidence-gateway (#702), liens (#703), worker-verification (#704); persistir verificación, URLs de archivos (C19) e intelligence pendientes |
-| C11 | Precondiciones de atestación de identidad | Trust | P0 | PARCIAL | A3 | NOT_STARTED |
+| C11 | Precondiciones de atestación de identidad | Trust | P0 | PARCIAL | A3 | PARTIAL — en main (#723): estado de verificación durable (derivado de User.verificationStatus; sin Map en memoria), precondición de atestación (solo el propio trabajador u OPS_ADMIN; sin actor ⇒ 403), transiciones atómicas sin degradar (probadas contra Postgres real). NO cerrado: sin criptografía DID real (verificación falla cerrada), desafío constante reutilizable, historial no persistido, y verificationStatus es GLOBAL por User. Pendiente de despliegue y smoke |
 | C12 | Relación compañía/profesional/worker | Actores | P1 | PARCIAL | B1 | NOT_STARTED |
 | C13 | Originador, referidos e incentivos | Actores | P2 | PARCIAL | C2 | NOT_STARTED |
 | C14 | Intake público y wizard | Demanda | P1 | PARCIAL | B1 | NOT_STARTED |
 | C15 | Estimación y cobertura por categoría | Estimación | P1 | PARCIAL | B1 | NOT_STARTED |
 | C16 | Paquete de herramientas por oficio | ProTools | P2 | PARCIAL | C2 | NOT_STARTED |
 | C17 | BuildOps: planificación y cuadrillas | Operaciones | P1 | PARCIAL | B3 | NOT_STARTED |
-| C18 | Hitos y aprobación de avances | Operaciones | P0 | PARCIAL | A4 | NOT_STARTED |
+| C18 | Hitos y aprobación de avances | Operaciones | P0 | PARCIAL | A4 | PARTIAL — en main (#724): transiciones de hito compare-and-set (aprobar/rechazar/entregar concurrentes ya no se pisan; la perdedora recibe 409) y un hito con RELEASE activo ya no puede rechazarse ni devolverse a cambios. Abierto: el auto-release no revalida el estado del hito al reservar; posible auto-aprobación con clientOrgId == assignedProOrgId; aprobar no revalida evidencia validada. Pendiente de despliegue y smoke |
 | C19 | Persistencia de archivos de evidencia | Evidence | P0 | PARCIAL | A4 | PARTIAL — en main (#715, 0b97dc4), modo off por defecto: sin efecto hasta configurar UPLOADS_SIGNING_SECRET y pasar shadow→enforce (operador). La exposición pública actual de GET /v1/uploads/files/* sigue abierta hasta esa activación |
 | C20 | Estados, rechazo, reemplazo y archivo | Evidence | P1 | PARCIAL | B3 | NOT_STARTED |
 | C21 | Integración de análisis visual | Evidence | P1 | PARCIAL | B3 | NOT_STARTED |
@@ -104,7 +104,7 @@ Notas de orden: A2 va antes que A3 porque el scope de pagos define el patrón te
 | C54 | Redis servicio persistente | Datos | P2 | REAL | C3 | REAL — Redis en sfo vs servicios en us-east4 (dependencia regional confirmada); recuperación de colas no verificada |
 | C55 | Backups y restauración Postgres/archivos | Continuidad | P0 | PARCIAL | A5 | PARTIAL — inventario hecho (3 volúmenes 5 GB, archivos en /data local, sin buckets); estado de backups/restauración DESCONOCIDO vía MCP: requiere confirmación del operador |
 | C56 | Migraciones y esquema productivo | Datos | P0 | PARCIAL | A5 | PARTIAL — evidencia prod: migración 105 (20260930230513) aplicada con 'migrate deploy completo' (deploy 70ca14b8); antes 104 sin pendientes; deriva schema↔tablas no medida |
-| C57 | Deduplicación histórica | Datos | P0 | PARCIAL | A5 | PARTIAL — en main (#714, 31471b7): runDedup() fuera del arranque; scripts/maintenance/dedup.mjs (dry-run por defecto; --apply exige evidencia de backup + confirmación, tope de filas, transacción, canónica por dependientes/createdAt, grupos ambiguos bloqueados). Falta confirmar el despliegue (el arranque ya no debe loguear 'dedup complete'), backup/restore verificado antes de cualquier --apply, y retirar servicios huérfanos db-dedup-script y t051-t058a (decisión del dueño) |
+| C57 | Deduplicación histórica | Datos | P0 | PARCIAL | A5 | PARTIAL — runtime verificado para el arranque: en Railway MCP (solo lectura) 2026-10-01T01:1xZ, deployment API f27a2abb (commit a20c25b = #719, incluye #714–#719) SUCCESS el arranque NO ejecuta dedup (sin ninguna línea 'dedup'; '105 migrations found', 'No pending migrations to apply', 'migrate deploy completo'); el deployment anterior (3b88637b) sí logueaba 'dedup complete'. Falta: backup/restore verificado antes de cualquier `--apply` del mantenimiento (C55), y retirar servicios huérfanos db-dedup-script y t051-t058a (decisión del dueño) |
 | C58 | Cabeceras de protección web | Seguridad web | P1 | PARCIAL | B5 | NOT_STARTED |
 | C59 | Permisos cámara/micrófono/ubicación web | Campo / Live | P1 | PARCIAL | B5 | NOT_STARTED |
 | C60 | Inventarios públicos de módulos | Producto | P2 | DUPLICADA | C1 | NOT_STARTED |
@@ -114,7 +114,7 @@ Notas de orden: A2 va antes que A3 porque el scope de pagos define el patrón te
 | C64 | Proyectos secundarios y cambios preparados | Infraestructura | P2 | PARCIAL | C2 | PARTIAL — recursos huérfanos en Railway: db-dedup-script (vacío), t051-t058a-onetime-count, parche staged vacío |
 | C65 | Escritores paralelos de TimeEntry | Labor | P1 | DUPLICADA | B2 | NOT_STARTED |
 | C66 | Frontend canónico y superficies de transición | Superficies | P2 | DUPLICADA | C1 | NOT_STARTED |
-| C67 | Rutas canónica y EvidenceGateway | Evidence | P0 | DUPLICADA | A4 | PARTIAL — en main (#702): gateway usa política canónica; consolidación de código pendiente |
+| C67 | Rutas canónica y EvidenceGateway | Evidence | P0 | DUPLICADA | A4 | PARTIAL — en main: #717 (bucketKey tenant-scoped) y #722 (EvidenceGateway como adaptador de EvidenceService.register: outbox evidence.uploaded.v1, audit, idempotencia; contrato validado de metadataJson ≤64 KB sin claves reservadas; browser-agent guarda la captura como archivo tenant-scoped). Falta: deprecar POST /v1/evidence/upload a favor de POST /v1/evidence + ruta de validación, despliegue de #722 y smoke autenticado |
 | C68 | Ledger compartido F5 doble entrada | Economía | P1 | SOLO_DISEÑADA | B4 | NOT_STARTED |
 | C69 | Gateway MCP externo | Integraciones | P3 | SOLO_DISEÑADA | D1 | NOT_STARTED |
 | C70 | Planificación, DAG y control de Forge | Forge | P2 | PARCIAL | C2 | NOT_STARTED |
