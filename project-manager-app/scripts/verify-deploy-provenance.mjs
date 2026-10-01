@@ -6,23 +6,29 @@
  *        [--retries=N --interval=S] [--markdown]
  *
  * Lee `GET {url}/v1/health` (campos gitSha/deploymentId/environment/imageDigest de
- * @semse/shared deploy-provenance) y falla (exit 1) si el sha no coincide o si
- * algun campo es "unknown" (el digest solo se tolera con --allow-unknown-digest,
- * porque Railway no lo expone). Solo lectura. Nunca fabrica valores.
+ * @semse/shared deploy-provenance) y falla (exit 1) si la respuesta no es 2xx
+ * (servicio caido o sin respuesta), si el sha NO COINCIDE EXACTAMENTE o si algun
+ * campo es "unknown". El digest "unknown" solo se tolera con --allow-unknown-digest
+ * (Railway no lo expone) y se reporta como warning, no como fallo. Solo lectura.
+ * Nunca fabrica valores.
  */
 export function evaluateProvenance(health, { expectSha, allowUnknownDigest = false }) {
   const p = health?.provenance ?? health?.deploy ?? health?.data ?? health ?? {};
   const problems = [];
   const sha = String(p.gitSha ?? "unknown");
   if (sha === "unknown") problems.push("gitSha desconocido (deploy fuera de Git o sin RAILWAY_GIT_COMMIT_SHA)");
-  else if (expectSha && !(sha.startsWith(expectSha) || expectSha.startsWith(sha))) {
+  else if (expectSha && sha.toLowerCase() !== String(expectSha).toLowerCase()) {
     problems.push(`gitSha ${sha} != esperado ${expectSha}`);
   }
   for (const f of ["deploymentId", "environment"]) {
     if (String(p[f] ?? "unknown") === "unknown") problems.push(`${f} desconocido`);
   }
-  if (!allowUnknownDigest && String(p.imageDigest ?? "unknown") === "unknown") problems.push("imageDigest desconocido");
-  return { ok: problems.length === 0, problems, observed: { gitSha: sha, deploymentId: p.deploymentId, environment: p.environment, imageDigest: p.imageDigest } };
+  const warnings = [];
+  if (String(p.imageDigest ?? "unknown") === "unknown") {
+    if (allowUnknownDigest) warnings.push("imageDigest desconocido (tolerado)");
+    else problems.push("imageDigest desconocido");
+  }
+  return { ok: problems.length === 0, problems, warnings, observed: { gitSha: sha, deploymentId: p.deploymentId, environment: p.environment, imageDigest: p.imageDigest } };
 }
 
 export function toMarkdown(label, result, status) {
@@ -37,7 +43,7 @@ export function toMarkdown(label, result, status) {
     `| deploymentId | \`${o.deploymentId ?? "unknown"}\` |`,
     `| environment | \`${o.environment ?? "unknown"}\` |`,
     `| imageDigest | \`${o.imageDigest ?? "unknown"}\` |`,
-    `| resultado | ${result.ok ? "✅ coincide" : "⚠️ " + result.problems.join("; ")} |`,
+    `| resultado | ${result.ok ? "✅ coincide" : "⚠️ " + result.problems.join("; ")}${result.ok && result.warnings?.length ? " — 🟡 " + result.warnings.join("; ") : ""} |`,
     "",
   ];
   return rows.join("\n");
