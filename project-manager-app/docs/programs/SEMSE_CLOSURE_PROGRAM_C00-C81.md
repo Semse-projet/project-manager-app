@@ -58,14 +58,14 @@ Notas de orden: A2 va antes que A3 porque el scope de pagos define el patrón te
 | C08 | Login, sesión y recuperación | Identidad | P1 | PARCIAL | B1 | NOT_STARTED |
 | C09 | Identidad universal y múltiples roles | Identidad | P1 | PARCIAL | B1 | NOT_STARTED |
 | C10 | Aislamiento tenant + organización | Identidad | P0 | ROTA | A3 | OPEN — en main: evidence-gateway (#702), liens (#703), worker-verification (#704); persistir verificación, URLs de archivos (C19) e intelligence pendientes |
-| C11 | Precondiciones de atestación de identidad | Trust | P0 | PARCIAL | A3 | NOT_STARTED |
+| C11 | Precondiciones de atestación de identidad | Trust | P0 | PARCIAL | A3 | PARTIAL — en main (#723): estado de verificación durable (derivado de User.verificationStatus; sin Map en memoria), precondición de atestación (solo el propio trabajador u OPS_ADMIN; sin actor ⇒ 403), transiciones atómicas sin degradar (probadas contra Postgres real). NO cerrado: sin criptografía DID real (verificación falla cerrada), desafío constante reutilizable, historial no persistido, y verificationStatus es GLOBAL por User. Pendiente de despliegue y smoke |
 | C12 | Relación compañía/profesional/worker | Actores | P1 | PARCIAL | B1 | NOT_STARTED |
 | C13 | Originador, referidos e incentivos | Actores | P2 | PARCIAL | C2 | NOT_STARTED |
 | C14 | Intake público y wizard | Demanda | P1 | PARCIAL | B1 | NOT_STARTED |
 | C15 | Estimación y cobertura por categoría | Estimación | P1 | PARCIAL | B1 | NOT_STARTED |
 | C16 | Paquete de herramientas por oficio | ProTools | P2 | PARCIAL | C2 | NOT_STARTED |
 | C17 | BuildOps: planificación y cuadrillas | Operaciones | P1 | PARCIAL | B3 | NOT_STARTED |
-| C18 | Hitos y aprobación de avances | Operaciones | P0 | PARCIAL | A4 | NOT_STARTED |
+| C18 | Hitos y aprobación de avances | Operaciones | P0 | PARCIAL | A4 | PARTIAL — en main (#724): transiciones de hito compare-and-set (aprobar/rechazar/entregar concurrentes ya no se pisan; la perdedora recibe 409) y un hito con RELEASE activo ya no puede rechazarse ni devolverse a cambios. Abierto: el auto-release no revalida el estado del hito al reservar; posible auto-aprobación con clientOrgId == assignedProOrgId; aprobar no revalida evidencia validada. Pendiente de despliegue y smoke |
 | C19 | Persistencia de archivos de evidencia | Evidence | P0 | PARCIAL | A4 | PARTIAL — en main (#715, 0b97dc4), modo off por defecto: sin efecto hasta configurar UPLOADS_SIGNING_SECRET y pasar shadow→enforce (operador). La exposición pública actual de GET /v1/uploads/files/* sigue abierta hasta esa activación |
 | C20 | Estados, rechazo, reemplazo y archivo | Evidence | P1 | PARCIAL | B3 | NOT_STARTED |
 | C21 | Integración de análisis visual | Evidence | P1 | PARCIAL | B3 | NOT_STARTED |
@@ -114,7 +114,7 @@ Notas de orden: A2 va antes que A3 porque el scope de pagos define el patrón te
 | C64 | Proyectos secundarios y cambios preparados | Infraestructura | P2 | PARCIAL | C2 | PARTIAL — recursos huérfanos en Railway: db-dedup-script (vacío), t051-t058a-onetime-count, parche staged vacío |
 | C65 | Escritores paralelos de TimeEntry | Labor | P1 | DUPLICADA | B2 | NOT_STARTED |
 | C66 | Frontend canónico y superficies de transición | Superficies | P2 | DUPLICADA | C1 | NOT_STARTED |
-| C67 | Rutas canónica y EvidenceGateway | Evidence | P0 | DUPLICADA | A4 | PARTIAL — en main (#702): gateway usa política canónica; consolidación de código pendiente |
+| C67 | Rutas canónica y EvidenceGateway | Evidence | P0 | DUPLICADA | A4 | PARTIAL — en main: #717 (bucketKey tenant-scoped) y #722 (EvidenceGateway como adaptador de EvidenceService.register: outbox evidence.uploaded.v1, audit, idempotencia; contrato validado de metadataJson ≤64 KB sin claves reservadas; browser-agent guarda la captura como archivo tenant-scoped). Falta: deprecar POST /v1/evidence/upload a favor de POST /v1/evidence + ruta de validación, despliegue de #722 y smoke autenticado |
 | C68 | Ledger compartido F5 doble entrada | Economía | P1 | SOLO_DISEÑADA | B4 | NOT_STARTED |
 | C69 | Gateway MCP externo | Integraciones | P3 | SOLO_DISEÑADA | D1 | NOT_STARTED |
 | C70 | Planificación, DAG y control de Forge | Forge | P2 | PARCIAL | C2 | NOT_STARTED |

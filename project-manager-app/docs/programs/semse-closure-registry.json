@@ -173,13 +173,14 @@
    "priority": "P0",
    "historical": "PARCIAL",
    "batch": "A3",
-   "current_truth": "PARTIAL — en PR claude/c11-worker-verification: sin Map en memoria (estado derivado de User.verificationStatus, durable y común a réplicas); precondición de atestación (solo el propio trabajador u OPS_ADMIN; sin actor ⇒ 403); transiciones atómicas sin degradar (unverified→pending, unverified|pending→verified; nunca toca suspended ni baja verified), probadas contra Postgres real; persistencia real en lugar de solo logs. NO cerrado: no existe criptografía DID real (la verificación sigue fallando cerrada), el desafío es constante y reutilizable (`verify_<workerId>`), el historial no se persiste (requiere tabla) y verificationStatus es GLOBAL por User, no por tenant",
+   "current_truth": "PARTIAL — en main (#723): estado de verificación durable (derivado de User.verificationStatus; sin Map en memoria), precondición de atestación (solo el propio trabajador u OPS_ADMIN; sin actor ⇒ 403), transiciones atómicas sin degradar (probadas contra Postgres real). NO cerrado: sin criptografía DID real (verificación falla cerrada), desafío constante reutilizable, historial no persistido, y verificationStatus es GLOBAL por User. Pendiente de despliegue y smoke",
    "evidence": {
-    "code": false,
-    "ci": false,
-    "merge": null,
+    "code": true,
+    "ci": "PR checks green",
+    "merge": "76a85f5eca07e91b2405e7d34aa13dc33bd7e409",
     "deploy": false,
-    "activation": false
+    "activation": false,
+    "pr": "#723"
    }
   },
   {
@@ -285,13 +286,14 @@
    "priority": "P0",
    "historical": "PARCIAL",
    "batch": "A4",
-   "current_truth": "PARTIAL — en PR claude/c18-milestone-approval: transiciones de hito compare-and-set (aprobar/rechazar/entregar concurrentes ya no se pisan; la perdedora recibe 409) y un hito con RELEASE activo (PENDING/SUCCEEDED) ya no puede rechazarse ni devolverse a cambios. Abierto: el auto-release no revalida el estado del hito al reservar; posible auto-aprobación cuando clientOrgId == assignedProOrgId; la aprobación no revalida evidencia validada (solo se exige en submit)",
+   "current_truth": "PARTIAL — en main (#724): transiciones de hito compare-and-set (aprobar/rechazar/entregar concurrentes ya no se pisan; la perdedora recibe 409) y un hito con RELEASE activo ya no puede rechazarse ni devolverse a cambios. Abierto: el auto-release no revalida el estado del hito al reservar; posible auto-aprobación con clientOrgId == assignedProOrgId; aprobar no revalida evidencia validada. Pendiente de despliegue y smoke",
    "evidence": {
-    "code": false,
-    "ci": false,
-    "merge": null,
+    "code": true,
+    "ci": "PR checks green",
+    "merge": "bdcd4ff1f0cac754a661324741eec79e1d0dfab4",
     "deploy": false,
-    "activation": false
+    "activation": false,
+    "pr": "#724"
    }
   },
   {
@@ -1073,14 +1075,14 @@
    "priority": "P0",
    "historical": "DUPLICADA",
    "batch": "A4",
-   "current_truth": "PARTIAL — #717 (bucketKey tenant-scoped en el gateway) en main. En PR claude/c67-canonical-adapter: EvidenceGateway pasa a ADAPTADOR de EvidenceService.register (outbox evidence.uploaded.v1, audit, idempotencia, invalidación de contexto) con contrato validado de metadataJson (evidence-metadata.ts: objeto JSON ≤64 KB, sin claves reservadas jobId/filename/category/description); browser-agent guarda la captura como archivo tenant-scoped en vez de base64 en metadataJson; escritura duplicada del gateway eliminada. Falta: deprecar POST /v1/evidence/upload a favor de POST /v1/evidence + ruta de validación, y smoke autenticado en producción",
+   "current_truth": "PARTIAL — en main: #717 (bucketKey tenant-scoped) y #722 (EvidenceGateway como adaptador de EvidenceService.register: outbox evidence.uploaded.v1, audit, idempotencia; contrato validado de metadataJson ≤64 KB sin claves reservadas; browser-agent guarda la captura como archivo tenant-scoped). Falta: deprecar POST /v1/evidence/upload a favor de POST /v1/evidence + ruta de validación, despliegue de #722 y smoke autenticado",
    "evidence": {
     "code": true,
     "ci": "PR checks green; main auto-deploy (Railway Deploy/Production Health Gate) — sin smoke autenticado",
-    "merge": "01036a8156275664c485950d6c3abe05485c60e2",
+    "merge": "5fb65e3e2a792102ac40bce9b5cee66b1bfd252c",
     "deploy": "#717 desplegado en Railway MCP (solo lectura) 2026-10-01T01:1xZ, deployment API f27a2abb (commit a20c25b = #719, incluye #714–#719) SUCCESS",
     "activation": false,
-    "pr": "#717"
+    "pr": "#722"
    }
   },
   {
