@@ -20,3 +20,22 @@ Suite API 2741 tests, 0 fallos, 38 omitidos; `typecheck` limpio; lint 0 errores 
 
 ## Pendiente (no se afirma aquí)
 Despliegue y smoke autenticado multi-tenant/multi-org; hasta entonces C51 sigue PARTIAL. Residual: `injectRelevantContext`/copilot reciben `projectId` de su llamador y no re-autorizan el proyecto aquí; se cubre en la etapa 3 (resolver único + guarda).
+
+## Smoke local con Postgres real + API arrancada (NO es producción)
+Base `smoke_c51` (migraciones aplicadas), 2 tenants, orgs cliente/profesional/otra en A, proyecto con memoria producida por ambas orgs; identidad por cabeceras (`x-tenant-id`/`x-org-id`/`x-roles`). Resultado HTTP real:
+
+| Actor | `GET workspace-memory` / `/search` (`project:<A>`) |
+|---|---|
+| cliente A | 200 — ve la memoria producida por cliente **y** por profesional |
+| profesional A | 200 — ve la memoria de ambas orgs |
+| otra org del mismo tenant | **403** |
+| org vacía | 401 (se rechaza antes, en el contexto de la petición; nunca concede) |
+| cliente del tenant B / OPS_ADMIN del tenant B | **404** |
+| OPS_ADMIN del tenant A | 200 |
+| `project:no_existe`, `project:<B>` desde A | **404** |
+| `tenant:<A>`, `project:<A>:extra` (no admin) | **403** |
+| profesional B sobre su propio proyecto | 200 (solo su memoria) |
+
+`agent-memory?projectId=` y `/agent-memory/search`: cliente/profesional 200, otra org 403, cross-tenant 404 (también OPS_ADMIN de otro tenant), OPS_ADMIN del tenant 200.
+
+Esto valida el comportamiento con BD real, pero **no sustituye el smoke autenticado en producción**: ese requiere identidades reales en dos tenants/orgs y no se ha hecho (no se crean tenants ni datos en producción sin autorización). C51 sigue PARTIAL.
