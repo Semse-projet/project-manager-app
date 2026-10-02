@@ -8,13 +8,22 @@ status: "APPROVED"
 owner: "semse-core"
 risk: "high"
 code_status: "IN_PROGRESS"
-ci_status: "NOT_RUN"
-merge_status: "UNMERGED"
-deploy_status: "NOT_DEPLOYED"
+ci_status: "PASS"
+merge_status: "MERGED"
+deploy_status: "DEPLOYED"
 activation_status: "INACTIVE"
 migration_status: "NOT_APPLICABLE"
+verification_scope: "partial:etapas-1-2a-2b-2c-workspace-memory-y-3A-merged-deployed:3B-guarda-informativa-en-PR-749-no-mergeada:migracion-gradual-de-resolutores-pendiente:sin-smoke-autenticado-en-produccion"
 feature_flags: []
-production_evidence: []
+production_evidence:
+  - github:pr:742:merge:de33e974c88a9f2db9255277f2cdb37ecbc89c3a
+  - github:pr:743:merge:4c80d8fefe47c18b6fb40c422bffd3b6b3cce7b0
+  - github:pr:747:merge:cfddc36bffd5c8f8dc78e12fba78ff2920f4fc50
+  - github:pr:748:merge:8163825c87d06288aa4faa31057361257f29ec44
+  - railway:api:deployment:f55ce430-764b-46bc-8d59-bf984e344462:success:sha:8163825c87d06288aa4faa31057361257f29ec44
+  - railway:web:deployment:691f9368-f8f2-4a14-bebe-f9cbe23262c2:success:sha:8163825c87d06288aa4faa31057361257f29ec44
+  - github:actions:run:37024403026:runtime-provenance-gate:success:api-and-web-gitSha-equals-deploy-sha
+  - "local:smoke-workspace-memory:2026-10-02:postgres-real-api-arrancada-2-tenants — NOT production evidence"
 related_files:
   - scripts/architecture/resource-scope-inventory.mjs
   - docs/architecture/RESOURCE_SCOPE_GUARD.md
@@ -37,7 +46,7 @@ related_tests:
 related_endpoints: []
 related_events: []
 related_agents: []
-last_verified: "2026-10-01"
+last_verified: "2026-10-02"
 ---
 
 # Spec: Contrato común ResourceScope (C51)
