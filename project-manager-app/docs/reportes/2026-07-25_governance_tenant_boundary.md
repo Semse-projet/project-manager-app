@@ -2,7 +2,7 @@
 
 **Fecha:** 2026-07-25
 **Hallazgo:** `3.10b` / `NEW-GOV-01`
-**Spec:** `api.governance-tenant-boundary` v1.0
+**Spec:** `api.governance-tenant-boundary` v1.1
 
 ## Resultado
 
@@ -14,9 +14,16 @@ El service:
 
 - busca propuestas por `{ id, tenantId }`;
 - filtra votos incluidos por el mismo tenant;
+- filtra también `_count.votes` por el mismo tenant;
 - persiste `GovernanceVote.tenantId` desde la propuesta ya validada;
 - no escribe voto ni estado para un ID de otro tenant;
-- cierra mediante update condicionado por `{ id, tenantId, status: "open" }`.
+- hace que vote/close adquieran el mismo row lock transaccional antes de
+  insertar o contar votos;
+- cierra mediante update condicionado por `{ id, tenantId, status: "open" }`;
+- devuelve 409 para la carrera de voto duplicado.
+
+RBAC quedó separado por acción: CLIENT/PRO/OPS_ADMIN pueden leer, proponer y
+votar; solo OPS_ADMIN recibe `governance:close`.
 
 Las cinco rutas BFF de Governance usan
 `fetchSemseDataForAuthenticatedRequest()` y no reenvían `tenantId`, `authorId`
@@ -25,7 +32,8 @@ o `voterId` del navegador.
 ## Validación local
 
 - API build: verde.
-- Governance controller/service + BFF/boundary: 22/22 tests verdes.
+- Governance controller/service + RBAC + BFF/boundary: 56/56 tests verdes.
+- Builds `@semse/auth` y API: verdes.
 - Web TypeScript: verde.
 - Web lint: 0 errores; warnings legacy fuera del lote.
 - Specs: 105 válidas en strict, 0 errores/0 warnings.
