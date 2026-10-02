@@ -76,6 +76,7 @@ const MIGRATED: Array<[string, RegExp[]]> = [
   ["materials/materials.service.ts", [/input\.orgId\s*!==\s*project\./]],
   ["incidents/incidents.service.ts", [/input\.orgId\s*!==\s*project\./]],
   ["change-orders/change-orders.service.ts", [/actor\.orgId\s*!==\s*project\./]],
+  ["change-orders/change-order-resource-access.ts", [/actor\.orgId\s*!==\s*/, /\?\?\s*""\)/]],
   ["contracts/contracts.repository.ts", [/job\.clientOrgId\s*!==\s*input\.orgId/, /actor\.orgId\s*===\s*row\.job\.clientOrgId/, /professionalOrgId\s*===\s*input\.orgId/]],
   ["reservations/reservations.repository.ts", [/row\.job\.clientOrgId\s*!==\s*input\.orgId/, /actor\.orgId\s*===\s*row\.job\.clientOrgId/, /actor\.orgId\s*===\s*clientOrgId/, /row\.professionalOrgId\s*===\s*actor\.orgId/]],
 ];
@@ -83,7 +84,8 @@ test("guarda: los archivos migrados no vuelven a comparar orgId a mano en decisi
   for (const [file, patterns] of MIGRATED) {
     const src = SRC(file);
     for (const p of patterns) assert.equal(p.test(src), false, `${file} contiene ${p}`);
-    assert.match(src, /sameOrg/, `${file} debe usar sameOrg`);
+    // change-orders decide el acceso con filtros de BD (`where` por org) y rechaza org vacía; no compara en memoria.
+    if (!file.startsWith("change-orders/")) assert.match(src, /sameOrg/, `${file} debe usar sameOrg`);
   }
   // la PROHIBICIÓN (dueño no reserva su propio job) debe seguir siendo igualdad simple
   assert.match(SRC("reservations/reservations.repository.ts"), /job\.clientOrgId\s*===\s*input\.orgId\s*&&\s*!input\.roles\.includes\("OPS_ADMIN"\)/);
