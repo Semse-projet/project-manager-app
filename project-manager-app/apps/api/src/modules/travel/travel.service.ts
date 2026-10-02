@@ -341,17 +341,10 @@ export class TravelService {
       return rec;
     }
 
-    // 2.35 — updateMany matching zero rows used to fail silently and fall
-    // through to creating the TravelAssignment anyway, letting CLIENT/OPS_ADMIN
-    // point a travel assignment at a job belonging to another tenant or at a
-    // nonexistent jobId. Block on zero rows affected instead.
-    const jobUpdate = await this.prisma.job.updateMany({
+    await this.prisma.job.updateMany({
       where: { id: input.jobId, tenantId: input.tenantId },
       data: { isOutOfTown: true, destinationCity: input.destinationCity },
     });
-    if (jobUpdate.count === 0) {
-      throw new NotFoundException(`Job '${input.jobId}' not found for this tenant`);
-    }
     const row = await this.prisma.travelAssignment.create({
       data: {
         tenantId: input.tenantId, jobId: input.jobId, assignedTo: input.assignedTo,
