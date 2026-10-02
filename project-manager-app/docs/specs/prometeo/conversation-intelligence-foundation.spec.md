@@ -13,23 +13,13 @@ merge_status: "UNMERGED"
 deploy_status: "NOT_DEPLOYED"
 activation_status: "INACTIVE"
 migration_status: "PENDING"
-feature_flags:
-  - "SEMSE_CONVERSATION_INTELLIGENCE_MODE"
-  - "SEMSE_CONVERSATION_INTELLIGENCE_CANARY_TENANT_IDS"
+feature_flags: ["SEMSE_CONVERSATION_INTELLIGENCE_MODE", "SEMSE_CONVERSATION_INTELLIGENCE_CANARY_TENANT_IDS"]
 production_evidence: []
-related_files:
-  - "packages/db/prisma/schema.prisma"
-  - "apps/api/src/modules/assistant/assistant.service.ts"
-  - "apps/api/src/modules/communications/communications.repository.ts"
-  - "apps/api/src/modules/communications/communications.service.ts"
-  - "apps/api/src/modules/prometeo/prometeo-tool-registry.ts"
-  - "apps/api/src/modules/prometeo/prometeo.module.ts"
-  - "apps/api/src/modules/prometeo/tool-governance/tool-governance.policy.ts"
+related_files: ["packages/db/prisma/schema.prisma", "apps/api/src/modules/assistant/assistant.service.ts", "apps/api/src/modules/communications/communications.repository.ts", "apps/api/src/modules/communications/communications.service.ts", "apps/api/src/modules/prometeo/prometeo-tool-registry.ts", "apps/api/src/modules/prometeo/prometeo.module.ts", "apps/api/src/modules/prometeo/tool-governance/tool-governance.policy.ts"]
 related_tests: []
 related_endpoints: []
 related_events: []
-related_agents:
-  - "prometeo"
+related_agents: ["prometeo"]
 last_verified: "2026-10-02"
 ---
 
@@ -105,7 +95,7 @@ Casos borde:
 Assistant/web chat:
 - `CommunicationThread.channel = WEB_CHAT`
 - `source = "assistant"`
-- `externalThreadId = "assistant:&lt;ConversationSession.id>"`
+- `externalThreadId = "assistant:&lt;ConversationSession.id&gt;"`
 - `contactUserId = ConversationSession.userId`
 - `orgId` sólo si es verificable.
 
@@ -117,7 +107,7 @@ contentHash: string | null
 ```
 
 Backfill:
-- `externalMessageId = "assistant:&lt;sessionId>:&lt;sequence>"`
+- `externalMessageId = "assistant:&lt;sessionId&gt;:&lt;sequence&gt;"`
 - `sequence` conserva índice original.
 - `occurredAt = null` si la fuente no tiene tiempo por mensaje.
 - metadata legacy mínima va en `rawPayloadJson`, sin duplicar body.
@@ -212,13 +202,13 @@ Backlog:
 - bridge con Graphify.
 
 Descartado V1:
-- uevo graph DB;
+- nuevo graph DB;
 - embeddings obligatorios;
-- ueva familia paralela de mensajes.
+- nueva familia paralela de mensajes.
 
 ## 12. Gates
 
-- [ ] status APPROVED antes de código
+- [ ] statusAPPROVED antes de código
 - [ ] spec indexado
 - [ ] plan/tasks/checklist coherentes
 - [ ] tests antes del código
@@ -231,3 +221,73 @@ Descartado V1:
 - [ ] canary autenticado
 - [ ] evidencia sin secretos
 - [ ] sólo entonces VERIFIED
+
+## 13. Preparación para Decision Intelligence
+
+Conversation Intelligence es la capa de observación y recuperación; no es la autoridad de decisión. Debe producir contexto verificable que pueda ser consumido por un futuro Decision Intelligence Engine sin acoplarse a su persistencia ni promover inferencias a decisiones.
+
+Reglas:
+- Todo hecho o hallazgo derivado debe conservar referencias a fuentes canónicas.
+- Ningún finding se convierte automáticamente en decisión, aprobación, acción o evidencia.
+- Una decisión futura debe poder reconstruir qué mensajes y hallazgos la precedieron.
+- `correlationId` debe propagarse de punta a punta cuando exista contexto correlacionable; se reutiliza la convención canónica del sistema y no se crea un identificador paralelo.
+- Ausencia de `projectId`, `jobId`, `actorId`, `orgId` o tiempo verificable se representa como `null`; nunca se infiere para completar trazabilidad.
+
+Separación semántica obligatoria:
+1. **Fact**: observación directamente sustentada por una fuente.
+2. **Finding**: conclusión analítica derivada de uno o más facts/source refs.
+3. **Proposal**: alternativa sugerida; no autorizada.
+4. **Decision**: elección autorizada por la capa futura de Decision Intelligence o por humano competente.
+5. **Action**: ejecución causada por una decisión autorizada.
+6. **Outcome**: resultado observado después de la acción.
+
+Conversation Intelligence V1 puede devolver facts/findings y comparaciones; no persiste Decision, Action ni Outcome.
+
+## 14. Contrato común de provenance
+
+```ts
+type SourceRef = {
+  tenantId: string;
+  sourceType: "communication" | "thread";
+  sourceId: string;
+  threadId: string | null;
+  messageId: string | null;
+  actorId: string | null;
+  projectId: string | null;
+  jobId: string | null;
+  occurredAt: string | null;
+};
+
+type IntelligenceFinding = {
+  kind: "fact" | "finding";
+  summary: string;
+  sourceRefs: SourceRef[];
+  correlationId: string | null;
+  confidence: number | null;
+};
+```
+
+Reglas del contrato:
+- `sourceRefs` nunca queda vacío para findings derivados de conversaciones.
+- `confidence` expresa incertidumbre analítica; no autoridad.
+- `correlationId` sirve para encadenar conversación -> finding -> futura decisión -> acción -> outcome.
+- El mensaje canónico sigue siendo la fuente de verdad; el derived object no duplica el body completo.
+- IDs y timestamps deben provenir de datos existentes, no de inferencia.
+
+## 15. Handoff hacia el futuro Decision Intelligence Engine
+
+La prioridad 2 podrá consumir:
+- `threadId` / `messageId`;
+- `SourceRef[]`;
+- `correlationId`;
+- findings estructurados;
+- contexto reconstruido con autorización ya aplicada.
+
+No podrá asumir que un finding equivale a aprobación o decisión. Cualquier promoción a Proposal/Decision deberá pasar por contratos de autoridad, política, aprobación y audit trail propios de esa capa.
+
+Criterios de preparación adicionales:
+- [ ] SourceRef probado con tenant isolation.
+- [ ] correlationId propagado sin inventar valores legacy.
+- [ ] audit/compare distinguen fact vs finding.
+- [ ] ningún tool de Conversation Intelligence escribe Decision/Action/Outcome.
+- [ ] provenance permite reconstrucción hasta Communication original.
