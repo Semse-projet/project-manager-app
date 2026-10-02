@@ -1,9 +1,8 @@
 import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
-import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
+import { ResourceScopeResolver } from "../../common/resource-scope.resolver.js";
 import {
   assertScopeAccess,
   isOpsAdmin,
-  type ProjectScope,
   type ScopeActor,
 } from "../../common/resource-scope.js";
 
@@ -56,7 +55,7 @@ const DENIED = "Actor cannot access this workspace memory";
 
 @Injectable()
 export class WorkspaceMemoryAccessPolicy {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly resolver: ResourceScopeResolver) {}
 
   /**
    * Autoriza la LECTURA (listar/buscar) de la memoria de `workspaceId`.
@@ -70,17 +69,20 @@ export class WorkspaceMemoryAccessPolicy {
 
     switch (target.kind) {
       case "project": {
-        const scope = await this.resolveProjectScope(actor.tenantId, target.projectId);
+        const scope = await this.resolver.resolveProjectScope(actor.tenantId, target.projectId);
+        if (!scope) throw new NotFoundException(NOT_FOUND);
         assertScopeAccess(actor, scope, "read", DENIED, NOT_FOUND);
         return;
       }
       case "job": {
-        const scope = await this.resolveJobScope(actor.tenantId, target.jobId);
+        const scope = await this.resolver.resolveJobScope(actor.tenantId, target.jobId);
+        if (!scope) throw new NotFoundException(NOT_FOUND);
         assertScopeAccess(actor, scope, "read", DENIED, NOT_FOUND);
         return;
       }
       case "dispute": {
-        const scope = await this.resolveDisputeScope(actor.tenantId, target.disputeId);
+        const scope = await this.resolver.resolveDisputeScope(actor.tenantId, target.disputeId);
+        if (!scope) throw new NotFoundException(NOT_FOUND);
         assertScopeAccess(actor, scope, "read", DENIED, NOT_FOUND);
         return;
       }
@@ -97,36 +99,5 @@ export class WorkspaceMemoryAccessPolicy {
         throw new ForbiddenException(DENIED);
       }
     }
-  }
-
-  private async resolveProjectScope(tenantId: string, projectId: string): Promise<ProjectScope> {
-    const project = await this.prisma.project.findFirst({
-      where: { id: projectId, tenantId },
-      select: { tenantId: true, assignedProOrgId: true, job: { select: { clientOrgId: true } } },
-    });
-    if (!project) throw new NotFoundException(NOT_FOUND);
-    return { tenantId: project.tenantId, clientOrgId: project.job?.clientOrgId, assignedProOrgId: project.assignedProOrgId };
-  }
-
-  private async resolveJobScope(tenantId: string, jobId: string): Promise<ProjectScope> {
-    const job = await this.prisma.job.findFirst({
-      where: { id: jobId, tenantId },
-      select: { tenantId: true, clientOrgId: true, project: { select: { assignedProOrgId: true } } },
-    });
-    if (!job) throw new NotFoundException(NOT_FOUND);
-    return { tenantId: job.tenantId, clientOrgId: job.clientOrgId, assignedProOrgId: job.project?.assignedProOrgId };
-  }
-
-  private async resolveDisputeScope(tenantId: string, disputeId: string): Promise<ProjectScope> {
-    const dispute = await this.prisma.dispute.findFirst({
-      where: { id: disputeId, tenantId },
-      select: { tenantId: true, project: { select: { assignedProOrgId: true, job: { select: { clientOrgId: true } } } } },
-    });
-    if (!dispute) throw new NotFoundException(NOT_FOUND);
-    return {
-      tenantId: dispute.tenantId,
-      clientOrgId: dispute.project?.job?.clientOrgId,
-      assignedProOrgId: dispute.project?.assignedProOrgId,
-    };
   }
 }

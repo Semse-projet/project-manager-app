@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { ResourceScopeResolver } from "../dist/common/resource-scope.resolver.js";
 import { KnowledgeController } from "../dist/modules/knowledge/knowledge.controller.js";
 import { WorkspaceMemoryAccessPolicy, parseWorkspaceId } from "../dist/modules/knowledge/workspace-memory.access-policy.js";
 import { WorkspaceMemoryRepository } from "../dist/modules/knowledge/workspace-memory.repository.js";
@@ -41,7 +42,7 @@ const prisma = {
     },
   },
 };
-const policy = new WorkspaceMemoryAccessPolicy(prisma as never);
+const policy = new WorkspaceMemoryAccessPolicy(new ResourceScopeResolver(prisma as never));
 
 const actor = (orgId: string, o: { tenantId?: string; userId?: string; roles?: string[] } = {}) => ({
   tenantId: o.tenantId ?? T1,
