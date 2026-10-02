@@ -1,6 +1,6 @@
 import { Controller, MessageEvent, Param, Query, Req, Sse } from "@nestjs/common";
 import { Observable, from, interval, merge, of } from "rxjs";
-import { catchError, filter, map, startWith, switchMap } from "rxjs/operators";
+import { catchError, concatMap, filter, map, startWith, switchMap } from "rxjs/operators";
 import { Public } from "../../common/public.decorator.js";
 import { SseEventBusService } from "./sse-event-bus.service.js";
 import { HealthService } from "../../modules/health/health.service.js";
@@ -8,6 +8,9 @@ import { AgentWorkPlanService } from "../../modules/agents/agent-work-plan.servi
 import { AgentDelegationService } from "../../modules/agents/agent-delegation.service.js";
 import { PrismaService } from "../prisma/prisma.service.js";
 import { resolveRequestContext, type RequestContext } from "../../common/request-context.js";
+
+import { RequirePermissions } from "../../common/permissions.decorator.js";
+import { canReadBuildOpsEvent } from "./buildops-event-access.js";
 
 const KEEPALIVE_MS = 20_000;
 
@@ -179,13 +182,20 @@ export class SseController {
   }
 
   @Sse("buildops")
+  @RequirePermissions("projects:read")
   buildopsStream(
     @Req() req: SseRequest,
   ): Observable<MessageEvent> {
-    const { tenantId } = resolveRequestContext(req);
+    const actor = resolveRequestContext(req);
     return merge(
-      this.bus.on<unknown>(`buildops:${tenantId}`).pipe(
-        map(e => toMsgEvent(e.data, e.event)),
+      this.bus.on<unknown>(`buildops:${actor.tenantId}`).pipe(
+        concatMap(event => from(canReadBuildOpsEvent(this.prisma, actor, event)).pipe(
+          // A failed/denied lookup drops only that event; keepalive and later
+          // events continue. concatMap preserves order and stops queued work on disconnect.
+          catchError(() => of(false)),
+          filter(allowed => allowed),
+          map(() => toMsgEvent(event.data, event.event)),
+        )),
       ),
       keepalive$(),
     );

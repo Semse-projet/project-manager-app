@@ -6,17 +6,13 @@ import { OperationalSignalsService } from "../operational-intelligence/operation
 import { PaymentsRepository } from "../payments/payments.repository.js";
 import { findProjectLinkByJobIdOrThrow } from "../projects/project-link.repository.js";
 
+import { accessibleChangeOrderLinks, assertChangeOrderLinksAccessible } from "./change-order-resource-access.js";
+
 type ActorContext = {
   tenantId: string;
   userId: string;
   orgId: string;
   roles: string[];
-};
-
-type ChangeOrderLinks = {
-  jobId?: string | null;
-  buildOpsProjectId?: string | null;
-  milestoneId?: string | null;
 };
 
 type CreateChangeOrderInput = {
@@ -131,7 +127,7 @@ export class ChangeOrdersService {
       throw new BadRequestException("Change order must be linked to a job, BuildOps project, or milestone");
     }
 
-    await this.assertLinksAccessible(actor, input);
+    await assertChangeOrderLinksAccessible(this.prisma, actor, input);
 
     return this.prisma.changeOrderCandidate.create({
       data: {
@@ -458,59 +454,9 @@ export class ChangeOrdersService {
     }
   }
 
-  // Candidate links are scalar IDs, not Prisma relations. Resolve ownership
-  // from the authoritative parents, checking every populated link (not just one).
-  private async accessibleLinks(actor: ActorContext, links?: ChangeOrderLinks) {
-    const isAdmin = actor.roles.includes("OPS_ADMIN");
-    if (!isAdmin && !actor.orgId) {
-      return { jobId: [], buildOpsProjectId: [], milestoneId: [] };
-    }
-    const projectScope: Prisma.ProjectWhereInput = {
-      tenantId: actor.tenantId,
-      job: { tenantId: actor.tenantId, deletedAt: null },
-      ...(!isAdmin ? { OR: [
-        { assignedProOrgId: actor.orgId },
-        { job: { clientOrgId: actor.orgId } },
-      ] } : {}),
-    };
-    const [jobs, builds, milestones] = await Promise.all([
-      links && !links.jobId ? [] : this.prisma.job.findMany({
-        where: {
-          tenantId: actor.tenantId, deletedAt: null,
-          ...(links ? { id: links.jobId! } : {}),
-          ...(!isAdmin ? { OR: [
-            { clientOrgId: actor.orgId },
-            { project: { tenantId: actor.tenantId, assignedProOrgId: actor.orgId } },
-          ] } : {}),
-        },
-        select: { id: true },
-      }),
-      links && !links.buildOpsProjectId ? [] : this.prisma.buildOpsProject.findMany({
-        where: {
-          tenantId: actor.tenantId,
-          ...(!isAdmin ? { orgId: actor.orgId } : {}),
-          ...(links ? { id: links.buildOpsProjectId! } : {}),
-        },
-        select: { id: true },
-      }),
-      links && !links.milestoneId ? [] : this.prisma.milestone.findMany({
-        where: {
-          project: projectScope,
-          ...(links ? { id: links.milestoneId! } : {}),
-        },
-        select: { id: true },
-      }),
-    ]);
-    return {
-      jobId: jobs.map(({ id }) => id),
-      buildOpsProjectId: builds.map(({ id }) => id),
-      milestoneId: milestones.map(({ id }) => id),
-    };
-  }
-
   private async organizationFilter(actor: ActorContext): Promise<Prisma.ChangeOrderCandidateWhereInput> {
     if (actor.roles.includes("OPS_ADMIN")) return {};
-    const allowed = await this.accessibleLinks(actor);
+    const allowed = await accessibleChangeOrderLinks(this.prisma, actor);
     return {
       AND: [
         { OR: [{ jobId: { not: null } }, { buildOpsProjectId: { not: null } }, { milestoneId: { not: null } }] },
@@ -519,15 +465,6 @@ export class ChangeOrdersService {
         { OR: [{ milestoneId: null }, { milestoneId: { in: allowed.milestoneId } }] },
       ],
     };
-  }
-
-  private async assertLinksAccessible(actor: ActorContext, links: ChangeOrderLinks): Promise<void> {
-    const allowed = await this.accessibleLinks(actor, links);
-    const keys = ["jobId", "buildOpsProjectId", "milestoneId"] as const;
-    const present = keys.filter((key) => links[key] != null);
-    if (!present.length || present.some((key) => !allowed[key].includes(links[key]!))) {
-      throw new NotFoundException("Change order resource not found");
-    }
   }
 
   private async findOwned(actor: ActorContext, id: string) {
@@ -539,7 +476,7 @@ export class ChangeOrdersService {
     }
 
     if (!actor.roles.includes("OPS_ADMIN")) {
-      await this.assertLinksAccessible(actor, candidate);
+      await assertChangeOrderLinksAccessible(this.prisma, actor, candidate);
     }
 
     return candidate;
