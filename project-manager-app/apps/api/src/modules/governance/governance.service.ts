@@ -103,14 +103,15 @@ export class GovernanceService {
       const validation = validateVote(dto.choice, units);
       if (!validation.valid) throw new ForbiddenException(validation.reason);
 
-      const proposal = await this.prisma.governanceProposal.findUnique({
-        where: { id: dto.proposalId },
+      const proposal = await this.prisma.governanceProposal.findFirst({
+        where: { id: dto.proposalId, tenantId: dto.tenantId },
       });
       if (!proposal) throw new NotFoundException("Proposal not found");
       if (proposal.status !== "open") throw new ConflictException("Proposal is not open for voting");
       if (new Date() > proposal.closesAt) throw new ConflictException("Proposal voting period has ended");
 
-      const voterScore = await this.resolveReputationScore(dto.voterId, dto.tenantId);
+      const proposalTenantId = proposal.tenantId;
+      const voterScore = await this.resolveReputationScore(dto.voterId, proposalTenantId);
       const weight = computeVoteWeight(voterScore, units);
 
       const existing = await this.prisma.governanceVote.findUnique({
@@ -120,7 +121,7 @@ export class GovernanceService {
 
       const vote = await this.prisma.governanceVote.create({
         data: {
-          tenantId: dto.tenantId,
+          tenantId: proposalTenantId,
           proposalId: dto.proposalId,
           voterId: dto.voterId,
           choice: dto.choice,
@@ -131,7 +132,7 @@ export class GovernanceService {
       });
 
       // Award governance credits for voting
-      await this.awardCredits(dto.tenantId, dto.voterId, {
+      await this.awardCredits(proposalTenantId, dto.voterId, {
         type: "vote_cast",
         choice: dto.choice as "for" | "against" | "abstain",
         outcome: "open",
@@ -142,7 +143,7 @@ export class GovernanceService {
         `[Governance] vote cast proposalId=${dto.proposalId} voter=${dto.voterId} choice=${dto.choice} weight=${weight}`,
       );
 
-      this.sse?.emit(`governance:${dto.tenantId}`, "governance:vote-cast", {
+      this.sse?.emit(`governance:${proposalTenantId}`, "governance:vote-cast", {
         proposalId: dto.proposalId,
         voterId:    dto.voterId,
         choice:     dto.choice,
@@ -167,19 +168,19 @@ export class GovernanceService {
     });
   }
 
-  async getProposal(proposalId: string) {
-    const proposal = await this.prisma.governanceProposal.findUnique({
-      where: { id: proposalId },
-      include: { votes: true },
+  async getProposal(proposalId: string, tenantId: string) {
+    const proposal = await this.prisma.governanceProposal.findFirst({
+      where: { id: proposalId, tenantId },
+      include: { votes: { where: { tenantId } } },
     });
     if (!proposal) throw new NotFoundException("Proposal not found");
     return proposal;
   }
 
-  async getResults(proposalId: string): Promise<ProposalResults> {
-    const proposal = await this.prisma.governanceProposal.findUnique({
-      where: { id: proposalId },
-      include: { votes: true },
+  async getResults(proposalId: string, tenantId: string): Promise<ProposalResults> {
+    const proposal = await this.prisma.governanceProposal.findFirst({
+      where: { id: proposalId, tenantId },
+      include: { votes: { where: { tenantId } } },
     });
     if (!proposal) throw new NotFoundException("Proposal not found");
 
@@ -203,10 +204,10 @@ export class GovernanceService {
     };
   }
 
-  async closeProposal(proposalId: string): Promise<{ status: string; outcome: string }> {
-    const proposal = await this.prisma.governanceProposal.findUnique({
-      where: { id: proposalId },
-      include: { votes: true },
+  async closeProposal(proposalId: string, tenantId: string): Promise<{ status: string; outcome: string }> {
+    const proposal = await this.prisma.governanceProposal.findFirst({
+      where: { id: proposalId, tenantId },
+      include: { votes: { where: { tenantId } } },
     });
     if (!proposal) throw new NotFoundException("Proposal not found");
     if (proposal.status !== "open") throw new ConflictException("Proposal is already closed");
@@ -224,10 +225,11 @@ export class GovernanceService {
       tally.outcome === "rejected" ? "rejected" :
       "closed";
 
-    await this.prisma.governanceProposal.update({
-      where: { id: proposalId },
+    const updated = await this.prisma.governanceProposal.updateMany({
+      where: { id: proposalId, tenantId, status: "open" },
       data: { status: newStatus },
     });
+    if (updated.count !== 1) throw new ConflictException("Proposal is already closed");
 
     this.logger.log(`[Governance] proposal closed id=${proposalId} outcome=${tally.outcome}`);
 
