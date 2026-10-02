@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchSemseData, handleServerError, isSemseRuntimeEnabled, runtimeDisabledResponse } from "../../../../_server";
+import { fetchSemseDataForAuthenticatedRequest, handleServerError, isSemseRuntimeEnabled, runtimeDisabledResponse } from "../../../../_server";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +23,7 @@ export async function PUT(
 
   try {
     const { unitId } = await params;
-    const data = await fetchSemseData<FieldUnitDto>(`/v1/field-ops/units/${unitId}/status`, {
+    const data = await fetchSemseDataForAuthenticatedRequest<FieldUnitDto>(`/v1/field-ops/units/${unitId}/status`, req, {
       method: "PUT",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(body),

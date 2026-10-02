@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchSemseData, handleServerError, isSemseRuntimeEnabled, runtimeDisabledResponse } from "../../_server";
+import { fetchSemseDataForAuthenticatedRequest, handleServerError, isSemseRuntimeEnabled, runtimeDisabledResponse } from "../../_server";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = (await req.json()) as Record<string, unknown>;
-    const data = await fetchSemseData("/v1/ops/incidents", {
+    const data = await fetchSemseDataForAuthenticatedRequest("/v1/ops/incidents", req, {
       method: "POST",
       headers: {
         "content-type": "application/json"
