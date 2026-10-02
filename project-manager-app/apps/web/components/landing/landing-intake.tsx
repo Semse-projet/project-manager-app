@@ -287,7 +287,7 @@ export function LandingIntake() {
               Describe tu trabajo y entra al wizard real
             </h2>
             <p style={{ fontSize: 15, color: "var(--muted)", lineHeight: 1.6, marginBottom: 12 }}>
-              Selecciona una categoría y describe el trabajo. El wizard inteligente aplica a Pintura, Drywall, Baño, Cocina, Limpieza y Carpintería.
+              Selecciona una categoría y describe el trabajo. El wizard inteligente con preguntas guiadas y estimador automático ya está disponible en todas las categorías.
             </p>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 12 }}>
               {[
@@ -523,7 +523,7 @@ export function LandingIntake() {
             </>
           ) : (
             <div style={{ padding: 14, borderRadius: 14, background: "var(--raised)", border: "1px solid var(--border)", fontSize: 13, color: "var(--muted)", lineHeight: 1.6 }}>
-              Algunas categorías ya cuentan con estimador inteligente avanzado; otras usan un brief inicial mientras expandimos el sistema.
+              Selecciona una categoría arriba para activar el wizard inteligente con preguntas guiadas y estimador automático.
             </div>
           )}
         </div>
@@ -547,7 +547,7 @@ export function LandingIntake() {
               Calcula un rango antes de entrar
             </h3>
             <p style={{ fontSize: 14, color: "var(--muted)", lineHeight: 1.6 }}>
-              Estimaciones automáticas para pintura interior. Para las demás categorías, se proporciona un rango preliminar mientras expandimos el sistema.
+              Estimaciones automáticas con preguntas guiadas, disponibles en las diez categorías del catálogo.
             </p>
           </div>
 

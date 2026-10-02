@@ -35,7 +35,11 @@ export type SmartIntakeCategory =
   | "bathroom_remodel"
   | "kitchen_remodel"
   | "cleaning"
-  | "general_carpentry";
+  | "general_carpentry"
+  | "plumbing_repair"
+  | "electrical_work"
+  | "flooring_installation"
+  | "landscaping";
 
 export type ConfidenceLevel = "exact" | "estimated" | "unknown";
 

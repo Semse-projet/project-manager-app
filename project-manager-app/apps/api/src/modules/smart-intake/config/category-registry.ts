@@ -6,6 +6,10 @@ import { BATHROOM_QUESTIONS } from "./questions/bathroom.questions.js";
 import { KITCHEN_QUESTIONS } from "./questions/kitchen.questions.js";
 import { CLEANING_QUESTIONS } from "./questions/cleaning.questions.js";
 import { CARPENTRY_QUESTIONS } from "./questions/carpentry.questions.js";
+import { PLUMBING_QUESTIONS } from "./questions/plumbing.questions.js";
+import { ELECTRICAL_QUESTIONS } from "./questions/electrical.questions.js";
+import { FLOORING_QUESTIONS } from "./questions/flooring.questions.js";
+import { LANDSCAPING_QUESTIONS } from "./questions/landscaping.questions.js";
 
 export type MilestoneTemplate = {
   order: number;
@@ -255,6 +259,86 @@ export const CATEGORY_REGISTRY: Record<SmartIntakeCategory, CategoryDefinition> 
     milestones: STANDARD_MILESTONES,
     questions: CARPENTRY_QUESTIONS,
   },
+
+  plumbing_repair: {
+    id: "plumbing_repair",
+    label: { es: "Plomería", en: "Plumbing" },
+    trade: "plumbing",
+    projectType: "plumbing-repair",
+    keywords: ["plumbing", "plomeria", "plomero", "leak", "fuga", "pipe", "tuberia", "caneria", "clog", "destapado", "drain", "desague", "sanitario", "grifo", "faucet"],
+    explicitConfidence: 0.97,
+    keywordConfidence: 0.78,
+    rates: {
+      unit: "fixed",
+      baseMin: 80,
+      baseMax: 1200,
+      fallbackMin: 80,
+      fallbackMax: 400,
+      complexityMultiplier: { low: 1.0, medium: 1.3, high: 1.7 },
+    },
+    milestones: STANDARD_MILESTONES,
+    questions: PLUMBING_QUESTIONS,
+  },
+
+  electrical_work: {
+    id: "electrical_work",
+    label: { es: "Electricidad", en: "Electrical" },
+    trade: "electrical",
+    projectType: "electrical-work",
+    keywords: ["electrical", "electricidad", "electricista", "wiring", "cableado", "breaker", "panel electrico", "outlet", "tomacorriente", "cortocircuito", "short circuit", "iluminacion electrica"],
+    explicitConfidence: 0.97,
+    keywordConfidence: 0.78,
+    rates: {
+      unit: "fixed",
+      baseMin: 90,
+      baseMax: 2500,
+      fallbackMin: 90,
+      fallbackMax: 500,
+      complexityMultiplier: { low: 1.0, medium: 1.3, high: 1.8 },
+    },
+    milestones: STANDARD_MILESTONES,
+    questions: ELECTRICAL_QUESTIONS,
+  },
+
+  flooring_installation: {
+    id: "flooring_installation",
+    label: { es: "Pisos", en: "Flooring" },
+    trade: "flooring",
+    projectType: "flooring-installation",
+    keywords: ["flooring", "piso", "pisos", "hardwood", "madera piso", "ceramica", "azulejo piso", "laminado", "vinilico", "pulido de piso", "tile floor"],
+    explicitConfidence: 0.96,
+    keywordConfidence: 0.72,
+    rates: {
+      unit: "fixed",
+      baseMin: 200,
+      baseMax: 6000,
+      fallbackMin: 200,
+      fallbackMax: 2000,
+      complexityMultiplier: { low: 1.0, medium: 1.3, high: 1.7 },
+    },
+    milestones: STANDARD_MILESTONES,
+    questions: FLOORING_QUESTIONS,
+  },
+
+  landscaping: {
+    id: "landscaping",
+    label: { es: "Jardinería", en: "Landscaping" },
+    trade: "landscaping",
+    projectType: "landscaping",
+    keywords: ["landscaping", "jardineria", "jardin", "garden", "poda", "pruning", "cesped", "lawn", "riego", "irrigation", "paisajismo", "arboles"],
+    explicitConfidence: 0.96,
+    keywordConfidence: 0.75,
+    rates: {
+      unit: "fixed",
+      baseMin: 80,
+      baseMax: 3000,
+      fallbackMin: 80,
+      fallbackMax: 500,
+      complexityMultiplier: { low: 1.0, medium: 1.3, high: 1.7 },
+    },
+    milestones: STANDARD_MILESTONES,
+    questions: LANDSCAPING_QUESTIONS,
+  },
 };
 
 /** Ordered by specificity — more specific keywords checked first */
@@ -265,7 +349,11 @@ const DETECTION_ORDER: SmartIntakeCategory[] = [
   "exterior_painting",   // before interior_painting: "exterior", "fachada"
   "interior_painting",
   "cleaning",
-  "general_carpentry",
+  "plumbing_repair",     // before general_carpentry: avoids "pipe"/"floor" ambiguity
+  "electrical_work",
+  "flooring_installation", // before general_carpentry: its "floor"/"piso" keywords are broader
+  "landscaping",
+  "general_carpentry",   // broadest keyword set — checked last
 ];
 
 export function detectCategoryFromText(input: {
@@ -336,6 +424,19 @@ function mapSelectedCategoryId(
     case "windows":
     case "doors":
       return "general_carpentry";
+    case "plomeria":
+    case "plumbing":
+      return "plumbing_repair";
+    case "electricidad":
+    case "electrical":
+      return "electrical_work";
+    case "pisos":
+    case "flooring":
+      return "flooring_installation";
+    case "jardineria":
+    case "landscaping":
+    case "gardening":
+      return "landscaping";
     default:
       return null;
   }

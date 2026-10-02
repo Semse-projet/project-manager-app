@@ -1,0 +1,86 @@
+import type { IntakeQuestion } from "../../smart-intake.types.js";
+
+export const LANDSCAPING_QUESTIONS: IntakeQuestion[] = [
+  {
+    id: "landscaping_type",
+    category: "landscaping",
+    step: 1,
+    label: {
+      es: "¿Qué tipo de trabajo de jardinería necesita?",
+      en: "What type of landscaping work is needed?",
+    },
+    required: false,
+    affectsEstimate: true,
+    estimateImpact: "high",
+    answerType: "single_choice",
+    allowOther: true,
+    allowNotSure: true,
+    options: [
+      { label: { es: "Mantenimiento regular", en: "Routine maintenance" }, value: "standard" },
+      { label: { es: "Diseño de jardín", en: "Garden design" }, value: "new_install" },
+      { label: { es: "Poda o remoción de árboles", en: "Tree pruning or removal" }, value: "tree_work" },
+      { label: { es: "Sistema de riego", en: "Irrigation system" }, value: "new_install" },
+      { label: { es: "Áreas duras (patio, caminos)", en: "Hardscaping (patio, walkways)" }, value: "structural" },
+    ],
+  },
+  {
+    id: "landscaping_scope",
+    category: "landscaping",
+    step: 2,
+    label: {
+      es: "¿Qué tamaño tiene el terreno o área de trabajo?",
+      en: "What size is the yard or work area?",
+    },
+    required: false,
+    affectsEstimate: true,
+    estimateImpact: "high",
+    answerType: "single_choice",
+    allowOther: true,
+    allowNotSure: true,
+    options: [
+      { label: { es: "Pequeño (patio o jardín chico)", en: "Small (small yard or garden)" }, value: "small" },
+      { label: { es: "Mediano", en: "Medium" }, value: "medium" },
+      { label: { es: "Grande / propiedad extensa", en: "Large / extensive property" }, value: "large" },
+    ],
+  },
+  {
+    id: "landscaping_frequency",
+    category: "landscaping",
+    step: 3,
+    label: {
+      es: "¿Es un trabajo único o recurrente?",
+      en: "Is this a one-time job or recurring service?",
+    },
+    required: false,
+    affectsEstimate: false,
+    estimateImpact: "low",
+    answerType: "single_choice",
+    allowOther: false,
+    allowNotSure: true,
+    options: [
+      { label: { es: "Único", en: "One-time" }, value: "one_time" },
+      { label: { es: "Semanal o quincenal", en: "Weekly or biweekly" }, value: "recurring" },
+      { label: { es: "Mensual", en: "Monthly" }, value: "recurring" },
+    ],
+  },
+  {
+    id: "landscaping_material",
+    category: "landscaping",
+    step: 4,
+    label: {
+      es: "¿Qué calidad de plantas o materiales prefiere?",
+      en: "What quality of plants or materials do you prefer?",
+    },
+    required: false,
+    affectsEstimate: true,
+    estimateImpact: "medium",
+    answerType: "single_choice",
+    allowOther: true,
+    allowNotSure: true,
+    options: [
+      { label: { es: "Económico", en: "Budget" }, value: "budget" },
+      { label: { es: "Estándar", en: "Standard" }, value: "standard" },
+      { label: { es: "Premium (especies o materiales de alta gama)", en: "Premium (high-end species or materials)" }, value: "premium" },
+    ],
+  },
+];

@@ -1,0 +1,85 @@
+import type { IntakeQuestion } from "../../smart-intake.types.js";
+
+export const FLOORING_QUESTIONS: IntakeQuestion[] = [
+  {
+    id: "flooring_type",
+    category: "flooring_installation",
+    step: 1,
+    label: {
+      es: "¿Qué tipo de trabajo de pisos necesita?",
+      en: "What type of flooring work is needed?",
+    },
+    required: false,
+    affectsEstimate: true,
+    estimateImpact: "high",
+    answerType: "single_choice",
+    allowOther: true,
+    allowNotSure: true,
+    options: [
+      { label: { es: "Instalación de piso nuevo", en: "New floor installation" }, value: "new_install" },
+      { label: { es: "Reemplazo de piso existente", en: "Replace existing floor" }, value: "replacement" },
+      { label: { es: "Pulido y restauración", en: "Refinishing / polishing" }, value: "repair_only" },
+      { label: { es: "Reparación de área puntual", en: "Spot repair" }, value: "repair_only" },
+    ],
+  },
+  {
+    id: "flooring_scope",
+    category: "flooring_installation",
+    step: 2,
+    label: {
+      es: "¿Qué área o cantidad de habitaciones está involucrada?",
+      en: "What area or number of rooms is involved?",
+    },
+    required: false,
+    affectsEstimate: true,
+    estimateImpact: "high",
+    answerType: "single_choice",
+    allowOther: true,
+    allowNotSure: true,
+    options: [
+      { label: { es: "1 habitación / área pequeña (< 150 sq ft)", en: "1 room / small area (< 150 sq ft)" }, value: "small" },
+      { label: { es: "2 – 3 habitaciones (150 – 500 sq ft)", en: "2 – 3 rooms (150 – 500 sq ft)" }, value: "medium" },
+      { label: { es: "Casa completa (> 500 sq ft)", en: "Whole house (> 500 sq ft)" }, value: "large" },
+    ],
+  },
+  {
+    id: "flooring_material",
+    category: "flooring_installation",
+    step: 3,
+    label: {
+      es: "¿Qué tipo de material prefiere?",
+      en: "What type of material do you prefer?",
+    },
+    required: false,
+    affectsEstimate: true,
+    estimateImpact: "high",
+    answerType: "single_choice",
+    allowOther: true,
+    allowNotSure: true,
+    options: [
+      { label: { es: "Laminado o vinílico", en: "Laminate or vinyl" }, value: "budget" },
+      { label: { es: "Madera o cerámica estándar", en: "Standard wood or tile" }, value: "standard" },
+      { label: { es: "Madera sólida o porcelanato premium", en: "Solid hardwood or premium porcelain" }, value: "premium" },
+    ],
+  },
+  {
+    id: "flooring_existing",
+    category: "flooring_installation",
+    step: 4,
+    label: {
+      es: "¿Hay que remover un piso existente?",
+      en: "Does an existing floor need to be removed?",
+    },
+    required: false,
+    affectsEstimate: true,
+    estimateImpact: "medium",
+    answerType: "single_choice",
+    allowOther: false,
+    allowNotSure: true,
+    options: [
+      { label: { es: "No — instalación sobre base nueva o vacía", en: "No — installing on new or empty subfloor" }, value: "no" },
+      { label: { es: "Sí — remoción menor", en: "Yes — minor removal" }, value: "minor" },
+      { label: { es: "Sí — demolición significativa (varias capas, azulejo pegado)", en: "Yes — significant demolition (multiple layers, glued tile)" }, value: "significant" },
+    ],
+  },
+];
