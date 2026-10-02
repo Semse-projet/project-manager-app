@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import type {
   WorkspaceMemoryEpistemicStatus,
   WorkspaceMemoryProvenance,
@@ -9,6 +9,7 @@ import type {
 } from "@semse/knowledge";
 import { WORKSPACE_SENSITIVITY_RANK } from "@semse/knowledge";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
+import { isOpsAdmin } from "../../common/resource-scope.js";
 
 type StoredWorkspaceMemoryEntry = {
   id: string;
@@ -93,9 +94,9 @@ function matchesQuery(record: WorkspaceMemoryRecord, input: WorkspaceMemoryQuery
   if (record.tenantId !== input.tenantId) {
     return false;
   }
-  if (input.orgId && record.orgId !== input.orgId) {
-    return false;
-  }
+  // C51 (decisión del dueño): `orgId` es provenance del productor, NO un ACL. La memoria del workspace es
+  // compartida; quién puede leerla lo decide WorkspaceMemoryAccessPolicy antes de llegar aquí. Por eso
+  // `query()` ya no filtra por org (antes difería de `search()`, que nunca lo hizo).
   if (record.workspaceId !== input.workspaceId) {
     return false;
   }
@@ -155,14 +156,21 @@ export class WorkspaceMemoryRepository {
    * once (e.g. the "Solicitudes de verificación" queue, see
    * AUDIT_REMEDIATION_PLAN.md 2.28). Filters by tenant + every tag in `tags`
    * (AND, matching matchesQuery's semantics) and optionally by kind.
+   *
+   * C51: reservado a flujos internos/admin EXPLÍCITOS (cola de verificación). No es una
+   * lectura general: exige un actor OPS_ADMIN del mismo tenant y falla cerrado si no.
    */
   async queryAcrossTenant(input: {
+    actor: { tenantId: string; roles: string[] };
     tenantId: string;
     tags: string[];
     kinds?: WorkspaceMemoryRecord["kind"][];
     limit?: number;
     includeInactive?: boolean;
   }): Promise<WorkspaceMemoryRecord[]> {
+    if (!isOpsAdmin(input.actor) || input.actor.tenantId !== input.tenantId || !input.tenantId) {
+      throw new ForbiddenException("Cross-workspace memory queries are restricted to OPS_ADMIN of the same tenant");
+    }
     const entries = await this.prisma.workspaceMemoryEntry.findMany({
       where: {
         tenantId: input.tenantId,

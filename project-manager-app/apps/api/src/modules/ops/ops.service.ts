@@ -164,7 +164,6 @@ export class OpsService {
 
               const memory = await this.workspaceMemoryRepository.query({
                 tenantId: input.tenantId,
-                orgId: input.orgId,
                 workspaceId: operatorContext.workspaceId,
                 runId: run.id,
                 tags: [input.memoryTag as string]
@@ -251,7 +250,6 @@ export class OpsService {
 
           return this.workspaceMemoryRepository.query({
             tenantId: input.tenantId,
-            orgId: input.orgId,
             workspaceId: operatorContext.workspaceId,
             runId: run.id,
             kinds: ["run_summary"]

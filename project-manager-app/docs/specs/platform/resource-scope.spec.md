@@ -16,6 +16,9 @@ migration_status: "NOT_APPLICABLE"
 feature_flags: []
 production_evidence: []
 related_files:
+  - apps/api/src/modules/knowledge/workspace-memory.access-policy.ts
+  - apps/api/src/modules/knowledge/knowledge.controller.ts
+  - apps/api/src/modules/knowledge/workspace-memory.repository.ts
   - apps/api/src/common/resource-scope.ts
   - apps/api/src/modules/evidence/evidence.policy.ts
   - apps/api/src/modules/milestones/milestones.policy.ts
@@ -23,6 +26,7 @@ related_files:
   - apps/api/src/modules/projects/projects.policy.ts
   - apps/api/src/modules/liens/lien-access.service.ts
 related_tests:
+  - apps/api/test/workspace-memory-access.test.ts
   - apps/api/test/resource-scope.test.ts
 related_endpoints: []
 related_events: []
@@ -52,6 +56,19 @@ Cada módulo repetía la misma regla de alcance (OPS_ADMIN o org cliente o org p
    - **Pendiente:** `workspace-memory` (`workspace-memory.repository.ts` compara `input.orgId &&` opcional): requiere definir primero su semántica de ownership/scope; no se toca hasta entonces.
 3. **Etapa 3:** `ResourceScope` como dato de primera clase (resolutor único `resolveProjectScope(tenantId, projectId)` en lugar de los de cada módulo) y guarda de arquitectura que falle el CI si un controller con id de recurso no pasa por una política (modo informativo primero; **tocar CI requiere PR aparte autorizado**).
 Cada etapa exige tests negativos cross-tenant y cross-org.
+
+### 3.1 Decisión del dueño (2026-10-01): semántica de `WorkspaceMemory`
+`WorkspaceMemory` es **memoria compartida del workspace/recurso**, no memoria privada de la organización que la escribió.
+- **Workspaces de proyecto** (`workspaceId = project:<projectId>`): el boundary es **tenant + `ProjectScope`**. Antes de leer/buscar/listar hay que resolver el proyecto dentro del tenant y comprobar que el actor sea la org cliente, la org profesional asignada u `OPS_ADMIN`. Otro tenant (o proyecto inexistente) ⇒ **404**; mismo tenant pero actor fuera de las organizaciones participantes ⇒ **403**.
+- `orgId` de la entrada es **provenance del productor**, no ACL: no decide quién lee. `sensitivity` es clasificación, no sustituto de ownership. La memoria **nunca autoriza una acción por sí misma**.
+- Una org vacía nunca concede acceso; conocer o adivinar un `workspaceId` no basta.
+- Si en el futuro se quiere memoria privada por org o usuario, requiere un campo/contrato explícito de audience/visibility; no se sobrecarga `orgId`.
+- Otras formas de workspace (misma política, deny-by-default): `job:<id>` y `dispute:<id>` se resuelven a su `ProjectScope`; `worker:<userId>:*` solo el propio usuario u `OPS_ADMIN`; cualquier forma desconocida solo `OPS_ADMIN`.
+- `queryAcrossTenant()` queda reservado a flujos internos/admin explícitos (cola de verificación) y exige `OPS_ADMIN` del mismo tenant; no es lectura general.
+- Implementación: `WorkspaceMemoryAccessPolicy` (`apps/api/src/modules/knowledge/workspace-memory.access-policy.ts`) sobre `assertScopeAccess`; los endpoints `GET /v1/knowledge/workspace-memory` y `/search` la invocan antes de tocar el repositorio, y `query()` deja de filtrar por `orgId` (corrige la inconsistencia con `search()`).
+
+### 3.2 Etapa 3 autorizada (2026-10-01)
+El dueño autoriza un PR de CI **separado** para la guarda de arquitectura, **primero informativa (report-only, nunca bloquea CI)**: `ResourceScopeResolver` canónico (`tenantId + projectId → ProjectScope`) con migración gradual de resolutores duplicados, políticas de dominio encima del resolver común, e inventario de controllers/endpoints con identificador de recurso que no pasan por policy/scope resolver, con allowlist explícita y documentada (no un grep ingenuo como gate de seguridad). Tras un ciclo completo verde y revisión de falsos positivos, otro PR la vuelve bloqueante.
 
 ## 4. Criterios de aceptación (etapa 1)
 1. Para toda combinación actor×ownership×relación, las políticas existentes dan el mismo resultado que el contrato (test de paridad).
