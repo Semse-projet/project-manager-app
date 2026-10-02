@@ -71,8 +71,13 @@ test("detects general_carpentry from keyword 'puerta'", () => {
 });
 
 test("detects general_carpentry from keyword 'window'", () => {
-  const cat = detectCategoryFromText({ rawDescription: "Replace windows and install hardwood floor" });
+  const cat = detectCategoryFromText({ rawDescription: "Replace windows in the living room" });
   assert.equal(cat, "general_carpentry");
+});
+
+test("prefers flooring_installation when a description mentions hardwood floor", () => {
+  const cat = detectCategoryFromText({ rawDescription: "Replace windows and install hardwood floor" });
+  assert.equal(cat, "flooring_installation");
 });
 
 test("falls back to interior_painting for unrecognized description", () => {
