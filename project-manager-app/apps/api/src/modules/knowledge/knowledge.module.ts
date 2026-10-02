@@ -1,4 +1,5 @@
 import { Module } from "@nestjs/common";
+import { ResourceScopeModule } from "../../common/resource-scope.module.js";
 import { RuntimeKnowledgeModule } from "../runtime-knowledge/runtime-knowledge.module.js";
 import { AgentMemoryRepository } from "./agent-memory.repository.js";
 import { AgentMemoryService } from "./agent-memory.service.js";
@@ -10,7 +11,7 @@ import { WorkspaceMemoryAccessPolicy } from "./workspace-memory.access-policy.js
 import { WorkspaceMemoryRepository } from "./workspace-memory.repository.js";
 
 @Module({
-  imports: [RuntimeKnowledgeModule],
+  imports: [RuntimeKnowledgeModule, ResourceScopeModule],
   controllers: [KnowledgeController],
   providers: [KnowledgeService, WorkspaceMemoryRepository, WorkspaceMemoryAccessPolicy, AgentMemoryRepository, AgentMemoryService, KnowledgeCuratorService, AgentSkillRepository],
   exports: [WorkspaceMemoryRepository, WorkspaceMemoryAccessPolicy, AgentMemoryRepository, AgentMemoryService, KnowledgeCuratorService, AgentSkillRepository]
