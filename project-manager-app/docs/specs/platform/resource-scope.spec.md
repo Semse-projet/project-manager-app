@@ -16,6 +16,8 @@ migration_status: "NOT_APPLICABLE"
 feature_flags: []
 production_evidence: []
 related_files:
+  - apps/api/src/common/resource-scope.resolver.ts
+  - apps/api/src/common/resource-scope.module.ts
   - apps/api/src/modules/knowledge/workspace-memory.access-policy.ts
   - apps/api/src/modules/knowledge/knowledge.controller.ts
   - apps/api/src/modules/knowledge/workspace-memory.repository.ts
@@ -26,6 +28,7 @@ related_files:
   - apps/api/src/modules/projects/projects.policy.ts
   - apps/api/src/modules/liens/lien-access.service.ts
 related_tests:
+  - apps/api/test/resource-scope-resolver.test.ts
   - apps/api/test/workspace-memory-access.test.ts
   - apps/api/test/resource-scope.test.ts
 related_endpoints: []
@@ -69,6 +72,11 @@ Cada etapa exige tests negativos cross-tenant y cross-org.
 
 ### 3.2 Etapa 3 autorizada (2026-10-01)
 El dueño autoriza un PR de CI **separado** para la guarda de arquitectura, **primero informativa (report-only, nunca bloquea CI)**: `ResourceScopeResolver` canónico (`tenantId + projectId → ProjectScope`) con migración gradual de resolutores duplicados, políticas de dominio encima del resolver común, e inventario de controllers/endpoints con identificador de recurso que no pasan por policy/scope resolver, con allowlist explícita y documentada (no un grep ingenuo como gate de seguridad). Tras un ciclo completo verde y revisión de falsos positivos, otro PR la vuelve bloqueante.
+
+### 3.3 Etapa 3 — progreso
+- **3A (este PR, sin CI):** `ResourceScopeResolver` canónico (`apps/api/src/common/resource-scope.resolver.ts`, módulo `ResourceScopeModule`): `resolveProjectScope` / `resolveJobScope` / `resolveDisputeScope` / `requireProjectScope`, siempre filtrado por el tenant del actor (otro tenant o inexistente ⇒ `null`/404). Primer consumidor: `WorkspaceMemoryAccessPolicy`. Las políticas de dominio siguen encima del resolver.
+- **Migración gradual pendiente (un módulo por PR, con sus pruebas; sin big bang):** `evidence.repository` (`resolveScope`), `milestones.repository`, `disputes.repository` (`toOwnership`), `projects.repository`, `payments.repository` / `payment-governance.*`, `trust.repository`, `liens` (`lien-access.service`), `bids`/`contracts`/`reservations`/`jobs` (ownership por job).
+- **3B (PR de CI separado, report-only):** guarda de arquitectura informativa que inventaría controllers/endpoints con identificador de recurso que no pasan por política/resolver, con allowlist explícita y documentada; nunca bloquea CI. Pasar a bloqueante es otro PR, tras un ciclo verde y revisión de falsos positivos.
 
 ## 4. Criterios de aceptación (etapa 1)
 1. Para toda combinación actor×ownership×relación, las políticas existentes dan el mismo resultado que el contrato (test de paridad).
