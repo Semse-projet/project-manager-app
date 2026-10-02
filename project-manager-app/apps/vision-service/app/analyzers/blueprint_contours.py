@@ -25,7 +25,13 @@ def extract_blueprint_lines(image: np.ndarray) -> Dict[str, Any]:
     lines_list = []
     if lines is not None:
         for line in lines:
-            x1, y1, x2, y2 = line[0]
+            # OpenCV 4 commonly returns (N, 1, 4), while OpenCV 5 may return
+            # (N, 4). Flattening each entry keeps the analyzer compatible with
+            # both shapes declared by our open-ended dependency range.
+            coordinates = np.asarray(line).reshape(-1)
+            if coordinates.size < 4:
+                continue
+            x1, y1, x2, y2 = coordinates[:4]
             lines_list.append([int(x1), int(y1), int(x2), int(y2)])
             
     # Calculate density score: percentage of white pixels in edge image

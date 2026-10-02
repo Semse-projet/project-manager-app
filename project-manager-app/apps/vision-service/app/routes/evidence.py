@@ -1,9 +1,10 @@
-from fastapi import APIRouter, HTTPException, Depends
 import base64
-import cv2
-import requests
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+
+import cv2
+from fastapi import APIRouter, HTTPException
+
 from app.schemas.evidence import (
     EvidenceAnalyzeRequest,
     EvidenceAnalyzeResponse,
@@ -41,7 +42,7 @@ from app.schemas.evidence import (
     AnalyzePortfolioRequest,
     PortfolioForensicsResult,
 )
-from app.services.image_loader import load_image_from_url, is_mock_or_local_url
+from app.services.image_loader import load_image_from_url, load_image_from_url_with_bytes
 from app.analyzers.blur import detect_blur
 from app.analyzers.lighting import analyze_lighting
 from app.analyzers.contrast import analyze_contrast
@@ -68,8 +69,9 @@ router = APIRouter()
 
 @router.post("/analyze", response_model=EvidenceAnalyzeResponse, tags=["evidence"])
 def analyze_evidence_endpoint(request: EvidenceAnalyzeRequest):
-    # 1. Load image and download raw bytes for EXIF extraction
-    image = load_image_from_url(request.imageUrl)
+    # 1. Load the image once. The same size/type/redirect/SSRF checks protect
+    # both the decoded pixels and the raw bytes used for EXIF extraction.
+    image, raw_image_bytes = load_image_from_url_with_bytes(request.imageUrl)
 
     # Optional perspective correction before quality analysis
     if request.metadata and request.metadata.get("correctPerspective"):
@@ -81,13 +83,9 @@ def analyze_evidence_endpoint(request: EvidenceAnalyzeRequest):
         "gps": None
     }
     
-    # Only fetch remote bytes if it's not a local or mock URL
-    url = request.imageUrl
-    if not is_mock_or_local_url(url):
+    if raw_image_bytes is not None:
         try:
-            res = requests.get(url, timeout=10)  # lgtm[py/full-ssrf]
-            if res.status_code == 200:
-                exif_metadata = extract_exif(res.content)
+            exif_metadata = extract_exif(raw_image_bytes)
         except Exception:
             pass
     
@@ -278,7 +276,13 @@ def progress_timeline_endpoint(request: TimelineRequest):
 def safety_check_endpoint(request: SafetyCheckRequest):
     image = load_image_from_url(request.imageUrl)
     result = detect_safety_equipment(image)
-    return SafetyCheckResult(**result)
+    return SafetyCheckResult(
+        helmetDetected=bool(result["helmet_detected"]),
+        vestDetected=bool(result["vest_detected"]),
+        harnessDetected=bool(result["harness_detected"]),
+        complianceScore=float(result["compliance_score"]),
+        violations=result["violations"],
+    )
 
 @router.post("/match-reference", response_model=ReferenceMatchResult, tags=["evidence"])
 def match_reference_endpoint(request: ReferenceMatchRequest):
@@ -366,5 +370,3 @@ def batch_analyze_endpoint(request: BatchAnalyzeRequest):
         batchDurationMs=round(elapsed_ms, 2),
         results=results,
     )
-
-
