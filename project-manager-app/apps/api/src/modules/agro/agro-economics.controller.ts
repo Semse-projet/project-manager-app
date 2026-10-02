@@ -6,6 +6,7 @@ import { ok } from "../../common/api-response.js";
 import { resolveRequestId } from "../../common/request-id.js";
 import { RequirePermissions } from "../../common/permissions.decorator.js";
 import { resolveRequestContext } from "../../common/request-context.js";
+import { parseWithSchema } from "../../common/zod-validation.js";
 import { AgroProductionService } from "./agro-production.service.js";
 import { AgroProfitabilityService } from "./agro-profitability.service.js";
 import { AgroSaleService } from "./agro-sale.service.js";
@@ -79,7 +80,7 @@ export class AgroEconomicsController {
   @RequirePermissions("agro:write")
   async createProduction(@Param("farmId") farmId: string, @Body() body: unknown, @Req() req: any) {
     const ctx = resolveRequestContext(req);
-    const input = createProductionSchema.parse(body);
+    const input = parseWithSchema(createProductionSchema, body);
     const record = await this.production.createRecord(farmId, ctx.userId, input);
     return ok(resolveRequestId(req.headers ?? {}), { record });
   }
@@ -148,7 +149,7 @@ export class AgroEconomicsController {
   @RequirePermissions("agro:write")
   async sellAnimal(@Param("animalId") animalId: string, @Body() body: unknown, @Req() req: any) {
     const ctx = resolveRequestContext(req);
-    const input = saleSchema.parse(body);
+    const input = parseWithSchema(saleSchema, body);
     const result = await this.sales.sellAnimal(animalId, ctx.userId, input);
     return ok(resolveRequestId(req.headers ?? {}), result);
   }
@@ -157,7 +158,7 @@ export class AgroEconomicsController {
   @RequirePermissions("agro:write")
   async sellGroup(@Param("groupId") groupId: string, @Body() body: unknown, @Req() req: any) {
     const ctx = resolveRequestContext(req);
-    const input = saleSchema.parse(body);
+    const input = parseWithSchema(saleSchema, body);
     const result = await this.sales.sellGroup(groupId, ctx.userId, input);
     return ok(resolveRequestId(req.headers ?? {}), result);
   }
@@ -167,7 +168,7 @@ export class AgroEconomicsController {
   @Post("simulator/purchase")
   @RequirePermissions("agro:read")
   async simulatePurchase(@Body() body: unknown, @Req() req: any) {
-    const input = simulatePurchaseSchema.parse(body);
+    const input = parseWithSchema(simulatePurchaseSchema, body);
     const simulation = this.simulator.simulatePurchase(input);
     return ok(resolveRequestId(req.headers ?? {}), { simulation });
   }

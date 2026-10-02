@@ -54,7 +54,7 @@ export default function BidsScreen({ navigation }: Props) {
       contentContainerStyle={styles.container}
       data={bids}
       keyExtractor={(bid) => bid.id}
-      ListHeaderComponent={error ? <ErrorState message={error} /> : null}
+      ListHeaderComponent={error ? <ErrorState message={error} /> : undefined}
       ListEmptyComponent={<EmptyState title="Aún no has enviado propuestas." />}
       onRefresh={() => void load(true)}
       refreshing={refreshing}

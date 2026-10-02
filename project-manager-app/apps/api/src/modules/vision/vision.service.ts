@@ -116,7 +116,7 @@ export class VisionService {
       select: { id: true, bucketKey: true },
     });
     const imageUrls = rows.map(r =>
-      r.bucketKey ? this.storageService.publicUrl(r.bucketKey) : `mock://evidence/${r.id}`
+      r.bucketKey ? this.storageService.publicUrl(r.bucketKey, { ttl: "vision" }) : `mock://evidence/${r.id}`
     );
     return this.visionServiceClient.checkConsistency({ imageUrls });
   }
@@ -179,7 +179,7 @@ export class VisionService {
     });
     const items = rows.map(r => ({
       evidenceId: r.id,
-      imageUrl: r.bucketKey ? this.storageService.publicUrl(r.bucketKey) : `mock://evidence/${r.id}`,
+      imageUrl: r.bucketKey ? this.storageService.publicUrl(r.bucketKey, { ttl: "vision" }) : `mock://evidence/${r.id}`,
       milestoneId: r.milestoneId ?? milestoneId,
       jobId,
     }));
@@ -202,7 +202,7 @@ export class VisionService {
     if (evidence.length < 2) {
       return { frameCount: evidence.length, durationMs: 0, base64Gif: null, message: "At least 2 photos required for a timeline" };
     }
-    const imageUrls = evidence.map(e => e.bucketKey ? this.storageService.publicUrl(e.bucketKey) : `mock://evidence/${e.id}`);
+    const imageUrls = evidence.map(e => e.bucketKey ? this.storageService.publicUrl(e.bucketKey, { ttl: "vision" }) : `mock://evidence/${e.id}`);
     const labels = evidence.map(e => e.createdAt.toISOString().slice(0, 10));
     return this.visionServiceClient.buildTimeline({ imageUrls, labels, fps, outputWidth: 640, outputHeight: 480 });
   }
@@ -234,7 +234,7 @@ export class VisionService {
     if (!evidence) throw new NotFoundException(`Evidence ${evidenceId} not found`);
 
     const imageUrl = evidence.bucketKey
-      ? this.storageService.publicUrl(evidence.bucketKey)
+      ? this.storageService.publicUrl(evidence.bucketKey, { ttl: "vision" })
       : `mock://evidence/${evidenceId}`;
 
     const meta = evidence.metadataJson as Record<string, unknown> | null;

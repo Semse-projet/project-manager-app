@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { Injectable, Logger, Optional } from "@nestjs/common";
+import { Inject, Injectable, Logger, Optional } from "@nestjs/common";
 import { JOB_MATCHED_V1_SCHEMA_REF, jobMatchedV1EventSchema, type JobMatchedV1Event } from "@semse/schemas";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { OutboxRepository } from "../domain-events/outbox.repository.js";
@@ -7,6 +7,31 @@ import type { SemseAgentMessage } from "./semse-agents.service.js";
 import { SemseAgentsService } from "./semse-agents.service.js";
 import type { MatchingService } from "../matching/matching.service.js";
 import type { NotificationsService } from "../notifications/notifications.service.js";
+import { DECISION_CONFIG, DECISION_TELEMETRY, type DecisionTelemetry } from "../ai-models/decision/decision-layer.service.js";
+import { resolveDecisionLayerConfig, type DecisionLayerConfig } from "../ai-models/decision/decision-flags.js";
+import {
+  decodePendingReview,
+  encodePendingReview,
+  evaluateMarketplaceConfidenceGate,
+  type MarketplaceGateEvaluation,
+} from "./marketplace-confidence-gate.js";
+
+export type PendingReviewSummary = {
+  eventId: string;
+  createdAt: string;
+  confidence: number;
+  reasonCode: string;
+  jobId: string | null;
+  classification: JobClassification | null;
+  originalPayload: Record<string, unknown> | null;
+};
+
+export type ReviewMutationResult =
+  | { status: "not_found" }
+  | { status: "already_resolved"; outcome: string }
+  | { status: "malformed" }
+  | { status: "approved"; outcome: "user_corrected" | "user_saved" }
+  | { status: "rejected" };
 
 export type JobClassification = {
   trade:      string;
@@ -71,6 +96,9 @@ export class MarketplaceAgent {
     @Optional() private readonly matching?: MatchingService,
     @Optional() private readonly notifications?: NotificationsService,
     @Optional() private readonly outboxRepository?: OutboxRepository,
+    @Optional() @Inject(DECISION_TELEMETRY) private readonly telemetry?: DecisionTelemetry,
+    /** Test-only escape hatch — mirrors DecisionLayerService's own DECISION_CONFIG pattern. Never bound in production. */
+    @Optional() @Inject(DECISION_CONFIG) private readonly configOverride?: () => DecisionLayerConfig,
   ) {
     this.bus.register("marketplace", (msg) => this.handleMessage(msg));
     this.logger.log("[Marketplace] Agent registered");
@@ -79,22 +107,142 @@ export class MarketplaceAgent {
   async handleMessage(msg: SemseAgentMessage): Promise<void> {
     if (msg.event === "PROJECT_PUBLISHED") {
       const classification = await this.classifyJob(msg.payload);
-      this.bus.dispatch(this.bus.makeMessage({
-        from: "marketplace", to: "protools", event: "ESTIMATE_REQUESTED",
-        payload: { classification, originalPayload: msg.payload },
-        projectId: msg.projectId,
-      }));
-      this.bus.dispatch(this.bus.makeMessage({
-        from: "marketplace", to: "buildops", event: "PROJECT_PLANNED",
-        payload: { classification, projectId: msg.projectId },
-        projectId: msg.projectId,
-      }));
+      const tenantId = String(msg.payload.tenantId ?? "tenant_default");
+      const config = this.configOverride ? this.configOverride() : resolveDecisionLayerConfig();
+      const gate = evaluateMarketplaceConfidenceGate({ config, tenantId, matchScore: classification.matchScore });
 
-      // Notify top-matched contractors about the new opportunity
-      void this.notifyMatchedContractors(msg.payload, classification).catch(
-        (err) => this.logger.warn(`[Marketplace] Contractor notification failed: ${String(err?.message ?? err)}`),
-      );
+      let reviewEventId: string | null = null;
+      if (gate.active && gate.canary !== null) {
+        reviewEventId = await this.recordGateEvent({ tenantId, msg, classification, gate }).catch((err) => {
+          this.logger.warn(`[Marketplace] gate telemetry failed: ${String(err?.message ?? err)}`);
+          return null;
+        });
+      }
+
+      if (gate.shouldBlockDispatch) {
+        this.logger.log(`[Marketplace] job ${String(msg.payload.jobId ?? "?")} held for human review (eventId=${reviewEventId ?? "n/a"}, reason=${gate.reasonCode})`);
+        return;
+      }
+
+      this.dispatchClassification({ payload: msg.payload, projectId: msg.projectId }, classification);
     }
+  }
+
+  /** Shared by the normal flow and by approveReview() resuming a held job. */
+  private dispatchClassification(source: { payload: Record<string, unknown>; projectId: string }, classification: JobClassification): void {
+    this.bus.dispatch(this.bus.makeMessage({
+      from: "marketplace", to: "protools", event: "ESTIMATE_REQUESTED",
+      payload: { classification, originalPayload: source.payload },
+      projectId: source.projectId,
+    }));
+    this.bus.dispatch(this.bus.makeMessage({
+      from: "marketplace", to: "buildops", event: "PROJECT_PLANNED",
+      payload: { classification, projectId: source.projectId },
+      projectId: source.projectId,
+    }));
+
+    // Notify top-matched contractors about the new opportunity
+    void this.notifyMatchedContractors(source.payload, classification).catch(
+      (err) => this.logger.warn(`[Marketplace] Contractor notification failed: ${String(err?.message ?? err)}`),
+    );
+  }
+
+  private async recordGateEvent(input: {
+    tenantId: string;
+    msg: SemseAgentMessage;
+    classification: JobClassification;
+    gate: MarketplaceGateEvaluation;
+  }): Promise<string | null> {
+    if (!this.telemetry) return null;
+    const jobId = String(input.msg.payload.jobId ?? "");
+    const finalSystemAction = input.gate.shouldBlockDispatch ? "HUMAN_REVIEW_PENDING" : "AUTO_PROCEED";
+    const inputClass = input.gate.action === "HUMAN_REVIEW"
+      ? encodePendingReview({
+          jobId,
+          projectId: input.msg.projectId,
+          originalPayload: input.msg.payload,
+          classification: input.classification as unknown as Record<string, unknown>,
+        })
+      : `job:${jobId}`;
+
+    return this.telemetry.record({
+      tenantId: input.tenantId,
+      feature: "marketplace_classify",
+      decision: input.gate.action,
+      confidence: input.gate.confidence,
+      reasonCode: input.gate.reasonCode,
+      source: "deterministic",
+      fallbackUsed: false,
+      latencyMs: 0,
+      provider: "none",
+      mode: input.gate.mode,
+      canary: input.gate.canary ?? undefined,
+      deterministicDecision: input.gate.action,
+      inputClass,
+      correlationId: input.msg.correlationId,
+      finalSystemAction,
+    });
+  }
+
+  // ── Human review queue (admin/agents dashboard) ──────────────────────────
+
+  async listPendingReviews(input: { tenantId: string; limit?: number }): Promise<PendingReviewSummary[]> {
+    if (!this.prisma) return [];
+    const rows = await this.prisma.jevDecisionEvent.findMany({
+      where: { tenantId: input.tenantId, feature: "marketplace_classify", finalSystemAction: "HUMAN_REVIEW_PENDING", outcome: null },
+      orderBy: { createdAt: "desc" },
+      take: input.limit ?? 20,
+    });
+    return rows.map((row) => {
+      const pending = decodePendingReview(row.inputClass);
+      return {
+        eventId: row.id,
+        createdAt: row.createdAt.toISOString(),
+        confidence: row.confidence,
+        reasonCode: row.reasonCode,
+        jobId: pending?.jobId ?? null,
+        classification: (pending?.classification as JobClassification | undefined) ?? null,
+        originalPayload: pending?.originalPayload ?? null,
+      };
+    });
+  }
+
+  async approveReview(input: {
+    tenantId: string;
+    eventId: string;
+    override?: Partial<JobClassification>;
+  }): Promise<ReviewMutationResult> {
+    if (!this.prisma) return { status: "not_found" };
+    const row = await this.prisma.jevDecisionEvent.findFirst({
+      where: { id: input.eventId, tenantId: input.tenantId, feature: "marketplace_classify" },
+    });
+    if (!row) return { status: "not_found" };
+    if (row.outcome) return { status: "already_resolved", outcome: row.outcome };
+
+    const pending = decodePendingReview(row.inputClass);
+    if (!pending) return { status: "malformed" };
+
+    const hasOverride = !!input.override && Object.keys(input.override).length > 0;
+    const classification: JobClassification = { ...(pending.classification as JobClassification), ...input.override };
+    const outcome: "user_corrected" | "user_saved" = hasOverride ? "user_corrected" : "user_saved";
+
+    this.dispatchClassification({ payload: pending.originalPayload, projectId: pending.projectId }, classification);
+    await this.telemetry?.recordOutcome({ eventId: row.id, tenantId: input.tenantId, outcome });
+
+    return { status: "approved", outcome };
+  }
+
+  async rejectReview(input: { tenantId: string; eventId: string; reason: string }): Promise<ReviewMutationResult> {
+    if (!this.prisma) return { status: "not_found" };
+    const row = await this.prisma.jevDecisionEvent.findFirst({
+      where: { id: input.eventId, tenantId: input.tenantId, feature: "marketplace_classify" },
+    });
+    if (!row) return { status: "not_found" };
+    if (row.outcome) return { status: "already_resolved", outcome: row.outcome };
+
+    await this.telemetry?.recordOutcome({ eventId: row.id, tenantId: input.tenantId, outcome: "rejected" });
+    this.logger.log(`[Marketplace] review ${row.id} rejected: ${input.reason}`);
+    return { status: "rejected" };
   }
 
   private async notifyMatchedContractors(

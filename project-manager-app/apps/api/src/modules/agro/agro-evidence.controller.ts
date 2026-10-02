@@ -6,6 +6,7 @@ import { ok } from "../../common/api-response.js";
 import { resolveRequestId } from "../../common/request-id.js";
 import { RequirePermissions } from "../../common/permissions.decorator.js";
 import { resolveRequestContext } from "../../common/request-context.js";
+import { parseWithSchema } from "../../common/zod-validation.js";
 import { AGRO_EVIDENCE_ENTITY_TYPES, AGRO_EVIDENCE_MEDIA_TYPES, AgroEvidenceService } from "./agro-evidence.service.js";
 import { parsePositiveInt } from "../../common/parse-query.js";
 
@@ -52,7 +53,7 @@ export class AgroEvidenceController {
   @RequirePermissions("agro:report")
   async createEvidence(@Param("farmId") farmId: string, @Body() body: unknown, @Req() req: any) {
     const ctx = resolveRequestContext(req);
-    const input = createEvidenceSchema.parse(body);
+    const input = parseWithSchema(createEvidenceSchema, body);
     const evidence = await this.service.createEvidence(farmId, ctx.userId, input);
     return ok(resolveRequestId(req.headers ?? {}), { evidence });
   }
@@ -70,7 +71,7 @@ export class AgroEvidenceController {
   @RequirePermissions("agro:report")
   async updateEvidence(@Param("evidenceId") evidenceId: string, @Body() body: unknown, @Req() req: any) {
     const ctx = resolveRequestContext(req);
-    const input = updateEvidenceSchema.parse(body);
+    const input = parseWithSchema(updateEvidenceSchema, body);
     const evidence = await this.service.updateEvidence(evidenceId, ctx.userId, input);
     return ok(resolveRequestId(req.headers ?? {}), { evidence });
   }

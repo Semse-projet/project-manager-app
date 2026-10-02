@@ -59,8 +59,8 @@ const decideRouter = (service: any, extra: Record<string, unknown> = {}) =>
 test("flags default to OFF / shadow: deterministic result, no Jev call, no telemetry (J1)", async () => {
   const config = resolveDecisionLayerConfig({});
   assert.equal(config.enabled, false);
-  assert.deepEqual(config.features, { agent_router: false, vision_gate: false });
-  assert.deepEqual(config.modes, { agent_router: "shadow", vision_gate: "shadow" });
+  assert.deepEqual(config.features, { agent_router: false, vision_gate: false, marketplace_classify: false });
+  assert.deepEqual(config.modes, { agent_router: "shadow", vision_gate: "shadow", marketplace_classify: "shadow" });
   assert.equal(config.minConfidence, 0.7);
   assert.equal(config.provider.timeoutMs, 800);
   assert.deepEqual(config.breaker, { threshold: 5, cooldownMs: 30_000 });
@@ -82,7 +82,7 @@ test("each feature has its own flag and mode", async () => {
     assert.equal(calls.length, 0);
   }
   const config = resolveDecisionLayerConfig({ SEMSE_JEV_AGENT_ROUTER_MODE: "assist", SEMSE_JEV_VISION_GATE_MODE: "live" });
-  assert.deepEqual(config.modes, { agent_router: "live", vision_gate: "live" });
+  assert.deepEqual(config.modes, { agent_router: "live", vision_gate: "live", marketplace_classify: "shadow" });
   assert.equal(resolveDecisionLayerConfig({ SEMSE_JEV_VISION_GATE_MODE: "yolo" }).modes.vision_gate, "shadow");
 });
 

@@ -1,4 +1,5 @@
 import { ForbiddenException } from "@nestjs/common";
+import { isOpsAdmin, sameOrg } from "../../common/resource-scope.js";
 
 export type TrustActor = {
   tenantId: string;
@@ -16,11 +17,11 @@ export type TrustOwnership = {
 
 export function canReadTrust(actor: TrustActor, ownership: TrustOwnership): boolean {
   return (
-    actor.roles.includes("OPS_ADMIN") ||
-    actor.orgId === ownership.clientOrgId ||
-    actor.orgId === ownership.assignedProOrgId ||
-    actor.orgId === ownership.reservedProOrgId ||
-    actor.orgId === ownership.contractedProOrgId
+    isOpsAdmin(actor) ||
+    sameOrg(actor.orgId, ownership.clientOrgId) ||
+    sameOrg(actor.orgId, ownership.assignedProOrgId) ||
+    sameOrg(actor.orgId, ownership.reservedProOrgId) ||
+    sameOrg(actor.orgId, ownership.contractedProOrgId)
   );
 }
 

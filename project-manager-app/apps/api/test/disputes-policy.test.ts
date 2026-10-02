@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { assertDisputeResolvable } from "../src/modules/disputes/disputes.policy.ts";
+import { assertDisputeResolvable } from "../dist/modules/disputes/disputes.policy.js";
 
 const ownership = {
   clientOrgId: "org_client",

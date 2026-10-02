@@ -67,3 +67,5 @@ export * from "./live-session.schema.js";
 // Sense Vision — Construction Library + Mi Diccionario (spec: vision/sense-vision-field-library)
 export * from "./vision-library.schema.js";
 export * from "./construction-library.seed.js";
+// C39 — catálogo global de precios de modelos de IA (spec: prometeo/ai-pricing-catalog)
+export * from "./ai-pricing.schema.js";

@@ -138,6 +138,8 @@ de Production Health las verifica junto con las nueve páginas `/modules/*`.
 - `GET /v1/ops/risk-scores`
 - `GET /v1/ops/trust-overview`
 - `GET /v1/ops/dashboard`
+- `POST /v1/admin/payments/release-reconcile/check` (interno: lo dispara el worker con `PAYMENTS_RECONCILE_ENABLED`; `ops:dashboard:write`; solo lectura sobre dinero, alerta + auditoría append-only; ADR-041 2b)
+- `GET /v1/admin/ai-pricing/prices` (`ops:dashboard:read`; catálogo GLOBAL de precios de modelos de IA, C39) y `POST /v1/admin/ai-pricing/prices` (`ops:dashboard:write` + rol `OPS_ADMIN`; alta de una vigencia con fuente oficial `sourceUrl`/`sourceCheckedAt`, entradas inmutables, auditada; sin efecto sobre costos hasta `AI_PRICING_CATALOG_MODE=shadow|on`)
 - `GET /v1/ops/mission-control/summary` (legacy-compatible aggregate)
 - `GET /v1/ops/mission-control/exceptions` (F4; `ops:dashboard:read`; normalized, paginated and tenant-scoped read model with partial-source errors)
 - `GET /v1/ops/mission-control/runbooks` (F4; approved code-versioned catalog)
@@ -182,3 +184,16 @@ OPS_ADMIN conserva acceso dentro del tenant; las altas validan referencias.
 
 Referencia: `docs/specs/api/change-orders.spec.md`. Estado de la remediación:
 local, sin verificación de despliegue; ver reporte del 2026-09-19.
+
+## Knowledge — Agent Memory governance (C85)
+Memoria de agente es contexto recordado, nunca verdad canónica ni
+autorización para actuar — ver
+`docs/specs/knowledge/agent-memory-governance.spec.md`. Lectura con
+`knowledge:read`; mutaciones con `knowledge:manage`.
+- `GET /v1/knowledge/agent-memory`
+- `GET /v1/knowledge/agent-memory/search`
+- `GET /v1/knowledge/agent-memory/:id/lineage`
+- `POST /v1/knowledge/agent-memory/:id/correct` (crea un reemplazo enlazado; nunca sobrescribe el original)
+- `POST /v1/knowledge/agent-memory/:id/invalidate`
+- `POST /v1/knowledge/agent-memory/:id/supersede`
+- `POST /v1/knowledge/agent-memory/:id/conflicts`

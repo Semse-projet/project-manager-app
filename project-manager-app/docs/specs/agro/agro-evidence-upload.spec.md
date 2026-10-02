@@ -64,7 +64,7 @@ Por eso **no hizo falta un endpoint ni un campo nuevo**: solo cambiar qué URL p
 
 ## 4. Fuera de alcance
 
-- **Corregir R8** en los controllers Agro (`ZodError` sin capturar → 500 en vez de 400) — se evitó disparándolo, no se arregló la causa raíz.
+- **Corregir R8** en los controllers Agro (`ZodError` sin capturar → 500 en vez de 400) — se evitó disparándolo, no se arregló la causa raíz. **Actualización (2026-09-29): R8 corregido** en los 9 controllers afectados (ver `AGRO_AS_IS_AUDIT_2026-09-25.md` R8) — una URL relativa en `fileUrl` ahora responde 400, no 500; este test se actualizó para reflejarlo.
 - **`DEMO_AGRO`**: no tiene `evidence:write` (aislamiento del sandbox, ver `rbac.ts`), así que en la demo la subida de PHOTO/VIDEO/AUDIO/DOCUMENT/FORM falla con un mensaje claro; `NOTE`, `MEASUREMENT` y `EXTERNAL_URL` siguen funcionando igual que antes. No se amplió el permiso de la demo para evitarlo — mismo criterio que T-058b con `tasks:read:self`.
 - Archivos mayores a 25MB (`external_transfer`/multipart): el flujo de un solo `PUT` alcanza para fotos/audio de campo; multipart ya existe en el repo (ver skill `semse-upload-flow`) pero no se conectó aquí — ninguna de las 4 pantallas lo necesitaba.
 

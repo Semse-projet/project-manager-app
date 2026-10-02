@@ -1,0 +1,70 @@
+name: ResourceScope Guard (informativo)
+
+# C51 etapa 3B — guarda de arquitectura en modo REPORT-ONLY.
+# Inventaría los endpoints con identificador de recurso y estima si pasan por una política/ResourceScope.
+# NUNCA bloquea: el job y el paso llevan continue-on-error y el script sale en 0 en modo report.
+# Convertirla en bloqueante es OTRO PR, tras un ciclo completo verde y revisar los falsos positivos
+# (docs/specs/platform/resource-scope.spec.md §3.2–§3.3, docs/architecture/RESOURCE_SCOPE_GUARD.md).
+
+on:
+  pull_request:
+    paths:
+      - "project-manager-app/apps/api/src/**"
+      - "project-manager-app/scripts/architecture/**"
+      - "project-manager-app/docs/architecture/resource-scope-allowlist.json"
+      - ".github/workflows/resource-scope-guard.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: resource-scope-guard-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: project-manager-app
+
+jobs:
+  resource-scope-inventory:
+    name: resource-scope-inventory (informativo)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6.1.0
+        with:
+          version: 10.33.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: project-manager-app/pnpm-lock.yaml
+
+      - name: Install dependencies (solo lo necesario para el AST de TypeScript)
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Inventario ResourceScope (report-only)
+        continue-on-error: true
+        run: |
+          node scripts/architecture/resource-scope-inventory.mjs --mode=report \
+            --markdown="$RUNNER_TEMP/resource-scope.md" --json="$RUNNER_TEMP/resource-scope.json"
+          cat "$RUNNER_TEMP/resource-scope.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Subir inventario
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
+        with:
+          name: resource-scope-inventory
+          path: |
+            ${{ runner.temp }}/resource-scope.md
+            ${{ runner.temp }}/resource-scope.json
+          if-no-files-found: ignore

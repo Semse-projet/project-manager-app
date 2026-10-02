@@ -3,6 +3,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { AuthenticatedAccess } from '../../common/permissions.decorator.js';
 import { resolveRequestContext } from '../../common/request-context.js';
 import { LiensService } from './liens.service.js';
+import { LienAccessService } from './lien-access.service.js';
 
 /**
  * Waiver Controller — endpoints para firmar waivers.
@@ -13,7 +14,10 @@ import { LiensService } from './liens.service.js';
 export class WaiverController {
   private readonly logger = new Logger(WaiverController.name);
 
-  constructor(private readonly liensService: LiensService) {}
+  constructor(
+    private readonly liensService: LiensService,
+    private readonly access: LienAccessService,
+  ) {}
 
   /**
    * GET /v1/projects/:projectId/liens/waivers/:waiverId/sign-url
@@ -21,8 +25,13 @@ export class WaiverController {
    * Obtener URL de firma para waiver.
    */
   @Get(':waiverId/sign-url')
-  async getSignUrl(@Param('projectId') projectId: string, @Param('waiverId') waiverId: string) {
+  async getSignUrl(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Param('projectId') projectId: string,
+    @Param('waiverId') waiverId: string,
+  ) {
     this.logger.log(`GET /waivers/:waiverId/sign-url: ${waiverId}`);
+    await this.access.assertWaiver(resolveRequestContext(req), projectId, waiverId, 'pro');
 
     const waiver = await this.liensService.getLienWaiver(waiverId);
 
@@ -59,6 +68,9 @@ export class WaiverController {
     }
 
     const actor = resolveRequestContext(req);
+    // Only the project's professional (or OPS_ADMIN) may sign, and the waiver
+    // must belong to this project/tenant: signing clears the payment gate.
+    await this.access.assertWaiver(actor, projectId, waiverId, 'pro');
     const signed = await this.liensService.signWaiver(waiverId, {
       signature: body.signature,
       signedBy: actor.userId,

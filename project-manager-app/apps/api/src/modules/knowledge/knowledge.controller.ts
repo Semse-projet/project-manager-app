@@ -7,9 +7,11 @@ import { resolveRequestContext } from "../../common/request-context.js";
 import { resolveRequestId } from "../../common/request-id.js";
 import { parseWithSchema } from "../../common/zod-validation.js";
 import { parsePositiveInt } from "../../common/parse-query.js";
+import { AgentMemoryService } from "./agent-memory.service.js";
 import { AgentSkillRepository, type CreateAgentSkillInput } from "./agent-skill.repository.js";
 import { KnowledgeCuratorService } from "./knowledge-curator.service.js";
 import { KnowledgeService } from "./knowledge.service.js";
+import { WorkspaceMemoryAccessPolicy } from "./workspace-memory.access-policy.js";
 
 @Controller("v1/knowledge")
 @RequirePermissions("knowledge:read")
@@ -18,6 +20,8 @@ export class KnowledgeController {
     private readonly knowledgeService: KnowledgeService,
     private readonly skillRepo: AgentSkillRepository,
     private readonly curator: KnowledgeCuratorService,
+    private readonly agentMemory: AgentMemoryService,
+    private readonly workspaceAccess: WorkspaceMemoryAccessPolicy,
   ) {}
 
   // Estas dos exponen el mapa de dominios de conocimiento del repo y el estado
@@ -45,6 +49,8 @@ export class KnowledgeController {
     @Query("kinds") kinds?: string | string[]
   ) {
     const actor = resolveRequestContext(req);
+    // C51: primero la relación del actor con el recurso (404 otro tenant / 403 fuera de las orgs participantes).
+    await this.workspaceAccess.assertCanRead(actor, workspaceId ?? "");
     const kindsArr = kinds ? (Array.isArray(kinds) ? kinds : [kinds]) : undefined;
     const data = await this.knowledgeService.searchWorkspaceMemory({
       tenantId: actor.tenantId,
@@ -60,11 +66,11 @@ export class KnowledgeController {
   async workspaceMemory(@Req() req: { headers?: Record<string, unknown> }, @Query() query: Record<string, unknown>) {
     const actor = resolveRequestContext(req);
     const parsed = parseWithSchema(workspaceMemoryQuerySchema, query);
+    await this.workspaceAccess.assertCanRead(actor, parsed.workspaceId);
     const kinds = parsed.kinds ? (Array.isArray(parsed.kinds) ? parsed.kinds : [parsed.kinds]) : undefined;
     const tags = parsed.tags ? (Array.isArray(parsed.tags) ? parsed.tags : [parsed.tags]) : undefined;
     const data = await this.knowledgeService.listWorkspaceMemory({
       tenantId: actor.tenantId,
-      orgId: actor.orgId,
       workspaceId: parsed.workspaceId,
       repoId: parsed.repoId,
       runId: parsed.runId,
@@ -118,6 +124,137 @@ export class KnowledgeController {
     const actor = resolveRequestContext(req);
     const skill = await this.skillRepo.recordUse({ tenantId: actor.tenantId, agentId, name, succeeded: body.succeeded });
     return ok(resolveRequestId(req.headers ?? {}), skill);
+  }
+
+  // ── Agent Memory governance (C85) ───────────────────────────────────────────
+  // Memory is remembered context, never canonical truth or standalone
+  // authorization to act — see docs/specs/knowledge/agent-memory-governance.spec.md.
+  // Mutations (correct/invalidate/supersede/conflicts) are restricted to
+  // knowledge:manage (OPS_ADMIN today) and are audited via AuditService.
+
+  @Get("agent-memory")
+  async listAgentMemory(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Query("projectId") projectId: string,
+    @Query("limit") limit?: string,
+  ) {
+    const actor = resolveRequestContext(req);
+    // C51: la memoria del agente del proyecto sigue la misma regla (tenant + ProjectScope) que workspace-memory.
+    await this.workspaceAccess.assertCanRead(actor, `project:${projectId ?? ""}`);
+    const data = await this.agentMemory.getRecentJournal({
+      tenantId: actor.tenantId,
+      projectId,
+      limit: limit ? parsePositiveInt(limit, 10) : undefined,
+    });
+    return ok(resolveRequestId(req.headers ?? {}), data);
+  }
+
+  @Get("agent-memory/search")
+  async searchAgentMemory(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Query("projectId") projectId: string,
+    @Query("query") query: string,
+    @Query("agentId") agentId?: string,
+    @Query("limit") limit?: string,
+  ) {
+    const actor = resolveRequestContext(req);
+    await this.workspaceAccess.assertCanRead(actor, `project:${projectId ?? ""}`);
+    const data = await this.agentMemory.searchMemories({
+      tenantId: actor.tenantId,
+      projectId,
+      query: query ?? "",
+      agentId,
+      limit: limit ? parsePositiveInt(limit, 20) : undefined,
+    });
+    return ok(resolveRequestId(req.headers ?? {}), data);
+  }
+
+  @Get("agent-memory/:id/lineage")
+  async agentMemoryLineage(@Req() req: { headers?: Record<string, unknown> }, @Param("id") id: string) {
+    const actor = resolveRequestContext(req);
+    const data = await this.agentMemory.getMemoryLineage({ tenantId: actor.tenantId, id });
+    // C51: la cadena pertenece a un proyecto; se autoriza por cada proyecto presente (vacía ⇒ nada que filtrar).
+    for (const projectId of new Set(data.map((record) => record.projectId))) {
+      await this.workspaceAccess.assertCanRead(actor, `project:${projectId}`);
+    }
+    return ok(resolveRequestId(req.headers ?? {}), data);
+  }
+
+  @Post("agent-memory/:id/correct")
+  @RequirePermissions("knowledge:manage")
+  async correctAgentMemory(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Param("id") id: string,
+    @Body() body: { content?: string; summary?: string; tags?: string[]; reason: string },
+  ) {
+    const actor = resolveRequestContext(req);
+    const data = await this.agentMemory.correctMemory({
+      tenantId: actor.tenantId,
+      orgId: actor.orgId,
+      id,
+      correctedBy: actor.userId,
+      patch: { content: body.content, summary: body.summary, tags: body.tags },
+      reason: body.reason,
+      requestId: resolveRequestId(req.headers ?? {}),
+    });
+    return ok(resolveRequestId(req.headers ?? {}), data);
+  }
+
+  @Post("agent-memory/:id/invalidate")
+  @RequirePermissions("knowledge:manage")
+  async invalidateAgentMemory(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Param("id") id: string,
+    @Body() body: { reason: string },
+  ) {
+    const actor = resolveRequestContext(req);
+    const data = await this.agentMemory.invalidateMemory({
+      tenantId: actor.tenantId,
+      orgId: actor.orgId,
+      id,
+      invalidatedBy: actor.userId,
+      reason: body.reason,
+      requestId: resolveRequestId(req.headers ?? {}),
+    });
+    return ok(resolveRequestId(req.headers ?? {}), data);
+  }
+
+  @Post("agent-memory/:id/supersede")
+  @RequirePermissions("knowledge:manage")
+  async supersedeAgentMemory(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Param("id") id: string,
+    @Body() body: { newId: string },
+  ) {
+    const actor = resolveRequestContext(req);
+    await this.agentMemory.supersedeMemory({
+      tenantId: actor.tenantId,
+      orgId: actor.orgId,
+      oldId: id,
+      newId: body.newId,
+      actorUserId: actor.userId,
+      requestId: resolveRequestId(req.headers ?? {}),
+    });
+    return ok(resolveRequestId(req.headers ?? {}), { oldId: id, newId: body.newId });
+  }
+
+  @Post("agent-memory/:id/conflicts")
+  @RequirePermissions("knowledge:manage")
+  async flagAgentMemoryConflict(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Param("id") id: string,
+    @Body() body: { conflictsWithId: string },
+  ) {
+    const actor = resolveRequestContext(req);
+    await this.agentMemory.flagMemoryConflict({
+      tenantId: actor.tenantId,
+      orgId: actor.orgId,
+      id,
+      conflictsWithId: body.conflictsWithId,
+      actorUserId: actor.userId,
+      requestId: resolveRequestId(req.headers ?? {}),
+    });
+    return ok(resolveRequestId(req.headers ?? {}), { id, conflictsWithId: body.conflictsWithId });
   }
 
   // ── Curator ───────────────────────────────────────────────────────────────────

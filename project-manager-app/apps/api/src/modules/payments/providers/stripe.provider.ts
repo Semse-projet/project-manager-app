@@ -1,3 +1,4 @@
+import { PayoutFailureError } from "./provider-errors.js";
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import Stripe from "stripe";
 import type {
@@ -27,7 +28,7 @@ export class StripePaymentProvider implements PaymentProviderPort {
     if (!secretKey) {
       throw new Error("StripePaymentProvider requires STRIPE_SECRET_KEY env var");
     }
-    this.stripe = new Stripe(secretKey, { apiVersion: "2026-06-24.dahlia" });
+    this.stripe = new Stripe(secretKey, { apiVersion: "2026-08-26.dahlia" });
   }
 
   async createFundingIntent(input: CreateFundingIntentInput): Promise<FundingIntentRecord> {
@@ -84,9 +85,11 @@ export class StripePaymentProvider implements PaymentProviderPort {
         ? await this.connectService.getStripeAccountId(input.recipientUserId)
         : null;
       if (!perAccountId) {
-        throw new Error(
+        // Validacion previa a cualquier llamada a Stripe: nada se ejecuto (definitivo).
+        throw new PayoutFailureError(
           `Cannot pay out to recipient '${input.recipientUserId}': no active Stripe Connect account. ` +
-          `Refusing to fall back to the shared platform account.`
+          `Refusing to fall back to the shared platform account.`,
+          "definitive"
         );
       }
       stripeAccountId = perAccountId;
@@ -113,6 +116,10 @@ export class StripePaymentProvider implements PaymentProviderPort {
           semse_platform_fee_usd: (platformFeeCents / 100).toFixed(2),
         },
         description: `SEMSE milestone payout — project ${input.projectId}`,
+      }, {
+        // Idempotencia del lado de Stripe: reintentar tras un fallo ambiguo con
+        // la misma referencia de reserva no puede crear una 2.a transferencia.
+        idempotencyKey: `semse_payout_${input.externalRef}`,
       });
       providerRef = transfer.id;
       status = "paid";

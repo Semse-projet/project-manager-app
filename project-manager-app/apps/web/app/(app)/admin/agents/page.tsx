@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  Activity, ArrowRight, Bot, Brain, CheckCircle2, DollarSign, Eye,
+  Activity, AlertTriangle, ArrowRight, Bot, Brain, CheckCircle2, DollarSign, Eye,
   Layers, Maximize2, Minimize2, RefreshCw, Send, Shield, Zap,
 } from "lucide-react";
 import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
@@ -52,6 +52,16 @@ type PaymentResult = {
 };
 
 type PlaygroundTab = "classify" | "plan" | "payment";
+
+type PendingReviewItem = {
+  eventId: string;
+  createdAt: string;
+  confidence: number;
+  reasonCode: string;
+  jobId: string | null;
+  classification: ClassifyResult | null;
+  originalPayload: Record<string, unknown> | null;
+};
 
 // ── Agent icons ───────────────────────────────────────────────────────────────
 
@@ -332,6 +342,167 @@ function ResultPanel({
           </div>
           {paymentResult.blockers.map((b, i) => (
             <div key={i} style={{ fontSize: 11, color: "#fca5a5", padding: "3px 0" }}>• {b}</div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Human review queue (Jev Decision Layer, Wave: Marketplace) ───────────────
+// docs/specs/prometeo/jev-human-review-queue.spec.md
+
+type ReviewQueueState = "loading" | "forbidden" | "degraded" | "error" | "ready";
+
+function ReviewItemCard({
+  item, busy, onApprove, onReject,
+}: {
+  item: PendingReviewItem;
+  busy: boolean;
+  onApprove: (override?: Partial<ClassifyResult>) => void;
+  onReject: (reason: string) => void;
+}) {
+  const [override, setOverride] = useState<Partial<ClassifyResult>>({});
+  const [rejecting, setRejecting] = useState(false);
+  const [reason, setReason] = useState("");
+  const hasOverride = Object.keys(override).length > 0;
+  const c = item.classification;
+
+  return (
+    <div style={{ padding: 14, background: "rgba(251,191,36,.05)", border: "1px solid rgba(251,191,36,.2)", borderRadius: 10 }}>
+      <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 10 }}>
+        <span style={{ fontSize: 11, fontWeight: 800, color: "#fbbf24" }}>Confianza {(item.confidence * 100).toFixed(0)}%</span>
+        <span style={{ fontSize: 10, color: "var(--muted)" }}>{item.reasonCode}</span>
+        {item.jobId && <span style={{ fontSize: 10, color: "var(--muted)" }}>job {item.jobId}</span>}
+        <span style={{ fontSize: 10, color: "var(--muted)", marginLeft: "auto" }}>{new Date(item.createdAt).toLocaleString("es-MX")}</span>
+      </div>
+
+      {c ? (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8, marginBottom: 10 }}>
+          <div>
+            <label style={{ fontSize: 9, color: "var(--muted)", fontWeight: 700 }}>TRADE</label>
+            <input value={override.trade ?? c.trade} onChange={(e) => setOverride((s) => ({ ...s, trade: e.target.value }))}
+              style={{ width: "100%", padding: "6px 8px", borderRadius: 6, border: "1px solid var(--border)", background: "rgba(255,255,255,.05)", color: "var(--ink)", fontSize: 11, boxSizing: "border-box" }} />
+          </div>
+          <div>
+            <label style={{ fontSize: 9, color: "var(--muted)", fontWeight: 700 }}>URGENCIA</label>
+            <select value={override.urgency ?? c.urgency} onChange={(e) => setOverride((s) => ({ ...s, urgency: e.target.value }))}
+              style={{ width: "100%", padding: "6px 8px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--ink)", fontSize: 11 }}>
+              {["low", "medium", "high", "urgent"].map((u) => <option key={u} value={u}>{u}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={{ fontSize: 9, color: "var(--muted)", fontWeight: 700 }}>PRESUPUESTO MIN</label>
+            <input type="number" value={override.suggestedBudgetMin ?? c.suggestedBudgetMin}
+              onChange={(e) => setOverride((s) => ({ ...s, suggestedBudgetMin: Number(e.target.value) }))}
+              style={{ width: "100%", padding: "6px 8px", borderRadius: 6, border: "1px solid var(--border)", background: "rgba(255,255,255,.05)", color: "var(--ink)", fontSize: 11, boxSizing: "border-box" }} />
+          </div>
+          <div>
+            <label style={{ fontSize: 9, color: "var(--muted)", fontWeight: 700 }}>PRESUPUESTO MAX</label>
+            <input type="number" value={override.suggestedBudgetMax ?? c.suggestedBudgetMax}
+              onChange={(e) => setOverride((s) => ({ ...s, suggestedBudgetMax: Number(e.target.value) }))}
+              style={{ width: "100%", padding: "6px 8px", borderRadius: 6, border: "1px solid var(--border)", background: "rgba(255,255,255,.05)", color: "var(--ink)", fontSize: 11, boxSizing: "border-box" }} />
+          </div>
+        </div>
+      ) : (
+        <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 10 }}>Sin clasificación asociada (evento malformado).</div>
+      )}
+
+      {rejecting ? (
+        <div style={{ display: "flex", gap: 8 }}>
+          <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Motivo del rechazo (requerido)" autoFocus
+            style={{ flex: 1, padding: "6px 10px", borderRadius: 6, border: "1px solid var(--border)", background: "rgba(255,255,255,.05)", color: "var(--ink)", fontSize: 11, boxSizing: "border-box" }} />
+          <button disabled={busy || !reason.trim()} onClick={() => onReject(reason.trim())}
+            style={{ padding: "6px 14px", borderRadius: 7, border: "none", background: "rgba(239,68,68,.15)", color: "#fca5a5", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+            Confirmar rechazo
+          </button>
+          <button disabled={busy} onClick={() => { setRejecting(false); setReason(""); }}
+            style={{ padding: "6px 10px", borderRadius: 7, border: "1px solid var(--border)", background: "transparent", color: "var(--muted)", fontSize: 11, cursor: "pointer" }}>
+            Cancelar
+          </button>
+        </div>
+      ) : (
+        <div style={{ display: "flex", gap: 8 }}>
+          <button disabled={busy || !c} onClick={() => onApprove(hasOverride ? override : undefined)}
+            style={{ padding: "6px 14px", borderRadius: 7, border: "none", background: "rgba(134,239,172,.15)", color: "#86efac", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+            {busy ? "…" : hasOverride ? "Aprobar con cambios" : "Aprobar"}
+          </button>
+          <button disabled={busy} onClick={() => setRejecting(true)}
+            style={{ padding: "6px 14px", borderRadius: 7, border: "1px solid var(--border)", background: "transparent", color: "var(--muted)", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+            Rechazar
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ReviewQueueSection() {
+  const [state, setState] = useState<ReviewQueueState>("loading");
+  const [items, setItems] = useState<PendingReviewItem[]>([]);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch("/api/semse/agents/review");
+      if (res.status === 403) { setState("forbidden"); return; }
+      if (!res.ok) { setState("degraded"); return; }
+      const json = await res.json() as { data?: { items?: PendingReviewItem[] }; error?: unknown };
+      if (json.error) { setState("degraded"); return; }
+      setItems(json.data?.items ?? []);
+      setState("ready");
+    } catch {
+      setState("error");
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+    const t = setInterval(() => void load(), 20_000);
+    return () => clearInterval(t);
+  }, [load]);
+
+  const act = useCallback(async (eventId: string, action: "approve" | "reject", body: Record<string, unknown>) => {
+    setBusyId(eventId);
+    try {
+      await fetch(`/api/semse/agents/review/${encodeURIComponent(eventId)}/${action}`, {
+        method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body),
+      });
+      await load();
+    } catch { /* silent — el usuario ve el item seguir en la lista y puede reintentar */ }
+    finally { setBusyId(null); }
+  }, [load]);
+
+  // Nada que mostrar y sin error: no ocupar espacio en el dashboard cuando el gate está inactivo.
+  if (state === "ready" && items.length === 0) return null;
+
+  return (
+    <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 16, padding: 18, marginBottom: 24 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+        <AlertTriangle size={14} color="#fbbf24" />
+        <h2 style={{ margin: 0, fontSize: 14, fontWeight: 800 }}>Revisión pendiente</h2>
+        {state === "ready" && (
+          <span style={{ fontSize: 10, color: "#fbbf24", background: "rgba(251,191,36,.1)", padding: "2px 8px", borderRadius: 99, marginLeft: "auto" }}>
+            {items.length} pendiente{items.length === 1 ? "" : "s"}
+          </span>
+        )}
+      </div>
+
+      {state === "loading" && <div style={{ fontSize: 12, color: "var(--muted)" }}>Cargando…</div>}
+      {state === "forbidden" && <div style={{ fontSize: 12, color: "var(--muted)" }}>Requiere permiso ops:dashboard:read para ver la bandeja de revisión.</div>}
+      {state === "degraded" && <div style={{ fontSize: 12, color: "var(--muted)" }}>La bandeja no respondió — el gate de confianza puede estar desactivado o el servicio no disponible.</div>}
+      {state === "error" && <div style={{ fontSize: 12, color: "#fca5a5" }}>No se pudo cargar la bandeja de revisión.</div>}
+
+      {state === "ready" && items.length > 0 && (
+        <div style={{ display: "grid", gap: 10 }}>
+          {items.map((item) => (
+            <ReviewItemCard
+              key={item.eventId}
+              item={item}
+              busy={busyId === item.eventId}
+              onApprove={(override) => void act(item.eventId, "approve", override ? { override } : {})}
+              onReject={(reason) => void act(item.eventId, "reject", { reason })}
+            />
           ))}
         </div>
       )}
@@ -697,6 +868,9 @@ export default function AgentsPage() {
           </div>
         </div>
       )}
+
+      {/* Revisión pendiente (Jev Decision Layer, Wave: Marketplace) */}
+      <ReviewQueueSection />
 
       {/* Playground */}
       <PlaygroundSection />

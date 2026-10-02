@@ -9,6 +9,8 @@ import {
   Res,
   StreamableFile,
   UnprocessableEntityException,
+  ForbiddenException,
+  Logger,
 } from "@nestjs/common";
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { randomUUID } from "node:crypto";
@@ -19,6 +21,14 @@ import { buildTenantStorageKey, normalizeStorageDomain, normalizeStorageKey } fr
 import { RequirePermissions } from "../../common/permissions.decorator.js";
 import { Public } from "../../common/public.decorator.js";
 import { resolveRequestContext } from "../../common/request-context.js";
+import {
+  checkSignature,
+  decideRead,
+  resolvePublicPrefixes,
+  resolveSignedGetMode,
+  resolveSigningSecrets,
+  tenantFromStorageKey,
+} from "./signed-url.js";
 
 export const ALLOWED_CONTENT_TYPES = new Set([
   "image/jpeg",
@@ -148,6 +158,8 @@ export function validateUploadStream(
 
 @Controller("v1/uploads")
 export class UploadsController {
+  private readonly logger = new Logger(UploadsController.name);
+
   constructor(private readonly storageService: StorageService) {}
 
   /**
@@ -230,14 +242,17 @@ export class UploadsController {
 
   /**
    * Serve a stored file by key.
-   * Public — keys are tenant-scoped UUIDs (hard to enumerate).
-   * PUT stays authenticated; GET is intentionally open so the vision service
-   * and browsers can stream files without a session token.
+   * C19/C10: la lectura exige URL firmada vigente o sesion del tenant dueño de
+   * la clave (UPLOADS_SIGNED_GET_MODE=off|shadow|enforce; ver signed-url.ts y
+   * docs/specs/platform/signed-file-access.spec.md). `@Public()` solo evita el
+   * guard global: la autorizacion se decide aqui, ANTES de tocar el storage,
+   * para que un 403 no revele si la clave existe.
    */
   @Public()
   @Get("files/*")
   async getFile(
     @Param("*") key: string,
+    @Req() req: FastifyRequest,
     @Res({ passthrough: true }) res: FastifyReply,
   ): Promise<StreamableFile> {
     let decodedKey: string;
@@ -246,6 +261,57 @@ export class UploadsController {
     } catch {
       throw new BadRequestException("Invalid storage key");
     }
+
+    const mode = resolveSignedGetMode();
+    if (mode !== "off") {
+      const query = (req.query ?? {}) as Record<string, unknown>;
+      const signature = checkSignature(
+        {
+          key: decodedKey,
+          exp: typeof query.exp === "string" ? query.exp : null,
+          sig: typeof query.sig === "string" ? query.sig : null,
+        },
+        resolveSigningSecrets(),
+      );
+      let session: { tenantId: string; roles: string[] } | null = null;
+      if (signature === "absent" && (req.headers.authorization || req.headers["x-user-id"])) {
+        try {
+          const ctx = resolveRequestContext(req as never);
+          session = { tenantId: ctx.tenantId, roles: ctx.roles as string[] };
+        } catch {
+          session = null;
+        }
+      }
+      const decision = decideRead({
+        mode,
+        key: decodedKey,
+        signature,
+        session,
+        publicPrefixes: resolvePublicPrefixes(),
+      });
+      const referer = (() => {
+        try {
+          return req.headers.referer ? new URL(String(req.headers.referer)).host : null;
+        } catch {
+          return null;
+        }
+      })();
+      if (decision.logUnsigned || !decision.allow) {
+        this.logger.warn(
+          JSON.stringify({
+            event: decision.logUnsigned ? "uploads_unsigned_read" : "uploads_read_denied",
+            mode,
+            reason: decision.reason,
+            keyTenant: tenantFromStorageKey(decodedKey),
+            refererHost: referer,
+          }),
+        );
+      }
+      if (!decision.allow) {
+        throw new ForbiddenException("Access to this file is not allowed");
+      }
+    }
+
     const { exists } = await this.storageService.stat(decodedKey);
     if (!exists) {
       throw new NotFoundException(`File '${decodedKey}' not found`);

@@ -4,10 +4,11 @@ import { EvidenceGatewayService } from "./evidence-gateway.service.js";
 import { EvidenceGatewayRepository } from "./evidence-gateway.repository.js";
 import { SseModule } from "../../infrastructure/sse/sse.module.js";
 import { VisionModule } from "../vision/vision.module.js";
+import { EvidenceModule } from "../evidence/evidence.module.js";
 import { StorageModule } from "../../infrastructure/storage/storage.module.js";
 
 @Module({
-  imports: [SseModule, VisionModule, StorageModule],
+  imports: [SseModule, VisionModule, StorageModule, EvidenceModule],
   controllers: [EvidenceGatewayController],
   providers: [EvidenceGatewayService, EvidenceGatewayRepository],
   exports: [EvidenceGatewayService],

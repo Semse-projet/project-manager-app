@@ -30,6 +30,10 @@ function makeFakePrisma(waiver: Record<string, unknown> | null) {
   return prisma;
 }
 
+// Access control is covered in lien-access.test.ts; allow-all fake here.
+const allowAccess = { async assertWaiver() {} } as never;
+const fakeReq = { headers: {}, authContext: { tenantId: "t1", orgId: "org_pro", userId: "u1", roles: ["PRO"] } } as never;
+
 test("getSignUrl returns the real waiver's deadline/type, not a crash", async () => {
   const waiver = {
     id: "waiver_1",
@@ -37,9 +41,9 @@ test("getSignUrl returns the real waiver's deadline/type, not a crash", async ()
     waiverType: "conditional",
   };
   const liensService = new LiensService(makeFakePrisma(waiver) as never, {} as never);
-  const controller = new WaiverController(liensService);
+  const controller = new WaiverController(liensService, allowAccess);
 
-  const result = await controller.getSignUrl("proj_1", "waiver_1");
+  const result = await controller.getSignUrl(fakeReq, "proj_1", "waiver_1");
 
   assert.equal(result.success, true);
   assert.equal(result.data.type, "conditional");
@@ -49,7 +53,7 @@ test("getSignUrl returns the real waiver's deadline/type, not a crash", async ()
 
 test("getSignUrl propagates a not-found error for an unknown waiver instead of silently succeeding", async () => {
   const liensService = new LiensService(makeFakePrisma(null) as never, {} as never);
-  const controller = new WaiverController(liensService);
+  const controller = new WaiverController(liensService, allowAccess);
 
-  await assert.rejects(() => controller.getSignUrl("proj_1", "waiver_missing"));
+  await assert.rejects(() => controller.getSignUrl(fakeReq, "proj_1", "waiver_missing"));
 });

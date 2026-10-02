@@ -33,6 +33,8 @@ export class EvidenceService {
     capturedAt?: Date;
     category?: string;
     description?: string;
+    /** Anotaciones de cliente (contrato validado en evidence-metadata.ts). */
+    metadata?: Record<string, unknown>;
   }) {
     const evidence = await this.evidenceRepository.create(input);
 

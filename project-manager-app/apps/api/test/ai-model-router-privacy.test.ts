@@ -78,3 +78,13 @@ test("forceModelSlug is honored when privacy allows it", () => {
   );
   assert.equal(route.primaryModelSlug, "claude-sonnet");
 });
+
+// C80: privacyCritical / localOnly flags are hard constraints too.
+test("privacyCritical and localOnly route to ollama-local and win over forceModelSlug", () => {
+  const router = new AiModelRouterService();
+  for (const flag of [{ privacyCritical: true }, { localOnly: true }]) {
+    const route = router.selectRoute(makeRequest({ ...flag, forceModelSlug: "kimi-k2" }));
+    assert.equal(route.primaryModelSlug, "ollama-local");
+    assert.equal(route.fallbackModelSlug, undefined);
+  }
+});

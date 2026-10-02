@@ -8,13 +8,19 @@ import { Public } from "../../common/public.decorator.js";
 import { resolveRequestContext } from "../../common/request-context.js";
 import { resolveRequestId } from "../../common/request-id.js";
 import { PaymentsService } from "./payments.service.js";
-import { verifyStripeWebhookSignature } from "./stripe-webhook-signature.js";
+import { resolveStripeWebhookMode, verifyStripeWebhookSignature } from "./stripe-webhook-signature.js";
 
 // 2.44 — bank_account/debit_card no longer accept a raw routingNumber/
 // accountNumber/card number at all. Stripe.js tokenizes those client-side
 // (stripe.createToken, browser → Stripe's servers directly) before this
 // endpoint is ever called; only the resulting token id and the last4 Stripe's
 // own response includes reach our BFF/backend. See AUDIT_REMEDIATION_PLAN.md.
+function readIdempotencyKey(headers: Record<string, unknown> | undefined): string | undefined {
+  const raw = headers?.["idempotency-key"];
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
+}
+
 const workerPayoutMethodSchema = z.object({
   type: z.enum(["bank_account", "debit_card", "paypal", "zelle", "cashapp"]),
   bankName: z.string().trim().min(1).optional(),
@@ -22,10 +28,6 @@ const workerPayoutMethodSchema = z.object({
   last4: z.string().trim().optional(),
   email: z.string().trim().optional()
 });
-
-function isProductionRuntime(): boolean {
-  return process.env.NODE_ENV === "production" || process.env.RAILWAY_ENVIRONMENT_NAME === "production";
-}
 
 @Controller()
 export class PaymentsController {
@@ -217,7 +219,8 @@ export class PaymentsController {
       amount: parsed.data.amount,
       provider: parsed.data.provider,
       methodType: parsed.data.methodType,
-      requestId
+      requestId,
+      idempotencyKey: readIdempotencyKey(req.headers)
     });
 
     return ok(requestId, {
@@ -264,12 +267,15 @@ export class PaymentsController {
   ) {
     const requestId = resolveRequestId(req.headers ?? {});
 
-    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET?.trim();
-    if (!webhookSecret && isProductionRuntime()) {
-      throw new ServiceUnavailableException("STRIPE_WEBHOOK_SECRET is not configured");
+    const webhookMode = resolveStripeWebhookMode(process.env);
+    if (webhookMode === "reject") {
+      throw new ServiceUnavailableException(
+        "STRIPE_WEBHOOK_SECRET is not configured (set STRIPE_WEBHOOK_ALLOW_UNSIGNED=true only for local, non-production testing)",
+      );
     }
 
-    if (webhookSecret) {
+    if (webhookMode === "verify") {
+      const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!.trim();
       const signature = req.headers?.["stripe-signature"];
       const signatureHeader = Array.isArray(signature)
         ? signature.join(",")

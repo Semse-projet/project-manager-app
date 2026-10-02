@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   Briefcase, CheckCircle2, Clock, DollarSign, MapPin, RefreshCw, Send, XCircle,
 } from "lucide-react";
+import { ErrorState } from "@semse/ui";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -90,7 +91,7 @@ export default function MyBidsPage() {
         ))}
       </div>
 
-      {error && <div style={{ padding: "10px 14px", background: "rgba(239,68,68,.1)", borderRadius: 10, fontSize: 12, color: "#fca5a5", marginBottom: 14 }}>{error}</div>}
+      {error && <ErrorState message={error} className="mb-3.5" />}
 
       {/* Bid list */}
       {bids.length === 0 && !loading && (

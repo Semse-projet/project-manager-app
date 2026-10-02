@@ -1,4 +1,5 @@
 import { ConflictException, ForbiddenException } from "@nestjs/common";
+import { hasScopeAccess, sameOrg, scopeFromOwnership } from "../../common/resource-scope.js";
 
 export type DisputeActor = {
   tenantId: string;
@@ -17,11 +18,7 @@ function isOpsAdmin(actor: DisputeActor): boolean {
 }
 
 export function assertDisputeReadable(actor: DisputeActor, ownership: DisputeOwnership): void {
-  if (
-    isOpsAdmin(actor) ||
-    actor.orgId === ownership.clientOrgId ||
-    actor.orgId === ownership.assignedProOrgId
-  ) {
+  if (hasScopeAccess(actor, scopeFromOwnership(actor, ownership), "read")) {
     return;
   }
 
@@ -48,7 +45,7 @@ export function assertDisputeResolvable(
 ): void {
   // El cliente dueño puede cerrar por acuerdo únicamente a favor del PRO.
   // Refunds, splits y escalamiento legal requieren intervención de OPS.
-  const clientSettlement = actor.orgId === ownership.clientOrgId && resolutionType === "pro_favor";
+  const clientSettlement = sameOrg(actor.orgId, ownership.clientOrgId) && resolutionType === "pro_favor";
   if (!(isOpsAdmin(actor) || clientSettlement)) {
     throw new ForbiddenException("actor cannot resolve this dispute");
   }

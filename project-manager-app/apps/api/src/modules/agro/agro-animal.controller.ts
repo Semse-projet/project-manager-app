@@ -6,6 +6,7 @@ import { ok } from "../../common/api-response.js";
 import { resolveRequestId } from "../../common/request-id.js";
 import { RequirePermissions } from "../../common/permissions.decorator.js";
 import { resolveRequestContext } from "../../common/request-context.js";
+import { parseWithSchema } from "../../common/zod-validation.js";
 import { AgroAnimalService } from "./agro-animal.service.js";
 
 const speciesEnum = z.enum(["CATTLE", "PIG", "GOAT", "SHEEP", "HORSE", "CHICKEN", "OTHER"]);
@@ -90,7 +91,7 @@ export class AgroAnimalController {
   @RequirePermissions("agro:write")
   async createAnimal(@Param("farmId") farmId: string, @Body() body: unknown, @Req() req: any) {
     const ctx = resolveRequestContext(req);
-    const input = createAnimalSchema.parse(body);
+    const input = parseWithSchema(createAnimalSchema, body);
     const animal = await this.service.createAnimal(farmId, ctx.userId, input);
     return ok(resolveRequestId(req.headers ?? {}), { animal });
   }
@@ -107,7 +108,7 @@ export class AgroAnimalController {
   @RequirePermissions("agro:write")
   async updateAnimal(@Param("animalId") animalId: string, @Body() body: unknown, @Req() req: any) {
     const ctx = resolveRequestContext(req);
-    const input = updateAnimalSchema.parse(body);
+    const input = parseWithSchema(updateAnimalSchema, body);
     const animal = await this.service.updateAnimal(animalId, ctx.userId, input);
     return ok(resolveRequestId(req.headers ?? {}), { animal });
   }
@@ -117,7 +118,7 @@ export class AgroAnimalController {
   @RequirePermissions("agro:report")
   async moveAnimal(@Param("animalId") animalId: string, @Body() body: unknown, @Req() req: any) {
     const ctx = resolveRequestContext(req);
-    const { targetUnitId, notes } = moveSchema.parse(body);
+    const { targetUnitId, notes } = parseWithSchema(moveSchema, body);
     const animal = await this.service.moveAnimal(animalId, ctx.userId, targetUnitId, notes);
     return ok(resolveRequestId(req.headers ?? {}), { animal });
   }
@@ -127,7 +128,7 @@ export class AgroAnimalController {
   @RequirePermissions("agro:report")
   async weighAnimal(@Param("animalId") animalId: string, @Body() body: unknown, @Req() req: any) {
     const ctx = resolveRequestContext(req);
-    const { weight, notes } = weighSchema.parse(body);
+    const { weight, notes } = parseWithSchema(weighSchema, body);
     const animal = await this.service.weighAnimal(animalId, ctx.userId, weight, notes);
     return ok(resolveRequestId(req.headers ?? {}), { animal });
   }
@@ -137,7 +138,7 @@ export class AgroAnimalController {
   @RequirePermissions("agro:report")
   async changeAnimalStatus(@Param("animalId") animalId: string, @Body() body: unknown, @Req() req: any) {
     const ctx = resolveRequestContext(req);
-    const { status, reason } = statusSchema.parse(body);
+    const { status, reason } = parseWithSchema(statusSchema, body);
     const animal = await this.service.changeAnimalStatus(animalId, ctx.userId, status, reason);
     return ok(resolveRequestId(req.headers ?? {}), { animal });
   }
@@ -164,7 +165,7 @@ export class AgroAnimalController {
   @RequirePermissions("agro:write")
   async createGroup(@Param("farmId") farmId: string, @Body() body: unknown, @Req() req: any) {
     const ctx = resolveRequestContext(req);
-    const input = createGroupSchema.parse(body);
+    const input = parseWithSchema(createGroupSchema, body);
     const group = await this.service.createGroup(farmId, ctx.userId, input);
     return ok(resolveRequestId(req.headers ?? {}), { group });
   }
@@ -181,7 +182,7 @@ export class AgroAnimalController {
   @RequirePermissions("agro:write")
   async updateGroup(@Param("groupId") groupId: string, @Body() body: unknown, @Req() req: any) {
     const ctx = resolveRequestContext(req);
-    const input = updateGroupSchema.parse(body);
+    const input = parseWithSchema(updateGroupSchema, body);
     const group = await this.service.updateGroup(groupId, ctx.userId, input);
     return ok(resolveRequestId(req.headers ?? {}), { group });
   }
@@ -191,7 +192,7 @@ export class AgroAnimalController {
   @RequirePermissions("agro:report")
   async moveGroup(@Param("groupId") groupId: string, @Body() body: unknown, @Req() req: any) {
     const ctx = resolveRequestContext(req);
-    const { targetUnitId, notes } = moveSchema.parse(body);
+    const { targetUnitId, notes } = parseWithSchema(moveSchema, body);
     const group = await this.service.moveGroup(groupId, ctx.userId, targetUnitId, notes);
     return ok(resolveRequestId(req.headers ?? {}), { group });
   }
@@ -201,7 +202,7 @@ export class AgroAnimalController {
   @RequirePermissions("agro:report")
   async adjustGroupCount(@Param("groupId") groupId: string, @Body() body: unknown, @Req() req: any) {
     const ctx = resolveRequestContext(req);
-    const { count, reason } = adjustCountSchema.parse(body);
+    const { count, reason } = parseWithSchema(adjustCountSchema, body);
     const group = await this.service.adjustGroupCount(groupId, ctx.userId, count, reason);
     return ok(resolveRequestId(req.headers ?? {}), { group });
   }
@@ -211,7 +212,7 @@ export class AgroAnimalController {
   @RequirePermissions("agro:report")
   async changeGroupStatus(@Param("groupId") groupId: string, @Body() body: unknown, @Req() req: any) {
     const ctx = resolveRequestContext(req);
-    const { status, reason } = statusSchema.parse(body);
+    const { status, reason } = parseWithSchema(statusSchema, body);
     const group = await this.service.changeGroupStatus(groupId, ctx.userId, status, reason);
     return ok(resolveRequestId(req.headers ?? {}), { group });
   }

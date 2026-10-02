@@ -30,6 +30,26 @@ function parseStripeSignatureHeader(header: string): { timestamp?: number; signa
   return { timestamp, signatures };
 }
 
+export type StripeWebhookMode = "verify" | "skip_unsigned" | "reject";
+
+function isProductionEnv(env: NodeJS.ProcessEnv): boolean {
+  return env.NODE_ENV === "production" || env.RAILWAY_ENVIRONMENT_NAME === "production";
+}
+
+/**
+ * Fail-closed webhook policy (C26). Signature verification is the only thing
+ * authenticating this public endpoint, and the handler changes payment state,
+ * so an unset secret must never silently disable it just because the runtime
+ * is not literally "production" (staging/preview deployments handle real
+ * Stripe events too). Unsigned payloads are accepted only with an explicit
+ * opt-in flag, and never in production.
+ */
+export function resolveStripeWebhookMode(env: NodeJS.ProcessEnv): StripeWebhookMode {
+  if (env.STRIPE_WEBHOOK_SECRET?.trim()) return "verify";
+  if (env.STRIPE_WEBHOOK_ALLOW_UNSIGNED === "true" && !isProductionEnv(env)) return "skip_unsigned";
+  return "reject";
+}
+
 export function verifyStripeWebhookSignature(input: StripeWebhookSignatureInput): boolean {
   const secret = input.secret.trim();
   if (!secret) return false;

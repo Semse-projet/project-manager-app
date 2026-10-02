@@ -1,3 +1,4 @@
+import { parseEvidenceMetadata } from "./evidence-metadata.js";
 import crypto from "node:crypto";
 import {
   BadRequestException,
@@ -57,6 +58,8 @@ type CreateEvidenceInput = ScopeInput & {
   capturedAt?: Date;
   category?: string;
   description?: string;
+  /** Anotaciones de cliente validadas por parseEvidenceMetadata (no confiables). */
+  metadata?: Record<string, unknown>;
 };
 
 export type EvidenceView = {
@@ -121,6 +124,7 @@ export class EvidenceRepository {
     const scope = await this.resolveScope(input);
     assertEvidenceWritable(this.toActor(input), scope.ownership);
     const bucketKey = normalizeEvidenceBucketKey(input.key, input.tenantId);
+    const metadata = parseEvidenceMetadata(input.metadata);
     const idempotencyKey = evidenceUploadedIdempotencyKey(input.requestId);
 
     const existing = await this.findExistingByIdempotencyKey(
@@ -144,6 +148,7 @@ export class EvidenceRepository {
             kind: input.kind,
             bucketKey,
             metadataJson: {
+              ...(metadata ?? {}),
               jobId: scope.jobId,
               ...(input.filename ? { filename: input.filename } : {}),
               ...(input.category ? { category: input.category } : {}),
@@ -573,7 +578,7 @@ function toRecord(value: unknown): Record<string, unknown> | undefined {
   return undefined;
 }
 
-function normalizeEvidenceBucketKey(key: string, tenantId: string): string {
+export function normalizeEvidenceBucketKey(key: string, tenantId: string): string {
   try {
     const normalized = normalizeStorageKey(key);
     if (

@@ -9,8 +9,7 @@
 import { useEffect, useState } from "react";
 import { Briefcase, DollarSign, CheckSquare, AlertTriangle, Plus, ArrowRight, FolderKanban, Users, Star } from "lucide-react";
 import Link from "next/link";
-import Image from "next/image";
-import { HtmlInCanvasPanel } from "@semse/ui";
+import { EmptyState, ErrorState, HtmlInCanvasPanel } from "@semse/ui";
 import type { JobRecordView } from "@semse/schemas";
 import { ClientPageHeader } from "../../../components/client/ClientPageHeader";
 import { ClientSummaryCardLink } from "../../../components/client/ClientSummaryCardLink";
@@ -295,11 +294,9 @@ export default function ClientDashboardPage() {
             ))}
           </div>
         ) : apiError ? (
-          <div style={{ padding: "20px", background: "rgba(239,68,68,.06)", border: "1px solid rgba(239,68,68,.2)", borderRadius: "12px", color: "var(--error)", fontSize: "13px" }}>
-            {apiError} — configura <code>SEMSE_API_BASE_URL</code> para conectar el backend.
-          </div>
+          <ErrorState message={apiError} action={<span>Configura <code>SEMSE_API_BASE_URL</code> para conectar el backend.</span>} />
         ) : jobs.length === 0 ? (
-          <EmptyState />
+          <ClientDashboardEmptyJobs />
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
             {jobs.slice(0, 6).map(job => {
@@ -312,9 +309,8 @@ export default function ClientDashboardPage() {
                 <Link
                   key={job.id}
                   href={`/client/jobs/${job.id}`}
-                  style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: "14px", padding: "14px 16px", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "10px", transition: "border-color .15s" }}
-                  onMouseOver={e => (e.currentTarget.style.borderColor = "var(--brand)")}
-                  onMouseOut={e => (e.currentTarget.style.borderColor = "var(--border)")}
+                  className="row-hover"
+                  style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: "14px", padding: "14px 16px", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "10px", ["--row-hover-color" as string]: "var(--brand)" }}
                 >
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{ fontSize: "14px", fontWeight: 700, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{title}</p>
@@ -361,6 +357,7 @@ export default function ClientDashboardPage() {
               <Link
                 key={action.href}
                 href={action.href}
+                className="row-hover"
                 style={{
                   display: "flex",
                   alignItems: "center",
@@ -373,10 +370,8 @@ export default function ClientDashboardPage() {
                   color: "var(--ink)",
                   fontSize: "13px",
                   fontWeight: 600,
-                  transition: "border-color 0.15s",
+                  ["--row-hover-color" as string]: action.color,
                 }}
-                onMouseOver={e => (e.currentTarget.style.borderColor = action.color)}
-                onMouseOut={e => (e.currentTarget.style.borderColor = "var(--border)")}
               >
                 <div style={{ width: "32px", height: "32px", borderRadius: "8px", background: `${action.color}18`, display: "flex", alignItems: "center", justifyContent: "center", color: action.color }}>
                   <Icon size={15} />
@@ -391,43 +386,32 @@ export default function ClientDashboardPage() {
   );
 }
 
-function EmptyState() {
+function ClientDashboardEmptyJobs() {
   return (
-    <div
-      style={{
-        padding: "48px 24px",
-        textAlign: "center",
-        background: "var(--surface)",
-        border: "1px solid var(--border)",
-        borderRadius: "12px",
-        borderStyle: "dashed",
-      }}
-    >
-      <Image src="/brand/empty-states/client-jobs.png" alt="" width={64} height={64} style={{ margin: "0 auto 14px", display: "block" }} />
-      <p style={{ fontSize: "15px", fontWeight: 700, color: "var(--ink)", marginBottom: "6px" }}>
-        Aún no tienes trabajos
-      </p>
-      <p style={{ fontSize: "13px", color: "var(--muted)", marginBottom: "20px" }}>
-        Publica tu primer trabajo y recibe propuestas de profesionales verificados.
-      </p>
-      <Link
-        href={CLIENT_ROUTES.newJob}
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          gap: "6px",
-          padding: "10px 20px",
-          borderRadius: "8px",
-          background: "var(--brand)",
-          color: "#fff",
-          fontWeight: 700,
-          fontSize: "13px",
-          textDecoration: "none",
-        }}
-      >
-        <Plus size={14} />
-        Publicar trabajo
-      </Link>
-    </div>
+    <EmptyState
+      title="Aún no tienes trabajos"
+      description="Publica tu primer trabajo y recibe propuestas de profesionales verificados."
+      image="/brand/empty-states/client-jobs.png"
+      action={
+        <Link
+          href={CLIENT_ROUTES.newJob}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "6px",
+            padding: "10px 20px",
+            borderRadius: "8px",
+            background: "var(--brand)",
+            color: "#fff",
+            fontWeight: 700,
+            fontSize: "13px",
+            textDecoration: "none",
+          }}
+        >
+          <Plus size={14} />
+          Publicar trabajo
+        </Link>
+      }
+    />
   );
 }

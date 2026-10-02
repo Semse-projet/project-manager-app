@@ -1,0 +1,1371 @@
+{
+ "baseline": "audit 2026-09-11 (C01–C80) + C81",
+ "main": "92d8e9ea0bfe941f1477e7010f2f1c20b6af83b3",
+ "capabilities": [
+  {
+   "id": "C01",
+   "title": "Origen configurado API/Web/Worker/Vision",
+   "domain": "Infraestructura",
+   "priority": "P0",
+   "historical": "REAL",
+   "batch": "A6",
+   "current_truth": "REAL — 4 servicios de app con origen repo Semse-projet/project-manager-app (Railway)",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C02",
+   "title": "Trazabilidad de versiones activas",
+   "domain": "Entrega",
+   "priority": "P0",
+   "historical": "PARCIAL",
+   "batch": "A5",
+   "current_truth": "PARTIAL — gate BLOQUEANTE de provenance en runtime VERIFICADO en producción (#734, e4c7322): en el deploy 92d8e9ea (run 36856601208) el paso 'Runtime provenance gate (blocking)' terminó en success con API HTTP 200 gitSha===DEPLOY_SHA deploymentId bf6ee8ee y web HTTP 200 gitSha===DEPLOY_SHA deploymentId e5407147; antes, el mismo cumplimiento en 7c9df29 y f59d1b0 (ciclos informativos) y en 7a823ae (primer deploy con el gate). GAP SEPARADO ABIERTO: imageDigest sigue 'unknown' (warning tolerado); NO resuelto hasta que el build inyecte un digest verificable (SEMSE_IMAGE_DIGEST). Se exige además: HTTP 2xx, gitSha exacto, deploymentId y environment; caída del health => falla. | Histórico: PARTIAL — runtime provenance demonstrated, awaiting second green cycle before enforcement. Deploy 7c9df29 (2026-10-01): /v1/health (deploymentId 26d406f8) y /api/semse/healthz (deploymentId 5c55ddb9) reportaron gitSha === DEPLOY_SHA; paso informativo de #730 en verde. Siguiente: tras un deploy verde adicional con la misma coincidencia, PR de CI aislado que lo convierte en gate (HTTP ok, gitSha existe y coincide, deploymentId existe, discrepancia o caída del health => falla; imageDigest unknown => warning; sin tocar branch protections ni secretos). imageDigest sigue 'unknown' hasta que el build inyecte SEMSE_IMAGE_DIGEST. | Histórico: PARTIAL — #706/#716 en main (campos de procedencia y verificador). En PR claude/ci-provenance-informational (PR de CI aislado, autorizado por el dueño): el job health-check de railway-deploy.yml añade, en MODO INFORMATIVO (continue-on-error, nunca bloquea), la comprobación de que /v1/health y /api/semse/healthz reportan el gitSha desplegado, con resumen en el job y ::warning si no coincide; permisos: solo contents:read en ese job. Tras un ciclo verde se convierte en gate (PR aparte). imageDigest sigue 'unknown' (tolerado) hasta que el build inyecte SEMSE_IMAGE_DIGEST; /v1/health en producción aún sin evidencia propia",
+   "evidence": {
+    "code": "partial",
+    "ci": "PR checks green; main auto-deploy (Railway Deploy/Production Health Gate) — sin smoke autenticado",
+    "merge": "08aed04fba0a58880e83a105a75cf20235b82892",
+    "deploy": "verify-deploy-provenance.mjs en main (#716) y desplegado (Railway MCP (solo lectura) 2026-10-01T01:1xZ, deployment API f27a2abb (commit a20c25b = #719, incluye #714–#719) SUCCESS); /v1/health no consultado desde el sandbox (hosts bloqueados): campos de procedencia sin verificar en producción",
+    "activation": false,
+    "pr": "#706",
+    "pr_2": "#716"
+   }
+  },
+  {
+   "id": "C03",
+   "title": "Compilación candidato web 5-sep",
+   "domain": "Entrega",
+   "priority": "P1",
+   "historical": "ROTA",
+   "batch": "B2",
+   "current_truth": "VERIFIED (por criterio de cierre) — defecto reparado y build reproducible del commit reconciliado (local exit 0 + CI main success); web desplegada y online. Smoke autenticado/destructivo en producción: no ejecutado (columna aparte)",
+   "evidence": {
+    "code": true,
+    "ci": "CI main aecbd8d success; build local exit 0",
+    "merge": "aecbd8dd7e885022dd1b46e913cb01cfd82f7cb8",
+    "deploy": "deploy 70ca14b8 (aecbd8d) SUCCESS; 4 servicios online 1/1; migración 20260930230513 aplicada en prod ('migrate deploy completo', dedup 0 filas); sin smoke autenticado",
+    "activation": false,
+    "smoke_destructive_prod": "no ejecutado"
+   }
+  },
+  {
+   "id": "C04",
+   "title": "Página pública app.semseproject.com",
+   "domain": "Web",
+   "priority": "P2",
+   "historical": "REAL",
+   "batch": "C3",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C05",
+   "title": "Health de API (Railway y dominio)",
+   "domain": "API",
+   "priority": "P0",
+   "historical": "REAL",
+   "batch": "A6",
+   "current_truth": "PARTIAL — health del dominio público de Railway (project-manager-app-production-977f.up.railway.app) VERIFICADO en producción por el job health-check de Railway Deploy en cada deploy desde 2026-10-01: GET /v1/health responde HTTP 200 con provenance (gitSha === DEPLOY_SHA, deploymentId, environment) — runs 36806442810 (7c9df29, 02:38Z), 36843242183 (f59d1b0, 09:32Z), 36847254925 (7a823ae, primer deploy con el gate bloqueante, 10:12Z) y 36856601208 (92d8e9ea, deploymentId bf6ee8ee, 11:42Z). Desde #734 un health caído o no-2xx FALLA el workflow. NO verificado: el dominio propio/custom (ver docs/runbooks/API_CUSTOM_DOMAIN_TLS_HANDOFF.md) — el sandbox no puede alcanzar los hosts de producción; y la comprobación del health desde fuera de GitHub Actions.",
+   "evidence": {
+    "code": false,
+    "ci": "job health-check (gate bloqueante) en success",
+    "merge": null,
+    "deploy": "run 36856601208: API HTTP 200 /v1/health gitSha=92d8e9ea deploymentId bf6ee8ee-5225-4ab5-873d-49e20c16488d",
+    "activation": false
+   }
+  },
+  {
+   "id": "C06",
+   "title": "Health propio del BFF web",
+   "domain": "Web",
+   "priority": "P2",
+   "historical": "REAL",
+   "batch": "C3",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C07",
+   "title": "Rechazo de acceso anónimo",
+   "domain": "Identidad",
+   "priority": "P1",
+   "historical": "REAL",
+   "batch": "B1",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C08",
+   "title": "Login, sesión y recuperación",
+   "domain": "Identidad",
+   "priority": "P1",
+   "historical": "PARCIAL",
+   "batch": "B1",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C09",
+   "title": "Identidad universal y múltiples roles",
+   "domain": "Identidad",
+   "priority": "P1",
+   "historical": "PARCIAL",
+   "batch": "B1",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C10",
+   "title": "Aislamiento tenant + organización",
+   "domain": "Identidad",
+   "priority": "P0",
+   "historical": "ROTA",
+   "batch": "A3",
+   "current_truth": "OPEN — en main: evidence-gateway (#702), liens (#703), worker-verification (#704); persistir verificación, URLs de archivos (C19) e intelligence pendientes",
+   "evidence": {
+    "code": "partial",
+    "ci": "PR checks green; main auto-deploy (Railway Deploy/Production Health Gate) — sin smoke autenticado",
+    "merge": "f36a22bd6e90f11c6ef17ddf84cabe281c873287",
+    "deploy": "auto-deploy on merge to main (per GitHub Actions); runtime not verified from sandbox",
+    "activation": false,
+    "pr": "#702,#703,#704"
+   }
+  },
+  {
+   "id": "C11",
+   "title": "Precondiciones de atestación de identidad",
+   "domain": "Trust",
+   "priority": "P0",
+   "historical": "PARCIAL",
+   "batch": "A3",
+   "current_truth": "MERGEADO en main (#728, 862b380): verificación por tenant + migración aditiva 20261001020000. DESPLEGADO (7c9df29, migración 20261001020000 aplicada, 106 migraciones) — sigue PARTIAL: falta smoke funcional dirigido antes de VERIFIED. Sigue sin criptografía DID real fail-closed verificada end-to-end. | Histórico: PARTIAL — #723 en main (estado durable, precondición) + en PR claude/c11-tenant-verification: verificación POR TENANT (tablas WorkerVerification/Challenge/Event, migración aditiva 20261001020000 con rollback), nonce aleatorio de un solo uso con TTL y consumedAt (probado con carrera real en Postgres: gana 1 de 5), historial auditable append-only, transiciones monotónicas; matching/stats usan el estado efectivo (global legado solo como compatibilidad). Migración pendiente de aplicar en producción. NO cerrado: sigue sin criptografía DID real (fail-closed, nada llega a verified) — requiere proveedor criptográfico",
+   "evidence": {
+    "code": true,
+    "ci": "PR checks green",
+    "merge": "76a85f5eca07e91b2405e7d34aa13dc33bd7e409",
+    "deploy": false,
+    "activation": false,
+    "pr": "#723"
+   }
+  },
+  {
+   "id": "C12",
+   "title": "Relación compañía/profesional/worker",
+   "domain": "Actores",
+   "priority": "P1",
+   "historical": "PARCIAL",
+   "batch": "B1",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C13",
+   "title": "Originador, referidos e incentivos",
+   "domain": "Actores",
+   "priority": "P2",
+   "historical": "PARCIAL",
+   "batch": "C2",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C14",
+   "title": "Intake público y wizard",
+   "domain": "Demanda",
+   "priority": "P1",
+   "historical": "PARCIAL",
+   "batch": "B1",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C15",
+   "title": "Estimación y cobertura por categoría",
+   "domain": "Estimación",
+   "priority": "P1",
+   "historical": "PARCIAL",
+   "batch": "B1",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C16",
+   "title": "Paquete de herramientas por oficio",
+   "domain": "ProTools",
+   "priority": "P2",
+   "historical": "PARCIAL",
+   "batch": "C2",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C17",
+   "title": "BuildOps: planificación y cuadrillas",
+   "domain": "Operaciones",
+   "priority": "P1",
+   "historical": "PARCIAL",
+   "batch": "B3",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C18",
+   "title": "Hitos y aprobación de avances",
+   "domain": "Operaciones",
+   "priority": "P0",
+   "historical": "PARCIAL",
+   "batch": "A4",
+   "current_truth": "MERGEADO en main (#729, 4c8acd4): evidencia validada al aprobar y al reservar fondos, hito APPROVED revalidado, sin auto-aprobación en producción. DESPLEGADO (7c9df29) — sigue PARTIAL: falta smoke funcional dirigido antes de VERIFIED. | Histórico: PARTIAL — #724 en main (transiciones CAS, bloqueo de reject con payout activo) + en PR claude/c18-invariants: predicado único de evidencia requerida validada (todo requisito `required` debe estar `approved`; antes submitted/archived NO bloqueaban el pago) aplicado al aprobar y DENTRO de la transacción que reserva fondos junto con la revalidación de hito APPROVED (cubre manual y auto-release); auto-aprobación (cliente==profesional) prohibida salvo OPS_ADMIN o flag sandbox solo en no-producción. Modo MILESTONE_EVIDENCE_REVALIDATION enforce por defecto (shadow/off = rollback). Pendiente de despliegue y smoke; el auto-release como adaptador del comando (ADR-041 2b) sigue pendiente",
+   "evidence": {
+    "code": true,
+    "ci": "PR checks green",
+    "merge": "bdcd4ff1f0cac754a661324741eec79e1d0dfab4",
+    "deploy": false,
+    "activation": false,
+    "pr": "#724"
+   }
+  },
+  {
+   "id": "C19",
+   "title": "Persistencia de archivos de evidencia",
+   "domain": "Evidence",
+   "priority": "P0",
+   "historical": "PARCIAL",
+   "batch": "A4",
+   "current_truth": "PARTIAL — en main (#715, 0b97dc4), modo off por defecto: sin efecto hasta configurar UPLOADS_SIGNING_SECRET y pasar shadow→enforce (operador). La exposición pública actual de GET /v1/uploads/files/* sigue abierta hasta esa activación",
+   "evidence": {
+    "code": true,
+    "ci": "PR checks green",
+    "merge": "0b97dc4b41af915041a1f6eb47c52e37e6f3a11c",
+    "deploy": "en producción desde Railway MCP (solo lectura) 2026-10-01T01:1xZ, deployment API f27a2abb (commit a20c25b = #719, incluye #714–#719) SUCCESS; UPLOADS_SIGNED_GET_MODE sin configurar (=off): sin efecto",
+    "activation": false,
+    "pr": "#715"
+   }
+  },
+  {
+   "id": "C20",
+   "title": "Estados, rechazo, reemplazo y archivo",
+   "domain": "Evidence",
+   "priority": "P1",
+   "historical": "PARCIAL",
+   "batch": "B3",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C21",
+   "title": "Integración de análisis visual",
+   "domain": "Evidence",
+   "priority": "P1",
+   "historical": "PARCIAL",
+   "batch": "B3",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C22",
+   "title": "Timer y proyectos libres",
+   "domain": "Labor",
+   "priority": "P1",
+   "historical": "PARCIAL",
+   "batch": "B2",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C23",
+   "title": "Offline, ubicación y captura móvil",
+   "domain": "Labor",
+   "priority": "P1",
+   "historical": "PARCIAL",
+   "batch": "B2",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C24",
+   "title": "Proyectos, propuestas y contratación",
+   "domain": "Marketplace",
+   "priority": "P1",
+   "historical": "PARCIAL",
+   "batch": "B3",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C25",
+   "title": "Change Orders y control de alcance",
+   "domain": "Operaciones",
+   "priority": "P1",
+   "historical": "PARCIAL",
+   "batch": "B3",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C26",
+   "title": "Configuración de Stripe",
+   "domain": "Payments",
+   "priority": "P0",
+   "historical": "PARCIAL",
+   "batch": "A2",
+   "current_truth": "PARTIAL — en main (#705): webhook Stripe fail-closed; falta proveedor/modo por entorno y reconciliación",
+   "evidence": {
+    "code": "partial",
+    "ci": "PR checks green; main auto-deploy (Railway Deploy/Production Health Gate) — sin smoke autenticado",
+    "merge": "5b82a5b9795bbfcf339be7cd06af4c85fa72794c",
+    "deploy": "auto-deploy on merge to main (per GitHub Actions); runtime not verified from sandbox",
+    "activation": false,
+    "pr": "#705"
+   }
+  },
+  {
+   "id": "C27",
+   "title": "Gobernanza de liberación y dual approval",
+   "domain": "Payments",
+   "priority": "P0",
+   "historical": "DUPLICADA",
+   "batch": "A2",
+   "current_truth": "Worker 2b MERGEADO en main (#727, de89db4), job off por defecto (PAYMENTS_RECONCILE_ENABLED); PAYMENTS_RELEASE_COMMAND sigue OFF; falta deploy/ensayo de runbook, D2 y adaptador auto-release. | Histórico: PARTIAL — ADR-041 ACCEPTED/spec APPROVED; slice 1 (autorización única) en producción (deploy 70ca14b8, aecbd8d); faltan comando único con idempotencia, dual approval (D2 sin definir) y retiro del camino falso | Slice 2a en PR claude/escrow-release-command: núcleo del comando + guarda de 1 RELEASE activo por milestone + adaptador manual tras PAYMENTS_RELEASE_COMMAND=on (off por defecto); falta 2b (auto-release como adaptador, reconciliador), D2 y slices 3-4 | Worker 2b en PR claude/escrow-reconcile-worker: job de solo lectura (PAYMENTS_RECONCILE_ENABLED, off) que alerta+audita RELEASE PENDING estancados; falta auto-release como adaptador, D2 y slices 3-4",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": "6312454a27b981ec0bd46f6c406cdb13fff1c185",
+    "deploy": "deploy 70ca14b8 (aecbd8d) SUCCESS; 4 servicios online 1/1; migración 20260930230513 aplicada en prod ('migrate deploy completo', dedup 0 filas); sin smoke autenticado",
+    "activation": false
+   }
+  },
+  {
+   "id": "C28",
+   "title": "Gate de lien waivers en escrow",
+   "domain": "Payments",
+   "priority": "P0",
+   "historical": "PARCIAL",
+   "batch": "A2",
+   "current_truth": "PARTIAL — en producción (aecbd8d): firma de waivers protegida (#703) y gate de waivers en release manual/agente (#709, enforced por defecto; rollback PAYMENTS_RELEASE_WAIVER_GATE=off); gobernanza completa en shadow (revisar logs release_governance_shadow_would_block antes de enforce); sin smoke | Slice 2a en PR claude/escrow-release-command: núcleo del comando + guarda de 1 RELEASE activo por milestone + adaptador manual tras PAYMENTS_RELEASE_COMMAND=on (off por defecto); falta 2b (auto-release como adaptador, reconciliador), D2 y slices 3-4 | Worker 2b en PR claude/escrow-reconcile-worker: job de solo lectura (PAYMENTS_RECONCILE_ENABLED, off) que alerta+audita RELEASE PENDING estancados; falta auto-release como adaptador, D2 y slices 3-4",
+   "evidence": {
+    "code": "partial",
+    "ci": "PR checks green; main auto-deploy (Railway Deploy/Production Health Gate) — sin smoke autenticado",
+    "merge": "6312454a27b981ec0bd46f6c406cdb13fff1c185",
+    "deploy": "deploy 70ca14b8 (aecbd8d) SUCCESS; 4 servicios online 1/1; migración 20260930230513 aplicada en prod ('migrate deploy completo', dedup 0 filas); sin smoke autenticado",
+    "activation": false,
+    "pr": "#703"
+   }
+  },
+  {
+   "id": "C29",
+   "title": "Fondeo, liberación, refunds y payouts",
+   "domain": "Payments",
+   "priority": "P0",
+   "historical": "PARCIAL",
+   "batch": "A2",
+   "current_truth": "Worker 2b MERGEADO en main (#727); sin activar; falta deploy, D2 y slices 3-4. | Histórico: PARTIAL — slice 1 de ADR-041 en producción; idempotencia/reconciliación (slice 2) pendiente | Slice 2a en PR claude/escrow-release-command: núcleo del comando + guarda de 1 RELEASE activo por milestone + adaptador manual tras PAYMENTS_RELEASE_COMMAND=on (off por defecto); falta 2b (auto-release como adaptador, reconciliador), D2 y slices 3-4 | Worker 2b en PR claude/escrow-reconcile-worker: job de solo lectura (PAYMENTS_RECONCILE_ENABLED, off) que alerta+audita RELEASE PENDING estancados; falta auto-release como adaptador, D2 y slices 3-4",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": "6312454a27b981ec0bd46f6c406cdb13fff1c185",
+    "deploy": "deploy 70ca14b8 (aecbd8d) SUCCESS; 4 servicios online 1/1; migración 20260930230513 aplicada en prod ('migrate deploy completo', dedup 0 filas); sin smoke autenticado",
+    "activation": false
+   }
+  },
+  {
+   "id": "C30",
+   "title": "Registros de pagos y costeo por recurso",
+   "domain": "Economía",
+   "priority": "P1",
+   "historical": "PARCIAL",
+   "batch": "B4",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C31",
+   "title": "Integración de firma electrónica",
+   "domain": "Contratos",
+   "priority": "P1",
+   "historical": "PARCIAL",
+   "batch": "B4",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C32",
+   "title": "Resolución de controversias",
+   "domain": "Disputas",
+   "priority": "P1",
+   "historical": "PARCIAL",
+   "batch": "B4",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C33",
+   "title": "Reputación, credenciales y Trust Score",
+   "domain": "Trust",
+   "priority": "P1",
+   "historical": "PARCIAL",
+   "batch": "B4",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C34",
+   "title": "Propuestas, votos y créditos",
+   "domain": "Governance",
+   "priority": "P2",
+   "historical": "PARCIAL",
+   "batch": "C2",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C35",
+   "title": "Descubrimiento y matching",
+   "domain": "Connect",
+   "priority": "P2",
+   "historical": "PARCIAL",
+   "batch": "C2",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C36",
+   "title": "Configuración WhatsApp",
+   "domain": "Comunicaciones",
+   "priority": "P1",
+   "historical": "PARCIAL",
+   "batch": "B5",
+   "current_truth": "PARTIAL — hallazgo: webhook WhatsApp en modo mock sin firma (pendiente B5)",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C37",
+   "title": "Inbox y continuidad de conversación",
+   "domain": "Comunicaciones",
+   "priority": "P2",
+   "historical": "PARCIAL",
+   "batch": "C2",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C38",
+   "title": "Configuración de correo",
+   "domain": "Comunicaciones",
+   "priority": "P2",
+   "historical": "PARCIAL",
+   "batch": "C2",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C39",
+   "title": "Configuración del router de modelos",
+   "domain": "AI",
+   "priority": "P0",
+   "historical": "PARCIAL",
+   "batch": "A1",
+   "current_truth": "IMPLEMENTED + DEPLOYED + MIGRATION VERIFIED — feature INACTIVA (AI_PRICING_CATALOG_MODE=off por defecto; NO VERIFIED funcional: shadow/on no activados). Catálogo global AiModelPrice (excepción tenantId autorizada solo para esta tabla; inmutable; exclusión de intervalos, CHECKs y triggers), priceId/costBasis en AiInteractionLog, unknown != $0, sin fallback legado en on, pricingSchemaVersion+metadataJson, carga solo OPS_ADMIN con fuente oficial y auditoría. En producción (92d8e9ea): migración 20261001100000 aplicada el 2026-10-01T11:23:09Z (deployment b024794c, #736) sin error de btree_gist; hoy '107 migrations found / No pending migrations'; 4 servicios SUCCESS. Falta: smoke funcional con shadow→on (orden del dueño), carga de precios oficiales por OPS_ADMIN, T-042 (importador legado) diferido. | Histórico: PARTIAL — en producción: logs IA tenant-scoped + actor/org/política persistidos; migración aditiva 20260930230513 aplicada (deploy 70ca14b8); costo habilitado por AI_MODEL_PRICING_JSON, faltan precios del owner; sin smoke",
+   "evidence": {
+    "code": true,
+    "ci": "PR checks green; main auto-deploy (Railway Deploy/Production Health Gate) — sin smoke autenticado",
+    "merge": "92d8e9ea0bfe941f1477e7010f2f1c20b6af83b3 (#737; #736 contenía el mismo árbol)",
+    "deploy": "deployments API bf6ee8ee / web e5407147 / worker c045da92 / vision b98e0d4f en SUCCESS con 92d8e9ea; migración 20261001100000 aplicada en deployment b024794c (11:23:09Z)",
+    "activation": false
+   }
+  },
+  {
+   "id": "C40",
+   "title": "Servicio Ollama",
+   "domain": "AI",
+   "priority": "P2",
+   "historical": "REAL",
+   "batch": "C3",
+   "current_truth": "REAL — ollama online pero imagen :latest y SIN volumen (modelos no persistentes)",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C41",
+   "title": "Chat Ollama 6-sep (smoke e2e)",
+   "domain": "AI",
+   "priority": "P1",
+   "historical": "ROTA",
+   "batch": "B2",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C42",
+   "title": "RAG, embeddings y fuentes",
+   "domain": "Knowledge",
+   "priority": "P1",
+   "historical": "PARCIAL",
+   "batch": "B5",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C43",
+   "title": "Ciclos de curación / Product Intelligence",
+   "domain": "Worker",
+   "priority": "P2",
+   "historical": "REAL",
+   "batch": "C3",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C44",
+   "title": "Endpoint público de overview",
+   "domain": "Intelligence",
+   "priority": "P2",
+   "historical": "PARCIAL",
+   "batch": "C2",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C45",
+   "title": "Mission Control unificado",
+   "domain": "Operación AI",
+   "priority": "P1",
+   "historical": "PARCIAL",
+   "batch": "B5",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C46",
+   "title": "Plan Mode, políticas de herramientas y aprobación",
+   "domain": "Operación AI",
+   "priority": "P0",
+   "historical": "PARCIAL",
+   "batch": "A1",
+   "current_truth": "PARTIAL — en producción: piso de aprobación determinista + versión de plan y aprobación ligada a la definición (migración aplicada); falta denegación con eventos (EVENT_CATALOG); sin smoke",
+   "evidence": {
+    "code": "partial",
+    "ci": "PR checks green; main auto-deploy (Railway Deploy/Production Health Gate) — sin smoke autenticado",
+    "merge": "aecbd8dd7e885022dd1b46e913cb01cfd82f7cb8",
+    "deploy": "deploy 70ca14b8 (aecbd8d) SUCCESS; 4 servicios online 1/1; migración 20260930230513 aplicada en prod ('migrate deploy completo', dedup 0 filas); sin smoke autenticado",
+    "activation": false
+   }
+  },
+  {
+   "id": "C47",
+   "title": "LiveKit / Prometeo Live",
+   "domain": "AI Live",
+   "priority": "P1",
+   "historical": "PARCIAL",
+   "batch": "B5",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C48",
+   "title": "App Expo, distribución y cobros",
+   "domain": "Móvil",
+   "priority": "P2",
+   "historical": "PARCIAL",
+   "batch": "C2",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C49",
+   "title": "Animales, lotes, costos, tareas y offline",
+   "domain": "Agro",
+   "priority": "P0",
+   "historical": "PARCIAL",
+   "batch": "A3",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C50",
+   "title": "Asistente electricidad de campo",
+   "domain": "Campo",
+   "priority": "P2",
+   "historical": "SOLO_DISEÑADA",
+   "batch": "C2",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C51",
+   "title": "ResourceScope y ciclo de vida transversal",
+   "domain": "Arquitectura",
+   "priority": "P0",
+   "historical": "PARCIAL",
+   "batch": "A3",
+   "current_truth": "MERGEADO y DESPLEGADO — sigue PARTIAL (sin smoke autenticado multi-tenant/multi-org). Etapa 1 (#726, e0f2618; desplegada 7c9df29). Etapa 2a (#742, de33e974): comparaciones de orgId a mano que deciden acceso en jobs, materials, incidents, change-orders, contracts y reservations migradas a sameOrg (cierra el caso '' === '' en assertTransitionAuthorized); desplegada en de33e974 (Railway Deploy run 36893918128: gate de provenance success, API/Web gitSha === DEPLOY_SHA). Etapa 2b (#743, 4c80d8fe): buildops-plan-approval, buildops-legacy-promotion, intake-operations-bridge, travel, bids, budget-intelligence, live-sessions.resource-access y ratings migrados a sameOrg; desplegada en 4c80d8fe (run 36906234546: 4 servicios SUCCESS, gate de provenance success, API/Web gitSha === DEPLOY_SHA, sin errores de arranque). Pruebas negativas de org vacía/cross-org en unit tests; NO hay smoke funcional autenticado con dos tenants/orgs. Etapa 2c (originator, users, contributor-program, domain-events): inventariada, no autorizan por org (propiedad por userId/OPS_ADMIN/tenant); solo pruebas y spec, MERGEADA en #744 (cae8ac49; sin cambios de código de producción). workspace-memory (#747, cfddc36b): MERGEADA y DESPLEGADA. WorkspaceMemoryAccessPolicy aplica tenant + ProjectScope antes de leer/buscar/listar (otro tenant ⇒ 404; otra org del mismo tenant ⇒ 403; org vacía nunca concede; orgId es provenance, no ACL; query() ya no filtra por org; queryAcrossTenant solo OPS_ADMIN del mismo tenant; agent-memory por proyecto con la misma regla). Verificada con pruebas unitarias (13) y smoke LOCAL con Postgres real y la API arrancada (2 tenants, orgs cliente/profesional/otra) — NO en producción. Etapa 3A (#748, 8163825c): ResourceScopeResolver canónico (resolveProjectScope/Job/Dispute, siempre filtrado por tenant), primer consumidor WorkspaceMemoryAccessPolicy; migración de los demás resolutores duplicados pendiente y gradual; desplegada en 8163825c (Railway Deploy run 37024403026: 4 servicios SUCCESS, gate de provenance success, API/Web gitSha === DEPLOY_SHA, sin errores de arranque). Etapa 3B (guarda de arquitectura informativa/report-only, PR de CI separado #749): en revisión, NO mergeada ni contada como hecha; convertirla en bloqueante será otro PR tras un ciclo verde y revisión de falsos positivos. Pendiente para VERIFIED: smoke autenticado multi-tenant/multi-org EN PRODUCCIÓN (requiere autorización del dueño o usuarios de prueba) y la migración gradual de resolutores. | Anterior: MERGEADO en main (#726, e0f2618): etapa 1 (contrato común + 5 políticas delegadas, defensa en profundidad por ownership.tenantId). DESPLEGADO (7c9df29) — sigue PARTIAL: falta smoke funcional dirigido; etapas 2–3 pendientes. | Histórico: PARTIAL — etapa 1 en PR claude/c51-resource-scope: contrato común common/resource-scope.ts (OPS_ADMIN no cruza tenants; cross-tenant 404; org vacía nunca coincide) y políticas de evidence, milestones, disputes, projects y liens delegadas con paridad probada; cierra el caso '' === '' en 5 políticas. Etapas 2 (resto de políticas y comparaciones manuales de orgId) y 3 (resolutor único + guarda de arquitectura en CI, requiere PR de CI autorizado) pendientes",
+   "evidence": {
+    "code": "partial — etapas 1, 2a, 2b, 2c, workspace-memory (#747) y 3A (resolver, #748) entregadas; migración gradual de resolutores y 3B (guarda informativa, PR #749 en revisión) pendientes",
+    "ci": "PR checks green en #726, #742, #743, #744, #747 y #748",
+    "merge": "#726 e0f2618; #742 de33e974c88a9f2db9255277f2cdb37ecbc89c3a; #743 4c80d8fefe47c18b6fb40c422bffd3b6b3cce7b0; #744 cae8ac49d083dc83a2fc6ad2a0f69cd0000c36cf; #747 cfddc36bffd5c8f8dc78e12fba78ff2920f4fc50; #748 8163825c87d06288aa4faa31057361257f29ec44",
+    "deploy": "etapa 1 desplegada (7c9df29); etapas 2a y 2b desplegadas (de33e974: run 36893918128; 4c80d8fe: run 36906234546; gate de provenance success, 4 servicios SUCCESS); #744 (solo pruebas/spec) sin cambio de runtime — workspace-memory (#747) y 3A (#748) desplegadas en 8163825c (run 37024403026; API f55ce430, web 691f9368, worker b07c1b20, vision e82fd34c en SUCCESS; gate de provenance success) — sin smoke autenticado multi-tenant/multi-org en producción (el smoke multi-tenant de workspace-memory fue LOCAL)",
+    "activation": false,
+    "note": "Los campos describen las etapas entregadas; NO declaran C51 completa ni verificada. Pasa a VERIFIED solo con smoke autenticado multi-tenant/multi-org en producción (requiere autorización del dueño o usuarios de prueba) y la migración gradual de resolutores acordada."
+   }
+  },
+  {
+   "id": "C52",
+   "title": "Outbox y consumidores",
+   "domain": "Eventos",
+   "priority": "P1",
+   "historical": "PARCIAL",
+   "batch": "B5",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C53",
+   "title": "Postgres servicio persistente",
+   "domain": "Datos",
+   "priority": "P1",
+   "historical": "REAL",
+   "batch": "B5",
+   "current_truth": "REAL — Postgres online (postgres-ssl:18, 1 réplica, 5 GB); 1 warning sin detalle; plan de restauración pendiente (C55)",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C54",
+   "title": "Redis servicio persistente",
+   "domain": "Datos",
+   "priority": "P2",
+   "historical": "REAL",
+   "batch": "C3",
+   "current_truth": "REAL — Redis en sfo vs servicios en us-east4 (dependencia regional confirmada); recuperación de colas no verificada",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C55",
+   "title": "Backups y restauración Postgres/archivos",
+   "domain": "Continuidad",
+   "priority": "P0",
+   "historical": "PARCIAL",
+   "batch": "A5",
+   "current_truth": "PARTIAL — inventario hecho (3 volúmenes 5 GB, archivos en /data local, sin buckets); estado de backups/restauración DESCONOCIDO vía MCP: requiere confirmación del operador",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C56",
+   "title": "Migraciones y esquema productivo",
+   "domain": "Datos",
+   "priority": "P0",
+   "historical": "PARCIAL",
+   "batch": "A5",
+   "current_truth": "PARTIAL — evidencia de producción (logs de arranque de la API, solo lectura): migración 105 (20260930230513, deploy 70ca14b8); 106 (20261001020000_c11_worker_verification_per_tenant) aplicada en el deploy de 7c9df29 (2026-10-01T02:37Z, '106 migrations found', 'migrate deploy completo'); 107 (20261001100000_c39_ai_model_price_catalog, con CREATE EXTENSION btree_gist) aplicada el 2026-10-01T11:23:09Z en el deployment b024794c y confirmada sin pendientes en bf6ee8ee (11:41:17Z, '107 migrations found / No pending migrations to apply'). Sin errores de migración en esos arranques. GAP: la deriva schema↔tablas de PRODUCCIÓN sigue sin medirse (la ausencia de drift se verificó solo en una base local con las 107 migraciones: 'No difference detected'); sin acceso de lectura a la base de producción desde esta sesión. | Histórico: PARTIAL — evidencia prod: migración 105 (20260930230513) aplicada con 'migrate deploy completo' (deploy 70ca14b8); antes 104 sin pendientes; deriva schema↔tablas no medida",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C57",
+   "title": "Deduplicación histórica",
+   "domain": "Datos",
+   "priority": "P0",
+   "historical": "PARCIAL",
+   "batch": "A5",
+   "current_truth": "PARTIAL — runtime verificado para el arranque: en Railway MCP (solo lectura) 2026-10-01T01:1xZ, deployment API f27a2abb (commit a20c25b = #719, incluye #714–#719) SUCCESS el arranque NO ejecuta dedup (sin ninguna línea 'dedup'; '105 migrations found', 'No pending migrations to apply', 'migrate deploy completo'); el deployment anterior (3b88637b) sí logueaba 'dedup complete'. Falta: backup/restore verificado antes de cualquier `--apply` del mantenimiento (C55), y retirar servicios huérfanos db-dedup-script y t051-t058a (decisión del dueño)",
+   "evidence": {
+    "code": true,
+    "ci": "PR checks green",
+    "merge": "31471b72973f650f0d4eabfb45272615bfdadeff",
+    "deploy": "Railway MCP (solo lectura) 2026-10-01T01:1xZ, deployment API f27a2abb (commit a20c25b = #719, incluye #714–#719) SUCCESS",
+    "activation": true,
+    "pr": "#714"
+   }
+  },
+  {
+   "id": "C58",
+   "title": "Cabeceras de protección web",
+   "domain": "Seguridad web",
+   "priority": "P1",
+   "historical": "PARCIAL",
+   "batch": "B5",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C59",
+   "title": "Permisos cámara/micrófono/ubicación web",
+   "domain": "Campo / Live",
+   "priority": "P1",
+   "historical": "PARCIAL",
+   "batch": "B5",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C60",
+   "title": "Inventarios públicos de módulos",
+   "domain": "Producto",
+   "priority": "P2",
+   "historical": "DUPLICADA",
+   "batch": "C1",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C61",
+   "title": "Bilingüismo y unidades de trabajo",
+   "domain": "Experiencia",
+   "priority": "P2",
+   "historical": "PARCIAL",
+   "batch": "C2",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C62",
+   "title": "CI, SDD, dependencias y cobertura",
+   "domain": "Calidad",
+   "priority": "P0",
+   "historical": "PARCIAL",
+   "batch": "A5",
+   "current_truth": "PARTIAL — primer paso en PR claude/ci-provenance-informational: gate de procedencia en runtime en modo informativo (ver C02). Pendiente: dependencias, cobertura y guarda de arquitectura de ResourceScope (C51 etapa 3) en CI, siempre en PRs de CI aislados y primero informativos",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C63",
+   "title": "Métricas de siete servicios 24h",
+   "domain": "Observabilidad",
+   "priority": "P2",
+   "historical": "REAL",
+   "batch": "C3",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C64",
+   "title": "Proyectos secundarios y cambios preparados",
+   "domain": "Infraestructura",
+   "priority": "P2",
+   "historical": "PARCIAL",
+   "batch": "C2",
+   "current_truth": "PARTIAL — recursos huérfanos en Railway: db-dedup-script (vacío), t051-t058a-onetime-count, parche staged vacío",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C65",
+   "title": "Escritores paralelos de TimeEntry",
+   "domain": "Labor",
+   "priority": "P1",
+   "historical": "DUPLICADA",
+   "batch": "B2",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C66",
+   "title": "Frontend canónico y superficies de transición",
+   "domain": "Superficies",
+   "priority": "P2",
+   "historical": "DUPLICADA",
+   "batch": "C1",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C67",
+   "title": "Rutas canónica y EvidenceGateway",
+   "domain": "Evidence",
+   "priority": "P0",
+   "historical": "DUPLICADA",
+   "batch": "A4",
+   "current_truth": "PARTIAL — en main: #717 (bucketKey tenant-scoped) y #722 (EvidenceGateway como adaptador de EvidenceService.register: outbox evidence.uploaded.v1, audit, idempotencia; contrato validado de metadataJson ≤64 KB sin claves reservadas; browser-agent guarda la captura como archivo tenant-scoped). Falta: deprecar POST /v1/evidence/upload a favor de POST /v1/evidence + ruta de validación, despliegue de #722 y smoke autenticado",
+   "evidence": {
+    "code": true,
+    "ci": "PR checks green; main auto-deploy (Railway Deploy/Production Health Gate) — sin smoke autenticado",
+    "merge": "5fb65e3e2a792102ac40bce9b5cee66b1bfd252c",
+    "deploy": "#717 desplegado en Railway MCP (solo lectura) 2026-10-01T01:1xZ, deployment API f27a2abb (commit a20c25b = #719, incluye #714–#719) SUCCESS",
+    "activation": false,
+    "pr": "#722"
+   }
+  },
+  {
+   "id": "C68",
+   "title": "Ledger compartido F5 doble entrada",
+   "domain": "Economía",
+   "priority": "P1",
+   "historical": "SOLO_DISEÑADA",
+   "batch": "B4",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C69",
+   "title": "Gateway MCP externo",
+   "domain": "Integraciones",
+   "priority": "P3",
+   "historical": "SOLO_DISEÑADA",
+   "batch": "D1",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C70",
+   "title": "Planificación, DAG y control de Forge",
+   "domain": "Forge",
+   "priority": "P2",
+   "historical": "PARCIAL",
+   "batch": "C2",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C71",
+   "title": "Forge LiveToolAdapter",
+   "domain": "Forge",
+   "priority": "P3",
+   "historical": "SOLO_DISEÑADA",
+   "batch": "D1",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C72",
+   "title": "Backend de objetos S3/R2",
+   "domain": "Storage",
+   "priority": "P1",
+   "historical": "SOLO_DISEÑADA",
+   "batch": "B4",
+   "current_truth": "DESIGNED_ONLY — confirmado: sin buckets; almacenamiento solo en volumen local /data",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C73",
+   "title": "Satélites, SDK y webhooks salientes",
+   "domain": "Integraciones",
+   "priority": "P2",
+   "historical": "PARCIAL",
+   "batch": "C2",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C74",
+   "title": "Clima, avisos y agenda",
+   "domain": "Operación",
+   "priority": "P2",
+   "historical": "PARCIAL",
+   "batch": "C2",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C75",
+   "title": "Materiales, viajes, facturas y gastos",
+   "domain": "Operación",
+   "priority": "P2",
+   "historical": "PARCIAL",
+   "batch": "C2",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C76",
+   "title": "Push y navegación móvil",
+   "domain": "Comunicaciones",
+   "priority": "P2",
+   "historical": "PARCIAL",
+   "batch": "C2",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C77",
+   "title": "Browser Agent de inspección",
+   "domain": "IA",
+   "priority": "P2",
+   "historical": "PARCIAL",
+   "batch": "C2",
+   "current_truth": "PARTIAL — en main (#702): subida de evidencia del Browser Agent verifica proyecto",
+   "evidence": {
+    "code": false,
+    "ci": "PR checks green; main auto-deploy (Railway Deploy/Production Health Gate) — sin smoke autenticado",
+    "merge": "f36a22bd6e90f11c6ef17ddf84cabe281c873287",
+    "deploy": "auto-deploy on merge to main (per GitHub Actions); runtime not verified from sandbox",
+    "activation": false,
+    "pr": "#702"
+   }
+  },
+  {
+   "id": "C78",
+   "title": "Conocimiento repo/runtime y Graphify",
+   "domain": "Knowledge",
+   "priority": "P2",
+   "historical": "PARCIAL",
+   "batch": "C2",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C79",
+   "title": "Registro único y verdad de entrega",
+   "domain": "Gobierno",
+   "priority": "P1",
+   "historical": "PARCIAL",
+   "batch": "B5",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  },
+  {
+   "id": "C80",
+   "title": "Propagación política local-only",
+   "domain": "Privacidad IA",
+   "priority": "P0",
+   "historical": "ROTA",
+   "batch": "A1",
+   "current_truth": "VERIFIED (por criterio de cierre) — restricciones de privacidad antes de overrides/fallbacks y prueba de denegación cuando falla el modelo local (#698), desplegado. Smoke destructivo en producción (Ollama caído): no ejecutado (columna aparte)",
+   "evidence": {
+    "code": true,
+    "ci": "PR checks green; main auto-deploy (Railway Deploy/Production Health Gate) — sin smoke autenticado",
+    "merge": "21ccbebb9ba295f05cbe9335140385c0952d1c7f",
+    "deploy": "en producción a nivel de commit: deploy aebd7ed4 (87fa20b), SUCCESS; sin smoke autenticado",
+    "activation": false,
+    "smoke_destructive_prod": "no ejecutado"
+   }
+  },
+  {
+   "id": "C81",
+   "title": "Experimentation (flags, cohortes, guardrails, rollback)",
+   "domain": "Experimentación",
+   "priority": "P3",
+   "historical": "NUEVA",
+   "batch": "E1",
+   "current_truth": "NOT_STARTED",
+   "evidence": {
+    "code": false,
+    "ci": false,
+    "merge": null,
+    "deploy": false,
+    "activation": false
+   }
+  }
+ ],
+ "updated": "2026-10-01",
+ "merge_shas": {
+  "#698": "21ccbebb9ba295f05cbe9335140385c0952d1c7f",
+  "#700": "2797188c4badfc933c80ac763464b54f4fa5a989",
+  "#701": "87fa20b06e1d94cc633b1d4b2a0341b43102a0ce",
+  "#702": "f36a22bd6e90f11c6ef17ddf84cabe281c873287",
+  "#703": "a52bca61611f1a5eeb152ad2545334d563bb43f1",
+  "#704": "ee8c3d9abfe74d85501a36d4ac8d0f111a7f0bd8",
+  "#705": "5b82a5b9795bbfcf339be7cd06af4c85fa72794c",
+  "#706": "08aed04fba0a58880e83a105a75cf20235b82892",
+  "#708": "0d7b8d481b276ad4cd60b8a1fe94ae94a595ddcf",
+  "#709": "6312454a27b981ec0bd46f6c406cdb13fff1c185",
+  "#710": "aecbd8dd7e885022dd1b46e913cb01cfd82f7cb8",
+  "#711": "81110acb3a52f5933506f6c15909720640e1627c",
+  "#713": "2f451a15f3cdf47a8c3e4fe1ef198d506fe9d80e",
+  "#714": "31471b72973f650f0d4eabfb45272615bfdadeff",
+  "#715": "0b97dc4b41af915041a1f6eb47c52e37e6f3a11c",
+  "#716": "edc63eb4945dcec26c3c10532b0b8ad9cadc418e",
+  "#726": "e0f26185b9aa81a231a61ac6e0c3d8bc6b687c36",
+  "#727": "de89db4d7504cee69619e5875611631dff7ef0c0",
+  "#728": "862b380d414578d08fcdf548a5dc41d0b398989f",
+  "#729": "4c8acd49b171f80bcfbe1568d8b0d2915223a276",
+  "#733": "7a823ae8a4395f5e1961024bd410d1c73286a473",
+  "#734": "e4c73228ac7a72b4ed69f05759b6e1442f57f2fd",
+  "#735": "b2d58ce62095b49ede95661c376061264739e511",
+  "#736": "6d3f594cb22f019cb724fe74dc1b46776dc204b7",
+  "#737": "92d8e9ea0bfe941f1477e7010f2f1c20b6af83b3",
+  "#738": "87e5ac162d8e618895be40ac7c93360dd3fe7d61",
+  "#741": "f495713bc42c3ae903e3758a1a45a1a5f6e3f074",
+  "#742": "de33e974c88a9f2db9255277f2cdb37ecbc89c3a",
+  "#743": "4c80d8fefe47c18b6fb40c422bffd3b6b3cce7b0",
+  "#744": "cae8ac49d083dc83a2fc6ad2a0f69cd0000c36cf",
+  "#745": "4bcdabdf52e1de3fab643561a83b5583ec123215",
+  "#746": "19c476d418783a6970a1877b2f24c4b79e07d171",
+  "#747": "cfddc36bffd5c8f8dc78e12fba78ff2920f4fc50",
+  "#748": "8163825c87d06288aa4faa31057361257f29ec44"
+ },
+ "prod_readonly_evidence": "docs/reportes/2026-09-30_prod-readonly-evidence-c53-c57.md",
+ "deploy_evidence": {
+  "api": "f55ce430-764b-46bc-8d59-bf984e344462",
+  "web": "691f9368-f8f2-4a14-bebe-f9cbe23262c2",
+  "worker": "b07c1b20-2a2d-4097-b997-180ded83cbeb",
+  "vision": "e82fd34c-eeb9-48bf-8023-0c894c8034ca",
+  "commit": "8163825c87d06288aa4faa31057361257f29ec44",
+  "checked_at": "2026-10-02T15:25Z",
+  "migration_applied": "20261001100000_c39_ai_model_price_catalog",
+  "migration_applied_in": "deployment API b024794c (commit 6d3f594c, #736) a las 2026-10-01T11:23:09Z: 'Applying migration `20261001100000_c39_ai_model_price_catalog`' + 'migrate deploy completo', sin error de CREATE EXTENSION btree_gist; deployment bf6ee8ee (92d8e9ea) a las 11:41:17Z: '107 migrations found' + 'No pending migrations to apply'",
+  "provenance_gate": "Railway Deploy run 37024403026, paso 'Runtime provenance gate (blocking)' success: API HTTP 200 gitSha=8163825c… deploymentId f55ce430…; web HTTP 200 gitSha=8163825c… deploymentId 691f9368…; imageDigest unknown (warning, gap abierto aparte). Despliegue previo 4c80d8fe: run 36906234546."
+ },
+ "runtime_snapshot": {
+  "checked_at": "2026-10-02T15:25Z",
+  "api_active": "f55ce430-764b-46bc-8d59-bf984e344462",
+  "api_active_commit": "8163825c87d06288aa4faa31057361257f29ec44",
+  "note": "Railway MCP solo lectura + logs del job health-check. 4 servicios SUCCESS en 8163825c (#747 workspace-memory + #748 resolver); sin errores de arranque en la API (filtro 'rror' vacío). Flags sensibles sin tocar (PAYMENTS_RELEASE_COMMAND, reconciliación con escritura, UPLOADS_SIGNED_GET_MODE, AI_PRICING_CATALOG_MODE). La clave real STRIPE_SECRET_KEY sigue pendiente del dueño."
+ }
+}

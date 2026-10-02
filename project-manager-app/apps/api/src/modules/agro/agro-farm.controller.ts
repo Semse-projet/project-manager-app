@@ -7,6 +7,7 @@ import { ok } from "../../common/api-response.js";
 import { resolveRequestId } from "../../common/request-id.js";
 import { RequirePermissions } from "../../common/permissions.decorator.js";
 import { resolveRequestContext } from "../../common/request-context.js";
+import { parseWithSchema } from "../../common/zod-validation.js";
 import { AGRO_UNIT_TYPES, AgroFarmService } from "./agro-farm.service.js";
 import { parsePositiveInt } from "../../common/parse-query.js";
 
@@ -52,7 +53,7 @@ export class AgroFarmController {
   @RequirePermissions("agro:write")
   async createFarm(@Body() body: unknown, @Req() req: any) {
     const ctx = resolveRequestContext(req);
-    const input = createFarmSchema.parse(body);
+    const input = parseWithSchema(createFarmSchema, body);
     const farm = await this.service.createFarm({ ownerId: ctx.userId, tenantId: ctx.tenantId, ...input });
     return ok(resolveRequestId(req.headers ?? {}), { farm });
   }
@@ -73,7 +74,7 @@ export class AgroFarmController {
     @Req() req: any,
   ) {
     const ctx = resolveRequestContext(req);
-    const input = updateFarmSchema.parse(body);
+    const input = parseWithSchema(updateFarmSchema, body);
     const farm = await this.service.updateFarm(farmId, ctx.userId, input);
     return ok(resolveRequestId(req.headers ?? {}), { farm });
   }
@@ -104,7 +105,7 @@ export class AgroFarmController {
     @Req() req: any,
   ) {
     const ctx = resolveRequestContext(req);
-    const input = createUnitSchema.parse(body);
+    const input = parseWithSchema(createUnitSchema, body);
     const unit = await this.service.createUnit(farmId, ctx.userId, input);
     return ok(resolveRequestId(req.headers ?? {}), { unit });
   }
@@ -125,7 +126,7 @@ export class AgroFarmController {
     @Req() req: any,
   ) {
     const ctx = resolveRequestContext(req);
-    const input = updateUnitSchema.parse(body);
+    const input = parseWithSchema(updateUnitSchema, body);
     const unit = await this.service.updateUnit(unitId, ctx.userId, input);
     return ok(resolveRequestId(req.headers ?? {}), { unit });
   }

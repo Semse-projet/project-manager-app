@@ -5,6 +5,7 @@ import {
   Briefcase, CheckCircle2, Clock, DollarSign, Filter, MapPin,
   RefreshCw, Search, Send, Star, Users, X, Zap, ChevronRight,
 } from "lucide-react";
+import { ErrorState } from "@semse/ui";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -360,7 +361,7 @@ export default function ClientMarketplacePage() {
         ))}
       </div>
 
-      {error && <div style={{ padding: "10px 14px", background: "rgba(239,68,68,.1)", borderRadius: 10, fontSize: 12, color: "#fca5a5", marginBottom: 16 }}>{error}</div>}
+      {error && <ErrorState message={error} className="mb-4" />}
 
       {tab === "jobs" && (
         <div style={{ display: "grid", gap: 12 }}>

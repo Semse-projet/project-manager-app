@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import type { AiGenerateRequest } from "../dto/ai-generate-request.dto.js";
 import { getEnabledModels } from "../registry/model-registry.js";
+import { requiresPrivateProvider } from "./privacy-policy.js";
 
 export type AiModelRoute = {
   primaryModelSlug: string;
@@ -23,14 +24,10 @@ export class AiModelRouterService {
     // SPEC-GTW-001 §2: this was previously enforced only for "local_only",
     // leaving "sensitive"/"restricted" requests to fall through to the
     // taskType routing below with zero privacy enforcement.
-    if (
-      request.privacyLevel === "local_only" ||
-      request.privacyLevel === "sensitive" ||
-      request.privacyLevel === "restricted"
-    ) {
+    if (requiresPrivateProvider(request)) {
       return {
         primaryModelSlug: "ollama-local",
-        reason: `Privacy level "${request.privacyLevel}" requires a private/local provider.`,
+        reason: `Privacy constraint (${request.privacyLevel ?? (request.privacyCritical ? "privacyCritical" : "localOnly")}) requires a private/local provider.`,
       };
     }
 

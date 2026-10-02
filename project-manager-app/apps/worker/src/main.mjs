@@ -106,6 +106,7 @@ const PI_RETENTION_INTERVAL_MS = 24 * 60 * 60 * 1_000; // PI-03.2: retención di
 const PI_ENGINES_INTERVAL_MS = 6 * 60 * 60 * 1_000; // PI-07/08: engines cada 6h
 const LIEN_DEADLINE_CHECK_INTERVAL_MS = 60 * 60 * 1_000; // m2.1-lien-rights: cada hora
 const WEATHER_CHECK_INTERVAL_MS = 60 * 60 * 1_000; // m2.3-weather: cada hora
+const PAYMENTS_RECONCILE_INTERVAL_MS = 15 * 60 * 1_000; // ADR-041 2b: PENDING estancados, cada 15 min
 
 let shouldStop = false;
 let reclaimTimer;
@@ -116,6 +117,7 @@ let curatorTimer;
 let piRetentionTimer;
 let lienDeadlineTimer;
 let weatherCheckTimer;
+let paymentsReconcileTimer;
 let piEnginesTimer;
 let authState = {
   accessToken: null,
@@ -181,7 +183,7 @@ async function main() {
   // ADR-030: worker has no HTTP surface to expose /health-style provenance
   // on, so gitSha/buildTime are logged at boot instead — queryable via
   // `railway logs` the same way API/Web expose theirs over HTTP.
-  const { gitSha, buildTime } = getDeployProvenance();
+  const { gitSha, buildTime, deploymentId, environment, imageDigest } = getDeployProvenance();
   console.log(JSON.stringify({
     level: "info",
     service: "semse-worker",
@@ -191,6 +193,9 @@ async function main() {
     nodeEnv: process.env.NODE_ENV,
     gitSha,
     buildTime,
+    deploymentId,
+    environment,
+    imageDigest,
     apiBaseUrl: config.apiBaseUrl,
     redisUrl: maskRedisUrl(config.redisUrl),
     authSecret: env.AUTH_SECRET ? `SET(len=${env.AUTH_SECRET.length})` : "NOT_SET",
@@ -369,6 +374,15 @@ async function main() {
     lienDeadlineTimer = setInterval(() => { void runLienDeadlineCheckSafe(); }, LIEN_DEADLINE_CHECK_INTERVAL_MS);
   }
 
+  // ADR-041 slice 2b — comprobacion de RELEASE PENDING estancados cada ~15 min,
+  // solo con el kill switch activo (apagado por defecto). SOLO LECTURA sobre
+  // dinero: la API detecta, alerta y audita; jamas cambia estados ni reintenta
+  // pagos. La resolucion es humana (docs/runbooks/ESCROW_RELEASE_RECONCILIATION.md).
+  if (process.env.PAYMENTS_RECONCILE_ENABLED === "true") {
+    void runPaymentsReconcileSafe();
+    paymentsReconcileTimer = setInterval(() => { void runPaymentsReconcileSafe(); }, PAYMENTS_RECONCILE_INTERVAL_MS);
+  }
+
   // m2.3-weather Bloque 2.3.A — chequeo de clima cada hora para proyectos
   // IN_PROGRESS con coordenadas, solo con el kill switch activo. Push
   // notifications, auto-halt y change orders (Bloques 2.3.B/2.3.C) no están
@@ -406,6 +420,7 @@ async function main() {
   if (piEnginesTimer) clearInterval(piEnginesTimer);
   if (lienDeadlineTimer) clearInterval(lienDeadlineTimer);
   if (weatherCheckTimer) clearInterval(weatherCheckTimer);
+  if (paymentsReconcileTimer) clearInterval(paymentsReconcileTimer);
 
   await worker.close();
   await developerRuntimeWorker.close();
@@ -539,6 +554,23 @@ async function runLienDeadlineCheckSafe() {
   } catch (err) {
     logger.warn({ error: err instanceof Error ? err.message : String(err) },
       "lien deadline check failed (non-fatal)");
+  }
+}
+
+async function runPaymentsReconcileSafe() {
+  try {
+    const response = await postJson("/v1/admin/payments/release-reconcile/check", {});
+    const data = response?.data ?? {};
+    if ((data.total ?? 0) > 0) {
+      // Hay RELEASE PENDING estancados: nivel warn para que lo recoja la alerta de logs.
+      logger.warn({ total: data.total, counts: data.counts, alerted: data.alerted, suppressed: data.suppressed },
+        "escrow release reconcile: stale PENDING releases need human review");
+    } else {
+      logger.info({ total: 0 }, "escrow release reconcile: no stale PENDING releases");
+    }
+  } catch (err) {
+    logger.warn({ error: err instanceof Error ? err.message : String(err) },
+      "escrow release reconcile check failed (non-fatal)");
   }
 }
 

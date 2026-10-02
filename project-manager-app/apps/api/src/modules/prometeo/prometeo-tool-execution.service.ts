@@ -658,6 +658,7 @@ export class PrometeoToolExecutionService {
           milestoneId: requiredString(input, "milestoneId"),
           amount: optionalNumber(input, "amount"),
           requestId,
+          source: "agent",
         });
 
       default:

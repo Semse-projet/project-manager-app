@@ -52,7 +52,6 @@ export class KnowledgeService {
 
   async listWorkspaceMemory(input: {
     tenantId: string;
-    orgId: string;
     workspaceId: string;
     repoId?: string;
     runId?: string;
@@ -62,7 +61,6 @@ export class KnowledgeService {
   }) {
     const items = await this.workspaceMemoryRepository.query({
       tenantId: input.tenantId,
-      orgId: input.orgId,
       workspaceId: input.workspaceId,
       repoId: input.repoId,
       runId: input.runId,

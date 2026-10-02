@@ -21,6 +21,7 @@ import type {
   BuildOpsLegacyPromotionResult,
   PromoteApprovedPlanToLegacyInput,
 } from "./buildops-legacy-promotion.types.js";
+import { sameOrg } from "../../common/resource-scope.js";
 
 type StoredPlan = {
   id: string;
@@ -457,7 +458,7 @@ export class BuildOpsLegacyPromotionService {
     if (actor.roles.includes("OPS_ADMIN")) {
       return;
     }
-    if (!plan.jobId || !plan.job || plan.job.clientOrgId !== actor.orgId) {
+    if (!plan.jobId || !plan.job || !sameOrg(plan.job.clientOrgId, actor.orgId)) {
       throw new ForbiddenException("actor is not allowed to promote this BuildOps plan");
     }
   }

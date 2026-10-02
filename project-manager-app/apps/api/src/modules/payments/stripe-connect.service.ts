@@ -46,7 +46,7 @@ export class StripeConnectService {
     this.prisma = prisma;
     const secretKey = process.env.STRIPE_SECRET_KEY?.trim();
     this.stripe = secretKey
-      ? new Stripe(secretKey, { apiVersion: "2026-06-24.dahlia" })
+      ? new Stripe(secretKey, { apiVersion: "2026-08-26.dahlia" })
       : null;
     if (!this.stripe) {
       this.logger.warn("[StripeConnect] STRIPE_SECRET_KEY not set — running in mock mode");
@@ -293,6 +293,11 @@ export class StripeConnectService {
     const message = rawMessage.length > 220 ? `${rawMessage.slice(0, 220)}...` : rawMessage;
     const code = typeof record.code === "string" ? record.code : undefined;
     const type = typeof record.type === "string" ? record.type : undefined;
+    // Un fallo de autenticación es de CONFIGURACIÓN del servidor: no se devuelve al cliente el texto de
+    // Stripe (incluye un prefijo enmascarado de la clave); el detalle queda en el log del servidor.
+    if (type === "StripeAuthenticationError") {
+      return "La integración con Stripe no está configurada correctamente. Contacta a soporte.";
+    }
     const parts = [
       code ? `code=${code}` : null,
       type ? `type=${type}` : null,

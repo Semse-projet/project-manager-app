@@ -4,13 +4,16 @@ import {
   Get,
   Param,
   Body,
+  Req,
   UseGuards,
   Logger,
   BadRequestException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { AuthenticatedAccess } from '../../common/permissions.decorator.js';
+import { resolveRequestContext } from '../../common/request-context.js';
 import { LiensService } from './liens.service.js';
+import { LienAccessService } from './lien-access.service.js';
 
 /**
  * REST Controller para Liens — calendarios de preliminary notices.
@@ -25,7 +28,10 @@ import { LiensService } from './liens.service.js';
 export class LiensController {
   private readonly logger = new Logger(LiensController.name);
 
-  constructor(private readonly liensService: LiensService) {}
+  constructor(
+    private readonly liensService: LiensService,
+    private readonly access: LienAccessService,
+  ) {}
 
   /**
    * POST /v1/projects/:projectId/liens/calendar
@@ -35,6 +41,7 @@ export class LiensController {
    */
   @Post('calendar')
   async createLienCalendar(
+    @Req() req: { headers?: Record<string, unknown> },
     @Param('projectId') projectId: string,
     @Body()
     body: {
@@ -43,6 +50,7 @@ export class LiensController {
     }
   ) {
     this.logger.log(`POST /liens/calendar: ${projectId} / ${body.stateName}`);
+    await this.access.assertProject(resolveRequestContext(req), projectId, 'pro');
 
     if (!body.stateName) {
       throw new BadRequestException('stateName is required');
@@ -75,8 +83,12 @@ export class LiensController {
    * Obtener todos los calendarios de liens para un proyecto.
    */
   @Get('calendar')
-  async getLienCalendars(@Param('projectId') projectId: string) {
+  async getLienCalendars(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Param('projectId') projectId: string,
+  ) {
     this.logger.log(`GET /liens/calendar: ${projectId}`);
+    await this.access.assertProject(resolveRequestContext(req), projectId, 'read');
 
     try {
       const calendars = await this.liensService.getLienCalendars(projectId);
@@ -99,8 +111,12 @@ export class LiensController {
    * Usado por Payment FSM para verificar gate.
    */
   @Get('waivers')
-  async getLienWaivers(@Param('projectId') projectId: string) {
+  async getLienWaivers(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Param('projectId') projectId: string,
+  ) {
     this.logger.log(`GET /liens/waivers: ${projectId}`);
+    await this.access.assertProject(resolveRequestContext(req), projectId, 'read');
 
     try {
       const waivers = await this.liensService.getLienWaivers(projectId);
@@ -133,11 +149,14 @@ export class LiensController {
    */
   @Post('calendar/:lienCalendarId/status')
   async updateCalendarStatus(
+    @Req() req: { headers?: Record<string, unknown> },
     @Param('projectId') projectId: string,
     @Param('lienCalendarId') lienCalendarId: string,
     @Body() body: { newStatus: string }
   ) {
     this.logger.log(`POST /liens/calendar/:lienCalendarId/status: ${lienCalendarId}`);
+    // Scheduler-style transition: operations admins only, calendar must be in this project.
+    await this.access.assertCalendar(resolveRequestContext(req), projectId, lienCalendarId, 'ops');
 
     if (!body.newStatus) {
       throw new BadRequestException('newStatus is required');

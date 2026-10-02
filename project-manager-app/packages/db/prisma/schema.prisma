@@ -1766,12 +1766,32 @@ model WorkspaceMemoryEntry {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  // ── C85 governance (see AgentMemory above for field semantics) ─────────────
+  sensitivity        String    @default("internal")
+  epistemicStatus    String    @default("remembered_context")
+  confidence         Float?
+  provenance         Json?
+  subjectType        String?
+  subjectId          String?
+  status             String    @default("active")
+  supersedesId       String?
+  supersededById     String?
+  correctedFromId    String?
+  conflictsWith      String[]  @default([])
+  invalidatedAt      DateTime?
+  invalidatedBy      String?
+  invalidationReason String?
+  retentionUntil     DateTime?
+
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, workspaceId, updatedAt])
   @@index([tenantId, workspaceId, kind, updatedAt])
   @@index([tenantId, workspaceId, runId])
   @@index([tenantId, workspaceId, taskId])
+  @@index([tenantId, workspaceId, status])
+  @@index([tenantId, subjectType, subjectId])
+  @@index([tenantId, retentionUntil])
 }
 
 /// Directional graph edge between two KnowledgeFacts.
@@ -1847,6 +1867,7 @@ model AgentWorkPlan {
   rejectedBy  String?
   cancelledAt DateTime?
   cancelledBy String?
+  version     Int       @default(1) // C46 — bumped on every revision of stepsJson
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
@@ -1883,6 +1904,12 @@ model AgentDelegation {
 
 /// Durable agent memory: session summaries, decisions, observations, action proposals.
 /// Scoped by (tenantId, projectId) — never cross-project. Importância 1-5.
+///
+/// C85 (Agent Memory governance): memory is context, never canonical truth or
+/// action authorization on its own (see `docs/specs/knowledge/agent-memory-governance.spec.md`).
+/// The governance fields below let callers distinguish remembered context from
+/// verified fact, track who/what produced a memory, and correct/invalidate/
+/// supersede entries without ever mutating history in place.
 model AgentMemory {
   id              String   @id @default(cuid())
   tenantId        String
@@ -1900,11 +1927,31 @@ model AgentMemory {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
+  // ── C85 governance ──────────────────────────────────────────────────────────
+  sensitivity        String    @default("internal") // public | internal | restricted | confidential
+  epistemicStatus    String    @default("remembered_context") // remembered_context | inference | verified_fact
+  confidence         Float? // 0..1 — only meaningful when epistemicStatus != verified_fact
+  provenance         Json? // { producedBy, method, model?, correlationId? } — how this memory came to exist
+  subjectType        String? // generic entity association, e.g. "project" | "job" | "milestone" | "vendor"
+  subjectId          String?
+  status             String    @default("active") // active | superseded | corrected | invalidated
+  supersedesId       String? // id of the memory this one replaces
+  supersededById     String? // id of the memory that replaced this one
+  correctedFromId    String? // id of the pre-correction version, when status = corrected's successor
+  conflictsWith      String[]  @default([]) // ids of other memories flagged as contradicting this one
+  invalidatedAt      DateTime?
+  invalidatedBy      String?
+  invalidationReason String?
+  retentionUntil     DateTime? // hard deletion boundary driven by sensitivity/retention policy
+
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, projectId, type, updatedAt])
   @@index([tenantId, agentId, sessionId])
   @@index([tenantId, projectId, importanceScore])
+  @@index([tenantId, projectId, status])
+  @@index([tenantId, subjectType, subjectId])
+  @@index([tenantId, retentionUntil])
 }
 
 /// Procedural memory for agents — inspired by Hermes skill_manager_tool.py.
@@ -2354,7 +2401,7 @@ model WorkOrder {
 
 /// Persistent log of every AI model call — enables cost tracking, routing analytics and future training data.
 model AiInteractionLog {
-  id                  String   @id @default(cuid())
+  id                  String        @id @default(cuid())
   tenantId            String?
   agentId             String?
   projectId           String?
@@ -2363,24 +2410,64 @@ model AiInteractionLog {
   provider            String
   modelSlug           String
   modelName           String?
-  inputLength         Int      @default(0)
-  outputLength        Int      @default(0)
+  inputLength         Int           @default(0)
+  outputLength        Int           @default(0)
   inputTokens         Int?
   outputTokens        Int?
-  estimatedCostUsd    Decimal? @db.Decimal(10, 6)
+  estimatedCostUsd    Decimal?      @db.Decimal(10, 6)
   latencyMs           Int?
   routeReason         String?
-  fallbackUsed        Boolean  @default(false)
-  success             Boolean  @default(true)
+  fallbackUsed        Boolean       @default(false)
+  success             Boolean       @default(true)
   errorMessage        String?
   threadId            String?
-  eligibleForTraining Boolean  @default(false)
-  createdAt           DateTime @default(now())
+  eligibleForTraining Boolean       @default(false)
+  // C39 — who/under which policy this route was taken (all additive, nullable).
+  orgId               String?
+  actorRoles          String? // comma-separated roles of the authenticated actor
+  privacyLevel        String? // requested privacy level (local_only | sensitive | ...)
+  policyDecision      String? // private_enforced | standard | denied
+  // C39 — catálogo de precios (aditivo, nullable): qué entrada del catálogo justificó el costo y su base.
+  // `modelName` (arriba) es la identidad real del modelo reportada por el proveedor.
+  priceId             String?
+  costBasis           String? // catalog | unknown (null = cálculo legado o sin intentar)
+  price               AiModelPrice? @relation(fields: [priceId], references: [id], onDelete: Restrict)
+  createdAt           DateTime      @default(now())
 
   @@index([tenantId, taskType, createdAt])
   @@index([provider, modelSlug, createdAt])
   @@index([agentId, projectId, createdAt])
   @@index([threadId])
+  @@index([priceId])
+}
+
+/// C39 — Catálogo GLOBAL de plataforma de precios de modelos de IA (lo que Semse paga al proveedor).
+/// EXCEPCIÓN autorizada por el dueño a la regla de tenantId (solo este modelo). Entradas inmutables:
+/// un cambio de precio cierra la vigencia anterior y abre otra. La exclusión de intervalos solapados,
+/// los CHECK y los triggers de inmutabilidad viven en la migración SQL (Prisma no los modela).
+/// Spec: docs/specs/prometeo/ai-pricing-catalog.spec.md
+model AiModelPrice {
+  id                   String             @id @default(cuid())
+  provider             String
+  modelSlug            String
+  providerModelName    String
+  inputPer1K           Decimal            @db.Decimal(14, 8)
+  outputPer1K          Decimal            @db.Decimal(14, 8)
+  currency             String             @default("USD")
+  /// Vigencia semicerrada [effectiveFrom, effectiveTo); effectiveTo nulo = abierta.
+  effectiveFrom        DateTime
+  effectiveTo          DateTime?
+  pricingSchemaVersion Int                @default(1)
+  metadataJson         Json               @default("{}")
+  /// Fuente oficial del proveedor (D2): url, fecha de publicación (si consta) y de comprobación.
+  sourceUrl            String
+  sourcePublishedAt    DateTime?
+  sourceCheckedAt      DateTime
+  createdBy            String
+  createdAt            DateTime           @default(now())
+  logs                 AiInteractionLog[]
+
+  @@index([provider, modelSlug, providerModelName, effectiveFrom])
 }
 
 // ── Contractor CRM ────────────────────────────────────────────────────────────
@@ -5098,4 +5185,52 @@ model JevDecisionEvent {
   @@index([feature, source, createdAt])
   @@index([feature, mode, agreement])
   @@index([correlationId])
+}
+
+// ── C11: verificación de trabajadores POR TENANT ──────────────────────────────
+// Sustituye al estado GLOBAL de User.verificationStatus (que se mantiene solo
+// como compatibilidad temporal de lectura). Spec: docs/specs/trust/worker-verification-tenant.spec.md
+// Sin FK a Tenant/User a propósito: migración puramente aditiva y de bajo riesgo.
+
+/// Estado de verificación de un trabajador DENTRO de un tenant. Transiciones monotónicas:
+/// unverified -> pending -> verified; `suspended` solo por decisión explícita de OPS.
+model WorkerVerification {
+  id         String    @id @default(cuid())
+  tenantId   String
+  userId     String
+  status     String    @default("unverified") // unverified | pending | verified | suspended
+  verifiedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@unique([tenantId, userId])
+  @@index([tenantId, status])
+}
+
+/// Desafío de atestación: nonce aleatorio de UN SOLO USO con caducidad. Solo se guarda el hash.
+model WorkerVerificationChallenge {
+  id         String    @id @default(cuid())
+  tenantId   String
+  userId     String
+  nonceHash  String    @unique // sha256(nonce) en hex; el nonce en claro nunca se persiste
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([tenantId, userId, createdAt])
+}
+
+/// Historial auditable (append-only) de la verificación de un trabajador en un tenant.
+model WorkerVerificationEvent {
+  id           String   @id @default(cuid())
+  tenantId     String
+  userId       String
+  type         String // challenge_issued | signature_rejected | verified | status_changed
+  fromStatus   String?
+  toStatus     String?
+  actorUserId  String?
+  metadataJson Json?
+  occurredAt   DateTime @default(now())
+
+  @@index([tenantId, userId, occurredAt])
 }

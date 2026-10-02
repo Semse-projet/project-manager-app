@@ -21,6 +21,16 @@ import { NoticeController } from "../dist/modules/liens/notice.controller.js";
 // getLienCalendars()'s include; sendNotice() now delegates to
 // NoticeSendService.sendNotice().
 
+// Access control is covered in lien-access.test.ts; these tests exercise the
+// controller's own behavior, so the access service is an allow-all fake.
+const allowAccess = {
+  async assertProject() {},
+  async assertCalendar() {},
+  async assertWaiver() {},
+  async assertNotice() {},
+} as never;
+const fakeReq = { headers: {}, authContext: { tenantId: "t1", orgId: "org_pro", userId: "u1", roles: ["PRO"] } } as never;
+
 function makeFakeLiensService(calendars: unknown[]) {
   return {
     async getLienCalendars(_projectId: string) {
@@ -47,9 +57,10 @@ test("getNotices flattens notices already included on each calendar instead of r
     {} as never,
     {} as never,
     makeFakeLiensService(calendars) as never,
+    allowAccess,
   );
 
-  const result = await controller.getNotices("proj_1");
+  const result = await controller.getNotices(fakeReq, "proj_1");
 
   assert.equal(result.count, 3);
   assert.deepEqual(
@@ -64,9 +75,10 @@ test("getNotices tolerates a calendar with no notices array", async () => {
     {} as never,
     {} as never,
     makeFakeLiensService(calendars) as never,
+    allowAccess,
   );
 
-  const result = await controller.getNotices("proj_1");
+  const result = await controller.getNotices(fakeReq, "proj_1");
 
   assert.equal(result.count, 0);
   assert.deepEqual(result.data, []);
@@ -79,9 +91,10 @@ test("sendNotice delegates to NoticeSendService.sendNotice (real Lob.com send) i
     {} as never,
     makeFakeNoticeSendService(sentNotice, calls) as never,
     {} as never,
+    allowAccess,
   );
 
-  const result = await controller.sendNotice("proj_1", "notice_1");
+  const result = await controller.sendNotice(fakeReq, "proj_1", "notice_1");
 
   assert.deepEqual(calls, ["notice_1"]);
   assert.equal(result.success, true);
@@ -98,10 +111,11 @@ test("sendNotice propagates NoticeSendService's fail-closed address error instea
       },
     } as never,
     {} as never,
+    allowAccess,
   );
 
   await assert.rejects(
-    () => controller.sendNotice("proj_1", "notice_1"),
+    () => controller.sendNotice(fakeReq, "proj_1", "notice_1"),
     /project job location is missing/,
   );
 });

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Award, CheckCircle, ExternalLink, Search, Shield, Star, Users, Zap } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { HtmlInCanvasPanel } from "@semse/ui";
+import { ErrorState, HtmlInCanvasPanel } from "@semse/ui";
 import type { JobRecordView } from "@semse/schemas";
 import { ClientPageHeader } from "../../../components/client/ClientPageHeader";
 import { CLIENT_ROUTES } from "../../../lib/client-routes";
@@ -447,11 +447,7 @@ export default function ClientProfessionalsPage() {
         </div>
       </HtmlInCanvasPanel>
 
-      {error && (
-        <div style={{ padding: "12px 16px", background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.18)", borderRadius: 12, color: "var(--error)", fontSize: 13 }}>
-          {error}
-        </div>
-      )}
+      {error && <ErrorState message={error} />}
 
       {result && (
         <div style={{ display: "grid", gap: 12 }}>

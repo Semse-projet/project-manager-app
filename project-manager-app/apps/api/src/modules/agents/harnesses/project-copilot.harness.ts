@@ -189,7 +189,6 @@ export class ProjectCopilotHarness {
   ): Promise<ProjectWorkspaceView["preferredProfessional"]> {
     const entries = await this.safeCall(() => this.workspaceMemoryRepository.query({
       tenantId: actor.tenantId,
-      orgId: actor.orgId,
       workspaceId: `job:${jobId}`,
       kinds: ["decision"],
       tags: ["preferred-professional"],
@@ -1065,6 +1064,7 @@ export class ProjectCopilotHarness {
       milestoneId,
       amount: amount > 0 ? amount : undefined,
       requestId: runtime.requestId,
+      source: "agent",
     });
 
     return `Release de escrow ejecutado para milestone '${milestoneId}' con transacción '${result.transaction.id}'.`;

@@ -102,7 +102,7 @@ integración con DB ni E2E Agro.
 | R5 | BFF `api/semse/agro/production/[recordId]` | `v1/agro/production/:id` | Ruta inexistente en API | Documentado (no se usa desde UI) |
 | R6 | `/admin/verticals/agro` | `AgroFarm` | Campos inexistentes y alcance por owner | Documentado (requiere decisión de acceso admin cross-owner) |
 | R7 | Rol `WORKER` | `v1/agro/*` | Sin permisos Agro | **Corregido** para lectura y reporte de campo (ver §5) |
-| R8 | Controllers Agro existentes | `schema.parse(body)` | Un body inválido lanza `ZodError` (no es `HttpException`) → **500** en vez de 400 | Controllers nuevos usan `parseWithSchema` (400). Los existentes quedan documentados (cambio de comportamiento fuera de alcance) |
+| R8 | Controllers Agro existentes | `schema.parse(body)` | Un body inválido lanza `ZodError` (no es `HttpException`) → **500** en vez de 400 | **Corregido**: los 9 controllers que usaban `schema.parse(body)` directo (animal, inventory, evidence, dashboard, farm, production-cycle, economics, task, traceability) ahora usan `parseWithSchema` (400) — mismo patrón que ya usaban incident/workforce/intake |
 | R9 | Miembros de finca | `farms/:id/units`, `animal-groups`, `animals`, `tasks` | Solo el propietario accede: un trabajador no puede elegir contexto ni completar tareas | Nuevo `GET farms/:farmId/incidents/context` para miembros. **Cerrado en T-050** (§6.1): los servicios operativos usan la política de rol de finca |
 | R10 | `GET animals/:id`, `animal-groups/:id`, `tasks/:id`, `evidence/:id`, `inventory/items/:id` | servicio `getX(id)` | **IDOR**: no comprobaban la finca; cualquiera con `agro:read` leía registros ajenos por id | **Corregido en T-050**: `getXForUser(id, userId)` exige ser miembro (404 si no); cubierto en el E2E |
 

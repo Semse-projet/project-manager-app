@@ -2,6 +2,8 @@ import { ConflictException, Injectable, NotFoundException } from "@nestjs/common
 import prismaClientPackage from "@prisma/client";
 import type { Prisma as PrismaTypes } from "@prisma/client";
 import { type PaymentTxnRecord } from "../../common/domain-store.js";
+import { ReleaseAlreadyActiveError } from "./escrow-release.command.js";
+import { evaluateRequiredEvidence, resolveEvidenceRevalidationMode } from "../milestones/evidence-readiness.js";
 import { ActorContextService } from "../../infrastructure/persistence/actor-context.service.js";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { findProjectLinkByJobIdOrThrow, findProjectLinkByProjectIdOrThrow } from "../projects/project-link.repository.js";
@@ -429,6 +431,51 @@ export class PaymentsRepository {
           throw new ConflictException("insufficient escrow funds for release");
         }
 
+        // C18 — revalidacion DENTRO de la misma transaccion que reserva los fondos
+        // (Serializable): el hito debe seguir APPROVED y su evidencia requerida validada.
+        // Cierra la ventana aprobar -> rechazar/cambiar evidencia -> reservar, tanto en
+        // el camino manual como en el auto-release.
+        const milestoneRow = await db.milestone.findUnique({
+          where: { id: input.milestoneId },
+          select: { status: true, evidenceItems: { select: { required: true, status: true } } }
+        });
+        if (!milestoneRow || milestoneRow.status !== "APPROVED") {
+          throw new ConflictException(
+            `milestone '${input.milestoneId}' must be APPROVED to reserve funds (current: ${milestoneRow?.status ?? "not found"})`
+          );
+        }
+        const evidenceMode = resolveEvidenceRevalidationMode();
+        if (evidenceMode !== "off") {
+          const evidence = evaluateRequiredEvidence(milestoneRow.evidenceItems);
+          if (!evidence.complete) {
+            if (evidenceMode === "enforce") {
+              throw new ConflictException({
+                message: "cannot reserve funds: required evidence is not validated",
+                blockers: evidence.blockers
+              });
+            }
+            // eslint-disable-next-line no-console
+            console.warn(JSON.stringify({ event: "release_evidence_shadow_would_block", milestoneId: input.milestoneId, blockers: evidence.blockers }));
+          }
+        }
+
+        // ADR-041 slice 2: a milestone has at most ONE active (PENDING or
+        // SUCCEEDED) RELEASE. Without this, auto-release and a manual release
+        // of the same approved milestone (or two repeated calls) could each
+        // reserve and both trigger a real transfer when the escrow covers
+        // several milestones. Serializable isolation makes the check + create atomic.
+        const active = await db.paymentTxn.findFirst({
+          where: {
+            milestoneId: input.milestoneId,
+            type: "RELEASE",
+            status: { in: ["PENDING", "SUCCEEDED"] }
+          },
+          select: { id: true }
+        });
+        if (active) {
+          throw new ReleaseAlreadyActiveError(input.milestoneId);
+        }
+
         // Reserve only — status stays PENDING until the caller confirms the
         // real provider outcome via finalizeRelease(). The milestone is not
         // marked PAID here: it must wait for confirmed success, otherwise a
@@ -458,6 +505,87 @@ export class PaymentsRepository {
         isolationLevel: Prisma.TransactionIsolationLevel.Serializable
       }
     );
+  }
+
+  /** RELEASE activo (PENDING/SUCCEEDED) de un milestone, para idempotencia/replay. */
+  async findActiveRelease(milestoneId: string): Promise<{ id: string; status: string; providerRef: string; amount: number } | null> {
+    const txn = await this.prisma.paymentTxn.findFirst({
+      where: { milestoneId, type: "RELEASE", status: { in: ["PENDING", "SUCCEEDED"] } },
+      select: { id: true, status: true, providerRef: true, amount: true },
+      orderBy: { createdAt: "desc" }
+    });
+    return txn ? { id: txn.id, status: txn.status, providerRef: txn.providerRef, amount: txn.amount.toNumber() } : null;
+  }
+
+  /** RELEASE (cualquier estado) con esa providerRef exacta (UNIQUE): identidad de idempotencia. */
+  async findReleaseByRef(providerRef: string): Promise<{ id: string; status: string; providerRef: string; amount: number } | null> {
+    const txn = await this.prisma.paymentTxn.findFirst({
+      where: { type: "RELEASE", providerRef },
+      select: { id: true, status: true, providerRef: true, amount: true }
+    });
+    return txn ? { id: txn.id, status: txn.status, providerRef: txn.providerRef, amount: txn.amount.toNumber() } : null;
+  }
+
+  /** Intentos RELEASE FAILED que conservan una referencia con ese prefijo. */
+  async countFailedReleaseAttempts(refPrefix: string): Promise<number> {
+    return this.prisma.paymentTxn.count({
+      where: { type: "RELEASE", status: "FAILED", providerRef: { startsWith: refPrefix } }
+    });
+  }
+
+  /** Registro visible de un RELEASE ya existente (para devolverlo en un replay). */
+  async getReleaseTransaction(transactionId: string): Promise<PaymentTxnRecord> {
+    const txn = await this.prisma.paymentTxn.findUnique({
+      where: { id: transactionId },
+      include: { escrow: { include: { project: true } } }
+    });
+    if (!txn) {
+      throw new NotFoundException(`Payment transaction '${transactionId}' not found`);
+    }
+    return this.toRecord(txn);
+  }
+
+  /** RELEASE PENDING creados antes de `before`: entrada de la reconciliacion proveedor<->DB. */
+  async findStalePendingReleases(before: Date): Promise<Array<{ id: string; tenantId: string; milestoneId: string | null; providerRef: string; amount: number; createdAt: Date }>> {
+    const rows = await this.prisma.paymentTxn.findMany({
+      where: { type: "RELEASE", status: "PENDING", createdAt: { lt: before } },
+      include: { escrow: { select: { project: { select: { tenantId: true } } } } },
+      orderBy: { createdAt: "asc" },
+      take: 200
+    });
+    return rows.map((r) => ({
+      id: r.id,
+      tenantId: r.escrow.project.tenantId,
+      milestoneId: r.milestoneId,
+      providerRef: r.providerRef,
+      amount: r.amount.toNumber(),
+      createdAt: r.createdAt
+    }));
+  }
+
+  /** ADR-041 2b: ya se alerto este PENDING desde `since`? (evita una alerta cada 15 min por el mismo caso). */
+  async hasRecentReleaseReconcileAlert(transactionId: string, since: Date): Promise<boolean> {
+    const found = await this.prisma.auditLog.findFirst({
+      where: { entityType: "PaymentTxn", entityId: transactionId, action: "escrow.release.reconcile_alert", occurredAt: { gte: since } },
+      select: { id: true }
+    });
+    return found !== null;
+  }
+
+  /**
+   * Registro append-only de la alerta (AuditLog, sin actor: la emite el sistema).
+   * NO modifica PaymentTxn, Milestone ni Escrow.
+   */
+  async recordReleaseReconcileAlert(input: { tenantId: string; transactionId: string; payload: Record<string, unknown> }): Promise<void> {
+    await this.prisma.auditLog.create({
+      data: {
+        tenantId: input.tenantId,
+        entityType: "PaymentTxn",
+        entityId: input.transactionId,
+        action: "escrow.release.reconcile_alert",
+        afterJson: input.payload as never
+      }
+    });
   }
 
   /**

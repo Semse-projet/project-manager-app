@@ -26,6 +26,7 @@ export class WorkerVerificationController {
     const state = await this.service.initiateVerification({
       workerId,
       tenantId: ctx.tenantId,
+      actor: { userId: ctx.userId, roles: ctx.roles },
       verificationType: "DID_SIGNATURE",
     });
 
@@ -47,6 +48,8 @@ export class WorkerVerificationController {
       ctx.tenantId,
       String(body.didSignature ?? ""),
       String(body.didPublicKey ?? ""),
+      String(body.nonce ?? ""),
+      { userId: ctx.userId, roles: ctx.roles },
     );
 
     return ok(rid, state);
@@ -59,8 +62,9 @@ export class WorkerVerificationController {
     @Param("workerId") workerId: string,
   ) {
     const rid = resolveRequestId(req.headers ?? {});
+    const ctx = actor(req);
 
-    const state = await this.service.getVerificationStatus(workerId);
+    const state = await this.service.getVerificationStatus(workerId, ctx.tenantId);
 
     return ok(rid, state);
   }
@@ -72,8 +76,9 @@ export class WorkerVerificationController {
     @Param("workerId") workerId: string,
   ) {
     const rid = resolveRequestId(req.headers ?? {});
+    const ctx = actor(req);
 
-    const history = await this.service.getVerificationHistory(workerId);
+    const history = await this.service.getVerificationHistory(workerId, ctx.tenantId);
 
     return ok(rid, history);
   }

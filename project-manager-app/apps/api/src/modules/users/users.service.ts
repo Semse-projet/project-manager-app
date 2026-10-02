@@ -246,6 +246,7 @@ export class UsersService {
     }
 
     const records = await this.workspaceMemory.queryAcrossTenant({
+      actor: { tenantId: actor.tenantId, roles: actor.roles },
       tenantId: actor.tenantId,
       tags: ["verification", "request", "status:pending"],
       kinds: ["decision"]

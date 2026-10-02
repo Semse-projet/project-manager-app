@@ -1,3 +1,4 @@
+import { payoutErrorFromHttp } from "./provider-errors.js";
 import { BadRequestException, Injectable, Logger } from "@nestjs/common";
 import type {
   CreateFundingIntentInput,
@@ -189,7 +190,7 @@ export class PaypalPaymentProvider implements PaymentProviderPort {
     });
     const payload = await response.json().catch(() => ({})) as PaypalTokenResponse & { error_description?: string };
     if (!response.ok || !payload.access_token) {
-      throw new Error(payload.error_description || `PayPal auth failed with ${response.status}`);
+      throw payoutErrorFromHttp(payload.error_description || `PayPal auth failed with ${response.status}`, response.status);
     }
 
     this.cachedToken = {
@@ -210,7 +211,7 @@ export class PaypalPaymentProvider implements PaymentProviderPort {
     });
     const payload = await response.json().catch(() => ({})) as T & { message?: string; name?: string };
     if (!response.ok) {
-      throw new Error(payload.message || payload.name || `PayPal request failed with ${response.status}`);
+      throw payoutErrorFromHttp(payload.message || payload.name || `PayPal request failed with ${response.status}`, response.status);
     }
     return payload;
   }

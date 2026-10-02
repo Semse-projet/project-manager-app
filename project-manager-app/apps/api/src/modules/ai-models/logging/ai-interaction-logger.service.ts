@@ -1,12 +1,16 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
 import { PrismaService } from "../../../infrastructure/prisma/prisma.service.js";
 import type { AiGenerateRequest } from "../dto/ai-generate-request.dto.js";
 import type { AiGenerateResponse } from "../dto/ai-generate-response.dto.js";
+import { requiresPrivateProvider } from "../router/privacy-policy.js";
+import { estimateCostUsd } from "./ai-cost.js";
+import { parsePricingCatalogMode, type CostResult } from "../pricing/ai-pricing-catalog.js";
+import { AiPricingCatalogService } from "../pricing/ai-pricing-catalog.service.js";
 
 export type AiInteractionMode = "runtime" | "report" | "context_only" | "fallback";
 
 export type AiInteractionLog = {
-  id: string; timestamp: string; createdAt: string; agentId?: string; projectId?: string; userId?: string;
+  id: string; timestamp: string; createdAt: string; tenantId?: string; agentId?: string; projectId?: string; userId?: string;
   threadId?: string;
   taskType: string; provider: string; modelSlug: string;
   inputLength: number; outputLength: number; inputTokens?: number; outputTokens?: number;
@@ -96,7 +100,68 @@ export class AiInteractionLoggerService {
   private readonly buffer: AiInteractionLog[] = [];
   private readonly MAX_BUFFER = 200;
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    // C39 — opcional: sin catálogo (o con AI_PRICING_CATALOG_MODE=off) el comportamiento es el legado.
+    @Optional() private readonly pricingCatalog?: AiPricingCatalogService,
+  ) {}
+
+  /**
+   * C39 — costo según AI_PRICING_CATALOG_MODE (off por defecto):
+   *  - off:    comportamiento legado (AI_MODEL_PRICING_JSON), sin tocar nada más.
+   *  - shadow: se guarda el valor legado; se calcula el del catálogo y se registra la discrepancia.
+   *  - on:     SOLO catálogo. Sin entrada vigente ⇒ costo null + costBasis "unknown"; nunca
+   *            hay fallback silencioso al JSON legado (ni a un costo reportado por el proveedor).
+   */
+  private async resolveCostFields(
+    response: AiGenerateResponse,
+    at: Date,
+  ): Promise<{ estimatedCostUsd?: number; costBasis?: string; priceId?: string }> {
+    const legacy = response.estimatedCost
+      ?? estimateCostUsd(response.modelSlug, response.inputTokens, response.outputTokens);
+    const mode = parsePricingCatalogMode();
+    if (mode === "off") return { estimatedCostUsd: legacy };
+
+    const catalog = await this.catalogCost(response, at);
+    if (mode === "shadow") {
+      if ((legacy ?? null) !== (catalog.costUsd ?? null)) {
+        this.logger.warn(JSON.stringify({
+          event: "ai_pricing_catalog_mismatch", provider: response.provider, modelSlug: response.modelSlug,
+          modelName: response.modelName ?? null, legacyCostUsd: legacy ?? null, catalogCostUsd: catalog.costUsd,
+          catalogBasis: catalog.costBasis,
+        }));
+      }
+      return { estimatedCostUsd: legacy };
+    }
+    if (catalog.costBasis === "unknown") {
+      this.logger.warn(JSON.stringify({
+        event: "ai_cost_unknown", provider: response.provider, modelSlug: response.modelSlug,
+        modelName: response.modelName ?? null, reason: catalog.reason ?? null,
+      }));
+    }
+    return {
+      estimatedCostUsd: catalog.costUsd ?? undefined,
+      costBasis: catalog.costBasis,
+      priceId: catalog.priceId ?? undefined,
+    };
+  }
+
+  /** Nunca lanza: ante cualquier fallo del catálogo el resultado es unknown (jamás $0 ni precio legado). */
+  private async catalogCost(response: AiGenerateResponse, at: Date): Promise<CostResult> {
+    const unknown = (reason: string): CostResult => ({ costUsd: null, costBasis: "unknown", priceId: null, reason });
+    if (!this.pricingCatalog) return unknown("catalog_unavailable");
+    if (!response.modelName) return unknown("no_model_name");
+    try {
+      return await this.pricingCatalog.resolveCost(
+        { provider: response.provider, modelSlug: response.modelSlug, providerModelName: response.modelName },
+        at,
+        { inputTokens: response.inputTokens, outputTokens: response.outputTokens },
+      );
+    } catch (err) {
+      this.logger.warn(`[ai-cost] catalog lookup failed: ${String(err)}`);
+      return unknown("catalog_error");
+    }
+  }
 
   async logInteraction(request: AiGenerateRequest, response: AiGenerateResponse): Promise<void> {
     const createdAt = new Date().toISOString();
@@ -104,6 +169,7 @@ export class AiInteractionLoggerService {
       id: `ai_log_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       timestamp: createdAt,
       createdAt,
+      tenantId: typeof request.metadata?.tenantId === "string" ? request.metadata.tenantId : undefined,
       agentId: request.agentId,
       projectId: request.projectId,
       userId: request.userId,
@@ -129,10 +195,23 @@ export class AiInteractionLoggerService {
       }),
     };
 
+    const str = (v: unknown) => (typeof v === "string" && v.length > 0 ? v : undefined);
+    const privacyLevel = request.privacyLevel
+      ?? (request.privacyCritical ? "privacy_critical" : request.localOnly ? "local_only" : undefined);
+    const cost = await this.resolveCostFields(response, new Date(createdAt));
     this.persistInteraction(log, {
       tenantId: request.metadata?.tenantId as string | undefined,
       modelName: response.modelName,
-      estimatedCostUsd: response.estimatedCost,
+      estimatedCostUsd: cost.estimatedCostUsd,
+      costBasis: cost.costBasis,
+      priceId: cost.priceId,
+      // C39 — who acted and under which privacy policy (server-stamped metadata).
+      orgId: str(request.metadata?.orgId),
+      actorRoles: str(request.metadata?.actorRoles),
+      privacyLevel,
+      policyDecision: requiresPrivateProvider(request)
+        ? (response.success ? "private_enforced" : "denied")
+        : "standard",
     });
   }
 
@@ -142,6 +221,7 @@ export class AiInteractionLoggerService {
       id: `ai_log_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       timestamp: createdAt,
       createdAt,
+      tenantId: input.tenantId,
       agentId: input.agentId,
       projectId: input.projectId,
       userId: input.userId,
@@ -173,25 +253,33 @@ export class AiInteractionLoggerService {
     });
   }
 
-  getRecentLogs(limit = 50): AiInteractionLog[] {
-    return this.buffer.slice(-limit).reverse();
+  /**
+   * Reads are always tenant-scoped (C10/C39): logs carry prompts' metadata,
+   * user/project ids and error messages. Rows without a tenantId (legacy)
+   * are never returned to a tenant caller — fail closed.
+   */
+  getRecentLogs(tenantId: string, limit = 50): AiInteractionLog[] {
+    return this.buffer.filter((l) => l.tenantId === tenantId).slice(-limit).reverse();
   }
 
-  async getDbLogs(limit = 100): Promise<Array<Record<string, unknown>>> {
+  async getDbLogs(tenantId: string, limit = 100): Promise<Array<Record<string, unknown>>> {
     const rows = await this.prisma.aiInteractionLog.findMany({
+      where: { tenantId },
       orderBy: { createdAt: "desc" },
       take: limit,
     });
     return rows.map((row: PersistedAiInteractionRow) => this.toLogView(row));
   }
 
-  async getStats(): Promise<Record<string, unknown>> {
+  async getStats(tenantId: string): Promise<Record<string, unknown>> {
+    const scope = { tenantId };
     const [total, successes, byModel, byTask, rows] = await Promise.all([
-      this.prisma.aiInteractionLog.count(),
-      this.prisma.aiInteractionLog.count({ where: { success: true } }),
-      this.prisma.aiInteractionLog.groupBy({ by: ["modelSlug"], _count: { id: true } }),
-      this.prisma.aiInteractionLog.groupBy({ by: ["taskType"], _count: { id: true } }),
+      this.prisma.aiInteractionLog.count({ where: scope }),
+      this.prisma.aiInteractionLog.count({ where: { ...scope, success: true } }),
+      this.prisma.aiInteractionLog.groupBy({ by: ["modelSlug"], where: scope, _count: { id: true } }),
+      this.prisma.aiInteractionLog.groupBy({ by: ["taskType"], where: scope, _count: { id: true } }),
       this.prisma.aiInteractionLog.findMany({
+        where: scope,
         select: {
           provider: true,
           modelSlug: true,
@@ -226,6 +314,12 @@ export class AiInteractionLoggerService {
       tenantId?: string;
       modelName?: string;
       estimatedCostUsd?: number;
+      costBasis?: string;
+      priceId?: string;
+      orgId?: string;
+      actorRoles?: string;
+      privacyLevel?: string;
+      policyDecision?: string;
     },
   ) {
     this.buffer.push(log);
@@ -234,7 +328,7 @@ export class AiInteractionLoggerService {
     void this.prisma.aiInteractionLog.create({
       data: {
         id: log.id,
-        tenantId: options?.tenantId,
+        tenantId: options?.tenantId ?? log.tenantId,
         agentId: log.agentId,
         projectId: log.projectId,
         userId: log.userId,
@@ -248,12 +342,18 @@ export class AiInteractionLoggerService {
         inputTokens: log.inputTokens,
         outputTokens: log.outputTokens,
         estimatedCostUsd: options?.estimatedCostUsd,
+        costBasis: options?.costBasis,
+        priceId: options?.priceId,
         latencyMs: log.latencyMs,
         routeReason: log.routeReason,
         fallbackUsed: log.fallbackUsed,
         success: log.success,
         errorMessage: log.errorMessage,
         eligibleForTraining: log.eligibleForTraining,
+        orgId: options?.orgId,
+        actorRoles: options?.actorRoles,
+        privacyLevel: options?.privacyLevel,
+        policyDecision: options?.policyDecision,
       },
     }).catch((err: unknown) => this.logger.warn(`[ai-log] DB persist failed: ${String(err)}`));
 

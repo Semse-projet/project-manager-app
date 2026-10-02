@@ -1,4 +1,8 @@
-import { Injectable, Logger, BadRequestException } from "@nestjs/common";
+import { Injectable, Logger, BadRequestException, NotFoundException } from "@nestjs/common";
+import { assertEvidenceReadable, assertEvidenceWritable, type EvidenceActor } from "../evidence/evidence.policy.js";
+import { normalizeEvidenceBucketKey } from "../evidence/evidence.repository.js";
+import { EvidenceService } from "../evidence/evidence.service.js";
+import { randomUUID } from "node:crypto";
 import { EvidenceGatewayRepository } from "./evidence-gateway.repository.js";
 import { SseEventBusService } from "../../infrastructure/sse/sse-event-bus.service.js";
 import { VisionService } from "../vision/vision.service.js";
@@ -6,12 +10,19 @@ import { StorageService } from "../../infrastructure/storage/storage.service.js"
 
 export interface EvidenceUploadRequest {
   tenantId: string;
+  orgId: string;
+  roles: string[];
   projectId: string;
   milestoneId?: string;
   uploadedById: string;
   kind: "PHOTO" | "VIDEO" | "DOCUMENT";
   bucketKey: string;
   metadataJson?: Record<string, unknown>;
+  /**
+   * Correlacion/idempotencia del registro canonico (EvidenceService.register).
+   * Si falta se genera uno: cada llamada sin requestId es un registro nuevo.
+   */
+  requestId?: string;
 }
 
 export interface ValidationScore {
@@ -31,8 +42,26 @@ export class EvidenceGatewayService {
     private readonly repository: EvidenceGatewayRepository,
     private readonly visionService: VisionService,
     private readonly storageService: StorageService,
+    private readonly evidenceService: EvidenceService,
     private readonly sseBus?: SseEventBusService,
   ) {}
+
+  /**
+   * Tenant + organization + resource scoping (C10/C67). The canonical
+   * evidence policy (`evidence/evidence.policy.ts`, ADR-028) decides; this
+   * gateway is only an adapter and must not widen it. A project outside the
+   * caller's tenant is reported as not found (no existence oracle).
+   */
+  async assertProjectAccess(actor: EvidenceActor, projectId: string, mode: "read" | "write"): Promise<void> {
+    const ownership = projectId
+      ? await this.repository.getProjectOwnership(projectId, actor.tenantId)
+      : null;
+    if (!ownership) {
+      throw new NotFoundException("Project not found");
+    }
+    if (mode === "write") assertEvidenceWritable(actor, ownership);
+    else assertEvidenceReadable(actor, ownership);
+  }
 
   async uploadEvidence(
     request: EvidenceUploadRequest,
@@ -42,15 +71,36 @@ export class EvidenceGatewayService {
         throw new BadRequestException("Missing required fields");
       }
 
-      // Create evidence record
-      const evidence = await this.repository.createEvidence({
+      await this.assertProjectAccess(
+        { tenantId: request.tenantId, orgId: request.orgId, userId: request.uploadedById, roles: request.roles },
+        request.projectId,
+        "write",
+      );
+      if (
+        request.milestoneId &&
+        !(await this.repository.milestoneBelongsToProject(request.milestoneId, request.projectId, request.tenantId))
+      ) {
+        throw new NotFoundException("Milestone not found for this project");
+      }
+
+      // C67: el gateway es un ADAPTADOR del propietario canonico de Evidence.
+      // La escritura (clave tenant-scoped, idempotencia, outbox
+      // evidence.uploaded.v1, audit, invalidacion de contexto, contrato de
+      // metadataJson) la hace EvidenceService.register; aqui solo se adapta la
+      // forma de la peticion. La clave se valida tambien antes de delegar
+      // (defensa en profundidad y fallo temprano con 400).
+      const bucketKey = normalizeEvidenceBucketKey(request.bucketKey, request.tenantId);
+      const evidence = await this.evidenceService.register({
         tenantId: request.tenantId,
+        orgId: request.orgId,
+        userId: request.uploadedById,
+        roles: request.roles,
+        requestId: request.requestId ?? `evidence-gateway-${randomUUID()}`,
         projectId: request.projectId,
         milestoneId: request.milestoneId,
-        uploadedById: request.uploadedById,
+        key: bucketKey,
         kind: request.kind,
-        bucketKey: request.bucketKey,
-        metadataJson: request.metadataJson,
+        metadata: request.metadataJson,
       });
 
       // Log event
@@ -58,7 +108,7 @@ export class EvidenceGatewayService {
         request.projectId,
         evidence.id,
         "evidence_uploaded",
-        { kind: request.kind, bucketKey: request.bucketKey },
+        { kind: request.kind, bucketKey },
       );
 
       // Emit initial SSE event
@@ -186,13 +236,19 @@ export class EvidenceGatewayService {
   }
 
   async getMilestoneValidationStatus(
+    actor: EvidenceActor,
     projectId: string,
     milestoneId: string,
   ) {
     try {
+      await this.assertProjectAccess(actor, projectId, "read");
+      if (!(await this.repository.milestoneBelongsToProject(milestoneId, projectId, actor.tenantId))) {
+        throw new NotFoundException("Milestone not found for this project");
+      }
       const status = await this.repository.getMilestoneEvidenceValidationStatus(
         projectId,
         milestoneId,
+        actor.tenantId,
       );
 
       return {
@@ -218,16 +274,19 @@ export class EvidenceGatewayService {
     }
   }
 
-  async getFailedEvidence(projectId: string) {
-    return this.repository.getProjectEvidenceByStatus(projectId, "failed");
+  async getFailedEvidence(actor: EvidenceActor, projectId: string) {
+    await this.assertProjectAccess(actor, projectId, "read");
+    return this.repository.getProjectEvidenceByStatus(projectId, "failed", actor.tenantId);
   }
 
-  async getPendingEvidence(projectId: string) {
-    return this.repository.getProjectEvidenceByStatus(projectId, "pending");
+  async getPendingEvidence(actor: EvidenceActor, projectId: string) {
+    await this.assertProjectAccess(actor, projectId, "read");
+    return this.repository.getProjectEvidenceByStatus(projectId, "pending", actor.tenantId);
   }
 
-  async getPassedEvidence(projectId: string) {
-    return this.repository.getProjectEvidenceByStatus(projectId, "passed");
+  async getPassedEvidence(actor: EvidenceActor, projectId: string) {
+    await this.assertProjectAccess(actor, projectId, "read");
+    return this.repository.getProjectEvidenceByStatus(projectId, "passed", actor.tenantId);
   }
 
   private async assessQuality(evidence: any): Promise<number> {
@@ -238,7 +297,7 @@ export class EvidenceGatewayService {
 
       // Execute OpenCV real-time visual assessment through our Vision module
       const imageUrl = evidence.bucketKey
-        ? this.storageService.publicUrl(evidence.bucketKey)
+        ? this.storageService.publicUrl(evidence.bucketKey, { ttl: "vision" })
         : `mock://evidence/${evidence.id}`;
       const analysis = await this.visionService.runAnalysis({
         evidenceId: evidence.id,
@@ -277,7 +336,7 @@ export class EvidenceGatewayService {
     if (referenceImageUrl && (evidence.kind === "PHOTO" || evidence.kind === "VIDEO")) {
       try {
         const imageUrl = evidence.bucketKey
-          ? this.storageService.publicUrl(evidence.bucketKey)
+          ? this.storageService.publicUrl(evidence.bucketKey, { ttl: "vision" })
           : `mock://evidence/${evidence.id}`;
         const matchResult = await this.visionService.matchReference(imageUrl, referenceImageUrl);
         referenceSimilarity = typeof matchResult?.similarityScore === "number" ? matchResult.similarityScore : null;

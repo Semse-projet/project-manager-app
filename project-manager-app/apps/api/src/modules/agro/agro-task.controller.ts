@@ -6,6 +6,7 @@ import { ok } from "../../common/api-response.js";
 import { resolveRequestId } from "../../common/request-id.js";
 import { RequirePermissions } from "../../common/permissions.decorator.js";
 import { resolveRequestContext } from "../../common/request-context.js";
+import { parseWithSchema } from "../../common/zod-validation.js";
 import { AGRO_TASK_TYPES, AgroTaskService } from "./agro-task.service.js";
 
 const taskTypeEnum     = z.enum(AGRO_TASK_TYPES);
@@ -54,7 +55,7 @@ export class AgroTaskController {
   @RequirePermissions("agro:report")
   async createTask(@Param("farmId") farmId: string, @Body() body: unknown, @Req() req: any) {
     const ctx = resolveRequestContext(req);
-    const input = createTaskSchema.parse(body);
+    const input = parseWithSchema(createTaskSchema, body);
     const task = await this.service.createTask(farmId, ctx.userId, input);
     return ok(resolveRequestId(req.headers ?? {}), { task });
   }
@@ -72,7 +73,7 @@ export class AgroTaskController {
   @RequirePermissions("agro:report")
   async updateTask(@Param("taskId") taskId: string, @Body() body: unknown, @Req() req: any) {
     const ctx = resolveRequestContext(req);
-    const input = updateTaskSchema.parse(body);
+    const input = parseWithSchema(updateTaskSchema, body);
     const task = await this.service.updateTask(taskId, ctx.userId, input);
     return ok(resolveRequestId(req.headers ?? {}), { task });
   }
@@ -100,7 +101,7 @@ export class AgroTaskController {
   @RequirePermissions("agro:report")
   async blockTask(@Param("taskId") taskId: string, @Body() body: unknown, @Req() req: any) {
     const ctx = resolveRequestContext(req);
-    const { reason } = reasonSchema.parse(body);
+    const { reason } = parseWithSchema(reasonSchema, body);
     const task = await this.service.blockTask(taskId, ctx.userId, reason);
     return ok(resolveRequestId(req.headers ?? {}), { task });
   }
@@ -110,7 +111,7 @@ export class AgroTaskController {
   @RequirePermissions("agro:report")
   async cancelTask(@Param("taskId") taskId: string, @Body() body: unknown, @Req() req: any) {
     const ctx = resolveRequestContext(req);
-    const { reason } = reasonSchema.parse(body);
+    const { reason } = parseWithSchema(reasonSchema, body);
     const task = await this.service.cancelTask(taskId, ctx.userId, reason);
     return ok(resolveRequestId(req.headers ?? {}), { task });
   }

@@ -6,6 +6,7 @@ import { ok } from "../../common/api-response.js";
 import { resolveRequestId } from "../../common/request-id.js";
 import { RequirePermissions } from "../../common/permissions.decorator.js";
 import { resolveRequestContext } from "../../common/request-context.js";
+import { parseWithSchema } from "../../common/zod-validation.js";
 import { AgroTraceabilityService } from "./agro-traceability.service.js";
 
 const eventTypeEnum = z.enum(["ORIGIN", "TRANSFER", "TREATMENT", "HARVEST", "PROCESSING", "SALE"]);
@@ -69,7 +70,7 @@ export class AgroTraceabilityController {
     @Req() req: any,
   ) {
     const ctx = resolveRequestContext(req);
-    const parsed = createEventSchema.parse(body);
+    const parsed = parseWithSchema(createEventSchema, body);
     const event = await this.service.createTraceabilityEvent(farmId, ctx.userId, parsed);
     return ok(resolveRequestId(req.headers ?? {}), { event });
   }
@@ -117,7 +118,7 @@ export class AgroTraceabilityController {
     @Req() req: any,
   ) {
     const ctx = resolveRequestContext(req);
-    const parsed = createCheckSchema.parse(body);
+    const parsed = parseWithSchema(createCheckSchema, body);
     const check = await this.service.createComplianceCheck(farmId, ctx.userId, parsed);
     return ok(resolveRequestId(req.headers ?? {}), { check });
   }
@@ -130,7 +131,7 @@ export class AgroTraceabilityController {
     @Req() req: any,
   ) {
     const ctx = resolveRequestContext(req);
-    const parsed = resolveCheckSchema.parse(body);
+    const parsed = parseWithSchema(resolveCheckSchema, body);
     const check = await this.service.resolveComplianceCheck(checkId, ctx.userId, parsed);
     return ok(resolveRequestId(req.headers ?? {}), { check });
   }

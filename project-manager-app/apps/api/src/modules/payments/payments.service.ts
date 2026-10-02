@@ -1,4 +1,7 @@
-import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, Optional, forwardRef } from "@nestjs/common";
+import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, Logger, Optional, forwardRef } from "@nestjs/common";
+import { isReleaseCommandEnabled, runEscrowRelease, type ReleaseCommandResult } from "./escrow-release.command.js";
+import { normalizePayoutIntent, normalizeProviderError } from "./escrow-release.provider-adapter.js";
+import type { PaymentTxnRecord } from "../../common/domain-store.js";
 import { AuditService } from "../../infrastructure/audit/audit.service.js";
 import { WorkspaceMemoryRepository } from "../knowledge/workspace-memory.repository.js";
 import {
@@ -7,7 +10,7 @@ import {
 } from "../knowledge/workspace-memory.business-records.js";
 import { PaymentsRepository } from "./payments.repository.js";
 import { PaymentProviderRegistry } from "./providers/payment-provider.registry.js";
-import { paymentProviderKeys, type PaymentMethodType, type PaymentProviderKey } from "./payments.types.js";
+import { paymentProviderKeys, type PaymentMethodType, type PaymentProviderKey, type PayoutIntentRecord } from "./payments.types.js";
 import { ProjectsService } from "../projects/projects.service.js";
 import { ContractsRepository } from "../contracts/contracts.repository.js";
 import { ReservationsRepository } from "../reservations/reservations.repository.js";
@@ -16,6 +19,8 @@ import { StripeConnectService } from "./stripe-connect.service.js";
 import { ProjectLifecycleProjectionEventProducer } from "../domain-events/project-lifecycle-projection-event-producer.service.js";
 import { OriginatorService } from "../originator/originator.service.js";
 import { ContributorProgramService } from "../contributor-program/contributor-program.service.js";
+import { ReleaseGovernanceGate } from "./release-governance.gate.js";
+import { classifyStripeKey, stripeKeyWarning } from "./stripe-key.js";
 
 /**
  * Maps a provider webhook event to the PaymentTxn status it confirms.
@@ -54,6 +59,8 @@ function mapProviderEventToStatus(
 
 @Injectable()
 export class PaymentsService {
+  private readonly logger = new Logger(PaymentsService.name);
+
   constructor(
     private readonly paymentsRepository: PaymentsRepository,
     private readonly auditService: AuditService,
@@ -69,6 +76,7 @@ export class PaymentsService {
     @Optional() private readonly originator?: OriginatorService,
     @Optional() @Inject(forwardRef(() => ContributorProgramService))
     private readonly contributorProgram?: ContributorProgramService,
+    @Optional() private readonly releaseGate?: ReleaseGovernanceGate,
   ) {}
 
   async paymentReadinessByJob(input: {
@@ -259,6 +267,9 @@ export class PaymentsService {
     const configuredDefaultProvider = this.resolveConfiguredDefaultProvider();
     const availableProviders = this.paymentProviderRegistry.availableKeys();
     const stripeSecretConfigured = Boolean(process.env.STRIPE_SECRET_KEY?.trim());
+    // La forma de la clave se evalúa sin exponerla (incidente 2026-10-01: llegó un ID mk_… en lugar de sk_/rk_).
+    const stripeKey = classifyStripeKey(process.env.STRIPE_SECRET_KEY);
+    const stripeKeyUsable = !stripeSecretConfigured || stripeKey.usable;
     const stripeWebhookSecretConfigured = Boolean(process.env.STRIPE_WEBHOOK_SECRET?.trim());
     const paypalConfigured = Boolean(process.env.PAYPAL_CLIENT_ID?.trim() && process.env.PAYPAL_CLIENT_SECRET?.trim());
     const adyenConfigured = Boolean(process.env.ADYEN_API_KEY?.trim() && process.env.ADYEN_MERCHANT_ACCOUNT?.trim());
@@ -271,6 +282,10 @@ export class PaymentsService {
     }
     if (configuredDefaultProvider !== "stripe" && !availableProviders.includes(configuredDefaultProvider)) {
       warnings.push(`PAYMENT_PROVIDER is ${configuredDefaultProvider} but that provider is not implemented`);
+    }
+    const stripeKeyProblem = stripeKeyWarning(process.env.STRIPE_SECRET_KEY);
+    if (stripeKeyProblem) {
+      warnings.push(stripeKeyProblem);
     }
     if (productionRuntime && configuredDefaultProvider === "stripe" && !stripeWebhookSecretConfigured) {
       warnings.push("STRIPE_WEBHOOK_SECRET is required for Stripe webhooks in production");
@@ -296,7 +311,7 @@ export class PaymentsService {
           professionalPayout: true,
           automatic: true,
           configured: stripeSecretConfigured,
-          ready: availableProviders.includes("stripe") && (!productionRuntime || stripeWebhookSecretConfigured),
+          ready: availableProviders.includes("stripe") && stripeKeyUsable && (!productionRuntime || stripeWebhookSecretConfigured),
           requiredEnv: ["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"]
         },
         {
@@ -352,8 +367,9 @@ export class PaymentsService {
       ],
       stripe: {
         secretConfigured: stripeSecretConfigured,
+        keyShape: stripeKey.shape,
         webhookSecretConfigured: stripeWebhookSecretConfigured,
-        ready: availableProviders.includes("stripe") && (!productionRuntime || stripeWebhookSecretConfigured)
+        ready: availableProviders.includes("stripe") && stripeKeyUsable && (!productionRuntime || stripeWebhookSecretConfigured)
       },
       paypal: {
         configured: paypalConfigured,
@@ -635,7 +651,16 @@ export class PaymentsService {
     provider?: PaymentProviderKey;
     methodType?: PaymentMethodType;
     requestId: string;
-  }) {
+    /** Entrypoint, for release-governance observability only (default "manual"). NO forma parte de la identidad de idempotencia. */
+    source?: "manual" | "agent";
+    /** Idempotency-Key del cliente (opcional); ver escrow-release.command.ts. */
+    idempotencyKey?: string;
+  }): Promise<{
+    transaction: PaymentTxnRecord;
+    payoutIntent?: PayoutIntentRecord;
+    replay?: boolean;
+    command?: ReleaseCommandResult;
+  }> {
     const milestone = await this.paymentsRepository.ensureMilestone(input);
     const project = await this.paymentsRepository.ensureProject({
       tenantId: input.tenantId,
@@ -672,6 +697,16 @@ export class PaymentsService {
       throw new ConflictException("escrow release is blocked while an open dispute exists")
     }
 
+    // Shared economic authorization (ADR-041): same gate as the auto-release
+    // path — lien waivers enforced, full governance in shadow/enforce mode.
+    await this.releaseGate?.assertReleasable({
+      actor: { tenantId: input.tenantId, orgId: input.orgId, userId: input.userId, roles: input.roles },
+      milestoneId: milestone.id,
+      projectId: milestone.projectId,
+      amount,
+      source: input.source ?? "manual",
+    });
+
     const escrow = await this.paymentsRepository.findEscrowByProject(milestone.projectId);
 
     if (!escrow) {
@@ -706,6 +741,100 @@ export class PaymentsService {
         })
       : null;
 
+    const providerIntentInput = (reservationRef: string) => ({
+      tenantId: input.tenantId,
+      projectId: milestone.projectId,
+      milestoneId: milestone.id,
+      recipientUserId: recipient?.userId,
+      provider,
+      methodType,
+      money: {
+        amount,
+        currency: escrow.currency
+      },
+      externalRef: reservationRef,
+      metadata: {
+        recipientEmail: recipient?.email,
+        payoutMethodType: payoutMethod?.type,
+        paypalEmail: payoutMethod?.type === "paypal" ? payoutMethod.email : undefined,
+        zelleHandle: payoutMethod?.type === "zelle" ? payoutMethod.email : undefined,
+        cashAppTag: payoutMethod?.type === "cashapp" ? payoutMethod.email : undefined,
+        bankName: payoutMethod?.type === "bank_account" ? payoutMethod.bankName : undefined,
+        last4: payoutMethod?.last4
+      }
+    });
+
+    let transaction;
+    let payoutIntent;
+
+    if (isReleaseCommandEnabled()) {
+      // ADR-041 slice 2 — comando unico: identidad (milestone, importe), independiente
+      // de la fuente; fallo ambiguo => reserva PENDING + estado explicito `unknown`.
+      let lastRecord: Awaited<ReturnType<PaymentsRepository["finalizeRelease"]>> | undefined;
+      const result = await runEscrowRelease(
+        {
+          reserve: async (r) => {
+            const reserved = await this.paymentsRepository.releaseFunds(r);
+            await this.lifecycleProjectionEvents?.emit({
+              tenantId: input.tenantId,
+              orgId: input.orgId,
+              projectId: milestone.projectId,
+              sourceEventType: "payment.release.reserved",
+              sourceEntityType: "PaymentTxn",
+              sourceEntityId: reserved.id,
+              actorType: "user",
+              actorId: input.userId,
+              correlationId: input.requestId,
+            });
+            return reserved;
+          },
+          finalize: async (f) => {
+            lastRecord = await this.paymentsRepository.finalizeRelease(f);
+            return lastRecord;
+          },
+          findActiveRelease: (milestoneId) => this.paymentsRepository.findActiveRelease(milestoneId),
+          findReleaseByRef: (ref) => this.paymentsRepository.findReleaseByRef(ref),
+          countFailedAttempts: (prefix) => this.paymentsRepository.countFailedReleaseAttempts(prefix),
+          transfer: async (reservationRef) => {
+            try {
+              payoutIntent = await paymentProvider.createPayoutIntent(providerIntentInput(reservationRef));
+            } catch (err) {
+              return normalizeProviderError(err);
+            }
+            return normalizePayoutIntent(payoutIntent);
+          },
+          onCritical: (message, ctx) => this.logger.error(`[EscrowReleaseCommand] CRITICAL: ${message} ${JSON.stringify(ctx)}`),
+        },
+        { escrowId: escrow.id, milestoneId: milestone.id, amount, idempotencyKey: input.idempotencyKey },
+      );
+
+      if (result.status === "failed") {
+        // Rechazo definitivo en ESTA llamada: relanzar el error original (misma semantica HTTP que antes).
+        if (!result.replay && result.cause) throw result.cause;
+        throw new ConflictException({
+          message: result.replay
+            ? "a previous release attempt with this idempotency key failed; use a new Idempotency-Key to retry"
+            : "escrow release failed at the provider",
+          status: "failed",
+          replay: result.replay,
+          transactionId: result.transactionId,
+        });
+      }
+      if (result.status === "unknown") {
+        throw new ConflictException({
+          message: "escrow release outcome is unknown; the reservation is kept PENDING for reconciliation",
+          status: "unknown",
+          transactionId: result.transactionId,
+          transferConfirmed: result.transferConfirmed ?? false,
+        });
+      }
+      if (result.replay) {
+        // Siempre un PaymentTxn valido: los llamadores (controller, copilot, Prometeo) lo leen.
+        const existing = await this.paymentsRepository.getReleaseTransaction(result.transactionId!);
+        return { transaction: existing, payoutIntent: undefined, replay: true, command: result };
+      }
+      transaction = lastRecord!;
+    } else {
     // Reserve first (atomically re-checks + holds the balance), call the
     // payment provider second, finalize the real outcome third. Previously
     // the provider call happened before any DB reservation existed, so two
@@ -731,30 +860,8 @@ export class PaymentsService {
       correlationId: input.requestId,
     });
 
-    let payoutIntent;
     try {
-      payoutIntent = await paymentProvider.createPayoutIntent({
-        tenantId: input.tenantId,
-        projectId: milestone.projectId,
-        milestoneId: milestone.id,
-        recipientUserId: recipient?.userId,
-        provider,
-        methodType,
-        money: {
-          amount,
-          currency: escrow.currency
-        },
-        externalRef: reservationRef,
-        metadata: {
-          recipientEmail: recipient?.email,
-          payoutMethodType: payoutMethod?.type,
-          paypalEmail: payoutMethod?.type === "paypal" ? payoutMethod.email : undefined,
-          zelleHandle: payoutMethod?.type === "zelle" ? payoutMethod.email : undefined,
-          cashAppTag: payoutMethod?.type === "cashapp" ? payoutMethod.email : undefined,
-          bankName: payoutMethod?.type === "bank_account" ? payoutMethod.bankName : undefined,
-          last4: payoutMethod?.last4
-        }
-      });
+      payoutIntent = await paymentProvider.createPayoutIntent(providerIntentInput(reservationRef));
     } catch (err) {
       await this.paymentsRepository.finalizeRelease({
         transactionId: reservation.id,
@@ -769,12 +876,14 @@ export class PaymentsService {
     const finalStatus = payoutIntent.status === "paid" ? "SUCCEEDED" as const
       : payoutIntent.status === "failed" || payoutIntent.status === "cancelled" ? "FAILED" as const
       : undefined; // still processing — stays PENDING, the webhook finalizes it later
-    const transaction = await this.paymentsRepository.finalizeRelease({
+    transaction = await this.paymentsRepository.finalizeRelease({
       transactionId: reservation.id,
       milestoneId: milestone.id,
       status: finalStatus,
       providerRef: payoutIntent.providerRef
     });
+
+    }
 
     await this.auditService.append({
       id: `aud_${Date.now()}`,

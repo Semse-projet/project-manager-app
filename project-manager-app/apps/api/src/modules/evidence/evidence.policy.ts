@@ -1,4 +1,5 @@
 import { ForbiddenException } from "@nestjs/common";
+import { hasScopeAccess, scopeFromOwnership } from "../../common/resource-scope.js";
 
 export type EvidenceActor = {
   tenantId: string;
@@ -12,16 +13,8 @@ export type EvidenceOwnership = {
   assignedProOrgId: string;
 };
 
-function isOpsAdmin(actor: EvidenceActor): boolean {
-  return actor.roles.includes("OPS_ADMIN");
-}
-
 export function assertEvidenceReadable(actor: EvidenceActor, ownership: EvidenceOwnership): void {
-  if (
-    isOpsAdmin(actor) ||
-    actor.orgId === ownership.clientOrgId ||
-    actor.orgId === ownership.assignedProOrgId
-  ) {
+  if (hasScopeAccess(actor, scopeFromOwnership(actor, ownership), "read")) {
     return;
   }
 
@@ -29,11 +22,7 @@ export function assertEvidenceReadable(actor: EvidenceActor, ownership: Evidence
 }
 
 export function assertEvidenceWritable(actor: EvidenceActor, ownership: EvidenceOwnership): void {
-  if (
-    isOpsAdmin(actor) ||
-    actor.orgId === ownership.clientOrgId ||
-    actor.orgId === ownership.assignedProOrgId
-  ) {
+  if (hasScopeAccess(actor, scopeFromOwnership(actor, ownership), "read")) {
     return;
   }
 

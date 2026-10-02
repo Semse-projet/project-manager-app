@@ -9,7 +9,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLanguage } from "../../../../lib/language-context";
 import { CheckSquare, Clock, DollarSign, ChevronDown, ChevronRight, ArrowUpRight } from "lucide-react";
 import Link from "next/link";
-import { HtmlInCanvasPanel } from "@semse/ui";
+import { ErrorState, HtmlInCanvasPanel } from "@semse/ui";
 import { fetchJobMilestones, fetchJobs, mutateMilestone } from "../../../semse-api";
 import { ClientPageHeader } from "../../../components/client/ClientPageHeader";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
@@ -212,9 +212,7 @@ export default function ClientMilestonesPage() {
           ))}
         </div>
       ) : error ? (
-        <div style={{ padding: "16px 18px", borderRadius: "12px", background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.18)", color: "var(--error)", fontSize: "13px" }}>
-          {error}
-        </div>
+        <ErrorState message={error} />
       ) : groups.length === 0 ? (
         <div style={{ textAlign: "center", padding: "48px 24px", borderRadius: "12px", border: "1px dashed var(--border)", background: "var(--bg)" }}>
           <p style={{ fontSize: "15px", fontWeight: 700, color: "var(--ink)", marginBottom: "8px" }}>No tienes hitos de pago activos</p>

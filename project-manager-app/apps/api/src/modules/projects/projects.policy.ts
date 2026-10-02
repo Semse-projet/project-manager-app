@@ -1,4 +1,5 @@
 import { ConflictException, ForbiddenException } from "@nestjs/common";
+import { hasScopeAccess, scopeFromOwnership } from "../../common/resource-scope.js";
 import { type ProjectRecord } from "../../common/domain-store.js";
 
 export type ProjectActor = {
@@ -34,17 +35,13 @@ export type ProjectLifecycleSnapshot = {
   };
 };
 
-function isOpsAdmin(actor: ProjectActor): boolean {
-  return actor.roles.includes("OPS_ADMIN");
-}
-
 export function canReadProject(actor: ProjectActor, ownership: ProjectOwnership): boolean {
-  return isOpsAdmin(actor) || actor.orgId === ownership.clientOrgId || actor.orgId === ownership.assignedProOrgId;
+  return hasScopeAccess(actor, scopeFromOwnership(actor, ownership), "read");
 }
 
 export function canReadProjectFinancials(actor: ProjectActor, ownership: ProjectOwnership): boolean {
   // Assigned PROs can read project execution data, but escrow balances stay client/ops-only.
-  return isOpsAdmin(actor) || actor.orgId === ownership.clientOrgId;
+  return hasScopeAccess(actor, scopeFromOwnership(actor, ownership), "client");
 }
 
 export function canUpdateProjectStatus(
@@ -53,7 +50,7 @@ export function canUpdateProjectStatus(
   targetStatus: ProjectRecord["status"]
 ): boolean {
   void targetStatus;
-  return isOpsAdmin(actor) || actor.orgId === ownership.clientOrgId;
+  return hasScopeAccess(actor, scopeFromOwnership(actor, ownership), "client");
 }
 
 export function assertProjectReadable(actor: ProjectActor, ownership: ProjectOwnership): void {

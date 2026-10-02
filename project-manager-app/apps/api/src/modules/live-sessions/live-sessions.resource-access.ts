@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import type { LiveSessionScopeType } from "@semse/schemas";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
+import { sameOrg } from "../../common/resource-scope.js";
 
 export const LIVE_SESSIONS_RESOURCE_ACCESS = Symbol("LIVE_SESSIONS_RESOURCE_ACCESS");
 
@@ -48,7 +49,7 @@ export class PrismaLiveSessionResourceAccess implements LiveSessionResourceAcces
       });
       if (!job) return false;
       if (actor.roles.includes("OPS_ADMIN")) return true;
-      return job.clientOrgId === actor.orgId;
+      return sameOrg(actor.orgId, job.clientOrgId);
     }
 
     const fp = await this.prisma.freeProject.findFirst({

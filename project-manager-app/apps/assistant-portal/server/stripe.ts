@@ -9,7 +9,7 @@ function createStripeClient(): Stripe | null {
     return null;
   }
   return new Stripe(ENV.stripeSecretKey, {
-    apiVersion: "2026-06-24.dahlia",
+    apiVersion: "2026-08-26.dahlia",
   });
 }
 

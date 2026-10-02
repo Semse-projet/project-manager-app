@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Bot, FolderKanban, RefreshCw, Inbox, CheckCircle, Clock, AlertCircle, PlusCircle } from "lucide-react";
-import { HtmlInCanvasPanel, StatCard, StatusBadge } from "@semse/ui";
+import { ErrorState, HtmlInCanvasPanel, StatCard, StatusBadge } from "@semse/ui";
 import { fetchProjects, fetchJobs } from "../../../semse-api";
 import { ClientPageHeader } from "../../../components/client/ClientPageHeader";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
@@ -139,9 +139,7 @@ export default function ClientProjectsPage() {
 
       {/* Content */}
       {error ? (
-        <HtmlInCanvasPanel as="section" style={{ padding: "16px 18px", background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.18)", borderRadius: 12, color: "var(--error)", fontSize: 13 }} canvasClassName="rounded-2xl" minHeight={72}>
-          {error}
-        </HtmlInCanvasPanel>
+        <ErrorState message={error} />
       ) : loading ? (
         <div style={{ display: "grid", gap: "10px" }}>
           {[1, 2, 3].map(i => (

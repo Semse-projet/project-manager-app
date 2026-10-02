@@ -75,7 +75,7 @@ export default function AgendaScreen({ navigation }: Props) {
       contentContainerStyle={styles.container}
       sections={sections}
       keyExtractor={(job) => job.id}
-      ListHeaderComponent={error ? <ErrorState message={error} /> : null}
+      ListHeaderComponent={error ? <ErrorState message={error} /> : undefined}
       ListEmptyComponent={<EmptyState title="No tienes jobs activos en tu agenda." />}
       onRefresh={() => void load(true)}
       refreshing={refreshing}

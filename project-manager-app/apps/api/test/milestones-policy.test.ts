@@ -4,7 +4,7 @@ import {
   assertMilestoneSubmittable,
   assertMilestoneApprovable,
   assertMilestoneRejectable,
-} from "../src/modules/milestones/milestones.policy.ts";
+} from "../dist/modules/milestones/milestones.policy.js";
 
 const actor = {
   tenantId: "tenant_test",

@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import { type MilestoneRecord } from "../../common/domain-store.js";
 import { ActorContextService } from "../../infrastructure/persistence/actor-context.service.js";
+import { evaluateRequiredEvidence, resolveEvidenceRevalidationMode } from "./evidence-readiness.js";
 import { databaseEnabled } from "../../infrastructure/persistence/persistence-mode.js";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { findProjectLinkByJobIdOrThrow, findProjectLinkByProjectIdOrThrow } from "../projects/project-link.repository.js";
@@ -199,10 +200,7 @@ export class MilestonesRepository {
     const snapshot = await this.getLifecycleSnapshot(input);
     assertMilestoneSubmittable(this.toActor(input), snapshot);
 
-    const updated = (await this.prisma.milestone.update({
-      where: { id: snapshot.milestoneId },
-      data: { status: milestoneStatusMap.submitted }
-    })) as StoredMilestone;
+    const updated = await this.transitionStatus(snapshot, milestoneStatusMap.submitted);
 
     return toMilestoneRecord(updated, input.tenantId);
   }
@@ -221,12 +219,14 @@ export class MilestonesRepository {
     await this.actorContextService.ensureActorContext(input);
 
     const snapshot = await this.getLifecycleSnapshot(input);
-    assertMilestoneApprovable(this.toActor(input), snapshot);
+    const evidenceMode = resolveEvidenceRevalidationMode();
+    if (evidenceMode === "shadow" && snapshot.evidenceBlockers && snapshot.evidenceBlockers.length > 0) {
+      // eslint-disable-next-line no-console
+      console.warn(JSON.stringify({ event: "milestone_approve_evidence_shadow_would_block", milestoneId: snapshot.milestoneId, blockers: snapshot.evidenceBlockers }));
+    }
+    assertMilestoneApprovable(this.toActor(input), snapshot, { evidenceMode });
 
-    const updated = (await this.prisma.milestone.update({
-      where: { id: snapshot.milestoneId },
-      data: { status: milestoneStatusMap.approved }
-    })) as StoredMilestone;
+    const updated = await this.transitionStatus(snapshot, milestoneStatusMap.approved);
 
     return toMilestoneRecord(updated, input.tenantId);
   }
@@ -248,10 +248,7 @@ export class MilestonesRepository {
     const snapshot = await this.getLifecycleSnapshot(input);
     assertMilestoneRejectable(this.toActor(input), snapshot);
 
-    const updated = (await this.prisma.milestone.update({
-      where: { id: snapshot.milestoneId },
-      data: { status: milestoneStatusMap.rejected }
-    })) as StoredMilestone;
+    const updated = await this.transitionStatus(snapshot, milestoneStatusMap.rejected);
 
     return {
       ...toMilestoneRecord(updated, input.tenantId),
@@ -281,10 +278,7 @@ export class MilestonesRepository {
     const snapshot = await this.getLifecycleSnapshot(input);
     assertMilestoneRejectable(this.toActor(input), snapshot);
 
-    const updated = (await this.prisma.milestone.update({
-      where: { id: snapshot.milestoneId },
-      data: { status: milestoneStatusMap.draft }
-    })) as StoredMilestone;
+    const updated = await this.transitionStatus(snapshot, milestoneStatusMap.draft);
 
     return {
       ...toMilestoneRecord(updated, input.tenantId),
@@ -457,6 +451,29 @@ export class MilestonesRepository {
       | null;
   }
 
+  /**
+   * C18 — transicion de estado atomica (compare-and-set). Antes: leer snapshot,
+   * validar y `update where id` sin condicion de estado; dos peticiones
+   * concurrentes (aprobar vs rechazar, doble aprobacion) pasaban ambas la
+   * politica y el estado final dependia del orden mientras los dos emitian sus
+   * eventos (y el auto-release). Ahora solo gana la que encuentra el estado
+   * esperado; la otra recibe 409.
+   */
+  private async transitionStatus(
+    snapshot: MilestoneLifecycleSnapshot,
+    to: (typeof milestoneStatusMap)[keyof typeof milestoneStatusMap],
+  ): Promise<StoredMilestone> {
+    const from = milestoneStatusMap[snapshot.currentStatus];
+    const result = await this.prisma.milestone.updateMany({
+      where: { id: snapshot.milestoneId, status: from },
+      data: { status: to }
+    });
+    if (result.count === 0) {
+      throw new ConflictException("milestone status changed concurrently; reload and retry");
+    }
+    return (await this.prisma.milestone.findUniqueOrThrow({ where: { id: snapshot.milestoneId } })) as StoredMilestone;
+  }
+
   private async getLifecycleSnapshot(input: {
     tenantId: string;
     milestoneId: string;
@@ -474,11 +491,24 @@ export class MilestonesRepository {
       }
     });
 
+    const evidenceItems = await this.prisma.milestoneEvidenceItem.findMany({
+      where: { milestoneId: input.milestoneId },
+      select: { required: true, status: true }
+    });
+
+    // C18: un RELEASE activo (PENDING/SUCCEEDED) bloquea rechazar/devolver el hito.
+    const activeRelease = await this.prisma.paymentTxn.findFirst({
+      where: { milestoneId: input.milestoneId, type: "RELEASE", status: { in: ["PENDING", "SUCCEEDED"] } },
+      select: { id: true }
+    });
+
     return {
       milestoneId: milestone.id,
       currentStatus: milestone.status.toLowerCase() as MilestoneRecord["status"],
       ownership: this.toOwnership(milestone.project!),
-      evidenceCount
+      evidenceCount,
+      hasActiveRelease: activeRelease !== null,
+      evidenceBlockers: evaluateRequiredEvidence(evidenceItems).blockers
     };
   }
 
@@ -870,19 +900,22 @@ export class MilestonesRepository {
       }};
     }
 
-    // Evidence checklist
+    // Evidence checklist — C18: predicado unico (todo requisito `required` debe estar `approved`).
     const requiredItems = milestone.evidenceItems.filter(e => e.required);
     const approvedItems = requiredItems.filter(e => e.status === "approved");
-    const missingItems  = requiredItems.filter(e => e.status === "missing");
-    const rejectedItems = requiredItems.filter(e => e.status === "rejected");
     const submittedItems = requiredItems.filter(e => e.status === "submitted");
+    const evidence = evaluateRequiredEvidence(milestone.evidenceItems);
+    const evidenceMode = resolveEvidenceRevalidationMode();
 
     if (requiredItems.length > 0) {
-      if (approvedItems.length === requiredItems.length) {
+      if (evidence.complete) {
         reasons.push(`All ${requiredItems.length} required evidence item(s) approved`);
+      } else if (evidenceMode === "enforce") {
+        blockers.push(...evidence.blockers);
       } else {
-        if (missingItems.length > 0)  blockers.push(`${missingItems.length} required evidence item(s) still missing`);
-        if (rejectedItems.length > 0) blockers.push(`${rejectedItems.length} evidence item(s) rejected — must be resubmitted`);
+        // shadow/off: comportamiento anterior (solo faltante/rechazada bloquean).
+        if (evidence.counts.missing > 0)  blockers.push(`${evidence.counts.missing} required evidence item(s) still missing`);
+        if (evidence.counts.rejected > 0) blockers.push(`${evidence.counts.rejected} evidence item(s) rejected — must be resubmitted`);
         if (submittedItems.length > 0) reasons.push(`${submittedItems.length} evidence item(s) submitted — pending review`);
       }
     }

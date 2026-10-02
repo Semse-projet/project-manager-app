@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { submitRating } from "../../api/ratings";
 import { useTheme } from "../../theme/theme";
+import { ErrorState } from "../../components/ErrorState";
 import type { ClientJobsStackParamList } from "../../navigation/types";
 
 type Props = NativeStackScreenProps<ClientJobsStackParamList, "Rating">;
@@ -49,7 +50,7 @@ export default function RatingFormScreen({ route, navigation }: Props) {
   if (!toUserId) {
     return (
       <View style={styles.center}>
-        <Text style={styles.error}>No se pudo identificar al profesional de este job.</Text>
+        <ErrorState message="No se pudo identificar al profesional de este job." />
       </View>
     );
   }
@@ -69,7 +70,7 @@ export default function RatingFormScreen({ route, navigation }: Props) {
     <View style={styles.container}>
       <Text style={styles.title}>Calificar a {toUserEmail || "profesional"}</Text>
       <Text style={styles.hint}>{jobTitle}</Text>
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {error ? <ErrorState message={error} /> : null}
 
       <View style={styles.stars}>
         {SCORES.map((value) => (

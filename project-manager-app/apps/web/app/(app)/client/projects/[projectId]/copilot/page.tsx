@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { AlertTriangle, ArrowUpRight, Bot, ChevronDown, Clock, Cloud, Cpu, Edit, FileText, FlaskConical, GitBranch, LayoutList, Map, Milestone, PenTool, RefreshCw, Search, Send, Settings, Terminal, Wallet, X, Zap } from "lucide-react";
-import { HtmlInCanvasPanel } from "@semse/ui";
+import { ErrorState, HtmlInCanvasPanel } from "@semse/ui";
 import {
   approveWorkPlan,
   blockWorkPlanStep,
@@ -279,11 +279,7 @@ function TemplatePicker({ onPick }: { onPick: (prompt: string) => void }) {
               </div>
             )}
 
-            {error && (
-              <div style={{ color: "var(--error)", fontSize: 13, padding: "12px 14px", borderRadius: 10, background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.18)" }}>
-                {error}
-              </div>
-            )}
+            {error && <ErrorState message={error} />}
 
             {!loading && !error && templates.length === 0 && (
               <div style={{ color: "var(--muted)", fontSize: 13, textAlign: "center", padding: "24px 0" }}>
@@ -1263,11 +1259,7 @@ export default function ProjectCopilotPage() {
         ))}
       </div>
 
-      {error && (
-        <div style={{ padding: "12px 16px", background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.18)", borderRadius: 12, color: "var(--error)", fontSize: 13 }}>
-          {error}
-        </div>
-      )}
+      {error && <ErrorState message={error} />}
 
       {actionFeedback && (
         <div style={{

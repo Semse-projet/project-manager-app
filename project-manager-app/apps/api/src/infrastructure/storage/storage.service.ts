@@ -5,6 +5,12 @@ import path from "node:path";
 import { pipeline } from "node:stream/promises";
 import type { Readable } from "node:stream";
 import { normalizeStorageKey } from "./storage-key.js";
+import {
+  resolveSignedGetMode,
+  resolveSigningSecrets,
+  resolveTtlSeconds,
+  signKey,
+} from "./signed-url.js";
 
 export type UploadPlan = {
   uploadUrl: string;
@@ -116,8 +122,23 @@ export class StorageService {
     }
   }
 
-  publicUrl(key: string): string {
-    return `${this.baseUrl}/v1/uploads/files/${encodeURIComponent(key)}`;
+  /**
+   * URL de lectura. Con UPLOADS_SIGNED_GET_MODE=shadow|enforce y un secreto
+   * configurado, la URL lleva `exp` + `sig` (HMAC, ver signed-url.ts). Con
+   * `off` (o sin secreto) es la URL sin firmar de siempre.
+   * `ttl`: "browser" (15 min por defecto) o "vision" (5 min), o segundos.
+   */
+  publicUrl(key: string, opts: { ttl?: "browser" | "vision" | number } = {}): string {
+    const base = `${this.baseUrl}/v1/uploads/files/${encodeURIComponent(key)}`;
+    if (resolveSignedGetMode() === "off") return base;
+    const [secret] = resolveSigningSecrets();
+    if (!secret) {
+      this.logger.warn("UPLOADS_SIGNED_GET_MODE activo pero UPLOADS_SIGNING_SECRET ausente/corto: URL sin firmar");
+      return base;
+    }
+    const ttl = typeof opts.ttl === "number" ? Math.min(Math.max(1, Math.floor(opts.ttl)), 3600) : resolveTtlSeconds(opts.ttl ?? "browser");
+    const exp = Math.floor(Date.now() / 1000) + ttl;
+    return `${base}?exp=${exp}&sig=${signKey(normalizeStorageKey(key), exp, secret)}`;
   }
 
   private localPath(key: string): string {

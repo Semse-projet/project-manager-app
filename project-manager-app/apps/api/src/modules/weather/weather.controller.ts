@@ -1,6 +1,9 @@
-import { Controller, Get, Post, Param, UseGuards, Logger } from '@nestjs/common';
+import { Controller, Get, NotFoundException, Post, Param, Req, UseGuards, Logger } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { RequirePermissions } from '../../common/permissions.decorator.js';
+import { resolveRequestContext } from '../../common/request-context.js';
+import { ResourceScopeResolver } from '../../common/resource-scope.resolver.js';
+import { assertScopeAccess } from '../../common/resource-scope.js';
 import { WeatherService } from './weather.service.js';
 
 /**
@@ -18,7 +21,22 @@ import { WeatherService } from './weather.service.js';
 export class WeatherController {
   private readonly logger = new Logger(WeatherController.name);
 
-  constructor(private readonly weatherService: WeatherService) {}
+  constructor(
+    private readonly weatherService: WeatherService,
+    private readonly scopeResolver: ResourceScopeResolver,
+  ) {}
+
+  /**
+   * C51 etapa 3: las rutas por `projectId` resuelven primero el ProjectScope DENTRO del tenant del actor
+   * (otro tenant / inexistente ⇒ 404) y exigen ser la org cliente, la org profesional asignada u OPS_ADMIN
+   * (otra org del mismo tenant ⇒ 403). Antes se leía/consultaba por `projectId` sin tenant ni org.
+   */
+  private async assertProjectAccess(req: { headers?: Record<string, unknown> }, projectId: string): Promise<void> {
+    const actor = resolveRequestContext(req);
+    const scope = await this.scopeResolver.resolveProjectScope(actor.tenantId, projectId);
+    if (!scope) throw new NotFoundException('Project not found');
+    assertScopeAccess(actor, scope, 'read', 'Actor cannot access this project', 'Project not found');
+  }
 
   /**
    * GET /v1/projects/:projectId/weather/alerts
@@ -26,7 +44,8 @@ export class WeatherController {
    */
   @Get('v1/projects/:projectId/weather/alerts')
   @RequirePermissions('weather:read')
-  async getActiveAlerts(@Param('projectId') projectId: string) {
+  async getActiveAlerts(@Req() req: { headers?: Record<string, unknown> }, @Param('projectId') projectId: string) {
+    await this.assertProjectAccess(req, projectId);
     const alerts = await this.weatherService.listActiveAlerts(projectId);
     return { success: true, count: alerts.length, data: alerts };
   }
@@ -38,7 +57,8 @@ export class WeatherController {
    */
   @Post('v1/projects/:projectId/weather/check')
   @RequirePermissions('weather:write')
-  async checkProject(@Param('projectId') projectId: string) {
+  async checkProject(@Req() req: { headers?: Record<string, unknown> }, @Param('projectId') projectId: string) {
+    await this.assertProjectAccess(req, projectId);
     this.logger.log(`POST /weather/check: ${projectId}`);
     const alerts = await this.weatherService.checkProjectWeather(projectId);
     return { success: true, count: alerts.length, data: alerts };

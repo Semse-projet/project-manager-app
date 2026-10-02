@@ -409,7 +409,11 @@ export class PlanExecutionService {
         status: resolvedStep.status,
       },
       toolName: (input.toolName ?? input.actionType).toLowerCase(),
-      planApproved: plan.status === "active" || plan.status === "executing" || plan.status === "completed",
+      // C46: an approval only covers the definition that was approved; if the
+      // tools/gates changed afterwards the plan must be re-approved (fail closed).
+      planApproved:
+        (plan.status === "active" || plan.status === "executing" || plan.status === "completed") &&
+        plan.approvalValid !== false,
     });
 
     if (!toolDecision.allowed) {

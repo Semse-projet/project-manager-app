@@ -424,12 +424,14 @@ export const PROMETEO_TOOL_REGISTRY: PrometeoToolDescriptor[] = [
     label: "Estructurar reporte de campo agro",
     description:
       "Convierte texto o transcripción de un reporte de campo en una propuesta (incidencia, tarea completada o tarea nueva). " +
-      "No persiste nada ni emite diagnósticos; relaciona con tareas e incidencias existentes antes de proponer crear.",
+      "No persiste nada ni emite diagnósticos; relaciona con tareas e incidencias existentes antes de proponer crear. " +
+      "text es opcional si evidenceIds incluye audio (T-054): se transcribe automáticamente antes de procesar. " +
+      "Si evidenceIds incluye fotos, se adjuntan candidatos de reconocimiento de objetos (visionSignals) como contexto, nunca como diagnóstico.",
     permissions: ["agro:report"],
     endpoint: { method: "POST", path: "/v1/agro/farms/:farmId/intake/propose" },
     inputSchema: {
       type: "object",
-      required: ["farmId", "text"],
+      required: ["farmId"],
       properties: { farmId: { type: "string" }, text: { type: "string" }, evidenceIds: { type: "array", items: { type: "string" } } },
     },
     outputKind: "AgroIntakeProposal",

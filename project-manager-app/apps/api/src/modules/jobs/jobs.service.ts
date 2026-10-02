@@ -23,6 +23,7 @@ import { WorkspaceMemoryRepository } from "../knowledge/workspace-memory.reposit
 import { JobsRepository } from "./jobs.repository.js";
 import type { SemseAgentsService } from "../semse-agents/semse-agents.service.js";
 import type { NotificationsService } from "../notifications/notifications.service.js";
+import { sameOrg } from "../../common/resource-scope.js";
 
 @Injectable()
 export class JobsService {
@@ -836,7 +837,7 @@ const JOB_TRANSITIONS: Record<JobStatus, JobStatus[]> = {
 const CLIENT_ONLY_TRANSITIONS: JobStatus[] = ["completed", "cancelled"];
 const PRO_ONLY_TRANSITIONS: JobStatus[] = ["review", "dispute"];
 
-function assertTransitionAuthorized(
+export function assertTransitionAuthorized(
   targetStatus: JobStatus,
   actorOrgId: string,
   roles: string[],
@@ -845,21 +846,23 @@ function assertTransitionAuthorized(
   if (roles.includes("OPS_ADMIN") || roles.includes("SYSTEM")) return;
 
   if (CLIENT_ONLY_TRANSITIONS.includes(targetStatus)) {
-    if (actorOrgId !== ownership.clientOrgId) {
+    if (!sameOrg(actorOrgId, ownership.clientOrgId)) {
       throw new UnprocessableEntityException("actor cannot perform client-only job transition");
     }
     return;
   }
 
   if (PRO_ONLY_TRANSITIONS.includes(targetStatus)) {
-    if (!ownership.professionalOrgId || actorOrgId !== ownership.professionalOrgId) {
+    if (!sameOrg(actorOrgId, ownership.professionalOrgId)) {
       throw new UnprocessableEntityException("actor cannot perform professional-only job transition");
     }
     return;
   }
 
   // Default: allow either client or the assigned professional to transition
-  if (actorOrgId !== ownership.clientOrgId && actorOrgId !== (ownership.professionalOrgId ?? "")) {
+  // C51 etapa 2: una org vacía nunca coincide. Antes el profesional ausente se sustituía por una cadena vacía
+  // y se comparaba con el actor: un actor sin org podía transicionar un job sin profesional asignado.
+  if (!sameOrg(actorOrgId, ownership.clientOrgId) && !sameOrg(actorOrgId, ownership.professionalOrgId)) {
     throw new UnprocessableEntityException("actor cannot transition this job");
   }
 }

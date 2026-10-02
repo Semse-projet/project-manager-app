@@ -1,9 +1,11 @@
 import { Module } from '@nestjs/common';
+import { ResourceScopeModule } from '../../common/resource-scope.module.js';
 import { WeatherService } from './weather.service.js';
 import { WeatherController } from './weather.controller.js';
 import { TomorrowWeatherClient, createTomorrowWeatherClient } from '../../integrations/tomorrow-weather.js';
 
 @Module({
+  imports: [ResourceScopeModule],
   controllers: [WeatherController],
   providers: [
     WeatherService,

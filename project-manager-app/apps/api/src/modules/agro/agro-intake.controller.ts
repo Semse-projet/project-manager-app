@@ -8,9 +8,13 @@ import { parseWithSchema } from "../../common/zod-validation.js";
 import { AgroIntakeService } from "./agro-intake.service.js";
 
 const proposeSchema = z.object({
-  text: z.string().min(1).max(4000),
+  // T-054: opcional si evidenceIds incluye audio transcribible — el servicio
+  // exige el texto final (propio o transcripto) antes de seguir.
+  text: z.string().max(4000).optional(),
   evidenceIds: z.array(z.string()).max(10).optional(),
   occurredAt: z.coerce.date().optional(),
+}).refine((v) => Boolean(v.text?.trim()) || (v.evidenceIds?.length ?? 0) > 0, {
+  message: "text or evidenceIds is required",
 });
 
 @Controller("v1/agro")
