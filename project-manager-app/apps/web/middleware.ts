@@ -7,9 +7,9 @@ export const runtime = "nodejs";
  * Next.js Middleware — route protection
  *
  * Protected routes: all paths under the (app) route group
- *   /worker/*, /client/*, /admin/*, /agents, and the legacy /jobs/*
- *   plus internal architecture pages /anatomy, /knowledge, /repo-map,
- *   and /runtime-map (OPS_ADMIN only)
+ *   /worker/*, /client/*, /admin/*, /agents, the legacy /jobs/*, the exact
+ *   legacy aliases /dashboard and /field-ops, plus internal architecture pages
+ *   /anatomy, /knowledge, /repo-map and /runtime-map (OPS_ADMIN only)
  *
  * Public routes (no session required):
  *   /, /login, /logout, public SEMSE API allowlist, /_next/*, /favicon*
@@ -17,6 +17,10 @@ export const runtime = "nodejs";
 
 import { type NextRequest, NextResponse } from "next/server";
 import { SESSION_COOKIE, decodeSession, roleFromRoles, defaultDashboardForRole } from "@/lib/auth";
+import {
+  isLegacyOrphanRoute,
+  resolveLegacyRouteRedirect,
+} from "@/lib/legacy-route-redirect";
 import { resolveSafeRedirectPath } from "@/lib/safe-redirect";
 import {
   buildSemseApiUnauthorizedBody,
@@ -47,6 +51,7 @@ const PROTECTED_PREFIXES = ["/worker", "/client", "/admin", "/agents", "/jobs"];
 
 function isProtected(pathname: string): boolean {
   return (
+    isLegacyOrphanRoute(pathname) ||
     isInternalArchitecturePagePath(pathname) ||
     PROTECTED_PREFIXES.some(prefix => pathname.startsWith(prefix))
   );
@@ -178,6 +183,14 @@ export async function middleware(req: NextRequest): Promise<NextResponse> {
   // ── 4. Role-based route enforcement ────────────────────────────────────────
   // Prevent a worker from accessing /admin/*, a client from /worker/*, etc.
   const role = roleFromRoles(session.roles);
+  const legacyRedirectTarget = resolveLegacyRouteRedirect(pathname, role);
+
+  if (legacyRedirectTarget) {
+    const url = req.nextUrl.clone();
+    url.pathname = legacyRedirectTarget;
+    return NextResponse.redirect(url);
+  }
+
   const ownedPrefixes: Record<typeof role, string[]> = {
     worker: ["/worker", "/agents", "/jobs"], // worker tracker links to /jobs/:id
     client: ["/client", "/agents", "/jobs"],

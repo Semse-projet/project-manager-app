@@ -499,10 +499,7 @@ function useAppRole(): NavRole {
 function AppLayoutInner({ children }: { children: ReactNode }) {
   const role = useAppRole();
   const pathname = usePathname();
-  const [collapsed, setCollapsed] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return window.localStorage.getItem("semse-sidebar-collapsed") === "true";
-  });
+  const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [theme, setTheme] = useState<ThemePreference>("dark");
   const { language, t } = useLanguage();
@@ -510,16 +507,14 @@ function AppLayoutInner({ children }: { children: ReactNode }) {
   const RoleIcon = nav.icon;
 
   useEffect(() => {
+    setCollapsed(window.localStorage.getItem("semse-sidebar-collapsed") === "true");
+
     const savedTheme = window.localStorage.getItem("semse-theme");
     if (savedTheme === "dark" || savedTheme === "light") {
       setTheme(savedTheme);
+      document.documentElement.dataset.theme = savedTheme;
     }
   }, []);
-
-  useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-    window.localStorage.setItem("semse-theme", theme);
-  }, [theme]);
 
   const handleCollapsedChange = (next: boolean) => {
     setCollapsed(next);
@@ -530,6 +525,8 @@ function AppLayoutInner({ children }: { children: ReactNode }) {
 
   const handleThemeChange = (value: ThemePreference) => {
     setTheme(value);
+    document.documentElement.dataset.theme = value;
+    window.localStorage.setItem("semse-theme", value);
   };
 
   const shellNavModel = useMemo(
