@@ -599,6 +599,10 @@ export function generateWarnings(intake: ProjectIntakeRecord): IntakeWarning[] {
     const warning = warningById("warning_electrical_hazard");
     if (warning) warnings.set(warning.id, warning);
   }
+  if (findAnswer(intake.answers, "electrical_type")?.selectedValues.includes("structural")) {
+    const warning = warningById("warning_electrical_hazard");
+    if (warning) warnings.set(warning.id, warning);
+  }
 
   return [...warnings.values()];
 }
@@ -829,6 +833,22 @@ function resolveSizeMultiplier(intake: ProjectIntakeRecord): number {
     case "general_carpentry": {
       const units = resolveFirstAnswer(intake.answers, "carpentry_units");
       return units === "small" ? 0.5 : units === "large" ? 2.1 : 1.0;
+    }
+    case "plumbing_repair": {
+      const scope = resolveFirstAnswer(intake.answers, "plumbing_scope");
+      return scope === "small" ? 0.6 : scope === "large" ? 1.8 : 1.0;
+    }
+    case "electrical_work": {
+      const scope = resolveFirstAnswer(intake.answers, "electrical_scope");
+      return scope === "small" ? 0.6 : scope === "large" ? 1.9 : 1.0;
+    }
+    case "flooring_installation": {
+      const scope = resolveFirstAnswer(intake.answers, "flooring_scope");
+      return scope === "small" ? 0.6 : scope === "large" ? 2.0 : 1.0;
+    }
+    case "landscaping": {
+      const scope = resolveFirstAnswer(intake.answers, "landscaping_scope");
+      return scope === "small" ? 0.6 : scope === "large" ? 1.9 : 1.0;
     }
     default:
       return 1.0;

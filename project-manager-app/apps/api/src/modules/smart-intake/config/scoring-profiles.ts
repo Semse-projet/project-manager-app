@@ -168,6 +168,89 @@ const CARPENTRY_PROFILE: CategoryScoringProfile = {
 };
 
 /**
+ * plumbing_repair  — max ≈ 95
+ * threshold = 36
+ */
+const PLUMBING_PROFILE: CategoryScoringProfile = {
+  id: "plumbing_repair",
+  rawDescriptionScore: 15,
+  imagesScore: 5,
+  estimateReadyThreshold: 36,
+  weights: [
+    { questionId: "plumbing_type",     label: "Type of work",       exact: 25, notSure: 8, critical: true,  recommended: false },
+    { questionId: "plumbing_scope",    label: "Fixtures involved",  exact: 20, notSure: 6, critical: true,  recommended: false },
+    { questionId: "plumbing_access",   label: "Access difficulty",  exact: 20, notSure: 6, critical: false, recommended: true  },
+    { questionId: "plumbing_material", label: "Material quality",   exact: 10, notSure: 3, critical: false, recommended: true  },
+  ],
+  riskTriggers: [
+    { questionId: "plumbing_type",   value: "structural",   flag: "repiping_required" },
+    { questionId: "plumbing_access", value: "underground",  flag: "underground_access" },
+  ],
+};
+
+/**
+ * electrical_work  — max ≈ 95
+ * threshold = 36 (higher scrutiny — safety-sensitive trade)
+ */
+const ELECTRICAL_PROFILE: CategoryScoringProfile = {
+  id: "electrical_work",
+  rawDescriptionScore: 15,
+  imagesScore: 5,
+  estimateReadyThreshold: 36,
+  weights: [
+    { questionId: "electrical_type",     label: "Type of work",        exact: 25, notSure: 8, critical: true,  recommended: false },
+    { questionId: "electrical_scope",    label: "Circuits / points",   exact: 20, notSure: 6, critical: true,  recommended: false },
+    { questionId: "electrical_panel",    label: "Panel condition",     exact: 20, notSure: 6, critical: false, recommended: true  },
+    { questionId: "electrical_material", label: "Material quality",    exact: 10, notSure: 3, critical: false, recommended: true  },
+  ],
+  riskTriggers: [
+    { questionId: "electrical_type",  value: "structural",  flag: "rewiring_required" },
+    { questionId: "electrical_panel", value: "structural",  flag: "panel_replacement_required" },
+  ],
+};
+
+/**
+ * flooring_installation  — max ≈ 95
+ * threshold = 36
+ */
+const FLOORING_PROFILE: CategoryScoringProfile = {
+  id: "flooring_installation",
+  rawDescriptionScore: 15,
+  imagesScore: 5,
+  estimateReadyThreshold: 36,
+  weights: [
+    { questionId: "flooring_type",     label: "Type of work",     exact: 25, notSure: 8, critical: true,  recommended: false },
+    { questionId: "flooring_scope",    label: "Area / rooms",     exact: 20, notSure: 6, critical: true,  recommended: false },
+    { questionId: "flooring_material", label: "Material quality", exact: 20, notSure: 6, critical: false, recommended: true  },
+    { questionId: "flooring_existing", label: "Removal needed",   exact: 10, notSure: 3, critical: false, recommended: true  },
+  ],
+  riskTriggers: [
+    { questionId: "flooring_existing", value: "significant", flag: "significant_demolition" },
+    { questionId: "flooring_material", value: "premium",     flag: "premium_materials" },
+  ],
+};
+
+/**
+ * landscaping  — max ≈ 90
+ * threshold = 30 (simpler trade, fewer hidden unknowns)
+ */
+const LANDSCAPING_PROFILE: CategoryScoringProfile = {
+  id: "landscaping",
+  rawDescriptionScore: 15,
+  imagesScore: 5,
+  estimateReadyThreshold: 30,
+  weights: [
+    { questionId: "landscaping_type",      label: "Type of work",   exact: 25, notSure: 8, critical: true,  recommended: false },
+    { questionId: "landscaping_scope",     label: "Yard size",      exact: 25, notSure: 8, critical: true,  recommended: false },
+    { questionId: "landscaping_frequency", label: "Frequency",      exact: 10, notSure: 3, critical: false, recommended: true  },
+    { questionId: "landscaping_material",  label: "Material quality", exact: 10, notSure: 3, critical: false, recommended: true },
+  ],
+  riskTriggers: [
+    { questionId: "landscaping_type", value: "structural", flag: "hardscaping_scope" },
+  ],
+};
+
+/**
  * generic  — fallback for unrecognised categories
  * threshold = 36
  */
@@ -188,6 +271,10 @@ export const SCORING_PROFILES: Partial<Record<SmartIntakeCategory | "generic", C
   kitchen_remodel:   KITCHEN_PROFILE,
   cleaning:          CLEANING_PROFILE,
   general_carpentry: CARPENTRY_PROFILE,
+  plumbing_repair:        PLUMBING_PROFILE,
+  electrical_work:        ELECTRICAL_PROFILE,
+  flooring_installation:  FLOORING_PROFILE,
+  landscaping:            LANDSCAPING_PROFILE,
 };
 
 export const GENERIC_SCORING_PROFILE: CategoryScoringProfile = GENERIC_PROFILE;

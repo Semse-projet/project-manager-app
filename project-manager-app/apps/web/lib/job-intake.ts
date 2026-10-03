@@ -123,6 +123,10 @@ export const SMART_INTAKE_CATEGORY_IDS = new Set([
   "cocina",
   "limpieza",
   "carpinteria",
+  "plomeria",
+  "electricidad",
+  "pisos",
+  "jardineria",
 ]);
 
 export const JOB_URGENCY_OPTIONS: JobUrgencyOption[] = [
