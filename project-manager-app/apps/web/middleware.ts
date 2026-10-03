@@ -8,6 +8,8 @@ export const runtime = "nodejs";
  *
  * Protected routes: all paths under the (app) route group
  *   /worker/*, /client/*, /admin/*, /agents, and the legacy /jobs/*
+ *   plus internal architecture pages /anatomy, /knowledge, /repo-map,
+ *   and /runtime-map (OPS_ADMIN only)
  *
  * Public routes (no session required):
  *   /, /login, /logout, public SEMSE API allowlist, /_next/*, /favicon*
@@ -18,6 +20,8 @@ import { SESSION_COOKIE, decodeSession, roleFromRoles, defaultDashboardForRole }
 import { resolveSafeRedirectPath } from "@/lib/safe-redirect";
 import {
   buildSemseApiUnauthorizedBody,
+  canAccessInternalArchitecturePage,
+  isInternalArchitecturePagePath,
   isPublicSemseApiPath,
   isSemseApiPath,
   sanitizeSemseIdentityHeaders,
@@ -42,7 +46,10 @@ function isAuthPage(pathname: string): boolean {
 const PROTECTED_PREFIXES = ["/worker", "/client", "/admin", "/agents", "/jobs"];
 
 function isProtected(pathname: string): boolean {
-  return PROTECTED_PREFIXES.some(prefix => pathname.startsWith(prefix));
+  return (
+    isInternalArchitecturePagePath(pathname) ||
+    PROTECTED_PREFIXES.some(prefix => pathname.startsWith(prefix))
+  );
 }
 
 function withSessionHeaders(req: NextRequest, session: Awaited<ReturnType<typeof decodeSession>>) {
@@ -177,7 +184,9 @@ export async function middleware(req: NextRequest): Promise<NextResponse> {
     admin:  ["/worker", "/client", "/admin", "/agents", "/jobs"], // admin sees all
   };
 
-  const allowed = ownedPrefixes[role].some(p => pathname.startsWith(p));
+  const allowed = isInternalArchitecturePagePath(pathname)
+    ? canAccessInternalArchitecturePage(pathname, role)
+    : ownedPrefixes[role].some(p => pathname.startsWith(p));
 
   if (!allowed) {
     // Redirect to their correct dashboard instead of 403

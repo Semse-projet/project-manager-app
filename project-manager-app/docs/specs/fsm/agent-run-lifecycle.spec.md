@@ -2,14 +2,20 @@
 id: "fsm-agent-run-lifecycle"
 title: "Agent Run Lifecycle FSM"
 domain: "agents"
+version: "1.1"
 status: "VERIFIED"
 owner: "semse-core"
 risk: "high"
+date: "2026-07-23"
+author: "Codex"
+spec_index: "docs/SPEC_INDEX.md"
 related_files:
   - "apps/api/src/modules/agents"
   - "packages/agents/src"
 related_tests:
   - "apps/api/test/agents-auto-trigger.test.ts"
+  - "apps/api/test/agent-run-reclaim-race.test.ts"
+  - "apps/api/test/fsm-lifecycles.test.ts"
   - "scripts/api-agents-smoke.mjs"
 related_endpoints:
   - "v1/agents"
@@ -17,7 +23,7 @@ related_events:
   - "agent.run.retry"
 related_agents:
   - "orchestrator"
-last_verified: "2026-06-09"
+last_verified: "2026-07-23"
 ---
 
 # FSM Spec: Agent Run Lifecycle
@@ -31,6 +37,10 @@ last_verified: "2026-06-09"
 | `completed` | Run finished successfully with optional output. | Yes | No. |
 | `failed` | Run failed and may be retried if attempts remain. | Conditional | Yes, through retry/reclaim if attempts remain. |
 | `dead_lettered` | Run exceeded attempts or failed stale reclaim policy. | Yes | No except manual administrative intervention later specified. |
+
+`dead_lettered` es el estado lógico del FSM. El modelo físico vigente lo
+representa como `status=FAILED` junto con `deadLettered=true`, porque el enum
+persistido no tiene un valor separado.
 
 ## Transitions
 
@@ -70,6 +80,10 @@ queued ── claim/start ──► running ── complete ──► completed
 - Runs are tenant scoped.
 - `correlationId` must remain stable across retries for traceability.
 - Sensitive downstream actions must still pass approval/policy gates.
+- Stale reclaim may mutate only a run that is still `running` and whose latest
+  heartbeat/start/update timestamp remains older than the cutoff.
+- Candidate selection never authorizes a later mutation by itself; a failed
+  compare-and-set is skipped.
 
 ## Tests Required
 
@@ -79,7 +93,9 @@ queued ── claim/start ──► running ── complete ──► completed
 - [ ] Unit test for running -> completed.
 - [ ] Unit test for running -> failed -> queued retry.
 - [ ] Unit test that running retry is rejected.
-- [ ] Unit test for stale reclaim to queued/dead_lettered.
+- [x] Unit test for stale reclaim to queued/dead_lettered.
+- [x] Race test that a run completed or heartbeated after selection is not
+  reclaimed.
 
 ## Implementation Map
 
@@ -100,6 +116,6 @@ queued ── claim/start ──► running ── complete ──► completed
 
 ## Acceptance Criteria
 
-- [ ] Spec is linked from `docs/SPEC_INDEX.md`.
-- [ ] Agents API spec references this FSM.
-- [ ] Retry and stale reclaim preserve traceability through correlationId.
+- [x] Spec is linked from `docs/SPEC_INDEX.md`.
+- [x] Agents API spec references this FSM.
+- [x] Retry and stale reclaim preserve traceability through correlationId.

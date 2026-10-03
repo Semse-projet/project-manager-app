@@ -2,9 +2,13 @@
 id: "api-agents-runtime"
 title: "Agents Runtime API"
 domain: "agents"
+version: "1.1"
 status: "VERIFIED"
 owner: "semse-core"
 risk: "high"
+date: "2026-07-23"
+author: "Codex"
+spec_index: "docs/SPEC_INDEX.md"
 related_files:
   - "apps/api/src/modules/agents"
   - "packages/agents/src"
@@ -12,6 +16,7 @@ related_files:
 related_tests:
   - "apps/api/test/agent-governance.test.ts"
   - "apps/api/test/agent-policy.service.test.ts"
+  - "apps/api/test/agent-run-reclaim-race.test.ts"
   - "scripts/api-agents-smoke.mjs"
 related_endpoints:
   - "v1/agents"
@@ -20,7 +25,7 @@ related_events:
 related_agents:
   - "orchestrator"
   - "prometeo"
-last_verified: "2026-06-09"
+last_verified: "2026-07-23"
 ---
 
 # Spec: Agents Runtime API
@@ -204,6 +209,11 @@ effects:
     - "agent.run.heartbeat"
     - "agent.run.complete"
     - "agent.run.fail"
+concurrency:
+  stale_reclaim:
+    - "selection and mutation execute in one transaction"
+    - "mutation repeats tenantId, status=RUNNING and stale cutoff"
+    - "a failed compare-and-set is skipped"
 ```
 
 ### `POST /v1/agents/runs/:runId/retry`
@@ -239,6 +249,8 @@ queued -> running -> failed -> dead_lettered
 - [x] Governance policy tests: `apps/api/test/agent-governance.test.ts`
 - [x] Agent policy tests: `apps/api/test/agent-policy.service.test.ts`
 - [x] Smoke: `scripts/api-agents-smoke.mjs`
+- [x] Stale reclaim race safety:
+  `apps/api/test/agent-run-reclaim-race.test.ts`.
 - [ ] Controller-level tests for run claim, heartbeat, complete, fail and retry.
 - [ ] Approval decision test for already-decided approvals.
 
@@ -260,6 +272,7 @@ queued -> running -> failed -> dead_lettered
 
 - `apps/api/test/agent-governance.test.ts`
 - `apps/api/test/agent-policy.service.test.ts`
+- `apps/api/test/agent-run-reclaim-race.test.ts`
 - `scripts/api-agents-smoke.mjs`
 
 ## Acceptance Criteria

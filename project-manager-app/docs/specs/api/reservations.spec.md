@@ -2,9 +2,13 @@
 id: "api-reservations"
 title: "Job Reservations API"
 domain: "reservations"
+version: "1.1"
 status: "VERIFIED"
 owner: "semse-core"
 risk: "high"
+date: "2026-07-23"
+author: "Codex"
+spec_index: "docs/SPEC_INDEX.md"
 related_files:
   - "apps/api/src/modules/reservations"
   - "packages/schemas/src/job.schema.ts"
@@ -17,7 +21,7 @@ related_endpoints:
 related_events:
   - "reservation.create"
 related_agents: []
-last_verified: "2026-06-09"
+last_verified: "2026-07-23"
 ---
 
 # Spec: Job Reservations API
@@ -105,6 +109,11 @@ input:
 output:
   expiredCount: number
   jobsReopened: number
+concurrency:
+  - "selection and mutation execute in one transaction"
+  - "update repeats status=ACTIVE and expiresAt<=cutoff"
+  - "job reopens only when status=RESERVED and no ACTIVE reservation exists"
+  - "counts include only rows actually mutated"
 ```
 
 ## FSM
@@ -129,6 +138,10 @@ held -> expired
 - [x] Unit/controller tests for TTL validation.
 - [x] Tenant isolation tests.
 - [x] Idempotency/conflict tests for terminal reservations.
+- [x] Race regression: an accepted reservation selected by the sweep is not
+  overwritten or counted.
+- [x] Job reopen uses a guarded relation filter and cannot overwrite a newer
+  job status.
 
 ## Implementation Map
 
@@ -140,6 +153,7 @@ held -> expired
 
 ### Tests
 
+- `apps/api/test/reservations.contract.test.ts`
 - `scripts/api-reservations-smoke.mjs`
 
 ## Acceptance Criteria
@@ -147,4 +161,5 @@ held -> expired
 - [x] Spec is linked from `docs/SPEC_INDEX.md`.
 - [x] Reservation transitions are auditable.
 - [x] Expired reservations can be swept safely.
+- [x] Sweep uses transactional compare-and-set and reports mutation counts.
 - [x] Visible response hides internal-only data.

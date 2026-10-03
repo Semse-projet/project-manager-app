@@ -58,6 +58,10 @@ function createPrismaHarness() {
       ["usr_ops_1|org_ops", { orgId: "org_ops" }],
     ]),
     roleCreated: false,
+    transactionCalls: 0,
+    beforeReservationUpdateMany: undefined as (() => void) | undefined,
+    reservationUpdateManyWheres: [] as unknown[],
+    jobUpdateManyWheres: [] as unknown[],
   };
 
   const prisma = {
@@ -77,11 +81,27 @@ function createPrismaHarness() {
         where,
         data,
       }: {
-        where: { id: string; status?: string; deletedAt?: null };
+        where: {
+          id: string;
+          deletedAt?: null;
+          status?: string;
+          reservations?: { none: { status: string } };
+        };
         data: { status: string };
       }) {
+        state.jobUpdateManyWheres.push(where);
         const job = state.jobs.get(where.id);
-        if (!job || (where.status && job.status !== where.status) || (where.deletedAt !== undefined && job.deletedAt !== where.deletedAt)) {
+        const hasMatchingReservation = state.reservations.some(
+          (reservation) =>
+            reservation.jobId === where.id &&
+            reservation.status === where.reservations?.none.status,
+        );
+        if (
+          !job ||
+          (where.deletedAt === null && job.deletedAt !== null) ||
+          (where.status && job.status !== where.status) ||
+          hasMatchingReservation
+        ) {
           return { count: 0 };
         }
         job.status = data.status;
@@ -129,10 +149,27 @@ function createPrismaHarness() {
         state.reservations.push(row);
         return row;
       },
-      async updateMany({ where, data }: { where: { id: { in: string[] } }; data: { status: string; releasedAt: Date } }) {
+      async updateMany({
+        where,
+        data,
+      }: {
+        where: {
+          id: { in: string[] };
+          status?: string;
+          expiresAt?: { lte: Date };
+        };
+        data: { status: string; releasedAt: Date };
+      }) {
+        state.reservationUpdateManyWheres.push(where);
+        state.beforeReservationUpdateMany?.();
+        state.beforeReservationUpdateMany = undefined;
         let count = 0;
         for (const row of state.reservations) {
-          if (where.id.in.includes(row.id)) {
+          if (
+            where.id.in.includes(row.id) &&
+            (!where.status || row.status === where.status) &&
+            (!where.expiresAt?.lte || row.expiresAt <= where.expiresAt.lte)
+          ) {
             row.status = data.status;
             row.releasedAt = data.releasedAt;
             count++;
@@ -181,7 +218,10 @@ function createPrismaHarness() {
         return { id: "role_pro" };
       },
     },
-    $transaction: async <T>(fn: (tx: unknown) => Promise<T>) => fn(prisma),
+    $transaction: async <T>(fn: (tx: unknown) => Promise<T>) => {
+      state.transactionCalls++;
+      return fn(prisma);
+    },
   };
 
   const actorContextService = {
@@ -337,6 +377,57 @@ test("reservations service audits expired reservation sweep", async () => {
       jobsReopened: 1
     }
   });
+});
+
+test("expired sweep compare-and-set preserves a reservation accepted after selection", async () => {
+  const { repository, state } = createRepositoryHarness();
+  const job = state.jobs.get("job_1");
+  assert.ok(job);
+  job.status = "RESERVED";
+  state.reservations.push({
+    id: "res_racing",
+    jobId: "job_1",
+    professionalOrgId: "org_pro_1",
+    professionalId: "usr_pro_1",
+    status: "ACTIVE",
+    reservedAt: new Date(Date.now() - 120_000),
+    expiresAt: new Date(Date.now() - 60_000),
+    releasedAt: null,
+    acceptedAt: null,
+    job: { id: job.id, tenantId: job.tenantId, clientOrgId: job.clientOrgId },
+  });
+  state.beforeReservationUpdateMany = () => {
+    const reservation = state.reservations[0];
+    assert.ok(reservation);
+    reservation.status = "ACCEPTED";
+    reservation.acceptedAt = new Date();
+    job.status = "ACCEPTED";
+  };
+
+  const result = await repository.sweepExpired({ maxItems: 10 });
+
+  assert.deepEqual(result, { expiredCount: 0, jobsReopened: 0 });
+  assert.equal(state.transactionCalls, 1);
+  assert.equal(state.reservations[0]?.status, "ACCEPTED");
+  assert.equal(state.jobs.get("job_1")?.status, "ACCEPTED");
+  assert.equal(
+    (state.reservationUpdateManyWheres[0] as { status?: string }).status,
+    "ACTIVE",
+  );
+  assert.ok(
+    (state.reservationUpdateManyWheres[0] as { expiresAt?: { lte?: Date } })
+      .expiresAt?.lte instanceof Date,
+  );
+  assert.equal(
+    (state.jobUpdateManyWheres[0] as { status?: string }).status,
+    "RESERVED",
+  );
+  assert.deepEqual(
+    (state.jobUpdateManyWheres[0] as {
+      reservations?: { none?: { status?: string } };
+    }).reservations,
+    { none: { status: "ACTIVE" } },
+  );
 });
 
 test("reservations repository enforces tenant isolation and terminal reservation conflicts", async () => {

@@ -384,7 +384,6 @@ export class ReservationsRepository {
 
     return this.prisma.$transaction(async (tx) => {
       const db = tx as ReservationTx;
-
       const stale = (await db.jobReservation.findMany({
         where: {
           status: "ACTIVE",
@@ -398,34 +397,34 @@ export class ReservationsRepository {
         return { expiredCount: 0, jobsReopened: 0 };
       }
 
-      const staleIds = stale.map((r) => r.id);
-      const jobIds = Array.from(new Set(stale.map((r) => r.jobId)));
-
-      // Repetir `status: "ACTIVE"` en el WHERE del update (no solo en el findMany
-      // previo) es lo que evita que el barrido pise una reserva que un actor real
-      // ya aceptó/liberó entre el find y el update.
-      const expiredResult = await db.jobReservation.updateMany({
-        where: { id: { in: staleIds }, status: "ACTIVE" },
+      const staleIds = stale.map((reservation) => reservation.id);
+      const jobIds = Array.from(new Set(stale.map((reservation) => reservation.jobId)));
+      const expired = await db.jobReservation.updateMany({
+        where: {
+          id: { in: staleIds },
+          status: "ACTIVE",
+          expiresAt: { lte: now }
+        },
         data: { status: "EXPIRED", releasedAt: now }
       });
 
       let jobsReopened = 0;
       for (const jobId of jobIds) {
-        const stillActive = await db.jobReservation.count({
-          where: { jobId, status: "ACTIVE" }
+        const reopened = await db.job.updateMany({
+          where: {
+            id: jobId,
+            deletedAt: null,
+            status: "RESERVED",
+            reservations: {
+              none: { status: "ACTIVE" }
+            }
+          },
+          data: { status: "POSTED" }
         });
-        if (stillActive === 0) {
-          // Mismo principio para el job: solo reabrir si sigue "RESERVED" en el
-          // momento del update, no en el momento en que se leyó antes.
-          const reopened = await db.job.updateMany({
-            where: { id: jobId, status: "RESERVED", deletedAt: null },
-            data: { status: "POSTED" }
-          });
-          jobsReopened += reopened.count;
-        }
+        jobsReopened += reopened.count;
       }
 
-      return { expiredCount: expiredResult.count, jobsReopened };
+      return { expiredCount: expired.count, jobsReopened };
     });
   }
 

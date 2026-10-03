@@ -42,6 +42,29 @@ export function sanitizeSemseIdentityHeaders(
   return headers;
 }
 
+// Internal architecture pages. Their data already goes through BFF routes that
+// require a signed session and the `internal:architecture:read` permission
+// (OPS_ADMIN only); the page shells must not be reachable without a session.
+export const INTERNAL_ARCHITECTURE_PAGE_PREFIXES = [
+  "/anatomy",
+  "/knowledge",
+  "/repo-map",
+  "/runtime-map",
+] as const;
+
+export function isInternalArchitecturePagePath(pathname: string): boolean {
+  return INTERNAL_ARCHITECTURE_PAGE_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  );
+}
+
+export function canAccessInternalArchitecturePage(
+  pathname: string,
+  role: "worker" | "client" | "admin",
+): boolean {
+  return !isInternalArchitecturePagePath(pathname) || role === "admin";
+}
+
 export function isSemseApiPath(pathname: string): boolean {
   return pathname === "/api/semse" || pathname.startsWith("/api/semse/");
 }
