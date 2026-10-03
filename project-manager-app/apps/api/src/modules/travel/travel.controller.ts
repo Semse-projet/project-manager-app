@@ -133,7 +133,11 @@ export class TravelController {
     if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
     const actor = resolveRequestContext(req);
     const data = await this.travelService.createAssignment({
-      tenantId: actor.tenantId, assignedTo: actor.userId, ...parsed.data,
+      tenantId: actor.tenantId,
+      actorUserId: actor.userId,
+      orgId: actor.orgId,
+      roles: actor.roles,
+      ...parsed.data,
     });
     return ok(resolveRequestId(req.headers ?? {}), data);
   }

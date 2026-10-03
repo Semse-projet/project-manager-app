@@ -1,4 +1,10 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+  ServiceUnavailableException,
+} from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { databaseEnabled } from "../../infrastructure/persistence/persistence-mode.js";
@@ -313,7 +319,8 @@ export class TravelService {
   }
 
   async createAssignment(input: {
-    tenantId: string; jobId: string; assignedTo: string;
+    tenantId: string; jobId: string;
+    actorUserId: string; orgId: string; roles: string[];
     destinationCity: string; departureDate: string; returnDate?: string;
     estimatedDays?: number; requiresLodging?: boolean; headcount?: number;
     mainTransportMode?: string; approvedBudget?: number; approvedBy?: string;
@@ -323,44 +330,75 @@ export class TravelService {
     if (!input.departureDate) throw new BadRequestException("departureDate required");
 
     if (!databaseEnabled()) {
-      const rec: TravelAssignmentRecord = {
-        id: `trv_${Date.now()}`, tenantId: input.tenantId, jobId: input.jobId,
-        assignedTo: input.assignedTo, destinationCity: input.destinationCity,
-        departureDate: new Date(input.departureDate).toISOString(),
-        returnDate: input.returnDate ? new Date(input.returnDate).toISOString() : null,
-        estimatedDays: input.estimatedDays ?? null,
-        requiresLodging: input.requiresLodging ?? true,
-        headcount: input.headcount ?? 1,
-        mainTransportMode: input.mainTransportMode ?? null,
-        approvedBudget: input.approvedBudget ?? null,
-        approvedBy: input.approvedBy ?? null,
-        status: "DRAFT", notes: input.notes ?? null,
-        createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
-      };
-      MOCK_ASSIGNMENTS.push(rec);
-      return rec;
+      throw new ServiceUnavailableException(
+        "database persistence is required to validate the assignment job",
+      );
     }
 
-    await this.prisma.job.updateMany({
-      where: { id: input.jobId, tenantId: input.tenantId },
-      data: { isOutOfTown: true, destinationCity: input.destinationCity },
+    return this.prisma.$transaction(async (tx) => {
+      const job = await tx.job.findFirst({
+        where: {
+          id: input.jobId,
+          tenantId: input.tenantId,
+          deletedAt: null,
+        },
+        select: {
+          clientOrgId: true,
+          project: {
+            select: {
+              assignedProOrgId: true,
+            },
+          },
+        },
+      });
+      if (!job) {
+        throw new NotFoundException("Job not found");
+      }
+
+      const isOpsAdmin = input.roles.includes("OPS_ADMIN");
+      const isOwningClient =
+        input.roles.includes("CLIENT") && job.clientOrgId === input.orgId;
+      const isAssignedWorker =
+        (input.roles.includes("PRO") || input.roles.includes("WORKER")) &&
+        job.project?.assignedProOrgId === input.orgId;
+      if (!isOpsAdmin && !isOwningClient && !isAssignedWorker) {
+        throw new ForbiddenException("actor is not assigned to this job");
+      }
+
+      const updated = await tx.job.updateMany({
+        where: {
+          id: input.jobId,
+          tenantId: input.tenantId,
+          deletedAt: null,
+        },
+        data: {
+          isOutOfTown: true,
+          destinationCity: input.destinationCity,
+        },
+      });
+      if (updated.count !== 1) {
+        throw new NotFoundException("Job not found");
+      }
+
+      const row = await tx.travelAssignment.create({
+        data: {
+          tenantId: input.tenantId,
+          jobId: input.jobId,
+          assignedTo: input.actorUserId,
+          destinationCity: input.destinationCity,
+          departureDate: new Date(input.departureDate),
+          returnDate: input.returnDate ? new Date(input.returnDate) : undefined,
+          estimatedDays: input.estimatedDays,
+          requiresLodging: input.requiresLodging ?? true,
+          headcount: input.headcount ?? 1,
+          mainTransportMode: input.mainTransportMode,
+          approvedBudget: input.approvedBudget,
+          approvedBy: input.approvedBy,
+          notes: input.notes,
+        },
+      });
+      return toAssignment(row);
     });
-    const row = await this.prisma.travelAssignment.create({
-      data: {
-        tenantId: input.tenantId, jobId: input.jobId, assignedTo: input.assignedTo,
-        destinationCity: input.destinationCity,
-        departureDate: new Date(input.departureDate),
-        returnDate: input.returnDate ? new Date(input.returnDate) : undefined,
-        estimatedDays: input.estimatedDays,
-        requiresLodging: input.requiresLodging ?? true,
-        headcount: input.headcount ?? 1,
-        mainTransportMode: input.mainTransportMode,
-        approvedBudget: input.approvedBudget,
-        approvedBy: input.approvedBy,
-        notes: input.notes,
-      },
-    });
-    return toAssignment(row);
   }
 
   async updateAssignmentStatus(input: {

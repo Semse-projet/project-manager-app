@@ -6,7 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { PlaneTakeoff, RefreshCw, Inbox, Wallet, AlertTriangle, Clock3, ChevronRight, ChevronDown } from "lucide-react";
 import { HtmlInCanvasPanel, StatCard, StatusBadge } from "@semse/ui";
-import { fetchJobs, fetchTravelAdvances, fetchTravelAssignments, fetchTravelExpenses, fetchTravelLodging, fetchTravelSettlement } from "../../../semse-api";
+import { fetchJobs, fetchTravelAssignmentsSummary } from "../../../semse-api";
 import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
 
@@ -84,7 +84,7 @@ function rawToRow(
       status === "ACTIVE" && (extras?.expenseCount ?? 0) === 0 && (extras?.lodgingCount ?? 0) === 0 && (extras?.advanceCount ?? 0) === 0
         ? "sin base operativa"
         : Boolean(row.requiresLodging) && status === "ACTIVE" && (extras?.lodgingCount ?? 0) === 0
-          ? "sin hospedaje requerido"
+          ? "falta el hospedaje requerido"
           : null,
     status: ["DRAFT", "PLANNED", "ACTIVE", "PENDING_SETTLEMENT", "CLOSED", "CANCELLED"].includes(status) ? status : "DRAFT",
   };
@@ -114,40 +114,25 @@ export default function AdminTravelPage() {
     setLoading(true);
     try {
       const [travels, jobs] = await Promise.all([
-        fetchTravelAssignments({ scope: "all" }).catch(() => [] as Record<string, unknown>[]),
+        fetchTravelAssignmentsSummary({ scope: "all" }).catch(() => [] as Record<string, unknown>[]),
         fetchJobs().catch(() => []),
       ]);
       const jobTitleMap: Record<string, string> = {};
       for (const job of jobs) jobTitleMap[job.id] = job.title;
-      const extras = await Promise.all(
-        travels.map(async (item) => {
-          const travelId = String(item.id ?? "");
-          const [settlement, expenses, lodging] = await Promise.all([
-            fetchTravelSettlement(travelId).catch(() => null),
-            fetchTravelExpenses(travelId).catch(() => [] as Record<string, unknown>[]),
-            fetchTravelLodging(travelId).catch(() => [] as Record<string, unknown>[]),
-          ]);
-          const totalSpent = settlement ? Number((settlement as Record<string, unknown>).totalSpent ?? 0) : null;
-          const expectedBalance = settlement ? Number((settlement as Record<string, unknown>).balanceDue ?? 0) : null;
-          const missingExpenseReceipts = expenses.filter((expense) => !String(expense.receiptUrl ?? "").trim()).length;
-          const missingLodgingReceipts = lodging.filter((record) => !String(record.receiptUrl ?? "").trim()).length;
-          const receiptCount =
-            expenses.filter((expense) => String(expense.receiptUrl ?? "").trim()).length +
-            lodging.filter((record) => String(record.receiptUrl ?? "").trim()).length;
-          const missingReceipts = missingExpenseReceipts + missingLodgingReceipts;
-          return {
-            totalSpent,
-            expectedBalance,
-            missingReceipts,
-            missingExpenseReceipts,
-            missingLodgingReceipts,
-            receiptCount,
-            expenseCount: expenses.length,
-            lodgingCount: lodging.length,
-            advanceCount: settlement ? Number((settlement as Record<string, unknown>).totalAdvances ?? 0) > 0 ? 1 : 0 : 0,
-          };
-        })
-      );
+      // One batch request (GET /v1/travel/summary) already carries the per-travel
+      // totals; the page no longer fans out 3 requests per assignment (2.36).
+      const num = (value: unknown): number => (typeof value === "number" && Number.isFinite(value) ? value : 0);
+      const extras = travels.map((item) => ({
+        totalSpent: typeof item.totalSpent === "number" ? item.totalSpent : null,
+        expectedBalance: typeof item.expectedBalance === "number" ? item.expectedBalance : null,
+        missingReceipts: num(item.missingReceipts),
+        missingExpenseReceipts: num(item.missingExpenseReceipts),
+        missingLodgingReceipts: num(item.missingLodgingReceipts),
+        receiptCount: num(item.receiptCount),
+        expenseCount: num(item.expenseCount),
+        lodgingCount: num(item.lodgingCount),
+        advanceCount: num(item.advanceCount),
+      }));
       setItems(travels.map((item, index) => rawToRow(item, jobTitleMap, extras[index])));
     } catch {
       setItems([]);
