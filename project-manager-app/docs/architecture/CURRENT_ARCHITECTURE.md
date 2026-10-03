@@ -1,11 +1,26 @@
 # Arquitectura vigente de SEMSEproject
 
 **Estado:** CANONICA
-**Corte verificado:** 2026-07-31
-**Código/producción verificados:** `main@114cb9ca4007d32bf3fbbfc9c36d54b1e862236a`
-**F3 desplegado/activo en canary:** contenido desde `f1234291`
+**Corte verificado:** 2026-10-03 (refresco parcial — ver nota de alcance abajo)
+**Código en `origin/main`:** `7da00947` (PR #757, "fix(c51): intelligence archive/risk por proyecto exigen tenant + ProjectScope")
+**Producción desplegada (Railway, verificado en vivo):** `3d9743d4` (PR #753, "fix(c51): clima por proyecto exige tenant + ProjectScope") — API y Web confirmados en ese SHA; main va 4 PRs por delante de lo desplegado (#753→#757)
+**F3 desplegado/activo en canary:** contenido desde `f1234291` (no re-verificado en este corte — ver §11)
 **Repositorio:** `Semse-projet/project-manager-app`
 **Raiz de aplicacion:** `project-manager-app/`
+
+> **Nota de alcance de este refresco (2026-10-03):** se verificaron en vivo el
+> SHA de `main`, el estado de despliegue de Railway (vía API, no solo
+> healthcheck) y la salud de specs (`pnpm spec:index` + `spec:validate:strict`
+> → 128 specs, 0 errores/warnings, subiendo de 98 el 2026-07-31). El resto de
+> las filas de la tabla §6 y las secciones narrativas **no se re-verificaron
+> individualmente en este pase** — siguen siendo la foto del 2026-07-31 y
+> deben tratarse como `HISTORICAL` (no verdad actual) hasta que alguien las
+> reconcilie contra código/runtime, siguiendo la regla de este mismo
+> documento (§13: "ningún nivel inferior anula...", y la disciplina de modos
+> de operación de `semseproject` SKILL.md §9). Entre el corte anterior y hoy
+> se mergeó una iniciativa completa no reflejada aún en la tabla: la
+> consolidación cognitiva de `ADR-023` (ver `ROADMAP.md`, "Programa
+> transversal — Consolidación Cognitiva").
 
 Este documento describe la arquitectura vigente y la direccion aprobada. No
 reemplaza los contratos SDD, modelos Prisma ni tests. Su funcion es ordenar esas
@@ -153,6 +168,7 @@ en los modulos actuales.
 | BullMQ y loops | Implementado/parcial | Worker, retries, backpressure, kill switch y agent runs dead-lettered | Falta unificar observabilidad, replay y DLQ por evento |
 | Prometeo Runtime P2 | Implementado y desplegado | Misiones persistentes sobre `AgentWorkPlan`, aprobacion y checkpoints | Mutaciones, compensacion, budgets y verificacion transversal pendientes |
 | Prometeo Tool Registry | Implementado/parcial | 31 descriptors; 23/24 read y 7/7 write cableados; policy/audit/approval gobiernan escritura | `vision.analyze_video` y verification/compensación explícita |
+| Model Gateway unificado (`ADR-023`) | Specs avanzaron, código sin tocar — verificado 2026-10-03 | `SPEC-AGT-002`(Prometeo Core)/`SPEC-AGT-004`(ToolResult multimodal): `IMPLEMENTED`/mergeados; `SPEC-GTW-001`(unificación gateway): `APPROVED`; `SPEC-GTW-002`(cache control)/`SPEC-AGT-003`(retrieval AgentDecision): `REVIEW` | `ai-model-gateway.service.ts::executeWithSlug` sigue bifurcando DeepSeek/Kimi/GLM fuera de `LLMOrchestrator`/`ProviderMetricsStore` tal como describía `SPEC-GTW-001` — el diseño está aprobado, la implementación no empezó; ver skill `semse-prometeo-orchestrator` |
 | Evidence provenance | Parcial | Evidence, checksum, metadata, geo, analisis visual y storage abstraction | Chain of custody, firmas, retencion y acceso no estan unificados |
 | Economic Ledger | Pendiente como sistema comun | `PaymentTxn` y ledgers verticales registran movimientos operativos | No existe double-entry compartido, cuentas, lineas, reversals ni trial balance |
 | Policy/Approval | Parcial | RBAC default-deny y aprobaciones en Prometeo, BuildOps y Payments | No existe decision engine transversal versionado |
@@ -300,13 +316,33 @@ su cuenta.
 
 ## 11. Estado de produccion verificado
 
-Verificado el 2026-07-31:
+**Verificado en vivo el 2026-10-03** (modo `PRODUCTION_VERIFIED` —
+`mcp__Railway__list-deployments`/`environment-status`, no solo healthcheck):
 
-- `origin/main` y producción:
-  `114cb9ca4007d32bf3fbbfc9c36d54b1e862236a`.
-- F3 events: PR #477, merge
-  `f1234291fc190c6611d3f2258630ac08315bd060`; CI, CodeQL, integración
-  PostgreSQL y E2E verdes.
+- `origin/main`: `7da00947` (PR #757).
+- Producción Railway (proyecto `SEMSEproject`, environment `production`):
+  servicio `semse-API` con deployment `71ac7abd` `SUCCESS`, commit `3d9743d4`
+  (PR #753, `fix(c51): clima por proyecto exige tenant + ProjectScope`);
+  servicio `semse-web` con deployment `5df35495` `SUCCESS`, mismo commit
+  `3d9743d4`. Ambos confirmados vía API de Railway, no por inferencia.
+- `semse-worker` y `semse-vision` figuran `SUCCESS`/`online` en el mismo
+  environment (deployments `ccdbdfa3` y `aa14d6c7`), desplegados en la misma
+  ventana (2026-10-03T02:04-02:08Z); su `commitHash` individual no se
+  verificó en este pase — tratar como `READ_ONLY_PARTIAL` hasta confirmarlo.
+- **Brecha real entre código y producción:** `main` (#757) va 4 PRs por
+  delante de lo desplegado (#753) al momento de este corte — no es un
+  defecto necesariamente, pero no debe asumirse que lo mergeado en esos 4
+  PRs ya está en producción.
+- Postgres: `online`, 1 warning no crítico (no investigado en este pase).
+- Sin fallos recientes ni trabajo pendiente (`pendingWork: []`) en ningún
+  servicio del environment al momento de la consulta.
+
+**Snapshot anterior (2026-07-31, `HISTORICAL` — conservado para
+trazabilidad, no re-verificado):**
+
+- `origin/main` y producción: `114cb9ca4007d32bf3fbbfc9c36d54b1e862236a`.
+- F3 events: PR #477, merge `f1234291fc190c6611d3f2258630ac08315bd060`; CI,
+  CodeQL, integración PostgreSQL y E2E verdes.
 - Railway Deploy workflow `30597913257`: éxito.
 - API `575a82f1-ac99-4d60-a5d2-e6aeb645e096`, Web
   `3ffb51d5-6dd1-4fd3-afa2-b7c6b1cff489`, Worker
@@ -323,7 +359,8 @@ Verificado el 2026-07-31:
 La evidencia operativa detallada vive en
 [`../PRODUCTION_CONVERGENCE_TRACKER.md`](../PRODUCTION_CONVERGENCE_TRACKER.md)
 y el runbook
-[`../runbooks/F3_PROJECT_LIFECYCLE_EVENT_CANARY.md`](../runbooks/F3_PROJECT_LIFECYCLE_EVENT_CANARY.md).
+[`../runbooks/F3_PROJECT_LIFECYCLE_EVENT_CANARY.md`](../runbooks/F3_PROJECT_LIFECYCLE_EVENT_CANARY.md)
+(no re-verificados en este pase).
 
 Estos datos son un snapshot, no una garantia permanente. Cada documento de
 estado posterior debe registrar nuevo SHA, fecha y evidencia de CI/deploy.

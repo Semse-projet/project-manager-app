@@ -17,6 +17,22 @@ Para specs SDD 2.0 mandan las columnas separadas de
 
 ## Producción observada
 
+**Refrescado 2026-10-03** (verificado en vivo vía API de Railway, proyecto
+`SEMSEproject`/environment `production` — no solo healthcheck; ver Hallazgo
+11 abajo para detalle):
+
+| Superficie | Evidencia |
+|---|---|
+| API (`semse-API`) | deployment `71ac7abd`, commit `3d9743d4` (PR #753), `SUCCESS` |
+| Web (`semse-web`) | deployment `5df35495`, commit `3d9743d4` (PR #753), `SUCCESS` |
+| Worker (`semse-worker`) | deployment `ccdbdfa3`, `SUCCESS`/`online` — commit individual no confirmado en esta pasada |
+| Vision (`semse-vision`) | deployment `aa14d6c7`, `SUCCESS`/`online` — commit individual no confirmado en esta pasada |
+| Postgres/Redis | `online`; Postgres con 1 warning no crítico, no investigado |
+| `origin/main` | `7da0094` (PR #757) — **4 PRs por delante** de lo desplegado (#753) |
+
+**Snapshot anterior (2026-07-31, `HISTORICAL`, conservado para
+trazabilidad):**
+
 | Superficie | Evidencia |
 |---|---|
 | API | `575a82f1-ac99-4d60-a5d2-e6aeb645e096`, `114cb9ca`, `SUCCESS`; health Railway/custom `/v1/health` = 200 |
@@ -67,6 +83,22 @@ Para specs SDD 2.0 mandan las columnas separadas de
 
 ## Salud SDD
 
+**Refrescado 2026-10-03** (`pnpm spec:index` + `spec:validate:strict` +
+`spec:coverage`, ejecutados en vivo — ver Hallazgo 11):
+
+```text
+Specs:                              128
+Spec validate strict:               0 errores / 0 warnings
+Specs con related_tests:            114/128 (89%)
+Specs VERIFIED:                     46/128 (36%)
+Specs high/critical no VERIFIED:    45
+Specs SDD 2.0:                      36/128 (28%)
+Specs declaradas DEPLOYED:          5
+Specs declaradas ACTIVE:            1
+```
+
+Cifras del corte anterior (2026-07-31, `HISTORICAL`):
+
 ```text
 Specs:                              98
 Spec validate strict:               0 errores / 0 warnings
@@ -116,6 +148,27 @@ Tiempo validator estricto:          ~2.1 s (antes ~106 s)
     `code_status: IN_PROGRESS`). El "PASS" de tests es verificación local, no
     un run real del pipeline (mismo hallazgo §9). Ninguna fuente/checkout
     móvil se borró (`docs/consolidation/MOBILE_SOURCE_REGISTER.md`).
+
+11. **Refresco de producción y salud SDD (2026-10-03, modo `PRODUCTION_VERIFIED`
+    para Railway y `READ_ONLY_VERIFIED` para specs/git — `semseproject`
+    SKILL.md §9 — no re-verifica el resto de esta matriz):**
+    - `origin/main` confirmado en `7da00947` (PR #757).
+    - Producción (Railway, proyecto `SEMSEproject`) verificada en vivo vía
+      `environment-status`/`list-deployments`, no solo healthcheck: `semse-API`
+      y `semse-web` en `SUCCESS` sobre commit `3d9743d4` (PR #753) — **4 PRs
+      detrás** de `main`. `semse-worker`/`semse-vision` `SUCCESS`/`online` en
+      la misma ventana de deploy, commit individual no confirmado
+      (`READ_ONLY_PARTIAL`). Sin fallos recientes ni trabajo pendiente en
+      ningún servicio. Postgres con 1 warning no crítico, no investigado.
+    - `pnpm spec:index` + `spec:validate:strict` + `spec:coverage` corridos en
+      vivo: specs subieron de 98 (2026-07-31) a 128; 0 errores/warnings
+      estrictos; VERIFIED subió en conteo absoluto (45→46) pero bajó en
+      proporción (46%→36%) porque la mayoría de los ~30 specs nuevos aún no
+      está VERIFIED — dato para priorizar, no una regresión de calidad de los
+      specs existentes.
+    - No se re-verificó ninguna fila de la tabla "Matriz" arriba en esta
+      pasada salvo donde ya cita evidencia 2026-08/09 de pasadas anteriores;
+      tratarlas como `HISTORICAL` hasta su propio refresco.
 
 ## Protocolo de actualización
 
