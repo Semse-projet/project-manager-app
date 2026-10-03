@@ -66,6 +66,7 @@ retroactiva.
 | [api-matching](specs/api/matching.spec.md) | matching | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-06-07 |
 | [api-milestone-lifecycle](specs/api/milestones.spec.md) | milestones | VERIFIED | legacy | legacy | legacy | legacy | legacy | critical | yes | 2026-07-17 |
 | [api-payments-escrow](specs/api/payments.spec.md) | payments | VERIFIED | legacy | legacy | legacy | legacy | legacy | critical | yes | 2026-06-09 |
+| [api.payout-method-tokenization](specs/api/payout-method-tokenization.spec.md) | payments | REVIEW | legacy | legacy | legacy | legacy | legacy | critical | yes | 2026-10-03 |
 | [api-prometeo-copilot](specs/api/prometeo-copilot.spec.md) | prometeo | IMPLEMENTED | legacy | legacy | legacy | legacy | legacy | medium | yes | 2026-07-18 |
 | [api-prometeo-orchestrator](specs/api/prometeo-orchestrator.spec.md) | prometeo | IMPLEMENTED | legacy | legacy | legacy | legacy | legacy | medium | yes | 2026-07-18 |
 | [api-prometeo-rag-trade-knowledge](specs/api/prometeo.spec.md) | prometeo | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-12 |
@@ -75,6 +76,7 @@ retroactiva.
 | [api-sense-workspace](specs/api/sense-workspace.spec.md) | workspace | IMPLEMENTED | legacy | legacy | legacy | legacy | legacy | low | yes | 2026-07-18 |
 | [auth.session-revocation-architecture](specs/api/session-revocation-architecture.spec.md) | auth | REVIEW | legacy | legacy | legacy | legacy | legacy | critical | yes | 2026-07-23 |
 | [api.vision-service-security](specs/api/vision-service-security.spec.md) | evidence | VERIFIED | legacy | legacy | legacy | legacy | legacy | critical | yes | 2026-07-23 |
+| [api.worker-verification-remediation](specs/api/worker-verification-remediation.spec.md) | trust | REVIEW | legacy | legacy | legacy | legacy | legacy | critical | yes | 2026-10-03 |
 | [aut-001-permanent-loops](specs/autonomy/permanent-loops.spec.md) | autonomy | IMPLEMENTED | legacy | legacy | legacy | legacy | legacy | medium | yes | 2026-07-04 |
 | [communications.rename-fase2](specs/communications/communications-rename-fase2.spec.md) | communications | APPROVED | legacy | legacy | legacy | legacy | legacy | medium | no | 2026-07-19 |
 | [core.account-center](specs/core/account-center.spec.md) | core | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-25 |
@@ -114,7 +116,7 @@ retroactiva.
 | [fsm-job-lifecycle](specs/fsm/job-lifecycle.spec.md) | jobs | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-17 |
 | [fsm-milestone-lifecycle](specs/fsm/milestone-lifecycle.spec.md) | milestones | VERIFIED | legacy | legacy | legacy | legacy | legacy | critical | yes | 2026-07-17 |
 | [fsm-reservation-lifecycle](specs/fsm/reservation-lifecycle.spec.md) | reservations | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-06-09 |
-| [governance.audit-remediation-program](specs/governance/audit-remediation-program.spec.md) | governance | APPROVED | legacy | legacy | legacy | legacy | legacy | critical | no | 2026-07-25 |
+| [governance.audit-remediation-program](specs/governance/audit-remediation-program.spec.md) | governance | APPROVED | legacy | legacy | legacy | legacy | legacy | critical | no | 2026-10-03 |
 | [knowledge.agent-memory-governance](specs/knowledge/agent-memory-governance.spec.md) | knowledge | IMPLEMENTED | COMPLETE | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | yes | 2026-09-26 |
 | [labor.engine-remediation](specs/labor/labor-engine-remediation.spec.md) | labor | APPROVED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-25 |
 | [labor.time-tracking-consolidation](specs/labor/time-tracking-consolidation.spec.md) | labor | IMPLEMENTED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-19 |
@@ -171,9 +173,11 @@ retroactiva.
 | [ui.admin-flows-remediation](specs/ui/admin-flows-remediation.spec.md) | ui | APPROVED | legacy | legacy | legacy | legacy | legacy | critical | no | 2026-08-14 |
 | [ui-admin-flows](specs/ui/admin-flows.spec.md) | ui | DEPRECATED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-06-09 |
 | [ui.admin-modular-navigation](specs/ui/admin-modular-navigation.spec.md) | ui | VERIFIED | COMPLETE | PASS | MERGED | DEPLOYED | ACTIVE | medium | yes | 2026-08-02 |
+| [ui.audit-product-decisions](specs/ui/audit-product-decisions.spec.md) | product | DRAFT | legacy | legacy | legacy | legacy | legacy | critical | no | 2026-10-03 |
 | [ui.client-flows-remediation](specs/ui/client-flows-remediation.spec.md) | ui | APPROVED | legacy | legacy | legacy | legacy | legacy | critical | no | 2026-08-14 |
 | [ui-client-flows](specs/ui/client-flows.spec.md) | ui | DEPRECATED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-06-09 |
 | [ui.demo-sandbox](specs/ui/demo-sandbox.spec.md) | ui | IMPLEMENTED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-12 |
+| [ui.design-system-remediation](specs/ui/design-system-remediation.spec.md) | ui | REVIEW | legacy | legacy | legacy | legacy | legacy | high | no | 2026-10-03 |
 | [ui-smart-intake-flow](specs/ui/intake-flow.spec.md) | ui | VERIFIED | legacy | legacy | legacy | legacy | legacy | medium | yes | 2026-06-09 |
 | [ui.landing-personas](specs/ui/landing-personas.spec.md) | ui | IMPLEMENTED | legacy | legacy | legacy | legacy | legacy | low | yes | 2026-07-12 |
 | [ui.mobile-admin-contractors](specs/ui/mobile-admin-contractors.spec.md) | ui | IMPLEMENTED | COMPLETE | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | low | yes | 2026-08-26 |
