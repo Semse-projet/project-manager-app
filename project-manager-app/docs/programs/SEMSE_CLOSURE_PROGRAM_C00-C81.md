@@ -98,7 +98,7 @@ Notas de orden: A2 va antes que A3 porque el scope de pagos define el patrón te
 | C48 | App Expo, distribución y cobros | Móvil | P2 | PARCIAL | C2 | NOT_STARTED |
 | C49 | Animales, lotes, costos, tareas y offline | Agro | P0 | PARCIAL | A3 | NOT_STARTED |
 | C50 | Asistente electricidad de campo | Campo | P2 | SOLO_DISEÑADA | C2 | NOT_STARTED |
-| C51 | ResourceScope y ciclo de vida transversal | Arquitectura | P0 | PARCIAL | A3 | PARTIAL — en producción (8163825c): contrato común + políticas, etapas 2a/2b (`sameOrg`), 2c inventariada, workspace-memory (tenant + ProjectScope; `orgId` es provenance) y resolver canónico 3A; falta smoke autenticado multi-tenant/multi-org en producción, migración gradual de resolutores y guarda informativa 3B (PR #749, en revisión) |
+| C51 | ResourceScope y ciclo de vida transversal | Arquitectura | P0 | PARCIAL | A3 | PARTIAL — en producción (3d9743d4): contrato común + políticas, etapas 2a/2b (`sameOrg`), 2c inventariada, workspace-memory (tenant + ProjectScope; `orgId` es provenance), resolver canónico 3A, guarda informativa 3B (#749) y clima por proyecto (#753); falta smoke autenticado multi-tenant/multi-org en producción y la migración gradual de resolutores (admin/weather/check #756 e intelligence #757 en PR) |
 | C52 | Outbox y consumidores | Eventos | P1 | PARCIAL | B5 | NOT_STARTED |
 | C53 | Postgres servicio persistente | Datos | P1 | REAL | B5 | REAL — Postgres online (postgres-ssl:18, 1 réplica, 5 GB); 1 warning sin detalle; plan de restauración pendiente (C55) |
 | C54 | Redis servicio persistente | Datos | P2 | REAL | C3 | REAL — Redis en sfo vs servicios en us-east4 (dependencia regional confirmada); recuperación de colas no verificada |
