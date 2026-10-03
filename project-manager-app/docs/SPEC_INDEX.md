@@ -50,7 +50,8 @@ retroactiva.
 | [agro.task-jobtask-convergence](specs/agro/agro-task-jobtask-convergence.spec.md) | agro | IMPLEMENTED | COMPLETE | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | yes | 2026-09-25 |
 | [agro.workforce-taxonomy](specs/agro/agro-workforce.spec.md) | agro | IMPLEMENTED | COMPLETE | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | yes | 2026-09-25 |
 | [api-agents-runtime](specs/api/agents.spec.md) | agents | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-06-09 |
-| [api-bff-auth-boundary](specs/api/bff-auth-boundary.spec.md) | auth | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-06-28 |
+| [api.auth-account-session-remediation](specs/api/auth-account-session-remediation.spec.md) | auth | VERIFIED | legacy | legacy | legacy | legacy | legacy | critical | yes | 2026-07-23 |
+| [api-bff-auth-boundary](specs/api/bff-auth-boundary.spec.md) | auth | VERIFIED | legacy | legacy | legacy | legacy | legacy | critical | yes | 2026-07-25 |
 | [api-buildops](specs/api/buildops.spec.md) | buildops | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-08-13 |
 | [api-change-orders](specs/api/change-orders.spec.md) | change-orders | APPROVED | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-09-19 |
 | [api-communications](specs/api/communications.spec.md) | communications | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-06-07 |
@@ -58,9 +59,10 @@ retroactiva.
 | [api-contract-lifecycle](specs/api/contracts.spec.md) | contracts | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-06-09 |
 | [api-dispute-lifecycle](specs/api/disputes.spec.md) | disputes | VERIFIED | legacy | legacy | legacy | legacy | legacy | critical | yes | 2026-07-17 |
 | [api-evidence-upload-review](specs/api/evidence.spec.md) | evidence | VERIFIED | legacy | legacy | legacy | legacy | legacy | critical | yes | 2026-06-09 |
-| [api-field-ops](specs/api/field-ops.spec.md) | field-ops | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-06-07 |
+| [api-field-ops](specs/api/field-ops.spec.md) | field-ops | IMPLEMENTED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-25 |
+| [api.governance-tenant-boundary](specs/api/governance-tenant-boundary.spec.md) | governance | VERIFIED | legacy | legacy | legacy | legacy | legacy | critical | yes | 2026-07-25 |
 | [api-smart-intake](specs/api/intake.spec.md) | smart-intake | VERIFIED | legacy | legacy | legacy | legacy | legacy | medium | yes | 2026-06-09 |
-| [api-job-lifecycle-bids](specs/api/jobs.spec.md) | jobs | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-06-09 |
+| [api-job-lifecycle-bids](specs/api/jobs.spec.md) | jobs | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-23 |
 | [api-matching](specs/api/matching.spec.md) | matching | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-06-07 |
 | [api-milestone-lifecycle](specs/api/milestones.spec.md) | milestones | VERIFIED | legacy | legacy | legacy | legacy | legacy | critical | yes | 2026-07-17 |
 | [api-payments-escrow](specs/api/payments.spec.md) | payments | VERIFIED | legacy | legacy | legacy | legacy | legacy | critical | yes | 2026-06-09 |
@@ -71,6 +73,8 @@ retroactiva.
 | [api.readiness](specs/api/readiness.spec.md) | platform | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-12 |
 | [api-reservations](specs/api/reservations.spec.md) | reservations | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-06-09 |
 | [api-sense-workspace](specs/api/sense-workspace.spec.md) | workspace | IMPLEMENTED | legacy | legacy | legacy | legacy | legacy | low | yes | 2026-07-18 |
+| [auth.session-revocation-architecture](specs/api/session-revocation-architecture.spec.md) | auth | REVIEW | legacy | legacy | legacy | legacy | legacy | critical | yes | 2026-07-23 |
+| [api.vision-service-security](specs/api/vision-service-security.spec.md) | evidence | VERIFIED | legacy | legacy | legacy | legacy | legacy | critical | yes | 2026-07-23 |
 | [aut-001-permanent-loops](specs/autonomy/permanent-loops.spec.md) | autonomy | IMPLEMENTED | legacy | legacy | legacy | legacy | legacy | medium | yes | 2026-07-04 |
 | [communications.rename-fase2](specs/communications/communications-rename-fase2.spec.md) | communications | APPROVED | legacy | legacy | legacy | legacy | legacy | medium | no | 2026-07-19 |
 | [core.account-center](specs/core/account-center.spec.md) | core | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-25 |
@@ -110,6 +114,7 @@ retroactiva.
 | [fsm-job-lifecycle](specs/fsm/job-lifecycle.spec.md) | jobs | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-17 |
 | [fsm-milestone-lifecycle](specs/fsm/milestone-lifecycle.spec.md) | milestones | VERIFIED | legacy | legacy | legacy | legacy | legacy | critical | yes | 2026-07-17 |
 | [fsm-reservation-lifecycle](specs/fsm/reservation-lifecycle.spec.md) | reservations | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-06-09 |
+| [governance.audit-remediation-program](specs/governance/audit-remediation-program.spec.md) | governance | APPROVED | legacy | legacy | legacy | legacy | legacy | critical | no | 2026-07-25 |
 | [knowledge.agent-memory-governance](specs/knowledge/agent-memory-governance.spec.md) | knowledge | IMPLEMENTED | COMPLETE | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | yes | 2026-09-26 |
 | [labor.time-tracking-consolidation](specs/labor/time-tracking-consolidation.spec.md) | labor | IMPLEMENTED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-19 |
 | [operations.jobs-bids-event-projection](specs/operations/jobs-bids-event-projection.spec.md) | operations | IMPLEMENTED | COMPLETE | PASS | MERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-08-26 |
@@ -126,6 +131,7 @@ retroactiva.
 | [prometeo.agent-decision-retrieval](specs/prometeo/agent-decision-retrieval.spec.md) | prometeo | REVIEW | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | no | 2026-08-17 |
 | [prometeo.ai-pricing-catalog](specs/prometeo/ai-pricing-catalog.spec.md) | prometeo | APPROVED | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | yes | 2026-10-01 |
 | [prometeo.cache-control](specs/prometeo/cache-control.spec.md) | prometeo | REVIEW | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | no | 2026-08-17 |
+| [prometeo.conversation-intelligence](specs/prometeo/conversation-intelligence-foundation.spec.md) | prometeo | REVIEW | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | no | 2026-10-02 |
 | [prometeo.jev-decision-layer](specs/prometeo/jev-decision-layer.spec.md) | prometeo | APPROVED | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | yes | 2026-09-24 |
 | [prometeo.jev-human-review-queue](specs/prometeo/jev-human-review-queue.spec.md) | prometeo | APPROVED | COMPLETE | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | yes | 2026-09-26 |
 | [prometeo.live-sessions](specs/prometeo/live-sessions.spec.md) | prometeo | APPROVED | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | no | 2026-09-07 |
