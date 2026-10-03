@@ -83,7 +83,7 @@ model RefreshToken {
 
 **Criterio de done**:
 - Los keys de `rbac.ts` y `seed.ts` son idénticos
-- Test: usuario con rol CLIENT tiene acceso a `jobs:create` y no tiene acceso a `disputes:resolve`
+- Test: usuario con rol CLIENT tiene acceso a `jobs:create` y no tiene acceso a `disputes:resolve` _(criterio histórico: desde 2026-10-02 CLIENT sí tiene `disputes:resolve` para cerrar por acuerdo a favor del profesional; ver `docs/specs/api/disputes.spec.md`)_
 
 ---
 
