@@ -4,6 +4,8 @@ import { ok } from "../../common/api-response.js";
 import { resolveRequestContext } from "../../common/request-context.js";
 import { resolveRequestId } from "../../common/request-id.js";
 import { RequirePermissions } from "../../common/permissions.decorator.js";
+import { ResourceScopeResolver } from "../../common/resource-scope.resolver.js";
+import { assertScopeAccess } from "../../common/resource-scope.js";
 import { Public } from "../../common/public.decorator.js";
 import { DigitalTwinService } from "./digital-twin.service.js";
 import { RiskScoringService } from "./risk-scoring.service.js";
@@ -34,7 +36,19 @@ export class IntelligenceController {
     private readonly budget: BudgetIntelligenceService,
     private readonly publicInsights: PublicInsightsService,
     private readonly matching: MatchingService,
+    private readonly scopeResolver: ResourceScopeResolver,
   ) {}
+
+  /**
+   * C51 etapa 3: las rutas por `projectId` resuelven primero el ProjectScope DENTRO del tenant del actor
+   * (otro tenant / inexistente ⇒ 404) y exigen ser la org cliente, la org profesional asignada u OPS_ADMIN
+   * (otra org del mismo tenant ⇒ 403). Los servicios cargan el proyecto solo por id, sin tenant ni org.
+   */
+  private async assertProjectAccess(ctx: ReturnType<typeof actor>, projectId: string): Promise<void> {
+    const scope = await this.scopeResolver.resolveProjectScope(ctx.tenantId, projectId);
+    if (!scope) throw new NotFoundException("Project not found");
+    assertScopeAccess(ctx, scope, "read", "Actor cannot access this project", "Project not found");
+  }
 
   // ── Digital Twin ──────────────────────────────────────────────────────────────
 
@@ -43,6 +57,7 @@ export class IntelligenceController {
   async archiveProject(@Req() req: FastifyRequest, @Param("projectId") projectId: string) {
     const rid = resolveRequestId(req.headers ?? {});
     const ctx = actor(req);
+    await this.assertProjectAccess(ctx, projectId);
     return ok(rid, await this.twin.buildArchive({ tenantId: ctx.tenantId, projectId, archivedBy: ctx.userId }));
   }
 
@@ -51,6 +66,7 @@ export class IntelligenceController {
   async getArchive(@Req() req: FastifyRequest, @Param("projectId") projectId: string) {
     const rid = resolveRequestId(req.headers ?? {});
     const ctx = actor(req);
+    await this.assertProjectAccess(ctx, projectId);
     return ok(rid, await this.twin.getArchive(projectId, ctx.tenantId));
   }
 
@@ -69,6 +85,7 @@ export class IntelligenceController {
   async projectRisk(@Req() req: FastifyRequest, @Param("projectId") projectId: string) {
     const rid = resolveRequestId(req.headers ?? {});
     const ctx = actor(req);
+    await this.assertProjectAccess(ctx, projectId);
     return ok(rid, await this.risk.calculateProjectRisk(ctx.tenantId, projectId));
   }
 
