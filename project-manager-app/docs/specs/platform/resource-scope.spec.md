@@ -8,14 +8,25 @@ status: "APPROVED"
 owner: "semse-core"
 risk: "high"
 code_status: "IN_PROGRESS"
-ci_status: "NOT_RUN"
-merge_status: "UNMERGED"
-deploy_status: "NOT_DEPLOYED"
+ci_status: "PASS"
+merge_status: "MERGED"
+deploy_status: "DEPLOYED"
 activation_status: "INACTIVE"
 migration_status: "NOT_APPLICABLE"
+verification_scope: "partial:etapas-1-2a-2b-2c-workspace-memory-y-3A-merged-deployed:3B-guarda-informativa-en-PR-749-no-mergeada:migracion-gradual-de-resolutores-pendiente:sin-smoke-autenticado-en-produccion"
 feature_flags: []
-production_evidence: []
+production_evidence:
+  - github:pr:742:merge:de33e974c88a9f2db9255277f2cdb37ecbc89c3a
+  - github:pr:743:merge:4c80d8fefe47c18b6fb40c422bffd3b6b3cce7b0
+  - github:pr:747:merge:cfddc36bffd5c8f8dc78e12fba78ff2920f4fc50
+  - github:pr:748:merge:8163825c87d06288aa4faa31057361257f29ec44
+  - railway:api:deployment:f55ce430-764b-46bc-8d59-bf984e344462:success:sha:8163825c87d06288aa4faa31057361257f29ec44
+  - railway:web:deployment:691f9368-f8f2-4a14-bebe-f9cbe23262c2:success:sha:8163825c87d06288aa4faa31057361257f29ec44
+  - github:actions:run:37024403026:runtime-provenance-gate:success:api-and-web-gitSha-equals-deploy-sha
+  - "local:smoke-workspace-memory:2026-10-02:postgres-real-api-arrancada-2-tenants — NOT production evidence"
 related_files:
+  - scripts/architecture/resource-scope-inventory.mjs
+  - docs/architecture/RESOURCE_SCOPE_GUARD.md
   - apps/api/src/common/resource-scope.resolver.ts
   - apps/api/src/common/resource-scope.module.ts
   - apps/api/src/modules/knowledge/workspace-memory.access-policy.ts
@@ -28,13 +39,14 @@ related_files:
   - apps/api/src/modules/projects/projects.policy.ts
   - apps/api/src/modules/liens/lien-access.service.ts
 related_tests:
+  - tests/unit/resource-scope-inventory.test.mjs
   - apps/api/test/resource-scope-resolver.test.ts
   - apps/api/test/workspace-memory-access.test.ts
   - apps/api/test/resource-scope.test.ts
 related_endpoints: []
 related_events: []
 related_agents: []
-last_verified: "2026-10-01"
+last_verified: "2026-10-02"
 ---
 
 # Spec: Contrato común ResourceScope (C51)
@@ -76,7 +88,7 @@ El dueño autoriza un PR de CI **separado** para la guarda de arquitectura, **pr
 ### 3.3 Etapa 3 — progreso
 - **3A (este PR, sin CI):** `ResourceScopeResolver` canónico (`apps/api/src/common/resource-scope.resolver.ts`, módulo `ResourceScopeModule`): `resolveProjectScope` / `resolveJobScope` / `resolveDisputeScope` / `requireProjectScope`, siempre filtrado por el tenant del actor (otro tenant o inexistente ⇒ `null`/404). Primer consumidor: `WorkspaceMemoryAccessPolicy`. Las políticas de dominio siguen encima del resolver.
 - **Migración gradual pendiente (un módulo por PR, con sus pruebas; sin big bang):** `evidence.repository` (`resolveScope`), `milestones.repository`, `disputes.repository` (`toOwnership`), `projects.repository`, `payments.repository` / `payment-governance.*`, `trust.repository`, `liens` (`lien-access.service`), `bids`/`contracts`/`reservations`/`jobs` (ownership por job).
-- **3B (PR de CI separado, report-only):** guarda de arquitectura informativa que inventaría controllers/endpoints con identificador de recurso que no pasan por política/resolver, con allowlist explícita y documentada; nunca bloquea CI. Pasar a bloqueante es otro PR, tras un ciclo verde y revisión de falsos positivos.
+- **3B (PR de CI separado, report-only; en PR):** `scripts/architecture/resource-scope-inventory.mjs` + `.github/workflows/resource-scope-guard.yml` + `docs/architecture/resource-scope-allowlist.json` + `docs/architecture/RESOURCE_SCOPE_GUARD.md`. Guarda de arquitectura informativa que inventaría controllers/endpoints con identificador de recurso que no pasan por política/resolver, con allowlist explícita y documentada; nunca bloquea CI. Pasar a bloqueante es otro PR, tras un ciclo verde y revisión de falsos positivos.
 
 ## 4. Criterios de aceptación (etapa 1)
 1. Para toda combinación actor×ownership×relación, las políticas existentes dan el mismo resultado que el contrato (test de paridad).
