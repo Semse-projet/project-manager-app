@@ -49,7 +49,7 @@ retroactiva.
 | [agro.prometeo-intake](specs/agro/agro-prometeo-intake.spec.md) | agro | IMPLEMENTED | COMPLETE | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | yes | 2026-09-26 |
 | [agro.task-jobtask-convergence](specs/agro/agro-task-jobtask-convergence.spec.md) | agro | IMPLEMENTED | COMPLETE | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | yes | 2026-09-25 |
 | [agro.workforce-taxonomy](specs/agro/agro-workforce.spec.md) | agro | IMPLEMENTED | COMPLETE | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | yes | 2026-09-25 |
-| [api-agents-runtime](specs/api/agents.spec.md) | agents | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-06-09 |
+| [api-agents-runtime](specs/api/agents.spec.md) | agents | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-23 |
 | [api.auth-account-session-remediation](specs/api/auth-account-session-remediation.spec.md) | auth | VERIFIED | legacy | legacy | legacy | legacy | legacy | critical | yes | 2026-07-23 |
 | [api-bff-auth-boundary](specs/api/bff-auth-boundary.spec.md) | auth | VERIFIED | legacy | legacy | legacy | legacy | legacy | critical | yes | 2026-07-25 |
 | [api-buildops](specs/api/buildops.spec.md) | buildops | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-08-13 |
@@ -71,7 +71,7 @@ retroactiva.
 | [api-prometeo-rag-trade-knowledge](specs/api/prometeo.spec.md) | prometeo | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-12 |
 | [api.rbac-explicit-boundary](specs/api/rbac-explicit-boundary.spec.md) | core | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-12 |
 | [api.readiness](specs/api/readiness.spec.md) | platform | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-12 |
-| [api-reservations](specs/api/reservations.spec.md) | reservations | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-06-09 |
+| [api-reservations](specs/api/reservations.spec.md) | reservations | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-23 |
 | [api-sense-workspace](specs/api/sense-workspace.spec.md) | workspace | IMPLEMENTED | legacy | legacy | legacy | legacy | legacy | low | yes | 2026-07-18 |
 | [auth.session-revocation-architecture](specs/api/session-revocation-architecture.spec.md) | auth | REVIEW | legacy | legacy | legacy | legacy | legacy | critical | yes | 2026-07-23 |
 | [api.vision-service-security](specs/api/vision-service-security.spec.md) | evidence | VERIFIED | legacy | legacy | legacy | legacy | legacy | critical | yes | 2026-07-23 |
@@ -107,13 +107,13 @@ retroactiva.
 | [semse-forge-security-review-provider](specs/forge/SEMSE_FORGE_SECURITY_REVIEW_PROVIDER.spec.md) | forge | APPROVED | legacy | legacy | legacy | legacy | legacy | critical | yes | 2026-07-17 |
 | [semse-forge-tool-adapter](specs/forge/SEMSE_FORGE_TOOL_ADAPTER.spec.md) | forge | APPROVED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-17 |
 | [semse-forge-verification-provider](specs/forge/SEMSE_FORGE_VERIFICATION_PROVIDER.spec.md) | forge | APPROVED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-18 |
-| [fsm-agent-run-lifecycle](specs/fsm/agent-run-lifecycle.spec.md) | agents | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-06-09 |
+| [fsm-agent-run-lifecycle](specs/fsm/agent-run-lifecycle.spec.md) | agents | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-23 |
 | [fsm-buildops-plan-lifecycle](specs/fsm/buildops-lifecycle.spec.md) | buildops | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-06-09 |
 | [fsm-escrow-lifecycle](specs/fsm/escrow-lifecycle.spec.md) | payments | VERIFIED | legacy | legacy | legacy | legacy | legacy | critical | yes | 2026-06-09 |
 | [forge-run-lifecycle](specs/fsm/forge-run-lifecycle.spec.md) | fsm | APPROVED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-17 |
 | [fsm-job-lifecycle](specs/fsm/job-lifecycle.spec.md) | jobs | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-17 |
 | [fsm-milestone-lifecycle](specs/fsm/milestone-lifecycle.spec.md) | milestones | VERIFIED | legacy | legacy | legacy | legacy | legacy | critical | yes | 2026-07-17 |
-| [fsm-reservation-lifecycle](specs/fsm/reservation-lifecycle.spec.md) | reservations | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-06-09 |
+| [fsm-reservation-lifecycle](specs/fsm/reservation-lifecycle.spec.md) | reservations | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-23 |
 | [governance.audit-remediation-program](specs/governance/audit-remediation-program.spec.md) | governance | APPROVED | legacy | legacy | legacy | legacy | legacy | critical | no | 2026-07-25 |
 | [knowledge.agent-memory-governance](specs/knowledge/agent-memory-governance.spec.md) | knowledge | IMPLEMENTED | COMPLETE | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | yes | 2026-09-26 |
 | [labor.engine-remediation](specs/labor/labor-engine-remediation.spec.md) | labor | APPROVED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-25 |
