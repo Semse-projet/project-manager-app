@@ -4,6 +4,7 @@ import { LLMModule } from "../../infrastructure/llm/llm.module.js";
 import { AiModelsModule } from "../ai-models/ai-models.module.js";
 import { MatchingModule } from "../matching/matching.module.js";
 import { PricingModule } from "../pricing/pricing.module.js";
+import { ResourceScopeModule } from "../../common/resource-scope.module.js";
 import { DigitalTwinService } from "./digital-twin.service.js";
 import { RiskScoringService } from "./risk-scoring.service.js";
 import { ProfessionalCredentialService } from "./professional-credential.service.js";
@@ -14,7 +15,7 @@ import { PublicInsightsService } from "./public-insights.service.js";
 import { IntelligenceController } from "./intelligence.controller.js";
 
 @Module({
-  imports: [PrismaModule, LLMModule, MatchingModule, PricingModule, forwardRef(() => AiModelsModule)],
+  imports: [PrismaModule, ResourceScopeModule, LLMModule, MatchingModule, PricingModule, forwardRef(() => AiModelsModule)],
   providers: [DigitalTwinService, RiskScoringService, ProfessionalCredentialService, PmoService, BudgetIntelligenceService, Ecosystem5DService, PublicInsightsService],
   controllers: [IntelligenceController],
   exports: [DigitalTwinService, RiskScoringService, ProfessionalCredentialService, PmoService, BudgetIntelligenceService, Ecosystem5DService, PublicInsightsService],
