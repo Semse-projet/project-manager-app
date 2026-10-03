@@ -2,7 +2,8 @@
 id: "api-field-ops"
 title: "Field Operations API"
 domain: "field-ops"
-status: "VERIFIED"
+version: "1.1"
+status: "IMPLEMENTED"
 owner: "semse-core"
 risk: "high"
 related_files:
@@ -11,6 +12,8 @@ related_files:
 related_tests:
   - "apps/api/test/field-ops-tracker.test.ts"
   - "apps/api/test/field-ops.controller.test.ts"
+  - "apps/api/test/field-ops-service.test.ts"
+  - "apps/api/test/field-ops-parent-scope.test.ts"
   - "scripts/api-tracker-smoke.mjs"
 related_endpoints:
   - "v1/field-ops"
@@ -18,7 +21,7 @@ related_events:
   - "tracker.session.started"
 related_agents:
   - "buildops"
-last_verified: "2026-06-07"
+last_verified: "2026-07-25"
 ---
 
 # Spec: Field Operations API
@@ -34,6 +37,8 @@ Field crews and contractors need a tenant-safe operational surface for units, da
   - Worklog list/create.
   - Tracker snapshot.
   - Tracker start, manual create, pause, resume and stop.
+  - Knowledge facts and their optional worklog link.
+  - Vendors and compliance documents.
   - Audit events for tracker transitions.
 - Out of scope:
   - Weather automation; see `docs/specs/tools/fase-2/m2.3-weather.spec.md`.
@@ -125,6 +130,11 @@ Invariants:
 ## Security / RBAC
 
 - All queries are tenant-scoped.
+- Every relational target supplied on a write is resolved by `{id, tenantId}`
+  before inserting the child: project for a field unit, field unit for a
+  worklog, optional worklog for a fact, and vendor for a compliance document.
+- A missing or foreign relational target returns not found and performs no
+  child write.
 - Tracker sessions are scoped to the creating user.
 - Audit logs must include tenant, org, actor, entity and request id.
 - Field data may become evidence or dispute context; do not expose cross-tenant worklogs.
@@ -137,6 +147,10 @@ Invariants:
 - [x] Tracker API smoke script.
 - [x] Controller tests for permissions.
 - [x] Unit status transition conflict tests.
+- [x] Parent IDs on units, worklogs, facts and compliance docs reject
+  cross-tenant targets before writing.
+- [ ] Integration DB verifies the four parent/child relations with two real
+  tenants and evaluates composite `{id, tenantId}` foreign keys.
 
 ## Implementation Map
 
@@ -150,11 +164,15 @@ Invariants:
 ### Tests
 
 - `apps/api/test/field-ops-tracker.test.ts`
+- `apps/api/test/field-ops-service.test.ts`
+- `apps/api/test/field-ops-parent-scope.test.ts`
 - `scripts/api-tracker-smoke.mjs`
 
 ## Acceptance Criteria
 
-- [ ] Spec is linked from `docs/SPEC_INDEX.md`.
-- [ ] `pnpm spec:validate` passes.
-- [ ] Tracker status transitions remain auditable.
-- [ ] Field units and worklogs are tenant-scoped.
+- [x] Spec is linked from `docs/SPEC_INDEX.md`.
+- [x] `pnpm spec:validate` passes.
+- [x] Tracker status transitions remain auditable.
+- [x] Field units, worklogs, facts and vendor compliance writes are
+  tenant-scoped in code with negative regressions.
+- [ ] Complete DB-backed two-tenant verification before restoring `VERIFIED`.

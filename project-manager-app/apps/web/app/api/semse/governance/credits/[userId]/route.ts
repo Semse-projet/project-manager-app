@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchSemseData, handleServerError, isSemseRuntimeEnabled, runtimeDisabledResponse } from "../../../_server";
+import { fetchSemseDataForAuthenticatedRequest, handleServerError, isSemseRuntimeEnabled, runtimeDisabledResponse } from "../../../_server";
 
 export const dynamic = "force-dynamic";
 
@@ -10,10 +10,9 @@ export async function GET(
   if (!isSemseRuntimeEnabled()) return runtimeDisabledResponse();
   try {
     const { userId } = await params;
-    const { searchParams } = new URL(req.url);
-    const tenantId = searchParams.get("tenantId") ?? "";
-    const data = await fetchSemseData(
-      `/v1/governance/credits/${encodeURIComponent(userId)}?tenantId=${encodeURIComponent(tenantId)}`,
+    const data = await fetchSemseDataForAuthenticatedRequest(
+      `/v1/governance/credits/${encodeURIComponent(userId)}`,
+      req,
     );
     return NextResponse.json({ data });
   } catch (error) {

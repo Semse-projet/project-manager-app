@@ -25,6 +25,7 @@ related_tests:
   - apps/api/test/jobs.fsm.test.ts
   - apps/api/test/jobs.service.test.ts
   - apps/api/test/jobs.controller.test.ts
+  - apps/api/test/jobs.repository.test.ts
   - apps/api/test/marketplace-bids.test.ts
 related_endpoints:
   - v1/jobs
@@ -33,7 +34,7 @@ related_events:
   - job.status_changed
 related_agents:
   - marketplace
-last_verified: 2026-06-09
+last_verified: 2026-07-23
 ---
 
 # Spec: Job Lifecycle & Bids
@@ -244,8 +245,11 @@ ENTONCES el job pasa a COMPLETED
 ```
 DADO   que el actor tiene permiso jobs:read
 CUANDO GET /v1/jobs?status=in_progress
-ENTONCES retorna solo los jobs en estado in_progress del tenant del actor
-  Y     no retorna jobs de otros tenants
+ENTONCES aplica el filtro de estado dentro de la visibilidad del actor
+  Y     CLIENT solo recibe jobs de su organización cliente
+  Y     PRO/WORKER recibe jobs POSTED/PUBLISHED o jobs donde ya participa por bid, reserva, contrato o proyecto
+  Y     OPS_ADMIN conserva visibilidad tenant-wide
+  Y     ningún rol recibe jobs de otro tenant
 ```
 
 ---
@@ -361,12 +365,17 @@ efectos:
 ```yaml
 método: GET
 ruta: /v1/jobs
-descripción: Listar jobs del tenant del actor (con filtro opcional de status)
+descripción: Listar jobs visibles para el actor (con filtro opcional de status)
 
 auth: requerida
 roles: [CLIENT, PRO, OPS_ADMIN]
 permiso: jobs:read
 privacyCritical: false
+visibilidad:
+  CLIENT: clientOrgId = actor.orgId
+  PRO_WORKER: POSTED/PUBLISHED o relación activa por bid/reserva/contrato/proyecto
+  OPS_ADMIN: tenant-wide
+  fallback: clientOrgId = actor.orgId
 
 input:
   query:
@@ -399,6 +408,7 @@ permiso: jobs:read
 privacyCritical: false
 
 input: jobId en path
+visibilidad: misma política por rol que GET /v1/jobs
 output: JobRecord (visible) — incluye preferredProfessional si está configurado
 errores:
   403: sin acceso al job
@@ -685,10 +695,19 @@ describe("POST /v1/jobs/:id/bids y POST /v1/bids/:id/accept") {
 }
 
 describe("GET /v1/jobs") {
-  it("retorna jobs del tenant del actor sin filtro")
+  it("CLIENT solo recibe jobs de su organización")
+  it("PRO/WORKER recibe marketplace público y jobs donde ya participa")
+  it("un usuario CLIENT+PRO usa la visibilidad PRO, consistente con appRoleFromRoles")
+  it("OPS_ADMIN conserva visibilidad tenant-wide")
   it("filtra correctamente por status=in_progress")
   it("rechaza con 400 si status es valor fuera del enum")
   it("no retorna jobs de otros tenants")
+}
+
+describe("GET /v1/jobs/:jobId") {
+  it("aplica la misma visibilidad por rol que el listado")
+  it("rechaza con 403 un job existente del tenant fuera de la visibilidad del actor")
+  it("responde 404 si el job no existe en el tenant")
 }
 
 describe("GET /v1/jobs/:id/agent-signals") {

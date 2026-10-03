@@ -46,6 +46,33 @@ class TestAnalyzers(unittest.TestCase):
         self.assertEqual(contrast_gray, 0.0)
         self.assertGreater(contrast_noise, 0.0)
 
+    def test_quality_score_penalizes_confirmed_trade_mismatch(self):
+        from app.services.scoring import evaluate_quality
+
+        baseline, baseline_usable = evaluate_quality(120.0, 128.0, 25.0)
+        mismatch, mismatch_usable = evaluate_quality(
+            120.0,
+            128.0,
+            25.0,
+            trade_match={"match": False, "confidence": 0.8},
+        )
+
+        self.assertAlmostEqual(baseline - mismatch, 0.12, places=6)
+        self.assertEqual(baseline_usable, mismatch_usable)
+
+    def test_quality_score_does_not_penalize_trade_match(self):
+        from app.services.scoring import evaluate_quality
+
+        baseline, _ = evaluate_quality(120.0, 128.0, 25.0)
+        matched, _ = evaluate_quality(
+            120.0,
+            128.0,
+            25.0,
+            trade_match={"match": True, "confidence": 1.0},
+        )
+
+        self.assertEqual(baseline, matched)
+
     def test_dhash(self):
         hash_gray = calculate_dhash(self.gray_img)
         hash_black = calculate_dhash(self.black_img)
@@ -181,14 +208,14 @@ class TestAnalyzers(unittest.TestCase):
     def test_safety_check_on_gray_image(self):
         from app.analyzers.safety_detector import detect_safety_equipment
         result = detect_safety_equipment(self.gray_img)
-        self.assertIn("helmetDetected", result)
-        self.assertIn("vestDetected", result)
-        self.assertIn("harnessDetected", result)
-        self.assertIn("complianceScore", result)
+        self.assertIn("helmet_detected", result)
+        self.assertIn("vest_detected", result)
+        self.assertIn("harness_detected", result)
+        self.assertIn("compliance_score", result)
         self.assertIn("violations", result)
         self.assertIsInstance(result["violations"], list)
-        self.assertGreaterEqual(result["complianceScore"], 0.0)
-        self.assertLessEqual(result["complianceScore"], 1.0)
+        self.assertGreaterEqual(result["compliance_score"], 0.0)
+        self.assertLessEqual(result["compliance_score"], 1.0)
 
     def test_safety_check_with_yellow_helmet(self):
         from app.analyzers.safety_detector import detect_safety_equipment
@@ -196,7 +223,7 @@ class TestAnalyzers(unittest.TestCase):
         # Draw yellow region in upper portion
         cv2.rectangle(img, (150, 20), (250, 120), (0, 220, 220), -1)  # BGR yellow
         result = detect_safety_equipment(img)
-        self.assertTrue(result["helmetDetected"])
+        self.assertTrue(result["helmet_detected"])
 
     def test_safety_check_endpoint(self):
         from fastapi.testclient import TestClient

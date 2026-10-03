@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchSemseData, handleServerError, isSemseRuntimeEnabled, runtimeDisabledResponse } from "../../_server";
+import { fetchSemseDataForAuthenticatedRequest, handleServerError, isSemseRuntimeEnabled, runtimeDisabledResponse } from "../../_server";
 
 export const dynamic = "force-dynamic";
 
@@ -31,12 +31,11 @@ export interface VendorDto {
 
 // ── GET /api/semse/field-ops/vendors ──────────────────────────────────────────
 
-export async function GET(_req: NextRequest) {
-  void _req;
+export async function GET(req: NextRequest) {
   if (!isSemseRuntimeEnabled()) return runtimeDisabledResponse();
 
   try {
-    const data = await fetchSemseData<VendorDto[]>("/v1/field-ops/vendors");
+    const data = await fetchSemseDataForAuthenticatedRequest<VendorDto[]>("/v1/field-ops/vendors", req);
     return NextResponse.json({ requestId: `fo-vendors-${Date.now()}`, data });
   } catch (error) {
     return handleServerError(error);
@@ -53,7 +52,7 @@ export async function POST(req: NextRequest) {
   catch { return NextResponse.json({ error: { status: 400, message: "Invalid JSON body" } }, { status: 400 }); }
 
   try {
-    const data = await fetchSemseData<VendorDto>("/v1/field-ops/vendors", {
+    const data = await fetchSemseDataForAuthenticatedRequest<VendorDto>("/v1/field-ops/vendors", req, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(body),

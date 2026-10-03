@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchSemseData, handleServerError, isSemseRuntimeEnabled, runtimeDisabledResponse } from "../../_server";
+import { fetchSemseDataForAuthenticatedRequest, handleServerError, isSemseRuntimeEnabled, runtimeDisabledResponse } from "../../_server";
 
 export const dynamic = "force-dynamic";
 
@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
   const query = qs.toString() ? `?${qs.toString()}` : "";
 
   try {
-    const data = await fetchSemseData<FieldUnitDto[]>(`/v1/field-ops/units${query}`);
+    const data = await fetchSemseDataForAuthenticatedRequest<FieldUnitDto[]>(`/v1/field-ops/units${query}`, req);
     return NextResponse.json({ requestId: `fo-units-${Date.now()}`, data });
   } catch (error) {
     return handleServerError(error);
@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
   catch { return NextResponse.json({ error: { status: 400, message: "Invalid JSON body" } }, { status: 400 }); }
 
   try {
-    const data = await fetchSemseData<FieldUnitDto>("/v1/field-ops/units", {
+    const data = await fetchSemseDataForAuthenticatedRequest<FieldUnitDto>("/v1/field-ops/units", req, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(body),

@@ -109,6 +109,12 @@ export class FieldOpsRepository {
     name?: string;
     address?: string;
   }) {
+    const project = await this.client.project.findFirst({
+      where: { id: input.projectId, tenantId: input.tenantId },
+      select: { id: true },
+    });
+    if (!project) throw new NotFoundException(`Project ${input.projectId} not found`);
+
     return this.client.fieldUnit.create({
       data: {
         tenantId: input.tenantId,
@@ -161,6 +167,14 @@ export class FieldOpsRepository {
     notes?: string;
     createdBy: string;
   }) {
+    const fieldUnit = await this.client.fieldUnit.findFirst({
+      where: { id: input.fieldUnitId, tenantId: input.tenantId },
+      select: { id: true },
+    });
+    if (!fieldUnit) {
+      throw new NotFoundException(`FieldUnit ${input.fieldUnitId} not found`);
+    }
+
     return this.client.worklogEntry.create({
       data: {
         tenantId: input.tenantId,
@@ -410,6 +424,16 @@ export class FieldOpsRepository {
     worklogId?: string;
     createdBy: string;
   }) {
+    if (input.worklogId) {
+      const worklog = await this.client.worklogEntry.findFirst({
+        where: { id: input.worklogId, tenantId: input.tenantId },
+        select: { id: true },
+      });
+      if (!worklog) {
+        throw new NotFoundException(`Worklog ${input.worklogId} not found`);
+      }
+    }
+
     return this.client.knowledgeFact.create({
       data: {
         tenantId: input.tenantId,
@@ -460,6 +484,12 @@ export class FieldOpsRepository {
     expiresAt?: Date;
     notes?: string;
   }) {
+    const vendor = await this.client.vendor.findFirst({
+      where: { id: input.vendorId, tenantId: input.tenantId },
+      select: { id: true },
+    });
+    if (!vendor) throw new NotFoundException(`Vendor ${input.vendorId} not found`);
+
     // ComplianceDoc has no unique constraint on [vendorId, type] (only an
     // index) — `id` is a real cuid(), so `upsert({ where: { id:
     // `${vendorId}_${type}` } })` never matched an existing row and every

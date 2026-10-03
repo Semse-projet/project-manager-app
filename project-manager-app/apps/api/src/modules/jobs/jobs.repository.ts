@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import {
   JOB_CREATED_V1_SCHEMA_REF,
@@ -72,6 +72,45 @@ export class JobsRepository {
     private readonly outboxRepository: OutboxRepository
   ) {}
 
+  private buildVisibilityWhere(input: {
+    orgId: string;
+    userId: string;
+    roles: string[];
+  }): Prisma.JobWhereInput {
+    const isOpsAdmin = input.roles.includes("OPS_ADMIN");
+    const isPro = input.roles.includes("PRO") || input.roles.includes("WORKER");
+
+    if (isOpsAdmin) {
+      return {};
+    }
+    if (isPro) {
+      return {
+        OR: [
+          { status: { in: ["POSTED", "PUBLISHED"] } },
+          { bids: { some: { professionalUserId: input.userId } } },
+          {
+            reservations: {
+              some: {
+                status: { in: ["ACTIVE", "ACCEPTED"] },
+                OR: [{ professionalId: input.userId }, { professionalOrgId: input.orgId }]
+              }
+            }
+          },
+          {
+            contract: {
+              is: {
+                deletedAt: null,
+                OR: [{ professionalUserId: input.userId }, { professionalOrgId: input.orgId }]
+              }
+            }
+          },
+          { project: { is: { assignedProOrgId: input.orgId } } }
+        ]
+      };
+    }
+    return { clientOrgId: input.orgId };
+  }
+
   /**
    * 2.27 — this used to filter only by tenantId + deletedAt: null, so ANY
    * authenticated caller (e.g. a PRO hitting GET /api/semse/jobs from
@@ -100,33 +139,7 @@ export class JobsRepository {
     status?: JobRecord["status"];
   }): Promise<JobRecord[]> {
     await this.actorContextService.ensureActorContext(input);
-
-    const isOpsAdmin = input.roles.includes("OPS_ADMIN");
-    const isClient = input.roles.includes("CLIENT");
-    const isPro = input.roles.includes("PRO") || input.roles.includes("WORKER");
-
-    const visibilityWhere: Prisma.JobWhereInput = isOpsAdmin
-      ? {}
-      : isClient
-        ? { clientOrgId: input.orgId }
-        : isPro
-          ? {
-              OR: [
-                { status: { in: ["POSTED", "PUBLISHED"] } },
-                { bids: { some: { professionalUserId: input.userId } } },
-                {
-                  reservations: {
-                    some: {
-                      status: { in: ["ACTIVE", "ACCEPTED"] },
-                      OR: [{ professionalId: input.userId }, { professionalOrgId: input.orgId }]
-                    }
-                  }
-                },
-                { contract: { is: { deletedAt: null, OR: [{ professionalUserId: input.userId }, { professionalOrgId: input.orgId }] } } },
-                { project: { is: { assignedProOrgId: input.orgId } } }
-              ]
-            }
-          : { clientOrgId: input.orgId };
+    const visibilityWhere = this.buildVisibilityWhere(input);
 
     const jobs = (await this.prisma.job.findMany({
       where: {
@@ -139,6 +152,40 @@ export class JobsRepository {
     })) as StoredJob[];
 
     return jobs.map((job) => this.toRecord(job));
+  }
+
+  async findVisibleById(input: {
+    tenantId: string;
+    jobId: string;
+    orgId: string;
+    userId: string;
+    roles: string[];
+  }): Promise<JobRecord> {
+    await this.actorContextService.ensureActorContext(input);
+    const baseWhere: Prisma.JobWhereInput = {
+      id: input.jobId,
+      tenantId: input.tenantId,
+      deletedAt: null
+    };
+    const job = (await this.prisma.job.findFirst({
+      where: {
+        ...baseWhere,
+        ...this.buildVisibilityWhere(input)
+      }
+    })) as StoredJob | null;
+
+    if (job) {
+      return this.toRecord(job);
+    }
+
+    const existing = await this.prisma.job.findFirst({
+      where: baseWhere,
+      select: { id: true }
+    });
+    if (existing) {
+      throw new ForbiddenException(`Job '${input.jobId}' is not visible to this actor`);
+    }
+    throw new NotFoundException(`Job '${input.jobId}' not found`);
   }
 
   async findById(input: {

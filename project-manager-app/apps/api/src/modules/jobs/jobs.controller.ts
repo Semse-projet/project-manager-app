@@ -43,6 +43,7 @@ export class JobsController {
       tenantId: actor.tenantId,
       orgId: actor.orgId,
       userId: actor.userId,
+      roles: actor.roles,
       jobId
     });
     return ok(resolveRequestId(req.headers ?? {}), toVisibleJob(job));

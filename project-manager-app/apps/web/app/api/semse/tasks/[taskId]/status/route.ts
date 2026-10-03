@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchSemseData, handleServerError, runtimeDisabledResponse } from "../../../_server";
+import { fetchSemseDataForAuthenticatedRequest, handleServerError, runtimeDisabledResponse } from "../../../_server";
 
 export async function PATCH(
   request: NextRequest,
@@ -8,7 +8,7 @@ export async function PATCH(
   try {
     const { taskId } = await params;
     const body = await request.json();
-    const data = await fetchSemseData(`/v1/tasks/${encodeURIComponent(taskId)}/status`, {
+    const data = await fetchSemseDataForAuthenticatedRequest(`/v1/tasks/${encodeURIComponent(taskId)}/status`, request, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),

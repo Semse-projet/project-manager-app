@@ -41,6 +41,9 @@ function createService() {
     async findById(input: { jobId: string }) {
       return { ...baseJob, id: input.jobId };
     },
+    async findVisibleById(input: { jobId: string }) {
+      return { ...baseJob, id: input.jobId };
+    },
     async create(input: Record<string, unknown>) {
       calls.created.push(input);
       return {
@@ -160,11 +163,13 @@ test("jobs service list/detail enriches preferred professional from workspace me
     tenantId: "tenant_default",
     orgId: "org_client_001",
     userId: "usr_client_001",
+    roles: ["CLIENT"],
   });
   const detail = await service.detail({
     tenantId: "tenant_default",
     orgId: "org_client_001",
     userId: "usr_client_001",
+    roles: ["CLIENT"],
     jobId: "job_pref_1",
   });
 

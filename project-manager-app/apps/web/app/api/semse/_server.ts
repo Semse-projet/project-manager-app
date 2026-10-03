@@ -316,6 +316,23 @@ export async function fetchSemseDataForRequest<T>(
   return doFetch<T>(config, path, init);
 }
 
+/**
+ * Authenticated-only fetch for sensitive BFF surfaces. Unlike the legacy
+ * request-aware helper, this never falls back to the server's static identity:
+ * a missing/invalid signed session must not become an OPS_ADMIN request.
+ */
+export async function fetchSemseDataForAuthenticatedRequest<T>(
+  path: string,
+  req: NextRequest,
+  init?: RequestInit
+): Promise<T> {
+  const config = resolveConfigFromRequest(req) ?? await resolveConfigFromCookie(req);
+  if (!config) {
+    throw new SemseProxyError(401, path, "Authenticated SEMSE session required");
+  }
+  return doFetch<T>(config, path, init);
+}
+
 export function isSemseRuntimeEnabled(): boolean {
   return resolveRuntimeConfig() !== null;
 }

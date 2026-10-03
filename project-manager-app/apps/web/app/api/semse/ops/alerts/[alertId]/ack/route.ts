@@ -1,16 +1,16 @@
-import { NextResponse } from "next/server";
-import { fetchSemseData, handleServerError, isSemseRuntimeEnabled, runtimeDisabledResponse } from "../../../../_server";
+import { NextRequest, NextResponse } from "next/server";
+import { fetchSemseDataForAuthenticatedRequest, handleServerError, isSemseRuntimeEnabled, runtimeDisabledResponse } from "../../../../_server";
 
 export const dynamic = "force-dynamic";
 
-export async function POST(_: Request, context: { params: Promise<{ alertId: string }> }) {
+export async function POST(request: NextRequest, context: { params: Promise<{ alertId: string }> }) {
   if (!isSemseRuntimeEnabled()) {
     return runtimeDisabledResponse();
   }
 
   try {
     const { alertId } = await context.params;
-    const data = await fetchSemseData(`/v1/ops/alerts/${alertId}/ack`, {
+    const data = await fetchSemseDataForAuthenticatedRequest(`/v1/ops/alerts/${alertId}/ack`, request, {
       method: "POST"
     });
 
