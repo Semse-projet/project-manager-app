@@ -1,8 +1,9 @@
-import { Controller, Get, NotFoundException, Post, Param, Req, UseGuards, Logger } from '@nestjs/common';
+import { Controller, ForbiddenException, Get, NotFoundException, Post, Param, Req, UseGuards, Logger } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { RequirePermissions } from '../../common/permissions.decorator.js';
 import { resolveRequestContext } from '../../common/request-context.js';
 import { ResourceScopeResolver } from '../../common/resource-scope.resolver.js';
+import { normalizeRoles } from '../../common/rbac.js';
 import { assertScopeAccess } from '../../common/resource-scope.js';
 import { WeatherService } from './weather.service.js';
 
@@ -67,14 +68,25 @@ export class WeatherController {
   /**
    * POST /v1/admin/weather/check
    * Disparado cada hora por apps/worker/src/main.mjs cuando
-   * WEATHER_CHECK_ENABLED=true (kill switch, default off). También
-   * disponible para disparo manual (testing/debugging), mismo patrón que
-   * POST /v1/admin/liens/check-deadlines.
+   * WEATHER_CHECK_ENABLED=true (kill switch, default off).
+   *
+   * C51: procesa TODOS los proyectos activos de TODOS los tenants, así que `weather:write`
+   * (que también tienen CLIENT y PRO) no basta. Fail-closed: solo la identidad interna del worker
+   * (OPS_ADMIN + EVENT_CONSUMER); un OPS_ADMIN humano, o cualquier otro rol, recibe 403.
+   * Mismo patrón de identidad de servicio que `domain-events/:eventId/process`.
    */
   @Post('v1/admin/weather/check')
   @RequirePermissions('weather:write')
-  async checkAllProjects() {
-    this.logger.log('Manual/scheduled trigger: check-all-projects-weather');
+  async checkAllProjects(@Req() req: { headers?: Record<string, unknown> }) {
+    const actor = resolveRequestContext(req);
+    const roles = normalizeRoles(actor.roles);
+    if (!roles.includes('OPS_ADMIN') || !roles.includes('EVENT_CONSUMER')) {
+      throw new ForbiddenException({
+        message: 'Global weather check requires the internal worker service identity',
+        requiredRoles: ['OPS_ADMIN', 'EVENT_CONSUMER'],
+      });
+    }
+    this.logger.log('Scheduled trigger: check-all-projects-weather');
     const result = await this.weatherService.checkAllActiveProjectsWeather();
     return { success: true, ...result };
   }
