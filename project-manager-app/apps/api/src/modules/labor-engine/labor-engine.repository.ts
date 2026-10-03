@@ -1,7 +1,8 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+﻿import { Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { randomUUID } from "node:crypto";
 import { jobAssignmentWhere } from "../../common/job-assignment.js";
+import { NATIONAL_BASELINE_HOURLY_RATE } from "../pricing/contractor-rate.service.js";
 
 // FLSA-style weekly overtime: hours beyond 40/week pay 1.5x. This is
 // deliberately separate from QUALITY_GUARD.overtimeWeekMinutes (48h) in
@@ -123,7 +124,7 @@ export class LaborEngineRepository {
       breakMinutes,
       durationMinutes: duration,
       accumulatedSeconds: duration ? duration * 60 : 0,
-      hourlyRate: data.hourlyRate ? String(data.hourlyRate) as unknown as number : null,
+      hourlyRate: data.hourlyRate != null ? String(data.hourlyRate) as unknown as number : null,
       currency: data.currency ?? "MXN",
       location: data.location ?? null,
       checkInLatitude: data.checkInLatitude ?? null,
@@ -377,16 +378,24 @@ export class LaborEngineRepository {
         startedAt: { gte: params.from, lte: params.to },
         purpose: { not: "personal" },
       },
-      select: { createdBy: true, durationMinutes: true, hourlyRate: true, startedAt: true },
+      select: { createdBy: true, durationMinutes: true, startedAt: true },
       orderBy: { startedAt: "asc" },
     });
 
     const byWorker = new Map<string, { totalMinutes: number; totalEntries: number; knownCost: number; minutesWithoutRate: number }>();
     const weekMinutesSoFar = new Map<string, number>();
 
-    for (const entry of entries as Array<{ createdBy: string; durationMinutes: number | null; hourlyRate: unknown; startedAt: Date }>) {
+    for (const entry of entries as Array<{
+      createdBy: string;
+      durationMinutes: number | null;
+      startedAt: Date;
+    }>) {
       const minutes = entry.durationMinutes ?? 0;
-      const rate = entry.hourlyRate != null ? parseFloat(String(entry.hourlyRate)) : null;
+      // Historical TimeEntry.hourlyRate/currency values have no provenance and
+      // may have come from the old client-controlled payload. Never use them in
+      // the supervisor KPI. The national BLS baseline is the only authorized,
+      // single-currency source until product defines per-worker compensation.
+      const rate = NATIONAL_BASELINE_HOURLY_RATE;
 
       const bucketKey = `${entry.createdBy}::${weekKeyOf(entry.startedAt)}`;
       const priorWeekMinutes = weekMinutesSoFar.get(bucketKey) ?? 0;
@@ -397,7 +406,7 @@ export class LaborEngineRepository {
       current.totalMinutes += minutes;
       current.totalEntries += 1;
 
-      if (rate != null && Number.isFinite(rate)) {
+      if (Number.isFinite(rate)) {
         const regularMinutesBefore = Math.min(priorWeekMinutes, OVERTIME_WEEKLY_THRESHOLD_MINUTES);
         const regularMinutesAfter = Math.min(newWeekMinutes, OVERTIME_WEEKLY_THRESHOLD_MINUTES);
         const regularMinutesThisEntry = Math.max(0, regularMinutesAfter - regularMinutesBefore);
@@ -405,8 +414,6 @@ export class LaborEngineRepository {
         current.knownCost +=
           (regularMinutesThisEntry / 60) * rate +
           (overtimeMinutesThisEntry / 60) * rate * OVERTIME_MULTIPLIER;
-      } else {
-        current.minutesWithoutRate += minutes;
       }
       byWorker.set(entry.createdBy, current);
     }

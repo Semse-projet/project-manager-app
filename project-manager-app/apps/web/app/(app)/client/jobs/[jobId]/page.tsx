@@ -39,15 +39,21 @@ import {
 import { JobDisputeHistory } from "../../../../components/disputes/JobDisputeHistory";
 import { ClientDetailDrawer } from "../../../../components/client/ClientDetailDrawer";
 import { ClientPageHeader } from "../../../../components/client/ClientPageHeader";
+import { EscrowFundModal } from "../../../../components/payments/EscrowFundModal";
+import { EscrowReleaseModal } from "../../../../components/payments/EscrowReleaseModal";
 import { NotificationBanner } from "../../../../components/notifications/NotificationBanner";
 import { CLIENT_ROUTES, clientDisputesHref } from "../../../../lib/client-routes";
-import { EscrowFundModal } from "../../../../components/payments/EscrowFundModal";
-import { ConfirmDialog } from "../../../../../components/ui/confirm-dialog";
 
 type JobDetail = JobRecordView & Record<string, unknown>;
 type JobMilestone = Record<string, unknown>;
 type JobEvidence = Record<string, unknown>;
 type JobPayment = Record<string, unknown>;
+type ReleaseCandidate = {
+  id: string;
+  title: string;
+  amount: number;
+  currency: string;
+};
 type InsightPanelId = "escrow" | "milestones" | "evidence" | "signals";
 type PreferredProfessional = NonNullable<JobRecordView["preferredProfessional"]>;
 
@@ -229,12 +235,8 @@ export default function ClientJobDetailPage() {
   const [rateAdjustedEstimate, setRateAdjustedEstimate] = useState<BudgetSuggestion | null>(null);
   const [rateEstimateLoading, setRateEstimateLoading] = useState(false);
   const [rateEstimateError, setRateEstimateError] = useState<string | null>(null);
-  // 1.1 — both money actions below used to fire immediately on click with no
-  // confirmation and no visible amount. Fund now opens the existing
-  // EscrowFundModal (same one already wired up in client/payments); release
-  // now requires an explicit confirm step showing the milestone amount.
   const [fundModalOpen, setFundModalOpen] = useState(false);
-  const [releaseConfirm, setReleaseConfirm] = useState<{ milestoneId: string; title: string; amount?: number } | null>(null);
+  const [releaseCandidate, setReleaseCandidate] = useState<ReleaseCandidate | null>(null);
 
   const loadDetail = useCallback(async () => {
     if (!jobId) return;
@@ -298,14 +300,6 @@ export default function ClientJobDetailPage() {
   });
   const preferredProfessional = readPreferredProfessional(job?.preferredProfessional);
 
-  // 1.1 — opens the confirmation-safe EscrowFundModal (shows amount, provider,
-  // method and a dedicated confirm step) instead of firing fundJobEscrow
-  // directly with no confirmation and no visible amount.
-  function handleFundEscrow() {
-    if (!jobId || pendingAction) return;
-    setFundModalOpen(true);
-  }
-
   // 2.40 — "Mis Tarifas" only affects a real estimate once this job has an
   // assigned professional (an accepted bid). Re-requests the same budget
   // suggestion the job used at creation time, but with `jobId` so the backend
@@ -329,7 +323,6 @@ export default function ClientJobDetailPage() {
       setRateEstimateLoading(false);
     }
   }
-
   async function handleMilestoneAction(
     milestoneId: string,
     action: "approve" | "request-changes"
@@ -360,21 +353,8 @@ export default function ClientJobDetailPage() {
     }
   }
 
-  // 1.1 — opens a confirmation step showing the exact milestone amount
-  // instead of releasing the payment immediately on click.
-  function handleRelease(milestoneId: string) {
+  async function confirmRelease(milestoneId: string) {
     if (pendingAction) return;
-    const ms = milestones.find(m => asString(m.id) === milestoneId);
-    setReleaseConfirm({
-      milestoneId,
-      title: ms ? (asString(ms.title) ?? "Milestone") : "Milestone",
-      amount: ms ? asNumber(ms.amount) : undefined,
-    });
-  }
-
-  async function confirmRelease() {
-    if (!releaseConfirm || pendingAction) return;
-    const { milestoneId } = releaseConfirm;
     setPendingAction(`release:${milestoneId}`);
     setError(null);
     try {
@@ -389,15 +369,15 @@ export default function ClientJobDetailPage() {
         targetRole: "worker",
         linkHref: "/worker/payments",
       }).catch(() => {});
-      setReleaseConfirm(null);
       await loadDetail();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "No se pudo liberar el pago.");
+      const releaseError = caught instanceof Error ? caught : new Error("No se pudo liberar el pago.");
+      setError(releaseError.message);
+      throw releaseError;
     } finally {
       setPendingAction(null);
     }
   }
-
   async function handleAcceptBid(bid: BidView) {
     if (pendingAction || acceptingBidId || bid.status !== "submitted") return;
     setAcceptingBidId(bid.id);
@@ -532,6 +512,29 @@ export default function ClientJobDetailPage() {
           </div>
         }
       />
+
+      {fundModalOpen ? (
+        <EscrowFundModal
+          jobId={jobId}
+          jobTitle={asString(job?.title) ?? "Trabajo"}
+          suggestedAmount={asNumber(job?.budgetMax) ?? asNumber(job?.budgetMin)}
+          onClose={() => setFundModalOpen(false)}
+          onSuccess={() => {
+            setFundModalOpen(false);
+            void loadDetail();
+          }}
+        />
+      ) : null}
+
+      {releaseCandidate ? (
+        <EscrowReleaseModal
+          milestoneTitle={releaseCandidate.title}
+          amount={releaseCandidate.amount}
+          currency={releaseCandidate.currency}
+          onClose={() => setReleaseCandidate(null)}
+          onConfirm={() => confirmRelease(releaseCandidate.id)}
+        />
+      ) : null}
 
       {loading ? (
         <div style={{ display: "grid", gap: "12px" }}>
@@ -810,7 +813,8 @@ export default function ClientJobDetailPage() {
               </div>
               {escrowStatus !== "FUNDED" && escrowStatus !== "ACTIVE" ? (
                 <button
-                  onClick={() => void handleFundEscrow()}
+                  data-testid="client-job-open-fund-confirmation"
+                  onClick={() => setFundModalOpen(true)}
                   disabled={pendingAction !== null}
                   style={{
                     padding: "9px 14px",
@@ -943,6 +947,8 @@ export default function ClientJobDetailPage() {
                   const status = asString(milestone.status) ?? "DRAFT";
                   const meta = MILESTONE_STATUS_META[status] ?? MILESTONE_STATUS_META.DRAFT;
                   const milestoneId = asString(milestone.id) ?? `milestone-${index}`;
+                  const milestoneTitle = asString(milestone.title) ?? "Milestone";
+                  const milestoneAmount = asNumber(milestone.amount) ?? 0;
                   const canReview = status === "SUBMITTED" || status === "AWAITING_REVIEW";
                   const canRelease = status === "APPROVED";
                   const isBusy = pendingAction?.includes(milestoneId);
@@ -953,7 +959,7 @@ export default function ClientJobDetailPage() {
                           {index + 1}
                         </div>
                         <div>
-                          <div style={{ fontSize: "13px", fontWeight: 700, color: "var(--ink)" }}>{asString(milestone.title) ?? "Milestone"}</div>
+                          <div style={{ fontSize: "13px", fontWeight: 700, color: "var(--ink)" }}>{milestoneTitle}</div>
                           <div style={{ fontSize: "11px", color: "var(--muted)" }}>
                             Secuencia {asNumber(milestone.sequence) ?? index + 1} · {formatMoney(asNumber(milestone.amount))}
                           </div>
@@ -1006,7 +1012,13 @@ export default function ClientJobDetailPage() {
                       {canRelease ? (
                         <div style={{ marginTop: "12px" }}>
                           <button
-                            onClick={() => void handleRelease(milestoneId)}
+                            data-testid={`client-job-open-release-confirmation-${milestoneId}`}
+                            onClick={() => setReleaseCandidate({
+                              id: milestoneId,
+                              title: milestoneTitle,
+                              amount: milestoneAmount,
+                              currency: asString(escrow?.currency) ?? "USD",
+                            })}
                             disabled={isBusy}
                             style={{ padding: "8px 12px", borderRadius: "8px", border: "none", background: "var(--brand)", color: "#fff", fontSize: "12px", fontWeight: 700, cursor: "pointer" }}
                           >
@@ -1424,20 +1436,6 @@ export default function ClientJobDetailPage() {
         />
       ) : null}
 
-      <ConfirmDialog
-        open={releaseConfirm !== null}
-        title="Confirmar liberación de pago"
-        description="Los fondos retenidos en escrow para este hito se liberarán al profesional. Esta acción no se puede deshacer."
-        details={releaseConfirm ? [
-          { label: "Hito", value: releaseConfirm.title },
-          { label: "Monto", value: formatMoney(releaseConfirm.amount) },
-        ] : []}
-        confirmLabel="Liberar pago"
-        loading={pendingAction !== null && pendingAction === `release:${releaseConfirm?.milestoneId ?? ""}`}
-        error={error}
-        onConfirm={() => void confirmRelease()}
-        onCancel={() => setReleaseConfirm(null)}
-      />
     </div>
   );
 }

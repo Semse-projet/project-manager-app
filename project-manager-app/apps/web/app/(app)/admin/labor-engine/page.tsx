@@ -242,8 +242,7 @@ export default function AdminLaborEnginePage() {
 
   const baselineRate = useMemo(() => {
     if (!rates) return null;
-    const override = rates.override?.laborRatePerHr != null ? Number(rates.override.laborRatePerHr) : null;
-    return override != null && Number.isFinite(override) ? override : rates.nationalBaselineHourlyRate;
+    return Number.isFinite(rates.nationalBaselineHourlyRate) ? rates.nationalBaselineHourlyRate : null;
   }, [rates]);
 
   const teamWithCost = useMemo(() => (overview?.team ?? []).map((member) => ({

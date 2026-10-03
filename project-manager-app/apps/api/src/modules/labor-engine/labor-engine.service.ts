@@ -293,8 +293,6 @@ export class LaborEngineService {
     startTime: string;
     endTime: string;
     breakMinutes?: number;
-    hourlyRate?: number;
-    currency?: string;
     location?: string;
     checkIn?: { latitude: number; longitude: number };
     notes?: string;
@@ -327,7 +325,6 @@ export class LaborEngineService {
         throw new BadRequestException("endTime must be after startTime");
       }
     }
-    this.assertValidRate(params.hourlyRate, params.currency);
     await this.assertOwnership(params);
     const checkInFields = await this.resolveCheckIn(
       params.tenantId,
@@ -346,8 +343,8 @@ export class LaborEngineService {
       startedAt,
       endedAt,
       breakMinutes: params.breakMinutes ?? 0,
-      hourlyRate: params.hourlyRate,
-      currency: params.currency,
+      hourlyRate: undefined,
+      currency: "USD",
       location: params.location,
       notes: params.notes,
       clientEventId: params.clientEventId,

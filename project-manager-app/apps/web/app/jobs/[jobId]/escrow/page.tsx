@@ -14,12 +14,14 @@ import {
   EscrowTimeline,
   normalizeEscrow,
   normalizeMilestone,
+  type EscrowMilestone,
   type EscrowView,
 } from "@semse/ui";
 import { Button } from "../../../../components/ui/button";
 import { FeedbackBanner } from "../../../../components/ui/error-state";
 import { PageSpinner } from "../../../../components/ui/spinner";
 import { EscrowFundModal } from "../../../components/payments/EscrowFundModal";
+import { EscrowReleaseModal } from "../../../components/payments/EscrowReleaseModal";
 
 type EscrowPageProps = { params: Promise<{ jobId: string }> };
 
@@ -33,13 +35,12 @@ export default function JobEscrowPage({ params }: EscrowPageProps) {
   const [error, setError] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
 
-  // Fondear — 1.2: reuses the same EscrowFundModal already wired up in
-  // client/payments instead of the previous ad-hoc form that fired
-  // fundJobEscrow directly on click with no confirmation step.
+  // Fondear
   const [fundModalOpen, setFundModalOpen] = useState(false);
 
   // Liberar milestone
   const [releasingId, setReleasingId] = useState<string | null>(null);
+  const [releaseCandidate, setReleaseCandidate] = useState<EscrowMilestone | null>(null);
 
   // Disputa
   const [disputing, setDisputing] = useState(false);
@@ -76,7 +77,12 @@ export default function JobEscrowPage({ params }: EscrowPageProps) {
   }, [params, load]);
 
   // ── Liberar milestone ───────────────────────────────────────
-  async function handleReleaseMilestone(milestoneId: string) {
+  function handleRequestReleaseMilestone(milestoneId: string) {
+    const milestone = escrow?.milestones.find((item) => item.id === milestoneId);
+    if (milestone) setReleaseCandidate(milestone);
+  }
+
+  async function confirmReleaseMilestone(milestoneId: string) {
     setReleasingId(milestoneId);
     setError(null);
     setFeedback(null);
@@ -85,7 +91,9 @@ export default function JobEscrowPage({ params }: EscrowPageProps) {
       setFeedback("Pago liberado correctamente.");
       await load(jobId);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "No se pudo liberar el pago.");
+      const releaseError = e instanceof Error ? e : new Error("No se pudo liberar el pago.");
+      setError(releaseError.message);
+      throw releaseError;
     } finally {
       setReleasingId(null);
     }
@@ -129,6 +137,30 @@ export default function JobEscrowPage({ params }: EscrowPageProps) {
         </p>
       </div>
 
+      {fundModalOpen ? (
+        <EscrowFundModal
+          jobId={jobId}
+          jobTitle={`Job ${jobId}`}
+          suggestedAmount={escrow?.availableAmount || escrow?.totalAmount || 1000}
+          onClose={() => setFundModalOpen(false)}
+          onSuccess={({ amount }) => {
+            setFundModalOpen(false);
+            setFeedback(`Escrow fondeado: ${amount} USD.`);
+            void load(jobId);
+          }}
+        />
+      ) : null}
+
+      {releaseCandidate ? (
+        <EscrowReleaseModal
+          milestoneTitle={releaseCandidate.title}
+          amount={releaseCandidate.amount}
+          currency={escrow?.currency ?? "USD"}
+          onClose={() => setReleaseCandidate(null)}
+          onConfirm={() => confirmReleaseMilestone(releaseCandidate.id)}
+        />
+      ) : null}
+
       {/* Runtime banner */}
       {!runtimeEnabled && (
         <div className="mb-6 rounded-xl border border-amber-500/20 bg-amber-500/[0.07] px-4 py-3">
@@ -160,7 +192,7 @@ export default function JobEscrowPage({ params }: EscrowPageProps) {
             {escrow ? (
               <EscrowTimeline
                 escrow={escrow}
-                onReleaseMilestone={handleReleaseMilestone}
+                onReleaseMilestone={handleRequestReleaseMilestone}
                 onDispute={handleDispute}
                 releasingId={releasingId}
                 disputing={disputing}
@@ -180,7 +212,7 @@ export default function JobEscrowPage({ params }: EscrowPageProps) {
                 Fondear escrow
               </h2>
               <p className="mb-4 text-xs text-muted/60">
-                Abre el flujo seguro de fondeo — pide monto, proveedor y confirmación antes de procesar el pago.
+                El monto, la moneda y el proveedor se revisan antes de confirmar.
               </p>
               <Button
                 className="w-full"
@@ -188,7 +220,7 @@ export default function JobEscrowPage({ params }: EscrowPageProps) {
                 disabled={!runtimeEnabled || loading}
                 onClick={() => setFundModalOpen(true)}
               >
-                Fondear escrow
+                Revisar y fondear
               </Button>
             </div>
 

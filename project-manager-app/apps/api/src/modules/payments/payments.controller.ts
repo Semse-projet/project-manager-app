@@ -27,7 +27,7 @@ const workerPayoutMethodSchema = z.object({
   stripeToken: z.string().trim().min(1).optional(),
   last4: z.string().trim().optional(),
   email: z.string().trim().optional()
-});
+}).strict();
 
 @Controller()
 export class PaymentsController {
