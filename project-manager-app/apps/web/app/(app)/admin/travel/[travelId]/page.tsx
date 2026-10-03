@@ -193,7 +193,7 @@ export default function AdminTravelDetailPage() {
     expenseCount === 0 && lodgingCount === 0 && advanceCount === 0
       ? "sin base operativa"
       : Boolean(travel.requiresLodging) && lodgingCount === 0
-        ? "sin hospedaje requerido"
+        ? "falta el hospedaje requerido"
         : null;
   const tabs: Array<{ id: Tab; label: string }> = [
     { id: "resumen", label: "Resumen" },
