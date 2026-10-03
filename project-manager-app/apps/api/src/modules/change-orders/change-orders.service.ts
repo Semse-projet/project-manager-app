@@ -1,11 +1,12 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException, Optional } from "@nestjs/common";
+import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException, Optional } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { SseEventBusService } from "../../infrastructure/sse/sse-event-bus.service.js";
 import { OperationalSignalsService } from "../operational-intelligence/operational-signals.service.js";
 import { PaymentsRepository } from "../payments/payments.repository.js";
 import { findProjectLinkByJobIdOrThrow } from "../projects/project-link.repository.js";
-import { sameOrg } from "../../common/resource-scope.js";
+
+import { accessibleChangeOrderLinks, assertChangeOrderLinksAccessible } from "./change-order-resource-access.js";
 
 type ActorContext = {
   tenantId: string;
@@ -104,6 +105,7 @@ export class ChangeOrdersService {
     return this.prisma.changeOrderCandidate.findMany({
       where: {
         tenantId: actor.tenantId,
+        ...(await this.organizationFilter(actor)),
         ...(input.jobId ? { jobId: input.jobId } : {}),
         ...(input.buildOpsProjectId ? { buildOpsProjectId: input.buildOpsProjectId } : {}),
         ...(input.milestoneId ? { milestoneId: input.milestoneId } : {}),
@@ -124,6 +126,8 @@ export class ChangeOrdersService {
     if (!input.jobId && !input.buildOpsProjectId && !input.milestoneId) {
       throw new BadRequestException("Change order must be linked to a job, BuildOps project, or milestone");
     }
+
+    await assertChangeOrderLinksAccessible(this.prisma, actor, input);
 
     return this.prisma.changeOrderCandidate.create({
       data: {
@@ -401,8 +405,8 @@ export class ChangeOrdersService {
    *    decrease/neutral change orders are left untouched), and
    *  - the candidate carries a jobId. buildOpsProjectId/milestoneId-only
    *    candidates predate the Project/PaymentEscrow migration and can't be
-   *    reliably resolved to an escrow (see findOwned()'s ownership-check
-   *    comment for the same caveat) — those are skipped rather than guessed.
+   *    reliably resolved to an escrow; those are skipped rather than guessed.
+   *    Ownership is validated separately for every link.
    */
   private async assertEscrowCoversIncrease(
     actor: ActorContext,
@@ -450,6 +454,19 @@ export class ChangeOrdersService {
     }
   }
 
+  private async organizationFilter(actor: ActorContext): Promise<Prisma.ChangeOrderCandidateWhereInput> {
+    if (actor.roles.includes("OPS_ADMIN")) return {};
+    const allowed = await accessibleChangeOrderLinks(this.prisma, actor);
+    return {
+      AND: [
+        { OR: [{ jobId: { not: null } }, { buildOpsProjectId: { not: null } }, { milestoneId: { not: null } }] },
+        { OR: [{ jobId: null }, { jobId: { in: allowed.jobId } }] },
+        { OR: [{ buildOpsProjectId: null }, { buildOpsProjectId: { in: allowed.buildOpsProjectId } }] },
+        { OR: [{ milestoneId: null }, { milestoneId: { in: allowed.milestoneId } }] },
+      ],
+    };
+  }
+
   private async findOwned(actor: ActorContext, id: string) {
     const candidate = await this.prisma.changeOrderCandidate.findFirst({
       where: { id, tenantId: actor.tenantId },
@@ -458,18 +475,8 @@ export class ChangeOrdersService {
       throw new NotFoundException("Change order not found");
     }
 
-    // Being in the same tenant isn't enough — verify the actor's org actually
-    // owns this change order (the client or the assigned pro org for its job).
-    // Only enforceable when jobId is set; buildOpsProjectId-only candidates
-    // (a separate, pre-migration linkage) keep tenant-only scoping for now.
-    if (candidate.jobId && !actor.roles.includes("OPS_ADMIN")) {
-      const project = await findProjectLinkByJobIdOrThrow(this.prisma, {
-        tenantId: actor.tenantId,
-        jobId: candidate.jobId,
-      });
-      if (!sameOrg(actor.orgId, project.job.clientOrgId) && !sameOrg(actor.orgId, project.assignedProOrgId)) {
-        throw new ForbiddenException("actor does not have access to this change order");
-      }
+    if (!actor.roles.includes("OPS_ADMIN")) {
+      await assertChangeOrderLinksAccessible(this.prisma, actor, candidate);
     }
 
     return candidate;

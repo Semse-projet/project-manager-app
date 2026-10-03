@@ -165,6 +165,26 @@ de Production Health las verifica junto con las nueve páginas `/modules/*`.
 - `POST /v1/agents/runs/:runId/complete`
 - `POST /v1/agents/runs/:runId/fail`
 
+## Change Orders
+
+Rutas existentes de `ChangeOrdersController`; auth y permisos backend obligatorios.
+List/create/detail/lifecycle verifican tenant y ownership de cada recurso vinculado.
+OPS_ADMIN conserva acceso dentro del tenant; las altas validan referencias.
+
+- `GET /v1/change-orders` (`change-orders:read`; filtros job/BuildOps/hito/status, límite 1-200)
+- `GET /v1/change-orders/:id` (`change-orders:read`)
+- `POST /v1/change-orders` (`change-orders:create`)
+- `POST /v1/change-orders/:id/submit` (`change-orders:create`)
+- `POST /v1/change-orders/:id/approve` (`change-orders:approve`)
+- `POST /v1/change-orders/:id/reject` (`change-orders:approve`)
+- `POST /v1/change-orders/:id/request-changes` (`change-orders:approve`)
+- `POST /v1/change-orders/:id/apply-to-buildops` (`change-orders:approve`)
+- `GET /v1/change-orders/:id/impact` (`change-orders:read`)
+- `POST /v1/change-orders/:id/run-risk-agent` (`change-orders:read`)
+
+Referencia: `docs/specs/api/change-orders.spec.md`. Estado de la remediación:
+local, sin verificación de despliegue; ver reporte del 2026-09-19.
+
 ## Knowledge — Agent Memory governance (C85)
 Memoria de agente es contexto recordado, nunca verdad canónica ni
 autorización para actuar — ver
