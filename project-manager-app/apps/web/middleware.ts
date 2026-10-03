@@ -7,7 +7,7 @@ export const runtime = "nodejs";
  * Next.js Middleware — route protection
  *
  * Protected routes: all paths under the (app) route group
- *   /worker/*, /client/*, /admin/*, /agents
+ *   /worker/*, /client/*, /admin/*, /agents, and the legacy /jobs/*
  *
  * Public routes (no session required):
  *   /, /login, /logout, public SEMSE API allowlist, /_next/*, /favicon*
@@ -39,7 +39,7 @@ function isAuthPage(pathname: string): boolean {
 }
 
 // Protected prefixes — routes that require a valid session
-const PROTECTED_PREFIXES = ["/worker", "/client", "/admin", "/agents"];
+const PROTECTED_PREFIXES = ["/worker", "/client", "/admin", "/agents", "/jobs"];
 
 function isProtected(pathname: string): boolean {
   return PROTECTED_PREFIXES.some(prefix => pathname.startsWith(prefix));
@@ -172,9 +172,9 @@ export async function middleware(req: NextRequest): Promise<NextResponse> {
   // Prevent a worker from accessing /admin/*, a client from /worker/*, etc.
   const role = roleFromRoles(session.roles);
   const ownedPrefixes: Record<typeof role, string[]> = {
-    worker: ["/worker", "/agents"],
-    client: ["/client", "/agents"],
-    admin:  ["/worker", "/client", "/admin", "/agents"], // admin sees all
+    worker: ["/worker", "/agents", "/jobs"], // worker tracker links to /jobs/:id
+    client: ["/client", "/agents", "/jobs"],
+    admin:  ["/worker", "/client", "/admin", "/agents", "/jobs"], // admin sees all
   };
 
   const allowed = ownedPrefixes[role].some(p => pathname.startsWith(p));
