@@ -49,9 +49,18 @@ test("tampered ciphertext falla cerrado en TODAS las ejecuciones, incluido el ca
     assert.notEqual(tampered.ciphertext, encrypted.ciphertext);
     assert.throws(() => decryptWebhookSecret(tampered, testKeyHex));
   }
-  // el caso exacto que rompía el test anterior: primer byte "ff"
-  const withFf = { ...encryptWebhookSecret(generateWebhookSecret(), testKeyHex) };
-  withFf.ciphertext = "ff" + withFf.ciphertext.slice(2);
+  // el caso exacto que rompía el test anterior: un ciphertext VÁLIDO cuyo primer byte ya es "ff".
+  // Se busca uno real en vez de forzar el byte: reescribirlo a mano ("ff" + resto) invalida el
+  // ciphertext, y al voltearlo de nuevo, 1 de cada 256 ejecuciones (cuando el primer byte original
+  // era "00") se reconstruía exactamente el ciphertext original, que descifra bien y no lanza.
+  let withFf: ReturnType<typeof encryptWebhookSecret> | undefined;
+  for (let i = 0; i < 20_000 && !withFf; i++) {
+    const candidate = encryptWebhookSecret(generateWebhookSecret(), testKeyHex);
+    if (candidate.ciphertext.startsWith("ff")) withFf = candidate;
+  }
+  assert.ok(withFf, "no se obtuvo un ciphertext que empiece en ff tras 20.000 intentos");
+  // el original sin manipular sí descifra: confirma que el caso de partida es legítimo
+  assert.doesNotThrow(() => decryptWebhookSecret(withFf, testKeyHex));
   const tamperedFf = { ...withFf, ciphertext: flipFirstByte(withFf.ciphertext) };
   assert.notEqual(tamperedFf.ciphertext, withFf.ciphertext);
   assert.throws(() => decryptWebhookSecret(tamperedFf, testKeyHex));
