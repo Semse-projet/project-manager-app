@@ -58,14 +58,14 @@ retroactiva.
 | [api-consciousness-observer](specs/api/consciousness.spec.md) | ops | VERIFIED | legacy | legacy | legacy | legacy | legacy | medium | yes | 2026-06-09 |
 | [api-contract-lifecycle](specs/api/contracts.spec.md) | contracts | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-06-09 |
 | [api-dispute-lifecycle](specs/api/disputes.spec.md) | disputes | VERIFIED | legacy | legacy | legacy | legacy | legacy | critical | yes | 2026-07-23 |
-| [api-evidence-upload-review](specs/api/evidence.spec.md) | evidence | VERIFIED | legacy | legacy | legacy | legacy | legacy | critical | yes | 2026-06-09 |
+| [api-evidence-upload-review](specs/api/evidence.spec.md) | evidence | VERIFIED | legacy | legacy | legacy | legacy | legacy | critical | yes | 2026-07-25 |
 | [api-field-ops](specs/api/field-ops.spec.md) | field-ops | IMPLEMENTED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-25 |
 | [api.governance-tenant-boundary](specs/api/governance-tenant-boundary.spec.md) | governance | VERIFIED | legacy | legacy | legacy | legacy | legacy | critical | yes | 2026-07-25 |
 | [api-smart-intake](specs/api/intake.spec.md) | smart-intake | VERIFIED | legacy | legacy | legacy | legacy | legacy | medium | yes | 2026-06-09 |
 | [api-job-lifecycle-bids](specs/api/jobs.spec.md) | jobs | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-23 |
 | [api-matching](specs/api/matching.spec.md) | matching | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-06-07 |
 | [api-milestone-lifecycle](specs/api/milestones.spec.md) | milestones | VERIFIED | legacy | legacy | legacy | legacy | legacy | critical | yes | 2026-07-17 |
-| [api-payments-escrow](specs/api/payments.spec.md) | payments | VERIFIED | legacy | legacy | legacy | legacy | legacy | critical | yes | 2026-06-09 |
+| [api-payments-escrow](specs/api/payments.spec.md) | payments | VERIFIED | legacy | legacy | legacy | legacy | legacy | critical | yes | 2026-07-25 |
 | [api-prometeo-copilot](specs/api/prometeo-copilot.spec.md) | prometeo | IMPLEMENTED | legacy | legacy | legacy | legacy | legacy | medium | yes | 2026-07-18 |
 | [api-prometeo-orchestrator](specs/api/prometeo-orchestrator.spec.md) | prometeo | IMPLEMENTED | legacy | legacy | legacy | legacy | legacy | medium | yes | 2026-07-18 |
 | [api-prometeo-rag-trade-knowledge](specs/api/prometeo.spec.md) | prometeo | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-12 |

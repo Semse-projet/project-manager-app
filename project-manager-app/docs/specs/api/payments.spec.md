@@ -4,7 +4,7 @@ title: "Payments and Escrow API"
 type: spec
 feature: "Payments & Escrow"
 domain: "payments"
-version: "1.0"
+version: "1.1"
 status: "VERIFIED"
 owner: semse-core
 risk: critical
@@ -18,6 +18,8 @@ depends_on:
   - "docs/specs/api/evidence.spec.md"
 related_files:
   - apps/api/src/modules/payments
+  - apps/api/src/modules/payments/providers/stripe.provider.ts
+  - apps/api/src/modules/payments/stripe-connect.service.ts
   - packages/schemas/src/payment.schema.ts
   - packages/schemas/src/escrow-view.types.ts
   - packages/db/prisma/schema.prisma
@@ -25,6 +27,7 @@ related_tests:
   - apps/api/test/payments.spec-contract.test.ts
   - apps/api/test/payment-governance.service.test.ts
   - apps/api/test/payments.controller.test.ts
+  - tests/unit/worker-money-trust-ui.test.ts
 related_endpoints:
   - v1/payments
   - v1/escrow
@@ -33,7 +36,7 @@ related_events:
 related_agents:
   - crowd
   - Justus
-last_verified: 2026-06-09
+last_verified: 2026-07-25
 ---
 
 # Spec: Payments & Escrow
@@ -671,6 +674,16 @@ nota de seguridad: |
 | `mock` | `apps/api/src/modules/payments/providers/mock-payment.provider.ts` | Dev/staging, tests y flows sin proveedor externo | Soporta funding, payout y refund síncronos |
 | `stripe` | `apps/api/src/modules/payments/providers/stripe.provider.ts` | Producción con Stripe/Connect | Soporta PaymentIntent para funding, Transfer para payout y Refund sobre PaymentIntent/Charge original |
 
+**Frontera de destinatario conocido (v1.1):**
+
+- si `createPayoutIntent` recibe `recipientUserId`, exige una cuenta Connect
+  `active` resuelta por `StripeConnectService`;
+- si no existe, lanza error y no crea una transferencia a
+  `STRIPE_CONNECT_ACCOUNT_ID`;
+- el fallback de cuenta compartida solo permanece para payloads legacy que no
+  identifican destinatario;
+- `/worker/payments` comunica el bloqueo de forma consistente con esta frontera.
+
 **Selección de provider:**
 - `PaymentProviderRegistry` registra siempre `mock`.
 - `stripe` se registra cuando el provider está disponible y `STRIPE_SECRET_KEY` existe.
@@ -765,6 +778,7 @@ describe("POST /v1/workers/me/payout-method") {
 No quedan gaps abiertos de pagos v1 identificados en esta spec.
 
 **Gaps cerrados en implementación:**
+- Un payout con `recipientUserId` conocido falla cerrado sin Connect activo y nunca cae a la cuenta compartida (0.16/2.1c).
 - `POST /v1/workers/me/payout-method` audita cambios con `worker.payout_method.update`.
 - `GET /v1/jobs/:jobId/escrow` y rutas financieras de proyecto validan explícitamente que PRO asignado no lee financials por política de dominio.
 - `POST /v1/escrow/refund` permite reembolso manual OPS-only con audit, SSE y `PaymentTxn` REFUND.
