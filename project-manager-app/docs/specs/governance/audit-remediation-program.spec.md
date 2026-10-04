@@ -1,8 +1,17 @@
 ---
 id: "governance.audit-remediation-program"
 title: "Programa de remediación de auditoría — routing SDD integral"
+sdd_version: "2.0"
+code_status: "COMPLETE"
+ci_status: "NOT_RUN"
+merge_status: "UNMERGED"
+deploy_status: "NOT_DEPLOYED"
+activation_status: "INACTIVE"
+migration_status: "NOT_APPLICABLE"
+feature_flags: []
+production_evidence: []
 domain: "governance"
-version: "1.2"
+version: "1.4"
 status: "APPROVED"
 owner: "semse-core"
 risk: "critical"
@@ -25,11 +34,13 @@ related_files:
   - docs/specs/api/travel.spec.md
   - docs/specs/api/payout-method-tokenization.spec.md
   - docs/specs/labor/labor-engine-remediation.spec.md
-related_tests: []
+related_tests:
+  - tests/unit/audit-plan-spec-coverage.test.mjs
+  - tests/unit/spec-validate.test.mjs
 related_endpoints: []
 related_events: []
 related_agents: []
-last_verified: "2026-07-25"
+last_verified: "2026-10-04"
 ---
 
 # Spec: Programa de remediación de auditoría
@@ -38,7 +49,7 @@ last_verified: "2026-07-25"
 
 Este documento es el mapa canónico entre los **157 ítems originales** y los
 IDs de seguimiento que se agreguen a `docs/AUDIT_REMEDIATION_PLAN.md` durante
-la remediación. El inventario routable actual contiene **159 IDs**. Evita dos
+la remediación. El inventario routable actual contiene **162 IDs**. Evita dos
 fallos de gobernanza:
 
 1. implementar un hallazgo sin spec;
@@ -66,7 +77,6 @@ convierte automáticamente una spec en `VERIFIED`.
 |---|---|---|
 | `0.0` | `ui.client-flows-remediation`, `ui.pro-flows-remediation`, `ui.admin-flows-remediation`, `api-job-lifecycle-bids` | EXECUTABLE |
 | `0.1`, `0.2`, `0.32` | `api.auth-account-session-remediation`, `api-bff-auth-boundary` | EXECUTABLE |
-| `0.1b` | `api-bff-auth-boundary` | CLOSED |
 | `0.3` | `auth.session-revocation-architecture` | REVIEW_REQUIRED |
 | `0.4` | `api-evidence-upload-review`, `api-milestone-lifecycle` | EXECUTABLE |
 | `0.5`, `0.23` | `api-change-orders`, `api-payments-escrow` | EXECUTABLE |
@@ -85,15 +95,22 @@ convierte automáticamente una spec en `VERIFIED`.
 | `0.31` | `ui.client-flows-remediation`, `ui-pro-flows` | EXECUTABLE |
 | `0.33` | `api-agents-runtime`, `ui.pro-flows-remediation` | EXECUTABLE |
 
-Cobertura: **37/37** (36 originales + 1 seguimiento).
+Cobertura: **36/36**.
 
 ## 4. Routing canónico — Sección 1 Cliente
 
 | Ítems | Spec primaria | Routing |
 |---|---|---|
 | `1.1`, `1.2`, `1.3`, `1.4`, `1.6`, `1.7`, `1.8`, `1.9`, `1.10`, `1.11`, `1.11c`, `1.12`, `1.13`, `1.14`, `1.18`, `1.20` | `ui.client-flows-remediation` | EXECUTABLE |
-| `1.5`, `1.11b`, `1.21` | `ui.audit-product-decisions` | DECISION_REQUIRED |
-| `1.15`, `1.16`, `1.17`, `1.19` | `ui.design-system-remediation` | REVIEW_REQUIRED |
+| `1.11b` | `ui.audit-product-decisions` | DECISION_REQUIRED |
+| `1.5`, `1.21` | `ui.audit-product-decisions` | CLOSED |
+| `1.15`, `1.16` | `ui.design-system-remediation` | REVIEW_REQUIRED |
+| `1.17`, `1.19` | `ui.design-system-remediation` | CLOSED |
+
+`1.17` y `1.19` conservan el cierre correctivo registrado en el plan; no se
+reabren por el ADR de ownership o la matriz de QA pendientes de la spec de
+diseño. Esas decisiones gobiernan migraciones futuras. `CLOSED` no declara
+activación ni verificación nueva de producción.
 
 Cobertura: **23/23**.
 
@@ -104,9 +121,9 @@ superficie; la siguiente tabla identifica el bounded context primario.
 
 | Ítems | Spec primaria adicional | Routing |
 |---|---|---|
-| `2.1`, `2.40` | `ui.audit-product-decisions` | DECISION_REQUIRED |
-| `2.28` | `api.worker-verification-remediation` | REVIEW_REQUIRED |
-| `2.44` | `api.payout-method-tokenization` | REVIEW_REQUIRED |
+| `2.1`, `2.40` | `ui.audit-product-decisions` | CLOSED |
+| `2.28` | `api.worker-verification-remediation` | CLOSED |
+| `2.44` | `api.payout-method-tokenization` | CLOSED |
 | `2.2`, `2.3`, `2.4`, `2.5`, `2.8`, `2.9`, `2.10`, `2.11`, `2.12`, `2.13`, `2.14`, `2.15`, `2.16` | `labor.engine-remediation` | EXECUTABLE |
 | `2.31`, `2.34`, `2.35`, `2.36`, `2.38` | `api.travel-assignments-settlement` | EXECUTABLE |
 | `2.1b`, `2.1d`, `2.26`, `2.27`, `2.29`, `2.30`, `2.47` | `api-job-lifecycle-bids`, `api-matching` | EXECUTABLE |
@@ -114,9 +131,10 @@ superficie; la siguiente tabla identifica el bounded context primario.
 | `2.1f`, `2.18`, `2.21`, `2.22`, `2.45` | `api-evidence-upload-review` | EXECUTABLE |
 | `2.19`, `2.20`, `2.24`, `2.25`, `2.32`, `2.33` | `api-field-ops`, `tasks.task-unification-fase1` | EXECUTABLE |
 | `2.1c`, `2.39`, `2.42`, `2.43`, `2.46`, `2.48` | `api-payments-escrow`, `api-dispute-lifecycle` | EXECUTABLE |
+| `2.49` | `api-field-ops` | CLOSED |
 | `2.6`, `2.7`, `2.17`, `2.23`, `2.37` | `ui.pro-flows-remediation` | EXECUTABLE |
 
-Cobertura: **53/53**.
+Cobertura: **54/54**.
 
 ## 6. Routing canónico — Sección 3 Admin
 
@@ -136,7 +154,7 @@ Excepciones con contrato adicional obligatorio:
 - `3.25`, `3.18`: `api-job-lifecycle-bids`.
 - `3.37`: `api-communications`.
 
-Cobertura: **46/46** (45 originales + 1 seguimiento).
+Cobertura: **49/49**.
 
 ## 7. Reglas de ejecución
 
@@ -150,9 +168,10 @@ Cobertura: **46/46** (45 originales + 1 seguimiento).
 
 ## 8. Gates
 
-- Cobertura del inventario actual: 159/159.
-- `pnpm spec:audit-plan-coverage`: 159 mapeados, 0 faltantes, 0 extras.
-- `node scripts/spec-validate.mjs --strict`: 0 errores/0 warnings.
+- Cobertura del inventario actual: 162/162.
+- `pnpm spec:audit-plan-coverage`: 162 mapeados, 0 faltantes, 0 extras.
+- `node scripts/spec-validate.mjs --strict --base-ref <base-SHA>`: 0 errores/0 warnings; toda spec nueva/modificada declara SDD 2.0.
+- CI ejecuta validación strict, cobertura primaria y regresiones de ambos controles.
 - `node scripts/spec-index.mjs`: índice regenerado.
 - Ninguna spec `DRAFT` o `REVIEW` autoriza implementación.
 - Las specs UI aprobadas declaran explícitamente los ítems excluidos.
