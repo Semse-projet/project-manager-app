@@ -50,7 +50,7 @@ export class TasksController {
     @Param("jobId") jobId: string
   ) {
     const actor = resolveRequestContext(req);
-    const data = await this.tasksService.listByJob({ tenantId: actor.tenantId, jobId });
+    const data = await this.tasksService.listByJob({ tenantId: actor.tenantId, jobId, orgId: actor.orgId, roles: actor.roles });
     return ok(resolveRequestId(req.headers ?? {}), data);
   }
 
@@ -64,7 +64,7 @@ export class TasksController {
     if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
 
     const actor = resolveRequestContext(req);
-    const data = await this.tasksService.create({ ...parsed.data, tenantId: actor.tenantId, createdBy: actor.userId });
+    const data = await this.tasksService.create({ ...parsed.data, tenantId: actor.tenantId, createdBy: actor.userId, orgId: actor.orgId, roles: actor.roles });
     return ok(resolveRequestId(req.headers ?? {}), data);
   }
 
@@ -85,6 +85,7 @@ export class TasksController {
       status: parsed.data.status,
       actorUserId: actor.userId,
       roles: actor.roles,
+      orgId: actor.orgId,
     });
     return ok(resolveRequestId(req.headers ?? {}), data);
   }

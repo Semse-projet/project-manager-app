@@ -122,7 +122,7 @@ Cobertura: **53/53**.
 
 | Ítems | Spec primaria | Routing |
 |---|---|---|
-| `3.0`–`3.44` | `ui.admin-flows-remediation` + spec API del bounded context afectado | CLOSED / regresión |
+| `3.0`–`3.47` | `ui.admin-flows-remediation` + spec API del bounded context afectado | CLOSED / regresión |
 | `3.10b` | `api.governance-tenant-boundary`, `ui.admin-flows-remediation` | CLOSED |
 
 Excepciones con contrato adicional obligatorio:

@@ -80,37 +80,47 @@ export function PrometeoCopilot() {
     }
   }
 
+  function pushAssistantMessage(content: string) {
+    setMessages((prev) => [...prev, { id: newId(), role: "assistant", content }]);
+  }
+
   async function handleQuickAction(action: CopilotSuggestedAction) {
     if (!context) return;
     setPending(true);
+    let res: Awaited<ReturnType<typeof executeCopilotAction>>;
     try {
-      const res = await executeCopilotAction({
+      // The server records the action and decides whether it needs the governed
+      // Workspace. It does not produce a result for read-only actions, so a
+      // "completed" status alone says nothing the user can act on.
+      res = await executeCopilotAction({
         action: action.action,
         targetResource: {
           resourceId: context.resource.id ?? context.module,
           resourceType: context.resource.type,
         },
       });
-      if (res.requiresWorkspace) {
-        router.push("/workspace");
-        return;
-      }
-      setMessages((prev) => [
-        ...prev,
-        { id: newId(), role: "assistant", content: `Acción "${action.description}" ejecutada.` },
-      ]);
     } catch (e) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: newId(),
-          role: "assistant",
-          content: e instanceof Error ? e.message : "No se pudo ejecutar la acción.",
-        },
-      ]);
-    } finally {
+      pushAssistantMessage(e instanceof Error ? e.message : "No se pudo ejecutar la acción.");
       setPending(false);
+      return;
     }
+    setPending(false);
+
+    if (res.status === "failed") {
+      pushAssistantMessage(`No se pudo ejecutar "${action.description}".`);
+      return;
+    }
+    if (res.requiresWorkspace || action.action === "workspace.focus") {
+      router.push("/workspace");
+      return;
+    }
+    if (action.action === "copilot.ask") {
+      pushAssistantMessage("¿Qué quieres saber? Escribe tu pregunta abajo y la respondo con el contexto de esta pantalla.");
+      return;
+    }
+    // Read-only quick actions (summaries, status, comparisons) are real questions
+    // for the copilot: send them through the chat, the same path as typing them.
+    await handleSend(action.description);
   }
 
   if (!open) {
