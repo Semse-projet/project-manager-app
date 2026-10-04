@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Optional, Param, Patch, Post, Query, Req } from "@nestjs/common";
+import { Body, Controller, Get, NotFoundException, Optional, Param, Patch, Post, Query, Req } from "@nestjs/common";
 import {
   milestoneCreateSchema,
   milestoneReasonSchema
@@ -11,6 +11,7 @@ import { resolveRequestId } from "../../common/request-id.js";
 import { parseWithSchema } from "../../common/zod-validation.js";
 import { MilestonesService } from "./milestones.service.js";
 import { MilestonesRepository } from "./milestones.repository.js";
+import { assertMilestoneReadable } from "./milestones.policy.js";
 import { BuildOpsIntelligenceAgent } from "../operational-intelligence/buildops-intelligence.agent.js";
 import { PaymentGovernanceService } from "../payments/payment-governance.service.js";
 import { EvidenceReviewService } from "../operational-intelligence/evidence-review.service.js";
@@ -26,6 +27,22 @@ export class MilestonesController {
     @Optional() private readonly evidenceReview?: EvidenceReviewService,
     @Optional() private readonly sse?: SseEventBusService,
   ) {}
+
+  /**
+   * C51 etapa 3: toda ruta por `milestoneId` resuelve el hito DENTRO del tenant del actor (otro tenant / inexistente ⇒ 404)
+   * y exige participar en él (org cliente, org profesional asignada u OPS_ADMIN; otra org u org vacía ⇒ 403) con la
+   * política existente del dominio. Si la ruta trae `itemId`, el item debe pertenecer a ese hito (si no ⇒ 404).
+   * Los permisos (`milestones:*`) y las reglas de ciclo de vida siguen aplicándose encima.
+   */
+  private async assertMilestoneAccess(req: { headers?: Record<string, unknown> }, milestoneId: string, itemId?: string): Promise<void> {
+    const actor = resolveRequestContext(req);
+    const ownership = await this.milestonesRepository.getMilestoneOwnership({ tenantId: actor.tenantId, milestoneId });
+    assertMilestoneReadable(actor, ownership);
+    if (itemId !== undefined) {
+      const belongs = await this.milestonesRepository.evidenceItemBelongsToMilestone({ tenantId: actor.tenantId, milestoneId, itemId });
+      if (!belongs) throw new NotFoundException("Evidence item not found");
+    }
+  }
 
   @Post("v1/projects/:projectId/milestones")
   @RequirePermissions("milestones:create")
@@ -199,6 +216,7 @@ export class MilestonesController {
     @Req() req: { headers?: Record<string, unknown> },
     @Param("milestoneId") milestoneId: string,
   ) {
+    await this.assertMilestoneAccess(req, milestoneId);
     const requestId = resolveRequestId(req.headers ?? {});
     const items = await this.milestonesRepository.listEvidenceItems(milestoneId);
     return ok(requestId, items);
@@ -211,6 +229,7 @@ export class MilestonesController {
     @Param("milestoneId") milestoneId: string,
     @Body() body: { items: Array<{ label: string; description?: string; kind?: string; phase?: string; required?: boolean }> },
   ) {
+    await this.assertMilestoneAccess(req, milestoneId);
     const requestId = resolveRequestId(req.headers ?? {});
     await this.milestonesRepository.seedEvidenceItems(milestoneId, body.items as Parameters<typeof this.milestonesRepository.seedEvidenceItems>[1]);
     const items = await this.milestonesRepository.listEvidenceItems(milestoneId);
@@ -230,6 +249,7 @@ export class MilestonesController {
       auditReason?: string;  // plain-text reason for rejection/reupload (required for rejected/needs_reupload)
     },
   ) {
+    await this.assertMilestoneAccess(req, milestoneId, itemId);
     const { BadRequestException } = await import("@nestjs/common");
     const requiresReason = body.status === "rejected" || body.status === "needs_reupload";
     if (requiresReason && !body.reviewNote?.trim() && !body.auditReason?.trim()) {
@@ -278,6 +298,7 @@ export class MilestonesController {
     @Req() req: { headers?: Record<string, unknown> },
     @Param("milestoneId") milestoneId: string,
   ) {
+    await this.assertMilestoneAccess(req, milestoneId);
     const actor = resolveRequestContext(req);
     const requestId = resolveRequestId(req.headers ?? {});
     const result = await this.milestonesRepository.computePaymentReadiness(milestoneId, actor.tenantId);
@@ -292,6 +313,7 @@ export class MilestonesController {
     @Req() req: { headers?: Record<string, unknown> },
     @Param("milestoneId") milestoneId: string,
   ) {
+    await this.assertMilestoneAccess(req, milestoneId);
     const actor = resolveRequestContext(req);
     const requestId = resolveRequestId(req.headers ?? {});
 
@@ -331,6 +353,7 @@ export class MilestonesController {
     @Req() req: { headers?: Record<string, unknown> },
     @Param("milestoneId") milestoneId: string,
   ) {
+    await this.assertMilestoneAccess(req, milestoneId);
     const actor = resolveRequestContext(req);
     const requestId = resolveRequestId(req.headers ?? {});
     const summary = await this.milestonesRepository.getVisionSummary(milestoneId, actor.tenantId);
@@ -348,6 +371,7 @@ export class MilestonesController {
     @Param("milestoneId") milestoneId: string,
     @Param("itemId") itemId: string,
   ) {
+    await this.assertMilestoneAccess(req, milestoneId, itemId);
     const actor = resolveRequestContext(req);
     const requestId = resolveRequestId(req.headers ?? {});
     const detail = await this.milestonesRepository.getEvidenceItemDetail(milestoneId, itemId, actor.tenantId);
@@ -362,11 +386,12 @@ export class MilestonesController {
   @RequirePermissions("milestones:read")
   async getEvidenceItemHistory(
     @Req() req: { headers?: Record<string, unknown> },
-    @Param("milestoneId") _milestoneId: string,
+    @Param("milestoneId") milestoneId: string,
     @Param("itemId") itemId: string,
     @Query("limit") limit?: string,
     @Query("cursor") cursor?: string,
   ) {
+    await this.assertMilestoneAccess(req, milestoneId, itemId);
     const actor = resolveRequestContext(req);
     const requestId = resolveRequestId(req.headers ?? {});
     const result = await this.milestonesRepository.getEvidenceItemHistory(itemId, actor.tenantId, {
@@ -384,6 +409,7 @@ export class MilestonesController {
     @Param("itemId") itemId: string,
     @Body() body: { archiveReason: string },
   ) {
+    await this.assertMilestoneAccess(req, milestoneId, itemId);
     const actor = resolveRequestContext(req);
     const requestId = resolveRequestId(req.headers ?? {});
 
@@ -435,6 +461,7 @@ export class MilestonesController {
     @Param("itemId") itemId: string,
     @Body() body: { evidenceId: string; replacedReason: string },
   ) {
+    await this.assertMilestoneAccess(req, milestoneId, itemId);
     const actor = resolveRequestContext(req);
     const requestId = resolveRequestId(req.headers ?? {});
 
@@ -494,10 +521,11 @@ export class MilestonesController {
   @RequirePermissions("milestones:write")
   async runEvidenceReviewAgent(
     @Req() req: { headers?: Record<string, unknown> },
-    @Param("milestoneId") _milestoneId: string,
+    @Param("milestoneId") milestoneId: string,
     @Param("itemId") itemId: string,
     @Body() body: { locale?: "es" | "en"; forceRulesOnly?: boolean } = {},
   ) {
+    await this.assertMilestoneAccess(req, milestoneId, itemId);
     const actor = resolveRequestContext(req);
     const requestId = resolveRequestId(req.headers ?? {});
 
@@ -521,9 +549,10 @@ export class MilestonesController {
   @RequirePermissions("milestones:read")
   async getEvidenceReview(
     @Req() req: { headers?: Record<string, unknown> },
-    @Param("milestoneId") _milestoneId: string,
+    @Param("milestoneId") milestoneId: string,
     @Param("itemId") itemId: string,
   ) {
+    await this.assertMilestoneAccess(req, milestoneId, itemId);
     const actor = resolveRequestContext(req);
     const requestId = resolveRequestId(req.headers ?? {});
 
@@ -537,6 +566,7 @@ export class MilestonesController {
     @Req() req: { headers?: Record<string, unknown> },
     @Param("milestoneId") milestoneId: string,
   ) {
+    await this.assertMilestoneAccess(req, milestoneId);
     const actor = resolveRequestContext(req);
     const requestId = resolveRequestId(req.headers ?? {});
 

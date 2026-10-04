@@ -562,6 +562,21 @@ export class MilestonesRepository {
     return milestone;
   }
 
+  /** C51: ownership del hito resuelto DENTRO del tenant (otro tenant / inexistente ⇒ 404). */
+  async getMilestoneOwnership(input: { tenantId: string; milestoneId: string }): Promise<MilestoneOwnership> {
+    const milestone = await this.findStoredMilestoneOrThrow(input);
+    return this.toOwnership(milestone.project!);
+  }
+
+  /** C51: el item de evidencia pertenece al hito indicado (y al tenant). */
+  async evidenceItemBelongsToMilestone(input: { tenantId: string; milestoneId: string; itemId: string }): Promise<boolean> {
+    const item = await this.prisma.milestoneEvidenceItem.findFirst({
+      where: { id: input.itemId, milestoneId: input.milestoneId, milestone: { project: { tenantId: input.tenantId } } },
+      select: { id: true },
+    });
+    return item !== null;
+  }
+
   // ── Evidence Items ──────────────────────────────────────────────────────────
 
   async listEvidenceItems(milestoneId: string) {
