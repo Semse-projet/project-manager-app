@@ -1,6 +1,8 @@
-import { forwardRef, Inject, Injectable, Logger, Optional } from "@nestjs/common";
+import { forwardRef, ForbiddenException, Inject, Injectable, Logger, NotFoundException, Optional } from "@nestjs/common";
 import type { Prisma } from "@prisma/client";
 import { PrismaService } from "../../../infrastructure/prisma/prisma.service.js";
+import { hasScopeAccess, isOpsAdmin, type ScopeActor } from "../../../common/resource-scope.js";
+import { ResourceScopeResolver } from "../../../common/resource-scope.resolver.js";
 import { SseEventBusService } from "../../../infrastructure/sse/sse-event-bus.service.js";
 import { HealthService } from "../../health/health.service.js";
 import { FinanceService } from "../../finance/finance.service.js";
@@ -108,10 +110,36 @@ export class OperationalContextService {
     @Optional() private readonly riskService?: RiskScoringService,
   ) {}
 
+  /**
+   * El actor con el que se decide el alcance. `roles` es la lista completa del
+   * actor; si un llamador solo conoce `role` (el primero), se usa ese solo y
+   * nunca se asume `OPS_ADMIN`: ante la duda, el alcance más estrecho.
+   */
+  private scopeActor(input: { tenantId: string; orgId: string; userId: string; role: string; roles?: string[] }): ScopeActor {
+    const roles = input.roles && input.roles.length > 0 ? input.roles : [input.role];
+    return { tenantId: input.tenantId, orgId: input.orgId, userId: input.userId, roles };
+  }
+
+  /**
+   * Un `projectId` solo abre los bloques de proyecto (finanzas, riesgo y el lente 5D de proyecto) si el
+   * actor participa en ese proyecto: org cliente, org profesional asignada u OPS_ADMIN del mismo tenant.
+   * Mismo contrato que `IntelligenceController.assertProjectAccess` y la spec resource-scope:
+   * inexistente u otro tenant ⇒ 404; otra org del mismo tenant ⇒ 403.
+   */
+  private async assertProjectAccess(actor: ScopeActor, projectId: string): Promise<void> {
+    const scope = await new ResourceScopeResolver(this.prisma).resolveProjectScope(actor.tenantId, projectId);
+    if (!scope) throw new NotFoundException("Project not found");
+    if (!hasScopeAccess(actor, scope, "read")) throw new ForbiddenException("Actor cannot access this project");
+  }
+
   async buildContext(input: {
-    tenantId: string; orgId: string; userId: string; role: string; projectId?: string;
+    tenantId: string; orgId: string; userId: string; role: string; roles?: string[]; projectId?: string;
   }): Promise<SemseOperationalContext> {
-    const cacheKey = `${input.tenantId}:${input.userId}:${input.projectId ?? "none"}`;
+    const actorScope = this.scopeActor(input);
+    // Antes de la caché: perder la participación en un proyecto no debe seguir sirviendo su contexto.
+    if (input.projectId) await this.assertProjectAccess(actorScope, input.projectId);
+    const isAdmin = isOpsAdmin(actorScope);
+    const cacheKey = `${input.tenantId}:${input.userId}:${isAdmin ? "admin" : "user"}:${input.projectId ?? "none"}`;
     const cached = this.cache.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) return cached.ctx;
     const normalizedRole = input.role.toUpperCase();
@@ -285,7 +313,10 @@ export class OperationalContextService {
       generatedAt: new Date().toISOString(),
     };
 
-    if (this.ecosystem5dService) {
+    // Sin `projectId` el lente 5D agrega TODO el tenant (proyectos, hitos, evidencias, facturas…), así que solo
+    // lo recibe OPS_ADMIN, que es quien lo ve en la UI. Con `projectId` ya se verificó la participación arriba
+    // y la vista es la del proyecto.
+    if (this.ecosystem5dService && (input.projectId || isAdmin)) {
       try {
         ctx.ecosystem5d = await this.ecosystem5dService.buildView({
           tenantId: input.tenantId,
@@ -564,8 +595,20 @@ export class OperationalContextService {
   async getLatestSnapshot(input: {
     tenantId: string;
     userId: string;
+    orgId?: string;
+    roles?: string[];
     projectId?: string;
   }): Promise<SemseOperationalContext | null> {
+    // Sin `orgId`/`roles` el actor es el más estrecho: sin org y sin OPS_ADMIN.
+    const actorScope = this.scopeActor({
+      tenantId: input.tenantId,
+      orgId: input.orgId ?? "",
+      userId: input.userId,
+      role: input.roles?.[0] ?? "",
+      roles: input.roles,
+    });
+    if (input.projectId) await this.assertProjectAccess(actorScope, input.projectId);
+
     const row = await this.prisma.operationalContextSnapshot.findFirst({
       where: {
         tenantId: input.tenantId,
@@ -573,14 +616,32 @@ export class OperationalContextService {
         ...(input.projectId ? { projectId: input.projectId } : {}),
       },
       orderBy: { createdAt: "desc" },
-      select: { snapshotJson: true },
+      select: { snapshotJson: true, projectId: true },
     }).catch(() => null);
 
     if (!row || typeof row.snapshotJson !== "object" || row.snapshotJson === null) {
       return null;
     }
 
-    return row.snapshotJson as unknown as SemseOperationalContext;
+    const snapshot = row.snapshotJson as unknown as SemseOperationalContext;
+
+    if (row.projectId) {
+      // Un snapshot de proyecto no se devuelve si el actor ya no participa en él.
+      try {
+        await this.assertProjectAccess(actorScope, row.projectId);
+      } catch (error) {
+        if (error instanceof NotFoundException || error instanceof ForbiddenException) return null;
+        throw error;
+      }
+      return snapshot;
+    }
+
+    // Snapshots sin proyecto guardados antes de acotar el lente 5D pueden traer agregados de todo el tenant
+    // (5D, y finanzas/riesgo si los hubo): solo OPS_ADMIN los conserva.
+    if (!isOpsAdmin(actorScope)) {
+      return { ...snapshot, ecosystem5d: null, finance: null, risk: null };
+    }
+    return snapshot;
   }
 
   private async persistSnapshot(
