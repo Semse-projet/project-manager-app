@@ -3,6 +3,13 @@ import "reflect-metadata";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { REQUIRED_PERMISSIONS_KEY } from "../src/common/permissions.decorator.ts";
+// El acceso por tenant/org de activos y órdenes se prueba en prometeo-assets-orders-scope.test.ts.
+const ALLOW_ALL_ACCESS = {
+  async assertCanCreate() {},
+  async assertProjectFilter() {},
+  async listScope() { return undefined; },
+  async assertRowAccess() {},
+};
 import { PrometeoController } from "../dist/modules/prometeo/prometeo.controller.js";
 import { PrometeoToolExecutionService } from "../dist/modules/prometeo/prometeo-tool-execution.service.js";
 
@@ -94,7 +101,7 @@ function createController() {
     },
   } as never;
 
-  return { controller: new PrometeoController(svc, undefined, tradeGuide, toolExecution), calls };
+  return { controller: new PrometeoController(svc, ALLOW_ALL_ACCESS as never, undefined, tradeGuide, toolExecution), calls };
 }
 
 test("prometeo controller declares permissions and wraps representative payloads", async () => {

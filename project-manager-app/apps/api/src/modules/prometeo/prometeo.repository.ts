@@ -18,6 +18,8 @@ export type PrometeoChunkSearchRow = {
   metadataJson: unknown;
 };
 
+export type PrometeoListScopeFilter = { orgId: string; projectIds: string[]; jobIds: string[] };
+
 @Injectable()
 export class PrometeoRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -121,9 +123,14 @@ export class PrometeoRepository {
     });
   }
 
-  async listAssets(input: { tenantId: string; projectId?: string; category?: string }) {
+  async getAsset(tenantId: string, id: string) {
+    return this.prisma.prometeoAsset.findFirst({ where: { id, tenantId } });
+  }
+
+  /** `scope` (no-OPS_ADMIN, sin `projectId`): solo filas propias sin asociación + las de proyectos donde participa. */
+  async listAssets(input: { tenantId: string; projectId?: string; category?: string; scope?: PrometeoListScopeFilter }) {
     return this.prisma.prometeoAsset.findMany({
-      where: { tenantId: input.tenantId, ...(input.projectId ? { projectId: input.projectId } : {}), ...(input.category ? { category: input.category } : {}) },
+      where: { tenantId: input.tenantId, ...(input.projectId ? { projectId: input.projectId } : {}), ...(input.category ? { category: input.category } : {}), ...(input.scope ? { OR: [{ projectId: null, orgId: input.scope.orgId }, { projectId: { in: input.scope.projectIds } }] } : {}) },
       orderBy: { createdAt: "desc" }, take: 100,
     });
   }
@@ -222,9 +229,19 @@ export class PrometeoRepository {
     });
   }
 
-  async listWorkOrders(input: { tenantId: string; projectId?: string; status?: string; assignedToId?: string; limit?: number }) {
+  async getWorkOrder(tenantId: string, id: string) {
+    return this.prisma.workOrder.findFirst({ where: { id, tenantId } });
+  }
+
+  async listWorkOrders(input: { tenantId: string; projectId?: string; status?: string; assignedToId?: string; limit?: number; scope?: PrometeoListScopeFilter }) {
     return this.prisma.workOrder.findMany({
-      where: { tenantId: input.tenantId, ...(input.projectId ? { projectId: input.projectId } : {}), ...(input.status ? { status: input.status } : {}), ...(input.assignedToId ? { assignedToId: input.assignedToId } : {}) },
+      where: {
+        tenantId: input.tenantId,
+        ...(input.projectId ? { projectId: input.projectId } : {}),
+        ...(input.status ? { status: input.status } : {}),
+        ...(input.assignedToId ? { assignedToId: input.assignedToId } : {}),
+        ...(input.scope ? { OR: [{ projectId: null, jobId: null, orgId: input.scope.orgId }, { projectId: { in: input.scope.projectIds } }, { projectId: null, jobId: { in: input.scope.jobIds } }] } : {}),
+      },
       orderBy: [{ priority: "desc" }, { createdAt: "desc" }], take: input.limit ?? 50,
     });
   }

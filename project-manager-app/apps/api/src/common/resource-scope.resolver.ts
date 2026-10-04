@@ -41,6 +41,28 @@ export class ResourceScopeResolver {
     return { tenantId: job.tenantId, clientOrgId: job.clientOrgId, assignedProOrgId: job.project?.assignedProOrgId };
   }
 
+  /** Ids de proyecto del tenant en los que la org del actor es cliente o profesional asignada (para listados). */
+  async listAccessibleProjectIds(tenantId: string, orgId: string, limit = 1000): Promise<string[]> {
+    if (!tenantId || !orgId) return [];
+    const rows = await this.prisma.project.findMany({
+      where: { tenantId, OR: [{ assignedProOrgId: orgId }, { job: { clientOrgId: orgId } }] },
+      select: { id: true },
+      take: limit,
+    });
+    return rows.map((r) => r.id);
+  }
+
+  /** Ids de job del tenant en los que la org del actor es cliente o profesional asignada (para listados). */
+  async listAccessibleJobIds(tenantId: string, orgId: string, limit = 1000): Promise<string[]> {
+    if (!tenantId || !orgId) return [];
+    const rows = await this.prisma.job.findMany({
+      where: { tenantId, OR: [{ clientOrgId: orgId }, { project: { assignedProOrgId: orgId } }] },
+      select: { id: true },
+      take: limit,
+    });
+    return rows.map((r) => r.id);
+  }
+
   /** `Dispute` del tenant → alcance de su proyecto. */
   async resolveDisputeScope(tenantId: string, disputeId: string): Promise<ProjectScope | null> {
     if (!tenantId || !disputeId) return null;

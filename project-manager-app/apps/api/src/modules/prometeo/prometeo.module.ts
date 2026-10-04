@@ -8,6 +8,8 @@ import { VisionModule } from "../vision/vision.module.js";
 import { ChunkerService } from "./chunker.service.js";
 import { DocumentParserService } from "./document-parser.service.js";
 import { EmbeddingService } from "./embedding.service.js";
+import { ResourceScopeModule } from "../../common/resource-scope.module.js";
+import { PrometeoAccessPolicy } from "./prometeo-access.policy.js";
 import { PrometeoController } from "./prometeo.controller.js";
 import { PrometeoRepository } from "./prometeo.repository.js";
 import { PrometeoService } from "./prometeo.service.js";
@@ -16,9 +18,9 @@ import { TradeGuideService } from "./trade-guide.service.js";
 import { ToolGovernanceRepository } from "./tool-governance/tool-governance.repository.js";
 
 @Module({
-  imports: [LLMModule, GraphifyModule, FieldOpsModule, AgroModule, VisionModule, PaymentsModule],
+  imports: [ResourceScopeModule, LLMModule, GraphifyModule, FieldOpsModule, AgroModule, VisionModule, PaymentsModule],
   controllers: [PrometeoController],
-  providers: [ChunkerService, DocumentParserService, EmbeddingService, PrometeoRepository, PrometeoService, PrometeoToolExecutionService, TradeGuideService, ToolGovernanceRepository],
+  providers: [PrometeoAccessPolicy, ChunkerService, DocumentParserService, EmbeddingService, PrometeoRepository, PrometeoService, PrometeoToolExecutionService, TradeGuideService, ToolGovernanceRepository],
   exports: [PrometeoService, EmbeddingService, ChunkerService, DocumentParserService, PrometeoToolExecutionService, TradeGuideService],
 })
 export class PrometeoModule {}
