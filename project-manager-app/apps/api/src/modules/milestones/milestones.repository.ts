@@ -562,11 +562,27 @@ export class MilestonesRepository {
     return milestone;
   }
 
+  /** C51: ownership del hito resuelto DENTRO del tenant (otro tenant / inexistente ⇒ 404). */
+  async getMilestoneOwnership(input: { tenantId: string; milestoneId: string }): Promise<MilestoneOwnership> {
+    const milestone = await this.findStoredMilestoneOrThrow(input);
+    return this.toOwnership(milestone.project!);
+  }
+
+  /** C51: el item de evidencia pertenece al hito indicado (y al tenant). */
+  async evidenceItemBelongsToMilestone(input: { tenantId: string; milestoneId: string; itemId: string }): Promise<boolean> {
+    const item = await this.prisma.milestoneEvidenceItem.findFirst({
+      where: { id: input.itemId, milestoneId: input.milestoneId, milestone: { project: { tenantId: input.tenantId } } },
+      select: { id: true },
+    });
+    return item !== null;
+  }
+
   // ── Evidence Items ──────────────────────────────────────────────────────────
 
-  async listEvidenceItems(milestoneId: string) {
+  async listEvidenceItems(milestoneId: string, tenantId: string) {
+    // C51: defensa en profundidad — el tenant se filtra también en la consulta (no solo en la guarda del controller).
     return this.prisma.milestoneEvidenceItem.findMany({
-      where:   { milestoneId },
+      where:   { milestoneId, milestone: { project: { tenantId } } },
       orderBy: [{ phase: "asc" }, { createdAt: "asc" }],
     });
   }
@@ -737,7 +753,14 @@ export class MilestonesRepository {
     kind?: "PHOTO" | "VIDEO" | "DOCUMENT";
     phase?: "before" | "during" | "after";
     required?: boolean;
-  }>) {
+  }>, tenantId: string) {
+    // C51: defensa en profundidad — el hito debe existir en el tenant del actor; si no, nada se escribe.
+    const owned = await this.prisma.milestone.findFirst({
+      where: { id: milestoneId, deletedAt: null, project: { tenantId } },
+      select: { id: true },
+    });
+    if (!owned) throw new NotFoundException(`Milestone '${milestoneId}' not found`);
+
     // Idempotent — skip if items already seeded
     const existing = await this.prisma.milestoneEvidenceItem.count({ where: { milestoneId } });
     if (existing > 0) return;
