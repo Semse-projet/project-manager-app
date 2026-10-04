@@ -67,8 +67,14 @@ test("current routing isolates Field Ops and preserves closed design findings", 
   assert.equal(result.routes.get("1.19").state, "CLOSED");
   assert.equal(result.routes.get("1.15").state, "REVIEW_REQUIRED");
   assert.equal(result.routes.get("1.16").state, "REVIEW_REQUIRED");
-  const next = analyzeAuditCoverage(inputPlan + "\n- **3.47 NEW**\n", map, new Set(findSpecFiles().map((file) => readSpec(file).metadata.id)));
-  assert.deepEqual(next.missing, ["3.47"]);
+  // A finding added to the plan without routing must fail the gate. The ID is derived from
+  // the plan (one past the highest section-3 item) so it can never collide with a real finding
+  // that gets routed later; an ID above the plan's maximum cannot be mapped without becoming
+  // an "extra", so it is always unrouted.
+  const highest = Math.max(...[...result.planIds].filter((id) => id.startsWith("3.")).map((id) => Number.parseInt(id.split(".")[1], 10)));
+  const newId = `3.${highest + 1}`;
+  const next = analyzeAuditCoverage(inputPlan + `\n- **${newId} NEW**\n`, map, new Set(findSpecFiles().map((file) => readSpec(file).metadata.id)));
+  assert.deepEqual(next.missing, [newId]);
 });
 
 test("CLI returns nonzero for orphan exceptions while valid routing exits zero", (t) => {

@@ -49,7 +49,7 @@ last_verified: "2026-10-04"
 
 Este documento es el mapa canónico entre los **157 ítems originales** y los
 IDs de seguimiento que se agreguen a `docs/AUDIT_REMEDIATION_PLAN.md` durante
-la remediación. El inventario routable actual contiene **161 IDs**. Evita dos
+la remediación. El inventario routable actual contiene **162 IDs**. Evita dos
 fallos de gobernanza:
 
 1. implementar un hallazgo sin spec;
@@ -140,7 +140,7 @@ Cobertura: **54/54**.
 
 | Ítems | Spec primaria | Routing |
 |---|---|---|
-| `3.0`–`3.46` | `ui.admin-flows-remediation` + spec API del bounded context afectado | CLOSED / regresión |
+| `3.0`–`3.47` | `ui.admin-flows-remediation` + spec API del bounded context afectado | CLOSED / regresión |
 | `3.10b` | `api.governance-tenant-boundary`, `ui.admin-flows-remediation` | CLOSED |
 
 Excepciones con contrato adicional obligatorio:
@@ -154,7 +154,7 @@ Excepciones con contrato adicional obligatorio:
 - `3.25`, `3.18`: `api-job-lifecycle-bids`.
 - `3.37`: `api-communications`.
 
-Cobertura: **48/48**.
+Cobertura: **49/49**.
 
 ## 7. Reglas de ejecución
 
@@ -168,8 +168,8 @@ Cobertura: **48/48**.
 
 ## 8. Gates
 
-- Cobertura del inventario actual: 161/161.
-- `pnpm spec:audit-plan-coverage`: 161 mapeados, 0 faltantes, 0 extras.
+- Cobertura del inventario actual: 162/162.
+- `pnpm spec:audit-plan-coverage`: 162 mapeados, 0 faltantes, 0 extras.
 - `node scripts/spec-validate.mjs --strict --base-ref <base-SHA>`: 0 errores/0 warnings; toda spec nueva/modificada declara SDD 2.0.
 - CI ejecuta validación strict, cobertura primaria y regresiones de ambos controles.
 - `node scripts/spec-index.mjs`: índice regenerado.

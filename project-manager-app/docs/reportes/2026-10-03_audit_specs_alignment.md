@@ -44,8 +44,8 @@ esa medición, no de una suma a mano.
 
 ## Pendiente
 
-- Cuando se mergee el PR #766, el plan tendrá el hallazgo `3.47` y el script lo
-  marcará como sin mapear hasta que se amplíe el rango `3.0`–`3.46` a `3.47`.
+- El PR #766 ya se mergeó y el plan tiene el hallazgo `3.47`; el mapeo se
+  reconcilió en este PR (ver "Reconciliación tras el merge de #766").
 - El PR #763 se fusionó el 2026-10-03 a las 13:59 UTC. `travel.spec.md` existe en la base actual; strict ya no conserva ese error.
 - Las decisiones abiertas están listadas en cada spec: proveedor KYC/DID y
   evidencia mínima (verificación), países y migración de métodos legacy
@@ -88,3 +88,17 @@ Si #766 incorpora `3.47`, el gate de cobertura exigirá reconciliarlo.
 - Aplicado ahora: base explícita, diff relativo delimitado por NUL y pasos que propagan el fallo de los controles.
 - Backlog: evidencia operativa de los contratos de dominio y decisiones ya enumeradas en las specs.
 - Descartado: inferir CI funcional, deploy o activación a partir de validación documental.
+
+## Reconciliación tras el merge de #766 — 2026-10-04
+
+El PR #766 se mergeó mientras este PR estaba abierto: `main` pasó a tener el
+hallazgo `3.47` en el plan y la fila `3.0`–`3.47` en la spec de programa. Al
+rebasar sobre esa base, el gate de cobertura marcó `3.47` como faltante (la
+fila de este PR decía `3.0`–`3.46`), que es justo el control funcionando.
+
+- La fila de admin queda en `3.0`–`3.47`.
+- Los contadores pasan a 162 IDs en total y 49 en la sección de admin.
+- Cobertura medida con el script sobre el plan actual: 162 de 162, sin
+  faltantes, sobrantes ni errores.
+- El resto de la revisión de Codex (rutas de `2.49`, `1.17`, `1.19`, metadata
+  SDD 2.0 y paso de CI) no cambia.
