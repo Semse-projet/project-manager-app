@@ -53,6 +53,19 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Validate SDD contracts and primary audit coverage
+        env:
+          SPEC_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if [ -n "$SPEC_BASE_SHA" ] && [ "$SPEC_BASE_SHA" != "0000000000000000000000000000000000000000" ]; then
+            git fetch --no-tags --depth=1 origin "$SPEC_BASE_SHA"
+            pnpm spec:validate:strict --base-ref "$SPEC_BASE_SHA"
+          else
+            pnpm spec:validate:strict
+          fi
+          pnpm spec:audit-plan-coverage
+          node --test tests/unit/spec-lib.test.mjs tests/unit/spec-validate.test.mjs tests/unit/audit-plan-spec-coverage.test.mjs
+
       - name: Generate Prisma client
         run: pnpm db:generate
 

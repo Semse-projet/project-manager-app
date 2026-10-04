@@ -1,8 +1,17 @@
 ---
 id: "governance.audit-remediation-program"
 title: "Programa de remediación de auditoría — routing SDD integral"
+sdd_version: "2.0"
+code_status: "COMPLETE"
+ci_status: "NOT_RUN"
+merge_status: "UNMERGED"
+deploy_status: "NOT_DEPLOYED"
+activation_status: "INACTIVE"
+migration_status: "NOT_APPLICABLE"
+feature_flags: []
+production_evidence: []
 domain: "governance"
-version: "1.3"
+version: "1.4"
 status: "APPROVED"
 owner: "semse-core"
 risk: "critical"
@@ -25,11 +34,13 @@ related_files:
   - docs/specs/api/travel.spec.md
   - docs/specs/api/payout-method-tokenization.spec.md
   - docs/specs/labor/labor-engine-remediation.spec.md
-related_tests: []
+related_tests:
+  - tests/unit/audit-plan-spec-coverage.test.mjs
+  - tests/unit/spec-validate.test.mjs
 related_endpoints: []
 related_events: []
 related_agents: []
-last_verified: "2026-10-03"
+last_verified: "2026-10-04"
 ---
 
 # Spec: Programa de remediación de auditoría
@@ -93,7 +104,13 @@ Cobertura: **36/36**.
 | `1.1`, `1.2`, `1.3`, `1.4`, `1.6`, `1.7`, `1.8`, `1.9`, `1.10`, `1.11`, `1.11c`, `1.12`, `1.13`, `1.14`, `1.18`, `1.20` | `ui.client-flows-remediation` | EXECUTABLE |
 | `1.11b` | `ui.audit-product-decisions` | DECISION_REQUIRED |
 | `1.5`, `1.21` | `ui.audit-product-decisions` | CLOSED |
-| `1.15`, `1.16`, `1.17`, `1.19` | `ui.design-system-remediation` | REVIEW_REQUIRED |
+| `1.15`, `1.16` | `ui.design-system-remediation` | REVIEW_REQUIRED |
+| `1.17`, `1.19` | `ui.design-system-remediation` | CLOSED |
+
+`1.17` y `1.19` conservan el cierre correctivo registrado en el plan; no se
+reabren por el ADR de ownership o la matriz de QA pendientes de la spec de
+diseño. Esas decisiones gobiernan migraciones futuras. `CLOSED` no declara
+activación ni verificación nueva de producción.
 
 Cobertura: **23/23**.
 
@@ -112,8 +129,9 @@ superficie; la siguiente tabla identifica el bounded context primario.
 | `2.1b`, `2.1d`, `2.26`, `2.27`, `2.29`, `2.30`, `2.47` | `api-job-lifecycle-bids`, `api-matching` | EXECUTABLE |
 | `2.1e`, `2.41` | `api-agents-runtime`, `api-prometeo-copilot` | EXECUTABLE |
 | `2.1f`, `2.18`, `2.21`, `2.22`, `2.45` | `api-evidence-upload-review` | EXECUTABLE |
-| `2.19`, `2.20`, `2.24`, `2.25`, `2.32`, `2.33`, `2.49` | `api-field-ops`, `tasks.task-unification-fase1` | EXECUTABLE |
+| `2.19`, `2.20`, `2.24`, `2.25`, `2.32`, `2.33` | `api-field-ops`, `tasks.task-unification-fase1` | EXECUTABLE |
 | `2.1c`, `2.39`, `2.42`, `2.43`, `2.46`, `2.48` | `api-payments-escrow`, `api-dispute-lifecycle` | EXECUTABLE |
+| `2.49` | `api-field-ops` | CLOSED |
 | `2.6`, `2.7`, `2.17`, `2.23`, `2.37` | `ui.pro-flows-remediation` | EXECUTABLE |
 
 Cobertura: **54/54**.
@@ -152,7 +170,8 @@ Cobertura: **48/48**.
 
 - Cobertura del inventario actual: 161/161.
 - `pnpm spec:audit-plan-coverage`: 161 mapeados, 0 faltantes, 0 extras.
-- `node scripts/spec-validate.mjs --strict`: 0 errores/0 warnings.
+- `node scripts/spec-validate.mjs --strict --base-ref <base-SHA>`: 0 errores/0 warnings; toda spec nueva/modificada declara SDD 2.0.
+- CI ejecuta validación strict, cobertura primaria y regresiones de ambos controles.
 - `node scripts/spec-index.mjs`: índice regenerado.
 - Ninguna spec `DRAFT` o `REVIEW` autoriza implementación.
 - Las specs UI aprobadas declaran explícitamente los ítems excluidos.

@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { readFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import {
   ALLOWED_STATUSES,
   CANONICAL_STATUSES,
@@ -18,6 +19,16 @@ import {
 } from "./spec-lib.mjs";
 
 const strict = process.argv.includes("--strict") || process.env.SEMSE_SPEC_STRICT === "1";
+const baseRefIndex = process.argv.indexOf("--base-ref");
+const baseRef = baseRefIndex >= 0 ? process.argv[baseRefIndex + 1] : undefined;
+if (baseRefIndex >= 0 && (!baseRef || baseRef.startsWith("-"))) {
+  throw new Error("--base-ref requires a valid Git base revision");
+}
+// Compare against the PR base without forcing an unrelated legacy migration.
+// A missing/inaccessible base is an error, never a silent bypass.
+const changedSpecs = new Set(baseRef ? execFileSync("git", [
+  "diff", "--name-only", "-z", "--relative", "--diff-filter=AMR", baseRef, "--", "docs/specs",
+], { encoding: "utf8" }).split("\0").filter(Boolean) : []);
 const specFiles = findSpecFiles();
 const errors = [];
 const warnings = [];
@@ -68,6 +79,10 @@ for (const file of specFiles) {
 
   if (metadata.sdd_version && metadata.sdd_version !== SDD_VERSION) {
     errors.push(`${label}: unsupported sdd_version "${metadata.sdd_version}"; expected "${SDD_VERSION}"`);
+  }
+
+  if (changedSpecs.has(label) && !isSddV2(spec)) {
+    errors.push(`${label}: new or modified specs require sdd_version "${SDD_VERSION}"`);
   }
 
   if (isSddV2(spec)) {

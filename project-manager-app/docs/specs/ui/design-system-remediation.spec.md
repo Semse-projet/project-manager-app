@@ -1,8 +1,17 @@
 ---
 id: "ui.design-system-remediation"
 title: "Sistema de diseño — consolidación segura y verificable"
+sdd_version: "2.0"
+code_status: "IN_PROGRESS"
+ci_status: "NOT_RUN"
+merge_status: "UNMERGED"
+deploy_status: "NOT_DEPLOYED"
+activation_status: "INACTIVE"
+migration_status: "NOT_APPLICABLE"
+feature_flags: []
+production_evidence: []
 domain: "ui"
-version: "1.1"
+version: "1.2"
 status: "REVIEW"
 owner: "semse-core"
 risk: "high"
@@ -18,10 +27,16 @@ related_tests: []
 related_endpoints: []
 related_events: []
 related_agents: []
-last_verified: "2026-10-03"
+last_verified: "2026-10-04"
 ---
 
 # Spec: Sistema de diseño — consolidación
+
+> Metadata de entrega (2026-10-04): el contrato completo sigue en elaboración
+> (`IN_PROGRESS`) por las decisiones/brechas documentadas. `NOT_RUN` no declara
+> CI de cumplimiento funcional de este contrato; esta revisión solo ejecuta
+> validación documental y regresiones de los controles. No se declara evidencia
+> de producción ni se promueve el estado del spec por documentar código existente.
 
 ## 1. Alcance
 
@@ -31,8 +46,10 @@ aislados de una pantalla.
 
 ## 2. Estado
 
-`REVIEW`: antes de implementar, el owner debe elegir la librería canónica,
-aprobar tokens y acordar una matriz de QA visual desktop/mobile.
+`REVIEW` gobierna la consolidación arquitectónica pendiente: el owner debe
+formalizar ownership de componentes, aprobar tokens y acordar una matriz de QA
+visual desktop/mobile antes de nuevas migraciones. No reabre los fixes
+correctivos de `1.17` y `1.19` registrados en el plan y routados como `CLOSED`.
 
 ## 2b. Estado real de cada ítem (2026-10-03)
 

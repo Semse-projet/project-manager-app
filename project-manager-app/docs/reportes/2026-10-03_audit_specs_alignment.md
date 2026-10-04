@@ -14,7 +14,7 @@ describen el estado de julio, no el de `main` hoy.
 
 | Pieza | Decisión |
 |---|---|
-| `scripts/audit-plan-spec-coverage.mjs` y el script `spec:audit-plan-coverage` | Incorporados sin cambios. Comparan los IDs del plan de remediación con el mapeo de `audit-remediation-program.spec.md`. |
+| `scripts/audit-plan-spec-coverage.mjs` y el script `spec:audit-plan-coverage` | Incorporados y endurecidos el 2026-10-04: solo las filas de routing aportan cobertura primaria; las excepciones exigen ruta primaria y contratos existentes. |
 | `api.payout-method-tokenization` | Incorporada y **actualizada**: la decisión de riel (solo Stripe, sin Plaid; PR #458) ya estaba tomada y ejecutada, así que la spec dejó de pedirla. Se añadió una tabla de lo verificado en `main` y se marcó lo que no se verificó. |
 | `api.worker-verification-remediation` | Incorporada y **actualizada**: la spec presentaba como propuesta un flujo que ya existe. Se documentan los dos sistemas reales (`users` y `worker-verification`) y sus brechas frente a las invariantes. |
 | `ui.audit-product-decisions` | Incorporada y **actualizada**: cinco de las siete decisiones (PD-01, PD-02, PD-04, PD-06, PD-07) ya las resolvió el owner el 2026-07-27, con PR; PD-03 sigue abierta y PD-05 es parcial. |
@@ -46,11 +46,45 @@ esa medición, no de una suma a mano.
 
 - Cuando se mergee el PR #766, el plan tendrá el hallazgo `3.47` y el script lo
   marcará como sin mapear hasta que se amplíe el rango `3.0`–`3.46` a `3.47`.
-- `spec:validate:strict` tiene un error restante: la spec de programa referencia
-  `docs/specs/api/travel.spec.md`, que restituye el PR #763. Con ambos mergeados
-  queda en cero.
+- El PR #763 se fusionó el 2026-10-03 a las 13:59 UTC. `travel.spec.md` existe en la base actual; strict ya no conserva ese error.
 - Las decisiones abiertas están listadas en cada spec: proveedor KYC/DID y
   evidencia mínima (verificación), países y migración de métodos legacy
   (payout), y la fuente del "nivel de confianza" que menciona Prometeo (`1.11b`).
-- El script no está conectado a CI; hoy se ejecuta a mano con
-  `pnpm spec:audit-plan-coverage`.
+- CI ahora ejecuta cobertura primaria, validación strict y regresiones de ambos controles. `spec:preflight` conserva su preflight de Railway; el gate SDD tiene un paso explícito separado.
+
+
+## Correcciones de revisión — 2026-10-04
+
+Base revisada: `main` en `90c7537013bc87aeb37ffa2523fa01016eeef893`.
+HEAD de partida del PR #768: `214df6b7b4866e5253dff74d6159c93533bddd42`.
+
+- **Cobertura:** el caso de Devin (quitar `3.13` de la ruta primaria conservando la excepción) ahora retorna un faltante, un error de excepción huérfana y salida 1. Texto incidental ya no aporta cobertura. Se rechazan rutas duplicadas, contratos inexistentes, rangos inválidos y planes vacíos.
+- **Field Ops:** `2.49` tiene fila propia, `api-field-ops` como contrato de dominio y `CLOSED` conforme al cierre correctivo del plan. Conserva `ui.pro-flows-remediation` como contrato de superficie de la sección. La verificación DB pendiente de la spec de Field Ops sigue pendiente; no se declara `VERIFIED`.
+- **Diseño:** `1.17` y `1.19` quedan `CLOSED`; `1.15` y `1.16` conservan `REVIEW_REQUIRED`. El ADR y la matriz de QA pendientes gobiernan consolidación futura y no reabren fixes corregidos. No se ejecutó una nueva verificación visual de producción.
+- **SDD 2.0:** las cuatro specs recuperadas y la spec de programa declaran metadata de entrega y el índice se regenera. Las cuatro primeras conservan `DRAFT`/`REVIEW`, código `IN_PROGRESS` por sus decisiones/brechas abiertas y CI funcional `NOT_RUN`. La spec de programa registra el control completo localmente; ninguna declara nuevo merge, deploy, activación o evidencia de producción.
+- **Gate de metadata:** `spec-validate.mjs --strict --base-ref <SHA>` exige SDD 2.0 en specs añadidas/modificadas/renombradas contra esa base. Los contratos históricos no tocados siguen compatibles. Base ausente/inválida falla cerrado; rutas Unicode no eluden el gate.
+- **CI:** el paso `Validate SDD contracts and primary audit coverage` es bloqueante dentro de `quality-gates`. Usa la base del PR (o el SHA anterior de un push), la recupera explícitamente y ejecuta strict, cobertura y pruebas negativas. Se conserva el preflight operativo existente.
+
+### Validación local
+
+- `node --test tests/unit/spec-lib.test.mjs tests/unit/spec-validate.test.mjs tests/unit/audit-plan-spec-coverage.test.mjs`: 23/23.
+- `node --experimental-strip-types --test tests/unit/client-presentation-remediation.test.ts`: 2/2.
+- `node scripts/spec-validate.mjs --strict --base-ref 90c7537013bc87aeb37ffa2523fa01016eeef893`: 160 specs, 0 errores y 0 warnings.
+- `node scripts/audit-plan-spec-coverage.mjs`: 161 rutas primarias, 0 faltantes, 0 extras y 0 errores.
+- `node scripts/spec-index.mjs`: 160 specs; generación reproducible.
+- `git diff --check`: sin errores.
+
+Publicación bloqueada: la conexión GitHub devolvió 403 (Resource not accessible by integration) tanto al crear el árbol como al actualizar un archivo de la rama. No hubo cambios externos. Se entrega el commit como parche aplicable. El nuevo CI remoto todavía no se ha ejecutado.
+Las suites completas, builds y E2E remotos deben comprobarse contra el SHA
+publicado. No se fusiona, despliega ni decide producto desde este cambio.
+Si #766 incorpora `3.47`, el gate de cobertura exigirá reconciliarlo.
+
+### Investigación externa
+
+1. Consulta: checkout de `pull_request` y SHA de base — [eventos de GitHub Actions](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows).
+2. Consulta: `git diff --relative`, `--name-only`, `--diff-filter` — [documentación de Git](https://git-scm.com/docs/git-diff).
+3. Consulta: shell y propagación de exit codes en pasos — [sintaxis de workflows](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax).
+
+- Aplicado ahora: base explícita, diff relativo delimitado por NUL y pasos que propagan el fallo de los controles.
+- Backlog: evidencia operativa de los contratos de dominio y decisiones ya enumeradas en las specs.
+- Descartado: inferir CI funcional, deploy o activación a partir de validación documental.

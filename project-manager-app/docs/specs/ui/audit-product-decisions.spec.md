@@ -1,8 +1,17 @@
 ---
 id: "ui.audit-product-decisions"
 title: "Decisiones de producto bloqueantes de la auditoría 2026-07"
+sdd_version: "2.0"
+code_status: "IN_PROGRESS"
+ci_status: "NOT_RUN"
+merge_status: "UNMERGED"
+deploy_status: "NOT_DEPLOYED"
+activation_status: "INACTIVE"
+migration_status: "NOT_APPLICABLE"
+feature_flags: []
+production_evidence: []
 domain: "product"
-version: "1.1"
+version: "1.2"
 status: "DRAFT"
 owner: "semse-core"
 risk: "critical"
@@ -19,10 +28,16 @@ related_tests: []
 related_endpoints: []
 related_events: []
 related_agents: []
-last_verified: "2026-10-03"
+last_verified: "2026-10-04"
 ---
 
 # Spec: Decisiones de producto bloqueantes
+
+> Metadata de entrega (2026-10-04): el contrato completo sigue en elaboración
+> (`IN_PROGRESS`) por las decisiones/brechas documentadas. `NOT_RUN` no declara
+> CI de cumplimiento funcional de este contrato; esta revisión solo ejecuta
+> validación documental y regresiones de los controles. No se declara evidencia
+> de producción ni se promueve el estado del spec por documentar código existente.
 
 ## 1. Propósito
 
