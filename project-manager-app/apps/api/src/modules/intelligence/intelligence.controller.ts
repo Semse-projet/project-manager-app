@@ -14,6 +14,7 @@ import { PmoService } from "./pmo.service.js";
 import { BudgetIntelligenceService } from "./budget-intelligence.service.js";
 import { PublicInsightsService } from "./public-insights.service.js";
 import { publicDisplayName } from "./public-sanitizer.js";
+import { credentialViewForActor } from "./credential-access.js";
 import { MatchingService } from "../matching/matching.service.js";
 
 function actor(req: FastifyRequest) {
@@ -134,7 +135,7 @@ export class IntelligenceController {
   async credentialByUser(@Req() req: FastifyRequest, @Param("userId") userId: string) {
     const rid = resolveRequestId(req.headers ?? {});
     const ctx = actor(req);
-    return ok(rid, await this.credential.getCredentialByUserId(userId, ctx.tenantId));
+    return ok(rid, credentialViewForActor(ctx, await this.credential.getCredentialByUserId(userId, ctx.tenantId)));
   }
 
   // Public — no auth needed (for sharing the credential externally)
