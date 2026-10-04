@@ -579,9 +579,10 @@ export class MilestonesRepository {
 
   // ── Evidence Items ──────────────────────────────────────────────────────────
 
-  async listEvidenceItems(milestoneId: string) {
+  async listEvidenceItems(milestoneId: string, tenantId: string) {
+    // C51: defensa en profundidad — el tenant se filtra también en la consulta (no solo en la guarda del controller).
     return this.prisma.milestoneEvidenceItem.findMany({
-      where:   { milestoneId },
+      where:   { milestoneId, milestone: { project: { tenantId } } },
       orderBy: [{ phase: "asc" }, { createdAt: "asc" }],
     });
   }
@@ -752,7 +753,14 @@ export class MilestonesRepository {
     kind?: "PHOTO" | "VIDEO" | "DOCUMENT";
     phase?: "before" | "during" | "after";
     required?: boolean;
-  }>) {
+  }>, tenantId: string) {
+    // C51: defensa en profundidad — el hito debe existir en el tenant del actor; si no, nada se escribe.
+    const owned = await this.prisma.milestone.findFirst({
+      where: { id: milestoneId, deletedAt: null, project: { tenantId } },
+      select: { id: true },
+    });
+    if (!owned) throw new NotFoundException(`Milestone '${milestoneId}' not found`);
+
     // Idempotent — skip if items already seeded
     const existing = await this.prisma.milestoneEvidenceItem.count({ where: { milestoneId } });
     if (existing > 0) return;

@@ -18,6 +18,15 @@ const ITEMS = [
   { id: "i_t2", milestoneId: "m_t2", tenantId: "t2" },
 ];
 const calls: string[] = [];
+// Resultados mínimos válidos para que, superada la guarda, cada ruta responda 200 (no solo "llegó al repositorio").
+const RESULTS: Record<string, unknown> = {
+  computePaymentReadiness: { status: "not_ready", reasons: [], blockers: [], nextAction: "x", milestone: { status: "draft", paymentReadiness: "x", evidenceReadiness: "x" } },
+  getEvidenceItemDetail: { id: "i1" },
+  getEvidenceItemHistory: { events: [], pageInfo: { hasMore: false } },
+  listEvidenceItems: [],
+  replaceEvidenceItem: { previousStatus: "missing", updated: { id: "i1", status: "submitted" } },
+  archiveEvidenceItem: { previousStatus: "missing" },
+};
 const repo = new Proxy(
   {
     async getMilestoneOwnership({ tenantId, milestoneId }: { tenantId: string; milestoneId: string }) {
@@ -34,7 +43,7 @@ const repo = new Proxy(
       if (prop in target) return target[prop];
       return async () => {
         calls.push(`repo.${prop}`);
-        return {};
+        return RESULTS[prop] ?? {};
       };
     },
   },
@@ -99,7 +108,8 @@ test("cliente, profesional asignado y OPS_ADMIN del tenant superan la guarda en 
   for (const [name, run, expected] of ROUTES) {
     for (const r of [req("org_client"), req("org_pro"), req("", "t1", ["OPS_ADMIN"])]) {
       calls.length = 0;
-      await outcome(run(r, "m1", "i1"));
+      const status = await outcome(run(r, "m1", "i1"));
+      assert.equal(status, 200, `${name}: debe responder 200 tras superar la guarda (calls=${calls.join(",")})`);
       assert.ok(calls.includes(expected), `${name}: ${expected} no se llamó (calls=${calls.join(",")})`);
     }
   }
@@ -114,4 +124,28 @@ test("un item que pertenece a OTRO hito (aunque del mismo tenant y org) ⇒ 404 
     assert.equal(await outcome(run(req("org_client"), "m1", "i_t2")), 404, `${name} item de otro tenant`);
     assert.deepEqual(calls, [], `${name} no debe tocar datos`);
   }
+});
+
+// ── Defensa en profundidad: el repositorio también filtra por tenant (listar / sembrar) ──────────────────────────────
+import { MilestonesRepository } from "../dist/modules/milestones/milestones.repository.js";
+
+test("repositorio: listEvidenceItems filtra por tenant y seedEvidenceItems no escribe si el hito no es del tenant", async () => {
+  const seen: { where?: unknown; createMany: number } = { createMany: 0 };
+  const prisma = {
+    milestone: { findFirst: async ({ where }: { where: { id: string; project: { tenantId: string } } }) => (where.id === "m1" && where.project.tenantId === "t1" ? { id: "m1" } : null), findUnique: async () => null },
+    milestoneEvidenceItem: {
+      findMany: async ({ where }: { where: unknown }) => ((seen.where = where), []),
+      count: async () => 0,
+      createMany: async () => void (seen.createMany += 1),
+    },
+  };
+  const repository = new (MilestonesRepository as any)(prisma, {}, undefined);
+
+  await repository.listEvidenceItems("m1", "t1");
+  assert.deepEqual(seen.where, { milestoneId: "m1", milestone: { project: { tenantId: "t1" } } });
+
+  await assert.rejects(repository.seedEvidenceItems("m1", [{ label: "x" }], "t2"), (e: { getStatus?: () => number }) => e.getStatus?.() === 404);
+  assert.equal(seen.createMany, 0, "no debe escribir en un hito de otro tenant");
+  await repository.seedEvidenceItems("m1", [{ label: "x" }], "t1");
+  assert.equal(seen.createMany, 1);
 });

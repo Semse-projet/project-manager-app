@@ -218,7 +218,7 @@ export class MilestonesController {
   ) {
     await this.assertMilestoneAccess(req, milestoneId);
     const requestId = resolveRequestId(req.headers ?? {});
-    const items = await this.milestonesRepository.listEvidenceItems(milestoneId);
+    const items = await this.milestonesRepository.listEvidenceItems(milestoneId, resolveRequestContext(req).tenantId);
     return ok(requestId, items);
   }
 
@@ -231,8 +231,9 @@ export class MilestonesController {
   ) {
     await this.assertMilestoneAccess(req, milestoneId);
     const requestId = resolveRequestId(req.headers ?? {});
-    await this.milestonesRepository.seedEvidenceItems(milestoneId, body.items as Parameters<typeof this.milestonesRepository.seedEvidenceItems>[1]);
-    const items = await this.milestonesRepository.listEvidenceItems(milestoneId);
+    const tenantId = resolveRequestContext(req).tenantId;
+    await this.milestonesRepository.seedEvidenceItems(milestoneId, body.items as Parameters<typeof this.milestonesRepository.seedEvidenceItems>[1], tenantId);
+    const items = await this.milestonesRepository.listEvidenceItems(milestoneId, tenantId);
     return ok(requestId, items);
   }
 
