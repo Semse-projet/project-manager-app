@@ -40,19 +40,15 @@ El script midió el estado real contra `main` antes de este cambio:
 161 hallazgos en el plan, 158 mapeados, 3 sin mapear (`2.49`, `3.45`, `3.46`) y
 1 sobrante (`0.1b`, que no existe en el plan). Tras el cambio: 161 de 161, sin
 faltantes ni sobrantes. Los contadores por sección (36, 23, 54 y 48) salen de
-esa medición, no de una suma a mano. Después se amplió el mapeo para el
-hallazgo `3.47` del PR #766: la sección 3 pasa a 49 y el total a 162 (ver
-Pendiente).
+esa medición, no de una suma a mano.
 
 ## Pendiente
 
-- El mapeo ya cubre el rango `3.0`–`3.47` y los contadores (162 IDs; 36, 23, 54 y
-  49 por sección) cuentan el hallazgo `3.47` que añade el PR #766. Mientras ese
-  PR no esté en `main`, el script informa `3.47` como ID sobrante (1 extra) y
-  termina con error; con el PR mergeado da 162 de 162, sin faltantes ni
-  sobrantes (comprobado simulando la entrada del plan).
-- `spec:validate:strict` quedó en cero errores: el PR #763, que restituía
-  `docs/specs/api/travel.spec.md`, ya está en `main`.
+- Cuando se mergee el PR #766, el plan tendrá el hallazgo `3.47` y el script lo
+  marcará como sin mapear hasta que se amplíe el rango `3.0`–`3.46` a `3.47`.
+- `spec:validate:strict` tiene un error restante: la spec de programa referencia
+  `docs/specs/api/travel.spec.md`, que restituye el PR #763. Con ambos mergeados
+  queda en cero.
 - Las decisiones abiertas están listadas en cada spec: proveedor KYC/DID y
   evidencia mínima (verificación), países y migración de métodos legacy
   (payout), y la fuente del "nivel de confianza" que menciona Prometeo (`1.11b`).
