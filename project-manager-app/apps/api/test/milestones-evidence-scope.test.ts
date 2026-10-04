@@ -1,7 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { NotFoundException } from "@nestjs/common";
 import { MilestonesController } from "../dist/modules/milestones/milestones.controller.js";
+import { ResourceScopeResolver } from "../dist/common/resource-scope.resolver.js";
+
+process.env.DATABASE_URL = process.env.DATABASE_URL || "postgresql://stub:stub@127.0.0.1:1/stub";
 
 // C51 etapa 3 (migración gradual): todas las rutas por `milestoneId` de evidencia, preparación de pago, visión y gobernanza
 // exigen tenant + participación en el hito. Antes llamaban al repositorio directamente: `listEvidenceItems` y
@@ -29,11 +31,6 @@ const RESULTS: Record<string, unknown> = {
 };
 const repo = new Proxy(
   {
-    async getMilestoneOwnership({ tenantId, milestoneId }: { tenantId: string; milestoneId: string }) {
-      const m = MILESTONES.find((x) => x.id === milestoneId && x.tenantId === tenantId);
-      if (!m) throw new NotFoundException(`Milestone '${milestoneId}' not found`);
-      return { clientOrgId: m.clientOrgId, assignedProOrgId: m.assignedProOrgId };
-    },
     async evidenceItemBelongsToMilestone({ tenantId, milestoneId, itemId }: { tenantId: string; milestoneId: string; itemId: string }) {
       return ITEMS.some((i) => i.id === itemId && i.milestoneId === milestoneId && i.tenantId === tenantId);
     },
@@ -53,7 +50,15 @@ const review = {
   runReview: async () => (calls.push("review.runReview"), {}),
   getLastReview: async () => (calls.push("review.getLastReview"), null),
 };
-const controller = new (MilestonesController as any)({}, repo, undefined, governance, review, undefined);
+const prisma = {
+  milestone: {
+    findFirst: async ({ where }: { where: { id: string; project: { tenantId: string } } }) => {
+      const m = MILESTONES.find((x) => x.id === where.id && x.tenantId === where.project.tenantId);
+      return m ? { project: { tenantId: m.tenantId, assignedProOrgId: m.assignedProOrgId, job: { clientOrgId: m.clientOrgId } } } : null;
+    },
+  },
+};
+const controller = new (MilestonesController as any)({}, repo, new ResourceScopeResolver(prisma as never), undefined, governance, review, undefined);
 
 const req = (orgId: string, tenantId = "t1", roles: string[] = []) => ({ headers: {}, authContext: { tenantId, orgId, userId: "u1", roles } });
 const outcome = async (p: Promise<unknown>) => {
@@ -106,13 +111,22 @@ test("otra org del mismo tenant ⇒ 403 y org vacía nunca concede, en TODAS las
 
 test("cliente, profesional asignado y OPS_ADMIN del tenant superan la guarda en TODAS las rutas", async () => {
   for (const [name, run, expected] of ROUTES) {
-    for (const r of [req("org_client"), req("org_pro"), req("", "t1", ["OPS_ADMIN"])]) {
+    // seed está reservado a la org cliente (u OPS_ADMIN del tenant): el profesional asignado NO lo supera.
+    const actors = name === "seedEvidenceItems" ? [req("org_client"), req("", "t1", ["OPS_ADMIN"])] : [req("org_client"), req("org_pro"), req("", "t1", ["OPS_ADMIN"])];
+    for (const r of actors) {
       calls.length = 0;
       const status = await outcome(run(r, "m1", "i1"));
       assert.equal(status, 200, `${name}: debe responder 200 tras superar la guarda (calls=${calls.join(",")})`);
       assert.ok(calls.includes(expected), `${name}: ${expected} no se llamó (calls=${calls.join(",")})`);
     }
   }
+});
+
+test("seed: el profesional asignado ⇒ 403 y no se escribe; las demás rutas siguen abiertas al profesional", async () => {
+  calls.length = 0;
+  assert.equal(await outcome(controller.seedEvidenceItems(req("org_pro"), "m1", { items: [] })), 403);
+  assert.deepEqual(calls, []);
+  assert.equal(await outcome(controller.listEvidenceItems(req("org_pro"), "m1")), 200);
 });
 
 test("un item que pertenece a OTRO hito (aunque del mismo tenant y org) ⇒ 404 en las rutas con itemId", async () => {
