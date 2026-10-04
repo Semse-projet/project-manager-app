@@ -1,6 +1,8 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { databaseEnabled } from "../../infrastructure/persistence/persistence-mode.js";
+import { ResourceScopeResolver } from "../../common/resource-scope.resolver.js";
+import { assertScopeAccess, type ScopeActor } from "../../common/resource-scope.js";
 
 export interface TaskRecord {
   id: string;
@@ -45,7 +47,21 @@ const MOCK_TASKS: TaskRecord[] = [];
 
 @Injectable()
 export class TasksService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly scopeResolver: ResourceScopeResolver,
+  ) {}
+
+  /**
+   * C51 etapa 3: las tareas de un trabajo solo las ven/crean/cambian los participantes de ese trabajo
+   * (org cliente, org profesional asignada u OPS_ADMIN del tenant). El `Job` se resuelve DENTRO del tenant del
+   * actor: otro tenant / inexistente ⇒ 404; otra org del mismo tenant u org vacía ⇒ 403.
+   */
+  private async assertJobAccess(actor: ScopeActor, jobId: string): Promise<void> {
+    const scope = await this.scopeResolver.resolveJobScope(actor.tenantId, jobId);
+    if (!scope) throw new NotFoundException("Job not found");
+    assertScopeAccess(actor, scope, "read", "Actor cannot access this job", "Job not found");
+  }
 
   async listByWorker(input: { tenantId: string; userId: string; status?: string }): Promise<TaskRecord[]> {
     if (!databaseEnabled()) return MOCK_TASKS;
@@ -62,8 +78,9 @@ export class TasksService {
     return rows.map(toTaskRecord);
   }
 
-  async listByJob(input: { tenantId: string; jobId: string }): Promise<TaskRecord[]> {
+  async listByJob(input: { tenantId: string; jobId: string; orgId: string; roles: string[] }): Promise<TaskRecord[]> {
     if (!databaseEnabled()) return MOCK_TASKS;
+    await this.assertJobAccess({ tenantId: input.tenantId, orgId: input.orgId, roles: input.roles }, input.jobId);
 
     const rows = await this.prisma.jobTask.findMany({
       where: { tenantId: input.tenantId, jobId: input.jobId, deletedAt: null },
@@ -82,6 +99,8 @@ export class TasksService {
     priority?: string;
     assignedTo?: string;
     createdBy: string;
+    orgId: string;
+    roles: string[];
   }): Promise<TaskRecord> {
     if (!input.title.trim()) throw new BadRequestException("title required");
 
@@ -105,6 +124,8 @@ export class TasksService {
       return mock;
     }
 
+    await this.assertJobAccess({ tenantId: input.tenantId, orgId: input.orgId, userId: input.createdBy, roles: input.roles }, input.jobId);
+
     const row = await this.prisma.jobTask.create({
       data: {
         tenantId: input.tenantId,
@@ -121,7 +142,7 @@ export class TasksService {
     return toTaskRecord(row);
   }
 
-  async updateStatus(input: { tenantId: string; taskId: string; status: string; actorUserId: string; roles: string[] }): Promise<TaskRecord> {
+  async updateStatus(input: { tenantId: string; taskId: string; status: string; actorUserId: string; roles: string[]; orgId: string }): Promise<TaskRecord> {
     const allowed = ["pending", "in_progress", "done", "blocked"];
     if (!allowed.includes(input.status)) throw new BadRequestException("invalid status");
 
@@ -136,6 +157,11 @@ export class TasksService {
       where: { id: input.taskId, tenantId: input.tenantId },
     });
     if (!existing) throw new NotFoundException("task not found");
+
+    // El asignado explícito puede cambiar su propia tarea; cualquier otro actor debe participar en el trabajo.
+    if (existing.jobId && existing.assignedTo !== input.actorUserId) {
+      await this.assertJobAccess({ tenantId: input.tenantId, orgId: input.orgId, userId: input.actorUserId, roles: input.roles }, existing.jobId);
+    }
 
     const isPrivileged = input.roles.includes("OPS_ADMIN");
     if (!isPrivileged && existing.assignedTo && existing.assignedTo !== input.actorUserId) {
