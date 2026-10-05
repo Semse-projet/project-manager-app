@@ -426,6 +426,42 @@ const TOOL_META: Record<string, { actionType: string; domain: string; riskLevel:
   run_browser_mission:        { actionType: "RUN_BROWSER_MISSION",        domain: "internal",    riskLevel: "medium", approvalMode: "required"    },
 };
 
+/**
+ * Tipos de acción con handler REAL en `ProjectCopilotHarness.executeApprovedAction` (H02/H03 de la reconciliación
+ * 2026-10-05). Lo que no está aquí no se ofrece al modelo ni se ejecuta: antes el `default` devolvía un texto
+ * "Sin handler…" y el paso del plan se marcaba como completado sin efecto alguno. Las definiciones de las demás
+ * herramientas se conservan en `COPILOT_TOOLS` (son diseños pendientes), pero no están expuestas.
+ */
+export const EXECUTABLE_ACTION_TYPES: ReadonlySet<string> = new Set([
+  "PROPOSE_MILESTONE_APPROVAL",
+  "PROPOSE_ESCROW_RELEASE",
+  "PROPOSE_DISPUTE_RESOLVE",
+  "PROPOSE_DISPUTE_OPEN",
+  "SEARCH_PATTERNS",
+  "READ_FILE",
+  "LIST_DIRECTORY",
+  "RUN_COMMAND",
+  "RUN_BUILD",
+  "RUN_TYPECHECK",
+  "RUN_TESTS",
+  "EDIT_FILE",
+  "DELEGATE_TASK",
+  "RUN_BROWSER_MISSION",
+]);
+
+export function isExecutableActionType(actionType: string): boolean {
+  return EXECUTABLE_ACTION_TYPES.has(actionType);
+}
+
+/** Herramientas que se ofrecen al LLM: la creación de plan y solo las que tienen un handler ejecutable. */
+export function getExposedCopilotTools(): LLMToolDefinition[] {
+  return COPILOT_TOOLS.filter((tool) => {
+    if (tool.name === PLAN_TOOL_NAME) return true;
+    const meta = TOOL_META[tool.name];
+    return Boolean(meta) && EXECUTABLE_ACTION_TYPES.has(meta!.actionType);
+  });
+}
+
 function buildSummary(toolName: string, input: Record<string, unknown>): string {
   switch (toolName) {
     case "run_browser_mission":

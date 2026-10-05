@@ -163,6 +163,13 @@ export class AgentsController {
     const parsedParams = parseWithSchema(agentApprovalIdParamSchema, { approvalId });
     const parsedBody = parseWithSchema(agentApprovalDecisionSchema, body);
 
+    // H01: cargar y autorizar el recurso ANTES de persistir la decisión.
+    const pending = await this.agentsService.detailApproval({ tenantId: actor.tenantId, approvalId: parsedParams.approvalId });
+    await this.projectCopilotHarness.authorizeApprovalDecision(
+      { tenantId: actor.tenantId, orgId: actor.orgId, userId: actor.userId, roles: actor.roles },
+      pending
+    );
+
     const approval = await this.agentsService.decideApproval({
       tenantId: actor.tenantId,
       orgId: actor.orgId,

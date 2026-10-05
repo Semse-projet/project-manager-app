@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Send } from "lucide-react";
+import { MarkdownLite } from "./MarkdownLite";
 
 export type CopilotMessage = {
   id: string;
@@ -52,7 +53,7 @@ export function CopilotChat({
             }`}
             role={m.status === "degraded" ? "alert" : undefined}
           >
-            {m.content}
+            {m.role === "assistant" ? <MarkdownLite text={m.content} /> : m.content}
             {m.status === "degraded" && m.retryText && onRetry && (
               <button
                 type="button"
