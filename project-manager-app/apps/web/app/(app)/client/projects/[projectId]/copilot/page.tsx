@@ -41,6 +41,7 @@ import {
   getCopilotPlanStepStatusLabel,
 } from "../../../../../lib/copilot-plan-view";
 import { PlanTaskGraph } from "./components/plan-task-graph";
+import { MarkdownLite } from "../../../../../components/prometeo/MarkdownLite";
 
 type MessageRole = "user" | "assistant" | "system";
 
@@ -1097,7 +1098,7 @@ export default function ProjectCopilotPage() {
   ];
 
   return (
-    <div style={{ maxWidth: "820px", margin: "0 auto", display: "grid", gap: "16px", height: "calc(100vh - 120px)" }}>
+    <div style={{ maxWidth: "820px", margin: "0 auto", display: "grid", gap: "16px", minHeight: "calc(100vh - 120px)" }}>
       <ClientPageHeader
         title="Copiloto del Proyecto"
         subtitle={projectId}
@@ -1275,7 +1276,7 @@ export default function ProjectCopilotPage() {
       )}
 
       {tab === "chat" && (
-        <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 18, overflow: "hidden" }}>
+        <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 420, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 18, overflow: "hidden" }}>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", padding: "14px 16px", borderBottom: "1px solid var(--border)", background: "rgba(99,102,241,0.04)", alignItems: "center" }}>
             {quickPrompts.map((prompt) => (
               <button
@@ -1329,7 +1330,7 @@ export default function ProjectCopilotPage() {
                   border: "1px solid var(--border)",
                   fontSize: 13, lineHeight: 1.6, color: "var(--ink)"
                 }}>
-                  {msg.content}
+                  {msg.role === "assistant" ? <MarkdownLite text={msg.content} /> : msg.content}
                 </div>
                 {msg.role === "assistant" && msg.proposedActions && msg.proposedActions.length > 0 && (
                   <div style={{ maxWidth: "78%", display: "grid", gap: 6, marginTop: 4 }}>
