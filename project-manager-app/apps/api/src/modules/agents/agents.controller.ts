@@ -1,4 +1,5 @@
-import { BadRequestException, Body, Controller, Get, Logger, Param, Post, Query, Req, Patch } from "@nestjs/common";
+import { randomUUID } from "node:crypto";
+import { BadRequestException, Body, ConflictException, Controller, Get, Logger, Param, Post, Query, Req, Patch } from "@nestjs/common";
 import { SkipThrottle } from "@nestjs/throttler";
 import { agentCatalog } from "@semse/agents";
 import {
@@ -191,6 +192,36 @@ export class AgentsController {
     }
 
     return ok(requestId, { ...approval, executionResult });
+  }
+
+  /**
+   * H05 (entrega B, decisión D2): reintento MANUAL de una aprobación del copiloto cuya ejecución quedó `FAILED`
+   * (interrumpida o no ejecutada). Lo decide un humano; no hay reintento automático porque ningún efecto tiene hoy
+   * idempotencia verificada. Reclama `FAILED → EXECUTING` de forma condicional: un doble clic ejecuta una sola vez.
+   */
+  @Post("approvals/:approvalId/retry-execution")
+  @RequirePermissions("ops:dashboard:write")
+  async retryApprovalExecution(@Req() req: { headers?: Record<string, unknown> }, @Param("approvalId") approvalId: string) {
+    const actor = resolveRequestContext(req);
+    const requestId = resolveRequestId(req.headers ?? {});
+    const parsedParams = parseWithSchema(agentApprovalIdParamSchema, { approvalId });
+    const approval = await this.agentsService.detailApproval({ tenantId: actor.tenantId, approvalId: parsedParams.approvalId });
+    const agentActor = { tenantId: actor.tenantId, orgId: actor.orgId, userId: actor.userId, roles: actor.roles };
+    if (!approval.correlationId.startsWith("copilot:") || approval.status !== "approved") {
+      throw new BadRequestException("Solo se puede reintentar la ejecución de una aprobación aprobada del copiloto.");
+    }
+    await this.projectCopilotHarness.authorizeApprovalDecision(agentActor, approval);
+    const claimed = await this.agentsService.claimApprovalExecution({
+      tenantId: actor.tenantId,
+      approvalId: parsedParams.approvalId,
+      executionId: `exec_${randomUUID()}`,
+      from: ["FAILED"],
+    });
+    if (!claimed) {
+      throw new ConflictException("La ejecución de esta aprobación no está en estado FAILED (ya se está ejecutando o terminó).");
+    }
+    const executionResult = await this.projectCopilotHarness.executeFromApproval(agentActor, requestId, approval, { alreadyClaimed: true });
+    return ok(requestId, { approvalId: parsedParams.approvalId, executionResult });
   }
 
   // ── Chat ──────────────────────────────────────────────────────────────────

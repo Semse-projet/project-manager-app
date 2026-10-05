@@ -197,6 +197,10 @@ export class AgentsService {
     return this.agentApprovalService.get(input);
   }
 
+  claimApprovalExecution(input: Parameters<AgentApprovalService["claimExecution"]>[0]) {
+    return this.agentApprovalService.claimExecution(input);
+  }
+
   async decideApproval(input: {
     tenantId: string;
     orgId: string;

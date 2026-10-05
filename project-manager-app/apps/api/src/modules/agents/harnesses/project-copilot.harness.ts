@@ -9,6 +9,7 @@ import { AgentMemoryService } from "../../knowledge/agent-memory.service.js";
 import { ProjectAccessService } from "../project-access.service.js";
 import { AgentPolicyService } from "../agent-policy.service.js";
 import { PlanExecutionService } from "../plan-execution.service.js";
+import { resolveAuditLifecycleMode } from "../../prometeo/tool-governance/tool-call-audit.js";
 import { PlanModeService } from "../plan-mode.service.js";
 import type { CopilotProposedPlan } from "../plan-mode.types.js";
 import { PLAN_TOOL_NAME, getExposedCopilotTools, isExecutableActionType, toolCallToProposedPlan, toolCallsToActions } from "./copilot-tools.js";
@@ -911,7 +912,8 @@ export class ProjectCopilotHarness {
   async executeFromApproval(
     actor: AgentActor,
     requestId: string,
-    approval: { id: string; contextSummary?: string; correlationId: string }
+    approval: { id: string; contextSummary?: string; correlationId: string },
+    opts: { alreadyClaimed?: boolean } = {}
   ): Promise<{ executed: boolean; summary: string; error?: string }> {
     const context = this.parseContextSummary(approval.contextSummary);
     if (!context) {
@@ -920,6 +922,21 @@ export class ProjectCopilotHarness {
 
     const { projectId, actionType, payload, linkedPlanId, linkedStepId } = context;
     await this.projectAccess.assertProjectAccess(actor, projectId);
+
+    // H05 (entrega B): la ejecución se reclama con una transición condicional (NOT_STARTED → EXECUTING) y se cierra con
+    // su resultado, así una caída entre aprobar y ejecutar deja un estado explícito. Solo con el ciclo de vida activo.
+    const trackExecution = resolveAuditLifecycleMode() !== "off";
+    if (trackExecution && !opts.alreadyClaimed) {
+      const claimed = await this.agentApprovalService.claimExecution({
+        tenantId: actor.tenantId,
+        approvalId: approval.id,
+        executionId: `exec_${crypto.randomUUID()}`,
+        from: ["NOT_STARTED"],
+      });
+      if (!claimed) {
+        return { executed: false, summary: "La ejecución de esta aprobación ya fue reclamada o ejecutada." };
+      }
+    }
     const runtime = await this.resolveRuntime(actor, requestId, projectId);
 
     try {
@@ -939,6 +956,11 @@ export class ProjectCopilotHarness {
 
       this.logger.log(`[post-approval] executed action=${actionType} approval=${approval.id} project=${projectId}`);
 
+      if (trackExecution) {
+        await this.agentApprovalService
+          .finishExecution({ tenantId: actor.tenantId, approvalId: approval.id, status: "SUCCEEDED" })
+          .catch((e: unknown) => this.logger.warn(`finishExecution(SUCCEEDED) failed for ${approval.id}: ${String(e)}`));
+      }
       return { executed: true, summary };
     } catch (err) {
       const error = err instanceof Error ? err.message : String(err);
@@ -950,6 +972,12 @@ export class ProjectCopilotHarness {
       });
 
       this.logger.warn(`[post-approval] failed action=${actionType} approval=${approval.id}: ${error}`);
+
+      if (trackExecution) {
+        await this.agentApprovalService
+          .finishExecution({ tenantId: actor.tenantId, approvalId: approval.id, status: "FAILED", error })
+          .catch((e: unknown) => this.logger.warn(`finishExecution(FAILED) failed for ${approval.id}: ${String(e)}`));
+      }
 
       return { executed: false, summary: `Ejecución fallida: ${error}`, error };
     }
