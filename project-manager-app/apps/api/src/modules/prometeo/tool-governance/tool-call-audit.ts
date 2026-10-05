@@ -253,12 +253,10 @@ export class ToolCallAuditor {
           namespace: ctx.namespace,
           name: ctx.name,
           mode: ctx.mode,
-          status: outcome.status,
-          blockedReason: outcome.blockedReason,
           requestId: ctx.requestId,
           startedAt: new Date(startMs),
           ...this.lifecycleFields(ctx),
-          ...terminal,
+          ...terminal, // incluye status y blockedReason
         });
       }
     } catch (error) {

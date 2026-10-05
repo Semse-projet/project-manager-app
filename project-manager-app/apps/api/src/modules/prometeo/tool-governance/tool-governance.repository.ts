@@ -162,7 +162,7 @@ export class ToolGovernanceRepository {
   // ── H05: ciclo de vida por ejecución ───────────────────────────────────────
 
   /** Crea la fila de INICIO (`status: started`). Falla si el `executionId` ya existe (unicidad). */
-  async recordStart(input: ToolInvocationAuditInput): Promise<void> {
+  async recordStart(input: Omit<ToolInvocationAuditInput, "status">): Promise<void> {
     const prisma = requirePrisma(this.prisma);
     await prisma.prometeoToolInvocationAudit.create({
       data: {
