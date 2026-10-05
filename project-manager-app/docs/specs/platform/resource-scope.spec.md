@@ -13,7 +13,7 @@ merge_status: "MERGED"
 deploy_status: "DEPLOYED"
 activation_status: "INACTIVE"
 migration_status: "NOT_APPLICABLE"
-verification_scope: "partial:etapas-1-2a-2b-2c-workspace-memory-3A-y-3B-informativa-merged-deployed:weather-intelligence-tasks-milestones-vision-credenciales-y-prometeo-activos-y-ordenes-merged-deployed:documentos-y-rag-de-prometeo-pendientes:filas-previas-de-ordenes-con-proyecto-y-job-incompatibles-sin-reconciliar:migracion-gradual-de-resolutores-pendiente:sin-smoke-autenticado-en-produccion"
+verification_scope: "partial:etapas-1-2a-2b-2c-workspace-memory-y-3A-merged-deployed:3B-guarda-informativa-merged-solo-ci-no-es-un-despliegue:weather-intelligence-tasks-milestones-vision-credenciales-y-prometeo-activos-y-ordenes-merged-deployed:documentos-y-rag-de-prometeo-pendientes:filas-previas-de-ordenes-con-proyecto-y-job-incompatibles-sin-reconciliar:migracion-gradual-de-resolutores-pendiente:sin-smoke-autenticado-en-produccion"
 feature_flags: []
 production_evidence:
   - github:pr:742:merge:de33e974c88a9f2db9255277f2cdb37ecbc89c3a
