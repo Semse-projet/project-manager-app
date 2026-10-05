@@ -369,6 +369,12 @@ export class PlanModeService {
     return toProposedPlan(plan);
   }
 
+  /** Dueño del plan dentro del tenant (proyecto y creador); 404 si no existe. Lo usan los guards de acceso. */
+  async getPlanOwnership(tenantId: string, planId: string): Promise<{ projectId?: string; createdBy: string }> {
+    const plan = await this.workPlans.findById(tenantId, planId);
+    return { projectId: plan.projectId, createdBy: plan.createdBy };
+  }
+
   async listByProject(tenantId: string, projectId: string): Promise<CopilotProposedPlan[]> {
     const plans = await this.workPlans.listByProject(tenantId, projectId);
     return plans.map(toProposedPlan);

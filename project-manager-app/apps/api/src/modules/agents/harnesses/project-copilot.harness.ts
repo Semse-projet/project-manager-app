@@ -6,6 +6,7 @@ import { getActionPolicy } from "@semse/agents";
 import type { AgentAction, AgentActionType } from "@semse/schemas";
 import { agentActionTypeSchema } from "@semse/schemas";
 import { AgentMemoryService } from "../../knowledge/agent-memory.service.js";
+import { ProjectAccessService } from "../project-access.service.js";
 import { AgentPolicyService } from "../agent-policy.service.js";
 import { PlanExecutionService } from "../plan-execution.service.js";
 import { PlanModeService } from "../plan-mode.service.js";
@@ -98,6 +99,7 @@ export class ProjectCopilotHarness {
     private readonly prometeoOrchestrator: PrometeoOrchestratorService,
     @Inject(forwardRef(() => BrowserAgentService))
     private readonly browserAgentService: BrowserAgentService,
+    private readonly projectAccess: ProjectAccessService,
   ) {}
 
   // ── Public entry point ────────────────────────────────────────────────────
@@ -107,6 +109,7 @@ export class ProjectCopilotHarness {
     requestId: string,
     input: ProjectCopilotHarnessInput
   ): Promise<ProjectCopilotHarnessOutput> {
+    await this.projectAccess.assertProjectAccess(actor, input.projectId);
     const runtime = await this.resolveRuntime(actor, requestId, input.projectId);
 
     switch (input.kind) {
@@ -881,6 +884,7 @@ export class ProjectCopilotHarness {
     }
 
     const { projectId, actionType, payload, linkedPlanId, linkedStepId } = context;
+    await this.projectAccess.assertProjectAccess(actor, projectId);
     const runtime = await this.resolveRuntime(actor, requestId, projectId);
 
     try {

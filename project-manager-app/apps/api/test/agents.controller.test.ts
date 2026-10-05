@@ -107,6 +107,9 @@ function createController() {
       calls.push({ method: "listByProject", tenantId, projectId });
       return [{ id: "plan_1", tenantId, projectId }];
     },
+    async getPlanOwnership() {
+      return { projectId: "project_1", createdBy: "user_1" };
+    },
     async getPlanById(tenantId: string, planId: string) {
       calls.push({ method: "getPlanById", tenantId, planId });
       return { id: planId, tenantId };
@@ -175,13 +178,19 @@ function createController() {
     },
   } as never;
 
+  const projectAccess = {
+    async assertProjectAccess() {},
+    async assertPlanAccess() {},
+  } as never;
+
   return {
     controller: new AgentsController(
       agentsService,
       projectCopilotHarness,
       planModeService,
       coordinatorService,
-      planTemplatesService
+      planTemplatesService,
+      projectAccess
     ),
     calls
   };
