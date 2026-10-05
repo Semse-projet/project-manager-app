@@ -17,7 +17,7 @@ describen el estado de julio, no el de `main` hoy.
 | `scripts/audit-plan-spec-coverage.mjs` y el script `spec:audit-plan-coverage` | Incorporados y endurecidos el 2026-10-04: solo las filas de routing aportan cobertura primaria; las excepciones exigen ruta primaria y contratos existentes. |
 | `api.payout-method-tokenization` | Incorporada y **actualizada**: la decisión de riel (solo Stripe, sin Plaid; PR #458) ya estaba tomada y ejecutada, así que la spec dejó de pedirla. Se añadió una tabla de lo verificado en `main` y se marcó lo que no se verificó. |
 | `api.worker-verification-remediation` | Incorporada y **actualizada**: la spec presentaba como propuesta un flujo que ya existe. Se documentan los dos sistemas reales (`users` y `worker-verification`) y sus brechas frente a las invariantes. |
-| `ui.audit-product-decisions` | Incorporada y **actualizada**: cinco de las siete decisiones (PD-01, PD-02, PD-04, PD-06, PD-07) ya las resolvió el owner el 2026-07-27, con PR; PD-03 sigue abierta y PD-05 es parcial. |
+| `ui.audit-product-decisions` | Incorporada y **actualizada**: cinco de las siete decisiones (PD-01, PD-02, PD-04, PD-06, PD-07) ya las resolvió el owner el 2026-07-27, con PR; PD-03 y PD-05 son parciales. |
 | `ui.design-system-remediation` | Incorporada y **actualizada** con el estado real de `1.15`, `1.16`, `1.17` y `1.19`, que el plan registra como cerrados o parciales. |
 | `client-presentation-remediation.test.ts` | Incorporado sin cambios; ya pasa contra `main`. |
 | `audit-remediation-program.spec.md` | Se actualizó el routing: los ítems cuya decisión ya se resolvió pasan a `CLOSED` y se mapean `2.49`, `3.45` y `3.46`, que no estaban. |
@@ -49,7 +49,9 @@ esa medición, no de una suma a mano.
 - El PR #763 se fusionó el 2026-10-03 a las 13:59 UTC. `travel.spec.md` existe en la base actual; strict ya no conserva ese error.
 - Las decisiones abiertas están listadas en cada spec: proveedor KYC/DID y
   evidencia mínima (verificación), países y migración de métodos legacy
-  (payout), y la fuente del "nivel de confianza" que menciona Prometeo (`1.11b`).
+  (payout), y, en `1.11b`, si el score Trust del lente 5D debe tener una
+  superficie de UI y para qué roles (su origen ya está identificado; corregido
+  el 2026-10-04, esta línea decía antes que faltaba averiguarlo).
 - CI ahora ejecuta cobertura primaria, validación strict y regresiones de ambos controles. `spec:preflight` conserva su preflight de Railway; el gate SDD tiene un paso explícito separado.
 
 
