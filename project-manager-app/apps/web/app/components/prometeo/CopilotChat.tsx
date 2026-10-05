@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Send } from "lucide-react";
+import { MarkdownLite } from "./MarkdownLite";
 
 export type CopilotMessage = {
   id: string;
@@ -44,7 +45,7 @@ export function CopilotChat({
                 : "bg-slate-100 text-slate-800"
             }`}
           >
-            {m.content}
+            {m.role === "assistant" ? <MarkdownLite text={m.content} /> : m.content}
           </div>
         ))}
         {pending && <p className="text-xs text-slate-400">Prometeo está pensando…</p>}

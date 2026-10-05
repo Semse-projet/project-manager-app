@@ -78,3 +78,8 @@ test("la página del copiloto de proyecto pinta las respuestas con MarkdownLite 
   const component = readFileSync(path.join(repoRoot, "apps/web/app/components/prometeo/MarkdownLite.tsx"), "utf8");
   assert.doesNotMatch(component, /dangerouslySetInnerHTML/);
 });
+
+test("el widget flotante también pinta las respuestas del asistente con MarkdownLite (los mensajes del usuario, como texto)", () => {
+  const chat = readFileSync(path.join(repoRoot, "apps/web/app/components/prometeo/CopilotChat.tsx"), "utf8");
+  assert.match(chat, /m\.role === "assistant" \? <MarkdownLite text=\{m\.content\} \/> : m\.content/);
+});
