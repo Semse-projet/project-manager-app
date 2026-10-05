@@ -5,19 +5,20 @@ import { hasScopeAccess } from "../dist/common/resource-scope.js";
 
 // C51 etapa 3 — el resolver canónico: SIEMPRE filtrado por tenant; otro tenant / inexistente ⇒ null (404 en el llamador).
 
-type Q = { where: { id: string; tenantId: string } };
+type Q = { where: { id: string; tenantId: string; deletedAt?: null } };
 const seenWhere: Array<Record<string, unknown>> = [];
 const ROWS = {
   project: [{ id: "p1", tenantId: "t1", assignedProOrgId: "org_pro", job: { clientOrgId: "org_client" } }],
   job: [
-    { id: "j1", tenantId: "t1", clientOrgId: "org_client", project: { assignedProOrgId: "org_pro" } },
-    { id: "j_nopro", tenantId: "t1", clientOrgId: "org_client", project: null },
+    { id: "j1", tenantId: "t1", clientOrgId: "org_client", deletedAt: null, project: { assignedProOrgId: "org_pro" } },
+    { id: "j_nopro", tenantId: "t1", clientOrgId: "org_client", deletedAt: null, project: null },
+    { id: "j_deleted", tenantId: "t1", clientOrgId: "org_client", deletedAt: new Date(), project: { assignedProOrgId: "org_pro" } },
   ],
   dispute: [{ id: "d1", tenantId: "t1", project: { assignedProOrgId: "org_pro", job: { clientOrgId: "org_client" } } }],
 };
 const find = (rows: Array<{ id: string; tenantId: string }>) => async ({ where }: Q) => {
   seenWhere.push(where);
-  return rows.find((r) => r.id === where.id && r.tenantId === where.tenantId) ?? null;
+  return rows.find((r) => r.id === where.id && r.tenantId === where.tenantId && (where.deletedAt === undefined || (r as { deletedAt?: Date | null }).deletedAt === where.deletedAt)) ?? null;
 };
 const prisma = {
   project: { findFirst: find(ROWS.project) },
@@ -69,4 +70,11 @@ test("el alcance del resolver compone con hasScopeAccess: org vacía nunca conce
   assert.equal(hasScopeAccess(actor("org_other"), scope, "read"), false);
   assert.equal(hasScopeAccess(actor(""), scope, "read"), false);
   assert.equal(hasScopeAccess(actor("", "t2", ["OPS_ADMIN"]), scope, "read"), false);
+});
+
+test("resolveJobScope: un job eliminado lógicamente (deletedAt) no concede alcance ⇒ null (404 en el llamador)", async () => {
+  seenWhere.length = 0;
+  assert.equal(await resolver.resolveJobScope("t1", "j_deleted"), null);
+  assert.equal(seenWhere[0].deletedAt, null);
+  assert.notEqual(await resolver.resolveJobScope("t1", "j1"), null);
 });
