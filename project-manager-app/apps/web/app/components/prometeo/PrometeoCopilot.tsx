@@ -7,10 +7,12 @@ import { X } from "lucide-react";
 import type { CopilotMissionSuggestion, CopilotSuggestedAction } from "@semse/schemas";
 import { useCopilotContext } from "../../../lib/hooks/useCopilotContext";
 import {
+  askPrometeoChat,
   createMissionFromCopilot,
   executeCopilotAction,
   sendCopilotMessage,
 } from "../../../lib/bff/prometeo";
+import { buildWidgetChatRequest, pickRuntimeReply } from "../../../lib/prometeo-widget-chat";
 import { ContextDetector } from "./ContextDetector";
 import { CopilotChat, type CopilotMessage } from "./CopilotChat";
 import { QuickActions } from "./QuickActions";
@@ -30,6 +32,7 @@ export function PrometeoCopilot() {
   const [pending, setPending] = useState(false);
   const [sessionId, setSessionId] = useState<string | undefined>();
   const [suggestion, setSuggestion] = useState<CopilotMissionSuggestion | null>(null);
+  const [chatThreadId, setChatThreadId] = useState<string | undefined>();
 
   async function handleSend(text: string) {
     setMessages((prev) => [...prev, { id: newId(), role: "user", content: text }]);
@@ -42,7 +45,29 @@ export function PrometeoCopilot() {
         context: context ? { module: context.module } : undefined,
       });
       setSessionId(res.sessionId);
-      setMessages((prev) => [...prev, { id: newId(), role: "assistant", content: res.response }]);
+      let reply = res.response;
+      // Sin intención de misión el servidor solo devuelve un texto fijo: la pregunta se responde con el chat real.
+      // Si el chat real falla o no es del runtime, se conserva la respuesta del servidor (no hay regresión).
+      if (!res.requiresWorkspace) {
+        try {
+          const real = await askPrometeoChat(
+            buildWidgetChatRequest({
+              message: text,
+              threadId: chatThreadId,
+              context,
+              route: typeof window !== "undefined" ? window.location.pathname : undefined,
+            }),
+          );
+          const runtimeReply = pickRuntimeReply(real);
+          if (runtimeReply) {
+            reply = runtimeReply;
+            if (real.threadId) setChatThreadId(real.threadId);
+          }
+        } catch {
+          // se mantiene `reply`
+        }
+      }
+      setMessages((prev) => [...prev, { id: newId(), role: "assistant", content: reply }]);
       if (res.missionSuggestion) setSuggestion(res.missionSuggestion);
     } catch (e) {
       setMessages((prev) => [
