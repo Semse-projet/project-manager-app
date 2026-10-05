@@ -5,11 +5,20 @@ import { AnalyzeEvidenceDto, BlueprintDto, PerspectiveCorrectionDto, BinarizeDto
 import { ok } from "../../common/api-response.js";
 import { RequirePermissions } from "../../common/permissions.decorator.js";
 import { resolveRequestId } from "../../common/request-id.js";
+import { resolveRequestContext } from "../../common/request-context.js";
+import { VisionAccessPolicy } from "./vision-access.policy.js";
 
 @Controller("v1/vision")
 @RequirePermissions("vision:read")
 export class VisionController {
-  constructor(private readonly visionService: VisionService) {}
+  constructor(
+    private readonly visionService: VisionService,
+    private readonly access: VisionAccessPolicy,
+  ) {}
+
+  private actor(req: FastifyRequest) {
+    return resolveRequestContext(req as Parameters<typeof resolveRequestContext>[0]);
+  }
 
   @Post("analyze")
   @RequirePermissions("vision:run")
@@ -17,7 +26,10 @@ export class VisionController {
     @Req() req: FastifyRequest,
     @Body() dto: AnalyzeEvidenceDto
   ) {
-    const requestId = resolveRequestId(req.headers ?? {});
+    const a = this.actor(req);
+    await this.access.assertEvidence(a, [dto.evidenceId]);
+    await this.access.assertContext(a, dto);
+        const requestId = resolveRequestId(req.headers ?? {});
     const result = await this.visionService.runAnalysis(dto);
     return ok(requestId, result);
   }
@@ -27,7 +39,8 @@ export class VisionController {
     @Req() req: FastifyRequest,
     @Param("evidenceId") evidenceId: string
   ) {
-    const requestId = resolveRequestId(req.headers ?? {});
+    await this.access.assertEvidence(this.actor(req), [evidenceId]);
+        const requestId = resolveRequestId(req.headers ?? {});
     const result = await this.visionService.getAnalysis(evidenceId);
     return ok(requestId, result);
   }
@@ -37,7 +50,8 @@ export class VisionController {
     @Req() req: FastifyRequest,
     @Param("jobId") jobId: string
   ) {
-    const requestId = resolveRequestId(req.headers ?? {});
+    await this.access.assertJob(this.actor(req), jobId);
+        const requestId = resolveRequestId(req.headers ?? {});
     const result = await this.visionService.getByJob(jobId);
     return ok(requestId, result);
   }
@@ -47,7 +61,8 @@ export class VisionController {
     @Req() req: FastifyRequest,
     @Param("milestoneId") milestoneId: string
   ) {
-    const requestId = resolveRequestId(req.headers ?? {});
+    await this.access.assertMilestone(this.actor(req), milestoneId);
+        const requestId = resolveRequestId(req.headers ?? {});
     const result = await this.visionService.getByMilestone(milestoneId);
     return ok(requestId, result);
   }
@@ -58,7 +73,8 @@ export class VisionController {
     @Req() req: FastifyRequest,
     @Param("evidenceId") evidenceId: string
   ) {
-    const requestId = resolveRequestId(req.headers ?? {});
+    await this.access.assertEvidence(this.actor(req), [evidenceId]);
+        const requestId = resolveRequestId(req.headers ?? {});
     const result = await this.visionService.analyzeByEvidenceId(evidenceId);
     return ok(requestId, result);
   }
@@ -168,7 +184,8 @@ export class VisionController {
     @Req() req: FastifyRequest,
     @Body() dto: ConsistencyByIdsDto
   ) {
-    const requestId = resolveRequestId(req.headers ?? {});
+    await this.access.assertEvidence(this.actor(req), dto.evidenceIds);
+        const requestId = resolveRequestId(req.headers ?? {});
     const result = await this.visionService.checkConsistencyByIds(dto.evidenceIds);
     return ok(requestId, result);
   }
@@ -179,7 +196,11 @@ export class VisionController {
     @Req() req: FastifyRequest,
     @Body() dto: BatchAnalyzeDto
   ) {
-    const requestId = resolveRequestId(req.headers ?? {});
+    const a = this.actor(req);
+    await this.access.assertEvidence(a, dto.items.map((i) => i.evidenceId));
+    await this.access.assertContext(a, dto);
+    for (const item of dto.items) await this.access.assertContext(a, item);
+        const requestId = resolveRequestId(req.headers ?? {});
     const result = await this.visionService.runBatchAnalysis(dto.items, dto.jobId, dto.milestoneId);
     return ok(requestId, result);
   }
@@ -190,7 +211,10 @@ export class VisionController {
     @Req() req: FastifyRequest,
     @Body() dto: BatchByIdsDto
   ) {
-    const requestId = resolveRequestId(req.headers ?? {});
+    const a = this.actor(req);
+    await this.access.assertEvidence(a, dto.evidenceIds);
+    await this.access.assertContext(a, dto);
+        const requestId = resolveRequestId(req.headers ?? {});
     const result = await this.visionService.runBatchByIds(dto.evidenceIds, dto.jobId, dto.milestoneId);
     return ok(requestId, result);
   }
@@ -245,7 +269,8 @@ export class VisionController {
     @Param("jobId") jobId: string,
     @Query("fps") fps?: string,
   ) {
-    const requestId = resolveRequestId(req.headers ?? {});
+    await this.access.assertJob(this.actor(req), jobId);
+        const requestId = resolveRequestId(req.headers ?? {});
     const parsedFps = fps ? parseInt(fps, 10) : 2;
     const fpsValue = Number.isFinite(parsedFps) && parsedFps > 0 ? parsedFps : 2;
     const result = await this.visionService.buildJobTimeline(jobId, fpsValue);
