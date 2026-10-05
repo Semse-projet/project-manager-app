@@ -14,6 +14,7 @@ import {
   isJobsBidsProjectionEnabled,
   isJobsBidsProjectionReadthroughEnabled,
 } from "../../jobs/jobs-bids-projection.js";
+import { buildJobVisibilityWhere, jobVisibilityKind } from "../../jobs/jobs-visibility.js";
 
 export type SemseOperationalContext = {
   mode: "demo" | "local" | "live";
@@ -153,13 +154,15 @@ export class OperationalContextService {
       }
       return cached.ctx;
     }
-    const normalizedRole = input.role.toUpperCase();
-    const jobsWhere = normalizedRole === "CLIENT"
-      ? { tenantId: input.tenantId, clientOrgId: input.orgId }
-      : { tenantId: input.tenantId };
+    // 0.39: los trabajos siguen la misma regla de visibilidad que la API de trabajos (2.27), no el tenant completo.
+    const jobsWhere: Prisma.JobWhereInput = {
+      tenantId: input.tenantId,
+      deletedAt: null,
+      ...buildJobVisibilityWhere({ orgId: input.orgId, userId: input.userId, roles: actorScope.roles }),
+    };
 
     const [jobs, notifications, assistantProfile] = await Promise.all([
-      this.loadJobsSummary(input, jobsWhere),
+      this.loadJobsSummary({ ...input, roles: actorScope.roles }, jobsWhere),
       this.prisma.notification.findMany({
         where: { tenantId: input.tenantId, userId: input.userId, readAt: null },
         orderBy: { createdAt: "desc" }, take: 10,
@@ -395,11 +398,14 @@ export class OperationalContextService {
    * the read itself failed) this falls back to the direct query unchanged.
    */
   private async loadJobsSummary(
-    input: { tenantId: string; orgId: string; role: string },
+    input: { tenantId: string; orgId: string; roles: string[] },
     jobsWhere: Prisma.JobWhereInput,
   ): Promise<JobSummaryRow[]> {
-    const normalizedRole = input.role.toUpperCase();
+    // La proyección solo guarda `clientOrgId`: sirve para el tenant completo (OPS_ADMIN) y para el alcance de la
+    // organización cliente, pero no puede expresar la visibilidad de PRO/WORKER (ofertas, reservas, contratos).
+    const visibility = jobVisibilityKind(input.roles);
     if (
+      visibility !== "marketplace" &&
       isJobsBidsProjectionReadthroughEnabled() &&
       isJobsBidsProjectionEnabled(input.tenantId)
     ) {
@@ -408,7 +414,7 @@ export class OperationalContextService {
           this.prisma.jobsBidsProjection.findMany({
             where: {
               tenantId: input.tenantId,
-              ...(normalizedRole === "CLIENT" ? { clientOrgId: input.orgId } : {}),
+              ...(visibility === "own-org" ? { clientOrgId: input.orgId } : {}),
             },
             orderBy: { jobId: "desc" },
             take: 20,
