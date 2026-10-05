@@ -537,6 +537,14 @@ export class PrometeoService {
     return this.repo.listAssets(input);
   }
 
+  async getAsset(tenantId: string, id: string) {
+    return this.repo.getAsset(tenantId, id);
+  }
+
+  async getWorkOrder(tenantId: string, id: string) {
+    return this.repo.getWorkOrder(tenantId, id);
+  }
+
   async updateAssetStatus(input: { tenantId: string; id: string; status: string }) {
     return this.repo.updateAssetStatus(input);
   }

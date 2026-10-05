@@ -7,6 +7,7 @@ import { resolveRequestId } from "../../common/request-id.js";
 import { LLMOrchestrator } from "../../infrastructure/llm/orchestrator.js";
 import { getAgentProfile } from "../../infrastructure/llm/agent-profiles.js";
 import { PrometeoService } from "./prometeo.service.js";
+import { PrometeoAccessPolicy } from "./prometeo-access.policy.js";
 import { PrometeoToolExecutionService } from "./prometeo-tool-execution.service.js";
 import { findPrometeoToolDescriptor, listPrometeoToolRegistry } from "./prometeo-tool-registry.js";
 import { TradeGuideService } from "./trade-guide.service.js";
@@ -16,6 +17,7 @@ export class PrometeoController {
 
   constructor(
     private readonly svc: PrometeoService,
+    private readonly access: PrometeoAccessPolicy,
     @Optional() private readonly llm?: LLMOrchestrator,
     @Optional() private readonly tradeGuide?: TradeGuideService,
     @Optional() private readonly toolExecution?: PrometeoToolExecutionService,
@@ -378,6 +380,7 @@ export class PrometeoController {
     const actor = resolveRequestContext(req);
     const rid = resolveRequestId(req.headers ?? {});
     const b = body as Record<string, unknown>;
+    await this.access.assertCanCreate(actor, { projectId: typeof b.projectId === "string" ? b.projectId : undefined });
     const asset = await this.svc.createAsset({
       tenantId: actor.tenantId, orgId: actor.orgId,
       projectId: typeof b.projectId === "string" ? b.projectId : undefined,
@@ -394,7 +397,9 @@ export class PrometeoController {
   async listAssets(@Req() req: { headers?: Record<string, unknown> }, @Query("projectId") projectId?: string, @Query("category") category?: string) {
     const actor = resolveRequestContext(req);
     const rid = resolveRequestId(req.headers ?? {});
-    return ok(rid, await this.svc.listAssets({ tenantId: actor.tenantId, projectId, category }));
+    if (projectId) await this.access.assertProjectFilter(actor, projectId);
+    const scope = projectId ? undefined : await this.access.listScope(actor);
+    return ok(rid, await this.svc.listAssets({ tenantId: actor.tenantId, projectId, category, scope }));
   }
 
   @Patch("assets/:id/status")
@@ -402,6 +407,7 @@ export class PrometeoController {
   async updateAssetStatus(@Req() req: { headers?: Record<string, unknown> }, @Param("id") id: string, @Body() body: { status: string }) {
     const actor = resolveRequestContext(req);
     const rid = resolveRequestId(req.headers ?? {});
+    await this.access.assertRowAccess(actor, await this.svc.getAsset(actor.tenantId, id), `Prometeo asset '${id}' not found`);
     return ok(rid, await this.svc.updateAssetStatus({ tenantId: actor.tenantId, id, status: body.status }));
   }
 
@@ -413,6 +419,10 @@ export class PrometeoController {
     const actor = resolveRequestContext(req);
     const rid = resolveRequestId(req.headers ?? {});
     const b = body as Record<string, unknown>;
+    await this.access.assertCanCreate(actor, {
+      projectId: typeof b.projectId === "string" ? b.projectId : undefined,
+      jobId: typeof b.jobId === "string" ? b.jobId : undefined,
+    });
     const wo = await this.svc.createWorkOrder({
       tenantId: actor.tenantId, orgId: actor.orgId,
       projectId: typeof b.projectId === "string" ? b.projectId : undefined,
@@ -432,7 +442,9 @@ export class PrometeoController {
   async listWorkOrders(@Req() req: { headers?: Record<string, unknown> }, @Query("projectId") projectId?: string, @Query("status") status?: string) {
     const actor = resolveRequestContext(req);
     const rid = resolveRequestId(req.headers ?? {});
-    return ok(rid, await this.svc.listWorkOrders({ tenantId: actor.tenantId, projectId, status }));
+    if (projectId) await this.access.assertProjectFilter(actor, projectId);
+    const scope = projectId ? undefined : await this.access.listScope(actor);
+    return ok(rid, await this.svc.listWorkOrders({ tenantId: actor.tenantId, projectId, status, scope }));
   }
 
   @Patch("work-orders/:id/status")
@@ -440,6 +452,7 @@ export class PrometeoController {
   async updateWorkOrderStatus(@Req() req: { headers?: Record<string, unknown> }, @Param("id") id: string, @Body() body: { status: string }) {
     const actor = resolveRequestContext(req);
     const rid = resolveRequestId(req.headers ?? {});
+    await this.access.assertRowAccess(actor, await this.svc.getWorkOrder(actor.tenantId, id), `Prometeo work order '${id}' not found`);
     return ok(rid, await this.svc.updateWorkOrderStatus({ tenantId: actor.tenantId, id, status: body.status }));
   }
 

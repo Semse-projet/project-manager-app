@@ -13,7 +13,7 @@ merge_status: "MERGED"
 deploy_status: "DEPLOYED"
 activation_status: "INACTIVE"
 migration_status: "NOT_APPLICABLE"
-verification_scope: "partial:etapas-1-2a-2b-2c-workspace-memory-y-3A-merged-deployed:3B-guarda-informativa-en-PR-749-no-mergeada:migracion-gradual-de-resolutores-pendiente:sin-smoke-autenticado-en-produccion"
+verification_scope: "partial:etapas-1-2a-2b-2c-workspace-memory-y-3A-merged-deployed:3B-guarda-informativa-en-PR-749-no-mergeada:prometeo-activos-y-ordenes-en-PR-779-no-mergeado:migracion-gradual-de-resolutores-pendiente:sin-smoke-autenticado-en-produccion"
 feature_flags: []
 production_evidence:
   - github:pr:742:merge:de33e974c88a9f2db9255277f2cdb37ecbc89c3a
@@ -38,12 +38,22 @@ related_files:
   - apps/api/src/modules/disputes/disputes.policy.ts
   - apps/api/src/modules/projects/projects.policy.ts
   - apps/api/src/modules/liens/lien-access.service.ts
+  - apps/api/src/modules/prometeo/prometeo-access.policy.ts
+  - apps/api/src/modules/prometeo/prometeo.controller.ts
+  - apps/api/src/modules/prometeo/prometeo.repository.ts
 related_tests:
   - tests/unit/resource-scope-inventory.test.mjs
   - apps/api/test/resource-scope-resolver.test.ts
   - apps/api/test/workspace-memory-access.test.ts
   - apps/api/test/resource-scope.test.ts
-related_endpoints: []
+  - apps/api/test/prometeo-assets-orders-scope.test.ts
+related_endpoints:
+  - POST /v1/prometeo/assets
+  - GET /v1/prometeo/assets
+  - PATCH /v1/prometeo/assets/:id/status
+  - POST /v1/prometeo/work-orders
+  - GET /v1/prometeo/work-orders
+  - PATCH /v1/prometeo/work-orders/:id/status
 related_events: []
 related_agents: []
 last_verified: "2026-10-02"
@@ -87,8 +97,27 @@ El dueño autoriza un PR de CI **separado** para la guarda de arquitectura, **pr
 
 ### 3.3 Etapa 3 — progreso
 - **3A (este PR, sin CI):** `ResourceScopeResolver` canónico (`apps/api/src/common/resource-scope.resolver.ts`, módulo `ResourceScopeModule`): `resolveProjectScope` / `resolveJobScope` / `resolveDisputeScope` / `requireProjectScope`, siempre filtrado por el tenant del actor (otro tenant o inexistente ⇒ `null`/404). Primer consumidor: `WorkspaceMemoryAccessPolicy`. Las políticas de dominio siguen encima del resolver.
+- **Contrato del resolver (regla vigente):** un recurso eliminado lógicamente **no concede alcance**. `resolveJobScope`, `resolveMilestoneScope` y `listAccessibleJobIds` filtran `deletedAt: null` ⇒ `null`/404 en el llamador (también para `OPS_ADMIN`). Consumidores de `resolveJobScope` afectados por esta regla: `tasks.service`, `vision-access.policy`, `PrometeoAccessPolicy` y `WorkspaceMemoryAccessPolicy` (workspaces `job:<id>`, §3.1). Los listados de ids (`listAccessibleProjectIds/JobIds`) enumeran todo por cursor y, por encima de un tope de seguridad, fallan cerrado (422) en lugar de truncar. Prueba: `resource-scope-resolver.test.ts` («job eliminado ⇒ null»).
 - **Migración gradual pendiente (un módulo por PR, con sus pruebas; sin big bang):** `evidence.repository` (`resolveScope`), `milestones.repository`, `disputes.repository` (`toOwnership`), `projects.repository`, `payments.repository` / `payment-governance.*`, `trust.repository`, `liens` (`lien-access.service`), `bids`/`contracts`/`reservations`/`jobs` (ownership por job).
 - **3B (PR de CI separado, report-only; en PR):** `scripts/architecture/resource-scope-inventory.mjs` + `.github/workflows/resource-scope-guard.yml` + `docs/architecture/resource-scope-allowlist.json` + `docs/architecture/RESOURCE_SCOPE_GUARD.md`. Guarda de arquitectura informativa que inventaría controllers/endpoints con identificador de recurso que no pasan por política/resolver, con allowlist explícita y documentada; nunca bloquea CI. Pasar a bloqueante es otro PR, tras un ciclo verde y revisión de falsos positivos.
+
+### 3.4 Decisión del dueño (2026-10-04): propietario explícito en `prometeo` (activos y órdenes de trabajo)
+Documentos, activos y órdenes de `prometeo` deben tener un **propietario explícito validado por el servidor**. `orgId` es obligatorio en `PrometeoDocument`, `PrometeoAsset` y `WorkOrder` (solo `projectId` es opcional) y siempre sale del actor autenticado, nunca del cuerpo de la petición.
+- **Asociada a un proyecto o job** del tenant ⇒ rigen los permisos de ese proyecto/job (`read`: org cliente, org profesional asignada u `OPS_ADMIN` del tenant). Si una orden declara proyecto **y** job, el job debe ser el del proyecto (si no ⇒ 400). Un job eliminado lógicamente (`deletedAt`) no concede acceso. Un proyecto/job que ya no existe en el tenant solo lo ve `OPS_ADMIN`.
+- **Sin asociación** ⇒ solo la org propietaria (`sameOrg`; la org vacía nunca coincide) u `OPS_ADMIN` del tenant. **Pertenecer al mismo tenant no concede acceso por sí solo.** Otro tenant ⇒ 404; sin relación ⇒ 403.
+- **Listados**: sin `projectId` ⇒ solo filas propias sin asociación más las de proyectos/jobs en los que participa la org (consulta filtrada; los ids se enumeran por completo y, por encima de un tope de seguridad, falla cerrado con 422 en lugar de truncar); con `projectId` ⇒ exige participar en ese proyecto (404/403). `OPS_ADMIN` ve todo su tenant, nunca otro.
+- **Estados de error (contrato de las 6 rutas)**:
+
+  | Código | Cuándo |
+  |---|---|
+  | 400 | orden con `projectId` y `jobId` donde el job no es el del proyecto |
+  | 403 | actor sin org al crear; sin relación con la fila o con su proyecto/job; org vacía |
+  | 404 | fila, proyecto o job de otro tenant o inexistente (sin oráculo de existencia) |
+  | 422 | listado sin `projectId` con más asociaciones que el tope de seguridad: filtrar por `projectId` |
+
+  `docs/specs/api/prometeo.spec.md` (spec de la API RAG, en SDD 1.x) no se modifica en este PR: tocarlo obliga a migrarlo a SDD 2.0 con el estado de entrega de todo Prometeo, para lo que este PR no aporta evidencia. Esta sección es la fuente única de las reglas de activos y órdenes; migrar `prometeo.spec.md` y enlazarla desde allí queda en backlog.
+- **Implementación**: `PrometeoAccessPolicy` (`apps/api/src/modules/prometeo/prometeo-access.policy.ts`) sobre `ResourceScopeResolver` (`listAccessibleProjectIds/JobIds`, `jobBelongsToProject`). Pruebas: `apps/api/test/prometeo-assets-orders-scope.test.ts`.
+- **Pendiente de confirmación del dueño (no implementado):** documentos. Propuesta: con `projectId` ⇒ permisos del proyecto; sin proyecto ⇒ solo la org propietaria u `OPS_ADMIN`; biblioteca compartida únicamente por marca explícita validada en el servidor. `search`, `rag-context` y `rag-query` deberán filtrar por documentos accesibles.
 
 ## 4. Criterios de aceptación (etapa 1)
 1. Para toda combinación actor×ownership×relación, las políticas existentes dan el mismo resultado que el contrato (test de paridad).
