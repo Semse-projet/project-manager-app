@@ -108,11 +108,12 @@ test("the client org of the project gets the finance, risk and 5D project blocks
   assert.ok(ctx.finance && ctx.risk && ctx.ecosystem5d);
 });
 
-test("the assigned professional org of the project is allowed too", async () => {
+test("the assigned professional gets operational blocks, without project financials", async () => {
   const { service, svc } = makeService(PROJECTS);
   const ctx = await service.buildContext({ ...pro, projectId: "p1" });
-  assert.ok(ctx.finance && ctx.risk && ctx.ecosystem5d);
-  assert.deepEqual(svc.calls.finance, ["p1"]);
+  assert.equal(ctx.finance, null);
+  assert.ok(ctx.risk && ctx.ecosystem5d);
+  assert.deepEqual(svc.calls.finance, []);
 });
 
 test("another org of the same tenant is refused with 403 and no project block is computed", async () => {
@@ -191,7 +192,7 @@ test("the cache never serves an admin context to a non-admin of the same user id
 test("a cached project context is not served once the actor stopped participating in the project", async () => {
   const projects: Record<string, ProjectRow> = { p1: { tenantId: T, assignedProOrgId: "org_pro", job: { clientOrgId: "org_client" } } };
   const { service } = makeService(projects);
-  assert.ok((await service.buildContext({ ...pro, projectId: "p1" })).finance);
+  assert.ok((await service.buildContext({ ...pro, projectId: "p1" })).risk);
   projects.p1.assignedProOrgId = "org_someone_else"; // the pro was replaced inside the 60 s cache window
   await assert.rejects(() => service.buildContext({ ...pro, projectId: "p1" }), ForbiddenException);
 });
@@ -242,4 +243,21 @@ test("latest snapshot: asking for a project the actor cannot access fails instea
     () => service.getLatestSnapshot({ tenantId: T, userId: "u_client", orgId: "org_client", roles: ["CLIENT"], projectId: "p_other_tenant" }),
     NotFoundException,
   );
+});
+
+test("C51 finance: cached project context drops financials after client ownership is lost, even if still a participant", async () => {
+  const projects: Record<string, ProjectRow> = { p1: { tenantId: T, assignedProOrgId: "org_pro", job: { clientOrgId: "org_client" } } };
+  const { service } = makeService(projects);
+  assert.ok((await service.buildContext({ ...client, projectId: "p1" })).finance);
+  projects.p1.job.clientOrgId = "org_new_client";
+  projects.p1.assignedProOrgId = "org_client";
+  assert.equal((await service.buildContext({ ...client, projectId: "p1" })).finance, null);
+});
+
+test("C51 finance: project snapshots and low-permission context cannot expose financials", async () => {
+  const { service } = makeService(PROJECTS, [{ snapshotJson: SNAPSHOT_BODY, projectId: "p1" }]);
+  const snapshot = await service.getLatestSnapshot({ tenantId: T, userId: "u_pro", orgId: "org_pro", roles: ["PRO"], projectId: "p1" });
+  assert.equal(snapshot?.finance, null);
+  const ctx = await service.buildContext({ ...client, role: "UNKNOWN_ROLE", roles: ["UNKNOWN_ROLE"], projectId: "p1" });
+  assert.equal(ctx.finance, null);
 });

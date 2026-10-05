@@ -5,6 +5,8 @@ import { hasScopeAccess, isOpsAdmin, type ScopeActor } from "../../../common/res
 import { ResourceScopeResolver } from "../../../common/resource-scope.resolver.js";
 import { SseEventBusService } from "../../../infrastructure/sse/sse-event-bus.service.js";
 import { HealthService } from "../../health/health.service.js";
+import { hasPermission } from "../../../common/rbac.js";
+import type { ProjectScope } from "../../../common/resource-scope.js";
 import { FinanceService } from "../../finance/finance.service.js";
 import { Ecosystem5DService, type Ecosystem5DView } from "../../intelligence/ecosystem-5d.service.js";
 import { RiskScoringService } from "../../intelligence/risk-scoring.service.js";
@@ -126,10 +128,11 @@ export class OperationalContextService {
    * Mismo contrato que `IntelligenceController.assertProjectAccess` y la spec resource-scope:
    * inexistente u otro tenant ⇒ 404; otra org del mismo tenant ⇒ 403.
    */
-  private async assertProjectAccess(actor: ScopeActor, projectId: string): Promise<void> {
+  private async assertProjectAccess(actor: ScopeActor, projectId: string): Promise<ProjectScope> {
     const scope = await new ResourceScopeResolver(this.prisma).resolveProjectScope(actor.tenantId, projectId);
     if (!scope) throw new NotFoundException("Project not found");
     if (!hasScopeAccess(actor, scope, "read")) throw new ForbiddenException("Actor cannot access this project");
+    return scope;
   }
 
   async buildContext(input: {
@@ -137,11 +140,19 @@ export class OperationalContextService {
   }): Promise<SemseOperationalContext> {
     const actorScope = this.scopeActor(input);
     // Antes de la caché: perder la participación en un proyecto no debe seguir sirviendo su contexto.
-    if (input.projectId) await this.assertProjectAccess(actorScope, input.projectId);
+    const projectScope = input.projectId ? await this.assertProjectAccess(actorScope, input.projectId) : null;
+    const canReadFinancials = !!projectScope && hasScopeAccess(actorScope, projectScope, "client") && hasPermission(actorScope.roles, "finance:read");
     const isAdmin = isOpsAdmin(actorScope);
-    const cacheKey = `${input.tenantId}:${input.userId}:${isAdmin ? "admin" : "user"}:${input.projectId ?? "none"}`;
+    const cacheKey = `${input.tenantId}:${input.orgId}:${input.userId}:${isAdmin ? "admin" : "user"}:${input.projectId ?? "none"}`;
     const cached = this.cache.get(cacheKey);
-    if (cached && cached.expiresAt > Date.now()) return cached.ctx;
+    if (cached && cached.expiresAt > Date.now()) {
+      if (!canReadFinancials) return { ...cached.ctx, finance: null };
+      if (input.projectId && cached.ctx.finance && this.financeService) {
+        try { await this.financeService.getProjectSummary(actorScope, input.projectId); }
+        catch { return { ...cached.ctx, finance: null }; }
+      }
+      return cached.ctx;
+    }
     const normalizedRole = input.role.toUpperCase();
     const jobsWhere = normalizedRole === "CLIENT"
       ? { tenantId: input.tenantId, clientOrgId: input.orgId }
@@ -327,10 +338,10 @@ export class OperationalContextService {
       }
     }
 
-    if (input.projectId && this.financeService) {
+    if (input.projectId && canReadFinancials && this.financeService) {
       try {
-        const summary = await this.financeService.getProjectSummary(input.tenantId, input.projectId);
-        const overdueInvoices = await this.financeService.listInvoices({ tenantId: input.tenantId, projectId: input.projectId, status: "overdue" });
+        const summary = await this.financeService.getProjectSummary(actorScope, input.projectId);
+        const overdueInvoices = await this.financeService.listInvoices({ tenantId: input.tenantId, projectId: input.projectId, status: "overdue" }, actorScope);
         ctx.finance = {
           totalInvoiced: summary.totalInvoiced,
           totalPaid: summary.totalPaid,
@@ -559,7 +570,7 @@ export class OperationalContextService {
     for (const key of this.cache.keys()) {
       if (!key.startsWith(`${input.tenantId}:`)) continue;
 
-      const [, keyUserId = "", keyProjectId = ""] = key.split(":");
+      const [, , keyUserId = "", , keyProjectId = ""] = key.split(":");
       const isProjectMatch = keyProjectId === (input.projectId ?? "") || keyProjectId === "none";
       const isUserMatch = keyUserId === (input.userId ?? "");
 
@@ -628,7 +639,8 @@ export class OperationalContextService {
     if (row.projectId) {
       // Un snapshot de proyecto no se devuelve si el actor ya no participa en él.
       try {
-        await this.assertProjectAccess(actorScope, row.projectId);
+        const scope = await this.assertProjectAccess(actorScope, row.projectId);
+        if (!hasScopeAccess(actorScope, scope, "client") || !hasPermission(actorScope.roles, "finance:read")) return { ...snapshot, finance: null };
       } catch (error) {
         if (error instanceof NotFoundException || error instanceof ForbiddenException) return null;
         throw error;

@@ -197,3 +197,29 @@ autorización para actuar — ver
 - `POST /v1/knowledge/agent-memory/:id/invalidate`
 - `POST /v1/knowledge/agent-memory/:id/supersede`
 - `POST /v1/knowledge/agent-memory/:id/conflicts`
+
+
+## Finance — C51 resource scope
+
+Contrato: `docs/specs/platform/finance-resource-scope.spec.md`. Las rutas ya
+existían; este slice migra su autorización. `finance:read/write` + ownership,
+siempre tenant-scoped. Proyecto/job: cliente dueño u OPS_ADMIN; sin asociación:
+org propietaria u OPS_ADMIN. Pro asignado no obtiene finanzas por defecto.
+
+| Método | Ruta | Permiso |
+|---|---|---|
+| GET/POST | `/v1/finance/invoices` | `finance:read/write` |
+| GET/PATCH | `/v1/finance/invoices/:id` | `finance:read/write` |
+| GET | `/v1/finance/invoices/:id/pdf` | `finance:read` |
+| POST | `/v1/finance/invoices/:id/send`, `/pay` | `finance:write` |
+| POST | `/v1/finance/invoices/:id/viewed` | `finance:read` |
+| GET/POST | `/v1/finance/expenses` | `finance:read/write` |
+| GET | `/v1/finance/expenses/:id` | `finance:read` |
+| POST | `/v1/finance/expenses/:id/approve`, `/reject` | `finance:write` |
+| GET | `/v1/finance/projects/:projectId/summary`, `/summary/context` | `finance:read` |
+| GET (SSE) | `/v1/sse/finance` | `finance:read` + policy por factura/evento |
+
+Listados mantienen arrays, admiten `cursor` (último id recibido), `limit` hasta
+500 y `projectId` autorizado. 404 cross-tenant/inexistente; 403 org no permitida;
+400 asociaciones incompatibles/PATCH server-owned; 422 exceso de asociaciones
+sin filtro. Números nuevos UUID; históricos no se modifican.

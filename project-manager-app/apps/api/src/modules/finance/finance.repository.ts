@@ -1,5 +1,20 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, NotFoundException } from "@nestjs/common";
+import { randomUUID } from "node:crypto";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
+import type { FinanceListScope } from "./finance-access.policy.js";
+
+function scopeWhere(scope: FinanceListScope | undefined) {
+  return scope ? { OR: [
+    { projectId: { in: scope.projectIds } },
+    { projectId: null, jobId: { in: scope.jobIds } },
+    { projectId: null, jobId: null, orgId: { in: scope.orgId ? [scope.orgId] : [] } },
+  ] } : {};
+}
+
+function mutationError(error: unknown): never {
+  if (error && typeof error === "object" && "code" in error && error.code === "P2025") throw new NotFoundException("Financial resource not found");
+  throw error;
+}
 
 // ── Invoice types ──────────────────────────────────────────────────────────────
 
@@ -141,6 +156,14 @@ function toTemplateRecord(row: Record<string, unknown>): TemplateRecord {
 export class FinanceRepository {
   constructor(private readonly prisma: PrismaService) {}
 
+  async organizationExists(tenantId: string, orgId: string): Promise<boolean> {
+    return !!await this.prisma.org.findFirst({ where: { id: orgId, tenantId }, select: { id: true } });
+  }
+
+  async findMilestoneAssociation(tenantId: string, milestoneId: string): Promise<{ projectId: string } | null> {
+    return this.prisma.milestone.findFirst({ where: { id: milestoneId, deletedAt: null, project: { tenantId } }, select: { projectId: true } });
+  }
+
   // ── Invoice ──────────────────────────────────────────────────────────────────
 
   async createInvoice(data: {
@@ -171,18 +194,19 @@ export class FinanceRepository {
 
   async listInvoices(input: {
     tenantId: string; orgId?: string; projectId?: string;
-    status?: InvoiceStatus; limit?: number; offset?: number;
+    status?: InvoiceStatus; limit?: number; offset?: number; cursor?: string; scope?: FinanceListScope;
   }): Promise<InvoiceRecord[]> {
     const rows = await this.prisma.invoice.findMany({
       where: {
         tenantId: input.tenantId,
+        ...scopeWhere(input.scope),
         ...(input.orgId ? { orgId: input.orgId } : {}),
         ...(input.projectId ? { projectId: input.projectId } : {}),
         ...(input.status ? { status: input.status } : {}),
       },
-      orderBy: { createdAt: "desc" },
-      take: input.limit ?? 50,
-      skip: input.offset ?? 0,
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: Math.min(input.limit ?? 50, 500),
+      ...(input.cursor ? { cursor: { id: input.cursor }, skip: 1 } : { skip: input.offset ?? 0 }),
     });
     return rows.map((r: Record<string, unknown>) => toInvoiceRecord(r));
   }
@@ -204,24 +228,25 @@ export class FinanceRepository {
     paidAt?: Date; sentAt?: Date; viewedAt?: Date;
   }): Promise<InvoiceRecord> {
     const row = await this.prisma.invoice.update({
-      where: { id },
+      where: { id, tenantId },
       data: { status, ...extra },
-    });
+    }).catch(mutationError);
     return toInvoiceRecord(row as Record<string, unknown>);
   }
 
   async updateInvoice(id: string, tenantId: string, data: Partial<{
     title: string; lineItems: InvoiceLineItem[]; subtotal: number;
     taxAmount: number; total: number; dueDate: Date | null;
-    notes: string; terms: string; pdfUrl: string; status: InvoiceStatus;
+    notes: string; terms: string; pdfUrl: string;
   }>): Promise<InvoiceRecord> {
-    const row = await this.prisma.invoice.update({ where: { id }, data });
+    const row = await this.prisma.invoice.update({ where: { id, tenantId }, data }).catch(mutationError);
     return toInvoiceRecord(row as Record<string, unknown>);
   }
 
   async getNextInvoiceNumber(tenantId: string): Promise<string> {
-    const count = await this.prisma.invoice.count({ where: { tenantId } });
-    return `INV-${String(count + 1).padStart(4, "0")}`;
+    // Distributed replicas must not race on count+1. Historical numbers stay unchanged.
+    void tenantId;
+    return `INV-${randomUUID().toUpperCase()}`;
   }
 
   // ── Expense ──────────────────────────────────────────────────────────────────
@@ -232,7 +257,7 @@ export class FinanceRepository {
     submittedBy: string; category: ExpenseCategory; subcategory?: string;
     description: string; amount: number; currency?: string;
     vendor?: string; expenseDate?: Date; receiptUrl?: string;
-    receiptText?: string; notes?: string;
+    receiptText?: string; notes?: string; isDuplicate?: boolean; duplicateOfId?: string | null;
   }): Promise<ExpenseRecord> {
     const row = await this.prisma.projectExpense.create({
       data: {
@@ -244,6 +269,7 @@ export class FinanceRepository {
         amount: data.amount, currency: data.currency ?? "USD",
         vendor: data.vendor, expenseDate: data.expenseDate ?? new Date(),
         receiptUrl: data.receiptUrl, receiptText: data.receiptText,
+        isDuplicate: data.isDuplicate ?? false, duplicateOfId: data.duplicateOfId,
         notes: data.notes,
       },
     });
@@ -257,42 +283,47 @@ export class FinanceRepository {
 
   async listExpenses(input: {
     tenantId: string; orgId?: string; projectId?: string;
-    category?: ExpenseCategory; status?: ExpenseStatus; limit?: number;
+    category?: ExpenseCategory; status?: ExpenseStatus; limit?: number; cursor?: string; scope?: FinanceListScope;
   }): Promise<ExpenseRecord[]> {
     const rows = await this.prisma.projectExpense.findMany({
       where: {
         tenantId: input.tenantId,
+        ...scopeWhere(input.scope),
         ...(input.orgId ? { orgId: input.orgId } : {}),
         ...(input.projectId ? { projectId: input.projectId } : {}),
         ...(input.category ? { category: input.category } : {}),
         ...(input.status ? { status: input.status } : {}),
       },
-      orderBy: { expenseDate: "desc" },
-      take: input.limit ?? 100,
+      orderBy: [{ expenseDate: "desc" }, { id: "desc" }],
+      take: Math.min(input.limit ?? 100, 500),
+      ...(input.cursor ? { cursor: { id: input.cursor }, skip: 1 } : {}),
     });
     return rows.map((r: Record<string, unknown>) => toExpenseRecord(r));
   }
 
   async updateExpenseStatus(id: string, tenantId: string, status: ExpenseStatus, approvedBy?: string): Promise<ExpenseRecord> {
     const row = await this.prisma.projectExpense.update({
-      where: { id },
+      where: { id, tenantId },
       data: {
         status,
         ...(approvedBy ? { approvedBy, approvedAt: new Date() } : {}),
       },
-    });
+    }).catch(mutationError);
     return toExpenseRecord(row as Record<string, unknown>);
   }
 
-  async detectDuplicates(tenantId: string, amount: number, vendor: string | undefined, excludeId?: string): Promise<string | null> {
+  async detectDuplicates(input: {
+    tenantId: string; orgId: string; projectId?: string; jobId?: string;
+    currency: string; amount: number; vendor?: string;
+  }): Promise<string | null> {
     const similar = await this.prisma.projectExpense.findFirst({
       where: {
-        tenantId,
-        amount,
-        ...(vendor ? { vendor } : {}),
-        id: excludeId ? { not: excludeId } : undefined,
+        tenantId: input.tenantId, orgId: input.orgId,
+        projectId: input.projectId ?? null, jobId: input.jobId ?? null,
+        currency: input.currency, amount: input.amount, vendor: input.vendor ?? null,
         createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
       },
+      select: { id: true },
     });
     return similar?.id ?? null;
   }
@@ -335,8 +366,8 @@ export class FinanceRepository {
         where: { tenantId, projectId },
         select: { category: true, amount: true, status: true },
       }),
-      this.prisma.paymentEscrow.findUnique({
-        where: { projectId },
+      this.prisma.paymentEscrow.findFirst({
+        where: { projectId, project: { tenantId }, deletedAt: null },
         select: { totalAmount: true, status: true, transactions: { select: { type: true, amount: true, status: true } } },
       }),
     ]);
