@@ -325,6 +325,19 @@ tenant siguen separados; no se declaran corregidos por este slice.
 - **Cambio de comportamiento:** un `projectId` o `planId` de un proyecto en el que el usuario no participa recibe 403/404 donde antes recibía respuesta.
 - **Estado:** [x] Corregido (2026-10-04). Verificado con dobles, **no en vivo**: `agents-project-scope.test.ts` (7 casos); sin el guard, 6 de ellos fallan.
 
+### 0.38 — MEDIO (seguridad, ejecución de comandos y acceso a archivos del servidor) — `TechnicalRuntimeService` validaba rutas por prefijo de texto y comandos por prefijo, y luego los ejecutaba con shell
+
+- **Qué:** el runtime técnico del copiloto (acciones `RUN_COMMAND`, `READ_FILE`, `EDIT_FILE`, `LIST_DIRECTORY`, `SEARCH_PATTERNS`) tenía tres debilidades:
+  - `runCommand` aceptaba cualquier cadena que *empezara* por `npm run `, `ls `, `cat `, `grep `, `echo `… y la pasaba a `exec` (con shell): `ls x; <otro comando>`, `echo $(…)` o `cat a > b` pasaban el filtro.
+  - `assertSafePath` comparaba con `startsWith(process.cwd())`: un directorio hermano con el mismo prefijo (`/app-evil` frente a `/app`) pasaba, y un enlace simbólico dentro de la raíz podía apuntar fuera. La raíz es el directorio de trabajo de la API completo, que puede contener `.env`.
+  - `searchPatterns` recorría la raíz entera, incluidos `.env` y `.git`, y devolvía qué archivos contenían una cadena (un oráculo sobre secretos).
+- **Dónde:** `apps/api/src/modules/agents/technical-runtime.service.ts` · guards nuevos en `technical-runtime.guards.ts`.
+- **Qué lo mitigaba:** estas acciones no están en `agentActionTypeSchema`, así que `getActionPolicy` no las conoce y la harness las trata como `required/high`: solo corren tras la aprobación de un `OPS_ADMIN` (`ops:dashboard:write`). Por eso es MEDIO y no ALTO: no era explotable por un usuario normal, pero sí por un admin (o por un prompt que lo induzca a aprobar) más allá de lo que la aprobación aparenta permitir.
+- **Fix:** rutas confinadas por `relative` y por `realpath` del ancestro existente más cercano (enlaces simbólicos), con bloqueo de `.env*`, llaves (`*.pem`, `*.key`, `id_*`), `.npmrc`, `.git`, `.ssh`, `.aws`; `searchPatterns` excluye esos archivos y `node_modules`; `runCommand` ya no usa shell: parsea a argv con lista cerrada (`npm test`, `npm build`, `npm run <script>`, `ls`/`cat`/`grep` con banderas de una lista cerrada y rutas validadas, `echo` simple) y rechaza metacaracteres de shell, banderas desconocidas y argumentos extra; los procesos hijos reciben un entorno mínimo (sin `DATABASE_URL` ni llaves de API).
+- **Cambio de comportamiento:** comandos con comillas, redirecciones, pipes o banderas fuera de la lista (p. ej. `grep -f`) ahora se rechazan; `npm run` ya no admite argumentos extra. En Windows, `npm` sin shell puede no resolverse (el servidor corre en Linux).
+- **No cambia:** el runtime sigue disponible en producción tras aprobación de admin. Deshabilitarlo fuera de desarrollo o moverlo a un sandbox es una decisión de producto aparte.
+- **Estado:** [x] Corregido (2026-10-04). Verificado en un workspace temporal real (incluido un enlace simbólico hacia fuera): `technical-runtime-hardening.test.ts` (7 casos). **No** se ejecutó contra el código anterior como control negativo; el comportamiento previo se leyó del código.
+
 **Cierre de la pasada de verificación en vivo de Sección 0 (2026-08-02):** se probaron contra producción real solo los ítems donde el peor caso de un fix roto seguía siendo de bajo riesgo (una petición rechazada, no datos reales expuestos ni dinero movido):
 
 - **0.1** — confirmado con `curl` (headers `x-semse-*` falsos + `x-semse-roles: OPS_ADMIN`, sin cookie) → `401`.
