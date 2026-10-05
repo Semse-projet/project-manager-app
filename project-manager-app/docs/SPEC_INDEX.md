@@ -193,6 +193,7 @@ retroactiva.
 | [ui.mobile-product-consolidation](specs/ui/mobile-product-consolidation.spec.md) | ui | APPROVED | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-09-06 |
 | [ui.pro-flows-remediation](specs/ui/pro-flows-remediation.spec.md) | ui | APPROVED | legacy | legacy | legacy | legacy | legacy | critical | no | 2026-08-14 |
 | [ui-pro-flows](specs/ui/pro-flows.spec.md) | ui | DEPRECATED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-06-09 |
+| [ui.prometeo-mascot-3d](specs/ui/prometeo-mascot-3d.spec.md) | ui | APPROVED | COMPLETE | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | yes | 2026-10-05 |
 | [ui.prometeo-multimodal-workspace-p3a](specs/ui/prometeo-multimodal-workspace.spec.md) | ui | IMPLEMENTED | legacy | legacy | legacy | legacy | legacy | medium | yes | 2026-07-16 |
 | [ui-public-landing-operational-entry](specs/ui/public-landing-operational-entry.spec.md) | ui | VERIFIED | legacy | legacy | legacy | legacy | legacy | low | yes | 2026-06-10 |
 | [ui.semse-hub](specs/ui/semse-hub.spec.md) | ui | IMPLEMENTED | legacy | legacy | legacy | legacy | legacy | low | yes | 2026-07-12 |

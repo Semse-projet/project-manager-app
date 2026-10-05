@@ -1,8 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
 import { X } from "lucide-react";
 import type { CopilotMissionSuggestion, CopilotSuggestedAction } from "@semse/schemas";
 import { useCopilotContext } from "../../../lib/hooks/useCopilotContext";
@@ -16,6 +15,8 @@ import { buildWidgetChatRequest, pickRuntimeReply } from "../../../lib/prometeo-
 import { ContextDetector } from "./ContextDetector";
 import { CopilotChat, type CopilotMessage } from "./CopilotChat";
 import { QuickActions } from "./QuickActions";
+import { PrometeoMascot } from "./PrometeoMascot";
+import type { MascotMood } from "../../../lib/prometeo-mascot";
 import { MissionSuggestion } from "./MissionSuggestion";
 
 function newId(): string {
@@ -33,6 +34,23 @@ export function PrometeoCopilot() {
   const [sessionId, setSessionId] = useState<string | undefined>();
   const [suggestion, setSuggestion] = useState<CopilotMissionSuggestion | null>(null);
   const [chatThreadId, setChatThreadId] = useState<string | undefined>();
+  // Estado de ánimo de la mascota: "pensando" mientras responde; luego guía, confirma o se sorprende un momento.
+  const [mood, setMood] = useState<MascotMood>("idle");
+  const moodTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function flashMood(next: MascotMood, ms = 4000) {
+    setMood(next);
+    if (moodTimer.current) clearTimeout(moodTimer.current);
+    moodTimer.current = setTimeout(() => setMood("idle"), ms);
+  }
+
+  useEffect(
+    () => () => {
+      if (moodTimer.current) clearTimeout(moodTimer.current);
+    },
+    [],
+  );
+  const shownMood: MascotMood = pending ? "thinking" : mood;
 
   async function handleSend(text: string) {
     setMessages((prev) => [...prev, { id: newId(), role: "user", content: text }]);
@@ -69,7 +87,9 @@ export function PrometeoCopilot() {
       }
       setMessages((prev) => [...prev, { id: newId(), role: "assistant", content: reply }]);
       if (res.missionSuggestion) setSuggestion(res.missionSuggestion);
+      flashMood("answered");
     } catch (e) {
+      flashMood("error");
       setMessages((prev) => [
         ...prev,
         {
@@ -93,8 +113,10 @@ export function PrometeoCopilot() {
         title: s.title,
       });
       setSuggestion(null);
+      flashMood("success", 2500);
       router.push(mission.workspaceUrl);
     } catch {
+      flashMood("error");
       // surface as a chat message so the user isn't left guessing
       setMessages((prev) => [
         ...prev,
@@ -125,6 +147,7 @@ export function PrometeoCopilot() {
         },
       });
     } catch (e) {
+      flashMood("error");
       pushAssistantMessage(e instanceof Error ? e.message : "No se pudo ejecutar la acción.");
       setPending(false);
       return;
@@ -150,14 +173,9 @@ export function PrometeoCopilot() {
 
   if (!open) {
     return (
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="fixed bottom-24 right-6 z-50 flex h-14 w-14 items-center justify-center overflow-hidden rounded-full bg-slate-900 shadow-lg transition hover:scale-105"
-        aria-label="Abrir Prometeo Copilot"
-      >
-        <Image src="/brand/prometeo/avatar-256.png" alt="Prometeo" width={56} height={56} className="h-full w-full object-cover" />
-      </button>
+      <div className="fixed bottom-16 right-3 z-50">
+        <PrometeoMascot size={140} mood={shownMood} onActivate={() => setOpen(true)} label="Abrir Prometeo Copilot" />
+      </div>
     );
   }
 
@@ -165,9 +183,7 @@ export function PrometeoCopilot() {
     <div className="fixed bottom-24 right-6 z-50 flex h-[32rem] max-h-[calc(100vh-8rem)] w-96 max-w-[calc(100vw-3rem)] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
       <header className="flex items-center justify-between border-b border-slate-100 px-3 py-2">
         <div className="flex items-center gap-2">
-          <span className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-full bg-slate-900">
-            <Image src="/brand/prometeo/avatar-256.png" alt="Prometeo" width={28} height={28} className="h-full w-full object-cover" />
-          </span>
+          <span className="flex items-center justify-center overflow-hidden rounded-xl bg-slate-900"><PrometeoMascot size={48} mood={shownMood} label="Prometeo" /></span>
           <span className="text-sm font-semibold text-slate-800">Prometeo Copilot</span>
         </div>
         <button
