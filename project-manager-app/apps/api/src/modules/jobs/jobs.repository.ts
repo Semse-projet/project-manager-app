@@ -18,6 +18,7 @@ import {
   type JobsBidsProjectionSnapshot,
 } from "./jobs-bids-projection.js";
 import { sameOrg } from "../../common/resource-scope.js";
+import { buildJobVisibilityWhere } from "./jobs-visibility.js";
 
 const jobStatusMap = {
   draft: "DRAFT",
@@ -77,38 +78,7 @@ export class JobsRepository {
     userId: string;
     roles: string[];
   }): Prisma.JobWhereInput {
-    const isOpsAdmin = input.roles.includes("OPS_ADMIN");
-    const isPro = input.roles.includes("PRO") || input.roles.includes("WORKER");
-
-    if (isOpsAdmin) {
-      return {};
-    }
-    if (isPro) {
-      return {
-        OR: [
-          { status: { in: ["POSTED", "PUBLISHED"] } },
-          { bids: { some: { professionalUserId: input.userId } } },
-          {
-            reservations: {
-              some: {
-                status: { in: ["ACTIVE", "ACCEPTED"] },
-                OR: [{ professionalId: input.userId }, { professionalOrgId: input.orgId }]
-              }
-            }
-          },
-          {
-            contract: {
-              is: {
-                deletedAt: null,
-                OR: [{ professionalUserId: input.userId }, { professionalOrgId: input.orgId }]
-              }
-            }
-          },
-          { project: { is: { assignedProOrgId: input.orgId } } }
-        ]
-      };
-    }
-    return { clientOrgId: input.orgId };
+    return buildJobVisibilityWhere(input);
   }
 
   /**
