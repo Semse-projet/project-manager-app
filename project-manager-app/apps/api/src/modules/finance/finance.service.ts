@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger, NotFoundException, Optional } from "@nestjs/common";
+import { BadRequestException, Inject, Injectable, Logger, NotFoundException, Optional } from "@nestjs/common";
 import type { OperationalContextService } from "../ai-models/context/operational-context.service.js";
 import { OPERATIONAL_CONTEXT_SERVICE } from "../ai-models/context/operational-context.token.js";
 import {
@@ -11,14 +11,22 @@ import {
 import { SseEventBusService } from "../../infrastructure/sse/sse-event-bus.service.js";
 import { ProjectLifecycleProjectionEventProducer } from "../domain-events/project-lifecycle-projection-event-producer.service.js";
 
+import { FinanceAccessPolicy, financeId, type FinanceAssociations } from "./finance-access.policy.js";
+import type { ScopeActor } from "../../common/resource-scope.js";
+
 function computeTotals(lineItems: InvoiceLineItem[]): { subtotal: number; taxAmount: number; total: number } {
+  if (!Array.isArray(lineItems)) throw new BadRequestException("lineItems must be an array");
   let subtotal = 0, taxAmount = 0;
   for (const li of lineItems) {
+    if (!li || ![li.qty, li.unitPrice, li.taxRate].every(v => typeof v === "number" && Number.isFinite(v) && v >= 0)) {
+      throw new BadRequestException("Invalid invoice line item");
+    }
     const lineTotal = li.qty * li.unitPrice;
     const tax = lineTotal * (li.taxRate / 100);
     subtotal += lineTotal;
     taxAmount += tax;
   }
+  if (![subtotal, taxAmount, subtotal + taxAmount].every(v => Number.isFinite(v) && v < 1e10)) throw new BadRequestException("Invoice total exceeds supported precision");
   return { subtotal: parseFloat(subtotal.toFixed(2)), taxAmount: parseFloat(taxAmount.toFixed(2)), total: parseFloat((subtotal + taxAmount).toFixed(2)) };
 }
 
@@ -28,6 +36,7 @@ export class FinanceService {
 
   constructor(
     private readonly repo: FinanceRepository,
+    private readonly policy: FinanceAccessPolicy,
     @Optional() private readonly sseBus?: SseEventBusService,
     @Optional() @Inject(OPERATIONAL_CONTEXT_SERVICE)
     private readonly operationalContext?: OperationalContextService,
@@ -51,58 +60,84 @@ export class FinanceService {
     projectId?: string; jobId?: string; createdBy: string;
     title: string; lineItems: InvoiceLineItem[]; currency?: string;
     dueDate?: Date; notes?: string; terms?: string;
-  }) {
-    const number = await this.repo.getNextInvoiceNumber(input.tenantId);
+  }, actor: ScopeActor) {
+    this.policy.assertOwner(actor);
+    const assoc = { projectId: financeId(input.projectId, "projectId"), jobId: financeId(input.jobId, "jobId") };
+    const resolvedClient = await this.policy.assertCanCreate(actor, assoc);
+    const requestedClient = financeId(input.clientOrgId, "clientOrgId");
+    if (resolvedClient && requestedClient && resolvedClient !== requestedClient) throw new BadRequestException("clientOrgId does not match the resource owner");
+    if (requestedClient && !resolvedClient && !(await this.repo.organizationExists(actor.tenantId, requestedClient))) throw new NotFoundException("Organization not found");
+    const owner = { tenantId: actor.tenantId, orgId: actor.orgId, createdBy: actor.userId! };
+    const number = await this.repo.getNextInvoiceNumber(actor.tenantId);
     const { subtotal, taxAmount, total } = computeTotals(input.lineItems);
-    const invoice = await this.repo.createInvoice({ ...input, number, subtotal, taxAmount, total });
+    const invoice = await this.repo.createInvoice({ ...input, ...owner, ...assoc, clientOrgId: resolvedClient ?? requestedClient, number, subtotal, taxAmount, total });
     this.logger.log(`[finance] invoice created id=${invoice.id} number=${number} total=${total}`);
-    this.syncContext(input.tenantId, invoice.projectId, "finance.invoice.created", "invoice created");
+    this.syncContext(actor.tenantId, invoice.projectId, "finance.invoice.created", "invoice created");
     return invoice;
   }
 
-  async getInvoice(id: string, tenantId: string) {
-    const inv = await this.repo.findInvoiceById(id, tenantId);
-    if (!inv) throw new NotFoundException(`Invoice '${id}' not found`);
+  async getInvoice(id: string, actor: ScopeActor) {
+    const inv = await this.repo.findInvoiceById(id, actor.tenantId);
+    await this.policy.assertRowAccess(actor, inv, "Invoice not found");
+    if (!inv) throw new NotFoundException("Invoice not found");
     return inv;
   }
 
   async listInvoices(input: {
     tenantId: string; orgId?: string; projectId?: string;
-    status?: InvoiceStatus; limit?: number;
-  }) {
-    return this.repo.listInvoices(input);
+    status?: InvoiceStatus; limit?: number; cursor?: string;
+  }, actor: ScopeActor) {
+    const projectId = financeId(input.projectId, "projectId");
+    if (projectId) await this.policy.assertProjectFilter(actor, projectId);
+    const cursor = financeId(input.cursor, "cursor");
+    if (cursor) await this.getInvoice(cursor, actor);
+    const scope = projectId ? undefined : await this.policy.listScope(actor);
+    return this.repo.listInvoices({ ...input, tenantId: actor.tenantId, orgId: undefined, projectId, cursor, scope, limit: this.listLimit(input.limit, 50) });
   }
 
-  async sendInvoice(id: string, tenantId: string) {
-    const inv = await this.getInvoice(id, tenantId);
+  async sendInvoice(id: string, actor: ScopeActor) {
+    const inv = await this.getInvoice(id, actor);
     if (inv.status !== "draft") return inv;
-    const updated = await this.repo.updateInvoiceStatus(id, tenantId, "sent", { sentAt: new Date() });
+    const updated = await this.repo.updateInvoiceStatus(id, actor.tenantId, "sent", { sentAt: new Date() });
     this.logger.log(`[finance] invoice sent id=${id}`);
-    this.syncContext(tenantId, updated.projectId, "finance.invoice.sent", "invoice sent");
+    this.syncContext(actor.tenantId, updated.projectId, "finance.invoice.sent", "invoice sent");
     return updated;
   }
 
-  async markInvoicePaid(id: string, tenantId: string) {
-    const updated = await this.repo.updateInvoiceStatus(id, tenantId, "paid", { paidAt: new Date() });
+  async markInvoicePaid(id: string, actor: ScopeActor) {
+    await this.getInvoice(id, actor);
+    const updated = await this.repo.updateInvoiceStatus(id, actor.tenantId, "paid", { paidAt: new Date() });
     this.logger.log(`[finance] invoice paid id=${id}`);
-    this.syncContext(tenantId, updated.projectId, "finance.invoice.paid", "invoice marked paid");
+    this.syncContext(actor.tenantId, updated.projectId, "finance.invoice.paid", "invoice marked paid");
     return updated;
   }
 
-  async markInvoiceViewed(id: string, tenantId: string) {
-    const inv = await this.repo.findInvoiceById(id, tenantId);
-    if (!inv || inv.viewedAt) return inv;
-    const updated = await this.repo.updateInvoiceStatus(id, tenantId, "viewed", { viewedAt: new Date() });
-    this.syncContext(tenantId, updated.projectId, "finance.invoice.viewed", "invoice viewed");
+  async markInvoiceViewed(id: string, actor: ScopeActor) {
+    const inv = await this.getInvoice(id, actor);
+    if (inv.viewedAt) return inv;
+    const updated = await this.repo.updateInvoiceStatus(id, actor.tenantId, inv.status === "sent" ? "viewed" : inv.status, { viewedAt: new Date() });
+    this.syncContext(actor.tenantId, updated.projectId, "finance.invoice.viewed", "invoice viewed");
     return updated;
   }
 
-  async updateInvoice(id: string, tenantId: string, data: Parameters<FinanceRepository["updateInvoice"]>[2]) {
-    const current = await this.getInvoice(id, tenantId);
+  async updateInvoice(id: string, actor: ScopeActor, data: Parameters<FinanceRepository["updateInvoice"]>[2]) {
+    const current = await this.getInvoice(id, actor);
+    const allowed = new Set(["title", "lineItems", "dueDate", "notes", "terms", "pdfUrl"]);
+    if (!data || typeof data !== "object" || Array.isArray(data) || Object.keys(data).some(key => !allowed.has(key))) {
+      throw new BadRequestException("Invoice patch contains server-owned or unsupported fields");
+    }
+    for (const key of ["title", "notes", "terms", "pdfUrl"] as const) {
+      if (data[key] !== undefined && typeof data[key] !== "string") throw new BadRequestException(`Invalid ${key}`);
+    }
+    if (data.dueDate !== undefined && data.dueDate !== null) {
+      const date = new Date(data.dueDate);
+      if (!Number.isFinite(date.getTime())) throw new BadRequestException("Invalid dueDate");
+      data = { ...data, dueDate: date };
+    }
     const lineItems = data.lineItems;
     const extras = lineItems ? computeTotals(lineItems) : {};
-    const updated = await this.repo.updateInvoice(id, tenantId, { ...data, ...extras });
-    this.syncContext(tenantId, updated.projectId ?? current.projectId, "finance.invoice.updated", "invoice updated");
+    const updated = await this.repo.updateInvoice(id, actor.tenantId, { ...data, ...extras });
+    this.syncContext(actor.tenantId, updated.projectId ?? current.projectId, "finance.invoice.updated", "invoice updated");
     return updated;
   }
 
@@ -115,12 +150,35 @@ export class FinanceService {
     description: string; amount: number; currency?: string;
     vendor?: string; expenseDate?: Date; receiptUrl?: string;
     receiptText?: string; notes?: string;
-  }) {
-    const duplicateOfId = await this.repo.detectDuplicates(input.tenantId, input.amount, input.vendor);
-    const expense = await this.repo.createExpense({ ...input });
+  }, actor: ScopeActor) {
+    this.policy.assertOwner(actor);
+    const assoc: FinanceAssociations = { projectId: financeId(input.projectId, "projectId"), jobId: financeId(input.jobId, "jobId") };
+    await this.policy.assertCanCreate(actor, assoc);
+    const milestoneId = financeId(input.milestoneId, "milestoneId");
+    const invoiceId = financeId(input.invoiceId, "invoiceId");
+    const mergeAssociation = (key: "projectId" | "jobId", value: string | null | undefined) => {
+      if (!value) return;
+      if (assoc[key] && assoc[key] !== value) throw new BadRequestException(`Incompatible ${key} association`);
+      assoc[key] = value;
+    };
+    if (milestoneId) {
+      const milestone = await this.repo.findMilestoneAssociation(actor.tenantId, milestoneId);
+      if (!milestone) throw new NotFoundException("Milestone not found");
+      await this.policy.assertProjectFilter(actor, milestone.projectId);
+      mergeAssociation("projectId", milestone.projectId);
+    }
+    if (invoiceId) {
+      const invoice = await this.getInvoice(invoiceId, actor);
+      mergeAssociation("projectId", invoice.projectId);
+      mergeAssociation("jobId", invoice.jobId);
+    }
+    await this.policy.assertCanCreate(actor, assoc);
+    if (!Number.isFinite(input.amount) || input.amount < 0 || input.amount >= 1e10) throw new BadRequestException("Invalid expense amount");
+    input = { ...input, ...assoc, milestoneId, invoiceId, tenantId: actor.tenantId, orgId: actor.orgId, submittedBy: actor.userId! };
+    const duplicateOfId = await this.repo.detectDuplicates({ tenantId: actor.tenantId, orgId: actor.orgId, ...assoc, currency: input.currency ?? "USD", amount: input.amount, vendor: input.vendor });
+    const expense = await this.repo.createExpense({ ...input, isDuplicate: !!duplicateOfId, duplicateOfId });
 
     if (duplicateOfId) {
-      await this.repo.updateExpenseStatus(expense.id, input.tenantId, "pending");
       this.logger.warn(`[finance] potential duplicate expense id=${expense.id} duplicateOfId=${duplicateOfId}`);
       this.syncContext(input.tenantId, expense.projectId, "finance.expense.duplicate", "expense duplicate detected");
       if (expense.projectId) {
@@ -157,23 +215,31 @@ export class FinanceService {
     return expense;
   }
 
-  async getExpense(id: string, tenantId: string) {
-    const e = await this.repo.findExpenseById(id, tenantId);
-    if (!e) throw new NotFoundException(`Expense '${id}' not found`);
+  async getExpense(id: string, actor: ScopeActor) {
+    const e = await this.repo.findExpenseById(id, actor.tenantId);
+    await this.policy.assertRowAccess(actor, e, "Expense not found");
+    if (!e) throw new NotFoundException("Expense not found");
     return e;
   }
 
   async listExpenses(input: {
     tenantId: string; orgId?: string; projectId?: string;
-    category?: ExpenseCategory; status?: string; limit?: number;
-  }) {
-    return this.repo.listExpenses(input as Parameters<FinanceRepository["listExpenses"]>[0]);
+    category?: ExpenseCategory; status?: string; limit?: number; cursor?: string;
+  }, actor: ScopeActor) {
+    const projectId = financeId(input.projectId, "projectId");
+    if (projectId) await this.policy.assertProjectFilter(actor, projectId);
+    const cursor = financeId(input.cursor, "cursor");
+    if (cursor) await this.getExpense(cursor, actor);
+    const scope = projectId ? undefined : await this.policy.listScope(actor);
+    return this.repo.listExpenses({ ...input, tenantId: actor.tenantId, orgId: undefined, projectId, cursor, scope, limit: this.listLimit(input.limit, 100) } as Parameters<FinanceRepository["listExpenses"]>[0]);
   }
 
-  async approveExpense(id: string, tenantId: string, approvedBy: string) {
-    await this.getExpense(id, tenantId);
+  async approveExpense(id: string, actor: ScopeActor) {
+    const tenantId = actor.tenantId;
+    const approvedBy = actor.userId!;
+    await this.getExpense(id, actor);
     const updated = await this.repo.updateExpenseStatus(id, tenantId, "approved", approvedBy);
-    this.syncContext(tenantId, updated.projectId, "finance.expense.approved", "expense approved");
+    this.syncContext(actor.tenantId, updated.projectId, "finance.expense.approved", "expense approved");
     if (updated.projectId) {
       await this.lifecycleProjectionEvents?.emit({
         tenantId,
@@ -190,10 +256,11 @@ export class FinanceService {
     return updated;
   }
 
-  async rejectExpense(id: string, tenantId: string) {
-    await this.getExpense(id, tenantId);
+  async rejectExpense(id: string, actor: ScopeActor) {
+    const tenantId = actor.tenantId;
+    await this.getExpense(id, actor);
     const updated = await this.repo.updateExpenseStatus(id, tenantId, "rejected");
-    this.syncContext(tenantId, updated.projectId, "finance.expense.rejected", "expense rejected");
+    this.syncContext(actor.tenantId, updated.projectId, "finance.expense.rejected", "expense rejected");
     if (updated.projectId) {
       await this.lifecycleProjectionEvents?.emit({
         tenantId,
@@ -208,6 +275,10 @@ export class FinanceService {
       });
     }
     return updated;
+  }
+
+  private listLimit(value: number | undefined, fallback: number): number {
+    return typeof value === "number" && Number.isSafeInteger(value) && value > 0 ? Math.min(value, 500) : fallback;
   }
 
   // ── Templates ─────────────────────────────────────────────────────────────────
@@ -225,15 +296,17 @@ export class FinanceService {
 
   // ── Financial summary ─────────────────────────────────────────────────────────
 
-  async getProjectSummary(tenantId: string, projectId: string) {
-    return this.repo.getProjectFinancialSummary(tenantId, projectId);
+  async getProjectSummary(actor: ScopeActor, projectId: string) {
+    await this.policy.assertProjectFilter(actor, projectId);
+    return this.repo.getProjectFinancialSummary(actor.tenantId, projectId);
   }
 
   // ── AI context block ──────────────────────────────────────────────────────────
 
-  async buildFinanceContextBlock(tenantId: string, projectId: string): Promise<string> {
+  async buildFinanceContextBlock(actor: ScopeActor, projectId: string): Promise<string> {
+    await this.policy.assertProjectFilter(actor, projectId);
     try {
-      const summary = await this.getProjectSummary(tenantId, projectId);
+      const summary = await this.getProjectSummary(actor, projectId);
       const lines = [
         "## Resumen financiero del proyecto",
         `Escrow: $${summary.escrowFunded.toLocaleString()} fondeados · $${summary.escrowReleased.toLocaleString()} liberados · $${summary.pendingRelease.toLocaleString()} pendiente`,

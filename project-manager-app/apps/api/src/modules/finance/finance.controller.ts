@@ -31,6 +31,7 @@ export class FinanceController {
     @Query("projectId") projectId?: string,
     @Query("status") status?: string,
     @Query("limit") limit?: string,
+    @Query("cursor") cursor?: string,
   ) {
     const rid = resolveRequestId(req.headers ?? {});
     const ctx = actor(req);
@@ -39,8 +40,8 @@ export class FinanceController {
       orgId: ctx.orgId,
       projectId,
       status: status as InvoiceStatus | undefined,
-      limit: parsePositiveInt(limit, 50),
-    });
+      limit: parsePositiveInt(limit, 50), cursor,
+    }, ctx);
     return ok(rid, data);
   }
 
@@ -62,7 +63,7 @@ export class FinanceController {
       dueDate: body.dueDate ? new Date(String(body.dueDate)) : undefined,
       notes: body.notes as string | undefined,
       terms: body.terms as string | undefined,
-    });
+    }, ctx);
     return ok(rid, data);
   }
 
@@ -71,7 +72,7 @@ export class FinanceController {
   async getInvoice(@Req() req: FastifyRequest, @Param("id") id: string) {
     const rid = resolveRequestId(req.headers ?? {});
     const ctx = actor(req);
-    return ok(rid, await this.finance.getInvoice(id, ctx.tenantId));
+    return ok(rid, await this.finance.getInvoice(id, ctx));
   }
 
   @Get("invoices/:id/pdf")
@@ -83,7 +84,7 @@ export class FinanceController {
     @Query("type") type?: string,
   ) {
     const ctx = actor(req);
-    const invoice = await this.finance.getInvoice(id, ctx.tenantId);
+    const invoice = await this.finance.getInvoice(id, ctx);
     const docType = (type === "estimate" || invoice.status === "draft") ? "estimate" : "invoice";
     const buf = docType === "estimate"
       ? await this.pdf.generateEstimatePdf(invoice)
@@ -101,7 +102,7 @@ export class FinanceController {
   async updateInvoice(@Req() req: FastifyRequest, @Param("id") id: string, @Body() body: Record<string, unknown>) {
     const rid = resolveRequestId(req.headers ?? {});
     const ctx = actor(req);
-    return ok(rid, await this.finance.updateInvoice(id, ctx.tenantId, body as Parameters<FinanceService["updateInvoice"]>[2]));
+    return ok(rid, await this.finance.updateInvoice(id, ctx, body as Parameters<FinanceService["updateInvoice"]>[2]));
   }
 
   @Post("invoices/:id/send")
@@ -109,7 +110,7 @@ export class FinanceController {
   async sendInvoice(@Req() req: FastifyRequest, @Param("id") id: string) {
     const rid = resolveRequestId(req.headers ?? {});
     const ctx = actor(req);
-    return ok(rid, await this.finance.sendInvoice(id, ctx.tenantId));
+    return ok(rid, await this.finance.sendInvoice(id, ctx));
   }
 
   @Post("invoices/:id/pay")
@@ -117,7 +118,7 @@ export class FinanceController {
   async markPaid(@Req() req: FastifyRequest, @Param("id") id: string) {
     const rid = resolveRequestId(req.headers ?? {});
     const ctx = actor(req);
-    return ok(rid, await this.finance.markInvoicePaid(id, ctx.tenantId));
+    return ok(rid, await this.finance.markInvoicePaid(id, ctx));
   }
 
   @Post("invoices/:id/viewed")
@@ -125,7 +126,7 @@ export class FinanceController {
   async markViewed(@Req() req: FastifyRequest, @Param("id") id: string) {
     const rid = resolveRequestId(req.headers ?? {});
     const ctx = actor(req);
-    return ok(rid, await this.finance.markInvoiceViewed(id, ctx.tenantId));
+    return ok(rid, await this.finance.markInvoiceViewed(id, ctx));
   }
 
   // ── Expenses ──────────────────────────────────────────────────────────────────
@@ -138,14 +139,15 @@ export class FinanceController {
     @Query("category") category?: string,
     @Query("status") status?: string,
     @Query("limit") limit?: string,
+    @Query("cursor") cursor?: string,
   ) {
     const rid = resolveRequestId(req.headers ?? {});
     const ctx = actor(req);
     return ok(rid, await this.finance.listExpenses({
       tenantId: ctx.tenantId, orgId: ctx.orgId,
       projectId, category: category as ExpenseCategory | undefined,
-      status, limit: parsePositiveInt(limit, 100),
-    }));
+      status, limit: parsePositiveInt(limit, 100), cursor,
+    }, ctx));
   }
 
   @Post("expenses")
@@ -169,7 +171,7 @@ export class FinanceController {
       receiptUrl: body.receiptUrl as string | undefined,
       receiptText: body.receiptText as string | undefined,
       notes: body.notes as string | undefined,
-    }));
+    }, ctx));
   }
 
   @Get("expenses/:id")
@@ -177,7 +179,7 @@ export class FinanceController {
   async getExpense(@Req() req: FastifyRequest, @Param("id") id: string) {
     const rid = resolveRequestId(req.headers ?? {});
     const ctx = actor(req);
-    return ok(rid, await this.finance.getExpense(id, ctx.tenantId));
+    return ok(rid, await this.finance.getExpense(id, ctx));
   }
 
   @Post("expenses/:id/approve")
@@ -185,7 +187,7 @@ export class FinanceController {
   async approveExpense(@Req() req: FastifyRequest, @Param("id") id: string) {
     const rid = resolveRequestId(req.headers ?? {});
     const ctx = actor(req);
-    return ok(rid, await this.finance.approveExpense(id, ctx.tenantId, ctx.userId));
+    return ok(rid, await this.finance.approveExpense(id, ctx));
   }
 
   @Post("expenses/:id/reject")
@@ -193,7 +195,7 @@ export class FinanceController {
   async rejectExpense(@Req() req: FastifyRequest, @Param("id") id: string) {
     const rid = resolveRequestId(req.headers ?? {});
     const ctx = actor(req);
-    return ok(rid, await this.finance.rejectExpense(id, ctx.tenantId));
+    return ok(rid, await this.finance.rejectExpense(id, ctx));
   }
 
   // ── Templates ─────────────────────────────────────────────────────────────────
@@ -228,7 +230,7 @@ export class FinanceController {
   async projectSummary(@Req() req: FastifyRequest, @Param("projectId") projectId: string) {
     const rid = resolveRequestId(req.headers ?? {});
     const ctx = actor(req);
-    return ok(rid, await this.finance.getProjectSummary(ctx.tenantId, projectId));
+    return ok(rid, await this.finance.getProjectSummary(ctx, projectId));
   }
 
   @Get("projects/:projectId/summary/context")
@@ -236,7 +238,7 @@ export class FinanceController {
   async projectSummaryContext(@Req() req: FastifyRequest, @Param("projectId") projectId: string) {
     const rid = resolveRequestId(req.headers ?? {});
     const ctx = actor(req);
-    return ok(rid, { context: await this.finance.buildFinanceContextBlock(ctx.tenantId, projectId) });
+    return ok(rid, { context: await this.finance.buildFinanceContextBlock(ctx, projectId) });
   }
 
   // ── Receipt OCR ───────────────────────────────────────────────────────────────

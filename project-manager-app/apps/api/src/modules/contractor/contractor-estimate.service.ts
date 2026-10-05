@@ -123,13 +123,12 @@ Ejemplo de formato:
       tenantId: input.tenantId,
       orgId: input.orgId,
       createdBy: input.userId,
-      clientOrgId: lead.name,
       title,
       lineItems,
       dueDate: input.dueDate ? new Date(input.dueDate) : undefined,
       notes: input.notes ?? `Cliente: ${lead.name}${lead.phone ? ` · Tel: ${lead.phone}` : ""}${lead.address ? ` · ${lead.address}` : ""}`,
       terms: input.terms ?? DEFAULT_TERMS,
-    });
+    }, { tenantId: input.tenantId, orgId: input.orgId, userId: input.userId, roles: [] });
 
     await this.contractor.updateLead(input.leadId, input.tenantId, {
       status: "estimate_sent",
