@@ -615,7 +615,7 @@ export class ProjectCopilotHarness {
       );
 
       try {
-        const executionSummary = await this.executeApprovedAction(runtime, actionType, payload, linkedStep);
+        const executionSummary = await this.executeApprovedAction(runtime, actionType, payload, linkedStep, { approvalId: approval.id });
 
         await this.audit(runtime, "project.copilot.action.executed", {
           actionType,
@@ -928,6 +928,7 @@ export class ProjectCopilotHarness {
         actionType,
         payload,
         linkedPlanId && linkedStepId ? { planId: linkedPlanId, stepId: linkedStepId } : undefined,
+        { approvalId: approval.id },
       );
 
       await this.audit(runtime, "project.copilot.action.post_approval_executed", {
@@ -981,7 +982,8 @@ export class ProjectCopilotHarness {
     runtime: ProjectCopilotHarnessRuntime,
     actionType: string,
     payload: Record<string, unknown>,
-    linkedStep?: { planId: string; stepId: string }
+    linkedStep?: { planId: string; stepId: string },
+    origin?: { approvalId?: string }
   ): Promise<string> {
     const resolvedLink = linkedStep ?? await this.resolveLinkedStep(runtime, actionType);
 
@@ -1035,7 +1037,7 @@ export class ProjectCopilotHarness {
           summary = await this.executeRunCommand(runtime, { command: "npm test" });
           break;
         case "DELEGATE_TASK":
-          summary = await this.executeDelegateTask(runtime, payload);
+          summary = await this.executeDelegateTask(runtime, payload, origin);
           break;
         case "RUN_BROWSER_MISSION":
           summary = await this.executeBrowserMission(runtime, payload);
@@ -1206,7 +1208,8 @@ export class ProjectCopilotHarness {
 
   private async executeDelegateTask(
     runtime: ProjectCopilotHarnessRuntime,
-    payload: Record<string, unknown>
+    payload: Record<string, unknown>,
+    origin?: { approvalId?: string }
   ): Promise<string> {
     const role = typeof payload.agentRole === "string" ? payload.agentRole : "unknown";
     const task = typeof payload.task === "string" ? payload.task : "";
@@ -1218,7 +1221,16 @@ export class ProjectCopilotHarness {
       userId: runtime.actor.userId,
       roles: runtime.actor.roles,
       projectId: runtime.projectId,
-      sourceRunId: undefined, // El harness no siempre corre bajo un run explícito en este modelo, pero podríamos vincularlo si existiera
+      // El copiloto no corre bajo un AgentRun propio (no hay un run padre al que apuntar); el origen durable es la
+      // solicitud y, si la hubo, la aprobación que la autorizó. Abrir un run padre queda para la observabilidad (H05).
+      sourceRunId: undefined,
+      lineage: {
+        parent: "project-copilot",
+        requestId: runtime.requestId,
+        approvalId: origin?.approvalId,
+        actorUserId: runtime.actor.userId,
+        projectId: runtime.projectId,
+      },
       coordinatorId: "project-copilot",
       targetAgentId: role,
       taskTitle: task,
@@ -1353,15 +1365,23 @@ export class ProjectCopilotHarness {
         orgId: actor.orgId,
         userId: actor.userId,
       });
+      // H08: un run delegado pertenece a ESTE proyecto solo si la delegación de este proyecto lo tiene como run
+      // destino. Antes bastaba con que su input tuviera un `delegationId`, y se mezclaban runs de otros proyectos.
+      const delegations = await this.safeCall(() =>
+        this.agentDelegationService.listByProject({ tenantId: actor.tenantId, projectId }),
+      );
+      const delegatedRunIds = new Set(
+        (delegations ?? [])
+          .map((d: { targetRunId?: string | null }) => d.targetRunId)
+          .filter((id): id is string => typeof id === "string" && id.length > 0),
+      );
       return runs
         .filter((run: Record<string, unknown>) => {
-           // Si el run tiene context de operador y el workspace coincide con project:ID,
-           // o si en el input está el projectId, lo incluimos.
            const input = run.input as Record<string, unknown> | undefined;
            const opContext = input?.operatorContext as Record<string, unknown> | undefined;
            if (opContext && opContext.workspaceId === `project:${projectId}`) return true;
            if (input && input.projectId === projectId) return true;
-           if (input && input.delegationId) return true; // Include delegated sub-runs
+           if (delegatedRunIds.has(String(run.id ?? ""))) return true;
            return false;
         })
         .map((run: Record<string, unknown>) => ({
