@@ -13,7 +13,7 @@ import type { ProjectScope } from "./resource-scope.js";
  * deciden `hasScopeAccess`/`assertScopeAccess` y la política del dominio.
  *
  * Migración GRADUAL (sin big bang): los resolutores duplicados de cada módulo se migran uno a uno con sus
- * pruebas. Hoy lo usa `WorkspaceMemoryAccessPolicy`.
+ * pruebas. Lo usan `WorkspaceMemoryAccessPolicy`, weather, intelligence, tasks, vision y milestones.
  */
 @Injectable()
 export class ResourceScopeResolver {
@@ -39,6 +39,18 @@ export class ResourceScopeResolver {
     });
     if (!job) return null;
     return { tenantId: job.tenantId, clientOrgId: job.clientOrgId, assignedProOrgId: job.project?.assignedProOrgId };
+  }
+
+  /** `Milestone` (no eliminado) del tenant → alcance de su proyecto. */
+  async resolveMilestoneScope(tenantId: string, milestoneId: string): Promise<ProjectScope | null> {
+    if (!tenantId || !milestoneId) return null;
+    const milestone = await this.prisma.milestone.findFirst({
+      where: { id: milestoneId, deletedAt: null, project: { tenantId } },
+      select: { project: { select: { tenantId: true, assignedProOrgId: true, job: { select: { clientOrgId: true } } } } },
+    });
+    if (!milestone?.project) return null;
+    const { project } = milestone;
+    return { tenantId: project.tenantId, clientOrgId: project.job?.clientOrgId, assignedProOrgId: project.assignedProOrgId };
   }
 
   /** `Dispute` del tenant → alcance de su proyecto. */
