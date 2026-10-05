@@ -35,6 +35,8 @@ export class AgentDelegationService {
     roles?: string[];
     projectId?: string;
     sourceRunId?: string;
+    /** Origen de la delegación (solicitud/aprobación del copiloto): sobrevive a reintentos y reinicios. */
+    lineage?: Record<string, unknown>;
     coordinatorId: string;
     targetAgentId: string;
     taskTitle: string;
@@ -64,6 +66,10 @@ export class AgentDelegationService {
       correlationId: `delegation_${delegation.id}`,
       input: {
         delegationId: delegation.id,
+        // H08: el run delegado declara su proyecto y su origen; los listados por proyecto ya no dependen de adivinar.
+        projectId: input.projectId,
+        sourceRunId: input.sourceRunId,
+        lineage: input.lineage,
         taskTitle: input.taskTitle,
         context: input.taskContextJson,
       },

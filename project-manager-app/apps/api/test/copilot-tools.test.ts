@@ -74,10 +74,11 @@ test("toolCallsToActions produces correct AgentAction for escrow release", () =>
   assert.ok(action.summary.includes("3,000"));
 });
 
-test("toolCallsToActions produces recommended approval for evidence request", () => {
+test("toolCallsToActions muestra la policy efectiva del backend para la solicitud de evidencia (H07)", () => {
+  // TOOL_META proponía "recommended", pero la policy efectiva (getActionPolicy) es "none": se muestra esta última.
   const [action] = toolCallsToActions([evidenceCall]);
   assert.equal(action.type, "REQUEST_MISSING_EVIDENCE");
-  assert.equal(action.approvalMode, "recommended");
+  assert.equal(action.approvalMode, "none");
   assert.equal(action.riskLevel, "low");
 });
 

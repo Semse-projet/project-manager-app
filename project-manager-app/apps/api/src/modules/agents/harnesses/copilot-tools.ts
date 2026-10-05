@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
 import type { LLMToolCall, LLMToolDefinition } from "../../../infrastructure/llm/llm.service.js";
 import type { AgentAction } from "@semse/schemas";
+import { agentActionTypeSchema } from "@semse/schemas";
+import { getActionPolicy } from "@semse/agents";
 import type { CopilotPlanDraft } from "../plan-mode.types.js";
 import {
   defaultRequiresApprovedPlan,
@@ -588,6 +590,21 @@ export function toolCallToProposedPlan(toolCall: LLMToolCall | undefined): Copil
   };
 }
 
+/**
+ * H07: la policy que decide el backend. Un tipo del catálogo (`agentActionTypeSchema`) usa `getActionPolicy`; cualquier
+ * otro (las acciones técnicas) es high/required. `TOOL_META` es solo la propuesta del catálogo: mostrarla como si fuera
+ * la autorización efectiva ("Ejecución directa" para algo que exige aprobación) engaña a quien aprueba.
+ */
+export function effectiveActionPolicy(actionType: string): {
+  riskLevel: AgentAction["riskLevel"];
+  approvalMode: AgentAction["approvalMode"];
+} {
+  const known = agentActionTypeSchema.safeParse(actionType);
+  if (!known.success) return { riskLevel: "high", approvalMode: "required" };
+  const policy = getActionPolicy(known.data);
+  return { riskLevel: policy.riskLevel as AgentAction["riskLevel"], approvalMode: policy.approvalMode as AgentAction["approvalMode"] };
+}
+
 export function toolCallsToActions(toolCalls: LLMToolCall[]): AgentAction[] {
   return toolCalls.map((call) => {
     const meta = TOOL_META[call.toolName] ?? {
@@ -597,6 +614,7 @@ export function toolCallsToActions(toolCalls: LLMToolCall[]): AgentAction[] {
       approvalMode: "required",
     };
 
+    const policy = effectiveActionPolicy(meta.actionType);
     return {
       id: randomUUID(),
       type: meta.actionType as AgentAction["type"],
@@ -604,8 +622,8 @@ export function toolCallsToActions(toolCalls: LLMToolCall[]): AgentAction[] {
       summary: buildSummary(call.toolName, call.input),
       rationale: String(call.input.rationale ?? call.input.description ?? call.input.reason ?? ""),
       requiredInputs: [],
-      riskLevel: meta.riskLevel as AgentAction["riskLevel"],
-      approvalMode: meta.approvalMode as AgentAction["approvalMode"],
+      riskLevel: policy.riskLevel,
+      approvalMode: policy.approvalMode,
       toolCall: { toolName: meta.actionType, payload: call.input },
       expectedOutcome: buildSummary(call.toolName, call.input),
       eligibleAt: new Date().toISOString(),
