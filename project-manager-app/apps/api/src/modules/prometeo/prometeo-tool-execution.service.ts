@@ -1,4 +1,12 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, Optional } from "@nestjs/common";
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+  Optional,
+  ServiceUnavailableException,
+} from "@nestjs/common";
 import {
   calculateMaterials,
   MaterialsCalculatorError,
@@ -25,6 +33,13 @@ import { VisionService } from "../vision/vision.service.js";
 import { findPrometeoToolDescriptor } from "./prometeo-tool-registry.js";
 import { evaluatePrometeoToolPolicy } from "./tool-governance/tool-governance.policy.js";
 import { ToolGovernanceRepository, type ProposedActionRecord } from "./tool-governance/tool-governance.repository.js";
+import {
+  ToolAuditUnavailableError,
+  ToolCallAuditor,
+  errorCodeOf,
+  policyVersionOf,
+  type AuditCtx,
+} from "./tool-governance/tool-call-audit.js";
 
 const TRACKER_RANGES = ["week", "month", "all"] as const;
 const TRACKER_SUMMARY_RANGES = ["week", "month"] as const;
@@ -131,7 +146,43 @@ export class PrometeoToolExecutionService {
     @Optional() private readonly payments?: PaymentsService,
     @Optional() private readonly agroIntake?: AgroIntakeService,
     @Optional() private readonly agroIncidents?: AgroIncidentService,
-  ) {}
+  ) {
+    this.auditor = new ToolCallAuditor(toolGovernance);
+  }
+
+  /** H05: ciclo de vida de auditoría por ejecución (modo `PROMETEO_TOOL_AUDIT_LIFECYCLE`; `off` = comportamiento anterior). */
+  private readonly auditor: ToolCallAuditor;
+
+  private auditCtx(
+    actor: { tenantId: string; userId: string },
+    requestId: string,
+    tool: { namespace: string; name: string; mode: string },
+    executionId: string,
+    extra: Partial<AuditCtx> = {},
+  ): AuditCtx {
+    return {
+      executionId,
+      tenantId: actor.tenantId,
+      actorId: actor.userId,
+      namespace: tool.namespace,
+      name: tool.name,
+      mode: tool.mode,
+      requestId,
+      source: "prometeo_tools",
+      policyVersion: policyVersionOf(findPrometeoToolDescriptor(tool.namespace, tool.name) ?? tool),
+      ...extra,
+    };
+  }
+
+  /** En `enforce`, una escritura sin registro de inicio no se ejecuta: se informa como 503, no como un error interno. */
+  private async beginOrRefuse(ctx: AuditCtx, critical: boolean): Promise<boolean> {
+    try {
+      return await this.auditor.begin(ctx, { critical });
+    } catch (error) {
+      if (error instanceof ToolAuditUnavailableError) throw new ServiceUnavailableException(error.message);
+      throw error;
+    }
+  }
 
   async invokeReadTool(
     actor: RequestContext,
@@ -146,17 +197,14 @@ export class PrometeoToolExecutionService {
       throw new BadRequestException(`Prometeo P1 can only invoke read tools. ${descriptor.namespace}.${descriptor.name} is ${descriptor.mode}.`);
     }
 
+    const id = `exec_${randomUUID()}`;
+    const audit = this.auditCtx(actor, requestId, descriptor, id, { input: invocation.input });
     const policy = evaluatePrometeoToolPolicy({ actorRoles: actor.roles, descriptor });
     if (policy.decision === "deny") {
-      await this.toolGovernance?.recordInvocation({
-        tenantId: actor.tenantId,
-        actorId: actor.userId,
-        namespace: descriptor.namespace,
-        name: descriptor.name,
-        mode: descriptor.mode,
+      await this.auditor.finish(audit, false, {
         status: "blocked",
         blockedReason: `missing permissions: ${policy.missingPermissions.join(", ")}`,
-        requestId,
+        errorCode: "POLICY_DENIED",
       });
       throw new ForbiddenException({
         message: `Missing permission for ${descriptor.namespace}.${descriptor.name}`,
@@ -167,24 +215,28 @@ export class PrometeoToolExecutionService {
     }
 
     const startedAt = nowIso();
-    const id = `exec_${randomUUID()}`;
-    const output = await this.executeReadTool(actor, invocation);
+    const started = await this.beginOrRefuse(audit, false);
+    const startedMs = Date.now();
+    let output: unknown;
+    try {
+      output = await this.executeReadTool(actor, invocation);
+    } catch (error) {
+      // H05: una excepción del handler ya no desaparece: queda como ejecución fallida.
+      await this.auditor.finish(
+        audit,
+        started,
+        { status: "failed", errorCode: errorCodeOf(error), output: { error: error instanceof Error ? error.message : String(error) } },
+        startedMs,
+      );
+      throw error;
+    }
     const completedAt = nowIso();
     const blockedReason = typeof output === "object" && output !== null && "__blockedReason" in output
       ? String((output as { __blockedReason: unknown }).__blockedReason)
       : null;
 
     if (blockedReason) {
-      await this.toolGovernance?.recordInvocation({
-        tenantId: actor.tenantId,
-        actorId: actor.userId,
-        namespace: descriptor.namespace,
-        name: descriptor.name,
-        mode: descriptor.mode,
-        status: "blocked",
-        blockedReason,
-        requestId,
-      });
+      await this.auditor.finish(audit, started, { status: "blocked", blockedReason, errorCode: "BLOCKED" }, startedMs);
       return {
         id,
         namespace: descriptor.namespace,
@@ -197,15 +249,7 @@ export class PrometeoToolExecutionService {
       };
     }
 
-    await this.toolGovernance?.recordInvocation({
-      tenantId: actor.tenantId,
-      actorId: actor.userId,
-      namespace: descriptor.namespace,
-      name: descriptor.name,
-      mode: descriptor.mode,
-      status: "succeeded",
-      requestId,
-    });
+    await this.auditor.finish(audit, started, { status: "succeeded", output }, startedMs);
 
     return {
       id,
@@ -235,17 +279,14 @@ export class PrometeoToolExecutionService {
       throw new BadRequestException(`${descriptor.namespace}.${descriptor.name} is a read tool. Use invokeReadTool.`);
     }
 
+    const id = `exec_${randomUUID()}`;
+    const audit = this.auditCtx(actor, requestId, descriptor, id, { input: invocation.input });
     const policy = evaluatePrometeoToolPolicy({ actorRoles: actor.roles, descriptor });
     if (policy.decision === "deny") {
-      await this.toolGovernance?.recordInvocation({
-        tenantId: actor.tenantId,
-        actorId: actor.userId,
-        namespace: descriptor.namespace,
-        name: descriptor.name,
-        mode: descriptor.mode,
+      await this.auditor.finish(audit, false, {
         status: "blocked",
         blockedReason: `missing permissions: ${policy.missingPermissions.join(", ")}`,
-        requestId,
+        errorCode: "POLICY_DENIED",
       });
       throw new ForbiddenException({
         message: `Missing permission for ${descriptor.namespace}.${descriptor.name}`,
@@ -256,25 +297,38 @@ export class PrometeoToolExecutionService {
     }
 
     const startedAt = nowIso();
-    const id = `exec_${randomUUID()}`;
 
     if (policy.decision === "allow") {
-      const output = await this.executeWriteEffect(
-        { tenantId: actor.tenantId, orgId: actor.orgId, userId: actor.userId, roles: actor.roles },
-        invocation,
-        requestId,
-      );
+      // Escritura/crítica: en `enforce`, sin registro de inicio no hay efecto (decisión D1).
+      const started = await this.beginOrRefuse(audit, true);
+      const startedMs = Date.now();
+      let output: unknown;
+      try {
+        output = await this.executeWriteEffect(
+          { tenantId: actor.tenantId, orgId: actor.orgId, userId: actor.userId, roles: actor.roles },
+          invocation,
+          requestId,
+        );
+      } catch (error) {
+        await this.auditor.finish(
+          audit,
+          started,
+          { status: "failed", errorCode: errorCodeOf(error), output: { error: error instanceof Error ? error.message : String(error) } },
+          startedMs,
+        );
+        throw error;
+      }
       const result = this.finishWriteExecution({ id, requestId, startedAt, descriptor, output });
-      await this.toolGovernance?.recordInvocation({
-        tenantId: actor.tenantId,
-        actorId: actor.userId,
-        namespace: descriptor.namespace,
-        name: descriptor.name,
-        mode: descriptor.mode,
-        status: result.status,
-        blockedReason: result.status === "blocked" ? result.errorMessage : undefined,
-        requestId,
-      });
+      await this.auditor.finish(
+        audit,
+        started,
+        {
+          status: result.status,
+          blockedReason: result.status === "blocked" ? result.errorMessage : undefined,
+          output: result.status === "succeeded" ? output : undefined,
+        },
+        startedMs,
+      );
       return result;
     }
 
@@ -295,15 +349,7 @@ export class PrometeoToolExecutionService {
       requiredApprovals: descriptor.approvalPolicy === "confirm" ? [actor.userId] : ["OPS_ADMIN"],
     });
 
-    await this.toolGovernance.recordInvocation({
-      tenantId: actor.tenantId,
-      actorId: actor.userId,
-      namespace: descriptor.namespace,
-      name: descriptor.name,
-      mode: descriptor.mode,
-      status: "queued",
-      requestId,
-    });
+    await this.auditor.finish({ ...audit, proposedActionId: action.id }, false, { status: "queued" });
 
     return {
       id,
@@ -332,6 +378,16 @@ export class PrometeoToolExecutionService {
     }
     this.assertCanDecide(actor, action);
 
+    // H05: el registro de inicio va ANTES de la transición a APPROVED: si en `enforce` no se puede persistir, no se
+    // cambia nada (no queda una acción aprobada sin ejecutar ni traza).
+    const id = `exec_${randomUUID()}`;
+    const descriptor = findPrometeoToolDescriptor(action.namespace, action.name);
+    const audit = this.auditCtx(actor, requestId, { namespace: action.namespace, name: action.name, mode: descriptor?.mode ?? "write" }, id, {
+      proposedActionId: actionId,
+      input: action.inputJson,
+    });
+    const started = await this.beginOrRefuse(audit, true);
+
     const won = await this.toolGovernance.transitionProposedAction({
       tenantId: actor.tenantId,
       id: actionId,
@@ -340,12 +396,12 @@ export class PrometeoToolExecutionService {
       patch: { approvedBy: actor.userId, approvedAt: new Date() },
     });
     if (!won) {
+      await this.auditor.finish(audit, started, { status: "skipped", errorCode: "LOST_RACE" });
       throw new ConflictException(`Proposed action ${actionId} is no longer awaiting approval.`);
     }
 
     const startedAt = nowIso();
-    const id = `exec_${randomUUID()}`;
-    const descriptor = findPrometeoToolDescriptor(action.namespace, action.name);
+    const startedMs = Date.now();
 
     // For self-service policies ("confirm") the effect runs as the proposer —
     // it's their own timer/task. For human_required/dual_approval, the effect
@@ -382,16 +438,19 @@ export class PrometeoToolExecutionService {
         status: "BLOCKED",
         resultJson: { error: message },
       });
-      await this.toolGovernance.recordInvocation({
-        tenantId: action.tenantId,
-        actorId: actor.userId,
-        namespace: action.namespace,
-        name: action.name,
-        mode: descriptor?.mode ?? "write",
-        status: "blocked",
-        blockedReason: message,
-        requestId,
-      });
+      await this.auditor.finish(
+        audit,
+        started,
+        {
+          status: "failed",
+          blockedReason: message,
+          errorCode: errorCodeOf(executionError),
+          output: { error: message },
+          // Con el ciclo de vida apagado se conserva la fila anterior: una excepción del efecto se registraba como "blocked".
+          legacy: { status: "blocked", blockedReason: message },
+        },
+        startedMs,
+      );
       throw executionError;
     }
 
@@ -403,16 +462,7 @@ export class PrometeoToolExecutionService {
         status: "BLOCKED",
         resultJson: { error: blockedReason },
       });
-      await this.toolGovernance.recordInvocation({
-        tenantId: action.tenantId,
-        actorId: actor.userId,
-        namespace: action.namespace,
-        name: action.name,
-        mode: descriptor?.mode ?? "write",
-        status: "blocked",
-        blockedReason,
-        requestId,
-      });
+      await this.auditor.finish(audit, started, { status: "blocked", blockedReason, errorCode: "BLOCKED" }, startedMs);
       return {
         id,
         actionId,
@@ -432,15 +482,7 @@ export class PrometeoToolExecutionService {
       resultJson: output,
       executedAt: new Date(),
     });
-    await this.toolGovernance.recordInvocation({
-      tenantId: action.tenantId,
-      actorId: actor.userId,
-      namespace: action.namespace,
-      name: action.name,
-      mode: descriptor?.mode ?? "write",
-      status: "succeeded",
-      requestId,
-    });
+    await this.auditor.finish(audit, started, { status: "succeeded", output }, startedMs);
 
     return {
       id,
@@ -483,19 +525,17 @@ export class PrometeoToolExecutionService {
     }
 
     const descriptor = findPrometeoToolDescriptor(action.namespace, action.name);
-    await this.toolGovernance.recordInvocation({
-      tenantId: action.tenantId,
-      actorId: actor.userId,
-      namespace: action.namespace,
-      name: action.name,
-      mode: descriptor?.mode ?? "write",
-      status: "rejected",
-      blockedReason: reason,
-      requestId,
-    });
+    // El mismo id de ejecución que ve el cliente en `auditRef` queda en la fila (antes eran dos ids distintos).
+    const id = `exec_${randomUUID()}`;
+    await this.auditor.finish(
+      this.auditCtx(actor, requestId, { namespace: action.namespace, name: action.name, mode: descriptor?.mode ?? "write" }, id, {
+        proposedActionId: actionId,
+      }),
+      false,
+      { status: "rejected", blockedReason: reason },
+    );
 
     const now = nowIso();
-    const id = `exec_${randomUUID()}`;
     return {
       id,
       actionId,
