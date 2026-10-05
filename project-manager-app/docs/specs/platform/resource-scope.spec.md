@@ -106,6 +106,16 @@ Documentos, activos y órdenes de `prometeo` deben tener un **propietario explí
 - **Asociada a un proyecto o job** del tenant ⇒ rigen los permisos de ese proyecto/job (`read`: org cliente, org profesional asignada u `OPS_ADMIN` del tenant). Si una orden declara proyecto **y** job, el job debe ser el del proyecto (si no ⇒ 400). Un job eliminado lógicamente (`deletedAt`) no concede acceso. Un proyecto/job que ya no existe en el tenant solo lo ve `OPS_ADMIN`.
 - **Sin asociación** ⇒ solo la org propietaria (`sameOrg`; la org vacía nunca coincide) u `OPS_ADMIN` del tenant. **Pertenecer al mismo tenant no concede acceso por sí solo.** Otro tenant ⇒ 404; sin relación ⇒ 403.
 - **Listados**: sin `projectId` ⇒ solo filas propias sin asociación más las de proyectos/jobs en los que participa la org (consulta filtrada; los ids se enumeran por completo y, por encima de un tope de seguridad, falla cerrado con 422 en lugar de truncar); con `projectId` ⇒ exige participar en ese proyecto (404/403). `OPS_ADMIN` ve todo su tenant, nunca otro.
+- **Estados de error (contrato de las 6 rutas)**:
+
+  | Código | Cuándo |
+  |---|---|
+  | 400 | orden con `projectId` y `jobId` donde el job no es el del proyecto |
+  | 403 | actor sin org al crear; sin relación con la fila o con su proyecto/job; org vacía |
+  | 404 | fila, proyecto o job de otro tenant o inexistente (sin oráculo de existencia) |
+  | 422 | listado sin `projectId` con más asociaciones que el tope de seguridad: filtrar por `projectId` |
+
+  `docs/specs/api/prometeo.spec.md` (spec de la API RAG, en SDD 1.x) no se modifica en este PR: tocarlo obliga a migrarlo a SDD 2.0 con el estado de entrega de todo Prometeo, para lo que este PR no aporta evidencia. Esta sección es la fuente única de las reglas de activos y órdenes; migrar `prometeo.spec.md` y enlazarla desde allí queda en backlog.
 - **Implementación**: `PrometeoAccessPolicy` (`apps/api/src/modules/prometeo/prometeo-access.policy.ts`) sobre `ResourceScopeResolver` (`listAccessibleProjectIds/JobIds`, `jobBelongsToProject`). Pruebas: `apps/api/test/prometeo-assets-orders-scope.test.ts`.
 - **Pendiente de confirmación del dueño (no implementado):** documentos. Propuesta: con `projectId` ⇒ permisos del proyecto; sin proyecto ⇒ solo la org propietaria u `OPS_ADMIN`; biblioteca compartida únicamente por marca explícita validada en el servidor. `search`, `rag-context` y `rag-query` deberán filtrar por documentos accesibles.
 

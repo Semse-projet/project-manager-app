@@ -324,17 +324,6 @@ input: imagen multipart
 output: { assetId, url }
 ```
 
-### Activos y órdenes de trabajo — control de acceso (C51)
-Rutas: `POST/GET /v1/prometeo/assets`, `PATCH /v1/prometeo/assets/:id/status`, `POST/GET /v1/prometeo/work-orders`, `PATCH /v1/prometeo/work-orders/:id/status`.
-Contrato de acceso: propietario explícito (`orgId` del actor) y permisos de proyecto/job; **la regla vive en `docs/specs/platform/resource-scope.spec.md` §3.4** (fuente única; no se duplica aquí). Estados de error:
-
-| Código | Cuándo |
-|---|---|
-| 400 | orden con `projectId` y `jobId` donde el job no es el del proyecto |
-| 403 | actor sin org al crear; sin relación con la fila o con el proyecto/job asociado; org vacía |
-| 404 | fila, proyecto o job de otro tenant o inexistente (sin oráculo de existencia) |
-| 422 | listado sin `projectId` con más asociaciones que el tope de seguridad: filtrar por `projectId` |
-
 ---
 
 ## 4. Tests Requeridos

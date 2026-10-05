@@ -43,5 +43,5 @@ Consultas hechas el 2026-10-05 con búsqueda web; las páginas primarias no se p
 3. Consulta: código HTTP para «demasiadas asociaciones, filtra» — [RFC 9110, 422 Unprocessable Content](https://www.rfc-editor.org/rfc/rfc9110.html#name-422-unprocessable-content). Resultado: la sintaxis es correcta pero el servidor no puede procesar la instrucción; repetir sin modificar falla igual (distinto de 400, que es petición malformada).
 
 - Aplicado ahora: comprobación de objeto en cada ruta por id (404/403), pruebas negativas cross-tenant/cross-org, enumeración de ids por cursor con tope y 422.
-- Backlog: documentos y la búsqueda RAG (`search`, `rag-context`, `rag-query`) por documentos accesibles, a la espera de la regla del dueño.
+- Backlog: migrar `docs/specs/api/prometeo.spec.md` a SDD 2.0 (con evidencia de entrega) y enlazar desde allí el contrato de activos y órdenes; documentos y la búsqueda RAG (`search`, `rag-context`, `rag-query`) por documentos accesibles, a la espera de la regla del dueño.
 - Descartado: truncar ids en silencio (pierde filas sin avisar) y confiar en el `orgId` del cuerpo.
