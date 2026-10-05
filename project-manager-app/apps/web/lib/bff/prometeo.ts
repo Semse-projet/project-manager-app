@@ -15,6 +15,8 @@ import type {
   PrometeoOrchestrationResponse,
 } from "@semse/schemas";
 
+import type { RuntimeChatData, WidgetChatRequest } from "../prometeo-widget-chat";
+
 async function unwrap<T>(res: Response): Promise<T> {
   if (!res.ok) {
     // A 401 from any /api/semse/* route is always the middleware's generic
@@ -89,6 +91,19 @@ export async function sendCopilotMessage(
 ): Promise<CopilotMessageResponse> {
   return unwrap(
     await fetch("/api/semse/prometeo/copilot/message", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(input),
+    }),
+  );
+}
+
+/** Chat real de Prometeo (contexto operativo + modelo). Lo usa el widget para preguntas generales. */
+export async function askPrometeoChat(
+  input: WidgetChatRequest,
+): Promise<RuntimeChatData> {
+  return unwrap(
+    await fetch("/api/semse/cortex/chat", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(input),
