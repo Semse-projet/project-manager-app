@@ -58,7 +58,7 @@ const FLAME_FRAGMENT = /* glsl */ `
   }
 `;
 
-type FlameSpec = { seed: number; scale: number; tilt: number; position: [number, number, number] };
+type FlameSpec = { seed: number; height: number; width: number; tilt: number; position: [number, number, number] };
 
 export type MascotSceneOptions = { onActivate?: () => void };
 
@@ -101,8 +101,8 @@ export class MascotScene {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: "low-power" });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     this.renderer.setClearColor(0x000000, 0);
-    this.camera.position.set(0, 0.55, 6.4);
-    this.camera.lookAt(0, 0.55, 0);
+    this.camera.position.set(0, 0.62, 7.7);
+    this.camera.lookAt(0, 0.62, 0);
 
     this.faceCanvas.width = 512;
     this.faceCanvas.height = 256;
@@ -212,15 +212,18 @@ export class MascotScene {
 
     const flameGroup = new THREE.Group();
     flameGroup.position.set(0, 0.88, 0);
+    // Varias lenguas de distinta altura, abiertas en abanico (la central es la más alta y brillante).
     const specs: FlameSpec[] = [
-      { seed: 0, scale: 1, tilt: 0, position: [0, 0, 0] },
-      { seed: 2.1, scale: 0.72, tilt: -0.38, position: [-0.22, -0.02, 0.02] },
-      { seed: 4.3, scale: 0.6, tilt: 0.42, position: [0.24, -0.02, -0.02] },
+      { seed: 0, height: 1.0, width: 0.8, tilt: 0, position: [0, 0, 0] },
+      { seed: 2.1, height: 0.78, width: 0.64, tilt: -0.42, position: [-0.2, -0.02, 0.04] },
+      { seed: 4.3, height: 0.7, width: 0.62, tilt: 0.46, position: [0.22, -0.02, -0.03] },
+      { seed: 6.2, height: 0.5, width: 0.46, tilt: -0.85, position: [-0.34, -0.05, 0.0] },
+      { seed: 8.4, height: 0.46, width: 0.44, tilt: 0.9, position: [0.36, -0.05, 0.0] },
     ];
     const profile = [
       [0.0, 0.0], [0.3, 0.04], [0.45, 0.24], [0.43, 0.5], [0.32, 0.8], [0.17, 1.1], [0.06, 1.36], [0.0, 1.52],
     ].map(([x, y]) => new THREE.Vector2(x, y));
-    const flameGeometry = this.track(new THREE.LatheGeometry(profile, 28));
+    const flameGeometry = this.track(new THREE.LatheGeometry(profile, 36));
     for (const spec of specs) {
       const material = this.track(
         new THREE.ShaderMaterial({
@@ -236,7 +239,7 @@ export class MascotScene {
       this.flames.push(material);
       const flame = new THREE.Mesh(flameGeometry, material);
       flame.position.set(...spec.position);
-      flame.scale.setScalar(spec.scale);
+      flame.scale.set(spec.width, spec.height, spec.width);
       flame.rotation.z = spec.tilt;
       flameGroup.add(flame);
     }

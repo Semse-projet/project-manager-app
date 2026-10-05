@@ -176,6 +176,13 @@ export function drawFace(ctx: FaceContext, expression: MascotExpression, blink =
       happyEye(leftX);
       happyEye(rightX);
       smile(w * 0.2, h * 0.16);
+      // marca de verificación en la esquina del visor (como en el álbum de marca)
+      ctx.beginPath();
+      ctx.moveTo(w * 0.86, h * 0.2);
+      ctx.lineTo(w * 0.895, h * 0.26);
+      ctx.lineTo(w * 0.95, h * 0.14);
+      ctx.stroke();
+      shapes.push("badge:check");
       break;
     default:
       // feliz: con parpadeo los arcos se vuelven puntos aplanados
