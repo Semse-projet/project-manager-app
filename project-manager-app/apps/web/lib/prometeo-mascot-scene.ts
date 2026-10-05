@@ -60,7 +60,7 @@ const FLAME_FRAGMENT = /* glsl */ `
 
 type FlameSpec = { seed: number; height: number; width: number; tilt: number; position: [number, number, number] };
 
-export type MascotSceneOptions = { onActivate?: () => void };
+export type MascotSceneOptions = { onActivate?: () => void; onContextLost?: () => void };
 
 export class MascotScene {
   private readonly renderer: THREE.WebGLRenderer;
@@ -122,6 +122,7 @@ export class MascotScene {
     canvas.addEventListener("pointerup", this.onPointerUp);
     canvas.addEventListener("pointercancel", this.onPointerCancel);
     canvas.addEventListener("pointerleave", this.onPointerLeave);
+    canvas.addEventListener("webglcontextlost", this.onContextLost);
 
     this.frame = requestAnimationFrame(this.loop);
   }
@@ -146,6 +147,7 @@ export class MascotScene {
     this.canvas.removeEventListener("pointerup", this.onPointerUp);
     this.canvas.removeEventListener("pointercancel", this.onPointerCancel);
     this.canvas.removeEventListener("pointerleave", this.onPointerLeave);
+    this.canvas.removeEventListener("webglcontextlost", this.onContextLost);
     this.canvas.style.cursor = "";
     this.disposables.forEach((d) => d.dispose());
     this.renderer.dispose();
@@ -364,6 +366,12 @@ export class MascotScene {
 
   private readonly onPointerCancel = () => {
     this.drag = null;
+  };
+
+  /** El navegador puede descartar el contexto WebGL (memoria, GPU): se avisa para caer a la imagen de marca. */
+  private readonly onContextLost = (event: Event) => {
+    event.preventDefault();
+    if (!this.disposed) this.options.onContextLost?.();
   };
 
   private readonly onPointerLeave = () => {

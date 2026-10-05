@@ -45,12 +45,39 @@ export function buildWidgetChatRequest(input: {
   };
 }
 
+/** Respuestas válidas del chat real: el modelo (`runtime`) y las salidas deterministas del runtime (reportes y contexto). */
+const VALID_REPLY_MODES = new Set(["runtime", "report", "context_only"]);
+
+export type WidgetReply =
+  | { kind: "answer"; text: string; mode: string }
+  | { kind: "degraded"; reason: string };
+
 /**
- * Solo se usa la respuesta del chat real si viene del runtime: en modo demo el endpoint devuelve textos de
- * muestra que no reflejan datos del usuario, y mostrarlos como respuesta de Prometeo sería engañoso.
+ * Distingue una respuesta real de una degradación. En modo demo el endpoint devuelve textos de muestra y en `fallback`
+ * el modelo no respondió: ninguno es una respuesta de Prometeo y no debe mostrarse como tal. Los reportes y las
+ * respuestas de solo contexto SÍ son válidos y se conservan (antes se descartaban junto con el modo demo).
  */
-export function pickRuntimeReply(data: RuntimeChatData | null | undefined): string | null {
-  if (!data || data.mode !== "runtime") return null;
+export function classifyChatReply(data: RuntimeChatData | null | undefined): WidgetReply {
+  if (!data) return { kind: "degraded", reason: "No hubo respuesta del asistente." };
+  const mode = data.mode ?? "";
+  if (mode === "demo") return { kind: "degraded", reason: "El asistente está en modo demostración." };
+  if (!VALID_REPLY_MODES.has(mode)) return { kind: "degraded", reason: "El modelo no pudo responder en este momento." };
   const text = (data.response ?? data.message ?? "").trim();
-  return text.length > 0 ? text : null;
+  if (text.length === 0) return { kind: "degraded", reason: "El asistente devolvió una respuesta vacía." };
+  return { kind: "answer", text, mode };
+}
+
+/** Motivo legible de un fallo de red: un timeout o una cancelación no son lo mismo que un error del servidor. */
+export function describeChatFailure(error: unknown): string {
+  const name = (error as { name?: string } | null)?.name;
+  if (name === "TimeoutError") return "Prometeo tardó demasiado en responder.";
+  if (name === "AbortError") return "La consulta se canceló.";
+  const message = error instanceof Error ? error.message.trim() : "";
+  return message.length > 0 ? message : "No se pudo consultar a Prometeo.";
+}
+
+/** Compatibilidad: texto de la respuesta si es válida, `null` si es una degradación. */
+export function pickRuntimeReply(data: RuntimeChatData | null | undefined): string | null {
+  const reply = classifyChatReply(data);
+  return reply.kind === "answer" ? reply.text : null;
 }

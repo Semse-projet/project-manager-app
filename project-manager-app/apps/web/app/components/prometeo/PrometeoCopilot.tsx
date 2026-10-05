@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { X } from "lucide-react";
 import type { CopilotMissionSuggestion, CopilotSuggestedAction } from "@semse/schemas";
 import { useCopilotContext } from "../../../lib/hooks/useCopilotContext";
@@ -11,7 +11,10 @@ import {
   executeCopilotAction,
   sendCopilotMessage,
 } from "../../../lib/bff/prometeo";
-import { buildWidgetChatRequest, pickRuntimeReply } from "../../../lib/prometeo-widget-chat";
+import { buildWidgetChatRequest, classifyChatReply, describeChatFailure } from "../../../lib/prometeo-widget-chat";
+
+/** Tope de espera del chat real: pasado este tiempo la consulta termina como fallo visible, no queda colgada. */
+const CHAT_TIMEOUT_MS = 45_000;
 import { ContextDetector } from "./ContextDetector";
 import { CopilotChat, type CopilotMessage } from "./CopilotChat";
 import { QuickActions } from "./QuickActions";
@@ -27,6 +30,16 @@ function newId(): string {
 
 export function PrometeoCopilot() {
   const router = useRouter();
+  const pathname = usePathname();
+  // Consulta en vuelo: se cancela al cambiar de página y al desmontar, y su respuesta nunca se asocia a otro contexto.
+  const inflight = useRef<AbortController | null>(null);
+  const pathnameRef = useRef(pathname);
+  pathnameRef.current = pathname;
+
+  useEffect(() => {
+    inflight.current?.abort();
+    return () => inflight.current?.abort();
+  }, [pathname]);
   const { context, loading } = useCopilotContext();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<CopilotMessage[]>([]);
@@ -56,38 +69,53 @@ export function PrometeoCopilot() {
     setMessages((prev) => [...prev, { id: newId(), role: "user", content: text }]);
     setPending(true);
     setSuggestion(null);
+    const startedAt = pathnameRef.current;
+    const controller = new AbortController();
+    inflight.current?.abort();
+    inflight.current = controller;
+    const timeout = setTimeout(() => controller.abort(new DOMException("timeout", "TimeoutError")), CHAT_TIMEOUT_MS);
     try {
       const res = await sendCopilotMessage({
         message: text,
         sessionId,
         context: context ? { module: context.module } : undefined,
       });
+      if (pathnameRef.current !== startedAt) return; // la pantalla cambió: esta respuesta ya no corresponde
       setSessionId(res.sessionId);
-      let reply = res.response;
-      // Sin intención de misión el servidor solo devuelve un texto fijo: la pregunta se responde con el chat real.
-      // Si el chat real falla o no es del runtime, se conserva la respuesta del servidor (no hay regresión).
-      if (!res.requiresWorkspace) {
-        try {
-          const real = await askPrometeoChat(
-            buildWidgetChatRequest({
-              message: text,
-              threadId: chatThreadId,
-              context,
-              route: typeof window !== "undefined" ? window.location.pathname : undefined,
-            }),
-          );
-          const runtimeReply = pickRuntimeReply(real);
-          if (runtimeReply) {
-            reply = runtimeReply;
-            if (real.threadId) setChatThreadId(real.threadId);
-          }
-        } catch {
-          // se mantiene `reply`
-        }
+
+      // Con intención de misión el widget propone abrir una misión; sin ella la pregunta se responde con el chat
+      // real. Un fallo de ese chat NO se disfraza de respuesta: se muestra como degradación con reintento.
+      if (res.requiresWorkspace) {
+        setMessages((prev) => [...prev, { id: newId(), role: "assistant", content: res.response }]);
+        if (res.missionSuggestion) setSuggestion(res.missionSuggestion);
+        flashMood("answered");
+        return;
       }
-      setMessages((prev) => [...prev, { id: newId(), role: "assistant", content: reply }]);
-      if (res.missionSuggestion) setSuggestion(res.missionSuggestion);
-      flashMood("answered");
+
+      let degradedReason: string | null = null;
+      try {
+        const real = await askPrometeoChat(
+          buildWidgetChatRequest({ message: text, threadId: chatThreadId, context, route: startedAt ?? undefined }),
+          controller.signal,
+        );
+        if (pathnameRef.current !== startedAt) return;
+        const reply = classifyChatReply(real);
+        if (reply.kind === "answer") {
+          if (real.threadId) setChatThreadId(real.threadId);
+          setMessages((prev) => [...prev, { id: newId(), role: "assistant", content: reply.text }]);
+          flashMood("answered");
+          return;
+        }
+        degradedReason = reply.reason;
+      } catch (e) {
+        if (pathnameRef.current !== startedAt) return;
+        degradedReason = describeChatFailure(controller.signal.aborted ? controller.signal.reason ?? e : e);
+      }
+      flashMood("error");
+      setMessages((prev) => [
+        ...prev,
+        { id: newId(), role: "assistant", content: `${degradedReason} No es una respuesta de Prometeo.`, status: "degraded", retryText: text },
+      ]);
     } catch (e) {
       flashMood("error");
       setMessages((prev) => [
@@ -99,6 +127,8 @@ export function PrometeoCopilot() {
         },
       ]);
     } finally {
+      clearTimeout(timeout);
+      if (inflight.current === controller) inflight.current = null;
       setPending(false);
     }
   }
@@ -207,7 +237,7 @@ export function PrometeoCopilot() {
       {suggestion && (
         <MissionSuggestion suggestion={suggestion} onAccept={handleAcceptMission} pending={pending} />
       )}
-      <CopilotChat messages={messages} onSend={handleSend} pending={pending} />
+      <CopilotChat messages={messages} onSend={handleSend} onRetry={handleSend} pending={pending} />
     </div>
   );
 }
