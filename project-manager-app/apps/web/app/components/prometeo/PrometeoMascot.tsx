@@ -40,10 +40,17 @@ export type PrometeoMascotProps = {
  */
 export function PrometeoMascot({ mood = "idle", size = 120, onActivate, label = "Prometeo" }: PrometeoMascotProps) {
   const [use3D, setUse3D] = useState(false);
+  const [contextLost, setContextLost] = useState(false);
 
+  // "Reducir movimiento" se lee al montar Y se vigila: si el usuario lo cambia con la página abierta, la mascota cambia
+  // entre el 3D y la imagen sin recargar.
   useEffect(() => {
-    const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
-    setUse3D(shouldRender3D({ webgl: detectWebgl(), reducedMotion }));
+    const webgl = detectWebgl();
+    const query = window.matchMedia?.("(prefers-reduced-motion: reduce)");
+    const apply = () => setUse3D(shouldRender3D({ webgl, reducedMotion: query?.matches ?? false }));
+    apply();
+    query?.addEventListener?.("change", apply);
+    return () => query?.removeEventListener?.("change", apply);
   }, []);
 
   const fallback = (
@@ -58,10 +65,10 @@ export function PrometeoMascot({ mood = "idle", size = 120, onActivate, label = 
     </button>
   );
 
-  if (!use3D) return fallback;
+  if (!use3D || contextLost) return fallback;
   return (
     <Mascot3DBoundary fallback={fallback}>
-      <PrometeoMascot3D mood={mood} size={size} onActivate={onActivate} label={label} />
+      <PrometeoMascot3D mood={mood} size={size} onActivate={onActivate} onContextLost={() => setContextLost(true)} label={label} />
     </Mascot3DBoundary>
   );
 }

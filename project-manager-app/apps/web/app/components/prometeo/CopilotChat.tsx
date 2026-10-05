@@ -8,15 +8,20 @@ export type CopilotMessage = {
   id: string;
   role: "user" | "assistant";
   content: string;
+  /** `degraded`: el asistente no pudo responder; no es una respuesta de Prometeo y ofrece reintentar. */
+  status?: "degraded";
+  retryText?: string;
 };
 
 export function CopilotChat({
   messages,
   onSend,
+  onRetry,
   pending,
 }: {
   messages: CopilotMessage[];
   onSend: (text: string) => void;
+  onRetry?: (text: string) => void;
   pending: boolean;
 }) {
   const [input, setInput] = useState("");
@@ -42,10 +47,23 @@ export function CopilotChat({
             className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm ${
               m.role === "user"
                 ? "ml-auto bg-slate-900 text-white"
-                : "bg-slate-100 text-slate-800"
+                : m.status === "degraded"
+                  ? "border border-amber-300 bg-amber-50 text-amber-900"
+                  : "bg-slate-100 text-slate-800"
             }`}
+            role={m.status === "degraded" ? "alert" : undefined}
           >
             {m.role === "assistant" ? <MarkdownLite text={m.content} /> : m.content}
+            {m.status === "degraded" && m.retryText && onRetry && (
+              <button
+                type="button"
+                onClick={() => onRetry(m.retryText!)}
+                disabled={pending}
+                className="mt-2 block rounded-lg border border-amber-400 px-2 py-1 text-xs font-semibold text-amber-900 disabled:opacity-40"
+              >
+                Reintentar
+              </button>
+            )}
           </div>
         ))}
         {pending && <p className="text-xs text-slate-400">Prometeo está pensando…</p>}

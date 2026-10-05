@@ -101,12 +101,14 @@ export async function sendCopilotMessage(
 /** Chat real de Prometeo (contexto operativo + modelo). Lo usa el widget para preguntas generales. */
 export async function askPrometeoChat(
   input: WidgetChatRequest,
+  signal?: AbortSignal,
 ): Promise<RuntimeChatData> {
   return unwrap(
     await fetch("/api/semse/cortex/chat", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(input),
+      signal,
     }),
   );
 }
