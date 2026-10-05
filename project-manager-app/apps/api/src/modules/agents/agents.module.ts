@@ -22,6 +22,8 @@ import { AgentDelegationRepository } from "./agent-delegation.repository.js";
 import { AgentDelegationService } from "./agent-delegation.service.js";
 import { CoordinatorService } from "./coordinator.service.js";
 import { PlanTemplatesService } from "./plan-templates.service.js";
+import { ProjectAccessService } from "./project-access.service.js";
+import { ResourceScopeModule } from "../../common/resource-scope.module.js";
 import { ProjectCopilotHarness } from "./harnesses/project-copilot.harness.js";
 import { PrometeoModule } from "../prometeo/prometeo.module.js";
 import { AiModelsModule } from "../ai-models/ai-models.module.js";
@@ -30,7 +32,7 @@ import { PrometeoMissionController } from "./prometeo-mission.controller.js";
 import { PrometeoMissionService } from "./prometeo-mission.service.js";
 
 @Module({
-  imports: [AgentQueueModule, LLMModule, ProjectsModule, KnowledgeModule, MilestonesModule, DisputesModule, PaymentsModule, UsersModule, PrometeoModule, AiModelsModule, forwardRef(() => BrowserAgentModule)],
+  imports: [ResourceScopeModule, AgentQueueModule, LLMModule, ProjectsModule, KnowledgeModule, MilestonesModule, DisputesModule, PaymentsModule, UsersModule, PrometeoModule, AiModelsModule, forwardRef(() => BrowserAgentModule)],
   controllers: [AgentsController, PrometeoMissionController],
   providers: [
     AgentApprovalService,
@@ -46,6 +48,7 @@ import { PrometeoMissionService } from "./prometeo-mission.service.js";
     AgentDelegationService,
     CoordinatorService,
     PlanTemplatesService,
+    ProjectAccessService,
     ProjectCopilotHarness,
     PrometeoMissionService,
     IdempotencyService,

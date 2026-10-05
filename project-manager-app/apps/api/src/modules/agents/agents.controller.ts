@@ -8,6 +8,7 @@ import {
   agentTypeParamSchema
 } from "@semse/schemas";
 import { z } from "zod";
+import { ProjectAccessService } from "./project-access.service.js";
 import { ok } from "../../common/api-response.js";
 import { parseWithSchema } from "../../common/zod-validation.js";
 import { RequirePermissions } from "../../common/permissions.decorator.js";
@@ -95,7 +96,16 @@ export class AgentsController {
     private readonly planModeService: PlanModeService,
     private readonly coordinatorService: CoordinatorService,
     private readonly planTemplatesService: PlanTemplatesService,
+    private readonly projectAccess: ProjectAccessService,
   ) {}
+
+  private async assertPlanAccess(
+    actor: { tenantId: string; orgId: string; userId: string; roles: string[] },
+    planId: string
+  ): Promise<void> {
+    const ownership = await this.planModeService.getPlanOwnership(actor.tenantId, planId);
+    await this.projectAccess.assertPlanAccess(actor, ownership);
+  }
 
   @Get("catalog")
   @RequirePermissions("agents:run:create")
@@ -482,6 +492,7 @@ export class AgentsController {
     const { projectId } = parseWithSchema(listPlansSchema, {
       projectId: req.headers?.["x-project-id"] ?? ""
     });
+    await this.projectAccess.assertProjectAccess(actor, projectId);
     const data = await this.planModeService.listByProject(actor.tenantId, projectId);
     return ok(resolveRequestId(req.headers ?? {}), data);
   }
@@ -490,6 +501,7 @@ export class AgentsController {
   @RequirePermissions("agents:run:create")
   async getPlan(@Req() req: { headers?: Record<string, unknown> }, @Param("planId") planId: string) {
     const actor = resolveRequestContext(req);
+    await this.assertPlanAccess(actor, planId);
     const data = await this.planModeService.getPlanById(actor.tenantId, planId);
     return ok(resolveRequestId(req.headers ?? {}), data);
   }
@@ -498,6 +510,7 @@ export class AgentsController {
   @RequirePermissions("agents:run:create")
   async approvePlan(@Req() req: { headers?: Record<string, unknown> }, @Param("planId") planId: string) {
     const actor = resolveRequestContext(req);
+    await this.assertPlanAccess(actor, planId);
     const requestId = resolveRequestId(req.headers ?? {});
     const data = await this.planModeService.approvePlan({ tenantId: actor.tenantId, orgId: actor.orgId, planId, userId: actor.userId });
     return ok(requestId, data);
@@ -507,6 +520,7 @@ export class AgentsController {
   @RequirePermissions("agents:run:create")
   async rejectPlan(@Req() req: { headers?: Record<string, unknown> }, @Param("planId") planId: string) {
     const actor = resolveRequestContext(req);
+    await this.assertPlanAccess(actor, planId);
     const requestId = resolveRequestId(req.headers ?? {});
     const data = await this.planModeService.rejectPlan({ tenantId: actor.tenantId, planId, userId: actor.userId });
     return ok(requestId, data);
@@ -516,6 +530,7 @@ export class AgentsController {
   @RequirePermissions("agents:run:create")
   async cancelPlan(@Req() req: { headers?: Record<string, unknown> }, @Param("planId") planId: string) {
     const actor = resolveRequestContext(req);
+    await this.assertPlanAccess(actor, planId);
     const requestId = resolveRequestId(req.headers ?? {});
     const data = await this.planModeService.cancelPlan({ tenantId: actor.tenantId, planId, userId: actor.userId });
     return ok(requestId, data);
@@ -530,6 +545,7 @@ export class AgentsController {
     @Body() body: unknown,
   ) {
     const actor = resolveRequestContext(req);
+    await this.assertPlanAccess(actor, planId);
     const requestId = resolveRequestId(req.headers ?? {});
     const parsed = stepMutationSchema.parse(body ?? {});
     const data = await this.planModeService.startStep({
@@ -550,6 +566,7 @@ export class AgentsController {
     @Body() body: unknown,
   ) {
     const actor = resolveRequestContext(req);
+    await this.assertPlanAccess(actor, planId);
     const requestId = resolveRequestId(req.headers ?? {});
     const parsed = stepMutationSchema.parse(body ?? {});
     const data = await this.planModeService.completeExecutableStep({
@@ -570,6 +587,7 @@ export class AgentsController {
     @Body() body: unknown,
   ) {
     const actor = resolveRequestContext(req);
+    await this.assertPlanAccess(actor, planId);
     const requestId = resolveRequestId(req.headers ?? {});
     const parsed = stepBlockSchema.parse(body ?? {});
     const data = await this.planModeService.blockStep({
@@ -590,6 +608,7 @@ export class AgentsController {
     @Body() body: unknown,
   ) {
     const actor = resolveRequestContext(req);
+    await this.assertPlanAccess(actor, planId);
     const requestId = resolveRequestId(req.headers ?? {});
     const parsed = stepMutationSchema.parse(body ?? {});
     const data = await this.planModeService.retryStep({
@@ -610,6 +629,7 @@ export class AgentsController {
     @Body() body: unknown,
   ) {
     const actor = resolveRequestContext(req);
+    await this.assertPlanAccess(actor, planId);
     const requestId = resolveRequestId(req.headers ?? {});
     const parsed = stepSkipSchema.parse(body ?? {});
     const data = await this.planModeService.skipStep({
@@ -629,6 +649,7 @@ export class AgentsController {
     const actor = resolveRequestContext(req);
     const headers = req.headers ?? {};
     const projectId = typeof headers["x-project-id"] === "string" ? headers["x-project-id"] : undefined;
+    if (projectId) await this.projectAccess.assertProjectAccess(actor, projectId);
     const data = projectId
       ? await this.coordinatorService.listByProject({ tenantId: actor.tenantId, projectId })
       : await this.coordinatorService.collectProjectSnapshot({
@@ -656,6 +677,7 @@ export class AgentsController {
     const actor = resolveRequestContext(req);
     const headers = req.headers ?? {};
     const projectId = typeof headers["x-project-id"] === "string" ? headers["x-project-id"] : "";
+    if (projectId) await this.projectAccess.assertProjectAccess(actor, projectId);
     const data = await this.coordinatorService.collectProjectSnapshot({
       tenantId: actor.tenantId,
       coordinatorId: "project-copilot",
