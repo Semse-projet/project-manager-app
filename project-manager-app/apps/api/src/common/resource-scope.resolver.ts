@@ -61,11 +61,11 @@ export class ResourceScopeResolver {
    * Ids de proyecto del tenant en los que la org del actor es cliente o profesional asignada (para listados).
    * Pagina TODOS los ids (nunca trunca en silencio): por encima de `MAX_ACCESSIBLE_IDS` falla cerrado y pide filtrar por proyecto.
    */
-  async listAccessibleProjectIds(tenantId: string, orgId: string): Promise<string[]> {
+  async listAccessibleProjectIds(tenantId: string, orgId: string, access: "read" | "client" = "read"): Promise<string[]> {
     if (!tenantId || !orgId) return [];
     return this.collectIds((cursor) =>
       this.prisma.project.findMany({
-        where: { tenantId, OR: [{ assignedProOrgId: orgId }, { job: { clientOrgId: orgId } }] },
+        where: { tenantId, ...(access === "client" ? { job: { clientOrgId: orgId } } : { OR: [{ assignedProOrgId: orgId }, { job: { clientOrgId: orgId } }] }) },
         select: { id: true },
         orderBy: { id: "asc" },
         take: ID_PAGE_SIZE,
@@ -75,11 +75,11 @@ export class ResourceScopeResolver {
   }
 
   /** Igual que `listAccessibleProjectIds` para jobs (los eliminados lógicamente no dan acceso). */
-  async listAccessibleJobIds(tenantId: string, orgId: string): Promise<string[]> {
+  async listAccessibleJobIds(tenantId: string, orgId: string, access: "read" | "client" = "read"): Promise<string[]> {
     if (!tenantId || !orgId) return [];
     return this.collectIds((cursor) =>
       this.prisma.job.findMany({
-        where: { tenantId, deletedAt: null, OR: [{ clientOrgId: orgId }, { project: { assignedProOrgId: orgId } }] },
+        where: { tenantId, deletedAt: null, ...(access === "client" ? { clientOrgId: orgId } : { OR: [{ clientOrgId: orgId }, { project: { assignedProOrgId: orgId } }] }) },
         select: { id: true },
         orderBy: { id: "asc" },
         take: ID_PAGE_SIZE,

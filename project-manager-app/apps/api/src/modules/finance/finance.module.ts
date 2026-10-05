@@ -5,12 +5,14 @@ import { FinanceRepository } from "./finance.repository.js";
 import { FinanceService } from "./finance.service.js";
 import { FinanceController } from "./finance.controller.js";
 import { ReceiptOcrService } from "./receipt-ocr.service.js";
+import { ResourceScopeModule } from "../../common/resource-scope.module.js";
+import { FinanceAccessPolicy } from "./finance-access.policy.js";
 
 const OVERDUE_CHECK_INTERVAL_MS = 60 * 60 * 1000;
 
 @Module({
-  imports: [PrismaModule, forwardRef(() => AiModelsModule)],
-  providers: [FinanceRepository, FinanceService, ReceiptOcrService],
+  imports: [PrismaModule, ResourceScopeModule, forwardRef(() => AiModelsModule)],
+  providers: [FinanceRepository, FinanceAccessPolicy, FinanceService, ReceiptOcrService],
   controllers: [FinanceController],
   exports: [FinanceService, ReceiptOcrService],
 })

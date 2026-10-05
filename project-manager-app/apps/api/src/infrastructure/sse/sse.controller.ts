@@ -11,6 +11,7 @@ import { resolveRequestContext, type RequestContext } from "../../common/request
 
 import { RequirePermissions } from "../../common/permissions.decorator.js";
 import { canReadBuildOpsEvent } from "./buildops-event-access.js";
+import { canReadFinanceEvent } from "./finance-event-access.js";
 
 const KEEPALIVE_MS = 20_000;
 
@@ -153,13 +154,16 @@ export class SseController {
   }
 
   @Sse("finance")
+  @RequirePermissions("finance:read")
   financeStream(
     @Req() req: SseRequest,
   ): Observable<MessageEvent> {
-    const { tenantId } = resolveRequestContext(req);
-    const channel = `finance:${tenantId}`;
+    const actor = resolveRequestContext(req);
+    const channel = `finance:${actor.tenantId}`;
     return merge(
       this.bus.on<unknown>(channel).pipe(
+        concatMap(e => from(canReadFinanceEvent(actor, e.data, this.prisma)).pipe(map(allowed => allowed ? e : null))),
+        filter((e): e is NonNullable<typeof e> => e !== null),
         map(e => toMsgEvent(e.data, e.event)),
       ),
       keepalive$(),
