@@ -109,14 +109,31 @@ test("createMission loads a workspace mission and returns a url", async () => {
   assert.match(res.workspaceUrl, /^\/workspace\?mission=/);
 });
 
-test("executeAction completes inline read-only actions", () => {
+test("executeAction no inventa un resultado para acciones de solo lectura: delega al chat", () => {
+  const svc = build();
+  for (const action of ["job.summary", "project.status", "status.summary", "listing.compare", "copilot.ask"]) {
+    const res = svc.executeAction(actor, {
+      action,
+      targetResource: { resourceId: "j1", resourceType: "job" },
+    });
+    assert.equal(res.status, "pending", action);
+    assert.equal(res.requiresWorkspace, false, action);
+    const result = res.result as Record<string, unknown>;
+    assert.equal(result.handledBy, "copilot-chat", action);
+    assert.equal("summary" in result, false, `${action}: no debe llevar un summary fabricado`);
+    assert.doesNotMatch(JSON.stringify(res), /ejecutada/i, action);
+  }
+});
+
+test("executeAction: workspace.focus es navegación al Workspace, no una ejecución", () => {
   const svc = build();
   const res = svc.executeAction(actor, {
-    action: "job.summary",
+    action: "workspace.focus",
     targetResource: { resourceId: "j1", resourceType: "job" },
   });
-  assert.equal(res.status, "completed");
-  assert.equal(res.requiresWorkspace, false);
+  assert.equal(res.status, "pending");
+  assert.equal(res.requiresWorkspace, true);
+  assert.equal("summary" in (res.result as Record<string, unknown>), false);
 });
 
 test("executeAction defers mutating actions to workspace", () => {

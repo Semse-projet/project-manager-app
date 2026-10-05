@@ -240,12 +240,14 @@ export class PrometeoCopilotService {
       "workspace.focus",
     ]);
     const isInline = inlineActions.has(request.action);
+    // `workspace.focus` es solo navegación: el cliente abre el Workspace.
+    const isNavigation = request.action === "workspace.focus";
 
     this.logger.log(
       `copilot.action.execute action=${request.action} inline=${isInline} user=${actor.userId}`,
     );
 
-    if (!isInline) {
+    if (!isInline || isNavigation) {
       return {
         actionId,
         status: "pending",
@@ -254,13 +256,16 @@ export class PrometeoCopilotService {
       };
     }
 
+    // Este endpoint no consulta ningún dato ni produce un resultado para las acciones de solo lectura: las registra
+    // y delega la respuesta real al chat del copiloto. Por eso NO se reporta "completed" ni se inventa un resumen
+    // (antes devolvía `Acción "…" ejecutada sobre …` sin haber hecho nada).
     return {
       actionId,
-      status: "completed",
+      status: "pending",
       result: {
         action: request.action,
         resource: request.targetResource,
-        summary: `Acción "${request.action}" ejecutada sobre ${request.targetResource.resourceType} ${request.targetResource.resourceId}.`,
+        handledBy: "copilot-chat",
       },
       requiresWorkspace: false,
     };
