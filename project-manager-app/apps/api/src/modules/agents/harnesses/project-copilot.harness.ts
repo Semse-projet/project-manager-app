@@ -11,7 +11,7 @@ import { AgentPolicyService } from "../agent-policy.service.js";
 import { PlanExecutionService } from "../plan-execution.service.js";
 import { PlanModeService } from "../plan-mode.service.js";
 import type { CopilotProposedPlan } from "../plan-mode.types.js";
-import { COPILOT_TOOLS, PLAN_TOOL_NAME, toolCallToProposedPlan, toolCallsToActions } from "./copilot-tools.js";
+import { PLAN_TOOL_NAME, getExposedCopilotTools, isExecutableActionType, toolCallToProposedPlan, toolCallsToActions } from "./copilot-tools.js";
 import { AuditService } from "../../../infrastructure/audit/audit.service.js";
 import { DisputesRepository } from "../../disputes/disputes.repository.js";
 import { DisputesService } from "../../disputes/disputes.service.js";
@@ -70,6 +70,14 @@ import { CoordinatorService } from "../coordinator.service.js";
 import { PrometeoService } from "../../prometeo/prometeo.service.js";
 import { OperationalContextService } from "../../ai-models/context/operational-context.service.js";
 import { PrometeoOrchestratorService } from "../../ai-models/orchestrator/prometeo-orchestrator.service.js";
+
+/** Una acción anunciada sin handler real, o un comando que terminó con error: nunca se reporta como completada. */
+export class ActionNotExecutableError extends Error {
+  constructor(readonly actionType: string) {
+    super(`La acción '${actionType}' no está disponible: no tiene un handler de ejecución real.`);
+    this.name = "ActionNotExecutableError";
+  }
+}
 
 @Injectable()
 export class ProjectCopilotHarness {
@@ -360,7 +368,7 @@ export class ProjectCopilotHarness {
       agentId: "project-copilot",
       threadId,
       context: llmContext,
-      tools: COPILOT_TOOLS,
+      tools: getExposedCopilotTools(),
     });
 
     const planToolCall = reply.toolCalls.find((c) => c.toolName === PLAN_TOOL_NAME);
@@ -496,6 +504,19 @@ export class ProjectCopilotHarness {
     const knownType = this.resolveActionType(actionType);
     const policy = knownType ? getActionPolicy(knownType) : { approvalMode: "required" as const, riskLevel: "high" as const };
     const refreshTargets: RefreshTarget[] = ["workspace", "context", "journal", "runs", "actions", "corpus"];
+
+    // H02: una capacidad sin handler real se bloquea antes de pedir aprobación, ligar pasos o despachar.
+    if (!isExecutableActionType(actionType)) {
+      await this.audit(runtime, "project.copilot.action.blocked_not_executable", { actionType });
+      return {
+        kind: "action",
+        success: false,
+        message: new ActionNotExecutableError(actionType).message,
+        approvalMode: policy.approvalMode,
+        refreshTargets: [],
+      };
+    }
+
     const evidenceContext = { evidenceCount: runtime.corpusStatus.evidenceCount };
     const gating = this.agentPolicy.checkActionAllowed({
       actionType,
@@ -873,6 +894,20 @@ export class ProjectCopilotHarness {
 
   // ── Post-approval execution ───────────────────────────────────────────────
 
+  /**
+   * H01: la decisión sobre una aprobación del copiloto exige participación en el proyecto de esa aprobación, y debe
+   * comprobarse ANTES de persistir la decisión (antes se guardaba la aprobación y solo después fallaba la ejecución).
+   */
+  async authorizeApprovalDecision(
+    actor: AgentActor,
+    approval: { correlationId: string; contextSummary?: string }
+  ): Promise<void> {
+    if (!approval.correlationId.startsWith("copilot:")) return;
+    const context = this.parseContextSummary(approval.contextSummary);
+    if (!context) return;
+    await this.projectAccess.assertProjectAccess(actor, context.projectId);
+  }
+
   async executeFromApproval(
     actor: AgentActor,
     requestId: string,
@@ -1002,15 +1037,12 @@ export class ProjectCopilotHarness {
         case "DELEGATE_TASK":
           summary = await this.executeDelegateTask(runtime, payload);
           break;
-        case "REQUEST_AGENT_HELP":
-          summary = await this.executeRequestHelp(runtime, payload);
-          break;
         case "RUN_BROWSER_MISSION":
           summary = await this.executeBrowserMission(runtime, payload);
           break;
         default:
-          summary = `Sin handler de ejecución registrado para '${actionType}'.`;
-          break;
+          // Falla tipada: el catch de abajo marca el paso como fallido y NO llama a completeStep.
+          throw new ActionNotExecutableError(actionType);
       }
 
       if (resolvedLink) {
@@ -1155,6 +1187,10 @@ export class ProjectCopilotHarness {
     if (result.stderr) {
       summary += `\n\nSTDERR:\n${result.stderr}`;
     }
+    // H04: un build/test/comando que falla no puede completar el paso del plan.
+    if (result.exitCode !== 0) {
+      throw new Error(summary.slice(0, 4000));
+    }
     return summary.slice(0, 8000);
   }
 
@@ -1191,15 +1227,6 @@ export class ProjectCopilotHarness {
     });
 
     return `Tarea delegada exitosamente a '${role}' (Delegation ID: ${delegation.id}). El agente '${role}' ejecutará la tarea en segundo plano (Run ID: ${run.id}).`;
-  }
-
-  private async executeRequestHelp(
-    _runtime: ProjectCopilotHarnessRuntime,
-    payload: Record<string, unknown>
-  ): Promise<string> {
-    const agentId = typeof payload.agentId === "string" ? payload.agentId : "assistant";
-    const question = typeof payload.question === "string" ? payload.question : "";
-    return `Consulta enviada a '${agentId}': ${question}. Esperando respuesta del agente especializado.`;
   }
 
   // ── Approval helpers ──────────────────────────────────────────────────────

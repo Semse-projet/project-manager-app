@@ -92,6 +92,9 @@ function createController() {
   } as never;
 
   const projectCopilotHarness = {
+    async authorizeApprovalDecision(actor: Record<string, unknown>, approval: Record<string, unknown>) {
+      calls.push({ method: "authorizeApprovalDecision", actor, approval });
+    },
     async executeFromApproval(actor: Record<string, unknown>, requestId: string, approval: Record<string, unknown>) {
       calls.push({ method: "executeFromApproval", actor, requestId, approval });
       return { executed: true, summary: "executed" };
@@ -278,6 +281,11 @@ test("agents controller declares permissions and wraps representative payloads",
   assert.equal(planTemplates.data[0]?.category, "field");
   assert.ok(calls.some((call) => call.method === "catalog"));
   assert.ok(calls.some((call) => call.method === "executeFromApproval"));
+  // H01: se carga y autoriza la aprobación ANTES de persistir la decisión, y solo después se ejecuta.
+  const order = calls.map((call) => call.method);
+  assert.ok(order.indexOf("authorizeApprovalDecision") >= 0);
+  assert.ok(order.indexOf("authorizeApprovalDecision") < order.indexOf("decideApproval"));
+  assert.ok(order.indexOf("decideApproval") < order.indexOf("executeFromApproval"));
   assert.ok(calls.some((call) => call.method === "createRun"));
   assert.ok(calls.some((call) => call.method === "listTemplates"));
 });

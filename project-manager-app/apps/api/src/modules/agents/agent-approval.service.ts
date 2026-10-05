@@ -210,17 +210,22 @@ export class AgentApprovalService {
       );
     }
 
-    const updated = this.toRecord(
-      (await this.prisma.agentApproval.update({
-        where: { id: approval.id },
-        data: {
-          status: toDbStatus(input.decision),
-          decisionComment: input.comment,
-          decidedAt: new Date(),
-          decidedByUserId: input.userId
-        }
-      })) as DbApprovalRecord
-    );
+    // Transición condicional: solo una decisión concurrente puede pasar de PENDING a un estado final.
+    const claimed = await this.prisma.agentApproval.updateMany({
+      where: { id: approval.id, tenantId: input.tenantId, status: "PENDING" },
+      data: {
+        status: toDbStatus(input.decision),
+        decisionComment: input.comment,
+        decidedAt: new Date(),
+        decidedByUserId: input.userId
+      }
+    });
+    if (claimed.count !== 1) {
+      throw new ConflictException(`Approval '${input.approvalId}' has already been decided`);
+    }
+    const row = await this.prisma.agentApproval.findFirst({ where: { id: approval.id, tenantId: input.tenantId } });
+    if (!row) throw new NotFoundException(`Approval '${input.approvalId}' not found`);
+    const updated = this.toRecord(row as DbApprovalRecord);
 
     await this.auditService.append({
       tenantId: input.tenantId,
