@@ -5,6 +5,7 @@ import { JobsModule } from "../jobs/jobs.module.js";
 import { KnowledgeModule } from "../knowledge/knowledge.module.js";
 import { NotificationsModule } from "../notifications/notifications.module.js";
 import { OperationalIntelligenceModule } from "../operational-intelligence/operational-intelligence.module.js";
+import { ResourceScopeModule } from "../../common/resource-scope.module.js";
 import { PrismaModule } from "../../infrastructure/prisma/prisma.module.js";
 import { MilestonesController } from "./milestones.controller.js";
 import { MilestonesRepository } from "./milestones.repository.js";
@@ -18,6 +19,7 @@ import { PaymentsModule } from "../payments/payments.module.js";
     KnowledgeModule,
     NotificationsModule,
     PrismaModule,
+    ResourceScopeModule,
     forwardRef(() => AiModelsModule),
     OperationalIntelligenceModule,
     forwardRef(() => PaymentsModule),

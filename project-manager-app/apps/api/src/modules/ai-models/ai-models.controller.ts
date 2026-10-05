@@ -296,6 +296,7 @@ export class AiModelsController {
       orgId: actor.orgId,
       userId: actor.userId,
       role: actor.roles[0] ?? "CLIENT",
+      roles: actor.roles,
       projectId,
     });
     return ok(rid, ctx);
@@ -312,6 +313,8 @@ export class AiModelsController {
     const ctx = await this.operationalContext.getLatestSnapshot({
       tenantId: actor.tenantId,
       userId: actor.userId,
+      orgId: actor.orgId,
+      roles: actor.roles,
       projectId,
     });
     return ok(rid, ctx);
@@ -338,6 +341,7 @@ export class AiModelsController {
       orgId: actor.orgId,
       userId: actor.userId,
       role: actor.roles[0] ?? "CLIENT",
+      roles: actor.roles,
       projectId,
     });
     const routed = await this.routeAgentRequest({

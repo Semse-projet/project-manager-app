@@ -7,8 +7,17 @@ import { VisionController } from "../dist/modules/vision/vision.controller.js";
 function makeReq() {
   return {
     headers: { "x-request-id": "req_vision_1" },
+    authContext: { tenantId: "t1", orgId: "org_client", userId: "u1", roles: ["CLIENT"] },
   };
 }
+
+// El acceso por tenant/organización se prueba en vision-access-scope.test.ts; aquí solo el enrutado.
+const ALLOW_ALL = {
+  async assertEvidence() {},
+  async assertJob() {},
+  async assertMilestone() {},
+  async assertContext() {},
+};
 
 const STUB_VISION_ANALYSIS = {
   id: "va_1",
@@ -61,7 +70,7 @@ test("vision controller: analyze routes dto to service", async () => {
     async runBatchAnalysis() { return {}; },
     async runBatchByIds() { return {}; },
     async buildJobTimeline() { return {}; },
-  } as never);
+  } as never, ALLOW_ALL as never);
 
   const dto = { imageUrl: "https://example.com/photo.jpg", jobId: "job_1", trade: "painting" };
   const result = await controller.analyze(makeReq() as never, dto);
@@ -94,7 +103,7 @@ test("vision controller: getAnalysis routes evidenceId to service", async () => 
     async runBatchAnalysis() { return {}; },
     async runBatchByIds() { return {}; },
     async buildJobTimeline() { return {}; },
-  } as never);
+  } as never, ALLOW_ALL as never);
 
   const result = await controller.getAnalysis(makeReq() as never, "ev_abc");
   assert.equal(calls[0], "ev_abc");
@@ -127,7 +136,7 @@ test("vision controller: getByJob returns array for jobId", async () => {
     async runBatchAnalysis() { return {}; },
     async runBatchByIds() { return {}; },
     async buildJobTimeline() { return {}; },
-  } as never);
+  } as never, ALLOW_ALL as never);
 
   const result = await controller.getByJob(makeReq() as never, "job_1");
   assert.ok(Array.isArray(result.data));
@@ -155,7 +164,7 @@ test("vision controller: getByMilestone returns array for milestoneId", async ()
     async runBatchAnalysis() { return {}; },
     async runBatchByIds() { return {}; },
     async buildJobTimeline() { return {}; },
-  } as never);
+  } as never, ALLOW_ALL as never);
 
   const result = await controller.getByMilestone(makeReq() as never, "ms_1");
   assert.ok(Array.isArray(result.data));
@@ -187,7 +196,7 @@ test("vision controller: blueprint routes to service", async () => {
     async runBatchAnalysis() { return {}; },
     async runBatchByIds() { return {}; },
     async buildJobTimeline() { return {}; },
-  } as never);
+  } as never, ALLOW_ALL as never);
 
   const dto = { imageUrl: "https://example.com/blueprint.png", trade: "electrical" };
   const result = await controller.blueprint(makeReq() as never, dto);
@@ -219,7 +228,7 @@ test("vision controller: perspectiveCorrect routes optional returnBase64", async
     async runBatchAnalysis() { return {}; },
     async runBatchByIds() { return {}; },
     async buildJobTimeline() { return {}; },
-  } as never);
+  } as never, ALLOW_ALL as never);
 
   const dto = { imageUrl: "https://example.com/photo.jpg", returnBase64: true };
   const result = await controller.perspectiveCorrect(makeReq() as never, dto);
@@ -253,7 +262,7 @@ test("vision controller: batch routes multiple images to service", async () => {
     },
     async runBatchByIds() { return {}; },
     async buildJobTimeline() { return {}; },
-  } as never);
+  } as never, ALLOW_ALL as never);
 
   const dto = {
     items: [
@@ -290,7 +299,7 @@ test("vision controller: jobTimeline accepts optional fps query param", async ()
       calls.push({ jobId, fps });
       return { base64Gif: "data:image/gif;base64,abc123=" };
     },
-  } as never);
+  } as never, ALLOW_ALL as never);
 
   const result = await controller.jobTimeline(makeReq() as never, "job_1", "4");
   assert.ok(result.data.base64Gif);

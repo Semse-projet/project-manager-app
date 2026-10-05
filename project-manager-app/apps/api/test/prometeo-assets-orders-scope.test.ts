@@ -13,14 +13,15 @@ import { ResourceScopeResolver } from "../dist/common/resource-scope.resolver.js
 
 process.env.DATABASE_URL = process.env.DATABASE_URL || "postgresql://stub:stub@127.0.0.1:1/stub";
 
-const PROJECTS = [
-  { id: "p1", tenantId: "t1", assignedProOrgId: "org_pro", job: { clientOrgId: "org_client" } },
+const PROJECTS: Array<{ id: string; tenantId: string; assignedProOrgId: string; jobId?: string; job: { clientOrgId: string } }> = [
+  { id: "p1", tenantId: "t1", assignedProOrgId: "org_pro", jobId: "job1", job: { clientOrgId: "org_client" } },
   { id: "p_other", tenantId: "t1", assignedProOrgId: "org_pro2", job: { clientOrgId: "org_client2" } },
   { id: "p_t2", tenantId: "t2", assignedProOrgId: "org_pro_t2", job: { clientOrgId: "org_client_t2" } },
 ];
 const JOBS = [
-  { id: "job1", tenantId: "t1", clientOrgId: "org_client", project: { assignedProOrgId: "org_pro" } },
-  { id: "job_other", tenantId: "t1", clientOrgId: "org_client2", project: { assignedProOrgId: "org_pro2" } },
+  { id: "job1", tenantId: "t1", clientOrgId: "org_client", deletedAt: null, project: { assignedProOrgId: "org_pro" } },
+  { id: "job_deleted", tenantId: "t1", clientOrgId: "org_client", deletedAt: new Date(), project: { assignedProOrgId: "org_pro" } },
+  { id: "job_other", tenantId: "t1", clientOrgId: "org_client2", deletedAt: null, project: { assignedProOrgId: "org_pro2" } },
 ];
 const mk = (id: string, o: Record<string, unknown>) => ({ id, tenantId: "t1", projectId: null, jobId: null, category: "tool", status: "open", createdAt: new Date(), ...o });
 const ASSETS = [
@@ -50,14 +51,21 @@ const matches = (row: Record<string, unknown>, where: Where): boolean =>
 const writes: string[] = [];
 const prisma = {
   project: {
-    findFirst: async ({ where }: any) => PROJECTS.find((p) => p.id === where.id && p.tenantId === where.tenantId) ?? null,
-    findMany: async ({ where }: any) =>
-      PROJECTS.filter((p) => p.tenantId === where.tenantId && (p.assignedProOrgId === where.OR[0].assignedProOrgId || p.job.clientOrgId === where.OR[1].job.clientOrgId)).map((p) => ({ id: p.id })),
+    findFirst: async ({ where }: any) =>
+      PROJECTS.find((p) => p.id === where.id && p.tenantId === where.tenantId && (where.jobId === undefined || p.jobId === where.jobId)) ?? null,
+    findMany: async ({ where, take, cursor, skip }: any) => {
+      const all = PROJECTS.filter((p) => p.tenantId === where.tenantId && (p.assignedProOrgId === where.OR[0].assignedProOrgId || p.job.clientOrgId === where.OR[1].job.clientOrgId)).sort((a, b) => (a.id < b.id ? -1 : 1));
+      const start = cursor ? all.findIndex((p) => p.id === cursor.id) + (skip ?? 0) : 0;
+      return all.slice(start, start + take).map((p) => ({ id: p.id }));
+    },
   },
   job: {
-    findFirst: async ({ where }: any) => JOBS.find((j) => j.id === where.id && j.tenantId === where.tenantId) ?? null,
-    findMany: async ({ where }: any) =>
-      JOBS.filter((j) => j.tenantId === where.tenantId && (j.clientOrgId === where.OR[0].clientOrgId || j.project.assignedProOrgId === where.OR[1].project.assignedProOrgId)).map((j) => ({ id: j.id })),
+    findFirst: async ({ where }: any) => JOBS.find((j) => j.id === where.id && j.tenantId === where.tenantId && (where.deletedAt === undefined || j.deletedAt === where.deletedAt)) ?? null,
+    findMany: async ({ where, take, cursor, skip }: any) => {
+      const all = JOBS.filter((j) => j.tenantId === where.tenantId && j.deletedAt === where.deletedAt && (j.clientOrgId === where.OR[0].clientOrgId || j.project.assignedProOrgId === where.OR[1].project.assignedProOrgId)).sort((a, b) => (a.id < b.id ? -1 : 1));
+      const start = cursor ? all.findIndex((j) => j.id === cursor.id) + (skip ?? 0) : 0;
+      return all.slice(start, start + take).map((j) => ({ id: j.id }));
+    },
   },
   prometeoAsset: {
     findFirst: async ({ where }: any) => ASSETS.find((r) => matches(r, where)) ?? null,
@@ -157,4 +165,46 @@ test("crear: sin org no hay propietario; proyecto/job ajeno o de otro tenant blo
   assert.equal(await status(createW(req("org_client"), { title: "x", projectId: "p1", jobId: "job1" })), 200);
   assert.equal(await status(createA(req("org_pro"), { name: "libre" })), 200);
   assert.deepEqual(writes, ["asset:org_pro:p1", "wo:org_client:p1:job1", "asset:org_pro:undefined"]);
+});
+
+test("job eliminado lógicamente no concede acceso: ni crear, ni listar, ni cambiar estado", async () => {
+  writes.length = 0;
+  assert.equal(await status(controller.createWorkOrder(req("org_client"), { title: "x", jobId: "job_deleted" })), 404);
+  ORDERS.push(mk("w_deleted_job", { orgId: "org_x", jobId: "job_deleted" }));
+  assert.equal((await ids(controller.listWorkOrders(req("org_client")))).includes("w_deleted_job"), false);
+  assert.equal(await status(controller.updateWorkOrderStatus(req("org_client"), "w_deleted_job", { status: "closed" })), 403);
+  assert.equal(await status(controller.updateWorkOrderStatus(req("", "t1", ["OPS_ADMIN"]), "w_deleted_job", { status: "closed" })), 200);
+  ORDERS.pop();
+  assert.deepEqual(writes, ["wo-status:w_deleted_job"]);
+});
+
+test("orden con proyecto y job incompatibles ⇒ 400 y no se escribe; el par correcto sí se crea", async () => {
+  writes.length = 0;
+  // org_pro participa en p1 (job1) y en job_other solo a través de... no participa: usamos un actor que sí participa en ambos.
+  PROJECTS.push({ id: "p_mix", tenantId: "t1", assignedProOrgId: "org_pro", jobId: "job_mix", job: { clientOrgId: "org_client" } });
+  JOBS.push({ id: "job_mix", tenantId: "t1", clientOrgId: "org_client", deletedAt: null, project: { assignedProOrgId: "org_pro" } });
+  assert.equal(await status(controller.createWorkOrder(req("org_pro"), { title: "x", projectId: "p1", jobId: "job_mix" })), 400);
+  assert.equal(await status(controller.createWorkOrder(req("org_pro"), { title: "x", projectId: "p_mix", jobId: "job1" })), 400);
+  assert.deepEqual(writes, []);
+  assert.equal(await status(controller.createWorkOrder(req("org_pro"), { title: "x", projectId: "p_mix", jobId: "job_mix" })), 200);
+  assert.deepEqual(writes, ["wo:org_pro:p_mix:job_mix"]);
+  PROJECTS.pop();
+  JOBS.pop();
+});
+
+test("más de 1000 proyectos asociados: el listado no pierde filas (pagina todos los ids)", async () => {
+  const extra = Array.from({ length: 1500 }, (_, i) => ({ id: `px_${String(i).padStart(4, "0")}`, tenantId: "t1", assignedProOrgId: "org_big", job: { clientOrgId: "org_other_client" } }));
+  PROJECTS.push(...extra);
+  ASSETS.push(mk("a_last_project", { orgId: "org_other_creator", projectId: "px_1499" }), mk("a_first_project", { orgId: "org_other_creator", projectId: "px_0000" }));
+  const out = await ids(controller.listAssets(req("org_big")));
+  assert.deepEqual(out, ["a_first_project", "a_last_project"]);
+  PROJECTS.splice(PROJECTS.length - extra.length, extra.length);
+  ASSETS.splice(ASSETS.length - 2, 2);
+});
+
+test("más del tope de asociaciones: falla cerrado (422) en lugar de truncar en silencio", async () => {
+  const extra = Array.from({ length: 20001 }, (_, i) => ({ id: `py_${String(i).padStart(5, "0")}`, tenantId: "t1", assignedProOrgId: "org_huge", job: { clientOrgId: "x" } }));
+  PROJECTS.push(...extra);
+  assert.equal(await status(controller.listAssets(req("org_huge"))), 422);
+  PROJECTS.splice(PROJECTS.length - extra.length, extra.length);
 });

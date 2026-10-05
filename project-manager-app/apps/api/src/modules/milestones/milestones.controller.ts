@@ -11,7 +11,8 @@ import { resolveRequestId } from "../../common/request-id.js";
 import { parseWithSchema } from "../../common/zod-validation.js";
 import { MilestonesService } from "./milestones.service.js";
 import { MilestonesRepository } from "./milestones.repository.js";
-import { assertMilestoneReadable } from "./milestones.policy.js";
+import { ResourceScopeResolver } from "../../common/resource-scope.resolver.js";
+import { assertScopeAccess } from "../../common/resource-scope.js";
 import { BuildOpsIntelligenceAgent } from "../operational-intelligence/buildops-intelligence.agent.js";
 import { PaymentGovernanceService } from "../payments/payment-governance.service.js";
 import { EvidenceReviewService } from "../operational-intelligence/evidence-review.service.js";
@@ -22,6 +23,7 @@ export class MilestonesController {
   constructor(
     private readonly milestonesService: MilestonesService,
     private readonly milestonesRepository: MilestonesRepository,
+    private readonly scopeResolver: ResourceScopeResolver,
     @Optional() private readonly intelligenceAgent?: BuildOpsIntelligenceAgent,
     @Optional() private readonly paymentGovernance?: PaymentGovernanceService,
     @Optional() private readonly evidenceReview?: EvidenceReviewService,
@@ -34,10 +36,17 @@ export class MilestonesController {
    * política existente del dominio. Si la ruta trae `itemId`, el item debe pertenecer a ese hito (si no ⇒ 404).
    * Los permisos (`milestones:*`) y las reglas de ciclo de vida siguen aplicándose encima.
    */
-  private async assertMilestoneAccess(req: { headers?: Record<string, unknown> }, milestoneId: string, itemId?: string): Promise<void> {
+  private async assertMilestoneAccess(
+    req: { headers?: Record<string, unknown> },
+    milestoneId: string,
+    itemId?: string,
+    access: "read" | "client" = "read",
+    deniedMessage = "actor does not have access to this milestone",
+  ): Promise<void> {
     const actor = resolveRequestContext(req);
-    const ownership = await this.milestonesRepository.getMilestoneOwnership({ tenantId: actor.tenantId, milestoneId });
-    assertMilestoneReadable(actor, ownership);
+    const scope = await this.scopeResolver.resolveMilestoneScope(actor.tenantId, milestoneId);
+    if (!scope) throw new NotFoundException("Milestone not found");
+    assertScopeAccess(actor, scope, access, deniedMessage, "Milestone not found");
     if (itemId !== undefined) {
       const belongs = await this.milestonesRepository.evidenceItemBelongsToMilestone({ tenantId: actor.tenantId, milestoneId, itemId });
       if (!belongs) throw new NotFoundException("Evidence item not found");
@@ -229,7 +238,7 @@ export class MilestonesController {
     @Param("milestoneId") milestoneId: string,
     @Body() body: { items: Array<{ label: string; description?: string; kind?: string; phase?: string; required?: boolean }> },
   ) {
-    await this.assertMilestoneAccess(req, milestoneId);
+    await this.assertMilestoneAccess(req, milestoneId, undefined, "client", "only the client organization can seed evidence items for this milestone");
     const requestId = resolveRequestId(req.headers ?? {});
     const tenantId = resolveRequestContext(req).tenantId;
     await this.milestonesRepository.seedEvidenceItems(milestoneId, body.items as Parameters<typeof this.milestonesRepository.seedEvidenceItems>[1], tenantId);

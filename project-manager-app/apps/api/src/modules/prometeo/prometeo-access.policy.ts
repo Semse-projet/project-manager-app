@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { ResourceScopeResolver } from "../../common/resource-scope.resolver.js";
 import { assertScopeAccess, hasScopeAccess, isOpsAdmin, sameOrg, type ScopeActor } from "../../common/resource-scope.js";
 
@@ -37,6 +37,11 @@ export class PrometeoAccessPolicy {
       const scope = await this.resolver.resolveJobScope(actor.tenantId, assoc.jobId);
       if (!scope) throw new NotFoundException("Job not found");
       assertScopeAccess(actor, scope, "read", "Actor cannot access this job", "Job not found");
+    }
+    // Una orden con proyecto Y job solo es válida si el job es el del proyecto: si no, los participantes de un
+    // proyecto acabarían accediendo a órdenes que declaran pertenecer a otro trabajo.
+    if (assoc.projectId && assoc.jobId && !(await this.resolver.jobBelongsToProject(actor.tenantId, assoc.jobId, assoc.projectId))) {
+      throw new BadRequestException("jobId does not belong to projectId");
     }
   }
 

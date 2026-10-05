@@ -11,7 +11,7 @@ migration_status: "NOT_APPLICABLE"
 feature_flags: []
 production_evidence: []
 domain: "governance"
-version: "1.4"
+version: "1.5"
 status: "APPROVED"
 owner: "semse-core"
 risk: "critical"
@@ -49,7 +49,7 @@ last_verified: "2026-10-04"
 
 Este documento es el mapa canónico entre los **157 ítems originales** y los
 IDs de seguimiento que se agreguen a `docs/AUDIT_REMEDIATION_PLAN.md` durante
-la remediación. El inventario routable actual contiene **162 IDs**. Evita dos
+la remediación. El inventario routable actual contiene **163 IDs**. Evita dos
 fallos de gobernanza:
 
 1. implementar un hallazgo sin spec;
@@ -94,8 +94,9 @@ convierte automáticamente una spec en `VERIFIED`.
 | `0.30` | `tools.materials-calculator` | EXECUTABLE |
 | `0.31` | `ui.client-flows-remediation`, `ui-pro-flows` | EXECUTABLE |
 | `0.33` | `api-agents-runtime`, `ui.pro-flows-remediation` | EXECUTABLE |
+| `0.36` | `agt-002-prometeo-core`, `api-prometeo-copilot` | CLOSED |
 
-Cobertura: **36/36**.
+Cobertura: **37/37**.
 
 ## 4. Routing canónico — Sección 1 Cliente
 
@@ -168,8 +169,8 @@ Cobertura: **49/49**.
 
 ## 8. Gates
 
-- Cobertura del inventario actual: 162/162.
-- `pnpm spec:audit-plan-coverage`: 162 mapeados, 0 faltantes, 0 extras.
+- Cobertura del inventario actual: 163/163.
+- `pnpm spec:audit-plan-coverage`: 163 mapeados, 0 faltantes, 0 extras.
 - `node scripts/spec-validate.mjs --strict --base-ref <base-SHA>`: 0 errores/0 warnings; toda spec nueva/modificada declara SDD 2.0.
 - CI ejecuta validación strict, cobertura primaria y regresiones de ambos controles.
 - `node scripts/spec-index.mjs`: índice regenerado.

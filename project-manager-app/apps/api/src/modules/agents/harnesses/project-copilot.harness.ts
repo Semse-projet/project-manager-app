@@ -315,6 +315,7 @@ export class ProjectCopilotHarness {
         orgId: actor.orgId,
         userId: actor.userId,
         role: actor.roles[0] ?? "CLIENT",
+        roles: actor.roles,
         projectId,
       }).catch(() => null),
     ]);

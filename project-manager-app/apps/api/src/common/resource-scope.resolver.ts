@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { Injectable, NotFoundException, UnprocessableEntityException } from "@nestjs/common";
 import { PrismaService } from "../infrastructure/prisma/prisma.service.js";
 import type { ProjectScope } from "./resource-scope.js";
 
@@ -13,8 +13,12 @@ import type { ProjectScope } from "./resource-scope.js";
  * deciden `hasScopeAccess`/`assertScopeAccess` y la política del dominio.
  *
  * Migración GRADUAL (sin big bang): los resolutores duplicados de cada módulo se migran uno a uno con sus
- * pruebas. Hoy lo usa `WorkspaceMemoryAccessPolicy`.
+ * pruebas. Lo usan `WorkspaceMemoryAccessPolicy`, weather, intelligence, tasks, vision y milestones.
  */
+const ID_PAGE_SIZE = 1000;
+/** Tope de seguridad: más asociaciones que esto no se enumeran (falla cerrado, no trunca en silencio). */
+const MAX_ACCESSIBLE_IDS = 20000;
+
 @Injectable()
 export class ResourceScopeResolver {
   constructor(private readonly prisma: PrismaService) {}
@@ -34,33 +38,75 @@ export class ResourceScopeResolver {
   async resolveJobScope(tenantId: string, jobId: string): Promise<ProjectScope | null> {
     if (!tenantId || !jobId) return null;
     const job = await this.prisma.job.findFirst({
-      where: { id: jobId, tenantId },
+      where: { id: jobId, tenantId, deletedAt: null },
       select: { tenantId: true, clientOrgId: true, project: { select: { assignedProOrgId: true } } },
     });
     if (!job) return null;
     return { tenantId: job.tenantId, clientOrgId: job.clientOrgId, assignedProOrgId: job.project?.assignedProOrgId };
   }
 
-  /** Ids de proyecto del tenant en los que la org del actor es cliente o profesional asignada (para listados). */
-  async listAccessibleProjectIds(tenantId: string, orgId: string, limit = 1000): Promise<string[]> {
-    if (!tenantId || !orgId) return [];
-    const rows = await this.prisma.project.findMany({
-      where: { tenantId, OR: [{ assignedProOrgId: orgId }, { job: { clientOrgId: orgId } }] },
-      select: { id: true },
-      take: limit,
+  /** `Milestone` (no eliminado) del tenant → alcance de su proyecto. */
+  async resolveMilestoneScope(tenantId: string, milestoneId: string): Promise<ProjectScope | null> {
+    if (!tenantId || !milestoneId) return null;
+    const milestone = await this.prisma.milestone.findFirst({
+      where: { id: milestoneId, deletedAt: null, project: { tenantId } },
+      select: { project: { select: { tenantId: true, assignedProOrgId: true, job: { select: { clientOrgId: true } } } } },
     });
-    return rows.map((r) => r.id);
+    if (!milestone?.project) return null;
+    const { project } = milestone;
+    return { tenantId: project.tenantId, clientOrgId: project.job?.clientOrgId, assignedProOrgId: project.assignedProOrgId };
   }
 
-  /** Ids de job del tenant en los que la org del actor es cliente o profesional asignada (para listados). */
-  async listAccessibleJobIds(tenantId: string, orgId: string, limit = 1000): Promise<string[]> {
+  /**
+   * Ids de proyecto del tenant en los que la org del actor es cliente o profesional asignada (para listados).
+   * Pagina TODOS los ids (nunca trunca en silencio): por encima de `MAX_ACCESSIBLE_IDS` falla cerrado y pide filtrar por proyecto.
+   */
+  async listAccessibleProjectIds(tenantId: string, orgId: string): Promise<string[]> {
     if (!tenantId || !orgId) return [];
-    const rows = await this.prisma.job.findMany({
-      where: { tenantId, OR: [{ clientOrgId: orgId }, { project: { assignedProOrgId: orgId } }] },
-      select: { id: true },
-      take: limit,
-    });
-    return rows.map((r) => r.id);
+    return this.collectIds((cursor) =>
+      this.prisma.project.findMany({
+        where: { tenantId, OR: [{ assignedProOrgId: orgId }, { job: { clientOrgId: orgId } }] },
+        select: { id: true },
+        orderBy: { id: "asc" },
+        take: ID_PAGE_SIZE,
+        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+      }),
+    );
+  }
+
+  /** Igual que `listAccessibleProjectIds` para jobs (los eliminados lógicamente no dan acceso). */
+  async listAccessibleJobIds(tenantId: string, orgId: string): Promise<string[]> {
+    if (!tenantId || !orgId) return [];
+    return this.collectIds((cursor) =>
+      this.prisma.job.findMany({
+        where: { tenantId, deletedAt: null, OR: [{ clientOrgId: orgId }, { project: { assignedProOrgId: orgId } }] },
+        select: { id: true },
+        orderBy: { id: "asc" },
+        take: ID_PAGE_SIZE,
+        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+      }),
+    );
+  }
+
+  /** El `job` es el del proyecto indicado (ambos del tenant). Evita asociaciones proyecto/job incompatibles. */
+  async jobBelongsToProject(tenantId: string, jobId: string, projectId: string): Promise<boolean> {
+    if (!tenantId || !jobId || !projectId) return false;
+    const project = await this.prisma.project.findFirst({ where: { id: projectId, tenantId, jobId }, select: { id: true } });
+    return project !== null;
+  }
+
+  private async collectIds(fetchPage: (cursor?: string) => Promise<Array<{ id: string }>>): Promise<string[]> {
+    const ids: string[] = [];
+    let cursor: string | undefined;
+    for (;;) {
+      const page = await fetchPage(cursor);
+      for (const row of page) ids.push(row.id);
+      if (ids.length > MAX_ACCESSIBLE_IDS) {
+        throw new UnprocessableEntityException("Too many associated projects or jobs to list; filter by projectId");
+      }
+      if (page.length < ID_PAGE_SIZE) return ids;
+      cursor = page[page.length - 1].id;
+    }
   }
 
   /** `Dispute` del tenant → alcance de su proyecto. */

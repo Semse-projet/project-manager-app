@@ -17,6 +17,12 @@ cualquier `projectId`/`jobId` (incluso de otra org).
 - cambiar estado: carga la fila dentro del tenant (404) y aplica la regla (403) antes de escribir.
 Sin migración, flags, CI, Railway ni `rbac.ts`.
 
+## Correcciones tras la revisión de Devin (2026-10-05)
+- Una orden con proyecto y job solo se crea si el job es el del proyecto (400); antes los participantes de un proyecto podían acabar viendo órdenes de otro trabajo.
+- Los jobs eliminados lógicamente (`deletedAt`) no conceden acceso (también en `resolveJobScope`, que usan tasks y vision).
+- Los listados enumeran TODOS los ids de proyecto/job (paginados) y fallan cerrado con 422 por encima del tope de seguridad, en lugar de truncar en silencio a 1000.
+- El spec aprobado (`resource-scope.spec.md` §3.4) recoge la decisión y las pruebas.
+
 ## Pruebas
 `prometeo-assets-orders-scope.test.ts` (5, con la consulta real del repositorio): listados por actor, OPS_ADMIN, `projectId`, cambio de estado (404/403/200, sin escrituras al denegar) y creación.
 Mutaciones: política sin efecto ⇒ fallan 4 de 5; sin propiedad de la org ⇒ falla 1. API 2875 tests, 0 fallos (2 omitidos, con Postgres).
