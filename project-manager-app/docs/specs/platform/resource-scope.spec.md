@@ -13,7 +13,7 @@ merge_status: "MERGED"
 deploy_status: "DEPLOYED"
 activation_status: "INACTIVE"
 migration_status: "NOT_APPLICABLE"
-verification_scope: "partial:etapas-1-2a-2b-2c-workspace-memory-y-3A-merged-deployed:3B-guarda-informativa-en-PR-749-no-mergeada:prometeo-activos-y-ordenes-en-PR-779-no-mergeado:migracion-gradual-de-resolutores-pendiente:sin-smoke-autenticado-en-produccion"
+verification_scope: "partial:etapas-1-2a-2b-2c-workspace-memory-3A-y-3B-informativa-merged-deployed:weather-intelligence-tasks-milestones-vision-credenciales-y-prometeo-activos-y-ordenes-merged-deployed:documentos-y-rag-de-prometeo-pendientes:filas-previas-de-ordenes-con-proyecto-y-job-incompatibles-sin-reconciliar:migracion-gradual-de-resolutores-pendiente:sin-smoke-autenticado-en-produccion"
 feature_flags: []
 production_evidence:
   - github:pr:742:merge:de33e974c88a9f2db9255277f2cdb37ecbc89c3a
@@ -23,6 +23,21 @@ production_evidence:
   - railway:api:deployment:f55ce430-764b-46bc-8d59-bf984e344462:success:sha:8163825c87d06288aa4faa31057361257f29ec44
   - railway:web:deployment:691f9368-f8f2-4a14-bebe-f9cbe23262c2:success:sha:8163825c87d06288aa4faa31057361257f29ec44
   - github:actions:run:37024403026:runtime-provenance-gate:success:api-and-web-gitSha-equals-deploy-sha
+  - github:pr:753:merge:3d9743d49655f4d50ab5cbf425b27d190fe703dd
+  - github:pr:756:merge:43df67fda34e0bcca313194d12d98a9073dcfed9
+  - github:pr:757:merge:7da00947f3e2a39f69f1c3e0a9d5124aaa6fd532
+  - github:pr:769:merge:e01cca711889a1db552cb329056899c8f945c9a5
+  - github:pr:771:merge:370578ad81298ac53078eeef79db7e4110ce7a2a
+  - github:pr:775:merge:bb10b377b7e6a72b47c95d99ce4d0c9a740a4141
+  - github:pr:776:merge:686ed6c04a322c2351c31b789160cc665e1bfed3
+  - github:pr:778:merge:661b4a76145715c505d01a63f352d484f1ee4a4b
+  - github:pr:779:merge:0de1c42f7032b41f2d7f194e073b29ac2d547958
+  - railway:api:deployment:5054051e-21fb-463b-acbf-dae01402f9b4:success:sha:661b4a76145715c505d01a63f352d484f1ee4a4b
+  - railway:web:deployment:fbd6f09e-1d5f-4067-aeef-08a63c0f2b7f:success:sha:661b4a76145715c505d01a63f352d484f1ee4a4b
+  - github:actions:run:37250257461:runtime-provenance-gate:success:api-and-web-gitSha-equals-deploy-sha
+  - railway:api:deployment:537ec3c4-cdf5-4445-8c95-acf405a66c05:success:sha:3070398736e05ca935bb1b2d051396d98066a879
+  - railway:web:deployment:57a95733-7114-4144-96b4-3c1ac906f3fe:success:sha:3070398736e05ca935bb1b2d051396d98066a879
+  - github:actions:run:37307315830:runtime-provenance-gate:success:api-and-web-gitSha-equals-deploy-sha:includes-pr-779-0de1c42f
   - "local:smoke-workspace-memory:2026-10-02:postgres-real-api-arrancada-2-tenants — NOT production evidence"
 related_files:
   - scripts/architecture/resource-scope-inventory.mjs
@@ -56,7 +71,7 @@ related_endpoints:
   - PATCH /v1/prometeo/work-orders/:id/status
 related_events: []
 related_agents: []
-last_verified: "2026-10-02"
+last_verified: "2026-10-05"
 ---
 
 # Spec: Contrato común ResourceScope (C51)
@@ -103,7 +118,7 @@ El dueño autoriza un PR de CI **separado** para la guarda de arquitectura, **pr
 
 ### 3.4 Decisión del dueño (2026-10-04): propietario explícito en `prometeo` (activos y órdenes de trabajo)
 Documentos, activos y órdenes de `prometeo` deben tener un **propietario explícito validado por el servidor**. `orgId` es obligatorio en `PrometeoDocument`, `PrometeoAsset` y `WorkOrder` (solo `projectId` es opcional) y siempre sale del actor autenticado, nunca del cuerpo de la petición.
-- **Asociada a un proyecto o job** del tenant ⇒ rigen los permisos de ese proyecto/job (`read`: org cliente, org profesional asignada u `OPS_ADMIN` del tenant). Si una orden declara proyecto **y** job, el job debe ser el del proyecto (si no ⇒ 400). Un job eliminado lógicamente (`deletedAt`) no concede acceso. Un proyecto/job que ya no existe en el tenant solo lo ve `OPS_ADMIN`.
+- **Asociada a un proyecto o job** del tenant ⇒ rigen los permisos de ese proyecto/job (`read`: org cliente, org profesional asignada u `OPS_ADMIN` del tenant). Si una orden declara proyecto **y** job, el job debe ser el del proyecto (si no ⇒ 400) — **garantía solo al crear**: las órdenes anteriores a #779 pueden tener pares incompatibles (el modelo no lo restringe) y se siguen autorizando por su proyecto; reconciliarlas (auditoría de datos y corrección) queda pendiente. Un job eliminado lógicamente (`deletedAt`) no concede acceso. Un proyecto/job que ya no existe en el tenant solo lo ve `OPS_ADMIN`.
 - **Sin asociación** ⇒ solo la org propietaria (`sameOrg`; la org vacía nunca coincide) u `OPS_ADMIN` del tenant. **Pertenecer al mismo tenant no concede acceso por sí solo.** Otro tenant ⇒ 404; sin relación ⇒ 403.
 - **Listados**: sin `projectId` ⇒ solo filas propias sin asociación más las de proyectos/jobs en los que participa la org (consulta filtrada; los ids se enumeran por completo y, por encima de un tope de seguridad, falla cerrado con 422 en lugar de truncar); con `projectId` ⇒ exige participar en ese proyecto (404/403). `OPS_ADMIN` ve todo su tenant, nunca otro.
 - **Estados de error (contrato de las 6 rutas)**:

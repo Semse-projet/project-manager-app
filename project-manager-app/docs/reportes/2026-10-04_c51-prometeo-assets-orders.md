@@ -19,6 +19,7 @@ Sin migración, flags, CI, Railway ni `rbac.ts`.
 
 ## Correcciones tras la revisión de Devin (2026-10-05)
 - Una orden con proyecto y job solo se crea si el job es el del proyecto (400); antes los participantes de un proyecto podían acabar viendo órdenes de otro trabajo.
+- Alcance de la coherencia proyecto/job: se comprueba **solo al crear**; las órdenes anteriores con pares incompatibles no se reconcilian (pendiente: auditoría y corrección de datos).
 - Los jobs eliminados lógicamente (`deletedAt`) no conceden acceso (también en `resolveJobScope`, que usan tasks y vision).
 - Los listados enumeran TODOS los ids de proyecto/job (paginados) y fallan cerrado con 422 por encima del tope de seguridad, en lugar de truncar en silencio a 1000.
 - El spec aprobado (`resource-scope.spec.md` §3.4) recoge la decisión y las pruebas.
