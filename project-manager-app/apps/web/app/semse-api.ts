@@ -2227,6 +2227,8 @@ export function subscribeToContextUpdates(input: {
 
 export type PrometeoChatInput = {
   message?: string;
+  /** Turnos previos de esta conversación: el servidor no guarda el texto, así que el cliente lo reenvía. */
+  history?: Array<{ role: "user" | "assistant"; content: string }>;
   agentId?: string;
   threadId?: string;
   projectId?: string;

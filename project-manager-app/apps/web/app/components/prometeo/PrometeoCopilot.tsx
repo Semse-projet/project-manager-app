@@ -11,7 +11,7 @@ import {
   executeCopilotAction,
   sendCopilotMessage,
 } from "../../../lib/bff/prometeo";
-import { buildWidgetChatRequest, classifyChatReply, describeChatFailure } from "../../../lib/prometeo-widget-chat";
+import { buildChatHistory, buildWidgetChatRequest, classifyChatReply, describeChatFailure } from "../../../lib/prometeo-widget-chat";
 
 /** Tope de espera del chat real: pasado este tiempo la consulta termina como fallo visible, no queda colgada. */
 const CHAT_TIMEOUT_MS = 45_000;
@@ -95,7 +95,13 @@ export function PrometeoCopilot() {
       let degradedReason: string | null = null;
       try {
         const real = await askPrometeoChat(
-          buildWidgetChatRequest({ message: text, threadId: chatThreadId, context, route: startedAt ?? undefined }),
+          buildWidgetChatRequest({
+            message: text,
+            history: buildChatHistory(messages), // `messages` aún no incluye el mensaje actual
+            threadId: chatThreadId,
+            context,
+            route: startedAt ?? undefined,
+          }),
           controller.signal,
         );
         if (pathnameRef.current !== startedAt) return;

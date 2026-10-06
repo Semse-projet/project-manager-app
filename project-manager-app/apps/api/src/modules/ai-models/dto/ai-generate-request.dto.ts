@@ -9,6 +9,8 @@ export interface AiGenerateRequest {
   threadId?: string;
   taskType: AiTaskType;
   input: string;
+  /** Turnos previos de la misma conversación (entrada no confiable; se normaliza en `prompt-safety`). */
+  history?: Array<{ role: "user" | "assistant"; content: string }>;
   systemPrompt?: string;
   context?: string;
   retrievedContext?: unknown[];

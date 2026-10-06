@@ -39,8 +39,19 @@ export const prometeoPageContextSchema = z.object({
   metadata: z.record(z.unknown()).optional(),
 });
 
+/** Límites del historial que envía el cliente: acotan el tamaño del prompt y lo que un cliente puede inyectar. */
+export const PROMETEO_HISTORY_MAX_TURNS = 10;
+export const PROMETEO_HISTORY_MAX_TURN_CHARS = 2000;
+
+/** Un turno previo de la conversación. Es entrada NO confiable: el servidor la trata como datos, nunca como instrucciones. */
+export const prometeoChatTurnSchema = z.object({
+  role: z.enum(["user", "assistant"]),
+  content: z.string().max(PROMETEO_HISTORY_MAX_TURN_CHARS * 4),
+});
+
 export const prometeoRequestSchema = z.object({
   message: z.string().trim().optional(),
+  history: z.array(prometeoChatTurnSchema).max(PROMETEO_HISTORY_MAX_TURNS * 4).optional(),
   attachments: z.array(prometeoAttachmentSchema).default([]),
   selectedEntities: z.array(prometeoEntityReferenceSchema).default([]),
   requestedAction: z.string().trim().min(1).optional(),

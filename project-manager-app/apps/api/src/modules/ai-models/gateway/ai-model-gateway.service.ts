@@ -9,7 +9,7 @@ import { KimiProvider } from "../providers/kimi.provider.js";
 import { GlmProvider } from "../providers/glm.provider.js";
 import { createContextEngine } from "../context/token-budget-engine.js";
 import type { ContextEngine, ContextEngineStatus } from "../context/context-engine.interface.js";
-import { buildSafeSystemPrompt, wrapOperationalContext, wrapUserInput } from "../prompt-safety.js";
+import { buildSafeSystemPrompt, wrapConversationHistory, wrapOperationalContext, wrapUserInput } from "../prompt-safety.js";
 
 @Injectable()
 export class AiModelGatewayService {
@@ -135,9 +135,11 @@ export class AiModelGatewayService {
         "You are a helpful AI assistant for SEMSEproject.",
       ),
       history: [],
-      userMessage: request.context
-        ? `${wrapOperationalContext(request.context)}\n\n${wrapUserInput(request.input)}`
-        : wrapUserInput(request.input),
+      userMessage: [
+        request.context ? wrapOperationalContext(request.context) : "",
+        wrapConversationHistory(request.history),
+        wrapUserInput(request.input),
+      ].filter(Boolean).join("\n\n"),
       context: {
         preferredProvider: providerName as "anthropic" | "openai" | "ollama" | "template" | undefined,
         taskType: "chat",
