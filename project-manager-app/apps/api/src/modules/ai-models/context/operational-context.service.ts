@@ -3,6 +3,7 @@ import type { Prisma } from "@prisma/client";
 import { PrismaService } from "../../../infrastructure/prisma/prisma.service.js";
 import { hasScopeAccess, isOpsAdmin, type ScopeActor } from "../../../common/resource-scope.js";
 import { ResourceScopeResolver } from "../../../common/resource-scope.resolver.js";
+import { computeEscrowFigures } from "./escrow-figures.js";
 import { SseEventBusService } from "../../../infrastructure/sse/sse-event-bus.service.js";
 import { HealthService } from "../../health/health.service.js";
 import { hasPermission } from "../../../common/rbac.js";
@@ -38,6 +39,7 @@ export type SemseOperationalContext = {
   } | null;
   jobs: { active: number; waitingProposals: number; completed: number; recent: Array<{ id: string; title: string; status: string }> };
   milestones: { active: number; pendingApproval: number; submitted: number };
+  /** `pendingRelease` = dinero aún RETENIDO en escrow (fondeado − liberado − reembolsado, solo transacciones confirmadas). NO es "elegible para liberar". */
   payments: { escrowFunded: number; escrowReleased: number; pendingRelease: number };
   evidences: { total: number; pendingReview: number; approved: number };
   disputes: { open: number; urgent: number };
@@ -193,34 +195,52 @@ export class OperationalContextService {
     let disputes = { open: 0, urgent: 0 };
 
     if (!input.projectId) {
-      // Aggregate across ALL tenant projects for global view
+      // 0.45: la vista global solo agrega TODO el tenant para OPS_ADMIN (visibilidad operativa intencional). Los demás ven
+      // únicamente los proyectos en los que su organización participa (misma regla que `resource-scope`: org cliente u
+      // org profesional asignada); sin organización, ninguno. Antes escrow, hitos, evidencias y disputas eran del tenant
+      // completo para cualquier rol y llegaban así al modelo.
+      const scopedProjectIds: string[] | null = isAdmin
+        ? null
+        : actorScope.orgId
+          ? await new ResourceScopeResolver(this.prisma)
+              .listAccessibleProjectIds(input.tenantId, actorScope.orgId)
+              // Si no se puede listar (p. ej. demasiados proyectos: el resolvedor falla cerrado con 422), el chat NO se
+              // rompe y NUNCA vuelve al tenant completo: las cifras globales quedan vacías.
+              .catch((error: unknown) => {
+                this.logger.warn(`[ctx] no se pudo acotar la vista global por participación; cifras vacías: ${error instanceof Error ? error.message : String(error)}`);
+                return [] as string[];
+              })
+          : [];
+      const projectWhere = scopedProjectIds
+        ? { id: { in: scopedProjectIds }, tenantId: input.tenantId }
+        : { tenantId: input.tenantId };
+      const byProject = scopedProjectIds
+        ? { projectId: { in: scopedProjectIds }, project: { tenantId: input.tenantId } }
+        : { project: { tenantId: input.tenantId } };
+
       const [allEscrows, allMilestones, allDisputes, allEvidences] = await Promise.all([
         this.prisma.paymentEscrow.findMany({
-          where: { project: { tenantId: input.tenantId } },
-          select: { totalAmount: true, status: true },
+          where: byProject,
+          select: { transactions: { select: { type: true, amount: true, status: true } } },
         }).catch(() => []),
         this.prisma.milestone.findMany({
-          where: { project: { tenantId: input.tenantId } },
+          where: byProject,
           select: { status: true },
         }).catch(() => []),
         this.prisma.dispute.findMany({
-          where: { tenantId: input.tenantId },
+          where: scopedProjectIds ? { tenantId: input.tenantId, project: projectWhere } : { tenantId: input.tenantId },
           select: { status: true },
         }).catch(() => []),
         this.prisma.evidence.findMany({
-          where: { project: { tenantId: input.tenantId } },
+          where: byProject,
           select: { validationStatus: true },
         }).catch(() => []),
       ]);
 
-      const totalEscrow = allEscrows.reduce((s: number, e: { totalAmount: unknown }) => s + Number(e.totalAmount ?? 0), 0);
-      payments = {
-        escrowFunded: totalEscrow,
-        escrowReleased: 0,
-        pendingRelease: allMilestones.filter((m: MilestoneStatusRow) => m.status === "APPROVED").length > 0
-          ? Math.round(totalEscrow * 0.3)
-          : 0,
-      };
+      // 0.45: cifras de transacciones confirmadas, no el "30 %" inventado (ver escrow-figures.ts).
+      payments = computeEscrowFigures(
+        (allEscrows as Array<{ transactions?: Array<{ type: string; amount: unknown; status: string }> }>).flatMap((e) => e.transactions ?? []),
+      );
       milestones = {
         active: allMilestones.filter((m: MilestoneStatusRow) => ["DRAFT", "AWAITING_REVIEW"].includes(m.status)).length,
         pendingApproval: allMilestones.filter((m: MilestoneStatusRow) => m.status === "AWAITING_REVIEW").length,
@@ -249,7 +269,7 @@ export class OperationalContextService {
         }).catch(() => [] as MilestoneStatusRow[]),
         this.prisma.paymentEscrow.findUnique({
           where: { projectId: input.projectId },
-          select: { totalAmount: true, status: true },
+          select: { transactions: { select: { type: true, amount: true, status: true } } },
         }).catch(() => null),
         this.prisma.evidence.findMany({
           where: { projectId: input.projectId },
@@ -275,13 +295,10 @@ export class OperationalContextService {
         submitted: mss.filter((m: MilestoneStatusRow) => m.status === "SUBMITTED").length,
       };
 
-      const escrowTotal = Number(esc?.totalAmount ?? 0);
-      const approvedMs = mss.filter((m: MilestoneStatusRow) => m.status === "APPROVED");
-      payments = {
-        escrowFunded: escrowTotal,
-        escrowReleased: 0,
-        pendingRelease: approvedMs.length > 0 ? Math.round(escrowTotal * approvedMs.length / Math.max(1, mss.length)) : 0,
-      };
+      // 0.45: cifras de transacciones confirmadas, no `escrow × aprobados / hitos` (ver escrow-figures.ts).
+      payments = computeEscrowFigures(
+        (esc as { transactions?: Array<{ type: string; amount: unknown; status: string }> } | null)?.transactions ?? [],
+      );
 
       evidences = {
         total: evs.length,
@@ -457,7 +474,7 @@ export class OperationalContextService {
         : "Profesional objetivo: no definido.",
       `Trabajos: ${ctx.jobs.active} activos | ${ctx.jobs.waitingProposals} esperando | ${ctx.jobs.completed} completados`,
       `Hitos: ${ctx.milestones.active} activos | ${ctx.milestones.pendingApproval} pendientes de aprobación`,
-      `Escrow: $${ctx.payments.escrowFunded.toLocaleString()} fondeado | $${ctx.payments.pendingRelease.toLocaleString()} elegibles para liberación`,
+      `Escrow: $${ctx.payments.escrowFunded.toLocaleString()} fondeado | $${ctx.payments.escrowReleased.toLocaleString()} liberado | $${ctx.payments.pendingRelease.toLocaleString()} retenido (aún sin liberar; no implica que esté listo para liberarse)`,
       `Evidencias: ${ctx.evidences.total} total | ${ctx.evidences.pendingReview} por revisar`,
       `Disputas: ${ctx.disputes.open} abiertas | ${ctx.disputes.urgent} urgentes`,
       `Notificaciones: ${ctx.notifications.length} sin leer`,

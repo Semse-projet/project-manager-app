@@ -32,7 +32,7 @@ function makePrisma(overrides: Record<string, unknown> = {}) {
     milestone: { findMany: async () => [] },
     dispute: { findMany: async () => [] },
     evidence: { findMany: async () => [] },
-    project: { findUnique: async () => null },
+    project: { findUnique: async () => null, findMany: async () => [] },
     workspaceMemoryEntry: { findFirst: async () => null },
     operationalContextSnapshot: {
       create: async () => ({}),

@@ -388,7 +388,9 @@ ${noContextResponse}`;
       `- Hitos activos: **${ctx.milestones.active}**`,
       `- Pendientes de aprobación: **${ctx.milestones.pendingApproval}**`,
       `- Escrow fondeado: **$${ctx.payments.escrowFunded.toLocaleString()} USD**`,
-      `- Elegible para liberación: **$${ctx.payments.pendingRelease.toLocaleString()} USD**`,
+      `- Escrow liberado: **$${ctx.payments.escrowReleased.toLocaleString()} USD**`,
+      // 0.45: dinero aún retenido en escrow; NO implica que esté listo para liberarse (eso lo decide la preparación de pago de cada hito).
+      `- Retenido en escrow (sin liberar): **$${ctx.payments.pendingRelease.toLocaleString()} USD**`,
       "",
       "## Evidencias y Disputas",
       `- Evidencias por revisar: **${ctx.evidences.pendingReview}**`,
@@ -419,7 +421,7 @@ ${noContextResponse}`;
     if (ctx.jobs.active > 0 || ctx.milestones.pendingApproval > 0 || ctx.disputes.urgent > 0) {
       lines.push("", "## Acciones recomendadas");
       if (ctx.milestones.pendingApproval > 0) lines.push(`- Revisar ${ctx.milestones.pendingApproval} hito(s) pendiente(s) de aprobación`);
-      if (ctx.payments.pendingRelease > 0) lines.push(`- Liberar $${ctx.payments.pendingRelease.toLocaleString()} USD en escrow elegible`);
+      if (ctx.payments.pendingRelease > 0) lines.push(`- Hay $${ctx.payments.pendingRelease.toLocaleString()} USD retenidos en escrow: revisa qué hitos aprobados están listos para liberar`);
       if (ctx.disputes.urgent > 0) lines.push(`- Atender ${ctx.disputes.urgent} disputa(s) urgente(s)`);
       if (ctx.evidences.pendingReview > 0) lines.push(`- Revisar ${ctx.evidences.pendingReview} evidencia(s) pendiente(s)`);
     }

@@ -320,7 +320,7 @@ export default function AiMissionControlPage() {
                 <div><strong>Proyecto activo:</strong> {context.activeProject ? `${context.activeProject.title} (${context.activeProject.status})` : "Sin proyecto seleccionado"}</div>
                 <div><strong>Trabajos:</strong> {context.jobs.active} activos · {context.jobs.waitingProposals} esperando · {context.jobs.completed} completados</div>
                 <div><strong>Hitos:</strong> {context.milestones.pendingApproval} por aprobar · {context.milestones.submitted} enviados</div>
-                <div><strong>Pagos:</strong> ${context.payments.pendingRelease.toLocaleString()} elegibles · ${context.payments.escrowFunded.toLocaleString()} fondeados</div>
+                <div><strong>Pagos:</strong> ${context.payments.pendingRelease.toLocaleString()} retenidos · ${context.payments.escrowReleased.toLocaleString()} liberados · ${context.payments.escrowFunded.toLocaleString()} fondeados</div>
                 <div><strong>Evidencias:</strong> {context.evidences.pendingReview} por revisar de {context.evidences.total}</div>
                 <div><strong>Disputas:</strong> {context.disputes.open} abiertas · {context.disputes.urgent} urgentes</div>
                 {context.ecosystem5d && (

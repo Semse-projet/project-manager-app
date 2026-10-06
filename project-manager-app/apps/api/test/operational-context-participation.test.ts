@@ -45,6 +45,8 @@ function makePrisma(projects: Record<string, ProjectRow> = {}, snapshots: Array<
           const row = projects[where.id];
           return row && row.tenantId === where.tenantId ? row : null;
         },
+        // 0.45: la vista global de un no-admin lista primero los proyectos en los que participa su organización.
+        findMany: async () => [],
       },
       operationalContextSnapshot: {
         create: async () => ({}),
