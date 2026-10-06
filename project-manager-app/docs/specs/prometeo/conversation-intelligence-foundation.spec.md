@@ -4,7 +4,7 @@ title: "Conversation Intelligence Foundation"
 domain: "prometeo"
 sdd_version: "2.0"
 version: "1.0"
-status: "REVIEW"
+status: "APPROVED"
 owner: "semse-core"
 risk: "high"
 code_status: "NOT_STARTED"
@@ -20,7 +20,7 @@ related_tests: []
 related_endpoints: []
 related_events: []
 related_agents: ["prometeo"]
-last_verified: "2026-10-02"
+last_verified: "2026-10-06"
 ---
 
 # Spec: Conversation Intelligence Foundation
