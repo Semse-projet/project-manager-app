@@ -39,7 +39,10 @@ export async function executeIdempotently<TResult>(args: {
   const existing = await args.store.get(args.tenantId, args.connectionId, args.key);
   if (existing) {
     if (existing.fingerprint !== args.fingerprint) throw new Error('IDEMPOTENCY_KEY_REUSE_MISMATCH');
-    if (existing.status === 'COMPLETED') return { replayed: true, result: existing.result as TResult };
+    if (existing.status === 'COMPLETED') {
+      if (existing.result === undefined) throw new Error('IDEMPOTENCY_COMPLETED_RESULT_MISSING');
+      return { replayed: true, result: existing.result };
+    }
     throw new Error('IDEMPOTENCY_REQUEST_IN_PROGRESS');
   }
 
