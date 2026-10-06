@@ -1454,12 +1454,19 @@ model Communication {
   deliveredAt       DateTime?
   readAt            DateTime?
   createdAt         DateTime                   @default(now())
+  // Conversation Intelligence (spec prometeo.conversation-intelligence, Ola 1): aditivos y nulables. `sequence` conserva el
+  // orden original del mensaje; `occurredAt` es null cuando la fuente no tiene tiempo por mensaje (nunca se inventa);
+  // `contentHash` es la huella del cuerpo original.
+  sequence          Int?
+  occurredAt        DateTime?
+  contentHash       String?
 
   tenant Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   thread CommunicationThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
   sender User?               @relation("CommunicationSender", fields: [senderUserId], references: [id], onDelete: SetNull)
 
   @@unique([tenantId, provider, externalMessageId])
+  @@index([tenantId, threadId, sequence])
   @@index([tenantId, threadId, createdAt])
   @@index([tenantId, direction, createdAt])
   @@index([tenantId, status, createdAt])
