@@ -18,6 +18,8 @@ export * from "./deploy-provenance.js";
 export * from "./universal-connector/contracts.js";
 export * from "./universal-connector/enforcement.js";
 export * from "./universal-connector/runtime-trust.js";
+export * from "./universal-connector/idempotency.js";
+export * from "./universal-connector/webhook-trust.js";
 
 export const SEMSE_IDENTITY_HEADER_NAMES = {
   tenantId: "x-tenant-id",
@@ -201,4 +203,17 @@ export const JOB_STATUS_LABELS: Record<string, string> = { DRAFT: "Draft", POSTE
 export const MILESTONE_STATUS_LABELS: Record<string, string> = { DRAFT: "Draft", AWAITING_REVIEW: "Awaiting Review", SUBMITTED: "Submitted", APPROVED: "Approved", REJECTED: "Rejected", PAID: "Paid" };
 export const BID_STATUS_LABELS: Record<string, string> = { SUBMITTED: "Submitted", ACCEPTED: "Accepted", REJECTED: "Rejected" };
 export const PROJECT_STATUS_LABELS: Record<string, string> = { OPEN: "Open", IN_PROGRESS: "In Progress", BLOCKED: "Blocked", COMPLETED: "Completed", CANCELLED: "Cancelled" };
-export const DISPUTE_STATUS_LABELS: Record<string, string> = { OPEN: "Open", UNDER_REVIEW: "Under Review", RESOLVED: "Resolved", CLOSED: "Closed" };
+export const DISPUTE_STATUS_LABELS: Record<string, string> = { OPEN: "Open", ASSIGNED: "Assigned", UNDER_REVIEW: "Under Review", RESOLVED: "Resolved", REJECTED: "Rejected" };
+export const AGENT_RUN_STATUS_LABELS: Record<string, string> = { QUEUED: "Queued", RUNNING: "Running", COMPLETED: "Completed", FAILED: "Failed", CANCELLED: "Cancelled" };
+
+export function isNonEmptyString(value: unknown): value is string { return typeof value === "string" && value.trim().length > 0; }
+export function isPositiveNumber(value: unknown): value is number { return typeof value === "number" && isFinite(value) && value > 0; }
+export function pick<T extends object, K extends keyof T>(obj: T, keys: K[]): Pick<T, K> { const result = {} as Pick<T, K>; for (const k of keys) if (k in obj) result[k] = obj[k]; return result; }
+export function omit<T extends object, K extends keyof T>(obj: T, keys: K[]): Omit<T, K> { const result = { ...obj }; for (const k of keys) delete (result as Record<string, unknown>)[k as string]; return result as Omit<T, K>; }
+export function compactObject<T extends object>(obj: T): Partial<T> { return Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== null && v !== undefined)) as Partial<T>; }
+
+export interface PaginationMeta { page: number; pageSize: number; total: number; totalPages: number; hasNext: boolean; hasPrev: boolean }
+export function buildPaginationMeta(total: number, page: number, pageSize: number): PaginationMeta {
+  const totalPages = Math.ceil(total / pageSize); return { page, pageSize, total, totalPages, hasNext: page < totalPages, hasPrev: page > 1 };
+}
+export function paginationSkip(page: number, pageSize: number): number { return Math.max(0, (page - 1) * pageSize); }
