@@ -23,6 +23,7 @@ import { AgentDelegationService } from "./agent-delegation.service.js";
 import { CoordinatorService } from "./coordinator.service.js";
 import { PlanTemplatesService } from "./plan-templates.service.js";
 import { ProjectAccessService } from "./project-access.service.js";
+import { AuditMaintenanceService } from "./audit-maintenance.service.js";
 import { ResourceScopeModule } from "../../common/resource-scope.module.js";
 import { ProjectCopilotHarness } from "./harnesses/project-copilot.harness.js";
 import { PrometeoModule } from "../prometeo/prometeo.module.js";
@@ -49,6 +50,7 @@ import { PrometeoMissionService } from "./prometeo-mission.service.js";
     CoordinatorService,
     PlanTemplatesService,
     ProjectAccessService,
+    AuditMaintenanceService,
     ProjectCopilotHarness,
     PrometeoMissionService,
     IdempotencyService,

@@ -4,8 +4,12 @@ import type { AgentApprovalRequest } from "@semse/agents";
 import { AuditService } from "../../infrastructure/audit/audit.service.js";
 import { ActorContextService } from "../../infrastructure/persistence/actor-context.service.js";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
+import { resolveAuditLifecycleMode } from "../prometeo/tool-governance/tool-call-audit.js";
 
 const { Prisma } = prismaClientPackage as typeof import("@prisma/client");
+
+/** H05 (entrega B): estado de ejecución de una aprobación del copiloto. `undefined` = sin dato (anteriores a la migración). */
+export type ApprovalExecutionStatus = "NOT_STARTED" | "EXECUTING" | "SUCCEEDED" | "FAILED";
 
 type StoredApproval = AgentApprovalRequest & {
   tenantId: string;
@@ -13,6 +17,11 @@ type StoredApproval = AgentApprovalRequest & {
   decisionComment?: string;
   decidedAt?: string;
   decidedByUserId?: string;
+  executionStatus?: ApprovalExecutionStatus;
+  executionStartedAt?: string;
+  executionFinishedAt?: string;
+  executionError?: string;
+  executionId?: string;
 };
 
 type DbApprovalRecord = {
@@ -34,6 +43,11 @@ type DbApprovalRecord = {
   decidedAt: Date | null;
   decidedByUserId: string | null;
   requestedAt: Date;
+  executionStatus?: string | null;
+  executionStartedAt?: Date | null;
+  executionFinishedAt?: Date | null;
+  executionError?: string | null;
+  executionId?: string | null;
 };
 
 function toDbStatus(status: AgentApprovalRequest["status"]): DbApprovalRecord["status"] {
@@ -211,13 +225,19 @@ export class AgentApprovalService {
     }
 
     // Transición condicional: solo una decisión concurrente puede pasar de PENDING a un estado final.
+    // H05: una aprobación de acción del copiloto nace con ejecución `NOT_STARTED` para que una caída entre aprobar y
+    // ejecutar deje un estado explícito. Solo con el ciclo de vida activo: con `off` (o antes de aplicar la migración)
+    // no se escriben las columnas nuevas.
+    const trackExecution =
+      input.decision === "approved" && approval.correlationId.startsWith("copilot:") && resolveAuditLifecycleMode() !== "off";
     const claimed = await this.prisma.agentApproval.updateMany({
       where: { id: approval.id, tenantId: input.tenantId, status: "PENDING" },
       data: {
         status: toDbStatus(input.decision),
         decisionComment: input.comment,
         decidedAt: new Date(),
-        decidedByUserId: input.userId
+        decidedByUserId: input.userId,
+        ...(trackExecution ? { executionStatus: "NOT_STARTED" } : {})
       }
     });
     if (claimed.count !== 1) {
@@ -247,6 +267,74 @@ export class AgentApprovalService {
     return updated;
   }
 
+  // ── H05 (entrega B): estado de ejecución ───────────────────────────────────
+
+  /**
+   * Reclama la ejecución con una transición condicional: como máximo un proceso pasa a `EXECUTING`. `from` son los
+   * estados desde los que se puede reclamar (`NOT_STARTED` la primera vez; `FAILED` en un reintento manual).
+   */
+  async claimExecution(input: {
+    tenantId: string;
+    approvalId: string;
+    executionId: string;
+    from: ApprovalExecutionStatus[];
+    now?: Date;
+  }): Promise<boolean> {
+    const result = await this.prisma.agentApproval.updateMany({
+      where: {
+        id: input.approvalId,
+        tenantId: input.tenantId,
+        status: "APPROVED",
+        executionStatus: { in: input.from }
+      },
+      data: {
+        executionStatus: "EXECUTING",
+        executionStartedAt: input.now ?? new Date(),
+        executionFinishedAt: null,
+        executionError: null,
+        executionId: input.executionId
+      }
+    });
+    return result.count === 1;
+  }
+
+  /** Cierra la ejecución (`EXECUTING → SUCCEEDED | FAILED`); el error se guarda ya acotado. */
+  async finishExecution(input: {
+    tenantId: string;
+    approvalId: string;
+    status: "SUCCEEDED" | "FAILED";
+    error?: string;
+    now?: Date;
+  }): Promise<boolean> {
+    const result = await this.prisma.agentApproval.updateMany({
+      where: { id: input.approvalId, tenantId: input.tenantId, executionStatus: "EXECUTING" },
+      data: {
+        executionStatus: input.status,
+        executionFinishedAt: input.now ?? new Date(),
+        executionError: input.error ? input.error.slice(0, 500) : null
+      }
+    });
+    return result.count === 1;
+  }
+
+  /**
+   * Barrido idempotente. NO reintenta efectos (decisión D2: ninguno tiene hoy idempotencia verificada): deja un estado
+   * explícito para que un humano decida. `EXECUTING` caducado ⇒ `FAILED/INTERRUPTED`; aprobada sin llegar a ejecutarse
+   * (`NOT_STARTED` caducada) ⇒ `FAILED/NOT_EXECUTED`. Devuelve cuántas filas cambió cada regla.
+   */
+  async reconcileExecutions(input: { olderThan: Date; now?: Date }): Promise<{ interrupted: number; notExecuted: number }> {
+    const now = input.now ?? new Date();
+    const interrupted = await this.prisma.agentApproval.updateMany({
+      where: { status: "APPROVED", executionStatus: "EXECUTING", executionStartedAt: { lt: input.olderThan } },
+      data: { executionStatus: "FAILED", executionFinishedAt: now, executionError: "INTERRUPTED" }
+    });
+    const notExecuted = await this.prisma.agentApproval.updateMany({
+      where: { status: "APPROVED", executionStatus: "NOT_STARTED", decidedAt: { lt: input.olderThan } },
+      data: { executionStatus: "FAILED", executionFinishedAt: now, executionError: "NOT_EXECUTED" }
+    });
+    return { interrupted: interrupted.count, notExecuted: notExecuted.count };
+  }
+
   private toRecord(record: DbApprovalRecord): StoredApproval {
     return {
       id: record.id,
@@ -268,7 +356,12 @@ export class AgentApprovalService {
       contextSummary: record.contextSummary ?? undefined,
       decisionComment: record.decisionComment ?? undefined,
       decidedAt: record.decidedAt?.toISOString(),
-      decidedByUserId: record.decidedByUserId ?? undefined
+      decidedByUserId: record.decidedByUserId ?? undefined,
+      executionStatus: (record.executionStatus ?? undefined) as ApprovalExecutionStatus | undefined,
+      executionStartedAt: record.executionStartedAt?.toISOString(),
+      executionFinishedAt: record.executionFinishedAt?.toISOString(),
+      executionError: record.executionError ?? undefined,
+      executionId: record.executionId ?? undefined
     };
   }
 }

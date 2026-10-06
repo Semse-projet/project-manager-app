@@ -11,6 +11,7 @@ import { PrometeoAccessPolicy } from "./prometeo-access.policy.js";
 import { PrometeoToolExecutionService } from "./prometeo-tool-execution.service.js";
 import { findPrometeoToolDescriptor, listPrometeoToolRegistry } from "./prometeo-tool-registry.js";
 import { TradeGuideService } from "./trade-guide.service.js";
+import { ToolExecutionQueryService } from "./tool-governance/tool-execution-query.service.js";
 
 @Controller("v1/prometeo")
 export class PrometeoController {
@@ -21,6 +22,7 @@ export class PrometeoController {
     @Optional() private readonly llm?: LLMOrchestrator,
     @Optional() private readonly tradeGuide?: TradeGuideService,
     @Optional() private readonly toolExecution?: PrometeoToolExecutionService,
+    @Optional() private readonly executionQuery?: ToolExecutionQueryService,
   ) {}
 
   // ── RAG Documents ───────────────────────────────────────────────────────────
@@ -59,6 +61,36 @@ export class PrometeoController {
       ? await this.toolExecution.invokeReadTool(actor, rid, parsed.data)
       : await this.toolExecution.invokeWriteTool(actor, rid, parsed.data);
     return ok(rid, result);
+  }
+
+  /** H05 (entrega B, D4): estado y lineage de una ejecución; el detalle solo para quien la inició u OPS_ADMIN. */
+  @Get("tools/executions/:executionId")
+  @RequirePermissions("agents:run:create")
+  async getToolExecution(@Req() req: { headers?: Record<string, unknown> }, @Param("executionId") executionId: string) {
+    if (!this.executionQuery) {
+      throw new BadRequestException("Prometeo execution lookup is not available");
+    }
+    const actor = resolveRequestContext(req);
+    return ok(resolveRequestId(req.headers ?? {}), await this.executionQuery.getExecution(actor, executionId));
+  }
+
+  @Get("tools/executions")
+  @RequirePermissions("agents:run:create")
+  async listToolExecutions(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Query("projectId") projectId?: string,
+    @Query("limit") limit?: string,
+  ) {
+    if (!this.executionQuery) {
+      throw new BadRequestException("Prometeo execution lookup is not available");
+    }
+    if (!projectId) {
+      throw new BadRequestException("projectId is required");
+    }
+    const actor = resolveRequestContext(req);
+    const parsed = limit ? Number.parseInt(limit, 10) : undefined;
+    const data = await this.executionQuery.listByProject(actor, projectId, Number.isFinite(parsed) ? parsed : undefined);
+    return ok(resolveRequestId(req.headers ?? {}), data);
   }
 
   @Post("tools/invocations/:id/approve")
