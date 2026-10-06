@@ -8,7 +8,7 @@ status: "APPROVED"
 owner: "semse-core"
 risk: "critical"
 code_status: "IN_PROGRESS"
-ci_status: "PASS"
+ci_status: "PENDING"
 merge_status: "UNMERGED"
 deploy_status: "NOT_DEPLOYED"
 activation_status: "INACTIVE"
@@ -16,15 +16,17 @@ migration_status: "NOT_APPLICABLE"
 feature_flags: []
 production_evidence: []
 related_files:
-  - packages/shared/src/universal-connector/contracts.ts
-  - packages/shared/src/universal-connector/enforcement.ts
+  - project-manager-app/packages/shared/src/universal-connector/contracts.ts
+  - project-manager-app/packages/shared/src/universal-connector/enforcement.ts
+  - project-manager-app/packages/shared/src/universal-connector/runtime-trust.ts
+  - project-manager-app/packages/shared/src/index.ts
 related_tests:
-  - packages/shared/src/universal-connector/enforcement.test.ts
+  - project-manager-app/packages/shared/src/universal-connector/enforcement.test.ts
 related_endpoints: []
 related_events: []
 related_agents:
   - prometeo
-last_verified: "2026-10-05"
+last_verified: "2026-10-06"
 ---
 
 # Spec: Universal Connector Trust Contract v1
@@ -110,6 +112,9 @@ permissions: capability manifest + actor/delegation scopes
 input_schema: ExecutionContext + CanonicalEnvelope + CapabilityManifest
 output_schema: allow | deny(code, reason)
 errors:
+  CONNECTOR_INACTIVE: 403
+  TRUST_LEVEL_DENIED: 403
+  RISK_BUDGET_EXCEEDED: 403
   TENANT_MISMATCH: 403
   ENVELOPE_TENANT_MISMATCH: 403
   READ_ONLY: 403
@@ -155,25 +160,29 @@ forbidden_behavior:
 - Rollback: cross-tenant, secret leak, bypass de Policy/Approval o mutación anómala.
 
 ## 9. Tests requeridos
-- [ ] allow path
-- [ ] TENANT_MISMATCH
-- [ ] ENVELOPE_TENANT_MISMATCH
-- [ ] READ_ONLY incluyendo sync con escritura
-- [ ] CAPABILITY_DENIED
-- [ ] SCOPE_DENIED
-- [ ] DELEGATION_DENIED por scope y expiry
-- [ ] POLICY_DENIED
-- [ ] APPROVAL_REQUIRED
-- [ ] estados SUSPENDED/REVOKED/QUARANTINED
-- [ ] trustLevel/riskBudget
-- [ ] idempotencia/recovery
+- [x] allow path
+- [x] TENANT_MISMATCH
+- [x] ENVELOPE_TENANT_MISMATCH
+- [x] READ_ONLY incluyendo sync con escritura en el contrato actual
+- [x] CAPABILITY_DENIED
+- [x] SCOPE_DENIED
+- [x] DELEGATION_DENIED por scope y expiry
+- [x] POLICY_DENIED
+- [x] APPROVAL_REQUIRED
+- [x] estado no ejecutable (SUSPENDED cubierto; matriz completa pendiente)
+- [x] trustLevel/riskBudget básicos
+- [ ] idempotencia/recovery runtime
 - [ ] secret scan y prompt-injection authority test
+- [ ] webhook authenticity/replay
+- [ ] blast-radius runtime
 
 ## 10. Mapa de implementación
-- Shared SDK: `packages/shared/src/universal-connector/**`
+- Shared SDK canónico: `project-manager-app/packages/shared/src/universal-connector/**`.
+- Export público: `project-manager-app/packages/shared/src/index.ts`.
 - Policy/Approval: autoridades existentes de SEMSE; no se duplican dentro del adapter.
 - Prometeo: tool registry/governance existente.
 - Tests: junto al enforcement y suites de conformance.
+- No se aceptan duplicados fuera del workspace canónico.
 
 ## 11. Investigación externa
 - No se introduce autoridad externa al modelo de gobernanza SEMSE.
@@ -181,11 +190,11 @@ forbidden_behavior:
 
 ## 12. Gates de cierre
 - [ ] Spec enlazado por `pnpm spec:index`
-- [ ] Spec, plan, tasks, analyze y checklist coherentes
+- [ ] Spec, plan, tasks, Receive y checklist coherentes
 - [ ] Receive-Driven Development trace completo Requirement→Threat→Control→Enforcement→Test→Expected Result→Evidence
 - [ ] Tests derivados del spec verdes
 - [ ] `pnpm spec:validate:strict` verde
-- [ ] CI PASS
+- [ ] CI PASS en el HEAD actual
 - [ ] PR fusionado y SHA registrado
 - [ ] Deployment terminal DEPLOYED
 - [ ] Activación/canary verificada
