@@ -55,14 +55,8 @@ export * from "./operator-context.js";
 export * from "./ui-helpers.js";
 
 export function parseRoleList(raw: unknown): string[] {
-  if (typeof raw !== "string") {
-    return [];
-  }
-
-  return raw
-    .split(",")
-    .map((entry) => entry.trim())
-    .filter(Boolean);
+  if (typeof raw !== "string") return [];
+  return raw.split(",").map((entry) => entry.trim()).filter(Boolean);
 }
 
 export function serializeRoleList(roles: readonly string[]): string {
@@ -88,10 +82,7 @@ export function buildProxyIdentityHeaders(identity: Pick<RequestIdentity, "tenan
 }
 
 export function trimToUndefined(value: unknown): string | undefined {
-  if (typeof value !== "string") {
-    return undefined;
-  }
-
+  if (typeof value !== "string") return undefined;
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : undefined;
 }
@@ -101,206 +92,109 @@ export function assertNever(value: never, label = "Unexpected value"): never {
 }
 
 const nonEmptyString = z.string().trim().min(1);
-
 const nodeEnvSchema = z.enum(["development", "test", "production"]).default("development");
 
-export const apiEnvSchema = z
-  .object({
-    NODE_ENV: nodeEnvSchema,
-    DATABASE_URL: nonEmptyString,
-    AUTH_SECRET: z.string().min(32).optional(),
-    REDIS_URL: nonEmptyString.default("redis://127.0.0.1:6379"),
-    SEMSE_EVENT_OUTBOX_DISPATCH_ENABLED: z.enum(["true", "false"]).default("false"),
-    SEMSE_EVENT_OUTBOX_POLL_MS: z.coerce.number().int().min(250).max(60_000).default(1_000),
-    SEMSE_EVENT_OUTBOX_BATCH_SIZE: z.coerce.number().int().min(1).max(250).default(50),
-    SEMSE_EVENT_OUTBOX_LEASE_MS: z.coerce.number().int().min(1_000).max(300_000).default(30_000),
-    SEMSE_EVENT_CONSUMERS_ENABLED: z.enum(["true", "false"]).default("false"),
-    SEMSE_EVENT_CONSUMER_ALLOWLIST: z.string().default(""),
-    SEMSE_EVENT_TYPE_ALLOWLIST: z.string().default(""),
-    SEMSE_PROJECT_LIFECYCLE_PROJECTION_ENABLED: z.enum(["true", "false"]).default("false"),
-    SEMSE_PROJECT_LIFECYCLE_PERSIST_ENABLED: z.enum(["true", "false"]).default("false"),
-    SEMSE_PROJECT_LIFECYCLE_EVENTS_ENABLED: z.enum(["true", "false"]).default("false"),
-    SEMSE_PROJECT_LIFECYCLE_CANARY_TENANT_IDS: z.string().default(""),
-    CORS_ORIGINS: z.string().optional(),
-    RATE_LIMIT_TTL_SECONDS: z.coerce.number().int().positive().default(60),
-    RATE_LIMIT_LIMIT: z.coerce.number().int().positive().default(20),
-    SEMSE_AUTONOMY_REPO_PATH: z.string().trim().optional(),
-    SEMSE_AUTONOMY_BASE_BRANCH: z.string().trim().optional(),
-    SEMSE_AUTONOMY_LOCAL_PR_MODE: z.enum(["true", "false"]).optional(),
-    SEMSE_AUTONOMY_GITHUB_TOKEN: z.string().trim().optional(),
-    SEMSE_AUTONOMY_REPO_NAME: z.string().trim().optional(),
-    SEMSE_AUTONOMY_OPENAI_API_KEY: z.string().trim().optional(),
-    SEMSE_AUTONOMY_OPENAI_MODEL: z.string().trim().optional(),
-    SEMSE_AUTONOMY_OPENAI_BASE_URL: z.string().trim().optional(),
-    SEMSE_COMMUNICATIONS_MODE: z.enum(["mock", "live"]).default("mock"),
-    SEMSE_COMMUNICATIONS_NOTIFICATION_WHATSAPP: z.enum(["true", "false"]).default("false"),
-    SEMSE_COMMUNICATIONS_TENANT_ID: nonEmptyString.default("tenant_default"),
-    SEMSE_COMMUNICATIONS_ORG_ID: nonEmptyString.default("org_admin_001"),
-    SEMSE_COMMUNICATIONS_ACTOR_USER_ID: nonEmptyString.default("usr_admin_001"),
-    WHATSAPP_CLOUD_ACCESS_TOKEN: z.string().trim().optional(),
-    WHATSAPP_CLOUD_PHONE_NUMBER_ID: z.string().trim().optional(),
-    WHATSAPP_CLOUD_VERIFY_TOKEN: z.string().trim().optional(),
-    WHATSAPP_CLOUD_API_VERSION: z.string().trim().default("v20.0"),
-    WHATSAPP_APP_SECRET: z.string().trim().optional(),
-    PORT: z.coerce.number().int().positive().default(4000),
-    HOST: nonEmptyString.default("0.0.0.0")
-  })
-  .superRefine((env, ctx) => {
-    if (env.NODE_ENV === "production" && !env.AUTH_SECRET) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["AUTH_SECRET"],
-        message: "AUTH_SECRET is required in production"
-      });
-    }
-
-    if (env.SEMSE_COMMUNICATIONS_MODE === "live") {
-      if (!env.WHATSAPP_CLOUD_ACCESS_TOKEN) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["WHATSAPP_CLOUD_ACCESS_TOKEN"],
-          message: "WHATSAPP_CLOUD_ACCESS_TOKEN is required when SEMSE_COMMUNICATIONS_MODE=live"
-        });
-      }
-      if (!env.WHATSAPP_CLOUD_PHONE_NUMBER_ID) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["WHATSAPP_CLOUD_PHONE_NUMBER_ID"],
-          message: "WHATSAPP_CLOUD_PHONE_NUMBER_ID is required when SEMSE_COMMUNICATIONS_MODE=live"
-        });
-      }
-    }
-  });
+export const apiEnvSchema = z.object({
+  NODE_ENV: nodeEnvSchema,
+  DATABASE_URL: nonEmptyString,
+  AUTH_SECRET: z.string().min(32).optional(),
+  REDIS_URL: nonEmptyString.default("redis://127.0.0.1:6379"),
+  SEMSE_EVENT_OUTBOX_DISPATCH_ENABLED: z.enum(["true", "false"]).default("false"),
+  SEMSE_EVENT_OUTBOX_POLL_MS: z.coerce.number().int().min(250).max(60_000).default(1_000),
+  SEMSE_EVENT_OUTBOX_BATCH_SIZE: z.coerce.number().int().min(1).max(250).default(50),
+  SEMSE_EVENT_OUTBOX_LEASE_MS: z.coerce.number().int().min(1_000).max(300_000).default(30_000),
+  SEMSE_EVENT_CONSUMERS_ENABLED: z.enum(["true", "false"]).default("false"),
+  SEMSE_EVENT_CONSUMER_ALLOWLIST: z.string().default(""),
+  SEMSE_EVENT_TYPE_ALLOWLIST: z.string().default(""),
+  SEMSE_PROJECT_LIFECYCLE_PROJECTION_ENABLED: z.enum(["true", "false"]).default("false"),
+  SEMSE_PROJECT_LIFECYCLE_PERSIST_ENABLED: z.enum(["true", "false"]).default("false"),
+  SEMSE_PROJECT_LIFECYCLE_EVENTS_ENABLED: z.enum(["true", "false"]).default("false"),
+  SEMSE_PROJECT_LIFECYCLE_CANARY_TENANT_IDS: z.string().default(""),
+  CORS_ORIGINS: z.string().optional(),
+  RATE_LIMIT_TTL_SECONDS: z.coerce.number().int().positive().default(60),
+  RATE_LIMIT_LIMIT: z.coerce.number().int().positive().default(20),
+  SEMSE_AUTONOMY_REPO_PATH: z.string().trim().optional(),
+  SEMSE_AUTONOMY_BASE_BRANCH: z.string().trim().optional(),
+  SEMSE_AUTONOMY_LOCAL_PR_MODE: z.enum(["true", "false"]).optional(),
+  SEMSE_AUTONOMY_GITHUB_TOKEN: z.string().trim().optional(),
+  SEMSE_AUTONOMY_REPO_NAME: z.string().trim().optional(),
+  SEMSE_AUTONOMY_OPENAI_API_KEY: z.string().trim().optional(),
+  SEMSE_AUTONOMY_OPENAI_MODEL: z.string().trim().optional(),
+  SEMSE_AUTONOMY_OPENAI_BASE_URL: z.string().trim().optional(),
+  SEMSE_COMMUNICATIONS_MODE: z.enum(["mock", "live"]).default("mock"),
+  SEMSE_COMMUNICATIONS_NOTIFICATION_WHATSAPP: z.enum(["true", "false"]).default("false"),
+  SEMSE_COMMUNICATIONS_TENANT_ID: nonEmptyString.default("tenant_default"),
+  SEMSE_COMMUNICATIONS_ORG_ID: nonEmptyString.default("org_admin_001"),
+  SEMSE_COMMUNICATIONS_ACTOR_USER_ID: nonEmptyString.default("usr_admin_001"),
+  WHATSAPP_CLOUD_ACCESS_TOKEN: z.string().trim().optional(),
+  WHATSAPP_CLOUD_PHONE_NUMBER_ID: z.string().trim().optional(),
+  WHATSAPP_CLOUD_VERIFY_TOKEN: z.string().trim().optional(),
+  WHATSAPP_CLOUD_API_VERSION: z.string().trim().default("v20.0"),
+  WHATSAPP_APP_SECRET: z.string().trim().optional(),
+  PORT: z.coerce.number().int().positive().default(4000),
+  HOST: nonEmptyString.default("0.0.0.0")
+}).superRefine((env, ctx) => {
+  if (env.NODE_ENV === "production" && !env.AUTH_SECRET) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["AUTH_SECRET"], message: "AUTH_SECRET is required in production" });
+  if (env.SEMSE_COMMUNICATIONS_MODE === "live") {
+    if (!env.WHATSAPP_CLOUD_ACCESS_TOKEN) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["WHATSAPP_CLOUD_ACCESS_TOKEN"], message: "WHATSAPP_CLOUD_ACCESS_TOKEN is required when SEMSE_COMMUNICATIONS_MODE=live" });
+    if (!env.WHATSAPP_CLOUD_PHONE_NUMBER_ID) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["WHATSAPP_CLOUD_PHONE_NUMBER_ID"], message: "WHATSAPP_CLOUD_PHONE_NUMBER_ID is required when SEMSE_COMMUNICATIONS_MODE=live" });
+  }
+});
 
 export type ApiEnv = z.infer<typeof apiEnvSchema>;
-
 export function validateApiEnv(config: Record<string, unknown>): ApiEnv {
   const parsed = apiEnvSchema.safeParse(config);
-  if (!parsed.success) {
-    throw new Error(`Invalid API environment: ${parsed.error.message}`);
-  }
+  if (!parsed.success) throw new Error(`Invalid API environment: ${parsed.error.message}`);
   return parsed.data;
 }
 
 export const webServerEnvSchema = z.object({
-  SEMSE_API_BASE_URL: nonEmptyString.url(),
-  SEMSE_TENANT_ID: nonEmptyString,
-  SEMSE_ORG_ID: nonEmptyString,
-  SEMSE_USER_ID: nonEmptyString,
-  SEMSE_ROLES: nonEmptyString.default("OPS_ADMIN"),
+  SEMSE_API_BASE_URL: nonEmptyString.url(), SEMSE_TENANT_ID: nonEmptyString, SEMSE_ORG_ID: nonEmptyString,
+  SEMSE_USER_ID: nonEmptyString, SEMSE_ROLES: nonEmptyString.default("OPS_ADMIN"),
   NEXT_PUBLIC_SEMSE_RUNTIME_ENABLED: z.enum(["true", "false"]).default("false")
 });
-
 export type WebServerEnv = z.infer<typeof webServerEnvSchema>;
-
 export function validateWebServerEnv(config: Record<string, unknown>): WebServerEnv {
   const parsed = webServerEnvSchema.safeParse(config);
-  if (!parsed.success) {
-    throw new Error(`Invalid web environment: ${parsed.error.message}`);
-  }
+  if (!parsed.success) throw new Error(`Invalid web environment: ${parsed.error.message}`);
   return parsed.data;
 }
 
 export const workerEnvSchema = z.object({
-  SEMSE_API_URL: nonEmptyString.url().default("http://localhost:4000"),
-  REDIS_URL: nonEmptyString.default("redis://127.0.0.1:6379"),
-  AUTH_SECRET: z.string().min(32).optional(),
-  SEMSE_BOOTSTRAP_TOKEN: nonEmptyString.optional(),
-  SEMSE_WORKER_ID: nonEmptyString.optional(),
-  SEMSE_TENANT_ID: nonEmptyString.default("tnt_demo"),
-  SEMSE_USER_ID: nonEmptyString.default("usr_worker_001"),
-  SEMSE_ORG_ID: nonEmptyString.default("org_worker"),
-  SEMSE_ROLES: nonEmptyString.default("WORKER,EVENT_CONSUMER"),
-  SEMSE_EVENT_CONSUMERS_ENABLED: z.enum(["true", "false"]).default("false"),
-  SEMSE_POLL_MS: z.coerce.number().int().positive().default(3000),
-  SEMSE_HEARTBEAT_MS: z.coerce.number().int().positive().default(2500),
-  SEMSE_RUN_SIM_MS: z.coerce.number().int().positive().default(4000),
-  SEMSE_FAIL_RATE: z.coerce.number().min(0).max(1).default(0),
-  SEMSE_RECLAIM_MS: z.coerce.number().int().positive().default(10000),
-  SEMSE_STALE_AFTER_MS: z.coerce.number().int().positive().default(10000),
-  SEMSE_AGENT_TYPE: z.string().trim().optional()
+  SEMSE_API_URL: nonEmptyString.url().default("http://localhost:4000"), REDIS_URL: nonEmptyString.default("redis://127.0.0.1:6379"),
+  AUTH_SECRET: z.string().min(32).optional(), SEMSE_BOOTSTRAP_TOKEN: nonEmptyString.optional(), SEMSE_WORKER_ID: nonEmptyString.optional(),
+  SEMSE_TENANT_ID: nonEmptyString.default("tnt_demo"), SEMSE_USER_ID: nonEmptyString.default("usr_worker_001"),
+  SEMSE_ORG_ID: nonEmptyString.default("org_worker"), SEMSE_ROLES: nonEmptyString.default("WORKER,EVENT_CONSUMER"),
+  SEMSE_EVENT_CONSUMERS_ENABLED: z.enum(["true", "false"]).default("false"), SEMSE_POLL_MS: z.coerce.number().int().positive().default(3000),
+  SEMSE_HEARTBEAT_MS: z.coerce.number().int().positive().default(2500), SEMSE_RUN_SIM_MS: z.coerce.number().int().positive().default(4000),
+  SEMSE_FAIL_RATE: z.coerce.number().min(0).max(1).default(0), SEMSE_RECLAIM_MS: z.coerce.number().int().positive().default(10000),
+  SEMSE_STALE_AFTER_MS: z.coerce.number().int().positive().default(10000), SEMSE_AGENT_TYPE: z.string().trim().optional()
 });
-
 export type WorkerEnv = z.infer<typeof workerEnvSchema>;
-
 export function validateWorkerEnv(config: Record<string, unknown>): WorkerEnv {
   const parsed = workerEnvSchema.safeParse(config);
-  if (!parsed.success) {
-    throw new Error(`Invalid worker environment: ${parsed.error.message}`);
-  }
+  if (!parsed.success) throw new Error(`Invalid worker environment: ${parsed.error.message}`);
   return parsed.data;
 }
 
-// ── Currency ──────────────────────────────────────────────────────────────────
-
-/**
- * Format a numeric amount as a locale currency string.
- * Defaults to USD / en-US locale.
- */
-export function formatCurrency(
-  amount: number | string,
-  currency = "USD",
-  locale = "en-US"
-): string {
+export function formatCurrency(amount: number | string, currency = "USD", locale = "en-US"): string {
   const num = typeof amount === "string" ? parseFloat(amount) : amount;
   if (isNaN(num)) return "—";
-  return new Intl.NumberFormat(locale, {
-    style: "currency",
-    currency,
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(num);
+  return new Intl.NumberFormat(locale, { style: "currency", currency, minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(num);
 }
-
-/**
- * Parse an arbitrary value into a finite decimal number.
- * Returns `null` when the input cannot be safely represented.
- */
 export function safeParseDecimal(value: unknown): number | null {
   if (value === null || value === undefined || value === "") return null;
-  const num = Number(value);
-  if (!isFinite(num) || isNaN(num)) return null;
-  return num;
+  const num = Number(value); return !isFinite(num) || isNaN(num) ? null : num;
 }
-
-// ── Strings ───────────────────────────────────────────────────────────────────
-
-/**
- * Convert a human-readable string into a URL-safe slug.
- *
- * "Hello World 2026!" → "hello-world-2026"
- */
-export function slugify(text: string): string {
-  return text
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
-
-export function truncate(text: string, maxLen: number, suffix = "…"): string {
-  if (text.length <= maxLen) return text;
-  return text.slice(0, maxLen - suffix.length) + suffix;
-}
-
-export function toISODate(date: Date | string | number): string {
-  return new Date(date).toISOString().slice(0, 10);
-}
-
+export function slugify(text: string): string { return text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, ""); }
+export function truncate(text: string, maxLen: number, suffix = "…"): string { return text.length <= maxLen ? text : text.slice(0, maxLen - suffix.length) + suffix; }
+export function toISODate(date: Date | string | number): string { return new Date(date).toISOString().slice(0, 10); }
 export function relativeTime(date: Date | string | number, now?: Date): string {
-  const base = now ?? new Date();
-  const target = new Date(date);
-  const diffMs = target.getTime() - base.getTime();
-  const diffSec = Math.round(diffMs / 1000);
-  const abs = Math.abs(diffSec);
+  const base = now ?? new Date(); const target = new Date(date); const diffSec = Math.round((target.getTime() - base.getTime()) / 1000); const abs = Math.abs(diffSec);
   const rtf = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
-  if (abs < 60) return rtf.format(diffSec, "second");
-  if (abs < 3600) return rtf.format(Math.round(diffSec / 60), "minute");
-  if (abs < 86400) return rtf.format(Math.round(diffSec / 3600), "hour");
-  if (abs < 2592000) return rtf.format(Math.round(diffSec / 86400), "day");
-  if (abs < 31536000) return rtf.format(Math.round(diffSec / 2592000), "month");
-  return rtf.format(Math.round(diffSec / 31536000), "year");
+  if (abs < 60) return rtf.format(diffSec, "second"); if (abs < 3600) return rtf.format(Math.round(diffSec / 60), "minute");
+  if (abs < 86400) return rtf.format(Math.round(diffSec / 3600), "hour"); if (abs < 2592000) return rtf.format(Math.round(diffSec / 86400), "day");
+  if (abs < 31536000) return rtf.format(Math.round(diffSec / 2592000), "month"); return rtf.format(Math.round(diffSec / 31536000), "year");
 }
 
 export const JOB_STATUS_LABELS: Record<string, string> = { DRAFT: "Draft", POSTED: "Posted", PUBLISHED: "Published", RESERVED: "Reserved", ACCEPTED: "Accepted", IN_PROGRESS: "In Progress", REVIEW: "Under Review", DISPUTE: "In Dispute", COMPLETED: "Completed", AWARDED: "Awarded", CANCELLED: "Cancelled" };
