@@ -584,6 +584,10 @@ export class ProjectCopilotHarness {
       }).catch(() => undefined);
     }
 
+    // D5: la acción pasó todas las compuertas; se abre su run padre de observabilidad (terminal, no ejecutable) para que
+    // la aprobación, la delegación y la auditoría apunten a un origen real. No es una compuerta: si falla, la acción sigue.
+    runtime = await this.withParentRun(runtime, actionType);
+
     // REQUIRED: register approval request and block execution — waits for explicit human approval
     if (policy.approvalMode === "required") {
       const approval = await this.registerApprovalRequest(runtime, actionType, payload, policy.riskLevel, linkedStep);
@@ -912,7 +916,7 @@ export class ProjectCopilotHarness {
   async executeFromApproval(
     actor: AgentActor,
     requestId: string,
-    approval: { id: string; contextSummary?: string; correlationId: string },
+    approval: { id: string; contextSummary?: string; correlationId: string; runId?: string },
     opts: { alreadyClaimed?: boolean } = {}
   ): Promise<{ executed: boolean; summary: string; error?: string }> {
     const context = this.parseContextSummary(approval.contextSummary);
@@ -937,7 +941,13 @@ export class ProjectCopilotHarness {
         return { executed: false, summary: "La ejecución de esta aprobación ya fue reclamada o ejecutada." };
       }
     }
-    const runtime = await this.resolveRuntime(actor, requestId, projectId);
+    const resolved = await this.resolveRuntime(actor, requestId, projectId);
+    // D5: la aprobación guarda el run padre que abrió la solicitud (los ids `copilot_action_*` son los anteriores a D5,
+    // sin run real detrás).
+    const runtime: ProjectCopilotHarnessRuntime =
+      approval.runId && !approval.runId.startsWith("copilot_action_")
+        ? { ...resolved, parentRunId: approval.runId }
+        : resolved;
 
     try {
       const summary = await this.executeApprovedAction(
@@ -1249,9 +1259,9 @@ export class ProjectCopilotHarness {
       userId: runtime.actor.userId,
       roles: runtime.actor.roles,
       projectId: runtime.projectId,
-      // El copiloto no corre bajo un AgentRun propio (no hay un run padre al que apuntar); el origen durable es la
-      // solicitud y, si la hubo, la aprobación que la autorizó. Abrir un run padre queda para la observabilidad (H05).
-      sourceRunId: undefined,
+      // D5: run padre de observabilidad de la acción (terminal, no ejecutable). Sigue existiendo `lineage` como origen
+      // durable (solicitud y aprobación) por si el run padre no se pudo registrar.
+      sourceRunId: runtime.parentRunId,
       lineage: {
         parent: "project-copilot",
         requestId: runtime.requestId,
@@ -1328,7 +1338,7 @@ export class ProjectCopilotHarness {
     const riskScore = riskLevel === "high" ? 0.85 : riskLevel === "medium" ? 0.55 : 0.2;
     return {
       id: `apr_copilot_${Date.now()}_${crypto.randomUUID().slice(0, 8)}`,
-      runId: `copilot_action_${runtime.projectId}_${Date.now()}`,
+      runId: runtime.parentRunId ?? `copilot_action_${runtime.projectId}_${Date.now()}`,
       correlationId: `copilot:${runtime.projectId}:${actionType}:${Date.now()}`,
       agentType: "orchestrator",
       title: `Copilot action ${actionType}`,
@@ -1497,6 +1507,23 @@ export class ProjectCopilotHarness {
     } catch (err) {
       this.logger.warn(`Audit failed for ${action}: ${String(err)}`);
     }
+  }
+
+  private async withParentRun(
+    runtime: ProjectCopilotHarnessRuntime,
+    actionType: string,
+  ): Promise<ProjectCopilotHarnessRuntime> {
+    const parentRunId = await this.safeCall(() =>
+      this.agentDelegationService.openParentRun({
+        tenantId: runtime.actor.tenantId,
+        orgId: runtime.actor.orgId,
+        userId: runtime.actor.userId,
+        requestId: runtime.requestId,
+        projectId: runtime.projectId,
+        actionType,
+      }),
+    );
+    return parentRunId ? { ...runtime, parentRunId } : runtime;
   }
 
   private async safeCall<T>(fn: () => Promise<T>): Promise<T | null> {

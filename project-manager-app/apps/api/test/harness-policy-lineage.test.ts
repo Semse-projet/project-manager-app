@@ -87,7 +87,7 @@ test("H08: la delegación declara su origen (solicitud, aprobación, actor y pro
   assert.equal(delegateCalls.length, 1);
   const call = delegateCalls[0]!;
   assert.equal(call.projectId, "p_mine");
-  assert.equal(call.sourceRunId, undefined, "el copiloto no corre bajo un AgentRun propio");
+  assert.equal(call.sourceRunId, undefined, "sin run padre registrado (D5 degradado) no se inventa uno");
   assert.deepEqual(call.lineage, {
     parent: "project-copilot",
     requestId: "req_9",

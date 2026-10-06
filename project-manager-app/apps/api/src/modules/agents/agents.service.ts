@@ -235,6 +235,19 @@ export class AgentsService {
     return cancelled;
   }
 
+  /** Run padre de observabilidad (D5): terminal desde su creación, nunca se encola ni lo procesa el worker. */
+  async recordObservedRun(input: {
+    tenantId: string;
+    orgId: string;
+    userId: string;
+    agentType: AgentRunRecord["agentType"];
+    correlationId: string;
+    input: Record<string, unknown>;
+    inputSummary?: string;
+  }) {
+    return this.agentsRepository.recordObservedRun(input);
+  }
+
   async create(input: {
     tenantId: string;
     orgId: string;
