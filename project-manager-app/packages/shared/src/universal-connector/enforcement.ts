@@ -1,5 +1,6 @@
-import type {
-  CanonicalDataEnvelope,
+import {
+  CONNECTOR_CONTRACT_VERSION,
+  type CanonicalDataEnvelope,
   CapabilityManifest,
   ConnectorExecutionContext,
   ConnectorOperation,
@@ -15,6 +16,10 @@ export interface ConnectorEnforcementRequest {
   manifest: CapabilityManifest;
   capability: string;
   operation: ConnectorOperation;
+  /** Required for delegated execution and must equal the trusted grant purpose. */
+  purpose?: string;
+  /** Sync is treated as mutating unless explicitly declared read-only. */
+  syncEffect?: 'READ_ONLY' | 'MUTATING';
   resourceTenantId: string;
   resourceId?: string;
   projectedUsage?: RiskUsage;
@@ -25,6 +30,8 @@ export interface ConnectorEnforcementRequest {
 
 export type ConnectorEnforcementCode =
   | 'RUNTIME_MISMATCH'
+  | 'CONTRACT_VERSION_UNSUPPORTED'
+  | 'OPERATION_UNSUPPORTED'
   | 'CONNECTOR_INACTIVE'
   | 'EMERGENCY_STOP'
   | 'WRITES_DISABLED'
@@ -47,7 +54,8 @@ export type ConnectorEnforcementResult =
   | { allowed: true }
   | { allowed: false; code: ConnectorEnforcementCode; reason: string };
 
-const writeOperations = new Set<ConnectorOperation>(['create', 'update', 'delete', 'sync', 'migrate', 'execute']);
+const supportedOperations = new Set<ConnectorOperation>(['read', 'create', 'update', 'delete', 'sync', 'migrate', 'execute']);
+const alwaysWriteOperations = new Set<ConnectorOperation>(['create', 'update', 'delete', 'migrate', 'execute']);
 const agentTypes = new Set(['PROMETEO_AGENT', 'EXTERNAL_AGENT']);
 
 export function enforceConnectorTrust(req: ConnectorEnforcementRequest): ConnectorEnforcementResult {
@@ -59,6 +67,15 @@ export function enforceConnectorTrust(req: ConnectorEnforcementRequest): Connect
   }
   if (runtime.connectionId !== context.connectionId || runtime.provider !== context.provider || manifest.provider !== context.provider) {
     return deny('RUNTIME_MISMATCH', 'Execution context does not match trusted connection state and manifest');
+  }
+  if (manifest.contractVersion !== CONNECTOR_CONTRACT_VERSION) {
+    return deny('CONTRACT_VERSION_UNSUPPORTED', `Unsupported connector contract version ${String(manifest.contractVersion)}`);
+  }
+  if (manifest.connectorVersion !== runtime.connectorVersion) {
+    return deny('RUNTIME_MISMATCH', 'Manifest connector version does not match trusted runtime version');
+  }
+  if (!supportedOperations.has(operation)) {
+    return deny('OPERATION_UNSUPPORTED', `Unsupported connector operation ${String(operation)}`);
   }
   if (envelopes.some((item) => item.tenantId !== context.actor.tenantId)) {
     return deny('ENVELOPE_TENANT_MISMATCH', 'Cross-tenant envelope rejected');
@@ -75,7 +92,7 @@ export function enforceConnectorTrust(req: ConnectorEnforcementRequest): Connect
     return deny('AGENT_ACCESS_DISABLED', 'Agent access is disabled for this connector');
   }
 
-  const isWrite = writeOperations.has(operation);
+  const isWrite = alwaysWriteOperations.has(operation) || (operation === 'sync' && req.syncEffect !== 'READ_ONLY');
   if (isWrite && runtime.emergency?.writesDisabled) return deny('WRITES_DISABLED', 'Connector writes are disabled');
   if (runtime.adoptionMode === 'READ_ONLY' && isWrite) return deny('READ_ONLY', 'Write denied while connector is read-only');
   if (context.adoptionMode !== runtime.adoptionMode || context.trustLevel !== runtime.trustLevel) {
@@ -101,17 +118,40 @@ export function enforceConnectorTrust(req: ConnectorEnforcementRequest): Connect
 
   if (context.delegation) {
     const delegation = context.delegation;
-    if (delegation.delegatedTo !== context.actor.actorId || !delegation.capabilities.includes(capability) || !delegation.scopes.includes(requiredScope)) {
-      return deny('DELEGATION_DENIED', 'Delegation does not grant this operation');
+    const grant = runtime.delegationGrants?.[delegation.grantId];
+    if (
+      delegation.tenantId !== context.actor.tenantId ||
+      delegation.connectionId !== context.connectionId ||
+      delegation.delegatedTo !== context.actor.actorId ||
+      !req.purpose ||
+      req.purpose !== delegation.purpose ||
+      !delegation.capabilities.includes(capability) ||
+      !delegation.scopes.includes(requiredScope)
+    ) {
+      return deny('DELEGATION_DENIED', 'Delegation does not grant this tenant, connection, purpose or operation');
     }
-    if (delegation.expiresAt && Date.parse(delegation.expiresAt) <= Date.now()) return deny('DELEGATION_DENIED', 'Delegation has expired');
+    if (
+      !grant ||
+      grant.status !== 'ACTIVE' ||
+      grant.grantId !== delegation.grantId ||
+      grant.grantVersion !== delegation.grantVersion ||
+      grant.tenantId !== delegation.tenantId ||
+      grant.connectionId !== delegation.connectionId
+    ) {
+      return deny('DELEGATION_DENIED', 'Delegation grant is missing, revoked or stale');
+    }
+    const effectiveExpiry = grant.expiresAt ?? delegation.expiresAt;
+    if (effectiveExpiry && Date.parse(effectiveExpiry) <= Date.now()) return deny('DELEGATION_DENIED', 'Delegation has expired');
     if (req.resourceId && delegation.resourceBoundary?.length && !delegation.resourceBoundary.includes(req.resourceId)) {
       return deny('DELEGATION_DENIED', 'Target resource is outside the delegated boundary');
     }
     if (exceedsRiskBudget(delegation.riskBudget, req.projectedUsage)) return deny('RISK_BUDGET_EXCEEDED', 'Delegation risk budget exceeded');
   }
 
-  if (runtime.blastRadius?.maxEnvelopesPerRequest !== undefined && envelopes.length > runtime.blastRadius.maxEnvelopesPerRequest) {
+  if (isWrite && !runtime.blastRadius) {
+    return deny('BLAST_RADIUS_EXCEEDED', 'Write denied until trusted blast-radius limits are configured');
+  }
+  if (envelopes.length > runtime.blastRadius.maxEnvelopesPerRequest) {
     return deny('BLAST_RADIUS_EXCEEDED', 'Envelope count exceeds connector blast-radius limit');
   }
   if (exceedsRiskBudget(runtime.blastRadius, req.projectedUsage)) return deny('BLAST_RADIUS_EXCEEDED', 'Projected usage exceeds connector blast-radius limit');
