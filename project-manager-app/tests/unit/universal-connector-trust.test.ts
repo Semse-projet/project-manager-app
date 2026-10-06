@@ -1,16 +1,20 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  enforceConnectorTrust,
-  executeIdempotently,
-  verifyWebhookTrust,
   type CapabilityManifest,
-  type ConnectorEnforcementRequest,
   type ConnectorExecutionContext,
   type ConnectorRuntimeState,
+} from '../../packages/shared/src/universal-connector/contracts.js';
+import {
+  enforceConnectorTrust,
+  type ConnectorEnforcementRequest,
+} from '../../packages/shared/src/universal-connector/enforcement.js';
+import {
+  executeIdempotently,
   type IdempotencyRecord,
   type IdempotencyStore,
-} from '../../packages/shared/src/index.js';
+} from '../../packages/shared/src/universal-connector/idempotency.js';
+import { verifyWebhookTrust } from '../../packages/shared/src/universal-connector/webhook-trust.js';
 
 const manifest: CapabilityManifest = {
   contractVersion: '1.0.0-draft.1',
