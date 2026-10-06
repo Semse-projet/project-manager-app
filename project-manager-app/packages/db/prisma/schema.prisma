@@ -1132,11 +1132,21 @@ model AgentApproval {
   requestedAt       DateTime            @default(now())
   createdAt         DateTime            @default(now())
   updatedAt         DateTime            @updatedAt
+
+  // H05 (spec prometeo.tool-call-audit-lineage §3.3): estado de ejecución de la aprobación. Nulable, sin backfill.
+  // NOT_STARTED | EXECUTING | SUCCEEDED | FAILED. Las aprobaciones anteriores quedan en NULL (= sin dato).
+  executionStatus     String?
+  executionStartedAt  DateTime?
+  executionFinishedAt DateTime?
+  executionError      String?   @db.VarChar(500)
+  executionId         String?
+
   tenant            Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, status, requestedAt])
   @@index([tenantId, runId])
   @@index([tenantId, correlationId])
+  @@index([tenantId, status, executionStatus])
 }
 
 model DeveloperRuntimeSessionStore {
@@ -4404,8 +4414,35 @@ model PrometeoToolInvocationAudit {
   requestId     String
   occurredAt    DateTime @default(now())
 
+  // H05 (spec prometeo.tool-call-audit-lineage): ciclo de vida y lineage por ejecución. Todo nulable y SIN backfill:
+  // las filas históricas quedan intactas y el código anterior ignora estas columnas.
+  executionId      String?   @unique
+  source           String?
+  runId            String?
+  sessionId        String?
+  threadId         String?
+  projectId        String?
+  agentId          String?
+  approvalId       String?
+  proposedActionId String?
+  policyVersion    String?
+  startedAt        DateTime?
+  completedAt      DateTime?
+  durationMs       Int?
+  inputDigest      String?
+  outputDigest     String?
+  inputSummary     String?   @db.VarChar(500)
+  outputSummary    String?   @db.VarChar(500)
+  errorCode        String?
+  redactionVersion String?
+  expiresAt        DateTime?
+
   @@index([tenantId, occurredAt])
   @@index([tenantId, status, occurredAt])
+  @@index([tenantId, projectId, startedAt])
+  @@index([tenantId, runId])
+  @@index([status, startedAt])
+  @@index([expiresAt])
   @@map("prometeo_tool_invocation_audit")
 }
 

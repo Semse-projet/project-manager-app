@@ -2,7 +2,7 @@
 id: "prometeo.tool-call-audit-lineage"
 title: "Auditoría canónica por tool call y estado de ejecución de aprobaciones de Prometeo"
 sdd_version: "2.0"
-code_status: "NOT_STARTED"
+code_status: "IN_PROGRESS"
 ci_status: "NOT_RUN"
 merge_status: "UNMERGED"
 deploy_status: "NOT_DEPLOYED"
@@ -11,8 +11,8 @@ migration_status: "PENDING"
 feature_flags: []
 production_evidence: []
 domain: "prometeo"
-version: "0.1"
-status: "DRAFT"
+version: "1.0"
+status: "APPROVED"
 owner: "semse-core"
 risk: "high"
 date: "2026-10-05"
@@ -20,11 +20,14 @@ author: "Claude (a partir de la reconciliación de Prometeo 2026-10-05, H05 y br
 spec_index: "docs/SPEC_INDEX.md"
 related_files:
   - packages/db/prisma/schema.prisma
+  - packages/db/prisma/migrations/20261005160000_h05_tool_call_audit_lifecycle/migration.sql
+  - apps/api/src/modules/prometeo/tool-governance/tool-call-audit.ts
   - apps/api/src/modules/prometeo/tool-governance/tool-governance.repository.ts
   - apps/api/src/modules/prometeo/prometeo-tool-execution.service.ts
   - apps/api/src/modules/agents/agent-approval.service.ts
   - apps/api/src/modules/agents/harnesses/project-copilot.harness.ts
-related_tests: []
+related_tests:
+  - apps/api/test/prometeo-tool-audit-lifecycle.test.ts
 related_endpoints:
   - "prometeo/tools/invoke"
 related_events: []
@@ -35,10 +38,23 @@ last_verified: "2026-10-05"
 
 # Spec: Auditoría canónica por tool call y estado de ejecución de aprobaciones
 
-> **Estado: DRAFT. Esta spec NO autoriza implementar** (ver `AGENTS.md`: ninguna spec
-> `DRAFT` o `REVIEW` autoriza implementación, y no se toca `schema.prisma` sin una migración
-> planificada y aprobada). Propone el diseño y deja las decisiones abiertas al dueño. Nada de
-> esto está implementado, mergeado ni desplegado.
+> **Estado: APPROVED (2026-10-05).** El dueño aceptó las decisiones D1–D5 tal como se proponían (§4). La
+> migración es aditiva y **no está aplicada**: queda `PENDING` hasta que el dueño la apruebe y se aplique con el
+> procedimiento habitual; mientras tanto el código funciona con el modo `off` (comportamiento anterior).
+>
+> **Alcance por entrega.** *Entrega A (este PR):* esquema y migración aditivos (ambas tablas), redacción, ciclo de vida
+> de tool calls de `PrometeoToolExecutionService` con los modos `off`/`shadow`/`enforce`, `executionId` unido al
+> `auditRef`, y repositorio con cierre condicional, barrido de interrumpidas y retención. *Entrega B (pendiente):*
+> estado de ejecución de las aprobaciones del copiloto con reclamo condicional, recuperación idempotente, consulta
+> autorizada, jobs del worker para los barridos y vínculo con el run padre (D5). *Fuera por ahora:* auditoría de las
+> acciones del harness del copiloto (`source: project_copilot`).
+>
+> **Vocabulario de `status`:** se conserva el histórico en minúsculas (`succeeded`, `blocked`, `queued`, `rejected`,
+> `skipped`) y se añaden `started`, `failed`, `timeout` y `cancelled`. (La propuesta inicial usaba mayúsculas; se cambió
+> para no mezclar dos convenciones en la misma columna.)
+>
+> **Digest:** se calcula sobre la copia **redactada** y canónica del JSON, no sobre el original: un digest del valor
+> original de un secreto de baja entropía se puede romper por fuerza bruta, y el objetivo es verificar integridad.
 
 ## 1. Problema
 
@@ -143,11 +159,11 @@ exponer entradas/salidas completas. *(Decisión D4: quién ve el detalle.)*
 
 | ID | Decisión | Propuesta |
 |---|---|---|
-| D1 | Si falla el audit: ¿fail-closed también para lecturas? | Escrituras y críticas fail-closed; lecturas fail-open con métrica |
-| D2 | Alcance del reintento automático de aprobaciones | Solo efectos con idempotencia verificada; el resto, `FAILED` y manual |
-| D3 | Retención de contenido redactado | 90 días; digest y tiempos indefinidos |
-| D4 | Quién ve el detalle de una ejecución | Iniciador, `OPS_ADMIN` y participantes del proyecto (resumen, no entradas) |
-| D5 | ¿Se registra también el `runId` de la persona cuando exista un run padre del copiloto? | Sí, cuando H08 deje de tener `sourceRunId` vacío |
+| D1 | Si falla el audit: ¿fail-closed también para lecturas? | **Aceptada:** escrituras y críticas fail-closed (`enforce`); lecturas fail-open con métrica |
+| D2 | Alcance del reintento automático de aprobaciones | **Aceptada:** solo efectos con idempotencia verificada; el resto, `FAILED` y manual (entrega B) |
+| D3 | Retención de contenido redactado | **Aceptada:** 90 días (`PROMETEO_TOOL_AUDIT_RETENTION_DAYS`); digest y tiempos indefinidos |
+| D4 | Quién ve el detalle de una ejecución | **Aceptada:** iniciador, `OPS_ADMIN` y participantes del proyecto (resumen, no entradas) (entrega B) |
+| D5 | ¿Se registra también el `runId` cuando exista un run padre del copiloto? | **Aceptada:** sí, cuando H08 deje de tener `sourceRunId` vacío (entrega B) |
 
 ## 5. Criterios de aceptación (de la reconciliación)
 
@@ -165,9 +181,11 @@ exponer entradas/salidas completas. *(Decisión D4: quién ve el detalle.)*
 
 1. Migración Prisma aditiva: columnas nulables y los índices de §3.1 y §3.3; sin backfill ni
    cambio de las filas existentes.
-2. Código detrás de una bandera (`PROMETEO_TOOL_AUDIT_LIFECYCLE`) que empieza en modo
-   `shadow` (escribe las columnas nuevas sin cambiar el comportamiento) y pasa a `enforce` tras
-   validar en producción.
+2. Código detrás de una bandera (`PROMETEO_TOOL_AUDIT_LIFECYCLE`, por defecto `off`): `shadow`
+   escribe las columnas nuevas sin cambiar el comportamiento de las herramientas y pasa a `enforce` tras validar en
+   producción. **Orden de activación:** aplicar la migración → desplegar el código con `off` → activar `shadow` →
+   validar filas y métricas → `enforce`. Activar `shadow`/`enforce` antes de aplicar la migración haría fallar el
+   registro de inicio (en `shadow` solo se contaría; en `enforce` bloquearía las escrituras).
 3. Barridos (interrupción, retención, recuperación) como jobs idempotentes del worker.
 4. Pruebas: regresión por criterio de §5 con dobles y, al menos, una prueba contra base real en CI.
 
