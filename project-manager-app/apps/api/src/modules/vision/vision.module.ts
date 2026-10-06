@@ -15,6 +15,6 @@ import { DecisionLayerModule } from "../ai-models/decision/decision-layer.module
   imports: [ResourceScopeModule, StorageModule, DecisionLayerModule],
   controllers: [VisionController, VisionLibraryController],
   providers: [VisionRepository, VisionService, VisionAccessPolicy, VisionServiceClient, VisionLibraryRepository, VisionLibraryService],
-  exports: [VisionRepository, VisionService, VisionLibraryService],
+  exports: [VisionRepository, VisionService, VisionLibraryService, VisionAccessPolicy],
 })
 export class VisionModule {}

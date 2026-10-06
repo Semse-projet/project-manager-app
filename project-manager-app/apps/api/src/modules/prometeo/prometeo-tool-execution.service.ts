@@ -30,6 +30,7 @@ import { AgroIntakeService } from "../agro/agro-intake.service.js";
 import { FieldOpsService } from "../field-ops/field-ops.service.js";
 import { PaymentsService } from "../payments/payments.service.js";
 import { VisionService } from "../vision/vision.service.js";
+import { VisionAccessPolicy } from "../vision/vision-access.policy.js";
 import { findPrometeoToolDescriptor } from "./prometeo-tool-registry.js";
 import { evaluatePrometeoToolPolicy } from "./tool-governance/tool-governance.policy.js";
 import { ToolGovernanceRepository, type ProposedActionRecord } from "./tool-governance/tool-governance.repository.js";
@@ -146,6 +147,9 @@ export class PrometeoToolExecutionService {
     @Optional() private readonly payments?: PaymentsService,
     @Optional() private readonly agroIntake?: AgroIntakeService,
     @Optional() private readonly agroIncidents?: AgroIncidentService,
+    // Pertenencia de los recursos de visión (0.44). Sin `@Optional()` en Nest: si falta, la app no arranca; y si falta en
+    // una construcción manual, las herramientas de visión por id fallan CERRADAS (ver `requireVisionAccess`).
+    private readonly visionAccess?: VisionAccessPolicy,
   ) {
     this.auditor = new ToolCallAuditor(toolGovernance);
   }
@@ -708,6 +712,11 @@ export class PrometeoToolExecutionService {
     }
   }
 
+  private requireVisionAccess(): VisionAccessPolicy {
+    if (!this.visionAccess) throw new ForbiddenException("Vision access policy is not available");
+    return this.visionAccess;
+  }
+
   private async executeReadTool(actor: RequestContext, invocation: PrometeoToolInvokeInput): Promise<unknown> {
     const input = invocation.input ?? {};
     const key = `${invocation.namespace}.${invocation.name}`;
@@ -813,16 +822,37 @@ export class PrometeoToolExecutionService {
           q: optionalString(input, "q"),
         });
 
-      case "vision.get_analysis":
-        return this.vision.getAnalysis(requiredString(input, "evidenceId"));
+      // 0.44: estas herramientas por id repiten la barrera de pertenencia que ya aplica `VisionController` (C51 etapa 3).
+      // Antes solo comprobaban el permiso `vision:*` y leían/escribían `VisionAnalysis` (que no guarda tenant) de cualquier
+      // tenant u organización. El recurso se resuelve DENTRO del tenant del actor: otro tenant o inexistente ⇒ 404,
+      // otra organización ⇒ 403.
+      case "vision.get_analysis": {
+        const evidenceId = requiredString(input, "evidenceId");
+        await this.requireVisionAccess().assertEvidence(actor, [evidenceId]);
+        return this.vision.getAnalysis(evidenceId);
+      }
 
-      case "vision.get_job_analyses":
-        return this.vision.getByJob(requiredString(input, "jobId"));
+      case "vision.get_job_analyses": {
+        const jobId = requiredString(input, "jobId");
+        await this.requireVisionAccess().assertJob(actor, jobId);
+        return this.vision.getByJob(jobId);
+      }
 
-      case "vision.get_milestone_analyses":
-        return this.vision.getByMilestone(requiredString(input, "milestoneId"));
+      case "vision.get_milestone_analyses": {
+        const milestoneId = requiredString(input, "milestoneId");
+        await this.requireVisionAccess().assertMilestone(actor, milestoneId);
+        return this.vision.getByMilestone(milestoneId);
+      }
 
       case "vision.analyze_image": {
+        // `runAnalysis` hace upsert por evidencia: sin esta barrera, además de leer, se podía SOBRESCRIBIR el análisis ajeno.
+        const evidenceId = requiredString(input, "evidenceId"); // primero la validación de entrada (400), luego la pertenencia
+        const access = this.requireVisionAccess();
+        await access.assertEvidence(actor, [evidenceId]);
+        await access.assertContext(actor, {
+          jobId: optionalString(input, "jobId"),
+          milestoneId: optionalString(input, "milestoneId"),
+        });
         const result = await this.vision.runAnalysis({
           evidenceId: requiredString(input, "evidenceId"),
           imageUrl: requiredString(input, "imageUrl"),

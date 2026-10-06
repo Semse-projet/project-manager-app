@@ -12,6 +12,11 @@ function actor(overrides: Partial<{ roles: string[] }> = {}) {
   };
 }
 
+// 0.44: las herramientas de visión por id exigen la política de pertenencia (VisionAccessPolicy). Estas pruebas cubren el
+// resto del contrato de la herramienta, así que usan una política que permite; la barrera real se prueba en
+// `prometeo-vision-tools-scope.test.ts`.
+const allowAll = { assertEvidence: async () => {}, assertJob: async () => {}, assertMilestone: async () => {}, assertContext: async () => {} };
+
 function makeService(vision: Record<string, unknown> = {}) {
   return new PrometeoToolExecutionService(
     {} as never,
@@ -22,6 +27,10 @@ function makeService(vision: Record<string, unknown> = {}) {
     {} as never,
     vision as never,
     undefined as never,
+    undefined as never,
+    undefined as never,
+    undefined as never,
+    allowAll as never,
   );
 }
 
