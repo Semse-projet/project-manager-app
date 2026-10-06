@@ -12,6 +12,7 @@ import {
   sendCopilotMessage,
 } from "../../../lib/bff/prometeo";
 import { buildChatHistory, buildWidgetChatRequest, classifyChatReply, describeChatFailure } from "../../../lib/prometeo-widget-chat";
+import { safeChatRoute, toChatActionViews, type ChatActionView } from "../../../lib/prometeo-chat-actions";
 
 /** Tope de espera del chat real: pasado este tiempo la consulta termina como fallo visible, no queda colgada. */
 const CHAT_TIMEOUT_MS = 45_000;
@@ -47,6 +48,8 @@ export function PrometeoCopilot() {
   const [sessionId, setSessionId] = useState<string | undefined>();
   const [suggestion, setSuggestion] = useState<CopilotMissionSuggestion | null>(null);
   const [chatThreadId, setChatThreadId] = useState<string | undefined>();
+  // Botones de acciones de chat ya pulsados (`<mensaje>:<acción>`): no se pueden usar dos veces.
+  const [usedActions, setUsedActions] = useState<ReadonlySet<string>>(new Set());
   // Estado de ánimo de la mascota: "pensando" mientras responde; luego guía, confirma o se sorprende un momento.
   const [mood, setMood] = useState<MascotMood>("idle");
   const moodTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -108,7 +111,9 @@ export function PrometeoCopilot() {
         const reply = classifyChatReply(real);
         if (reply.kind === "answer") {
           if (real.threadId) setChatThreadId(real.threadId);
-          setMessages((prev) => [...prev, { id: newId(), role: "assistant", content: reply.text }]);
+          // El widget solo puede ofrecer acciones con una pantalla a la que ir (la ruta se valida otra vez al pulsar).
+          const actions = toChatActionViews(real.proposedActions).filter((a) => a.route);
+          setMessages((prev) => [...prev, { id: newId(), role: "assistant", content: reply.text, ...(actions.length > 0 ? { actions } : {}) }]);
           flashMood("answered");
           return;
         }
@@ -137,6 +142,14 @@ export function PrometeoCopilot() {
       if (inflight.current === controller) inflight.current = null;
       setPending(false);
     }
+  }
+
+  function handleChatAction(action: ChatActionView, messageId: string) {
+    const route = safeChatRoute(action.route);
+    if (!route) return;
+    setUsedActions((prev) => new Set(prev).add(`${messageId}:${action.id}`));
+    flashMood("success", 2500);
+    router.push(route);
   }
 
   async function handleAcceptMission(s: CopilotMissionSuggestion) {
@@ -243,7 +256,14 @@ export function PrometeoCopilot() {
       {suggestion && (
         <MissionSuggestion suggestion={suggestion} onAccept={handleAcceptMission} pending={pending} />
       )}
-      <CopilotChat messages={messages} onSend={handleSend} onRetry={handleSend} pending={pending} />
+      <CopilotChat
+        messages={messages}
+        onSend={handleSend}
+        onRetry={handleSend}
+        onAction={handleChatAction}
+        usedActions={usedActions}
+        pending={pending}
+      />
     </div>
   );
 }

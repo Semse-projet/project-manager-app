@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { NAMED_AGENTS, type NamedAgentRole } from "@semse/agents";
 import {
   chatWithPrometeo,
@@ -18,6 +18,7 @@ import { useAgentPanelState, type PanelAgentId } from "./agent-panel-state";
 import { DraftPreviewCard } from "./draft-preview-card";
 import { trackProductEvent } from "@/lib/product-intelligence";
 import { buildChatHistory } from "@/lib/prometeo-widget-chat";
+import { safeChatRoute, toChatActionViews, type ChatActionView } from "@/lib/prometeo-chat-actions";
 import {
   PROMETEO_ATTACHMENT_ACCEPT,
   classifyPrometeoAttachment,
@@ -342,8 +343,44 @@ type LastReplyMeta = {
   timestamp?: string;
 };
 
+/** Botones de las acciones de chat de Prometeo: nada se ejecuta solo; crear un trabajo sigue requiriendo confirmar el borrador. */
+function ChatActionButtons({
+  actions,
+  used,
+  disabled,
+  color,
+  onAction,
+}: {
+  actions: ChatActionView[];
+  used: (actionId: string) => boolean;
+  disabled: boolean;
+  color: string;
+  onAction: (action: ChatActionView) => void;
+}) {
+  if (actions.length === 0) return null;
+  return (
+    <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 8 }}>
+      {actions.map((action) => (
+        <button
+          key={action.id}
+          type="button"
+          onClick={() => onAction(action)}
+          disabled={disabled || used(action.id)}
+          style={{
+            padding: "8px 14px", borderRadius: 99, fontSize: 12, fontWeight: 700, cursor: "pointer",
+            border: `1px solid ${color}66`, background: `${color}22`, color: "#e2e8f0",
+            opacity: disabled || used(action.id) ? 0.45 : 1,
+          }}
+        >
+          {action.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function StructuredResponseCards({ message, color }: { message: ChatMessage; color: string }) {
-  const actions = message.proposedActions ?? [];
+  const actions = (message.proposedActions ?? []).filter((action) => action.namespace !== "chat");
   const mission = message.mission;
   const blocks = message.blocks ?? [];
   const results = message.executionResults ?? [];
@@ -568,7 +605,7 @@ function useAgentChat(
   }, []);
 
   const sendMessage = useCallback(
-    async (content: string, attachments: PrometeoAttachment[] = []): Promise<boolean> => {
+    async (content: string, attachments: PrometeoAttachment[] = [], opts: { forcePublishJob?: boolean; silentUser?: boolean } = {}): Promise<boolean> => {
       const userMsg: ChatMessage = {
         id: `u-${Date.now()}`,
         role: "user",
@@ -577,12 +614,14 @@ function useAgentChat(
         ts: Date.now(),
         attachments,
       };
-      setMessages(prev => [...prev, userMsg]);
+      // `silentUser`: el clic en una acción de chat reutiliza el mensaje que el usuario ya escribió; no se muestra otra vez.
+      if (!opts.silentUser) setMessages(prev => [...prev, userMsg]);
       trackProductEvent("prometeo.message_sent", { surface: "agent-chat-panel" });
       setThinking(true);
 
       const isAssistant = activeAgent === "assistant";
-      const inPublishJobMode = attachments.length === 0 && isAssistant && (publishJobDraft !== null || isPublishJobIntent(content));
+      // `forcePublishJob`: el usuario pulsó "Crear el trabajo" (acción de chat). El borrador sigue exigiendo su confirmación.
+      const inPublishJobMode = attachments.length === 0 && (opts.forcePublishJob === true || (isAssistant && (publishJobDraft !== null || isPublishJobIntent(content))));
 
       try {
         if (inPublishJobMode) {
@@ -692,6 +731,8 @@ export function AgentChatPanel() {
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const attachmentDraftsRef = useRef<AttachmentDraft[]>([]);
   const pathname = usePathname();
+  const router = useRouter();
+  const [usedChatActions, setUsedChatActions] = useState<ReadonlySet<string>>(new Set());
   const {
     selectedAgentId,
     activeConversationId,
@@ -718,6 +759,24 @@ export function AgentChatPanel() {
     pathname,
     setActiveConversationId,
   );
+  function handleChatAction(action: ChatActionView, messageIndex: number) {
+    const key = `${messages[messageIndex]?.id}:${action.id}`;
+    if (usedChatActions.has(key)) return;
+    if (action.kind === "navigate") {
+      const route = safeChatRoute(action.route);
+      if (!route) return;
+      setUsedChatActions((prev) => new Set(prev).add(key));
+      router.push(route);
+      return;
+    }
+    // create_job_draft: reutiliza el borrador del asistente con el mensaje que el usuario ya escribió. No se publica
+    // nada: el borrador sigue pasando por su confirmación explícita.
+    const original = messages.slice(0, messageIndex).reverse().find((m) => m.role === "user")?.content;
+    if (!original) return;
+    setUsedChatActions((prev) => new Set(prev).add(key));
+    void sendMessage(original, [], { forcePublishJob: true, silentUser: true });
+  }
+
   useEffect(() => {
     if (selectedAgentId !== activeAgent) {
       setSelectedAgentId(activeAgent);
@@ -1014,6 +1073,13 @@ export function AgentChatPanel() {
                 {message.role === "assistant" && (
                   <div style={{ marginLeft: 42 }}>
                     <StructuredResponseCards message={message} color={agent.color} />
+                    <ChatActionButtons
+                      actions={toChatActionViews(message.proposedActions)}
+                      used={(actionId) => usedChatActions.has(`${message.id}:${actionId}`)}
+                      disabled={thinking}
+                      color={agent.color}
+                      onAction={(action) => handleChatAction(action, index)}
+                    />
                   </div>
                 )}
               </div>

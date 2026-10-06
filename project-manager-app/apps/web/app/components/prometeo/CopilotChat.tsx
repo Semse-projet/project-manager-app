@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Send } from "lucide-react";
 import { MarkdownLite } from "./MarkdownLite";
+import type { ChatActionView } from "../../../lib/prometeo-chat-actions";
 
 export type CopilotMessage = {
   id: string;
@@ -11,17 +12,24 @@ export type CopilotMessage = {
   /** `degraded`: el asistente no pudo responder; no es una respuesta de Prometeo y ofrece reintentar. */
   status?: "degraded";
   retryText?: string;
+  /** Acciones de chat propuestas por Prometeo (botones; nada se ejecuta solo). */
+  actions?: ChatActionView[];
 };
 
 export function CopilotChat({
   messages,
   onSend,
   onRetry,
+  onAction,
+  usedActions,
   pending,
 }: {
   messages: CopilotMessage[];
   onSend: (text: string) => void;
   onRetry?: (text: string) => void;
+  onAction?: (action: ChatActionView, messageId: string) => void;
+  /** Claves `<mensaje>:<acción>` ya usadas: un botón no se puede pulsar dos veces. */
+  usedActions?: ReadonlySet<string>;
   pending: boolean;
 }) {
   const [input, setInput] = useState("");
@@ -54,6 +62,24 @@ export function CopilotChat({
             role={m.status === "degraded" ? "alert" : undefined}
           >
             {m.role === "assistant" ? <MarkdownLite text={m.content} /> : m.content}
+            {m.role === "assistant" && onAction && m.actions && m.actions.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {m.actions.map((action) => {
+                  const used = usedActions?.has(`${m.id}:${action.id}`) ?? false;
+                  return (
+                    <button
+                      key={action.id}
+                      type="button"
+                      onClick={() => onAction(action, m.id)}
+                      disabled={pending || used}
+                      className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-800 hover:bg-slate-50 disabled:opacity-40"
+                    >
+                      {action.label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
             {m.status === "degraded" && m.retryText && onRetry && (
               <button
                 type="button"
