@@ -100,8 +100,9 @@ convierte automáticamente una spec en `VERIFIED`.
 | `0.40`, `0.41` | `api-agents-runtime`, `api-prometeo-copilot` | CLOSED |
 | `0.42` | `prometeo.tool-call-audit-lineage` | EXECUTABLE |
 | `0.43` | `api-prometeo-copilot` | CLOSED |
+| `0.44` | `api-prometeo-copilot`, `api.vision-service-security` | CLOSED |
 
-Cobertura: **44/44**.
+Cobertura: **45/45**.
 
 ## 4. Routing canónico — Sección 1 Cliente
 
