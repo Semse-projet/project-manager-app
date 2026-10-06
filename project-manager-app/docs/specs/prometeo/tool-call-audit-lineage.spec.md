@@ -44,8 +44,9 @@ last_verified: "2026-10-05"
 # Spec: Auditoría canónica por tool call y estado de ejecución de aprobaciones
 
 > **Estado: APPROVED (2026-10-05).** El dueño aceptó las decisiones D1–D5 tal como se proponían (§4). La
-> migración es aditiva y **no está aplicada**: queda `PENDING` hasta que el dueño la apruebe y se aplique con el
-> procedimiento habitual; mientras tanto el código funciona con el modo `off` (comportamiento anterior).
+> migración es aditiva y **no está aplicada**: el dueño la **aprobó el 2026-10-05**, pero queda `PENDING` hasta que se
+> aplique en producción con el procedimiento habitual (la aplicación no se registra aquí hasta que ocurra y tenga
+> evidencia); mientras tanto el código funciona con el modo `off` (comportamiento anterior).
 >
 > **Alcance por entrega.** *Entrega A (#796):* esquema y migración aditivos (ambas tablas), redacción, ciclo de vida
 > de tool calls de `PrometeoToolExecutionService` con los modos `off`/`shadow`/`enforce`, `executionId` unido al
