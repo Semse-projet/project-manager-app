@@ -54,9 +54,10 @@ last_verified: "2026-10-05"
 > apilada sobre A):* estado de ejecución de las aprobaciones del copiloto (`NOT_STARTED → EXECUTING → SUCCEEDED|FAILED`)
 > con reclamo condicional, **sin reintento automático** (D2) y con reintento **manual** por `OPS_ADMIN`
 > (`POST /v1/agents/approvals/:approvalId/retry-execution`), consulta autorizada (D4: `GET /v1/prometeo/tools/executions/:executionId`
-> y `GET /v1/prometeo/tools/executions?projectId=`) y servicio de barridos. *Pendiente:* vínculo con el run padre (D5; hoy
-> el copiloto no corre bajo un `AgentRun` propio), auditoría de las acciones del harness del copiloto
-> (`source: project_copilot`) y **aplicar la migración**.
+> y `GET /v1/prometeo/tools/executions?projectId=`) y servicio de barridos. *D5 (2026-10-06):* el copiloto abre un
+> run padre de **observabilidad** por acción (nace terminal, no ejecutable por el worker; ver plan 0.42).
+> *Pendiente:* registrar `runId` en la auditoría de las acciones del harness del copiloto (`source: project_copilot`).
+> La migración ya está aplicada en producción (2026-10-06).
 >
 > **Desviación respecto a §6.3:** los barridos corren como un servicio del propio proceso de la API
 > (`AuditMaintenanceService`, temporizador opcional `PROMETEO_TOOL_AUDIT_SWEEP_INTERVAL_MS`, apagado por defecto) y no como

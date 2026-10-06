@@ -124,6 +124,8 @@ export type ProjectCopilotHarnessRuntime = {
   journal: ProjectCopilotJournalView;
   corpusStatus: CorpusStatusView;
   activePlan: CopilotProposedPlan | null;
+  /** D5: run padre de observabilidad de esta acción (terminal, no ejecutable); ausente si no se pudo registrar. */
+  parentRunId?: string;
 };
 
 // ── Output ────────────────────────────────────────────────────────────────────

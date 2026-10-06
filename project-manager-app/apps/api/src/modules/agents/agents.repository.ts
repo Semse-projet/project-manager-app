@@ -104,6 +104,44 @@ export class AgentsRepository {
     return this.toRecord(run);
   }
 
+  /**
+   * Run de OBSERVABILIDAD (D5): deja constancia de una solicitud que NO debe ejecutar el worker. Nace ya en un estado
+   * terminal (`COMPLETED`, sin intentos): `claimNext` solo toma `QUEUED` y `reclaimStale` solo reencola `RUNNING`, así
+   * que ni se procesa ni se reencola. Lo que ocurrió de verdad queda en `inputSummary`/`inputJson` y en la auditoría
+   * de cada tool call; el estado solo significa "no ejecutable".
+   */
+  async recordObservedRun(input: {
+    tenantId: string;
+    orgId: string;
+    userId: string;
+    agentType: AgentRunRecord["agentType"];
+    correlationId: string;
+    input: Record<string, unknown>;
+    inputSummary?: string;
+  }): Promise<AgentRunRecord> {
+    await this.actorContextService.ensureActorContext(input);
+
+    const now = new Date();
+    const run = (await this.prisma.agentRun.create({
+      data: {
+        tenantId: input.tenantId,
+        agentType: input.agentType,
+        triggerType: "manual",
+        inputJson: input.input as PrismaTypes.InputJsonValue,
+        inputSummary: input.inputSummary,
+        correlationId: input.correlationId,
+        status: "COMPLETED",
+        attempts: 0,
+        maxAttempts: 1,
+        startedAt: now,
+        endedAt: now,
+        durationMs: 0,
+      },
+    })) as StoredAgentRun;
+
+    return this.toRecord(run);
+  }
+
   async claimNext(input: {
     tenantId: string;
     orgId: string;

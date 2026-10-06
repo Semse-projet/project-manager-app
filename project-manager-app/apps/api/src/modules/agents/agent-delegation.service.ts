@@ -28,6 +28,43 @@ export class AgentDelegationService {
     });
   }
 
+  /**
+   * D5: abre el run padre de una acción del copiloto. Es observabilidad, no ejecución: el run nace terminal (ver
+   * `AgentsRepository.recordObservedRun`). Si no se puede registrar devuelve `undefined` y la acción sigue su curso:
+   * la trazabilidad no es una compuerta.
+   */
+  async openParentRun(input: {
+    tenantId: string;
+    orgId: string;
+    userId: string;
+    requestId: string;
+    projectId: string;
+    actionType: string;
+  }): Promise<string | undefined> {
+    try {
+      const run = await this.agentsService.recordObservedRun({
+        tenantId: input.tenantId,
+        orgId: input.orgId,
+        userId: input.userId,
+        agentType: "project-copilot" as any,
+        correlationId: `copilot:${input.requestId}:${input.actionType}`,
+        input: {
+          kind: "copilot_action_request",
+          observedOnly: true,
+          requestId: input.requestId,
+          projectId: input.projectId,
+          actionType: input.actionType,
+          actorUserId: input.userId,
+        },
+        inputSummary: `Acción del copiloto '${input.actionType}' en el proyecto ${input.projectId}`,
+      });
+      return run.id;
+    } catch (error) {
+      this.logger.warn(`No se pudo abrir el run padre del copiloto (${input.actionType}): ${String(error)}`);
+      return undefined;
+    }
+  }
+
   async delegateTask(input: {
     tenantId: string;
     orgId: string;
