@@ -40,7 +40,17 @@ function context(overrides: Partial<ConnectorExecutionContext> = {}): ConnectorE
 }
 
 function runtime(overrides: Partial<ConnectorRuntimeState> = {}): ConnectorRuntimeState {
-  return { tenantId: 'tenant-a', connectionId: 'conn-1', provider: 'test-provider', status: 'ACTIVE', trustLevel: 'VERIFIED', adoptionMode: 'HYBRID', ...overrides };
+  return {
+    tenantId: 'tenant-a',
+    connectionId: 'conn-1',
+    provider: 'test-provider',
+    connectorVersion: '1.0.0',
+    status: 'ACTIVE',
+    trustLevel: 'VERIFIED',
+    adoptionMode: 'HYBRID',
+    blastRadius: { maxActions: 100, maxRecords: 100, maxCostUsd: 1000, maxEnvelopesPerRequest: 100 },
+    ...overrides,
+  };
 }
 
 function request(overrides: Partial<ConnectorEnforcementRequest> = {}): ConnectorEnforcementRequest {
@@ -61,14 +71,42 @@ for (const status of ['REQUESTED', 'AUTHORIZED', 'VERIFIED', 'DEGRADED', 'QUARAN
 test('connector trust denies cross-tenant access before lifecycle disclosure', () => expectCode(enforceConnectorTrust(request({ resourceTenantId: 'tenant-b' })), 'TENANT_MISMATCH'));
 test('connector trust denies caller/runtime connection mismatch', () => expectCode(enforceConnectorTrust(request({ runtime: runtime({ connectionId: 'conn-2' }) })), 'RUNTIME_MISMATCH'));
 test('connector trust denies caller/runtime trust mismatch', () => expectCode(enforceConnectorTrust(request({ context: context({ trustLevel: 'CERTIFIED' }) })), 'RUNTIME_MISMATCH'));
+test('connector trust rejects a manifest from a different connector version', () => expectCode(enforceConnectorTrust(request({ manifest: { ...manifest, connectorVersion: '2.0.0' } })), 'RUNTIME_MISMATCH'));
+test('connector trust rejects unknown runtime operations before write classification', () => expectCode(enforceConnectorTrust(request({ operation: 'adminOverride' as never })), 'OPERATION_UNSUPPORTED'));
 test('connector trust denies insufficient capability trust', () => expectCode(enforceConnectorTrust(request({ operation: 'execute', runtime: runtime({ trustLevel: 'VERIFIED' }), context: context({ trustLevel: 'VERIFIED' }) })), 'TRUST_LEVEL_DENIED'));
 test('connector trust blocks writes in read-only mode', () => expectCode(enforceConnectorTrust(request({ operation: 'update', runtime: runtime({ adoptionMode: 'READ_ONLY' }), context: context({ adoptionMode: 'READ_ONLY' }) })), 'READ_ONLY'));
 test('connector trust requires idempotency for writes', () => expectCode(enforceConnectorTrust(request({ operation: 'update', context: context({ idempotencyKey: undefined }) })), 'IDEMPOTENCY_REQUIRED'));
 test('connector trust denies missing scope', () => expectCode(enforceConnectorTrust(request({ context: context({ scopes: [] }) })), 'SCOPE_DENIED'));
 test('connector trust denies absent capability', () => expectCode(enforceConnectorTrust(request({ capability: 'payments' })), 'CAPABILITY_DENIED'));
-test('connector trust enforces delegation resource boundary', () => expectCode(enforceConnectorTrust(request({ resourceId: 'job-2', context: context({ delegation: { delegatedBy: 'owner', delegatedTo: 'actor-a', purpose: 'job', capabilities: ['jobs'], scopes: ['jobs.read'], resourceBoundary: ['job-1'], revocable: true } }) })), 'DELEGATION_DENIED'));
-test('connector trust enforces delegation risk budget', () => expectCode(enforceConnectorTrust(request({ projectedUsage: { actions: 3 }, context: context({ delegation: { delegatedBy: 'owner', delegatedTo: 'actor-a', purpose: 'job', capabilities: ['jobs'], scopes: ['jobs.read'], riskBudget: { maxActions: 2 }, revocable: true } }) })), 'RISK_BUDGET_EXCEEDED'));
-test('connector trust enforces blast radius', () => expectCode(enforceConnectorTrust(request({ projectedUsage: { records: 11 }, runtime: runtime({ blastRadius: { maxRecords: 10 } }) })), 'BLAST_RADIUS_EXCEEDED'));
+test('connector trust enforces delegation resource boundary', () => expectCode(enforceConnectorTrust(request({
+  resourceId: 'job-2',
+  purpose: 'job',
+  runtime: runtime({ delegationGrants: { 'grant-1': { grantId: 'grant-1', grantVersion: 1, tenantId: 'tenant-a', connectionId: 'conn-1', status: 'ACTIVE' } } }),
+  context: context({ delegation: { grantId: 'grant-1', grantVersion: 1, tenantId: 'tenant-a', connectionId: 'conn-1', delegatedBy: 'owner', delegatedTo: 'actor-a', purpose: 'job', capabilities: ['jobs'], scopes: ['jobs.read'], resourceBoundary: ['job-1'], revocable: true } }),
+})), 'DELEGATION_DENIED'));
+test('connector trust enforces delegation risk budget', () => expectCode(enforceConnectorTrust(request({
+  purpose: 'job',
+  projectedUsage: { actions: 3 },
+  runtime: runtime({ delegationGrants: { 'grant-1': { grantId: 'grant-1', grantVersion: 1, tenantId: 'tenant-a', connectionId: 'conn-1', status: 'ACTIVE' } } }),
+  context: context({ delegation: { grantId: 'grant-1', grantVersion: 1, tenantId: 'tenant-a', connectionId: 'conn-1', delegatedBy: 'owner', delegatedTo: 'actor-a', purpose: 'job', capabilities: ['jobs'], scopes: ['jobs.read'], riskBudget: { maxActions: 2 }, revocable: true } }),
+})), 'RISK_BUDGET_EXCEEDED'));
+test('connector trust enforces blast radius', () => expectCode(enforceConnectorTrust(request({ projectedUsage: { records: 11 }, runtime: runtime({ blastRadius: { maxActions: 100, maxRecords: 10, maxCostUsd: 1000, maxEnvelopesPerRequest: 100 } }) })), 'BLAST_RADIUS_EXCEEDED'));
+test('read-only connector allows explicitly non-mutating syncs', () => assert.deepEqual(enforceConnectorTrust(request({
+  operation: 'sync',
+  syncEffect: 'READ_ONLY',
+  runtime: runtime({ adoptionMode: 'READ_ONLY' }),
+  context: context({ adoptionMode: 'READ_ONLY', scopes: ['jobs.sync'] }),
+})), { allowed: true }));
+test('delegation purpose must match the trusted request purpose', () => expectCode(enforceConnectorTrust(request({
+  purpose: 'different-purpose',
+  runtime: runtime({ delegationGrants: { 'grant-1': { grantId: 'grant-1', grantVersion: 1, tenantId: 'tenant-a', connectionId: 'conn-1', status: 'ACTIVE' } } }),
+  context: context({ delegation: { grantId: 'grant-1', grantVersion: 1, tenantId: 'tenant-a', connectionId: 'conn-1', delegatedBy: 'owner', delegatedTo: 'actor-a', purpose: 'job', capabilities: ['jobs'], scopes: ['jobs.read'], revocable: true } }),
+})), 'DELEGATION_DENIED'));
+test('revoked delegation is denied from trusted runtime state', () => expectCode(enforceConnectorTrust(request({
+  purpose: 'job',
+  runtime: runtime({ delegationGrants: { 'grant-1': { grantId: 'grant-1', grantVersion: 1, tenantId: 'tenant-a', connectionId: 'conn-1', status: 'REVOKED' } } }),
+  context: context({ delegation: { grantId: 'grant-1', grantVersion: 1, tenantId: 'tenant-a', connectionId: 'conn-1', delegatedBy: 'owner', delegatedTo: 'actor-a', purpose: 'job', capabilities: ['jobs'], scopes: ['jobs.read'], revocable: true } }),
+})), 'DELEGATION_DENIED'));
 test('connector trust emergency stop fails closed', () => expectCode(enforceConnectorTrust(request({ runtime: runtime({ emergency: { emergencyStop: true } }) })), 'EMERGENCY_STOP'));
 test('connector trust can disable agent access', () => expectCode(enforceConnectorTrust(request({ runtime: runtime({ emergency: { agentAccessDisabled: true } }) })), 'AGENT_ACCESS_DISABLED'));
 test('connector trust can disable writes independently', () => expectCode(enforceConnectorTrust(request({ operation: 'update', runtime: runtime({ emergency: { writesDisabled: true } }) })), 'WRITES_DISABLED'));
@@ -101,6 +139,13 @@ test('idempotency rejects key reuse for a different request', async () => {
   const store = new MemoryIdempotencyStore<number>();
   await executeIdempotently({ store, tenantId: 'tenant-a', connectionId: 'conn-1', key: 'key', fingerprint: 'a', execute: async () => 1 });
   await assert.rejects(() => executeIdempotently({ store, tenantId: 'tenant-a', connectionId: 'conn-1', key: 'key', fingerprint: 'b', execute: async () => 2 }), /IDEMPOTENCY_KEY_REUSE_MISMATCH/);
+});
+
+test('idempotency rejects malformed completed records without a result', async () => {
+  const store = new MemoryIdempotencyStore<number>();
+  const now = new Date().toISOString();
+  store.records.set('tenant-a:conn-1:key', { tenantId: 'tenant-a', connectionId: 'conn-1', key: 'key', fingerprint: 'a', status: 'COMPLETED', createdAt: now, updatedAt: now });
+  await assert.rejects(() => executeIdempotently({ store, tenantId: 'tenant-a', connectionId: 'conn-1', key: 'key', fingerprint: 'a', execute: async () => 2 }), /IDEMPOTENCY_COMPLETED_RESULT_MISSING/);
 });
 
 test('webhook trust rejects bad signature and replay', async () => {
