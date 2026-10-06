@@ -278,7 +278,15 @@ async function repairPhantomMigrations() {
 // que repairPhantomMigrations: lista explicita y revisada a mano, borra el
 // registro stuck para que `migrate deploy` deje de verlo como pendiente
 // (ya no hay carpeta que aplicar) y continue con normalidad.
-const FAILED_MIGRATION_REPAIRS = ["20260916_fix_contributor_terms_v1_0"];
+//
+// 20261005160000_h05_tool_call_audit_lifecycle (H05, #796) fallo en produccion con P3018
+// (`relation "prometeo_tool_invocation_audit" does not exist`): la migracion original que crea esa tabla
+// (20260722000000_prometeo_tool_governance) figura como aplicada pero la tabla nunca se creo (migracion fantasma).
+// A diferencia del caso anterior, SU CARPETA SIGUE EN EL REPO y ahora es idempotente y autosuficiente (crea con
+// IF NOT EXISTS lo que falte y anade las columnas con ADD COLUMN IF NOT EXISTS): al borrar la fila fallida,
+// `migrate deploy` la vuelve a aplicar con el SQL corregido. El intento fallido no dejo nada a medias porque
+// Postgres ejecuta el script en una transaccion.
+const FAILED_MIGRATION_REPAIRS = ["20260916_fix_contributor_terms_v1_0", "20261005160000_h05_tool_call_audit_lifecycle"];
 
 async function repairFailedMigrations() {
   const stuckRows = await prisma.$queryRaw`
