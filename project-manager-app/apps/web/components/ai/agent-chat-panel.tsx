@@ -17,6 +17,7 @@ import {
 import { useAgentPanelState, type PanelAgentId } from "./agent-panel-state";
 import { DraftPreviewCard } from "./draft-preview-card";
 import { trackProductEvent } from "@/lib/product-intelligence";
+import { buildChatHistory } from "@/lib/prometeo-widget-chat";
 import {
   PROMETEO_ATTACHMENT_ACCEPT,
   classifyPrometeoAttachment,
@@ -608,6 +609,7 @@ function useAgentChat(
         } else {
           const data = await chatWithPrometeo({
             message: content || undefined,
+            history: buildChatHistory(messages), // `messages` aún no incluye el mensaje actual
             agentId: activeAgent,
             threadId: activeConversationId ?? undefined,
             projectId: selectedProjectId ?? undefined,
@@ -665,7 +667,7 @@ function useAgentChat(
         setThinking(false);
       }
     },
-    [activeAgent, activeConversationId, selectedProjectId, pathname, publishJobDraft, publishJobSessionId, setActiveConversationId]
+    [activeAgent, activeConversationId, selectedProjectId, pathname, publishJobDraft, publishJobSessionId, setActiveConversationId, messages]
   );
 
   const clearHistory = useCallback(() => {

@@ -17,6 +17,7 @@ import { resolveRequestContext, type RequestContext } from "../../common/request
 import { resolveRequestId } from "../../common/request-id.js";
 import { parsePositiveInt } from "../../common/parse-query.js";
 import { AiModelGatewayService } from "./gateway/ai-model-gateway.service.js";
+import { normalizeConversationHistory } from "./prompt-safety.js";
 import { AiInteractionLoggerService } from "./logging/ai-interaction-logger.service.js";
 import { AiMissionIncidentService, type MissionIncidentInput } from "./logging/ai-mission-incident.service.js";
 import { AiModelRouterService } from "./router/ai-model-router.service.js";
@@ -473,6 +474,7 @@ export class AiModelsController {
       threadId,
       taskType,
       input: message,
+      history: normalizeConversationHistory(runtimeRequest.history),
       systemPrompt: systemPromptWithSkills,
       context: fullContextBlock,
       metadata: {

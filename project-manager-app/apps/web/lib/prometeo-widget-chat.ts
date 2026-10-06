@@ -10,8 +10,29 @@ export type WidgetChatContext = {
   resource?: { id?: string | null; type?: string | null } | null;
 } | null;
 
+export type ChatHistoryTurn = { role: "user" | "assistant"; content: string };
+
+const HISTORY_MAX_TURNS = 10;
+const HISTORY_MAX_TURN_CHARS = 2000;
+
+/**
+ * Turnos previos que se reenvían a Prometeo: el servidor no conserva el texto de las conversaciones, así que sin esto
+ * cada mensaje llega "sin memoria" ("no tengo memoria de conversaciones anteriores"). Se omiten los saludos de
+ * bienvenida, los mensajes degradados y los errores (no son respuestas de Prometeo) y se acota tamaño y cantidad.
+ */
+export function buildChatHistory(
+  messages: ReadonlyArray<{ id?: string; role: "user" | "assistant"; content: string; status?: string }>,
+): ChatHistoryTurn[] {
+  return messages
+    .filter((m) => m.id !== "welcome" && m.status !== "degraded" && !m.content.startsWith("⚠"))
+    .map((m) => ({ role: m.role, content: m.content.trim().slice(0, HISTORY_MAX_TURN_CHARS) }))
+    .filter((m) => m.content.length > 0)
+    .slice(-HISTORY_MAX_TURNS);
+}
+
 export type WidgetChatRequest = {
   message: string;
+  history?: ChatHistoryTurn[];
   threadId?: string;
   projectId?: string;
   pageContext: { route?: string; module?: string };
@@ -27,6 +48,7 @@ export type RuntimeChatData = {
 /** `projectId` solo si la pantalla es de un proyecto: un id de trabajo o de otro recurso no es un proyecto. */
 export function buildWidgetChatRequest(input: {
   message: string;
+  history?: ChatHistoryTurn[];
   threadId?: string;
   context: WidgetChatContext;
   route?: string;
@@ -36,6 +58,7 @@ export function buildWidgetChatRequest(input: {
     context?.resource?.type === "project" && context.resource.id ? context.resource.id : undefined;
   return {
     message: input.message,
+    ...(input.history && input.history.length > 0 ? { history: input.history } : {}),
     ...(input.threadId ? { threadId: input.threadId } : {}),
     ...(projectId ? { projectId } : {}),
     pageContext: {

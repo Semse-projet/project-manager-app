@@ -62,6 +62,7 @@ function pick(arr: string[]): string {
 export async function POST(req: NextRequest) {
   let body: {
     message?: string;
+    history?: Array<{ role: "user" | "assistant"; content: string }>;
     agentId?: string;
     threadId?: string;
     missionId?: string;
@@ -82,6 +83,7 @@ export async function POST(req: NextRequest) {
 
   const {
     message,
+    history,
     agentId = "assistant",
     threadId,
     missionId,
@@ -161,6 +163,7 @@ export async function POST(req: NextRequest) {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         message: trimmedMessage || undefined,
+        history: Array.isArray(history) ? history : undefined,
         agentId,
         threadId,
         missionId,

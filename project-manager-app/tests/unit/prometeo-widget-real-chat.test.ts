@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { buildWidgetChatRequest, classifyChatReply, describeChatFailure, pickRuntimeReply } from "../../apps/web/lib/prometeo-widget-chat.ts";
+import { buildChatHistory, buildWidgetChatRequest, classifyChatReply, describeChatFailure, pickRuntimeReply } from "../../apps/web/lib/prometeo-widget-chat.ts";
 
 const repoRoot = path.resolve(import.meta.dirname, "../..");
 const widget = readFileSync(path.join(repoRoot, "apps/web/app/components/prometeo/PrometeoCopilot.tsx"), "utf8");
@@ -19,6 +19,34 @@ test("projectId solo se envía cuando la pantalla es de un proyecto", () => {
   const none = buildWidgetChatRequest({ message: "hola", context: null });
   assert.equal("projectId" in none, false);
   assert.deepEqual(none.pageContext, {});
+});
+
+test("0.43: el historial se reenvía acotado y sin saludos, degradados ni errores", () => {
+  const history = buildChatHistory([
+    { id: "welcome", role: "assistant", content: "Hola, soy Prometeo." },
+    { id: "1", role: "user", content: "cuantos trabajos activos tengo" },
+    { id: "2", role: "assistant", content: "Tienes **4** activos." },
+    { id: "3", role: "assistant", content: "El modelo no pudo responder. No es una respuesta de Prometeo.", status: "degraded" },
+    { id: "4", role: "assistant", content: "⚠ Error de conexión" },
+    { id: "5", role: "user", content: "   " },
+  ]);
+  assert.deepEqual(history, [
+    { role: "user", content: "cuantos trabajos activos tengo" },
+    { role: "assistant", content: "Tienes **4** activos." },
+  ]);
+
+  const long = Array.from({ length: 30 }, (_, i) => ({ id: `m${i}`, role: i % 2 ? ("assistant" as const) : ("user" as const), content: "z".repeat(5000) }));
+  const capped = buildChatHistory(long);
+  assert.equal(capped.length, 10);
+  assert.ok(capped.every((t) => t.content.length === 2000));
+});
+
+test("0.43: la petición del widget lleva el historial solo si hay turnos previos", () => {
+  const withHistory = buildWidgetChatRequest({ message: "y el primero?", context: null, history: [{ role: "user", content: "hola" }] });
+  assert.deepEqual(withHistory.history, [{ role: "user", content: "hola" }]);
+  assert.equal("history" in buildWidgetChatRequest({ message: "hola", context: null, history: [] }), false);
+  assert.equal("history" in buildWidgetChatRequest({ message: "hola", context: null }), false);
+  assert.match(widget, /history: buildChatHistory\(messages\)/, "el widget debe enviar el historial");
 });
 
 test("el threadId se reutiliza solo si existe", () => {

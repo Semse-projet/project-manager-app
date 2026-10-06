@@ -1,7 +1,7 @@
 import { Logger } from "@nestjs/common";
 import type { AiGenerateRequest } from "../dto/ai-generate-request.dto.js";
 import type { AiGenerateResponse } from "../dto/ai-generate-response.dto.js";
-import { buildSafeSystemPrompt, wrapOperationalContext, wrapUserInput } from "../prompt-safety.js";
+import { buildSafeSystemPrompt, wrapConversationHistory, wrapOperationalContext, wrapUserInput } from "../prompt-safety.js";
 
 /**
  * GLM (Zhipu AI) provider — OpenAI-compatible /chat/completions.
@@ -36,6 +36,8 @@ export class GlmProvider {
       content: buildSafeSystemPrompt(request.systemPrompt, "You are a helpful AI assistant for SEMSEproject."),
     });
     if (request.context) messages.push({ role: "system", content: wrapOperationalContext(request.context) });
+    const historyBlock = wrapConversationHistory(request.history);
+    if (historyBlock) messages.push({ role: "system", content: historyBlock });
     messages.push({ role: "user", content: wrapUserInput(request.input) });
 
     const start = Date.now();
