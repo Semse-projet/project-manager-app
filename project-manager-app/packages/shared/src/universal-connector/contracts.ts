@@ -29,6 +29,10 @@ export interface RiskUsage {
 }
 
 export interface DelegationContext {
+  grantId: string;
+  grantVersion: number;
+  tenantId: string;
+  connectionId: string;
   delegatedBy: string;
   delegatedTo: string;
   purpose: string;
@@ -68,8 +72,20 @@ export interface CapabilityManifest {
   capabilities: Record<string, CapabilityDefinition>;
 }
 
-export interface BlastRadiusLimits extends RiskBudget {
-  maxEnvelopesPerRequest?: number;
+export interface BlastRadiusLimits {
+  maxActions: number;
+  maxRecords: number;
+  maxCostUsd: number;
+  maxEnvelopesPerRequest: number;
+}
+
+export interface DelegationGrantState {
+  grantId: string;
+  grantVersion: number;
+  tenantId: string;
+  connectionId: string;
+  status: 'ACTIVE' | 'REVOKED';
+  expiresAt?: string;
 }
 
 export interface EmergencyControls {
@@ -83,10 +99,12 @@ export interface ConnectorRuntimeState {
   tenantId: string;
   connectionId: string;
   provider: string;
+  connectorVersion: string;
   status: ConnectorStatus;
   trustLevel: TrustLevel;
   adoptionMode: AdoptionMode;
-  blastRadius?: BlastRadiusLimits;
+  blastRadius: BlastRadiusLimits;
+  delegationGrants?: Record<string, DelegationGrantState>;
   emergency?: EmergencyControls;
 }
 
@@ -183,6 +201,7 @@ export interface SecurityEvent {
 }
 
 export interface SyncCheckpoint {
+  tenantId: string;
   connectionId: string;
   stream: string;
   cursor: string;
