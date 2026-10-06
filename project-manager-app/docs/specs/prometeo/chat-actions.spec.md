@@ -100,20 +100,23 @@ Casos borde:
 
 ### API
 
-Se reutiliza `POST /v1/ai-models/prometeo/chat` y se **extiende aditivamente** su respuesta:
+Se reutiliza `POST /v1/ai-models/prometeo/chat` **sin cambiar su esquema**: las acciones de chat usan la forma que ya
+tiene `proposedActions` (`prometeoProposedActionSchema`; corregido el 2026-10-06 al verificar el código, la versión
+aprobada proponía un campo `kind` nuevo que no hace falta):
 
 ```yaml
 auth: required
 permissions: [agents:run:create]
 output_schema:
-  proposedActions:
-    - id: string            # estable por (conversación, tipo): evita duplicar el botón
-      kind: "create_job_draft" | "navigate"
+  proposedActions:           # forma existente: id, namespace, tool, label, description, riskLevel, approvalPolicy, requiresApproval, status, input, reason
+    - namespace: "chat"
+      tool: "create_job_draft" | "navigate"
+      id: string            # estable por (conversación, tool): evita duplicar el botón
       label: string
-      summary: string?      # resumen del borrador, solo create_job_draft
-      draftId: string?      # create_job_draft
-      route: string?        # navigate; del catálogo cerrado
-      requiresConfirmation: true
+      requiresApproval: true   # confirmación humana explícita siempre
+      input:
+        # create_job_draft: { draftId: string, summary: string }
+        # navigate:         { route: string }   # del catálogo cerrado
 errors: {400: input inválido, 401: sin sesión, 403: sin permiso}
 effects:
   audit_log: "prometeo.chat_action.proposed | confirmed | dismissed" con correlationId
