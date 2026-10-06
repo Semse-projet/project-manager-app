@@ -4,7 +4,7 @@ title: "Prometeo actúa desde el chat (borradores con confirmación y navegació
 domain: "prometeo"
 sdd_version: "2.0"
 version: "1.0"
-status: "REVIEW"
+status: "APPROVED"
 owner: "semse-core"
 risk: "high"
 code_status: "NOT_STARTED"
@@ -25,7 +25,7 @@ last_verified: "2026-10-06"
 
 # Spec: Prometeo actúa desde el chat
 
-> Contrato ejecutable SDD 2.0. **Estado `REVIEW`: el dueño debe aprobarla (y decidir D1–D4) antes de escribir código.**
+> Contrato ejecutable SDD 2.0. **Estado `APPROVED` (2026-10-06): el dueño aprobó la spec y aceptó D1–D4 tal como se proponían (§6).**
 > Código, CI, merge, deploy y activación se registran por separado.
 
 ## 1. Problema y resultado
@@ -148,9 +148,9 @@ forbidden_behavior:
   - tomar tenant/org/usuario del texto del modelo
 ```
 
-## 6. Decisiones que necesito del dueño
+## 6. Decisiones (aceptadas por el dueño el 2026-10-06)
 
-| ID | Decisión | Propuesta |
+| ID | Decisión | Resolución (**Aceptada** tal como se proponía) |
 |---|---|---|
 | D1 | ¿Cómo se detecta la intención? | Normalización del texto (minúsculas, sin acentos, tolerante a espacios y erratas comunes) + el router de decisiones existente (`agent_router`) como respaldo, con vocabulario **cerrado** (`create_job`, `navigate:<ruta>`, `none`). Nunca el modelo decide libremente qué ejecutar. |
 | D2 | ¿Crear el trabajo requiere siempre confirmación explícita? | **Sí**, siempre, por botón; el modelo no puede confirmar. |
