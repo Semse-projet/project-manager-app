@@ -1,12 +1,12 @@
 import {
   CONNECTOR_CONTRACT_VERSION,
   type CanonicalDataEnvelope,
-  CapabilityManifest,
-  ConnectorExecutionContext,
-  ConnectorOperation,
-  ConnectorRuntimeState,
-  PolicyDecision,
-  RiskUsage,
+  type CapabilityManifest,
+  type ConnectorExecutionContext,
+  type ConnectorOperation,
+  type ConnectorRuntimeState,
+  type PolicyDecision,
+  type RiskUsage,
 } from './contracts.js';
 import { exceedsRiskBudget, isExecutableConnectorStatus, satisfiesTrustLevel } from './runtime-trust.js';
 
