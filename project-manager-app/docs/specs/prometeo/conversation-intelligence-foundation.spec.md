@@ -7,7 +7,7 @@ version: "1.0"
 status: "APPROVED"
 owner: "semse-core"
 risk: "high"
-code_status: "NOT_STARTED"
+code_status: "IN_PROGRESS"
 ci_status: "NOT_RUN"
 merge_status: "UNMERGED"
 deploy_status: "NOT_DEPLOYED"
@@ -16,7 +16,7 @@ migration_status: "PENDING"
 feature_flags: ["SEMSE_CONVERSATION_INTELLIGENCE_MODE", "SEMSE_CONVERSATION_INTELLIGENCE_CANARY_TENANT_IDS"]
 production_evidence: []
 related_files: ["packages/db/prisma/schema.prisma", "apps/api/src/modules/assistant/assistant.service.ts", "apps/api/src/modules/communications/communications.repository.ts", "apps/api/src/modules/communications/communications.service.ts", "apps/api/src/modules/prometeo/prometeo-tool-registry.ts", "apps/api/src/modules/prometeo/prometeo.module.ts", "apps/api/src/modules/prometeo/tool-governance/tool-governance.policy.ts"]
-related_tests: []
+related_tests: ["apps/api/test/conversation-intelligence-mirror.test.ts", "tests/unit/conversation-intelligence-contracts.test.ts", "tests/unit/conversation-intelligence-migration.test.ts"]
 related_endpoints: []
 related_events: []
 related_agents: ["prometeo"]

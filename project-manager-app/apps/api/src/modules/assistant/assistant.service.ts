@@ -4,6 +4,7 @@ import { AiModelGatewayService } from "../ai-models/gateway/ai-model-gateway.ser
 import { BudgetIntelligenceService } from "../intelligence/budget-intelligence.service.js";
 import { JobsService } from "../jobs/jobs.service.js";
 import { ProjectDraftService, type DraftFields, type ProjectDraftSnapshot } from "./project-draft.service.js";
+import { ConversationMirrorService } from "./conversation-canonical/conversation-mirror.service.js";
 
 const CATEGORIES_BLOCK = `
 electricidad → instalacion_elec, panel, iluminacion
@@ -153,6 +154,9 @@ export class AssistantService {
     private readonly gateway: AiModelGatewayService,
     @Optional() private readonly budgetService: BudgetIntelligenceService | null,
     @Optional() private readonly jobsService: JobsService | null,
+    // Conversation Intelligence (spec prometeo.conversation-intelligence): dual-write temporal, apagado por defecto
+    // (SEMSE_CONVERSATION_INTELLIGENCE_MODE) y fail-open: nunca cambia ni rompe la respuesta al usuario.
+    @Optional() private readonly conversationMirror?: ConversationMirrorService,
   ) {}
 
   async handlePublishJob(input: AssistantPublishJobInput): Promise<AssistantPublishJobOutput> {
@@ -230,6 +234,16 @@ export class AssistantService {
         messages: updatedMessages as unknown as Parameters<typeof this.prisma.conversationSession.update>[0]["data"]["messages"],
         updatedAt: new Date(),
       },
+    });
+
+    // Refleja el turno en el hilo canónico (no-op con el modo `off`; nunca lanza).
+    await this.conversationMirror?.mirrorSession({
+      id: session.id,
+      tenantId,
+      userId,
+      flow: session.flow,
+      pageRoute: session.pageRoute,
+      messages: updatedMessages,
     });
 
     let budgetSuggestion: BudgetSuggestionSnapshot | undefined;
