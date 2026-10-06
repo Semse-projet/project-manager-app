@@ -12,6 +12,7 @@ import { AiPricingCatalogService } from "./pricing/ai-pricing-catalog.service.js
 import { OPERATIONAL_CONTEXT_SERVICE } from "./context/operational-context.token.js";
 import { AiModelRouterService } from "./router/ai-model-router.service.js";
 import { AiModelsController } from "./ai-models.controller.js";
+import { ChatActionsService } from "./chat-actions/chat-actions.service.js";
 import { OperationalContextService } from "./context/operational-context.service.js";
 import { PrometeoOrchestratorService } from "./orchestrator/prometeo-orchestrator.service.js";
 import { SkillsModule } from "../skills/skills.module.js";
@@ -29,6 +30,7 @@ import { DecisionLayerModule } from "./decision/decision-layer.module.js";
     OperationalContextService,
     { provide: OPERATIONAL_CONTEXT_SERVICE, useExisting: OperationalContextService },
     PrometeoOrchestratorService,
+    ChatActionsService,
   ],
   exports: [
     AiModelGatewayService,

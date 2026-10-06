@@ -39,6 +39,8 @@ export type WidgetChatRequest = {
 };
 
 export type RuntimeChatData = {
+  /** Acciones propuestas por el servidor; las de `namespace: "chat"` se muestran como botones (ver `prometeo-chat-actions`). */
+  proposedActions?: Array<{ id?: string; namespace?: string; tool?: string; label?: string; input?: Record<string, unknown> }>;
   threadId?: string;
   response?: string;
   message?: string;

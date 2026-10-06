@@ -37,6 +37,15 @@ export function resolveRoutesFor(roles: readonly string[]): ResolvedChatRoute[] 
   });
 }
 
+/** Asistente de alta de trabajos (`apps/web/app/(app)/client/jobs/new`): solo existe en el espacio de cliente. */
+const JOB_CREATION_ROUTES: Partial<Record<AppRole, string>> = { client: "/client/jobs/new" };
+
+/** Pantalla dedicada para crear un trabajo, si el rol del actor tiene una; `null` si no (el panel usa el borrador del asistente). */
+export function resolveJobCreationRoute(roles: readonly string[]): string | null {
+  const role = roleOf(roles);
+  return (role && JOB_CREATION_ROUTES[role]) || null;
+}
+
 /** Una ruta del catálogo para este actor, o `null` si no existe o no le corresponde. */
 export function resolveChatRoute(id: string, roles: readonly string[]): ResolvedChatRoute | null {
   return resolveRoutesFor(roles).find((route) => route.id === id) ?? null;

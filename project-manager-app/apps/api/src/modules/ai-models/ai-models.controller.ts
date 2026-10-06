@@ -17,6 +17,7 @@ import { resolveRequestContext, type RequestContext } from "../../common/request
 import { resolveRequestId } from "../../common/request-id.js";
 import { parsePositiveInt } from "../../common/parse-query.js";
 import { AiModelGatewayService } from "./gateway/ai-model-gateway.service.js";
+import { ChatActionsService } from "./chat-actions/chat-actions.service.js";
 import { normalizeConversationHistory } from "./prompt-safety.js";
 import { AiInteractionLoggerService } from "./logging/ai-interaction-logger.service.js";
 import { AiMissionIncidentService, type MissionIncidentInput } from "./logging/ai-mission-incident.service.js";
@@ -75,6 +76,8 @@ export class AiModelsController {
     // Jev Decision Layer (spec: prometeo/jev-decision-layer). Optional and
     // flag-gated: absent or disabled, routing is exactly the keyword router.
     @Optional() private readonly decisionLayer?: DecisionLayerService,
+    // Acciones de chat (spec prometeo/chat-actions). Opcional y con flag SEMSE_CHAT_ACTIONS_MODE (off por defecto).
+    @Optional() private readonly chatActions?: ChatActionsService,
   ) {}
 
   /**
@@ -337,6 +340,9 @@ export class AiModelsController {
       ? runtimeRequest.threadId.trim()
       : randomUUID();
 
+    // Acciones de chat: solo propuestas (con confirmación humana); `off` por defecto y nunca rompe el chat.
+    const chatActions = await this.proposeChatActions(actor, message, rid);
+
     const ctx = await this.operationalContext.buildContext({
       tenantId: actor.tenantId,
       orgId: actor.orgId,
@@ -395,6 +401,7 @@ export class AiModelsController {
         ctx,
         runtimeRequest,
         executionResults,
+        chatActions,
       }));
     }
 
@@ -423,6 +430,7 @@ export class AiModelsController {
         ctx,
         runtimeRequest,
         executionResults,
+        chatActions,
       }));
     }
 
@@ -456,6 +464,7 @@ export class AiModelsController {
           ctx,
           runtimeRequest,
           executionResults,
+        chatActions,
         }));
       }
     }
@@ -508,6 +517,7 @@ export class AiModelsController {
       ctx,
       runtimeRequest,
       executionResults,
+        chatActions,
       errorMessage: response.errorMessage,
     });
     // Additive routing hint (Agent Router pilot). Clients may offer the
@@ -522,6 +532,15 @@ export class AiModelsController {
         deterministicIntent: routed.deterministicIntent,
       },
     });
+  }
+
+  private async proposeChatActions(actor: RequestContext, message: string, requestId: string): Promise<PrometeoProposedAction[]> {
+    if (!this.chatActions) return [];
+    try {
+      return await this.chatActions.propose({ actor, message, requestId });
+    } catch {
+      return []; // las acciones de chat son un añadido: un fallo nunca rompe la respuesta
+    }
   }
 
   private async resolvePrometeoReadToolExecution(
@@ -649,6 +668,7 @@ export class AiModelsController {
     modelSlug?: string;
     errorMessage?: string;
     executionResults?: PrometeoToolExecutionResult[];
+    chatActions?: PrometeoProposedAction[];
   }): PrometeoChatEnvelope {
     const executionResults = input.executionResults ?? [];
     const proposedActions = this.buildProposedActions(input.runtimeRequest, input.route);
@@ -671,7 +691,8 @@ export class AiModelsController {
         executionResults,
         mission,
       }),
-      proposedActions,
+      // Las acciones de chat van al final y NO entran en la misión ni en los bloques: no son una aprobación de la misión.
+      proposedActions: [...proposedActions, ...(input.chatActions ?? [])],
       executionResults,
       mission,
       citations: this.buildCitations(input.ctx),

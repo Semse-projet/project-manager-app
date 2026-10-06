@@ -58,6 +58,13 @@ Que el chat proponga dos acciones, siempre con un paso humano explícito: **crea
 - La confirmación reutiliza `confirm-draft` (permiso + tenant ya aplicados); doble clic idempotente por `draftId` (ya garantizado por el estado del borrador; se prueba).
 - Texto con instrucciones al modelo no altera la propuesta (no pasa por el modelo para decidirla).
 
+## 3.7 Desviaciones del plan original (implementación, 2026-10-06)
+
+1. **El borrador se abre al PULSAR, no al clasificar.** El plan decía que `ChatActionsService` llamaría a `AssistantService.handlePublishJob`. Eso habría creado sesiones y borradores (y una llamada al modelo) por el solo hecho de que el clasificador acertara, incluso en `shadow`. Ahora el servicio **no tiene efectos secundarios** (solo propone y audita) y el panel, al pulsar "Crear el trabajo", llama al flujo `publish-job` existente con el mensaje que el usuario ya escribió; el borrador sigue pasando por su confirmación explícita (`confirm-draft`).
+2. **El widget solo ofrece acciones con pantalla.** No tiene interfaz de borrador: "crear trabajo" se ofrece ahí solo si el rol tiene un asistente propio (`/client/jobs/new`, solo clientes); navegar funciona para todos los roles con ruta.
+3. **`isPublishJobIntent` (atajo del cliente por frases exactas) se conserva** hasta validar `live`. Quitarlo con el flag en `off` haría perder el flujo actual. Se retira en una PR posterior, con evidencia.
+4. **Auditoría:** se emiten `prometeo.chat_action.proposed`, `.shadow` y `.suppressed` (con motivo). **No** se emiten `confirmed`/`dismissed`: la confirmación vive en el flujo de borrador, que ya audita sus propias acciones; descartar un botón no tiene hoy una señal fiable.
+5. **Doble barrera de rutas:** además del catálogo cerrado del servidor, el cliente solo navega a rutas relativas de `/client`, `/worker` o `/admin` (`safeChatRoute`).
 ## 4. Flags y despliegue
 `SEMSE_CHAT_ACTIONS_MODE=off|shadow|live` (por defecto `off`). Orden: código con `off` → `shadow` → `live` para un tenant de prueba → resto. Rollback: `off`.
 
