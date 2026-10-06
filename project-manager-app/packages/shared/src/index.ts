@@ -15,6 +15,9 @@ export * from "./developer-runtime.js";
 export * from "./observability/logger.js";
 export * from "./safe-url.js";
 export * from "./deploy-provenance.js";
+export * from "./universal-connector/contracts.js";
+export * from "./universal-connector/enforcement.js";
+export * from "./universal-connector/runtime-trust.js";
 
 export const SEMSE_IDENTITY_HEADER_NAMES = {
   tenantId: "x-tenant-id",
@@ -271,42 +274,27 @@ export function slugify(text: string): string {
   return text
     .toLowerCase()
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")   // strip diacritics
-    .replace(/[^a-z0-9]+/g, "-")       // non-alnum → hyphen
-    .replace(/^-+|-+$/g, "");          // trim leading/trailing hyphens
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }
 
-/**
- * Truncate a string to `maxLen` characters, appending `suffix` when trimmed.
- */
 export function truncate(text: string, maxLen: number, suffix = "…"): string {
   if (text.length <= maxLen) return text;
   return text.slice(0, maxLen - suffix.length) + suffix;
 }
 
-// ── Dates ─────────────────────────────────────────────────────────────────────
-
-/**
- * Return the ISO-8601 date portion of a Date or timestamp.
- * "2026-04-07T14:30:00Z" → "2026-04-07"
- */
 export function toISODate(date: Date | string | number): string {
   return new Date(date).toISOString().slice(0, 10);
 }
 
-/**
- * Return a human-readable relative time string.
- * "2 hours ago", "in 3 days", etc.
- */
 export function relativeTime(date: Date | string | number, now?: Date): string {
   const base = now ?? new Date();
   const target = new Date(date);
   const diffMs = target.getTime() - base.getTime();
   const diffSec = Math.round(diffMs / 1000);
   const abs = Math.abs(diffSec);
-
   const rtf = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
-
   if (abs < 60) return rtf.format(diffSec, "second");
   if (abs < 3600) return rtf.format(Math.round(diffSec / 60), "minute");
   if (abs < 86400) return rtf.format(Math.round(diffSec / 3600), "hour");
@@ -315,135 +303,8 @@ export function relativeTime(date: Date | string | number, now?: Date): string {
   return rtf.format(Math.round(diffSec / 31536000), "year");
 }
 
-// ── Domain label maps ─────────────────────────────────────────────────────────
-
-export const JOB_STATUS_LABELS: Record<string, string> = {
-  DRAFT: "Draft",
-  POSTED: "Posted",
-  PUBLISHED: "Published",
-  RESERVED: "Reserved",
-  ACCEPTED: "Accepted",
-  IN_PROGRESS: "In Progress",
-  REVIEW: "Under Review",
-  DISPUTE: "In Dispute",
-  COMPLETED: "Completed",
-  AWARDED: "Awarded",
-  CANCELLED: "Cancelled",
-};
-
-export const MILESTONE_STATUS_LABELS: Record<string, string> = {
-  DRAFT: "Draft",
-  AWAITING_REVIEW: "Awaiting Review",
-  SUBMITTED: "Submitted",
-  APPROVED: "Approved",
-  REJECTED: "Rejected",
-  PAID: "Paid",
-};
-
-export const BID_STATUS_LABELS: Record<string, string> = {
-  SUBMITTED: "Submitted",
-  ACCEPTED: "Accepted",
-  REJECTED: "Rejected",
-};
-
-export const PROJECT_STATUS_LABELS: Record<string, string> = {
-  OPEN: "Open",
-  IN_PROGRESS: "In Progress",
-  BLOCKED: "Blocked",
-  COMPLETED: "Completed",
-  CANCELLED: "Cancelled",
-};
-
-export const DISPUTE_STATUS_LABELS: Record<string, string> = {
-  OPEN: "Open",
-  ASSIGNED: "Assigned",
-  UNDER_REVIEW: "Under Review",
-  RESOLVED: "Resolved",
-  REJECTED: "Rejected",
-};
-
-export const AGENT_RUN_STATUS_LABELS: Record<string, string> = {
-  QUEUED: "Queued",
-  RUNNING: "Running",
-  COMPLETED: "Completed",
-  FAILED: "Failed",
-  CANCELLED: "Cancelled",
-};
-
-// ── Type guards ───────────────────────────────────────────────────────────────
-
-export function isNonEmptyString(value: unknown): value is string {
-  return typeof value === "string" && value.trim().length > 0;
-}
-
-export function isPositiveNumber(value: unknown): value is number {
-  return typeof value === "number" && isFinite(value) && value > 0;
-}
-
-// ── Object utilities ──────────────────────────────────────────────────────────
-
-/**
- * Pick a subset of keys from an object without mutating the original.
- */
-export function pick<T extends object, K extends keyof T>(
-  obj: T,
-  keys: K[]
-): Pick<T, K> {
-  const result = {} as Pick<T, K>;
-  for (const k of keys) {
-    if (k in obj) result[k] = obj[k];
-  }
-  return result;
-}
-
-/**
- * Omit keys from an object without mutating the original.
- */
-export function omit<T extends object, K extends keyof T>(
-  obj: T,
-  keys: K[]
-): Omit<T, K> {
-  const result = { ...obj };
-  for (const k of keys) delete (result as Record<string, unknown>)[k as string];
-  return result as Omit<T, K>;
-}
-
-/**
- * Remove all keys with `null` or `undefined` values from a shallow copy.
- */
-export function compactObject<T extends object>(obj: T): Partial<T> {
-  return Object.fromEntries(
-    Object.entries(obj).filter(([, v]) => v !== null && v !== undefined)
-  ) as Partial<T>;
-}
-
-// ── Pagination ────────────────────────────────────────────────────────────────
-
-export interface PaginationMeta {
-  page: number;
-  pageSize: number;
-  total: number;
-  totalPages: number;
-  hasNext: boolean;
-  hasPrev: boolean;
-}
-
-export function buildPaginationMeta(
-  total: number,
-  page: number,
-  pageSize: number
-): PaginationMeta {
-  const totalPages = Math.ceil(total / pageSize);
-  return {
-    page,
-    pageSize,
-    total,
-    totalPages,
-    hasNext: page < totalPages,
-    hasPrev: page > 1,
-  };
-}
-
-export function paginationSkip(page: number, pageSize: number): number {
-  return Math.max(0, (page - 1) * pageSize);
-}
+export const JOB_STATUS_LABELS: Record<string, string> = { DRAFT: "Draft", POSTED: "Posted", PUBLISHED: "Published", RESERVED: "Reserved", ACCEPTED: "Accepted", IN_PROGRESS: "In Progress", REVIEW: "Under Review", DISPUTE: "In Dispute", COMPLETED: "Completed", AWARDED: "Awarded", CANCELLED: "Cancelled" };
+export const MILESTONE_STATUS_LABELS: Record<string, string> = { DRAFT: "Draft", AWAITING_REVIEW: "Awaiting Review", SUBMITTED: "Submitted", APPROVED: "Approved", REJECTED: "Rejected", PAID: "Paid" };
+export const BID_STATUS_LABELS: Record<string, string> = { SUBMITTED: "Submitted", ACCEPTED: "Accepted", REJECTED: "Rejected" };
+export const PROJECT_STATUS_LABELS: Record<string, string> = { OPEN: "Open", IN_PROGRESS: "In Progress", BLOCKED: "Blocked", COMPLETED: "Completed", CANCELLED: "Cancelled" };
+export const DISPUTE_STATUS_LABELS: Record<string, string> = { OPEN: "Open", UNDER_REVIEW: "Under Review", RESOLVED: "Resolved", CLOSED: "Closed" };
