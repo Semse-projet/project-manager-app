@@ -8,7 +8,7 @@ status: "APPROVED"
 owner: "semse-core"
 risk: "critical"
 code_status: "IN_PROGRESS"
-ci_status: "PENDING"
+ci_status: "FAIL"
 merge_status: "UNMERGED"
 deploy_status: "NOT_DEPLOYED"
 activation_status: "INACTIVE"
@@ -16,12 +16,12 @@ migration_status: "NOT_APPLICABLE"
 feature_flags: []
 production_evidence: []
 related_files:
-  - project-manager-app/packages/shared/src/universal-connector/contracts.ts
-  - project-manager-app/packages/shared/src/universal-connector/enforcement.ts
-  - project-manager-app/packages/shared/src/universal-connector/runtime-trust.ts
-  - project-manager-app/packages/shared/src/index.ts
+  - packages/shared/src/universal-connector/contracts.ts
+  - packages/shared/src/universal-connector/enforcement.ts
+  - packages/shared/src/universal-connector/runtime-trust.ts
+  - packages/shared/src/index.ts
 related_tests:
-  - project-manager-app/packages/shared/src/universal-connector/enforcement.test.ts
+  - packages/shared/src/universal-connector/enforcement.test.ts
 related_endpoints: []
 related_events: []
 related_agents:
@@ -177,11 +177,11 @@ forbidden_behavior:
 - [ ] blast-radius runtime
 
 ## 10. Mapa de implementación
-- Shared SDK canónico: `project-manager-app/packages/shared/src/universal-connector/**`.
-- Export público: `project-manager-app/packages/shared/src/index.ts`.
+- Shared SDK canónico: `packages/shared/src/universal-connector/**` desde el workspace `project-manager-app/`.
+- Export público: `packages/shared/src/index.ts`.
 - Policy/Approval: autoridades existentes de SEMSE; no se duplican dentro del adapter.
 - Prometeo: tool registry/governance existente.
-- Tests: junto al enforcement y suites de conformance.
+- Tests: junto al enforcement hasta reconciliar con el runner canónico; no se considerará cerrado hasta que CI los ejecute.
 - No se aceptan duplicados fuera del workspace canónico.
 
 ## 11. Investigación externa
@@ -190,9 +190,9 @@ forbidden_behavior:
 
 ## 12. Gates de cierre
 - [ ] Spec enlazado por `pnpm spec:index`
-- [ ] Spec, plan, tasks, Receive y checklist coherentes
+- [ ] Spec, plan, tasks, Analyze, Receive y checklist coherentes
 - [ ] Receive-Driven Development trace completo Requirement→Threat→Control→Enforcement→Test→Expected Result→Evidence
-- [ ] Tests derivados del spec verdes
+- [ ] Tests derivados del spec verdes y descubiertos por el runner canónico
 - [ ] `pnpm spec:validate:strict` verde
 - [ ] CI PASS en el HEAD actual
 - [ ] PR fusionado y SHA registrado
