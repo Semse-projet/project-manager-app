@@ -12,13 +12,14 @@ date: "2026-10-02"
 # Tareas: Conversation Intelligence Foundation
 
 ## Wave 0 — contratos / tests
-- [ ] [CI-001] Inspeccionar schema y servicios reales; registrar AS-IS sin crear dominios paralelos.
-- [ ] [CI-002] Definir contrato `SourceRef` y `IntelligenceFinding`.
-- [ ] [CI-003] Reutilizar convención canónica de `correlationId`; no inventar valores legacy.
+- [x] [CI-001] Inspeccionar schema y servicios reales; registrar AS-IS sin crear dominios paralelos. → `conversation-intelligence-foundation.as-is.md` (2026-10-06).
+- [x] [CI-002] Definir contrato `SourceRef` y `IntelligenceFinding`. → `packages/schemas/src/conversation-intelligence.schema.ts` (2026-10-06).
+- [x] [CI-003] Reutilizar convención canónica de `correlationId`; no inventar valores legacy. → AS-IS §4: no existe convención única; opcional y solo con valor real (2026-10-06).
 - [ ] [CI-004] Tests de mapping Session -> CommunicationThread/Communication.
+  > CI-004, CI-005 y CI-006 prueban funciones que aún no existen (mapping, hash, scope). Escribirlas en rojo no se puede mergear, así que se entregan **junto con** CI-012 (mapping) y CI-013 (dual-write), primero los tests y después el código dentro del mismo PR.
 - [ ] [CI-005] Tests de orden estable, `contentHash` e idempotencia.
 - [ ] [CI-006] Tests tenant/resource scope y cross-tenant denial.
-- [ ] [CI-007] Tests fact vs finding; confirmar que no se escriben Decision/Action/Outcome.
+- [x] [CI-007] Tests fact vs finding; confirmar que no se escriben Decision/Action/Outcome. → `tests/unit/conversation-intelligence-contracts.test.ts` (2026-10-06).
 
 ## Wave 1 — DB / dual-write
 - [ ] [CI-010] Extender `Communication` con `sequence`, `occurredAt`, `contentHash` nullable.
