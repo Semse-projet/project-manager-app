@@ -48,6 +48,7 @@ export * from "./matching.schema.js";
 export * from "./reputation.schema.js";
 export * from "./developer-runtime.schema.js";
 export * from "./communication.schema.js";
+export * from "./conversation-intelligence.schema.js";
 // Professional domain schemas (Zod)
 export * from "./professional.schema.js";
 export * from "./product-events.schema.js";
