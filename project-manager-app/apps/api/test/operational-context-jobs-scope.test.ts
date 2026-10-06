@@ -32,7 +32,7 @@ function makeService() {
     dispute: { findMany: async () => [] },
     evidence: { findMany: async () => [] },
     workspaceMemoryEntry: { findFirst: async () => null },
-    project: { findUnique: async () => null, findFirst: async () => null },
+    project: { findUnique: async () => null, findFirst: async () => null, findMany: async () => [] },
     operationalContextSnapshot: { create: async () => ({}), deleteMany: async () => ({ count: 0 }), findFirst: async () => null },
   };
   const service = new OperationalContextService(prisma as never);
