@@ -4,7 +4,7 @@ title: "Evidencias en el chat de Prometeo (revisión asistida de solo lectura)"
 domain: "prometeo"
 sdd_version: "2.0"
 version: "1.0"
-status: "REVIEW"
+status: "APPROVED"
 owner: "semse-core"
 risk: "high"
 code_status: "NOT_STARTED"
@@ -20,12 +20,12 @@ related_tests: []
 related_endpoints: ["POST /v1/ai-models/prometeo/chat", "GET /v1/vision/evidence/:evidenceId", "POST /v1/vision/analyze-by-evidence/:evidenceId", "GET /v1/projects/:projectId/evidence"]
 related_events: []
 related_agents: ["prometeo"]
-last_verified: "2026-10-06"
+last_verified: "2026-10-07"
 ---
 
 # Spec: Evidencias en el chat de Prometeo
 
-> Contrato ejecutable SDD 2.0. **Estado `REVIEW`: el dueño debe aprobarla y decidir D1–D6 (§6) antes de escribir código.**
+> Contrato ejecutable SDD 2.0. **Estado `APPROVED` (2026-10-07): el dueño aprobó la spec y resolvió D1–D6 (§6). Esto autoriza plan, tareas y tests, y NO autoriza `live`: eso exige los gates de seguridad, CI y verificación en producción de §12.**
 > Código, CI, merge, deploy y activación se registran por separado.
 
 ## 1. Problema y resultado
@@ -64,13 +64,14 @@ last_verified: "2026-10-06"
 
 - **Tenant boundary:** `tenantId/orgId/userId/roles` salen del contexto autenticado, nunca del texto ni del modelo. Otro tenant o inexistente ⇒ 404; otra organización ⇒ 403 (mismo contrato que `VisionAccessPolicy` y `resource-scope`).
 - **Aprobación humana:** el análisis solo se lanza con un clic; **aprobar** una evidencia sigue siendo su flujo existente, fuera del chat.
-- **Datos `privacyCritical`:** el modelo recibe texto derivado (puntuaciones, motivos de riesgo, tipo, fechas), nunca la imagen ni su URL.
+- **Datos `privacyCritical`:** el modelo recibe únicamente texto derivado, estructurado y validado (tipo de evidencia, fecha efectiva, trabajo/hito, puntuaciones, nivel y motivos de riesgo y los metadatos expresamente permitidos), **nunca** imágenes, bytes, URLs ni URLs firmadas.
+- **Texto no confiable (prompt injection):** todo texto persistido que proceda de evidencias, análisis o metadatos (títulos, notas, motivos de riesgo, `rawResult`) se trata como **dato no confiable**: se limita a una lista de campos permitida, se acota su longitud, se eliminan caracteres de control y URLs, y se entrega dentro de un bloque delimitado que el modelo debe tratar como datos, con el cierre de etiqueta escapado. Nada de ese texto puede cambiar la lista, las acciones propuestas ni las reglas del sistema.
 - **Auditoría:** cada listado y cada análisis lanzado desde el chat deja registro con `correlationId` (el `requestId`), tipo y cantidad, **sin** el contenido de las evidencias ni el texto del mensaje.
 
 ### Precondiciones (verificadas en el código el 2026-10-06)
 
 1. **Aislamiento de las herramientas de visión (hallazgo 0.44, PR #811).** El camino de herramientas de Prometeo no comprobaba la pertenencia de `vision.get_analysis` y similares; `VisionAnalysis` no guarda `tenantId`. **Esta spec no puede pasar a `live` hasta que #811 esté desplegada**, y esta funcionalidad **no usa** el despachador de herramientas para leer análisis: llama a servicios que ya aplican `VisionAccessPolicy`.
-2. **Alcance del conteo de "pendientes".** `OperationalContextService`, sin proyecto activo, calcula `evidences.pendingReview` (y `payments`, `milestones`, `disputes`) con **todos los proyectos del tenant**, sin filtrar por organización. La lista de esta spec se calcula con el alcance **del actor**, así que dejaría de coincidir con ese conteo ("6" vs lo que ve el usuario). Esto debe corregirse **antes** de `live` (D6), o el chat contradice su propia lista y expone totales de otras organizaciones.
+2. **Alcance del conteo de "pendientes" (corregido, 0.45 / PR #813, ya desplegado).** Esta spec se redactó el 2026-10-06 cuando `OperationalContextService`, sin proyecto activo, calculaba evidencias, hitos, disputas y pagos con todos los proyectos del tenant. **Ya no es así:** para actores no administradores usa `ResourceScopeResolver.listAccessibleProjectIds(...)` y aplica ese alcance a esos cuatro bloques; solo `OPS_ADMIN` ve todo **su** tenant, y si el listado falla las cifras quedan vacías (nunca vuelve al tenant completo). **No hay que crear otra remediación.** Queda como **verificación obligatoria en producción antes de `live`** (D6): aislamiento por tenant y por organización, y la excepción de `OPS_ADMIN` dentro de su tenant.
 
 ## 4. Escenarios y criterios de aceptación
 
@@ -173,16 +174,16 @@ forbidden_behavior:
   - presentar un análisis pendiente o fallido como resultado
 ```
 
-## 6. Decisiones que necesito del dueño
+## 6. Decisiones (resueltas por el dueño el 2026-10-07)
 
-| ID | Decisión | Propuesta |
+| ID | Decisión | Resolución |
 |---|---|---|
-| D1 | ¿Qué recibe el modelo? | Solo **texto derivado** (tipo, fechas, trabajo/hito, puntuaciones y motivos de riesgo). Nunca imágenes ni URLs. |
-| D2 | ¿Cuándo se lanza un análisis? | Solo por **botón con clic** (cuesta cómputo y escribe `VisionAnalysis`), nunca automáticamente al listar. |
-| D3 | ¿Se guarda el dictamen del modelo? | **No en la V1.** Guardarlo como comentario de la evidencia requiere otra spec. |
-| D4 | Topes | 10 evidencias por respuesta; 20 análisis lanzados por usuario y día (ajustable). |
-| D5 | ¿Quién ve qué? | Las reglas de `VisionAccessPolicy`: participantes del proyecto y OPS_ADMIN **del tenant**. |
-| D6 | Precondición del conteo | Corregir **antes de `live`** el alcance del conteo y de los agregados del contexto sin proyecto (§3, precondición 2), en una PR de remediación aparte. |
+| D1 | ¿Qué recibe el modelo? | **Aprobada, con refuerzo:** solo texto derivado, estructurado y validado (tipo, fecha efectiva, trabajo/hito, puntuaciones, nivel y motivos de riesgo y metadatos expresamente permitidos). **Nunca** imágenes, bytes, URLs ni URLs firmadas. Todo texto persistido de evidencias, análisis o metadatos es **dato no confiable**: delimitado y validado contra prompt injection (§3). |
+| D2 | ¿Cuándo se lanza un análisis? | **Aceptada tal como se proponía:** solo por **botón con clic** (cuesta cómputo y escribe `VisionAnalysis`), nunca automáticamente al listar. |
+| D3 | ¿Se guarda el dictamen del modelo? | **Aceptada tal como se proponía:** no en la V1. Guardarlo como comentario de la evidencia requiere otra spec. |
+| D4 | Topes | **Aceptada tal como se proponía:** 10 evidencias por respuesta; 20 análisis lanzados por usuario y día (ajustable). |
+| D5 | ¿Quién ve qué? | **Aceptada tal como se proponía:** las reglas de `VisionAccessPolicy`: participantes del proyecto y OPS_ADMIN **del tenant**. |
+| D6 | Precondición del conteo | **Aprobada con corrección:** no se crea otra remediación; la de #813 (0.45) ya existe. D6 pasa a ser la **verificación obligatoria en producción de esa corrección antes de `live`**, incluido el aislamiento por tenant y organización y la excepción de `OPS_ADMIN` dentro de su tenant. |
 
 ## 7. Datos y migración
 
@@ -206,7 +207,8 @@ forbidden_behavior:
 - [ ] La acción `analyze_evidence` exige clic, es idempotente y no se ofrece sin imagen real
 - [ ] Ningún camino del chat modifica `validationStatus`
 - [ ] El modelo no recibe imágenes ni URLs (inspección del prompt)
-- [ ] Inyección en el texto no cambia la lista ni habilita acciones
+- [ ] Inyección en el texto del usuario no cambia la lista ni habilita acciones
+- [ ] Texto no confiable de evidencias/análisis (notas con instrucciones, etiqueta de cierre, URLs, caracteres de control, textos enormes) queda delimitado, acotado y sin URLs, y no altera el prompt, la lista ni las acciones
 - [ ] Modo `off` idéntico al actual; `shadow` no cambia la respuesta
 - [ ] UI widget y panel: carga, vacío, degradado, error y botón de un solo uso
 - [ ] Smoke autenticado en producción con las evidencias reales del usuario
@@ -229,8 +231,9 @@ forbidden_behavior:
 
 ## 12. Gates de cierre
 
-- [ ] status APPROVED y D1–D6 decididas por el dueño antes de código
-- [ ] #811 (0.44) desplegada y la corrección del conteo del contexto (D6) desplegada
+- [x] status APPROVED y D1–D6 decididas por el dueño antes de código (2026-10-07)
+- [x] #811 (0.44) y #813 (0.45) desplegadas (verificado el 2026-10-07: el API sirve `512c9727`)
+- [ ] D6: verificación en producción de la corrección del conteo (aislamiento por tenant y organización; excepción de `OPS_ADMIN`) **antes de `live`**
 - [ ] spec indexado
 - [ ] plan/tasks/checklist coherentes
 - [ ] tests antes del código
