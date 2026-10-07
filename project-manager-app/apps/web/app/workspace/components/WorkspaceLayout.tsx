@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
-import { RefreshCw } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Menu, PanelRight, RefreshCw, X } from "lucide-react";
 import type { WorkspaceMissionType, WorkspaceRightPanelMode } from "@semse/schemas";
 import { useWorkspaceStore, workspaceStore } from "../../../lib/stores/workspaceStore";
 import { LeftPanel } from "./LeftPanel";
@@ -10,7 +10,7 @@ import { RightPanel } from "./RightPanel";
 import { NavigationBreadcrumb } from "./NavigationBreadcrumb";
 
 export function WorkspaceLayout() {
-  const state = useWorkspaceStore();
+  const state = useWorkspaceStore();\n  const [mobileNavOpen, setMobileNavOpen] = useState(false);\n  const [mobileContextOpen, setMobileContextOpen] = useState(false);
 
   useEffect(() => {
     void workspaceStore.refresh();
@@ -37,7 +37,7 @@ export function WorkspaceLayout() {
       <header className="flex items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3 sm:px-6">
         <div>
           <h1 className="text-base font-semibold text-slate-900">SEMSE Workspace</h1>
-          <NavigationBreadcrumb history={state.navigationHistory} />
+          <NavigationBreadcrumb history={state.navigationHistory} />\n          <div className="mt-2 flex gap-2 lg:hidden">\n            <button type="button" onClick={() => setMobileNavOpen(true)} className="flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50" aria-label="Abrir navegación del Workspace"><Menu className="h-4 w-4" />Secciones</button>\n            <button type="button" onClick={() => setMobileContextOpen(true)} className="flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 xl:hidden" aria-label="Abrir contexto y configuración"><PanelRight className="h-4 w-4" />Contexto</button>\n          </div>
         </div>
         <button
           type="button"
@@ -55,7 +55,7 @@ export function WorkspaceLayout() {
         </div>
       )}
 
-      <div className="flex min-w-0 flex-1 overflow-hidden">
+      {mobileNavOpen && (\n        <div className="fixed inset-0 z-50 flex lg:hidden">\n          <button type="button" className="absolute inset-0 bg-slate-950/30" onClick={() => setMobileNavOpen(false)} aria-label="Cerrar navegación" />\n          <div className="relative flex h-full bg-white shadow-xl">\n            <LeftPanel activeSection={state.activeSection} onNavigate={(section) => { handleNavigate(section); setMobileNavOpen(false); }} />\n            <button type="button" onClick={() => setMobileNavOpen(false)} className="m-2 h-9 w-9 rounded-lg border border-slate-200 p-2 text-slate-600" aria-label="Cerrar navegación"><X className="h-4 w-4" /></button>\n          </div>\n        </div>\n      )}\n\n      {mobileContextOpen && (\n        <div className="fixed inset-0 z-50 flex justify-end xl:hidden">\n          <button type="button" className="absolute inset-0 bg-slate-950/30" onClick={() => setMobileContextOpen(false)} aria-label="Cerrar contexto" />\n          <div className="relative flex h-full bg-white shadow-xl">\n            <button type="button" onClick={() => setMobileContextOpen(false)} className="m-2 h-9 w-9 rounded-lg border border-slate-200 p-2 text-slate-600" aria-label="Cerrar contexto"><X className="h-4 w-4" /></button>\n            <RightPanel mode={state.rightPanelMode} activeMission={state.activeMission} onModeChange={handleModeChange} />\n          </div>\n        </div>\n      )}\n\n      <div className="flex min-w-0 flex-1 overflow-hidden">
         <div className="hidden shrink-0 lg:flex">
           <LeftPanel activeSection={state.activeSection} onNavigate={handleNavigate} />
         </div>
