@@ -2,6 +2,7 @@ import { Injectable, Logger, Optional } from "@nestjs/common";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { HealthService } from "../health/health.service.js";
 import { RiskScoringService } from "./risk-scoring.service.js";
+import { computeEscrowFigures } from "../../common/escrow-figures.js";
 
 export type Ecosystem5DStatus = "strong" | "stable" | "watch" | "critical";
 export type Ecosystem5DDimensionKey = "execution" | "finance" | "evidence" | "trust" | "operations";
@@ -53,7 +54,6 @@ type DisputeRow = { status: string };
 type InvoiceRow = { status: string; total: unknown };
 type ExpenseRow = { status: string; amount: unknown; isDuplicate: boolean };
 type EscrowRow = {
-  totalAmount: unknown;
   transactions: Array<{ type: string; amount: unknown; status: string }>;
 };
 type CredentialRow = {
@@ -171,7 +171,6 @@ export class Ecosystem5DService {
       this.prisma.paymentEscrow.findMany({
         where: { project: { tenantId } },
         select: {
-          totalAmount: true,
           transactions: { select: { type: true, amount: true, status: true } },
         },
       }) as Promise<EscrowRow[]>,
@@ -208,12 +207,10 @@ export class Ecosystem5DService {
     const totalExpenses = activeExpenses.reduce((sum, exp) => sum + toNum(exp.amount), 0);
     const duplicateExpenses = activeExpenses.filter((exp) => exp.isDuplicate).length;
 
-    const escrowFunded = escrows.reduce((sum, escrow) => sum + toNum(escrow.totalAmount), 0);
-    const escrowReleased = escrows
-      .flatMap((escrow) => escrow.transactions)
-      .filter((txn) => txn.type === "RELEASE" && txn.status === "COMPLETED")
-      .reduce((sum, txn) => sum + toNum(txn.amount), 0);
-    const pendingRelease = Math.max(0, escrowFunded - escrowReleased);
+    // 0.46: antes "liberado" se filtraba por `COMPLETED` (estado inexistente): siempre 0, así que con una disputa abierta se
+    // restaban hasta 15 puntos a Finance sobre TODO el escrow. Ahora fondeado/liberado/retenido salen de transacciones
+    // confirmadas (`SUCCEEDED`), igual que finanzas y el contexto de Prometeo.
+    const { escrowFunded, pendingRelease } = computeEscrowFigures(escrows.flatMap((escrow) => escrow.transactions));
     const margin = totalInvoiced > 0 ? ((totalInvoiced - totalExpenses) / totalInvoiced) * 100 : null;
 
     const avgTrustScore = credentials.length > 0

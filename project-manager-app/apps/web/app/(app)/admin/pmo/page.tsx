@@ -265,8 +265,8 @@ export default function PmoPage() {
       {dashboard && (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 14 }}>
           <KpiCard label="Proyectos activos" value={dashboard.summary.activeProjects} sub={`de ${dashboard.summary.totalProjects} totales`} icon={Building2} />
-          <KpiCard label="Escrow total" value={fmt(dashboard.summary.totalEscrow)} sub="en custodia" icon={DollarSign} color="#a78bfa" />
-          <KpiCard label="Por liberar" value={fmt(dashboard.summary.pendingRelease)} sub="elegibles" icon={TrendingUp} color="var(--ok)" />
+          <KpiCard label="Escrow fondeado" value={fmt(dashboard.summary.totalEscrow)} sub="depósitos confirmados" icon={DollarSign} color="#a78bfa" />
+          <KpiCard label="Retenido en escrow" value={fmt(dashboard.summary.pendingRelease)} sub="aún sin liberar" icon={TrendingUp} color="var(--ok)" />
           <KpiCard label="En riesgo alto" value={dashboard.summary.highRiskProjects} sub="proyectos" icon={AlertTriangle} color="#fb923c" alert={dashboard.summary.highRiskProjects > 0} />
           <KpiCard label="Disputas abiertas" value={dashboard.summary.openDisputes} sub="requieren atención" icon={Shield} color="#f87171" alert={dashboard.summary.openDisputes > 0} />
           <KpiCard label="Alertas activas" value={dashboard.summary.totalAlerts} sub="del sistema" icon={Zap} color="#fbbf24" alert={dashboard.summary.totalAlerts > 3} />
