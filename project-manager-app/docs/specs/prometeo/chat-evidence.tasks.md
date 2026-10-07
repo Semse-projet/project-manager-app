@@ -21,11 +21,11 @@ Regla del repo: **los tests van antes que el código** de cada ola. Una ola no s
 - [x] [CE-005] Implementar `evidence-context.ts` e `intent.ts` hasta poner en verde CE-001..004.
 
 ## Wave 1 — servicio con alcance
-- [ ] [CE-010] Test de alcance con dos tenants y dos organizaciones: un cliente solo ve evidencias de sus proyectos; el profesional asignado, las suyas; otra organización o sin organización ⇒ vacío; `OPS_ADMIN` ve su tenant y nunca otro; el mismo id de organización en otro tenant no hereda nada; si el listado falla ⇒ vacío (nunca el tenant).
-- [ ] [CE-011] Test de selección: solo `validationStatus = "pending"`, más antiguas primero, tope 10 y `remaining` correcto.
-- [ ] [CE-012] Test de unión con `VisionAnalysis`: `pending`/`failed`/`completed` se informan como tal; el análisis solo se consulta para evidencias ya acotadas.
-- [ ] [CE-013] Test `analyzable`: requiere imagen real y análisis no completado; `bucketKey`/`fileUrl` **nunca** salen del servicio.
-- [ ] [CE-014] Implementar `ChatEvidenceService.listPending` hasta poner en verde CE-010..013.
+- [x] [CE-010] Test de alcance con dos tenants y dos organizaciones: un cliente solo ve evidencias de sus proyectos; el profesional asignado, las suyas; otra organización o sin organización ⇒ vacío; `OPS_ADMIN` ve su tenant y nunca otro; el mismo id de organización en otro tenant no hereda nada; si el listado falla ⇒ vacío (nunca el tenant).
+- [x] [CE-011] Test de selección: solo `validationStatus = "pending"`, más antiguas primero, tope 10 y `remaining` correcto.
+- [x] [CE-012] Test de unión con `VisionAnalysis`: `pending`/`failed`/`completed` se informan como tal; el análisis solo se consulta para evidencias ya acotadas.
+- [x] [CE-013] Test `analyzable`: requiere imagen real y análisis no completado; `bucketKey`/`fileUrl` **nunca** salen del servicio.
+- [x] [CE-014] Implementar `ChatEvidenceService.listPending` hasta poner en verde CE-010..013.
 
 ## Wave 2 — controlador, flag y auditoría
 - [ ] [CE-020] Test por modo: `off` idéntico al actual; `shadow` audita sin cambiar la respuesta; `live` añade el bloque, la instrucción de sistema y las acciones.
