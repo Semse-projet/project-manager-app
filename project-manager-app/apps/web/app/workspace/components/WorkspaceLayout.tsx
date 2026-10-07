@@ -34,7 +34,7 @@ export function WorkspaceLayout() {
 
   return (
     <div className="flex h-[calc(100vh-4rem)] flex-col bg-white text-slate-900">
-      <header className="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-3">
+      <header className="flex items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3 sm:px-6">
         <div>
           <h1 className="text-base font-semibold text-slate-900">SEMSE Workspace</h1>
           <NavigationBreadcrumb history={state.navigationHistory} />
@@ -55,19 +55,23 @@ export function WorkspaceLayout() {
         </div>
       )}
 
-      <div className="flex flex-1 overflow-hidden">
-        <LeftPanel activeSection={state.activeSection} onNavigate={handleNavigate} />
+      <div className="flex min-w-0 flex-1 overflow-hidden">
+        <div className="hidden shrink-0 lg:flex">
+          <LeftPanel activeSection={state.activeSection} onNavigate={handleNavigate} />
+        </div>
         <CentralPanel
           activeSection={state.activeSection}
           activeMission={state.activeMission}
           onLoadMission={handleLoadMission}
           onUnloadMission={handleUnloadMission}
         />
-        <RightPanel
-          mode={state.rightPanelMode}
-          activeMission={state.activeMission}
-          onModeChange={handleModeChange}
-        />
+        <div className="hidden shrink-0 xl:flex">
+          <RightPanel
+            mode={state.rightPanelMode}
+            activeMission={state.activeMission}
+            onModeChange={handleModeChange}
+          />
+        </div>
       </div>
     </div>
   );
