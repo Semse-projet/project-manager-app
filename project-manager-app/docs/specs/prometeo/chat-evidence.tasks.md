@@ -28,11 +28,11 @@ Regla del repo: **los tests van antes que el código** de cada ola. Una ola no s
 - [x] [CE-014] Implementar `ChatEvidenceService.listPending` hasta poner en verde CE-010..013.
 
 ## Wave 2 — controlador, flag y auditoría
-- [ ] [CE-020] Test por modo: `off` idéntico al actual; `shadow` audita sin cambiar la respuesta; `live` añade el bloque, la instrucción de sistema y las acciones.
-- [ ] [CE-021] Test del prompt: el modelo no recibe URLs ni imágenes; el bloque va delimitado; la instrucción declara el bloque como dato no confiable y "opinión asistida, no una aprobación".
-- [ ] [CE-022] Test de auditoría: `prometeo.chat_evidence.listed` con `requestId` y cantidades, **sin** el texto del mensaje ni contenido de evidencias.
-- [ ] [CE-023] Test de acciones: `chat.analyze_evidence` solo para evidencias `analyzable`, `requiresApproval: true`, forma de `prometeoProposedActionSchema`.
-- [ ] [CE-024] Implementar la integración en `prometeoChat` (solo si `isEvidenceReviewRequest`) hasta poner en verde CE-020..023. Un fallo del servicio nunca rompe el chat.
+- [x] [CE-020] Test por modo: `off` idéntico al actual; `shadow` audita sin cambiar la respuesta; `live` añade el bloque, la instrucción de sistema y las acciones.
+- [x] [CE-021] Test del prompt: el modelo no recibe URLs ni imágenes; el bloque va delimitado; la instrucción declara el bloque como dato no confiable y "opinión asistida, no una aprobación".
+- [x] [CE-022] Test de auditoría: `prometeo.chat_evidence.listed` con `requestId` y cantidades, **sin** el texto del mensaje ni contenido de evidencias.
+- [x] [CE-023] Test de acciones: `chat.analyze_evidence` solo para evidencias `analyzable`, `requiresApproval: true`, forma de `prometeoProposedActionSchema`.
+- [x] [CE-024] Implementar la integración en `prometeoChat` (solo si `isEvidenceReviewRequest`) hasta poner en verde CE-020..023. Un fallo del servicio nunca rompe el chat.
 
 ## Wave 3 — endpoint de análisis y BFF
 - [ ] [CE-030] Test del endpoint: sin `vision:run` ⇒ 403; otro tenant/inexistente ⇒ 404; otra organización ⇒ 403; sin imagen real ⇒ rechazo; modo `off` ⇒ rechazo; tope diario (el 21.º ⇒ 429); si la auditoría falla ⇒ no se analiza (**fallo cerrado**); análisis completado existente ⇒ se devuelve sin repetir; la respuesta no incluye `rawResult`.

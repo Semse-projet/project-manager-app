@@ -1,4 +1,4 @@
-import { Injectable, Logger, Optional } from "@nestjs/common";
+import { Inject, Injectable, Logger, Optional } from "@nestjs/common";
 import { PrismaService } from "../../../infrastructure/prisma/prisma.service.js";
 import { isOpsAdmin, type ScopeActor } from "../../../common/resource-scope.js";
 import { ResourceScopeResolver } from "../../../common/resource-scope.resolver.js";
@@ -8,6 +8,8 @@ import { MAX_EVIDENCE_ITEMS, MAX_RISK_REASONS, type EvidenceContextItem } from "
 export type ChatEvidenceItem = EvidenceContextItem & { analysisStatus: string; analyzable: boolean };
 
 export type ChatEvidenceListing = { items: ChatEvidenceItem[]; total: number; remaining: number };
+
+export const CHAT_EVIDENCE_SCOPE_RESOLVER = "CHAT_EVIDENCE_SCOPE_RESOLVER";
 
 const EMPTY: ChatEvidenceListing = { items: [], total: 0, remaining: 0 };
 
@@ -44,7 +46,8 @@ export class ChatEvidenceService {
 
   constructor(
     private readonly prisma: PrismaService,
-    @Optional() scope?: Pick<ResourceScopeResolver, "listAccessibleProjectIds">,
+    // Token explícito: sin él Nest vería un parámetro de tipo `Object`. No se registra en producción (se usa el resolvedor real); solo las pruebas lo inyectan.
+    @Optional() @Inject(CHAT_EVIDENCE_SCOPE_RESOLVER) scope?: Pick<ResourceScopeResolver, "listAccessibleProjectIds">,
   ) {
     this.scope = scope ?? new ResourceScopeResolver(prisma);
   }
