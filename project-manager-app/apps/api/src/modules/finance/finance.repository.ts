@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
-import type { FinanceListScope } from "./finance-access.policy.js";
+import type { FinanceListScope } from "./finance-access.policy.js";\nimport { computeEscrowFigures } from "../../common/escrow-figures.js";
 
 function scopeWhere(scope: FinanceListScope | undefined) {
   return scope ? { OR: [
@@ -394,14 +394,7 @@ export class FinanceRepository {
     // escrowReleased as 0 and overstated escrowFunded/pendingRelease by any
     // failed deposit attempt. Derive both from confirmed (SUCCEEDED) txns only.
     const allTxns = (escrow?.transactions ?? []) as TxnRow[];
-    const escrowFunded = allTxns
-      .filter((t: TxnRow) => t.type === "DEPOSIT" && t.status === "SUCCEEDED")
-      .reduce((s: number, t: TxnRow) => s + toDecimal(t.amount), 0);
-    const released = allTxns.filter((t: TxnRow) => t.type === "RELEASE" && t.status === "SUCCEEDED");
-    const escrowReleased = released.reduce((s: number, t: TxnRow) => s + toDecimal(t.amount), 0);
-    const refunded = allTxns.filter((t: TxnRow) => t.type === "REFUND" && t.status === "SUCCEEDED");
-    const escrowRefunded = refunded.reduce((s: number, t: TxnRow) => s + toDecimal(t.amount), 0);
-    const pendingRelease = Math.max(0, escrowFunded - escrowReleased - escrowRefunded);
+    const { escrowFunded, escrowReleased, pendingRelease } = computeEscrowFigures(allTxns);
 
     const margin = totalInvoiced > 0 ? ((totalInvoiced - totalExpenses) / totalInvoiced) * 100 : null;
 
