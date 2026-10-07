@@ -51,4 +51,4 @@ Regla del repo: **los tests van antes que el código** de cada ola. Una ola no s
 - [ ] [CE-054] Spec a VERIFIED solo después de todos los gates.
 
 ## Wave 6 — reconciliación de documentos
-- [ ] [CE-060] Corregir la §5 de la spec (endpoint fino nuevo y contador por `AuditLog`) y reflejar el estado real de código/CI/deploy en su frontmatter.
+- [x] [CE-060] Corregir la §5 de la spec (endpoint fino nuevo y contador por `AuditLog`) y reflejar el estado real de código/CI/deploy en su frontmatter.
