@@ -35,9 +35,9 @@ Regla del repo: **los tests van antes que el código** de cada ola. Una ola no s
 - [x] [CE-024] Implementar la integración en `prometeoChat` (solo si `isEvidenceReviewRequest`) hasta poner en verde CE-020..023. Un fallo del servicio nunca rompe el chat.
 
 ## Wave 3 — endpoint de análisis y BFF
-- [ ] [CE-030] Test del endpoint: sin `vision:run` ⇒ 403; otro tenant/inexistente ⇒ 404; otra organización ⇒ 403; sin imagen real ⇒ rechazo; modo `off` ⇒ rechazo; tope diario (el 21.º ⇒ 429); si la auditoría falla ⇒ no se analiza (**fallo cerrado**); análisis completado existente ⇒ se devuelve sin repetir; la respuesta no incluye `rawResult`.
-- [ ] [CE-031] Implementar el endpoint `POST /v1/prometeo/chat-evidence/analyze/:evidenceId` y la ruta BFF.
-- [ ] [CE-032] Contador diario con `auditLog.count` (acción, actor, tenant, desde 00:00 UTC) y su prueba con doble de Prisma.
+- [x] [CE-030] Test del endpoint: sin `vision:run` ⇒ 403; otro tenant/inexistente ⇒ 404; otra organización ⇒ 403; sin imagen real ⇒ rechazo; modo `off` ⇒ rechazo; tope diario (el 21.º ⇒ 429); si la auditoría falla ⇒ no se analiza (**fallo cerrado**); análisis completado existente ⇒ se devuelve sin repetir; la respuesta no incluye `rawResult`.
+- [x] [CE-031] Implementar el endpoint `POST /v1/prometeo/chat-evidence/analyze/:evidenceId` y la ruta BFF.
+- [x] [CE-032] Contador diario con `auditLog.count` (acción, actor, tenant, desde 00:00 UTC) y su prueba con doble de Prisma.
 
 ## Wave 4 — web
 - [ ] [CE-040] Test del helper puro `prometeo-chat-evidence.ts` (reconocer la acción, evidencia analizable).
