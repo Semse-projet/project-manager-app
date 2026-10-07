@@ -19,6 +19,7 @@ import { DraftPreviewCard } from "./draft-preview-card";
 import { trackProductEvent } from "@/lib/product-intelligence";
 import { buildChatHistory } from "@/lib/prometeo-widget-chat";
 import { safeChatRoute, toChatActionViews, type ChatActionView } from "@/lib/prometeo-chat-actions";
+import { EVIDENCE_OPINION_LABEL, requestEvidenceAnalysis, type EvidenceAnalysisState } from "@/lib/prometeo-chat-evidence";
 import {
   PROMETEO_ATTACHMENT_ACCEPT,
   classifyPrometeoAttachment,
@@ -379,6 +380,24 @@ function ChatActionButtons({
   );
 }
 
+/** Resultado del análisis de una evidencia lanzado con el botón: cargando / hecho / degradado / error, siempre con la etiqueta fija. */
+function EvidenceAnalysisResult({ result }: { result: EvidenceAnalysisState }) {
+  return (
+    <div style={{ marginTop: 8, padding: "8px 12px", borderRadius: 10, fontSize: 12, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.04)", color: "#e2e8f0" }} role={result.state === "error" || result.state === "limit" ? "alert" : "status"}>
+      {result.state === "loading" && <div>Analizando la evidencia…</div>}
+      {(result.state === "error" || result.state === "limit") && <div>{result.message}</div>}
+      {(result.state === "done" || result.state === "degraded") && (
+        <>
+          {result.state === "degraded" && <div style={{ color: "#fbbf24" }}>{result.message}</div>}
+          <div>Calidad: {result.summary.qualityScore ?? "s/d"} · Riesgo: {result.summary.riskLevel ?? "s/d"}</div>
+          {result.summary.riskReasons.map((reason) => <div key={reason}>• {reason}</div>)}
+        </>
+      )}
+      <div style={{ marginTop: 4, fontWeight: 700 }}>{EVIDENCE_OPINION_LABEL}</div>
+    </div>
+  );
+}
+
 function StructuredResponseCards({ message, color }: { message: ChatMessage; color: string }) {
   const actions = (message.proposedActions ?? []).filter((action) => action.namespace !== "chat");
   const mission = message.mission;
@@ -733,6 +752,7 @@ export function AgentChatPanel() {
   const pathname = usePathname();
   const router = useRouter();
   const [usedChatActions, setUsedChatActions] = useState<ReadonlySet<string>>(new Set());
+  const [evidenceResults, setEvidenceResults] = useState<Readonly<Record<string, EvidenceAnalysisState>>>({});
   const {
     selectedAgentId,
     activeConversationId,
@@ -762,6 +782,14 @@ export function AgentChatPanel() {
   function handleChatAction(action: ChatActionView, messageIndex: number) {
     const key = `${messages[messageIndex]?.id}:${action.id}`;
     if (usedChatActions.has(key)) return;
+    if (action.kind === "analyze_evidence") {
+      // analyze_evidence: SOLO con el clic y de un solo uso; el API aplica permiso, pertenencia, tope diario y auditoría.
+      if (!action.evidenceId) return;
+      setUsedChatActions((prev) => new Set(prev).add(key));
+      setEvidenceResults((prev) => ({ ...prev, [key]: { state: "loading" } }));
+      void requestEvidenceAnalysis(action.evidenceId).then((outcome) => setEvidenceResults((prev) => ({ ...prev, [key]: outcome })));
+      return;
+    }
     if (action.kind === "navigate") {
       const route = safeChatRoute(action.route);
       if (!route) return;
@@ -1080,6 +1108,10 @@ export function AgentChatPanel() {
                       color={agent.color}
                       onAction={(action) => handleChatAction(action, index)}
                     />
+                    {toChatActionViews(message.proposedActions).map((action) => {
+                      const result = evidenceResults[`${message.id}:${action.id}`];
+                      return result ? <EvidenceAnalysisResult key={`${action.id}-result`} result={result} /> : null;
+                    })}
                   </div>
                 )}
               </div>

@@ -50,7 +50,7 @@ Que Prometeo liste **cuáles** son las evidencias pendientes del actor, resuma e
 
 ### 3.5 Endpoint fino de análisis
 `POST /v1/prometeo/chat-evidence/analyze/:evidenceId` (permiso `vision:run`):
-1. Modo ≠ `off`; 2. `VisionAccessPolicy.assertEvidence` (otro tenant/inexistente ⇒ 404; otra organización ⇒ 403); 3. la evidencia tiene imagen real; 4. tope diario: `auditLog.count(actor, acción, hoy UTC) < 20` ⇒ si no, **429**; 5. se escribe la auditoría `analysis_requested` **antes** de analizar (si falla ⇒ no se analiza); 6. `VisionService.analyzeByEvidenceId` (idempotente); 7. responde un resumen **saneado** (mismo `evidence-context`), no el `rawResult`.
+1. Modo ≠ `off`; 2. `VisionAccessPolicy.assertEvidence` (otro tenant/inexistente ⇒ 404; otra organización ⇒ 403); 3. la evidencia tiene imagen real; 4. **admisión** (límite 20 por usuario y día UTC sobre intentos admitidos): transacción con `pg_advisory_xact_lock` + `auditLog.count` ⇒ al llegar a 20, **429**; 5. en esa misma transacción se escribe la auditoría `analysis_requested` **antes** de analizar (si falla ⇒ **503**, no se analiza); el resultado se registra después en una fila enlazada (`analysis_succeeded`/`analysis_failed`); 6. `VisionService.analyzeByEvidenceId` (idempotente); 7. responde un resumen **saneado** (mismo `evidence-context`), no el `rawResult`.
 BFF web: `/api/semse/prometeo/chat-evidence/analyze/[evidenceId]/route.ts`.
 
 ### 3.6 Web

@@ -7,17 +7,17 @@ version: "1.0"
 status: "APPROVED"
 owner: "semse-core"
 risk: "high"
-code_status: "NOT_STARTED"
-ci_status: "NOT_RUN"
+code_status: "IN_PROGRESS"
+ci_status: "PASS"
 merge_status: "UNMERGED"
 deploy_status: "NOT_DEPLOYED"
 activation_status: "INACTIVE"
 migration_status: "NOT_APPLICABLE"
 feature_flags: ["SEMSE_CHAT_EVIDENCE_MODE"]
 production_evidence: []
-related_files: ["apps/api/src/modules/vision/vision-access.policy.ts", "apps/api/src/modules/vision/vision.controller.ts", "apps/api/src/modules/vision/vision.service.ts", "apps/api/src/modules/evidence/evidence.controller.ts", "apps/api/src/modules/ai-models/ai-models.controller.ts", "apps/api/src/modules/ai-models/context/operational-context.service.ts", "apps/api/src/modules/prometeo/prometeo-tool-registry.ts", "apps/api/src/modules/prometeo/prometeo-tool-execution.service.ts"]
-related_tests: []
-related_endpoints: ["POST /v1/ai-models/prometeo/chat", "GET /v1/vision/evidence/:evidenceId", "POST /v1/vision/analyze-by-evidence/:evidenceId", "GET /v1/projects/:projectId/evidence"]
+related_files: ["apps/api/src/modules/vision/vision-access.policy.ts","apps/api/src/modules/vision/vision.controller.ts","apps/api/src/modules/vision/vision.service.ts","apps/api/src/modules/evidence/evidence.controller.ts","apps/api/src/modules/ai-models/ai-models.controller.ts","apps/api/src/modules/ai-models/context/operational-context.service.ts","apps/api/src/modules/prometeo/prometeo-tool-registry.ts","apps/api/src/modules/prometeo/prometeo-tool-execution.service.ts","apps/api/src/modules/ai-models/chat-evidence/evidence-context.ts","apps/api/src/modules/ai-models/chat-evidence/intent.ts","apps/api/src/modules/ai-models/chat-evidence/chat-evidence.service.ts","apps/api/src/modules/ai-models/chat-evidence/chat-evidence-chat.service.ts","apps/api/src/modules/vision/chat-evidence-analysis.service.ts","apps/api/src/modules/vision/chat-evidence-analysis.controller.ts","apps/web/lib/prometeo-chat-evidence.ts","apps/web/app/api/semse/prometeo/chat-evidence/analyze/[evidenceId]/route.ts"]
+related_tests: ["apps/api/test/chat-evidence-context.test.ts","apps/api/test/chat-evidence-service.test.ts","apps/api/test/chat-evidence-chat.test.ts","apps/api/test/chat-evidence-analysis.test.ts","tests/unit/prometeo-chat-evidence-ui.test.ts"]
+related_endpoints: ["POST /v1/ai-models/prometeo/chat","GET /v1/vision/evidence/:evidenceId","POST /v1/vision/analyze-by-evidence/:evidenceId","GET /v1/projects/:projectId/evidence","POST /v1/prometeo/chat-evidence/analyze/:evidenceId"]
 related_events: []
 related_agents: ["prometeo"]
 last_verified: "2026-10-07"
@@ -53,7 +53,7 @@ last_verified: "2026-10-07"
 - Guardar el dictamen como comentario de la evidencia.
 - Video y audio (`vision.analyze_video` está marcada `adapterPending`).
 - Evidencias de agro (`AgroEvidenceItem`) y de contexto de granja.
-- Un endpoint nuevo `/ai/evidence/analyze` o tablas nuevas (`evidence_reviews`): se reutiliza lo existente.
+- Un endpoint genérico `/ai/evidence/analyze` o tablas nuevas (`evidence_reviews`): se reutiliza lo existente. **Excepción reconciliada (CE-060, decisión del dueño 2026-10-07):** un único endpoint fino específico para lanzar el análisis desde el chat (§5), sin migración (el contador es la tabla `AuditLog` existente).
 
 ## 3. Actores, permisos y límites
 
@@ -118,7 +118,19 @@ Casos borde:
 
 ### API
 
-Sin endpoint nuevo: se reutiliza `POST /v1/ai-models/prometeo/chat` y `POST /v1/vision/analyze-by-evidence/:evidenceId`.
+El listado y el bloque de contexto salen de `POST /v1/ai-models/prometeo/chat`. Para lanzar el análisis **no** se reutiliza `POST /v1/vision/analyze-by-evidence/:evidenceId` (no limita ni audita por usuario): se añade **un endpoint fino** (decisión del dueño, 2026-10-07):
+
+`POST /v1/prometeo/chat-evidence/analyze/:evidenceId` (permiso `vision:run`; BFF `/api/semse/prometeo/chat-evidence/analyze/[evidenceId]`). Reglas, en este orden:
+
+1. Modo ≠ `off` (en `off` responde 404, sin revelar la función).
+2. `VisionAccessPolicy.assertEvidence`: otro tenant o inexistente ⇒ 404; otra organización ⇒ 403. Aislamiento por tenant/organización y demás políticas intactos.
+3. La evidencia tiene imagen real (`PHOTO` con `bucketKey`); si no, 400. Un análisis **ya completado** se devuelve sin repetir y **sin consumir cupo**.
+4. **Admisión (límite 20 por usuario y día UTC, sobre intentos ADMITIDOS, no solo exitosos):** en una transacción con `pg_advisory_xact_lock` por usuario y día se cuenta `AuditLog` (acción `prometeo.chat_evidence.analysis_requested`); al llegar a 20 ⇒ **429**; si no, se escribe la fila de intento. El candado impide que solicitudes concurrentes superen el límite.
+5. **La auditoría se escribe antes de ejecutar el análisis y es atribuible al usuario** (`actorUserId`, `requestId`, `chatRequestId` = correlación con el mensaje del chat, `origin: "chat"`). **Fallo cerrado:** si el intento no se puede persistir ⇒ **503** y no se ejecuta el análisis.
+6. Se ejecuta `VisionService.analyzeByEvidenceId` y se registra el resultado en una fila enlazada al intento por `attemptId`: `prometeo.chat_evidence.analysis_succeeded` o `analysis_failed` (`SUCCEEDED`/`FAILED`).
+7. La respuesta es un resumen **saneado** (sin `rawResult`, `canAutoApprove` ni enlaces) con la etiqueta «Opinión asistida, no es una aprobación».
+
+Sin migración. Esto **no autoriza `live`**.
 
 ```yaml
 auth: required
@@ -140,9 +152,9 @@ output_schema:
       tool: "analyze_evidence"
       requiresApproval: true       # confirmación por clic
       input: { evidenceId: string }
-errors: {401: sin sesión, 403: otra organización, 404: otro tenant o inexistente}
+errors: {401: sin sesión, 403: otra organización o sin vision:run, 404: otro tenant, inexistente o función apagada, 400: sin imagen real, 429: límite diario, 503: auditoría no persistible (fallo cerrado)}
 effects:
-  audit_log: "prometeo.chat_evidence.listed | analysis_requested" con correlationId; sin contenido
+  audit_log: "prometeo.chat_evidence.listed | analysis_requested | analysis_succeeded | analysis_failed" con correlationId; sin contenido del mensaje ni de las evidencias
   domain_event: ninguno nuevo
   sse: no
   payment_governance: ninguna
@@ -181,7 +193,7 @@ forbidden_behavior:
 | D1 | ¿Qué recibe el modelo? | **Aprobada, con refuerzo:** solo texto derivado, estructurado y validado (tipo, fecha efectiva, trabajo/hito, puntuaciones, nivel y motivos de riesgo y metadatos expresamente permitidos). **Nunca** imágenes, bytes, URLs ni URLs firmadas. Todo texto persistido de evidencias, análisis o metadatos es **dato no confiable**: delimitado y validado contra prompt injection (§3). |
 | D2 | ¿Cuándo se lanza un análisis? | **Aceptada tal como se proponía:** solo por **botón con clic** (cuesta cómputo y escribe `VisionAnalysis`), nunca automáticamente al listar. |
 | D3 | ¿Se guarda el dictamen del modelo? | **Aceptada tal como se proponía:** no en la V1. Guardarlo como comentario de la evidencia requiere otra spec. |
-| D4 | Topes | **Aceptada tal como se proponía:** 10 evidencias por respuesta; 20 análisis lanzados por usuario y día (ajustable). |
+| D4 | Topes | **Aceptada tal como se proponía:** 10 evidencias por respuesta; 20 análisis **admitidos** por usuario y día UTC (ajustable en `CHAT_EVIDENCE_DAILY_LIMIT`; incluye los que fallaron; concurrente-seguro). |
 | D5 | ¿Quién ve qué? | **Aceptada tal como se proponía:** las reglas de `VisionAccessPolicy`: participantes del proyecto y OPS_ADMIN **del tenant**. |
 | D6 | Precondición del conteo | **Aprobada con corrección:** no se crea otra remediación; la de #813 (0.45) ya existe. D6 pasa a ser la **verificación obligatoria en producción de esa corrección antes de `live`**, incluido el aislamiento por tenant y organización y la excepción de `OPS_ADMIN` dentro de su tenant. |
 

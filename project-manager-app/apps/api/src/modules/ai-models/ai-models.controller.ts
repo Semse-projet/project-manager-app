@@ -18,6 +18,7 @@ import { resolveRequestId } from "../../common/request-id.js";
 import { parsePositiveInt } from "../../common/parse-query.js";
 import { AiModelGatewayService } from "./gateway/ai-model-gateway.service.js";
 import { ChatActionsService } from "./chat-actions/chat-actions.service.js";
+import { ChatEvidenceChatService, type ChatEvidencePreparation } from "./chat-evidence/chat-evidence-chat.service.js";
 import { normalizeConversationHistory } from "./prompt-safety.js";
 import { AiInteractionLoggerService } from "./logging/ai-interaction-logger.service.js";
 import { AiMissionIncidentService, type MissionIncidentInput } from "./logging/ai-mission-incident.service.js";
@@ -78,6 +79,8 @@ export class AiModelsController {
     @Optional() private readonly decisionLayer?: DecisionLayerService,
     // Acciones de chat (spec prometeo/chat-actions). Opcional y con flag SEMSE_CHAT_ACTIONS_MODE (off por defecto).
     @Optional() private readonly chatActions?: ChatActionsService,
+    // Evidencias en el chat (spec prometeo/chat-evidence). Opcional y con flag SEMSE_CHAT_EVIDENCE_MODE (off por defecto).
+    @Optional() private readonly chatEvidence?: ChatEvidenceChatService,
   ) {}
 
   /**
@@ -341,7 +344,10 @@ export class AiModelsController {
       : randomUUID();
 
     // Acciones de chat: solo propuestas (con confirmación humana); `off` por defecto y nunca rompe el chat.
-    const chatActions = await this.proposeChatActions(actor, message, rid);
+    const chatActionsOnly = await this.proposeChatActions(actor, message, rid);
+    // Evidencias pendientes: solo lectura; `off` por defecto, y en `shadow` solo audita. Nunca rompe el chat.
+    const evidencePrep = await this.prepareChatEvidence(actor, message, rid);
+    const chatActions = [...chatActionsOnly, ...(evidencePrep?.actions ?? [])];
 
     const ctx = await this.operationalContext.buildContext({
       tenantId: actor.tenantId,
@@ -368,11 +374,12 @@ export class AiModelsController {
       ? (ctx.activeProject ? `Proyecto activo: "${ctx.activeProject.title}" (${ctx.activeProject.status})` : "")
       : this.operationalContext.formatContextBlock(ctx);
     const requestContextBlock = this.formatPrometeoRequestContext(runtimeRequest);
-    const fullContextBlock = [contextBlock, requestContextBlock].filter(Boolean).join("\n\n");
+    const fullContextBlock = [contextBlock, requestContextBlock, evidencePrep?.contextBlock].filter(Boolean).join("\n\n");
 
     const NO_PROJECT_REQUIRED: string[] = ["operational_summary", "system_health", "developer_diagnostics", "budget_estimate", "unknown"];
     const noProjectGuardSkipped = NO_PROJECT_REQUIRED.includes(intent)
       || this.prometeoOrchestrator.isContractorIntent(intent)
+      || Boolean(evidencePrep)
       || runtimeRequest.attachments.length > 0
       || runtimeRequest.selectedEntities.length > 0
       || Boolean(runtimeRequest.requestedAction);
@@ -472,9 +479,12 @@ export class AiModelsController {
     // Inject domain skill knowledge relevant to this intent
     const skillContext = this.skillMatcher?.buildForIntent(intent, message);
     const baseSystemPrompt = this.prometeoOrchestrator.buildSystemPrompt(agentId, ctx, route);
-    const systemPromptWithSkills = skillContext
+    const systemPromptWithSkillsOnly = skillContext
       ? `${baseSystemPrompt}\n\n${buildMemoryContextBlock(skillContext)}`
       : baseSystemPrompt;
+    const systemPromptWithSkills = evidencePrep
+      ? `${systemPromptWithSkillsOnly}\n\n${evidencePrep.systemInstruction}`
+      : systemPromptWithSkillsOnly;
 
     const request: AiGenerateRequest = {
       agentId,
@@ -532,6 +542,15 @@ export class AiModelsController {
         deterministicIntent: routed.deterministicIntent,
       },
     });
+  }
+
+  private async prepareChatEvidence(actor: RequestContext, message: string, requestId: string): Promise<ChatEvidencePreparation | null> {
+    if (!this.chatEvidence) return null;
+    try {
+      return await this.chatEvidence.prepare({ actor, message, requestId });
+    } catch {
+      return null; // un añadido: un fallo nunca rompe la respuesta
+    }
   }
 
   private async proposeChatActions(actor: RequestContext, message: string, requestId: string): Promise<PrometeoProposedAction[]> {

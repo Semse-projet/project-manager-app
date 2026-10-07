@@ -7,10 +7,10 @@ version: "1.0"
 status: "APPROVED"
 owner: "semse-core"
 risk: "high"
-code_status: "NOT_STARTED"
-ci_status: "NOT_RUN"
-merge_status: "UNMERGED"
-deploy_status: "NOT_DEPLOYED"
+code_status: "IN_PROGRESS"
+ci_status: "PASS"
+merge_status: "MERGED"
+deploy_status: "DEPLOYED"
 activation_status: "INACTIVE"
 migration_status: "NOT_APPLICABLE"
 feature_flags: ["SEMSE_CHAT_ACTIONS_MODE"]
@@ -20,7 +20,7 @@ related_tests: []
 related_endpoints: ["POST /v1/ai-models/prometeo/chat", "POST /v1/assistant/publish-job", "POST /v1/assistant/confirm-draft"]
 related_events: []
 related_agents: ["prometeo"]
-last_verified: "2026-10-06"
+last_verified: "2026-10-07"
 ---
 
 # Spec: Prometeo actúa desde el chat

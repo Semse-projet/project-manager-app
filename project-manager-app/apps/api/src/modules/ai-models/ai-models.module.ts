@@ -13,6 +13,8 @@ import { OPERATIONAL_CONTEXT_SERVICE } from "./context/operational-context.token
 import { AiModelRouterService } from "./router/ai-model-router.service.js";
 import { AiModelsController } from "./ai-models.controller.js";
 import { ChatActionsService } from "./chat-actions/chat-actions.service.js";
+import { ChatEvidenceChatService } from "./chat-evidence/chat-evidence-chat.service.js";
+import { ChatEvidenceService } from "./chat-evidence/chat-evidence.service.js";
 import { OperationalContextService } from "./context/operational-context.service.js";
 import { PrometeoOrchestratorService } from "./orchestrator/prometeo-orchestrator.service.js";
 import { SkillsModule } from "../skills/skills.module.js";
@@ -31,6 +33,8 @@ import { DecisionLayerModule } from "./decision/decision-layer.module.js";
     { provide: OPERATIONAL_CONTEXT_SERVICE, useExisting: OperationalContextService },
     PrometeoOrchestratorService,
     ChatActionsService,
+    ChatEvidenceService,
+    ChatEvidenceChatService,
   ],
   exports: [
     AiModelGatewayService,
