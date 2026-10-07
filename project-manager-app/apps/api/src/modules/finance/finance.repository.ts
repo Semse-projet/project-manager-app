@@ -1,7 +1,8 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
-import type { FinanceListScope } from "./finance-access.policy.js";\nimport { computeEscrowFigures } from "../../common/escrow-figures.js";
+import type { FinanceListScope } from "./finance-access.policy.js";
+import { computeEscrowFigures } from "../../common/escrow-figures.js";
 
 function scopeWhere(scope: FinanceListScope | undefined) {
   return scope ? { OR: [
