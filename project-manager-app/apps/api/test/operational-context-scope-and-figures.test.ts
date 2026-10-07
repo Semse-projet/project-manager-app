@@ -2,7 +2,7 @@ import "reflect-metadata";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { OperationalContextService } from "../dist/modules/ai-models/context/operational-context.service.js";
-import { computeEscrowFigures } from "../dist/modules/ai-models/context/escrow-figures.js";
+import { computeEscrowFigures } from "../dist/common/escrow-figures.js";
 import { PrometeoOrchestratorService } from "../dist/modules/ai-models/orchestrator/prometeo-orchestrator.service.js";
 
 // 0.45 — Contexto operativo de Prometeo (el que recibe el modelo y ve el usuario en el chat):

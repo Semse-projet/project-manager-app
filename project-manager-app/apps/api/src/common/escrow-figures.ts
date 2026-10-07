@@ -1,5 +1,5 @@
 /**
- * Cifras de escrow del contexto operativo de Prometeo (hallazgo 0.45).
+ * Cifras de escrow compartidas: contexto operativo de Prometeo (0.45), PMO y lente 5D (0.46).
  *
  * Antes el contexto inventaba el dinero: `escrowReleased` era siempre 0 y `pendingRelease` era el 30 % del escrow total
  * si había algún hito aprobado (o, con proyecto, `escrow × aprobados / hitos`), y el chat lo presentaba como "elegibles

@@ -1,6 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { RiskScoringService } from "./risk-scoring.service.js";
+import { computeEscrowFigures } from "../../common/escrow-figures.js";
 
 export type PmoAlertLevel = "critical" | "high" | "medium" | "info";
 
@@ -76,9 +77,10 @@ export class PmoService {
         take: 50,
       }),
       this.prisma.dispute.count({ where: { tenantId, status: { in: ["OPEN", "ASSIGNED", "UNDER_REVIEW"] } } }),
-      this.prisma.paymentEscrow.aggregate({
-        where: { project: { tenantId } },
-        _sum: { totalAmount: true },
+      // 0.46: total fondeado = depósitos confirmados de todo el tenant (no `totalAmount`, que es optimista).
+      this.prisma.paymentTxn.aggregate({
+        where: { type: "DEPOSIT", status: "SUCCEEDED", escrow: { project: { tenantId } } },
+        _sum: { amount: true },
       }),
     ]);
 
@@ -94,12 +96,10 @@ export class PmoService {
         riskLevel = rs.level;
       } catch { /* skip if risk calc fails */ }
 
-      const escrowTotal = toNum(proj.escrow?.totalAmount);
-      const releasedTxns = (proj.escrow?.transactions ?? []).filter(
-        (t: { type: string; status: string }) => t.type === "RELEASE" && t.status === "COMPLETED"
-      );
-      const escrowReleased = releasedTxns.reduce((s: number, t: { amount: unknown }) => s + toNum(t.amount), 0);
-      const pendingRelease = Math.max(0, escrowTotal - escrowReleased);
+      // 0.46: antes "liberado" se filtraba por el estado `COMPLETED`, que NO existe (`PaymentTxnStatus` es
+      // PENDING/SUCCEEDED/FAILED/REVERSED): lo liberado era siempre 0 y "por liberar" era el escrow completo, y "fondeado" era
+      // `totalAmount`, que se incrementa de forma optimista. Ahora todo sale de transacciones confirmadas (`SUCCEEDED`).
+      const { escrowFunded: escrowTotal, pendingRelease } = computeEscrowFigures(proj.escrow?.transactions ?? []);
 
       const openDisputes = proj.disputes.filter((d: { status: string }) => ["OPEN", "ASSIGNED", "UNDER_REVIEW"].includes(d.status)).length;
       const pendingMilestones = proj.milestones.filter((m: { status: string }) => ["DRAFT", "SUBMITTED", "AWAITING_REVIEW"].includes(m.status)).length;
@@ -133,7 +133,7 @@ export class PmoService {
 
     projectCards.sort((a, b) => b.riskScore - a.riskScore);
 
-    const totalEscrow = toNum(allEscrows._sum.totalAmount);
+    const totalEscrow = toNum(allEscrows._sum.amount);
     const allAlerts = projectCards.flatMap(p => p.alerts);
     const topAlerts = allAlerts
       .sort((a, b) => {
@@ -238,8 +238,8 @@ export class PmoService {
         projectId, projectTitle: jobTitle,
         level: "info",
         category: "escrow",
-        message: `$${data.pendingRelease.toLocaleString()} listos para liberar`,
-        action: "Aprobar liberación de escrow si hitos están completos",
+        message: `$${data.pendingRelease.toLocaleString()} retenidos en escrow`,
+        action: "Revisar si hay hitos aprobados listos para liberar",
         detectedAt: now,
       });
     }

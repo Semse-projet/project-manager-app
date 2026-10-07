@@ -3,7 +3,7 @@ import type { Prisma } from "@prisma/client";
 import { PrismaService } from "../../../infrastructure/prisma/prisma.service.js";
 import { hasScopeAccess, isOpsAdmin, type ScopeActor } from "../../../common/resource-scope.js";
 import { ResourceScopeResolver } from "../../../common/resource-scope.resolver.js";
-import { computeEscrowFigures } from "./escrow-figures.js";
+import { computeEscrowFigures } from "../../../common/escrow-figures.js";
 import { SseEventBusService } from "../../../infrastructure/sse/sse-event-bus.service.js";
 import { HealthService } from "../../health/health.service.js";
 import { hasPermission } from "../../../common/rbac.js";
