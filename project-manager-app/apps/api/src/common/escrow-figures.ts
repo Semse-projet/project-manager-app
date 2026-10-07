@@ -9,7 +9,8 @@
  *   fondeado   = Σ DEPOSIT  SUCCEEDED
  *   liberado   = Σ RELEASE  SUCCEEDED
  *   reembolsado= Σ REFUND   SUCCEEDED
- *   retenido   = max(0, fondeado − liberado − reembolsado)   ← lo que sigue en escrow (campo `pendingRelease`)
+ *   comisiones = Σ FEE      SUCCEEDED
+ *   retenido   = max(0, fondeado − liberado − reembolsado − comisiones)   ← lo que sigue en escrow (campo `pendingRelease`)
  *
  * `pendingRelease` NO significa "elegible": es dinero aún retenido. Que un hito esté listo para liberar lo decide
  * `MilestonesRepository.computePaymentReadiness`, no esta cifra.
@@ -29,5 +30,6 @@ export function computeEscrowFigures(transactions: ReadonlyArray<EscrowTxnLike>)
   const escrowFunded = confirmed("DEPOSIT");
   const escrowReleased = confirmed("RELEASE");
   const refunded = confirmed("REFUND");
-  return { escrowFunded, escrowReleased, pendingRelease: Math.max(0, escrowFunded - escrowReleased - refunded) };
+  const fees = confirmed("FEE");
+  return { escrowFunded, escrowReleased, pendingRelease: Math.max(0, escrowFunded - escrowReleased - refunded - fees) };
 }
