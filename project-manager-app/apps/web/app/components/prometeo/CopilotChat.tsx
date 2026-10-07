@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Send } from "lucide-react";
 import { MarkdownLite } from "./MarkdownLite";
 import type { ChatActionView } from "../../../lib/prometeo-chat-actions";
+import { EVIDENCE_OPINION_LABEL, type EvidenceAnalysisState } from "../../../lib/prometeo-chat-evidence";
 
 export type CopilotMessage = {
   id: string;
@@ -22,6 +23,7 @@ export function CopilotChat({
   onRetry,
   onAction,
   usedActions,
+  evidenceResults,
   pending,
 }: {
   messages: CopilotMessage[];
@@ -30,6 +32,8 @@ export function CopilotChat({
   onAction?: (action: ChatActionView, messageId: string) => void;
   /** Claves `<mensaje>:<acción>` ya usadas: un botón no se puede pulsar dos veces. */
   usedActions?: ReadonlySet<string>;
+  /** Estado del análisis de evidencias lanzado con el botón, por clave `<mensaje>:<acción>`. */
+  evidenceResults?: Readonly<Record<string, EvidenceAnalysisState>>;
   pending: boolean;
 }) {
   const [input, setInput] = useState("");
@@ -80,6 +84,24 @@ export function CopilotChat({
                 })}
               </div>
             )}
+            {m.role === "assistant" && m.actions?.map((action) => {
+              const result = evidenceResults?.[`${m.id}:${action.id}`];
+              if (!result) return null;
+              return (
+                <div key={`${action.id}-result`} className="mt-2 rounded-lg border border-slate-200 bg-white p-2 text-xs text-slate-700" role={result.state === "error" || result.state === "limit" ? "alert" : "status"}>
+                  {result.state === "loading" && <p>Analizando la evidencia…</p>}
+                  {(result.state === "error" || result.state === "limit") && <p>{result.message}</p>}
+                  {(result.state === "done" || result.state === "degraded") && (
+                    <>
+                      {result.state === "degraded" && <p className="mb-1 text-amber-800">{result.message}</p>}
+                      <p>Calidad: {result.summary.qualityScore ?? "s/d"} · Riesgo: {result.summary.riskLevel ?? "s/d"}</p>
+                      {result.summary.riskReasons.map((reason) => <p key={reason}>• {reason}</p>)}
+                    </>
+                  )}
+                  <p className="mt-1 font-semibold">{EVIDENCE_OPINION_LABEL}</p>
+                </div>
+              );
+            })}
             {m.status === "degraded" && m.retryText && onRetry && (
               <button
                 type="button"

@@ -13,6 +13,7 @@ import {
 } from "../../../lib/bff/prometeo";
 import { buildChatHistory, buildWidgetChatRequest, classifyChatReply, describeChatFailure } from "../../../lib/prometeo-widget-chat";
 import { safeChatRoute, toChatActionViews, type ChatActionView } from "../../../lib/prometeo-chat-actions";
+import { requestEvidenceAnalysis, type EvidenceAnalysisState } from "../../../lib/prometeo-chat-evidence";
 
 /** Tope de espera del chat real: pasado este tiempo la consulta termina como fallo visible, no queda colgada. */
 const CHAT_TIMEOUT_MS = 45_000;
@@ -50,6 +51,8 @@ export function PrometeoCopilot() {
   const [chatThreadId, setChatThreadId] = useState<string | undefined>();
   // Botones de acciones de chat ya pulsados (`<mensaje>:<acción>`): no se pueden usar dos veces.
   const [usedActions, setUsedActions] = useState<ReadonlySet<string>>(new Set());
+  // Resultado de los análisis de evidencias lanzados con el botón (`<mensaje>:<acción>`).
+  const [evidenceResults, setEvidenceResults] = useState<Readonly<Record<string, EvidenceAnalysisState>>>({});
   // Estado de ánimo de la mascota: "pensando" mientras responde; luego guía, confirma o se sorprende un momento.
   const [mood, setMood] = useState<MascotMood>("idle");
   const moodTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -112,7 +115,7 @@ export function PrometeoCopilot() {
         if (reply.kind === "answer") {
           if (real.threadId) setChatThreadId(real.threadId);
           // El widget solo puede ofrecer acciones con una pantalla a la que ir (la ruta se valida otra vez al pulsar).
-          const actions = toChatActionViews(real.proposedActions).filter((a) => a.route);
+          const actions = toChatActionViews(real.proposedActions).filter((a) => a.route || a.kind === "analyze_evidence");
           setMessages((prev) => [...prev, { id: newId(), role: "assistant", content: reply.text, ...(actions.length > 0 ? { actions } : {}) }]);
           flashMood("answered");
           return;
@@ -145,6 +148,15 @@ export function PrometeoCopilot() {
   }
 
   function handleChatAction(action: ChatActionView, messageId: string) {
+    if (action.kind === "analyze_evidence") {
+      // analyze_evidence: SOLO con el clic, de un solo uso; el API aplica permiso, pertenencia, tope diario y auditoría.
+      const key = `${messageId}:${action.id}`;
+      if (!action.evidenceId || usedActions.has(key)) return;
+      setUsedActions((prev) => new Set(prev).add(key));
+      setEvidenceResults((prev) => ({ ...prev, [key]: { state: "loading" } }));
+      void requestEvidenceAnalysis(action.evidenceId).then((outcome) => setEvidenceResults((prev) => ({ ...prev, [key]: outcome })));
+      return;
+    }
     const route = safeChatRoute(action.route);
     if (!route) return;
     setUsedActions((prev) => new Set(prev).add(`${messageId}:${action.id}`));
@@ -262,6 +274,7 @@ export function PrometeoCopilot() {
         onRetry={handleSend}
         onAction={handleChatAction}
         usedActions={usedActions}
+        evidenceResults={evidenceResults}
         pending={pending}
       />
     </div>

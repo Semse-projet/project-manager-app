@@ -40,8 +40,8 @@ Regla del repo: **los tests van antes que el código** de cada ola. Una ola no s
 - [x] [CE-032] Contador diario con `auditLog.count` (acción, actor, tenant, desde 00:00 UTC) y su prueba con doble de Prisma.
 
 ## Wave 4 — web
-- [ ] [CE-040] Test del helper puro `prometeo-chat-evidence.ts` (reconocer la acción, evidencia analizable).
-- [ ] [CE-041] Botón "Analizar con visión" en el panel y el widget: un solo uso, etiqueta fija "opinión asistida, no es una aprobación", estados cargando/degradado/error; pruebas de estructura.
+- [x] [CE-040] Test del helper puro `prometeo-chat-evidence.ts` (reconocer la acción, evidencia analizable).
+- [x] [CE-041] Botón "Analizar con visión" en el panel y el widget: un solo uso, etiqueta fija "opinión asistida, no es una aprobación", estados cargando/degradado/error; pruebas de estructura.
 
 ## Wave 5 — rollout y cierre
 - [ ] [CE-050] **D6:** verificación en producción de la corrección del alcance (0.45): aislamiento por tenant y por organización, y la excepción de `OPS_ADMIN` dentro de su tenant. *Requiere cuentas de al menos dos organizaciones; con solo la cuenta de OPS_ADMIN se puede comprobar la excepción de administrador, no el aislamiento.*
