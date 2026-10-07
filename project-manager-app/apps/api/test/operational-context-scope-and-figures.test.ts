@@ -25,7 +25,10 @@ test("0.45 · cifras: solo transacciones SUCCEEDED; fondeado − liberado − re
     { type: "REFUND", amount: 100.5, status: "SUCCEEDED" },
     { type: "FEE", amount: 50, status: "SUCCEEDED" },
   ];
-  assert.deepEqual(computeEscrowFigures(txns), { escrowFunded: 1000.5, escrowReleased: 300, pendingRelease: 600 });
+  assert.deepEqual(computeEscrowFigures(txns), { escrowFunded: 1000.5, escrowReleased: 300, pendingRelease: 550 });
+  assert.equal(computeEscrowFigures([{ type: "DEPOSIT", amount: 100, status: "SUCCEEDED" }, { type: "FEE", amount: 25, status: "SUCCEEDED" }]).pendingRelease, 75, "FEE confirmado reduce lo retenido");
+  assert.equal(computeEscrowFigures([{ type: "DEPOSIT", amount: 100, status: "SUCCEEDED" }, { type: "FEE", amount: 25, status: "PENDING" }, { type: "FEE", amount: 25, status: "FAILED" }, { type: "FEE", amount: 25, status: "REVERSED" }]).pendingRelease, 100, "fees no confirmados no reducen lo retenido");
+  assert.equal(computeEscrowFigures([{ type: "DEPOSIT", amount: 10, status: "SUCCEEDED" }, { type: "FEE", amount: 25, status: "SUCCEEDED" }]).pendingRelease, 0, "fees nunca vuelven negativo el retenido");
   assert.deepEqual(computeEscrowFigures([]), { escrowFunded: 0, escrowReleased: 0, pendingRelease: 0 });
   assert.equal(computeEscrowFigures([{ type: "RELEASE", amount: 50, status: "SUCCEEDED" }]).pendingRelease, 0, "nunca negativo");
   assert.equal(computeEscrowFigures([{ type: "DEPOSIT", amount: "basura", status: "SUCCEEDED" }]).escrowFunded, 0, "un importe ilegible no rompe ni inventa");
