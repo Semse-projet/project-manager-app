@@ -47,7 +47,7 @@ Regla del repo: **los tests van antes que el código** de cada ola. Una ola no s
 - [ ] [CE-050] **D6:** verificación en producción de la corrección del alcance (0.45): aislamiento por tenant y por organización, y la excepción de `OPS_ADMIN` dentro de su tenant. *Requiere cuentas de al menos dos organizaciones; con solo la cuenta de OPS_ADMIN se puede comprobar la excepción de administrador, no el aislamiento.*
 - [ ] [CE-051] `shadow` sin divergencias materiales entre lo auditado y lo que ve el usuario.
 - [ ] [CE-052] Canary autenticado en un tenant de prueba (`live`) con evidencias reales: el listado coincide con la pantalla; otra organización no ve ninguna; un análisis lanzado con el botón queda persistido y el chat no cambia el `validationStatus`.
-- [ ] [CE-053] `spec:validate:strict`, typecheck, build y tests verdes; CI, merge SHA y deployment registrados.
+- [~] [CE-053] `spec:validate:strict`, typecheck, build y tests verdes; CI, merge SHA y deployment registrados. — local OK y CI del PR #819 en verde (2026-10-07); falta registrar merge SHA y deployment.
 - [ ] [CE-054] Spec a VERIFIED solo después de todos los gates.
 
 ## Wave 6 — reconciliación de documentos
