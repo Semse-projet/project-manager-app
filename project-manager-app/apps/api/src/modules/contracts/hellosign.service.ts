@@ -47,6 +47,9 @@ export class HelloSignService {
     clientId?:   string; // HelloSign app client_id for embedded signing
   }): Promise<SignatureRequestResult> {
     if (!this.apiKey) {
+      if (process.env.NODE_ENV === "production") {
+        throw new Error("Signature provider is not configured");
+      }
       return this.mockSignatureRequest(input.contractId, input.signers);
     }
 
