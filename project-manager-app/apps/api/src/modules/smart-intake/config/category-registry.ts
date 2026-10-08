@@ -13,6 +13,7 @@ import { LANDSCAPING_QUESTIONS } from "./questions/landscaping.questions.js";
 import { ROOFING_QUESTIONS } from "./questions/roofing.questions.js";
 import { HVAC_QUESTIONS } from "./questions/hvac.questions.js";
 import { FENCING_DECKS_QUESTIONS } from "./questions/fencing-decks.questions.js";
+import { HANDYMAN_QUESTIONS } from "./questions/handyman.questions.js";
 
 export type MilestoneTemplate = {
   order: number;
@@ -400,6 +401,40 @@ export const CATEGORY_REGISTRY: Record<SmartIntakeCategory, CategoryDefinition> 
     milestones: HIGH_VALUE_MILESTONES,
     questions: FENCING_DECKS_QUESTIONS,
   },
+  handyman: {
+    id: "handyman",
+    label: { es: "Arreglos generales (handyman)", en: "Handyman" },
+    trade: "handyman",
+    projectType: "handyman",
+    keywords: ["handyman", "handy man", "manitas", "odd jobs", "small repairs", "minor repairs", "arreglos varios", "reparaciones menores", "pequenas reparaciones", "pequeñas reparaciones", "mount a tv", "mount tv", "montar tv", "montar un tv", "montar el tv", "assemble furniture", "armar muebles", "ensamblar muebles", "punch list", "hang shelves", "colgar cuadros", "colgar repisas"],
+    explicitConfidence: 0.95,
+    keywordConfidence: 0.74,
+    rates: {
+      unit: "fixed",
+      baseMin: 90,
+      baseMax: 1200,
+      fallbackMin: 90,
+      fallbackMax: 450,
+      complexityMultiplier: { low: 1.0, medium: 1.25, high: 1.6 },
+    },
+    milestones: [
+      {
+        order: 1,
+        title: { es: "Confirmación de tareas y acceso", en: "Task list and access confirmation" },
+        description: { es: "Confirmación de la lista de tareas, materiales, fecha y acceso.", en: "Task list, materials, date, and access confirmation." },
+        paymentPercentage: 30,
+        requiresEvidence: false,
+      },
+      {
+        order: 2,
+        title: { es: "Trabajos completados", en: "Work completed" },
+        description: { es: "Todas las tareas terminadas y aprobadas por el cliente.", en: "All tasks completed and approved by the client." },
+        paymentPercentage: 70,
+        requiresEvidence: true,
+      },
+    ],
+    questions: HANDYMAN_QUESTIONS,
+  },
 };
 
 /** Ordered by specificity — more specific keywords checked first */
@@ -418,6 +453,7 @@ const DETECTION_ORDER: SmartIntakeCategory[] = [
   "hvac",
   "fencing_decks",       // before general_carpentry: its "deck"/"terraza" keywords overlap
   "general_carpentry",   // broadest keyword set — checked last
+  "handyman",            // last: generic odd-jobs phrases must never steal a specific trade
 ];
 
 /**
@@ -524,6 +560,10 @@ function mapSelectedCategoryId(
     case "fencing":
     case "decks":
       return "fencing_decks";
+    case "handyman":
+    case "manitas":
+    case "mantenimiento":
+      return "handyman";
     case "climatizacion":
     case "hvac":
     case "aire":

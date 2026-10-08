@@ -862,6 +862,10 @@ function resolveSizeMultiplier(intake: ProjectIntakeRecord): number {
       const scope = resolveFirstAnswer(intake.answers, "fencing_scope");
       return scope === "small" ? 0.5 : scope === "large" ? 2.2 : 1.0;
     }
+    case "handyman": {
+      const scope = resolveFirstAnswer(intake.answers, "handyman_scope");
+      return scope === "small" ? 0.5 : scope === "large" ? 2.0 : 1.0;
+    }
     default:
       return 1.0;
   }

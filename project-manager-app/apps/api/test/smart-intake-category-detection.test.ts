@@ -158,6 +158,7 @@ test("getSupportedQuestions returns questions for all 7 categories", () => {
     "roofing",
     "hvac",
     "fencing_decks",
+    "handyman",
   ] as const;
 
   for (const cat of categories) {
@@ -242,4 +243,25 @@ test("explicit selection maps cercas to fencing_decks", () => {
 
 test("plain 'cerca de' does not trigger fencing_decks", () => {
   assert.notEqual(detectCategoryFromText({ rawDescription: "Pintar la pared cerca del baño" }), "fencing_decks");
+});
+
+// ── handyman ───────────────────────────────────────────────────────────────
+
+test("detects handyman from 'mount a TV and assemble furniture'", () => {
+  assert.equal(detectCategoryFromText({ rawDescription: "Need someone to mount a TV and assemble furniture" }), "handyman");
+});
+
+test("detects handyman from 'arreglos varios'", () => {
+  assert.equal(detectCategoryFromText({ rawDescription: "Necesito un manitas para arreglos varios en casa" }), "handyman");
+});
+
+test("explicit selection maps handyman ids", () => {
+  assert.equal(detectCategoryFromText({ selectedCategoryId: "handyman", rawDescription: "" }), "handyman");
+  assert.equal(detectCategoryFromText({ selectedCategoryId: "manitas", rawDescription: "" }), "handyman");
+});
+
+test("specific trades keep precedence over handyman", () => {
+  assert.equal(detectCategoryFromText({ rawDescription: "Handyman needed to fix a leak, the pipe is dripping" }), "plumbing_repair");
+  assert.equal(detectCategoryFromText({ rawDescription: "Handyman to replace an outlet and fix the wiring" }), "electrical_work");
+  assert.equal(detectCategoryFromText({ rawDescription: "Handyman to build a wood fence" }), "fencing_decks");
 });

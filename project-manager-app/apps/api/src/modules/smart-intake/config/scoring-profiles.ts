@@ -314,6 +314,27 @@ const FENCING_DECKS_PROFILE: CategoryScoringProfile = {
 };
 
 /**
+ * handyman  — max ≈ 90
+ * threshold = 36
+ */
+const HANDYMAN_PROFILE: CategoryScoringProfile = {
+  id: "handyman",
+  rawDescriptionScore: 15,
+  imagesScore: 5,
+  estimateReadyThreshold: 36,
+  weights: [
+    { questionId: "handyman_type",      label: "Type of jobs",      exact: 25, notSure: 8, critical: true,  recommended: false },
+    { questionId: "handyman_scope",     label: "Amount of work",    exact: 20, notSure: 6, critical: true,  recommended: false },
+    { questionId: "handyman_materials", label: "Materials supply",  exact: 10, notSure: 3, critical: false, recommended: true  },
+    { questionId: "handyman_access",    label: "Access",            exact: 10, notSure: 3, critical: false, recommended: true  },
+  ],
+  riskTriggers: [
+    { questionId: "handyman_type",   value: "licensed_trade",  flag: "licensed_trade_possible" },
+    { questionId: "handyman_access", value: "elevated_access", flag: "elevated_access_required" },
+  ],
+};
+
+/**
  * generic  — fallback for unrecognised categories
  * threshold = 36
  */
@@ -341,6 +362,7 @@ export const SCORING_PROFILES: Partial<Record<SmartIntakeCategory | "generic", C
   roofing:                ROOFING_PROFILE,
   hvac:                   HVAC_PROFILE,
   fencing_decks:          FENCING_DECKS_PROFILE,
+  handyman:               HANDYMAN_PROFILE,
 };
 
 export const GENERIC_SCORING_PROFILE: CategoryScoringProfile = GENERIC_PROFILE;

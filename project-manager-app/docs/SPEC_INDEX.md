@@ -76,6 +76,7 @@ retroactiva.
 | [api-sense-workspace](specs/api/sense-workspace.spec.md) | workspace | IMPLEMENTED | legacy | legacy | legacy | legacy | legacy | low | yes | 2026-07-18 |
 | [auth.session-revocation-architecture](specs/api/session-revocation-architecture.spec.md) | auth | REVIEW | legacy | legacy | legacy | legacy | legacy | critical | yes | 2026-07-23 |
 | [api-smart-intake-fencing-decks](specs/api/smart-intake-fencing-decks.spec.md) | smart-intake | DRAFT | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | yes | NOT_VERIFIED |
+| [api-smart-intake-handyman](specs/api/smart-intake-handyman.spec.md) | smart-intake | DRAFT | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | yes | NOT_VERIFIED |
 | [api.travel-assignments-settlement](specs/api/travel.spec.md) | travel | APPROVED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-25 |
 | [api.vision-service-security](specs/api/vision-service-security.spec.md) | evidence | VERIFIED | legacy | legacy | legacy | legacy | legacy | critical | yes | 2026-07-23 |
 | [api.worker-verification-remediation](specs/api/worker-verification-remediation.spec.md) | trust | REVIEW | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | yes | 2026-10-04 |
