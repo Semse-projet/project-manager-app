@@ -155,6 +155,8 @@ test("getSupportedQuestions returns questions for all 7 categories", () => {
     "kitchen_remodel",
     "cleaning",
     "general_carpentry",
+    "roofing",
+    "hvac",
   ] as const;
 
   for (const cat of categories) {
@@ -188,4 +190,37 @@ test("isPaintingCategory returns false for non-painting descriptions", () => {
 test("detectCategoryConfidence (logic export) aligns with registry", () => {
   const conf = detectCategoryConfidence({ rawDescription: "Need drywall repair and patching" });
   assert.ok(conf >= 0.70, `Expected >= 0.70 for clear drywall description, got ${conf}`);
+});
+
+// ── roofing & hvac ─────────────────────────────────────────────────────────
+
+test("detects roofing from 'gotera en el techo'", () => {
+  assert.equal(detectCategoryFromText({ rawDescription: "Tengo una gotera en el techo de la sala" }), "roofing");
+});
+
+test("detects roofing from 'replace roof shingles'", () => {
+  assert.equal(detectCategoryFromText({ rawDescription: "Need to replace roof shingles after the storm" }), "roofing");
+});
+
+test("detects hvac from 'aire acondicionado'", () => {
+  assert.equal(detectCategoryFromText({ rawDescription: "No enfría el aire acondicionado de la sala" }), "hvac");
+});
+
+test("detects hvac from 'install mini split'", () => {
+  assert.equal(detectCategoryFromText({ rawDescription: "Install a mini split in the bedroom" }), "hvac");
+});
+
+test("explicit selection maps techos/climatizacion to new categories", () => {
+  assert.equal(detectCategoryFromText({ selectedCategoryId: "techos", rawDescription: "" }), "roofing");
+  assert.equal(detectCategoryFromText({ selectedCategoryId: "climatizacion", rawDescription: "" }), "hvac");
+});
+
+test("existing categories keep detection after adding roofing/hvac", () => {
+  assert.equal(detectCategoryFromText({ rawDescription: "Instalar piso laminado en la sala" }), "flooring_installation");
+});
+
+test("short keyword 'tub' does not match inside 'tuberia'", () => {
+  assert.equal(detectCategoryFromText({ rawDescription: "Reparar fuga de la tuberia de la cocina" }), "kitchen_remodel");
+  assert.equal(detectCategoryFromText({ rawDescription: "Fuga en la tuberia del patio" }), "plumbing_repair");
+  assert.equal(detectCategoryFromText({ rawDescription: "Replace the old tub" }), "bathroom_remodel");
 });

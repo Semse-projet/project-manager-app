@@ -251,6 +251,48 @@ const LANDSCAPING_PROFILE: CategoryScoringProfile = {
 };
 
 /**
+ * roofing  — max ≈ 90
+ * threshold = 36
+ */
+const ROOFING_PROFILE: CategoryScoringProfile = {
+  id: "roofing",
+  rawDescriptionScore: 15,
+  imagesScore: 5,
+  estimateReadyThreshold: 36,
+  weights: [
+    { questionId: "roofing_type",     label: "Type of work",     exact: 25, notSure: 8, critical: true,  recommended: false },
+    { questionId: "roofing_scope",    label: "Roof area",        exact: 20, notSure: 6, critical: true,  recommended: false },
+    { questionId: "roofing_material", label: "Roof material",    exact: 15, notSure: 5, critical: false, recommended: true  },
+    { questionId: "roofing_access",   label: "Slope / height",   exact: 10, notSure: 3, critical: false, recommended: true  },
+  ],
+  riskTriggers: [
+    { questionId: "roofing_type",   value: "structural", flag: "structural_roof_damage" },
+    { questionId: "roofing_access", value: "steep",      flag: "elevated_access_required" },
+  ],
+};
+
+/**
+ * hvac  — max ≈ 90
+ * threshold = 36
+ */
+const HVAC_PROFILE: CategoryScoringProfile = {
+  id: "hvac",
+  rawDescriptionScore: 15,
+  imagesScore: 5,
+  estimateReadyThreshold: 36,
+  weights: [
+    { questionId: "hvac_type",      label: "Type of work",       exact: 25, notSure: 8, critical: true,  recommended: false },
+    { questionId: "hvac_scope",     label: "Units / zones",      exact: 20, notSure: 6, critical: true,  recommended: false },
+    { questionId: "hvac_access",    label: "Equipment location", exact: 15, notSure: 5, critical: false, recommended: true  },
+    { questionId: "hvac_equipment", label: "Equipment tier",     exact: 10, notSure: 3, critical: false, recommended: true  },
+  ],
+  riskTriggers: [
+    { questionId: "hvac_type",   value: "structural", flag: "ductwork_redesign" },
+    { questionId: "hvac_access", value: "rooftop",    flag: "elevated_access_required" },
+  ],
+};
+
+/**
  * generic  — fallback for unrecognised categories
  * threshold = 36
  */
@@ -275,6 +317,8 @@ export const SCORING_PROFILES: Partial<Record<SmartIntakeCategory | "generic", C
   electrical_work:        ELECTRICAL_PROFILE,
   flooring_installation:  FLOORING_PROFILE,
   landscaping:            LANDSCAPING_PROFILE,
+  roofing:                ROOFING_PROFILE,
+  hvac:                   HVAC_PROFILE,
 };
 
 export const GENERIC_SCORING_PROFILE: CategoryScoringProfile = GENERIC_PROFILE;

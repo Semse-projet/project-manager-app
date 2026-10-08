@@ -10,6 +10,8 @@ import { PLUMBING_QUESTIONS } from "./questions/plumbing.questions.js";
 import { ELECTRICAL_QUESTIONS } from "./questions/electrical.questions.js";
 import { FLOORING_QUESTIONS } from "./questions/flooring.questions.js";
 import { LANDSCAPING_QUESTIONS } from "./questions/landscaping.questions.js";
+import { ROOFING_QUESTIONS } from "./questions/roofing.questions.js";
+import { HVAC_QUESTIONS } from "./questions/hvac.questions.js";
 
 export type MilestoneTemplate = {
   order: number;
@@ -339,6 +341,45 @@ export const CATEGORY_REGISTRY: Record<SmartIntakeCategory, CategoryDefinition> 
     milestones: STANDARD_MILESTONES,
     questions: LANDSCAPING_QUESTIONS,
   },
+  roofing: {
+    id: "roofing",
+    label: { es: "Techos", en: "Roofing" },
+    trade: "roofing",
+    projectType: "roofing",
+    keywords: ["roof", "roofing", "techo", "techos", "tejado", "gotera", "shingle", "shingles", "teja", "tejas", "canaleta", "gutter", "azotea con filtracion"],
+    explicitConfidence: 0.96,
+    keywordConfidence: 0.78,
+    rates: {
+      unit: "fixed",
+      baseMin: 300,
+      baseMax: 18000,
+      fallbackMin: 300,
+      fallbackMax: 6000,
+      complexityMultiplier: { low: 1.0, medium: 1.3, high: 1.8 },
+    },
+    milestones: HIGH_VALUE_MILESTONES,
+    questions: ROOFING_QUESTIONS,
+  },
+
+  hvac: {
+    id: "hvac",
+    label: { es: "Climatización (HVAC)", en: "HVAC" },
+    trade: "hvac",
+    projectType: "hvac",
+    keywords: ["hvac", "air conditioning", "aire acondicionado", "a/c", "mini split", "minisplit", "furnace", "calefaccion", "heating", "ducto", "ductos", "ductwork", "climatizacion", "condensador", "thermostat", "termostato"],
+    explicitConfidence: 0.96,
+    keywordConfidence: 0.80,
+    rates: {
+      unit: "fixed",
+      baseMin: 120,
+      baseMax: 12000,
+      fallbackMin: 120,
+      fallbackMax: 3500,
+      complexityMultiplier: { low: 1.0, medium: 1.3, high: 1.7 },
+    },
+    milestones: STANDARD_MILESTONES,
+    questions: HVAC_QUESTIONS,
+  },
 };
 
 /** Ordered by specificity — more specific keywords checked first */
@@ -353,8 +394,26 @@ const DETECTION_ORDER: SmartIntakeCategory[] = [
   "electrical_work",
   "flooring_installation", // before general_carpentry: its "floor"/"piso" keywords are broader
   "landscaping",
+  "roofing",             // before general_carpentry: "teja"/"techo" are specific
+  "hvac",
   "general_carpentry",   // broadest keyword set — checked last
 ];
+
+/**
+ * Short keywords (<= 3 chars, e.g. "tub") only match as whole words, so they
+ * don't fire inside longer words such as "tuberia".
+ */
+function matchesKeyword(lowerText: string, keyword: string): boolean {
+  if (keyword.length > 3) return lowerText.includes(keyword);
+  let from = 0;
+  const isLetter = (ch: string | undefined) => ch !== undefined && /[a-záéíóúñü]/i.test(ch);
+  for (;;) {
+    const i = lowerText.indexOf(keyword, from);
+    if (i === -1) return false;
+    if (!isLetter(lowerText[i - 1]) && !isLetter(lowerText[i + keyword.length])) return true;
+    from = i + 1;
+  }
+}
 
 export function detectCategoryFromText(input: {
   selectedCategoryId?: string | null;
@@ -370,7 +429,7 @@ export function detectCategoryFromText(input: {
   const lower = input.rawDescription.toLowerCase();
   for (const categoryId of DETECTION_ORDER) {
     const def = CATEGORY_REGISTRY[categoryId];
-    if (def.keywords.some((kw) => lower.includes(kw))) {
+    if (def.keywords.some((kw) => matchesKeyword(lower, kw))) {
       return categoryId;
     }
   }
@@ -391,7 +450,7 @@ export function getCategoryConfidence(input: {
 
   const lower = input.rawDescription.toLowerCase();
   const def = CATEGORY_REGISTRY[input.detectedCategory];
-  if (def.keywords.some((kw) => lower.includes(kw))) {
+  if (def.keywords.some((kw) => matchesKeyword(lower, kw))) {
     return def.keywordConfidence;
   }
 
@@ -437,6 +496,13 @@ function mapSelectedCategoryId(
     case "landscaping":
     case "gardening":
       return "landscaping";
+    case "techos":
+    case "roofing":
+      return "roofing";
+    case "climatizacion":
+    case "hvac":
+    case "aire":
+      return "hvac";
     default:
       return null;
   }

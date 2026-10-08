@@ -86,6 +86,20 @@ export const JOB_CATEGORIES: JobCategory[] = [
     ],
   },
   {
+    id: "techos", name: "Techos", subcategories: [
+      { id: "reparacion_techo", name: "Reparación de goteras", basePrice: 250 },
+      { id: "reemplazo_techo", name: "Reemplazo de techo", basePrice: 6000 },
+      { id: "canaletas", name: "Canaletas y desagües", basePrice: 200 },
+    ],
+  },
+  {
+    id: "climatizacion", name: "Climatización (A/C)", subcategories: [
+      { id: "mantenimiento_ac", name: "Mantenimiento y reparación", basePrice: 120 },
+      { id: "instalacion_ac", name: "Instalación de mini split", basePrice: 1800 },
+      { id: "ductos", name: "Ductos y sistema central", basePrice: 4000 },
+    ],
+  },
+  {
     id: "drywall", name: "Drywall / Tablaroca", subcategories: [
       { id: "reparacion", name: "Reparación de agujeros y grietas", basePrice: 150 },
       { id: "instalacion", name: "Instalación nueva", basePrice: 400 },
@@ -127,6 +141,8 @@ export const SMART_INTAKE_CATEGORY_IDS = new Set([
   "electricidad",
   "pisos",
   "jardineria",
+  "techos",
+  "climatizacion",
 ]);
 
 export const JOB_URGENCY_OPTIONS: JobUrgencyOption[] = [

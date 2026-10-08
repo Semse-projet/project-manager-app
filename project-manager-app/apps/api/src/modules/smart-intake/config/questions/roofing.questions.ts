@@ -1,0 +1,95 @@
+import type { IntakeQuestion } from "../../smart-intake.types.js";
+
+export const ROOFING_QUESTIONS: IntakeQuestion[] = [
+  {
+    id: "roofing_type",
+    category: "roofing",
+    step: 1,
+    label: {
+      es: "¿Qué tipo de trabajo de techo necesita?",
+      en: "What type of roofing work is needed?",
+    },
+    required: false,
+    affectsEstimate: true,
+    estimateImpact: "high",
+    answerType: "single_choice",
+    allowOther: true,
+    allowNotSure: true,
+    options: [
+      { label: { es: "Reparación de goteras o tejas sueltas", en: "Leak or loose shingle repair" }, value: "leak_repair" },
+      { label: { es: "Reemplazo parcial de una sección", en: "Partial section replacement" }, value: "partial_replace" },
+      { label: { es: "Reemplazo completo del techo", en: "Full roof replacement" }, value: "full_replace" },
+      { label: { es: "Canaletas y desagües", en: "Gutters and downspouts" }, value: "gutters" },
+      { label: { es: "Reparación estructural (vigas, base)", en: "Structural repair (rafters, decking)" }, value: "structural" },
+    ],
+  },
+  {
+    id: "roofing_scope",
+    category: "roofing",
+    step: 2,
+    label: {
+      es: "¿Qué tan grande es el techo o la zona a trabajar?",
+      en: "How large is the roof or the area to work on?",
+    },
+    description: {
+      es: "Una casa pequeña ronda los 1,000 – 1,500 pies² de techo.",
+      en: "A small house is roughly 1,000 – 1,500 sq ft of roof.",
+    },
+    required: false,
+    affectsEstimate: true,
+    estimateImpact: "high",
+    answerType: "single_choice",
+    allowOther: true,
+    allowNotSure: true,
+    options: [
+      { label: { es: "Zona pequeña (menos de 200 pies²)", en: "Small area (under 200 sq ft)" }, value: "small" },
+      { label: { es: "Sección grande o techo pequeño", en: "Large section or small roof" }, value: "medium" },
+      { label: { es: "Techo completo de casa grande", en: "Full roof of a large house" }, value: "large" },
+    ],
+  },
+  {
+    id: "roofing_material",
+    category: "roofing",
+    step: 3,
+    label: {
+      es: "¿De qué material es o será el techo?",
+      en: "What material is or will the roof be?",
+    },
+    required: false,
+    affectsEstimate: true,
+    estimateImpact: "medium",
+    answerType: "single_choice",
+    allowOther: true,
+    allowNotSure: true,
+    options: [
+      { label: { es: "Tejas asfálticas (shingles)", en: "Asphalt shingles" }, value: "shingle" },
+      { label: { es: "Metal", en: "Metal" }, value: "metal" },
+      { label: { es: "Teja de barro o concreto", en: "Clay or concrete tile" }, value: "tile" },
+      { label: { es: "Techo plano (membrana)", en: "Flat roof (membrane)" }, value: "flat" },
+    ],
+  },
+  {
+    id: "roofing_access",
+    category: "roofing",
+    step: 4,
+    label: {
+      es: "¿Qué tan inclinado y alto es el techo?",
+      en: "How steep and tall is the roof?",
+    },
+    description: {
+      es: "Techos muy inclinados o de varios pisos requieren equipo de seguridad adicional.",
+      en: "Steep or multi-story roofs require additional safety equipment.",
+    },
+    required: false,
+    affectsEstimate: true,
+    estimateImpact: "medium",
+    answerType: "single_choice",
+    allowOther: false,
+    allowNotSure: true,
+    options: [
+      { label: { es: "Un piso, pendiente suave", en: "Single story, gentle slope" }, value: "easy_access" },
+      { label: { es: "Dos pisos o pendiente media", en: "Two stories or moderate slope" }, value: "moderate" },
+      { label: { es: "Muy inclinado o varios pisos", en: "Steep or multi-story" }, value: "steep" },
+    ],
+  },
+];
