@@ -100,6 +100,13 @@ export const JOB_CATEGORIES: JobCategory[] = [
     ],
   },
   {
+    id: "cercas", name: "Cercas y Decks", subcategories: [
+      { id: "cerca_nueva", name: "Cerca nueva", basePrice: 1500 },
+      { id: "deck_nuevo", name: "Deck nuevo", basePrice: 3500 },
+      { id: "reparacion_cerca_deck", name: "Reparación o refinado", basePrice: 300 },
+    ],
+  },
+  {
     id: "drywall", name: "Drywall / Tablaroca", subcategories: [
       { id: "reparacion", name: "Reparación de agujeros y grietas", basePrice: 150 },
       { id: "instalacion", name: "Instalación nueva", basePrice: 400 },
@@ -143,6 +150,7 @@ export const SMART_INTAKE_CATEGORY_IDS = new Set([
   "jardineria",
   "techos",
   "climatizacion",
+  "cercas",
 ]);
 
 export const JOB_URGENCY_OPTIONS: JobUrgencyOption[] = [

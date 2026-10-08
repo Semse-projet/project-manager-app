@@ -157,6 +157,7 @@ test("getSupportedQuestions returns questions for all 7 categories", () => {
     "general_carpentry",
     "roofing",
     "hvac",
+    "fencing_decks",
   ] as const;
 
   for (const cat of categories) {
@@ -223,4 +224,22 @@ test("short keyword 'tub' does not match inside 'tuberia'", () => {
   assert.equal(detectCategoryFromText({ rawDescription: "Reparar fuga de la tuberia de la cocina" }), "kitchen_remodel");
   assert.equal(detectCategoryFromText({ rawDescription: "Fuga en la tuberia del patio" }), "plumbing_repair");
   assert.equal(detectCategoryFromText({ rawDescription: "Replace the old tub" }), "bathroom_remodel");
+});
+
+// ── fencing & decks ────────────────────────────────────────────────────────
+
+test("detects fencing_decks from 'build a wood fence'", () => {
+  assert.equal(detectCategoryFromText({ rawDescription: "I want to build a wood fence around the yard" }), "fencing_decks");
+});
+
+test("detects fencing_decks from 'deck nuevo' ahead of general_carpentry", () => {
+  assert.equal(detectCategoryFromText({ rawDescription: "Quiero un deck nuevo en la terraza" }), "fencing_decks");
+});
+
+test("explicit selection maps cercas to fencing_decks", () => {
+  assert.equal(detectCategoryFromText({ selectedCategoryId: "cercas", rawDescription: "" }), "fencing_decks");
+});
+
+test("plain 'cerca de' does not trigger fencing_decks", () => {
+  assert.notEqual(detectCategoryFromText({ rawDescription: "Pintar la pared cerca del baño" }), "fencing_decks");
 });
