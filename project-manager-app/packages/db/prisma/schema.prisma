@@ -5278,3 +5278,26 @@ model WorkerVerificationEvent {
 
   @@index([tenantId, userId, occurredAt])
 }
+
+ 
+/// Evidence-preserving, provider-neutral signature dispatch journal.
+/// External side effects MUST be checkpointed and never auto-retried on ambiguous failures.
+/// No FK cascade: contract/tenant deletion must not silently erase signature dispatch audit.
+model SignatureDispatchOutbox {
+  id                 String   @id @default(cuid())
+  tenantId           String
+  connectionId       String
+  contractId         String
+  providerId         String
+  idempotencyKey     String
+  requestFingerprint String
+  externalRequestId  String?
+  status             String   @default("RESERVED") // RESERVED | CREATED | SENT | RECONCILIATION_REQUIRED
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@unique([tenantId, connectionId, providerId, contractId, idempotencyKey], map: "SignatureDispatchOutbox_idempotency_uniq")
+  @@unique([connectionId, providerId, externalRequestId], map: "SignatureDispatchOutbox_external_uniq")
+  @@index([tenantId, connectionId, status, updatedAt], map: "SignatureDispatchOutbox_reconcile_idx")
+  @@index([tenantId, contractId], map: "SignatureDispatchOutbox_contract_idx")
+}
