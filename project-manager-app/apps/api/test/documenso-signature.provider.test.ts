@@ -11,6 +11,7 @@ const signer = {
 };
 const input = {
   tenantId: "tenant_a",
+  connectionId: "connection_a",
   contractId: "contract_1",
   idempotencyKey: "request_1",
   title: "Test Agreement",
@@ -45,6 +46,8 @@ function config(overrides: Record<string, unknown> = {}) {
     steps,
     options: {
       tenantId: "tenant_a",
+      connectionId: "connection_a",
+  connectionId: "connection_a",
       instanceUrl: "https://documenso.example/",
       apiToken: "api_test-only",
       webhookSecret: "test-webhook-secret",
@@ -135,15 +138,15 @@ test("Documenso status mapping never fabricates signed-document evidence", async
     }),
   });
   const adapter = new DocumensoSignatureProvider(c.options);
-  assert.deepEqual(await adapter.getRequestStatus("envelope_123", { tenantId: "tenant_a", contractId: "contract_1" }), {
+  assert.deepEqual(await adapter.getRequestStatus("envelope_123", { tenantId: "tenant_a", connectionId: "connection_a", contractId: "contract_1" }), {
     status: "partially_signed", verifiedAt: null, completedDocumentRef: null,
   });
   status = "COMPLETED";
-  assert.deepEqual(await adapter.getRequestStatus("envelope_123", { tenantId: "tenant_a", contractId: "contract_1" }), {
+  assert.deepEqual(await adapter.getRequestStatus("envelope_123", { tenantId: "tenant_a", connectionId: "connection_a", contractId: "contract_1" }), {
     status: "completed", verifiedAt: "2026-10-08T13:00:00.000Z", completedDocumentRef: null,
   });
   status = "DRAFT"; recipients = [];
-  await assert.rejects(adapter.getRequestStatus("envelope_123", { tenantId: "tenant_a", contractId: "contract_1" }), /draft or has an unknown status/);
+  await assert.rejects(adapter.getRequestStatus("envelope_123", { tenantId: "tenant_a", connectionId: "connection_a", contractId: "contract_1" }), /draft or has an unknown status/);
 });
 
 test("Documenso webhook secret must be present and match in constant time", () => {
@@ -161,7 +164,7 @@ test("Documenso status lookups require tenant authorization and outbox ownership
   const c = config();
   const adapter = new DocumensoSignatureProvider(c.options);
   await assert.rejects(adapter.getRequestStatus("envelope_123", {
-    tenantId: "tenant_b", contractId: "contract_1",
+    tenantId: "tenant_b", connectionId: "connection_a", contractId: "contract_1",
   }), /scope mismatch/);
   assert.equal(c.calls.length, 0);
 
@@ -170,7 +173,8 @@ test("Documenso status lookups require tenant authorization and outbox ownership
   });
   const locked = new DocumensoSignatureProvider(unauthorized.options);
   await assert.rejects(locked.getRequestStatus("envelope_123", {
-    tenantId: "tenant_a", contractId: "contract_1",
+    tenantId: "tenant_a",
+  connectionId: "connection_a", contractId: "contract_1",
   }), /forbidden/);
   assert.equal(unauthorized.calls.length, 0);
 
@@ -184,7 +188,8 @@ test("Documenso status lookups require tenant authorization and outbox ownership
   });
   const scoped = new DocumensoSignatureProvider(unowned.options);
   await assert.rejects(scoped.getRequestStatus("envelope_123", {
-    tenantId: "tenant_a", contractId: "contract_1",
+    tenantId: "tenant_a",
+  connectionId: "connection_a", contractId: "contract_1",
   }), /not an owned envelope/);
   assert.equal(unowned.calls.length, 0);
 });
