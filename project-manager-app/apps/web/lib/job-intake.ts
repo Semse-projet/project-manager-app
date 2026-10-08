@@ -107,6 +107,13 @@ export const JOB_CATEGORIES: JobCategory[] = [
     ],
   },
   {
+    id: "handyman", name: "Arreglos generales (Handyman)", subcategories: [
+      { id: "armado_montaje", name: "Armado y montaje", basePrice: 90 },
+      { id: "reparaciones_menores", name: "Reparaciones menores", basePrice: 120 },
+      { id: "lista_arreglos", name: "Lista de arreglos varios", basePrice: 250 },
+    ],
+  },
+  {
     id: "drywall", name: "Drywall / Tablaroca", subcategories: [
       { id: "reparacion", name: "Reparación de agujeros y grietas", basePrice: 150 },
       { id: "instalacion", name: "Instalación nueva", basePrice: 400 },
@@ -151,6 +158,7 @@ export const SMART_INTAKE_CATEGORY_IDS = new Set([
   "techos",
   "climatizacion",
   "cercas",
+  "handyman",
 ]);
 
 export const JOB_URGENCY_OPTIONS: JobUrgencyOption[] = [
