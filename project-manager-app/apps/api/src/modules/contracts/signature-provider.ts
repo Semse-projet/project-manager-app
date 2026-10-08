@@ -23,6 +23,8 @@ export interface SignatureSigner {
 
 export interface SignatureRequestInput {
   tenantId: string;
+  /** Trusted connection identity, resolved by the SEMSE control plane. */
+  connectionId: string;
   contractId: string;
   idempotencyKey: string;
   title: string;
@@ -52,7 +54,7 @@ export interface SignatureProvider {
   readonly capabilities: Readonly<SignatureProviderCapabilities>;
   createRequest(input: SignatureRequestInput): Promise<SignatureRequestReceipt>;
   /** Tenant and contract scope are mandatory for provider status lookups. */
-  getRequestStatus(externalRequestId: string, context: { tenantId: string; contractId: string }): Promise<{
+  getRequestStatus(externalRequestId: string, context: { tenantId: string; connectionId: string; contractId: string }): Promise<{
     status: "pending" | "partially_signed" | "completed" | "declined" | "cancelled";
     verifiedAt: string | null;
     completedDocumentRef: string | null;
