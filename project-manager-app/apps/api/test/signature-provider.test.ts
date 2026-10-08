@@ -45,6 +45,7 @@ test("signature registry exposes capabilities without claiming completion", asyn
   assert.equal(registry.list()[0]?.capabilities.verifiedWebhooks, false);
   const receipt = await registry.resolve("hellosign").createRequest({
     tenantId: "tenant_a",
+    connectionId: "connection_a",
     contractId: "ctr_1",
     idempotencyKey: "req_1",
     title: "Test",
