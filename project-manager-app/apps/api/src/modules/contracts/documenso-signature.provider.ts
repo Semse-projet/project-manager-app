@@ -23,6 +23,8 @@ export interface DocumensoOutbox {
   created(key: SignatureRequestKey & { externalRequestId: string }): Promise<void>;
   /** Persist the successful distribution receipt. */
   sent(key: SignatureRequestKey & { externalRequestId: string }): Promise<void>;
+  /** Prove the queried envelope belongs to this tenant/contract before polling. */
+  assertOwned(key: { tenantId: string; contractId: string; externalRequestId: string }): Promise<void>;
 }
 
 export interface DocumensoProviderConfig {
@@ -33,6 +35,7 @@ export interface DocumensoProviderConfig {
   webhookSecret: string;
   /** Server-owned policy/approval decision, checked both before draft and distribution. */
   assertSendAuthorized(input: SignatureRequestInput): Promise<void>;
+  assertStatusAuthorized(context: { tenantId: string; contractId: string }): Promise<void>;
   outbox: DocumensoOutbox;
   fetchImpl?: typeof fetch;
 }
@@ -50,7 +53,8 @@ export class DocumensoSignatureProvider implements SignatureProvider {
     embeddedSigning: false,
     cancellation: false,
     signedDocumentRetrieval: false,
-    verifiedWebhooks: true,
+    // Header comparison exists, but no durable, authorized event handler yet.
+    verifiedWebhooks: false,
   });
 
   private readonly apiBase: string;
@@ -63,9 +67,11 @@ export class DocumensoSignatureProvider implements SignatureProvider {
     }
     if (!config.tenantId || !config.apiToken || !config.webhookSecret ||
         typeof config.assertSendAuthorized !== "function" ||
+        typeof config.assertStatusAuthorized !== "function" ||
         typeof config.outbox?.reserve !== "function" ||
         typeof config.outbox?.created !== "function" ||
-        typeof config.outbox?.sent !== "function") {
+        typeof config.outbox?.sent !== "function" ||
+        typeof config.outbox?.assertOwned !== "function") {
       throw new Error("Documenso connection, approval gate, or outbox not configured");
     }
     this.apiBase = `${url.origin}/api/v2`;
@@ -145,8 +151,16 @@ export class DocumensoSignatureProvider implements SignatureProvider {
     };
   }
 
-  async getRequestStatus(externalRequestId: string): ReturnType<SignatureProvider["getRequestStatus"]> {
+  async getRequestStatus(
+    externalRequestId: string,
+    context: { tenantId: string; contractId: string },
+  ): ReturnType<SignatureProvider["getRequestStatus"]> {
     if (!externalRequestId.startsWith("envelope_")) throw new Error("Invalid Documenso envelope ID");
+    if (!context || context.tenantId !== this.config.tenantId || !context.contractId) {
+      throw new Error("Documenso status tenant/contract scope mismatch");
+    }
+    await this.config.assertStatusAuthorized(context);
+    await this.config.outbox.assertOwned({ ...context, externalRequestId });
     const envelope = await this.request(
       "GET", `/envelope/${encodeURIComponent(externalRequestId)}`,
     ) as {
@@ -184,8 +198,10 @@ export class DocumensoSignatureProvider implements SignatureProvider {
     if (input.tenantId !== this.config.tenantId ||
         !input.contractId || !input.idempotencyKey || !input.title ||
         !input.signers?.length || !input.documentPdf ||
-        input.documentPdf.length < 5 ||
-        Buffer.from(input.documentPdf.subarray(0, 5)).toString("ascii") !== "%PDF-") {
+        input.documentPdf.length < 14 ||
+        input.documentPdf.length > 15 * 1024 * 1024 ||
+        Buffer.from(input.documentPdf.subarray(0, 5)).toString("ascii") !== "%PDF-" ||
+        !Buffer.from(input.documentPdf.subarray(-2048)).includes(Buffer.from("%%EOF"))) {
       throw new Error("Documenso request requires a tenant-scoped PDF and signing data");
     }
     for (const signer of input.signers) {
