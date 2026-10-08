@@ -159,6 +159,7 @@ test("getSupportedQuestions returns questions for all 7 categories", () => {
     "hvac",
     "fencing_decks",
     "handyman",
+    "masonry_concrete",
   ] as const;
 
   for (const cat of categories) {
@@ -264,4 +265,30 @@ test("specific trades keep precedence over handyman", () => {
   assert.equal(detectCategoryFromText({ rawDescription: "Handyman needed to fix a leak, the pipe is dripping" }), "plumbing_repair");
   assert.equal(detectCategoryFromText({ rawDescription: "Handyman to replace an outlet and fix the wiring" }), "electrical_work");
   assert.equal(detectCategoryFromText({ rawDescription: "Handyman to build a wood fence" }), "fencing_decks");
+});
+
+// ── masonry & concrete ─────────────────────────────────────────────────────
+
+test("detects masonry_concrete from 'pour a concrete driveway'", () => {
+  assert.equal(detectCategoryFromText({ rawDescription: "I want to pour a new concrete driveway" }), "masonry_concrete");
+});
+
+test("detects masonry_concrete from 'muro de ladrillo'", () => {
+  assert.equal(detectCategoryFromText({ rawDescription: "Necesito levantar un muro de ladrillo en el patio" }), "masonry_concrete");
+});
+
+test("'retaining wall' is masonry_concrete, not interior_painting", () => {
+  assert.equal(detectCategoryFromText({ rawDescription: "Build a retaining wall in the backyard" }), "masonry_concrete");
+});
+
+test("explicit selection maps albanileria/concreto to masonry_concrete", () => {
+  assert.equal(detectCategoryFromText({ selectedCategoryId: "albanileria", rawDescription: "" }), "masonry_concrete");
+  assert.equal(detectCategoryFromText({ selectedCategoryId: "concreto", rawDescription: "" }), "masonry_concrete");
+});
+
+test("painting, flooring and drywall keep detection after adding masonry_concrete", () => {
+  assert.equal(detectCategoryFromText({ rawDescription: "Paint the walls of my living room" }), "interior_painting");
+  assert.equal(detectCategoryFromText({ rawDescription: "Instalar piso laminado en la sala" }), "flooring_installation");
+  assert.equal(detectCategoryFromText({ rawDescription: "I have a hole in my drywall that needs repair" }), "drywall_repair");
+  assert.equal(detectCategoryFromText({ rawDescription: "Instalar losas de ceramica en la cocina" }), "kitchen_remodel");
 });

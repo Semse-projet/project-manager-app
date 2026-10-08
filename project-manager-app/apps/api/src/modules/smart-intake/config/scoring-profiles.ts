@@ -335,6 +335,28 @@ const HANDYMAN_PROFILE: CategoryScoringProfile = {
 };
 
 /**
+ * masonry_concrete  — max ≈ 90
+ * threshold = 36
+ */
+const MASONRY_CONCRETE_PROFILE: CategoryScoringProfile = {
+  id: "masonry_concrete",
+  rawDescriptionScore: 15,
+  imagesScore: 5,
+  estimateReadyThreshold: 36,
+  weights: [
+    { questionId: "masonry_type",      label: "Type of work",     exact: 25, notSure: 8, critical: true,  recommended: false },
+    { questionId: "masonry_scope",     label: "Job size",         exact: 20, notSure: 6, critical: true,  recommended: false },
+    { questionId: "masonry_condition", label: "Site condition",   exact: 15, notSure: 5, critical: false, recommended: true  },
+    { questionId: "masonry_access",    label: "Truck / equipment access", exact: 10, notSure: 3, critical: false, recommended: true  },
+  ],
+  riskTriggers: [
+    { questionId: "masonry_type",      value: "structural",        flag: "engineering_review_likely" },
+    { questionId: "masonry_condition", value: "demolition_needed", flag: "demolition_required" },
+    { questionId: "masonry_access",    value: "pump_required",     flag: "special_equipment_required" },
+  ],
+};
+
+/**
  * generic  — fallback for unrecognised categories
  * threshold = 36
  */
@@ -363,6 +385,7 @@ export const SCORING_PROFILES: Partial<Record<SmartIntakeCategory | "generic", C
   hvac:                   HVAC_PROFILE,
   fencing_decks:          FENCING_DECKS_PROFILE,
   handyman:               HANDYMAN_PROFILE,
+  masonry_concrete:       MASONRY_CONCRETE_PROFILE,
 };
 
 export const GENERIC_SCORING_PROFILE: CategoryScoringProfile = GENERIC_PROFILE;

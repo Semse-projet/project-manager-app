@@ -14,6 +14,7 @@ import { ROOFING_QUESTIONS } from "./questions/roofing.questions.js";
 import { HVAC_QUESTIONS } from "./questions/hvac.questions.js";
 import { FENCING_DECKS_QUESTIONS } from "./questions/fencing-decks.questions.js";
 import { HANDYMAN_QUESTIONS } from "./questions/handyman.questions.js";
+import { MASONRY_CONCRETE_QUESTIONS } from "./questions/masonry-concrete.questions.js";
 
 export type MilestoneTemplate = {
   order: number;
@@ -435,6 +436,25 @@ export const CATEGORY_REGISTRY: Record<SmartIntakeCategory, CategoryDefinition> 
     ],
     questions: HANDYMAN_QUESTIONS,
   },
+  masonry_concrete: {
+    id: "masonry_concrete",
+    label: { es: "Albañilería y concreto", en: "Masonry and concrete" },
+    trade: "masonry",
+    projectType: "masonry-concrete",
+    keywords: ["concrete", "concreto", "hormigon", "cemento", "cement", "masonry", "mamposteria", "albanileria", "albañilería", "brick", "bricks", "ladrillo", "ladrillos", "paver", "pavers", "adoquin", "adoquines", "driveway", "entrada de autos", "sidewalk", "acera", "banqueta", "slab", "retaining wall", "muro de contencion", "chimney", "chimenea", "foundation", "cimentacion", "cimiento"],
+    explicitConfidence: 0.96,
+    keywordConfidence: 0.78,
+    rates: {
+      unit: "fixed",
+      baseMin: 300,
+      baseMax: 25000,
+      fallbackMin: 300,
+      fallbackMax: 7000,
+      complexityMultiplier: { low: 1.0, medium: 1.3, high: 1.8 },
+    },
+    milestones: HIGH_VALUE_MILESTONES,
+    questions: MASONRY_CONCRETE_QUESTIONS,
+  },
 };
 
 /** Ordered by specificity — more specific keywords checked first */
@@ -443,6 +463,7 @@ const DETECTION_ORDER: SmartIntakeCategory[] = [
   "kitchen_remodel",
   "drywall_repair",      // before interior_painting: "agujero en pared", "yeso", "sheetrock"
   "exterior_painting",   // before interior_painting: "exterior", "fachada"
+  "masonry_concrete",    // before interior_painting: its "wall" keyword would swallow "retaining wall"
   "interior_painting",
   "cleaning",
   "plumbing_repair",     // before general_carpentry: avoids "pipe"/"floor" ambiguity
@@ -564,6 +585,11 @@ function mapSelectedCategoryId(
     case "manitas":
     case "mantenimiento":
       return "handyman";
+    case "albanileria":
+    case "masonry":
+    case "concreto":
+    case "concrete":
+      return "masonry_concrete";
     case "climatizacion":
     case "hvac":
     case "aire":
