@@ -47,7 +47,6 @@ function config(overrides: Record<string, unknown> = {}) {
     options: {
       tenantId: "tenant_a",
       connectionId: "connection_a",
-  connectionId: "connection_a",
       instanceUrl: "https://documenso.example/",
       apiToken: "api_test-only",
       webhookSecret: "test-webhook-secret",
