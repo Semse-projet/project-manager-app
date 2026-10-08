@@ -51,7 +51,8 @@ export interface SignatureProvider {
   readonly id: SignatureProviderId;
   readonly capabilities: Readonly<SignatureProviderCapabilities>;
   createRequest(input: SignatureRequestInput): Promise<SignatureRequestReceipt>;
-  getRequestStatus(externalRequestId: string): Promise<{
+  /** Tenant and contract scope are mandatory for provider status lookups. */
+  getRequestStatus(externalRequestId: string, context: { tenantId: string; contractId: string }): Promise<{
     status: "pending" | "partially_signed" | "completed" | "declined" | "cancelled";
     verifiedAt: string | null;
     completedDocumentRef: string | null;
