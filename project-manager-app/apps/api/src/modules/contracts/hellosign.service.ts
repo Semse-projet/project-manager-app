@@ -58,7 +58,7 @@ export class HelloSignService {
       formData.append("title", input.title);
       formData.append("subject", input.subject);
       formData.append("message", input.message);
-      formData.append("test_mode", "1"); // sandbox until prod key
+      formData.append("test_mode", "1"); // sandbox: production activation requires a separate reviewed change
 
       // Encode document as file upload
       const blob = new Blob([input.documentText], { type: "text/plain" });
@@ -84,8 +84,7 @@ export class HelloSignService {
       });
 
       if (!res.ok) {
-        const txt = await res.text().catch(() => "");
-        this.logger.warn(`[HelloSign] API error ${res.status}: ${txt.slice(0, 200)}`);
+        this.logger.warn(`[HelloSign] API error HTTP ${res.status}`);
         throw new Error(`Signature provider returned HTTP ${res.status}`);
       }
 
