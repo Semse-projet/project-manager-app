@@ -293,6 +293,27 @@ const HVAC_PROFILE: CategoryScoringProfile = {
 };
 
 /**
+ * fencing_decks  — max ≈ 90
+ * threshold = 36
+ */
+const FENCING_DECKS_PROFILE: CategoryScoringProfile = {
+  id: "fencing_decks",
+  rawDescriptionScore: 15,
+  imagesScore: 5,
+  estimateReadyThreshold: 36,
+  weights: [
+    { questionId: "fencing_type",     label: "Type of work",     exact: 25, notSure: 8, critical: true,  recommended: false },
+    { questionId: "fencing_scope",    label: "Project size",     exact: 20, notSure: 6, critical: true,  recommended: false },
+    { questionId: "fencing_material", label: "Material",         exact: 15, notSure: 5, critical: false, recommended: true  },
+    { questionId: "fencing_site",     label: "Terrain / access", exact: 10, notSure: 3, critical: false, recommended: true  },
+  ],
+  riskTriggers: [
+    { questionId: "fencing_type", value: "structural",        flag: "permit_likely_required" },
+    { questionId: "fencing_site", value: "demolition_needed", flag: "demolition_required" },
+  ],
+};
+
+/**
  * generic  — fallback for unrecognised categories
  * threshold = 36
  */
@@ -319,6 +340,7 @@ export const SCORING_PROFILES: Partial<Record<SmartIntakeCategory | "generic", C
   landscaping:            LANDSCAPING_PROFILE,
   roofing:                ROOFING_PROFILE,
   hvac:                   HVAC_PROFILE,
+  fencing_decks:          FENCING_DECKS_PROFILE,
 };
 
 export const GENERIC_SCORING_PROFILE: CategoryScoringProfile = GENERIC_PROFILE;

@@ -1,0 +1,95 @@
+import type { IntakeQuestion } from "../../smart-intake.types.js";
+
+export const FENCING_DECKS_QUESTIONS: IntakeQuestion[] = [
+  {
+    id: "fencing_type",
+    category: "fencing_decks",
+    step: 1,
+    label: {
+      es: "¿Qué tipo de trabajo necesita?",
+      en: "What type of work is needed?",
+    },
+    required: false,
+    affectsEstimate: true,
+    estimateImpact: "high",
+    answerType: "single_choice",
+    allowOther: true,
+    allowNotSure: true,
+    options: [
+      { label: { es: "Cerca nueva", en: "New fence" }, value: "new_fence" },
+      { label: { es: "Reparación de cerca", en: "Fence repair" }, value: "fence_repair" },
+      { label: { es: "Deck nuevo", en: "New deck" }, value: "new_deck" },
+      { label: { es: "Reparación o refinado de deck", en: "Deck repair or refinishing" }, value: "deck_repair" },
+      { label: { es: "Pérgola, gazebo o estructura techada", en: "Pergola, gazebo or covered structure" }, value: "structural" },
+    ],
+  },
+  {
+    id: "fencing_scope",
+    category: "fencing_decks",
+    step: 2,
+    label: {
+      es: "¿Qué tamaño tiene el proyecto?",
+      en: "How large is the project?",
+    },
+    description: {
+      es: "Cercas: pies lineales. Decks: área aproximada.",
+      en: "Fences: linear feet. Decks: approximate area.",
+    },
+    required: false,
+    affectsEstimate: true,
+    estimateImpact: "high",
+    answerType: "single_choice",
+    allowOther: true,
+    allowNotSure: true,
+    options: [
+      { label: { es: "Pequeño (menos de 50 pies lineales o 100 pies²)", en: "Small (under 50 linear ft or 100 sq ft)" }, value: "small" },
+      { label: { es: "Mediano (50 – 150 pies lineales o 100 – 300 pies²)", en: "Medium (50 – 150 linear ft or 100 – 300 sq ft)" }, value: "medium" },
+      { label: { es: "Grande (más de 150 pies lineales o 300 pies²)", en: "Large (over 150 linear ft or 300 sq ft)" }, value: "large" },
+    ],
+  },
+  {
+    id: "fencing_material",
+    category: "fencing_decks",
+    step: 3,
+    label: {
+      es: "¿Qué material prefiere?",
+      en: "What material do you prefer?",
+    },
+    required: false,
+    affectsEstimate: true,
+    estimateImpact: "medium",
+    answerType: "single_choice",
+    allowOther: true,
+    allowNotSure: true,
+    options: [
+      { label: { es: "Madera tratada", en: "Pressure-treated wood" }, value: "wood" },
+      { label: { es: "Vinilo o compuesto", en: "Vinyl or composite" }, value: "composite" },
+      { label: { es: "Metal o hierro", en: "Metal or iron" }, value: "metal" },
+      { label: { es: "Malla ciclónica", en: "Chain link" }, value: "chain_link" },
+    ],
+  },
+  {
+    id: "fencing_site",
+    category: "fencing_decks",
+    step: 4,
+    label: {
+      es: "¿Cómo es el terreno y el acceso?",
+      en: "What are the terrain and access like?",
+    },
+    description: {
+      es: "Pendientes, rocas, raíces o demolición de una estructura previa aumentan el costo.",
+      en: "Slopes, rocks, roots, or removing an old structure increase cost.",
+    },
+    required: false,
+    affectsEstimate: true,
+    estimateImpact: "medium",
+    answerType: "single_choice",
+    allowOther: false,
+    allowNotSure: true,
+    options: [
+      { label: { es: "Terreno plano y despejado", en: "Flat, clear ground" }, value: "easy_access" },
+      { label: { es: "Pendiente, raíces o acceso limitado", en: "Slope, roots or limited access" }, value: "difficult_terrain" },
+      { label: { es: "Requiere demoler estructura existente", en: "Requires demolishing an existing structure" }, value: "demolition_needed" },
+    ],
+  },
+];

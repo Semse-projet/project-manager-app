@@ -41,7 +41,8 @@ export type SmartIntakeCategory =
   | "flooring_installation"
   | "landscaping"
   | "roofing"
-  | "hvac";
+  | "hvac"
+  | "fencing_decks";
 
 export type ConfidenceLevel = "exact" | "estimated" | "unknown";
 
