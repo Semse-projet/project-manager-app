@@ -850,6 +850,14 @@ function resolveSizeMultiplier(intake: ProjectIntakeRecord): number {
       const scope = resolveFirstAnswer(intake.answers, "landscaping_scope");
       return scope === "small" ? 0.6 : scope === "large" ? 1.9 : 1.0;
     }
+    case "roofing": {
+      const scope = resolveFirstAnswer(intake.answers, "roofing_scope");
+      return scope === "small" ? 0.5 : scope === "large" ? 2.2 : 1.0;
+    }
+    case "hvac": {
+      const scope = resolveFirstAnswer(intake.answers, "hvac_scope");
+      return scope === "small" ? 0.6 : scope === "large" ? 2.0 : 1.0;
+    }
     default:
       return 1.0;
   }

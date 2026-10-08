@@ -39,7 +39,9 @@ export type SmartIntakeCategory =
   | "plumbing_repair"
   | "electrical_work"
   | "flooring_installation"
-  | "landscaping";
+  | "landscaping"
+  | "roofing"
+  | "hvac";
 
 export type ConfidenceLevel = "exact" | "estimated" | "unknown";
 
