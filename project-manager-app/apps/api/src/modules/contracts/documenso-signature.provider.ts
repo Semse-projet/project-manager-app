@@ -9,8 +9,11 @@ import type {
 
 export interface SignatureRequestKey {
   tenantId: string;
+  connectionId: string;
   contractId: string;
   idempotencyKey: string;
+  /** Hash of canonical immutable PDF + signer payload; duplicate key changes are forbidden. */
+  requestFingerprint: string;
 }
 
 export interface DocumensoOutbox {
@@ -24,18 +27,19 @@ export interface DocumensoOutbox {
   /** Persist the successful distribution receipt. */
   sent(key: SignatureRequestKey & { externalRequestId: string }): Promise<void>;
   /** Prove the queried envelope belongs to this tenant/contract before polling. */
-  assertOwned(key: { tenantId: string; contractId: string; externalRequestId: string }): Promise<void>;
+  assertOwned(key: { tenantId: string; connectionId: string; contractId: string; externalRequestId: string }): Promise<void>;
 }
 
 export interface DocumensoProviderConfig {
   tenantId: string;
+  connectionId: string;
   /** Fixed, trusted instance origin; must be HTTPS. Never accept from an HTTP request. */
   instanceUrl: string;
   apiToken: string;
   webhookSecret: string;
   /** Server-owned policy/approval decision, checked both before draft and distribution. */
   assertSendAuthorized(input: SignatureRequestInput): Promise<void>;
-  assertStatusAuthorized(context: { tenantId: string; contractId: string }): Promise<void>;
+  assertStatusAuthorized(context: { tenantId: string; connectionId: string; contractId: string }): Promise<void>;
   outbox: DocumensoOutbox;
   fetchImpl?: typeof fetch;
 }
@@ -65,7 +69,7 @@ export class DocumensoSignatureProvider implements SignatureProvider {
     if (url.protocol !== "https:" || url.username || url.password || url.search || url.hash || url.pathname !== "/") {
       throw new Error("Documenso requires a fixed HTTPS instance origin");
     }
-    if (!config.tenantId || !config.apiToken || !config.webhookSecret ||
+    if (!config.tenantId || !config.connectionId || !config.apiToken || !config.webhookSecret ||
         typeof config.assertSendAuthorized !== "function" ||
         typeof config.assertStatusAuthorized !== "function" ||
         typeof config.outbox?.reserve !== "function" ||
@@ -88,10 +92,16 @@ export class DocumensoSignatureProvider implements SignatureProvider {
 
   async createRequest(input: SignatureRequestInput): Promise<SignatureRequestReceipt> {
     this.assertInput(input);
+    const requestFingerprint = createHash("sha256")
+      .update(Buffer.from(input.documentPdf!))
+      .update(JSON.stringify([input.title, input.signers]))
+      .digest("hex");
     const key: SignatureRequestKey = {
       tenantId: input.tenantId,
+      connectionId: input.connectionId,
       contractId: input.contractId,
       idempotencyKey: input.idempotencyKey,
+      requestFingerprint,
     };
 
     // Authorization is a mandatory *server-side* hook; merely supplying input does
@@ -100,7 +110,7 @@ export class DocumensoSignatureProvider implements SignatureProvider {
     await this.config.outbox.reserve(key);
 
     const externalId = "semse-" + createHash("sha256")
-      .update(JSON.stringify([input.tenantId, input.contractId, input.idempotencyKey]))
+      .update(JSON.stringify([input.tenantId, input.connectionId, input.contractId, input.idempotencyKey]))
       .digest("hex");
 
     const form = new FormData();
@@ -153,10 +163,11 @@ export class DocumensoSignatureProvider implements SignatureProvider {
 
   async getRequestStatus(
     externalRequestId: string,
-    context: { tenantId: string; contractId: string },
+    context: { tenantId: string; connectionId: string; contractId: string },
   ): ReturnType<SignatureProvider["getRequestStatus"]> {
     if (!externalRequestId.startsWith("envelope_")) throw new Error("Invalid Documenso envelope ID");
-    if (!context || context.tenantId !== this.config.tenantId || !context.contractId) {
+    if (!context || context.tenantId !== this.config.tenantId ||
+        context.connectionId !== this.config.connectionId || !context.contractId) {
       throw new Error("Documenso status tenant/contract scope mismatch");
     }
     await this.config.assertStatusAuthorized(context);
@@ -196,6 +207,7 @@ export class DocumensoSignatureProvider implements SignatureProvider {
 
   private assertInput(input: SignatureRequestInput): void {
     if (input.tenantId !== this.config.tenantId ||
+        input.connectionId !== this.config.connectionId ||
         !input.contractId || !input.idempotencyKey || !input.title ||
         !input.signers?.length || !input.documentPdf ||
         input.documentPdf.length < 14 ||
