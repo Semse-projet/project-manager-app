@@ -109,6 +109,10 @@ export class ContractsService {
         ?? contract.jobId
     );
 
+    if (!this.helloSign && process.env.NODE_ENV === "production") {
+      throw new Error("Signature provider service is unavailable");
+    }
+
     const sigResult = this.helloSign
       ? await this.helloSign.createSignatureRequest({
           title:        `Contrato SEMSE — ${jobTitle}`,

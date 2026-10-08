@@ -75,6 +75,7 @@ retroactiva.
 | [api-reservations](specs/api/reservations.spec.md) | reservations | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-23 |
 | [api-sense-workspace](specs/api/sense-workspace.spec.md) | workspace | IMPLEMENTED | legacy | legacy | legacy | legacy | legacy | low | yes | 2026-07-18 |
 | [auth.session-revocation-architecture](specs/api/session-revocation-architecture.spec.md) | auth | REVIEW | legacy | legacy | legacy | legacy | legacy | critical | yes | 2026-07-23 |
+| [api-smart-intake-fencing-decks](specs/api/smart-intake-fencing-decks.spec.md) | smart-intake | DRAFT | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | yes | NOT_VERIFIED |
 | [api.travel-assignments-settlement](specs/api/travel.spec.md) | travel | APPROVED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-25 |
 | [api.vision-service-security](specs/api/vision-service-security.spec.md) | evidence | VERIFIED | legacy | legacy | legacy | legacy | legacy | critical | yes | 2026-07-23 |
 | [api.worker-verification-remediation](specs/api/worker-verification-remediation.spec.md) | trust | REVIEW | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | yes | 2026-10-04 |
@@ -171,6 +172,7 @@ retroactiva.
 | [m1-4-dropbox-sign-fail-closed](specs/tools/fase-1/m1.4-dropbox-sign-fail-closed.spec.md) | contracts | DRAFT | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | yes | NOT_VERIFIED |
 | [m1-4-provider-verified-contract-execution](specs/tools/fase-1/m1.4-provider-verified-contract-execution.spec.md) | contracts | DRAFT | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | yes | NOT_VERIFIED |
 | [m1-4-signature-dispatch-outbox](specs/tools/fase-1/m1.4-signature-dispatch-outbox.spec.md) | contracts | DRAFT | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | yes | NOT_VERIFIED |
+| [m1-4-signature-interoperability](specs/tools/fase-1/m1.4-signature-interoperability.spec.md) | contracts | DRAFT | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | yes | NOT_VERIFIED |
 | [m1-4-universal-signature-port](specs/tools/fase-1/m1.4-universal-signature-port.spec.md) | contracts | DRAFT | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | yes | NOT_VERIFIED |
 | [tools.lien-rights-management](specs/tools/fase-2/m2.1-lien-rights.spec.md) | legal | APPROVED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-08-27 |
 | [tools.anti-dispute-documentation](specs/tools/fase-2/m2.2-dispute-docs.spec.md) | evidence | APPROVED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-08-27 |

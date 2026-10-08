@@ -858,6 +858,10 @@ function resolveSizeMultiplier(intake: ProjectIntakeRecord): number {
       const scope = resolveFirstAnswer(intake.answers, "hvac_scope");
       return scope === "small" ? 0.6 : scope === "large" ? 2.0 : 1.0;
     }
+    case "fencing_decks": {
+      const scope = resolveFirstAnswer(intake.answers, "fencing_scope");
+      return scope === "small" ? 0.5 : scope === "large" ? 2.2 : 1.0;
+    }
     default:
       return 1.0;
   }

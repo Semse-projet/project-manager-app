@@ -64,7 +64,8 @@ jobs:
             pnpm spec:validate:strict
           fi
           pnpm spec:audit-plan-coverage
-          node --test tests/unit/spec-lib.test.mjs tests/unit/spec-validate.test.mjs tests/unit/audit-plan-spec-coverage.test.mjs
+          pnpm spec:index:check
+          node --test tests/unit/spec-lib.test.mjs tests/unit/spec-validate.test.mjs tests/unit/spec-index.test.mjs tests/unit/audit-plan-spec-coverage.test.mjs
 
       - name: Generate Prisma client
         run: pnpm db:generate

@@ -12,6 +12,7 @@ import { FLOORING_QUESTIONS } from "./questions/flooring.questions.js";
 import { LANDSCAPING_QUESTIONS } from "./questions/landscaping.questions.js";
 import { ROOFING_QUESTIONS } from "./questions/roofing.questions.js";
 import { HVAC_QUESTIONS } from "./questions/hvac.questions.js";
+import { FENCING_DECKS_QUESTIONS } from "./questions/fencing-decks.questions.js";
 
 export type MilestoneTemplate = {
   order: number;
@@ -380,6 +381,25 @@ export const CATEGORY_REGISTRY: Record<SmartIntakeCategory, CategoryDefinition> 
     milestones: STANDARD_MILESTONES,
     questions: HVAC_QUESTIONS,
   },
+  fencing_decks: {
+    id: "fencing_decks",
+    label: { es: "Cercas y decks", en: "Fencing and decks" },
+    trade: "fencing",
+    projectType: "fencing-decks",
+    keywords: ["fence", "fencing", "cercado", "cercas", "cerca de madera", "cerca de metal", "cerca perimetral", "cerco", "valla", "deck", "decking", "pergola", "gazebo", "railing", "baranda"],
+    explicitConfidence: 0.96,
+    keywordConfidence: 0.78,
+    rates: {
+      unit: "fixed",
+      baseMin: 200,
+      baseMax: 20000,
+      fallbackMin: 200,
+      fallbackMax: 6000,
+      complexityMultiplier: { low: 1.0, medium: 1.3, high: 1.7 },
+    },
+    milestones: HIGH_VALUE_MILESTONES,
+    questions: FENCING_DECKS_QUESTIONS,
+  },
 };
 
 /** Ordered by specificity — more specific keywords checked first */
@@ -396,6 +416,7 @@ const DETECTION_ORDER: SmartIntakeCategory[] = [
   "landscaping",
   "roofing",             // before general_carpentry: "teja"/"techo" are specific
   "hvac",
+  "fencing_decks",       // before general_carpentry: its "deck"/"terraza" keywords overlap
   "general_carpentry",   // broadest keyword set — checked last
 ];
 
@@ -499,6 +520,10 @@ function mapSelectedCategoryId(
     case "techos":
     case "roofing":
       return "roofing";
+    case "cercas":
+    case "fencing":
+    case "decks":
+      return "fencing_decks";
     case "climatizacion":
     case "hvac":
     case "aire":
