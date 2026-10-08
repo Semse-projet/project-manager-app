@@ -73,6 +73,7 @@ test("Documenso rejects cross-tenant and non-PDF requests without network access
   const c = config();
   const adapter = new DocumensoSignatureProvider(c.options);
   await assert.rejects(adapter.createRequest({ ...input, tenantId: "tenant_b" }), /tenant-scoped PDF/);
+  await assert.rejects(adapter.createRequest({ ...input, connectionId: "connection_b" }), /tenant-scoped PDF/);
   await assert.rejects(adapter.createRequest({ ...input, documentPdf: undefined }), /tenant-scoped PDF/);
   await assert.rejects(adapter.createRequest({
     ...input, signers: [{ ...signer, fields: [] }],
@@ -164,6 +165,10 @@ test("Documenso status lookups require tenant authorization and outbox ownership
   const adapter = new DocumensoSignatureProvider(c.options);
   await assert.rejects(adapter.getRequestStatus("envelope_123", {
     tenantId: "tenant_b", connectionId: "connection_a", contractId: "contract_1",
+  }), /scope mismatch/);
+  assert.equal(c.calls.length, 0);
+  await assert.rejects(adapter.getRequestStatus("envelope_123", {
+    tenantId: "tenant_a", connectionId: "connection_b", contractId: "contract_1",
   }), /scope mismatch/);
   assert.equal(c.calls.length, 0);
 
