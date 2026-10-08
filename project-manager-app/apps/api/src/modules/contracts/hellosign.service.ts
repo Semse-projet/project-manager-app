@@ -83,7 +83,7 @@ export class HelloSignService {
       if (!res.ok) {
         const txt = await res.text().catch(() => "");
         this.logger.warn(`[HelloSign] API error ${res.status}: ${txt.slice(0, 200)}`);
-        return this.mockSignatureRequest(input.contractId, input.signers);
+        throw new Error(`Signature provider returned HTTP ${res.status}`);
       }
 
       const data = (await res.json()) as {
@@ -94,7 +94,7 @@ export class HelloSignService {
       };
 
       const req = data.signature_request;
-      if (!req) return this.mockSignatureRequest(input.contractId, input.signers);
+      if (!req) throw new Error("Signature provider response missing request");
 
       this.logger.log(`[HelloSign] Request created: ${req.signature_request_id}`);
 
@@ -108,8 +108,8 @@ export class HelloSignService {
         embeddedEnabled:  Boolean(input.clientId),
       };
     } catch (err) {
-      this.logger.warn(`[HelloSign] Request creation failed: ${(err as Error).message} — using mock`);
-      return this.mockSignatureRequest(input.contractId, input.signers);
+      this.logger.warn(`[HelloSign] Request creation failed: ${(err as Error).message}`);
+      throw err;
     }
   }
 
