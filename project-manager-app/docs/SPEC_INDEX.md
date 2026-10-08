@@ -166,6 +166,12 @@ retroactiva.
 | [m1-2-regional-costs](specs/tools/fase-1/m1.2-regional-costs.spec.md) | tools | VERIFIED | legacy | legacy | legacy | legacy | legacy | medium | yes | 2026-06-09 |
 | [m1-3-stripe-escrow](specs/tools/fase-1/m1.3-stripe-escrow.spec.md) | payments | VERIFIED | legacy | legacy | legacy | legacy | legacy | critical | yes | 2026-06-09 |
 | [m1-4-contracts](specs/tools/fase-1/m1.4-contracts.spec.md) | contracts | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-06-09 |
+| [m1-4-documenso-envelope-adapter](specs/tools/fase-1/m1.4-documenso-envelope-adapter.spec.md) | contracts | DRAFT | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | yes | NOT_VERIFIED |
+| [m1-4-documenso-self-hosting](specs/tools/fase-1/m1.4-documenso-self-hosting.spec.md) | contracts | DRAFT | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | yes | NOT_VERIFIED |
+| [m1-4-dropbox-sign-fail-closed](specs/tools/fase-1/m1.4-dropbox-sign-fail-closed.spec.md) | contracts | DRAFT | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | yes | NOT_VERIFIED |
+| [m1-4-provider-verified-contract-execution](specs/tools/fase-1/m1.4-provider-verified-contract-execution.spec.md) | contracts | DRAFT | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | yes | NOT_VERIFIED |
+| [m1-4-signature-dispatch-outbox](specs/tools/fase-1/m1.4-signature-dispatch-outbox.spec.md) | contracts | DRAFT | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | yes | NOT_VERIFIED |
+| [m1-4-universal-signature-port](specs/tools/fase-1/m1.4-universal-signature-port.spec.md) | contracts | DRAFT | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | yes | NOT_VERIFIED |
 | [tools.lien-rights-management](specs/tools/fase-2/m2.1-lien-rights.spec.md) | legal | APPROVED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-08-27 |
 | [tools.anti-dispute-documentation](specs/tools/fase-2/m2.2-dispute-docs.spec.md) | evidence | APPROVED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-08-27 |
 | [tools.weather-integration-alerts](specs/tools/fase-2/m2.3-weather.spec.md) | operations | APPROVED | legacy | legacy | legacy | legacy | legacy | medium | yes | 2026-08-27 |
