@@ -47,6 +47,9 @@ export class HelloSignService {
     clientId?:   string; // HelloSign app client_id for embedded signing
   }): Promise<SignatureRequestResult> {
     if (!this.apiKey) {
+      if (process.env.NODE_ENV === "production") {
+        throw new Error("Signature provider is not configured");
+      }
       return this.mockSignatureRequest(input.contractId, input.signers);
     }
 
@@ -55,7 +58,7 @@ export class HelloSignService {
       formData.append("title", input.title);
       formData.append("subject", input.subject);
       formData.append("message", input.message);
-      formData.append("test_mode", "1"); // sandbox until prod key
+      formData.append("test_mode", "1"); // sandbox: production activation requires a separate reviewed change
 
       // Encode document as file upload
       const blob = new Blob([input.documentText], { type: "text/plain" });
@@ -81,9 +84,8 @@ export class HelloSignService {
       });
 
       if (!res.ok) {
-        const txt = await res.text().catch(() => "");
-        this.logger.warn(`[HelloSign] API error ${res.status}: ${txt.slice(0, 200)}`);
-        return this.mockSignatureRequest(input.contractId, input.signers);
+        this.logger.warn(`[HelloSign] API error HTTP ${res.status}`);
+        throw new Error(`Signature provider returned HTTP ${res.status}`);
       }
 
       const data = (await res.json()) as {
@@ -94,7 +96,7 @@ export class HelloSignService {
       };
 
       const req = data.signature_request;
-      if (!req) return this.mockSignatureRequest(input.contractId, input.signers);
+      if (!req) throw new Error("Signature provider response missing request");
 
       this.logger.log(`[HelloSign] Request created: ${req.signature_request_id}`);
 
@@ -108,8 +110,8 @@ export class HelloSignService {
         embeddedEnabled:  Boolean(input.clientId),
       };
     } catch (err) {
-      this.logger.warn(`[HelloSign] Request creation failed: ${(err as Error).message} — using mock`);
-      return this.mockSignatureRequest(input.contractId, input.signers);
+      this.logger.warn(`[HelloSign] Request creation failed: ${(err as Error).message}`);
+      throw err;
     }
   }
 
