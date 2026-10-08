@@ -111,6 +111,7 @@
     "spec:validate": "node ./scripts/spec-validate.mjs",
     "spec:validate:strict": "node ./scripts/spec-validate.mjs --strict",
     "spec:index": "node ./scripts/spec-index.mjs",
+    "spec:index:check": "node ./scripts/spec-index.mjs --check",
     "spec:coverage": "node ./scripts/spec-coverage.mjs",
     "spec:audit-plan-coverage": "node ./scripts/audit-plan-spec-coverage.mjs"
   },
