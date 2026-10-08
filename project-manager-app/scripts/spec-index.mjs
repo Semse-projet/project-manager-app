@@ -12,8 +12,17 @@ const generated = buildGeneratedIndex(specs);
 const current = readFileSync(INDEX_PATH, "utf8");
 const next = upsertBlock(current, generated);
 
-writeFileSync(INDEX_PATH, next);
-console.log(`Updated ${INDEX_PATH} with ${specs.length} specs.`);
+if (process.argv.includes("--check")) {
+  if (current !== next) {
+    console.error(`${INDEX_PATH} is out of sync with ${specs.length} specs. Run "pnpm spec:index" and commit the regenerated index.`);
+    process.exitCode = 1;
+  } else {
+    console.log(`Validated ${INDEX_PATH}: ${specs.length} indexed specs.`);
+  }
+} else {
+  writeFileSync(INDEX_PATH, next);
+  console.log(`Updated ${INDEX_PATH} with ${specs.length} specs.`);
+}
 
 function buildGeneratedIndex(specs) {
   const lines = [
@@ -54,18 +63,24 @@ function upsertBlock(current, generated) {
   const startIndex = current.indexOf(START);
   const endIndex = current.indexOf(END);
 
+  // All paths emit exactly the same canonical layout, including when the
+  // generated block ends the file with no following handwritten section.
+  // Without this normalization a freshly generated index fails --check.
+  const combine = (...sections) =>
+    sections.map((section) => section.trim()).filter(Boolean).join("\n\n") + "\n";
+
   if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
-    const prefix = current.slice(0, startIndex).trimEnd();
-    const suffix = current.slice(endIndex + END.length).trim();
-    return `${prefix}\n\n${generated}\n\n${suffix}\n`;
+    const prefix = current.slice(0, startIndex);
+    const suffix = current.slice(endIndex + END.length);
+    return combine(prefix, generated, suffix);
   }
 
   const insertionPoint = current.indexOf("\n## NIVEL 0");
   if (insertionPoint !== -1) {
-    return `${current.slice(0, insertionPoint)}\n${generated}${current.slice(insertionPoint)}`;
+    return combine(current.slice(0, insertionPoint), generated, current.slice(insertionPoint));
   }
 
-  return `${current.trimEnd()}\n\n${generated}`;
+  return combine(current, generated);
 }
 
 function link(label, href) {
