@@ -5,10 +5,20 @@
  */
 export type SignatureProviderId = "hellosign" | "documenso" | "docusign";
 
+export interface SignatureFieldPlacement {
+  page: number;
+  positionX: number;
+  positionY: number;
+  width: number;
+  height: number;
+}
+
 export interface SignatureSigner {
   name: string;
   email: string;
   role: "client" | "professional";
+  /** Locations on the signed PDF; a provider must reject missing signature fields. */
+  fields?: readonly SignatureFieldPlacement[];
 }
 
 export interface SignatureRequestInput {
@@ -17,6 +27,8 @@ export interface SignatureRequestInput {
   idempotencyKey: string;
   title: string;
   documentText: string;
+  /** Provider adapters that require PDF must reject requests without validated PDF bytes. */
+  documentPdf?: Uint8Array;
   signers: readonly SignatureSigner[];
 }
 
