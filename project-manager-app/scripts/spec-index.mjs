@@ -12,8 +12,17 @@ const generated = buildGeneratedIndex(specs);
 const current = readFileSync(INDEX_PATH, "utf8");
 const next = upsertBlock(current, generated);
 
-writeFileSync(INDEX_PATH, next);
-console.log(`Updated ${INDEX_PATH} with ${specs.length} specs.`);
+if (process.argv.includes("--check")) {
+  if (current !== next) {
+    console.error(`${INDEX_PATH} is out of sync with ${specs.length} specs. Run "pnpm spec:index" and commit the regenerated index.`);
+    process.exitCode = 1;
+  } else {
+    console.log(`Validated ${INDEX_PATH}: ${specs.length} indexed specs.`);
+  }
+} else {
+  writeFileSync(INDEX_PATH, next);
+  console.log(`Updated ${INDEX_PATH} with ${specs.length} specs.`);
+}
 
 function buildGeneratedIndex(specs) {
   const lines = [
