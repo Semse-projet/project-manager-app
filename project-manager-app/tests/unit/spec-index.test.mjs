@@ -100,3 +100,23 @@ test("adding another spec requires a new index row; --check is never a writer", 
   assert.equal(f.run().status, 0);
   assert.match(readFileSync(f.indexPath, "utf8"), /\[example\.second\]/);
 });
+
+test("an existing generated block with no footer remains byte-for-byte stable", (t) => {
+  const f = fixture(t);
+  assert.equal(f.run().status, 0);
+  const once = readFileSync(f.indexPath, "utf8");
+  assert.equal(f.run().status, 0);
+  assert.equal(readFileSync(f.indexPath, "utf8"), once);
+  assert.equal(f.run("--check").status, 0);
+});
+
+test("legacy NIVEL 0 index insertion keeps handwritten content and is idempotent", (t) => {
+  const f = fixture(t);
+  writeFileSync(f.indexPath, "# Index\n\n## NIVEL 0\nHandwritten section.\n");
+  assert.equal(f.run().status, 0);
+  const once = readFileSync(f.indexPath, "utf8");
+  assert.match(once, /## NIVEL 0\nHandwritten section/);
+  assert.equal(f.run("--check").status, 0);
+  assert.equal(f.run().status, 0);
+  assert.equal(readFileSync(f.indexPath, "utf8"), once);
+});
