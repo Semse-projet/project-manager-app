@@ -26,6 +26,7 @@ function config(overrides: Record<string, unknown> = {}) {
     async reserve() { steps.push("reserve"); },
     async created() { steps.push("created"); },
     async sent() { steps.push("sent"); },
+    async assertOwned() { steps.push("owned"); },
   };
   const fetchImpl = async (url: RequestInfo | URL, init?: RequestInit) => {
     calls.push({ method: init?.method ?? "GET", url: String(url), init });
@@ -49,6 +50,7 @@ function config(overrides: Record<string, unknown> = {}) {
       webhookSecret: "test-webhook-secret",
       outbox,
       async assertSendAuthorized() { steps.push("authorize"); },
+      async assertStatusAuthorized() { steps.push("authorizeRead"); },
       fetchImpl,
       ...overrides,
     },
@@ -106,6 +108,7 @@ test("Documenso does not distribute without a persisted draft", async () => {
       async reserve() {},
       async created() { throw new Error("db unavailable"); },
       async sent() {},
+      async assertOwned() {},
     },
   });
   const adapter = new DocumensoSignatureProvider(c.options);
@@ -132,15 +135,15 @@ test("Documenso status mapping never fabricates signed-document evidence", async
     }),
   });
   const adapter = new DocumensoSignatureProvider(c.options);
-  assert.deepEqual(await adapter.getRequestStatus("envelope_123"), {
+  assert.deepEqual(await adapter.getRequestStatus("envelope_123", { tenantId: "tenant_a", contractId: "contract_1" }), {
     status: "partially_signed", verifiedAt: null, completedDocumentRef: null,
   });
   status = "COMPLETED";
-  assert.deepEqual(await adapter.getRequestStatus("envelope_123"), {
+  assert.deepEqual(await adapter.getRequestStatus("envelope_123", { tenantId: "tenant_a", contractId: "contract_1" }), {
     status: "completed", verifiedAt: "2026-10-08T13:00:00.000Z", completedDocumentRef: null,
   });
   status = "DRAFT"; recipients = [];
-  await assert.rejects(adapter.getRequestStatus("envelope_123"), /draft or has an unknown status/);
+  await assert.rejects(adapter.getRequestStatus("envelope_123", { tenantId: "tenant_a", contractId: "contract_1" }), /draft or has an unknown status/);
 });
 
 test("Documenso webhook secret must be present and match in constant time", () => {
@@ -152,4 +155,61 @@ test("Documenso webhook secret must be present and match in constant time", () =
   assert.throws(() => new DocumensoSignatureProvider({
     ...c.options, instanceUrl: "http://documenso.example/",
   }), /HTTPS/);
+});
+
+test("Documenso status lookups require tenant authorization and outbox ownership", async () => {
+  const c = config();
+  const adapter = new DocumensoSignatureProvider(c.options);
+  await assert.rejects(adapter.getRequestStatus("envelope_123", {
+    tenantId: "tenant_b", contractId: "contract_1",
+  }), /scope mismatch/);
+  assert.equal(c.calls.length, 0);
+
+  const unauthorized = config({
+    async assertStatusAuthorized() { throw new Error("forbidden"); },
+  });
+  const locked = new DocumensoSignatureProvider(unauthorized.options);
+  await assert.rejects(locked.getRequestStatus("envelope_123", {
+    tenantId: "tenant_a", contractId: "contract_1",
+  }), /forbidden/);
+  assert.equal(unauthorized.calls.length, 0);
+
+  const unowned = config({
+    outbox: {
+      async reserve() {},
+      async created() {},
+      async sent() {},
+      async assertOwned() { throw new Error("not an owned envelope"); },
+    },
+  });
+  const scoped = new DocumensoSignatureProvider(unowned.options);
+  await assert.rejects(scoped.getRequestStatus("envelope_123", {
+    tenantId: "tenant_a", contractId: "contract_1",
+  }), /not an owned envelope/);
+  assert.equal(unowned.calls.length, 0);
+});
+
+test("Documenso refuses duplicate reservation before any second network effect", async () => {
+  let reserved = false;
+  const c = config({
+    outbox: {
+      async reserve() {
+        if (reserved) throw new Error("duplicate signature request");
+        reserved = true;
+      },
+      async created() {},
+      async sent() {},
+      async assertOwned() {},
+    },
+  });
+  const adapter = new DocumensoSignatureProvider(c.options);
+  await adapter.createRequest(input);
+  await assert.rejects(adapter.createRequest(input), /duplicate signature request/);
+  assert.equal(c.calls.length, 2);
+});
+
+test("Documenso reports webhook verification as unavailable until a real receiver exists", () => {
+  const c = config();
+  const adapter = new DocumensoSignatureProvider(c.options);
+  assert.equal(adapter.capabilities.verifiedWebhooks, false);
 });
