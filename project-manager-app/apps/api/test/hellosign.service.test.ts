@@ -39,3 +39,29 @@ test("HelloSignService falls back to mock signing flow when API key is missing",
     }
   }
 });
+
+
+test("HelloSignService does not fabricate a request when provider rejects it", async () => {
+  const priorKey = process.env.HELLOSIGN_API_KEY;
+  const originalFetch = globalThis.fetch;
+  process.env.HELLOSIGN_API_KEY = "test-only-key";
+  globalThis.fetch = async () => new Response("denied", { status: 401 });
+  try {
+    const service = new HelloSignService();
+    await assert.rejects(
+      service.createSignatureRequest({
+        title: "Test contract",
+        subject: "Signature",
+        message: "Sign",
+        contractId: "ctr_failure",
+        documentText: "test",
+        signers: [{ name: "Client", email: "client@example.com", role: "client" }],
+      }),
+      /HTTP 401/,
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (priorKey === undefined) delete process.env.HELLOSIGN_API_KEY;
+    else process.env.HELLOSIGN_API_KEY = priorKey;
+  }
+});
