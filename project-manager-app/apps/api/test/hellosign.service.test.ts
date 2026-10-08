@@ -65,3 +65,27 @@ test("HelloSignService does not fabricate a request when provider rejects it", a
     else process.env.HELLOSIGN_API_KEY = priorKey;
   }
 });
+
+
+test("HelloSignService refuses implicit mock signing in production", async () => {
+  const oldKey = process.env.HELLOSIGN_API_KEY;
+  const oldEnv = process.env.NODE_ENV;
+  delete process.env.HELLOSIGN_API_KEY;
+  process.env.NODE_ENV = "production";
+  try {
+    const service = new HelloSignService();
+    await assert.rejects(service.createSignatureRequest({
+      title: "Contract",
+      subject: "Signature",
+      message: "Sign",
+      contractId: "ctr_prod",
+      documentText: "test",
+      signers: [{ name: "Client", email: "client@example.com", role: "client" }],
+    }), /not configured/);
+  } finally {
+    if (oldKey === undefined) delete process.env.HELLOSIGN_API_KEY;
+    else process.env.HELLOSIGN_API_KEY = oldKey;
+    if (oldEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = oldEnv;
+  }
+});
