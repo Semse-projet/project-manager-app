@@ -309,3 +309,101 @@ test("contracts service: terms include currency and release policy", async () =>
     requestId: "req_1",
   });
 });
+
+
+// ── Security release blocker #827: legacy attestations ≠ verified signing ──
+
+function makeLegacySignHarness(opts: {
+  beforeClient: string | undefined;
+  beforePro: string | undefined;
+  afterClient: string | undefined;
+  afterPro: string | undefined;
+  rejectAuditAction?: string;
+}) {
+  const calls: Array<{ action: string; afterJson?: Record<string, unknown> }> = [];
+  const before = {
+    ...STUB_CONTRACT,
+    signedClientAt: opts.beforeClient,
+    signedProAt: opts.beforePro,
+    documentHash: "caller_supplied_hash_012345",
+  };
+  const after = {
+    ...before,
+    signedClientAt: opts.afterClient,
+    signedProAt: opts.afterPro,
+  };
+  const service = new ContractsService(
+    {
+      findById: async () => before,
+      sign: async () => after,
+    } as never,
+    {
+      append: async (event: { action: string; afterJson?: Record<string, unknown> }) => {
+        calls.push(event);
+        if (event.action === opts.rejectAuditAction) {
+          throw new Error("audit unavailable");
+        }
+      },
+    } as never,
+  );
+  const sign = () => service.sign({
+    tenantId: "tenant_1",
+    orgId: "org_client",
+    userId: "user_client",
+    roles: ["CLIENT"],
+    contractId: "ct_1",
+    documentHash: "caller_supplied_hash_012345",
+    requestId: "req_sign_1",
+  });
+  return { sign, calls };
+}
+
+test("legacy second attestation never emits contract.fully_executed or verified escrow evidence", async () => {
+  const h = makeLegacySignHarness({
+    beforeClient: "2026-10-08T08:00:00.000Z",
+    beforePro: undefined,
+    afterClient: "2026-10-08T08:00:00.000Z",
+    afterPro: "2026-10-08T09:00:00.000Z",
+  });
+  const result = await h.sign();
+  assert.ok(result.signedProAt);
+  assert.deepEqual(h.calls.map((event) => event.action),
+    ["contract.sign", "contract.legacy_attestations_completed"]);
+  assert.equal(h.calls[0]?.afterJson?.signatureVerificationStatus, "NOT_VERIFIED");
+  assert.equal(h.calls[0]?.afterJson?.provenance, "LEGACY_SELF_ATTESTED");
+  assert.equal(h.calls[1]?.afterJson?.providerEvidenceVerified, false);
+  assert.ok(!h.calls.some((event) => event.action === "contract.fully_executed"));
+});
+
+test("legacy partial attestation only produces the ordinary contract.sign audit", async () => {
+  const h = makeLegacySignHarness({
+    beforeClient: undefined, beforePro: undefined,
+    afterClient: "2026-10-08T08:00:00.000Z", afterPro: undefined,
+  });
+  await h.sign();
+  assert.deepEqual(h.calls.map((event) => event.action), ["contract.sign"]);
+});
+
+test("repeating an already complete legacy attestation never repeats completion audit", async () => {
+  const h = makeLegacySignHarness({
+    beforeClient: "2026-10-08T08:00:00.000Z",
+    beforePro: "2026-10-08T09:00:00.000Z",
+    afterClient: "2026-10-08T08:00:00.000Z",
+    afterPro: "2026-10-08T09:00:00.000Z",
+  });
+  await h.sign();
+  assert.deepEqual(h.calls.map((event) => event.action), ["contract.sign"]);
+});
+
+test("legacy completion audit failure is never swallowed or represented as verified execution", async () => {
+  const h = makeLegacySignHarness({
+    beforeClient: "2026-10-08T08:00:00.000Z",
+    beforePro: undefined,
+    afterClient: "2026-10-08T08:00:00.000Z",
+    afterPro: "2026-10-08T09:00:00.000Z",
+    rejectAuditAction: "contract.legacy_attestations_completed",
+  });
+  await assert.rejects(h.sign(), /audit unavailable/);
+  assert.deepEqual(h.calls.map((event) => event.action),
+    ["contract.sign", "contract.legacy_attestations_completed"]);
+});
