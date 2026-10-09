@@ -346,7 +346,7 @@ export class PaymentsRepository {
         escrow,
         transaction: this.toRecord(transaction)
       };
-    });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   }
 
   /**
