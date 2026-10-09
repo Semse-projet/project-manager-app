@@ -219,28 +219,40 @@ export class ContractsService {
       afterJson: {
         signedClientAt: contract.signedClientAt,
         signedProAt: contract.signedProAt,
-        documentHash: contract.documentHash
+        documentHash: contract.documentHash,
+        // The legacy sign endpoint records a self-attestation using a caller
+        // supplied hash, NOT a verified PDF/certificate from a provider.
+        provenance: "LEGACY_SELF_ATTESTED",
+        signatureVerificationStatus: "NOT_VERIFIED"
       }
     });
 
-    // 1.4.C: If both parties have now signed → contract is fully executed → escrow should activate
-    const bothSigned = Boolean(contract.signedClientAt) && Boolean(contract.signedProAt);
-    if (bothSigned) {
-      this.logger.log(`[Contracts] Both parties signed contract ${contract.id} — escrow activation eligible`);
-      // Escrow activation is handled by PaymentsService when creating a PaymentEscrow for this contract.
-      // Emit audit event that downstream services can react to.
-      void this.auditService.append({
-        id: `aud_${Date.now()}_exec`,
+    // Both legacy timestamps are NOT proof of provider-verified execution.
+    // Never emit contract.fully_executed from this endpoint; only a future
+    // independently verified Evidence/Approval workflow may issue that event.
+    const previouslyAttested = Boolean(before?.signedClientAt) && Boolean(before?.signedProAt);
+    const bothAttested = Boolean(contract.signedClientAt) && Boolean(contract.signedProAt);
+    if (bothAttested && !previouslyAttested) {
+      this.logger.log(`[Contracts] Legacy attestations recorded for contract ${contract.id} — NOT provider verified`);
+      // Await this informational audit: swallowing audit failures would make
+      // the record indistinguishable from an authoritative lifecycle event.
+      // NOTE: the DB write above and this append are not yet transactional.
+      await this.auditService.append({
+        id: `aud_${Date.now()}_attestation`,
         tenantId: input.tenantId,
         orgId: input.orgId,
         actorUserId: input.userId,
-        action: "contract.fully_executed",
+        action: "contract.legacy_attestations_completed",
         entityType: "Contract",
         entityId: contract.id,
         requestId: input.requestId,
         timestamp: new Date().toISOString(),
-        afterJson: { fullyExecutedAt: new Date().toISOString() },
-      }).catch(() => undefined);
+        afterJson: {
+          attestationsRecordedAt: new Date().toISOString(),
+          signatureVerificationStatus: "NOT_VERIFIED",
+          providerEvidenceVerified: false
+        },
+      });
     }
 
     return contract;
