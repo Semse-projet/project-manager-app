@@ -5356,7 +5356,7 @@ model VerifiedContractExecution {
   consentVerifiedAt          DateTime
   cryptographicVerifiedAt    DateTime
   verifiedAt                 DateTime
-  status                     String   @default("VERIFIED_EXECUTED")
+  status                     String
   createdAt                  DateTime @default(now())
   updatedAt                  DateTime @updatedAt
 
