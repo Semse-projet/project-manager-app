@@ -145,19 +145,18 @@ export class ContractsRepository {
     const professionalOrgId = row.professionalOrgId ?? await this.resolveProfessionalOrgId(input.tenantId, row.professionalUserId);
     const canSignAsClient = sameOrg(row.job.clientOrgId, input.orgId) && row.clientUserId === input.userId;
     const canSignAsProfessional = sameOrg(professionalOrgId, input.orgId) && row.professionalUserId === input.userId;
-    const isOps = input.roles.includes("OPS_ADMIN");
 
-    if (!canSignAsClient && !canSignAsProfessional && !isOps) {
+    // OPS_ADMIN may inspect and administer contracts, but that role never
+    // supplies a human signer's consent. Only the contract's named party in
+    // the corresponding organization can attest on their own behalf.
+    if (!canSignAsClient && !canSignAsProfessional) {
       throw new ForbiddenException("actor cannot sign this contract");
     }
 
-    if (isOps && !input.signAs) {
-      throw new ConflictException("ops signature requires explicit signAs target");
-    }
-    if (!isOps && input.signAs === "client" && !canSignAsClient) {
+    if (input.signAs === "client" && !canSignAsClient) {
       throw new ForbiddenException("actor cannot sign as client");
     }
-    if (!isOps && input.signAs === "professional" && !canSignAsProfessional) {
+    if (input.signAs === "professional" && !canSignAsProfessional) {
       throw new ForbiddenException("actor cannot sign as professional");
     }
 
