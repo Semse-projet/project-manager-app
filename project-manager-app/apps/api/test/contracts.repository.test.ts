@@ -19,7 +19,7 @@ type ContractRow = {
   job: { tenantId: string; clientOrgId: string };
 };
 
-function createRepositoryHarness() {
+function createRepositoryHarness(options: { sealBeforeUpdate?: boolean } = {}) {
   const contract: ContractRow = {
     id: "ctr_1",
     jobId: "job_1",
@@ -41,7 +41,9 @@ function createRepositoryHarness() {
       async findFirst() {
         return contract;
       },
-      async update({ data }: { data: Partial<ContractRow> & { helloSignRequestId?: string; signingUrlClient?: string | null; signingUrlPro?: string | null } }) {
+      async update({ data, where }: { where?: Record<string, unknown>; data: Partial<ContractRow> & { helloSignRequestId?: string; signingUrlClient?: string | null; signingUrlPro?: string | null } }) {
+        if (options.sealBeforeUpdate) contract.canonicalPdfSha256 = "f".repeat(64);
+        if (where && "canonicalPdfSha256" in where && contract.canonicalPdfSha256) throw { code: "P2025" };
         Object.assign(contract, data);
         return contract;
       },
@@ -202,6 +204,18 @@ test("a canonical sealed PDF refuses the legacy documentHash/pdfUrl signing rout
     contractId: "ctr_1", documentHash: "forged",
     pdfUrl: "https://forged.example/document.pdf",
   }), /provider-verified signing/);
+  assert.equal(contract.signedClientAt, null);
+  assert.equal(contract.documentHash, null);
+});
+
+
+test("legacy signer cannot race a server-original seal between read and database update", async () => {
+  const { repository, contract } = createRepositoryHarness({ sealBeforeUpdate: true });
+  await assert.rejects(repository.sign({
+    tenantId: "tenant_1", orgId: "org_client_1",
+    userId: "usr_client_1", roles: ["CLIENT"],
+    contractId: "ctr_1", documentHash: "caller_hash",
+  }), /contract sealed or modified while signing/);
   assert.equal(contract.signedClientAt, null);
   assert.equal(contract.documentHash, null);
 });
