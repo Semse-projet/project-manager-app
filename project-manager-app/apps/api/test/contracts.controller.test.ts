@@ -137,6 +137,7 @@ test("contracts controller declares permissions and wraps visible payloads", asy
   assert.equal(signed.data.signatureProvenance, "LEGACY_SELF_ATTESTED");
   assert.equal(current.data.signatureVerificationStatus, "NOT_VERIFIED");
   assert.equal(created.data.signatureVerificationStatus, "NOT_VERIFIED");
+  assert.equal(created.data.signatureProvenance, "NONE");
   assert.equal(fromEstimate.data.signatureStatus, "PENDING_SIGNATURE");
   assert.equal(requested.data.contract.signatureStatus, "PENDING_SIGNATURE");
   assert.equal(requested.data.helloSignRequestId, "hs_req_1");
