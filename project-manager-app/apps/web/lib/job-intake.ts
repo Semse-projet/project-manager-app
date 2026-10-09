@@ -121,6 +121,27 @@ export const JOB_CATEGORIES: JobCategory[] = [
     ],
   },
   {
+    id: "demolicion", name: "Demolición", subcategories: [
+      { id: "acabados_interiores", name: "Retiro de acabados interiores", basePrice: 500 },
+      { id: "pared_no_estructural", name: "Pared no estructural", basePrice: 800 },
+      { id: "estructura_exterior", name: "Deck, cobertizo o concreto", basePrice: 1500 },
+    ],
+  },
+  {
+    id: "mudanzas", name: "Mudanzas", subcategories: [
+      { id: "mudanza_completa", name: "Mudanza de casa o apartamento", basePrice: 600 },
+      { id: "pocos_articulos", name: "Pocos muebles o artículos", basePrice: 200 },
+      { id: "carga_descarga", name: "Carga y descarga de camión", basePrice: 250 },
+    ],
+  },
+  {
+    id: "lavado_presion", name: "Lavado a Presión", subcategories: [
+      { id: "concreto_entrada", name: "Entrada de autos, acera o patio", basePrice: 150 },
+      { id: "paredes_exteriores", name: "Paredes exteriores", basePrice: 300 },
+      { id: "deck_cerca", name: "Deck o cerca de madera", basePrice: 200 },
+    ],
+  },
+  {
     id: "drywall", name: "Drywall / Tablaroca", subcategories: [
       { id: "reparacion", name: "Reparación de agujeros y grietas", basePrice: 150 },
       { id: "instalacion", name: "Instalación nueva", basePrice: 400 },
@@ -167,6 +188,9 @@ export const SMART_INTAKE_CATEGORY_IDS = new Set([
   "cercas",
   "handyman",
   "albanileria",
+  "demolicion",
+  "mudanzas",
+  "lavado_presion",
 ]);
 
 export const JOB_URGENCY_OPTIONS: JobUrgencyOption[] = [
