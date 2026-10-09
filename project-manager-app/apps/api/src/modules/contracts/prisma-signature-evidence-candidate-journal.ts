@@ -14,16 +14,17 @@ export class PrismaSignatureEvidenceCandidateJournal implements PendingEvidenceJ
 
   async record(candidate: PendingSignatureEvidence): Promise<void> {
     const { tenantId, connectionId, providerId, contractId, externalRequestId,
-      documentVersionSha256, signedPdfSha256, certificateSha256,
-      signedPdfRef, certificateRef } = candidate;
+      documentVersionSha256, signedPdfSha256, certificateSha256, auditLogSha256,
+      signedPdfRef, certificateRef, auditLogRef } = candidate;
     if (candidate.status !== "PENDING_VERIFICATION" ||
-        ![documentVersionSha256, signedPdfSha256, certificateSha256]
+        ![documentVersionSha256, signedPdfSha256, certificateSha256, auditLogSha256]
           .every(value => /^[a-f0-9]{64}$/.test(value)) ||
         ![tenantId, connectionId, providerId, contractId, externalRequestId].every(Boolean) ||
-        !signedPdfRef || !certificateRef ||
+        !signedPdfRef || !certificateRef || !auditLogRef ||
         /^(?:https?:)?\/\//i.test(signedPdfRef) ||
         /^(?:https?:)?\/\//i.test(certificateRef) ||
-        signedPdfRef === certificateRef ||
+        /^(?:https?:)?\/\//i.test(auditLogRef) ||
+        new Set([signedPdfRef, certificateRef, auditLogRef]).size !== 3 ||
         candidate.signers.length !== 2) {
       throw new ConflictException("invalid or externally-addressed signature evidence candidate");
     }
@@ -43,8 +44,8 @@ export class PrismaSignatureEvidenceCandidateJournal implements PendingEvidenceJ
       await this.prisma.contractSignatureEvidenceCandidate.create({
         data: {
           tenantId, connectionId, providerId, contractId, externalRequestId,
-          documentVersionSha256, signedPdfSha256, certificateSha256,
-          signedPdfRef, certificateRef,
+          documentVersionSha256, signedPdfSha256, certificateSha256, auditLogSha256,
+          signedPdfRef, certificateRef, auditLogRef,
           signerProofsJson: candidate.signers as unknown as Prisma.InputJsonValue,
           status: "PENDING_VERIFICATION",
         },
