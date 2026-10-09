@@ -172,7 +172,7 @@ retroactiva.
 | [m1-4-documenso-envelope-adapter](specs/tools/fase-1/m1.4-documenso-envelope-adapter.spec.md) | contracts | DRAFT | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | yes | NOT_VERIFIED |
 | [m1-4-documenso-self-hosting](specs/tools/fase-1/m1.4-documenso-self-hosting.spec.md) | contracts | DRAFT | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | yes | NOT_VERIFIED |
 | [m1-4-dropbox-sign-fail-closed](specs/tools/fase-1/m1.4-dropbox-sign-fail-closed.spec.md) | contracts | DRAFT | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | yes | NOT_VERIFIED |
-| [m1-4-provider-verified-contract-execution](specs/tools/fase-1/m1.4-provider-verified-contract-execution.spec.md) | contracts | DRAFT | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | yes | NOT_VERIFIED |
+| [m1-4-provider-verified-contract-execution](specs/tools/fase-1/m1.4-provider-verified-contract-execution.spec.md) | contracts | DRAFT | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | yes | NOT_VERIFIED |
 | [m1-4-signature-dispatch-outbox](specs/tools/fase-1/m1.4-signature-dispatch-outbox.spec.md) | contracts | DRAFT | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | yes | NOT_VERIFIED |
 | [m1-4-signature-interoperability](specs/tools/fase-1/m1.4-signature-interoperability.spec.md) | contracts | DRAFT | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | yes | NOT_VERIFIED |
 | [m1-4-universal-signature-port](specs/tools/fase-1/m1.4-universal-signature-port.spec.md) | contracts | DRAFT | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | yes | NOT_VERIFIED |
