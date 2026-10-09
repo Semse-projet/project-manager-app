@@ -51,7 +51,8 @@ export class CanonicalContractOriginalSealer {
     if (!snapshot || snapshot.signedClientAt || snapshot.signedProAt ||
         snapshot.canonicalPdfSha256 || snapshot.canonicalPdfRef ||
         !snapshot.clientUser?.email || !snapshot.professionalUser?.email ||
-        snapshot.clientUserId === snapshot.professionalUserId) {
+        snapshot.clientUserId === snapshot.professionalUserId ||
+        input.actorUserId !== snapshot.clientUserId) {
       throw new ConflictException("cannot seal missing, legacy-signed or already sealed contract");
     }
     const original = await this.render({
