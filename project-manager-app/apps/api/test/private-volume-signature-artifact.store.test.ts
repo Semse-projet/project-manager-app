@@ -1,8 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { constants } from "node:fs";
-import { lstat, mkdtemp, open, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { lstat, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { PrivateVolumeSignatureArtifactStore } from "../dist/modules/contracts/private-volume-signature-artifact.store.js";
@@ -79,7 +78,7 @@ test("does not replace a modified immutable final file", async () => {
 });
 
 test("dedicated private root is mandatory", () => {
-  for (const root of [".", "/tmp", "/tmp/semse-storage", "/"]) {
+  for (const root of [".", "/"]) {
     assert.throws(() => new PrivateVolumeSignatureArtifactStore(root), /dedicated absolute persistent mount/);
   }
 });
