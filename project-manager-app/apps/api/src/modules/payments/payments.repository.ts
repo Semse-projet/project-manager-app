@@ -445,12 +445,19 @@ export class PaymentsRepository {
         // el camino manual como en el auto-release.
         const milestoneRow = await db.milestone.findUnique({
           where: { id: input.milestoneId },
-          select: { status: true, evidenceItems: { select: { required: true, status: true } } }
+          select: { projectId: true, status: true, evidenceItems: { select: { required: true, status: true } } }
         });
         if (!milestoneRow || milestoneRow.status !== "APPROVED") {
           throw new ConflictException(
             `milestone '${input.milestoneId}' must be APPROVED to reserve funds (current: ${milestoneRow?.status ?? "not found"})`
           );
+        }
+        // A caller must never charge escrow A using an approved milestone of
+        // project B (including another tenant). Bind both IDs using rows read
+        // INSIDE this same Serializable reservation transaction, regardless of
+        // whether signature verification is temporarily in shadow mode.
+        if (milestoneRow.projectId !== escrow.projectId) {
+          throw new ConflictException("milestone does not belong to escrow project");
         }
         const evidenceMode = resolveEvidenceRevalidationMode();
         if (evidenceMode !== "off") {
