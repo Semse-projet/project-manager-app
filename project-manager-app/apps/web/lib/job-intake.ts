@@ -114,6 +114,13 @@ export const JOB_CATEGORIES: JobCategory[] = [
     ],
   },
   {
+    id: "albanileria", name: "Albañilería y Concreto", subcategories: [
+      { id: "losa_entrada", name: "Losa, patio o entrada de autos", basePrice: 3000 },
+      { id: "muro_ladrillo", name: "Muro de ladrillo o bloque", basePrice: 1500 },
+      { id: "reparacion_concreto", name: "Reparación de concreto", basePrice: 400 },
+    ],
+  },
+  {
     id: "drywall", name: "Drywall / Tablaroca", subcategories: [
       { id: "reparacion", name: "Reparación de agujeros y grietas", basePrice: 150 },
       { id: "instalacion", name: "Instalación nueva", basePrice: 400 },
@@ -159,6 +166,7 @@ export const SMART_INTAKE_CATEGORY_IDS = new Set([
   "climatizacion",
   "cercas",
   "handyman",
+  "albanileria",
 ]);
 
 export const JOB_URGENCY_OPTIONS: JobUrgencyOption[] = [
