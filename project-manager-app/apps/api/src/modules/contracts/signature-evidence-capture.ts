@@ -46,6 +46,7 @@ export interface ProviderCompletionBundle {
   signers: readonly ReportedSigner[];
   signedPdf: Uint8Array;
   certificate: Uint8Array;
+  auditLog: Uint8Array;
   certificateMimeType: "application/pdf" | "application/json";
 }
 
@@ -54,7 +55,7 @@ export interface EvidenceArtifactStore {
   putImmutable(input: {
     tenantId: string;
     contractId: string;
-    kind: "SIGNED_PDF" | "PROVIDER_CERTIFICATE";
+    kind: "SIGNED_PDF" | "PROVIDER_CERTIFICATE" | "PROVIDER_AUDIT_LOG";
     sha256: string;
     content: Uint8Array;
     mimeType: string;
@@ -70,8 +71,10 @@ export interface PendingSignatureEvidence {
   documentVersionSha256: string;
   signedPdfSha256: string;
   certificateSha256: string;
+  auditLogSha256: string;
   signedPdfRef: string;
   certificateRef: string;
+  auditLogRef: string;
   signers: readonly ReportedSigner[];
   status: SignatureEvidenceStatus;
 }
@@ -183,9 +186,14 @@ export class SignatureEvidenceCapture {
         !["application/pdf", "application/json"].includes(bundle.certificateMimeType)) {
       throw new Error("missing or malformed provider certificate");
     }
+    if (!(bundle.auditLog instanceof Uint8Array) || bundle.auditLog.length < 8 ||
+        Buffer.from(bundle.auditLog.subarray(0, 5)).toString("ascii") !== "%PDF-") {
+      throw new Error("missing or malformed provider audit log PDF");
+    }
 
     const signedPdfSha256 = digest(bundle.signedPdf);
     const certificateSha256 = digest(bundle.certificate);
+    const auditLogSha256 = digest(bundle.auditLog);
     // Store immutable artifacts BEFORE journal record. On partial failure,
     // an orphan may remain but no verified execution can be fabricated.
     const signedPdfRef = await this.artifacts.putImmutable({
@@ -198,7 +206,13 @@ export class SignatureEvidenceCapture {
       kind: "PROVIDER_CERTIFICATE", sha256: certificateSha256,
       content: bundle.certificate, mimeType: bundle.certificateMimeType,
     });
-    if (!signedPdfRef || !certificateRef || signedPdfRef === certificateRef) {
+    const auditLogRef = await this.artifacts.putImmutable({
+      tenantId: agreement.tenantId, contractId: agreement.contractId,
+      kind: "PROVIDER_AUDIT_LOG", sha256: auditLogSha256,
+      content: bundle.auditLog, mimeType: "application/pdf",
+    });
+    if (!signedPdfRef || !certificateRef || !auditLogRef ||
+        new Set([signedPdfRef, certificateRef, auditLogRef]).size !== 3) {
       throw new Error("immutable evidence storage did not return unique private references");
     }
 
@@ -211,8 +225,10 @@ export class SignatureEvidenceCapture {
       documentVersionSha256: agreement.documentVersionSha256,
       signedPdfSha256,
       certificateSha256,
+      auditLogSha256,
       signedPdfRef,
       certificateRef,
+      auditLogRef,
       signers: bundle.signers.map(s => ({ ...s })),
       status: "PENDING_VERIFICATION",
     };
