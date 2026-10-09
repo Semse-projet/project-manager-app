@@ -24,6 +24,8 @@ type StoredContract = {
   signedProAt: Date | null;
   pdfUrl: string | null;
   documentHash: string | null;
+  canonicalPdfSha256: string | null;
+  canonicalPdfRef: string | null;
   job: {
     tenantId: string;
     clientOrgId: string;
@@ -41,6 +43,8 @@ const contractSelect = {
   signedProAt: true,
   pdfUrl: true,
   documentHash: true,
+  canonicalPdfSha256: true,
+  canonicalPdfRef: true,
   job: {
     select: {
       tenantId: true,
@@ -140,6 +144,12 @@ export class ContractsRepository {
 
     if (!row) {
       throw new NotFoundException(`Contract '${input.contractId}' not found`);
+    }
+
+    // A sealed server-origin PDF may only be signed through a verified
+    // provider/step-up path; a caller-supplied legacy hash cannot attest it.
+    if (row.canonicalPdfSha256 || row.canonicalPdfRef) {
+      throw new ConflictException("sealed contract requires provider-verified signing and consent");
     }
 
     const professionalOrgId = row.professionalOrgId ?? await this.resolveProfessionalOrgId(input.tenantId, row.professionalUserId);
