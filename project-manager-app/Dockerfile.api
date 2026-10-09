@@ -93,7 +93,9 @@ COPY --from=builder /app/scripts ./scripts
 
 # Copy pre-built knowledge graph and install graphify for runtime queries
 COPY --from=builder /app/graphify-out ./graphify-out
-RUN apk add --no-cache py3-pip && pip3 install graphifyy --quiet --break-system-packages
+# Independent PAdES/CMS PDF signature validator (only runs with a pinned,
+# approved NSS trust DB; executable presence alone does not activate signing).
+RUN apk add --no-cache py3-pip poppler-utils && pip3 install graphifyy --quiet --break-system-packages
 
 EXPOSE 4000
 
