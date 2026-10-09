@@ -14,6 +14,8 @@ type ContractRow = {
   signedProAt: Date | null;
   pdfUrl: string | null;
   documentHash: string | null;
+  canonicalPdfSha256: string | null;
+  canonicalPdfRef: string | null;
   job: { tenantId: string; clientOrgId: string };
 };
 
@@ -29,6 +31,8 @@ function createRepositoryHarness() {
     signedProAt: null,
     pdfUrl: null,
     documentHash: null,
+    canonicalPdfSha256: null,
+    canonicalPdfRef: null,
     job: { tenantId: "tenant_1", clientOrgId: "org_client_1" }
   };
 
@@ -185,4 +189,19 @@ test("valid signer cannot override the opposite party's signature role", async (
   }), ForbiddenException);
   assert.equal(contract.signedClientAt, null);
   assert.equal(contract.signedProAt, null);
+});
+
+
+test("a canonical sealed PDF refuses the legacy documentHash/pdfUrl signing route", async () => {
+  const { repository, contract } = createRepositoryHarness();
+  contract.canonicalPdfSha256 = "a".repeat(64);
+  contract.canonicalPdfRef = `private-signatures/${"b".repeat(64)}/${"c".repeat(64)}/ORIGINAL_PDF/${"a".repeat(64)}`;
+  await assert.rejects(repository.sign({
+    tenantId: "tenant_1", orgId: "org_client_1",
+    userId: "usr_client_1", roles: ["CLIENT"],
+    contractId: "ctr_1", documentHash: "forged",
+    pdfUrl: "https://forged.example/document.pdf",
+  }), /provider-verified signing/);
+  assert.equal(contract.signedClientAt, null);
+  assert.equal(contract.documentHash, null);
 });
