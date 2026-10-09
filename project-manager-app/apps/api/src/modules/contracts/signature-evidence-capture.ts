@@ -136,7 +136,9 @@ export class SignatureEvidenceCapture {
         new Set(agreement.parties.map(p => p.role)).size !== 2 ||
         !agreement.parties.some(p => p.role === "client") ||
         !agreement.parties.some(p => p.role === "professional") ||
-        agreement.parties.some(p => !p.email || !p.userId)) {
+        agreement.parties.some(p => !p.email || !p.userId) ||
+        new Set(agreement.parties.map(p => p.userId)).size !== 2 ||
+        new Set(agreement.parties.map(p => normalizedEmail(p.email))).size !== 2) {
       throw new Error("canonical parties must contain client and professional");
     }
 
