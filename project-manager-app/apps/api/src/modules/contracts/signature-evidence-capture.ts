@@ -55,7 +55,7 @@ export interface EvidenceArtifactStore {
   putImmutable(input: {
     tenantId: string;
     contractId: string;
-    kind: "SIGNED_PDF" | "PROVIDER_CERTIFICATE" | "PROVIDER_AUDIT_LOG";
+    kind: "ORIGINAL_PDF" | "SIGNED_PDF" | "PROVIDER_CERTIFICATE" | "PROVIDER_AUDIT_LOG";
     sha256: string;
     content: Uint8Array;
     mimeType: string;

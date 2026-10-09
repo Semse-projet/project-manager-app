@@ -24,6 +24,8 @@ type StoredContract = {
   signedProAt: Date | null;
   pdfUrl: string | null;
   documentHash: string | null;
+  canonicalPdfSha256: string | null;
+  canonicalPdfRef: string | null;
   job: {
     tenantId: string;
     clientOrgId: string;
@@ -41,6 +43,8 @@ const contractSelect = {
   signedProAt: true,
   pdfUrl: true,
   documentHash: true,
+  canonicalPdfSha256: true,
+  canonicalPdfRef: true,
   job: {
     select: {
       tenantId: true,
@@ -142,6 +146,12 @@ export class ContractsRepository {
       throw new NotFoundException(`Contract '${input.contractId}' not found`);
     }
 
+    // A sealed server-origin PDF may only be signed through a verified
+    // provider/step-up path; a caller-supplied legacy hash cannot attest it.
+    if (row.canonicalPdfSha256 || row.canonicalPdfRef) {
+      throw new ConflictException("sealed contract requires provider-verified signing and consent");
+    }
+
     const professionalOrgId = row.professionalOrgId ?? await this.resolveProfessionalOrgId(input.tenantId, row.professionalUserId);
     const canSignAsClient = sameOrg(row.job.clientOrgId, input.orgId) && row.clientUserId === input.userId;
     const canSignAsProfessional = sameOrg(professionalOrgId, input.orgId) && row.professionalUserId === input.userId;
@@ -178,16 +188,30 @@ export class ContractsRepository {
       return this.toRecord(row, professionalOrgId);
     }
 
-    const updated = (await this.prisma.contract.update({
-      where: { id: row.id },
-      data: {
-        signedClientAt: targetRole === "client" ? row.signedClientAt ?? new Date() : row.signedClientAt,
-        signedProAt: targetRole === "professional" ? row.signedProAt ?? new Date() : row.signedProAt,
-        documentHash: row.documentHash ?? input.documentHash,
-        pdfUrl: row.pdfUrl ?? input.pdfUrl
-      },
-      select: contractSelect
-    })) as StoredContract;
+    let updated: StoredContract;
+    try {
+      // The update itself must atomically prove the PDF is STILL unsealed;
+      // a read-only precondition is unsafe against seal/sign concurrency.
+      updated = (await this.prisma.contract.update({
+        where: {
+          id: row.id,
+          canonicalPdfSha256: null, canonicalPdfRef: null,
+          documentHash: row.documentHash,
+          ...(targetRole === "client" ? { signedClientAt: null } : { signedProAt: null }),
+        },
+        data: {
+          ...(targetRole === "client" ? { signedClientAt: new Date() } : { signedProAt: new Date() }),
+          documentHash: row.documentHash ?? input.documentHash,
+          pdfUrl: row.pdfUrl ?? input.pdfUrl
+        },
+        select: contractSelect
+      })) as StoredContract;
+    } catch (error) {
+      if (error && typeof error === "object" && "code" in error && error.code === "P2025") {
+        throw new ConflictException("contract sealed or modified while signing; legacy attestation rejected");
+      }
+      throw error;
+    }
 
     return this.toRecord(updated, professionalOrgId);
   }

@@ -6,7 +6,7 @@ import type { EvidenceArtifactStore } from "./signature-evidence-capture.js";
 
 const MAX_EVIDENCE_BYTES = 25 * 1024 * 1024;
 const SHA = /^[a-f0-9]{64}$/;
-const allowedKinds = new Set(["SIGNED_PDF", "PROVIDER_CERTIFICATE", "PROVIDER_AUDIT_LOG"]);
+const allowedKinds = new Set(["ORIGINAL_PDF", "SIGNED_PDF", "PROVIDER_CERTIFICATE", "PROVIDER_AUDIT_LOG"]);
 
 /**
  * Private, immutable storage on a dedicated persistent filesystem.
@@ -34,7 +34,7 @@ export class PrivateVolumeSignatureArtifactStore implements EvidenceArtifactStor
   async putImmutable(input: {
     tenantId: string;
     contractId: string;
-    kind: "SIGNED_PDF" | "PROVIDER_CERTIFICATE" | "PROVIDER_AUDIT_LOG";
+    kind: "ORIGINAL_PDF" | "SIGNED_PDF" | "PROVIDER_CERTIFICATE" | "PROVIDER_AUDIT_LOG";
     sha256: string;
     content: Uint8Array;
     mimeType: string;
