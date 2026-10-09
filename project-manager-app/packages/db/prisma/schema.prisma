@@ -662,6 +662,8 @@ model Contract {
   documentHash       String?
   // Server-owned digest of immutable ORIGINAL PDF; legacy self-attested hashes do not qualify.
   canonicalPdfSha256 String?
+  // Private immutable original generated from server-approved terms; never a public PDF URL.
+  canonicalPdfRef    String?
   // HelloSign / Dropbox Sign integration (1.4.A)
   helloSignRequestId String? // signature_request_id from HelloSign
   signingUrlClient   String? // embedded signing URL for client (expires)
