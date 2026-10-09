@@ -18,7 +18,7 @@ export const FLOORING_QUESTIONS: IntakeQuestion[] = [
     options: [
       { label: { es: "Instalación de piso nuevo", en: "New floor installation" }, value: "new_install" },
       { label: { es: "Reemplazo de piso existente", en: "Replace existing floor" }, value: "replacement" },
-      { label: { es: "Pulido y restauración", en: "Refinishing / polishing" }, value: "repair_only" },
+      { label: { es: "Pulido y restauración", en: "Refinishing / polishing" }, value: "refinishing" },
       { label: { es: "Reparación de área puntual", en: "Spot repair" }, value: "repair_only" },
     ],
   },

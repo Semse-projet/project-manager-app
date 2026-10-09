@@ -19,7 +19,7 @@ export const LANDSCAPING_QUESTIONS: IntakeQuestion[] = [
       { label: { es: "Mantenimiento regular", en: "Routine maintenance" }, value: "standard" },
       { label: { es: "Diseño de jardín", en: "Garden design" }, value: "new_install" },
       { label: { es: "Poda o remoción de árboles", en: "Tree pruning or removal" }, value: "tree_work" },
-      { label: { es: "Sistema de riego", en: "Irrigation system" }, value: "new_install" },
+      { label: { es: "Sistema de riego", en: "Irrigation system" }, value: "irrigation" },
       { label: { es: "Áreas duras (patio, caminos)", en: "Hardscaping (patio, walkways)" }, value: "structural" },
     ],
   },
@@ -60,7 +60,7 @@ export const LANDSCAPING_QUESTIONS: IntakeQuestion[] = [
     options: [
       { label: { es: "Único", en: "One-time" }, value: "one_time" },
       { label: { es: "Semanal o quincenal", en: "Weekly or biweekly" }, value: "recurring" },
-      { label: { es: "Mensual", en: "Monthly" }, value: "recurring" },
+      { label: { es: "Mensual", en: "Monthly" }, value: "monthly" },
     ],
   },
   {

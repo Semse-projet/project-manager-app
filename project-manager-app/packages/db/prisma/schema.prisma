@@ -5366,3 +5366,34 @@ model VerifiedContractExecution {
   @@unique([tenantId, connectionId, providerId, externalRequestId], map: "VerifiedContractExecution_external_uniq")
   @@index([tenantId, contractId, status], map: "VerifiedContractExecution_gate_idx")
 }
+
+/// Read-only to verification preflight; issued only by a separately authorized
+/// identity/step-up service after human action, NEVER from Documenso webhooks.
+/// Preserve the EXACT ISO8601 timestamp strings bound into the MAC; converting
+/// from/to DateTime would change their canonical signing serialization.
+model ContractSignerStepUpReceipt {
+  id                    String    @id @default(cuid())
+  tenantId              String
+  contractId            String
+  connectionId          String
+  providerId            String
+  externalRequestId     String
+  documentVersionSha256 String
+  userId                String
+  role                  String
+  email                 String
+  providerRecipientId   String
+  authChallengeId       String
+  stepUpMethod          String
+  identityVerifiedAt    String
+  consentedAt           String
+  challengeExpiresAt    String
+  mac                   String
+  issuerServiceId       String
+  createdAt             DateTime  @default(now())
+  revokedAt             DateTime?
+
+  @@unique([tenantId, contractId, connectionId, providerId, externalRequestId, role], map: "ContractSignerStepUpReceipt_party_uniq")
+  @@unique([tenantId, authChallengeId], map: "ContractSignerStepUpReceipt_challenge_uniq")
+  @@index([tenantId, contractId, revokedAt], map: "ContractSignerStepUpReceipt_contract_idx")
+}
