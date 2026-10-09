@@ -59,7 +59,7 @@ test("client-supplied scope, document hash, recipient and user substitutions fai
     const changed = fixture().map(x => ({ ...x }));
     changed[0] = { ...changed[0]!, [field]: value } as never;
     assert.throws(() => assertIndependentSignerConsents(signer, changed, key),
-      /mismatch|independent|receipt shape/);
+      /mismatch|independent|receipt shape|missing or duplicate signer consent/);
   }
 });
 
