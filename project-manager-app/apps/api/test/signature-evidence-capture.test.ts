@@ -6,6 +6,7 @@ import { SignatureEvidenceCapture } from "../dist/modules/contracts/signature-ev
 const unsignedVersion = "a".repeat(64);
 const pdf = Buffer.from("%PDF-1.7\n1 0 obj\n<<>>\nendobj\n%%EOF");
 const cert = Buffer.from('{"audit":"provider-certified-archive","signed":true}');
+const auditLog = Buffer.from("%PDF-1.7\nAUDIT LOG\n%%EOF");
 
 const agreement = {
   tenantId: "tenant_a", connectionId: "conn_a", contractId: "contract_a",
@@ -26,7 +27,7 @@ const completion = {
       providerSignerId: "provider_pro", consentRecordedAt: "2026-10-01T13:00:00Z",
       signedAt: "2026-10-01T13:01:00Z", signedDocumentVersionSha256: unsignedVersion },
   ],
-  signedPdf: pdf, certificate: cert, certificateMimeType: "application/json" as const,
+  signedPdf: pdf, certificate: cert, auditLog, certificateMimeType: "application/json" as const,
 };
 
 function harness(overrides: Record<string, unknown> = {}, failStore = false) {
@@ -51,8 +52,9 @@ test("captures only PENDING_VERIFICATION and digests the *actual* PDF and certif
   assert.equal(candidate.status, "PENDING_VERIFICATION");
   assert.equal(candidate.signedPdfSha256, createHash("sha256").update(pdf).digest("hex"));
   assert.equal(candidate.certificateSha256, createHash("sha256").update(cert).digest("hex"));
+  assert.equal(candidate.auditLogSha256, createHash("sha256").update(auditLog).digest("hex"));
   assert.equal(candidate.signers.length, 2);
-  assert.equal(h.stored.length, 2);
+  assert.equal(h.stored.length, 3);
   assert.equal(h.journaled.length, 1);
   assert.equal(h.calls(), 1);
   assert.ok(!("fullyExecutedAt" in candidate));
@@ -63,10 +65,11 @@ test("does not trust provider COMPLETED without sealed artifacts", async () => {
     { signedPdf: new Uint8Array() },
     { signedPdf: Buffer.from("http://untrusted/signed.pdf") },
     { certificate: new Uint8Array() },
+    { auditLog: new Uint8Array() },
     { certificateMimeType: "text/plain" },
   ]) {
     const h = harness(value);
-    await assert.rejects(h.capture.capture(agreement), /signed PDF|provider certificate/);
+    await assert.rejects(h.capture.capture(agreement), /signed PDF|provider certificate|audit log/);
     assert.equal(h.stored.length, 0);
     assert.equal(h.journaled.length, 0);
   }
