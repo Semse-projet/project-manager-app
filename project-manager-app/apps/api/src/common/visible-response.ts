@@ -90,7 +90,11 @@ export function toVisibleContract<T extends RecordLike>(contract: T | null): T |
 
   return {
     ...contract,
+    // Backwards-compatible signatureStatus describes the legacy timestamp
+    // count ONLY, never legal/provider verification or escrow eligibility.
     signatureStatus,
+    signatureVerificationStatus: "NOT_VERIFIED",
+    signatureProvenance: "LEGACY_SELF_ATTESTED",
     signatureProgress: {
       clientSigned: signedClient,
       professionalSigned: signedProfessional,
