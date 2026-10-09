@@ -146,3 +146,17 @@ test("replay/multiple callbacks require journal-level uniqueness, never auto-pro
   // The persistent journal is responsible for deduplication before calling
   // an eventual provider-verification workflow, NOT this pure capture stage.
 });
+
+
+test("canonical agreement cannot reuse the same identity or email for both parties", async () => {
+  for (const professional of [
+    { ...agreement.parties[1]!, userId: "client_1" },
+    { ...agreement.parties[1]!, email: "CLIENT@example.com" },
+  ]) {
+    const h = harness();
+    await assert.rejects(h.capture.capture({
+      ...agreement, parties: [agreement.parties[0]!, professional],
+    }), /canonical parties/);
+    assert.equal(h.calls(), 0);
+  }
+});
