@@ -748,14 +748,14 @@ function resolveFirstAnswer(answers: IntakeAnswer[], questionId: string): string
 }
 
 const HIGH_COMPLEXITY_SIGNALS = new Set([
-  "full_remodel", "new_install", "replacement", "structural", "relocate", "scaffolding",
+  "full_remodel", "new_install", "irrigation", "replacement", "structural", "relocate", "scaffolding",
   "post_construction", "premium", "premium_appliances", "full_exterior", "moisture_mold",
   "structural_damage", "water_damage", "pest", "3_plus", "over_2000_sqft", "over_500_sqft",
   "extra_large", "significant",
 ]);
 
 const LOW_COMPLEXITY_SIGNALS = new Set([
-  "cosmetic", "repair_only", "patches", "good", "no_move", "fixtures_only",
+  "cosmetic", "repair_only", "refinishing", "patches", "good", "no_move", "fixtures_only",
   "no_appliances", "budget", "no", "minor", "standard", "one_time", "under_500",
   "under_500_sqft",
 ]);
