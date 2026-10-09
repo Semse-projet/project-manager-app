@@ -132,7 +132,11 @@ test("contracts controller declares permissions and wraps visible payloads", asy
   assert.equal(created.requestId, "req_ctr_1");
   assert.equal(created.data.signatureStatus, "PENDING_SIGNATURE");
   assert.equal(current.data.signatureStatus, "PARTIALLY_SIGNED");
-  assert.equal(signed.data.signatureStatus, "FULLY_SIGNED");
+  assert.equal(signed.data.signatureStatus, "FULLY_SIGNED"); // legacy timestamp compatibility
+  assert.equal(signed.data.signatureVerificationStatus, "NOT_VERIFIED");
+  assert.equal(signed.data.signatureProvenance, "LEGACY_SELF_ATTESTED");
+  assert.equal(current.data.signatureVerificationStatus, "NOT_VERIFIED");
+  assert.equal(created.data.signatureVerificationStatus, "NOT_VERIFIED");
   assert.equal(fromEstimate.data.signatureStatus, "PENDING_SIGNATURE");
   assert.equal(requested.data.contract.signatureStatus, "PENDING_SIGNATURE");
   assert.equal(requested.data.helloSignRequestId, "hs_req_1");
