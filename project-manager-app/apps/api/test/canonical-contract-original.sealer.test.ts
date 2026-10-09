@@ -154,3 +154,11 @@ test("real PDF renderer produces bytes only for structured, canonical matching p
   await assert.rejects(renderCanonicalContractPdf({ ...input,
     termsJson: { ...terms, materials: Array(101).fill("material") } }), /too_big|Array must contain at most 100 element|invalid/i);
 });
+
+
+test("a different actor cannot seal the client account's canonical legal document", async () => {
+  const h = harness();
+  await assert.rejects(h.svc.seal({ ...scope, actorUserId: "ops_admin" }),
+    /legacy-signed or already sealed/);
+  assert.deepEqual(h.calls, ["initial"]);
+});
