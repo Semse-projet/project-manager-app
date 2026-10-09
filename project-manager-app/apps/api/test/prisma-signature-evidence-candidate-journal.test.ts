@@ -6,9 +6,10 @@ const valid = {
   tenantId: "tenant_a", connectionId: "conn_a",
   contractId: "contract_a", providerId: "documenso", externalRequestId: "envelope_123",
   documentVersionSha256: "a".repeat(64),
-  signedPdfSha256: "b".repeat(64), certificateSha256: "c".repeat(64),
+  signedPdfSha256: "b".repeat(64), certificateSha256: "c".repeat(64), auditLogSha256: "d".repeat(64),
   signedPdfRef: "private/tenant_a/signed.pdf",
   certificateRef: "private/tenant_a/certificate.json",
+  auditLogRef: "private/tenant_a/audit.pdf",
   signers: [
     { role: "client", userId: "user_a" },
     { role: "professional", userId: "user_b" },
