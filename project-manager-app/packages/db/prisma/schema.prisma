@@ -5315,8 +5315,10 @@ model ContractSignatureEvidenceCandidate {
   documentVersionSha256   String
   signedPdfSha256         String
   certificateSha256       String
+  auditLogSha256          String
   signedPdfRef            String
   certificateRef          String
+  auditLogRef             String
   signerProofsJson        Json
   status                  String   @default("PENDING_VERIFICATION")
   createdAt               DateTime @default(now())
