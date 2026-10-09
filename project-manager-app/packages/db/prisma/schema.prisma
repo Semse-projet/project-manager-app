@@ -660,6 +660,8 @@ model Contract {
   signedProAt        DateTime?
   pdfUrl             String?
   documentHash       String?
+  // Server-owned digest of immutable ORIGINAL PDF; legacy self-attested hashes do not qualify.
+  canonicalPdfSha256 String?
   // HelloSign / Dropbox Sign integration (1.4.A)
   helloSignRequestId String? // signature_request_id from HelloSign
   signingUrlClient   String? // embedded signing URL for client (expires)
@@ -5300,4 +5302,65 @@ model SignatureDispatchOutbox {
   @@unique([connectionId, providerId, externalRequestId], map: "SignatureDispatchOutbox_external_uniq")
   @@index([tenantId, connectionId, status, updatedAt], map: "SignatureDispatchOutbox_reconcile_idx")
   @@index([tenantId, contractId], map: "SignatureDispatchOutbox_contract_idx")
+}
+
+/// Evidence candidates are untrusted until an independent authenticated
+/// provider/PDF/certificate verification + policy workflow promotes them.
+/// This table has NO status capable of independently authorizing escrow.
+model ContractSignatureEvidenceCandidate {
+  id                      String   @id @default(cuid())
+  tenantId                String
+  connectionId            String
+  contractId              String
+  providerId              String
+  externalRequestId       String
+  documentVersionSha256   String
+  signedPdfSha256         String
+  certificateSha256       String
+  auditLogSha256          String
+  signedPdfRef            String
+  certificateRef          String
+  auditLogRef             String
+  signerProofsJson        Json
+  status                  String   @default("PENDING_VERIFICATION")
+  createdAt               DateTime @default(now())
+
+  // Do not silently replace an existing candidate for the same envelope.
+  // Retain raw signed artifacts in scoped private immutable storage.
+  @@unique([tenantId, connectionId, providerId, externalRequestId, contractId, documentVersionSha256], map: "SignatureEvidenceCandidate_scope_uniq")
+  @@index([tenantId, contractId, createdAt], map: "SignatureEvidenceCandidate_contract_idx")
+}
+
+
+/// Authoritative execution proof is separate from unverified legacy timestamps.
+/// There is intentionally NO HTTP create endpoint and NO automatic promotion
+/// from ContractSignatureEvidenceCandidate; trusted verifier + policy must be
+/// implemented and certified before any rows are written.
+model VerifiedContractExecution {
+  id                         String   @id @default(cuid())
+  tenantId                   String
+  contractId                 String
+  connectionId               String
+  documentVersionSha256      String
+  clientUserId               String
+  professionalUserId         String
+  providerId                 String
+  externalRequestId          String
+  signedPdfSha256            String
+  certificateSha256          String
+  auditLogSha256             String
+  signedPdfRef               String
+  certificateRef             String
+  auditLogRef                String
+  authorizedPolicyDecisionId String
+  consentVerifiedAt          DateTime
+  cryptographicVerifiedAt    DateTime
+  verifiedAt                 DateTime
+  status                     String
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+
+  @@unique([tenantId, contractId, documentVersionSha256], map: "VerifiedContractExecution_scope_uniq")
+  @@unique([tenantId, connectionId, providerId, externalRequestId], map: "VerifiedContractExecution_external_uniq")
+  @@index([tenantId, contractId, status], map: "VerifiedContractExecution_gate_idx")
 }

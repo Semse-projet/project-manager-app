@@ -3,6 +3,7 @@ import prismaClientPackage from "@prisma/client";
 import type { Prisma as PrismaTypes } from "@prisma/client";
 import { type PaymentTxnRecord } from "../../common/domain-store.js";
 import { ReleaseAlreadyActiveError } from "./escrow-release.command.js";
+import { assertVerifiedEscrowReservation } from "./verified-escrow-reservation.gate.js";
 import { evaluateRequiredEvidence, resolveEvidenceRevalidationMode } from "../milestones/evidence-readiness.js";
 import { ActorContextService } from "../../infrastructure/persistence/actor-context.service.js";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
@@ -292,6 +293,9 @@ export class PaymentsRepository {
   }) {
     return this.prisma.$transaction(async (tx) => {
       const db = tx as PaymentTx;
+      // Required transactional proof check BEFORE any escrow reservation.
+      // Shadow until a separately reviewed staging canary enables enforce.
+      await assertVerifiedEscrowReservation(tx, input.projectId, "deposit");
       const existing = await db.paymentEscrow.findFirst({
         where: {
           projectId: input.projectId,
@@ -342,7 +346,7 @@ export class PaymentsRepository {
         escrow,
         transaction: this.toRecord(transaction)
       };
-    });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   }
 
   /**
@@ -381,6 +385,10 @@ export class PaymentsRepository {
         if (!escrow || escrow.deletedAt) {
           throw new NotFoundException(`Escrow '${input.escrowId}' not found`);
         }
+
+        // Shared guard for manual, agent and auto-release; provider is called
+        // only AFTER this transaction successfully reserves the payout.
+        await assertVerifiedEscrowReservation(tx, escrow.projectId, "release");
 
         // `escrow.totalAmount` is bumped optimistically at deposit reservation
         // time (see depositFunds) and is never decremented if that deposit
