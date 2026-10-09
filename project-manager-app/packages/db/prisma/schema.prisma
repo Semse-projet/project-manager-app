@@ -5301,3 +5301,28 @@ model SignatureDispatchOutbox {
   @@index([tenantId, connectionId, status, updatedAt], map: "SignatureDispatchOutbox_reconcile_idx")
   @@index([tenantId, contractId], map: "SignatureDispatchOutbox_contract_idx")
 }
+
+/// Evidence candidates are untrusted until an independent authenticated
+/// provider/PDF/certificate verification + policy workflow promotes them.
+/// This table has NO status capable of independently authorizing escrow.
+model ContractSignatureEvidenceCandidate {
+  id                      String   @id @default(cuid())
+  tenantId                String
+  connectionId            String
+  contractId              String
+  providerId              String
+  externalRequestId       String
+  documentVersionSha256   String
+  signedPdfSha256         String
+  certificateSha256       String
+  signedPdfRef            String
+  certificateRef          String
+  signerProofsJson        Json
+  status                  String   @default("PENDING_VERIFICATION")
+  createdAt               DateTime @default(now())
+
+  // Do not silently replace an existing candidate for the same envelope.
+  // Retain raw signed artifacts in scoped private immutable storage.
+  @@unique([tenantId, connectionId, providerId, externalRequestId, contractId, documentVersionSha256], map: "SignatureEvidenceCandidate_scope_uniq")
+  @@index([tenantId, contractId, createdAt], map: "SignatureEvidenceCandidate_contract_idx")
+}
