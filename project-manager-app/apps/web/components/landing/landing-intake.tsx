@@ -547,7 +547,7 @@ export function LandingIntake() {
               Calcula un rango antes de entrar
             </h3>
             <p style={{ fontSize: 14, color: "var(--muted)", lineHeight: 1.6 }}>
-              Estimaciones automáticas con preguntas guiadas, disponibles en las quince categorías del catálogo.
+              Estimaciones automáticas con preguntas guiadas, disponibles en las dieciocho categorías del catálogo.
             </p>
           </div>
 

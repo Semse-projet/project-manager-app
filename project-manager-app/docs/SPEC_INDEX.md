@@ -75,9 +75,12 @@ retroactiva.
 | [api-reservations](specs/api/reservations.spec.md) | reservations | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-23 |
 | [api-sense-workspace](specs/api/sense-workspace.spec.md) | workspace | IMPLEMENTED | legacy | legacy | legacy | legacy | legacy | low | yes | 2026-07-18 |
 | [auth.session-revocation-architecture](specs/api/session-revocation-architecture.spec.md) | auth | REVIEW | legacy | legacy | legacy | legacy | legacy | critical | yes | 2026-07-23 |
+| [api-smart-intake-demolition](specs/api/smart-intake-demolition.spec.md) | smart-intake | DRAFT | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | yes | NOT_VERIFIED |
 | [api-smart-intake-fencing-decks](specs/api/smart-intake-fencing-decks.spec.md) | smart-intake | DRAFT | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | yes | NOT_VERIFIED |
 | [api-smart-intake-handyman](specs/api/smart-intake-handyman.spec.md) | smart-intake | DRAFT | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | yes | NOT_VERIFIED |
 | [api-smart-intake-masonry-concrete](specs/api/smart-intake-masonry-concrete.spec.md) | smart-intake | DRAFT | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | yes | NOT_VERIFIED |
+| [api-smart-intake-moving](specs/api/smart-intake-moving.spec.md) | smart-intake | DRAFT | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | low | yes | NOT_VERIFIED |
+| [api-smart-intake-pressure-washing](specs/api/smart-intake-pressure-washing.spec.md) | smart-intake | DRAFT | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | low | yes | NOT_VERIFIED |
 | [api.travel-assignments-settlement](specs/api/travel.spec.md) | travel | APPROVED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-25 |
 | [api.vision-service-security](specs/api/vision-service-security.spec.md) | evidence | VERIFIED | legacy | legacy | legacy | legacy | legacy | critical | yes | 2026-07-23 |
 | [api.worker-verification-remediation](specs/api/worker-verification-remediation.spec.md) | trust | REVIEW | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | yes | 2026-10-04 |

@@ -15,6 +15,9 @@ import { HVAC_QUESTIONS } from "./questions/hvac.questions.js";
 import { FENCING_DECKS_QUESTIONS } from "./questions/fencing-decks.questions.js";
 import { HANDYMAN_QUESTIONS } from "./questions/handyman.questions.js";
 import { MASONRY_CONCRETE_QUESTIONS } from "./questions/masonry-concrete.questions.js";
+import { DEMOLITION_QUESTIONS } from "./questions/demolition.questions.js";
+import { MOVING_QUESTIONS } from "./questions/moving.questions.js";
+import { PRESSURE_WASHING_QUESTIONS } from "./questions/pressure-washing.questions.js";
 
 export type MilestoneTemplate = {
   order: number;
@@ -455,6 +458,95 @@ export const CATEGORY_REGISTRY: Record<SmartIntakeCategory, CategoryDefinition> 
     milestones: HIGH_VALUE_MILESTONES,
     questions: MASONRY_CONCRETE_QUESTIONS,
   },
+  demolition: {
+    id: "demolition",
+    label: { es: "Demolición", en: "Demolition" },
+    trade: "demolition",
+    projectType: "demolition",
+    keywords: ["demolition", "demolicion", "demolish", "demoler", "tear down", "teardown", "derribar", "derribo", "knock down", "tumbar", "gutting", "debris removal", "escombros"],
+    explicitConfidence: 0.96,
+    keywordConfidence: 0.80,
+    rates: {
+      unit: "fixed",
+      baseMin: 400,
+      baseMax: 20000,
+      fallbackMin: 400,
+      fallbackMax: 6000,
+      complexityMultiplier: { low: 1.0, medium: 1.35, high: 1.9 },
+    },
+    milestones: STANDARD_MILESTONES,
+    questions: DEMOLITION_QUESTIONS,
+  },
+
+  moving: {
+    id: "moving",
+    label: { es: "Mudanzas", en: "Moving" },
+    trade: "moving",
+    projectType: "moving",
+    keywords: ["mudanza", "mudanzas", "trasteo", "moving company", "moving help", "help moving", "furniture movers", "mover muebles", "need movers", "hire movers", "packing and moving", "empacar"],
+    explicitConfidence: 0.96,
+    keywordConfidence: 0.80,
+    rates: {
+      unit: "fixed",
+      baseMin: 150,
+      baseMax: 4000,
+      fallbackMin: 150,
+      fallbackMax: 1500,
+      complexityMultiplier: { low: 1.0, medium: 1.2, high: 1.5 },
+    },
+    milestones: [
+      {
+        order: 1,
+        title: { es: "Confirmación de fecha y acceso", en: "Date and access confirmation" },
+        description: { es: "Confirmación de fecha, direcciones, inventario y acceso.", en: "Date, addresses, inventory, and access confirmation." },
+        paymentPercentage: 30,
+        requiresEvidence: false,
+      },
+      {
+        order: 2,
+        title: { es: "Mudanza completada", en: "Move completed" },
+        description: { es: "Todo entregado en destino y aprobado por el cliente.", en: "Everything delivered at destination and approved by the client." },
+        paymentPercentage: 70,
+        requiresEvidence: true,
+      },
+    ],
+    questions: MOVING_QUESTIONS,
+  },
+
+  pressure_washing: {
+    id: "pressure_washing",
+    label: { es: "Lavado a presión", en: "Pressure washing" },
+    trade: "pressure-washing",
+    projectType: "pressure-washing",
+    keywords: ["pressure wash", "pressure washing", "power wash", "power washing", "soft wash", "lavado a presion", "lavado a presión", "lavado con presion", "hidrolavadora", "hidrolavado", "hidrolavar"],
+    explicitConfidence: 0.96,
+    keywordConfidence: 0.82,
+    rates: {
+      unit: "fixed",
+      baseMin: 100,
+      baseMax: 1500,
+      fallbackMin: 100,
+      fallbackMax: 500,
+      complexityMultiplier: { low: 1.0, medium: 1.2, high: 1.5 },
+    },
+    milestones: [
+      {
+        order: 1,
+        title: { es: "Confirmación de alcance y acceso", en: "Scope and access confirmation" },
+        description: { es: "Confirmación de superficies, fecha y acceso a agua y electricidad.", en: "Surfaces, date, and water/power access confirmation." },
+        paymentPercentage: 30,
+        requiresEvidence: false,
+      },
+      {
+        order: 2,
+        title: { es: "Lavado completado", en: "Washing completed" },
+        description: { es: "Trabajo terminado con fotos antes y después, aprobado por el cliente.", en: "Work completed with before/after photos, approved by the client." },
+        paymentPercentage: 70,
+        requiresEvidence: true,
+      },
+    ],
+    questions: PRESSURE_WASHING_QUESTIONS,
+  },
 };
 
 /** Ordered by specificity — more specific keywords checked first */
@@ -462,10 +554,13 @@ const DETECTION_ORDER: SmartIntakeCategory[] = [
   "bathroom_remodel",
   "kitchen_remodel",
   "drywall_repair",      // before interior_painting: "agujero en pared", "yeso", "sheetrock"
+  "pressure_washing",    // before exterior_painting/cleaning: "exterior"/"limpieza" would swallow it
+  "demolition",          // before exterior_painting/masonry: "demoler un muro de concreto"
   "exterior_painting",   // before interior_painting: "exterior", "fachada"
   "masonry_concrete",    // before interior_painting: its "wall" keyword would swallow "retaining wall"
   "interior_painting",
   "cleaning",
+  "moving",              // after cleaning: "limpieza de mudanza" stays cleaning
   "plumbing_repair",     // before general_carpentry: avoids "pipe"/"floor" ambiguity
   "electrical_work",
   "flooring_installation", // before general_carpentry: its "floor"/"piso" keywords are broader
@@ -590,6 +685,18 @@ function mapSelectedCategoryId(
     case "concreto":
     case "concrete":
       return "masonry_concrete";
+    case "demolicion":
+    case "demolition":
+      return "demolition";
+    case "mudanza":
+    case "mudanzas":
+    case "moving":
+      return "moving";
+    case "lavado":
+    case "lavado_presion":
+    case "pressure_washing":
+    case "hidrolavado":
+      return "pressure_washing";
     case "climatizacion":
     case "hvac":
     case "aire":

@@ -357,6 +357,72 @@ const MASONRY_CONCRETE_PROFILE: CategoryScoringProfile = {
 };
 
 /**
+ * demolition  — max ≈ 90
+ * threshold = 36
+ */
+const DEMOLITION_PROFILE: CategoryScoringProfile = {
+  id: "demolition",
+  rawDescriptionScore: 15,
+  imagesScore: 5,
+  estimateReadyThreshold: 36,
+  weights: [
+    { questionId: "demolition_type",     label: "What is demolished", exact: 25, notSure: 8, critical: true,  recommended: false },
+    { questionId: "demolition_scope",    label: "Demolition size",    exact: 20, notSure: 6, critical: true,  recommended: false },
+    { questionId: "demolition_age",      label: "Building age",       exact: 10, notSure: 3, critical: false, recommended: true  },
+    { questionId: "demolition_disposal", label: "Debris removal",     exact: 10, notSure: 3, critical: false, recommended: true  },
+  ],
+  riskTriggers: [
+    { questionId: "demolition_type", value: "structural", flag: "structural_assessment_required" },
+    { questionId: "demolition_type", value: "structural", flag: "permit_likely_required" },
+    { questionId: "demolition_age",  value: "pre_1980",   flag: "hazmat_testing_recommended" },
+  ],
+};
+
+/**
+ * moving  — max ≈ 90
+ * threshold = 36
+ */
+const MOVING_PROFILE: CategoryScoringProfile = {
+  id: "moving",
+  rawDescriptionScore: 15,
+  imagesScore: 5,
+  estimateReadyThreshold: 36,
+  weights: [
+    { questionId: "moving_type",     label: "Type of move",     exact: 25, notSure: 8, critical: true,  recommended: false },
+    { questionId: "moving_scope",    label: "Size of move",     exact: 20, notSure: 6, critical: true,  recommended: false },
+    { questionId: "moving_distance", label: "Distance",         exact: 15, notSure: 5, critical: false, recommended: true  },
+    { questionId: "moving_access",   label: "Access / items",   exact: 10, notSure: 3, critical: false, recommended: true  },
+  ],
+  riskTriggers: [
+    { questionId: "moving_distance", value: "long_distance", flag: "long_distance_pricing" },
+    { questionId: "moving_access",   value: "special_items", flag: "specialty_handling_required" },
+    { questionId: "moving_access",   value: "stairs",        flag: "stairs_present" },
+  ],
+};
+
+/**
+ * pressure_washing  — max ≈ 90
+ * threshold = 36
+ */
+const PRESSURE_WASHING_PROFILE: CategoryScoringProfile = {
+  id: "pressure_washing",
+  rawDescriptionScore: 15,
+  imagesScore: 5,
+  estimateReadyThreshold: 36,
+  weights: [
+    { questionId: "pw_surface",   label: "Surface",         exact: 25, notSure: 8, critical: true,  recommended: false },
+    { questionId: "pw_scope",     label: "Area size",       exact: 20, notSure: 6, critical: true,  recommended: false },
+    { questionId: "pw_condition", label: "Dirt level",      exact: 15, notSure: 5, critical: false, recommended: true  },
+    { questionId: "pw_water",     label: "Water / power",   exact: 10, notSure: 3, critical: false, recommended: true  },
+  ],
+  riskTriggers: [
+    { questionId: "pw_surface",   value: "roof",          flag: "roof_soft_wash_required" },
+    { questionId: "pw_condition", value: "heavy_staining", flag: "stain_removal_uncertain" },
+    { questionId: "pw_water",     value: "no_water",      flag: "water_source_needed" },
+  ],
+};
+
+/**
  * generic  — fallback for unrecognised categories
  * threshold = 36
  */
@@ -386,6 +452,9 @@ export const SCORING_PROFILES: Partial<Record<SmartIntakeCategory | "generic", C
   fencing_decks:          FENCING_DECKS_PROFILE,
   handyman:               HANDYMAN_PROFILE,
   masonry_concrete:       MASONRY_CONCRETE_PROFILE,
+  demolition:             DEMOLITION_PROFILE,
+  moving:                 MOVING_PROFILE,
+  pressure_washing:       PRESSURE_WASHING_PROFILE,
 };
 
 export const GENERIC_SCORING_PROFILE: CategoryScoringProfile = GENERIC_PROFILE;

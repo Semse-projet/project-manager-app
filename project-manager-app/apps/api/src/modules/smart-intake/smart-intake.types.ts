@@ -44,7 +44,10 @@ export type SmartIntakeCategory =
   | "hvac"
   | "fencing_decks"
   | "handyman"
-  | "masonry_concrete";
+  | "masonry_concrete"
+  | "demolition"
+  | "moving"
+  | "pressure_washing";
 
 export type ConfidenceLevel = "exact" | "estimated" | "unknown";
 

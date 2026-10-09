@@ -870,6 +870,18 @@ function resolveSizeMultiplier(intake: ProjectIntakeRecord): number {
       const scope = resolveFirstAnswer(intake.answers, "masonry_scope");
       return scope === "small" ? 0.5 : scope === "large" ? 2.5 : 1.0;
     }
+    case "demolition": {
+      const scope = resolveFirstAnswer(intake.answers, "demolition_scope");
+      return scope === "small" ? 0.5 : scope === "large" ? 2.5 : 1.0;
+    }
+    case "moving": {
+      const scope = resolveFirstAnswer(intake.answers, "moving_scope");
+      return scope === "small" ? 0.6 : scope === "large" ? 2.2 : 1.0;
+    }
+    case "pressure_washing": {
+      const scope = resolveFirstAnswer(intake.answers, "pw_scope");
+      return scope === "small" ? 0.5 : scope === "large" ? 2.2 : 1.0;
+    }
     default:
       return 1.0;
   }

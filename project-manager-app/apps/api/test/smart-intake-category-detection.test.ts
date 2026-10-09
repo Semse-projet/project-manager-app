@@ -160,6 +160,9 @@ test("getSupportedQuestions returns questions for all 7 categories", () => {
     "fencing_decks",
     "handyman",
     "masonry_concrete",
+    "demolition",
+    "moving",
+    "pressure_washing",
   ] as const;
 
   for (const cat of categories) {
@@ -291,4 +294,44 @@ test("painting, flooring and drywall keep detection after adding masonry_concret
   assert.equal(detectCategoryFromText({ rawDescription: "Instalar piso laminado en la sala" }), "flooring_installation");
   assert.equal(detectCategoryFromText({ rawDescription: "I have a hole in my drywall that needs repair" }), "drywall_repair");
   assert.equal(detectCategoryFromText({ rawDescription: "Instalar losas de ceramica en la cocina" }), "kitchen_remodel");
+});
+
+// ── demolition, moving & pressure washing ──────────────────────────────────
+
+test("detects pressure_washing ahead of exterior_painting and masonry", () => {
+  assert.equal(detectCategoryFromText({ rawDescription: "Pressure wash the exterior of my house" }), "pressure_washing");
+  assert.equal(detectCategoryFromText({ rawDescription: "Need power washing for my concrete driveway" }), "pressure_washing");
+  assert.equal(detectCategoryFromText({ rawDescription: "Lavado a presión de la fachada" }), "pressure_washing");
+});
+
+test("detects demolition ahead of masonry and painting", () => {
+  assert.equal(detectCategoryFromText({ rawDescription: "Demolition of an old shed in the yard" }), "demolition");
+  assert.equal(detectCategoryFromText({ rawDescription: "Necesito demoler un muro de concreto" }), "demolition");
+  assert.equal(detectCategoryFromText({ rawDescription: "We need to tear down a wall between rooms" }), "demolition");
+});
+
+test("detects moving from phrases and keeps cleaning for move-out cleaning", () => {
+  assert.equal(detectCategoryFromText({ rawDescription: "Necesito una mudanza de apartamento este sabado" }), "moving");
+  assert.equal(detectCategoryFromText({ rawDescription: "Looking for a moving company for a 2 bedroom" }), "moving");
+  assert.equal(detectCategoryFromText({ rawDescription: "Limpieza despues de la mudanza" }), "cleaning");
+});
+
+test("'removing' does not trigger moving", () => {
+  assert.notEqual(detectCategoryFromText({ rawDescription: "Removing old wallpaper from the hallway" }), "moving");
+});
+
+test("remodels keep precedence over demolition wording", () => {
+  assert.equal(detectCategoryFromText({ rawDescription: "Kitchen demolition and new cabinets" }), "kitchen_remodel");
+  assert.equal(detectCategoryFromText({ rawDescription: "Full bathroom remodel with demolition" }), "bathroom_remodel");
+});
+
+test("explicit selection maps the new category ids", () => {
+  assert.equal(detectCategoryFromText({ selectedCategoryId: "demolicion", rawDescription: "" }), "demolition");
+  assert.equal(detectCategoryFromText({ selectedCategoryId: "mudanzas", rawDescription: "" }), "moving");
+  assert.equal(detectCategoryFromText({ selectedCategoryId: "lavado_presion", rawDescription: "" }), "pressure_washing");
+});
+
+test("painting and masonry keep their own phrases", () => {
+  assert.equal(detectCategoryFromText({ rawDescription: "Pintura de fachada exterior de mi casa" }), "exterior_painting");
+  assert.equal(detectCategoryFromText({ rawDescription: "I want to pour a new concrete driveway" }), "masonry_concrete");
 });
