@@ -94,7 +94,7 @@ export function toVisibleContract<T extends RecordLike>(contract: T | null): T |
     // count ONLY, never legal/provider verification or escrow eligibility.
     signatureStatus,
     signatureVerificationStatus: "NOT_VERIFIED",
-    signatureProvenance: "LEGACY_SELF_ATTESTED",
+    signatureProvenance: signedClient || signedProfessional ? "LEGACY_SELF_ATTESTED" : "NONE",
     signatureProgress: {
       clientSigned: signedClient,
       professionalSigned: signedProfessional,
