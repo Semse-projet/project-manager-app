@@ -24,7 +24,7 @@ export class PrivateVolumeSignatureArtifactStore implements EvidenceArtifactStor
 
   constructor(root: string) {
     if (!path.isAbsolute(root) || root === path.parse(root).root ||
-        root.startsWith("/tmp/") || root === "/tmp" ||
+        (process.env.NODE_ENV === "production" && (root.startsWith("/tmp/") || root === "/tmp")) ||
         root.includes("\0")) {
       throw new Error("private signature evidence requires a dedicated absolute persistent mount");
     }
