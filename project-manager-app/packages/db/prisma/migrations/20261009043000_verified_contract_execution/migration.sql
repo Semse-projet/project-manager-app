@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS "VerifiedContractExecution" (
   "consentVerifiedAt" TIMESTAMP(3) NOT NULL,
   "cryptographicVerifiedAt" TIMESTAMP(3) NOT NULL,
   "verifiedAt" TIMESTAMP(3) NOT NULL,
-  "status" TEXT NOT NULL DEFAULT 'VERIFIED_EXECUTED',
+  "status" TEXT NOT NULL,
   "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "updatedAt" TIMESTAMP(3) NOT NULL,
   CONSTRAINT "VerifiedContractExecution_pkey" PRIMARY KEY ("id"),
