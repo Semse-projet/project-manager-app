@@ -110,3 +110,79 @@ test("contracts repository keeps professional org after signature request metada
 
   assert.equal(updated.professionalOrgId, "org_pro_1");
 });
+
+
+test("OPS_ADMIN cannot forge client or professional signature even with explicit signAs", async () => {
+  const { repository, contract } = createRepositoryHarness();
+  const common = {
+    tenantId: "tenant_1",
+    orgId: "org_ops_1",
+    userId: "usr_ops_1",
+    roles: ["OPS_ADMIN"],
+    contractId: "ctr_1",
+    documentHash: "abcdefabcdefabcdef",
+  };
+  for (const signAs of [undefined, "client", "professional"] as const) {
+    await assert.rejects(() => repository.sign({ ...common, signAs }), ForbiddenException);
+  }
+  assert.equal(contract.signedClientAt, null);
+  assert.equal(contract.signedProAt, null);
+  assert.equal(contract.documentHash, null);
+});
+
+test("OPS_ADMIN membership of the client org is not enough to sign for another user", async () => {
+  const { repository, contract } = createRepositoryHarness();
+  await assert.rejects(() => repository.sign({
+    tenantId: "tenant_1",
+    orgId: "org_client_1",
+    userId: "usr_ops_1",
+    roles: ["OPS_ADMIN"],
+    contractId: "ctr_1",
+    signAs: "client",
+    documentHash: "abcdefabcdefabcdef",
+  }), ForbiddenException);
+  assert.equal(contract.signedClientAt, null);
+});
+
+test("named client and professional can still attest for themselves, including an actual party with OPS_ADMIN role", async () => {
+  const { repository, contract } = createRepositoryHarness();
+  const client = await repository.sign({
+    tenantId: "tenant_1",
+    orgId: "org_client_1",
+    userId: "usr_client_1",
+    roles: ["CLIENT", "OPS_ADMIN"],
+    contractId: "ctr_1",
+    signAs: "client",
+    documentHash: "abcdefabcdefabcdef",
+  });
+  assert.ok(client.signedClientAt);
+  assert.equal(client.signedProAt, undefined);
+
+  const professional = await repository.sign({
+    tenantId: "tenant_1",
+    orgId: "org_pro_1",
+    userId: "usr_pro_1",
+    roles: ["PRO"],
+    contractId: "ctr_1",
+    signAs: "professional",
+    documentHash: "abcdefabcdefabcdef",
+  });
+  assert.ok(professional.signedClientAt);
+  assert.ok(professional.signedProAt);
+  assert.equal(contract.documentHash, "abcdefabcdefabcdef");
+});
+
+test("valid signer cannot override the opposite party's signature role", async () => {
+  const { repository, contract } = createRepositoryHarness();
+  await assert.rejects(() => repository.sign({
+    tenantId: "tenant_1",
+    orgId: "org_pro_1",
+    userId: "usr_pro_1",
+    roles: ["PRO", "OPS_ADMIN"],
+    contractId: "ctr_1",
+    signAs: "client",
+    documentHash: "abcdefabcdefabcdef",
+  }), ForbiddenException);
+  assert.equal(contract.signedClientAt, null);
+  assert.equal(contract.signedProAt, null);
+});
