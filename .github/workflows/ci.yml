@@ -2,12 +2,15 @@ name: CI
 
 on:
   push:
-    branches: ["**"]
+    branches: ["main"]
   pull_request:
+  workflow_dispatch:
 
+# Los PR solo ejecutan CI por pull_request (evita doble ejecución en push).
+# Nunca cancelar una validación de main: Railway despliega el SHA probado.
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 defaults:
   run:
@@ -114,9 +117,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build workspace packages and API
-        run: pnpm build:api
-
+      # test:coverage ya ejecuta build:api; no compilar dos veces.
       - name: Unit tests with coverage thresholds
         run: pnpm test:coverage
 
@@ -158,6 +159,7 @@ jobs:
           name: coverage-html
           path: project-manager-app/apps/api/coverage/
           if-no-files-found: ignore
+          retention-days: 7
 
   e2e:
     needs: quality-gates
@@ -198,3 +200,4 @@ jobs:
             project-manager-app/playwright-report/
             project-manager-app/test-results/
           if-no-files-found: ignore
+          retention-days: 7
