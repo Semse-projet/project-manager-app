@@ -6,7 +6,7 @@
 
 - El catálogo es un **índice de activación**, no una orden para cargar todas las skills. Antes de cada tarea leer la gobernanza relevante y seleccionar **una skill principal**, con las de soporte necesarias.
 - Fuente real de las 23 skills de Claude: carpeta project-manager-app/.claude/skills/<id>/SKILL.md. Consultar ese archivo, nunca implementar a partir de una descripción de esta tabla.
-- **Codex:** leer project-manager-app/AGENTS.md. Para tareas de costos de GitHub, también se incluye un descriptor en .agents/skills/semse-github-operations-cost-guard/SKILL.md que remite al archivo canónico de Claude.
+- **Codex:** leer project-manager-app/AGENTS.md y descubrir por ID los 23 descriptores en .agents/skills/<id>/SKILL.md. Cada descriptor nuevo remite a la skill canónica de Claude y se carga sólo si aplica a la tarea; testing-worker-tracker preserva procedimientos Codex legacy.
 - **Claude Code:** leer CLAUDE.md de la raíz, importaciones canónicas y project-manager-app/CLAUDE.md.
 - Enrutamiento: cd project-manager-app && pnpm skill:route:report para auditar descubrimiento; pnpm skill:route -- "<descripcion de tarea>" para sugerir una skill. El enrutador es **report-only** y puede equivocarse; leer razones/avisos.
 - **Precedencia:** constitución y AGENTS.md > semseproject (policy/approval) > gates SDD, seguridad y dominios > ejecución (aaa-zoom-loop-execution) > skill de tema. Ninguna skill nueva puede eliminar un control previo.
@@ -43,6 +43,8 @@
 | testing-worker-tracker | pruebas tracker worker web |
 
 **Conteo:** 22 skills existentes antes de esta intervención + 1 nueva = **23 skills únicas** en la carpeta de Claude después del PR. Esto es un inventario de directorios de skill, no de todos los documentos con ideas de skill.
+
+**Paridad de descubrimiento:** 23 skills Claude ↔ 23 descriptores Codex (21 nuevos, 2 preexistentes). La auditoría de rutas, límites y excepción testing-worker-tracker está en docs/agents/SEMSE_CODEX_SKILL_COVERAGE_AUDIT.md. Una prueba unitaria falla si futuros cambios crean un desbalance; no indica paridad de funcionalidad ni autoriza mutaciones.
 
 ## Skills y protocolos fuera del repositorio: clasificación sin duplicar
 
