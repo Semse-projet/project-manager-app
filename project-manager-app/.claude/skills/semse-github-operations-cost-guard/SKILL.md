@@ -26,12 +26,8 @@ routing:
   excludes:
     - cobros de clientes de SEMSE
     - calculo de escrow de trabajos
-  phases:
-    - discovery
-    - spec
-    - verification
-    - release
-    - report
+  # Apply only when a GitHub cost/billing trigger matches; phase alone must not hijack generic CI tasks.
+  phases: []
   precedence:
     subordinate_to:
       - semseproject
