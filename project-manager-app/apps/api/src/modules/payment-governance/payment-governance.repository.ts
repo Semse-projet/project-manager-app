@@ -1,4 +1,4 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, ServiceUnavailableException } from "@nestjs/common";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import type { EscrowStatus, PaymentTxnStatus, PaymentTxnType } from "@prisma/client";
 
@@ -66,29 +66,31 @@ export class PaymentGovernanceRepository {
     });
   }
 
+  /**
+   * Legacy bypass retired (D02 / #827). All real escrow release reservations
+   * must pass through PaymentsRepository.releaseFunds(), whose transaction
+   * checks the verified contract execution BEFORE creating a PaymentTxn.
+   * Never revive this direct Prisma writer as a convenience API.
+   *
+   * Keep the method as a fail-closed compatibility shim until its consumers
+   * and mock contracts are migrated to the canonical command.
+   */
   async createPaymentTransaction(
-    input: PaymentReleaseInput,
+    _input: PaymentReleaseInput,
   ): Promise<PaymentLedgerEntry> {
-    return this.prisma.paymentTxn.create({
-      data: {
-        escrowId: input.escrowId,
-        milestoneId: input.milestoneId,
-        type: "RELEASE",
-        amount: input.amount,
-        status: "PENDING",
-        providerRef: `semse-release-${Date.now()}`,
-      },
-    });
+    throw new ServiceUnavailableException(
+      "Legacy escrow ledger writes are disabled; use the verified release reservation command",
+    );
   }
 
+  /** Never promote an arbitrary legacy PaymentTxn to success outside provider reconciliation. */
   async updatePaymentTransactionStatus(
-    transactionId: string,
-    status: PaymentTxnStatus,
-  ) {
-    return this.prisma.paymentTxn.update({
-      where: { id: transactionId },
-      data: { status },
-    });
+    _transactionId: string,
+    _status: PaymentTxnStatus,
+  ): Promise<never> {
+    throw new ServiceUnavailableException(
+      "Legacy transaction status updates are disabled; use provider reconciliation",
+    );
   }
 
   async updateEscrowStatus(escrowId: string, status: EscrowStatus) {
