@@ -12,8 +12,14 @@ routing:
   triggers:
     - github actions
     - presupuesto de actions
+    - presupuesto de github
+    - facturación de github
     - factura de github
+    - github billing
     - costo de CI
+    - costos de github
+    - gasto de github
+    - code quality
     - startup_failure
     - pago rechazado
     - workflow duplicado
