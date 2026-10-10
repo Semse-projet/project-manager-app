@@ -87,8 +87,10 @@ jobs:
       - name: Apply database migrations (production boot path)
         run: node scripts/pre-migrate.mjs
 
+      # build:api ya se ejecutó antes de aplicar migraciones; usar las mismas
+      # pruebas del paquete sin reconstruir el monorepo una segunda vez.
       - name: Run DB-backed API integration tests
-        run: pnpm test:integration
+        run: pnpm --filter @semse/api test:integration
 
       - name: Start API
         run: |
