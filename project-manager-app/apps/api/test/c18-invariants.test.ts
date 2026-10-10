@@ -68,11 +68,11 @@ test("auto-aprobacion: mismo org cliente==profesional => 403; OPS_ADMIN si; sand
 });
 
 // ── releaseFunds: revalida APPROVED + evidencia dentro de la misma transaccion ──
-function reserveHarness(milestone: { status: string; evidenceItems: Array<{ required: boolean; status: string }> } | null) {
+function reserveHarness(milestone: { status: string; projectId?: string; evidenceItems: Array<{ required: boolean; status: string }> } | null) {
   const created: unknown[] = [];
   const tx = {
-    milestone: { async findUnique() { return milestone; } },
-    paymentEscrow: { async findUnique() { return { id: "e1", deletedAt: null }; } },
+    milestone: { async findUnique() { return milestone ? { ...milestone, projectId: milestone.projectId ?? "p1" } : null; } },
+    paymentEscrow: { async findUnique() { return { id: "e1", projectId: "p1", deletedAt: null }; } },
     paymentTxn: {
       async aggregate({ where }: any) {
         if (where.type === "DEPOSIT") return { _sum: { amount: { toNumber: () => 1000 } } };
@@ -121,4 +121,13 @@ test("reservar fondos: evidencia requerida sin validar => 409 con blockers; vali
   } finally {
     if (prev === undefined) delete process.env.MILESTONE_EVIDENCE_REVALIDATION; else process.env.MILESTONE_EVIDENCE_REVALIDATION = prev;
   }
+});
+
+test("escrow release rejects an APPROVED milestone of another project before any reservation", async () => {
+  const wrongProject = reserveHarness({ projectId: "p2", status: "APPROVED", evidenceItems: [it("approved")] });
+  await assert.rejects(
+    reserve(wrongProject.repo),
+    (e: Error) => e instanceof ConflictException && /milestone does not belong to escrow project/.test(e.message),
+  );
+  assert.equal(wrongProject.created.length, 0, "cross-project release cannot create a PENDING transaction");
 });
