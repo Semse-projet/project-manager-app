@@ -2,7 +2,9 @@
 // classification. No ML, no embeddings (kit's "No ML in Phase 1" rule) —
 // this is intentionally a transparent, auditable rule set, not a model.
 
-const FINANCIAL_RE = /\b(payment|payments|payout|payouts|escrow|invoice|billing|refund)\b/i;
+// Treat Spanish finance/billing terms as governance-relevant too. Routing is advisory,
+// but English-only detection used to omit SEMSE approval policy for Spanish tasks.
+const FINANCIAL_RE = /\b(payment|payments|payout|payouts|escrow|invoice|billing|refund|facturas?|facturaci[oó]n|pagos?|cobros?|tarjeta|deuda|gastos?|presupuesto)\b/i;
 const PRODUCTION_RE = /\b(production|prod\b|railway|live traffic)\b/i;
 const AUTH_CROSS_TENANT_RE = /\b(auth\b|authoriz\w*|cross-tenant|cross tenant|idor|session revocation|permission\w*|rbac|access token)\b/i;
 const AUDIT_BACKLOG_RE = /(audit_remediation_plan|audit-remediation|\brc[1-7]\b|jobstatus casing|\bg-(pro|adm|cli)-\d+|finding\s+\d|evidence upload|escrow[\s-]?integrity)/i;
