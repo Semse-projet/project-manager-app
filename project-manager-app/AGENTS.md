@@ -33,6 +33,18 @@ Si la sesión es de feature coding, también leer:
 
 ---
 
+## Descubrimiento de skills y coordinación entre agentes
+
+- **Catálogo único de referencia:** docs/agents/SEMSE_SKILL_CATALOG.md (ubicación relativa a project-manager-app/). El catálogo lista skills y disparadores, pero no concede permisos. **No es obligatorio cargar todas las skills**.
+- **Skill canónica:** .claude/skills/<id>/SKILL.md. Las instrucciones se aplican a Claude y Codex cuando la tarea realmente las requiere; para GitHub Cost Guard, Codex puede descubrir el puntero de la raíz externa .agents/skills/semse-github-operations-cost-guard/SKILL.md.
+- **Selector consultivo:** pnpm skill:route -- "<descripción de la tarea>"; inspeccionar razones y advertencias; pnpm skill:route:report comprueba el inventario. El enrutamiento no bloquea CI ni autoriza cambios.
+- **Precedencia invariable:** constitución, este AGENTS.md, contratos SDD, dominio/seguridad y semseproject tienen prioridad sobre skills temáticas; la selección de una skill nunca levanta las restricciones de la sección NUNCA.
+- **GitHub Actions y facturación:** consultar semse-github-operations-cost-guard + semse-ci-pr-workflow. Diferenciar consumo bruto, consumo facturable, presupuesto, factura y pago confirmado; un startup_failure con cero jobs NO significa que fallaron los tests.
+- **Agentes concurrentes:** antes de escribir, comprobar branch, HEAD, diff y trabajo activo de otros agentes. No sobrescribir trabajos ajenos ni fusionar PR sin evidencia de validación y autorización pertinente.
+- **Importar nuevas skills:** verificar su existencia real, no confundir documentos de conversaciones con skills instaladas y no duplicar reglas. Registrar en el catálogo, mantener SKILL.md y revisar el enrutador en modo informe.
+
+---
+
 ## Flujo SDD Disponible
 
 Usar la secuencia completa. No saltear pasos. Spec Kit puede aparecer como
