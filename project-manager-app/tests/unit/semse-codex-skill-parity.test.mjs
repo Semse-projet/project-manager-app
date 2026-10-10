@@ -1,42 +1,43 @@
-// Prevent silent drift between canonical Claude skills and Codex discovery entries.
-// The canonical skill instructions live only in project-manager-app/.claude/skills.
+// Enforce parity between canonical Claude skills and Codex discovery entrypoints.
+// This test runs via pnpm test:unit and does not contact external services.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readdirSync, existsSync, readFileSync } from "node:fs";
-import { join, dirname } from "node:path";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const appRoot = fileURLToPath(new URL("../../", import.meta.url));
-const repoRoot = dirname(appRoot.replace(/\\/$/, ""));
+const repoRoot = fileURLToPath(new URL("../../../", import.meta.url));
 const claudeRoot = join(appRoot, ".claude", "skills");
 const codexRoot = join(repoRoot, ".agents", "skills");
 const skillIds = (root) => readdirSync(root, { withFileTypes: true })
   .filter((entry) => entry.isDirectory() && existsSync(join(root, entry.name, "SKILL.md")))
   .map((entry) => entry.name).sort();
 
-// Existing testing-worker-tracker entry contains legacy Codex-specific procedures;
-// preserve them, but do not treat it as a second canonical source for new skills.
+// A legacy Codex-native worker tracker contains additional procedures;
+// preserve it rather than silently discarding its existing content.
 const legacyCodexNative = new Set(["testing-worker-tracker"]);
 
 test("Claude and Codex have one discoverable entry per installed skill", () => {
   const claude = skillIds(claudeRoot);
   const codex = skillIds(codexRoot);
   assert.ok(claude.length > 0, "canonical skills directory is empty");
-  assert.deepEqual(codex, claude, "When adding or removing canonical skills, synchronize Codex discovery entries");
+  assert.deepEqual(codex, claude, "Update Codex discovery when adding or removing Claude skills");
 });
 
-test("Codex entries use valid names, meaningful descriptions and canonical paths", () => {
+test("Codex entry names, descriptions, and canonical references are valid", () => {
   for (const id of skillIds(claudeRoot)) {
-    const canonical = join(claudeRoot, id, "SKILL.md");
+    assert.ok(existsSync(join(claudeRoot, id, "SKILL.md")), `missing canonical skill: ${id}`);
     const codex = join(codexRoot, id, "SKILL.md");
-    assert.ok(existsSync(canonical), `missing Claude canonical skill: ${id}`);
     assert.ok(existsSync(codex), `missing Codex descriptor: ${id}`);
-    const content = readFileSync(codex, "utf8");
-    assert.match(content, new RegExp(`^---\\\\nname: ${id}\\\\n(?:.|\\\\n)*?description: .{12,}`, "m"), `invalid Codex frontmatter: ${id}`);
+    const text = readFileSync(codex, "utf8");
+    assert.ok(text.startsWith(["---", `name: ${id}`, "description:"].join("\n")), `invalid frontmatter: ${id}`);
+    const description = text.split("\n").find((line) => line.startsWith("description: "));
+    assert.ok(description && description.length >= 25, `missing meaningful description: ${id}`);
     if (!legacyCodexNative.has(id)) {
-      const canonicalPath = `project-manager-app/.claude/skills/${id}/SKILL.md`;
-      assert.ok(content.includes(canonicalPath), `Codex entry missing canonical pointer: ${id}`);
-      assert.ok(content.includes("project-manager-app/AGENTS.md"), `Codex entry missing governance pointer: ${id}`);
+      const target = `project-manager-app/.claude/skills/${id}/SKILL.md`;
+      assert.ok(text.includes(target), `missing canonical pointer: ${id}`);
+      assert.ok(text.includes("project-manager-app/AGENTS.md"), `missing governance pointer: ${id}`);
     }
   }
 });
