@@ -9,18 +9,18 @@ owner: "semse-core"
 risk: "high"
 code_status: "IN_PROGRESS"
 ci_status: "PASS"
-merge_status: "UNMERGED"
-deploy_status: "NOT_DEPLOYED"
-activation_status: "INACTIVE"
+merge_status: "MERGED"
+deploy_status: "DEPLOYED"
+activation_status: "ACTIVE"
 migration_status: "NOT_APPLICABLE"
 feature_flags: ["SEMSE_CHAT_EVIDENCE_MODE"]
-production_evidence: []
+production_evidence: ["2026-10-10 PR #819 mergeado (2026-10-07T16:40:29Z, merge commit 1c761a53); es ancestro del commit desplegado en semse-API.","2026-10-10 GET https://api.semseproject.com/v1/health ⇒ gitSha 7feda31c3107176efe8a430b7892e537f7bfdb13, deploymentId 9878f405-e2f2-4a45-8882-ad5ed754e7ae, environment production.","2026-10-10 POST /v1/prometeo/chat-evidence/analyze/test sin sesión ⇒ 401 (el endpoint existe y exige autenticación).","2026-10-10 Lectura (solo lectura) de variables de semse-API: SEMSE_CHAT_EVIDENCE_MODE=live. NO fue puesta por el agente en esa fecha ni hay evidencia de quién/cuándo; D6 (CE-050) y el canary (CE-052) NO estaban verificados cuando se activó.","2026-10-10 Sin líneas con chat_evidence/chat-evidence en las últimas 400 líneas de logs de semse-API: no hay evidencia de uso real todavía."]
 related_files: ["apps/api/src/modules/vision/vision-access.policy.ts","apps/api/src/modules/vision/vision.controller.ts","apps/api/src/modules/vision/vision.service.ts","apps/api/src/modules/evidence/evidence.controller.ts","apps/api/src/modules/ai-models/ai-models.controller.ts","apps/api/src/modules/ai-models/context/operational-context.service.ts","apps/api/src/modules/prometeo/prometeo-tool-registry.ts","apps/api/src/modules/prometeo/prometeo-tool-execution.service.ts","apps/api/src/modules/ai-models/chat-evidence/evidence-context.ts","apps/api/src/modules/ai-models/chat-evidence/intent.ts","apps/api/src/modules/ai-models/chat-evidence/chat-evidence.service.ts","apps/api/src/modules/ai-models/chat-evidence/chat-evidence-chat.service.ts","apps/api/src/modules/vision/chat-evidence-analysis.service.ts","apps/api/src/modules/vision/chat-evidence-analysis.controller.ts","apps/web/lib/prometeo-chat-evidence.ts","apps/web/app/api/semse/prometeo/chat-evidence/analyze/[evidenceId]/route.ts"]
 related_tests: ["apps/api/test/chat-evidence-context.test.ts","apps/api/test/chat-evidence-service.test.ts","apps/api/test/chat-evidence-chat.test.ts","apps/api/test/chat-evidence-analysis.test.ts","tests/unit/prometeo-chat-evidence-ui.test.ts"]
 related_endpoints: ["POST /v1/ai-models/prometeo/chat","GET /v1/vision/evidence/:evidenceId","POST /v1/vision/analyze-by-evidence/:evidenceId","GET /v1/projects/:projectId/evidence","POST /v1/prometeo/chat-evidence/analyze/:evidenceId"]
 related_events: []
 related_agents: ["prometeo"]
-last_verified: "2026-10-07"
+last_verified: "2026-10-10"
 ---
 
 # Spec: Evidencias en el chat de Prometeo
