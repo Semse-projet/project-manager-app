@@ -28,7 +28,7 @@ for (const task of [
   "Investiga el presupuesto GitHub Actions agotado; CI no arranca",
   "Revisa la facturación de GitHub porque la tarjeta fue rechazada",
   "Analiza los costos de Code Quality de GitHub",
-  "Diagnostica startup_failure en GitHub Actions para el PR",
+  "Diagnostica startup_failure de GitHub Actions con el presupuesto agotado para el PR",
 ]) {
   test(`GitHub costs route to Cost Guard + SEMSE governance: ${task}`, () => {
     const d = route(task, registry);
