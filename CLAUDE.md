@@ -14,6 +14,12 @@ The canonical monorepo's own agent contract is imported below, so it loads autom
 
 @project-manager-app/CLAUDE.md
 
+## Shared skill index and precedence
+
+The authoritative skill activation index is project-manager-app/docs/agents/SEMSE_SKILL_CATALOG.md. Use that index to select applicable skills, then open their actual SKILL.md files. **Do not import all skills into every session.** This index reconciles the existing 22 Claude skills with the new semse-github-operations-cost-guard skill (23 when the proposed PR is merged), and distinguishes external conversation documents from installed skills.
+
+For GitHub billing, Actions budgets, startup_failure, Code Quality and CI cost optimization, read project-manager-app/.claude/skills/semse-github-operations-cost-guard/SKILL.md alongside semse-ci-pr-workflow. Codex has a discovery pointer in the outer .agents/skills/semse-github-operations-cost-guard/SKILL.md. Always follow the imported AGENTS.md and semseproject approval rules; this routing index grants no new mutation, payment, budget or deployment authority.
+
 ## Monorepo map (`project-manager-app/`)
 
 pnpm workspace, Node >=22, `pnpm@10.33.0`.
@@ -107,7 +113,7 @@ Task/module-specific skills (each documents a real, already-verified gap or gotc
 - `semse-mobile-offline-sync` — corrects the `CLAUDE.md` implication of one shared offline pattern: mobile's `localTimer.ts` is separate from web's `trackerLocalStore.ts`.
 - `semse-report-writer` — where/how to write the end-of-session report `AGENTS.md` requires, and the naming inconsistency already present in `docs/reportes/`.
 - `semse-security-baseline` — quick-reference for the RC4-RC6 root-cause bug shapes (IDOR, unverified payment status, auth weaknesses) already confirmed in this codebase.
-- `semse-ci-pr-workflow` — what `quality-gates`/`unit-coverage`/`e2e` actually check, the fact that CI workflow files live at the outer repo root not under `project-manager-app/`, the squash-merge branch-reset gotcha, and the `spec:preflight` naming trap (it runs Railway preflight, not spec validation).
+- `semse-github-operations-cost-guard` — audited GitHub billing, Actions budget limits, startup_failure diagnosis, CI cost reductions and rollout safeguards; complements semse-ci-pr-workflow without granting access to payments or production.\n- `semse-ci-pr-workflow` — what `quality-gates`/`unit-coverage`/`e2e` actually check, the fact that CI workflow files live at the outer repo root not under `project-manager-app/`, the squash-merge branch-reset gotcha, and the `spec:preflight` naming trap (it runs Railway preflight, not spec validation).
 - `semse-upload-flow` — the canonical 3-step presigned-URL upload contract (plan → PUT to a BFF proxy → register) that fixed RC2, and the still-unsolved `external_transfer`/large-file gap.
 - `semse-schemas-contract` — `packages/schemas` is the API/domain-type source of truth in name only: nothing stops a page defining its own duplicate `type`/`interface` instead of importing it (confirmed in two admin/worker pages), nothing checks it stays in sync with `packages/db/prisma/schema.prisma`, and mobile's Jest config maps it to compiled `dist/`, not `src/`.
 - `semse-prometeo-orchestrator` — what "`ai-models/` — Prometeo orchestrator, not a generic model wrapper" means in code: the intent→agent→task-type→model routing pipeline, the two-orchestrator split (`AiModelGatewayService` vs. `LLMOrchestrator`/`AdaptiveRouter`) that lets 5 model slugs skip privacy/circuit-breaker enforcement per the still-unimplemented SPEC-GTW-001, and why "the local Ollama model" means three different things depending on the code path.
