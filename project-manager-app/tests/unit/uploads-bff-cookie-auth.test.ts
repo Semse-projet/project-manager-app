@@ -20,6 +20,7 @@ test("file resolver does not trust proxy headers or fall back to a static admin 
   assert.match(scoped, /return resolveConfigFromCookie\(req\)/);
   assert.doesNotMatch(scoped, /resolveRuntimeConfig\(\)/);
   assert.doesNotMatch(scoped, /resolveConfigFromRequest/);
+  assert.match(server, /process\.env\.NODE_ENV === "production" \? undefined : "http:\/\/127\.0\.0\.1:4000"/);
 });
 
 test("authorized proxy keeps actual file PUT and GET while forwarding bearer credentials", () => {
