@@ -127,3 +127,32 @@ test("same-tenant actor from another org cannot overwrite original bytes", async
     await fs.rm(root, { recursive: true, force: true });
   }
 });
+
+test("concurrent PUT creates a single immutable original and rejects the losing writer", async () => {
+  const fs = await import("node:fs/promises");
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "semse-exclusive-"));
+  const previous = process.env.SEMSE_STORAGE_ROOT;
+  process.env.SEMSE_STORAGE_ROOT = root;
+  try {
+    const c = new UploadsController(new StorageService());
+    const key = "tenants/tenantA/public-intake/evidence/race.txt";
+    const req = (org: string, text: string) => ({
+      headers: { "content-type": "text/plain", "content-length": String(Buffer.byteLength(text)) },
+      authContext: { tenantId: "tenantA", orgId: org, userId: org + "-user", roles: ["PRO"] },
+      raw: (async function* () { yield Buffer.from(text); })(),
+    });
+    const results = await Promise.allSettled([
+      c.putFile(key, req("orgA", "originalA") as never),
+      c.putFile(key, req("orgB", "originalB") as never),
+    ]);
+    assert.equal(results.filter(result => result.status === "fulfilled").length, 1);
+    const losers = results.filter(result => result.status === "rejected") as PromiseRejectedResult[];
+    assert.equal(losers.length, 1);
+    assert.equal(losers[0].reason?.status, 409);
+    assert.ok(["originalA", "originalB"].includes((await readFile(path.join(root, key))).toString()));
+  } finally {
+    if (previous === undefined) delete process.env.SEMSE_STORAGE_ROOT;
+    else process.env.SEMSE_STORAGE_ROOT = previous;
+    await fs.rm(root, { recursive: true, force: true });
+  }
+});
