@@ -6,7 +6,7 @@
 **Base audit:** main SHA 4e4fd4f5818dd4c63ee25a69e49781cb2b62ec49 (targeted code/ADR checks; no CI or production execution in this review).
 
 ## Read in this order
-1. [PRODUCT_REQUIREMENTS.md](PRODUCT_REQUIREMENTS.md) — problem, verbatim-context paraphrase, every agreed field workflow, product actors, 59+ stable requirements and open decisions.
+1. [PRODUCT_REQUIREMENTS.md](PRODUCT_REQUIREMENTS.md) — problem, verbatim-context paraphrase, every agreed field workflow, product actors, 54 stable requirements and open decisions.
 2. [SYSTEM_ARCHITECTURE.md](SYSTEM_ARCHITECTURE.md) — exact existing modules found, reusable canonical boundaries, proposed crew + spatial + temporal data models, secured Prometeo and connector topology.
 3. [IMPLEMENTATION_AND_VERIFICATION.md](IMPLEMENTATION_AND_VERIFICATION.md) — phased engineering backlog W0–W6, candidate PR slices, 30 verification scenarios, rollout and Definition of Done.
 
