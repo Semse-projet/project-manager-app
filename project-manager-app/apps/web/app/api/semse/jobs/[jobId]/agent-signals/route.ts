@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchSemseData, handleServerError, runtimeDisabledResponse } from "../../../_server";
+import { fetchSemseDataForAuthenticatedRequest, handleServerError, runtimeDisabledResponse } from "../../../_server";
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   context: { params: Promise<{ jobId: string }> }
 ) {
   try {
     const { jobId } = await context.params;
-    const data = await fetchSemseData<{ signals: unknown[] }>(`/v1/jobs/${jobId}/agent-signals`);
+    const data = await fetchSemseDataForAuthenticatedRequest<{ signals: unknown[] }>(`/v1/jobs/${jobId}/agent-signals`, request);
     return NextResponse.json({ data });
   } catch (error) {
     if (error instanceof Error && error.message.includes("not configured")) {
