@@ -683,7 +683,7 @@ export async function uploadMultipartPart(input: {
 
 export async function registerJobEvidence(
   jobId: string,
-  input: { key: string; kind: "PHOTO" | "VIDEO" | "DOCUMENT"; milestoneId?: string; filename?: string }
+  input: { key: string; kind: "PHOTO" | "VIDEO" | "DOCUMENT"; milestoneId?: string; filename?: string; metadata?: Record<string, unknown> }
 ): Promise<Record<string, unknown>> {
   return mutateSemse<Record<string, unknown>>(`/api/semse/jobs/${jobId}/evidence`, input);
 }

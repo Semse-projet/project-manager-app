@@ -41,7 +41,10 @@ export const registerEvidenceSchema = z
     milestoneId: z.string().min(1).optional(),
     key: z.string().min(1),
     kind: evidenceKindSchema,
-    filename: z.string().min(1).max(300).optional()
+    filename: z.string().min(1).max(300).optional(),
+    // C67: client-supplied annotations. API repository validates reserved keys,
+    // depth and 64 KB size; NEVER derive tenant/org/job authorization from here.
+    metadata: z.record(z.unknown()).optional()
   })
   .refine((input) => Boolean(input.projectId || input.jobId || input.milestoneId), {
     message: "One of projectId, jobId or milestoneId is required",
@@ -64,6 +67,7 @@ export const evidenceRecordSchema = z.object({
   kind: evidenceKindSchema,
   key: z.string().min(1),
   filename: z.string().min(1).optional(),
+  metadata: z.record(z.unknown()).optional(),
   validationStatus: z.string().min(1),
   aiQualityScore: z.number().nullable().optional(),
   createdAt: z.string().min(1),
