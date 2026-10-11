@@ -1,6 +1,6 @@
 # ADR-025 — MCP External Tool Gateway: ¿reabrir la orquestación de herramientas externas?
 
-**Estado:** PROPOSED
+**Estado:** ACCEPTED — Opción C (no construir ahora)
 **Fecha:** 2026-08-04
 **Contexto de origen:** síntesis de producto "Prometeo OS"
 (`docs/vision/VISION_PROMETEO_OS_2026.md`), sesión de voz de Samuel donde se
@@ -90,6 +90,23 @@ necesite que Prometeo dispare un deploy en Vercel).
 Ninguna opción se selecciona en esta ADR. Se deja para revisión humana
 explícita de Samuel, con las tres opciones sobre la mesa.
 
+## 2.2 Decisión registrada (2026-10-11)
+
+**Opción C — no construirlo ahora; mantener el retiro de `SPEC-INT-001`.**
+
+Samuel aprobó el orden de trabajo propuesto en la sesión del 2026-10-11, que incluía
+resolver esta ADR con la opción C (recomendada). Consecuencias efectivas:
+
+- No se registra ninguna herramienta externa en el Tool Registry (F2) ni se
+  construye un gateway MCP. `prometeo-core.spec.md` mantiene su alcance acotado
+  a módulos internos.
+- No se escribe ningún spec derivado (§6).
+- Se reabre cuando exista una demanda de usuario verificada, por ejemplo un flujo
+  real donde un usuario necesite que Prometeo dispare un deploy en Vercel. En ese
+  caso se vuelve a evaluar A frente a B con esa necesidad concreta, y la superficie
+  de riesgo de la §3 (scopes, confused deputy, auditoría inmutable, egreso de red)
+  sigue siendo el criterio de entrada.
+
 ## 3. Superficie de riesgo (aplica a las opciones A y B por igual)
 
 - **Scopes:** una conexión MCP externa puede exponer más capacidad de la
@@ -132,5 +149,5 @@ explícita de Samuel, con las tres opciones sobre la mesa.
 
 ## 6. Specs derivados
 
-Ninguno todavía. Se crean solo si esta ADR pasa a `ACCEPTED` con una
-opción elegida.
+Ninguno. La ADR quedó `ACCEPTED` con la opción C, que no deriva specs de
+implementación; se reevaluaría solo con una demanda real (ver §2.2).
