@@ -504,7 +504,10 @@ RUNNING --lease vencido--> RUNNING (reclaim auditado)
   con `SEMSE_MISSION_CONTROL_V2_ENABLED` sin definir (sólo allowlist). Nota:
   `ENABLED=true` activa la función para **todos** los tenants
   (`mission-control.policy.ts`); no usarlo para el canary. **No verificado
-  todavía:** el 404 de un tenant fuera de la allowlist y el flujo con efectos
-  del §8 (ACK/RESOLVE con clave duplicada, dry-run, ESCALATE real). El gate de
-  canary de producción sigue abierto hasta completarlos.
+  todavía:** el 404 de un tenant fuera de la allowlist, y los pasos con efecto real del §8 (ACK/RESOLVE, ESCALATE real).
+  **Verificado después (2026-10-11, sesión `OPS_ADMIN`):** `RETRY` en `dryRun` sobre un AgentRun real fallido
+  (`agent-run-recovery-v1`) → 200, receipt `NO_OP`, `wouldSetStatus: QUEUED`, sin mutar estado; repetido con
+  la misma `idempotencyKey` → mismo `receipt.id`, `duplicate: true`, `attempts: 1`; acción sobre un target
+  inexistente → receipt `FAILED` (no revela existencia). El gate de canary de producción sigue abierto hasta
+  completar el 404 cross-tenant y los pasos con efecto real.
 - [ ] Sólo entonces `status: VERIFIED`.
