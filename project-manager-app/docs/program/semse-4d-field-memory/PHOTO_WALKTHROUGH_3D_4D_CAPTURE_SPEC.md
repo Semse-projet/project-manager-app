@@ -78,3 +78,67 @@ Solo proponer integración propietaria Matterport/Polycam después de validar AP
 
 ## 9. Gates de ejecución
 Documentación aprobada y revisión legal/captura de campo → diseño SDD de CaptureSession/Spatial + Evidence → captura móvil + panorama con permisos → reconstrucción asíncrona COLMAP → piloto GS GPU → barra temporal y Prometeo con fuentes → pruebas CI/e2e/recovery → canary autenticado Railway/API/web/worker/GPU, SHA exacto y rollback. No afirmar feature LIVE hasta que existan evidencias reales de extremo a extremo. Esta página registra requisitos; no despliega ningún sistema.
+
+
+## 10. Arquitectura de referencia para un MVP verificable (continuación de diseño 2026-10-11)
+Esta sección convierte el concepto de caminar dentro de fotos en contratos de ingeniería comprobables; ningún componente enumerado queda habilitado por escribirlo aquí.
+
+**Plano de datos y dueños:**
+
+\`\`\`text
+Capturador móvil (fotos/video/panorama + zona/etapa/medidas)
+  -> preflight de permisos/privacidad/calidad (cliente; NO authoritative)
+  -> Evidence Ingestion canónico (originales inmutables, hash, actor, origen)
+  -> CaptureSession/manifest (ref a originales; Org/Proyecto/Zona/Etapa)
+  -> cola ReconstructionJob, idempotencyKey, cuota/presupuesto de org
+  -> Worker aislado (CPU: SfM/COLMAP; GPU bajo demanda: 3DGS/Splatfacto)
+  -> artifact store privado con versiones (poses, quality report, PLY/SOG/GLB)
+  -> inspección humana y calibración/alineación a plano por puntos medidos
+  -> visor Workspace autenticado + signed URLs temporales
+  -> snapshot temporal Spatial/Temporal + Evidence lineage -> Prometeo grounding
+\`\`\`
+
+**No poner entrenamiento de 3DGS dentro del request HTTP de API.** La Web/API existentes en Railway pueden gestionar orquestación, estado y permisos; el procesamiento GPU podrá estar en un worker aislado y compatible con infraestructura GPU **solo después** de validar soporte real, disponibilidad y presupuesto. No suponer que un worker CPU actual permite entrenar escenas completas o que Railway ofrece una GPU específica sin comprobar su servicio. Si se usa un procesador externo, debe haber un acuerdo de tratamiento de datos y controles de transferencia, residencia/retención y eliminación.
+
+**Visor inicial que conviene evaluar:** \`@playcanvas/supersplat-viewer\`, de código abierto bajo MIT, integrado/autoalojado en SEMSE; no subir fotografías privadas o archivos splat al alojamiento público de superspl.at por defecto. SuperSplat puede consumir archivos PLY de Gaussian Splats y formatos más compactos como SOG. El editor y visor abiertos no implican que los servicios alojados de publicación/galería sean abiertos; revisar términos antes de activar un proveedor hospedado. Para panorama 360 usar visor independiente con hotspots/estaciones vinculadas a un plano. Mantener renderizador de malla GLB/IFC como carril distinto al viewer de splats.
+
+**Ruta de escena:** \`/workspace/projects/:projectId/spatial/captures/:captureSessionId\` es una **ruta propuesta**. El backend debe resolver actor/Org/proyecto para cada solicitud, incluir assets firmados con TTL corto y validar las descargas del original; que alguien pueda ver el tour no implica que pueda descargar archivos ni otorgar acceso a terceros. El manifiesto de geometría lleva versión de escena, formato, puntos/cámaras, \`coordinateFrame\`, \`scaleConfidence\`, \`captureDateRange\`, \`reviewStatus\`, \`pipelineVersion\`, \`sourceEvidenceIds\`, \`rightsScope\` y \`processedAt\`.
+
+**Renderizado y navegación:** un splat produce vistas intermedias a partir de posiciones de cámara; no garantiza geometría sólida, colisiones, superficies utilizables para medición ni acceso visual a lo que nunca se fotografió. Un modo \`FLY/ORBIT\` libre no se presenta como recorrido físicamente seguro. El modo \`WALK\` se habilita solo cuando hay una malla de colisión/hitos de navegación validados y tolerancias suficientes; SuperSplat Viewer permite integrar malla de colisión independiente, que hay que generar/revisar. Si no existe, usar cámaras/hotspots válidos, límites de navegación y etiquetar \`VISUALIZACIÓN\`.
+
+## 11. Guía de captura en campo y control de calidad
+**Primer piloto:** pared/corredor eléctrico de un solo piso, **antes** de cerrar con sheetrock, sin pasajeros/terceros innecesarios, con autorización del empleador/GC y responsable del sitio. El usuario crea una \`CaptureSession\` dentro de la tarea, indica propósito, edificio/piso/zona, fase y fecha de captura declarada, obtiene una aprobación o política de conservación, y registra referencias para localizar esa pared meses después.
+
+**Secuencia operativa mínima:**
+1. Verificar permisos y área segura para documentar (nunca recorrer zonas peligrosas capturando con el teléfono); limpiar datos sensibles visibles cuando corresponda, sin alterar ni reemplazar la evidencia original.
+2. Identificar zona, punto físico de inicio, plano y revisión; fotografiar una referencia dimensional conocida y registrar la medición en una entidad/nota auditable. Un QR por sí solo identifica ubicación pero NO establece escala métrica.
+3. Capturar vistas **con traslación real**, gran solapamiento y ángulos distintos: no limitarse a girar en un solo punto. Evitar movimiento borroso, objetos móviles, superficies repetitivas, cambios drásticos de exposición y huecos de cobertura. Más imágenes no equivalen automáticamente a mejor reconstrucción.
+4. Subir originales con checksum, tamaño, orientación, archivo de cámara y metadatos separados; respetar condiciones offline y sincronización idempotente. El sistema muestra qué imágenes faltan/procesos fallaron, sin borrarlas.
+5. Procesar poses y generar vista 360 o estructura sparse primero; si el material y presupuesto permiten, entrenar splat y crear derivado web. Guardar reporte de cobertura/zonas ciegas e imposibilidad de reconstrucción.
+6. Revisión humana: confirmar únicamente lo que las fotos efectivamente enseñan y fijar la ubicación en plano usando referencias medibles; aprobar \`REVIEWED\` solo cuando se cumple la política de evidencias. \`AS_BUILT_VERIFIED\` exige comprobación adicional independiente y nunca se concede por fotorrealismo.
+7. Mostrar en Workspace la línea temporal con *snapshots discretos*, no una película inventada entre meses. Permitir alternar captura A/B y fotos vinculadas a tareas y cambios de obra.
+
+**Advertencias de producto:** cualquier posición de conductor que aparezca delante o detrás de paneles solo refleja evidencia capturada del momento. Antes de taladrar paredes cerradas, la herramienta debe exigir verificación local con medios apropiados. No convertir splat a autoría BIM o precisión topográfica por inferencia automática de Prometeo.
+
+## 12. Orden exacto de entrega y pruebas de aceptación de la integración
+| PR hijo propuesto | Resultado demostrable | Dependencia/gate |
+|---|---|---|
+| CAP-0 | SDD 2.0 de \`CaptureSession\`, datos espaciales, propiedad Evidence, aislamiento por Org, permisos/retención, tamaños y formatos | Aprobación del dueño de producto + identity/ADR |
+| CAP-1 | En Workspace, crear sesión de captura, asociar tarea/obra/zona y subir originales; estado real de avance y error | RBAC/cross-org probado, no asumir sesión global |
+| CAP-2 | Recorrido 360 con estaciones, plano, fecha y botón «Ver foto original»; móvil con fallback ligero | Ingestión/retención/planos probados |
+| CAP-3 | Reconstrucción COLMAP asíncrona, poses/quality report/versiones, manifest y links por evidencia | Sandbox, cuotas, colas, idempotencia y derecho de datos |
+| CAP-4 | Gaussian Splat training piloto y visor autoalojado \`supersplat-viewer\` con formatos PLY/SOG, control por contexto | GPU/contrato/licencias/performance reales |
+| CAP-5 | 4D temporal: comparar dos etapas, revisar etiquetas/zonas ciegas, Prometeo responde con vínculos a capturas originales | Grounding, permisos, provenance y validación humana |
+| CAP-6 | Ensayos de carga, fallo de proveedor, backups, borrado y revocación; canario real Railway con 2 Orgs | CI verde, SHA de servicios, ejecución auténtica e informe rollback |
+
+**Casos adicionales:**
+- **PWR-13:** una cuenta Admin de Org A cambia al workspace de Org B como WORKER: la escena, thumbnails, URLs firmadas y cachés de A se bloquean incluso con un enlace conocido; otro rol con acceso solo a tarea no puede bajar toda la escena.
+- **PWR-14:** un visor no autorizable o archivo SOG/PLY defectuoso falla de manera controlada; no aparecen splats o datos de demo como si fueran evidencia de un cliente.
+- **PWR-15:** en teléfono de rendimiento limitado se activa panorama 360 o foto fuente antes que saturar GPU/memoria; captura y reloj continúan sin interrupciones.
+- **PWR-16:** no se permite caminar «a través» de muro/suelo como si fuera visita física salvo que exista y se haya validado malla de colisión; sin ello se ofrece orbit/hotspots con etiqueta de aproximación.
+- **PWR-17:** exportaciones y desconexión del proveedor permiten recuperar originals + poses + versión del splat cuando formato/licencia lo permita; sin dependencia exclusiva del sitio de terceros.
+- **PWR-18:** un resultado sin escala validada no habilita medir distancias constructivas ni proponer corte/perforación autónomos, y Prometeo explica el nivel de confianza.
+
+**Referencias técnicas para el implementador:** COLMAP \`https://colmap.github.io/tutorial.html\`; Nerfstudio Splatfacto \`https://docs.nerf.studio/nerfology/methods/splat.html\`; PlayCanvas SuperSplat \`https://developer.playcanvas.com/user-manual/gaussian-splatting/editing/supersplat/\`; formatos \`https://developer.playcanvas.com/user-manual/supersplat/editor/import-export/\`; viewer \`https://github.com/playcanvas/supersplat-viewer\`. Versionar las dependencias y validar licencia exacta en cada release.
+
+**Resumen de alcance:** este documento NO es una entrega funcional. El primer hito que cuenta es un trabajador autorizado subiendo fotos originales y un supervisor autorizado recorriendo el mismo lugar reconstruido, con referencias al estado de obra y acceso correctamente denegado a otra organización.
