@@ -202,6 +202,15 @@ export async function resolveRuntimeConfigForRequest(req: NextRequest): Promise<
   return resolveConfigFromRequest(req) ?? await resolveConfigFromCookie(req) ?? resolveRuntimeConfig();
 }
 
+/**
+ * File upload/download BFF must never fall back to server-wide OPS_ADMIN
+ * identity or trust a caller-supplied proxy header. A valid signed web
+ * session cookie is mandatory; machine clients use the direct API instead.
+ */
+export async function resolveCookieRuntimeConfigForRequest(req: NextRequest): Promise<RuntimeConfig | null> {
+  return resolveConfigFromCookie(req);
+}
+
 export function runtimeDisabledResponse(): NextResponse {
   return NextResponse.json(
     {
