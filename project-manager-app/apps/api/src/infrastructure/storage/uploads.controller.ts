@@ -226,6 +226,15 @@ export class UploadsController {
     } catch {
       throw new BadRequestException("Invalid storage key");
     }
+    // Never let an authenticated caller write into another tenant's storage
+    // namespace or into an unscoped legacy/public key. File PUT can overwrite
+    // existing bytes, so authorization MUST precede storage.store().
+    // Resolve the verified bearer/authContext, never user-supplied tenant IDs.
+    const uploader = resolveRequestContext(req);
+    if (tenantFromStorageKey(decodedKey) !== uploader.tenantId) {
+      throw new ForbiddenException("Upload key is outside the authenticated tenant");
+    }
+
     const stored = await this.storageService.store({
       key: decodedKey,
       stream: validateUploadStream(req.raw, baseType),

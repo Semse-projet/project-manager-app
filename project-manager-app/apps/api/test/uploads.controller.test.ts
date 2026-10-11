@@ -54,15 +54,16 @@ test("putFile stores the real request body bytes via req.raw (Fastify shape)", a
     }
     const fakeReq = {
       headers: { "content-type": "text/plain", "content-length": String(bytes.byteLength) },
+      authContext: { tenantId: "tenantA", orgId: "orgA", userId: "userA", roles: ["PRO"] },
       raw: rawChunks(),
     };
-
-    const result = await controller.putFile("regression/test.txt", fakeReq as never);
+    const key = "tenants/tenantA/public-intake/evidence/regression.txt";
+    const result = await controller.putFile(key, fakeReq as never);
     assert.equal(result.sizeBytes, bytes.byteLength);
 
     const headerCalls: Array<Record<string, string>> = [];
     const fakeRes = { headers: (h: Record<string, string>) => headerCalls.push(h) };
-    const file = await controller.getFile("regression/test.txt", { headers: {}, query: {} } as never, fakeRes as never);
+    const file = await controller.getFile(key, { headers: {}, query: {} } as never, fakeRes as never);
     assert.equal(headerCalls.length, 1, "getFile must call reply.headers() (Fastify), not res.set() (Express)");
     assert.equal(headerCalls[0]["Content-Type"], "application/octet-stream");
 
@@ -73,4 +74,29 @@ test("putFile stores the real request body bytes via req.raw (Fastify shape)", a
     delete process.env.SEMSE_STORAGE_ROOT;
     await rm(root, { recursive: true, force: true });
   }
+});
+
+test("PUT rejects cross-tenant and unscoped keys before storage can be modified", async () => {
+  let writes = 0;
+  const storage = {
+    store: async () => { writes++; throw new Error("MUST NEVER REACH STORAGE"); },
+  };
+  const controller = new UploadsController(storage as never);
+  const req = {
+    headers: { "content-type": "text/plain", "content-length": "4" },
+    authContext: { tenantId: "tenantA", orgId: "orgA", userId: "userA", roles: ["PRO"] },
+    raw: (async function* () { yield Buffer.from("data"); })(),
+  };
+  for (const key of [
+    "tenants/tenantB/public-intake/evidence/not-ours.txt",
+    "evidence/legacy-key.txt",
+    "public/logo.txt",
+  ]) {
+    await assert.rejects(
+      () => controller.putFile(key, req as never),
+      (e: unknown) => !!e && typeof e === "object" && "status" in e && e.status === 403,
+      "cross-tenant and unscoped PUT must return 403 regardless of object existence",
+    );
+  }
+  assert.equal(writes, 0, "no failed-scope upload may overwrite a file");
 });
