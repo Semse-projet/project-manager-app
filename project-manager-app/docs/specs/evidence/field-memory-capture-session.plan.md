@@ -4,14 +4,14 @@ feature: "field-memory-capture-session"
 domain: "evidence"
 spec: "docs/specs/evidence/field-memory-capture-session.spec.md"
 version: "2.0"
-status: "DRAFT"
+status: "APPROVED"
 branch: "feat/field-memory-capture-session"
 date: "2026-10-11"
 ---
 
 # Plan técnico: CaptureSession CAP-0
 
-> Plan de implementación propuesto, sin autorización para crear tablas o activar servicios.
+> Plan de implementación autorizado por el propietario en cuanto a contrato CAP-0; los bloqueos de seguridad y los tests siguen siendo prerequisitos estrictos para introducir tablas o activar servicios.
 
 ## 1. Snapshot
 - Main inspeccionado al iniciar este plan: `432a9e39488ebe818ac29d975b0c08d18f8ba907` (verificar otra vez antes del PR de implementación).
@@ -21,6 +21,10 @@ date: "2026-10-11"
 - Migración CaptureSession: **no existente**; estado PENDING, cero SQL aplicado.
 
 ## 2. Constitución y autoridad
+
+Decisión arquitectura: sesiones/citas a originales permanecen en `apps/api/src/modules/evidence/`, alineadas con `docs/architecture/ADR-028-evidence-gateway-adapter-role.md`; eventos atómicos siguen `docs/architecture/ADR-022-transactional-outbox-bullmq.md`. No crear una frontera nueva ni ADR numerado ambiguo.
+Permisos/revisión/retención: defaults aprobados en §2.1 de la spec, sujetos a una `rightsPolicyRef` por obra, legal hold y no publicación sin política verificable.
+
 - Solo Evidence posee originales, estados de revisión y custodia; `CaptureSession` posee grupo/manifiesto.
 - Antes de schema o API: spec `APPROVED`, límites P0 #870/#871, contrato de autorización cliente/pro por org, acceso firmado y verificación storage.
 - Backend resuelve `projectId/jobId`, tenant y org, no confía en IDs ocultos de UI ni `metadata.fieldCapture` como fuente de autorización.

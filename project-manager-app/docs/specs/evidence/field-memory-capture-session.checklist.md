@@ -8,12 +8,18 @@ date: "2026-10-11"
 
 # Checklist de aprobación: Field Memory CAP-0
 
+## Decisiones aprobadas por el propietario (2026-10-11)
+
+- [x] Reglas conservadoras definidas: no capturar sin permiso de obra, lectura bajo Evidence policy, supervisor con membership, no auto-aprobación ni acceso externo por defecto.
+- [x] Retención requiere política por proyecto; sin ella no hay publicación ni purga automática; legal hold preserva originales.
+- [x] Sincronización offline no incluida en CAP-1 hasta disponer de protección e idempotencia verificables.
+
 ## Decisiones que requieren aprobación del propietario
-- [ ] Derechos de capturar imágenes en obra del GC/empleador y consentimiento de personas visibles.
-- [ ] Política de retención, exportación y borrado legal: ¿cuánto se conservan originales y quién autoriza?
-- [ ] Alcance de organizaciones: ¿cliente puede ver originales del profesional? ¿en qué estados?
-- [ ] Responsable de revisar una captura antes del sheetrock (no confundir SUBMITTED con VERIFIED).
-- [ ] Actuación cuando una sesión se captura sin red y se sincroniza días después.
+- [x] Derechos: autorización explícita de obra/GC y tratamiento de personas visibles; fallar cerrado si no constan.
+- [x] Retención: configurable por derechos del proyecto; sin valor vigente se bloquea la publicación y purga automática; no asumir período legal universal.
+- [x] Acceso: cliente y PRO asignado sólo si Evidence policy y rightsPolicyRef lo permiten; terceros denegados por defecto.
+- [x] Revisor: supervisor/inspector o representante del cliente explícitamente autorizado; SUBMITTED no es VERIFIED.
+- [x] Offline: excluido de CAP-1; no sincronización ni asociación sin revalidación online.
 
 ## Requisitos y seguridad
 - [ ] Tenant, org, job, project y milestone coherentes y autorizados en cada endpoint.
@@ -36,3 +42,13 @@ date: "2026-10-11"
 - [ ] Tests red/green, build, lint, auth E2E y CI verde.
 - [ ] PR merge y SHA, deploy, canary y activación con evidencia separada.
 - [ ] No marcar VERIFIED por un simple Railway SUCCESS.
+
+## Evidencia y dinero
+- [x] Especificación prohíbe tratar evidencias, fotos, panoramas, modelos 3D o resultados IA como aprobación automática.
+- [x] Contrato establece que no hay efectos de release en Payment Governance; código no implementado.
+
+## Documentación
+- [ ] Al implementar endpoints/eventos nuevos actualizar `docs/architecture/SEMSE_API_SURFACE_V1.md` y `docs/foundation/EVENT_CATALOG.md` con nombres `capture_session.*.v1` antes del merge de código.
+- [x] Se citan ADR-028, ADR-022 y tres fuentes primarias; el spec index refleja APPROVED.
+- [x] Analyze SDD: reconciliación del boundary Evidence, catálogo aggregate.action, permisos, idempotencia y propiedad original; sin nuevas entidades en runtime.
+- [ ] Analizar diff de implementación y cobertura E2E real antes de activar.

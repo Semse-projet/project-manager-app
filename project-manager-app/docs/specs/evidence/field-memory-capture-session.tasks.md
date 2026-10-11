@@ -12,7 +12,7 @@ date: "2026-10-11"
 # Tasks: CaptureSession CAP-0 / CAP-1
 
 ## Fase 0 — Gobierno y permisos
-- [ ] T-001 Aprobación de `field-memory-capture-session.spec.md`; investigación externa de 3 fuentes primarias y derechos.
+- [x] T-001 Aprobación del contrato CAP-0 y definición de derechos por defecto (2026-10-11); investigación de OWASP, Prisma y COLMAP registrada.
 - [ ] T-002 Completar estado final PR #870/#871, smoke de dos orgs y verificar sin drift.
 - [ ] T-003 Verificar modo de signed GET, secreto, retención y restauración de volúmenes; rollout shadow/enforce de spec ya APPROVED.
 - [ ] T-004 Reconciliar Evidence policy con usuario supervisor, cliente, pro y organización no asignada.

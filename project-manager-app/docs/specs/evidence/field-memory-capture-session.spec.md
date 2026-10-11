@@ -4,7 +4,7 @@ title: "SEMSE Field Memory 4D — CAP-0 CaptureSession y custodia de fotografía
 domain: "evidence"
 sdd_version: "2.0"
 version: "0.1"
-status: "REVIEW"
+status: "APPROVED"
 owner: "semse-core"
 risk: "high"
 code_status: "NOT_STARTED"
@@ -38,7 +38,7 @@ last_verified: "2026-10-11"
 
 # Spec: Field Memory CAP-0 — CaptureSession
 
-> **REVIEW, no autorizada para implementar**. Requiere aprobación del propietario, revisión de seguridad e incorporación a SPEC_INDEX. Derivada de `docs/program/semse-4d-field-memory/PHOTO_WALKTHROUGH_3D_4D_CAPTURE_SPEC.md`; los PR #868/#869 ofrecen vista local 360 y anotación de fotografía, **no CaptureSession**. Los PR #870/#871 protegen límites de subida y de IDs; no asumir merge ni despliegue.
+> **APPROVED en alcance de contrato CAP-0 por autorización explícita del propietario el 2026-10-11.** La implementación, migraciones, merge y activación siguen sujetas a gates de seguridad y pruebas. Registro incorporado a SPEC_INDEX. Derivada de `docs/program/semse-4d-field-memory/PHOTO_WALKTHROUGH_3D_4D_CAPTURE_SPEC.md`; los PR #868/#869 ofrecen vista local 360 y anotación de fotografía, **no CaptureSession**. Los PR #870/#871 protegen límites de subida y de IDs; no asumir merge ni despliegue.
 
 ## 1. Problema y resultado
 
@@ -53,6 +53,16 @@ last_verified: "2026-10-11"
 **Incluido:** create/list/get sesión; relación uno-a-muchos con Evidence existente; adjuntar originales **ya subidos y registrados**; metadatos declarados de nivel/zona, fase y propósito; submit idempotente; solo metadatos y referencias, sin copiar bytes. Un único Job canónico derivado de Project y su tenant; revisión/archivo fuera del primer slice de implementación salvo contrato explícitamente aprobado.
 
 **Excluido:** fotogrametría, NeRF, COLMAP, Gaussian Splatting, generación de poses, BIM/IFC, certificación de medidas, liberación de escrow, publicación pública, uso de GPS/EXIF como identidad del sitio, proveedores externos y reasignación de evidencia a otro proyecto.
+
+## 2.1 Decisiones del propietario — aprobadas 2026-10-11
+
+1. **Derechos y consentimiento:** el contratista/GC debe autorizar la captura para esa obra y zona; si no existe una política o autorización verificable, fallar cerrado. Evitar personas y datos sensibles; revisión o redacción de copias derivadas no modifica el original.
+2. **Custodia y retención:** originales inmutables con checksum, audit trail, exportación autorizada y retención definida en el contrato/política de cada proyecto. **No inventar período legal uniforme:** sin política de retención activa no publicar, borrar ni exportar automáticamente; conservar bajo acceso restringido y solicitar configuración antes de la activación. Legal hold prevalece sobre purga.
+3. **Visibilidad:** PRO de la Org asignada y CLIENT de la Org cliente solo si `evidence.policy` y consentimiento/rightsPolicyRef permiten esa acción; los metadatos técnicos, manifest y originales no se comparten con otras Orgs o terceros sin concesión explícita revocable. Supervisor no hereda permisos: necesita membership y permiso backend.
+4. **Revisión humana:** supervisor/inspector explícitamente autorizado o representante del cliente autorizado; SUBMITTED significa entregado, **no aprobado/verificado**. IA solo sugiere hallazgos, nunca autoriza pagos, perforación ni estados as-built.
+5. **Sin conexión:** CAP-1 es online-first. El móvil puede retener archivos localmente bajo política y protección del dispositivo; no hay sincronización aprobada mientras falten cifrado, expiración, identidad revalidada y deduplicación. Hora local se marca como declarada y se contrasta con hora servidor al sincronizar en futura fase.
+
+Son políticas conservadoras de lanzamiento acordes con la aprobación del contrato. Su implementación y cumplimiento operativo se verifican por pruebas, no por la presencia de este texto.
 
 ## 3. Autoridad, permisos y límites
 
@@ -80,6 +90,79 @@ last_verified: "2026-10-11"
 
 ## 5. Contratos API propuestos, NO existentes
 
+### API — shape canónico SDD 2.0
+
+```yaml
+auth: required (JWT/session, no server-identity fallback)
+routes:
+  - method: POST
+    path: /v1/projects/:projectId/capture-sessions
+    permissions: [evidence:write]
+    input_schema: CreateFieldCaptureSessionSchema
+    output_schema: CaptureSessionView
+  - method: GET
+    path: /v1/projects/:projectId/capture-sessions
+    permissions: [evidence:read]
+    input_schema: CaptureSessionsFilterSchema
+    output_schema: PaginatedCaptureSessionView
+  - method: POST
+    path: /v1/capture-sessions/:captureSessionId/evidence
+    permissions: [evidence:write]
+    input_schema: AttachCanonicalEvidenceSchema
+    output_schema: CaptureEvidenceRefView
+  - method: POST
+    path: /v1/capture-sessions/:captureSessionId/submit
+    permissions: [evidence:write]
+    input_schema: SubmitCaptureSessionSchema
+    output_schema: CaptureSessionView
+  - method: GET
+    path: /v1/capture-sessions/:captureSessionId
+    permissions: [evidence:read]
+    input_schema: CaptureSessionIdSchema
+    output_schema: CaptureSessionView
+errors:
+  400: input inválido
+  401: falta sesión autenticada
+  403: permiso denegado
+  404: recurso inexistente o fuera de alcance (misma respuesta)
+  409: conflicto de estado o idempotencia
+  422: fotografía inválida o Evidence sin bytes verificables
+  503: almacenamiento indisponible
+effects:
+  audit_log: required
+  domain_event: atomic_outbox_per_create_attach_submit
+  sse: none_in_CAP_1
+  payment_governance: never_release_or_approve
+```
+
+### UI
+
+```yaml
+surfaces: [worker/evidence, workspace]
+states: [loading, empty, draft, uploading, ready, submitted, forbidden, degraded, error]
+required_behavior:
+  - show active company, job, phase and rights state
+  - fail closed on revoked membership
+  - original photo access only after backend resource authorization
+  - show CLAIMED_BY_WORKER separately from server time
+```
+
+### Agente/Prometeo
+
+```yaml
+tools: [capture_session.read_authorized_only]
+input_schema: AuthorizedCaptureContext
+output_schema: GroundedCaptureSummaryWithEvidenceIds
+source_citations_required: true
+approval_policy: explicit_human_approval_for_nonread_actions
+forbidden_behavior:
+  - infer_uncaptured_conductors
+  - treat_3D_render_as_survey_grade
+  - auto_approve_evidence_or_release_payment
+  - use_public_unsanctioned_file_urls
+```
+
+
 - `POST /v1/projects/:projectId/capture-sessions` — `evidence:write`, body `{floorLabel?:string≤60,zoneLabel:string≤100,phase:BEFORE_CONCEALMENT|DURING_INSTALL|AFTER_CONCEALMENT,purpose:string≤100,claimedCapturedAt?:ISO8601,rightsPolicyRef?:string,idempotencyKey:uuid}`; response `{id,projectId,jobId,status:DRAFT,createdAt,createdBy,originalEvidenceIds:[]}`.
 - `POST /v1/capture-sessions/:id/evidence` — `evidence:write`, `{evidenceId,sequence:int,idempotencyKey:uuid}`; Evidence debe existir, estar autorizada, ser PHOTO, pertenecer al mismo proyecto/tenant, mantener misma identidad de original y tener bytes comprobables.
 - `POST /v1/capture-sessions/:id/submit` — `evidence:write`, `{idempotencyKey:uuid}`, transición DRAFT→SUBMITTED (o rechaza 409).
@@ -94,7 +177,7 @@ last_verified: "2026-10-11"
 
 ## 6. FSM, invariantes, outbox
 
-Estados del slice: `DRAFT → SUBMITTED`. `ABANDONED` y `ARCHIVED` se posponen para otro spec. Las referencias anexas sólo se añaden en DRAFT; no eliminar originales ni modificar hash/fecha de servidor. Los eventos `field-memory.capture-session.created.v1`, `...evidence-linked.v1`, `...submitted.v1` requieren schema, registro en Event Catalog, outbox **en la misma transacción** y correlation/idempotency. Consumer reintenta sin duplicar estado; DLQ y replay visibles. Estado SUBMITTED no significa REVIEWED/VERIFIED.
+Estados del slice: `DRAFT → SUBMITTED`. `ABANDONED` y `ARCHIVED` se posponen para otro spec. Las referencias anexas sólo se añaden en DRAFT; no eliminar originales ni modificar hash/fecha de servidor. Los eventos `capture_session.created.v1`, `...evidence-linked.v1`, `...submitted.v1` requieren schema, registro en Event Catalog, outbox **en la misma transacción** y correlation/idempotency. Consumer reintenta sin duplicar estado; DLQ y replay visibles. Estado SUBMITTED no significa REVIEWED/VERIFIED.
 
 ## 7. Datos, custodia y migración
 
@@ -121,16 +204,33 @@ Flag `FIELD_MEMORY_CAPTURE_ENABLED` desactivada por defecto (allowlist interna p
 
 ## 10. Mapa de implementación
 
-Nuevos módulos en `apps/api/src/modules/field-memory`, schema Prisma, `packages/schemas/src/field-memory.schema.ts`, BFF de capturas, UI sobre Workspace/worker evidence y tests. **No crear tablas ni endpoints hasta APPROVED.** Referenciar `EvidenceRepository` y `ResourceScope`; no duplicar Evidence. No ejecución GPU en API.
+### API
+- `apps/api/src/modules/evidence/field-capture-session.controller.ts`, `.service.ts`, `.repository.ts`: dentro del owner canónico Evidence de ADR-028; no establecer nuevo módulo `field-memory` ni nueva frontera de autoridad.
+### Web
+- BFF autenticado para sesiones; UI Workspace y `worker/evidence` existentes, con company/job context visible y permisos por recurso.
+### Worker / Packages / DB
+- `packages/schemas/src/field-memory.schema.ts` y migración Prisma **aditiva** después de pruebas/validación; outbox por ADR-022; worker GPU y derivaciones fuera de CAP-1.
+### Tests
+- `apps/api/test/field-memory-capture-session.test.ts`, `...-integration.test.ts`, `tests/unit/field-memory-capture-session-ui.test.ts` — archivos FUTUROS, no declarados como existentes en frontmatter.
+- `EvidenceRepository` y `ResourceScope` son fuente de permisos; originales pertenecen exclusivamente a Evidence. **No crear tablas ni endpoints hasta tests y revisión previa a implementación.**
 
 ## 11. Investigación y decisiones
+
+Investigación independiente de fuentes primarias (2026-10-11):
+1. OWASP File Upload Cheat Sheet — https://cheatsheetseries.owasp.org/cheatsheets/File_Upload_Cheat_Sheet.html — **aplicado ahora:** autenticar/autorización por objeto, tamaños, permitir formatos, almacenamiento privado.
+2. Prisma Migrate deployment guide — https://www.prisma.io/docs/orm/v6/prisma-client/deployment/deploy-database-changes-with-prisma-migrate — **aplicado ahora:** `migrate deploy` automatizado y versiones/rollback forward-fix; no `db push` en producción.
+3. COLMAP official Tutorial — https://colmap.github.io/tutorial.html — **backlog CAP-3:** fotogrametría de vistas superpuestas desde posiciones distintas; no reconstruir la escena en CAP-1.
+
+**Descartado en CAP-1:** almacenamiento público de fotos, IA cloud por defecto, inferencia de medidas sin calibración y entrenamiento GPU dentro de HTTP.
+
+ADR obligatorios: `docs/architecture/ADR-028-evidence-gateway-adapter-role.md` (Evidence canónico y refs) y `docs/architecture/ADR-022-transactional-outbox-bullmq.md` (atomicidad de eventos). No se abre un ADR nuevo porque `CaptureSession` permanece dentro de `modules/evidence`.
 
 Fuentes arquitectónicas existentes en repositorio: `docs/SDD_GOVERNANCE.md`, `docs/specs/platform/resource-scope.spec.md`, `docs/specs/platform/signed-file-access.spec.md`, y la propuesta `docs/program/semse-4d-field-memory/PHOTO_WALKTHROUGH_3D_4D_CAPTURE_SPEC.md`. La investigación externa de tres fuentes primarias por nuevo módulo y su matriz aplicado/backlog/descartado es **pendiente antes de aprobación**. No inferir aprobación por documentos de descubrimiento.
 
 ## 12. Gate de cierre
 
-- [ ] Aprobación explícita del propietario y definición de derechos de imagen/retención.
-- [ ] SDD spec + plan + tasks + checklist alineados; spec-index regenerado.
+- [x] Aprobación explícita del propietario del contrato CAP-0 y defaults conservadores de derechos/retención (2026-10-11). Políticas concretas por proyecto requieren configuración antes de activar.
+- [ ] SDD spec + plan + tasks + checklist alineados; spec-index regenerado y CI terminal.
 - [ ] P0 subida autenticada y coherencia de IDs (#870/#871) con CI/merge/smoke.
 - [ ] Signed GET `enforce` y storage persistente, backup/restore y control por Org/recurso.
 - [ ] Tests de seguridad, migración y E2E verdes.
