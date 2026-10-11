@@ -70,3 +70,8 @@ test("multipart staging is excluded from original snapshot and restore compariso
   const result=await verifyRestoredOriginals(manifest,f.restore);
   assert.equal(result.status,"PASS");
 });
+
+test("an empty backup cannot be marked as successful original recovery",async t=>{
+  const f=await setup(t);
+  await assert.rejects(()=>verifyRestoredOriginals({...f.manifest,files:[]},f.restore),/no original files/);
+});

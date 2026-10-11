@@ -61,6 +61,8 @@ function validate(manifest) {
     || typeof manifest.backupReference!=="string" || !/^[a-zA-Z0-9._-]{8,128}$/.test(manifest.backupReference))
     throw Error("Invalid snapshot manifest");
   if(manifest.excludedStagingDirectory!=="multipart") throw Error("Manifest staging exclusion must be explicit");
+  // An empty directory cannot prove that any original photo was backed up.
+  if(manifest.files.length===0) throw Error("Manifest has no original files");
   const seen=new Set();
   for(const e of manifest.files) {
     if(!safeName(e.relativePath) || seen.has(e.relativePath)
