@@ -14,7 +14,7 @@
 | Bucket separado de objetos | no aparece en inventario production | Railway describe_environment |
 | `UPLOADS_SIGNED_GET_MODE` / `UPLOADS_SIGNING_SECRET` | nombres ausentes | Railway list_variables. Default código de lectura `off` |
 | Uso de disco API (24h) | aprox. 0.159 GB en metrica `DISK_USAGE_GB` | Railway get_service_metrics; no determina cantidad ni durabilidad de originales |
-| Snapshots/backups reales | **UNVERIFIED** | El conector Railway no ofrece inventario de backups, ni operación segura de restore aislado |
+| Snapshots/backups reales | **DECLARADOS POR PROPIETARIO / NO INSPECCIONADOS** | El usuario informó que creó backups el 2026-10-11; falta confirmar específicamente respaldo completado del volumen `project-manager-app-volume` asociado a semse-API, fecha, retención e ID. El conector Railway no ofrece inventario de backups |
 | Restore de fotografías productivas | **NOT RUN** | No se dispone de respaldo/entorno aislado comprobados |
 | Pruebas sintéticas de integridad | 8/8 PASS en ejecución aislada inicial; versión ampliada con multipart pendiente de CI exacto | prueba local aislada y tests de PR #874 |
 | Cobertura tenant/org/proyecto en lectura | **UNVERIFIED** | Signed URLs y control por recurso aún requieren canary con cuentas reales |
@@ -29,7 +29,8 @@
 
 ## Criterio para desbloquear CaptureSession como repositorio duradero
 
-- [ ] Backup real de originales identificado por ID y fecha, ubicación de copia independiente.
+- [ ] Backup real del volumen `project-manager-app-volume` confirmado como COMPLETED por ID y fecha (usuario informa backups creados; alcance exacto aún por comprobar).
+- [ ] Copia privada externa a `/data`, cifrada, correspondiente al mismo punto de manifiesto SHA-256; ensayo aislado de esta copia distinto del snapshot Railway.
 - [ ] Snapshot abarca todos los archivos referenciados por Evidence a la hora del backup; multipart transitorio excluido.
 - [ ] Manifiesto privado SHA-256 generado sin divulgar keys/PII.
 - [ ] Restore aislado de ese backup, verificaciones 0 alterados/0 faltantes/0 inesperados y test de revocación/autorización cross-org.
@@ -40,4 +41,4 @@
 
 **Regla:** No marcar `VERIFIED`, no activar `CaptureSession` para originales de clientes y no ejecutar pipeline GPU para reconstrucción 3D real mientras falte el restore o la política de acceso por recurso.
 
-**Siguiente acción operativa externa:** revisar `SEMSEproject → production → semse-API → Volumes/Backups` en Railway. Comprobar si existe backup y mecanismo de copia/restauración aislada **sin pulsar Restore sobre la API en producción**. El conector de esta conversación no puede consultar backups del proveedor; registrar resultado aquí solo después de verificación independiente.
+**Actualización del propietario 2026-10-11:** informó que ya creó backups. No confirma cuáles servicios/volúmenes, fecha exacta ni estado terminal; por eso los originales continúan RESTORE NOT VERIFIED. **Railway restaura un snapshot de volumen solamente dentro del mismo proyecto/entorno y cambia el volumen de servicio cuando se confirma Deploy**; no sirve como ensayo de restore aislado sin intervenir producción. Fuente: https://docs.railway.com/volumes/backups. **Siguiente acción segura:** verificar la entrada completada de backup en `SEMSEproject → production → semse-API → Backups` sin pulsar Restore; luego aprobar una copia cifrada independiente y realizar restore aislado de esa copia. No marcar el backup de Railway como restaurado por el ensayo de la copia externa.

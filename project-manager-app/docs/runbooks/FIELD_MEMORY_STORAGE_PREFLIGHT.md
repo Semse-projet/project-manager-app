@@ -83,7 +83,13 @@ node scripts/field-memory-originals-restore-drill.mjs --create-manifest \
 
 Esto solamente crea un manifiesto; NO ejecuta el respaldo. La copia real debe hacerse con un mecanismo autorizado de Railway/backups o exportación cifrada. El identificador debe corresponder al backup real y quedar anotado por el operador, con hora, entorno y política de retención. No utilizar como respaldo el mismo volumen `/data`.
 
-**Paso 3: Restaurar una copia del respaldo en un contenedor/volumen desechable separado.** Nunca pulsar Restore contra la API productiva para efectuar una prueba. Railway puede sustituir el volumen montado y redeplegar el servicio al restaurar a su misma instancia. Si no existe una ruta de restauración aislada respaldada por el proveedor, el estado se queda `UNVERIFIED` y se detiene el proceso.
+**Paso 3: recuperación aislada por copia independiente (no por la opción Restore del snapshot Railway).** La [documentación oficial de backups de volúmenes](https://docs.railway.com/volumes/backups) aclara que su opción `Restore` solo opera en el mismo proyecto/entorno, crea un volumen restaurado que **sustituye al montado en el servicio**, y requiere confirmar `Deploy`. Por ello NO debe utilizarse para un ensayo en la API productiva.
+
+**Dos tipos de control — no confundirlos:**
+- **Respaldo Railway**: confirmar en `semse-API → Backups` que existe un backup de `project-manager-app-volume`, con fecha, estado completado y retención. Esto protege contra incidentes pero **todavía no prueba la recuperación**; no tocar `Restore`.
+- **Ensayo independiente**: producir además una copia cifrada coherente de los originales desde una ventana de lectura/backup controlada, guardarla **fuera del mismo volumen** (por ejemplo bucket privado autorizado), restaurarla en un contenedor temporal aislado y ejecutar `--verify` contra el manifiesto SHA-256 del **mismo punto temporal**. No inventar que la copia procede del snapshot interno de Railway: este ensayo comprueba la copia independiente, no la restaurabilidad del snapshot Railway.
+
+Si aún no existe medio seguro para extraer/cifrar/restaurar la copia independiente, el control de restore queda `UNVERIFIED`. No crear nuevos servicios, buckets o credenciales automáticamente ni entrar en `Restore` durante la prueba.
 
 **Paso 4: Verificar integridad de la copia RESTAURADA**, en un contenedor aislado cuyo directorio no sea `/data` productivo:
 
@@ -95,4 +101,4 @@ node scripts/field-memory-originals-restore-drill.mjs --verify \
 
 Gate de aceptación: `status:PASS`, `missingFiles=0`, `alteredFiles=0`, `unexpectedFiles=0`, `matchedFiles=expectedFiles`; adjuntar a auditoría **solo resultado agregado y ref de backup**, no manifest con rutas/PII. Complementarlo con recuento de Evidence y referencias originales de la base restaurada **del mismo punto temporal**, legal hold y políticas tenant/Org; la coincidencia de hashes por sí sola no demuestra acceso correcto ni completitud del snapshot.
 
-**Estado de esta revisión (2026-10-11):** pruebas sintéticas aisladas ejecutadas satisfactoriamente; backup/restore verdadero de Railway todavía no ejecutado ni verificable por el conector disponible. Estas pruebas no deben marcar `CAP-1 VERIFIED`.
+**Estado de esta revisión (2026-10-11):** el propietario informó que creó backups. Esto se registra como **DECLARADO POR EL PROPIETARIO**, sin confirmación de que incluyan el volumen API ni de snapshot completado. La ejecución CI de las pruebas de integridad del PR #874 fue satisfactoria en un commit previo; el merge y restore real siguen pendientes. Un restore aislado de un snapshot Railway no está soportado en el flujo público de la plataforma; usar exportación independiente para el ensayo. Ninguna de estas acciones marca `CAP-1 VERIFIED`.
