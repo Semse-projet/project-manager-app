@@ -3,6 +3,9 @@
 **Producto:** reutilizar SEMSE Workspace, incorporarle acciones reales, el Universal Connector y creación/visualización 3D, conectando modelos con el historial 4D y Evidence. No afirmar que los proveedores están conectados ni que modelado 3D ya esté integrado.
 **Enlazado a:** WORKSPACE_REUSE_AND_CONNECTORS.md, MULTI_ORG_CONTEXT_SELECTOR_UX.md, COMPANY_INVITATIONS_DETAILED_SPEC.md y arquitectura Field Memory 4D.
 
+## Documento especializado de recorrido fotorrealista desde fotos
+El propietario aclaró un caso distinto al modelado manual de objetos: fotografías que permiten caminar virtualmente por una habitación mediante reconstrucción y renderizado interactivo. Ver [PHOTO_WALKTHROUGH_3D_4D_CAPTURE_SPEC.md](PHOTO_WALKTHROUGH_3D_4D_CAPTURE_SPEC.md) para fotogrametría COLMAP, panoramas, Nerfstudio Gaussian Splatting, acceso temporal anterior a sheetrock y pruebas PWR-01...12. La reconstrucción se procesa antes de la navegación; el render sí puede ser interactivo en tiempo real.
+
 ## A. Una decisión imprescindible: modelar no es solo visualizar
 Hay 4 capacidades distintas que SEMSE debe señalar explícitamente:
 1. **Visualizar/inspeccionar** un objeto 3D existente, girar/medir/aislar; no implica editar diseño fuente.
