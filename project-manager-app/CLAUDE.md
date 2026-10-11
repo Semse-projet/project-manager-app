@@ -18,7 +18,7 @@ Para sugerir el enrutamiento sin otorgar permisos: pnpm skill:route -- "<tarea>"
 - GitHub Billing, límites de Actions, Code Quality, startup_failure, optimización de costos y gastos: .claude/skills/semse-github-operations-cost-guard/SKILL.md **junto con** semse-ci-pr-workflow cuando aplique.
 - Cualquier tarea financiera, mutante, de acceso o producción requiere aprobación conforme a la gobernanza; conocer una skill no permite pagos, modificaciones presupuestarias, cambios en CI/Railway o saltarse checks.
 
-La raíz externa también tiene un descriptor para Codex en .agents/skills/semse-github-operations-cost-guard/SKILL.md, el cual remite al archivo canónico sin duplicarlo.
+La raíz externa contiene descriptores Codex para las 23 skills de Claude, bajo .agents/skills/<id>/SKILL.md. Los 21 nuevos remiten a su archivo canónico sin duplicar reglas; testing-worker-tracker conserva un descriptor legacy detallado. Véase docs/agents/SEMSE_CODEX_SKILL_COVERAGE_AUDIT.md; el test de paridad previene entradas faltantes.
 
 ## Domain module notes
 

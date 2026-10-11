@@ -36,7 +36,7 @@ Si la sesión es de feature coding, también leer:
 ## Descubrimiento de skills y coordinación entre agentes
 
 - **Catálogo único de referencia:** docs/agents/SEMSE_SKILL_CATALOG.md (ubicación relativa a project-manager-app/). El catálogo lista skills y disparadores, pero no concede permisos. **No es obligatorio cargar todas las skills**.
-- **Skill canónica:** .claude/skills/<id>/SKILL.md. Las instrucciones se aplican a Claude y Codex cuando la tarea realmente las requiere; para GitHub Cost Guard, Codex puede descubrir el puntero de la raíz externa .agents/skills/semse-github-operations-cost-guard/SKILL.md.
+- **Skill canónica:** .claude/skills/<id>/SKILL.md. Para Codex, cada skill instalada tiene entrada de descubrimiento en la raíz externa .agents/skills/<id>/SKILL.md que remite a la fuente canónica (salvo testing-worker-tracker: contenido legacy propio). Sólo leer la skill aplicable, nunca todas. Validar paridad con tests/unit/semse-codex-skill-parity.test.mjs y consultar docs/agents/SEMSE_CODEX_SKILL_COVERAGE_AUDIT.md.
 - **Selector consultivo:** pnpm skill:route -- "<descripción de la tarea>"; inspeccionar razones y advertencias; pnpm skill:route:report comprueba el inventario. El enrutamiento no bloquea CI ni autoriza cambios.
 - **Precedencia invariable:** constitución, este AGENTS.md, contratos SDD, dominio/seguridad y semseproject tienen prioridad sobre skills temáticas; la selección de una skill nunca levanta las restricciones de la sección NUNCA.
 - **GitHub Actions y facturación:** consultar semse-github-operations-cost-guard + semse-ci-pr-workflow. Diferenciar consumo bruto, consumo facturable, presupuesto, factura y pago confirmado; un startup_failure con cero jobs NO significa que fallaron los tests.

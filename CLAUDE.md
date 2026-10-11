@@ -16,9 +16,9 @@ The canonical monorepo's own agent contract is imported below, so it loads autom
 
 ## Shared skill index and precedence
 
-The authoritative skill activation index is project-manager-app/docs/agents/SEMSE_SKILL_CATALOG.md. Use that index to select applicable skills, then open their actual SKILL.md files. **Do not import all skills into every session.** This index reconciles the existing 22 Claude skills with the new semse-github-operations-cost-guard skill (23 when the proposed PR is merged), and distinguishes external conversation documents from installed skills.
+The authoritative skill activation index is project-manager-app/docs/agents/SEMSE_SKILL_CATALOG.md. Use that index to select applicable skills, then open their actual SKILL.md files. **Do not import all skills into every session.** This index covers 23 installed canonical Claude skills and 23 Codex discovery entries (21 lightweight pointers added after PR #851). It distinguishes conversation-only protocols from installed skills. See project-manager-app/docs/agents/SEMSE_CODEX_SKILL_COVERAGE_AUDIT.md for the legacy testing-worker-tracker exception and parity validation.
 
-For GitHub billing, Actions budgets, startup_failure, Code Quality and CI cost optimization, read project-manager-app/.claude/skills/semse-github-operations-cost-guard/SKILL.md alongside semse-ci-pr-workflow. Codex has a discovery pointer in the outer .agents/skills/semse-github-operations-cost-guard/SKILL.md. Always follow the imported AGENTS.md and semseproject approval rules; this routing index grants no new mutation, payment, budget or deployment authority.
+For GitHub billing, Actions budgets, startup_failure, Code Quality and CI cost optimization, read project-manager-app/.claude/skills/semse-github-operations-cost-guard/SKILL.md alongside semse-ci-pr-workflow. Codex has one discoverable .agents/skills/<id>/SKILL.md entry per installed Claude skill, including the GitHub Cost Guard pointer. Always follow the imported AGENTS.md and semseproject approval rules; this routing index grants no new mutation, payment, budget or deployment authority.
 
 ## Monorepo map (`project-manager-app/`)
 
