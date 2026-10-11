@@ -24,6 +24,7 @@ production_evidence:
   - railway:web:deployment:228095a8-2326-4ac4-aff2-0cfe8da1c144:success:sha:89e0473d23d6dad2942a78fc486e65464ec69988:includes-afb2dccd
   - railway:api:env:SEMSE_MISSION_CONTROL_V2_ENABLED:unset-2026-08-12
   - railway:api:env:SEMSE_MISSION_CONTROL_V2_CANARY_TENANT_IDS:tenant_default-2026-08-12
+  - prod:canary-read-check:2026-10-11:ops-admin-session:runbooks-200:exceptions-200:enabled-true:tenant_default:partial-no-cross-tenant-404-no-effectful-flow
   - "local:canary-walkthrough:2026-08-12:flag-off,allowlist=tenant_default-only — NOT production evidence, see §8-canary-note below"
 related_files:
   - apps/api/src/modules/ops/ops.controller.ts
@@ -497,4 +498,16 @@ RUNNING --lease vencido--> RUNNING (reclaim auditado)
   (2026-08-12); `SPEC_INDEX.md` regenerado (`pnpm spec:index`),
   `pnpm spec:validate:strict` en 0 errores. Matriz y roadmap ya estaban
   reconciliados (PR #552) y no requirieron cambios.
+- **Evidencia de producción parcial (2026-10-11):** con una sesión `OPS_ADMIN`
+  real en `app.semseproject.com`, `GET /v1/ops/mission-control/runbooks` y
+  `.../exceptions` respondieron 200 con `enabled: true` para `tenant_default`,
+  con `SEMSE_MISSION_CONTROL_V2_ENABLED` sin definir (sólo allowlist). Nota:
+  `ENABLED=true` activa la función para **todos** los tenants
+  (`mission-control.policy.ts`); no usarlo para el canary. **No verificado
+  todavía:** el 404 de un tenant fuera de la allowlist, y los pasos con efecto real del §8 (ACK/RESOLVE, ESCALATE real).
+  **Verificado después (2026-10-11, sesión `OPS_ADMIN`):** `RETRY` en `dryRun` sobre un AgentRun real fallido
+  (`agent-run-recovery-v1`) → 200, receipt `NO_OP`, `wouldSetStatus: QUEUED`, sin mutar estado; repetido con
+  la misma `idempotencyKey` → mismo `receipt.id`, `duplicate: true`, `attempts: 1`; acción sobre un target
+  inexistente → receipt `FAILED` (no revela existencia). El gate de canary de producción sigue abierto hasta
+  completar el 404 cross-tenant y los pasos con efecto real.
 - [ ] Sólo entonces `status: VERIFIED`.
