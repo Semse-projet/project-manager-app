@@ -1,7 +1,7 @@
 # SEMSE Field Memory 4D — Product requirements and conversation capture
 **Edition:** 2026-10-11 · **Status:** PROPOSED / DISCOVERY CAPTURE (not a shipped feature)
 **Evidence basis:** Spanish founder discovery conversation on 2026-10-11, plus targeted GitHub read of main at 4e4fd4f5818dd4c63ee25a69e49781cb2b62ec49.
-**Companions:** README.md, SYSTEM_ARCHITECTURE.md, IMPLEMENTATION_AND_VERIFICATION.md in this folder.
+**Companions:** README.md, SYSTEM_ARCHITECTURE.md, IMPLEMENTATION_AND_VERIFICATION.md, ORGANIZATION_ENROLLMENT_AND_4X10_SHIFTS.md in this folder.
 **Rule:** Preserve founder intent. Treat every proposal as a proposal until product review. Existing source files prove code presence, not deployment, activation, completeness, or runtime correctness.
 
 ## 1. Why this product exists
@@ -139,7 +139,10 @@ The discovery starts with timekeeping friction and expands into construction mem
 ## 8. Product measures
 Adoption: successful check-ins, completion/acknowledgment rate, active crew leads, offline reconciliation success. Quality: missing clock-outs, disputed timesheet corrections, photo resubmission reasons, % concealed assets with approved evidence, % of evidence accurately anchored to a floor/zone/wall. Value: time needed to find historic as-built evidence, avoidable destructive inspection, rework cost and time saved. Guardrails: false-positive geofence actions, wrongful deductions (target zero), unauthorized shares (zero), untraceable evidence, AI hallucinated exact hidden assets (zero), expired shares reused (zero).
 
-## 9. Source-of-truth and governance references
+## 9. Continuation: staffing account model and compressed shifts (2026-10-11)
+The founder further clarified a common 40-hour week with **four days of ten actual working hours (Monday–Thursday)**, and asked how a staffing company owner creates the organization and enrolls every employee via the SEMSE application. Preserve the exact decision context and proposed onboarding workflow in [ORGANIZATION_ENROLLMENT_AND_4X10_SHIFTS.md](ORGANIZATION_ENROLLMENT_AND_4X10_SHIFTS.md). That document adds 11 REQ-ORG and 4 REQ-SCH requirements, for **69 unique requirement IDs across both documents** (54 originally plus 15 new). Company-led enrollment by scoped individual invitations and multi-role membership is the proposed design, not a confirmed existing onboarding feature. Ten paid worked hours are not the same as ten hours of on-site presence when unpaid breaks occur. Overtime requires jurisdiction-specific policy and actual-time tracking.
+
+## 10. Source-of-truth and governance references
 The implementation MUST reconcile with existing repo governance, not replace it:
 - docs/architecture/ADR-029-labor-engine-canonical-time-owner.md
 - docs/architecture/ADR-028-evidence-gateway-adapter-role.md
