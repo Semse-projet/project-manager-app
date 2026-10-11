@@ -79,20 +79,57 @@ async function probeTcpTarget(target: string, timeoutMs: number): Promise<Omit<R
   });
 }
 
+const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "::1"]);
+
+/** `host:port` of a connection URL (credentials never included), or null if unusable. */
+function hostPortFromUrl(raw: string | undefined, defaultPort: number): string | null {
+  if (!raw) return null;
+  try {
+    const url = new URL(raw);
+    return url.hostname ? `${url.hostname}:${url.port || defaultPort}` : null;
+  } catch {
+    return null;
+  }
+}
+
+function isLoopbackTarget(target: string): boolean {
+  try {
+    const host = target.includes("://") ? new URL(target).hostname : target.split(":")[0];
+    return LOOPBACK_HOSTS.has(host.replace(/^\[|\]$/g, ""));
+  } catch {
+    return false;
+  }
+}
+
 @Injectable()
 export class RuntimeKnowledgeService {
   private resolveProbeTargets(node: RuntimeNode): string[] {
-    const configuredTargets = node.healthCheck?.targets ?? [];
+    const seedTargets = node.healthCheck?.targets ?? [];
+    // The seed targets are the local docker-compose addresses (127.0.0.1:5433, :6379, :9001, :8025).
+    // In production they point at this very container, where nothing listens, so they would report
+    // every real service as offline. Drop them there; real targets come from the environment.
+    const configuredTargets =
+      process.env.NODE_ENV === "production" ? seedTargets.filter((target) => !isLoopbackTarget(target)) : seedTargets;
 
     if (node.id === "api_service") {
       const host = process.env.HOST ?? "127.0.0.1";
       const port = process.env.PORT ?? "4121";
-      return [`http://${host}:${port}/v1/health`, ...configuredTargets];
+      return [`http://${host}:${port}/v1/health`, ...seedTargets];
     }
 
     if (node.id === "web_service") {
       const webBaseUrl = process.env.SEMSE_WEB_BASE_URL;
-      return webBaseUrl ? [`${webBaseUrl.replace(/\/+$/, "")}/knowledge`, ...configuredTargets] : configuredTargets;
+      return webBaseUrl ? [`${webBaseUrl.replace(/\/+$/, "")}/knowledge`, ...seedTargets] : seedTargets;
+    }
+
+    if (node.id === "postgres_service") {
+      const fromEnv = hostPortFromUrl(process.env.DATABASE_URL, 5432);
+      return fromEnv ? [fromEnv, ...configuredTargets] : configuredTargets;
+    }
+
+    if (node.id === "redis_service") {
+      const fromEnv = hostPortFromUrl(process.env.REDIS_URL, 6379);
+      return fromEnv ? [fromEnv, ...configuredTargets] : configuredTargets;
     }
 
     return configuredTargets;
@@ -178,6 +215,17 @@ export class RuntimeKnowledgeService {
 
     const timeoutMs = node.healthCheck.timeoutMs ?? 2_500;
     const targets = this.resolveProbeTargets(node);
+    if (targets.length === 0) {
+      return {
+        id: node.id,
+        name: node.name,
+        kind: node.kind,
+        status: "unknown",
+        checkedAt: new Date().toISOString(),
+        detail: "No probe target configured for this environment"
+      };
+    }
+
     const results =
       node.healthCheck.type === "http"
         ? await Promise.all(targets.map((target) => probeHttpTarget(target, timeoutMs)))
