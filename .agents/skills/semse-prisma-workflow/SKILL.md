@@ -1,6 +1,6 @@
 ---
 name: semse-prisma-workflow
-description: Usar para cambios de Prisma y PostgreSQL: schema, migraciones, drift, generación de cliente y seguridad de datos.
+description: "Usar para cambios de Prisma y PostgreSQL: schema, migraciones, drift, generación de cliente y seguridad de datos."
 ---
 
 # semse-prisma-workflow — descubrimiento Codex

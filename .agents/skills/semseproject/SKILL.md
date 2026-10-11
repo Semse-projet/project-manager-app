@@ -1,6 +1,6 @@
 ---
 name: semseproject
-description: Usar como gobernanza maestra de SEMSE: autoridad, tenant, aprobaciones, auditabilidad, desarrollo, Railway y pagos.
+description: "Usar como gobernanza maestra de SEMSE: autoridad, tenant, aprobaciones, auditabilidad, desarrollo, Railway y pagos."
 ---
 
 # semseproject — descubrimiento Codex

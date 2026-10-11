@@ -34,6 +34,12 @@ test("Codex entry names, descriptions, and canonical references are valid", () =
     assert.ok(text.startsWith(["---", `name: ${id}`, "description:"].join("\n")), `invalid frontmatter: ${id}`);
     const description = text.split("\n").find((line) => line.startsWith("description: "));
     assert.ok(description && description.length >= 25, `missing meaningful description: ${id}`);
+    const yamlValue = description.slice("description: ".length);
+    if (yamlValue.startsWith('"')) {
+      assert.doesNotThrow(() => JSON.parse(yamlValue), `invalid quoted YAML scalar: ${id}`);
+    } else {
+      assert.ok(!yamlValue.includes(": "), `unquoted YAML mapping separator in description: ${id}`);
+    }
     if (!legacyCodexNative.has(id)) {
       const target = `project-manager-app/.claude/skills/${id}/SKILL.md`;
       assert.ok(text.includes(target), `missing canonical pointer: ${id}`);
