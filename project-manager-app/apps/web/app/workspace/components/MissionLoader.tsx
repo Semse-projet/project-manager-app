@@ -28,13 +28,13 @@ export function MissionLoader({
   }
 
   return (
-    <div className="rounded-xl border border-dashed border-slate-300 bg-white p-4">
-      <p className="mb-3 text-sm font-medium text-slate-700">Abrir una misión</p>
+    <div className="rounded-xl border border-dashed border-[var(--border-2)] bg-[var(--surface)] p-4">
+      <p className="mb-3 text-sm font-medium text-[var(--muted)]">Abrir una misión</p>
       <div className="flex flex-col gap-2 sm:flex-row">
         <select
           value={type}
           onChange={(e) => setType(e.target.value as WorkspaceMissionType)}
-          className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+          className="rounded-lg border border-[var(--border-2)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--ink)]"
           aria-label="Tipo de misión"
         >
           {MISSION_TYPES.map((m) => (
@@ -48,13 +48,13 @@ export function MissionLoader({
           onChange={(e) => setTitle(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && submit()}
           placeholder="Título de la misión"
-          className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm"
+          className="flex-1 rounded-lg border border-[var(--border-2)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--ink)]"
         />
         <button
           type="button"
           onClick={submit}
           disabled={!title.trim()}
-          className="flex items-center justify-center gap-1 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
+          className="flex items-center justify-center gap-1 rounded-lg bg-[var(--brand)] px-4 py-2 text-sm font-medium text-[var(--bg)] disabled:opacity-40"
         >
           <Plus className="h-4 w-4" />
           Abrir
