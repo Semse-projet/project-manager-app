@@ -126,21 +126,14 @@ test("the 21 formerly static-identity read BFF routes require an authenticated s
   }
 });
 
-// Read-only routes that still call the bare static-identity helper. This is a ratchet:
-// the list may only shrink. `stats/public` is public on purpose (no session exists);
-// no other route may be added.
-const remainingStaticIdentityReadRoutes = [
-  "apps/web/app/api/semse/stats/public/route.ts",
-] as const;
-
-test("only the reviewed read-only routes may still call the bare static-identity helper", () => {
+test("no SEMSE BFF route calls the bare static-identity helper", () => {
   const offenders = walkRouteFiles(semseBffRoot)
     .filter((routeFile) => staticIdentityFetch.test(fs.readFileSync(path.join(repoRoot, routeFile), "utf8")))
     .sort();
 
   assert.deepEqual(
     offenders,
-    [...remainingStaticIdentityReadRoutes].sort(),
-    "new BFF routes must act as the signed-in user; shrink this list when migrating, never grow it",
+    [],
+    "BFF routes must act as the signed-in user (or call an API @Public endpoint without identity); never as the server's static SEMSE_* identity",
   );
 });
