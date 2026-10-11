@@ -10,8 +10,9 @@ risk: "high"
 code_status: "COMPLETE"
 ci_status: "PASS"
 merge_status: "MERGED"
-deploy_status: "NOT_DEPLOYED"
-activation_status: "INACTIVE"
+deploy_status: "DEPLOYED"
+activation_status: "CANARY"
+verification_scope: "production-canary-enabled:tenant_default-not-yet-verified"
 migration_status: "NOT_APPLICABLE"
 feature_flags:
   - SEMSE_JOBS_PROJECTION_ENABLED
@@ -22,7 +23,12 @@ feature_flags:
   - SEMSE_EVENT_CONSUMERS_ENABLED
   - SEMSE_EVENT_CONSUMER_ALLOWLIST
   - SEMSE_EVENT_TYPE_ALLOWLIST
-production_evidence: []
+production_evidence:
+  - railway:api:env:SEMSE_JOBS_PROJECTION_ENABLED:true-2026-10-11
+  - railway:api:env:SEMSE_JOBS_PROJECTION_CANARY_TENANT_IDS:tenant_default-2026-10-11
+  - railway:api:env:SEMSE_JOBS_PROJECTION_READTHROUGH_ENABLED:false-2026-10-11
+  - railway:api:env:SEMSE_EVENT_CONSUMER_ALLOWLIST:adds-jobs-bids-projection.v1-2026-10-11
+  - railway:api:deployment:aa63bfe2-4ee8-43c6-ab08-cec54ede4827:SUCCESS-health-200-2026-10-11
 related_files:
   - apps/api/src/modules/jobs/jobs.repository.ts
   - apps/api/src/modules/jobs/jobs.service.ts

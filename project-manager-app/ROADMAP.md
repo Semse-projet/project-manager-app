@@ -1,6 +1,6 @@
 # Roadmap maestro de SEMSEproject
 
-**Actualizado:** 2026-09-07
+**Actualizado:** 2026-10-11
 **Arquitectura:** [`docs/architecture/CURRENT_ARCHITECTURE.md`](docs/architecture/CURRENT_ARCHITECTURE.md)
 **Matriz:** [`docs/architecture/IMPLEMENTATION_STATUS_MATRIX.md`](docs/architecture/IMPLEMENTATION_STATUS_MATRIX.md)
 
@@ -94,6 +94,34 @@ Gate de salida:
 - replay no duplica efectos;
 - un fallo llega a DLQ y se recupera desde una operacion auditada;
 - compatibilidad con eventos v1 documentada.
+
+## Programa transversal — Proyección de Jobs y Bids (sub-slice de F1)
+
+> Asignación de fase (2026-10-11): se trata como **sub-slice de F1 (Event
+> Backbone)**, no como F11. Reutiliza el mismo outbox, dispatcher y SLO de F1;
+> numerarlo aparte queda a criterio del owner del roadmap.
+
+Contrato ejecutable:
+
+- [`docs/specs/operations/jobs-bids-event-projection.spec.md`](docs/specs/operations/jobs-bids-event-projection.spec.md) (`IMPLEMENTED`)
+- [`docs/runbooks/JOBS_BIDS_PROJECTION_CANARY.md`](docs/runbooks/JOBS_BIDS_PROJECTION_CANARY.md)
+
+Estado al 2026-10-11:
+
+- código mergeado (`fcff15ff`) y desplegado; los productores de jobs y bids ya
+  publican `job.*`/`bid.*` al outbox;
+- canary **activado** en producción para `tenant_default`: consumer
+  `jobs-bids-projection.v1` y los 5 tipos de evento en las allowlists,
+  proyección y persistencia ON, **read-through OFF** (Prometeo sigue leyendo
+  jobs como antes);
+- **no verificado todavía:** falta un evento real de job/bid en el tenant canario,
+  el estado por consumer vía `/deliveries` (ruta de BFF en PR #865) y la
+  ventana de observación con el SLO de F1;
+- `PaymentEscrow`, `Milestone` y `Contract` no deben cambiar por efecto del
+  consumer: se confirma contra la base real durante el canary.
+
+Gate de salida: checklist de cierre del runbook, sin promoción global ni
+activación del read-through antes de una ventana sostenida.
 
 ## Programa transversal — Product Intelligence
 

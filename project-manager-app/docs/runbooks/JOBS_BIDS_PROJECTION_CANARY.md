@@ -1,14 +1,18 @@
-# Jobs/Bids Event Projection — Canary (DRAFT)
+# Jobs/Bids Event Projection — Canary (ACTIVADO 2026-10-11, NO VERIFICADO)
 
-**Estado:** DRAFT — nace de una auditoría de arquitectura (Buzz vs SEMSEproject),
-no de un spec aprobado. No ejecutar contra producción hasta cerrar la nota de
-gobernanza de abajo.
-**Corte:** 2026-08-06
-**Scope propuesto:** un tenant canario único, por definir (mismo patrón que F3
-usó `tenant_default`).
-**Spec:** pendiente — ver "Nota de gobernanza".
+**Estado:** canary **activado** en producción el 2026-10-11 para `tenant_default`
+(proyección + persistencia ON, read-through OFF). **Aún no verificado**: faltan un
+evento real de job/bid en el tenant canario, el estado por consumer vía
+`/deliveries` y la ventana de observación. Spec: `jobs-bids-event-projection.spec.md`.
+**Corte original:** 2026-08-06
+**Scope:** un tenant canario único: `tenant_default` (mismo patrón que F3).
 
-## Nota de gobernanza (leer antes que nada)
+## Nota de gobernanza (resuelta casi por completo)
+
+> **Revisada 2026-10-11.** Puntos 1-3 cumplidos: spec con plan/tasks/checklist
+> (`IMPLEMENTED`), nombres en `EVENT_CATALOG.md` y código en `main` (`fcff15ff`).
+> **Punto 4 pendiente:** número de fase en `ROADMAP.md` — ver su sección
+> "Proyección de Jobs y Bids". El texto original de abajo se conserva como contexto.
 
 `AGENTS.md` de este repo exige specify → plan → tasks → analyze → checklist →
 implement antes de que cualquier código de esto exista, y prohíbe
@@ -201,7 +205,7 @@ _Pendiente — completar únicamente con datos reales de una ejecución real.
 No rellenar con IDs o hashes de ejemplo; una fila vacía es preferible a una
 inventada._
 
-- Código: PR `<pendiente>`, merge `<pendiente>`.
-- Deployments: API `<pendiente>`, Worker `<pendiente>`.
+- Código: merge `fcff15ff` en `main`.
+- Deployments: API `aa63bfe2` `SUCCESS` (2026-10-11, health 200). Worker sin cambios (ya tenía `EVENT_CONSUMER`).
 - Resultado del checklist de cierre: `<pendiente>`.
-- Tenant canario: `<pendiente>`.
+- Tenant canario: `tenant_default`.
