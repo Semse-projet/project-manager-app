@@ -3,6 +3,9 @@
 **Baseline inspected:** Semse-projet/project-manager-app main commit 4e4fd4f5818dd4c63ee25a69e49781cb2b62ec49; file-structure and selected source/spec reads. This is a targeted audit, NOT exhaustive code coverage, CI evidence or Railway smoke test.
 **Scope:** Field staffing, site supervision, evidence, spatial-temporal historical construction memory, Prometeo and third-party connectors.
 
+## Additional discovery continuity
+For company-owner organization creation, worker invitation and membership, one account per person, crew lead authorization and Monday–Thursday 4×10 actual-hour schedules, see [ORGANIZATION_ENROLLMENT_AND_4X10_SHIFTS.md](ORGANIZATION_ENROLLMENT_AND_4X10_SHIFTS.md). Reuse existing \`Org\`, \`Membership\` and project-derived capability boundary; the organizations controller reviewed on main has read-only GET routes and should not be assumed to offer an invitation/product journey.
+
 ## 1. Audit: reusable code vs decision vs unverified capability
 | Domain | Observed on main | Reuse/next action | Verification still needed |
 |---|---|---|---|
