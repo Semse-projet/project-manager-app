@@ -4,7 +4,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import os from "node:os";
 import path from "node:path";
-import { rm } from "node:fs/promises";
+import { rm, readFile } from "node:fs/promises";
 import { REQUIRED_PERMISSIONS_KEY } from "../src/common/permissions.decorator.ts";
 import { IS_PUBLIC_KEY } from "../src/common/public.decorator.ts";
 import { UploadsController } from "../dist/infrastructure/storage/uploads.controller.js";
@@ -99,4 +99,31 @@ test("PUT rejects cross-tenant and unscoped keys before storage can be modified"
     );
   }
   assert.equal(writes, 0, "no failed-scope upload may overwrite a file");
+});
+
+test("same-tenant actor from another org cannot overwrite original bytes", async () => {
+  const fs = await import("node:fs/promises");
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "semse-immutable-test-"));
+  const previousRoot = process.env.SEMSE_STORAGE_ROOT;
+  process.env.SEMSE_STORAGE_ROOT = root;
+  try {
+    const storage = new StorageService();
+    const controller = new UploadsController(storage);
+    const key = "tenants/tenantA/public-intake/evidence/original.txt";
+    const req = (orgId: string, bytes: string) => ({
+      headers: { "content-type": "text/plain", "content-length": String(Buffer.byteLength(bytes)) },
+      authContext: { tenantId: "tenantA", orgId, userId: orgId + "-user", roles: ["PRO"] },
+      raw: (async function* () { yield Buffer.from(bytes); })(),
+    });
+    await controller.putFile(key, req("orgA", "original from org A") as never);
+    await assert.rejects(
+      () => controller.putFile(key, req("orgB", "tampered from org B") as never),
+      (error: unknown) => !!error && typeof error === "object" && "status" in error && error.status === 409,
+    );
+    assert.equal((await readFile(path.join(root, key))).toString(), "original from org A");
+  } finally {
+    if (previousRoot === undefined) delete process.env.SEMSE_STORAGE_ROOT;
+    else process.env.SEMSE_STORAGE_ROOT = previousRoot;
+    await fs.rm(root, { recursive: true, force: true });
+  }
 });

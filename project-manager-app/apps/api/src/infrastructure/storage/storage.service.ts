@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from "@nestjs/common";
+import { ConflictException, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { constants, createReadStream, createWriteStream } from "node:fs";
 import { access, mkdir, readFile, stat, unlink } from "node:fs/promises";
 import path from "node:path";
@@ -75,8 +75,22 @@ export class StorageService {
     const filePath = this.localPath(key);
     await mkdir(path.dirname(filePath), { recursive: true });
 
-    const ws = createWriteStream(filePath);
-    await pipeline(input.stream, ws);
+    // A storage key is a write-once original, not an overwrite capability.
+    // "wx" uses O_EXCL atomically, preventing even same-tenant callers with
+    // a leaked key from replacing another organization's original bytes.
+    const ws = createWriteStream(filePath, { flags: "wx" });
+    let createdByThisCall = false;
+    ws.once("open", () => { createdByThisCall = true; });
+    try {
+      await pipeline(input.stream, ws);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "EEXIST") {
+        throw new ConflictException("Upload key already exists");
+      }
+      // Remove our own incomplete upload, never someone else's existing file.
+      if (createdByThisCall) await unlink(filePath).catch(() => undefined);
+      throw error;
+    }
 
     const stats = await stat(filePath);
     this.logger.log({ key, sizeBytes: stats.size }, "file stored");
