@@ -6,15 +6,16 @@
 **Base audit:** main SHA 4e4fd4f5818dd4c63ee25a69e49781cb2b62ec49 (targeted code/ADR checks; no CI or production execution in this review).
 
 ## Read in this order
-1. [PRODUCT_REQUIREMENTS.md](PRODUCT_REQUIREMENTS.md) — problem, verbatim-context paraphrase, every agreed field workflow, product actors, 54 stable requirements and open decisions.
+1. [PRODUCT_REQUIREMENTS.md](PRODUCT_REQUIREMENTS.md) — problem, verbatim-context paraphrase, every agreed field workflow, product actors, 54 baseline requirements plus 15 organization/schedule extension requirements; open decisions.
 2. [SYSTEM_ARCHITECTURE.md](SYSTEM_ARCHITECTURE.md) — exact existing modules found, reusable canonical boundaries, proposed crew + spatial + temporal data models, secured Prometeo and connector topology.
-3. [IMPLEMENTATION_AND_VERIFICATION.md](IMPLEMENTATION_AND_VERIFICATION.md) — phased engineering backlog W0–W6, candidate PR slices, 30 verification scenarios, rollout and Definition of Done.
+3. [ORGANIZATION_ENROLLMENT_AND_4X10_SHIFTS.md](ORGANIZATION_ENROLLMENT_AND_4X10_SHIFTS.md) — company owner accounts, worker invitations and memberships, crew-lead authority, multiple employers, smartphone/kiosk options and four 10-hour days (15 additional REQ IDs).
+4. [IMPLEMENTATION_AND_VERIFICATION.md](IMPLEMENTATION_AND_VERIFICATION.md) — phased engineering backlog W0–W6, candidate PR slices, verification scenarios, rollout and Definition of Done.
 
 ## Unbroken vision
 A staffed electrician starts a site-dependent shift, is assigned a crew task by an authorized lead rather than forcing a GC to replace their own tool, records photos and video **before services are concealed**, and passes reviewed evidence through approved permissions. Six or eight months later another authorized crew asks Prometeo what existed behind a particular seventh-floor wall before drywall; Prometeo shows dated source-linked captures and drawings (or says it cannot know). A timeline can ultimately add 2D then BIM/3D spatial references and time-based 4D replay. Field time, drawings and evidence belong to canonical SEMSE services, not a generative model or third-party connector.
 
 ## Decision split
-**Directly stated/endorsed in conversation:** both worker and crew lead use SEMSE; project-specific schedules controlled by administrator; target-hours notices to worker and supervisor; optional proximity arrival and actionable exit prompts; staffing employer distant from site; site supervisor retains own software; 5–20-person variable crews and multiple foremen; tasks last parts of day or several days; individual evidence is reviewed and handed to site; future search by exact place and historic time; Prometeo analyzes; leverage mature external tools and connectors; preserve full plan.
+**Directly stated/endorsed in conversation:** company owner should manage an organization with linked workers (the precise invite approach is a recommendation, not yet approved); 40 weekly hours may be scheduled across four 10-hour days Monday–Thursday; both worker and crew lead use SEMSE; project-specific schedules controlled by administrator; target-hours notices to worker and supervisor; optional proximity arrival and actionable exit prompts; staffing employer distant from site; site supervisor retains own software; 5–20-person variable crews and multiple foremen; tasks last parts of day or several days; individual evidence is reviewed and handed to site; future search by exact place and historic time; Prometeo analyzes; leverage mature external tools and connectors; preserve full plan.
 
 **Engineering proposals requiring human approval:** specific table/API names, default ASK permission mode, QR and manual plan pin, confidence labels, release sequencing, exact approval chain, IFC/BCF-first integration, retention/access policy, event schemas and target metrics.
 
@@ -37,6 +38,6 @@ A staffed electrician starts a site-dependent shift, is assigned a crew task by 
 - This proposal is a living record: future corrections should cite which requirement or earlier assumption changed; never silently erase origin or disagreements.
 
 ## Next concrete engineering handoff
-W0: validate active main and deployments, reconcile the domain-owner boundaries and create the first approved child spec for canonical labor + site-specific schedules + geofence exit action prompts (REQ-TIM-001 through REQ-TIM-012). Next W2 worker/crew tasks and W3 before-concealment evidence. Hold BIM viewer work until precise evidence/location provenance is reliable.
+W0: validate active main, exact org-registration/invitation/membership routes and deployments, reconcile the domain-owner boundaries and create the first approved child spec for canonical labor + site-specific schedules + geofence exit action prompts (REQ-TIM-001 through REQ-TIM-012). Next W2 worker/crew tasks and W3 before-concealment evidence. Hold BIM viewer work until precise evidence/location provenance is reliable.
 
 **Preservation rule:** Every further issue/PR for this initiative must reference this folder and applicable REQ IDs; this prevents conversation context from being lost when assistants/tools change.
