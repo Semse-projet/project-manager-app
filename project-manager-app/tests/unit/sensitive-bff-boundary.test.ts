@@ -99,10 +99,19 @@ const migratedReadRoutes = [
   "apps/web/app/api/semse/jobs/[jobId]/agent-signals/route.ts",
   "apps/web/app/api/semse/jobs/bootstrap/route.ts",
   "apps/web/app/api/semse/field-ops/units/[unitId]/route.ts",
+  "apps/web/app/api/semse/anatomy/children/[id]/route.ts",
+  "apps/web/app/api/semse/anatomy/node/[id]/route.ts",
+  "apps/web/app/api/semse/anatomy/relations/[id]/route.ts",
+  "apps/web/app/api/semse/anatomy/tree/route.ts",
+  "apps/web/app/api/semse/knowledge/domains/route.ts",
+  "apps/web/app/api/semse/knowledge/overview/route.ts",
+  "apps/web/app/api/semse/repo-knowledge/tree/route.ts",
+  "apps/web/app/api/semse/runtime-knowledge/status/route.ts",
+  "apps/web/app/api/semse/runtime-knowledge/tree/route.ts",
 ] as const;
 
-test("the 12 formerly static-identity read BFF routes require an authenticated session identity", () => {
-  assert.equal(migratedReadRoutes.length, 12, "update the reviewed read-route inventory explicitly");
+test("the 21 formerly static-identity read BFF routes require an authenticated session identity", () => {
+  assert.equal(migratedReadRoutes.length, 21, "update the reviewed read-route inventory explicitly");
 
   for (const routeFile of migratedReadRoutes) {
     const source = fs.readFileSync(path.join(repoRoot, routeFile), "utf8");
@@ -119,17 +128,8 @@ test("the 12 formerly static-identity read BFF routes require an authenticated s
 
 // Read-only routes that still call the bare static-identity helper. This is a ratchet:
 // the list may only shrink. `stats/public` is public on purpose (no session exists);
-// the rest are knowledge/anatomy reference trees pending an explicit decision.
+// no other route may be added.
 const remainingStaticIdentityReadRoutes = [
-  "apps/web/app/api/semse/anatomy/children/[id]/route.ts",
-  "apps/web/app/api/semse/anatomy/node/[id]/route.ts",
-  "apps/web/app/api/semse/anatomy/relations/[id]/route.ts",
-  "apps/web/app/api/semse/anatomy/tree/route.ts",
-  "apps/web/app/api/semse/knowledge/domains/route.ts",
-  "apps/web/app/api/semse/knowledge/overview/route.ts",
-  "apps/web/app/api/semse/repo-knowledge/tree/route.ts",
-  "apps/web/app/api/semse/runtime-knowledge/status/route.ts",
-  "apps/web/app/api/semse/runtime-knowledge/tree/route.ts",
   "apps/web/app/api/semse/stats/public/route.ts",
 ] as const;
 

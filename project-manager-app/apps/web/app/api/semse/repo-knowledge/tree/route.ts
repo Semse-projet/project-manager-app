@@ -1,10 +1,10 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import type { RepoTreeNode } from "@semse/schemas";
-import { fetchSemseData, handleServerError, runtimeDisabledResponse } from "../../_server";
+import { fetchSemseDataForAuthenticatedRequest, handleServerError, runtimeDisabledResponse } from "../../_server";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const data = await fetchSemseData<RepoTreeNode>("/v1/repo-knowledge/tree");
+    const data = await fetchSemseDataForAuthenticatedRequest<RepoTreeNode>("/v1/repo-knowledge/tree", request);
     return NextResponse.json({ data });
   } catch (error) {
     if (error instanceof Error && error.message.includes("not configured")) {
