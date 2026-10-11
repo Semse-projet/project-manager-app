@@ -57,3 +57,42 @@ Interpretación: `storageLayoutReady: true` significa *configuración local pote
 - [ ] Reconciliar reporte de restauración con Evidence hashes y marcar estado solo según pruebas.
 
 Sin estos gates, CAP-1 puede permanecer en desarrollo pero **no habilitar almacenamiento privado 3D/4D a usuarios externos**.
+
+
+## Fase D — Inventario SHA-256 y restore aislado verificable
+
+La herramienta `scripts/field-memory-originals-restore-drill.mjs` implementa un **verificador de copias originales**, no crea backups de Railway ni restaura sobre `/data`. Rechaza symlinks, rutas traversal y archivos especiales; compara el inventario exacto y cada SHA-256, tamaño, faltantes, alterados y archivos inesperados. Ignora únicamente la carpeta superior `multipart/` por ser área transitoria de chunks y NO evidencia original.
+
+**Paso 1: Validación automática con fotos sintéticas, sin datos de clientes** (se puede ejecutar en CI o laptop):
+
+```sh
+node --test tests/unit/field-memory-originals-restore-drill.test.mjs
+node scripts/field-memory-originals-restore-drill.mjs --fixture
+```
+
+El resultado `cleanRestore: PASS` y `corruptionDetected: true` valida que el código diferencia una recuperación íntegra de una alterada; `actualRailwayBackupVerified: false` será siempre falso en este modo.
+
+**Paso 2: Inventario del punto de copia, solo durante una ventana consistente y autorizada.** Confirmar el valor real de `SEMSE_STORAGE_ROOT` por terminal Railway de API. Restringir uploads nuevos al tomar el punto de respaldo: si se suben archivos mientras se hace el inventario no hay snapshot consistente. Guardar el manifiesto **fuera del volumen de originales**, en almacenamiento privado cifrado (contiene nombres/keys de archivo que son sensibles). Nunca publicarlo como artifact público de CI:
+
+```sh
+node scripts/field-memory-originals-restore-drill.mjs --create-manifest \
+  --source "$SEMSE_STORAGE_ROOT" \
+  --backup-reference "backup-id-REEMPLAZAR" \
+  --output "$PRIVATE_AUDIT_DIR/originals-manifest.json"
+```
+
+Esto solamente crea un manifiesto; NO ejecuta el respaldo. La copia real debe hacerse con un mecanismo autorizado de Railway/backups o exportación cifrada. El identificador debe corresponder al backup real y quedar anotado por el operador, con hora, entorno y política de retención. No utilizar como respaldo el mismo volumen `/data`.
+
+**Paso 3: Restaurar una copia del respaldo en un contenedor/volumen desechable separado.** Nunca pulsar Restore contra la API productiva para efectuar una prueba. Railway puede sustituir el volumen montado y redeplegar el servicio al restaurar a su misma instancia. Si no existe una ruta de restauración aislada respaldada por el proveedor, el estado se queda `UNVERIFIED` y se detiene el proceso.
+
+**Paso 4: Verificar integridad de la copia RESTAURADA**, en un contenedor aislado cuyo directorio no sea `/data` productivo:
+
+```sh
+node scripts/field-memory-originals-restore-drill.mjs --verify \
+  --manifest "$PRIVATE_AUDIT_DIR/originals-manifest.json" \
+  --restored-root "$ISOLATED_RESTORED_ORIGINALS_DIR"
+```
+
+Gate de aceptación: `status:PASS`, `missingFiles=0`, `alteredFiles=0`, `unexpectedFiles=0`, `matchedFiles=expectedFiles`; adjuntar a auditoría **solo resultado agregado y ref de backup**, no manifest con rutas/PII. Complementarlo con recuento de Evidence y referencias originales de la base restaurada **del mismo punto temporal**, legal hold y políticas tenant/Org; la coincidencia de hashes por sí sola no demuestra acceso correcto ni completitud del snapshot.
+
+**Estado de esta revisión (2026-10-11):** pruebas sintéticas aisladas ejecutadas satisfactoriamente; backup/restore verdadero de Railway todavía no ejecutado ni verificable por el conector disponible. Estas pruebas no deben marcar `CAP-1 VERIFIED`.
