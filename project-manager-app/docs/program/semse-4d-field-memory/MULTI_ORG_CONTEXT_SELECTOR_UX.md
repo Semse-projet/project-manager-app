@@ -1,6 +1,7 @@
 # SEMSE — Selector de organización, proyecto y función (UX + contrato funcional)
 **Fecha:** 2026-10-11. **Estado:** propuesta de diseño de producto / especificación para revisión, NO implementación disponible ni desplegada.
 **Contexto de descubrimiento:** una sola persona puede ser dueño/administrador de su compañía, cliente o profesional independiente en sus proyectos y trabajador de staffing dentro de una empresa ajena. También puede participar en una obra de una constructora externa sin ser miembro general de esa organización.
+**Integración de Workspace existente:** [WORKSPACE_REUSE_AND_CONNECTORS.md](WORKSPACE_REUSE_AND_CONNECTORS.md) define reutilización de tres paneles, paleta y sección Integraciones. El Workspace no es entidad tenancy ni autoridad de roles.
 **Dependencias obligatorias:** COMPANY_INVITATIONS_DETAILED_SPEC.md, ORGANIZATION_ENROLLMENT_AND_4X10_SHIFTS.md, core.universal-identity-multi-role (F10 aprobada), ADR-040 WS-01C reconciliada, modelos User/Org/Membership y Policy/Approval existentes.
 
 ## 1. Decisión de producto
