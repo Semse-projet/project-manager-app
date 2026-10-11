@@ -1,6 +1,7 @@
 "use client";
 
-import { Boxes, Calendar, FileText, Home, Settings, Wallet } from "lucide-react";
+import { Boxes, Calendar, Camera, FileText, Home, Settings, Wallet } from "lucide-react";
+import Link from "next/link";
 import type { ComponentType } from "react";
 
 const SECTIONS: Array<{ id: string; label: string; icon: ComponentType<{ className?: string }> }> = [
@@ -41,6 +42,7 @@ export function LeftPanel({
           </button>
         );
       })}
+      <Link href="/workspace/recorridos-360" className="mt-3 flex items-center gap-2 rounded-lg border border-[var(--border)] px-3 py-2 text-sm text-[var(--brand)] hover:bg-[var(--raised)]"><Camera className="h-4 w-4" />Recorrido 360° · vista local</Link>
     </aside>
   );
 }
