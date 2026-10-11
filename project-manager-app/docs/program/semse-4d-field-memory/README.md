@@ -10,7 +10,11 @@
 2. [SYSTEM_ARCHITECTURE.md](SYSTEM_ARCHITECTURE.md) — exact existing modules found, reusable canonical boundaries, proposed crew + spatial + temporal data models, secured Prometeo and connector topology.
 3. [ORGANIZATION_ENROLLMENT_AND_4X10_SHIFTS.md](ORGANIZATION_ENROLLMENT_AND_4X10_SHIFTS.md) — company owner accounts, worker invitations and memberships, crew-lead authority, multiple employers, smartphone/kiosk options and four 10-hour days (15 additional REQ IDs).
 4. [COMPANY_INVITATIONS_DETAILED_SPEC.md](COMPANY_INVITATIONS_DETAILED_SPEC.md) — detailed SDD draft for personal, one-time invite links, contact verification, new-user registration without creating another Org, RBAC, proposed REST contracts, lifecycle, 22 acceptance cases, audit and security testing.
-5. [IMPLEMENTATION_AND_VERIFICATION.md](IMPLEMENTATION_AND_VERIFICATION.md) — phased engineering backlog W0–W6, candidate PR slices, verification scenarios, rollout and Definition of Done.
+5. [MULTI_ORG_CONTEXT_SELECTOR_UX.md](MULTI_ORG_CONTEXT_SELECTOR_UX.md) — diseño del selector cuenta → organización o proyecto externo → obra → capacidad autorizada, protección de jornadas/evidencias y 12 casos de prueba CTX.
+6. [WORKSPACE_REUSE_AND_CONNECTORS.md](WORKSPACE_REUSE_AND_CONNECTORS.md) — hallazgos AS-IS Workspace, tema/color corporativo, integración con pantalla administrativa y Universal Connector, rutas de BuildOps/Labor/Evidence, límites de seguridad, seis slices y 16 pruebas WSP.
+7. [WORKSPACE_EXECUTION_3D_INTEGRATIONS_CHECKLIST.md](WORKSPACE_EXECUTION_3D_INTEGRATIONS_CHECKLIST.md) — checklist de implementación P1–P7 para Workspace, catálogo actual (5 proveedores), modelado 3D externo, BIM/IFC, versiones, 12 casos 3DM y verificación real en Railway.
+8. [PHOTO_WALKTHROUGH_3D_4D_CAPTURE_SPEC.md](PHOTO_WALKTHROUGH_3D_4D_CAPTURE_SPEC.md) — photogrammetry, 360 tours, NeRF, Gaussian Splatting, captura previa al sheetrock, navegación virtual y snapshots históricos, 12 pruebas PWR.
+9. [IMPLEMENTATION_AND_VERIFICATION.md](IMPLEMENTATION_AND_VERIFICATION.md) — phased engineering backlog W0–W6, candidate PR slices, verification scenarios, rollout and Definition of Done.
 
 ## Unbroken vision
 A staffed electrician starts a site-dependent shift, is assigned a crew task by an authorized lead rather than forcing a GC to replace their own tool, records photos and video **before services are concealed**, and passes reviewed evidence through approved permissions. Six or eight months later another authorized crew asks Prometeo what existed behind a particular seventh-floor wall before drywall; Prometeo shows dated source-linked captures and drawings (or says it cannot know). A timeline can ultimately add 2D then BIM/3D spatial references and time-based 4D replay. Field time, drawings and evidence belong to canonical SEMSE services, not a generative model or third-party connector.
@@ -42,5 +46,9 @@ A staffed electrician starts a site-dependent shift, is assigned a crew task by 
 W0: validate active main, exact org-registration/invitation/membership routes and deployments, reconcile the domain-owner boundaries and create the first approved child spec for canonical labor + site-specific schedules + geofence exit action prompts (REQ-TIM-001 through REQ-TIM-012). Next W2 worker/crew tasks and W3 before-concealment evidence. Hold BIM viewer work until precise evidence/location provenance is reliable.
 
 **Invitation design status:** detailed specification in COMPANY_INVITATIONS_DETAILED_SPEC.md is a DRAFT, not yet approved in canonical SDD 2.0, and must not be treated as existing endpoints or production functionality.
+
+**Nuevo feedback del propietario:** el Workspace probado aún carece de acciones reales, sus colores no corresponden a SEMSE y debe incluir el conector desarrollado. La integración aprovecha el shell/Prometeo/navegación existentes; ver WORKSPACE_REUSE_AND_CONNECTORS.md. No afirmar Workspace o Connector funcional en producción.
+
+**Seguimiento post-merge #857:** el selector contextual se documentó después de la fusión y se propone en un PR separado; no representa UI ni autorización desplegada.
 
 **Preservation rule:** Every further issue/PR for this initiative must reference this folder and applicable REQ IDs; this prevents conversation context from being lost when assistants/tools change.
