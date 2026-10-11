@@ -1,7 +1,8 @@
 # ADR-043 — Originales de archivos bajo StorageService son write-once
 
 - **Date:** 2026-10-11
-- **Status:** Accepted for code-review scope; production activation gated by CI and canary
+- **Status:** Accepted
+- **Production activation:** gated by terminal CI and canary verification
 - **Owners:** SEMSE Core, Storage/Evidence
 - **Affected domains:** Evidence, Uploads API, multipart, Browser Agent, future S3/R2/Field Memory 4D
 - **Governing spec:** `docs/specs/platform/signed-file-access.spec.md` §13 (APPROVED)
