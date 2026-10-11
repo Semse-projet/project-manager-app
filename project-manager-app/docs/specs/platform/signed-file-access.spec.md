@@ -25,7 +25,8 @@ related_files:
 related_tests:
   - apps/api/test/signed-file-access.test.ts
   - apps/api/test/uploads.controller.test.ts
-related_endpoints: []
+related_endpoints:
+  - v1/uploads
 related_events: []
 related_agents: []
 last_verified: "2026-09-30"
@@ -56,6 +57,9 @@ last_verified: "2026-09-30"
 - Regla: una clave `tenants/T/...` solo puede leerse con sesión cuyo `tenantId === T` (u OPS_ADMIN), o con firma válida.
 
 ## 4. Escenarios y criterios de aceptación
+
+**P1 PUT write-once (ADR-043):** cross-tenant, legacy y `public/` → 403 antes del stream; dos PUT simultáneos sobre la misma clave tenant producen exactamente una creación 2xx y el otro 409, sin sobrescribir bytes. Reintento después de timeout requiere `upload plan` nuevo, no se presume éxito por key existente.
+
 1. URL firmada válida → 200; expirada o con firma alterada → 403 (nunca 404 distinto que revele existencia).
 2. Sin firma y sin sesión → 401/403 en `enforce`; en `shadow` se sirve pero se registra `uploads_unsigned_read` (con tenant de la clave y origen).
 3. Sesión de otro tenant sobre una clave ajena → 403.
@@ -87,6 +91,10 @@ Rollout: `off` → `shadow` (≥ 7 días, revisar lecturas sin firma por origen)
 6. **Activos públicos**: prefijo explícito `UPLOADS_PUBLIC_KEY_PREFIXES` (por defecto `public/`).
 
 ## 10. Tests requeridos
+
+- [x] `apps/api/test/uploads.controller.test.ts` contiene regresión cross-tenant, clave legacy/public, intento cross-Org sobre original y concurrencia sobre misma clave.
+- [ ] Integración móvil reintento 409, multipart complete repetido y browser-agent con nonce fresco; gate de activación, no cierre falsamente marcado.
+
 Firma válida/expirada/alterada/otra clave; comparación en tiempo constante; sesión de otro tenant; modos off/shadow/enforce; vision-service con URL firmada; compatibilidad con rotación de secreto; no-regresión de subida (PUT) y del proxy BFF.
 
 ## 11. Mapa de implementación
@@ -96,6 +104,8 @@ API: `storage.service.ts` (`publicUrl` firmado), `uploads.controller.ts` (valida
 Spec `APPROVED` · preguntas §9 resueltas · tests · CI terminal · merge SHA · deploy · shadow sin lecturas sin firma inesperadas · smoke autenticado multi-tenant · evidencia registrada.
 
 ## 13. Aprobación de seguridad de subida — tenant scope y originales write-once (2026-10-11)
+
+**Aprobación de inmutabilidad CAP-0:** requisito aprobado por el propietario el 2026-10-11. Referencias de alcance: https://github.com/Semse-projet/project-manager-app/pull/872#issuecomment-6114318002 y registro complementario https://github.com/Semse-projet/project-manager-app/pull/870#issuecomment-6114392951. El contrato exige CI/smoke independiente antes de activar.
 
 **Scope de este complemento:** el contrato SDD APPROVED de acceso por recurso se extiende a la **escritura**, sin alterar por esta sola modificación los estados del flag de lectura. ADR: `docs/architecture/ADR-043-write-once-storage-originals.md`. Se implementa en PR #870, no se marca verificado por escribir estas reglas.
 
