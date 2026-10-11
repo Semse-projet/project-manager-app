@@ -493,7 +493,10 @@ export class EvidenceController {
       milestoneId: parsed.data.milestoneId,
       key: parsed.data.key,
       kind: parsed.data.kind,
-      filename: parsed.data.filename
+      filename: parsed.data.filename,
+      // Metadata is untrusted and remains subject to EvidenceRepository's
+      // parseEvidenceMetadata bounds and reserved-key checks (C67).
+      metadata: parsed.data.metadata
     });
 
     return ok(requestId, toVisibleEvidence(evidence));

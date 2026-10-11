@@ -26,6 +26,27 @@ const KIND_OPTIONS = [
 ] as const;
 
 type EvidenceKind = "PHOTO" | "VIDEO" | "DOCUMENT";
+type FieldCapturePhase = "UNSPECIFIED" | "BEFORE_CONCEALMENT" | "DURING_INSTALL" | "AFTER_CONCEALMENT";
+
+const FIELD_CAPTURE_PHASES: Array<{ value: FieldCapturePhase; label: string }> = [
+  { value: "UNSPECIFIED", label: "Sin etapa de captura" },
+  { value: "BEFORE_CONCEALMENT", label: "Antes de cerrar pared / sheetrock" },
+  { value: "DURING_INSTALL", label: "Durante la instalación" },
+  { value: "AFTER_CONCEALMENT", label: "Después de cerrar pared" },
+];
+
+function describeFieldCapture(row: EvidenceRow): string | null {
+  const metadata = row.metadata;
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return null;
+  const capture = (metadata as Record<string, unknown>).fieldCapture;
+  if (!capture || typeof capture !== "object" || Array.isArray(capture)) return null;
+  const record = capture as Record<string, unknown>;
+  const zone = asString(record.zoneLabel);
+  const floor = asString(record.floorLabel);
+  if (!zone) return null;
+  const phase = FIELD_CAPTURE_PHASES.find((option) => option.value === record.phase)?.label;
+  return [floor, zone, phase].filter(Boolean).join(" · ") + " · Ubicación declarada, no verificada";
+}
 
 function mimeToKind(mime: string): EvidenceKind {
   if (mime.startsWith("image/")) return "PHOTO";
@@ -66,6 +87,9 @@ export default function WorkerEvidencePage() {
   const [milestones, setMilestones] = useState<MilestoneRow[]>([]);
   const [selectedMilestoneId, setSelectedMilestoneId] = useState("");
   const [kind, setKind] = useState<EvidenceKind>("PHOTO");
+  const [captureZoneLabel, setCaptureZoneLabel] = useState("");
+  const [captureFloorLabel, setCaptureFloorLabel] = useState("");
+  const [capturePhase, setCapturePhase] = useState<FieldCapturePhase>("UNSPECIFIED");
   const [evidenceFeed, setEvidenceFeed] = useState<EvidenceRow[]>([]);
   const [loadingJobs, setLoadingJobs] = useState(true);
   const [loadingEvidence, setLoadingEvidence] = useState(false);
@@ -123,6 +147,13 @@ export default function WorkerEvidencePage() {
 
   async function handleUpload() {
     if (!selectedJobId || files.length === 0 || uploading) return;
+    const zoneLabel = captureZoneLabel.trim();
+    const floorLabel = captureFloorLabel.trim();
+    const hasFieldCapture = Boolean(zoneLabel || floorLabel || capturePhase !== "UNSPECIFIED");
+    if (hasFieldCapture && (!zoneLabel || capturePhase === "UNSPECIFIED")) {
+      setUploadNote({ msg: "Para documentar la zona debes indicar una zona y la etapa de obra.", ok: false });
+      return;
+    }
     setUploading(true);
     setUploadNote(null);
     try {
@@ -153,11 +184,25 @@ export default function WorkerEvidencePage() {
           throw new Error(`No se pudo subir "${file.name}" (${uploadRes.status}).${text ? ` ${text}` : ""}`);
         }
 
+        // The real bytes were PUT successfully above; now the canonical
+        // Evidence record may carry untrusted site annotations, never auth or
+        // verified as-built coordinates.
         await registerJobEvidence(selectedJobId, {
           key,
           kind: fileKind,
           filename: file.name,
           ...(selectedMilestoneId ? { milestoneId: selectedMilestoneId } : {}),
+          ...(fileKind === "PHOTO" && hasFieldCapture ? {
+            metadata: {
+              fieldCapture: {
+                schemaVersion: 1,
+                zoneLabel,
+                ...(floorLabel ? { floorLabel } : {}),
+                phase: capturePhase,
+                trust: "CLAIMED_BY_WORKER",
+              },
+            },
+          } : {}),
         });
       }
 
@@ -225,7 +270,7 @@ export default function WorkerEvidencePage() {
           <div>
             <label style={{ fontSize: "11px", fontWeight: 700, color: "var(--muted)", display: "block", marginBottom: "6px" }}>TRABAJO</label>
             <div style={{ position: "relative" }}>
-              <select value={selectedJobId} onChange={e => { setSelectedJobId(e.target.value); setSelectedMilestoneId(""); }}
+              <select value={selectedJobId} onChange={e => { setSelectedJobId(e.target.value); setSelectedMilestoneId(""); setFiles([]); setCaptureZoneLabel(""); setCaptureFloorLabel(""); setCapturePhase("UNSPECIFIED"); }}
                 style={{ width: "100%", padding: "10px 36px 10px 13px", borderRadius: "8px", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--ink)", fontSize: "13px", appearance: "none", cursor: "pointer", outline: "none" }}
               >
                 {loadingJobs ? <option value="">Cargando...</option> : jobs.length === 0 ? <option value="">Sin trabajos activos</option> : null}
@@ -264,6 +309,34 @@ export default function WorkerEvidencePage() {
             </button>
           ))}
         </div>
+
+        {/* Optional job-scoped field photo annotations; never as-built verification. */}
+        <fieldset style={{ border: "1px solid var(--border)", borderRadius: 10, padding: 12, marginBottom: 14 }}>
+          <legend style={{ fontSize: 12, fontWeight: 700, color: "var(--ink)", padding: "0 6px" }}>Contexto de la fotografía en obra (opcional)</legend>
+          <p style={{ fontSize: 11, color: "var(--muted)", marginBottom: 10 }}>
+            Identifica la pared o instalación antes del sheetrock. Son datos declarados por el trabajador:
+            no representan coordenadas, medidas ni estado as-built verificados.
+          </p>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
+            <label style={{ fontSize: 12, color: "var(--muted)", display: "grid", gap: 4 }}>
+              Piso / nivel
+              <input value={captureFloorLabel} onChange={e => setCaptureFloorLabel(e.target.value)} maxLength={60}
+                placeholder="Ej.: Piso 7" style={{ minWidth: 0, padding: 9, borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg)", color: "var(--ink)" }} />
+            </label>
+            <label style={{ fontSize: 12, color: "var(--muted)", display: "grid", gap: 4 }}>
+              Zona / pared
+              <input value={captureZoneLabel} onChange={e => setCaptureZoneLabel(e.target.value)} maxLength={100}
+                placeholder="Ej.: Pasillo A, pared norte" style={{ minWidth: 0, padding: 9, borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg)", color: "var(--ink)" }} />
+            </label>
+            <label style={{ fontSize: 12, color: "var(--muted)", display: "grid", gap: 4 }}>
+              Etapa de obra
+              <select value={capturePhase} onChange={e => setCapturePhase(e.target.value as FieldCapturePhase)}
+                style={{ minWidth: 0, padding: 9, borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg)", color: "var(--ink)" }}>
+                {FIELD_CAPTURE_PHASES.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+              </select>
+            </label>
+          </div>
+        </fieldset>
 
         {/* Drop zone */}
         <label htmlFor="evidence-upload"
@@ -349,6 +422,7 @@ export default function WorkerEvidencePage() {
               .sort((a, b) => new Date(asString(b.createdAt) ?? 0).getTime() - new Date(asString(a.createdAt) ?? 0).getTime())
               .map((ev, idx) => {
                 const s = evidenceStatus(ev);
+                const fieldCaptureLabel = describeFieldCapture(ev);
                 const isImage = asString(ev.kind) === "PHOTO" || asString(ev.mimeType)?.startsWith("image");
                 const name = asString(ev.filename) ?? asString(ev.originalFilename) ?? asString(ev.key) ?? `Evidencia ${idx + 1}`;
                 const msTitle = milestones.find(m => asString(m.id) === asString(ev.milestoneId))
@@ -366,6 +440,7 @@ export default function WorkerEvidencePage() {
                       <p style={{ fontSize: "11px", color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {msTitle ? `${msTitle} · ` : ""}{asString(ev.kind) ?? "—"}
                       </p>
+                      {fieldCaptureLabel && <p style={{ fontSize: "11px", color: "var(--muted)", marginTop: "2px", overflowWrap: "anywhere" }}>{fieldCaptureLabel}</p>}
                       <p style={{ fontSize: "11px", color: "var(--faint)", display: "flex", alignItems: "center", gap: "4px", marginTop: "2px" }}>
                         <Clock size={10} /> {formatDate(ev.createdAt ?? ev.capturedAt)}
                       </p>
