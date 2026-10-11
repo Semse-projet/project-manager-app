@@ -223,3 +223,11 @@ Listados mantienen arrays, admiten `cursor` (último id recibido), `limit` hasta
 500 y `projectId` autorizado. 404 cross-tenant/inexistente; 403 org no permitida;
 400 asociaciones incompatibles/PATCH server-owned; 422 exceso de asociaciones
 sin filtro. Números nuevos UUID; históricos no se modifican.
+
+
+## Storage Upload (ADR-043 / PR #870) — write-once tenant scope
+
+- `PUT /v1/uploads/files/*`: requiere `evidence:write` y token verificado. La key debe estar bajo `tenants/<tenantId>/...` del actor; si es otro tenant, legacy o `public/`, devuelve **403** antes del storage.
+- Si el objeto ya existe, el driver filesystem usa creación exclusiva `wx` y responde **409** sin alterar los bytes. Reintento de cliente: solicitar nuevo `/v1/uploads/plan` (no interpretar key existente como éxito sin checksum/autorización).
+- El registro `POST /v1/evidence` conserva la autorización canónica Org/Project/Job. No habilita por sí mismo GET privado ni reemplaza las URLs firmadas de `platform.signed-file-access`.
+- **Estado de entrega:** sujeto a CI/merge/smoke de PR #870 y canary multi-org; no afirmar producción por documentación.
