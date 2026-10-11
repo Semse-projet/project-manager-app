@@ -74,7 +74,7 @@ Son políticas conservadoras de lanzamiento acordes con la aprobación del contr
 | OPS_ADMIN auditado | permiso administrativo explícito | inspección excepcional, no reescritura de originales | operación con auditoría, sin bypass silencioso |
 | Invitado/Otra org | ninguno | nada | respuesta 404 para recurso ajeno |
 
-**Política:** reutilizar `evidence.policy.ts` y `ProjectLink`; `orgId`, `tenantId`, `jobId`, `projectId` no se aceptan de metadatos de cliente como autoridad. En create el `projectId` viene de la ruta; el backend obtiene `jobId`, tenant y asignación. En attach buscar Evidence bajo tenant y project y revalidar permiso; evitar que el actor enlace una evidencia capturada por otra Org sin política explícita. Revocaciones se aplican en **cada** GET/POST, no solo en create. Prevenir user enumeration y filtración por cantidad/respuesta/miniaturas.
+**Aprobación:** [registro del propietario en PR #872](https://github.com/Semse-projet/project-manager-app/pull/872#issuecomment-6114318002), de fecha 2026-10-11. **Política:** reutilizar `evidence.policy.ts` y `ProjectLink`; `orgId`, `tenantId`, `jobId`, `projectId` no se aceptan de metadatos de cliente como autoridad. En create el `projectId` viene de la ruta; el backend obtiene `jobId`, tenant y asignación. En attach buscar Evidence bajo tenant y project y revalidar permiso; evitar que el actor enlace una evidencia capturada por otra Org sin política explícita. Revocaciones se aplican en **cada** GET/POST, no solo en create. Prevenir user enumeration y filtración por cantidad/respuesta/miniaturas.
 
 **Bloqueo P0:** el modo `UPLOADS_SIGNED_GET_MODE` del backend está en off por defecto y en auditoría Railway 2026-10-11 no aparecían sus variables de activación. No publicar imágenes/manifest en CAP-1 sin `shadow → enforce` validado, signed URLs cortas, y controles por recurso/org; matching solo de tenant no basta. `StorageService` actual usa filesystem; exigir persistencia/backup reales en Railway antes de declarar archivos durables.
 
@@ -84,7 +84,7 @@ Son políticas conservadoras de lanzamiento acordes con la aprobación del contr
 - **P1-S2 Adjuntar:** bytes verdaderos se suben al storage canónico, Evidence se registra con permiso `evidence:write`, luego se une por `evidenceId`; clave original no es recibida ni modificada por el endpoint attach.
 - **P1-S3 Submit:** si no existe al menos una Evidence PHOTO realmente accesible, rechaza 409; tras submit no se permiten nuevas asociaciones salvo nueva revisión/sesión.
 - **P1-S4 Consultar:** cliente y profesional autorizados ven la sesión y la lista de evidencia, con marcas `CLAIMED_BY_WORKER`; actor ajeno 404 sin manifest ni URL; revocación de membership corta lectura.
-- **P1-S5 Reintento:** dos comandos con mismo idempotency key devuelven el mismo resultado; payload distinto bajo clave usada → 409 sin duplicar join ni outbox.
+- **P1-S5 Reintento:** un replay con la MISMA clave y MISMO payload (inclusive submit tras DRAFT→SUBMITTED) devuelve la misma respuesta original y no escribe nuevos eventos. La misma clave con payload distinto → 409; otra clave intentando modificar una sesión ya SUBMITTED → 409.
 - **P1-S6 Conflicto de scope:** `projectId=A`, `jobId=B`, `milestoneId=C` incompatibles, o evidencia de otro proyecto, → 404 y cero escrituras.
 - **P1-S7 Privacidad:** sin derecho a fotografiar o con personas sensibles no autoriza publicación; no usar salida 3D para perforar, medir ni pago.
 
@@ -225,11 +225,11 @@ Investigación independiente de fuentes primarias (2026-10-11):
 
 ADR obligatorios: `docs/architecture/ADR-028-evidence-gateway-adapter-role.md` (Evidence canónico y refs) y `docs/architecture/ADR-022-transactional-outbox-bullmq.md` (atomicidad de eventos). No se abre un ADR nuevo porque `CaptureSession` permanece dentro de `modules/evidence`.
 
-Fuentes arquitectónicas existentes en repositorio: `docs/SDD_GOVERNANCE.md`, `docs/specs/platform/resource-scope.spec.md`, `docs/specs/platform/signed-file-access.spec.md`, y la propuesta `docs/program/semse-4d-field-memory/PHOTO_WALKTHROUGH_3D_4D_CAPTURE_SPEC.md`. La investigación externa de tres fuentes primarias por nuevo módulo y su matriz aplicado/backlog/descartado es **pendiente antes de aprobación**. No inferir aprobación por documentos de descubrimiento.
+Fuentes arquitectónicas existentes en repositorio: `docs/SDD_GOVERNANCE.md`, `docs/specs/platform/resource-scope.spec.md`, `docs/specs/platform/signed-file-access.spec.md`, y la propuesta `docs/program/semse-4d-field-memory/PHOTO_WALKTHROUGH_3D_4D_CAPTURE_SPEC.md`. La investigación externa de tres fuentes primarias, con decisiones aplicado/backlog/descartado, quedó registrada arriba como condición de la aprobación CAP-0. No inferir aprobación por documentos de descubrimiento.
 
 ## 12. Gate de cierre
 
-- [x] Aprobación explícita del propietario del contrato CAP-0 y defaults conservadores de derechos/retención (2026-10-11). Políticas concretas por proyecto requieren configuración antes de activar.
+- [x] [Aprobación explícita del propietario del contrato CAP-0](https://github.com/Semse-projet/project-manager-app/pull/872#issuecomment-6114318002) y defaults conservadores de derechos/retención (2026-10-11). Políticas concretas por proyecto requieren configuración antes de activar.
 - [ ] SDD spec + plan + tasks + checklist alineados; spec-index regenerado y CI terminal.
 - [ ] P0 subida autenticada y coherencia de IDs (#870/#871) con CI/merge/smoke.
 - [ ] Signed GET `enforce` y storage persistente, backup/restore y control por Org/recurso.

@@ -60,11 +60,29 @@ Permisos/revisión/retención: defaults aprobados en §2.1 de la spec, sujetos a
 | Fecha/posición declaradas tratadas como medición | Alto, seguridad de obra | Estados CLAIMED y avisos sin habilitar perforación |
 
 ## 7. Investigación externa
-Pendiente triple comprobación de fuentes primarias antes de estado APPROVED. Fuentes internas contrastadas en la especificación.
+Completadas tres comprobaciones primarias en la spec §11 (OWASP File Upload, Prisma Migrate, COLMAP), con decisiones aplicado/backlog/descartado. Investigaciones posteriores para drivers S3/GPU se resolverán en PRs de implementación. Fuentes internas contrastadas en la especificación.
 
 ## 8. Gates de salida
-- [ ] Propietario aprueba decisiones sensibles, derechos y retención
+- [x] Propietario aprueba decisiones conservadoras de derechos/revisión/retención en [registro PR #872](https://github.com/Semse-projet/project-manager-app/pull/872#issuecomment-6114318002); la política concreta de cada obra sigue siendo gate previo a activar
 - [ ] Riesgos de lectura/escritura mitigados con e2e real
 - [ ] Tests antes del código y permisos revisados
 - [ ] Migración aditiva/rollback probado
 - [ ] CI, merge, deploy y activación tienen cada uno evidencia
+
+## 9. Seguridad y política
+- Scope: tenant+Org+Project+Job canónico validado por Evidence; lectura con rightsPolicyRef y membership vigente en cada request.
+- Riesgo archivo: original write-once, no exposición por URL pública; tratar imágenes de trabajadores como privacyCritical.
+- Aprobación: [constancia del propietario 2026-10-11](https://github.com/Semse-projet/project-manager-app/pull/872#issuecomment-6114318002). La aprobación de contrato no es permiso para abrir el flujo al público.
+
+## 10. Eventos, idempotencia y reconstrucción
+- Eventos: `capture_session.created.v1`, `capture_session.evidence_linked.v1`, `capture_session.submitted.v1`; aggregateType: `capture_session`.
+- Transactional outbox según ADR-022; repetir comando idéntico (incluso submit ya ejecutado) retorna respuesta previa.
+- Retry con otro payload o acción imposible: 409; reconstrucción 3D derivada fuera de CAP-1.
+
+## 11. Estrategia de implementación SDD A–F
+- **A — Tests y contratos:** tests rojos, esquemas Zod, permisos y fixtures cross-org.
+- **B — Datos y dominio:** migración aditiva/Prisma, transacciones outbox y repositorios dentro de Evidence.
+- **C — API/BFF/UI:** endpoints con permisos, BFF sin static-identity fallback, estados UX.
+- **D — Validación:** unit, DB integration, E2E, typecheck, lint, spec:validate:strict.
+- **E — Integración:** CI terminal y revisión PR, merge SHA y migración controlada.
+- **F — Producción:** flag off → canary interno, revisión de backed-up originals, smoke autenticado, rollback y evidencia.
