@@ -24,22 +24,16 @@ related_files:
   - apps/web/app/(app)/worker/evidence/page.tsx
   - packages/db/prisma/schema.prisma
 related_tests:
-  - apps/api/test/field-memory-capture-session.test.ts
-  - apps/api/test/field-memory-capture-session-integration.test.ts
-  - tests/unit/field-memory-capture-session-ui.test.ts
-related_endpoints:
-  - POST /v1/projects/:projectId/capture-sessions
-  - GET /v1/projects/:projectId/capture-sessions
-  - POST /v1/capture-sessions/:captureSessionId/evidence
-  - POST /v1/capture-sessions/:captureSessionId/submit
-  - GET /v1/capture-sessions/:captureSessionId
-related_events:
-  - field-memory.capture-session.created.v1
-  - field-memory.capture-session.evidence-linked.v1
-  - field-memory.capture-session.submitted.v1
+  - apps/api/test/evidence.spec-contract.test.ts
+  - apps/api/test/signed-file-access.test.ts
+  - tests/unit/workspace-360-preview.test.ts
+# Metadata captures existing implementation references only. Proposed future
+# tests/endpoints/events are tracked explicitly in the spec body and tasks.
+related_endpoints: []
+related_events: []
 related_agents:
   - prometeo
-last_verified: ""
+last_verified: "2026-10-11"
 ---
 
 # Spec: Field Memory CAP-0 — CaptureSession
