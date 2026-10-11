@@ -99,7 +99,10 @@ El propietario probó Workspace y reportó que «no puedes hacer nada ahí» y q
 ## 9. Ampliación aprobada de descubrimiento: crear y visualizar objetos 3D
 El propietario añadió que el Workspace debe permitir **integrar herramientas externas para modelar objetos 3D**, no solo visualizar modelos o consultar misiones. La matriz de proveedores, opciones Blender (autoría), visor GLB, IFC/BIM, APS y Speckle, fases de implementación, protocolos de seguridad y pruebas 3DM-01…12 se preservan en [WORKSPACE_EXECUTION_3D_INTEGRATIONS_CHECKLIST.md](WORKSPACE_EXECUTION_3D_INTEGRATIONS_CHECKLIST.md). NO implica integración ya activa o instalación de un editor CAD dentro de SEMSE.
 
-## 10. Resultado y evidencia pendiente
+## 10. Recorridos reconstruidos con fotos, no solo modelos diseñados
+El propietario describió un recorrido donde se reúnen fotografías y se camina por una representación fotorrealista. Ver [PHOTO_WALKTHROUGH_3D_4D_CAPTURE_SPEC.md](PHOTO_WALKTHROUGH_3D_4D_CAPTURE_SPEC.md): tour 360, SfM/MVS, 3D Gaussian Splatting y snapshots antes/después de cerrar paredes. No es un visor de un CAD preexistente ni un sistema que invente el tiempo continuo de la construcción.
+
+## 11. Resultado y evidencia pendiente
 **Resultado objetivo**: Workspace se convierte en la puerta única de trabajo SEMSE — empresa, obra, tareas, tiempo, evidencia, proyectos y conectores en una identidad visual unificada; conserva los tres paneles y la memoria, pero cada sección puede ejecutar **acciones de negocio reales** por las APIs canónicas y privilegios efectivos.
 
 **Lo comprobado hasta ahora:** piezas de código y documentos; NO se verificó visualmente producción, ni se corrieron tests o CI ni hay evidencia nueva de Railway. Declarar este documento un paquete de diseño para ingeniería, no la entrega del Workspace funcional.
