@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchSemseData, handleServerError, runtimeDisabledResponse } from "../../_server";
+import { fetchSemseDataForAuthenticatedRequest, handleServerError, runtimeDisabledResponse } from "../../_server";
 
-export async function GET(_request: NextRequest) {
-  void _request;
+export async function GET(request: NextRequest) {
   try {
-    const jobs = await fetchSemseData<Record<string, unknown>[]>("/v1/jobs");
+    const jobs = await fetchSemseDataForAuthenticatedRequest<Record<string, unknown>[]>("/v1/jobs", request);
     return NextResponse.json({
       requestId: `req-${Date.now()}`,
       data: jobs

@@ -1,9 +1,9 @@
-import { NextResponse } from "next/server";
-import { fetchSemseData, handleServerError, isSemseRuntimeEnabled } from "../_server";
+import { NextRequest, NextResponse } from "next/server";
+import { fetchSemseDataForAuthenticatedRequest, handleServerError, isSemseRuntimeEnabled } from "../_server";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   if (!isSemseRuntimeEnabled()) {
     return NextResponse.json({
       requestId: "web-control-surface",
@@ -54,9 +54,9 @@ export async function GET() {
 
   try {
     const [dashboard, runs, projectsResult] = await Promise.all([
-      fetchSemseData("/v1/ops/dashboard"),
-      fetchSemseData("/v1/agents/runs"),
-      fetchSemseData("/v1/projects").catch((error) => error)
+      fetchSemseDataForAuthenticatedRequest("/v1/ops/dashboard", request),
+      fetchSemseDataForAuthenticatedRequest("/v1/agents/runs", request),
+      fetchSemseDataForAuthenticatedRequest("/v1/projects", request).catch((error) => error)
     ]);
 
     const warnings = projectsResult instanceof Error ? [projectsResult.message] : [];

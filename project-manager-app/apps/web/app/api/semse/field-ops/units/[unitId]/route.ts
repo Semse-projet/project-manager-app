@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchSemseData, handleServerError, isSemseRuntimeEnabled, runtimeDisabledResponse } from "../../../_server";
+import { fetchSemseDataForAuthenticatedRequest, handleServerError, isSemseRuntimeEnabled, runtimeDisabledResponse } from "../../../_server";
 
 export const dynamic = "force-dynamic";
 
@@ -29,14 +29,14 @@ interface UnitWithWorklogs {
 // ── GET /api/semse/field-ops/units/[unitId] ───────────────────────────────────
 
 export async function GET(
-  _req: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ unitId: string }> },
 ) {
   if (!isSemseRuntimeEnabled()) return runtimeDisabledResponse();
 
   try {
     const { unitId } = await params;
-    const data = await fetchSemseData<UnitWithWorklogs>(`/v1/field-ops/units/${unitId}`);
+    const data = await fetchSemseDataForAuthenticatedRequest<UnitWithWorklogs>(`/v1/field-ops/units/${unitId}`, request);
     return NextResponse.json({ requestId: `fo-unit-${Date.now()}`, data });
   } catch (error) {
     return handleServerError(error);
