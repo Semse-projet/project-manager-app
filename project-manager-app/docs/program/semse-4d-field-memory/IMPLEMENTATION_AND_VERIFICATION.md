@@ -16,6 +16,7 @@ Start with observable, genuinely useful field workflows, then add precise spatia
 - Crosswalk existing code vs REQ IDs and decisions; assess current modules: Labor Engine/time-tracker; JobTask/BuildOpsTask; Evidence/evidence-gateway; Vision; Prometeo active route vs orphaned routes; Universal Connector feature readiness.
 - Resolve (or issue for owner) existing ADR-042 duplicate ID without overwriting previously accepted/proposed decisions.
 - Validate staffing/GC site rights, break policy & payroll rules, photographic rights, worker consent/privacy and retention for initial jurisdiction.
+- Inspect existing Org/Membership/multi-role and registration flows before coding worker company enrollment; design safe company owner onboarding, invite/accept/revoke and no-smartphone fallback (REQ-ORG-001…011).
 - Define minimal worker, crew lead and outside supervisor journeys with accessible Spanish/English screens.
 **Tests/gates:** baseline build/tests on exact SHA, security and tenant matrix, field pilot readiness checklist, approved SDD 2.0 spec per slice; maintain legacy mobile compatibility.
 
@@ -23,7 +24,7 @@ Start with observable, genuinely useful field workflows, then add precise spatia
 **Candidate PRs:** W1-A canonical labor path (tests first), W1-B shift/break revisions, W1-C geofence exit UX and dual notifications, W1-D offline and edit reconciliation.
 **Changes:**
 - Ensure every start/pause/resume/stop/manual entry path reaches canonical Labor Engine; leave field-ops as adapter until verified. No destructive one-shot migration.
-- Per-site/project/crew/worker schedule overrides, target work hours, actual break intervals, pay classification and separation from geofence presence.
+- Per-site/project/crew/worker schedule overrides, target work hours, actual break intervals, pay classification and separation from geofence presence. Include 8×5 and 10×4 Monday–Thursday patterns with 40h/week, site-specific break policies, actual-time alerts, multi-site aggregation and applicable wage rules (REQ-SCH-001…004).
 - Configurable notifications to worker and lead at e.g. 15m-before and on daily work target; once/event semantics and opt-in delivery.
 - Proximity mode ASK/AUTO/OFF; add robust EXIT and action choices Finish/Pause/Continue, location accuracy/hysteresis, notifications but no silent stop or wage deduction.
 - Add versioned timesheet correction proposals, employer review/audit, worker self-view and offline conflict reporting.
@@ -34,7 +35,7 @@ Start with observable, genuinely useful field workflows, then add precise spatia
 ### W2 — Work packages, crew scheduling and field task UX (P0/P1)
 **Candidate PRs:** W2-A crew membership and lead permissions, W2-B instruction -> work package -> TaskAllocation, W2-C worker offline task UX, W2-D foreman dashboards and notification.
 **Changes:**
-- Model staffing employer separate from site contractor and restricted external guests.
+- Model staffing employer separate from site contractor and restricted external guests. Reuse User/Org/Membership: company owner invites users, workers register/accept with personal identities, crew leads receive scoped assignment rights; avoid a parallel Workspace and respect project-derived capacity.
 - GC instruction captured via text/voice/import as an incoming source; lead decomposes seventh-floor wiring and box installation by zone, crew and prerequisite. Prometeo may propose, cannot silently assign.
 - Task carry-over, blocked/waiting/on-hold, accountability per worker/shared crew, dependent tasks and acceptance records.
 - Each worker sees their own jobs/tasks, attachments, latest instructions; foreman sees own team, employer sees own labor and permitted reports. Other companies see no private payroll.
@@ -114,6 +115,11 @@ Start with observable, genuinely useful field workflows, then add precise spatia
 | VT-28 | mobile accessibility | poor signal + Spanish/English prompts | actionable controls without losing reports |
 | VT-29 | data governance | AI external provider disabled by tenant | no image/data exfiltration, local/manual path works |
 | VT-30 | 4D/model | imported IFC element moved or conflicts with site photo | mismatch surfaced for human review |
+| VT-31 | identity/e2e | company owner invites 15 workers, all enroll personally | membership bound to correct Org, no shared company account |
+| VT-32 | security | invitation replay/expired token, membership revoked, cross-company context | all denied with audit; no role leakage |
+| VT-33 | schedule | 10h×4 and 8h×5 in different projects | right per-day alerts, 40h weekly actual total, no wrong break deduction |
+| VT-34 | schedule | 10h presence with 1h unpaid meal | 9h actual worked, not 10h |
+| VT-35 | onboarding | invited worker lacks smartphone | authorized identity-specific kiosk/manual alternative, retained audit |
 
 Additional privacy/security tests: retention expiry, legal hold, cross-tenant search index leak, revocation against cached media URLs, logged coordinates/redaction, URL signing and secret leak scans. Acceptance requires documented results, not just test definitions.
 
