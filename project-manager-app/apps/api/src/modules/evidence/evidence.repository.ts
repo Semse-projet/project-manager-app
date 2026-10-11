@@ -470,6 +470,9 @@ export class EvidenceRepository {
           deletedAt: null,
           project: {
             tenantId: input.tenantId,
+            // A milestone of a soft-deleted job must not re-open Evidence
+            // write access after the canonical ProjectLink became unavailable.
+            job: { deletedAt: null },
           },
         },
         select: {

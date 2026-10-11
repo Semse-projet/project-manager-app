@@ -15,7 +15,11 @@ function harness() {
   let writes = 0;
   const prisma = {
     project: { findFirst: async () => project },
-    milestone: { findFirst: async () => milestone },
+    milestone: { findFirst: async ({ where }: { where: Record<string, any> }) => {
+      assert.equal(where.project.tenantId, "tenantA");
+      assert.equal(where.project.job.deletedAt, null, "soft-deleted job must be filtered by DB query");
+      return milestone;
+    } },
     domainOutboxEvent: { findUnique: async () => null },
     $transaction: async () => { writes++; throw new Error("MISMATCH MUST NOT WRITE"); },
   };
