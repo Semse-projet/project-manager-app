@@ -3,7 +3,7 @@ id: "platform.signed-file-access"
 title: "Acceso firmado y con alcance a archivos subidos (evidencia)"
 domain: "platform"
 sdd_version: "2.0"
-version: "0.2"
+version: "0.3"
 status: "APPROVED"
 owner: "semse-core"
 risk: "high"
@@ -22,9 +22,12 @@ related_files:
   - apps/api/src/modules/vision/vision.service.ts
   - apps/api/src/modules/evidence-gateway/evidence-gateway.service.ts
   - apps/web/app/api/semse/uploads/files/[...key]/route.ts
+  - apps/web/app/api/semse/_server.ts
 related_tests:
   - apps/api/test/signed-file-access.test.ts
   - apps/api/test/uploads.controller.test.ts
+  - tests/unit/uploads-bff-cookie-auth.test.ts
+  - tests/unit/uploads-bff-runtime-behavior.test.ts
 related_endpoints: []
 related_events: []
 related_agents: []
@@ -68,6 +71,20 @@ last_verified: "2026-09-30"
 - `GET files/*` valida `exp`/`sig` o sesión; respuesta sin cambios de formato.
 - Secreto: `UPLOADS_SIGNING_SECRET` (≥16 caracteres, distinto de `AUTH_SECRET`); `UPLOADS_SIGNING_SECRET_PREVIOUS` acepta firmas del secreto anterior durante la rotación (rotar: mover el actual a `_PREVIOUS`, poner uno nuevo, retirar `_PREVIOUS` tras el TTL máximo).
 - Reglas implementadas (`signed-url.ts`): firma mala/expirada → 403 siempre (también en shadow); sesión de otro tenant → 403 (también en shadow); clave legacy sin tenant solo por firma u OPS_ADMIN; la autorización se decide antes de tocar el storage (403 idéntico exista o no la clave).
+
+### BFF privado /api/semse/uploads/files/[...key] — refuerzo de autenticación (PR #873)
+
+**Contrato de seguridad:** el `GET` y `PUT` del proxy web requieren cookie de sesión SEMSE firmada, no solo headers `x-semse-*` que puedan provenir del cliente. Resolver exclusivamente mediante `decodeSession` y aplicar autorización backend en el API. Si la cookie está ausente, inválida, caducada o el usuario fue revocado → **401**, sin intentar leer bytes ni utilizar configuración estática `SEMSE_USER_ID`/`SEMSE_ROLES` y sin invocar upstream. Sustituye el antiguo fallback que podía producir 503 por falta de env si la sesión no existía.
+
+**Desarrollo:** cuando no hay `SEMSE_API_BASE_URL` y `NODE_ENV !== production`, la URL API puede usar `http://127.0.0.1:4000`; la identidad SIEMPRE se extrae de la sesión. Esa mejora del resolvedor de cookie en desarrollo beneficia otros handlers que ya usan ese helper, sin cambiar prod ni convertir un acceso anónimo en OPS_ADMIN.
+
+**Consumidores examinados (deuda P2 BFF):** `prometeo-attachments.ts` forma URLs relativas de origen web; `dispute-evidence-package.ts` genera URL relativa; `worker/travel/[travelId]/page.tsx` usa origen del navegador y pantalla autenticada. Requieren cookies en el browser. No se puede afirmar que todos los agentes y visores externos adjunten cookies: usar `/v1/uploads/files/*` con signed URL/capability de servicio autorizada cuando el consumidor sea headless. Se mantiene pendiente smoke real de consumidores Vision/agent antes de `enforce` para GET directo.
+
+**Pruebas:** `uploads-bff-cookie-auth.test.ts` (contrato, no fallback) y `uploads-bff-runtime-behavior.test.ts` (ejecución de GET/PUT: 401 sin sesión y cero bytes/fetch; con identidad de sesión, original y Bearer reenvíados). Más pruebas de cookies expiradas y e2e multi-Org en canary antes de cerrar el modo de lectura firmado.
+
+**Trazabilidad de deuda:** fase 2 de `docs/specs/api/bff-auth-boundary.spec.md`; #873 elimina solo el fallback estático de este proxy. El status VERIFIED de ese documento conserva su alcance P0 histórico, sin afirmar que los 213 handlers de fase 2 estén corregidos.
+
+**Investigación y decisiones:** (1) OWASP File Upload Cheat Sheet https://cheatsheetseries.owasp.org/cheatsheets/File_Upload_Cheat_Sheet.html — aplicado auth/authorization per file; (2) Next.js Middleware docs https://nextjs.org/docs/15/pages/building-your-application/routing/middleware — aplicado defense in depth handler+middleware; (3) MDN Cookie HTTP https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Cookies — aplicado session cookie segura y expiración. Descartado: fallback a identidad de servicio en handlers privados.
 
 ## 6. FSM, eventos y reconstrucción
 Sin cambios de FSM. Observabilidad: contador `uploads_reads{mode,signed,authenticated,result}` y log estructurado `uploads_unsigned_read` (sin PII; solo tenant de la clave y `Referer` host).
