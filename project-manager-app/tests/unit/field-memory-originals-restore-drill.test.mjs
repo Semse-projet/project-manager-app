@@ -58,3 +58,15 @@ test("write manifest privately, once, outside source",async t=>{
   await assert.rejects(()=>saveManifestExclusive(f.manifest,dest,f.source),e=>e.code==="EEXIST");
   await assert.rejects(()=>saveManifestExclusive(f.manifest,path.join(f.source,"manifest.json"),f.source),/outside/);
 });
+test("multipart staging is excluded from original snapshot and restore comparison",async t=>{
+  const f=await setup(t);
+  await mkdir(path.join(f.source,"multipart"),{recursive:true});
+  await mkdir(path.join(f.restore,"multipart"),{recursive:true});
+  await writeFile(path.join(f.source,"multipart","in-progress.part"),"partial");
+  await writeFile(path.join(f.restore,"multipart","in-progress.part"),"different partial");
+  const manifest=await makeManifest(f.source,"fixture-backup-2026");
+  assert.equal(manifest.excludedStagingDirectory,"multipart");
+  assert.equal(manifest.files.length,1);
+  const result=await verifyRestoredOriginals(manifest,f.restore);
+  assert.equal(result.status,"PASS");
+});

@@ -23,6 +23,9 @@ async function filesUnder(root) {
       if(!safeName(name)) throw Error("Unsafe filename");
       const full=path.join(dir,entry.name);
       if(entry.isSymbolicLink()) throw Error("Symbolic links forbidden in Evidence backup");
+      // Multipart staging is transient and can contain partially uploaded
+      // chunks. Backup the canonical originals only, never staging fragments.
+      if(entry.isDirectory() && name==="multipart") continue;
       if(entry.isDirectory()) await walk(full,name);
       else if(entry.isFile()) {
         items.push({name,full});
@@ -43,7 +46,8 @@ export async function makeManifest(root,backupReference) {
     throw Error("Opaque backup reference required");
   const files=[];
   for(const file of await filesUnder(root)) files.push({relativePath:file.name,...await digest(file.full)});
-  return {schema:SCHEMA,backupReference,createdAt:new Date().toISOString(),files};
+  return {schema:SCHEMA,backupReference,createdAt:new Date().toISOString(),
+    excludedStagingDirectory:"multipart",files};
 }
 export async function saveManifestExclusive(manifest,output,originalRoot) {
   const dest=path.resolve(output),source=path.resolve(originalRoot);
@@ -56,6 +60,7 @@ function validate(manifest) {
   if(manifest?.schema!==SCHEMA || !Array.isArray(manifest.files) || manifest.files.length>200000
     || typeof manifest.backupReference!=="string" || !/^[a-zA-Z0-9._-]{8,128}$/.test(manifest.backupReference))
     throw Error("Invalid snapshot manifest");
+  if(manifest.excludedStagingDirectory!=="multipart") throw Error("Manifest staging exclusion must be explicit");
   const seen=new Set();
   for(const e of manifest.files) {
     if(!safeName(e.relativePath) || seen.has(e.relativePath)
