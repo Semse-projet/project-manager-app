@@ -1,0 +1,1312 @@
+[
+  {
+    "route": "/client/dashboard",
+    "viewport": "desktop",
+    "errors": [],
+    "failedRequests": [],
+    "consoleErrors": [
+      "Loading the stylesheet 'https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600&display=swap' violates the following Content Security Policy directive: \"style-src 'self' 'unsafe-inline'\". Note that 'style-src-elem' was not explicitly set, so 'st"
+    ],
+    "status": 200,
+    "networkIdle": false,
+    "loadMs": 15276,
+    "finalUrl": "/client/dashboard",
+    "redirected": false,
+    "title": "SEMSE Project — Profesionales verificados y pagos seguros",
+    "h1": [
+      "Dashboard"
+    ],
+    "landmarks": {
+      "main": true,
+      "nav": true
+    },
+    "lang": "es",
+    "horizontalOverflow": false,
+    "interactiveCount": 42,
+    "targetsUnder24": 4,
+    "targetsUnder44": 25,
+    "unnamedControls": [
+      "<button style=\"position:relative;width:34px;height:34px;border-radius:10px;background:rgba(255,255,255,.05);border:1px s"
+    ],
+    "imgsNoAlt": 0,
+    "inputsNoLabel": 0,
+    "emptyStateText": true,
+    "rawErrorText": [],
+    "bodyChars": 1927,
+    "axe": [
+      {
+        "id": "button-name",
+        "impact": "critical",
+        "nodes": 1,
+        "help": "Buttons must have discernible text",
+        "sample": "header > div > div > button"
+      },
+      {
+        "id": "color-contrast",
+        "impact": "serious",
+        "nodes": 6,
+        "help": "Elements must meet minimum color contrast ratio thresholds",
+        "sample": "nav > div:nth-child(1) > div > div"
+      }
+    ]
+  },
+  {
+    "route": "/client/leads",
+    "viewport": "desktop",
+    "errors": [],
+    "failedRequests": [],
+    "consoleErrors": [
+      "Loading the stylesheet 'https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600&display=swap' violates the following Content Security Policy directive: \"style-src 'self' 'unsafe-inline'\". Note that 'style-src-elem' was not explicitly set, so 'st"
+    ],
+    "status": 200,
+    "loadMs": 9502,
+    "finalUrl": "/client/leads",
+    "redirected": false,
+    "title": "SEMSE Project — Profesionales verificados y pagos seguros",
+    "h1": [
+      "Leads & Clientes"
+    ],
+    "landmarks": {
+      "main": true,
+      "nav": true
+    },
+    "lang": "es",
+    "horizontalOverflow": false,
+    "interactiveCount": 57,
+    "targetsUnder24": 9,
+    "targetsUnder44": 55,
+    "unnamedControls": [
+      "<button style=\"position:relative;width:34px;height:34px;border-radius:10px;background:rgba(255,255,255,.05);border:1px s",
+      "<button style=\"padding:7px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--m",
+      "<input placeholder=\"Buscar por nombre, teléfono, trabajo...\" style=\"width: 100%; padding: 8px 10px 8px 30px; border-radi"
+    ],
+    "imgsNoAlt": 0,
+    "inputsNoLabel": 2,
+    "emptyStateText": false,
+    "rawErrorText": [],
+    "bodyChars": 2034,
+    "axe": [
+      {
+        "id": "button-name",
+        "impact": "critical",
+        "nodes": 2,
+        "help": "Buttons must have discernible text",
+        "sample": "header > div > div > button"
+      },
+      {
+        "id": "color-contrast",
+        "impact": "serious",
+        "nodes": 6,
+        "help": "Elements must meet minimum color contrast ratio thresholds",
+        "sample": "nav > div:nth-child(1) > div > div"
+      },
+      {
+        "id": "select-name",
+        "impact": "critical",
+        "nodes": 1,
+        "help": "Select element must have an accessible name",
+        "sample": "div:nth-child(3) > select"
+      }
+    ]
+  },
+  {
+    "route": "/client/jobs",
+    "viewport": "desktop",
+    "errors": [],
+    "failedRequests": [],
+    "consoleErrors": [
+      "Loading the stylesheet 'https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600&display=swap' violates the following Content Security Policy directive: \"style-src 'self' 'unsafe-inline'\". Note that 'style-src-elem' was not explicitly set, so 'st"
+    ],
+    "status": 200,
+    "loadMs": 5687,
+    "finalUrl": "/client/jobs",
+    "redirected": false,
+    "title": "SEMSE Project — Profesionales verificados y pagos seguros",
+    "h1": [
+      "Todos tus trabajos"
+    ],
+    "landmarks": {
+      "main": true,
+      "nav": true
+    },
+    "lang": "es",
+    "horizontalOverflow": false,
+    "interactiveCount": 38,
+    "targetsUnder24": 4,
+    "targetsUnder44": 31,
+    "unnamedControls": [
+      "<button style=\"position:relative;width:34px;height:34px;border-radius:10px;background:rgba(255,255,255,.05);border:1px s",
+      "<input placeholder=\"Buscar trabajo...\" style=\"width: 100%; padding-left: 30px; padding-right: 12px; height: 34px; border"
+    ],
+    "imgsNoAlt": 0,
+    "inputsNoLabel": 1,
+    "emptyStateText": false,
+    "rawErrorText": [],
+    "bodyChars": 1571,
+    "axe": [
+      {
+        "id": "button-name",
+        "impact": "critical",
+        "nodes": 1,
+        "help": "Buttons must have discernible text",
+        "sample": "header > div > div > button"
+      },
+      {
+        "id": "color-contrast",
+        "impact": "serious",
+        "nodes": 7,
+        "help": "Elements must meet minimum color contrast ratio thresholds",
+        "sample": "nav > div:nth-child(1) > div > div"
+      }
+    ]
+  },
+  {
+    "route": "/client/jobs/new",
+    "viewport": "desktop",
+    "errors": [],
+    "failedRequests": [],
+    "consoleErrors": [
+      "Loading the stylesheet 'https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600&display=swap' violates the following Content Security Policy directive: \"style-src 'self' 'unsafe-inline'\". Note that 'style-src-elem' was not explicitly set, so 'st"
+    ],
+    "status": 200,
+    "loadMs": 7166,
+    "finalUrl": "/client/jobs/new",
+    "redirected": false,
+    "title": "SEMSE Project — Profesionales verificados y pagos seguros",
+    "h1": [
+      "Publicar trabajo"
+    ],
+    "landmarks": {
+      "main": true,
+      "nav": true
+    },
+    "lang": "es",
+    "horizontalOverflow": false,
+    "interactiveCount": 50,
+    "targetsUnder24": 5,
+    "targetsUnder44": 30,
+    "unnamedControls": [
+      "<button style=\"position:relative;width:34px;height:34px;border-radius:10px;background:rgba(255,255,255,.05);border:1px s"
+    ],
+    "imgsNoAlt": 0,
+    "inputsNoLabel": 0,
+    "emptyStateText": true,
+    "rawErrorText": [],
+    "bodyChars": 1379,
+    "axe": [
+      {
+        "id": "button-name",
+        "impact": "critical",
+        "nodes": 1,
+        "help": "Buttons must have discernible text",
+        "sample": "header > div > div > button"
+      },
+      {
+        "id": "color-contrast",
+        "impact": "serious",
+        "nodes": 7,
+        "help": "Elements must meet minimum color contrast ratio thresholds",
+        "sample": "nav > div:nth-child(1) > div > div"
+      }
+    ]
+  },
+  {
+    "route": "/client/projects",
+    "viewport": "desktop",
+    "errors": [],
+    "failedRequests": [],
+    "consoleErrors": [
+      "Loading the stylesheet 'https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600&display=swap' violates the following Content Security Policy directive: \"style-src 'self' 'unsafe-inline'\". Note that 'style-src-elem' was not explicitly set, so 'st"
+    ],
+    "status": 200,
+    "loadMs": 8615,
+    "finalUrl": "/client/projects",
+    "redirected": false,
+    "title": "SEMSE Project — Profesionales verificados y pagos seguros",
+    "h1": [
+      "Proyectos"
+    ],
+    "landmarks": {
+      "main": true,
+      "nav": true
+    },
+    "lang": "es",
+    "horizontalOverflow": false,
+    "interactiveCount": 35,
+    "targetsUnder24": 4,
+    "targetsUnder44": 33,
+    "unnamedControls": [
+      "<button style=\"position:relative;width:34px;height:34px;border-radius:10px;background:rgba(255,255,255,.05);border:1px s"
+    ],
+    "imgsNoAlt": 0,
+    "inputsNoLabel": 0,
+    "emptyStateText": false,
+    "rawErrorText": [],
+    "bodyChars": 669,
+    "axe": [
+      {
+        "id": "button-name",
+        "impact": "critical",
+        "nodes": 1,
+        "help": "Buttons must have discernible text",
+        "sample": "header > div > div > button"
+      },
+      {
+        "id": "color-contrast",
+        "impact": "serious",
+        "nodes": 7,
+        "help": "Elements must meet minimum color contrast ratio thresholds",
+        "sample": "nav > div:nth-child(1) > div > div"
+      }
+    ]
+  },
+  {
+    "route": "/client/milestones",
+    "viewport": "desktop",
+    "errors": [],
+    "failedRequests": [],
+    "consoleErrors": [
+      "Loading the stylesheet 'https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600&display=swap' violates the following Content Security Policy directive: \"style-src 'self' 'unsafe-inline'\". Note that 'style-src-elem' was not explicitly set, so 'st"
+    ],
+    "status": 200,
+    "networkIdle": false,
+    "loadMs": 15918,
+    "finalUrl": "/client/milestones",
+    "redirected": false,
+    "title": "SEMSE Project — Profesionales verificados y pagos seguros",
+    "h1": [
+      "Mis hitos"
+    ],
+    "landmarks": {
+      "main": true,
+      "nav": true
+    },
+    "lang": "es",
+    "horizontalOverflow": false,
+    "interactiveCount": 25,
+    "targetsUnder24": 4,
+    "targetsUnder44": 23,
+    "unnamedControls": [
+      "<button style=\"position:relative;width:34px;height:34px;border-radius:10px;background:rgba(255,255,255,.05);border:1px s"
+    ],
+    "imgsNoAlt": 0,
+    "inputsNoLabel": 0,
+    "emptyStateText": false,
+    "rawErrorText": [],
+    "bodyChars": 543,
+    "axe": [
+      {
+        "id": "button-name",
+        "impact": "critical",
+        "nodes": 1,
+        "help": "Buttons must have discernible text",
+        "sample": "header > div > div > button"
+      },
+      {
+        "id": "color-contrast",
+        "impact": "serious",
+        "nodes": 5,
+        "help": "Elements must meet minimum color contrast ratio thresholds",
+        "sample": "nav > div:nth-child(1) > div > div"
+      }
+    ]
+  },
+  {
+    "route": "/client/professionals",
+    "viewport": "desktop",
+    "errors": [],
+    "failedRequests": [],
+    "consoleErrors": [
+      "Loading the stylesheet 'https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600&display=swap' violates the following Content Security Policy directive: \"style-src 'self' 'unsafe-inline'\". Note that 'style-src-elem' was not explicitly set, so 'st"
+    ],
+    "status": 200,
+    "networkIdle": false,
+    "loadMs": 16772,
+    "finalUrl": "/client/professionals",
+    "redirected": false,
+    "title": "SEMSE Project — Profesionales verificados y pagos seguros",
+    "h1": [
+      "Buscar Profesionales"
+    ],
+    "landmarks": {
+      "main": true,
+      "nav": true
+    },
+    "lang": "es",
+    "horizontalOverflow": false,
+    "interactiveCount": 26,
+    "targetsUnder24": 4,
+    "targetsUnder44": 24,
+    "unnamedControls": [
+      "<button style=\"position:relative;width:34px;height:34px;border-radius:10px;background:rgba(255,255,255,.05);border:1px s"
+    ],
+    "imgsNoAlt": 0,
+    "inputsNoLabel": 1,
+    "emptyStateText": false,
+    "rawErrorText": [],
+    "bodyChars": 869,
+    "axe": [
+      {
+        "id": "button-name",
+        "impact": "critical",
+        "nodes": 1,
+        "help": "Buttons must have discernible text",
+        "sample": "header > div > div > button"
+      },
+      {
+        "id": "color-contrast",
+        "impact": "serious",
+        "nodes": 5,
+        "help": "Elements must meet minimum color contrast ratio thresholds",
+        "sample": "nav > div:nth-child(1) > div > div"
+      },
+      {
+        "id": "select-name",
+        "impact": "critical",
+        "nodes": 1,
+        "help": "Select element must have an accessible name",
+        "sample": "div > select"
+      }
+    ]
+  },
+  {
+    "route": "/client/marketplace",
+    "viewport": "desktop",
+    "errors": [],
+    "failedRequests": [],
+    "consoleErrors": [
+      "Loading the stylesheet 'https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600&display=swap' violates the following Content Security Policy directive: \"style-src 'self' 'unsafe-inline'\". Note that 'style-src-elem' was not explicitly set, so 'st"
+    ],
+    "status": 200,
+    "loadMs": 4861,
+    "finalUrl": "/client/marketplace",
+    "redirected": false,
+    "title": "SEMSE Project — Profesionales verificados y pagos seguros",
+    "h1": [
+      "SEMSE Marketplace"
+    ],
+    "landmarks": {
+      "main": true,
+      "nav": true
+    },
+    "lang": "es",
+    "horizontalOverflow": false,
+    "interactiveCount": 28,
+    "targetsUnder24": 3,
+    "targetsUnder44": 24,
+    "unnamedControls": [
+      "<button style=\"position:relative;width:34px;height:34px;border-radius:10px;background:rgba(255,255,255,.05);border:1px s",
+      "<input placeholder=\"Buscar trabajos, ubicación, tipo de servicio…\" style=\"width: 100%; padding: 12px 14px 12px 36px; bor",
+      "<button style=\"padding:12px 14px;border-radius:12px;border:1px solid var(--border);background:var(--surface);cursor:poin"
+    ],
+    "imgsNoAlt": 0,
+    "inputsNoLabel": 1,
+    "emptyStateText": true,
+    "rawErrorText": [],
+    "bodyChars": 563,
+    "axe": [
+      {
+        "id": "button-name",
+        "impact": "critical",
+        "nodes": 2,
+        "help": "Buttons must have discernible text",
+        "sample": "header > div > div > button"
+      },
+      {
+        "id": "color-contrast",
+        "impact": "serious",
+        "nodes": 5,
+        "help": "Elements must meet minimum color contrast ratio thresholds",
+        "sample": "nav > div:nth-child(1) > div > div"
+      }
+    ]
+  },
+  {
+    "route": "/client/bids",
+    "viewport": "desktop",
+    "errors": [],
+    "failedRequests": [],
+    "consoleErrors": [
+      "Loading the stylesheet 'https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600&display=swap' violates the following Content Security Policy directive: \"style-src 'self' 'unsafe-inline'\". Note that 'style-src-elem' was not explicitly set, so 'st"
+    ],
+    "status": 200,
+    "loadMs": 4630,
+    "finalUrl": "/client/bids",
+    "redirected": false,
+    "title": "SEMSE Project — Profesionales verificados y pagos seguros",
+    "h1": [
+      "Mis propuestas"
+    ],
+    "landmarks": {
+      "main": true,
+      "nav": true
+    },
+    "lang": "es",
+    "horizontalOverflow": false,
+    "interactiveCount": 25,
+    "targetsUnder24": 3,
+    "targetsUnder44": 23,
+    "unnamedControls": [
+      "<button style=\"position:relative;width:34px;height:34px;border-radius:10px;background:rgba(255,255,255,.05);border:1px s",
+      "<button style=\"padding:8px 14px;border-radius:10px;background:rgba(255,255,255,.05);border:1px solid var(--border);curso"
+    ],
+    "imgsNoAlt": 0,
+    "inputsNoLabel": 0,
+    "emptyStateText": true,
+    "rawErrorText": [],
+    "bodyChars": 550,
+    "axe": [
+      {
+        "id": "button-name",
+        "impact": "critical",
+        "nodes": 2,
+        "help": "Buttons must have discernible text",
+        "sample": "header > div > div > button"
+      },
+      {
+        "id": "color-contrast",
+        "impact": "serious",
+        "nodes": 5,
+        "help": "Elements must meet minimum color contrast ratio thresholds",
+        "sample": "nav > div:nth-child(1) > div > div"
+      }
+    ]
+  },
+  {
+    "route": "/client/protools",
+    "viewport": "desktop",
+    "errors": [],
+    "failedRequests": [],
+    "consoleErrors": [
+      "Loading the stylesheet 'https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600&display=swap' violates the following Content Security Policy directive: \"style-src 'self' 'unsafe-inline'\". Note that 'style-src-elem' was not explicitly set, so 'st"
+    ],
+    "status": 200,
+    "loadMs": 7165,
+    "finalUrl": "/client/protools",
+    "redirected": false,
+    "title": "SEMSE Project — Profesionales verificados y pagos seguros",
+    "h1": [
+      "ProTools — Estimador de Obra"
+    ],
+    "landmarks": {
+      "main": true,
+      "nav": true
+    },
+    "lang": "es",
+    "horizontalOverflow": false,
+    "interactiveCount": 28,
+    "targetsUnder24": 3,
+    "targetsUnder44": 24,
+    "unnamedControls": [
+      "<button style=\"position:relative;width:34px;height:34px;border-radius:10px;background:rgba(255,255,255,.05);border:1px s",
+      "<textarea rows=\"3\" placeholder=\"Ej: Reemplazar panel eléctrico de 100A a 200A, instalar 6 circuitos nuevos para cocina y",
+      "<input type=\"number\" min=\"1\" style=\"width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border",
+      "<input type=\"number\" min=\"1\" style=\"width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border"
+    ],
+    "imgsNoAlt": 0,
+    "inputsNoLabel": 4,
+    "emptyStateText": false,
+    "rawErrorText": [],
+    "bodyChars": 610,
+    "axe": [
+      {
+        "id": "button-name",
+        "impact": "critical",
+        "nodes": 1,
+        "help": "Buttons must have discernible text",
+        "sample": "header > div > div > button"
+      },
+      {
+        "id": "color-contrast",
+        "impact": "serious",
+        "nodes": 5,
+        "help": "Elements must meet minimum color contrast ratio thresholds",
+        "sample": "nav > div:nth-child(1) > div > div"
+      },
+      {
+        "id": "label",
+        "impact": "critical",
+        "nodes": 2,
+        "help": "Form elements must have labels",
+        "sample": "input[value=\"100\"]"
+      },
+      {
+        "id": "select-name",
+        "impact": "critical",
+        "nodes": 1,
+        "help": "Select element must have an accessible name",
+        "sample": "div:nth-child(1) > select"
+      }
+    ]
+  },
+  {
+    "route": "/client/documents",
+    "viewport": "desktop",
+    "errors": [],
+    "failedRequests": [],
+    "consoleErrors": [
+      "Loading the stylesheet 'https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600&display=swap' violates the following Content Security Policy directive: \"style-src 'self' 'unsafe-inline'\". Note that 'style-src-elem' was not explicitly set, so 'st"
+    ],
+    "status": 200,
+    "networkIdle": false,
+    "loadMs": 15605,
+    "finalUrl": "/client/documents",
+    "redirected": false,
+    "title": "SEMSE Project — Profesionales verificados y pagos seguros",
+    "h1": [
+      "Documentos"
+    ],
+    "landmarks": {
+      "main": true,
+      "nav": true
+    },
+    "lang": "es",
+    "horizontalOverflow": false,
+    "interactiveCount": 27,
+    "targetsUnder24": 4,
+    "targetsUnder44": 25,
+    "unnamedControls": [
+      "<button style=\"position:relative;width:34px;height:34px;border-radius:10px;background:rgba(255,255,255,.05);border:1px s",
+      "<input placeholder=\"Buscar documento o proyecto...\" style=\"width: 100%; padding-left: 36px; padding-right: 12px; height:"
+    ],
+    "imgsNoAlt": 0,
+    "inputsNoLabel": 1,
+    "emptyStateText": false,
+    "rawErrorText": [],
+    "bodyChars": 542,
+    "axe": [
+      {
+        "id": "button-name",
+        "impact": "critical",
+        "nodes": 1,
+        "help": "Buttons must have discernible text",
+        "sample": "header > div > div > button"
+      },
+      {
+        "id": "color-contrast",
+        "impact": "serious",
+        "nodes": 15,
+        "help": "Elements must meet minimum color contrast ratio thresholds",
+        "sample": "nav > div:nth-child(1) > div > div"
+      }
+    ]
+  },
+  {
+    "route": "/client/reviews",
+    "viewport": "desktop",
+    "errors": [],
+    "failedRequests": [],
+    "consoleErrors": [
+      "Loading the stylesheet 'https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600&display=swap' violates the following Content Security Policy directive: \"style-src 'self' 'unsafe-inline'\". Note that 'style-src-elem' was not explicitly set, so 'st"
+    ],
+    "status": 200,
+    "loadMs": 7574,
+    "finalUrl": "/client/reviews",
+    "redirected": false,
+    "title": "SEMSE Project — Profesionales verificados y pagos seguros",
+    "h1": [
+      "Reseñas"
+    ],
+    "landmarks": {
+      "main": true,
+      "nav": true
+    },
+    "lang": "es",
+    "horizontalOverflow": false,
+    "interactiveCount": 25,
+    "targetsUnder24": 4,
+    "targetsUnder44": 23,
+    "unnamedControls": [
+      "<button style=\"position:relative;width:34px;height:34px;border-radius:10px;background:rgba(255,255,255,.05);border:1px s"
+    ],
+    "imgsNoAlt": 0,
+    "inputsNoLabel": 0,
+    "emptyStateText": true,
+    "rawErrorText": [],
+    "bodyChars": 590,
+    "axe": [
+      {
+        "id": "button-name",
+        "impact": "critical",
+        "nodes": 1,
+        "help": "Buttons must have discernible text",
+        "sample": "header > div > div > button"
+      },
+      {
+        "id": "color-contrast",
+        "impact": "serious",
+        "nodes": 5,
+        "help": "Elements must meet minimum color contrast ratio thresholds",
+        "sample": "nav > div:nth-child(1) > div > div"
+      }
+    ]
+  },
+  {
+    "route": "/client/review",
+    "viewport": "desktop",
+    "errors": [],
+    "failedRequests": [],
+    "consoleErrors": [
+      "Loading the stylesheet 'https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600&display=swap' violates the following Content Security Policy directive: \"style-src 'self' 'unsafe-inline'\". Note that 'style-src-elem' was not explicitly set, so 'st",
+      "Loading the stylesheet 'https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600&display=swap' violates the following Content Security Policy directive: \"style-src 'self' 'unsafe-inline'\". Note that 'style-src-elem' was not explicitly set, so 'st"
+    ],
+    "status": 200,
+    "loadMs": 6900,
+    "finalUrl": "/client/reviews",
+    "redirected": true,
+    "title": "SEMSE Project — Profesionales verificados y pagos seguros",
+    "h1": [
+      "Reseñas"
+    ],
+    "landmarks": {
+      "main": true,
+      "nav": true
+    },
+    "lang": "es",
+    "horizontalOverflow": false,
+    "interactiveCount": 25,
+    "targetsUnder24": 4,
+    "targetsUnder44": 23,
+    "unnamedControls": [
+      "<button style=\"position:relative;width:34px;height:34px;border-radius:10px;background:rgba(255,255,255,.05);border:1px s"
+    ],
+    "imgsNoAlt": 0,
+    "inputsNoLabel": 0,
+    "emptyStateText": true,
+    "rawErrorText": [],
+    "bodyChars": 590,
+    "axe": [
+      {
+        "id": "button-name",
+        "impact": "critical",
+        "nodes": 1,
+        "help": "Buttons must have discernible text",
+        "sample": "header > div > div > button"
+      },
+      {
+        "id": "color-contrast",
+        "impact": "serious",
+        "nodes": 5,
+        "help": "Elements must meet minimum color contrast ratio thresholds",
+        "sample": "nav > div:nth-child(1) > div > div"
+      }
+    ]
+  },
+  {
+    "route": "/client/payments",
+    "viewport": "desktop",
+    "errors": [],
+    "failedRequests": [
+      "404 GET /api/semse/jobs/job_demo_005/payments"
+    ],
+    "consoleErrors": [
+      "Loading the stylesheet 'https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600&display=swap' violates the following Content Security Policy directive: \"style-src 'self' 'unsafe-inline'\". Note that 'style-src-elem' was not explicitly set, so 'st",
+      "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    ],
+    "status": 200,
+    "networkIdle": false,
+    "loadMs": 15311,
+    "finalUrl": "/client/payments",
+    "redirected": false,
+    "title": "SEMSE Project — Profesionales verificados y pagos seguros",
+    "h1": [
+      "Pagos"
+    ],
+    "landmarks": {
+      "main": true,
+      "nav": true
+    },
+    "lang": "es",
+    "horizontalOverflow": false,
+    "interactiveCount": 32,
+    "targetsUnder24": 4,
+    "targetsUnder44": 30,
+    "unnamedControls": [
+      "<button style=\"position:relative;width:34px;height:34px;border-radius:10px;background:rgba(255,255,255,.05);border:1px s"
+    ],
+    "imgsNoAlt": 0,
+    "inputsNoLabel": 1,
+    "emptyStateText": false,
+    "rawErrorText": [],
+    "bodyChars": 840,
+    "axe": [
+      {
+        "id": "button-name",
+        "impact": "critical",
+        "nodes": 1,
+        "help": "Buttons must have discernible text",
+        "sample": "header > div > div > button"
+      },
+      {
+        "id": "color-contrast",
+        "impact": "serious",
+        "nodes": 7,
+        "help": "Elements must meet minimum color contrast ratio thresholds",
+        "sample": "nav > div:nth-child(1) > div > div"
+      },
+      {
+        "id": "select-name",
+        "impact": "critical",
+        "nodes": 1,
+        "help": "Select element must have an accessible name",
+        "sample": "select[data-testid=\"client-payments-job-filter\"]"
+      }
+    ]
+  },
+  {
+    "route": "/client/finance",
+    "viewport": "desktop",
+    "errors": [],
+    "failedRequests": [],
+    "consoleErrors": [
+      "Loading the stylesheet 'https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600&display=swap' violates the following Content Security Policy directive: \"style-src 'self' 'unsafe-inline'\". Note that 'style-src-elem' was not explicitly set, so 'st"
+    ],
+    "status": 200,
+    "loadMs": 7762,
+    "finalUrl": "/client/finance",
+    "redirected": false,
+    "title": "SEMSE Project — Profesionales verificados y pagos seguros",
+    "h1": [
+      "Finance Hub"
+    ],
+    "landmarks": {
+      "main": true,
+      "nav": true
+    },
+    "lang": "es",
+    "horizontalOverflow": false,
+    "interactiveCount": 30,
+    "targetsUnder24": 3,
+    "targetsUnder44": 28,
+    "unnamedControls": [
+      "<button style=\"position:relative;width:34px;height:34px;border-radius:10px;background:rgba(255,255,255,.05);border:1px s",
+      "<button style=\"display:inline-flex;align-items:center;gap:6px;padding:10px 16px;border-radius:10px;border:none;backgroun"
+    ],
+    "imgsNoAlt": 0,
+    "inputsNoLabel": 0,
+    "emptyStateText": true,
+    "rawErrorText": [],
+    "bodyChars": 647,
+    "axe": [
+      {
+        "id": "button-name",
+        "impact": "critical",
+        "nodes": 2,
+        "help": "Buttons must have discernible text",
+        "sample": "header > div > div > button"
+      },
+      {
+        "id": "color-contrast",
+        "impact": "serious",
+        "nodes": 5,
+        "help": "Elements must meet minimum color contrast ratio thresholds",
+        "sample": "nav > div:nth-child(1) > div > div"
+      }
+    ]
+  },
+  {
+    "route": "/client/proposals",
+    "viewport": "desktop",
+    "errors": [],
+    "failedRequests": [
+      "404 GET /api/semse/sse?channels=bids:default"
+    ],
+    "consoleErrors": [
+      "Loading the stylesheet 'https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600&display=swap' violates the following Content Security Policy directive: \"style-src 'self' 'unsafe-inline'\". Note that 'style-src-elem' was not explicitly set, so 'st",
+      "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    ],
+    "status": 200,
+    "loadMs": 14422,
+    "finalUrl": "/client/proposals",
+    "redirected": false,
+    "title": "SEMSE Project — Profesionales verificados y pagos seguros",
+    "h1": [
+      "Propuestas recibidas"
+    ],
+    "landmarks": {
+      "main": true,
+      "nav": true
+    },
+    "lang": "es",
+    "horizontalOverflow": false,
+    "interactiveCount": 27,
+    "targetsUnder24": 5,
+    "targetsUnder44": 25,
+    "unnamedControls": [
+      "<button style=\"position:relative;width:34px;height:34px;border-radius:10px;background:rgba(255,255,255,.05);border:1px s"
+    ],
+    "imgsNoAlt": 0,
+    "inputsNoLabel": 0,
+    "emptyStateText": true,
+    "rawErrorText": [],
+    "bodyChars": 647,
+    "axe": [
+      {
+        "id": "button-name",
+        "impact": "critical",
+        "nodes": 1,
+        "help": "Buttons must have discernible text",
+        "sample": "header > div > div > button"
+      },
+      {
+        "id": "color-contrast",
+        "impact": "serious",
+        "nodes": 5,
+        "help": "Elements must meet minimum color contrast ratio thresholds",
+        "sample": "nav > div:nth-child(1) > div > div"
+      }
+    ]
+  },
+  {
+    "route": "/client/change-orders",
+    "viewport": "desktop",
+    "errors": [],
+    "failedRequests": [],
+    "consoleErrors": [
+      "Loading the stylesheet 'https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600&display=swap' violates the following Content Security Policy directive: \"style-src 'self' 'unsafe-inline'\". Note that 'style-src-elem' was not explicitly set, so 'st"
+    ],
+    "status": 200,
+    "loadMs": 7793,
+    "finalUrl": "/client/change-orders",
+    "redirected": false,
+    "title": "SEMSE Project — Profesionales verificados y pagos seguros",
+    "h1": [
+      "Change Orders"
+    ],
+    "landmarks": {
+      "main": true,
+      "nav": true
+    },
+    "lang": "es",
+    "horizontalOverflow": false,
+    "interactiveCount": 26,
+    "targetsUnder24": 4,
+    "targetsUnder44": 24,
+    "unnamedControls": [
+      "<button style=\"position:relative;width:34px;height:34px;border-radius:10px;background:rgba(255,255,255,.05);border:1px s"
+    ],
+    "imgsNoAlt": 0,
+    "inputsNoLabel": 0,
+    "emptyStateText": false,
+    "rawErrorText": [],
+    "bodyChars": 612,
+    "axe": [
+      {
+        "id": "button-name",
+        "impact": "critical",
+        "nodes": 1,
+        "help": "Buttons must have discernible text",
+        "sample": "header > div > div > button"
+      },
+      {
+        "id": "color-contrast",
+        "impact": "serious",
+        "nodes": 5,
+        "help": "Elements must meet minimum color contrast ratio thresholds",
+        "sample": "nav > div:nth-child(1) > div > div"
+      }
+    ]
+  },
+  {
+    "route": "/client/disputes",
+    "viewport": "desktop",
+    "errors": [],
+    "failedRequests": [
+      "403 GET /api/semse/agents/approvals",
+      "404 GET /api/semse/disputes/dispute_demo_001/comments"
+    ],
+    "consoleErrors": [
+      "Loading the stylesheet 'https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600&display=swap' violates the following Content Security Policy directive: \"style-src 'self' 'unsafe-inline'\". Note that 'style-src-elem' was not explicitly set, so 'st",
+      "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+      "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    ],
+    "status": 200,
+    "networkIdle": false,
+    "loadMs": 15320,
+    "finalUrl": "/client/disputes",
+    "redirected": false,
+    "title": "SEMSE Project — Profesionales verificados y pagos seguros",
+    "h1": [
+      "Disputas"
+    ],
+    "landmarks": {
+      "main": true,
+      "nav": true
+    },
+    "lang": "es",
+    "horizontalOverflow": false,
+    "interactiveCount": 53,
+    "targetsUnder24": 5,
+    "targetsUnder44": 47,
+    "unnamedControls": [
+      "<button style=\"position:relative;width:34px;height:34px;border-radius:10px;background:rgba(255,255,255,.05);border:1px s",
+      "<textarea placeholder=\"Describe el conflicto y el punto exacto que está bloqueado.\" rows=\"2\" style=\"border-radius: 10px;",
+      "<textarea rows=\"2\" placeholder=\"Escribe un acuerdo verificable si ya existe resolución entre las partes.\" style=\"border-",
+      "<textarea rows=\"3\" placeholder=\"Escribe una propuesta de acuerdo o resolución verificable.\" style=\"border-radius: 10px; ",
+      "<input type=\"file\" style=\"font-size: 13px; color: var(--ink);\">",
+      "<input placeholder=\"URL, key o referencia del respaldo del cliente\" value=\"\" style=\"height: 40px; border-radius: 10px; b",
+      "<textarea rows=\"2\" placeholder=\"Tu argumento, evidencia resumida o propuesta de acuerdo...\" style=\"flex: 1 1 0%; border-"
+    ],
+    "imgsNoAlt": 0,
+    "inputsNoLabel": 10,
+    "emptyStateText": true,
+    "rawErrorText": [],
+    "bodyChars": 2795,
+    "axe": [
+      {
+        "id": "button-name",
+        "impact": "critical",
+        "nodes": 1,
+        "help": "Buttons must have discernible text",
+        "sample": "header > div > div > button"
+      },
+      {
+        "id": "color-contrast",
+        "impact": "serious",
+        "nodes": 14,
+        "help": "Elements must meet minimum color contrast ratio thresholds",
+        "sample": "nav > div:nth-child(1) > div > div"
+      },
+      {
+        "id": "label",
+        "impact": "critical",
+        "nodes": 1,
+        "help": "Form elements must have labels",
+        "sample": "input[type=\"file\"]"
+      },
+      {
+        "id": "select-name",
+        "impact": "critical",
+        "nodes": 4,
+        "help": "Select element must have an accessible name",
+        "sample": "section:nth-child(3) > div > div:nth-child(2) > select"
+      }
+    ]
+  },
+  {
+    "route": "/client/account",
+    "viewport": "desktop",
+    "errors": [],
+    "failedRequests": [],
+    "consoleErrors": [
+      "Loading the stylesheet 'https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600&display=swap' violates the following Content Security Policy directive: \"style-src 'self' 'unsafe-inline'\". Note that 'style-src-elem' was not explicitly set, so 'st"
+    ],
+    "status": 200,
+    "loadMs": 5347,
+    "finalUrl": "/client/account",
+    "redirected": false,
+    "title": "SEMSE Project — Profesionales verificados y pagos seguros",
+    "h1": [
+      "Cuenta y seguridad"
+    ],
+    "landmarks": {
+      "main": true,
+      "nav": true
+    },
+    "lang": "es",
+    "horizontalOverflow": false,
+    "interactiveCount": 34,
+    "targetsUnder24": 4,
+    "targetsUnder44": 29,
+    "unnamedControls": [
+      "<button style=\"position:relative;width:34px;height:34px;border-radius:10px;background:rgba(255,255,255,.05);border:1px s"
+    ],
+    "imgsNoAlt": 0,
+    "inputsNoLabel": 0,
+    "emptyStateText": false,
+    "rawErrorText": [],
+    "bodyChars": 1124,
+    "axe": [
+      {
+        "id": "button-name",
+        "impact": "critical",
+        "nodes": 1,
+        "help": "Buttons must have discernible text",
+        "sample": "div > div > button"
+      },
+      {
+        "id": "color-contrast",
+        "impact": "serious",
+        "nodes": 5,
+        "help": "Elements must meet minimum color contrast ratio thresholds",
+        "sample": "nav > div:nth-child(1) > div > div"
+      }
+    ]
+  },
+  {
+    "route": "/client/jobs/job_demo_005",
+    "viewport": "desktop",
+    "errors": [],
+    "failedRequests": [
+      "500 GET /api/semse/notifications",
+      "500 GET /api/semse/disputes",
+      "500 GET /api/semse/jobs/job_demo_005",
+      "500 GET /api/semse/jobs/job_demo_005/escrow",
+      "500 GET /api/semse/jobs/job_demo_005/evidence"
+    ],
+    "consoleErrors": [
+      "Loading the stylesheet 'https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600&display=swap' violates the following Content Security Policy directive: \"style-src 'self' 'unsafe-inline'\". Note that 'style-src-elem' was not explicitly set, so 'st",
+      "Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+      "Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+      "Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+      "Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+      "Failed to load resource: the server responded with a status of 500 (Internal Server Error)"
+    ],
+    "status": 200,
+    "networkIdle": false,
+    "loadMs": 15641,
+    "finalUrl": "/client/jobs/job_demo_005",
+    "redirected": false,
+    "title": "SEMSE Project — Profesionales verificados y pagos seguros",
+    "h1": [
+      "Detalle del trabajo"
+    ],
+    "landmarks": {
+      "main": true,
+      "nav": true
+    },
+    "lang": "es",
+    "horizontalOverflow": false,
+    "interactiveCount": 26,
+    "targetsUnder24": 5,
+    "targetsUnder44": 24,
+    "unnamedControls": [
+      "<button style=\"position:relative;width:34px;height:34px;border-radius:10px;background:rgba(255,255,255,.05);border:1px s"
+    ],
+    "imgsNoAlt": 0,
+    "inputsNoLabel": 0,
+    "emptyStateText": true,
+    "rawErrorText": [],
+    "bodyChars": 535,
+    "axe": [
+      {
+        "id": "button-name",
+        "impact": "critical",
+        "nodes": 1,
+        "help": "Buttons must have discernible text",
+        "sample": "div > div > button"
+      },
+      {
+        "id": "color-contrast",
+        "impact": "serious",
+        "nodes": 5,
+        "help": "Elements must meet minimum color contrast ratio thresholds",
+        "sample": "nav > div:nth-child(1) > div > div"
+      }
+    ]
+  },
+  {
+    "route": "/client/jobs/job_demo_005/timeline",
+    "viewport": "desktop",
+    "errors": [],
+    "failedRequests": [],
+    "consoleErrors": [
+      "Loading the stylesheet 'https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600&display=swap' violates the following Content Security Policy directive: \"style-src 'self' 'unsafe-inline'\". Note that 'style-src-elem' was not explicitly set, so 'st"
+    ],
+    "status": 200,
+    "networkIdle": false,
+    "loadMs": 15865,
+    "finalUrl": "/client/jobs/job_demo_005/timeline",
+    "redirected": false,
+    "title": "SEMSE Project — Profesionales verificados y pagos seguros",
+    "h1": [
+      "Timeline del Proyecto"
+    ],
+    "landmarks": {
+      "main": true,
+      "nav": true
+    },
+    "lang": "es",
+    "horizontalOverflow": false,
+    "interactiveCount": 28,
+    "targetsUnder24": 4,
+    "targetsUnder44": 26,
+    "unnamedControls": [
+      "<button style=\"position:relative;width:34px;height:34px;border-radius:10px;background:rgba(255,255,255,.05);border:1px s"
+    ],
+    "imgsNoAlt": 0,
+    "inputsNoLabel": 0,
+    "emptyStateText": false,
+    "rawErrorText": [],
+    "bodyChars": 457,
+    "axe": [
+      {
+        "id": "button-name",
+        "impact": "critical",
+        "nodes": 1,
+        "help": "Buttons must have discernible text",
+        "sample": "header > div > div > button"
+      },
+      {
+        "id": "color-contrast",
+        "impact": "serious",
+        "nodes": 9,
+        "help": "Elements must meet minimum color contrast ratio thresholds",
+        "sample": "nav > div:nth-child(1) > div > div"
+      }
+    ]
+  },
+  {
+    "route": "/client/jobs/job_demo_005/rate",
+    "viewport": "desktop",
+    "errors": [],
+    "failedRequests": [
+      "500 GET /api/semse/jobs/job_demo_005/bids"
+    ],
+    "consoleErrors": [
+      "Loading the stylesheet 'https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600&display=swap' violates the following Content Security Policy directive: \"style-src 'self' 'unsafe-inline'\". Note that 'style-src-elem' was not explicitly set, so 'st",
+      "Failed to load resource: the server responded with a status of 500 (Internal Server Error)"
+    ],
+    "status": 200,
+    "networkIdle": false,
+    "loadMs": 15457,
+    "finalUrl": "/client/jobs/job_demo_005/rate",
+    "redirected": false,
+    "title": "SEMSE Project — Profesionales verificados y pagos seguros",
+    "h1": [
+      "Califica el trabajo"
+    ],
+    "landmarks": {
+      "main": true,
+      "nav": true
+    },
+    "lang": "es",
+    "horizontalOverflow": false,
+    "interactiveCount": 27,
+    "targetsUnder24": 6,
+    "targetsUnder44": 25,
+    "unnamedControls": [
+      "<button style=\"position:relative;width:34px;height:34px;border-radius:10px;background:rgba(255,255,255,.05);border:1px s",
+      "<button style=\"display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 10px; border: 1px "
+    ],
+    "imgsNoAlt": 0,
+    "inputsNoLabel": 0,
+    "emptyStateText": false,
+    "rawErrorText": [],
+    "bodyChars": 504,
+    "axe": [
+      {
+        "id": "button-name",
+        "impact": "critical",
+        "nodes": 2,
+        "help": "Buttons must have discernible text",
+        "sample": "header > div > div > button"
+      },
+      {
+        "id": "color-contrast",
+        "impact": "serious",
+        "nodes": 5,
+        "help": "Elements must meet minimum color contrast ratio thresholds",
+        "sample": "nav > div:nth-child(1) > div > div"
+      }
+    ]
+  },
+  {
+    "route": "/client/projects/proj_demo_002",
+    "viewport": "desktop",
+    "errors": [],
+    "failedRequests": [
+      "404 GET /api/semse/buildops/projects/proj_demo_002"
+    ],
+    "consoleErrors": [
+      "Loading the stylesheet 'https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600&display=swap' violates the following Content Security Policy directive: \"style-src 'self' 'unsafe-inline'\". Note that 'style-src-elem' was not explicitly set, so 'st",
+      "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    ],
+    "status": 200,
+    "networkIdle": false,
+    "loadMs": 15967,
+    "finalUrl": "/client/projects/proj_demo_002",
+    "redirected": false,
+    "title": "SEMSE Project — Profesionales verificados y pagos seguros",
+    "h1": [],
+    "landmarks": {
+      "main": true,
+      "nav": true
+    },
+    "lang": "es",
+    "horizontalOverflow": false,
+    "interactiveCount": 23,
+    "targetsUnder24": 3,
+    "targetsUnder44": 21,
+    "unnamedControls": [
+      "<button style=\"position:relative;width:34px;height:34px;border-radius:10px;background:rgba(255,255,255,.05);border:1px s"
+    ],
+    "imgsNoAlt": 0,
+    "inputsNoLabel": 0,
+    "emptyStateText": false,
+    "rawErrorText": [],
+    "bodyChars": 384,
+    "axe": [
+      {
+        "id": "button-name",
+        "impact": "critical",
+        "nodes": 1,
+        "help": "Buttons must have discernible text",
+        "sample": "div > div > button"
+      },
+      {
+        "id": "color-contrast",
+        "impact": "serious",
+        "nodes": 5,
+        "help": "Elements must meet minimum color contrast ratio thresholds",
+        "sample": "nav > div:nth-child(1) > div > div"
+      }
+    ]
+  },
+  {
+    "route": "/client/projects/proj_demo_002/copilot",
+    "viewport": "desktop",
+    "errors": [],
+    "failedRequests": [
+      "503 GET /api/semse/cortex/context/stream?projectId=proj_demo_002"
+    ],
+    "consoleErrors": [
+      "Loading the stylesheet 'https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600&display=swap' violates the following Content Security Policy directive: \"style-src 'self' 'unsafe-inline'\". Note that 'style-src-elem' was not explicitly set, so 'st",
+      "Failed to load resource: the server responded with a status of 503 (Service Unavailable)"
+    ],
+    "status": 200,
+    "networkIdle": false,
+    "loadMs": 15751,
+    "finalUrl": "/client/projects/proj_demo_002/copilot",
+    "redirected": false,
+    "title": "SEMSE Project — Profesionales verificados y pagos seguros",
+    "h1": [
+      "Copiloto del Proyecto"
+    ],
+    "landmarks": {
+      "main": true,
+      "nav": true
+    },
+    "lang": "es",
+    "horizontalOverflow": false,
+    "interactiveCount": 40,
+    "targetsUnder24": 5,
+    "targetsUnder44": 32,
+    "unnamedControls": [
+      "<button style=\"position:relative;width:34px;height:34px;border-radius:10px;background:rgba(255,255,255,.05);border:1px s",
+      "<textarea placeholder=\"Pregunta sobre el proyecto... (Enter para enviar)\" rows=\"2\" style=\"flex: 1 1 0%; padding: 10px 14",
+      "<button disabled=\"\" style=\"padding:10px 16px;border-radius:12px;border:none;background:linear-gradient(135deg,#6366f1,#4"
+    ],
+    "imgsNoAlt": 0,
+    "inputsNoLabel": 1,
+    "emptyStateText": true,
+    "rawErrorText": [],
+    "bodyChars": 894,
+    "axe": [
+      {
+        "id": "button-name",
+        "impact": "critical",
+        "nodes": 2,
+        "help": "Buttons must have discernible text",
+        "sample": "header > div > div > button"
+      },
+      {
+        "id": "color-contrast",
+        "impact": "serious",
+        "nodes": 5,
+        "help": "Elements must meet minimum color contrast ratio thresholds",
+        "sample": "nav > div:nth-child(1) > div > div"
+      }
+    ]
+  }
+]

@@ -1,0 +1,145 @@
+[
+  {
+    "id": "T1",
+    "clicks": 7,
+    "fills": 2,
+    "steps": [
+      "click: categoría Plomería",
+      "click: especialidad (primera, tras hacer scroll)",
+      "click: Siguiente (1→2)",
+      "fill: título",
+      "fill: descripción",
+      "click: Siguiente (2→3)",
+      "click: Sugerir presupuesto con IA",
+      "click: Siguiente (3→4)",
+      "click: Publicar trabajo"
+    ],
+    "notes": [
+      "\"Siguiente\" deshabilitado tras elegir solo la categoría: true",
+      "especialidades aparecen bajo el pliegue (y=1027 > alto de pantalla 900): true; \"Siguiente\" muestra motivo de bloqueo: false",
+      "tras sugerencia IA: NO mostró estimación ni error visible",
+      "URL final: /client/jobs/new"
+    ],
+    "server5xx": [
+      "500 /api/semse/notifications?limit=15",
+      "500 /api/semse/notifications?limit=15"
+    ],
+    "dbFlaky": false,
+    "success": true,
+    "ms": 30560
+  },
+  {
+    "id": "T2",
+    "clicks": 3,
+    "fills": 1,
+    "steps": [
+      "click: categoría Electricidad",
+      "click: especialidad",
+      "click: Siguiente",
+      "fill: título"
+    ],
+    "notes": [
+      "banner de recuperación visible: true; paso tras recargar: 2; título conservado: sí"
+    ],
+    "server5xx": [
+      "500 /api/semse/notifications?limit=15",
+      "500 /api/semse/notifications?limit=15"
+    ],
+    "dbFlaky": false,
+    "success": true,
+    "ms": 28349
+  },
+  {
+    "id": "T3",
+    "clicks": 0,
+    "fills": 0,
+    "steps": [],
+    "notes": [
+      "error: TimeoutError: page.waitForURL: Timeout 60000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n  navigated to \"http://localhost:3000/login\"\n="
+    ],
+    "server5xx": [
+      "500 /api/semse/notifications?limit=15",
+      "500 /api/semse/notifications?limit=15"
+    ],
+    "dbFlaky": true,
+    "success": false,
+    "ms": 65912
+  },
+  {
+    "id": "T4",
+    "clicks": 0,
+    "fills": 0,
+    "steps": [],
+    "notes": [
+      "/client/milestones — lista hitos",
+      "ruta alternativa: /client/projects/proj_demo_001"
+    ],
+    "server5xx": [],
+    "dbFlaky": false,
+    "success": false,
+    "ms": 27261
+  },
+  {
+    "id": "T5",
+    "clicks": 1,
+    "fills": 0,
+    "steps": [
+      "click: Fondear escrow"
+    ],
+    "notes": [
+      "abre modal de confirmación: true",
+      "el modal muestra un monto ($): true; texto: Fondear escrow Reparar tubería con fuga en la cocina MONTO $ USD EUR CAD MXN Usar presupuesto sugerido: $500 PROVEEDOR DE PAGO Stripe Tarjeta de crÃ©dito/dÃ©bito segura PayPal Cuenta PayPal o tarjeta vinculada Transferen"
+    ],
+    "server5xx": [],
+    "dbFlaky": false,
+    "success": true,
+    "ms": 20499
+  },
+  {
+    "id": "T6",
+    "clicks": 0,
+    "fills": 0,
+    "steps": [],
+    "notes": [
+      "monto visible en pantalla: false; menciona \"pendiente\": true; chars: 283"
+    ],
+    "server5xx": [],
+    "dbFlaky": false,
+    "success": false,
+    "ms": 5200
+  },
+  {
+    "id": "T7",
+    "clicks": 1,
+    "fills": 2,
+    "steps": [
+      "fill: descripción del trabajo",
+      "fill: área sqft",
+      "click: Calcular estimado"
+    ],
+    "notes": [
+      "selects en pantalla: 1",
+      "resultado con TOTAL: true; CONFIANZA mostrada: 85; error visible: false"
+    ],
+    "server5xx": [],
+    "dbFlaky": false,
+    "success": true,
+    "ms": 23617
+  },
+  {
+    "id": "T8",
+    "clicks": 1,
+    "fills": 1,
+    "steps": [
+      "click: Abrir disputa",
+      "fill: motivo"
+    ],
+    "notes": [
+      "pide seleccionar trabajo antes: true"
+    ],
+    "server5xx": [],
+    "dbFlaky": false,
+    "success": true,
+    "ms": 15178
+  }
+]

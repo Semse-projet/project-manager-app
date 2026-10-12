@@ -1,0 +1,144 @@
+[
+  {
+    "id": "T1",
+    "clicks": 7,
+    "fills": 2,
+    "steps": [
+      "click: categoría Plomería",
+      "click: especialidad (primera, tras hacer scroll)",
+      "click: Siguiente (1→2)",
+      "fill: título",
+      "fill: descripción",
+      "click: Siguiente (2→3)",
+      "click: Sugerir presupuesto con IA",
+      "click: Siguiente (3→4)",
+      "click: Publicar trabajo"
+    ],
+    "notes": [
+      "\"Siguiente\" deshabilitado tras elegir solo la categoría: true",
+      "especialidades aparecen bajo el pliegue (y=2160 > alto de pantalla 844): true; \"Siguiente\" muestra motivo de bloqueo: false",
+      "la sugerencia de IA tardó 7 s en dar una respuesta visible o volver al estado inicial",
+      "tras sugerencia IA: mostró estimación",
+      "URL final: /client/jobs/cmv4dz8c20015tmy0zh53nl3m"
+    ],
+    "server5xx": [],
+    "dbFlaky": false,
+    "success": true,
+    "ms": 48199
+  },
+  {
+    "id": "T2",
+    "clicks": 3,
+    "fills": 1,
+    "steps": [
+      "click: categoría Electricidad",
+      "click: especialidad",
+      "click: Siguiente",
+      "fill: título"
+    ],
+    "notes": [
+      "banner de recuperación visible: true; paso tras recargar: 2; título conservado: sí"
+    ],
+    "server5xx": [],
+    "dbFlaky": false,
+    "success": true,
+    "ms": 22972
+  },
+  {
+    "id": "T3",
+    "clicks": 1,
+    "fills": 0,
+    "steps": [
+      "click: Aceptar propuesta"
+    ],
+    "notes": [
+      "setup oferta (profesional): 200 {\"data\":{\"id\":\"cmv4e04wh001ftmy0743sagwd\",\"tenantId\":\"tenant_default\",\"jobId\":\"job_demo_003\",\"proOrgId\":\"org_pro_001\",\"p",
+      "el detalle del trabajo tardó 0 s extra en mostrar la oferta tras cargar la página",
+      "botón \"Aceptar propuesta\" visible sin scroll en el viewport: true",
+      "tras el clic, la pantalla mostró \"Aceptando…\" durante 13 s",
+      "pide confirmación (diálogo): false",
+      "estado tras aceptar: Publicado; sigue diciendo \"Esperando candidatos\": false"
+    ],
+    "server5xx": [],
+    "dbFlaky": false,
+    "success": false,
+    "ms": 46379
+  },
+  {
+    "id": "T4",
+    "clicks": 0,
+    "fills": 0,
+    "steps": [],
+    "notes": [
+      "/client/milestones — lista hitos",
+      "ruta alternativa: /client/projects/proj_demo_001"
+    ],
+    "server5xx": [],
+    "dbFlaky": false,
+    "success": false,
+    "ms": 32061
+  },
+  {
+    "id": "T5",
+    "clicks": 1,
+    "fills": 0,
+    "steps": [
+      "click: Fondear escrow"
+    ],
+    "notes": [
+      "abre modal de confirmación: true",
+      "el modal muestra un monto ($): true; texto: Fondear escrow Reparar tubería con fuga en la cocina MONTO $ USD EUR CAD MXN Usar presupuesto sugerido: $500 PROVEEDOR DE PAGO Stripe Tarjeta de crÃ©dito/dÃ©bito segura PayPal Cuenta PayPal o tarjeta vinculada Transferen"
+    ],
+    "server5xx": [],
+    "dbFlaky": false,
+    "success": true,
+    "ms": 17768
+  },
+  {
+    "id": "T6",
+    "clicks": 0,
+    "fills": 0,
+    "steps": [],
+    "notes": [
+      "monto visible en pantalla: false; menciona \"pendiente\": true; chars: 283"
+    ],
+    "server5xx": [],
+    "dbFlaky": false,
+    "success": false,
+    "ms": 5986
+  },
+  {
+    "id": "T7",
+    "clicks": 1,
+    "fills": 2,
+    "steps": [
+      "fill: descripción del trabajo",
+      "fill: área sqft",
+      "click: Calcular estimado"
+    ],
+    "notes": [
+      "selects en pantalla: 1",
+      "resultado con TOTAL: true; CONFIANZA mostrada: 85; error visible: false"
+    ],
+    "server5xx": [],
+    "dbFlaky": false,
+    "success": true,
+    "ms": 13430
+  },
+  {
+    "id": "T8",
+    "clicks": 1,
+    "fills": 1,
+    "steps": [
+      "click: Abrir disputa",
+      "fill: motivo"
+    ],
+    "notes": [
+      "pide seleccionar trabajo antes: true"
+    ],
+    "server5xx": [],
+    "dbFlaky": false,
+    "success": true,
+    "ms": 24563
+  }
+]
