@@ -33,7 +33,7 @@ test("The four canonical skills, Codex pointers, and catalog entries exist", () 
     assert.ok(source.startsWith(`---\nname: ${name}\ndescription: `), `missing canonical frontmatter: ${name}`);
     assert.ok(pointer.startsWith(`---\nname: ${name}\ndescription: `), `missing Codex frontmatter: ${name}`);
     assert.ok(source.includes("project-manager-app/AGENTS.md"), `governance missing: ${name}`);
-    assert.ok(source.includes("PILOTO"), `missing real-world verification gate: ${name}`);
+    assert.match(source, /piloto real|PILOTO_REAL/i, `missing real-world verification gate: ${name}`);
     assert.ok(pointer.includes(`project-manager-app/.claude/skills/${name}/SKILL.md`), `canonical pointer missing: ${name}`);
     assert.ok(pointer.includes("project-manager-app/AGENTS.md"), `Codex governance missing: ${name}`);
     assert.ok(catalog.includes(`| ${name} |`), `catalog row missing: ${name}`);
