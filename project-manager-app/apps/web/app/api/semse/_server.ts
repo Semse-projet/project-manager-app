@@ -180,7 +180,10 @@ function resolveConfigFromRequest(req: NextRequest): RuntimeConfig | null {
 }
 
 async function resolveConfigFromCookie(req: NextRequest): Promise<RuntimeConfig | null> {
-  const apiBaseUrl = trimToUndefined(process.env.SEMSE_API_BASE_URL);
+  // Preserve the conventional dev API URL only; identity must still be
+  // established exclusively by a valid signed session cookie.
+  const apiBaseUrl = trimToUndefined(process.env.SEMSE_API_BASE_URL)
+    ?? (process.env.NODE_ENV === "production" ? undefined : "http://127.0.0.1:4000");
   if (!apiBaseUrl) return null;
 
   const encoded = req.cookies.get(SESSION_COOKIE)?.value;
@@ -200,6 +203,15 @@ async function resolveConfigFromCookie(req: NextRequest): Promise<RuntimeConfig 
 
 export async function resolveRuntimeConfigForRequest(req: NextRequest): Promise<RuntimeConfig | null> {
   return resolveConfigFromRequest(req) ?? await resolveConfigFromCookie(req) ?? resolveRuntimeConfig();
+}
+
+/**
+ * File upload/download BFF must never fall back to server-wide OPS_ADMIN
+ * identity or trust a caller-supplied proxy header. A valid signed web
+ * session cookie is mandatory; machine clients use the direct API instead.
+ */
+export async function resolveCookieRuntimeConfigForRequest(req: NextRequest): Promise<RuntimeConfig | null> {
+  return resolveConfigFromCookie(req);
 }
 
 export function runtimeDisabledResponse(): NextResponse {

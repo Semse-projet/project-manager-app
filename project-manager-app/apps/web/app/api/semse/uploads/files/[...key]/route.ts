@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import {
   buildAuthorizedHeaders,
   handleServerError,
-  resolveRuntimeConfigForRequest,
+  resolveCookieRuntimeConfigForRequest,
 } from "../../../_server";
 
 export const dynamic = "force-dynamic";
@@ -19,9 +19,9 @@ export async function PUT(
   try {
     const { key } = await context.params;
     const keyStr = key.join("/");
-    const config = await resolveRuntimeConfigForRequest(request);
+    const config = await resolveCookieRuntimeConfigForRequest(request);
     if (!config) {
-      return NextResponse.json({ error: { status: 503, message: "SEMSE runtime not configured" } }, { status: 503 });
+      return NextResponse.json({ error: { status: 401, message: "Authenticated SEMSE session required" } }, { status: 401 });
     }
 
     const contentType = request.headers.get("content-type") ?? "application/octet-stream";
@@ -64,9 +64,9 @@ export async function GET(
   try {
     const { key } = await context.params;
     const keyStr = key.join("/");
-    const config = await resolveRuntimeConfigForRequest(request);
+    const config = await resolveCookieRuntimeConfigForRequest(request);
     if (!config) {
-      return NextResponse.json({ error: { status: 503, message: "SEMSE runtime not configured" } }, { status: 503 });
+      return NextResponse.json({ error: { status: 401, message: "Authenticated SEMSE session required" } }, { status: 401 });
     }
 
     const authorizedHeaders = await buildAuthorizedHeaders(config);
