@@ -137,7 +137,7 @@ test("F01-N04 rejected bid cannot be accepted by the owner", async () => {
   assert.equal(calls.tx, 0);
 });
 
-test("F01-N01 professional cannot place a bid on behalf of another pro organization", async () => {
+test("F01-N09 professional cannot place a bid on behalf of another pro organization", async () => {
   let prismaCalls = 0;
   const prisma = new Proxy({}, {
     get() {
