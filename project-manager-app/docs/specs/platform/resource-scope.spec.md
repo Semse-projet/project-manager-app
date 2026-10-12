@@ -49,6 +49,7 @@ related_files:
   - apps/api/src/modules/knowledge/workspace-memory.repository.ts
   - apps/api/src/common/resource-scope.ts
   - apps/api/src/modules/evidence/evidence.policy.ts
+  - apps/api/src/modules/evidence/evidence.repository.ts
   - apps/api/src/modules/milestones/milestones.policy.ts
   - apps/api/src/modules/disputes/disputes.policy.ts
   - apps/api/src/modules/projects/projects.policy.ts
@@ -61,6 +62,8 @@ related_tests:
   - apps/api/test/resource-scope-resolver.test.ts
   - apps/api/test/workspace-memory-access.test.ts
   - apps/api/test/resource-scope.test.ts
+  - apps/api/test/evidence-resource-scope-consistency.test.ts
+  - apps/api/test/evidence-outbox-integration.test.ts
   - apps/api/test/prometeo-assets-orders-scope.test.ts
 related_endpoints:
   - POST /v1/prometeo/assets
@@ -144,3 +147,11 @@ Cambiar permisos de rol (`@RequirePermissions`), el modelo de datos o el signifi
 
 ## 6. Gates de cierre
 Etapas 2–3 · CI terminal · merge SHA · deploy · smoke autenticado multi-tenant · evidencia registrada.
+
+## 2026-10-11 — Regla P1 complementaria: registro canónico Evidence
+
+`POST /v1/evidence` y `EvidenceRepository.resolveScope()` exigen que todos los identificadores explícitos `projectId`, `jobId` y `milestoneId` describan **la misma obra**. El `milestoneId` no habilita el registro si el Job vinculado tiene `deletedAt != null`. Reglas del dueño ResourceScope: eliminar lógicamente revoca alcance de escritura y lectura; no crear Evidence ni outbox en estos casos.
+
+**Contrato de error:** `404 Evidence scope not found` ante ID contradictorio, ajeno o soft-deleted, sin revelar qué ID corresponde a recurso existente. A diferencia del `400` usado por la creación de Prometeo WorkOrders con payload que el actor ya controla en ese recurso, aquí se elige `404` para ocultar la pertenencia de un identificador protegido de Evidence entre organizaciones. No sustituye el `403` por un permiso genérico `evidence:write` faltante.
+
+**P1 verificable:** dado un PRO autorizado para job A, cuando registra `{jobId:A,milestoneId:milestoneB}` o `{projectId:projectA,jobId:jobB}`, entonces devuelve `404` y Evidence/outbox permanecen sin cambios. Igual para hito de Job eliminado. Pruebas: `evidence-resource-scope-consistency.test.ts` y `evidence-outbox-integration.test.ts` con PostgreSQL real. Código, merge, CI, deploy y smoke se registran por separado; este anexo no declara cierre de C51.

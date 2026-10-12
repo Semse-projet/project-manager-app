@@ -470,6 +470,9 @@ export class EvidenceRepository {
           deletedAt: null,
           project: {
             tenantId: input.tenantId,
+            // A milestone of a soft-deleted job must not re-open Evidence
+            // write access after the canonical ProjectLink became unavailable.
+            job: { deletedAt: null },
           },
         },
         select: {
@@ -494,6 +497,15 @@ export class EvidenceRepository {
           `Milestone '${input.milestoneId}' not found`,
         );
       }
+      // Explicit IDs are constraints, never hints. Without these checks an
+      // upload for job A + milestone B could silently be saved under job B.
+      // Use a generic 404 to avoid revealing another project's identifiers.
+      if (
+        (input.projectId && input.projectId !== milestone.projectId) ||
+        (input.jobId && input.jobId !== milestone.project.jobId)
+      ) {
+        throw new NotFoundException("Evidence scope not found");
+      }
 
       return {
         projectId: milestone.projectId,
@@ -508,6 +520,9 @@ export class EvidenceRepository {
         tenantId: input.tenantId,
         projectId: input.projectId,
       });
+      if (input.jobId && input.jobId !== project.jobId) {
+        throw new NotFoundException("Evidence scope not found");
+      }
 
       return {
         projectId: project.id,
