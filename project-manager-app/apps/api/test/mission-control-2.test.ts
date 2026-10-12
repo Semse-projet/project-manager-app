@@ -6,6 +6,7 @@ import test from "node:test";
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   NotFoundException,
 } from "@nestjs/common";
 import { REQUIRED_PERMISSIONS_KEY } from "../src/common/permissions.decorator.ts";
@@ -391,4 +392,56 @@ test("F4 migration: additive receipt and incident indexes are present", () => {
   assert.match(sql, /ADD COLUMN "actionReceiptId" TEXT/);
   assert.match(sql, /MissionControlIncident_tenantId_status_createdAt_idx/);
   assert.doesNotMatch(sql, /\bDROP\s+(TABLE|COLUMN|TYPE)\b/i);
+});
+
+const outsideAllowlistActor = {
+  tenantId: "tenant_outside_allowlist",
+  orgId: "org_outside",
+  userId: "usr_outside_admin",
+  roles: ["OPS_ADMIN"],
+  requestId: "req_mc_outside",
+};
+
+// Un Prisma que falla ante cualquier acceso: prueba que el rechazo ocurre antes de tocar datos.
+const prismaThatMustNotBeTouched = new Proxy({}, {
+  get(_target, property) {
+    throw new Error(`prisma.${String(property)} accessed for a tenant outside the canary allowlist`);
+  },
+});
+
+async function assertDisabledNotFound(operation: () => unknown) {
+  await assert.rejects(
+    () => withCanaryEnabled(async () => operation()),
+    (error: unknown) => {
+      assert.ok(error instanceof NotFoundException);
+      const body = error.getResponse() as { code?: string };
+      assert.equal(body.code, "MISSION_CONTROL_V2_DISABLED");
+      return true;
+    },
+  );
+}
+
+test("F4 service: a tenant outside the canary allowlist gets 404 on every Mission Control entry point", async () => {
+  const service = makeMissionControlService(prismaThatMustNotBeTouched as Record<string, unknown>);
+
+  await assertDisabledNotFound(() => service.listRunbooks(outsideAllowlistActor.tenantId));
+  await assertDisabledNotFound(() => service.listExceptions(outsideAllowlistActor, {} as never));
+  await assertDisabledNotFound(() => service.executeAction(outsideAllowlistActor, actionInput));
+});
+
+test("F4 service: the allowlist check runs before the role check, so a non-operator outside the canary sees 404 not 403", async () => {
+  const service = makeMissionControlService(prismaThatMustNotBeTouched as Record<string, unknown>);
+  const nonOperatorOutside = { ...outsideAllowlistActor, roles: ["CLIENT"] };
+
+  await assertDisabledNotFound(() => service.executeAction(nonOperatorOutside, actionInput));
+});
+
+test("F4 service: inside the allowlist a non-operator is rejected by role (403), proving the 404 is tenant-specific", async () => {
+  const service = makeMissionControlService(prismaThatMustNotBeTouched as Record<string, unknown>);
+  const nonOperatorInside = { ...actionActor, roles: ["CLIENT"] };
+
+  await assert.rejects(
+    () => withCanaryEnabled(() => service.executeAction(nonOperatorInside, actionInput)),
+    ForbiddenException,
+  );
 });
