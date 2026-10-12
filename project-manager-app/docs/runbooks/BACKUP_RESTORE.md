@@ -64,14 +64,14 @@ privada, no se reabre el proxy.
 2. `pg_restore --no-owner --dbname=<db_desechable> <dump>`
 3. Verificar, contra la base restaurada:
    - conteos de filas de tablas clave (`Project`, `Milestone`, `PaymentEscrow`,
-     `PaymentTxn`, `Evidence`, `User`) frente a producción (lectura);
+     `PaymentTxn`, `Evidence`, `User`, `Job`, `Bid`) frente a producción (lectura);
    - `_prisma_migrations` sin migraciones que carezcan de una aplicación exitosa
      (un `rolled_back_at` histórico con una fila posterior exitosa es normal);
    - `prisma migrate status` limpio.
-4. Medir el tiempo total: es el RTO real.
+4. Medir el tiempo de restauración lógica y del drill aislado. **No es el RTO real del servicio:** este exige incluir aprovisionamiento, DNS/configuración, Redis, archivos, arranque, integridad y prueba funcional de acceso.
 5. Destruir la base desechable y el dump de prueba cuando termine.
 6. Registrar el resultado en `docs/reportes/` (qué dump, cuánto tardó, qué
-   falló). Solo entonces se puede escribir "RPO/RTO demostrado".
+   falló). Solo declarar RPO/RTO demostrado con backups efectivamente programados y un ejercicio integral sobre un respaldo recuperable.
 
 ## Volumen de archivos de la API **[PROD]**
 
