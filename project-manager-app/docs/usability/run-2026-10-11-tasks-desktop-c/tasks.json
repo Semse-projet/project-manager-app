@@ -1,0 +1,21 @@
+[
+  {
+    "id": "T3",
+    "clicks": 1,
+    "fills": 0,
+    "steps": [
+      "click: Aceptar propuesta"
+    ],
+    "notes": [
+      "setup oferta (profesional): 409 {\"error\":{\"status\":409,\"message\":\"pro already has an active bid for this job\"}}",
+      "el detalle del trabajo tardó 2 s extra en mostrar la oferta tras cargar la página",
+      "botón \"Aceptar propuesta\" visible sin scroll en el viewport: true",
+      "pide confirmación (diálogo): false",
+      "estado tras aceptar: Publicado"
+    ],
+    "server5xx": [],
+    "dbFlaky": false,
+    "success": false,
+    "ms": 45114
+  }
+]
