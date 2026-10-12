@@ -7,14 +7,15 @@ version: "0.2"
 status: "APPROVED"
 owner: "semse-core"
 risk: "medium"
-code_status: "IN_PROGRESS"
-ci_status: "NOT_RUN"
-merge_status: "UNMERGED"
-deploy_status: "NOT_DEPLOYED"
+code_status: "COMPLETE"
+ci_status: "PASS"
+merge_status: "MERGED"
+deploy_status: "DEPLOYED"
 activation_status: "INACTIVE"
 migration_status: "NOT_APPLICABLE"
 feature_flags: []
 production_evidence:
+  - "2026-10-12 (post-deploy de #886, a833bdfb): RETRY real desde Mission Control sobre el AgentRun cmrtgptlo0001qx01loylskcm (browser-agent, https://example.com, FAILED desde 2026-07-20 con el job retenido en el conjunto failed de Redis). Recibo MissionControlActionReceipt SUCCEEDED, dryRun=false, 20:55:56Z, resultJson {status:queued, enqueued:true}. El job se reemplazó (finishedOn de julio -> 20:55:57Z, ahora en completed), el worker lo tomó (startedAt 20:55:57.114) y el run pasó a COMPLETED con attempts 1->2, sin dead-letter ni revisión humana. Sin intervención manual en Redis. Observación adicional: un RETRY previo sobre el run de pricing cmqvqsomu0025k1014xntz5kj (enqueued:true, 20:53:21Z) reemplazó igualmente su job y el worker lo ejecutó; ese run volvió a FAILED por falta de projectId/jobId en su contexto (error propio del run, no de la cola). No probados en producción: P2, P3, P4 (solo tests con cola simulada)."
   - "2026-10-12: el AgentRun cmqb7s6nh0001mi01dqgpeezr quedó QUEUED en BD tras un RETRY (receipt cmv4wer390002l8016khrnfpt SUCCEEDED) pero el worker no lo tomó. En Redis, bull:semse-agent-runs:tenant_default__cmqb7s6nh0001mi01dqgpeezr seguía siendo el job fallido del 2026-06-12 (finishedOn 1781286151638, error chromium_headless_shell-1223) y estaba en el conjunto 'failed'. El queue.add del RETRY usa el mismo jobId y BullMQ lo ignora sin error."
 related_files:
   - apps/api/src/infrastructure/queue/agent-queue.service.ts
@@ -192,7 +193,8 @@ Sin cambios de modelo ni migración. Solo claves de Redis de la cola `semse-agen
 
 ## 12. Gates de cierre
 
-- [ ] Spec aprobado por el owner
-- [ ] Pruebas del §9 en CI
-- [ ] Run `cmqb7s6nh…` ejecutado (o resuelto) con evidencia en `production_evidence`
-- [ ] F4 sigue sin declararse VERIFIED hasta tener un reintento extremo a extremo
+- [x] Spec aprobado por el owner
+- [x] Pruebas del §9 en CI (PR #886)
+- [x] Run `cmqb7s6nh…` ejecutado (o resuelto) con evidencia en `production_evidence`
+- [x] Reintento extremo a extremo en producción (P1) con evidencia en `production_evidence`
+- [ ] Declaración de F4 VERIFIED: decisión del owner; P2/P3/P4 solo cubiertos por tests simulados
