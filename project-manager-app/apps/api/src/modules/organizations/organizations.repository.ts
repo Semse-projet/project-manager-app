@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
+import { isOpsAdmin } from "../../common/resource-scope.js";
 import { ActorContextService } from "../../infrastructure/persistence/actor-context.service.js";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 
@@ -45,10 +46,13 @@ export class OrganizationsRepository {
     tenantId: string;
     orgId: string;
     userId: string;
+    roles: string[];
   }): Promise<OrgRecord[]> {
-    await this.actorContextService.ensureActorContext(input);
     const orgs = (await this.prisma.org.findMany({
-      where: { tenantId: input.tenantId },
+      where: {
+        tenantId: input.tenantId,
+        ...(isOpsAdmin(input) ? {} : { users: { some: { userId: input.userId, status: "ACTIVE" } } })
+      },
       orderBy: { createdAt: "desc" }
     })) as StoredOrg[];
 
@@ -60,12 +64,13 @@ export class OrganizationsRepository {
     orgId: string;
     userId: string;
     targetOrgId: string;
+    roles: string[];
   }): Promise<OrgRecord> {
-    await this.actorContextService.ensureActorContext(input);
     const org = (await this.prisma.org.findFirst({
       where: {
         id: input.targetOrgId,
-        tenantId: input.tenantId
+        tenantId: input.tenantId,
+        ...(isOpsAdmin(input) ? {} : { users: { some: { userId: input.userId, status: "ACTIVE" } } })
       }
     })) as StoredOrg | null;
 
@@ -81,12 +86,15 @@ export class OrganizationsRepository {
     orgId: string;
     userId: string;
     targetOrgId: string;
+    roles: string[];
   }): Promise<MembershipRecord[]> {
-    await this.actorContextService.ensureActorContext(input);
+    // Verify visibility first; never enumerate members across org boundaries.
+    await this.findOrgById(input);
     const memberships = (await this.prisma.membership.findMany({
       where: {
         orgId: input.targetOrgId,
-        org: { tenantId: input.tenantId }
+        org: { tenantId: input.tenantId },
+        status: "ACTIVE"
       },
       orderBy: { createdAt: "desc" }
     })) as StoredMembership[];
