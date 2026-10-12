@@ -21,7 +21,7 @@ Autorizado por el owner (opción B del runbook `BACKUP_RESTORE.md`): dump de lec
 | Tablas comparadas | `Project` 8, `Milestone` 4, `PaymentEscrow` 2, `PaymentTxn` 0, `Evidence` 8, `User` 19, `Job` 17, `Bid` 11 — **coinciden en las 8** |
 | Filas en `_prisma_migrations` | 120 |
 
-El RTO medido para la base actual (~17 MiB) es de **segundos a minutos**, sin red de bucket ni volumen de archivos. Escala con el tamaño de la base: no extrapolar.
+**Tiempo observado de restauración lógica:** 16 segundos con el dump de ~17 MiB. **No es un RTO medido de SEMSE.** No incluye obtener un backup externo, levantar infraestructura, verificar acceso de usuarios, reanudar API/Worker, Redis ni recuperar archivos. No extrapolar a otros tamaños.
 
 ## Hallazgo: criterio del drill demasiado estricto
 
@@ -34,12 +34,12 @@ El runbook pedía `_prisma_migrations` "sin filas `failed`". La copia restaurada
 - **Redis:** sin drill.
 - **Volumen de archivos (`/data`):** sin drill; ver `docs/reportes/` de Field Memory.
 - **Almacenamiento externo cifrado del dump** y retención: sin decidir.
-- **Restore sobre `prisma migrate status`:** no ejecutado contra la copia restaurada.
+- **Verificación con `prisma migrate status`:** no ejecutada contra la copia restaurada. La comparación de ocho conteos no demuestra por sí sola integridad de todos los datos.
 
 ## Trampas encontradas
 
 - `railway ssh -- <cmd>` une los argumentos y los pasa a `bash -c`: `sh -c '...'` se rompe silenciosamente (dump de 0 bytes con exit 0). Pasar la orden completa como **un solo argumento** y verificar el tamaño del archivo.
-- Un `pg_restore` 16 no lee un dump de `pg_dump` 18: usar `DRILL_PG_IMAGE=postgres:18`.
+- Un `pg_restore` 16 no lee un dump de `pg_dump` 18. El script versionado usa `postgres:18` por defecto y exige revisar `DRILL_PG_IMAGE` si cambia la versión de origen.
 - En Git Bash, `docker cp` de rutas de `mktemp` falla; el script pasa el dump por stdin.
 
 ## Siguiente
