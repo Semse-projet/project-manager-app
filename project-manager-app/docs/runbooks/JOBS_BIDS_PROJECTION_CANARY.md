@@ -207,5 +207,20 @@ inventada._
 
 - Código: merge `fcff15ff` en `main`.
 - Deployments: API `aa63bfe2` `SUCCESS` (2026-10-11, health 200). Worker sin cambios (ya tenía `EVENT_CONSUMER`).
-- Resultado del checklist de cierre: `<pendiente>`.
+- Resultado del checklist de cierre: **parcial** — primer ciclo real observado (abajo); faltan la ventana de 7 días, el replay con `duplicate=true` y el read-through.
 - Tenant canario: `tenant_default`.
+
+### Primer ciclo real (2026-10-12 05:28 UTC, datos de prueba marcados `[TEST]`)
+
+Creados con la sesión OPS_ADMIN del owner vía BFF (`POST /api/semse/jobs`, `POST /api/semse/bids`), sin presupuesto ni pagos:
+
+| Entidad | Id | Evento | Publicación | Consumer `jobs-bids-projection.v1` |
+|---|---|---|---|---|
+| Job `[TEST] F1-F canary jobs-bids 2026-10-11` | `cmv4t9r1g0005qr0142q51m38` | `job.created.v1` (`3a2855bf-3115-4883-b98e-630fb17b9bfe`) | `PUBLISHED`, lag 1521 ms, 1 intento | `COMPLETED`, 1 intento, `lastError=null` |
+| Bid monto 1, `submitted` | `cmv4tb320000jqr01ge0tx2h5` | `bid.created.v1` | `PUBLISHED`, lag 862 ms, 1 intento | `COMPLETED`, 1 intento, `lastError=null` |
+
+- Outbox tras el ciclo: 36 eventos, `PUBLISHED=36`; `PENDING`, `CLAIMED`, `FAILED` y `DEAD_LETTER` en 0; `oldestPendingAgeMs=0`.
+- Blast radius observado para el job de prueba: `escrow=null`, `contracts/current=null`, `milestones=[]`; `payments` responde 404 (el job no tiene proyecto). Ningún evento de pagos.
+- Los dos lags de publicación (< 2 s) cumplen el SLO propuesto (p95 < 30 s) y el de F1 (< 2 s), pero son **dos muestras**, no un p95.
+- **No cubierto todavía:** replay (`duplicate=true`), `job.status_changed.v1`, `bid.accepted.v1`/`bid.rejected.v1`, read-through, 7 días de observación. Por eso el spec sigue `IMPLEMENTED`, no `VERIFIED`.
+- Los datos `[TEST]` se dejan activos durante la ventana de observación; archivarlos al cerrarla.
