@@ -1,4 +1,4 @@
-import { UnauthorizedException } from "@nestjs/common";
+import { ServiceUnavailableException, UnauthorizedException } from "@nestjs/common";
 import { parseRoleList, SEMSE_IDENTITY_HEADER_NAMES, type RequestIdentity } from "@semse/shared";
 import { verifyToken } from "./auth-token.js";
 
@@ -71,6 +71,10 @@ export function resolveRequestContext(req: RequestLike & { authContext?: Request
     };
   }
 
-  // Dev/bootstrap mode: identity from plain headers
+  // Header identity is an explicit local-development convenience only.
+  // Never let a missing AUTH_SECRET turn production into a header-trust mode.
+  if (process.env.NODE_ENV === "production") {
+    throw new ServiceUnavailableException("Authentication authority unavailable");
+  }
   return parseHeaderRequestContext(headers);
 }

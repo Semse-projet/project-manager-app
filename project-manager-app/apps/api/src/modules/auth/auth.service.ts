@@ -4,6 +4,7 @@ import {
   ConflictException,
   Injectable,
   InternalServerErrorException,
+  ServiceUnavailableException,
   UnauthorizedException
 } from "@nestjs/common";
 import { AuditService } from "../../infrastructure/audit/audit.service.js";
@@ -102,8 +103,59 @@ export class AuthService {
     };
   }
 
+  /**
+   * Historical incident: an unbounded per-request Postgres lookup caused long
+   * hangs in Railway. Fail CLOSED with a short deadline, never stale claims.
+   * Database queries are read-only and have no cross-request positive cache.
+   */
+  private async accessLookup<T>(operation: () => Promise<T>): Promise<T> {
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    try {
+      return await Promise.race([
+        operation(),
+        new Promise<never>((_, reject) => {
+          timeout = setTimeout(
+            () => reject(new ServiceUnavailableException("Authentication authority unavailable")),
+            1000
+          );
+        })
+      ]);
+    } catch {
+      throw new ServiceUnavailableException("Authentication authority unavailable");
+    } finally {
+      if (timeout !== undefined) clearTimeout(timeout);
+    }
+  }
+
+  private authorizedRoles(
+    snapshot: Awaited<ReturnType<AuthRepository["findActiveSessionAuthorization"]>>,
+    claims: { userId: string; tenantId: string; orgId: string; roles: string[] },
+  ): string[] {
+    if (
+      !snapshot ||
+      snapshot.userStatus !== "active" ||
+      snapshot.session.userId !== claims.userId ||
+      snapshot.session.orgId !== claims.orgId ||
+      snapshot.session.tenantId !== claims.tenantId ||
+      snapshot.session.refreshExpiresAt.getTime() <= Date.now()
+    ) {
+      throw new UnauthorizedException("Invalid or revoked auth session");
+    }
+
+    const roles = snapshot.activeRoles.filter(
+      (role) => snapshot.session.roles.includes(role) && claims.roles.includes(role)
+    );
+    if (roles.length === 0) {
+      throw new UnauthorizedException("No active organization permission");
+    }
+    return roles;
+  }
+
   async authenticateRequest(req: RequestLike): Promise<RequestContext> {
     if (!process.env.AUTH_SECRET) {
+      if (process.env.NODE_ENV === "production") {
+        throw new ServiceUnavailableException("Authentication authority unavailable");
+      }
       return parseHeaderRequestContext(req.headers ?? {});
     }
 
@@ -125,24 +177,25 @@ export class AuthService {
     if (claims.typ && claims.typ !== "access") {
       throw new UnauthorizedException({ message: "Invalid auth token type" });
     }
-
     if (!claims.sid) {
       throw new UnauthorizedException({ message: "Session-bound auth token required" });
     }
-
     if (isDisabledDemoIdentity(claims.userId, claims.roles)) {
       throw new UnauthorizedException({ message: "Demo sessions are disabled" });
     }
 
-    // Skip DB session lookup — JWT signature verification is sufficient for auth.
-    // DB lookup was causing 15s hangs when Postgres is slow (Railway prod issue).
-    // Token revocation relies on short TTLs. Session cleanup runs in the background.
-
+    const snapshot = await this.accessLookup(
+      () => this.authRepository.findActiveSessionAuthorization(claims.sid!)
+    );
+    if (snapshot && snapshot.session.accessExpiresAt.getTime() <= Date.now()) {
+      throw new UnauthorizedException("Expired auth session");
+    }
+    const roles = this.authorizedRoles(snapshot, claims);
     return {
       userId: claims.userId,
       tenantId: claims.tenantId,
       orgId: claims.orgId,
-      roles: claims.roles,
+      roles,
       sessionId: claims.sid
     };
   }
@@ -157,21 +210,26 @@ export class AuthService {
   }) {
     const accessTtlSeconds = this.accessTtlSeconds(input.ttlSeconds);
     const refreshToken = generateOpaqueToken();
-    // Generate session ID upfront — DB write is non-blocking so the JWT is issued immediately
+    // A bearer token cannot outlive a session write that never committed.
+    this.requireSecret();
     const sessionId = randomUUID();
     const accessExpiresAt = new Date(Date.now() + accessTtlSeconds * 1000);
     const refreshExpiresAt = new Date(Date.now() + this.refreshTtlSeconds() * 1000);
 
-    void this.authRepository.createSession({
-      id: sessionId,
-      tenantId: input.tenantId,
-      orgId: input.orgId,
-      userId: input.userId,
-      roles: input.roles,
-      refreshTokenHash: sha256(refreshToken),
-      accessExpiresAt,
-      refreshExpiresAt,
-    }).catch((err) => this.semseLogger.warn("auth.createSession failed", { userId: input.userId, error: String(err?.message ?? err) }));
+    try {
+      await this.authRepository.createSession({
+        id: sessionId,
+        tenantId: input.tenantId,
+        orgId: input.orgId,
+        userId: input.userId,
+        roles: input.roles,
+        refreshTokenHash: sha256(refreshToken),
+        accessExpiresAt,
+        refreshExpiresAt,
+      });
+    } catch {
+      throw new ServiceUnavailableException("Authentication session could not be persisted");
+    }
 
     // Audit is non-critical — fire-and-forget so it never blocks the token response
     void this.auditService.append({
@@ -203,23 +261,39 @@ export class AuthService {
   }
 
   async refreshSession(input: { refreshToken: string; requestId: string }) {
-    const session = await this.authRepository.findSessionByRefreshTokenHash(sha256(input.refreshToken));
+    const previousRefreshTokenHash = sha256(input.refreshToken);
+    const session = await this.accessLookup(
+      () => this.authRepository.findSessionByRefreshTokenHash(previousRefreshTokenHash)
+    );
     if (!session || session.refreshExpiresAt.getTime() <= Date.now()) {
       throw new UnauthorizedException("Invalid or expired refresh token");
     }
-
     if (isDisabledDemoIdentity(session.userId, session.roles)) {
       throw new UnauthorizedException("Demo sessions are disabled");
     }
 
+    const snapshot = await this.accessLookup(
+      () => this.authRepository.findActiveSessionAuthorization(session.id)
+    );
+    const roles = this.authorizedRoles(snapshot, {
+      userId: session.userId, tenantId: session.tenantId,
+      orgId: session.orgId, roles: session.roles
+    });
     const refreshToken = generateOpaqueToken();
     const accessTtlSeconds = ACCESS_TOKEN_TTL_SECONDS;
-    await this.authRepository.rotateSessionRefreshToken({
-      sessionId: session.id,
-      refreshTokenHash: sha256(refreshToken),
-      accessExpiresAt: new Date(Date.now() + accessTtlSeconds * 1000),
-      refreshExpiresAt: new Date(Date.now() + this.refreshTtlSeconds() * 1000)
-    });
+    const rotated = await this.accessLookup(
+      () => this.authRepository.rotateSessionRefreshToken({
+        sessionId: session.id,
+        previousRefreshTokenHash,
+        refreshTokenHash: sha256(refreshToken),
+        roles,
+        accessExpiresAt: new Date(Date.now() + accessTtlSeconds * 1000),
+        refreshExpiresAt: new Date(Date.now() + this.refreshTtlSeconds() * 1000)
+      })
+    );
+    if (rotated.count !== 1) {
+      throw new UnauthorizedException("Invalid or previously used refresh token");
+    }
 
     await this.auditService.append({
       id: `aud_${Date.now()}`,
@@ -238,7 +312,7 @@ export class AuthService {
       userId: session.userId,
       tenantId: session.tenantId,
       orgId: session.orgId,
-      roles: session.roles,
+      roles,
       accessTtlSeconds,
       refreshToken
     });

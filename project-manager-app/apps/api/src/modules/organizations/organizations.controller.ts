@@ -18,7 +18,8 @@ export class OrganizationsController {
     const data = await this.organizationsService.listOrgs({
       tenantId: actor.tenantId,
       orgId: actor.orgId,
-      userId: actor.userId
+      userId: actor.userId,
+      roles: actor.roles
     });
     return ok(resolveRequestId(req.headers ?? {}), data);
   }
@@ -32,7 +33,8 @@ export class OrganizationsController {
       {
         tenantId: actor.tenantId,
         orgId: actor.orgId,
-        userId: actor.userId
+        userId: actor.userId,
+      roles: actor.roles
       },
       parsedParams.orgId
     );
@@ -48,7 +50,8 @@ export class OrganizationsController {
       {
         tenantId: actor.tenantId,
         orgId: actor.orgId,
-        userId: actor.userId
+        userId: actor.userId,
+      roles: actor.roles
       },
       parsedParams.orgId
     );

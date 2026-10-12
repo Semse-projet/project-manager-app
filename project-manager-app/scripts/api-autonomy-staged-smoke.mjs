@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { ensureDecR1CiSmokeIdentity } from "./dec-r1-ci-smoke-identity.mjs";
 
 const config = {
   apiBaseUrl: process.env.SEMSE_API_URL ?? "http://127.0.0.1:4112",
@@ -17,6 +18,7 @@ async function main() {
     stages: STAGES
   });
 
+  await ensureDecR1CiSmokeIdentity(config);
   const token = await issueToken();
   const task = `add status badge smoke stage flow ${Date.now()}`;
 
