@@ -12,3 +12,16 @@
 - [ ] Bootstrap BFF and Worker behavior proven with real roles.
 - [ ] Full build, unit, strict SDD, CI PASS.
 - [ ] Draft PR reviewed; release explicitly approved.
+
+
+## v0.3 follow-up
+
+- [x] Main/PR #877 verified before editing; no duplicate implementation.
+- [x] Target-org privilege borrowing reproduced before fix: 4 failures.
+- [x] Target roles enforced without changing tenant/session context.
+- [x] 29 local tests green; focused Prisma-backed typecheck green.
+- [x] Evidence and limitations recorded in 2026-10-12 follow-up report.
+- [ ] Full monorepo build, PostgreSQL/HTTP integration and strict SDD.
+- [ ] CI on follow-up SHA green.
+- [ ] Real worker/BFF identity, revocation and latency canary.
+- [ ] Release approval, merge, deploy and functional verification of v0.3.

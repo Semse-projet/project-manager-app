@@ -11,3 +11,11 @@
 | R1-07 | Strict spec, API tests, typecheck, CI | Terminal evidence |
 | R1-08 | Draft PR, no merge, no deploy | Human review |
 | R1-09 | Synthetic tenant/org canary | Separate release approval |
+
+
+## Follow-up tasks
+- [x] Verify main/PR #877 and historical CI.
+- [x] Write role-borrowing regression before code.
+- [x] Enforce target roles on list/detail/members.
+- [x] Run focused regression; record full-CI limits.
+- [ ] Draft follow-up PR; no merge/deploy.

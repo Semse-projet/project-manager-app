@@ -9,3 +9,7 @@
 - Preserve worker/BFF bootstrap compatibility only when the machine identity has a server-proved grant; an arbitrary bootstrap request cannot elevate human roles.
 - Run builds/unit tests and strict SDD validation; draft PR and CI; stage a two-org synthetic canary only after separate release approval.
 - Recovery must not restore claims-only access. Roll back traffic to a safe gate / disable affected route if strict validation breaks.
+
+
+## Follow-up target-resource permission
+Reproduce A(PRO) → B(WORKER), then read only ACTIVE target-user roles, enforce existing RBAC permission for the requested operation, preserve tenant filter/OPS_ADMIN and sanitize DTO. Run existing foundation and new resource tests. No new role, schema or context switch.
