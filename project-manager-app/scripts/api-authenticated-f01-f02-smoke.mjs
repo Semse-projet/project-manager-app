@@ -179,6 +179,20 @@ async function f02() {
     token: owner.token, body: { status: "contacted" },
   });
   assert.equal(updated.data.status, "contacted");
+
+  // A valid owner can turn a private lead into a synthetic estimate draft.
+  // This creates only a DB invoice in the disposable CI environment;
+  // no payment provider, funding or delivery to a customer is invoked.
+  const estimate = await request("POST", "/v1/contractor/leads/" + leadId + "/create-estimate", {
+    token: owner.token,
+    body: {
+      lineItems: [{ description: "TEST electrical work", qty: 1, unitPrice: 175, taxRate: 0, total: 175 }],
+    },
+  });
+  assert.ok(estimate.data?.id, "estimate must be persisted as a draft invoice");
+  const linked = await request("GET", "/v1/contractor/leads/" + leadId, { token: owner.token });
+  assert.equal(linked.data.status, "estimate_sent");
+
   const owners = await request("GET", "/v1/contractor/leads", { token: owner.token });
   assert.ok(owners.data.find(l => l.id === leadId));
   const foreignList = await request("GET", "/v1/contractor/leads", { token: otherClient.token });
