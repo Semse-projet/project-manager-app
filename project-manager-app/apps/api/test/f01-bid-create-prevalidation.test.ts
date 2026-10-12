@@ -99,12 +99,11 @@ test("F01-N13 existing PRO org of another tenant is not reassigned", async () =>
   assert.deepEqual(effects, ["job.findFirst", "org.findUnique"]);
 });
 
-test("F01-N14 valid job/existing org is not retyped or moved before duplicate check", async () => {
+test("F01-N14 duplicate bid is rejected before actor/org/membership provisioning", async () => {
   const { repository, effects } = harness({ professionalOrgTenant: command.tenantId });
   await assert.rejects(() => repository.create(command));
   assert.deepEqual(effects, [
-    "job.findFirst", "org.findUnique", "actor.ensure", "org.upsert",
-    "role.findUnique", "membership.findFirst", "reservation.findFirst",
+    "job.findFirst", "org.findUnique", "reservation.findFirst",
     "contract.findFirst", "bid.findFirst",
   ]);
 });
