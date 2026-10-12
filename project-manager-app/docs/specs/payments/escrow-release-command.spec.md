@@ -37,17 +37,17 @@ related_tests:
 related_endpoints: []
 related_events: []
 related_agents: []
-last_verified: "2026-09-30"
+last_verified: "2026-10-12"
 ---
 
 # Spec: Comando único de release de escrow (C27 · C28 · C29)
 
-> **Aprobado el 2026-09-30 por el owner (Samuelcastella), respuesta explícita en la sesión de trabajo**: "Apruebo con valores recomendados" para ADR-041 y este spec. Decisiones: **D1** `PaymentProviderRegistry` como puerto canónico; **D3** la UI admin/finance exigirá `milestoneId`; **D4** payouts de contributor fuera de alcance. **D2 (dual approval)**: umbral por monto y segundo aprobador **sin definir**; se implementará configurable y **apagado** hasta que el owner fije el valor (requiere migración aditiva planificada).
+> **Aprobado el 2026-09-30 por el owner (Samuelcastella), respuesta explícita en la sesión de trabajo**: "Apruebo con valores recomendados" para ADR-041 y este spec. Decisiones: **D1** `PaymentProviderRegistry` como puerto canónico; **D3** la UI admin/finance exigirá `milestoneId`; **D4** payouts de contributor fuera de alcance. **D2 (dual approval) — decidido el 2026-10-12 por el owner, de forma provisional**: umbral de **USD 2.500** y autorización de **dos `OPS_ADMIN` distintos** (el iniciador no puede ser el aprobador). Debe permanecer **apagado por defecto** (flag y umbral configurables, sin valor activo en producción), con auditoría completa y **sin liberación automática de fondos**; el owner no autoriza transacciones reales con esta decisión ni modificar límites reales hasta verificar los controles. El valor es provisional y se revisa tras 20–30 liberaciones reales (en producción hoy `totalDeposited/Released/Refunded = 0`, no hay datos para calibrarlo). **Pendiente de precisar antes del Slice 3:** si el umbral aplica a montos `≥` o `>` 2.500, y si se mide por liberación individual o acumulado por milestone (la lectura conservadora es `≥` e individual); requiere migración aditiva planificada.
 
 ## Slices de implementación
 1. **Slice 1 — autorización económica única**: `ReleaseGovernanceGate` aplicado en `PaymentsService.release()` (REST, harness del copilot, tool de Prometeo). Gate de lien waivers **enforced por defecto** (`PAYMENTS_RELEASE_WAIVER_GATE=off` = rollback); `evaluate()` completo en **shadow** por defecto (`PAYMENTS_RELEASE_GOVERNANCE_MODE=shadow|enforce|off`). Sin migraciones.
 2. Slice 2 — comando único `EscrowReleaseCommand` (idempotencia por clave, estado ambiguo/reconciliación) y auto-release como adaptador. **2a (código, con hotfix de identidad/replay/clasificación):** núcleo `runEscrowRelease` (reserva→transferencia→finalización con estados `released|pending|failed|unknown`), guarda de un RELEASE activo por milestone en `releaseFunds` (Serializable), adaptador en `PaymentsService.release()` tras `PAYMENTS_RELEASE_COMMAND=on` (apagado por defecto), clasificación de reconciliación (solo informe). **2b (parcial):** informe de reconciliación de PENDING estancados de solo lectura (`escrow-release.reconcile.ts`, `pnpm payments:reconcile-report`, runbook `ESCROW_RELEASE_RECONCILIATION.md`). **2b-job (código, decisión del dueño 2026-10-01):** job de worker (`PAYMENTS_RECONCILE_ENABLED`, off por defecto, cada ~15 min) que llama al endpoint interno `POST /v1/admin/payments/release-reconcile/check` (`ops:dashboard:write`, no público); **solo lectura sobre dinero** (jamás cambia estados ni reintenta), emite alerta (log `alert:true`) y auditoría append-only (`AuditLog` `escrow.release.reconcile_alert`, sin actor), como mucho 1 vez/24 h por transacción; la resolución sigue siendo humana. **2b (pendiente):** adaptador del auto-release (`EscrowReleaseService`/Stripe Connect con fee), consulta automática al proveedor / resolución asistida.
-3. Slice 3 — dual approval (migración aditiva `PaymentReleaseApproval`), tras definir D2.
+3. Slice 3 — dual approval (migración aditiva `PaymentReleaseApproval`). D2 decidido (provisional, ver nota de aprobación); falta precisar `≥`/`>` e individual/acumulado.
 4. Slice 4 — re-habilitar "Liberar" en admin/finance con `milestoneId` y retirar `payment-governance/releasePayment()`.
 
 ## 1. Problema y resultado
