@@ -3,11 +3,11 @@ id: "agents.agent-queue-retry-idempotency"
 title: "RETRY/REQUEUE de AgentRun no debe descartarse en silencio en la cola"
 domain: "agents"
 sdd_version: "2.0"
-version: "0.1"
-status: "DRAFT"
+version: "0.2"
+status: "APPROVED"
 owner: "semse-core"
 risk: "medium"
-code_status: "NOT_STARTED"
+code_status: "IN_PROGRESS"
 ci_status: "NOT_RUN"
 merge_status: "UNMERGED"
 deploy_status: "NOT_DEPLOYED"
@@ -23,7 +23,8 @@ related_files:
   - apps/api/src/modules/ops/mission-control/mission-control.service.ts
   - apps/api/src/modules/agents/agents.service.ts
   - apps/worker/src/main.mjs
-related_tests: []
+related_tests:
+  - "apps/api/test/agent-queue-retry.test.ts"
 related_endpoints:
   - "POST /v1/ops/mission-control/actions"
   - "POST /v1/ops/agent-runtime/:runId/retry"
@@ -35,7 +36,8 @@ last_verified: "2026-10-12"
 # Spec: RETRY/REQUEUE de AgentRun no debe descartarse en silencio
 
 > Contrato ejecutable SDD 2.0. Código, CI, merge, deploy y activación se
-> registran por separado. **Spec en DRAFT: no hay código hasta que el owner lo apruebe.**
+> registran por separado. **Aprobada por el owner el 2026-10-12** (instrucción en chat:
+> "Aprueba la spec de #886 y escribe el arreglo"). La aprobación no autoriza merge ni deploy.
 
 ## 1. Problema y resultado
 
@@ -69,6 +71,7 @@ o el recibo lo dice explícitamente (`enqueued:false` con motivo), nunca un éxi
   `requeueAgentRun` lo propagan y Mission Control lo incluye en `result` del recibo.
 - Redis no disponible en reintento/reencolado: `enqueued:false`, motivo `QUEUE_UNAVAILABLE`
   (la fila sigue `QUEUED`; el barrido de stale la recogerá cuando el worker corra).
+- Error de Redis al reintentar, o job fallido que no se puede eliminar: `enqueued:false`, motivo `QUEUE_ERROR`. En modo creación los errores se propagan como hasta ahora.
 
 ### Fuera de alcance
 
@@ -140,7 +143,7 @@ Casos borde:
 ## 5. Contratos
 
 Sin endpoints nuevos. `result` del recibo de Mission Control añade
-`enqueued: boolean` y `reason?: "JOB_ACTIVE" | "QUEUE_UNAVAILABLE"`. Cambio aditivo.
+`enqueued: boolean` y `reason?: "JOB_ACTIVE" | "QUEUE_UNAVAILABLE" | "QUEUE_ERROR"`. Cambio aditivo.
 
 ## 6. FSM, eventos y reconstrucción
 

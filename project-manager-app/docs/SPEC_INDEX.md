@@ -40,7 +40,7 @@ retroactiva.
 |---|---|---|---|---|---|---|---|---|---|---|
 | [semse-agent-architecture](specs/agents/SEMSE_AGENT_ARCHITECTURE.spec.md) | agents | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-06-09 |
 | [semse-forge-agent-harness](specs/agents/SEMSE_FORGE_AGENT_HARNESS.spec.md) | agents | APPROVED | legacy | legacy | legacy | legacy | legacy | critical | yes | 2026-07-17 |
-| [agents.agent-queue-retry-idempotency](specs/agents/agent-queue-retry-idempotency.spec.md) | agents | DRAFT | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | no | 2026-10-12 |
+| [agents.agent-queue-retry-idempotency](specs/agents/agent-queue-retry-idempotency.spec.md) | agents | APPROVED | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | yes | 2026-10-12 |
 | [agt-002-prometeo-core](specs/agents/prometeo-core.spec.md) | agents | IMPLEMENTED | COMPLETE | NOT_RUN | MERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-08-17 |
 | [agt-001-verification-loop](specs/agents/verification-loop.spec.md) | agents | IMPLEMENTED | legacy | legacy | legacy | legacy | legacy | medium | yes | 2026-07-04 |
 | [agro.domain-events](specs/agro/agro-domain-events.spec.md) | agro | IMPLEMENTED | COMPLETE | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | low | yes | 2026-09-26 |
