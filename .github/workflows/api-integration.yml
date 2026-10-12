@@ -8,6 +8,7 @@ on:
       - "project-manager-app/apps/api/**"
       - "project-manager-app/apps/worker/**"
       - "project-manager-app/scripts/api-integration.mjs"
+      - "project-manager-app/scripts/api-f01-bids-integration.mjs"
       # La ruta de migracion: este job es lo unico que la ejercita contra un
       # Postgres real, asi que un cambio en ella tiene que dispararlo.
       - "project-manager-app/scripts/pre-migrate.mjs"
@@ -18,6 +19,7 @@ on:
       - "project-manager-app/apps/api/**"
       - "project-manager-app/apps/worker/**"
       - "project-manager-app/scripts/api-integration.mjs"
+      - "project-manager-app/scripts/api-f01-bids-integration.mjs"
       # La ruta de migracion: este job es lo unico que la ejercita contra un
       # Postgres real, asi que un cambio en ella tiene que dispararlo.
       - "project-manager-app/scripts/pre-migrate.mjs"
@@ -116,6 +118,12 @@ jobs:
           SEMSE_ROLES: OPS_ADMIN,WORKER
           SEMSE_WORKER_ID: gh-worker-integration
         run: node ./scripts/api-integration.mjs
+
+      - name: F01 synthetic Marketplace Bid to Accept HTTP/Postgres smoke
+        env:
+          SEMSE_API_URL: http://127.0.0.1:4000
+          SEMSE_F01_ISOLATED_DB: "1"
+        run: node ./scripts/api-f01-bids-integration.mjs
 
       - name: Stop API
         if: always()
