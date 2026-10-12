@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { ForbiddenException, UnauthorizedException } from "@nestjs/common";
 
-import { sha256 } from "../dist/common/auth-password.js";
+import { hashPassword, sha256 } from "../dist/common/auth-password.js";
 import { AuthController } from "../dist/modules/auth/auth.controller.js";
 import { AuthRepository } from "../dist/modules/auth/auth.repository.js";
 import { AuthService } from "../dist/modules/auth/auth.service.js";
@@ -316,4 +316,30 @@ test("consumePasswordResetToken rejects missing, consumed, or expired tokens", a
     }),
     (error: unknown) => error instanceof UnauthorizedException,
   );
+});
+
+test("production denies persisted seeded demo admin credentials before DB lookup", async () => {
+  const before = { node: process.env.NODE_ENV, flag: process.env.SEMSE_DEMO_MODE, secret: process.env.SEMSE_DEMO_PASSWORD };
+  const queries: string[] = [];
+  const seeded = { id: "usr_admin_001", status: "active", passwordHash: hashPassword("demo1234"),
+    memberships: [{ orgId: "org_admin_001", org: { tenantId: "tenant_default" }, role: { key: "OPS_ADMIN" } }] };
+  const service = new AuthService(
+    { async findUserByEmail(email: string) { queries.push(email); return seeded; } } as never,
+    { async append() { throw new Error("Never issue a demo session"); } } as never,
+    { async send() { return { sent: true }; } } as never,
+  );
+  try {
+    process.env.NODE_ENV = "production";
+    process.env.SEMSE_DEMO_MODE = "true";
+    process.env.SEMSE_DEMO_PASSWORD = "configured-private-demo-password";
+    await assert.rejects(
+      service.loginWithPassword({ email: "admin@demo.semse", password: "demo1234", requestId: "demo_rejected" }),
+      (error: unknown) => error instanceof UnauthorizedException,
+    );
+    assert.deepEqual(queries, [], "production demo identity must fail before persisted hash lookup");
+  } finally {
+    restoreEnv("NODE_ENV", before.node);
+    restoreEnv("SEMSE_DEMO_MODE", before.flag);
+    restoreEnv("SEMSE_DEMO_PASSWORD", before.secret);
+  }
 });
