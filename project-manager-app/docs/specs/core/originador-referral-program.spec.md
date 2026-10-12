@@ -11,15 +11,18 @@ code_status: "IN_PROGRESS"
 ci_status: "PASS"
 merge_status: "MERGED"
 deploy_status: "DEPLOYED"
-activation_status: "INACTIVE"
+activation_status: "CANARY"
 migration_status: "VERIFIED"
-verification_scope: "partial:rbac-self-service-connect-and-reward-math-merged-deployed:fase-1-2-registration-implemented-locally-2026-08-13-not-yet-merged"
+verification_scope: "partial:rbac-self-service-connect-and-reward-math-merged-deployed:fase-1-2-registration-merged-deployed-canary-tenant_default-2026-10-12:no-payout-path:fase-3-reward-release-not-built"
 feature_flags:
   - SEMSE_ORIGINATOR_REGISTRATION_ENABLED
   - SEMSE_ORIGINATOR_CANARY_TENANT_IDS
 production_evidence:
   - github:pr:538:merge:6040d75e255f57beef5055158d613ca093975be6
   - railway:api:deployment:4773385c-d68d-4f8d-95f4-02b2e98b7a6b:success
+  - github:pr:569:merge:41eca6046ec1e6c4111bab95b2797028e4f91b38
+  - railway:api:deployment:766e724d-86cf-4fbc-beb0-8cfe5f3d30b0:success
+  - railway:api:http-log:2026-10-12T19:03:53Z:originator-cycle:login-201:propose-201:validate-201:repropose-400:redecide-409
 related_files:
   - apps/api/src/modules/payments/payment-governance.service.ts
   - apps/api/src/modules/payments/escrow-release.service.ts
@@ -49,7 +52,7 @@ related_events:
   - project.originator_proposed.v1
   - project.originator_validated.v1
 related_agents: []
-last_verified: "2026-08-13"
+last_verified: "2026-10-12"
 ---
 
 # Spec: Programa de recompensa para originador/facilitador
@@ -696,15 +699,77 @@ forma genérica, cumpliendo lo que pedía el spec original antes de
       independiente contra un contenedor limpio (`prisma migrate deploy`
       + `migrate status` + `migrate diff` en cero) — no bloquea este PR,
       ambas migraciones son commutables porque no tocan tablas en común.
-- [ ] CI `PASS` para el código de Fase 1-2 — todavía no hay PR abierto.
-- [ ] PR fusionado y SHA registrado — pendiente.
-- [ ] Deployment terminal `DEPLOYED` — sólo el trabajo de T-009 (PR #538,
-      2026-08-04) está desplegado; Fase 1-2 (registro/validación) no.
-- [ ] Activación/canary verificada por separado — flag
-      `SEMSE_ORIGINATOR_REGISTRATION_ENABLED`/`_CANARY_TENANT_IDS`
-      confirmado apagado por defecto; no se activó en ningún entorno.
+- [x] CI `PASS` para el código de Fase 1-2 — #569 se fusionó el 2026-08-26 sin CI (bloqueo de
+      presupuesto de Actions); la CI completa de `main` pasa de nuevo desde 2026-10-10, incluida la
+      integración contra Postgres real (`originator-reward-triggers-integration.test.ts`).
+- [x] PR fusionado y SHA registrado — #569, `41eca6046ec1e6c4111bab95b2797028e4f91b38`.
+- [x] Deployment terminal `DEPLOYED` — T-009 (PR #538) y Fase 1-2 (#569) desplegadas; ver §13.
+- [x] Activación/canary verificada por separado — `SEMSE_ORIGINATOR_CANARY_TENANT_IDS` activo
+      para `tenant_default` desde 2026-10-11, **solo registro/validación, sin pago**; ciclo
+      funcional verificado el 2026-10-12 (§13). Todo `tenant_default` queda cubierto.
 - [x] `production_evidence` y `last_verified` actualizados en este spec
-      (2026-08-13) — sólo reflejan lo ya `MERGED`/`DEPLOYED` de T-009;
-      Fase 1-2 no agrega evidencia de producción porque no está
-      desplegada.
+      (2026-10-12) — incluye #569 y el ciclo funcional de §13.
 - [ ] Sólo entonces `status: VERIFIED`
+
+## 13. Evidencia de activación canary — Fase 1-2, solo registro (2026-10-12)
+
+**Alcance de esta evidencia:** registro y validación del originador en producción para
+`tenant_default`, **sin pago**. No cubre Fase 3 (liberación de recompensa), que sigue sin
+construirse y no queda demostrada por nada de lo que sigue.
+
+### Activación
+- `SEMSE_ORIGINATOR_CANARY_TENANT_IDS` fue definida por el owner en `semse-API` (producción)
+  el 2026-10-11 (UTC); la API se redesplegó con ella. El valor no se leyó (la lista de
+  variables de Railway expone secretos); su efecto se comprobó funcionalmente (ver abajo).
+- `SEMSE_ORIGINATOR_REGISTRATION_ENABLED` (interruptor global) **no existe** en `semse-API`
+  (verificado por nombre de variable el 2026-10-11).
+- `tenant_default` es el tenant al que la API asigna a **todo** registro estándar
+  (`auth.service.ts`, `SEMSE_DEFAULT_TENANT_ID` sin definir). Esta activación no es, por tanto,
+  un canary acotado a pocos usuarios: aplica a todos los miembros de ese tenant.
+
+### Ciclo funcional (2026-10-12, 19:03:53–19:03:54 UTC)
+Proyecto de pruebas BuildOps `cmv5jyc5a0004nw012mp9euwy` (`[TEST #569] validación originador`,
+estado `draft`, creado por la cuenta del owner) y originador de pruebas
+`cmuyhahxa000apd01nmg4d4m8` (cuenta de pruebas automáticas `d6muyh9kpe-p@example.com`).
+Fuente: logs HTTP de Railway del servicio `semse-API` (método, ruta y código; **sin cuerpos**).
+
+| Paso | Petición | HTTP | Esperado por el diseño |
+|---|---|---|---|
+| Login del owner | `POST /v1/auth/login` | 201 | sesión |
+| Proponer | `POST /v1/projects/:id/originator` | 201 | `pending_owner_validation` |
+| Validar como dueño | `POST /v1/projects/:id/originator/validate` | 201 | `validated` |
+| Proponer de nuevo | `POST /v1/projects/:id/originator` | 400 | `ORIGINATOR_ALREADY_REGISTERED` |
+| Decidir de nuevo | `POST /v1/projects/:id/originator/validate` | 409 | `ORIGINATOR_ALREADY_DECIDED` |
+
+**Demostrado:** el flag es efectivo en producción (la propuesta no devolvió
+`404 ORIGINATOR_REGISTRATION_DISABLED`); el permiso `project:originate` se cumple para el owner;
+la validación la hizo el creador del proyecto; un proyecto admite un solo originador; la decisión
+es definitiva.
+**No demostrado:** los nombres exactos de error de los `400`/`409` (los logs no traen cuerpo; el
+script local imprimió PASS/FAIL pero su salida no se archivó); ningún evento de recompensa; ningún
+flujo de dinero. El despliegue de la API que atendió esas peticiones no se pudo identificar con
+certeza (varios despliegues de `main` en pocos minutos); todos contienen #569.
+
+### Hechos verificados en el código (`main@9592328d`)
+- El módulo `originator` no contiene ninguna transferencia de dinero. Los eventos de recompensa
+  nacen en `PENDING_REVIEW` o `BLOCKED_NO_PAYOUT_ACCOUNT`; el estado `RELEASED` existe solo como
+  tipo, sin código que lo escriba.
+- `PaymentsService.depositEscrow` invoca `evaluateMilestoneFundedTrigger` tras un depósito exitoso
+  **sin pasar por el flag**; solo crea un evento si ya existe un originador `VALIDATED`, lo cual
+  exige haber usado los endpoints que sí están bajo el flag.
+
+### Hallazgos abiertos (no corregidos)
+1. **La validación exige ser el creador del proyecto** (`project.createdBy === actorUserId`).
+   Los tres proyectos BuildOps preexistentes los creó la cuenta demo `usr_admin_001`, cuyo login
+   está deshabilitado en producción: en ellos nadie puede validar un originador.
+2. **`propose` exige solo `project:originate`** (tres roles), no ser dueño. Cada proyecto admite un
+   único originador y no existe cancelación: cualquier miembro del tenant podría ocupar el único
+   espacio de un proyecto ajeno, y un rechazo del dueño lo agota para siempre. Decisión pendiente
+   del owner: restringir proponer al dueño, o permitir retirar/reproponer. Pesa más porque el flag
+   cubre todo `tenant_default`.
+3. **Registros de prueba que permanecen en producción:** `[TEST #569]` y su `ProjectOriginator`
+   en `VALIDATED`, con su auditoría. No financiar hitos de ese proyecto.
+
+### Falta para `VERIFIED`
+Fase 3 construida; ciclo completo originador → hito verificado → recompensa pagada y auditado
+(§8); aprobación separada del pago real; gates por país (§11b).
