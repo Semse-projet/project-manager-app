@@ -142,14 +142,14 @@ export class ContractorService {
     return rows.map((row: LeadRow) => toView(row));
   }
 
-  async getLead(id: string, tenantId: string) {
-    const row = await this.prisma.contractorLead.findFirst({ where: { id, tenantId } });
+  async getLead(id: string, tenantId: string, orgId: string) {
+    const row = await this.prisma.contractorLead.findFirst({ where: { id, tenantId, orgId } });
     if (!row) throw new NotFoundException(`Lead '${id}' not found`);
     return toView(row as LeadRow);
   }
 
-  async updateLead(id: string, tenantId: string, input: UpdateLeadInput) {
-    const existing = await this.getLead(id, tenantId);
+  async updateLead(id: string, tenantId: string, orgId: string, input: UpdateLeadInput) {
+    const existing = await this.getLead(id, tenantId, orgId);
     const updated = await this.prisma.contractorLead.update({
       where: { id: existing.id },
       data: {
@@ -175,8 +175,8 @@ export class ContractorService {
     return toView(updated as LeadRow);
   }
 
-  async deleteLead(id: string, tenantId: string) {
-    await this.getLead(id, tenantId);
+  async deleteLead(id: string, tenantId: string, orgId: string) {
+    await this.getLead(id, tenantId, orgId);
     await this.prisma.contractorLead.delete({ where: { id } });
   }
 
