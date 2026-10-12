@@ -9,6 +9,7 @@ import { ProjectActivityFeed } from "@/components/buildops/ProjectActivityFeed";
 import { ProjectLifecycleProjectionPanel } from "@/components/projects/ProjectLifecycleProjectionPanel";
 import { fetchBuildOpsProject, type BuildOpsProject } from "../../../../lib/buildops-api";
 import { fetchJob } from "../../../../semse-api";
+import { buildCanonicalProjectView } from "../../../../../lib/canonical-project-view";
 import { useCapabilityState, useDeclareActiveProjectOrg } from "../../../../../lib/capability-context";
 import { deriveActiveCapability } from "../../../../../lib/capability";
 import { CapabilityBadge, type CapabilityRole } from "../../../../../components/semse/CapabilityBadge";
@@ -77,29 +78,10 @@ async function fetchCanonicalProjectView(projectId: string): Promise<BuildOpsPro
     if (!r.ok) return null;
     const json = (await r.json()) as { data?: Record<string, unknown> } & Record<string, unknown>;
     const record = (json.data ?? json) as Record<string, unknown>;
-    if (typeof record.id !== "string") return null;
-    const jobId = typeof record.jobId === "string" ? record.jobId : null;
-    const job = jobId ? ((await fetchJob(jobId).catch(() => null)) as Record<string, unknown> | null) : null;
-    const str = (v: unknown, fallback: string) => (typeof v === "string" && v ? v : fallback);
-    return {
-      id: record.id,
-      tenantId: str(record.tenantId, ""),
-      orgId: "",
-      jobId,
-      canonicalProjectId: record.id,
-      createdBy: "",
-      title: str(job?.title, "Proyecto"),
-      description: typeof job?.description === "string" ? job.description : null,
-      trade: str(job?.trade ?? job?.category, "—"),
-      projectType: "",
-      clientName: "",
-      professionalName: null,
-      location: str(job?.location, "—"),
-      budgetEstimate: typeof job?.budget === "number" ? job.budget : null,
-      riskScore: 0,
-      riskLevel: "low",
-      completion: 0,
-    } as unknown as BuildOpsProject;
+    const job = typeof record.jobId === "string" ? await fetchJob(record.jobId).catch(() => null) : null;
+    const view = buildCanonicalProjectView(record, job as Record<string, unknown> | null);
+    if (!view) return null;
+    return { ...view, orgId: "", createdBy: "", projectType: "", clientName: "", professionalName: null, riskScore: 0, riskLevel: "low", completion: 0 } as unknown as BuildOpsProject;
   } catch {
     return null;
   }
@@ -316,7 +298,7 @@ export default function ClientProjectDetailPage() {
       )}
 
       {tab === "activity" && (
-        <ProjectActivityFeed projectId={projectId} />
+        project.orgId ? (<ProjectActivityFeed projectId={projectId} />) : (<p style={{ fontSize: "13px", color: "var(--muted)" }}>La actividad detallada todavía no está disponible para este proyecto.</p>)
       )}
     </div>
   );
