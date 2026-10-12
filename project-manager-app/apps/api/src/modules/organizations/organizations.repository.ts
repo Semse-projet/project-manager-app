@@ -1,4 +1,5 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { hasPermission } from "../../common/rbac.js";
 import { isOpsAdmin } from "../../common/resource-scope.js";
 import { ActorContextService } from "../../infrastructure/persistence/actor-context.service.js";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
@@ -10,6 +11,7 @@ type StoredOrg = {
   name: string;
   createdAt: Date;
   updatedAt: Date;
+  users?: Array<{ role: { key: string } }>;
 };
 
 type StoredMembership = {
@@ -53,10 +55,13 @@ export class OrganizationsRepository {
         tenantId: input.tenantId,
         ...(isOpsAdmin(input) ? {} : { users: { some: { userId: input.userId, status: "ACTIVE" } } })
       },
+      include: this.actorMemberships(input.userId),
       orderBy: { createdAt: "desc" }
     })) as StoredOrg[];
 
-    return orgs.map((org) => this.toOrgRecord(org));
+    return orgs
+      .filter((org) => isOpsAdmin(input) || this.hasOrgPermission(org, "org:read"))
+      .map((org) => this.toOrgRecord(org));
   }
 
   async findOrgById(input: {
@@ -66,16 +71,33 @@ export class OrganizationsRepository {
     targetOrgId: string;
     roles: string[];
   }): Promise<OrgRecord> {
+    return this.findOrgWithPermission(input, "org:read");
+  }
+
+  private async findOrgWithPermission(input: {
+    tenantId: string;
+    orgId: string;
+    userId: string;
+    targetOrgId: string;
+    roles: string[];
+  }, permission: "org:read" | "org:members:read"): Promise<OrgRecord> {
     const org = (await this.prisma.org.findFirst({
       where: {
         id: input.targetOrgId,
         tenantId: input.tenantId,
         ...(isOpsAdmin(input) ? {} : { users: { some: { userId: input.userId, status: "ACTIVE" } } })
-      }
+      },
+      include: this.actorMemberships(input.userId)
     })) as StoredOrg | null;
 
     if (!org) {
       throw new NotFoundException(`Organization '${input.targetOrgId}' not found`);
+    }
+
+    // A permission in the session's Org A must not be borrowed for Org B.
+    // The query limits this projection to the actor's ACTIVE target memberships.
+    if (!isOpsAdmin(input) && !this.hasOrgPermission(org, permission)) {
+      throw new ForbiddenException("Insufficient organization permissions");
     }
 
     return this.toOrgRecord(org);
@@ -89,7 +111,7 @@ export class OrganizationsRepository {
     roles: string[];
   }): Promise<MembershipRecord[]> {
     // Verify visibility first; never enumerate members across org boundaries.
-    await this.findOrgById(input);
+    await this.findOrgWithPermission(input, "org:members:read");
     const memberships = (await this.prisma.membership.findMany({
       where: {
         orgId: input.targetOrgId,
@@ -120,6 +142,19 @@ export class OrganizationsRepository {
     return memberships.map((m) => this.toMembershipRecord(m));
   }
 
+  private actorMemberships(userId: string) {
+    return {
+      users: {
+        where: { userId, status: "ACTIVE" },
+        select: { role: { select: { key: true } } }
+      }
+    } as const;
+  }
+
+  private hasOrgPermission(org: StoredOrg, permission: string): boolean {
+    return hasPermission((org.users ?? []).map((membership) => membership.role.key), permission);
+  }
+
   private toOrgRecord(org: StoredOrg): OrgRecord {
     return {
       id: org.id,
@@ -140,3 +175,4 @@ export class OrganizationsRepository {
     };
   }
 }
+

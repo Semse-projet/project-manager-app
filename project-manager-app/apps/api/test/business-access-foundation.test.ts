@@ -84,7 +84,7 @@ test("DEC-R1: organizations list is membership-scoped and cannot mutate actor co
   const queries: unknown[] = [];
   const prisma = {
     org: {
-      async findMany(arg: unknown) { queries.push(arg); return [{id:"org_a",tenantId:"tenant_one",type:"pro",name:"A",createdAt:new Date(),updatedAt:new Date()}]; }
+      async findMany(arg: unknown) { queries.push(arg); return [{id:"org_a",tenantId:"tenant_one",type:"pro",name:"A",createdAt:new Date(),updatedAt:new Date(),users:[{role:{key:"PRO"}}]}]; }
     }
   };
   const repository = new OrganizationsRepository(prisma as never, {async ensureActorContext() { throw new Error("read attempted upsert"); }} as never);
@@ -150,7 +150,7 @@ test("DEC-R1: a member of two organizations is permitted in each without changin
   const queries: unknown[] = [];
   const prisma = {org: {async findFirst(arg: unknown) {
     queries.push(arg);
-    return {id:"org_b",tenantId:"tenant_one",type:"pro",name:"B",createdAt:new Date(),updatedAt:new Date()};
+    return {id:"org_b",tenantId:"tenant_one",type:"pro",name:"B",createdAt:new Date(),updatedAt:new Date(),users:[{role:{key:"PRO"}}]};
   }}};
   const repository = new OrganizationsRepository(prisma as never, {} as never);
   const org = await repository.findOrgById({...actor,targetOrgId:"org_b"});
@@ -174,3 +174,4 @@ test("DEC-R1: direct resolveRequestContext denies unsigned production headers", 
     );
   } finally { restore("AUTH_SECRET", originalSecret); restore("NODE_ENV", originalEnv); }
 });
+
