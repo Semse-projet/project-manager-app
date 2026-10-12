@@ -117,3 +117,60 @@ test("DEC-R1: admin exception retains tenant filter", async () => {
   await repository.findOrgsByTenant({...actor, roles:["OPS_ADMIN"]});
   assert.deepEqual((queries[0] as {where: unknown}).where, {tenantId: actor.tenantId});
 });
+
+test("DEC-R1: refresh rotation uses compare-and-swap and cannot reuse a consumed token", async () => {
+  const { AuthRepository } = await import("../dist/modules/auth/auth.repository.js");
+  const operations: Array<Record<string, unknown>> = [];
+  const repository = new AuthRepository({
+    authSession: {
+      async updateMany(query: Record<string, unknown>) {
+        operations.push(query);
+        return { count: operations.length === 1 ? 1 : 0 };
+      }
+    }
+  } as never);
+  const input = {
+    sessionId: "sid_a",
+    previousRefreshTokenHash: "sha-old",
+    refreshTokenHash: "sha-new",
+    roles: ["PRO"],
+    accessExpiresAt: future(),
+    refreshExpiresAt: future()
+  };
+  const first = await repository.rotateSessionRefreshToken(input);
+  const second = await repository.rotateSessionRefreshToken(input);
+  assert.equal(first.count, 1);
+  assert.equal(second.count, 0);
+  assert.deepEqual((operations[0].where as Record<string,unknown>).refreshTokenHash, "sha-old");
+  assert.equal((operations[0].where as Record<string,unknown>).status, "ACTIVE");
+  assert.equal((operations[0].where as Record<string,unknown>).revokedAt, null);
+});
+
+test("DEC-R1: a member of two organizations is permitted in each without changing the active cookie", async () => {
+  const queries: unknown[] = [];
+  const prisma = {org: {async findFirst(arg: unknown) {
+    queries.push(arg);
+    return {id:"org_b",tenantId:"tenant_one",type:"pro",name:"B",createdAt:new Date(),updatedAt:new Date()};
+  }}};
+  const repository = new OrganizationsRepository(prisma as never, {} as never);
+  const org = await repository.findOrgById({...actor,targetOrgId:"org_b"});
+  assert.equal(org.id, "org_b");
+  assert.deepEqual((queries[0] as {where: unknown}).where, {
+    id: "org_b",
+    tenantId: "tenant_one",
+    users: { some: { userId: "usr_one", status: "ACTIVE" } }
+  });
+});
+
+test("DEC-R1: direct resolveRequestContext denies unsigned production headers", async () => {
+  const { resolveRequestContext } = await import("../dist/common/request-context.js");
+  const originalSecret = process.env.AUTH_SECRET, originalEnv = process.env.NODE_ENV;
+  delete process.env.AUTH_SECRET;
+  process.env.NODE_ENV = "production";
+  try {
+    assert.throws(
+      () => resolveRequestContext({headers: {"x-user-id":"usr_one","x-org-id":"org_a","x-tenant-id":"tenant_one","x-roles":"OPS_ADMIN"}}),
+      ServiceUnavailableException,
+    );
+  } finally { restore("AUTH_SECRET", originalSecret); restore("NODE_ENV", originalEnv); }
+});
