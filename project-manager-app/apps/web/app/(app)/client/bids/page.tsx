@@ -71,7 +71,7 @@ export default function MyBidsPage() {
             {bids.length} propuesta{bids.length !== 1 ? "s" : ""} enviada{bids.length !== 1 ? "s" : ""} · {lastAt ?? "cargando…"}
           </p>
         </div>
-        <button onClick={load} disabled={loading}
+        <button onClick={load} disabled={loading} aria-label="Actualizar"
           style={{ padding: "8px 14px", borderRadius: 10, background: "rgba(255,255,255,.05)", border: "1px solid var(--border)", cursor: "pointer", color: "var(--muted)" }}>
           <RefreshCw size={12} className={loading ? "animate-spin" : undefined} />
         </button>

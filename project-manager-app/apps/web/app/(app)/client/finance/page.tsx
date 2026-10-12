@@ -143,7 +143,7 @@ export default function FinancePage() {
             extraItems={overdueNotificationItems}
             onDismissExtraItem={(id) => setOverdueToasts(prev => prev.filter(t => t.id !== id))}
           />
-          <button onClick={() => void load()} disabled={loading} style={btnStyle("#334155", "#94a3b8")}>
+          <button onClick={() => void load()} disabled={loading} aria-label={t("ui.refresh")} style={btnStyle("#334155", "#94a3b8")}>
             <RefreshCw size={14} className={loading ? "animate-spin" : undefined} />
           </button>
           <button onClick={() => setShowExpenseForm(true)} style={btnStyle("#1e293b", "#94a3b8")}>

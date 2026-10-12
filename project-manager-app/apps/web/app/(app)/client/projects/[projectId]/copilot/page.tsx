@@ -268,6 +268,7 @@ function TemplatePicker({ onPick }: { onPick: (prompt: string) => void }) {
               </div>
               <button
                 onClick={() => setOpen(false)}
+                aria-label="Cerrar"
                 style={{ padding: 6, borderRadius: 8, border: "none", background: "transparent", color: "var(--muted)", cursor: "pointer" }}
               >
                 <X size={16} />

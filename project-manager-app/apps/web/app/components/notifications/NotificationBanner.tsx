@@ -151,6 +151,7 @@ export function NotificationBanner({
               ) : null}
               <button
                 onClick={() => setOpen(false)}
+                aria-label="Cerrar"
                 style={{ display: "inline-flex", padding: "4px", borderRadius: 8, border: "none", background: "transparent", color: "var(--muted)", cursor: "pointer" }}
               >
                 <X size={14} />

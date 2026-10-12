@@ -84,7 +84,7 @@ function BidModal({ form, onClose, onSubmit, submitting, result }: {
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.6)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
       <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 18, padding: 24, width: "100%", maxWidth: 480, position: "relative" }}>
-        <button onClick={onClose} style={{ position: "absolute", top: 16, right: 16, background: "none", border: "none", cursor: "pointer", color: "var(--muted)" }}>
+        <button onClick={onClose} aria-label="Cerrar" style={{ position: "absolute", top: 16, right: 16, background: "none", border: "none", cursor: "pointer", color: "var(--muted)" }}>
           <X size={18} />
         </button>
 
@@ -317,7 +317,7 @@ export default function ClientMarketplacePage() {
           style={{ display: "flex", alignItems: "center", gap: 6, padding: "12px 16px", borderRadius: 12, border: `1px solid ${showFilters ? "#818cf8" : "var(--border)"}`, background: showFilters ? "rgba(99,102,241,.1)" : "var(--surface)", cursor: "pointer", fontSize: 12, color: showFilters ? "#818cf8" : "var(--muted)", fontWeight: 700 }}>
           <Filter size={13} /> Filtros
         </button>
-        <button onClick={load} disabled={loading}
+        <button onClick={load} disabled={loading} aria-label="Actualizar"
           style={{ padding: "12px 14px", borderRadius: 12, border: "1px solid var(--border)", background: "var(--surface)", cursor: "pointer", color: "var(--muted)" }}>
           <RefreshCw size={13} className={loading ? "animate-spin" : undefined} />
         </button>
