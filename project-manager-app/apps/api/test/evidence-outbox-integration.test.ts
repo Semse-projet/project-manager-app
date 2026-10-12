@@ -264,3 +264,37 @@ dbTest(
     );
   },
 );
+
+dbTest("Evidence resource scope: real Postgres rejects contradictory IDs and deleted-job milestones without outbox", async (t) => {
+  const fixture = await createFixture();
+  t.after(async () => cleanupFixture(fixture));
+  const milestone = await prisma.milestone.create({
+    data: { projectId: fixture.projectId, title: "Electrical wall photo", amount: "0.00", sequence: 1 },
+  });
+  const repo = makeRepository();
+  const input = {
+    tenantId: fixture.tenantId, orgId: fixture.proOrgId, userId: fixture.proUserId,
+    roles: ["PRO"], requestId: uniqueId("scope-real"),
+    key: `tenants/${fixture.tenantId}/evidence/wall-photo.jpg`, kind: "PHOTO" as const,
+  };
+  for (const bad of [
+    { jobId: uniqueId("wrong_job"), milestoneId: milestone.id },
+    { projectId: uniqueId("wrong_project"), milestoneId: milestone.id },
+    { projectId: fixture.projectId, jobId: uniqueId("wrong_job") },
+  ]) {
+    await assert.rejects(
+      repo.create({ ...input, ...bad, requestId: uniqueId("bad-scope") }),
+      (error: unknown) => !!error && typeof error === "object" && "status" in error && error.status === 404,
+    );
+  }
+  assert.equal(await prisma.evidence.count({ where: { projectId: fixture.projectId } }), 0);
+  assert.equal(await prisma.domainOutboxEvent.count({ where: { tenantId: fixture.tenantId } }), 0);
+
+  await prisma.job.update({ where: { id: fixture.jobId }, data: { deletedAt: new Date() } });
+  await assert.rejects(
+    repo.create({ ...input, milestoneId: milestone.id, requestId: uniqueId("deleted-job") }),
+    (error: unknown) => !!error && typeof error === "object" && "status" in error && error.status === 404,
+  );
+  assert.equal(await prisma.evidence.count({ where: { projectId: fixture.projectId } }), 0);
+  assert.equal(await prisma.domainOutboxEvent.count({ where: { tenantId: fixture.tenantId } }), 0);
+});
