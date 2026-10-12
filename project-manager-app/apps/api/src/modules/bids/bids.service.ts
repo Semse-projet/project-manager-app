@@ -21,6 +21,7 @@ export class BidsService {
     jobId: string;
     orgId: string;
     userId: string;
+    roles: string[];
   }): Promise<BidRecord[]> {
     return this.bidsRepository.listByJob(input);
   }
