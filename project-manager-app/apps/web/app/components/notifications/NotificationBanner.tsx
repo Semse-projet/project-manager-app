@@ -124,6 +124,8 @@ export function NotificationBanner({
     <div style={{ position: "relative" }}>
       <button
         onClick={() => setOpen((v) => !v)}
+        aria-label={unread.length > 0 ? `Notificaciones (${unread.length} sin leer)` : "Notificaciones"}
+        aria-expanded={open}
         style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 12px", borderRadius: 10, border: `1px solid ${unread.length > 0 ? "rgba(239,68,68,.28)" : "var(--border)"}`, background: unread.length > 0 ? "rgba(239,68,68,.06)" : "var(--surface)", color: unread.length > 0 ? "var(--error)" : "var(--muted)", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
       >
         <Bell size={14} />

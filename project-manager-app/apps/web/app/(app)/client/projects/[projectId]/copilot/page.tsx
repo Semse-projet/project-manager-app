@@ -1451,6 +1451,7 @@ export default function ProjectCopilotPage() {
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void sendChat(); } }}
               placeholder="Pregunta sobre el proyecto... (Enter para enviar)"
+              aria-label="Pregunta sobre el proyecto"
               rows={2}
               style={{
                 flex: 1, padding: "10px 14px", borderRadius: 12, border: "1px solid var(--border)",
@@ -1460,6 +1461,7 @@ export default function ProjectCopilotPage() {
             <button
               onClick={() => void sendChat()}
               disabled={busy || !input.trim()}
+              aria-label="Enviar pregunta"
               style={{
                 padding: "10px 16px", borderRadius: 12, border: "none",
                 background: "linear-gradient(135deg,#6366f1,#4f46e5)", color: "#fff",
