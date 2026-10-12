@@ -1,0 +1,97 @@
+[
+  {
+    "id": "T1",
+    "clicks": 7,
+    "fills": 2,
+    "steps": [
+      "click: categoría Plomería",
+      "click: especialidad (primera, tras hacer scroll)",
+      "click: Siguiente (1→2)",
+      "fill: título",
+      "fill: descripción",
+      "click: Siguiente (2→3)",
+      "click: Sugerir presupuesto con IA",
+      "click: Siguiente (3→4)",
+      "click: Publicar trabajo"
+    ],
+    "notes": [
+      "\"Siguiente\" deshabilitado tras elegir solo la categoría: true",
+      "especialidades aparecen bajo el pliegue (y=1027 > alto de pantalla 900): true; \"Siguiente\" muestra motivo de bloqueo: false",
+      "la sugerencia de IA tardó 9 s en dar una respuesta visible o volver al estado inicial",
+      "tras sugerencia IA: mostró estimación",
+      "URL final: /client/jobs/cmv5939f2000vtma8fphri0nd"
+    ],
+    "server5xx": [],
+    "dbFlaky": false,
+    "success": true,
+    "ms": 38839
+  },
+  {
+    "id": "T2",
+    "clicks": 3,
+    "fills": 1,
+    "steps": [
+      "click: categoría Electricidad",
+      "click: especialidad",
+      "click: Siguiente",
+      "fill: título"
+    ],
+    "notes": [
+      "banner de recuperación visible: true; paso tras recargar: 2; título conservado: sí"
+    ],
+    "server5xx": [],
+    "dbFlaky": false,
+    "success": true,
+    "ms": 33919
+  },
+  {
+    "id": "T5",
+    "clicks": 1,
+    "fills": 0,
+    "steps": [
+      "click: Fondear escrow"
+    ],
+    "notes": [
+      "abre modal de confirmación: true",
+      "el modal muestra un monto ($): true; texto: Fondear escrow Reparar tubería con fuga en la cocina MONTO $ USD EUR CAD MXN Usar presupuesto sugerido: $500 PROVEEDOR DE PAGO Stripe Tarjeta de crédito/débito segura PayPal Cuenta PayPal o tarjeta vinculada Transferenci"
+    ],
+    "server5xx": [],
+    "dbFlaky": false,
+    "success": true,
+    "ms": 18657
+  },
+  {
+    "id": "T7",
+    "clicks": 1,
+    "fills": 2,
+    "steps": [
+      "fill: descripción del trabajo",
+      "fill: área sqft",
+      "click: Calcular estimado"
+    ],
+    "notes": [
+      "selects en pantalla: 1",
+      "resultado con TOTAL: false; CONFIANZA mostrada: no; error visible: false"
+    ],
+    "server5xx": [],
+    "dbFlaky": false,
+    "success": false,
+    "ms": 17561
+  },
+  {
+    "id": "T8",
+    "clicks": 1,
+    "fills": 1,
+    "steps": [
+      "click: Abrir disputa",
+      "fill: motivo"
+    ],
+    "notes": [
+      "pide seleccionar trabajo antes: true"
+    ],
+    "server5xx": [],
+    "dbFlaky": false,
+    "success": true,
+    "ms": 20550
+  }
+]

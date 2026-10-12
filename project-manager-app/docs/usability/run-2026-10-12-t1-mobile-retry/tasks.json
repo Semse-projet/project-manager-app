@@ -1,0 +1,29 @@
+[
+  {
+    "id": "T1",
+    "clicks": 7,
+    "fills": 2,
+    "steps": [
+      "click: categoría Plomería",
+      "click: especialidad (primera, tras hacer scroll)",
+      "click: Siguiente (1→2)",
+      "fill: título",
+      "fill: descripción",
+      "click: Siguiente (2→3)",
+      "click: Sugerir presupuesto con IA",
+      "click: Siguiente (3→4)",
+      "click: Publicar trabajo"
+    ],
+    "notes": [
+      "\"Siguiente\" deshabilitado tras elegir solo la categoría: true",
+      "especialidades aparecen bajo el pliegue (y=2156 > alto de pantalla 844): true; \"Siguiente\" muestra motivo de bloqueo: false",
+      "la sugerencia de IA tardó 6 s en dar una respuesta visible o volver al estado inicial",
+      "tras sugerencia IA: mostró estimación",
+      "URL final: /client/jobs/cmv59noqf0003tm8o4w3ux9fq"
+    ],
+    "server5xx": [],
+    "dbFlaky": false,
+    "success": true,
+    "ms": 36863
+  }
+]

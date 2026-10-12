@@ -130,7 +130,7 @@ Cualquier cambio de código debe seguir el flujo SDD de `AGENTS.md` y el skill `
 
 ### 5.2 Límites del seed y qué NO concluir
 
-- **T4:** que "Proyecto no encontrado" aparezca para los dos proyectos del seed puede ser (a) un hueco del seed (los hitos viven en tablas de BuildOps que el seed no crea) o (b) una incoherencia real entre lista (`/v1/projects`) y detalle (`/v1/buildops/projects/:id`). **No está resuelto.** Para decidirlo hay que crear un proyecto desde el flujo real (T3 → hito → entrega del profesional).
+- **T4:** que "Proyecto no encontrado" aparezca para los dos proyectos del seed puede ser (a) un hueco del seed (los hitos viven en tablas de BuildOps que el seed no crea) o (b) una incoherencia real entre lista (`/v1/projects`) y detalle (`/v1/buildops/projects/:id`). **Resuelto el 2026-10-12: es un bug real, no un hueco del seed** (ver §10.2).
 - **T6:** sin facturas en el seed no se puede evaluar la búsqueda. La observación de U-24 sobre el propósito de la pantalla sí es independiente de los datos.
 - **T3:** solo hay un profesional, así que "comparar y elegir" no se probó.
 - Los tiempos (13 s de "Aceptando…", 7–8 s de IA, 14–48 s por tarea) vienen de una máquina de 6 GB y con IA local no configurada: son cotas superiores, no medidas de producción.
@@ -165,10 +165,10 @@ Cualquier cambio de código debe seguir el flujo SDD de `AGENTS.md` y el skill `
 
 ## 7. Próximos pasos de esta línea
 
-1. **Datos de partida más ricos** (un proyecto de BuildOps con hito entregado, una factura por pagar, 2–3 profesionales con nombre) para poder evaluar T3-comparar, T4 y T6, y decidir si U-06 es seed o bug.
+1. **Datos de partida más ricos** (un proyecto de BuildOps con hito entregado, una factura por pagar, 2–3 profesionales con nombre) para poder evaluar T3-comparar, T4 y T6, (U-06 ya está decidido: es bug, ver §10.2).
 2. **Prueba de liberar pago y de enviar disputa** en un entorno con Stripe de prueba y datos desechables.
 3. **Sesiones con usuarios** según `client-usability-test-plan.md`; las tareas ya están ensayadas y sus clics base sirven de referencia.
-4. Repetir ambos scripts tras los arreglos rápidos y comparar con esta línea base.
+4. ~~Repetir ambos scripts tras los arreglos rápidos y comparar con esta línea base.~~ Hecho el 2026-10-12 (§10.1).
 
 ## 8. Cómo reproducir
 
@@ -209,8 +209,55 @@ Rama `fix/usability-quick-wins-client` (desde `origin/main` @ `432a9e39`), **sin
 
 **Lo que NO se arregló (y por qué)**
 - **U-03 contraste:** requiere decidir tokens de color (coordinar con `semse-design-tokens`); no es un arreglo rápido.
-- **U-06 callejón sin salida de proyecto:** la causa no está decidida (hueco del seed o incoherencia lista/detalle; ver §5.2).
+- **U-06 callejón sin salida de proyecto:** al escribir esto la causa no estaba decidida; después se confirmó como bug real y se corrigió en #896 (ver §10.2).
 - **Quedan 6 botones sin nombre** (`leads`, `milestones`, `marketplace`, `bids`, `finance`, copiloto de proyecto), `label` en el control de ProTools y el `input[type=file]` de disputas, y 2 `select` en disputas. Son botones de icono en cada página; conviene revisarlos uno a uno.
 - **U-01 no desaparece del todo:** la mascota sigue encima del contenido cuando no hay modal y no se ha llegado al final de la página. Reducir su tamaño o moverla es una decisión de diseño.
 - **U-09 a U-11, U-13, U-22 a U-25, U-27:** textos, glosario y comportamiento de producto; no son arreglos rápidos.
 - **Nota de entorno:** al cambiar a `origin/main` hubo que recompilar `packages/*` y regenerar Prisma; la API no arrancaba con los paquetes compilados de la rama anterior (`metadata` no existía en el esquema de evidencia). No es un cambio de código.
+
+## 10. Seguimiento (2026-10-12)
+
+Segunda pasada tras los PR #875 (arreglos rápidos, ya fusionado) y #896 (U-06). Entorno local, nunca producción. Evidencia en `docs/usability/run-2026-10-11-*-after-buttons`, `*-recheck-buttons` y `run-2026-10-12-*`.
+
+### 10.1 Barridos y tareas repetidos
+
+Recorrido de 24 rutas con axe, escritorio y móvil (390×844):
+
+| Regla axe | Línea base | Tras #875 inicial | Tras los últimos arreglos |
+|---|---|---|---|
+| `button-name` escritorio (rutas / nodos) | 24 / 30 | 6 / 6 | **1 / 1** |
+| `button-name` móvil | 24 / 54 | — | **1 / 1** |
+| `select-name` escritorio | 5 / 8 | 1 / 2 | 1 / 2 |
+| `label` escritorio | 2 / 3 | 2 / 3 | 2 / 3 |
+| `color-contrast` escritorio | 24 / 153 | 24 / 145 | 24 / 144 |
+| `color-contrast` móvil | 8 / 28 | — | 9 / 32 |
+
+- Todas las rutas respondieron 200 y ninguna tuvo desborde horizontal. `nested-interactive` desapareció en móvil.
+- Los últimos `button-name` eran el botón de enviar del chat del copiloto (escritorio) y la campana de `NotificationBanner` (dashboard móvil). Se corrigieron en `eba829a7`; se comprobó solo en dashboard y copiloto (escritorio y móvil: `button-name` 0). Las otras 22 rutas no se repitieron tras ese commit.
+- **Contraste móvil:** la comparación no es exacta (22 rutas en la línea base frente a 24; los ids del seed cambiaron). Sigue pendiente U-03.
+- Que el cambio en `milestones` corrigiera su botón es una suposición; no se confirmó por separado.
+
+Tareas T1, T2, T5, T7 y T8 repetidas en escritorio y móvil: **todas se completaron**. T1 en móvil falló una vez con dos errores 5xx y pasó al reintentar (36,9 s). T7 ahora espera hasta 45 s al resultado y anota el tiempo (antes 8 s fijos). T5 muestra monto y proveedor; no se verificó visualmente el botón de confirmar en móvil. **U-19 y U-25 siguen sin corregir.** T3 (comparar), T4 y T6 siguen sin evaluarse: faltan datos (ver §10.4).
+
+### 10.2 U-06: causa confirmada
+
+`/client/projects` lista `Project` canónicos (`/v1/projects`), pero el detalle llamaba solo a `buildops/projects/:id`, que busca `BuildOpsProject.id` (el mapeo existente va de BuildOps a canónico, no al revés). Verificado con el proyecto creado al aceptar una oferta (`cmv4e0qy8001ltmy0aru9qjqj`): 404 y "Proyecto no encontrado"; `proj_demo_001` quedaba más de 30 s en "Cargando proyecto…" antes del 404. La BD tenía 0 `BuildOpsProject` y 0 `Invoice`.
+
+**Arreglo (PR #896, solo web y lectura):** si falla el id de BuildOps, el detalle arma una vista reducida desde `GET /v1/projects/:id` y su trabajo. Verificado en local: el proyecto de la oferta aceptada carga con título, oficio, presupuesto, descripción y 4 hitos. Quedan fuera: actividad de proyectos canónicos (solo aviso), ubicación cuando el trabajo no la tiene, y el panel de ciclo de vida (404 local por la bandera `SEMSE_PROJECT_LIFECYCLE_PERSIST_ENABLED`, deducido del código y no probado activándola).
+
+### 10.3 Nota sobre el pool de conexiones y la lentitud local
+
+En esta sesión la API local daba `Timed out fetching a new connection` y rutas de 40–60 s. Lo medido:
+
+- **No hay fuga de conexiones:** en reposo, las conexiones están `idle` y no hay transacciones colgadas.
+- **Postgres lento sin motivo aparente:** con el registro de sentencias activado, consultas triviales sobre tablas minúsculas (10 trabajos, 7 notificaciones) tardaron de 1 a 10 s, con presión de CPU en la VM de WSL (2 vCPU, ~32 % de media en el último minuto) mientras el host estaba saturado (Next, API, Chromium).
+- **Una sola carga de `/client/milestones` generó 33 peticiones** a la API en unos 45 s: 11 `POST /v1/auth/token`, 8 `GET /v1/notifications`, 3 de capacidades, 3 de hitos por trabajo, etc. Con la base sana se absorbe; con la base lenta se encola y agota un pool de 3 a 5 conexiones.
+- El relé de puertos de Docker también se atasca a ratos (conecta por TCP pero Prisma falla); `docker restart semse-postgres` lo despeja unos minutos.
+
+**Conclusión:** los resultados bajo carga de esta máquina (6 GB) no son fiables para medir tiempos. Para evaluar T4 y T6 conviene cerrar el resto de aplicaciones y correr una tarea por vez. Las 8 llamadas a notificaciones y las 11 creaciones de sesión por carga de página son un coste real que podría notar un usuario con conexión lenta; **no se midió fuera de esta máquina ni en producción**, y no hay PR abierto para ello.
+
+### 10.4 Pendiente
+
+- Datos para T3 (comparar), T4 y T6: proyecto de BuildOps con hito entregado, una factura por pagar (`Invoice`) y 2–3 profesionales con oferta. `db:seed` no revierte estados modificados por T3 (`update: {}`): hay que recrear la BD.
+- U-03 (contraste, 144 nodos), `select-name` y `label` restantes (disputas, ProTools), U-19, U-25, y las decisiones de producto de §4.
+- Probar liberar pago y disputa en un entorno desechable con Stripe de prueba; sesiones con usuarios.

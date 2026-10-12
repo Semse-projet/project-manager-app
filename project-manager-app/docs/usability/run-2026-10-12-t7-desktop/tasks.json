@@ -1,0 +1,21 @@
+[
+  {
+    "id": "T7",
+    "clicks": 1,
+    "fills": 2,
+    "steps": [
+      "fill: descripción del trabajo",
+      "fill: área sqft",
+      "click: Calcular estimado"
+    ],
+    "notes": [
+      "selects en pantalla: 1",
+      "estimado visible tras 1 s",
+      "resultado con TOTAL: true; CONFIANZA mostrada: 85; error visible: false"
+    ],
+    "server5xx": [],
+    "dbFlaky": false,
+    "success": true,
+    "ms": 5382
+  }
+]

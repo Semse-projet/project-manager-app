@@ -1,0 +1,29 @@
+[
+  {
+    "id": "T4",
+    "clicks": 0,
+    "fills": 0,
+    "steps": [],
+    "notes": [
+      "/client/milestones — lista hitos",
+      "ruta alternativa: /client/projects/proj_demo_001"
+    ],
+    "server5xx": [],
+    "dbFlaky": false,
+    "success": false,
+    "ms": 43601
+  },
+  {
+    "id": "T6",
+    "clicks": 0,
+    "fills": 0,
+    "steps": [],
+    "notes": [
+      "monto visible en pantalla: false; menciona \"pendiente\": true; chars: 239"
+    ],
+    "server5xx": [],
+    "dbFlaky": false,
+    "success": false,
+    "ms": 17244
+  }
+]
