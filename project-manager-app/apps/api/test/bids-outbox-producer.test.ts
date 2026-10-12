@@ -20,7 +20,11 @@ function makeCreateHarness() {
       findFirst: async () => ({ userId: "usr_pro_1" }),
     },
     org: {
-      upsert: async () => ({ id: "org_pro_1" }),
+      findUnique: async () => ({ tenantId: "tenant_1" }),
+      upsert: async ({ update }: { update: Record<string, unknown> }) => {
+        assert.deepEqual(update, {}, "bid creation must not reassign an existing org");
+        return { id: "org_pro_1" };
+      },
     },
     job: {
       findFirst: async () => ({
