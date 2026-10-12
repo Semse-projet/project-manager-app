@@ -242,21 +242,6 @@ export class BidsRepository {
       throw new NotFoundException("Professional organization not found");
     }
 
-    await this.actorContextService.ensureActorContext(input);
-    // Do not overwrite an existing org's tenant, kind or display name as a
-    // side-effect of submitting a quote. Only new IDs can be provisioned.
-    await this.prisma.org.upsert({
-      where: { id: input.proOrgId },
-      update: {},
-      create: {
-        id: input.proOrgId,
-        tenantId: input.tenantId,
-        type: "pro",
-        name: input.proOrgId
-      }
-    });
-    await this.ensureProfessionalMembership(input);
-
     const blockingReservation = await this.prisma.jobReservation.findFirst({
       where: {
         jobId: input.jobId,
@@ -298,6 +283,21 @@ export class BidsRepository {
     if (duplicate) {
       throw new ConflictException("pro already has an active bid for this job");
     }
+
+    await this.actorContextService.ensureActorContext(input);
+    // Do not overwrite an existing org's tenant, kind or display name as a
+    // side-effect of submitting a quote. Only new IDs can be provisioned.
+    await this.prisma.org.upsert({
+      where: { id: input.proOrgId },
+      update: {},
+      create: {
+        id: input.proOrgId,
+        tenantId: input.tenantId,
+        type: "pro",
+        name: input.proOrgId
+      }
+    });
+    await this.ensureProfessionalMembership(input);
 
     const bid = (await this.prisma.$transaction(async (tx) => {
       const created = await tx.bid.create({
