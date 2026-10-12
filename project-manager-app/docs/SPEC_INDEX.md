@@ -40,6 +40,7 @@ retroactiva.
 |---|---|---|---|---|---|---|---|---|---|---|
 | [semse-agent-architecture](specs/agents/SEMSE_AGENT_ARCHITECTURE.spec.md) | agents | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-06-09 |
 | [semse-forge-agent-harness](specs/agents/SEMSE_FORGE_AGENT_HARNESS.spec.md) | agents | APPROVED | legacy | legacy | legacy | legacy | legacy | critical | yes | 2026-07-17 |
+| [agents.agent-queue-retry-idempotency](specs/agents/agent-queue-retry-idempotency.spec.md) | agents | APPROVED | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | yes | 2026-10-12 |
 | [agt-002-prometeo-core](specs/agents/prometeo-core.spec.md) | agents | IMPLEMENTED | COMPLETE | NOT_RUN | MERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-08-17 |
 | [agt-001-verification-loop](specs/agents/verification-loop.spec.md) | agents | IMPLEMENTED | legacy | legacy | legacy | legacy | legacy | medium | yes | 2026-07-04 |
 | [agro.domain-events](specs/agro/agro-domain-events.spec.md) | agro | IMPLEMENTED | COMPLETE | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | low | yes | 2026-09-26 |
@@ -87,7 +88,7 @@ retroactiva.
 | [aut-001-permanent-loops](specs/autonomy/permanent-loops.spec.md) | autonomy | IMPLEMENTED | legacy | legacy | legacy | legacy | legacy | medium | yes | 2026-07-04 |
 | [communications.rename-fase2](specs/communications/communications-rename-fase2.spec.md) | communications | APPROVED | legacy | legacy | legacy | legacy | legacy | medium | no | 2026-07-19 |
 | [core.account-center](specs/core/account-center.spec.md) | core | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-25 |
-| [core.business-access-foundation](specs/core/business-access-foundation.spec.md) | core | APPROVED | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | yes | 2026-10-11 |
+| [core.business-access-foundation](specs/core/business-access-foundation.spec.md) | core | APPROVED | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | yes | 2026-10-12 |
 | [core.communications-canonical-model](specs/core/communications-canonical-model.spec.md) | core | APPROVED | legacy | legacy | legacy | legacy | legacy | medium | no | 2026-07-19 |
 | [core.identity-attestation](specs/core/identity-attestation.spec.md) | core | IMPLEMENTED | COMPLETE | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-08-29 |
 | [core.knowledge-contributor-asr-openai-whisper](specs/core/knowledge-contributor-asr-openai-whisper.spec.md) | core | APPROVED | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-09-24 |
@@ -100,7 +101,7 @@ retroactiva.
 | [core.knowledge-contributor-reward-hardening](specs/core/knowledge-contributor-reward-hardening.spec.md) | core | APPROVED | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-09-19 |
 | [core.knowledge-contributor-transcript-observation](specs/core/knowledge-contributor-transcript-observation.spec.md) | core | APPROVED | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | yes | 2026-09-17 |
 | [core.org-membership-status](specs/core/org-membership-status.spec.md) | core | DRAFT | COMPLETE | PASS | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | yes | 2026-09-18 |
-| [core.originador-referral-program](specs/core/originador-referral-program.spec.md) | core | APPROVED | IN_PROGRESS | PASS | MERGED | DEPLOYED | INACTIVE | critical | yes | 2026-08-13 |
+| [core.originador-referral-program](specs/core/originador-referral-program.spec.md) | core | APPROVED | IN_PROGRESS | PASS | MERGED | DEPLOYED | CANARY | critical | yes | 2026-10-12 |
 | [core.preferred-organization-context](specs/core/preferred-organization-context.spec.md) | core | DRAFT | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | low | no | 2026-09-18 |
 | [core.universal-identity-multi-role](specs/core/universal-identity-multi-role.spec.md) | core | APPROVED | IN_PROGRESS | PASS | MERGED | DEPLOYED | INACTIVE | high | yes | 2026-08-13 |
 | [semse-creator-platform](specs/creator/SEMSE_CREATOR_PLATFORM.spec.md) | creator | APPROVED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-17 |
@@ -132,7 +133,7 @@ retroactiva.
 | [operations.jobs-bids-event-projection](specs/operations/jobs-bids-event-projection.spec.md) | operations | IMPLEMENTED | COMPLETE | PASS | MERGED | DEPLOYED | CANARY | high | yes | 2026-08-26 |
 | [operations.mission-control-2](specs/operations/mission-control-2.spec.md) | operations | IMPLEMENTED | COMPLETE | PASS | MERGED | DEPLOYED | INACTIVE | critical | yes | 2026-08-12 |
 | [operations.project-lifecycle-projection](specs/operations/project-lifecycle-projection.spec.md) | operations | VERIFIED | COMPLETE | PASS | MERGED | DEPLOYED | CANARY | critical | yes | 2026-07-31 |
-| [payments.escrow-release-command](specs/payments/escrow-release-command.spec.md) | payments | APPROVED | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | yes | 2026-09-30 |
+| [payments.escrow-release-command](specs/payments/escrow-release-command.spec.md) | payments | APPROVED | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | yes | 2026-10-12 |
 | [payments.shared-economic-ledger](specs/payments/shared-economic-ledger.spec.md) | payments | DRAFT | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | no | 2026-10-10 |
 | [platform.admin-integration-trust-status](specs/platform/admin-integration-trust-status.spec.md) | platform | APPROVED | COMPLETE | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-09-25 |
 | [platform.canonical-state-registry](specs/platform/canonical-state-registry.spec.md) | platform | IMPLEMENTED | COMPLETE | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | yes | 2026-08-28 |

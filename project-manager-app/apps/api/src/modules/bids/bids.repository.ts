@@ -51,14 +51,35 @@ export class BidsRepository {
     jobId: string;
     orgId: string;
     userId: string;
+    roles: string[];
   }): Promise<BidRecord[]> {
     await this.actorContextService.ensureActorContext(input);
+
+    // Permission "bids:read" is shared with PRO/WORKER for /v1/my-bids.
+    // It does not authorize reading competitors' quotes for an arbitrary job.
+    // Authorize the resource before querying its sensitive bid rows.
+    const job = await this.prisma.job.findFirst({
+      where: {
+        id: input.jobId,
+        tenantId: input.tenantId,
+        deletedAt: null
+      },
+      select: { clientOrgId: true }
+    });
+    if (!job) {
+      throw new NotFoundException("Job not found");
+    }
+    if (!input.roles.includes("OPS_ADMIN") &&
+        (!input.roles.includes("CLIENT") || !sameOrg(job.clientOrgId, input.orgId))) {
+      throw new ForbiddenException("actor cannot list bids for this job");
+    }
 
     const bids = (await this.prisma.bid.findMany({
       where: {
         jobId: input.jobId,
         job: {
-          tenantId: input.tenantId
+          tenantId: input.tenantId,
+          deletedAt: null
         }
       },
       include: {
@@ -71,11 +92,11 @@ export class BidsRepository {
           }
         },
         professional: {
-            select: {
-              email: true,
-              ratingsReceived: { select: { score: true }, take: 100 }
-            }
+          select: {
+            email: true,
+            ratingsReceived: { select: { score: true }, take: 100 }
           }
+        }
       },
       orderBy: { createdAt: "desc" }
     })) as StoredBid[];
@@ -190,19 +211,11 @@ export class BidsRepository {
     etaDays: number;
     note?: string;
   }): Promise<BidRecord> {
-    await this.actorContextService.ensureActorContext(input);
-    await this.ensureProfessionalMembership(input);
-
-    await this.prisma.org.upsert({
-      where: { id: input.proOrgId },
-      update: { tenantId: input.tenantId, type: "pro", name: input.proOrgId },
-      create: {
-        id: input.proOrgId,
-        tenantId: input.tenantId,
-        type: "pro",
-        name: input.proOrgId
-      }
-    });
+    // Validate ownership and job state before provisioning a role/membership
+    // or creating/updating an organization. Rejected requests must be read-only.
+    if (!sameOrg(input.proOrgId, input.orgId) && !input.roles?.includes("OPS_ADMIN")) {
+      throw new ForbiddenException("actor cannot create bids for a different professional org");
+    }
 
     const job = await this.prisma.job.findFirst({
       where: {
@@ -211,12 +224,22 @@ export class BidsRepository {
         deletedAt: null
       }
     });
-
     if (!job) {
-      throw new NotFoundException(`Job '${input.jobId}' not found`);
+      throw new NotFoundException("Job not found");
+    }
+    if (sameOrg(job.clientOrgId, input.proOrgId)) {
+      throw new ForbiddenException("professional organization cannot bid on its own job");
     }
     if (job.status !== "PUBLISHED" && job.status !== "POSTED") {
       throw new BadRequestException("bids can only be created for published jobs");
+    }
+
+    const professionalOrg = await this.prisma.org.findUnique({
+      where: { id: input.proOrgId },
+      select: { tenantId: true }
+    });
+    if (professionalOrg && professionalOrg.tenantId !== input.tenantId) {
+      throw new NotFoundException("Professional organization not found");
     }
 
     const blockingReservation = await this.prisma.jobReservation.findFirst({
@@ -260,6 +283,21 @@ export class BidsRepository {
     if (duplicate) {
       throw new ConflictException("pro already has an active bid for this job");
     }
+
+    await this.actorContextService.ensureActorContext(input);
+    // Do not overwrite an existing org's tenant, kind or display name as a
+    // side-effect of submitting a quote. Only new IDs can be provisioned.
+    await this.prisma.org.upsert({
+      where: { id: input.proOrgId },
+      update: {},
+      create: {
+        id: input.proOrgId,
+        tenantId: input.tenantId,
+        type: "pro",
+        name: input.proOrgId
+      }
+    });
+    await this.ensureProfessionalMembership(input);
 
     const bid = (await this.prisma.$transaction(async (tx) => {
       const created = await tx.bid.create({

@@ -8,6 +8,7 @@ import { BuildOpsProjectHealthPanel } from "@/components/buildops/BuildOpsProjec
 import { ProjectActivityFeed } from "@/components/buildops/ProjectActivityFeed";
 import { ProjectLifecycleProjectionPanel } from "@/components/projects/ProjectLifecycleProjectionPanel";
 import { fetchBuildOpsProject, type BuildOpsProject } from "../../../../lib/buildops-api";
+import { fetchJob } from "../../../../semse-api";
 import { useCapabilityState, useDeclareActiveProjectOrg } from "../../../../../lib/capability-context";
 import { deriveActiveCapability } from "../../../../../lib/capability";
 import { CapabilityBadge, type CapabilityRole } from "../../../../../components/semse/CapabilityBadge";
@@ -67,6 +68,43 @@ async function fetchMilestonesForProject(projectId: string): Promise<MilestoneRo
   }
 }
 
+// `/client/projects` lista proyectos canónicos (`/v1/projects`), pero el detalle de
+// BuildOps solo conoce `BuildOpsProject.id`. Si el id es canónico (p. ej. el proyecto
+// creado al aceptar una oferta), se arma una vista reducida desde el proyecto canónico.
+async function fetchCanonicalProjectView(projectId: string): Promise<BuildOpsProject | null> {
+  try {
+    const r = await fetch(`/api/semse/projects/${encodeURIComponent(projectId)}`, { cache: "no-store" });
+    if (!r.ok) return null;
+    const json = (await r.json()) as { data?: Record<string, unknown> } & Record<string, unknown>;
+    const record = (json.data ?? json) as Record<string, unknown>;
+    if (typeof record.id !== "string") return null;
+    const jobId = typeof record.jobId === "string" ? record.jobId : null;
+    const job = jobId ? ((await fetchJob(jobId).catch(() => null)) as Record<string, unknown> | null) : null;
+    const str = (v: unknown, fallback: string) => (typeof v === "string" && v ? v : fallback);
+    return {
+      id: record.id,
+      tenantId: str(record.tenantId, ""),
+      orgId: "",
+      jobId,
+      canonicalProjectId: record.id,
+      createdBy: "",
+      title: str(job?.title, "Proyecto"),
+      description: typeof job?.description === "string" ? job.description : null,
+      trade: str(job?.trade ?? job?.category, "—"),
+      projectType: "",
+      clientName: "",
+      professionalName: null,
+      location: str(job?.location, "—"),
+      budgetEstimate: typeof job?.budget === "number" ? job.budget : null,
+      riskScore: 0,
+      riskLevel: "low",
+      completion: 0,
+    } as unknown as BuildOpsProject;
+  } catch {
+    return null;
+  }
+}
+
 export default function ClientProjectDetailPage() {
   const params = useParams<{ projectId: string }>();
   const router = useRouter();
@@ -87,7 +125,7 @@ export default function ClientProjectDetailPage() {
         fetchBuildOpsProject(projectId).catch(() => null),
         fetchMilestonesForProject(projectId),
       ]);
-      setProject(proj);
+      setProject(proj ?? (await fetchCanonicalProjectView(projectId)));
       setMilestones(ms);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error al cargar el proyecto");
@@ -200,7 +238,7 @@ export default function ClientProjectDetailPage() {
           <div style={{ gridColumn: "1 / -1" }}>
             <ProjectLifecycleProjectionPanel projectId={project.canonicalProjectId} />
           </div>
-          <BuildOpsProjectHealthPanel projectId={projectId} />
+          {project.orgId ? <BuildOpsProjectHealthPanel projectId={projectId} /> : null}
           <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
             <div style={{ padding: "16px", borderRadius: "14px", background: "var(--bg)", border: "1px solid var(--border)" }}>
               <h3 style={{ margin: "0 0 12px", fontSize: "13px", fontWeight: 700, color: "var(--ink)" }}>Acciones</h3>

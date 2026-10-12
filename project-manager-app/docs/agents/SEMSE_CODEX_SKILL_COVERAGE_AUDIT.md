@@ -1,6 +1,6 @@
 # Auditoría de cobertura de skills SEMSE — Claude / Codex
 
-**Fecha de corte:** 10-oct-2026. **Repositorio:** `Semse-projet/project-manager-app`.
+**Fecha de corte histórico:** 10-oct-2026. **Ampliación propuesta:** 12-oct-2026. **Repositorio:** `Semse-projet/project-manager-app`.
 
 ## Alcance y evidencia
 
@@ -9,6 +9,17 @@
 - Esta entrega incorpora 21 descriptores de descubrimiento para Codex, hasta completar **23/23 por identificador**. Cada descriptor nuevo enlaza al archivo canónico sin copiar sus reglas.
 - `testing-worker-tracker` en Codex conserva instrucciones detalladas anteriores. Es una excepción de contenido, no una skill adicional; debe revisarse por posible deriva frente a su par en Claude antes de cambios de comportamiento.
 - CI ejecutará `tests/unit/semse-codex-skill-parity.test.mjs` mediante `pnpm test:unit`. Comprueba igualdad de IDs, frontmatter y referencias a autoridad, pero **no** prueba la selección semántica de todos los prompts ni capacidad real de operación en cada cliente.
+
+## Ampliación del programa de 36 flujos — 2026-10-12 (rama en revisión)
+
+- Se prepararon **4 nuevas skills** para gestión de datos sintéticos, E2E por flujo, release en Railway y recuperación de respaldos, cada una con `SKILL.md` canónico y descriptor Codex.
+- Candidatas: `semse-synthetic-test-data`, `semse-business-flow-e2e`, `semse-railway-release-verification`, `semse-backup-restore-verification`.
+- Inventario **en esta rama**: 27 skills Claude ↔ 27 descriptores Codex por ID; se mantiene la excepción legacy `testing-worker-tracker`.
+- `semse-skill-pack-contract.test.mjs` comprueba el contrato mínimo de las cuatro nuevas skills, alcance y rutas. `semse-codex-skill-parity.test.mjs` verifica paridad dinámica global.
+- Ninguna skill ejecuta por sí misma seeds, migrations, tests de negocio, restores, merge ni deploy. Revisión/CI/merge son estados separados de haber creado los archivos.
+- Diferenciación obligatoria: `SIMULADO_VALIDADO` ≠ `ISOLATED_RESTORE_VERIFIED` ≠ `PRODUCCION_TECNICAMENTE_VERIFICADA` ≠ `PILOTO_REAL_VALIDADO`.
+- Verificar tras el PR: `cd project-manager-app && node --test tests/unit/semse-codex-skill-parity.test.mjs tests/unit/semse-skill-pack-contract.test.mjs`; `pnpm skill:route:report`; `pnpm test:unit`; CI requerido antes de merge.
+- **Límite:** no afirmar que están instaladas en `main` o en equipos/otras apps hasta que exista merge y se verifique su descubrimiento en ese entorno.
 
 ## Límites de completitud
 
