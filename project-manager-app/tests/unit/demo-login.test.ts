@@ -31,11 +31,12 @@ test("production never accepts the public default password, even with demo mode 
   assert.equal(resolveDemoLoginPassword({ NODE_ENV: "production", SEMSE_DEMO_PASSWORD: "   " }), null);
 });
 
-test("production requires an explicit password of at least the minimum length", () => {
+test("production forbids demo credentials even with an explicit long secret", () => {
   const tooShort = "x".repeat(MIN_PRODUCTION_DEMO_PASSWORD_LENGTH - 1);
   const longEnough = "y".repeat(MIN_PRODUCTION_DEMO_PASSWORD_LENGTH);
   assert.equal(resolveDemoLoginPassword({ NODE_ENV: "production", SEMSE_DEMO_PASSWORD: tooShort }), null);
-  assert.equal(resolveDemoLoginPassword({ NODE_ENV: "production", SEMSE_DEMO_PASSWORD: longEnough }), longEnough);
+  assert.equal(resolveDemoLoginPassword({ NODE_ENV: "production", SEMSE_DEMO_PASSWORD: longEnough }), null);
+  assert.equal(resolveDemoLoginPassword({ NODE_ENV: "development", SEMSE_DEMO_PASSWORD: longEnough }), longEnough);
 });
 
 test("demoPasswordMatches compares exactly and treats a closed demo login as no match", () => {
@@ -51,8 +52,10 @@ test("the web login route and the login page no longer hard-code or pre-fill the
   assert.ok(!route.includes('"demo1234"'), "token route must not compare against a literal demo password");
   assert.ok(route.includes("resolveDemoLoginPassword"), "token route must use the resolver");
   assert.ok(route.includes("demoPasswordMatches"), "token route must use the constant-time matcher");
+  assert.ok(route.includes('const DEMO_LOGIN_ENABLED = process.env.NODE_ENV !== "production"'), "BFF demo fallback must be production-disabled");
 
   const page = read("apps/web/app/login/page.tsx");
+  assert.ok(page.includes('const DEMO_LOGIN_ENABLED = process.env.NODE_ENV !== "production"'));
   assert.ok(page.includes('const SHOW_DEMO_PASSWORD = DEMO_LOGIN_ENABLED && process.env.NODE_ENV !== "production"'));
   assert.ok(page.includes('useState(SHOW_DEMO_PASSWORD ? "demo1234" : "")'), "password pre-fill must be gated");
   assert.ok(page.includes("{SHOW_DEMO_PASSWORD && ("), "the visible password hint must be gated");

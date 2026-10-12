@@ -6,9 +6,8 @@ import { useSearchParams } from "next/navigation";
 import { normalizeSafeRedirectPath } from "@/lib/safe-redirect";
 import { flushProductEvents, trackProductEvent } from "@/lib/product-intelligence";
 
-const DEMO_LOGIN_ENABLED =
-  process.env.NEXT_PUBLIC_SEMSE_DEMO_LOGIN_ENABLED?.trim() === "true" ||
-  process.env.NODE_ENV !== "production";
+// Never advertise demo identities on a production login screen.
+const DEMO_LOGIN_ENABLED = process.env.NODE_ENV !== "production";
 
 // The public default demo password is only ever shown or pre-filled outside production.
 const SHOW_DEMO_PASSWORD = DEMO_LOGIN_ENABLED && process.env.NODE_ENV !== "production";

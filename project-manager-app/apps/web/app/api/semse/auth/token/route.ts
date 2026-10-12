@@ -18,8 +18,8 @@ const LOGIN_RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
 const LOGIN_RATE_LIMIT_MAX_EMAIL = 10;
 const LOGIN_RATE_LIMIT_MAX_IP = 30;
 const GENERIC_LOGIN_ERROR = "No se pudo iniciar sesión con esas credenciales";
-const DEMO_LOGIN_ENABLED =
-  process.env.SEMSE_DEMO_MODE === "true" || process.env.NODE_ENV !== "production";
+// Production cannot manufacture a local demo session even if the API is unavailable.
+const DEMO_LOGIN_ENABLED = process.env.NODE_ENV !== "production";
 
 const DEMO_ACCOUNTS: Record<string, Omit<SessionPayload, "exp">> = {
   "worker@demo.semse": {

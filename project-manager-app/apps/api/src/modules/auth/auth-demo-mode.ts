@@ -29,7 +29,8 @@ const LEGACY_DEMO_USER_IDS = new Set(
 );
 
 export function isLegacyDemoLoginEnabled(): boolean {
-  return process.env.SEMSE_DEMO_MODE === "true" || process.env.NODE_ENV !== "production";
+  // Seeded demo identities must never authenticate in production, even when the demo flag is enabled.
+  return process.env.NODE_ENV !== "production";
 }
 
 export function isDisabledDemoIdentity(userId: string, roles: string[]): boolean {
@@ -44,25 +45,16 @@ export function isDisabledDemoIdentity(userId: string, roles: string[]): boolean
 
 /**
  * Password for the legacy demo accounts. `demo1234` is public (repository, seed, docs), so it is
- * only acceptable outside production. In production demo login needs an explicit
- * SEMSE_DEMO_PASSWORD of at least 12 characters; otherwise it stays closed even when
- * SEMSE_DEMO_MODE is "true".
+ * only acceptable outside production. Legacy demo authentication is disabled in
+ * production regardless of SEMSE_DEMO_MODE or SEMSE_DEMO_PASSWORD.
  */
 export const LOCAL_DEV_DEMO_PASSWORD = "demo1234";
 export const MIN_PRODUCTION_DEMO_PASSWORD_LENGTH = 12;
 
 export function resolveDemoLoginPassword(env: Record<string, string | undefined> = process.env): string | null {
-  const configured = env.SEMSE_DEMO_PASSWORD?.trim();
-
-  if (env.NODE_ENV !== "production") {
-    return configured || LOCAL_DEV_DEMO_PASSWORD;
-  }
-
-  if (!configured || configured.length < MIN_PRODUCTION_DEMO_PASSWORD_LENGTH || configured === LOCAL_DEV_DEMO_PASSWORD) {
-    return null;
-  }
-
-  return configured;
+  // Fail closed: a configured password cannot authorize demo access in production.
+  if (env.NODE_ENV === "production") return null;
+  return env.SEMSE_DEMO_PASSWORD?.trim() || LOCAL_DEV_DEMO_PASSWORD;
 }
 
 /** Constant-time comparison; `expected === null` means demo login is closed. */

@@ -15,7 +15,7 @@ test("production identifies persisted legacy demo accounts as disabled", (t) => 
   });
 
   process.env.NODE_ENV = "production";
-  process.env.SEMSE_DEMO_MODE = "false";
+  process.env.SEMSE_DEMO_MODE = "true";
 
   assert.equal(isLegacyDemoLoginEnabled(), false);
   assert.ok("admin@demo.semse" in LEGACY_DEMO_ACCOUNTS);
@@ -42,7 +42,8 @@ test("API demo password: public default only outside production", () => {
     null,
   );
   const strong = "z".repeat(MIN_PRODUCTION_DEMO_PASSWORD_LENGTH);
-  assert.equal(resolveDemoLoginPassword({ NODE_ENV: "production", SEMSE_DEMO_PASSWORD: strong }), strong);
+  assert.equal(resolveDemoLoginPassword({ NODE_ENV: "production", SEMSE_DEMO_PASSWORD: strong }), null);
+  assert.equal(resolveDemoLoginPassword({ NODE_ENV: "development", SEMSE_DEMO_PASSWORD: strong }), strong);
 });
 
 test("API demo password match is exact and closed when no password is allowed", () => {
