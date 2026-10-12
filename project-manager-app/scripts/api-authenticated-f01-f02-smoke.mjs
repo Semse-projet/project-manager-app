@@ -204,7 +204,16 @@ async function revocation() {
   const owner = persons[0];
   await request("POST", "/v1/auth/logout", { token: owner.token, body: {} });
   await request("GET", "/v1/auth/me", { token: owner.token, expectedStatus: 401 });
-  console.log("[AUTH] revoked session rejected PASS");
+
+  // Active sessions are re-authorized against current organization membership.
+  const pro2 = persons[3];
+  const revokedMembership = await prisma.membership.updateMany({
+    where: { userId: pro2.userId, orgId: pro2.orgId, status: "ACTIVE" },
+    data: { status: "SUSPENDED" },
+  });
+  assert.equal(revokedMembership.count, 1);
+  await request("GET", "/v1/auth/me", { token: pro2.token, expectedStatus: 401 });
+  console.log("[AUTH] revoked session and suspended membership rejected PASS");
 }
 
 async function main() {
