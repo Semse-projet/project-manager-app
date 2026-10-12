@@ -7,6 +7,7 @@ import {
   detectCategoryFromText,
   getCategoryConfidence,
 } from "./config/category-registry.js";
+import { SIZE_SCALES, resolveSizeScale } from "./config/size-scales.js";
 import { getScoringProfile, type CategoryScoringProfile } from "./config/scoring-profiles.js";
 import type {
   AccuracyLevel,
@@ -252,13 +253,29 @@ export function derivePaintingScope(answers: IntakeAnswer[]): {
   };
 }
 
-function descriptionLooksSpanish(rawDescription: string): boolean {
-  const lower = rawDescription.toLowerCase();
-  return [" pared", " pintura", " quiero", " necesito", " humedad", " moho "].some((token) => lower.includes(token.trim()));
-}
+// Words that belong to one language only (shared ones such as "a", "me", "no" are left out).
+const SPANISH_WORDS = new Set([
+  "el", "los", "las", "una", "unos", "unas", "del", "que", "para", "con", "por", "pero", "como", "mi", "mis",
+  "necesito", "quiero", "tengo", "hay", "esta", "este", "esto", "estoy", "casa", "mucho", "muy", "tambien",
+  "pared", "paredes", "pintura", "humedad", "moho", "arreglar", "reparar", "cambiar", "instalar", "baño",
+  "cocina", "techo", "piso", "pisos", "puerta", "ventana", "fuga", "limpieza", "favor", "hola", "donde",
+]);
+const ENGLISH_WORDS = new Set([
+  "the", "and", "my", "need", "want", "have", "has", "with", "for", "this", "that", "is", "are", "it", "of",
+  "to", "in", "on", "from", "please", "house", "home", "room", "wall", "walls", "paint", "repair", "fix",
+  "install", "replace", "kitchen", "bathroom", "roof", "floor", "door", "window", "leak", "cleaning", "hello",
+]);
 
 export function detectLanguage(rawDescription: string): "es" | "en" {
-  return descriptionLooksSpanish(rawDescription) ? "es" : "en";
+  const lower = rawDescription.toLowerCase();
+  // Spanish punctuation and accented vowels are strong evidence on their own.
+  let spanish = (lower.match(/[¿¡ñáéíóú]/g) ?? []).length * 2;
+  let english = 0;
+  for (const word of lower.match(/[a-záéíóúñü]+/g) ?? []) {
+    if (SPANISH_WORDS.has(word)) spanish += 1;
+    if (ENGLISH_WORDS.has(word)) english += 1;
+  }
+  return spanish > english ? "es" : "en";
 }
 
 export function isPaintingCategory(input: {
@@ -821,70 +838,9 @@ function resolveHoursFromSize(intake: ProjectIntakeRecord): { min: number; max: 
 }
 
 function resolveSizeMultiplier(intake: ProjectIntakeRecord): number {
-  switch (intake.detectedCategory) {
-    case "bathroom_remodel": {
-      const size = resolveFirstAnswer(intake.answers, "bathroom_size");
-      return size === "small" ? 0.65 : size === "large" ? 1.4 : size === "extra_large" ? 1.9 : 1.0;
-    }
-    case "kitchen_remodel": {
-      const size = resolveFirstAnswer(intake.answers, "kitchen_size");
-      return size === "small" ? 0.55 : size === "large" ? 1.4 : size === "extra_large" ? 1.85 : 1.0;
-    }
-    case "general_carpentry": {
-      const units = resolveFirstAnswer(intake.answers, "carpentry_units");
-      return units === "small" ? 0.5 : units === "large" ? 2.1 : 1.0;
-    }
-    case "plumbing_repair": {
-      const scope = resolveFirstAnswer(intake.answers, "plumbing_scope");
-      return scope === "small" ? 0.6 : scope === "large" ? 1.8 : 1.0;
-    }
-    case "electrical_work": {
-      const scope = resolveFirstAnswer(intake.answers, "electrical_scope");
-      return scope === "small" ? 0.6 : scope === "large" ? 1.9 : 1.0;
-    }
-    case "flooring_installation": {
-      const scope = resolveFirstAnswer(intake.answers, "flooring_scope");
-      return scope === "small" ? 0.6 : scope === "large" ? 2.0 : 1.0;
-    }
-    case "landscaping": {
-      const scope = resolveFirstAnswer(intake.answers, "landscaping_scope");
-      return scope === "small" ? 0.6 : scope === "large" ? 1.9 : 1.0;
-    }
-    case "roofing": {
-      const scope = resolveFirstAnswer(intake.answers, "roofing_scope");
-      return scope === "small" ? 0.5 : scope === "large" ? 2.2 : 1.0;
-    }
-    case "hvac": {
-      const scope = resolveFirstAnswer(intake.answers, "hvac_scope");
-      return scope === "small" ? 0.6 : scope === "large" ? 2.0 : 1.0;
-    }
-    case "fencing_decks": {
-      const scope = resolveFirstAnswer(intake.answers, "fencing_scope");
-      return scope === "small" ? 0.5 : scope === "large" ? 2.2 : 1.0;
-    }
-    case "handyman": {
-      const scope = resolveFirstAnswer(intake.answers, "handyman_scope");
-      return scope === "small" ? 0.5 : scope === "large" ? 2.0 : 1.0;
-    }
-    case "masonry_concrete": {
-      const scope = resolveFirstAnswer(intake.answers, "masonry_scope");
-      return scope === "small" ? 0.5 : scope === "large" ? 2.5 : 1.0;
-    }
-    case "demolition": {
-      const scope = resolveFirstAnswer(intake.answers, "demolition_scope");
-      return scope === "small" ? 0.5 : scope === "large" ? 2.5 : 1.0;
-    }
-    case "moving": {
-      const scope = resolveFirstAnswer(intake.answers, "moving_scope");
-      return scope === "small" ? 0.6 : scope === "large" ? 2.2 : 1.0;
-    }
-    case "pressure_washing": {
-      const scope = resolveFirstAnswer(intake.answers, "pw_scope");
-      return scope === "small" ? 0.5 : scope === "large" ? 2.2 : 1.0;
-    }
-    default:
-      return 1.0;
-  }
+  const scale = SIZE_SCALES[intake.detectedCategory];
+  if (!scale) return 1.0;
+  return resolveSizeScale(intake.detectedCategory, resolveFirstAnswer(intake.answers, scale.questionId));
 }
 
 function resolveMaterialMultiplier(intake: ProjectIntakeRecord): number {
