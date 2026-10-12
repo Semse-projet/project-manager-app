@@ -31,6 +31,43 @@ function toQueueJobId(input: QueueRunInput): string {
   return `${input.tenantId}__${input.runId}`.replace(/[^a-zA-Z0-9_-]/g, "_");
 }
 
+export type EnqueueRunResult = {
+  enqueued: boolean;
+  reason?: "JOB_ACTIVE" | "QUEUE_UNAVAILABLE" | "QUEUE_ERROR";
+};
+
+type RetryJobHandle = { getState(): Promise<string>; remove(): Promise<void> };
+
+/**
+ * Decides what to do with an existing job that shares the retry's jobId.
+ * Only finished (failed/completed) jobs are removed; pending work is kept and
+ * an active job is never touched.
+ */
+export async function prepareRetryJob(
+  queue: { getJob(id: string): Promise<RetryJobHandle | undefined | null> },
+  jobId: string
+): Promise<{ decision: "add" | "keep" | "active" | "error"; previousState?: string }> {
+  const job = await queue.getJob(jobId);
+  if (!job) return { decision: "add" };
+  const previousState = await job.getState();
+  if (["waiting", "delayed", "prioritized", "waiting-children"].includes(previousState)) {
+    return { decision: "keep", previousState };
+  }
+  if (previousState === "active") return { decision: "active", previousState };
+  if (previousState === "failed" || previousState === "completed") {
+    try {
+      await job.remove();
+    } catch {
+      // Removed concurrently, or locked: only proceed if the id is really free now.
+      const again = await queue.getJob(jobId);
+      if (again) return { decision: "error", previousState };
+    }
+    return { decision: "add", previousState };
+  }
+  // "unknown" or an unrecognised state: do not guess.
+  return { decision: "error", previousState };
+}
+
 @Injectable()
 export class AgentQueueService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(AgentQueueService.name);
@@ -44,23 +81,55 @@ export class AgentQueueService implements OnModuleInit, OnModuleDestroy {
     this.ensureQueueConnected().catch(() => undefined);
   }
 
-  async enqueueRun(input: QueueRunInput): Promise<void> {
-    await this.ensureQueueConnected();
+  /**
+   * `create` (default) keeps the historical idempotent `add` by jobId.
+   * `retry` is used by RETRY/REQUEUE: BullMQ silently ignores `add` while a
+   * finished job with the same id is retained (removeOnFail/removeOnComplete),
+   * which left re-queued runs orphaned in `QUEUED`. See
+   * docs/specs/agents/agent-queue-retry-idempotency.spec.md.
+   */
+  async enqueueRun(
+    input: QueueRunInput,
+    options: { mode?: "create" | "retry" } = {}
+  ): Promise<EnqueueRunResult> {
+    const mode = options.mode ?? "create";
+    try {
+      await this.ensureQueueConnected();
+    } catch (error) {
+      if (mode === "create") throw error;
+      return { enqueued: false, reason: "QUEUE_UNAVAILABLE" };
+    }
 
     if (!this.queue) {
       this.logger.warn(`Queue unavailable; agent run '${input.runId}' left queued in persistence only`);
-      return;
+      return { enqueued: false, reason: "QUEUE_UNAVAILABLE" };
     }
 
-    const { priority, ...jobData } = input;
-    await this.queue.add(
-      input.agentType,
-      { ...jobData, ...buildQueueTracePayload() },
-      {
-        jobId: toQueueJobId(input),
-        priority: priority ?? resolveJobPriority(input.agentType)
+    const jobId = toQueueJobId(input);
+    try {
+      if (mode === "retry") {
+        const action = await prepareRetryJob(this.queue, jobId);
+        this.logger.log(`Agent run '${input.runId}' retry: previous job state '${action.previousState ?? "none"}' -> ${action.decision}`);
+        if (action.decision === "keep") return { enqueued: true };
+        if (action.decision === "active") return { enqueued: false, reason: "JOB_ACTIVE" };
+        if (action.decision === "error") return { enqueued: false, reason: "QUEUE_ERROR" };
       }
-    );
+
+      const { priority, ...jobData } = input;
+      await this.queue.add(
+        input.agentType,
+        { ...jobData, ...buildQueueTracePayload() },
+        {
+          jobId,
+          priority: priority ?? resolveJobPriority(input.agentType)
+        }
+      );
+      return { enqueued: true };
+    } catch (error) {
+      if (mode === "create") throw error;
+      this.logger.warn(`Agent run '${input.runId}' retry enqueue failed: ${error instanceof Error ? error.message : String(error)}`);
+      return { enqueued: false, reason: "QUEUE_ERROR" };
+    }
   }
 
   async getMetrics(): Promise<{
