@@ -30,7 +30,7 @@ El runbook pedía `_prisma_migrations` "sin filas `failed`". La copia restaurada
 ## Qué NO cubre este reporte
 
 - **Backups nativos de Railway:** otro reporte registra que el owner declaró haberlos creado el 2026-10-11. Este drill no los inspecciona ni los restaura; valida solo un dump lógico propio.
-- **Backups programados:** no existe aún un job periódico. RPO real hoy: el del último dump manual.
+- **Backups programados:** no se ha verificado desde este reporte un calendario ni una política de retención. El dump manual de este ejercicio fue destruido y **no constituye un punto recuperable**. RPO efectivo: **sin demostrar**, hasta inspeccionar un snapshot retenido y sus fechas.
 - **Redis:** sin drill.
 - **Volumen de archivos (`/data`):** sin drill; ver `docs/reportes/` de Field Memory.
 - **Almacenamiento externo cifrado del dump** y retención: sin decidir.
@@ -41,6 +41,22 @@ El runbook pedía `_prisma_migrations` "sin filas `failed`". La copia restaurada
 - `railway ssh -- <cmd>` une los argumentos y los pasa a `bash -c`: `sh -c '...'` se rompe silenciosamente (dump de 0 bytes con exit 0). Pasar la orden completa como **un solo argumento** y verificar el tamaño del archivo.
 - Un `pg_restore` 16 no lee un dump de `pg_dump` 18. El script versionado usa `postgres:18` por defecto y exige revisar `DRILL_PG_IMAGE` si cambia la versión de origen.
 - En Git Bash, `docker cp` de rutas de `mktemp` falla; el script pasa el dump por stdin.
+
+## Inventario Railway — comprobación adicional de solo lectura (2026-10-12)
+
+Se consultó el inventario **production** del proyecto Railway `SEMSEproject`, sin acceder a datos de usuarios ni modificar servicios. Confirmado: volúmenes persistentes `postgres-volume` montado en `Postgres` (`/var/lib/postgresql/data`), `redis-volume` en `Redis` (`/data`) y `project-manager-app-volume` en `semse-API` (`/data`). Los servicios declaraban desplegados sus últimos artefactos con estado `SUCCESS`. No había buckets Railway propios enumerados.
+
+**Limitación de evidencia:** esta consulta enumera volúmenes y buckets, **no inventaría snapshots/backups nativos**, su periodicidad, retención, verificabilidad o posibilidad de restauración. La ausencia de bucket no prueba que falten backups gestionados por Railway. El siguiente gate exige inspeccionar manualmente los respaldos nativos que declaró el owner y ejecutar una recuperación de uno de ellos en destino aislado, documentando checksum, fecha y comportamiento de aplicaciones sin cambiar producción.
+
+### Matriz de cierre F07
+
+| Componente | Evidencia actual | Estado |
+|---|---|---|
+| Dump lógico PG + restore aislado | Reporte 2026-10-12, conteos 8/8 | PARCIAL: integridad y funcionamiento completos no probados |
+| Snapshot nativo Railway Postgres | No inventariado ni restaurado | PENDIENTE |
+| Volumen `/data` de API: fotos y originales | Montado, respaldos/restore no acreditados | PENDIENTE |
+| Redis | Volumen montado, respaldo/restore no acreditados | PENDIENTE |
+| RPO/RTO de SEMSE | Sin ejercicio integral desde backup retenido | NO DEMOSTRADO |
 
 ## Siguiente
 
