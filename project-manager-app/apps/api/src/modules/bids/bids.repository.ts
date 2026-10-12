@@ -51,14 +51,35 @@ export class BidsRepository {
     jobId: string;
     orgId: string;
     userId: string;
+    roles: string[];
   }): Promise<BidRecord[]> {
     await this.actorContextService.ensureActorContext(input);
+
+    // Permission "bids:read" is shared with PRO/WORKER for /v1/my-bids.
+    // It does not authorize reading competitors' quotes for an arbitrary job.
+    // Authorize the resource before querying its sensitive bid rows.
+    const job = await this.prisma.job.findFirst({
+      where: {
+        id: input.jobId,
+        tenantId: input.tenantId,
+        deletedAt: null
+      },
+      select: { clientOrgId: true }
+    });
+    if (!job) {
+      throw new NotFoundException("Job not found");
+    }
+    if (!input.roles.includes("OPS_ADMIN") &&
+        (!input.roles.includes("CLIENT") || !sameOrg(job.clientOrgId, input.orgId))) {
+      throw new ForbiddenException("actor cannot list bids for this job");
+    }
 
     const bids = (await this.prisma.bid.findMany({
       where: {
         jobId: input.jobId,
         job: {
-          tenantId: input.tenantId
+          tenantId: input.tenantId,
+          deletedAt: null
         }
       },
       include: {
@@ -71,11 +92,11 @@ export class BidsRepository {
           }
         },
         professional: {
-            select: {
-              email: true,
-              ratingsReceived: { select: { score: true }, take: 100 }
-            }
+          select: {
+            email: true,
+            ratingsReceived: { select: { score: true }, take: 100 }
           }
+        }
       },
       orderBy: { createdAt: "desc" }
     })) as StoredBid[];
