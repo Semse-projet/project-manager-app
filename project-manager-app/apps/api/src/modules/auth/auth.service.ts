@@ -14,9 +14,11 @@ import { generateOpaqueToken, hashPassword, sha256, verifyPassword } from "../..
 import { signToken, verifyToken } from "../../common/auth-token.js";
 import { type RequestContext, parseHeaderRequestContext } from "../../common/request-context.js";
 import {
+  demoPasswordMatches,
   isDisabledDemoIdentity,
   isLegacyDemoLoginEnabled,
   LEGACY_DEMO_ACCOUNTS,
+  resolveDemoLoginPassword,
 } from "./auth-demo-mode.js";
 import { AuthRepository } from "./auth.repository.js";
 
@@ -554,7 +556,7 @@ export class AuthService {
     }
 
     const account = LEGACY_DEMO_ACCOUNTS[normalizedEmail];
-    if (!account || input.password !== "demo1234") {
+    if (!account || !demoPasswordMatches(input.password, resolveDemoLoginPassword())) {
       throw new UnauthorizedException("Credenciales incorrectas");
     }
 

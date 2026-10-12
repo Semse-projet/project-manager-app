@@ -10,6 +10,9 @@ const DEMO_LOGIN_ENABLED =
   process.env.NEXT_PUBLIC_SEMSE_DEMO_LOGIN_ENABLED?.trim() === "true" ||
   process.env.NODE_ENV !== "production";
 
+// The public default demo password is only ever shown or pre-filled outside production.
+const SHOW_DEMO_PASSWORD = DEMO_LOGIN_ENABLED && process.env.NODE_ENV !== "production";
+
 function errorMessage(error: unknown, fallback: string): string {
   if (typeof error === "string") return error;
   if (error && typeof error === "object" && "message" in error) {
@@ -50,7 +53,7 @@ const PRESETS = [
 export default function LoginPage() {
   const searchParams = useSearchParams();
   const [email, setEmail]       = useState(DEMO_LOGIN_ENABLED ? "client@demo.semse" : "");
-  const [password, setPassword] = useState(DEMO_LOGIN_ENABLED ? "demo1234" : "");
+  const [password, setPassword] = useState(SHOW_DEMO_PASSWORD ? "demo1234" : "");
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState<string | null>(null);
   const redirectTo = normalizeSafeRedirectPath(searchParams?.get("from")) ?? undefined;
@@ -366,7 +369,7 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {DEMO_LOGIN_ENABLED && (
+          {SHOW_DEMO_PASSWORD && (
             <p
               style={{
                 marginTop: "14px",

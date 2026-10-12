@@ -7,6 +7,7 @@ import {
   type SessionPayload,
 } from "@/lib/auth";
 import { resolveSafeRedirectPath } from "@/lib/safe-redirect";
+import { demoPasswordMatches, resolveDemoLoginPassword } from "@/lib/demo-login";
 
 const TTL_SECONDS = 8 * 60 * 60;
 const LOGIN_RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
@@ -161,7 +162,7 @@ async function resolveSessionPayload(input: {
   }
 
   const account = DEMO_ACCOUNTS[input.email.toLowerCase().trim()];
-  if (!account || input.password !== "demo1234") {
+  if (!account || !demoPasswordMatches(input.password, resolveDemoLoginPassword())) {
     throw new Error("Credenciales incorrectas");
   }
 

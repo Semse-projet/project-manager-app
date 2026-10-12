@@ -1,3 +1,5 @@
+import { createHash, timingSafeEqual } from "node:crypto";
+
 export const LEGACY_DEMO_ACCOUNTS: Record<
   string,
   { userId: string; tenantId: string; orgId: string; roles: string[] }
@@ -38,4 +40,35 @@ export function isDisabledDemoIdentity(userId: string, roles: string[]): boolean
   const agroDemoEnabled =
     process.env.DEMO_MODE_ENABLED === "true" || process.env.NODE_ENV !== "production";
   return roles.includes("DEMO_AGRO") && !agroDemoEnabled;
+}
+
+/**
+ * Password for the legacy demo accounts. `demo1234` is public (repository, seed, docs), so it is
+ * only acceptable outside production. In production demo login needs an explicit
+ * SEMSE_DEMO_PASSWORD of at least 12 characters; otherwise it stays closed even when
+ * SEMSE_DEMO_MODE is "true".
+ */
+export const LOCAL_DEV_DEMO_PASSWORD = "demo1234";
+export const MIN_PRODUCTION_DEMO_PASSWORD_LENGTH = 12;
+
+export function resolveDemoLoginPassword(env: Record<string, string | undefined> = process.env): string | null {
+  const configured = env.SEMSE_DEMO_PASSWORD?.trim();
+
+  if (env.NODE_ENV !== "production") {
+    return configured || LOCAL_DEV_DEMO_PASSWORD;
+  }
+
+  if (!configured || configured.length < MIN_PRODUCTION_DEMO_PASSWORD_LENGTH || configured === LOCAL_DEV_DEMO_PASSWORD) {
+    return null;
+  }
+
+  return configured;
+}
+
+/** Constant-time comparison; `expected === null` means demo login is closed. */
+export function demoPasswordMatches(candidate: string, expected: string | null): boolean {
+  if (expected === null) return false;
+  const a = createHash("sha256").update(candidate).digest();
+  const b = createHash("sha256").update(expected).digest();
+  return timingSafeEqual(a, b);
 }
