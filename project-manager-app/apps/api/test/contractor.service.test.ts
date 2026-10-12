@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { NotFoundException } from "@nestjs/common";
 import { ContractorService } from "../dist/modules/contractor/contractor.service.js";
 
 function makePrisma() {
@@ -16,6 +17,7 @@ function makePrisma() {
       async findMany({ where, take }: { where?: Record<string, unknown>; orderBy?: unknown; take?: number }) {
         let results = store.filter((row) => {
           if (where?.tenantId && row.tenantId !== where.tenantId) return false;
+          if (where?.orgId && row.orgId !== where.orgId) return false;
           if (where?.status && row.status !== where.status) return false;
           return true;
         });
@@ -23,7 +25,7 @@ function makePrisma() {
         return results;
       },
       async findFirst({ where }: { where: Record<string, unknown> }) {
-        return store.find((row) => row.id === where.id && row.tenantId === where.tenantId) ?? null;
+        return store.find((row) => row.id === where.id && row.tenantId === where.tenantId && row.orgId === where.orgId) ?? null;
       },
       async update({ where, data }: { where: { id: string }; data: Record<string, unknown> }) {
         const idx = store.findIndex((row) => row.id === where.id);
@@ -89,7 +91,7 @@ test("ContractorService updates lead status", async () => {
     name: "María González",
   });
 
-  const updated = await service.updateLead(lead.id, "tenant_default", { status: "contacted" });
+  const updated = await service.updateLead(lead.id, "tenant_default", "org_1", { status: "contacted" });
   assert.equal(updated.status, "contacted");
   assert.equal(updated.name, "María González");
 });
@@ -100,10 +102,43 @@ test("ContractorService getStats returns counts by status", async () => {
   await service.createLead({ tenantId: "t1", orgId: "o1", createdBy: "u1", name: "A" });
   await service.createLead({ tenantId: "t1", orgId: "o1", createdBy: "u1", name: "B" });
   const c = await service.createLead({ tenantId: "t1", orgId: "o1", createdBy: "u1", name: "C" });
-  await service.updateLead(c.id, "t1", { status: "estimate_sent" });
+  await service.updateLead(c.id, "t1", "o1", { status: "estimate_sent" });
 
   const stats = await service.getStats("t1");
   assert.equal(stats.total, 3);
   assert.equal(stats.new, 2);
   assert.equal(stats.estimate_sent, 1);
+});
+
+
+test("F02 contractor CRM prevents cross-organization GET, PATCH and DELETE within one tenant", async () => {
+  const service = new ContractorService(makePrisma() as never);
+  const lead = await service.createLead({
+    tenantId: "tenant_shared", orgId: "org_owner", createdBy: "user_owner",
+    name: "TEST Private Contract",
+  });
+
+  await assert.rejects(() => service.getLead(lead.id, "tenant_shared", "org_foreign"), NotFoundException);
+  await assert.rejects(
+    () => service.updateLead(lead.id, "tenant_shared", "org_foreign", { status: "completed" }),
+    NotFoundException,
+  );
+  await assert.rejects(() => service.deleteLead(lead.id, "tenant_shared", "org_foreign"), NotFoundException);
+
+  const ownerRead = await service.getLead(lead.id, "tenant_shared", "org_owner");
+  assert.equal(ownerRead.status, "new", "foreign organization must not modify lead");
+  assert.equal(ownerRead.name, "TEST Private Contract");
+
+  await service.updateLead(lead.id, "tenant_shared", "org_owner", { status: "contacted" });
+  assert.equal((await service.getLead(lead.id, "tenant_shared", "org_owner")).status, "contacted");
+  await service.deleteLead(lead.id, "tenant_shared", "org_owner");
+  await assert.rejects(() => service.getLead(lead.id, "tenant_shared", "org_owner"), NotFoundException);
+});
+
+test("F02 contractor lead from another tenant is invisible even with the same org", async () => {
+  const service = new ContractorService(makePrisma() as never);
+  const lead = await service.createLead({
+    tenantId: "tenant_owner", orgId: "org_owner", createdBy: "user_owner", name: "TEST Tenant",
+  });
+  await assert.rejects(() => service.getLead(lead.id, "tenant_foreign", "org_owner"), NotFoundException);
 });
