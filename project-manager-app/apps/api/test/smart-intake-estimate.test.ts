@@ -5,6 +5,8 @@ import {
   generateMilestones,
   buildLiveSummary,
   buildInitialIntake,
+  derivePaintingScope,
+  categoryNeedsConfirmation,
 } from "../dist/modules/smart-intake/smart-intake.logic.js";
 
 function makeIntake(overrides: Record<string, unknown> = {}) {
@@ -215,4 +217,71 @@ test("buildLiveSummary returns 'Cleaning' for cleaning category", () => {
   const intake = makeIntake({ rawDescription: "Deep cleaning of my house" });
   const summary = buildLiveSummary(intake);
   assert.equal(summary.category, "Cleaning");
+});
+
+// ── area parsing ────────────────────────────────────────────────────────────
+
+test("custom area written as dimensions is multiplied, not averaged", () => {
+  const scoped = derivePaintingScope([
+    { questionId: "painting_area", selectedValues: ["other"], customText: "10x12", isNotSure: false, answeredAt: new Date().toISOString() },
+  ]);
+  assert.equal(scoped.projectScope.area?.value, 120);
+  for (const text of ["10 x 12 ft", "10 by 12", "10 por 12"]) {
+    const result = derivePaintingScope([
+      { questionId: "painting_area", selectedValues: ["other"], customText: text, isNotSure: false, answeredAt: new Date().toISOString() },
+    ]);
+    assert.equal(result.projectScope.area?.value, 120, text);
+  }
+});
+
+test("custom area written as a range is still averaged", () => {
+  const scoped = derivePaintingScope([
+    { questionId: "painting_area", selectedValues: ["other"], customText: "100-200", isNotSure: false, answeredAt: new Date().toISOString() },
+  ]);
+  assert.equal(scoped.projectScope.area?.value, 150);
+});
+
+test("painting estimate treats dimension text as a rectangle", () => {
+  const intake = makeIntake({ rawDescription: "Pintar la sala con 2 capas" });
+  const scope = derivePaintingScope([
+    { questionId: "painting_area", selectedValues: ["other"], customText: "10x12", isNotSure: false, answeredAt: new Date().toISOString() },
+  ]);
+  const est = generateEstimate({ ...intake, projectScope: scope.projectScope, estimatePreference: scope.estimatePreference });
+  assert.ok(!est.assumptions.some((a) => a.startsWith("Area assumed")));
+  // 120 sqft ±10% at the minimum labor rate must stay well under the 150–400 sqft fallback.
+  const fallback = generateEstimate(intake);
+  assert.ok(est.totalRange.max < fallback.totalRange.max);
+});
+
+// ── generic estimate keeps labor line consistent with the total ──────────────
+
+test("generic estimate labor line always matches totalRange and notes ignored preference", () => {
+  const base = makeIntake({
+    rawDescription: "I have a hole in my drywall that needs repair",
+    answers: [answer("drywall_type", ["repair"]), answer("drywall_area", ["10_100_sqft"])],
+  });
+  const est = generateEstimate({ ...base, estimatePreference: { includeLabor: false, includeMaterials: true, pricingMode: "not_sure" } });
+  assert.ok(est.breakdown.labor, "labor line must be present because rates are all-in");
+  assert.equal(est.totalRange.min, est.breakdown.labor!.min + est.breakdown.contingency.min);
+  assert.ok(est.assumptions.some((a) => a.includes("all-in rates")));
+  const normal = generateEstimate(base);
+  assert.ok(!normal.assumptions.some((a) => a.includes("all-in rates")));
+});
+
+// ── unconfirmed category ─────────────────────────────────────────────────────
+
+test("unmatched description needs category confirmation and yields a low-confidence estimate", () => {
+  const intake = makeIntake({ rawDescription: "Necesito arreglar algo en mi casa pronto" });
+  assert.equal(categoryNeedsConfirmation(intake), true);
+  const est = generateEstimate(intake);
+  assert.equal(est.confidence, "low");
+  assert.ok(est.assumptions[0].includes("Category was not confirmed"));
+});
+
+test("explicit or keyword-matched category does not need confirmation", () => {
+  const picked = makeIntake({ rawDescription: "Necesito arreglar algo en mi casa pronto", selectedCategoryId: "pintura" });
+  assert.equal(categoryNeedsConfirmation(picked), false);
+  const matched = makeIntake({ rawDescription: "Pintar la sala con 2 capas" });
+  assert.equal(categoryNeedsConfirmation(matched), false);
+  assert.ok(!generateEstimate(matched).assumptions.some((a) => a.includes("Category was not confirmed")));
 });

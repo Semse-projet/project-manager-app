@@ -137,6 +137,7 @@ export type AnalyzeIntakeResponse = {
   intakeId: string;
   detectedCategory: string;
   categoryConfidence: number;
+  categoryNeedsConfirmation?: boolean;
   accuracyScore: number;
   accuracyLevel: AccuracyLevel;
   missingFields: string[];
