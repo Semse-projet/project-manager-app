@@ -40,7 +40,7 @@ async function request(method, route, { token, body, expectedStatus, spoofedHead
   const res = await fetch(new URL(route, base), {
     method,
     headers: {
-      "content-type": "application/json",
+      ...(body === undefined ? {} : { "content-type": "application/json" }),
       ...(token ? { authorization: "Bearer " + token } : {}),
       ...(spoofedHeaders ?? {}),
     },
