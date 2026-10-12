@@ -260,6 +260,7 @@ export default function LoginPage() {
           <form onSubmit={handleSubmit}>
             <div style={{ marginBottom: "14px" }}>
               <label
+                htmlFor="login-email"
                 style={{
                   display: "block",
                   fontSize: "12px",
@@ -271,7 +272,9 @@ export default function LoginPage() {
                 Email
               </label>
               <input
+                id="login-email"
                 type="email"
+                autoComplete="username"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 required
@@ -291,6 +294,7 @@ export default function LoginPage() {
 
             <div style={{ marginBottom: "20px" }}>
               <label
+                htmlFor="login-password"
                 style={{
                   display: "block",
                   fontSize: "12px",
@@ -302,7 +306,9 @@ export default function LoginPage() {
                 Contraseña
               </label>
               <input
+                id="login-password"
                 type="password"
+                autoComplete="current-password"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 required
@@ -322,6 +328,7 @@ export default function LoginPage() {
 
             {error && (
               <div
+                role="alert"
                 style={{
                   padding: "10px 14px",
                   borderRadius: "8px",

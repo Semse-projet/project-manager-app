@@ -43,3 +43,27 @@ test("non-admin shell nav items remain flat", () => {
   assert.equal(navItems[0].key, "/client/dashboard");
   assert.equal(navItems[0].label, "nav.dashboard");
 });
+
+const clientItems: ShellNavItem[] = [
+  { labelKey: "nav.postJob", href: "/client/jobs/new", icon },
+  { labelKey: "nav.myProjects", href: "/client/jobs", icon },
+  { labelKey: "nav.aiCopilot", href: "/client/projects", icon },
+];
+
+function activeKeys(pathname: string) {
+  return buildShellNavItems({ role: "client", items: clientItems, collapsed: false, pathname, t: (key) => key })
+    .filter((item) => item.active)
+    .map((item) => item.labelKey);
+}
+
+test("solo un ítem queda activo: la coincidencia más específica gana", () => {
+  assert.deepEqual(activeKeys("/client/jobs/new"), ["nav.postJob"]);
+  assert.deepEqual(activeKeys("/client/jobs"), ["nav.myProjects"]);
+  assert.deepEqual(activeKeys("/client/jobs/job_demo_005"), ["nav.myProjects"]);
+  assert.deepEqual(activeKeys("/client/projects/proj_1/copilot"), ["nav.aiCopilot"]);
+});
+
+test("un prefijo que no cae en frontera de segmento no activa el ítem", () => {
+  assert.deepEqual(activeKeys("/client/jobsearch"), []);
+  assert.deepEqual(activeKeys("/client/otra-ruta"), []);
+});

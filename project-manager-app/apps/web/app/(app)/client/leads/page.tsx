@@ -166,7 +166,7 @@ export default function LeadsPage() {
           <p style={{ fontSize: 12, color: "var(--muted)", margin: 0, marginTop: 2 }}>Gestiona tus contactos y oportunidades de trabajo</p>
         </div>
         <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
-          <button onClick={() => void load()} disabled={loading} style={{ padding: "7px 10px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--muted)", cursor: "pointer" }}>
+          <button onClick={() => void load()} disabled={loading} aria-label="Actualizar" style={{ padding: "7px 10px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--muted)", cursor: "pointer" }}>
             <RefreshCw size={14} style={{ display: "block" }} />
           </button>
           <button onClick={openNew} style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", borderRadius: 8, border: "none", background: "var(--brand)", color: "white", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
@@ -200,6 +200,7 @@ export default function LeadsPage() {
           />
         </div>
         <select
+          aria-label="Filtrar por estado"
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value as LeadStatus | "")}
           style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--ink)", fontSize: 13, cursor: "pointer" }}
@@ -255,7 +256,7 @@ export default function LeadsPage() {
               <h2 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: "var(--ink)" }}>
                 {editingLead ? "Editar lead" : "Nuevo lead"}
               </h2>
-              <button onClick={() => setShowForm(false)} style={{ padding: 4, border: "none", background: "transparent", color: "var(--muted)", cursor: "pointer" }}>
+              <button onClick={() => setShowForm(false)} aria-label="Cerrar" style={{ padding: 4, border: "none", background: "transparent", color: "var(--muted)", cursor: "pointer" }}>
                 <X size={16} />
               </button>
             </div>

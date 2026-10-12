@@ -48,9 +48,17 @@ export function buildShellNavItems({
   pathname: string;
   t: (key: string) => string;
 }): ShellNavLink[] {
+  // Solo el ítem con la coincidencia más específica queda activo; con `startsWith` a secas,
+  // /client/jobs/new activaba a la vez "Publicar trabajo" y "Mis proyectos" (/client/jobs).
+  const matchesPath = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
+  const activeHref = items.reduce<string | undefined>(
+    (best, item) => (matchesPath(item.href) && (best === undefined || item.href.length > best.length) ? item.href : best),
+    undefined,
+  );
+
   return items.map((item) => {
     const Icon = item.icon;
-    const active = pathname.startsWith(item.href);
+    const active = item.href === activeHref;
     const label = t(item.labelKey);
 
     return {

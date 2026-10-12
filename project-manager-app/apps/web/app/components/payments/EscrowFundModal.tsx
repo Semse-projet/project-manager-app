@@ -15,11 +15,11 @@ interface EscrowFundModalProps {
 }
 
 const PROVIDERS: { id: Provider; label: string; description: string; icon: typeof CreditCard; color: string }[] = [
-  { id: "stripe",        label: "Stripe",         description: "Tarjeta de crÃ©dito/dÃ©bito segura",     icon: CreditCard,  color: "#635bff" },
+  { id: "stripe",        label: "Stripe",         description: "Tarjeta de crédito/débito segura",     icon: CreditCard,  color: "#635bff" },
   { id: "paypal",        label: "PayPal",          description: "Cuenta PayPal o tarjeta vinculada",    icon: Globe,       color: "#003087" },
   { id: "bank-transfer", label: "Transferencia",   description: "ACH / SEPA / transferencia bancaria",  icon: Building2,   color: "var(--ok)" },
   { id: "adyen",         label: "Adyen",           description: "Pagos globales multi-canal",           icon: Wallet,      color: "#0abf53" },
-  { id: "mock",          label: "Sandbox",         description: "SimulaciÃ³n para pruebas y desarrollo", icon: CheckCircle, color: "var(--violet)" },
+  { id: "mock",          label: "Sandbox",         description: "Simulación para pruebas y desarrollo", icon: CheckCircle, color: "var(--violet)" },
 ];
 
 const METHODS_FOR_PROVIDER: Record<Provider, { id: MethodType; label: string }[]> = {
@@ -67,7 +67,7 @@ export function EscrowFundModal({ jobId, jobTitle, suggestedAmount, onClose, onS
 
   async function handleSubmit() {
     const amt = parseFloat(amount);
-    if (!amt || amt <= 0) { setErrMsg("Monto invÃ¡lido"); return; }
+    if (!amt || amt <= 0) { setErrMsg("Monto inválido"); return; }
     setStep("confirm");
   }
 
@@ -119,7 +119,7 @@ export function EscrowFundModal({ jobId, jobTitle, suggestedAmount, onClose, onS
     <div style={overlay}>
       <div role="status" aria-live="polite" style={{ ...modal, padding: "48px 32px", textAlign: "center" }}>
         <CheckCircle size={48} color="var(--ok)" style={{ margin: "0 auto 16px" }} />
-        <h2 style={{ fontSize: "20px", fontWeight: 800, color: "var(--ink)", marginBottom: "8px" }}>Â¡Escrow fondeado!</h2>
+        <h2 style={{ fontSize: "20px", fontWeight: 800, color: "var(--ink)", marginBottom: "8px" }}>¡Escrow fondeado!</h2>
         <p style={{ fontSize: "13px", color: "var(--muted)" }}>${parseFloat(amount).toLocaleString()} {currency} procesados via {selectedProvider.label}.</p>
         <p style={{ fontSize: "12px", color: "var(--faint)", marginTop: "6px" }}>El profesional puede comenzar el trabajo.</p>
       </div>
@@ -141,7 +141,7 @@ export function EscrowFundModal({ jobId, jobTitle, suggestedAmount, onClose, onS
             <h2 id={titleId} style={{ fontSize: "17px", fontWeight: 800, color: "var(--ink)" }}>Fondear escrow</h2>
             <p id={descriptionId} style={{ fontSize: "12px", color: "var(--muted)", marginTop: "2px" }}>{jobTitle}</p>
           </div>
-          <button type="button" aria-label="Cerrar confirmaciÃ³n" disabled={loading} onClick={onClose} style={{ padding: "6px", border: "none", background: "transparent", color: "var(--muted)", cursor: "pointer", borderRadius: "8px", display: "flex" }}>
+          <button type="button" aria-label="Cerrar confirmación" disabled={loading} onClick={onClose} style={{ padding: "6px", border: "none", background: "transparent", color: "var(--muted)", cursor: "pointer", borderRadius: "8px", display: "flex" }}>
             <X size={18} />
           </button>
         </div>
@@ -211,7 +211,7 @@ export function EscrowFundModal({ jobId, jobTitle, suggestedAmount, onClose, onS
 
               {/* Method */}
               <div>
-                <label style={{ fontSize: "11px", fontWeight: 700, color: "var(--muted)", display: "block", marginBottom: "6px" }}>MÃ‰TODO DE PAGO</label>
+                <label style={{ fontSize: "11px", fontWeight: 700, color: "var(--muted)", display: "block", marginBottom: "6px" }}>MÉTODO DE PAGO</label>
                 <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
                   {methods.map(m => (
                     <button
@@ -235,7 +235,7 @@ export function EscrowFundModal({ jobId, jobTitle, suggestedAmount, onClose, onS
               <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "10px 12px", borderRadius: "9px", background: "rgba(16,185,129,.06)", border: "1px solid rgba(16,185,129,.15)" }}>
                 <Lock size={12} color="var(--ok)" style={{ flexShrink: 0 }} />
                 <p style={{ fontSize: "11px", color: "var(--muted)", lineHeight: 1.5 }}>
-                  Los fondos quedan retenidos en escrow hasta que apruebes el trabajo. No se liberan sin tu autorizaciÃ³n.
+                  Los fondos quedan retenidos en escrow hasta que apruebes el trabajo. No se liberan sin tu autorización.
                 </p>
               </div>
 
@@ -255,8 +255,8 @@ export function EscrowFundModal({ jobId, jobTitle, suggestedAmount, onClose, onS
                   ["Proyecto", jobTitle],
                   ["Monto", `$${parseFloat(amount).toLocaleString()} ${currency}`],
                   ["Proveedor", selectedProvider.label],
-                  ["MÃ©todo", methods.find(m => m.id === method)?.label ?? method],
-                  ["Destino", "Escrow â€” protegido hasta aprobaciÃ³n"],
+                  ["Método", methods.find(m => m.id === method)?.label ?? method],
+                  ["Destino", "Escrow — protegido hasta aprobación"],
                 ].map(([k, v]) => (
                   <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
                     <span style={{ fontSize: "12px", color: "var(--muted)" }}>{k}</span>

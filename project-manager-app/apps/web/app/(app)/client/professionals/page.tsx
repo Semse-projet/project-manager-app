@@ -409,6 +409,7 @@ export default function ClientProfessionalsPage() {
               Selecciona un trabajo para encontrar candidatos
             </label>
             <select
+              aria-label="Trabajo para el que buscas candidatos"
               value={selectedJobId}
               onChange={(e) => setSelectedJobId(e.target.value)}
               style={{

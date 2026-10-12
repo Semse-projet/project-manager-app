@@ -221,6 +221,8 @@ export function MilestoneTrackerCard({ milestone, role, onAction, className = ""
           <button
             type="button"
             onClick={() => setExpanded(e => !e)}
+            aria-label={expanded ? "Contraer hito" : "Expandir hito"}
+            aria-expanded={expanded}
             className="flex-shrink-0 rounded-lg p-1.5 text-muted hover:text-ink hover:bg-white/[0.05] transition"
           >
             {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
