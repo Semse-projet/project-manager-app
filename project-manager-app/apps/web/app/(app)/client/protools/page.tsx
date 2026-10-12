@@ -126,7 +126,7 @@ export default function ProToolsPage() {
         <div style={{ display: "grid", gap: 14 }}>
           <div>
             <label style={{ fontSize: 10, fontWeight: 700, color: "var(--muted)", display: "block", marginBottom: 6 }}>TIPO DE TRABAJO</label>
-            <select value={trade} onChange={(e) => setTrade(e.target.value)}
+            <select aria-label="Tipo de trabajo" value={trade} onChange={(e) => setTrade(e.target.value)}
               style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--ink)", fontSize: 13 }}>
               {TRADES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
             </select>

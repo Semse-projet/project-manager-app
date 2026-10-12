@@ -23,6 +23,7 @@ import { QuickActions } from "./QuickActions";
 import { PrometeoMascot } from "./PrometeoMascot";
 import type { MascotMood } from "../../../lib/prometeo-mascot";
 import { MissionSuggestion } from "./MissionSuggestion";
+import { useModalOpen } from "../../../lib/use-modal-open";
 
 function newId(): string {
   return typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -44,6 +45,7 @@ export function PrometeoCopilot() {
   }, [pathname]);
   const { context, loading } = useCopilotContext();
   const [open, setOpen] = useState(false);
+  const modalOpen = useModalOpen();
   const [messages, setMessages] = useState<CopilotMessage[]>([]);
   const [pending, setPending] = useState(false);
   const [sessionId, setSessionId] = useState<string | undefined>();
@@ -233,6 +235,8 @@ export function PrometeoCopilot() {
   }
 
   if (!open) {
+    // Un modal abierto manda: no tapar sus botones de confirmación.
+    if (modalOpen) return null;
     return (
       <div className="fixed bottom-16 right-3 z-50">
         <PrometeoMascot size={140} mood={shownMood} onActivate={() => setOpen(true)} label="Abrir Prometeo Copilot" />

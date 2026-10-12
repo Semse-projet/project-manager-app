@@ -445,6 +445,8 @@ function Topbar({
       }}
     >
       <button
+        type="button"
+        aria-label={t("ui.openMenu")}
         onClick={onMenuOpen}
         style={{
           display: "none",
@@ -615,7 +617,8 @@ function AppLayoutInner({ children }: { children: ReactNode }) {
           theme={theme}
           onThemeChange={handleThemeChange}
         />
-        <main style={{ flex: 1, padding: "24px", overflow: "auto", paddingBottom: role === "worker" ? "80px" : "24px" }}>{children}</main>
+        {/* El margen inferior deja desplazar el contenido por encima de los widgets flotantes (mascota de Prometeo ≈ 204 px desde el borde). */}
+        <main style={{ flex: 1, padding: "24px", overflow: "auto", paddingBottom: role === "worker" ? "240px" : "200px" }}>{children}</main>
       </div>
 
       {role === "worker" && <WorkerMobileBottomNav pathname={pathname ?? ""} />}

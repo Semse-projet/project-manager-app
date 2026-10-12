@@ -200,6 +200,7 @@ export default function LeadsPage() {
           />
         </div>
         <select
+          aria-label="Filtrar por estado"
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value as LeadStatus | "")}
           style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--ink)", fontSize: 13, cursor: "pointer" }}

@@ -166,6 +166,7 @@ export default function NewJobPage() {
   const [budgetMax, setBudgetMax] = useState(prefill.budgetMax);
   const [budgetSuggestion, setBudgetSuggestion] = useState<BudgetSuggestion | null>(null);
   const [budgetLoading, setBudgetLoading] = useState(false);
+  const [budgetError, setBudgetError] = useState<string | null>(null);
   const [urgency, setUrgency] = useState(prefill.urgency);
   const [deadline, setDeadline] = useState(prefill.deadline);
 
@@ -739,6 +740,7 @@ export default function NewJobPage() {
               </div>
               <input
                 type="range" min="100" max="20000" step="100"
+                aria-label={budgetType === "range" ? "Presupuesto mínimo" : "Monto"}
                 value={budgetMin}
                 onChange={e => { const v = +e.target.value; setBudgetMin(v); if (budgetMax < v) setBudgetMax(v); }}
                 style={{ width: "100%", accentColor: "var(--accent)" }}
@@ -750,6 +752,7 @@ export default function NewJobPage() {
                   </div>
                   <input
                     type="range" min={budgetMin} max="50000" step="100"
+                    aria-label="Presupuesto máximo"
                     value={budgetMax}
                     onChange={e => setBudgetMax(+e.target.value)}
                     style={{ width: "100%", accentColor: "var(--accent)" }}
@@ -765,6 +768,7 @@ export default function NewJobPage() {
                 disabled={budgetLoading || !title.trim()}
                 onClick={async () => {
                   setBudgetLoading(true);
+                  setBudgetError(null);
                   try {
                     const s = await suggestBudget({ title, scope: description, category: categoryId ?? undefined });
                     setBudgetSuggestion(s);
@@ -772,7 +776,9 @@ export default function NewJobPage() {
                       setBudgetMin(s.min);
                       setBudgetMax(s.max);
                     }
-                  } catch { /* ignore */ }
+                  } catch {
+                    setBudgetError("No pudimos calcular la sugerencia ahora. Puedes ajustar el presupuesto a mano o intentarlo de nuevo.");
+                  }
                   finally { setBudgetLoading(false); }
                 }}
                 style={{
@@ -786,6 +792,7 @@ export default function NewJobPage() {
                 {budgetLoading ? "Analizando mercado..." : "Sugerir presupuesto con IA"}
               </button>
               {!title.trim() && <p style={{ fontSize: 11, color: "var(--muted)", marginTop: 6 }}>Completa el título primero</p>}
+              {budgetError && <p role="alert" style={{ fontSize: 12, color: "var(--error)", marginTop: 6 }}>{budgetError}</p>}
 
               {budgetSuggestion && (
                 <div style={{
@@ -800,7 +807,7 @@ export default function NewJobPage() {
                       color: budgetSuggestion.confidence === "high" ? "var(--ok)" : budgetSuggestion.confidence === "medium" ? "#fbbf24" : "var(--muted)",
                       textTransform: "uppercase",
                     }}>
-                      {budgetSuggestion.confidence}
+                      {{ high: "alta", medium: "media", low: "baja" }[budgetSuggestion.confidence as string] ?? budgetSuggestion.confidence}
                     </span>
                   </div>
                   {budgetSuggestion.min > 0 && (

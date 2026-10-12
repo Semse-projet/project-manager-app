@@ -328,6 +328,7 @@ export default function ClientDisputesPage() {
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "minmax(220px, 280px) 1fr auto", gap: 10, alignItems: "start" }}>
             <select
+              aria-label="Trabajo de la disputa"
               value={formJobId}
               onChange={(event) => setFormJobId(event.target.value)}
               style={{ height: 42, borderRadius: 10, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--ink)", padding: "0 12px", fontSize: 13 }}
@@ -376,6 +377,7 @@ export default function ClientDisputesPage() {
           </div>
 
           <select
+            aria-label="Filtrar por proyecto"
             value={selectedProjectId}
             onChange={(event) => setSelectedProjectId(event.target.value)}
             style={{ height: 38, borderRadius: 10, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--ink)", padding: "0 12px", fontSize: 12 }}

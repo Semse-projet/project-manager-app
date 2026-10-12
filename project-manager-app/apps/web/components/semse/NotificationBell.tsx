@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Bell, CheckCheck, ExternalLink, X } from "lucide-react";
+import { useLanguage } from "../../lib/language-context";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -93,6 +94,7 @@ async function markAllRead() {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function NotificationBell() {
+  const { t } = useLanguage();
   const [open,   setOpen]   = useState(false);
   const [notifs, setNotifs] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(false);
@@ -150,6 +152,10 @@ export function NotificationBell() {
   return (
     <div ref={ref} style={{ position: "relative" }}>
       <button
+        type="button"
+        aria-label={unread > 0 ? `${t("ui.notifications")} (${unread})` : t("ui.notifications")}
+        aria-expanded={open}
+        aria-haspopup="true"
         onClick={() => { setOpen((p) => !p); if (!open) void load(); }}
         style={{ position: "relative", width: 34, height: 34, borderRadius: 10, background: "rgba(255,255,255,.05)", border: "1px solid var(--border)", display: "grid", placeItems: "center", cursor: "pointer" }}>
         <Bell size={15} color="var(--muted)" />
@@ -172,7 +178,7 @@ export function NotificationBell() {
                 <CheckCheck size={11} /> Todo leído
               </button>
             )}
-            <button onClick={() => setOpen(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)" }}>
+            <button type="button" aria-label={t("ui.close")} onClick={() => setOpen(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)" }}>
               <X size={13} />
             </button>
           </div>

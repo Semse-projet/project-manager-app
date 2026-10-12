@@ -32,6 +32,7 @@ import {
   shouldRenderPrometeoToolError,
 } from "./prometeo-response";
 import type { ToolResultPart } from "@semse/schemas";
+import { useModalOpen } from "../../lib/use-modal-open";
 
 // ── Tipos ─────────────────────────────────────────────────────
 
@@ -742,6 +743,7 @@ function useAgentChat(
 // ── Componente principal ──────────────────────────────────────
 
 export function AgentChatPanel() {
+  const modalOpen = useModalOpen();
   const [input, setInput] = useState("");
   const [attachmentDrafts, setAttachmentDrafts] = useState<AttachmentDraft[]>([]);
   const [composerError, setComposerError] = useState<string | null>(null);
@@ -1310,7 +1312,7 @@ export function AgentChatPanel() {
 
 
       {/* FAB — only shown when panel is closed */}
-      {!isOpen && (
+      {!isOpen && !modalOpen && (
         <button
           onClick={() => openPanel(activeAgent)}
           style={{

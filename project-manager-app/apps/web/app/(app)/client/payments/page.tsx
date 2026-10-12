@@ -268,6 +268,7 @@ export default function ClientPaymentsPage() {
               <div style={{ display: "flex", gap: "0", borderRadius: "8px", overflow: "hidden" }}>
                 <select
                   data-testid="client-payments-job-filter"
+                  aria-label="Filtrar por proyecto"
                   value={selectedJobId}
                   disabled={jobsLoading}
                   onChange={e => setSelectedJobId(e.target.value)}
