@@ -570,16 +570,18 @@ export class OpsService {
       timestamp: new Date().toISOString()
     });
 
-    await this.agentQueueService.enqueueRun({
+    const enqueue = await this.agentQueueService.enqueueRun({
       runId: run.id,
       tenantId: input.tenantId,
       agentType: run.agentType,
       correlationId: run.correlationId
-    });
+    }, { mode: "retry" });
 
     return {
       runId: run.id,
-      status: run.status.toLowerCase()
+      status: run.status.toLowerCase(),
+      enqueued: enqueue.enqueued,
+      ...(enqueue.reason ? { reason: enqueue.reason } : {})
     };
   }
 
@@ -611,17 +613,19 @@ export class OpsService {
       timestamp: new Date().toISOString()
     });
 
-    await this.agentQueueService.enqueueRun({
+    const enqueue = await this.agentQueueService.enqueueRun({
       runId: run.id,
       tenantId: input.tenantId,
       agentType: run.agentType,
       correlationId: run.correlationId
-    });
+    }, { mode: "retry" });
 
     return {
       runId: run.id,
       status: run.status.toLowerCase(),
-      deadLettered: run.deadLettered
+      deadLettered: run.deadLettered,
+      enqueued: enqueue.enqueued,
+      ...(enqueue.reason ? { reason: enqueue.reason } : {})
     };
   }
 
