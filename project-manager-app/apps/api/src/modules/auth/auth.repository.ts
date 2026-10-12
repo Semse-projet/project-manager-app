@@ -51,6 +51,38 @@ export class AuthRepository {
     });
   }
 
+  /**
+   * Resolve durable session state AND the current org roles.
+   * AuthSession has no Prisma relation to User, so read the linked rows explicitly.
+   * This method never creates identity or membership records.
+   */
+  async findActiveSessionAuthorization(sessionId: string) {
+    const session = await this.findActiveSessionById(sessionId);
+    if (!session) return null;
+
+    const [user, memberships] = await Promise.all([
+      this.client.user.findUnique({
+        where: { id: session.userId },
+        select: { status: true }
+      }),
+      this.client.membership.findMany({
+        where: {
+          userId: session.userId,
+          orgId: session.orgId,
+          status: "ACTIVE",
+          org: { tenantId: session.tenantId }
+        },
+        select: { role: { select: { key: true } } }
+      })
+    ]);
+
+    return {
+      session,
+      userStatus: user?.status ?? null,
+      activeRoles: [...new Set(memberships.map((membership) => membership.role.key))]
+    };
+  }
+
   findSessionByRefreshTokenHash(refreshTokenHash: string) {
     return this.client.authSession.findFirst({
       where: {
@@ -61,16 +93,29 @@ export class AuthRepository {
     });
   }
 
+  /**
+   * Compare-and-swap rotation closes parallel refresh and logout races.
+   * A stale token may NOT overwrite the new one or resurrect a revoked session.
+   */
   async rotateSessionRefreshToken(input: {
     sessionId: string;
+    previousRefreshTokenHash: string;
     refreshTokenHash: string;
+    roles: string[];
     accessExpiresAt: Date;
     refreshExpiresAt: Date;
   }) {
-    return this.client.authSession.update({
-      where: { id: input.sessionId },
+    return this.client.authSession.updateMany({
+      where: {
+        id: input.sessionId,
+        refreshTokenHash: input.previousRefreshTokenHash,
+        status: ACTIVE_SESSION_STATUS,
+        revokedAt: null,
+        refreshExpiresAt: { gt: new Date() }
+      },
       data: {
         refreshTokenHash: input.refreshTokenHash,
+        roles: input.roles,
         accessExpiresAt: input.accessExpiresAt,
         refreshExpiresAt: input.refreshExpiresAt,
         lastUsedAt: new Date()

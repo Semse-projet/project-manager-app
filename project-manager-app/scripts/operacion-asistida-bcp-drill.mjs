@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { ensureDecR1CiSmokeIdentity } from "./dec-r1-ci-smoke-identity.mjs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
@@ -179,6 +180,13 @@ async function runApiDrill() {
   checks.push(check("API health uses Prisma persistence", () => {
     assert.equal(health.data.persistence, "prisma");
   }));
+
+  await ensureDecR1CiSmokeIdentity({
+    tenantId: config.tenantId,
+    orgId: config.orgId,
+    userId: config.userId,
+    roles: config.roles.split(",").map((role) => role.trim()).filter(Boolean)
+  });
 
   const issuedToken = await request(actor, "POST", "/v1/auth/token", {
     tenantId: config.tenantId,
