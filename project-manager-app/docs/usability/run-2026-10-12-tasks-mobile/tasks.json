@@ -1,0 +1,108 @@
+[
+  {
+    "id": "T1",
+    "clicks": 7,
+    "fills": 2,
+    "steps": [
+      "click: categoría Plomería",
+      "click: especialidad (primera, tras hacer scroll)",
+      "click: Siguiente (1→2)",
+      "fill: título",
+      "fill: descripción",
+      "click: Siguiente (2→3)",
+      "click: Sugerir presupuesto con IA",
+      "click: Siguiente (3→4)",
+      "click: Publicar trabajo"
+    ],
+    "notes": [
+      "\"Siguiente\" deshabilitado tras elegir solo la categoría: true",
+      "especialidades aparecen bajo el pliegue (y=2156 > alto de pantalla 844): true; \"Siguiente\" muestra motivo de bloqueo: false",
+      "la sugerencia de IA tardó 9 s en dar una respuesta visible o volver al estado inicial",
+      "tras sugerencia IA: mostró estimación",
+      "error: TimeoutError: page.waitForURL: Timeout 60000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n=============================================="
+    ],
+    "server5xx": [
+      "500 /api/semse/jobs",
+      "500 /api/semse/notifications?limit=15",
+      "500 /api/semse/notifications?limit=15",
+      "500 /api/semse/users/me/capabilities",
+      "500 /api/semse/users/me"
+    ],
+    "dbFlaky": true,
+    "success": false,
+    "ms": 92895
+  },
+  {
+    "id": "T2",
+    "clicks": 3,
+    "fills": 1,
+    "steps": [
+      "click: categoría Electricidad",
+      "click: especialidad",
+      "click: Siguiente",
+      "fill: título"
+    ],
+    "notes": [
+      "banner de recuperación visible: true; paso tras recargar: 2; título conservado: sí"
+    ],
+    "server5xx": [
+      "500 /api/semse/notifications?limit=15",
+      "500 /api/semse/users/me/capabilities",
+      "500 /api/semse/users/me"
+    ],
+    "dbFlaky": true,
+    "success": true,
+    "ms": 38057
+  },
+  {
+    "id": "T5",
+    "clicks": 1,
+    "fills": 0,
+    "steps": [
+      "click: Fondear escrow"
+    ],
+    "notes": [
+      "abre modal de confirmación: true",
+      "el modal muestra un monto ($): true; texto: Fondear escrow Reparar tubería con fuga en la cocina MONTO $ USD EUR CAD MXN Usar presupuesto sugerido: $500 PROVEEDOR DE PAGO Stripe Tarjeta de crédito/débito segura PayPal Cuenta PayPal o tarjeta vinculada Transferenci"
+    ],
+    "server5xx": [],
+    "dbFlaky": false,
+    "success": true,
+    "ms": 18178
+  },
+  {
+    "id": "T7",
+    "clicks": 1,
+    "fills": 2,
+    "steps": [
+      "fill: descripción del trabajo",
+      "fill: área sqft",
+      "click: Calcular estimado"
+    ],
+    "notes": [
+      "selects en pantalla: 1",
+      "estimado visible tras 7 s",
+      "resultado con TOTAL: true; CONFIANZA mostrada: 85; error visible: false"
+    ],
+    "server5xx": [],
+    "dbFlaky": false,
+    "success": true,
+    "ms": 13703
+  },
+  {
+    "id": "T8",
+    "clicks": 1,
+    "fills": 1,
+    "steps": [
+      "click: Abrir disputa",
+      "fill: motivo"
+    ],
+    "notes": [
+      "pide seleccionar trabajo antes: true"
+    ],
+    "server5xx": [],
+    "dbFlaky": false,
+    "success": true,
+    "ms": 11198
+  }
+]

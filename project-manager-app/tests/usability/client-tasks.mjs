@@ -245,7 +245,10 @@ async function T7() {
     const area = page.locator("main input[type=number]").first();
     if (await area.isVisible().catch(() => false)) await r.fill(area, "65", "área sqft");
     await r.click(page.getByRole("button", { name: /Calcular estimado/i }), "Calcular estimado");
-    await page.waitForTimeout(8000);
+    // la estimación puede tardar bastante con LLM local: esperar hasta 45 s al resultado o a un error
+    const t0 = Date.now();
+    await page.getByText(/TOTAL/).first().waitFor({ timeout: 45_000 }).catch(() => {});
+    r.note(`estimado visible tras ${Math.round((Date.now() - t0) / 1000)} s`);
     await r.shot("resultado");
     const txt = await page.locator("main").last().innerText();
     r.note(`resultado con TOTAL: ${/TOTAL/.test(txt)}; CONFIANZA mostrada: ${(txt.match(/CONFIANZA\s*\n?\s*(\w+)/i) ?? [])[1] ?? "no"}; error visible: ${/error|no se pudo/i.test(txt)}`);

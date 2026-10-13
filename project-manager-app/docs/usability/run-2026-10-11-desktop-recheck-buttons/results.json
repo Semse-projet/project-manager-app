@@ -1,0 +1,89 @@
+[
+  {
+    "route": "/client/dashboard",
+    "viewport": "desktop",
+    "errors": [],
+    "failedRequests": [],
+    "consoleErrors": [
+      "Loading the stylesheet 'https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600&display=swap' violates the following Content Security Policy directive: \"style-src 'self' 'unsafe-inline'\". Note that 'style-src-elem' was not explicitly set, so 'st"
+    ],
+    "status": 200,
+    "networkIdle": false,
+    "loadMs": 15321,
+    "finalUrl": "/client/dashboard",
+    "redirected": false,
+    "title": "SEMSE Project — Profesionales verificados y pagos seguros",
+    "h1": [
+      "Dashboard"
+    ],
+    "landmarks": {
+      "main": true,
+      "nav": true
+    },
+    "lang": "es",
+    "horizontalOverflow": false,
+    "interactiveCount": 43,
+    "targetsUnder24": 4,
+    "targetsUnder44": 25,
+    "unnamedControls": [],
+    "imgsNoAlt": 0,
+    "inputsNoLabel": 0,
+    "emptyStateText": true,
+    "rawErrorText": [],
+    "bodyChars": 2028,
+    "axe": [
+      {
+        "id": "color-contrast",
+        "impact": "serious",
+        "nodes": 6,
+        "help": "Elements must meet minimum color contrast ratio thresholds",
+        "sample": "nav > div:nth-child(1) > div > div"
+      }
+    ]
+  },
+  {
+    "route": "/client/projects/cmv4e0qy8001ltmy0aru9qjqj/copilot",
+    "viewport": "desktop",
+    "errors": [],
+    "failedRequests": [
+      "503 GET /api/semse/cortex/context/stream?projectId=cmv4e0qy8001ltmy0aru9qjqj"
+    ],
+    "consoleErrors": [
+      "Loading the stylesheet 'https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600&display=swap' violates the following Content Security Policy directive: \"style-src 'self' 'unsafe-inline'\". Note that 'style-src-elem' was not explicitly set, so 'st",
+      "Failed to load resource: the server responded with a status of 503 (Service Unavailable)"
+    ],
+    "status": 200,
+    "networkIdle": false,
+    "loadMs": 15688,
+    "finalUrl": "/client/projects/cmv4e0qy8001ltmy0aru9qjqj/copilot",
+    "redirected": false,
+    "title": "SEMSE Project — Profesionales verificados y pagos seguros",
+    "h1": [
+      "Copiloto del Proyecto"
+    ],
+    "landmarks": {
+      "main": true,
+      "nav": true
+    },
+    "lang": "es",
+    "horizontalOverflow": false,
+    "interactiveCount": 40,
+    "targetsUnder24": 5,
+    "targetsUnder44": 32,
+    "unnamedControls": [],
+    "imgsNoAlt": 0,
+    "inputsNoLabel": 0,
+    "emptyStateText": true,
+    "rawErrorText": [],
+    "bodyChars": 906,
+    "axe": [
+      {
+        "id": "color-contrast",
+        "impact": "serious",
+        "nodes": 5,
+        "help": "Elements must meet minimum color contrast ratio thresholds",
+        "sample": "nav > div:nth-child(1) > div > div"
+      }
+    ]
+  }
+]
