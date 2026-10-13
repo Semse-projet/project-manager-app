@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { PUBLIC_MARKET_CURRENCY, formatPublicMoney, formatPublicMoneyRange } from "@semse/schemas";
 import { CheckCircle, ExternalLink, MapPin, Sparkles, Star, Upload, Users } from "lucide-react";
 import {
@@ -127,28 +127,42 @@ export function LandingIntake() {
     preferredProfessionalSlug: selectedProfessional?.publicSlug ?? undefined,
   });
 
+  // `analyzeDescription` is recreated on every render and every analysis updates state, so listing it as an
+  // effect dependency re-ran the analysis in an endless ~1 request/second loop. Keep the latest copy in a ref
+  // and only analyze again when the payload actually changed.
+  const analyzeRef = useRef(analyzeDescription);
+  analyzeRef.current = analyzeDescription;
+  const lastAnalyzedPayload = useRef<string | null>(null);
+
   useEffect(() => {
     if (!isSmartIntakeCategory || description.trim().length < 10 || title.trim().length < 3) {
       return;
     }
 
+    const payload = {
+      rawDescription: description,
+      title,
+      category: categoryId,
+      subcategory: subcategoryId,
+      modality: locationType,
+      city,
+      urgency: urgency as "low" | "medium" | "high" | "urgent",
+    };
+    const payloadKey = JSON.stringify(payload);
+    if (lastAnalyzedPayload.current === payloadKey) {
+      return;
+    }
+
     const timeoutId = window.setTimeout(() => {
-      void analyzeDescription({
-        rawDescription: description,
-        title,
-        category: categoryId,
-        subcategory: subcategoryId,
-        modality: locationType,
-        city,
-        urgency: urgency as "low" | "medium" | "high" | "urgent",
-      }).catch(() => {
-        // Surface errors through the estimate/request flows instead of every debounce tick.
+      lastAnalyzedPayload.current = payloadKey;
+      void analyzeRef.current(payload).catch(() => {
+        // Let the next edit retry; surface errors through the estimate/request flows instead of every debounce tick.
+        lastAnalyzedPayload.current = null;
       });
     }, 800);
 
     return () => window.clearTimeout(timeoutId);
   }, [
-    analyzeDescription,
     categoryId,
     city,
     description,
