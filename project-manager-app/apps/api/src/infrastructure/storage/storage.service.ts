@@ -1,7 +1,7 @@
 import { ConflictException, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { constants, createReadStream, createWriteStream } from "node:fs";
-import { randomUUID } from "node:crypto";
-import { access, link, mkdir, open, readFile, stat, unlink } from "node:fs/promises";
+import { createHash, randomUUID } from "node:crypto";
+import { access, link, lstat, mkdir, open, readFile, stat, unlink } from "node:fs/promises";
 import path from "node:path";
 import { pipeline } from "node:stream/promises";
 import type { Readable } from "node:stream";
@@ -128,6 +128,32 @@ export class StorageService {
   createReadStream(key: string): ReturnType<typeof createReadStream> {
     const filePath = this.localPath(key);
     return createReadStream(filePath);
+  }
+
+  /** Stream the canonical original to compute a server-owned SHA-256.
+   * Never accepts or trusts any client-supplied checksum. It rejects
+   * symlinks and detects metadata changes while reading.
+   */
+  async hashOriginal(key: string): Promise<{ sha256: string; sizeBytes: number }> {
+    const filePath = this.localPath(key);
+    const before = await lstat(filePath);
+    if (!before.isFile() || before.size <= 0) {
+      throw new Error("Original missing or not a nonempty regular file");
+    }
+    const hash = createHash("sha256");
+    let sizeBytes = 0;
+    for await (const chunk of createReadStream(filePath)) {
+      const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+      hash.update(bytes);
+      sizeBytes += bytes.byteLength;
+    }
+    const after = await lstat(filePath);
+    if (!after.isFile() || sizeBytes !== before.size || sizeBytes !== after.size ||
+        before.dev !== after.dev || before.ino !== after.ino ||
+        before.ctimeMs !== after.ctimeMs || before.mtimeMs !== after.mtimeMs) {
+      throw new Error("Original modified during SHA-256 verification");
+    }
+    return { sha256: hash.digest("hex"), sizeBytes };
   }
 
   /**
