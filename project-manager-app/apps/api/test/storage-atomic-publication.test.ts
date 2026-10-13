@@ -1,4 +1,4 @@
-import test from "node:test";
+import test, { type TestContext } from "node:test";
 import assert from "node:assert/strict";
 import os from "node:os";
 import path from "node:path";
@@ -6,7 +6,7 @@ import { Readable } from "node:stream";
 import { mkdtemp, readFile, readdir, rm, stat } from "node:fs/promises";
 import { StorageService } from "../dist/infrastructure/storage/storage.service.js";
 
-async function withRoot(t: Parameters<typeof test>[1] extends (t: infer T) => unknown ? T : never) {
+async function withRoot(t: TestContext) {
   const dir=await mkdtemp(path.join(os.tmpdir(),"semse-atomic-original-"));
   const old=process.env.SEMSE_STORAGE_ROOT;
   process.env.SEMSE_STORAGE_ROOT=dir;
