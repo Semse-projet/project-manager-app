@@ -188,17 +188,19 @@ La exportación SSH/SCP lee el filesystem activo, no un snapshot de Railway. Nun
 ### D. Restaurar en carpeta temporal aislada y validar todos los archivos
 
 ~~~bash
-node scripts/field-memory-offsite-restore-rehearsal.mjs \
-  --manifest "$SECURE_DIR/manifest-before.json" \
+node scripts/field-memory-custody-gate.mjs \
+  --before "$SECURE_DIR/manifest-before.json" \
+  --after "$SECURE_DIR/manifest-after.json" \
   --export-root "$SECURE_DIR/export" \
   --isolated-parent "$SECURE_DIR/rehearsal" \
-  --report "$SECURE_DIR/rehearsal-report.json" \
-  --confirm-encrypted-destination
+  --confirm-encrypted-destination \
+  --confirm-quiescent-export > "$SECURE_DIR/custody-gate.partial.json"
+mv "$SECURE_DIR/custody-gate.partial.json" "$SECURE_DIR/custody-gate-report.json"
 ~~~
 
-El comando compara primero la exportación con el inventario fuente, reconstruye una copia en un directorio temporal nuevo fuera de /data, vuelve a comparar todos los SHA-256 y tamaños, informa totales agregados (sin rutas) y elimina su carpeta temporal al finalizar.
+El comando integrado **exige** los inventarios antes/después, una secuencia temporal diferenciada, un directorio cifrado confirmado y atestación explícita del operador de que el periodo de extracción tuvo escrituras suspendidas. Si cualquiera falla, sale con código no cero y NUNCA ejecuta la copia de recuperación. Si ambos inventarios son estables, compara los bytes exportados, crea una copia temporal aislada, repite SHA-256/tamaño/recuento y la elimina. El informe contiene solo totales y checksums del manifiesto, nunca rutas relativas ni keys. El equipo debe retener registros operativos de quién autorizó, cuándo se congelaron escrituras y el mismo punto temporal en Postgres/Evidence. No se admite mostrar una pantalla de PASS sin dicha evidencia.
 
-**Criterio PASS (solo exportación independiente):** status PASS, phase isolated_restore, missingFiles=0, alteredFiles=0, unexpectedFiles=0, filesRecovered=filesExpected mayor que cero. Adjuntar a auditoría solo referencia opaca, SHA del manifiesto, totales y duración; no manifest privado.
+**Criterio PASS (solo exportación independiente):** result OFFSITE_RESTORE_PASS, missingFiles=0, alteredFiles=0, unexpectedFiles=0, filesRestored=sourceFiles mayor que cero y las banderas railwaySnapshotRestored, evidenceDatabaseReconciled y captureSessionActivationPermitted **false**. Adjuntar a auditoría solo referencia opaca, SHA del manifiesto, totales y duración; no manifest privado.
 
 **Separación de evidencias:** CI SUCCESS cubre bytes sintéticos; rehearsal PASS cubre una exportación independiente realmente probada; la restaurabilidad de un snapshot Railway permanece UNVERIFIED hasta contar con prueba propia y segura. La reconciliación temporal con Postgres/Evidence y los permisos por organización también permanecen pendientes.
 
