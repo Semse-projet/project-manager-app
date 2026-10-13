@@ -103,7 +103,14 @@ export class EvidenceService {
     category?: string;
     description?: string;
   }) {
-    const buffer = await this.storageService.readBuffer(input.key);
+    // Policy must succeed BEFORE opening the photo. A caller who knows a key
+    // belonging to another org in the same tenant must not probe its bytes
+    // through the EXIF registration endpoint.
+    const authorizedKey = await this.evidenceRepository.authorizeOriginalReadForRegistration({
+      ...input,
+      kind: "PHOTO",
+    });
+    const buffer = await this.storageService.readBuffer(authorizedKey);
     const exif = parsePhotoExif(buffer);
     if (!exif) {
       throw new BadRequestException(
