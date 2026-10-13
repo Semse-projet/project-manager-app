@@ -327,6 +327,7 @@ test("production denies persisted seeded demo admin credentials before DB lookup
     { async findUserByEmail(email: string) { queries.push(email); return seeded; } } as never,
     { async append() { throw new Error("Never issue a demo session"); } } as never,
     { async send() { return { sent: true }; } } as never,
+    { warn() {}, error() {} } as never,
   );
   try {
     process.env.NODE_ENV = "production";
