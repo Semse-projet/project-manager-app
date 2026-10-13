@@ -14,10 +14,8 @@ import { JobsService } from "../jobs/jobs.service.js";
 import {
   buildInitialIntake,
   buildLiveSummary,
-  buildNormalizedTitle,
-  detectCategoryConfidence,
   buildVoicePrompt,
-  detectLanguage,
+  applyAnalyzeUpdate,
   derivePaintingScope,
   getAccuracyDetail,
   generateEstimate,
@@ -307,27 +305,7 @@ export class SmartIntakeService {
     if (input.intakeId) {
       const existing = await this.findById(input.intakeId);
       this.assertSessionAccess(existing, input.sessionToken);
-      intake = refreshDerivedState({
-        ...existing,
-        rawDescription: input.rawDescription,
-        providedTitle: input.title?.trim() || null,
-        normalizedTitle: buildNormalizedTitle({
-          providedTitle: input.title?.trim() || existing.providedTitle,
-          rawDescription: input.rawDescription,
-        }),
-        selectedCategoryId: input.category?.trim() || existing.selectedCategoryId,
-        selectedSubcategoryId: input.subcategory?.trim() || existing.selectedSubcategoryId,
-        modality: input.modality ?? existing.modality,
-        city: input.city?.trim() || existing.city,
-        urgency: input.urgency ?? existing.urgency,
-        detectedLanguage: detectLanguage(input.rawDescription),
-        categoryConfidence: detectCategoryConfidence({
-          selectedCategoryId: input.category?.trim() || existing.selectedCategoryId,
-          selectedSubcategoryId: input.subcategory?.trim() || existing.selectedSubcategoryId,
-          rawDescription: input.rawDescription,
-        }),
-        updatedAt: new Date().toISOString(),
-      });
+      intake = applyAnalyzeUpdate(existing, input);
     } else {
       intake = buildInitialIntake({
         id: `intk_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,

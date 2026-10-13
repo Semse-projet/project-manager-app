@@ -7,6 +7,7 @@ import {
   buildInitialIntake,
   derivePaintingScope,
   categoryNeedsConfirmation,
+  applyAnalyzeUpdate,
 } from "../dist/modules/smart-intake/smart-intake.logic.js";
 
 function makeIntake(overrides: Record<string, unknown> = {}) {
@@ -284,4 +285,50 @@ test("explicit or keyword-matched category does not need confirmation", () => {
   const matched = makeIntake({ rawDescription: "Pintar la sala con 2 capas" });
   assert.equal(categoryNeedsConfirmation(matched), false);
   assert.ok(!generateEstimate(matched).assumptions.some((a) => a.includes("Category was not confirmed")));
+});
+
+// ── re-analysing an existing draft ───────────────────────────────────────────
+
+test("switching the explicit category re-detects it and discards answers of the old one", () => {
+  const painting = makeIntake({ rawDescription: "Necesito arreglar algo en mi casa pronto", selectedCategoryId: "pintura" });
+  const answered = { ...painting, answers: [answer("painting_area", ["100_250_sqft"])] };
+  const switched = applyAnalyzeUpdate(answered, { rawDescription: answered.rawDescription, category: "plomeria" });
+  assert.equal(switched.detectedCategory, "plumbing_repair");
+  assert.equal(switched.selectedCategoryId, "plomeria");
+  assert.deepEqual(switched.answers, []);
+  assert.equal(switched.generatedEstimate, null);
+  assert.deepEqual(switched.projectScope, {});
+});
+
+test("re-analysing with the same category keeps the answers", () => {
+  const painting = makeIntake({ rawDescription: "Pintar la sala con 2 capas", selectedCategoryId: "pintura" });
+  const answered = { ...painting, answers: [answer("painting_area", ["100_250_sqft"])] };
+  const same = applyAnalyzeUpdate(answered, { rawDescription: "Pintar la sala y el comedor", category: "pintura" });
+  assert.equal(same.detectedCategory, "interior_painting");
+  assert.equal(same.answers.length, 1);
+});
+
+test("editing the description of an answered, auto-detected draft does not wipe the answers", () => {
+  const draft = makeIntake({ rawDescription: "I have a hole in my drywall that needs repair" });
+  assert.equal(draft.detectedCategory, "drywall_repair");
+  const answered = { ...draft, answers: [answer("drywall_area", ["10_100_sqft"])] };
+  const edited = applyAnalyzeUpdate(answered, { rawDescription: "Need to fix the bathroom shower tiles" });
+  assert.equal(edited.detectedCategory, "drywall_repair");
+  assert.equal(edited.answers.length, 1);
+});
+
+test("an unanswered auto-detected draft follows the description", () => {
+  const draft = makeIntake({ rawDescription: "I have a hole in my drywall that needs repair" });
+  const edited = applyAnalyzeUpdate(draft, { rawDescription: "Need to fix the bathroom shower tiles" });
+  assert.equal(edited.detectedCategory, "bathroom_remodel");
+});
+
+test("picking a category for an unconfirmed draft clears the confirmation flag and keeps photos", () => {
+  const draft = makeIntake({ rawDescription: "Necesito arreglar algo en mi casa pronto" });
+  assert.equal(categoryNeedsConfirmation(draft), true);
+  const withPhoto = { ...draft, uploadedImages: [{ id: "img1" }] } as unknown as typeof draft;
+  const confirmed = applyAnalyzeUpdate(withPhoto, { rawDescription: draft.rawDescription, category: "plomeria" });
+  assert.equal(categoryNeedsConfirmation(confirmed), false);
+  assert.equal(confirmed.detectedCategory, "plumbing_repair");
+  assert.equal(confirmed.uploadedImages.length, 1);
 });
