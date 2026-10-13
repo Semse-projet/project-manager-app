@@ -36,3 +36,19 @@ No modifica schema ni convierte originales históricos. Multipart, Browser Agent
 1. Node.js `fs` flags `wx`: https://nodejs.org/api/fs.html — aplicado.
 2. Amazon S3 conditional writes: https://docs.aws.amazon.com/AmazonS3/latest/userguide/conditional-writes.html — backlog.
 3. OWASP File Upload Cheat Sheet: https://cheatsheetseries.owasp.org/cheatsheets/File_Upload_Cheat_Sheet.html — aplicado.
+
+
+## Extension de publicación atómica propuesta (PR 2026-10-13, pendiente de CI/canary)
+
+**Riesgo adicional observado:** el nombre definitivo se crea con wx antes de finalizar el stream. Un GET, un hash SHA-256 o un backup del volumen podría detectar bytes incompletos durante la subida, pese a que un segundo PUT no pueda sobrescribirlos.
+
+**Nuevo algoritmo propuesto para el backend local:**
+1. Subir bytes a un archivo único de permisos 0600 dentro de SEMSE_STORAGE_ROOT/multipart/.put-staging; este directorio se excluye del manifiesto de originales, pues no contiene originales publicados.
+2. Finalizar por completo pipeline y cerrar el descriptor, sin exposición del key definitivo.
+3. Crear hard link exclusivo desde staging hasta la ruta final. La operación link falla con EEXIST si otro PUT ya publicó el original; solo un escritor gana. Jamás usar rename sin RENAME_NOREPLACE ni secuencia check-then-write como garantía.
+4. Borrar solo el nombre temporal propio, tanto en éxito como en error, sin tocar el objeto publicado por un intento concurrente.
+5. Verificar test que la ruta final NO existe entre dos chunks, y que abortar un stream deja cero archivos visibles y staging limpio.
+
+**Límites pendientes:** no hay snapshot atómico entre Postgres/Evidence y filesystem; hardlink necesita filesystem compatible en Railway, a probar antes del deploy. Persistencia de checksum servidor y control por organización forman etapa separada. No considerar este ADR extensión VERIFIED hasta CI/merge/deploy, smoke y restore de datos reales.
+
+La extensión mantiene las garantías de 409, PUT tenant-scoped, nuevos nonce para reintentos, idempotencia de registro y compatibilidad de consumidores. Ninguna fotografía o política de pago se transforma automáticamente.
