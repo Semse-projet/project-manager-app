@@ -236,3 +236,21 @@ test("F1-B shadow compatibility never invents a digest when hash unavailable", a
   assert.equal(h.evidenceRows[0]?.checksum,undefined);
   assert.equal(h.outboxRows.length,1);
 });
+
+test("P0 cross-Org actor is rejected BEFORE server reads any Evidence bytes", async t => {
+  const old=process.env.EVIDENCE_ORIGINAL_SHA256_MODE;
+  process.env.EVIDENCE_ORIGINAL_SHA256_MODE="enforce";
+  t.after(()=>restoreEnvironment("EVIDENCE_ORIGINAL_SHA256_MODE",old));
+  let reads=0;
+  const h=makeHarness({integrityStorage:{async hashOriginal() {
+    reads++;
+    return {sha256:"a".repeat(64),sizeBytes:4};
+  }}});
+  await assert.rejects(
+    ()=>h.repository.create({...command,orgId:"org_foreign"}),
+    (e:unknown)=>!!e&&typeof e==="object"&&"status" in e&&e.status===403,
+  );
+  assert.equal(reads,0,"No unauthorized caller may inspect another Org's original bytes");
+  assert.equal(h.evidenceRows.length,0);
+  assert.equal(h.outboxRows.length,0);
+});
