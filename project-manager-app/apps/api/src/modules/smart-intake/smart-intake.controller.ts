@@ -19,7 +19,7 @@ import { resolveRequestContext } from "../../common/request-context.js";
 import { resolveRequestId } from "../../common/request-id.js";
 import { SatellitesService } from "../satellites/satellites.service.js";
 import { SmartIntakeService } from "./smart-intake.service.js";
-import { getAccuracyDetail } from "./smart-intake.logic.js";
+import { categoryNeedsConfirmation, getAccuracyDetail } from "./smart-intake.logic.js";
 
 const analyzeSchema = z.object({
   intakeId: z.string().min(1).optional(),
@@ -141,6 +141,7 @@ export class SmartIntakeController {
       intakeId: result.intake.id,
       detectedCategory: result.intake.detectedCategory,
       categoryConfidence: result.intake.categoryConfidence,
+      categoryNeedsConfirmation: categoryNeedsConfirmation(result.intake),
       accuracyScore: result.intake.accuracyScore,
       accuracyLevel: result.intake.accuracyLevel,
       missingFields: result.intake.missingFields,
