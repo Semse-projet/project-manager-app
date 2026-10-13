@@ -75,7 +75,7 @@ if(process.argv[1]&&import.meta.url===pathToFileURL(path.resolve(process.argv[1]
     if(files.some(s=>s.length>60*1024*1024)) throw Error('Projection too large');
     const r=reconcileEvidence(JSON.parse(files[0]),JSON.parse(files[1]));
     process.stdout.write(JSON.stringify(r,null,2)+'\n');
-    if(r.result==='BLOCKED') process.exitCode=2;
+    // Offline metadata similarity is never authority to activate custody.\n    process.exitCode=2;
   }catch{
     process.stderr.write('Evidence reconciliation aborted. No private IDs or paths disclosed.\n');
     process.exitCode=1;
