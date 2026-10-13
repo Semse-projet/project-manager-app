@@ -93,7 +93,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.ar
     process.stdout.write(JSON.stringify(result, null, 2) + '\n');
     if (result.status !== 'PASS') process.exitCode = 2;
   } catch (error) {
-    process.stderr.write('Offsite restore rehearsal FAILED: ' + (error?.message ?? 'unclassified error') + '\n');
+    process.stderr.write('Offsite restore rehearsal ABORTED: invalid inputs, isolation, access, or copy integrity. No paths disclosed.\n');
     process.exitCode = 1;
   }
 }
