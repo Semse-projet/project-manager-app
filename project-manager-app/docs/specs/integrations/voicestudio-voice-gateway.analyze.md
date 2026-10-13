@@ -15,6 +15,8 @@
 
 ## Riesgos que bloquean
 
+- **SSRF confirmado a nivel de flujo de código (sin explotación de red):** `AgroEvidenceController` acepta `fileUrl` externo con `z.string().url()`, `AgroEvidenceService` lo persiste y `AgroIntakeService` lo pasa a `HttpUrlStorageReader.readBuffer` que ejecuta `fetch(key)`; con ASR cloud activo, los bytes pueden salir hacia el transcriptor. Consultar [`voicestudio-voice-gateway.security-review.md`](voicestudio-voice-gateway.security-review.md) para evidencia, impacto condicionado y pruebas de contención. No activar este camino sin mitigación.
+
 1. **Licencias:** VoiceStudio `LICENSE-NOTICE.md` es AGPL-3.0 para su código, no derechos de los modelos. `docs/licensing/model-inventory.md` dice que actualmente **ninguno** tiene `commercial_use:true` revisado y el modelo OmniVoice predeterminado tiene pesos con términos no comerciales. No seleccionar modelo por intuición ni usar una licencia de software como autorización de pesos.
 2. **Privacidad:** los audios pueden contener PII de trabajadores, clientes y obras. D5 y consentimiento aplicable aún sin cerrar.
 3. **SSRF:** `HttpUrlStorageReader.readBuffer` hace `fetch(key)`. Evaluar origen, allowlist, IP/host/redirect/DNS y acceso a storage para determinar si existe ruta explotable.
