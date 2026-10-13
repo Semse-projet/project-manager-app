@@ -52,3 +52,20 @@ test('invalid paths and manifest duplicate refuse reconciliation',()=>{
   const f=fixtures();f.manifest.files[0].relativePath='../escape';
   assert.throws(()=>reconcileEvidence(f.manifest,f.projection),/Invalid originals manifest/);
 });
+
+test('CLI never returns exit zero on matching legacy metadata without server attestation',async t=>{
+  const f=fixtures();
+  const {mkdtemp,writeFile,rm}=await import('node:fs/promises');
+  const {spawnSync}=await import('node:child_process');
+  const path=(await import('node:path')).default;
+  const os=(await import('node:os')).default;
+  const dir=await mkdtemp(path.join(os.tmpdir(),'semse-evidence-reconcile-cli-'));
+  t.after(()=>rm(dir,{force:true,recursive:true}));
+  const a=path.join(dir,'manifest.json'),b=path.join(dir,'projection.json');
+  await writeFile(a,JSON.stringify(f.manifest));await writeFile(b,JSON.stringify(f.projection));
+  const cmd=spawnSync(process.execPath,[path.resolve('scripts/field-memory-evidence-reconcile.mjs'),
+    '--manifest',a,'--projection',b],{cwd:path.resolve('.'),encoding:'utf8',timeout:10000});
+  assert.equal(cmd.status,2);
+  assert.equal(JSON.parse(cmd.stdout).result,'MATCHED_METADATA_NOT_ATTESTED');
+  assert.ok(!cmd.stdout.includes('object.jpg'));
+});
