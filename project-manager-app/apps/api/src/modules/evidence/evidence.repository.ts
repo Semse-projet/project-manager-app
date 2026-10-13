@@ -119,6 +119,19 @@ export class EvidenceRepository {
     private readonly lifecycleProjectionEvents?: ProjectLifecycleProjectionEventProducer,
   ) {}
 
+  /**
+   * Authorize a photo original BEFORE any EXIF read or file-existence probe.
+   * It follows exactly the same tenant, org, project/job and milestone rules
+   * as create(). No user-controlled storage key may be opened on failure.
+   * Registration repeats authorization to prevent bypass through other callers.
+   */
+  async authorizeOriginalReadForRegistration(input: CreateEvidenceInput): Promise<string> {
+    await this.actorContextService.ensureActorContext(input);
+    const scope = await this.resolveScope(input);
+    assertEvidenceWritable(this.toActor(input), scope.ownership);
+    return normalizeEvidenceBucketKey(input.key, input.tenantId);
+  }
+
   async create(input: CreateEvidenceInput): Promise<EvidenceView> {
     await this.actorContextService.ensureActorContext(input);
     const scope = await this.resolveScope(input);
