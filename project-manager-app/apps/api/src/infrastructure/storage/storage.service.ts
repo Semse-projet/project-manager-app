@@ -1,6 +1,7 @@
 import { ConflictException, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { constants, createReadStream, createWriteStream } from "node:fs";
-import { access, mkdir, readFile, stat, unlink } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
+import { access, link, mkdir, readFile, stat, unlink } from "node:fs/promises";
 import path from "node:path";
 import { pipeline } from "node:stream/promises";
 import type { Readable } from "node:stream";
@@ -75,25 +76,38 @@ export class StorageService {
     const filePath = this.localPath(key);
     await mkdir(path.dirname(filePath), { recursive: true });
 
-    // A storage key is a write-once original, not an overwrite capability.
-    // "wx" uses O_EXCL atomically, preventing even same-tenant callers with
-    // a leaked key from replacing another organization's original bytes.
-    const ws = createWriteStream(filePath, { flags: "wx" });
-    let createdByThisCall = false;
-    ws.once("open", () => { createdByThisCall = true; });
+    // A write-once name must not be visible until all bytes are committed.
+    // Upload into an exclusive, private staging file UNDER the same filesystem,
+    // then publish it using hard-link creation (atomic and fails on existing key).
+    // The top-level multipart staging directory is excluded from snapshots.
+    // This prevents a backup/GET from observing a partly written original.
+    const stageRoot = path.join(this.localRoot, "multipart", ".put-staging");
+    await mkdir(stageRoot, { recursive: true, mode: 0o700 });
+    const stagePath = path.join(stageRoot, `${randomUUID()}.part`);
     try {
+      // Fast conflict rejection is advisory only; link() below is authoritative.
+      try {
+        await stat(filePath);
+        throw new ConflictException("Upload key already exists");
+      } catch (error) {
+        if (error instanceof ConflictException) throw error;
+        if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+      }
+      const ws = createWriteStream(stagePath, { flags: "wx", mode: 0o600 });
       await pipeline(input.stream, ws);
+      await link(stagePath, filePath);
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === "EEXIST") {
         throw new ConflictException("Upload key already exists");
       }
-      // Remove our own incomplete upload, never someone else's existing file.
-      if (createdByThisCall) await unlink(filePath).catch(() => undefined);
       throw error;
+    } finally {
+      // Never unlink the published original on any error or retry.
+      await unlink(stagePath).catch(() => undefined);
     }
 
     const stats = await stat(filePath);
-    this.logger.log({ key, sizeBytes: stats.size }, "file stored");
+    this.logger.log({ sizeBytes: stats.size }, "original stored");
 
     return {
       key,
