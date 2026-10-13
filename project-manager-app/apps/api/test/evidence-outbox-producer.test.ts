@@ -6,7 +6,7 @@ import { ProjectLifecycleProjectionEventProducer } from "../dist/modules/domain-
 import { EvidenceRepository } from "../dist/modules/evidence/evidence.repository.js";
 
 function makeHarness(
-  options: { failOutbox?: boolean; failLifecycleOutbox?: boolean } = {},
+  options: { failOutbox?: boolean; failLifecycleOutbox?: boolean; integrityStorage?: { hashOriginal(key: string): Promise<{sha256: string; sizeBytes: number}> } } = {},
 ) {
   const evidenceRows: Array<Record<string, unknown>> = [];
   const outboxRows: Array<Record<string, unknown>> = [];
@@ -80,6 +80,7 @@ function makeHarness(
       prisma as never,
       outboxRepository,
     ),
+    options.integrityStorage as never,
   );
 
   return { repository, evidenceRows, outboxRows };
@@ -198,3 +199,40 @@ function restoreEnvironment(name: string, value: string | undefined) {
   if (value === undefined) delete process.env[name];
   else process.env[name] = value;
 }
+
+test("F1-B checksum enforcement saves server-owned SHA-256 with the Evidence transaction", async t => {
+  const old=process.env.EVIDENCE_ORIGINAL_SHA256_MODE;
+  process.env.EVIDENCE_ORIGINAL_SHA256_MODE="enforce";
+  t.after(()=>restoreEnvironment("EVIDENCE_ORIGINAL_SHA256_MODE",old));
+  let reads=0;
+  const checksum="a".repeat(64);
+  const h=makeHarness({integrityStorage:{async hashOriginal() { reads++; return {sha256:checksum,sizeBytes:1024}; }}});
+  await h.repository.create(command);
+  assert.equal(reads,1);
+  assert.equal(h.evidenceRows[0]?.checksum,checksum);
+  assert.equal(h.evidenceRows.length,1);
+  assert.equal(h.outboxRows.length,1);
+});
+
+test("F1-B enforced missing original rejects without Evidence or outbox writes", async t => {
+  const old=process.env.EVIDENCE_ORIGINAL_SHA256_MODE;
+  process.env.EVIDENCE_ORIGINAL_SHA256_MODE="enforce";
+  t.after(()=>restoreEnvironment("EVIDENCE_ORIGINAL_SHA256_MODE",old));
+  const h=makeHarness({integrityStorage:{async hashOriginal() { throw Error("disk has no original"); }}});
+  await assert.rejects(
+    ()=>h.repository.create(command),
+    (e:unknown)=>!!e&&typeof e==="object"&&"status" in e&&e.status===422,
+  );
+  assert.equal(h.evidenceRows.length,0);
+  assert.equal(h.outboxRows.length,0);
+});
+
+test("F1-B shadow compatibility never invents a digest when hash unavailable", async t => {
+  const old=process.env.EVIDENCE_ORIGINAL_SHA256_MODE;
+  process.env.EVIDENCE_ORIGINAL_SHA256_MODE="shadow";
+  t.after(()=>restoreEnvironment("EVIDENCE_ORIGINAL_SHA256_MODE",old));
+  const h=makeHarness({integrityStorage:{async hashOriginal() { throw Error("no original"); }}});
+  await h.repository.create(command);
+  assert.equal(h.evidenceRows[0]?.checksum,undefined);
+  assert.equal(h.outboxRows.length,1);
+});
