@@ -220,6 +220,29 @@ test("buildLiveSummary returns 'Cleaning' for cleaning category", () => {
   assert.equal(summary.category, "Cleaning");
 });
 
+// ── complexity resolution ───────────────────────────────────────────────────
+
+test("material tier answers do not inflate labor complexity (no double counting)", () => {
+  const cosmetic = [answer("bathroom_scope", ["cosmetic"]), answer("bathroom_size", ["medium"])];
+  const standard = generateEstimate(makeIntake({ rawDescription: "Remodel my bathroom", answers: [...cosmetic, answer("bathroom_materials", ["standard"])] }));
+  const premium = generateEstimate(makeIntake({ rawDescription: "Remodel my bathroom", answers: [...cosmetic, answer("bathroom_materials", ["premium"])] }));
+  // premium only changes the 1.5x material multiplier; it must not also flip complexity to high.
+  const ratio = premium.breakdown.labor!.min / standard.breakdown.labor!.min;
+  assert.ok(ratio > 1.4 && ratio < 1.6, `ratio ${ratio}`);
+});
+
+test("one easy answer does not hide a larger scope signal", () => {
+  const mixed = generateEstimate(makeIntake({ rawDescription: "Remodel my bathroom", answers: [answer("bathroom_scope", ["full_remodel"]), answer("bathroom_size", ["extra_large"]), answer("bathroom_plumbing", ["no_move"])] }));
+  const easy = generateEstimate(makeIntake({ rawDescription: "Remodel my bathroom", answers: [answer("bathroom_scope", ["cosmetic"]), answer("bathroom_plumbing", ["no_move"])] }));
+  assert.ok(mixed.totalRange.max > easy.totalRange.max);
+});
+
+test("a severe risk signal is not offset by easy answers elsewhere", () => {
+  const withRisk = generateEstimate(makeIntake({ rawDescription: "Drywall repair", answers: [answer("drywall_area", ["100_500_sqft"]), answer("drywall_finish", ["repair_only"]), answer("drywall_condition", ["water_damage"])] }));
+  const without = generateEstimate(makeIntake({ rawDescription: "Drywall repair", answers: [answer("drywall_area", ["100_500_sqft"]), answer("drywall_finish", ["repair_only"])] }));
+  assert.ok(withRisk.totalRange.max > without.totalRange.max);
+});
+
 // ── area parsing ────────────────────────────────────────────────────────────
 
 test("custom area written as dimensions is multiplied, not averaged", () => {

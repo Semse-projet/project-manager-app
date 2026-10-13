@@ -573,19 +573,56 @@ const DETECTION_ORDER: SmartIntakeCategory[] = [
 ];
 
 /**
- * Short keywords (<= 3 chars, e.g. "tub") only match as whole words, so they
+ * Keywords match from the start of a word, so "wall" no longer fires inside
+ * "drywall" or "firewall" and "tile" no longer fires inside "textile".
+ * Short keywords (<= 3 chars, e.g. "tub") must also end the word, so they
  * don't fire inside longer words such as "tuberia".
  */
 function matchesKeyword(lowerText: string, keyword: string): boolean {
-  if (keyword.length > 3) return lowerText.includes(keyword);
+  const wholeWordOnly = keyword.length <= 3;
   let from = 0;
   const isLetter = (ch: string | undefined) => ch !== undefined && /[a-záéíóúñü]/i.test(ch);
   for (;;) {
     const i = lowerText.indexOf(keyword, from);
     if (i === -1) return false;
-    if (!isLetter(lowerText[i - 1]) && !isLetter(lowerText[i + keyword.length])) return true;
+    if (!isLetter(lowerText[i - 1]) && (!wholeWordOnly || !isLetter(lowerText[i + keyword.length]))) return true;
     from = i + 1;
   }
+}
+
+/**
+ * Generic words that appear in many unrelated requests ("exterior door",
+ * "outdoor kitchen", "wall outlet"). They only decide the category when no
+ * other category matched on a stronger keyword.
+ */
+const WEAK_KEYWORDS: Partial<Record<SmartIntakeCategory, readonly string[]>> = {
+  interior_painting: ["wall", "walls", "pared", "paredes"],
+  exterior_painting: ["outdoor", "exterior"],
+};
+
+function strongKeywords(categoryId: SmartIntakeCategory): string[] {
+  const weak = WEAK_KEYWORDS[categoryId] ?? [];
+  return CATEGORY_REGISTRY[categoryId].keywords.filter((kw) => !weak.includes(kw));
+}
+
+function matchStrongKeyword(lowerText: string): SmartIntakeCategory | null {
+  // "paint the exterior": painting plus a weak exterior word is a strong exterior-painting signal.
+  const mentionsPainting = strongKeywords("interior_painting").some((kw) => matchesKeyword(lowerText, kw));
+  for (const categoryId of DETECTION_ORDER) {
+    const keywords =
+      categoryId === "exterior_painting" && mentionsPainting
+        ? CATEGORY_REGISTRY[categoryId].keywords
+        : strongKeywords(categoryId);
+    if (keywords.some((kw) => matchesKeyword(lowerText, kw))) return categoryId;
+  }
+  return null;
+}
+
+function matchWeakKeyword(lowerText: string): SmartIntakeCategory | null {
+  for (const categoryId of DETECTION_ORDER) {
+    if ((WEAK_KEYWORDS[categoryId] ?? []).some((kw) => matchesKeyword(lowerText, kw))) return categoryId;
+  }
+  return null;
 }
 
 export function detectCategoryFromText(input: {
@@ -600,14 +637,7 @@ export function detectCategoryFromText(input: {
   }
 
   const lower = input.rawDescription.toLowerCase();
-  for (const categoryId of DETECTION_ORDER) {
-    const def = CATEGORY_REGISTRY[categoryId];
-    if (def.keywords.some((kw) => matchesKeyword(lower, kw))) {
-      return categoryId;
-    }
-  }
-
-  return "interior_painting";
+  return matchStrongKeyword(lower) ?? matchWeakKeyword(lower) ?? "interior_painting";
 }
 
 export function getCategoryConfidence(input: {

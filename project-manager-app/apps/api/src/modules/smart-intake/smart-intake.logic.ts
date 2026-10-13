@@ -765,28 +765,38 @@ function resolveFirstAnswer(answers: IntakeAnswer[], questionId: string): string
 
 const HIGH_COMPLEXITY_SIGNALS = new Set([
   "full_remodel", "new_install", "irrigation", "replacement", "structural", "relocate", "scaffolding",
-  "post_construction", "premium", "premium_appliances", "full_exterior", "moisture_mold",
+  "post_construction", "full_exterior", "moisture_mold",
   "structural_damage", "water_damage", "pest", "3_plus", "over_2000_sqft", "over_500_sqft",
   "extra_large", "significant",
 ]);
 
+/** Risk signals that no amount of "easy" answers elsewhere should offset. */
+const SEVERE_COMPLEXITY_SIGNALS = new Set([
+  "structural", "structural_damage", "water_damage", "moisture_mold", "pest", "relocate", "scaffolding",
+]);
+
 const LOW_COMPLEXITY_SIGNALS = new Set([
   "cosmetic", "repair_only", "refinishing", "patches", "good", "no_move", "fixtures_only",
-  "no_appliances", "budget", "no", "minor", "standard", "one_time", "under_500",
+  "no", "minor", "standard", "one_time", "under_500",
   "under_500_sqft",
 ]);
 
+/** Material-tier questions are priced through resolveMaterialMultiplier, not complexity. */
+const MATERIAL_TIER_QUESTION = /_(material|materials|equipment|appliances)$/;
+
 function resolveComplexity(intake: ProjectIntakeRecord): "low" | "medium" | "high" {
+  let high = 0;
+  let low = 0;
   for (const answer of intake.answers) {
+    if (MATERIAL_TIER_QUESTION.test(answer.questionId)) continue;
     for (const val of answer.selectedValues) {
-      if (HIGH_COMPLEXITY_SIGNALS.has(val)) return "high";
+      if (SEVERE_COMPLEXITY_SIGNALS.has(val)) return "high";
+      if (HIGH_COMPLEXITY_SIGNALS.has(val)) high += 1;
+      else if (LOW_COMPLEXITY_SIGNALS.has(val)) low += 1;
     }
   }
-  for (const answer of intake.answers) {
-    for (const val of answer.selectedValues) {
-      if (LOW_COMPLEXITY_SIGNALS.has(val)) return "low";
-    }
-  }
+  if (high > low) return "high";
+  if (low > high) return "low";
   return "medium";
 }
 
