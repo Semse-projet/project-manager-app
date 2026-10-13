@@ -22,8 +22,8 @@ const LEGACY_DEMO_USER_IDS = new Set([
 ]);
 
 function isDisabledDemoSession(payload: SessionPayload): boolean {
-  const legacyDemoEnabled =
-    process.env.SEMSE_DEMO_MODE === "true" || process.env.NODE_ENV !== "production";
+  // Existing signed cookies for seeded demo identities also fail closed in production.
+  const legacyDemoEnabled = process.env.NODE_ENV !== "production";
   if (LEGACY_DEMO_USER_IDS.has(payload.userId) && !legacyDemoEnabled) {
     return true;
   }

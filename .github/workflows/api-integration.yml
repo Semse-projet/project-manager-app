@@ -9,6 +9,7 @@ on:
       - "project-manager-app/apps/worker/**"
       - "project-manager-app/scripts/api-integration.mjs"
       - "project-manager-app/scripts/api-f01-bids-integration.mjs"
+      - "project-manager-app/scripts/api-authenticated-f01-f02-smoke.mjs"
       # La ruta de migracion: este job es lo unico que la ejercita contra un
       # Postgres real, asi que un cambio en ella tiene que dispararlo.
       - "project-manager-app/scripts/pre-migrate.mjs"
@@ -20,6 +21,7 @@ on:
       - "project-manager-app/apps/worker/**"
       - "project-manager-app/scripts/api-integration.mjs"
       - "project-manager-app/scripts/api-f01-bids-integration.mjs"
+      - "project-manager-app/scripts/api-authenticated-f01-f02-smoke.mjs"
       # La ruta de migracion: este job es lo unico que la ejercita contra un
       # Postgres real, asi que un cambio en ella tiene que dispararlo.
       - "project-manager-app/scripts/pre-migrate.mjs"
@@ -125,6 +127,41 @@ jobs:
           SEMSE_F01_ISOLATED_DB: "1"
         run: node ./scripts/api-f01-bids-integration.mjs
 
+      # Separate signed-session test API on 127.0.0.1:4001. The earlier
+      # API without AUTH_SECRET stays on port 4000 for existing smoke tests.
+      # This is a throwaway GitHub runner and an ephemeral Postgres container.
+      - name: Start authenticated API (isolated localhost)
+        run: |
+          AUTH_SECRET="$(openssl rand -hex 32)" PORT=4001 HOST=127.0.0.1 NODE_ENV=test pnpm start:api > /tmp/semse-api-auth-integration.log 2>&1 &
+          echo $! > /tmp/semse-api-auth-integration.pid
+
+      - name: Wait for authenticated API healthcheck
+        run: |
+          for i in {1..60}; do
+            if curl -sSf http://127.0.0.1:4001/v1/health >/dev/null; then
+              echo "Authenticated CI API is up"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Authenticated API did not start"
+          tail -n 100 /tmp/semse-api-auth-integration.log || true
+          exit 1
+
+      - name: F01 F02 signed-session HTTP Postgres acceptance tests
+        env:
+          SEMSE_API_URL: http://127.0.0.1:4001
+          SEMSE_AUTH_TEST_ONLY: "1"
+          NODE_ENV: test
+        run: node ./scripts/api-authenticated-f01-f02-smoke.mjs
+
+      - name: Stop authenticated API
+        if: always()
+        run: |
+          if [ -f /tmp/semse-api-auth-integration.pid ]; then
+            kill "$(cat /tmp/semse-api-auth-integration.pid)" || true
+          fi
+
       - name: Stop API
         if: always()
         run: |
@@ -137,5 +174,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: api-integration-log
-          path: /tmp/semse-api-integration.log
+          path: |
+            /tmp/semse-api-integration.log
+            /tmp/semse-api-auth-integration.log
           if-no-files-found: ignore
