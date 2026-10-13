@@ -7,6 +7,7 @@ import {
   type SessionPayload,
 } from "@/lib/auth";
 import { resolveSafeRedirectPath } from "@/lib/safe-redirect";
+import { demoPasswordMatches, resolveDemoLoginPassword } from "@/lib/demo-login";
 
 const TTL_SECONDS = 8 * 60 * 60;
 const LOGIN_RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
@@ -17,8 +18,8 @@ const LOGIN_RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
 const LOGIN_RATE_LIMIT_MAX_EMAIL = 10;
 const LOGIN_RATE_LIMIT_MAX_IP = 30;
 const GENERIC_LOGIN_ERROR = "No se pudo iniciar sesión con esas credenciales";
-const DEMO_LOGIN_ENABLED =
-  process.env.SEMSE_DEMO_MODE === "true" || process.env.NODE_ENV !== "production";
+// Production cannot manufacture a local demo session even if the API is unavailable.
+const DEMO_LOGIN_ENABLED = process.env.NODE_ENV !== "production";
 
 const DEMO_ACCOUNTS: Record<string, Omit<SessionPayload, "exp">> = {
   "worker@demo.semse": {
@@ -161,7 +162,7 @@ async function resolveSessionPayload(input: {
   }
 
   const account = DEMO_ACCOUNTS[input.email.toLowerCase().trim()];
-  if (!account || input.password !== "demo1234") {
+  if (!account || !demoPasswordMatches(input.password, resolveDemoLoginPassword())) {
     throw new Error("Credenciales incorrectas");
   }
 

@@ -23,6 +23,7 @@ related_files:
 related_tests:
   - "apps/api/test/business-access-foundation.test.ts"
   - "apps/api/test/organizations.controller.test.ts"
+  - "tests/unit/worker-service-membership.test.mjs"
   - "apps/api/test/organization-resource-permissions.test.ts"
 related_endpoints:
   - "GET /v1/organizations"
@@ -57,7 +58,7 @@ Excluded: employment offers, invites, wages, TimeEntry, Evidence writes, Org con
 - **AC-06:** Dependency errors/deadline fail closed with 503; target access resolution deadline defaults to 1 second; no claims-only fallback. Measure latency in staging; no production SLO asserted.
 - **AC-07:** `issueSession` awaits durable AuthSession before returning bearer. Failure emits no usable token; no Session is created on read.
 - **AC-08:** Organization GET has no `ensureActorContext`, placeholder upsert, or mutation.
-- **AC-09:** Worker/BFF bootstrap and service-account behavior tested, cannot self-elevate from caller-supplied roles. Do not remove established machine identity without an approved replacement.
+- **AC-09:** Worker/BFF bootstrap and service-account behavior tested, cannot self-elevate from caller-supplied roles. Do not remove established machine identity without an approved replacement. *(2026-10-12: diagnóstico: `usr_worker_system` no disponía de las membresías activas requeridas tras #877; propuesta de reparación controlada y pruebas en `docs/runbooks/WORKER_SERVICE_IDENTITY_MEMBERSHIP.md`. No se ha ejecutado `--apply` ni verificado contra la BD de producción.)*
 - **AC-10:** Client's org selector/cookie cannot bypass scoped membership; API resolves effective permissions server-side.
 - **AC-11:** Two refresh requests using the same opaque token cannot both succeed; revocation and rotation are transactionally guarded.
 - **AC-12:** No AUTH_SECRET in production does not enable header-derived identity, including `resolveRequestContext`.
