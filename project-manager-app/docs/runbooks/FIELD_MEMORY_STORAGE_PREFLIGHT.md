@@ -122,3 +122,70 @@ Gate de aceptación: `status:PASS`, `missingFiles=0`, `alteredFiles=0`, `unexpec
 **Limitaciones del ensayo:** SHA-256 íntegro demuestra coincidencia de bytes entre inventario y copia recuperada, no demuestra que un snapshot gestionado Railway sea restaurable ni reemplaza la correlación con registros Evidence. Hasta tener ambos controles, `RESTORE NOT VERIFIED` para backups Railway.
 
 **Prohibido:** pulsar `Restore` en producción con fines de prueba; adjuntar el volumen original a otra app, subir un archive de fotos a GitHub o publicar un endpoint de descarga de originales sin autorización por tenant/Org/recurso.
+
+
+## Fase F — recuperación reproducible desde exportación privada (2026-10-13)
+
+**Estado:** Herramientas en revisión. Ninguna recuperación con bytes reales de producción se ha efectuado todavía. Este procedimiento verifica una exportación independiente, **no extrae un snapshot gestionado por Railway** ni permite restaurarlo aisladamente.
+
+**Precondiciones:** autorización del propietario, computadora controlada con Railway CLI y OpenSSH, Node 20+, un disco PRIVADO CIFRADO en reposo con espacio para dos copias, y ventana de escritura de originales suspendida por procedimiento autorizado. Nunca guardar manifest ni fotografías en CI, GitHub, chat o carpeta compartida. Documentación oficial: https://docs.railway.com/cli/ssh
+
+### A. Confirmar raíz productiva y configurar alias SSH (no modifica el volumen)
+
+~~~bash
+railway ssh --project 95ad1b14-d1d9-467d-82d8-5354619ba873 \
+  --environment d682210a-956a-4508-9c5b-4ca5959278f9 \
+  --service semse-API -- printenv SEMSE_STORAGE_ROOT
+
+railway ssh config --project 95ad1b14-d1d9-467d-82d8-5354619ba873 \
+  --environment d682210a-956a-4508-9c5b-4ca5959278f9 \
+  --service semse-API --alias semse-api-prod
+~~~
+
+### B. Inventario SHA-256 read-only en origen, durante ventana sin subidas
+
+~~~bash
+# Ejecutar desde la raíz project-manager-app/ de una copia local del repositorio.
+umask 077
+export SECURE_DIR="/RUTA/CIFRADA/semse-field-memory-20261013"
+export ORIGINALS_ROOT="/data/semse-storage" # reemplazar solo tras confirmar en Railway
+mkdir -p "$SECURE_DIR/export" "$SECURE_DIR/rehearsal"
+
+railway ssh --project 95ad1b14-d1d9-467d-82d8-5354619ba873 \
+  --environment d682210a-956a-4508-9c5b-4ca5959278f9 \
+  --service semse-API -- node --input-type=module \
+  -e "$(cat scripts/field-memory-source-inventory.mjs)" -- export-cap-20261013 \
+  > "$SECURE_DIR/manifest.partial.json"
+
+# Solo después del exit 0 y comprobación del resultado.
+mv "$SECURE_DIR/manifest.partial.json" "$SECURE_DIR/manifest.json"
+~~~
+
+El script se suministra a Node por el comando -e y no depende de que exista en la imagen de API. Lee las fotografías sin modificarlas; su stdout se redirige al disco cifrado y contiene claves relativas PRIVADAS. Rechaza rutas fuera de /data, enlaces, entradas especiales y archivos cuya modificación se detecte mientras se hashean. Esto **no crea una instantánea atómica** si siguen entrando escrituras.
+
+### C. Copia independiente cifrada de bytes durante la misma ventana
+
+~~~bash
+scp -r "semse-api-prod:$ORIGINALS_ROOT/." "$SECURE_DIR/export"
+~~~
+
+SFTP/SCP lee el volumen montado en el contenedor; NO descarga un snapshot Railway. Si falla, la exportación queda incompleta y no puede aprobarse.
+
+### D. Restaurar en carpeta temporal aislada y validar todos los archivos
+
+~~~bash
+node scripts/field-memory-offsite-restore-rehearsal.mjs \
+  --manifest "$SECURE_DIR/manifest.json" \
+  --export-root "$SECURE_DIR/export" \
+  --isolated-parent "$SECURE_DIR/rehearsal" \
+  --report "$SECURE_DIR/rehearsal-report.json" \
+  --confirm-encrypted-destination
+~~~
+
+El comando compara primero la exportación con el inventario fuente, reconstruye una copia en un directorio temporal nuevo fuera de /data, vuelve a comparar todos los SHA-256 y tamaños, informa totales agregados (sin rutas) y elimina su carpeta temporal al finalizar.
+
+**Criterio PASS (solo exportación independiente):** status PASS, phase isolated_restore, missingFiles=0, alteredFiles=0, unexpectedFiles=0, filesRecovered=filesExpected mayor que cero. Adjuntar a auditoría solo referencia opaca, SHA del manifiesto, totales y duración; no manifest privado.
+
+**Separación de evidencias:** CI SUCCESS cubre bytes sintéticos; rehearsal PASS cubre una exportación independiente realmente probada; la restaurabilidad de un snapshot Railway permanece UNVERIFIED hasta contar con prueba propia y segura. La reconciliación temporal con Postgres/Evidence y los permisos por organización también permanecen pendientes.
+
+**Prohibido:** pulsar Restore del backup productivo para ensayar, crear endpoints públicos de extracción, alterar variables en Railway, activar CaptureSession o publicar originales o su inventario.
