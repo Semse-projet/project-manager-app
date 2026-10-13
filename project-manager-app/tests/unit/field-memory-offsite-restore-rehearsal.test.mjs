@@ -67,3 +67,36 @@ test('refuses symlink as isolated directory', async t => {
   await symlink(f.isolatedParent, link);
   await assert.rejects(() => rehearseOffsiteRecovery({ ...f, isolatedParent: link }), /symlink/);
 });
+
+
+test('CLI rejects unconfirmed encrypted destination before opening source files', async t => {
+  const f = await fixture(t);
+  const { spawnSync } = await import('node:child_process');
+  const cli = path.resolve('scripts/field-memory-offsite-restore-rehearsal.mjs');
+  const run = spawnSync(process.execPath, [cli, '--manifest', f.manifestFile,
+    '--export-root', f.exportedRoot, '--isolated-parent', f.isolatedParent], {
+    cwd: path.resolve('.'), encoding: 'utf8', timeout: 10000,
+  });
+  assert.equal(run.status, 1);
+  assert.match(run.stderr, /ABORTED/);
+  assert.ok(!run.stderr.includes('original.jpg'));
+  assert.deepEqual(await readdir(f.isolatedParent), []);
+});
+
+test('CLI writes private aggregate report once and fails safe if repeated', async t => {
+  const f = await fixture(t);
+  const { spawnSync } = await import('node:child_process');
+  const cli = path.resolve('scripts/field-memory-offsite-restore-rehearsal.mjs');
+  const report = path.join(f.base, 'aggregate-report.json');
+  const args = [cli, '--manifest', f.manifestFile,
+    '--export-root', f.exportedRoot, '--isolated-parent', f.isolatedParent,
+    '--report', report, '--confirm-encrypted-destination'];
+  const ok = spawnSync(process.execPath, args, { cwd: path.resolve('.'), encoding: 'utf8', timeout: 10000 });
+  assert.equal(ok.status, 0);
+  assert.equal(JSON.parse(await readFile(report, 'utf8')).status, 'PASS');
+  assert.ok(!ok.stdout.includes('original.jpg'));
+  const again = spawnSync(process.execPath, args, { cwd: path.resolve('.'), encoding: 'utf8', timeout: 10000 });
+  assert.equal(again.status, 1);
+  assert.ok(!again.stderr.includes('original.jpg'));
+  assert.deepEqual(await readdir(f.isolatedParent), []);
+});
