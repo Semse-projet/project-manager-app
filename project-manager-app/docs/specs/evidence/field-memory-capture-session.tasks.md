@@ -44,3 +44,30 @@ date: "2026-10-11"
 - [ ] T-043 Canary interno autentificado con dos organizaciones, sin fugas.
 - [ ] T-044 Restauración probada de originales, métricas y rollback.
 - [ ] T-045 Actualizar `production_evidence`, flags, estados y reportes; NO marcar VERIFIED antes de validarlo.
+
+
+## Fase 0B — Hallazgos P0 de custodia (auditoría 2026-10-13)
+- [ ] T-006 Leer estado real de snapshots Railway: backup del volumen API COMPLETED, referencia/fecha/retención; nunca pulsar Restore de semse-API para un drill.
+- [ ] T-007 Ejecutar preflight REAL en contenedor API: SEMSE_STORAGE_ROOT en volumen /data y negar fallback /tmp en producción. Registrar provenance de SHA deploy/mount.
+- [ ] T-008 Diseñar e implementar barrera de escrituras/snapshot coherente para original + Evidence/Postgres. El par de inventarios no equivale a snapshot atómico.
+- [ ] T-009 Implementar digest SHA-256 calculado **del lado servidor** con bytes reales e inmutabilidad transaccional Evidence; checksum nullable/legacy sigue UNVERIFIED. Test cambio de contenido y concurrencia.
+- [ ] T-009A Evaluar signed GET modo off público para originales privados; smoke browser, móvil, Vision, agente y revocación, siete días shadow; no pasar a enforce sin gates, pero no activar CAP-1 en off.
+- [ ] T-009B Persistir provenance/audit de originales, owner org, derechos y retención/legal hold; derived 3D/360 referencia original por id + SHA y versionado.
+
+## Fase 1B — Pruebas de recuperación y reconciliación reales
+- [ ] T-014 Hacer exportación cifrada desde Railway SSH con 2 snapshots SHA antes/después, mismo scope; CLI integrated field-memory-custody-gate requiere ventana sin escrituras y evita PASS ante divergencia.
+- [ ] T-015 Leer proyección Evidence desde transacción Postgres consistente, con id/tenantId/projectId/bucketKey/checksum server-side; ejecutar field-memory-evidence-reconcile sobre directorio cifrado; 0 faltantes/duplicados/cross-tenant.
+- [ ] T-016 E2E de API/DB HTTP autenticado con Org A cliente, Org A pro, Org B dentro del mismo tenant, supervisor sin membership, usuario revocado y OPS_ADMIN auditado; exigir 401/403/404 coherentes y 0 bytes filtrados.
+- [ ] T-017 Verificar restauración en entorno aislado, apertura de foto recuperada con autorización, RPO/RTO, expiración URLs y rollback; no confundir offsite PASS y native backup RESTORE.
+- [ ] T-018 Validar manifiestos, reporting y almacenamiento offsite con amenazas symlink, edición concurrente, files faltantes, hashes iguales después de corrupción, fallos SSH, archivo parcial y backup vacío.
+
+## Fase 3B — Usabilidad de campo y transparencia de estados
+- [ ] T-034 UX: Captured local, Uploading, Original stored, Evidence registered, Submitted, Human verified, Restored; no mostrar "respaldado" por un simple PUT o snapshot creado.
+- [ ] T-035 UI de fallos: errores 409, falta de conectividad, presign caducado, checksum mismatch, retención/consentimiento no autorizado; acceso claro a reintentos con nonce nuevo y salida no destructiva.
+- [ ] T-036 Dashboard Ops: Backups CREATED/INSPECTED, Offsite VERIFIED, Railway native UNTESTED, Evidence NOT ATTESTED y bloqueos de activación sin exponer keys.
+- [ ] T-037 Aplicar derechos del GC, privacidad de personas fotografiadas, retención por proyecto y legal hold; consentimiento no se infiere de la acción de subir.
+
+## Cierre extendido del producto AAAA (NO asumir completado)
+- [ ] T-046 No activar CaptureSession hasta que T-006..T-018 y T-034..T-037 tengan evidencia de aceptación real (no solo CI o deploy SUCCESS).
+- [ ] T-047 Antes de GPU/reconstrucción 3D: vincular entrada solo a Evidence original server-verified, consentimiento autorizado, outputs como derivados no económicos y lineage reversible.
+- [ ] T-048 Documentar canary 2+ orgs, métricas RPO/RTO, ownership, revocación, restore drill trimestral/periodicidad aprobada y acciones de fallo.
