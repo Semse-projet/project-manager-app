@@ -221,7 +221,7 @@ test("F1-B enforced missing original rejects without Evidence or outbox writes",
   const h=makeHarness({integrityStorage:{async hashOriginal() { throw Error("disk has no original"); }}});
   await assert.rejects(
     ()=>h.repository.create(command),
-    (e:unknown)=>!!e&&typeof e==="object"&&"status" in e&&e.status===422,
+    (e: unknown) => !!e && (typeof e === "object") && ("status" in e) && (e.status === 422),
   );
   assert.equal(h.evidenceRows.length,0);
   assert.equal(h.outboxRows.length,0);
@@ -248,7 +248,7 @@ test("P0 cross-Org actor is rejected BEFORE server reads any Evidence bytes", as
   }}});
   await assert.rejects(
     ()=>h.repository.create({...command,orgId:"org_foreign"}),
-    (e:unknown)=>!!e&&typeof e==="object"&&"status" in e&&e.status===403,
+    (e: unknown) => !!e && (typeof e === "object") && ("status" in e) && (e.status === 403),
   );
   assert.equal(reads,0,"No unauthorized caller may inspect another Org's original bytes");
   assert.equal(h.evidenceRows.length,0);
