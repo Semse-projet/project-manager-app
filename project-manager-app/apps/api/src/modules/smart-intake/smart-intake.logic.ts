@@ -1287,6 +1287,71 @@ export function buildInitialIntake(input: {
   return refreshDerivedState(intake);
 }
 
+export type AnalyzeUpdateInput = {
+  rawDescription: string;
+  title?: string | null;
+  category?: string | null;
+  subcategory?: string | null;
+  modality?: "on_site" | "remote" | "hybrid" | null;
+  city?: string | null;
+  urgency?: "low" | "medium" | "high" | "urgent" | null;
+};
+
+/**
+ * Applies a new analyze request to an existing draft. The category is
+ * re-detected when the client picks one explicitly, or while no question has
+ * been answered yet; otherwise editing the description must not silently wipe
+ * the answers. A category change discards everything derived from the old
+ * category's questions (answers, scope, estimate, milestones), keeping photos.
+ */
+export function applyAnalyzeUpdate(existing: ProjectIntakeRecord, input: AnalyzeUpdateInput): ProjectIntakeRecord {
+  const selectedCategoryId = input.category?.trim() || existing.selectedCategoryId || null;
+  const selectedSubcategoryId = input.subcategory?.trim() || existing.selectedSubcategoryId || null;
+  const explicitSelection = Boolean(input.category?.trim());
+  const canRedetect = explicitSelection || existing.answers.length === 0;
+
+  const detectedCategory = canRedetect
+    ? detectCategoryFromText({ selectedCategoryId, selectedSubcategoryId, rawDescription: input.rawDescription })
+    : existing.detectedCategory;
+  const categoryChanged = detectedCategory !== existing.detectedCategory;
+
+  const base: ProjectIntakeRecord = {
+    ...existing,
+    rawDescription: input.rawDescription,
+    providedTitle: input.title?.trim() || null,
+    normalizedTitle: buildNormalizedTitle({
+      providedTitle: input.title?.trim() || existing.providedTitle,
+      rawDescription: input.rawDescription,
+      detectedCategory,
+    }),
+    selectedCategoryId,
+    selectedSubcategoryId,
+    detectedCategory,
+    modality: input.modality ?? existing.modality,
+    city: input.city?.trim() || existing.city,
+    urgency: input.urgency ?? existing.urgency,
+    detectedLanguage: detectLanguage(input.rawDescription),
+    categoryConfidence: getCategoryConfidence({
+      selectedCategoryId,
+      selectedSubcategoryId,
+      rawDescription: input.rawDescription,
+      detectedCategory,
+    }),
+    updatedAt: new Date().toISOString(),
+  };
+
+  if (!categoryChanged) return refreshDerivedState(base);
+  return refreshDerivedState({
+    ...base,
+    detectedSubcategory: selectedSubcategoryId,
+    answers: [],
+    estimatePreference: { includeMaterials: true, includeLabor: true, pricingMode: "not_sure" },
+    projectScope: {},
+    generatedEstimate: null,
+    generatedMilestones: [],
+  });
+}
+
 export function updateAnswerSet(answers: IntakeAnswer[], nextAnswer: IntakeAnswer): IntakeAnswer[] {
   return [...answers.filter((answer) => answer.questionId !== nextAnswer.questionId), nextAnswer];
 }
