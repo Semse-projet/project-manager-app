@@ -142,40 +142,54 @@ railway ssh config --project 95ad1b14-d1d9-467d-82d8-5354619ba873 \
   --service semse-API --alias semse-api-prod
 ~~~
 
-### B. Inventario SHA-256 read-only en origen, durante ventana sin subidas
+### B. Inventario SHA-256 read-only ANTES de copiar, en ventana sin subidas
+
+Ejecutar la secuencia desde un shell Bash en una computadora con disco privado realmente **cifrado**. Si falla cualquier paso, detener todo y NO marcar PASS. Los manifests contienen keys privadas: no copiarlos en issue, CI ni conversación. Usar el mismo ID opaco en ambas observaciones, que NO es el ID del backup Railway.
 
 ~~~bash
-# Ejecutar desde la raíz project-manager-app/ de una copia local del repositorio.
+set -euo pipefail
 umask 077
 export SECURE_DIR="/RUTA/CIFRADA/semse-field-memory-20261013"
-export ORIGINALS_ROOT="/data/semse-storage" # reemplazar solo tras confirmar en Railway
+export ORIGINALS_ROOT="/data/semse-storage" # solo usar después de confirmar ruta real en Railway
 mkdir -p "$SECURE_DIR/export" "$SECURE_DIR/rehearsal"
 
 railway ssh --project 95ad1b14-d1d9-467d-82d8-5354619ba873 \
   --environment d682210a-956a-4508-9c5b-4ca5959278f9 \
   --service semse-API -- node --input-type=module \
   -e "$(cat scripts/field-memory-source-inventory.mjs)" -- export-cap-20261013 \
-  > "$SECURE_DIR/manifest.partial.json"
-
-# Solo después del exit 0 y comprobación del resultado.
-mv "$SECURE_DIR/manifest.partial.json" "$SECURE_DIR/manifest.json"
+  > "$SECURE_DIR/manifest-before.partial.json"
+mv "$SECURE_DIR/manifest-before.partial.json" "$SECURE_DIR/manifest-before.json"
 ~~~
 
-El script se suministra a Node por el comando -e y no depende de que exista en la imagen de API. Lee las fotografías sin modificarlas; su stdout se redirige al disco cifrado y contiene claves relativas PRIVADAS. Rechaza rutas fuera de /data, enlaces, entradas especiales y archivos cuya modificación se detecte mientras se hashean. Esto **no crea una instantánea atómica** si siguen entrando escrituras.
+La utilidad lee el volumen sin modificarlo y comprueba hashes SHA-256, tamaño y marcas de modificación de cada archivo, pero no obtiene una instantánea atómica. Un archivo editado durante el escaneo hace fallar el proceso si se detecta el cambio.
 
-### C. Copia independiente cifrada de bytes durante la misma ventana
+### C. Extraer originales y repetir inventario DESPUÉS (mismo punto lógico)
 
 ~~~bash
+# Solo dentro de la misma ventana de custodia y sin nuevas escrituras:
 scp -r "semse-api-prod:$ORIGINALS_ROOT/." "$SECURE_DIR/export"
+
+railway ssh --project 95ad1b14-d1d9-467d-82d8-5354619ba873 \
+  --environment d682210a-956a-4508-9c5b-4ca5959278f9 \
+  --service semse-API -- node --input-type=module \
+  -e "$(cat scripts/field-memory-source-inventory.mjs)" -- export-cap-20261013 \
+  > "$SECURE_DIR/manifest-after.partial.json"
+mv "$SECURE_DIR/manifest-after.partial.json" "$SECURE_DIR/manifest-after.json"
+
+node scripts/field-memory-compare-inventories.mjs \
+  --before "$SECURE_DIR/manifest-before.json" \
+  --after "$SECURE_DIR/manifest-after.json"
 ~~~
 
-SFTP/SCP lee el volumen montado en el contenedor; NO descarga un snapshot Railway. Si falla, la exportación queda incompleta y no puede aprobarse.
+**Control bloqueante:** la comparación solo acepta status PASS, con addedFiles, removedFiles y changedFiles iguales a cero. Si no coincide, invalidar toda la exportación, no ejecutar la Fase D y programar otra ventana consistente. **Incluso con PASS, dos scans iguales NO prueban congelación atómica**; se requiere que el operador haya detenido escrituras/ingresos durante ambos scans y la transferencia.
+
+La exportación SSH/SCP lee el filesystem activo, no un snapshot de Railway. Nunca utilizar la función nativa Restore sobre la API productiva para esta prueba.
 
 ### D. Restaurar en carpeta temporal aislada y validar todos los archivos
 
 ~~~bash
 node scripts/field-memory-offsite-restore-rehearsal.mjs \
-  --manifest "$SECURE_DIR/manifest.json" \
+  --manifest "$SECURE_DIR/manifest-before.json" \
   --export-root "$SECURE_DIR/export" \
   --isolated-parent "$SECURE_DIR/rehearsal" \
   --report "$SECURE_DIR/rehearsal-report.json" \
