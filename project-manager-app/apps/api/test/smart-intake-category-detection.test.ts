@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { detectCategoryFromText, getCategoryConfidence, CATEGORY_REGISTRY } from "../dist/modules/smart-intake/config/category-registry.js";
-import { getSupportedQuestions, isPaintingCategory, detectCategoryConfidence } from "../dist/modules/smart-intake/smart-intake.logic.js";
+import { getSupportedQuestions, isPaintingCategory, detectCategoryConfidence, detectLanguage } from "../dist/modules/smart-intake/smart-intake.logic.js";
 
 // ── detectCategoryFromText ─────────────────────────────────────────────────
 
@@ -334,6 +334,34 @@ test("explicit selection maps the new category ids", () => {
 test("painting and masonry keep their own phrases", () => {
   assert.equal(detectCategoryFromText({ rawDescription: "Pintura de fachada exterior de mi casa" }), "exterior_painting");
   assert.equal(detectCategoryFromText({ rawDescription: "I want to pour a new concrete driveway" }), "masonry_concrete");
+});
+
+// ── language detection ───────────────────────────────────────────────────
+
+test("detectLanguage recognises Spanish descriptions beyond painting vocabulary", () => {
+  for (const text of [
+    "Tengo una fuga en el baño",
+    "Necesito arreglar el techo de mi casa",
+    "hola, quiero cambiar la puerta de entrada",
+    "¿Cuánto cuesta instalar un piso nuevo?",
+  ]) {
+    assert.equal(detectLanguage(text), "es", text);
+  }
+});
+
+test("detectLanguage keeps English descriptions as English", () => {
+  for (const text of [
+    "I have a leak in my bathroom",
+    "Need to replace the roof on my house",
+    "Hello, I want to paint my kitchen walls",
+    "Install new flooring in the living room",
+  ]) {
+    assert.equal(detectLanguage(text), "en", text);
+  }
+});
+
+test("detectLanguage defaults to English when there is no evidence", () => {
+  assert.equal(detectLanguage("12345 !!!"), "en");
 });
 
 // ── keyword matching precision ────────────────────────────────────────────

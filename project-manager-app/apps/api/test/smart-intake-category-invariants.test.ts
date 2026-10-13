@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { CATEGORY_REGISTRY } from "../dist/modules/smart-intake/config/category-registry.js";
 import { SCORING_PROFILES } from "../dist/modules/smart-intake/config/scoring-profiles.js";
+import { SIZE_SCALES, resolveSizeScale } from "../dist/modules/smart-intake/config/size-scales.js";
 import {
   buildInitialIntake,
   generateEstimate,
@@ -156,4 +157,25 @@ test("answering all critical questions makes new categories estimate-ready", () 
     assert.deepEqual(detail.missingCriticalFields, [], `${id}: critical fields still missing`);
     assert.equal(detail.estimateReady, true, `${id}: not estimate-ready with every question answered (score ${detail.score})`);
   }
+});
+
+// ── size scales ──────────────────────────────────────────────────────────────
+
+test("every size scale points at a real question of its category with small/large options", () => {
+  for (const [category, scale] of Object.entries(SIZE_SCALES)) {
+    const question = CATEGORY_REGISTRY[category as keyof typeof CATEGORY_REGISTRY].questions.find((q) => q.id === scale!.questionId);
+    assert.ok(question, `${category}: unknown question ${scale!.questionId}`);
+    const values = (question!.options ?? []).map((o) => o.value);
+    assert.ok(values.includes("small") && values.includes("large"), `${category}: ${scale!.questionId} lacks small/large`);
+    if (scale!.extraLarge !== undefined) assert.ok(values.includes("extra_large"), `${category}: missing extra_large option`);
+  }
+});
+
+test("resolveSizeScale applies the configured multipliers and defaults to 1", () => {
+  assert.equal(resolveSizeScale("bathroom_remodel", "small"), 0.65);
+  assert.equal(resolveSizeScale("bathroom_remodel", "extra_large"), 1.9);
+  assert.equal(resolveSizeScale("roofing", "large"), 2.2);
+  assert.equal(resolveSizeScale("roofing", "extra_large"), 1);
+  assert.equal(resolveSizeScale("roofing", null), 1);
+  assert.equal(resolveSizeScale("interior_painting", "large"), 1);
 });
