@@ -15,6 +15,7 @@ export type SuggestedLineItem = {
 
 export type SuggestEstimateInput = {
   tenantId: string;
+  orgId: string;
   leadId: string;
   userId: string;
 };
@@ -43,7 +44,7 @@ export class ContractorEstimateService {
   ) {}
 
   async suggestLineItems(input: SuggestEstimateInput): Promise<SuggestedLineItem[]> {
-    const lead = await this.contractor.getLead(input.leadId, input.tenantId);
+    const lead = await this.contractor.getLead(input.leadId, input.tenantId, input.orgId);
 
     const prompt = `Eres un experto en construcción en los Estados Unidos. Crea una lista de items para un estimado profesional.
 
@@ -107,7 +108,7 @@ Ejemplo de formato:
   }
 
   async createEstimateFromLead(input: CreateEstimateFromLeadInput) {
-    const lead = await this.contractor.getLead(input.leadId, input.tenantId);
+    const lead = await this.contractor.getLead(input.leadId, input.tenantId, input.orgId);
 
     const lineItems: InvoiceLineItem[] = input.lineItems.map((item) => ({
       description: item.description,
@@ -130,7 +131,7 @@ Ejemplo de formato:
       terms: input.terms ?? DEFAULT_TERMS,
     }, { tenantId: input.tenantId, orgId: input.orgId, userId: input.userId, roles: [] });
 
-    await this.contractor.updateLead(input.leadId, input.tenantId, {
+    await this.contractor.updateLead(input.leadId, input.tenantId, input.orgId, {
       status: "estimate_sent",
       nextAction: "Dar seguimiento al estimado enviado",
     });

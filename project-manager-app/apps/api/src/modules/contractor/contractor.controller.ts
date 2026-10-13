@@ -78,7 +78,7 @@ export class ContractorController {
   async getLead(@Req() req: FastifyRequest, @Param("id") id: string) {
     const rid = resolveRequestId(req.headers ?? {});
     const c = ctx(req);
-    return ok(rid, await this.contractor.getLead(id, c.tenantId));
+    return ok(rid, await this.contractor.getLead(id, c.tenantId, c.orgId));
   }
 
   @Patch("leads/:id")
@@ -86,7 +86,7 @@ export class ContractorController {
   async updateLead(@Req() req: FastifyRequest, @Param("id") id: string, @Body() body: Record<string, unknown>) {
     const rid = resolveRequestId(req.headers ?? {});
     const c = ctx(req);
-    return ok(rid, await this.contractor.updateLead(id, c.tenantId, body as UpdateLeadInput));
+    return ok(rid, await this.contractor.updateLead(id, c.tenantId, c.orgId, body as UpdateLeadInput));
   }
 
   @Delete("leads/:id")
@@ -94,7 +94,7 @@ export class ContractorController {
   async deleteLead(@Req() req: FastifyRequest, @Param("id") id: string) {
     const rid = resolveRequestId(req.headers ?? {});
     const c = ctx(req);
-    await this.contractor.deleteLead(id, c.tenantId);
+    await this.contractor.deleteLead(id, c.tenantId, c.orgId);
     return ok(rid, { deleted: true });
   }
 
@@ -105,6 +105,7 @@ export class ContractorController {
     const c = ctx(req);
     const items = await this.estimateService.suggestLineItems({
       tenantId: c.tenantId,
+      orgId: c.orgId,
       leadId: id,
       userId: c.userId,
     });

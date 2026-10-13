@@ -57,7 +57,7 @@ test("decodeSession returns null for an expired session", async () => {
   assert.equal(decoded, null, "expired session must return null");
 });
 
-test("decodeSession rejects legacy demo identities when production demo mode is disabled", async (t) => {
+test("decodeSession rejects legacy demo identities in production even with demo mode on", async (t) => {
   const originalNodeEnv = process.env.NODE_ENV;
   const originalDemoMode = process.env.SEMSE_DEMO_MODE;
   t.after(() => {
@@ -73,10 +73,12 @@ test("decodeSession rejects legacy demo identities when production demo mode is 
   const encoded = await encodeSession(demoPayload);
 
   process.env.NODE_ENV = "production";
-  process.env.SEMSE_DEMO_MODE = "false";
+  process.env.SEMSE_DEMO_MODE = "true";
 
   const decoded = await decodeSession(encoded);
-  assert.equal(decoded, null, "production must invalidate legacy demo sessions");
+  assert.equal(decoded, null, "production must invalidate legacy demo sessions regardless of flags");
+  const legitimate = await decodeSession(await encodeSession(VALID_PAYLOAD));
+  assert.equal(legitimate?.userId, VALID_PAYLOAD.userId, "legitimate non-demo sessions must keep working");
 });
 
 test("decodeSession returns null when signature is wrong secret", async () => {

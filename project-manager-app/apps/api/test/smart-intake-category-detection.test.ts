@@ -363,3 +363,37 @@ test("detectLanguage keeps English descriptions as English", () => {
 test("detectLanguage defaults to English when there is no evidence", () => {
   assert.equal(detectLanguage("12345 !!!"), "en");
 });
+
+// ── keyword matching precision ────────────────────────────────────────────
+
+const detect = (rawDescription: string) => detectCategoryFromText({ rawDescription });
+
+test("keywords match from the start of a word, not inside other words", () => {
+  // Nothing matches, so the category is only the painting fallback with minimal confidence.
+  for (const text of ["Need a firewall configured at the office desk", "Washing the textile curtains"]) {
+    const category = detect(text);
+    assert.equal(getCategoryConfidence({ rawDescription: text, detectedCategory: category }), 0.24, text);
+  }
+});
+
+test("existing keywords still match plural and suffixed forms", () => {
+  assert.equal(detect("Remodelación de mi bathrooms"), "bathroom_remodel");
+  assert.equal(detect("quiero cambiar los pisos de la casa"), "flooring_installation");
+});
+
+test("generic 'exterior'/'outdoor' do not outrank a specific trade", () => {
+  assert.equal(detect("Replace my exterior door and frame"), "general_carpentry");
+  assert.equal(detect("Build an outdoor kitchen with a countertop"), "kitchen_remodel");
+  assert.equal(detect("Cambiar el tomacorriente exterior del patio"), "electrical_work");
+});
+
+test("generic 'exterior' still decides when nothing more specific matches", () => {
+  assert.equal(detect("Something is wrong with the exterior of the house"), "exterior_painting");
+  assert.equal(detect("Paint the exterior of my house"), "exterior_painting");
+});
+
+test("generic 'wall' does not outrank a specific trade but still falls back to painting", () => {
+  assert.equal(detect("Install an outlet on the wall near the stove"), "kitchen_remodel");
+  assert.equal(detect("Fix the wall outlet in my bedroom"), "electrical_work");
+  assert.equal(detect("My bedroom wall looks bad"), "interior_painting");
+});

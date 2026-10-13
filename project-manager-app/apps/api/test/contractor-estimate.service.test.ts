@@ -55,10 +55,12 @@ function makeFinance() {
 
 function makeContractor(prisma: ReturnType<typeof makePrisma>) {
   return {
-    async getLead(id: string, tenantId: string) {
+    async getLead(id: string, tenantId: string, orgId: string) {
+      assert.ok(orgId.length > 0, "contractor estimate requires org context");
       return (await prisma.contractorLead.findFirst()) as Record<string, unknown>;
     },
-    async updateLead(id: string, tenantId: string, data: Record<string, unknown>) {
+    async updateLead(id: string, tenantId: string, orgId: string, data: Record<string, unknown>) {
+      assert.ok(orgId.length > 0, "estimate status update requires org context");
       return (await prisma.contractorLead.update({ where: { id }, data })) as Record<string, unknown>;
     },
   };
@@ -77,7 +79,7 @@ test("suggestLineItems returns parsed items from gateway JSON", async () => {
 
   const service = new ContractorEstimateService(gateway as never, finance as never, contractor as never);
 
-  const result = await service.suggestLineItems({ tenantId: "tenant_default", leadId: "lead_001", userId: "usr_001" });
+  const result = await service.suggestLineItems({ tenantId: "tenant_default", orgId: "org_client_001", leadId: "lead_001", userId: "usr_001" });
 
   assert.equal(result.length, 2);
   assert.equal(result[0]!.description, "Drywall 4x8 sheets");
@@ -98,7 +100,7 @@ test("suggestLineItems strips markdown code fences from gateway response", async
 
   const service = new ContractorEstimateService(gateway as never, finance as never, contractor as never);
 
-  const result = await service.suggestLineItems({ tenantId: "t", leadId: "l", userId: "u" });
+  const result = await service.suggestLineItems({ tenantId: "t", orgId: "o", leadId: "l", userId: "u" });
 
   assert.equal(result.length, 1);
   assert.equal(result[0]!.description, "Paint supplies");
@@ -112,7 +114,7 @@ test("suggestLineItems falls back to hardcoded items when gateway fails", async 
 
   const service = new ContractorEstimateService(gateway as never, finance as never, contractor as never);
 
-  const result = await service.suggestLineItems({ tenantId: "t", leadId: "l", userId: "u" });
+  const result = await service.suggestLineItems({ tenantId: "t", orgId: "o", leadId: "l", userId: "u" });
 
   assert.ok(result.length >= 3, "should return at least 3 fallback items");
   assert.ok(result.some((i) => i.category === "labor"), "should include labor item");
@@ -127,7 +129,7 @@ test("suggestLineItems falls back when gateway returns invalid JSON", async () =
 
   const service = new ContractorEstimateService(gateway as never, finance as never, contractor as never);
 
-  const result = await service.suggestLineItems({ tenantId: "t", leadId: "l", userId: "u" });
+  const result = await service.suggestLineItems({ tenantId: "t", orgId: "o", leadId: "l", userId: "u" });
 
   assert.ok(result.length > 0, "should return fallback items");
   assert.ok(result.every((i) => ["materials", "labor", "other"].includes(i.category)));

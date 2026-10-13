@@ -157,8 +157,20 @@ function findAnswer(answers: IntakeAnswer[], questionId: string): IntakeAnswer |
   return answers.find((answer) => answer.questionId === questionId);
 }
 
+const AREA_DIMENSIONS_PATTERN = /(\d+(?:\.\d+)?)\s*(?:x|×|by|por)\s*(\d+(?:\.\d+)?)/i;
+
+/** "10x12", "10 by 12" or "10 por 12" describe a rectangle, so the area is the product. */
+function parseAreaDimensions(text: string): number | undefined {
+  const match = AREA_DIMENSIONS_PATTERN.exec(text);
+  if (!match) return undefined;
+  const area = Number(match[1]) * Number(match[2]);
+  return Number.isFinite(area) && area > 0 ? Math.round(area) : undefined;
+}
+
 function parseCustomArea(text?: string): number | undefined {
   if (!text) return undefined;
+  const fromDimensions = parseAreaDimensions(text);
+  if (fromDimensions !== undefined) return fromDimensions;
   const matches = text.match(/\d+(?:\.\d+)?/g);
   if (!matches || matches.length === 0) return undefined;
   const values = matches.map(Number).filter((value) => Number.isFinite(value) && value > 0);
@@ -687,6 +699,10 @@ function getEstimateConfidence(score: number): ProjectEstimate["confidence"] {
 
 function parseAreaRange(text?: string): { min: number; max: number } | null {
   if (!text) return null;
+  const fromDimensions = parseAreaDimensions(text);
+  if (fromDimensions !== undefined) {
+    return { min: Math.round(fromDimensions * 0.9), max: Math.round(fromDimensions * 1.1) };
+  }
   const matches = text.match(/\d+(?:\.\d+)?/g);
   if (!matches || matches.length === 0) return null;
   if (matches.length === 1) {
@@ -766,28 +782,38 @@ function resolveFirstAnswer(answers: IntakeAnswer[], questionId: string): string
 
 const HIGH_COMPLEXITY_SIGNALS = new Set([
   "full_remodel", "new_install", "irrigation", "replacement", "structural", "relocate", "scaffolding",
-  "post_construction", "premium", "premium_appliances", "full_exterior", "moisture_mold",
+  "post_construction", "full_exterior", "moisture_mold",
   "structural_damage", "water_damage", "pest", "3_plus", "over_2000_sqft", "over_500_sqft",
   "extra_large", "significant",
 ]);
 
+/** Risk signals that no amount of "easy" answers elsewhere should offset. */
+const SEVERE_COMPLEXITY_SIGNALS = new Set([
+  "structural", "structural_damage", "water_damage", "moisture_mold", "pest", "relocate", "scaffolding",
+]);
+
 const LOW_COMPLEXITY_SIGNALS = new Set([
   "cosmetic", "repair_only", "refinishing", "patches", "good", "no_move", "fixtures_only",
-  "no_appliances", "budget", "no", "minor", "standard", "one_time", "under_500",
+  "no", "minor", "standard", "one_time", "under_500",
   "under_500_sqft",
 ]);
 
+/** Material-tier questions are priced through resolveMaterialMultiplier, not complexity. */
+const MATERIAL_TIER_QUESTION = /_(material|materials|equipment|appliances)$/;
+
 function resolveComplexity(intake: ProjectIntakeRecord): "low" | "medium" | "high" {
+  let high = 0;
+  let low = 0;
   for (const answer of intake.answers) {
+    if (MATERIAL_TIER_QUESTION.test(answer.questionId)) continue;
     for (const val of answer.selectedValues) {
-      if (HIGH_COMPLEXITY_SIGNALS.has(val)) return "high";
+      if (SEVERE_COMPLEXITY_SIGNALS.has(val)) return "high";
+      if (HIGH_COMPLEXITY_SIGNALS.has(val)) high += 1;
+      else if (LOW_COMPLEXITY_SIGNALS.has(val)) low += 1;
     }
   }
-  for (const answer of intake.answers) {
-    for (const val of answer.selectedValues) {
-      if (LOW_COMPLEXITY_SIGNALS.has(val)) return "low";
-    }
-  }
+  if (high > low) return "high";
+  if (low > high) return "low";
   return "medium";
 }
 
@@ -862,6 +888,9 @@ function buildGenericAssumptions(intake: ProjectIntakeRecord, complexity: string
   if (intake.answers.length < 2) {
     assumptions.push("Limited information provided — ranges are broad.");
   }
+  if (!intake.estimatePreference.includeLabor || !intake.estimatePreference.includeMaterials) {
+    assumptions.push("This category uses all-in rates; the labor-only or materials-only preference is not applied.");
+  }
   return assumptions;
 }
 
@@ -913,12 +942,11 @@ function generateGenericEstimate(intake: ProjectIntakeRecord): ProjectEstimate {
       currency: "USD",
     },
     breakdown: {
-      labor: intake.estimatePreference.includeLabor
-        ? { min: laborMin, max: laborMax, currency: "USD" }
-        : undefined,
+      // Category rates are all-in, so the labor line always matches totalRange.
+      labor: { min: laborMin, max: laborMax, currency: "USD" },
       contingency,
     },
-    includes: ["Labor", ...(intake.estimatePreference.includeMaterials ? ["Materials"] : [])],
+    includes: ["Labor and standard materials (all-in category rate)"],
     excludes: ["Permits", "Structural engineering", "Hazardous material removal"],
     assumptions: buildGenericAssumptions(intake, complexity),
     confidence: intake.accuracyScore >= 60 ? "high" : intake.accuracyScore >= 35 ? "medium" : "low",
@@ -932,12 +960,30 @@ function generateGenericEstimate(intake: ProjectIntakeRecord): ProjectEstimate {
   };
 }
 
+/** Below this confidence an auto-detected category is a guess the client should confirm. */
+export const CATEGORY_CONFIRMATION_THRESHOLD = 0.5;
+
+export function categoryNeedsConfirmation(
+  intake: Pick<ProjectIntakeRecord, "selectedCategoryId" | "categoryConfidence">,
+): boolean {
+  return !intake.selectedCategoryId?.trim() && intake.categoryConfidence < CATEGORY_CONFIRMATION_THRESHOLD;
+}
+
 export function generateEstimate(intake: ProjectIntakeRecord): ProjectEstimate {
   // Painting categories use the detailed painting estimator
-  if (intake.detectedCategory === "interior_painting" || intake.detectedCategory === "exterior_painting") {
-    return generatePaintingEstimate(intake);
-  }
-  return generateGenericEstimate(intake);
+  const estimate =
+    intake.detectedCategory === "interior_painting" || intake.detectedCategory === "exterior_painting"
+      ? generatePaintingEstimate(intake)
+      : generateGenericEstimate(intake);
+
+  if (!categoryNeedsConfirmation(intake)) return estimate;
+  const label = CATEGORY_REGISTRY[intake.detectedCategory].label.en;
+  return {
+    ...estimate,
+    confidence: "low",
+    assumptions: [`Category was not confirmed; "${label}" rates were assumed from the description.`, ...estimate.assumptions],
+    confidenceReasons: ["Project category was not confirmed by the client.", ...estimate.confidenceReasons],
+  };
 }
 
 function generatePaintingEstimate(intake: ProjectIntakeRecord): ProjectEstimate {
@@ -1205,6 +1251,71 @@ export function buildInitialIntake(input: {
   };
 
   return refreshDerivedState(intake);
+}
+
+export type AnalyzeUpdateInput = {
+  rawDescription: string;
+  title?: string | null;
+  category?: string | null;
+  subcategory?: string | null;
+  modality?: "on_site" | "remote" | "hybrid" | null;
+  city?: string | null;
+  urgency?: "low" | "medium" | "high" | "urgent" | null;
+};
+
+/**
+ * Applies a new analyze request to an existing draft. The category is
+ * re-detected when the client picks one explicitly, or while no question has
+ * been answered yet; otherwise editing the description must not silently wipe
+ * the answers. A category change discards everything derived from the old
+ * category's questions (answers, scope, estimate, milestones), keeping photos.
+ */
+export function applyAnalyzeUpdate(existing: ProjectIntakeRecord, input: AnalyzeUpdateInput): ProjectIntakeRecord {
+  const selectedCategoryId = input.category?.trim() || existing.selectedCategoryId || null;
+  const selectedSubcategoryId = input.subcategory?.trim() || existing.selectedSubcategoryId || null;
+  const explicitSelection = Boolean(input.category?.trim());
+  const canRedetect = explicitSelection || existing.answers.length === 0;
+
+  const detectedCategory = canRedetect
+    ? detectCategoryFromText({ selectedCategoryId, selectedSubcategoryId, rawDescription: input.rawDescription })
+    : existing.detectedCategory;
+  const categoryChanged = detectedCategory !== existing.detectedCategory;
+
+  const base: ProjectIntakeRecord = {
+    ...existing,
+    rawDescription: input.rawDescription,
+    providedTitle: input.title?.trim() || null,
+    normalizedTitle: buildNormalizedTitle({
+      providedTitle: input.title?.trim() || existing.providedTitle,
+      rawDescription: input.rawDescription,
+      detectedCategory,
+    }),
+    selectedCategoryId,
+    selectedSubcategoryId,
+    detectedCategory,
+    modality: input.modality ?? existing.modality,
+    city: input.city?.trim() || existing.city,
+    urgency: input.urgency ?? existing.urgency,
+    detectedLanguage: detectLanguage(input.rawDescription),
+    categoryConfidence: getCategoryConfidence({
+      selectedCategoryId,
+      selectedSubcategoryId,
+      rawDescription: input.rawDescription,
+      detectedCategory,
+    }),
+    updatedAt: new Date().toISOString(),
+  };
+
+  if (!categoryChanged) return refreshDerivedState(base);
+  return refreshDerivedState({
+    ...base,
+    detectedSubcategory: selectedSubcategoryId,
+    answers: [],
+    estimatePreference: { includeMaterials: true, includeLabor: true, pricingMode: "not_sure" },
+    projectScope: {},
+    generatedEstimate: null,
+    generatedMilestones: [],
+  });
 }
 
 export function updateAnswerSet(answers: IntakeAnswer[], nextAnswer: IntakeAnswer): IntakeAnswer[] {
