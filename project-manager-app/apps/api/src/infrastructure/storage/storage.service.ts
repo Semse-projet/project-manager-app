@@ -1,7 +1,7 @@
 import { ConflictException, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { constants, createReadStream, createWriteStream } from "node:fs";
 import { randomUUID } from "node:crypto";
-import { access, link, mkdir, readFile, stat, unlink } from "node:fs/promises";
+import { access, link, mkdir, open, readFile, stat, unlink } from "node:fs/promises";
 import path from "node:path";
 import { pipeline } from "node:stream/promises";
 import type { Readable } from "node:stream";
@@ -95,6 +95,14 @@ export class StorageService {
       }
       const ws = createWriteStream(stagePath, { flags: "wx", mode: 0o600 });
       await pipeline(input.stream, ws);
+      // Confirm staging bytes to the filesystem before making the original
+      // visible at its canonical name. This does not replace offsite backup.
+      const stagedFile = await open(stagePath, "r");
+      try {
+        await stagedFile.sync();
+      } finally {
+        await stagedFile.close();
+      }
       await link(stagePath, filePath);
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === "EEXIST") {
