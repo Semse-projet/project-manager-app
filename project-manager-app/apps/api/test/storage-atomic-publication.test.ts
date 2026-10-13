@@ -59,7 +59,7 @@ test("sequential reupload with same key is rejected and leaves original unchange
   await storage.store({key,stream:body("first"),contentType:"text/plain"});
   await assert.rejects(
     ()=>storage.store({key,stream:body("second"),contentType:"text/plain"}),
-    (e:unknown)=>!!e&&typeof e==="object"&&"status" in e&&e.status===409,
+    (e: unknown) => Boolean(e && (typeof e === "object") && ("status" in e) && (e.status === 409)),
   );
   assert.equal((await readFile(path.join(dir,key))).toString(),"first");
   assert.deepEqual(await readdir(path.join(dir,"multipart",".put-staging")),[]);
