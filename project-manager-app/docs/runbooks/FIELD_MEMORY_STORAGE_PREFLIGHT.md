@@ -142,50 +142,86 @@ railway ssh config --project 95ad1b14-d1d9-467d-82d8-5354619ba873 \
   --service semse-API --alias semse-api-prod
 ~~~
 
-### B. Inventario SHA-256 read-only en origen, durante ventana sin subidas
+### B. Inventario SHA-256 read-only ANTES de copiar, en ventana sin subidas
+
+Ejecutar la secuencia desde un shell Bash en una computadora con disco privado realmente **cifrado**. Si falla cualquier paso, detener todo y NO marcar PASS. Los manifests contienen keys privadas: no copiarlos en issue, CI ni conversación. Usar el mismo ID opaco en ambas observaciones, que NO es el ID del backup Railway.
 
 ~~~bash
-# Ejecutar desde la raíz project-manager-app/ de una copia local del repositorio.
+set -euo pipefail
 umask 077
 export SECURE_DIR="/RUTA/CIFRADA/semse-field-memory-20261013"
-export ORIGINALS_ROOT="/data/semse-storage" # reemplazar solo tras confirmar en Railway
+export ORIGINALS_ROOT="/data/semse-storage" # solo usar después de confirmar ruta real en Railway
 mkdir -p "$SECURE_DIR/export" "$SECURE_DIR/rehearsal"
 
 railway ssh --project 95ad1b14-d1d9-467d-82d8-5354619ba873 \
   --environment d682210a-956a-4508-9c5b-4ca5959278f9 \
   --service semse-API -- node --input-type=module \
   -e "$(cat scripts/field-memory-source-inventory.mjs)" -- export-cap-20261013 \
-  > "$SECURE_DIR/manifest.partial.json"
-
-# Solo después del exit 0 y comprobación del resultado.
-mv "$SECURE_DIR/manifest.partial.json" "$SECURE_DIR/manifest.json"
+  > "$SECURE_DIR/manifest-before.partial.json"
+mv "$SECURE_DIR/manifest-before.partial.json" "$SECURE_DIR/manifest-before.json"
 ~~~
 
-El script se suministra a Node por el comando -e y no depende de que exista en la imagen de API. Lee las fotografías sin modificarlas; su stdout se redirige al disco cifrado y contiene claves relativas PRIVADAS. Rechaza rutas fuera de /data, enlaces, entradas especiales y archivos cuya modificación se detecte mientras se hashean. Esto **no crea una instantánea atómica** si siguen entrando escrituras.
+La utilidad lee el volumen sin modificarlo y comprueba hashes SHA-256, tamaño y marcas de modificación de cada archivo, pero no obtiene una instantánea atómica. Un archivo editado durante el escaneo hace fallar el proceso si se detecta el cambio.
 
-### C. Copia independiente cifrada de bytes durante la misma ventana
+### C. Extraer originales y repetir inventario DESPUÉS (mismo punto lógico)
 
 ~~~bash
+# Solo dentro de la misma ventana de custodia y sin nuevas escrituras:
 scp -r "semse-api-prod:$ORIGINALS_ROOT/." "$SECURE_DIR/export"
+
+railway ssh --project 95ad1b14-d1d9-467d-82d8-5354619ba873 \
+  --environment d682210a-956a-4508-9c5b-4ca5959278f9 \
+  --service semse-API -- node --input-type=module \
+  -e "$(cat scripts/field-memory-source-inventory.mjs)" -- export-cap-20261013 \
+  > "$SECURE_DIR/manifest-after.partial.json"
+mv "$SECURE_DIR/manifest-after.partial.json" "$SECURE_DIR/manifest-after.json"
+
+node scripts/field-memory-compare-inventories.mjs \
+  --before "$SECURE_DIR/manifest-before.json" \
+  --after "$SECURE_DIR/manifest-after.json"
 ~~~
 
-SFTP/SCP lee el volumen montado en el contenedor; NO descarga un snapshot Railway. Si falla, la exportación queda incompleta y no puede aprobarse.
+**Control bloqueante:** la comparación solo acepta status PASS, con addedFiles, removedFiles y changedFiles iguales a cero. Si no coincide, invalidar toda la exportación, no ejecutar la Fase D y programar otra ventana consistente. **Incluso con PASS, dos scans iguales NO prueban congelación atómica**; se requiere que el operador haya detenido escrituras/ingresos durante ambos scans y la transferencia.
+
+La exportación SSH/SCP lee el filesystem activo, no un snapshot de Railway. Nunca utilizar la función nativa Restore sobre la API productiva para esta prueba.
 
 ### D. Restaurar en carpeta temporal aislada y validar todos los archivos
 
 ~~~bash
-node scripts/field-memory-offsite-restore-rehearsal.mjs \
-  --manifest "$SECURE_DIR/manifest.json" \
+node scripts/field-memory-custody-gate.mjs \
+  --before "$SECURE_DIR/manifest-before.json" \
+  --after "$SECURE_DIR/manifest-after.json" \
   --export-root "$SECURE_DIR/export" \
   --isolated-parent "$SECURE_DIR/rehearsal" \
-  --report "$SECURE_DIR/rehearsal-report.json" \
-  --confirm-encrypted-destination
+  --confirm-encrypted-destination \
+  --confirm-quiescent-export > "$SECURE_DIR/custody-gate.partial.json"
+mv "$SECURE_DIR/custody-gate.partial.json" "$SECURE_DIR/custody-gate-report.json"
 ~~~
 
-El comando compara primero la exportación con el inventario fuente, reconstruye una copia en un directorio temporal nuevo fuera de /data, vuelve a comparar todos los SHA-256 y tamaños, informa totales agregados (sin rutas) y elimina su carpeta temporal al finalizar.
+El comando integrado **exige** los inventarios antes/después, una secuencia temporal diferenciada, un directorio cifrado confirmado y atestación explícita del operador de que el periodo de extracción tuvo escrituras suspendidas. Si cualquiera falla, sale con código no cero y NUNCA ejecuta la copia de recuperación. Si ambos inventarios son estables, compara los bytes exportados, crea una copia temporal aislada, repite SHA-256/tamaño/recuento y la elimina. El informe contiene solo totales y checksums del manifiesto, nunca rutas relativas ni keys. El equipo debe retener registros operativos de quién autorizó, cuándo se congelaron escrituras y el mismo punto temporal en Postgres/Evidence. No se admite mostrar una pantalla de PASS sin dicha evidencia.
 
-**Criterio PASS (solo exportación independiente):** status PASS, phase isolated_restore, missingFiles=0, alteredFiles=0, unexpectedFiles=0, filesRecovered=filesExpected mayor que cero. Adjuntar a auditoría solo referencia opaca, SHA del manifiesto, totales y duración; no manifest privado.
+**Criterio PASS (solo exportación independiente):** result OFFSITE_RESTORE_PASS, missingFiles=0, alteredFiles=0, unexpectedFiles=0, filesRestored=sourceFiles mayor que cero y las banderas railwaySnapshotRestored, evidenceDatabaseReconciled y captureSessionActivationPermitted **false**. Adjuntar a auditoría solo referencia opaca, SHA del manifiesto, totales y duración; no manifest privado.
 
 **Separación de evidencias:** CI SUCCESS cubre bytes sintéticos; rehearsal PASS cubre una exportación independiente realmente probada; la restaurabilidad de un snapshot Railway permanece UNVERIFIED hasta contar con prueba propia y segura. La reconciliación temporal con Postgres/Evidence y los permisos por organización también permanecen pendientes.
 
 **Prohibido:** pulsar Restore del backup productivo para ensayar, crear endpoints públicos de extracción, alterar variables en Railway, activar CaptureSession o publicar originales o su inventario.
+
+
+## Fase G — reconciliación offline Evidence/Postgres (P0, no activación por coincidencia)
+
+El esquema Postgres real contiene Evidence.id, tenantId, projectId, bucketKey y checksum nullable. Antes de cualquier consulta, debe garantizarse una transacción READ ONLY con snapshot temporal compatible con el manifiesto de originales. Los datos de la proyección son PRIVADOS y no se pueden colocar en GitHub, chats, capturas ni artefactos públicos. No enviar claves de acceso Postgres al asistente.
+
+El operador de base de datos debe exportar a archivo JSON cifrado el siguiente esquema (valores ilustrativos, NO claves reales): schema = semse-evidence-backup-projection-v1, records = arreglo de objetos con id, tenantId, projectId, bucketKey, checksum. Debe quedar auditado el operador, snapshot, inicio/fin, entorno y total de filas. Si el checksum está vacío o fue proporcionado por el cliente y no calculado sobre bytes por el servidor, la custodia todavía NO está acreditada.
+
+~~~bash
+set -euo pipefail
+umask 077
+node scripts/field-memory-evidence-reconcile.mjs \
+  --manifest "$SECURE_DIR/manifest-before.json" \
+  --projection "$SECURE_DIR/evidence-projection.json" \
+  > "$SECURE_DIR/evidence-reconcile.json"
+~~~
+
+**ATENCIÓN:** la herramienta devuelve exit status 2 incluso con MATCHED_METADATA_NOT_ATTESTED. Coincidencia entre JSON y disco NO acredita que el hash fuera originado por API ni que la organización tenga acceso al recurso. No reetiquetar la salida manualmente como VERIFIED para saltarse este gate. Una comprobación completa requiere: Evidence.sha256 calculado por servidor, datos reales exportados del mismo punto temporal, pertenencia de Org/Project/Job verificada con sesiones reales, un restore íntegro y un registro de auditoría de consentimiento/retención.
+
+Los nombres de estado deben distinguir cuatro garantías independientes: RAID/volumen visible, backup Railway creado, copia cifrada offsite recuperable y Evidence con provenance/rights verificadas. No activar CaptureSession hasta que todas tengan evidencia auditada.
