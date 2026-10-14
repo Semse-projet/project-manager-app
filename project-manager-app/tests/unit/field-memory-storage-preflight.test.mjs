@@ -103,3 +103,9 @@ test("production does not silently accept a default local provider when STORAGE_
   assert.equal(pick(p,"storage-provider"),"BLOCK");
   assert.equal(p.storageLayoutReady,false);
 });
+
+test("Railway production tag without NODE_ENV also requires an explicit local provider", () => {
+  const p=inspect({...valid,NODE_ENV:"test",RAILWAY_ENVIRONMENT_NAME:"production",STORAGE_PROVIDER:undefined});
+  assert.equal(p.production,true);
+  assert.equal(pick(p,"storage-provider"),"BLOCK");
+});
