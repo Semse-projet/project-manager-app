@@ -12,6 +12,9 @@ function makeFakeStorage(buffer: Buffer) {
 
 function makeFakeRepository(calls: Array<Record<string, unknown>>) {
   return {
+    async authorizeOriginalReadForRegistration(input: Record<string, unknown>) {
+      return input.key;
+    },
     async create(input: Record<string, unknown>) {
       calls.push(input);
       return { id: "ev_1", projectId: input.projectId, ...input };
@@ -123,4 +126,61 @@ test("registerPhotoWithExif populates geoLat/geoLng/capturedAt from the photo's 
   assert.equal((call.capturedAt as Date).toISOString(), "2026-06-21T14:30:00.000Z");
   assert.equal(call.category, "before_phase");
   assert.equal(call.description, "Roof prep");
+});
+
+
+test("EXIF registration rejects a forbidden same-tenant Org before reading any original bytes", async () => {
+  let reads = 0;
+  let writes = 0;
+  const forbidden = Object.assign(new Error("Forbidden"), { status: 403 });
+  const service = new EvidenceService(
+    {
+      async authorizeOriginalReadForRegistration() {
+        throw forbidden;
+      },
+      async create() { writes++; throw Error("MUST NEVER WRITE"); },
+    } as never,
+    makeFakeAudit() as never,
+    { async readBuffer() { reads++; throw Error("MUST NEVER READ"); } } as never,
+  );
+  await assert.rejects(
+    () => service.registerPhotoWithExif({
+      tenantId: "tenant_A", orgId: "org_B", userId: "u_B", roles: ["PRO"], requestId: "r_B",
+      projectId: "proj_org_A", key: "tenants/tenant_A/evidence/orgA.jpg",
+    }),
+    (e: unknown) => !!e && typeof e === "object" && "status" in e && e.status === 403,
+  );
+  assert.equal(reads, 0, "a forbidden actor cannot inspect EXIF bytes");
+  assert.equal(writes, 0, "unauthorized registration cannot produce Evidence");
+});
+
+test("EXIF registration uses the server-authorized normalized storage key", async () => {
+  const calls: Array<Record<string, unknown>> = [];
+  let actualReadKey = "";
+  let gateCalls = 0;
+  const repo = {
+    async authorizeOriginalReadForRegistration(input: Record<string, unknown>) {
+      gateCalls++;
+      assert.equal(input.kind, "PHOTO");
+      return "tenants/t1/evidence/authorized.jpg";
+    },
+    async create(input: Record<string, unknown>) {
+      calls.push(input);
+      return { id: "ev_1", ...input };
+    },
+  };
+  const service = new EvidenceService(
+    repo as never, makeFakeAudit() as never,
+    { async readBuffer(key: string) {
+      actualReadKey = key;
+      return buildJpegWithExif(true);
+    } } as never,
+  );
+  await service.registerPhotoWithExif({
+    tenantId: "t1", orgId: "o1", userId: "u1", roles: ["PRO"], requestId: "r1",
+    projectId: "proj_1", key: "tenants/t1/evidence/authorized.jpg",
+  });
+  assert.equal(gateCalls, 1);
+  assert.equal(actualReadKey, "tenants/t1/evidence/authorized.jpg");
+  assert.equal(calls.length, 1);
 });
