@@ -1,34 +1,32 @@
 /**
- * Atomic replay barrier for verified signature events.
- *
- * Implementations MUST persist the unique key in a shared durable database,
- * use a unique constraint, and commit the claim and any business state changes
- * in the SAME transaction. Do not substitute process-local memory in production.
+ * Durable replay barrier contract for verified signature events.
+ * The transaction manager MUST atomically commit the unique replay claim
+ * and the associated business changes, or roll back both on any failure.
  */
 export interface SignatureEventClaimStore {
-  /**
-   * Returns true only for the first committed claim.
-   * Must be atomic and scoped to the same transaction as downstream effects.
-   * Errors must reject, never default to true.
-   */
+  /** Insert a replay key under a database UNIQUE constraint; return false on conflict. */
   claimOnce(replayKey: string): Promise<boolean>;
+}
+
+export interface SignatureEventTransactionManager {
+  transaction<T>(work: (store: SignatureEventClaimStore) => Promise<T>): Promise<T>;
 }
 
 export async function applyVerifiedSignatureEventOnce(
   replayKey: string,
-  store: SignatureEventClaimStore,
-  apply: () => Promise<void>,
+  manager: SignatureEventTransactionManager,
+  apply: (store: SignatureEventClaimStore) => Promise<void>,
 ): Promise<"applied" | "duplicate"> {
   if (!/^[a-f0-9]{64}$/.test(replayKey)) {
     throw new Error("Invalid signature event replay key");
   }
-  // The store and callback MUST share a transaction. The wrapper cannot
-  // provide transactionality itself; callers must not use separate commits.
-  const claimed = await store.claimOnce(replayKey);
-  if (claimed !== true && claimed !== false) {
-    throw new Error("Signature event claim store returned an invalid result");
-  }
-  if (!claimed) return "duplicate";
-  await apply();
-  return "applied";
+  return manager.transaction(async (store) => {
+    const claimed = await store.claimOnce(replayKey);
+    if (claimed !== true && claimed !== false) {
+      throw new Error("Signature event claim store returned an invalid result");
+    }
+    if (!claimed) return "duplicate";
+    await apply(store);
+    return "applied";
+  });
 }
