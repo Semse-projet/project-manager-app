@@ -295,6 +295,9 @@ Resultado requerido: LOCAL_PREFLIGHT_PASS. Si falla, verificar las claves de Rai
 
 ~~~powershell
 # Reemplazar D:\SEMSE-Secure-Recovery si la unidad no está cifrada.
+if (-not (Test-Path "D:\\")) { throw "La unidad D: no existe; seleccione una unidad cifrada REAL" }
+$bitlocker = Get-BitLockerVolume -MountPoint "D:" -ErrorAction Stop
+if ($bitlocker.ProtectionStatus -ne "On") { throw "BitLocker NO protege D:; no copiar evidencia" }
 New-Item -ItemType Directory -Force "D:\SEMSE-Secure-Recovery" | Out-Null
 node .\scripts\field-memory-operator-export.mjs --execute --secure-dir "D:\SEMSE-Secure-Recovery" --confirm-encrypted --confirm-quiescent --confirm-full-storage-scope
 ~~~
@@ -306,3 +309,5 @@ El programa consulta exclusivamente SEMSE_STORAGE_ROOT en semse-API y rechaza ru
 **Cierre pendiente:** verificación de backup nativo con ID/fecha/estado, control de suspensión real de escrituras, digest servidor en modo enforce, reconciliación privada con Evidence/Postgres, E2E de permisos multi-organización, métricas RPO/RTO y prueba de apertura de foto real en entorno aislado.
 
 **Advertencia de alcance:** SCP copia **toda** la raíz SEMSE_STORAGE_ROOT (también contratos, disputas, contribuciones y fragmentos multipart si existen), no exclusivamente fotografías de Evidence. Requiere aprobación expresa para **todos los dominios del almacenamiento**, confirmada mediante `--confirm-full-storage-scope`. Los fragmentos multipart no entran en el inventario de originales pero sí pueden estar en la exportación. Mantener cifrado, mínima accesibilidad, retención controlada y política de borrado de material auxiliar.
+
+Si se emplea otro sistema de cifrado, el operador debe verificarlo mediante sus controles propios antes de ejecutar; no omitir la verificación simplemente porque Get-BitLockerVolume no esté disponible. Confirmar que existe la unidad evita repetir el error histórico de apuntar a una ruta D: inexistente. La herramienta no verifica BitLocker por su cuenta: el bloque PowerShell de arriba es parte obligatoria del procedimiento de operador para la unidad D: del ejemplo.
