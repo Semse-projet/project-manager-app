@@ -1,7 +1,6 @@
 import { BadRequestException, Injectable, Optional } from "@nestjs/common";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { resolveTranscriptionProvider } from "../contributor-program/transcription-provider.js";
-import { HttpUrlStorageReader } from "./agro-asr.js";
 import { AgroEvidenceService } from "./agro-evidence.service.js";
 import { AgroFarmAccessService } from "./agro-farm-access.service.js";
 import { AgroTaskRefResolver, type ResolvedAgroTask } from "./agro-task-ref.resolver.js";
@@ -181,42 +180,31 @@ export class AgroIntakeService {
   }
 
   /**
-   * T-054: si no vino `text`, busca audio entre las evidencias referenciadas
-   * y lo transcribe. Si tampoco hay audio (o `text` sí vino), no cambia nada.
-   * Un fallo real de transcripción (proveedor caído, red) se propaga — a
-   * diferencia de la visión, el audio es la única fuente del texto, no un
-   * enriquecimiento best-effort.
+   * P0 security containment: AgroEvidenceItem only stores an untrusted fileUrl,
+   * not a storage-backed asset receipt. Even an URL pointing to our own BFF
+   * does not prove tenant, farm or organization ownership.
+   *
+   * Until P1 adds a verified binding, never forward any such URL to an ASR
+   * provider: that would allow server-side requests to arbitrary destinations.
+   * Manual text remains supported. The original evidence is untouched.
    */
   private async resolveText(
     inputText: string | undefined,
     evidenceRows: EvidenceRow[],
   ): Promise<{ text: string; transcribedFrom: string[] }> {
-    let text = inputText?.trim() ?? "";
-    const transcribedFrom: string[] = [];
+    const text = inputText?.trim() ?? "";
 
     if (!text) {
-      const audioRows = evidenceRows.filter((e) => e.mediaType === "AUDIO" && e.fileUrl);
-      if (audioRows.length) {
-        const provider = this.transcriptionProviderResolver(new HttpUrlStorageReader());
-        if (!provider) {
-          throw new BadRequestException(
-            "text is required (no automatic transcription provider is configured for audio evidence — set SEMSE_ASR_PROVIDER or include text manually)",
-          );
-        }
-        for (const row of audioRows) {
-          const segments = await provider.transcribe({ storageKey: row.fileUrl!, mimeType: null });
-          const transcript = segments.map((s) => s.text).join(" ").trim();
-          if (transcript) {
-            text = text ? `${text}\n${transcript}` : transcript;
-            transcribedFrom.push(row.id);
-          }
-        }
+      const hasUnverifiedAudio = evidenceRows.some((row) => row.mediaType === "AUDIO" && row.fileUrl);
+      if (hasUnverifiedAudio) {
+        throw new BadRequestException(
+          "AUDIO_SOURCE_NOT_VERIFIED: audio must be linked to an authorized SEMSE storage asset before transcription; provide text manually",
+        );
       }
+      throw new BadRequestException("text is required");
     }
 
-    text = text.trim();
-    if (!text) throw new BadRequestException("text is required");
-    return { text, transcribedFrom };
+    return { text, transcribedFrom: [] };
   }
 
   /** T-054: enriquecimiento best-effort — nunca bloquea la propuesta. */

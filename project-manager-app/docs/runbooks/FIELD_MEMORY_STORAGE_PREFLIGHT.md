@@ -270,6 +270,48 @@ La salida agregada no contiene claves, rutas, IDs ni hashes. Las claves de los h
 
 **Prohibido** borrar, mover o sobrescribir un original a partir de este informe: ADR-043 declara los originales write-once. Cada huérfano antiguo se resuelve por decisión del operador (registrarlo por el flujo normal, o conservarlo sin cambios). Esta herramienta no sustituye la conciliación de la Fase G ni acredita custodia.
 
+
+## Fase H — operador Windows 11: un solo comando supervisado (2026-10-14)
+
+Esta fase ejecuta las herramientas del repositorio desde PowerShell, sin archivos PS1 adicionales ni una consola Bash. El archivo scripts/field-memory-operator-export.mjs es **solo para el operador**. No ejecuta Restore nativo de Railway, no modifica /data, no altera variables ni publica evidencia.
+
+**Requisitos obligatorios:** Node.js 20+, Railway CLI autenticado, OpenSSH con scp, equipo autorizado, directorio independiente en disco realmente CIFRADO (verificar BitLocker o cifrado aprobado), espacio suficiente y una ventana operativa con escrituras de originales suspendidas y registradas por responsable. Las banderas de consentimiento no prueban por sí solas que el destino esté cifrado o que se congelaran escrituras.
+
+### 1. Preparar alias SSH local (únicamente ~/.ssh/config)
+
+~~~powershell
+railway ssh config -p 95ad1b14-d1d9-467d-82d8-5354619ba873 -e d682210a-956a-4508-9c5b-4ca5959278f9 -s semse-API --alias semse-api-prod
+~~~
+
+### 2. Preflight que NO lee fotografías ni transfiere archivos
+
+~~~powershell
+node .\scripts\field-memory-operator-export.mjs --check
+~~~
+
+Resultado requerido: LOCAL_PREFLIGHT_PASS. Si falla, verificar las claves de Railway/SSH. El operador debe situarse primero en la carpeta real project-manager-app de la versión aprobada.
+
+### 3. Recuperación de copia independiente durante una ventana sin escrituras
+
+~~~powershell
+# Reemplazar D:\SEMSE-Secure-Recovery si la unidad no está cifrada.
+if (-not (Test-Path "D:\\")) { throw "La unidad D: no existe; seleccione una unidad cifrada REAL" }
+$bitlocker = Get-BitLockerVolume -MountPoint "D:" -ErrorAction Stop
+if ($bitlocker.ProtectionStatus -ne "On") { throw "BitLocker NO protege D:; no copiar evidencia" }
+New-Item -ItemType Directory -Force "D:\SEMSE-Secure-Recovery" | Out-Null
+node .\scripts\field-memory-operator-export.mjs --execute --secure-dir "D:\SEMSE-Secure-Recovery" --confirm-encrypted --confirm-quiescent --confirm-full-storage-scope
+~~~
+
+El programa consulta exclusivamente SEMSE_STORAGE_ROOT en semse-API y rechaza rutas fuera de /data, crea carpeta privada nueva, genera el manifiesto antes de SCP, transfiere archivos por SSH a unidad cifrada, genera manifiesto después, compara ambos y ejecuta el gate integrado de recuperación aislada. Escribe un informe privado agregado, sin keys ni nombres de clientes. **Si falla una fase, no acepta PASS**; la exportación parcial permanece en el directorio cifrado para auditoría (no se elimina automáticamente).
+
+**Interpretación:** OFFSITE_RESTORE_PASS prueba únicamente que la copia externa exportada pasó el ensayo de recuperación, no que el snapshot administrado Railway sea restaurable ni que la foto corresponda a Evidence/Org de un punto DB coherente. Exit != 0 o BLOCKED exige intervención manual antes de CaptureSession o 3D. No pulsar Restore en la API productiva para un ensayo.
+
+**Cierre pendiente:** verificación de backup nativo con ID/fecha/estado, control de suspensión real de escrituras, digest servidor en modo enforce, reconciliación privada con Evidence/Postgres, E2E de permisos multi-organización, métricas RPO/RTO y prueba de apertura de foto real en entorno aislado.
+
+**Advertencia de alcance:** SCP copia **toda** la raíz SEMSE_STORAGE_ROOT (también contratos, disputas, contribuciones y fragmentos multipart si existen), no exclusivamente fotografías de Evidence. Requiere aprobación expresa para **todos los dominios del almacenamiento**, confirmada mediante `--confirm-full-storage-scope`. Los fragmentos multipart no entran en el inventario de originales pero sí pueden estar en la exportación. Mantener cifrado, mínima accesibilidad, retención controlada y política de borrado de material auxiliar.
+
+Si se emplea otro sistema de cifrado, el operador debe verificarlo mediante sus controles propios antes de ejecutar; no omitir la verificación simplemente porque Get-BitLockerVolume no esté disponible. Confirmar que existe la unidad evita repetir el error histórico de apuntar a una ruta D: inexistente. La herramienta no verifica BitLocker por su cuenta: el bloque PowerShell de arriba es parte obligatoria del procedimiento de operador para la unidad D: del ejemplo.
+
 ## Fase H — Readiness criptográfica de Evidence y lectura firmada (2026-10-14)
 
 El backend ya calcula SHA-256 del original con StorageService.hashOriginal() y EvidenceRepository.create() puede persistirlo. La variable EVIDENCE_ORIGINAL_SHA256_MODE admite off, shadow y enforce. En off no exige digest; en shadow puede omitirse ante error; solo enforce rechaza la evidencia sin original comprobable.

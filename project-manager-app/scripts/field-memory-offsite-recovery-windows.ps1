@@ -62,6 +62,28 @@ function Assert-EncryptedLocation([string]$Directory) {
   if ($absolute.TrimEnd('\') -eq $volume) {
     throw 'SecureRoot debe ser una carpeta, no la raíz de la unidad.'
   }
+
+  # Fail closed if encrypted originals could land inside the source checkout:
+  # neither a private photo nor its manifest belongs in git history.
+  $repoCanonical = [System.IO.Path]::GetFullPath($folder).TrimEnd('\')
+  $destinationCanonical = $absolute.TrimEnd('\')
+  $compare = [System.StringComparison]::OrdinalIgnoreCase
+  if ($destinationCanonical.Equals($repoCanonical, $compare) -or
+      $destinationCanonical.StartsWith($repoCanonical + '\', $compare)) {
+    throw 'SecureRoot NO puede estar dentro del repositorio de SEMSE.'
+  }
+  # Reject junctions/symlink directories: otherwise a path that looks outside
+  # the checkout could actually redirect originals back inside it.
+  if (Test-Path -LiteralPath $absolute -PathType Container) {
+    $cursor = Get-Item -LiteralPath $absolute -Force
+    while ($null -ne $cursor) {
+      if (($cursor.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+        throw 'SecureRoot no admite carpetas enlace, junctions ni reparse points.'
+      }
+      $cursor = $cursor.Parent
+    }
+  }
+
   if ($volume -notmatch '^[A-Za-z]:$' -or -not (Get-Command Get-BitLockerVolume -ErrorAction SilentlyContinue)) {
     throw 'Se requiere unidad local de Windows con BitLocker verificable.'
   }
