@@ -31,6 +31,22 @@ jobs:
             exit 1
           }
           Write-Output "PowerShell script parsed successfully. No Railway calls performed."
+      - name: Exercise read-only preflight with mocked Railway CLI
+        shell: pwsh
+        run: |
+          $mock = Join-Path $env:RUNNER_TEMP 'semse-railway-mock'
+          New-Item -Path $mock -ItemType Directory -Force | Out-Null
+          $cli = Join-Path $mock 'railway.cmd'
+          $fake = @'
+          @echo off
+          echo /data/semse-storage
+          exit /b 0
+          '@
+          [System.IO.File]::WriteAllText($cli, $fake)
+          $env:PATH = "$mock;$env:PATH"
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File "project-manager-app/scripts/field-memory-offsite-recovery-windows.ps1" -Mode Preflight -RepoRoot (Join-Path (Get-Location) "project-manager-app")
+          if ($LASTEXITCODE -ne 0) { throw "Read-only preflight failed with mock CLI" }
+          Write-Output "Preflight executed against mock CLI; no Railway access and no bytes copied."
       - name: Validate runner contract without credentials
         shell: pwsh
         run: |
