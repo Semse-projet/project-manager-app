@@ -269,3 +269,19 @@ node scripts/field-memory-orphan-originals-report.mjs \
 La salida agregada no contiene claves, rutas, IDs ni hashes. Las claves de los huérfanos antiguos solo se escriben en `--private-detail` (no sobrescribe un archivo existente) y son datos PRIVADOS. Exit status 0 = sin huérfanos antiguos, 3 = hay huérfanos antiguos, 1 = entrada inválida. Los objetos sin marca de tiempo en el nombre (`<epoch-ms>-<uuid>`) nunca se tratan como "en vuelo".
 
 **Prohibido** borrar, mover o sobrescribir un original a partir de este informe: ADR-043 declara los originales write-once. Cada huérfano antiguo se resuelve por decisión del operador (registrarlo por el flujo normal, o conservarlo sin cambios). Esta herramienta no sustituye la conciliación de la Fase G ni acredita custodia.
+
+## Fase H — Readiness criptográfica de Evidence y lectura firmada (2026-10-14)
+
+El backend ya calcula SHA-256 del original con StorageService.hashOriginal() y EvidenceRepository.create() puede persistirlo. La variable EVIDENCE_ORIGINAL_SHA256_MODE admite off, shadow y enforce. En off no exige digest; en shadow puede omitirse ante error; solo enforce rechaza la evidencia sin original comprobable.
+
+**Observación de Railway production (OAuth, 2026-10-14):** no aparecen entre los nombres de variables EVIDENCE_ORIGINAL_SHA256_MODE, UPLOADS_SIGNED_GET_MODE ni UPLOADS_SIGNING_SECRET. No se han modificado configuraciones.
+
+**Nuevos checks de solo lectura:** checksum-mode-valid bloquea valor desconocido; checksum-mode-enforced advierte si no está en enforce; configurationEnforcementReady solo es true si hash y signed GET están en enforce y hay secreto independiente. Aunque configuración pase, privateCaptureReady permanece false porque un script no prueba restaurabilidad, control por organización ni consentimiento.
+
+Ejecutar únicamente donde exista el script:
+
+```sh
+node scripts/field-memory-storage-preflight.mjs --strict-layout --strict-configuration
+```
+
+**No activar enforce directamente en Railway por este resultado.** Primero verificar compatibilidad de clientes, lectura firmada, URLs temporales, revocación, fotos antiguas, canary con dos organizaciones, auditoría y rollback. El ensayo real y la reconciliación Evidence/Postgres siguen obligatorios; sin ello no marcar CAP-1 VERIFIED ni activar captura 3D real.
