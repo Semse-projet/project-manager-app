@@ -2,7 +2,7 @@ import "reflect-metadata";
 import test from "node:test";
 import assert from "node:assert/strict";
 import {Readable} from "node:stream";
-import {mkdtemp,rm,readFile} from "node:fs/promises";
+import {mkdtemp,rm,readdir} from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import {
@@ -70,6 +70,5 @@ test("production store, plan, URL, stat and hashing never use ephemeral /tmp",as
   await assert.rejects(()=>storage.stat(key),rejected);
   await assert.rejects(()=>storage.hashOriginal(key),rejected);
   assert.throws(()=>storage.publicUrl(key),rejected);
-  assert.equal((await import("node:fs/promises")).readdir(root).then(x=>x.length).then(n=>n===0) instanceof Promise,true);
-  assert.deepEqual(await (await import("node:fs/promises")).readdir(root),[]);
+  assert.deepEqual(await readdir(root),[]);
 });
