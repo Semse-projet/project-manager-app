@@ -51,7 +51,7 @@ export function inspectFieldMemoryStorage({
     && env.UPLOADS_SIGNING_SECRET.length >= 16
     && env.UPLOADS_SIGNING_SECRET !== env.AUTH_SECRET;
   const checks = [
-    check("storage-provider", provider === "local", "Local driver must be explicitly understood; S3/R2 are not implemented"),
+    check("storage-provider", provider === "local" && (env.NODE_ENV !== "production" || env.STORAGE_PROVIDER === "local"), "Production must explicitly configure STORAGE_PROVIDER=local; S3/R2 are not implemented"),
     check("railway-volume-mount", readMountPoints(mountInfo).has(mount), "Expected a distinct /data mount in this runtime"),
     check("original-root-scope", inVolume, "SEMSE_STORAGE_ROOT must be an absolute path nested below /data"),
     check("multipart-root-scope", multipartScoped, "SEMSE_MULTIPART_STORAGE_ROOT must be nested below the originals root on /data"),

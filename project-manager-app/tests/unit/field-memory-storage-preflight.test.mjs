@@ -96,3 +96,10 @@ test("enforced hash mode is necessary but not sufficient for capture readiness",
   assert.equal(pick(result,"server-original-sha256-enforced"),"PASS");
   assert.equal(result.privateCaptureReady,false);
 });
+
+
+test("production does not silently accept a default local provider when STORAGE_PROVIDER is absent", () => {
+  const p=inspect({...valid,STORAGE_PROVIDER:undefined});
+  assert.equal(pick(p,"storage-provider"),"BLOCK");
+  assert.equal(p.storageLayoutReady,false);
+});
