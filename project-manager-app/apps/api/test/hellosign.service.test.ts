@@ -89,3 +89,33 @@ test("HelloSignService refuses implicit mock signing in production", async () =>
     else process.env.NODE_ENV = oldEnv;
   }
 });
+
+test("HelloSignService rejects failed provider status instead of returning unsigned", async () => {
+  const oldKey = process.env.HELLOSIGN_API_KEY;
+  const originalFetch = globalThis.fetch;
+  process.env.HELLOSIGN_API_KEY = "test-only-key";
+  globalThis.fetch = async () => new Response("unavailable", { status: 503 });
+  try {
+    const service = new HelloSignService();
+    await assert.rejects(service.getStatus("request_1"), /HTTP 503/);
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (oldKey === undefined) delete process.env.HELLOSIGN_API_KEY;
+    else process.env.HELLOSIGN_API_KEY = oldKey;
+  }
+});
+
+test("HelloSignService rejects malformed status response", async () => {
+  const oldKey = process.env.HELLOSIGN_API_KEY;
+  const originalFetch = globalThis.fetch;
+  process.env.HELLOSIGN_API_KEY = "test-only-key";
+  globalThis.fetch = async () => Response.json({ signature_request: { is_complete: true } });
+  try {
+    const service = new HelloSignService();
+    await assert.rejects(service.getStatus("request_2"), /invalid/);
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (oldKey === undefined) delete process.env.HELLOSIGN_API_KEY;
+    else process.env.HELLOSIGN_API_KEY = oldKey;
+  }
+});
