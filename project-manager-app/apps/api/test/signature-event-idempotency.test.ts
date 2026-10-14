@@ -72,3 +72,18 @@ test("failed business operation rolls back replay claim", async () => {
   assert.equal(committed.has(key), false);
   assert.equal(await applyVerifiedSignatureEventOnce(key, manager, async () => {}), "applied");
 });
+
+test("callback uses the same transaction-scoped store", async () => {
+  const token = Symbol("tx");
+  const manager = {
+    async transaction<T>(work: (store: { token: symbol; claimOnce(k: string): Promise<boolean> }) => Promise<T>): Promise<T> {
+      return work({ token, async claimOnce() { return true; } });
+    },
+  };
+  let received: symbol | undefined;
+  const result = await applyVerifiedSignatureEventOnce(key, manager, async (store) => {
+    received = store.token;
+  });
+  assert.equal(result, "applied");
+  assert.equal(received, token);
+});
