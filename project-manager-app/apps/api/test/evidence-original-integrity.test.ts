@@ -83,3 +83,37 @@ test("empty file and symlink cannot be hashed as an Evidence original", async t 
   await symlink(path.join(root,"empty"),path.join(root,"link"));
   await assert.rejects(()=>storage.hashOriginal("link"),/regular file/);
 });
+
+
+test("server SHA-256 rejects symlink even when target contains a valid original", async t => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "semse-hash-symlink-"));
+  const previous = process.env.SEMSE_STORAGE_ROOT;
+  process.env.SEMSE_STORAGE_ROOT = root;
+  t.after(async () => {
+    if (previous === undefined) delete process.env.SEMSE_STORAGE_ROOT;
+    else process.env.SEMSE_STORAGE_ROOT = previous;
+    await rm(root, { recursive: true, force: true });
+  });
+  const bytes = Buffer.from([0xff, 0xd8, 0xff, 0xd9]);
+  await writeFile(path.join(root, "original.jpg"), bytes);
+  await symlink(path.join(root, "original.jpg"), path.join(root, "borrowed.jpg"));
+  const storage = new StorageService();
+  const positive = await storage.hashOriginal("original.jpg");
+  assert.equal(positive.sha256, createHash("sha256").update(bytes).digest("hex"));
+  await assert.rejects(
+    () => storage.hashOriginal("borrowed.jpg"),
+    /not a nonempty regular file/,
+  );
+});
+
+test("canonical SHA-256 streaming holds the validated inode open, never reopens a pathname", async () => {
+  // Contract protects against a future regression to lstat followed by
+  // createReadStream(filePath), which follows a symlink inserted in between.
+  const source = await import("node:fs/promises").then(fs =>
+    fs.readFile(new URL("../src/infrastructure/storage/storage.service.ts", import.meta.url), "utf8")
+  );
+  assert.match(source, /constants\.O_RDONLY\s*\|\s*constants\.O_NOFOLLOW/);
+  assert.match(source, /handle\.createReadStream\(\{\s*autoClose:\s*false\s*\}\)/);
+  assert.match(source, /opened\.ino\s*!==\s*before\.ino/);
+  assert.match(source, /after\.ino\s*!==\s*pathnameAfter\.ino/);
+});
