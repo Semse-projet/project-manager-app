@@ -1,0 +1,49 @@
+name: Field Memory Windows Recovery Validation
+
+on:
+  pull_request:
+    paths:
+      - "project-manager-app/scripts/field-memory-offsite-recovery-windows.ps1"
+      - "project-manager-app/scripts/field-memory-source-inventory.mjs"
+      - "project-manager-app/tests/unit/field-memory-windows-recovery-contract.test.mjs"
+      - ".github/workflows/field-memory-windows-recovery.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  powershell-syntax:
+    name: PowerShell parser (no production access)
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse Windows recovery script
+        shell: pwsh
+        run: |
+          $path = Join-Path (Get-Location) "project-manager-app/scripts/field-memory-offsite-recovery-windows.ps1"
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile($path, [ref]$tokens, [ref]$errors) | Out-Null
+          if ($errors.Count -gt 0) {
+            $errors | ForEach-Object { Write-Error $_.Message }
+            exit 1
+          }
+          Write-Output "PowerShell script parsed successfully. No Railway calls performed."
+      - name: Validate runner contract without credentials
+        shell: pwsh
+        run: |
+          $script = Get-Content "project-manager-app/scripts/field-memory-offsite-recovery-windows.ps1" -Raw
+          foreach ($required in @(
+            "Get-BitLockerVolume",
+            "UploadsQuiescedConfirmed",
+            "field-memory-custody-gate.mjs",
+            "OFFSITE_RESTORE_PASS",
+            "railway ssh",
+            "manifest-before.json",
+            "manifest-after.json"
+          )) {
+            if (-not $script.Contains($required)) { throw "Missing safety invariant." }
+          }
+          Write-Output "Safety contract markers present."
