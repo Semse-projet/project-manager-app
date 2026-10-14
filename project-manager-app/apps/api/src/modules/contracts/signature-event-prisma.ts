@@ -5,10 +5,8 @@ import type { SignatureEventTransactionManager } from "./signature-event-idempot
  * PostgreSQL-backed replay barrier.
  * Requires the signature_event_claims migration to have run.
  * Callers MUST execute every downstream business mutation through the
- * provided transaction client; never use the root Prisma client in apply().
+ * provided transaction client; never use the root Prisma client in apply().\n * The generic replay interface does not yet expose tx to business callbacks;\n * do not connect payment or contract side effects until that is implemented.
  */
-export type SignatureEventTx = Parameters<Parameters<PrismaClient["$transaction"]>[0]>[0];
-
 export function prismaSignatureEventManager(
   prisma: PrismaClient,
 ): SignatureEventTransactionManager {
