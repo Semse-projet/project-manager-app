@@ -29,6 +29,22 @@ test("full storage scope needs explicit authorization; copying contracts is not 
   secureDir:"/fake"},{invoke(){calls++;}}));
  assert.equal(calls,0);
 });
+test("SCP alias bound to different service instance is rejected before reading bytes",async t=>{
+ const dir=await mkdtemp(path.join(os.tmpdir(),"semse-operator-alias-"));
+ t.after(()=>rm(dir,{recursive:true,force:true}));
+ let reads=0;
+ const fake={validateDestination:async()=>dir,mkdir,writeFile,readFile,executeCustodyGate,
+  invoke(cmd,args){
+   if(cmd==="railway"&&args[0]==="--version")return "railway test";
+   if(cmd==="railway"&&args[0]==="ssh"&&args[1]==="config")return "Host semse-api-prod\\n HostName ssh.railway.com\\n User correct.up.railway.app".replaceAll("\\n","\\n");
+   if(cmd==="ssh")return "hostname ssh.railway.com\\nuser wrong.up.railway.app".replaceAll("\\n","\\n");
+   reads++;throw Error("remote original accessed when alias mismatched");
+  }};
+ await assert.rejects(()=>performOperatorExport({execute:true,encrypted:true,quiescent:true,
+  fullStorageScope:true,secureDir:dir},fake),/Stale SSH alias/);
+ assert.equal(reads,0);
+});
+
 test("bad remote inventory aborts before SCP and never invents success",async t=>{
  const dir=await mkdtemp(path.join(os.tmpdir(),"semse-operator-test-"));
  t.after(()=>rm(dir,{recursive:true,force:true}));
@@ -37,6 +53,7 @@ test("bad remote inventory aborts before SCP and never invents success",async t=
   invoke(cmd,args){
    if(cmd==="ssh")return "hostname ssh.railway.com\nuser test.up.railway.app";
    if(cmd==="railway"&&args[0]==="--version")return "railway test";
+   if(cmd==="railway"&&args[0]==="ssh"&&args[1]==="config")return "Host semse-api-prod\n HostName ssh.railway.com\n User test.up.railway.app";
    if(cmd==="railway"&&args.includes("printenv"))return "/data/semse-storage\n";
    if(cmd==="railway"&&args.includes("node"))return '{"schema":"wrong"}';
    if(cmd==="scp"){copied=true;return "";}
@@ -58,6 +75,7 @@ test("two valid inventories and a local SCP fixture yield offsite-only PASS",asy
   invoke(cmd,args){
    if(cmd==="ssh")return "hostname ssh.railway.com\nuser test.up.railway.app";
    if(cmd==="railway"&&args[0]==="--version")return "railway test";
+   if(cmd==="railway"&&args[0]==="ssh"&&args[1]==="config")return "Host semse-api-prod\n HostName ssh.railway.com\n User test.up.railway.app";
    if(cmd==="railway"&&args.includes("printenv"))return "/data/semse-storage\n";
    if(cmd==="railway"&&args.includes("node")) {
     reads++;
