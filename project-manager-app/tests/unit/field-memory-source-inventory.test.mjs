@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 import { mkdtemp, mkdir, rm, symlink, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { inventory } from '../../scripts/field-memory-source-inventory.mjs';
+import { inventory, resolveInventoryReference } from '../../scripts/field-memory-source-inventory.mjs';
 
 async function root(t) {
   const dir = await mkdtemp(path.join(os.tmpdir(), 'semse-source-inventory-'));
@@ -40,4 +40,10 @@ test('rejects invalid snapshot reference and empty source', async t => {
   const empty = await mkdtemp(path.join(os.tmpdir(), 'semse-empty-inventory-'));
   t.after(() => rm(empty, { recursive: true, force: true }));
   await assert.rejects(() => inventory(empty, 'export-empty-2026', { enforceProductionRoot: false }), /No originals/);
+});
+
+test('Node stdin, -e and direct CLI receive the same opaque inventory reference', () => {
+  assert.equal(resolveInventoryReference(['node','-','export-20261013'], false),'export-20261013');
+  assert.equal(resolveInventoryReference(['node','export-20261013'], false),'export-20261013');
+  assert.equal(resolveInventoryReference(['node','script.mjs','export-20261013'], true),'export-20261013');
 });

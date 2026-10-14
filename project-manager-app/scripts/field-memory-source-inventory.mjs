@@ -56,11 +56,15 @@ async function inventory(storageRoot, backupReference, { enforceProductionRoot =
 
 // Supports node --input-type=module -e "$(cat ...)" -- reference on Railway;
 // source file need not exist in the deployed API image.
+export function resolveInventoryReference(argv, isDirect) {
+  return isDirect || argv[1] === '-' ? argv[2] : argv[1];
+}
 const isDirect = Boolean(process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href);
 const isInline = import.meta.url.includes('/[eval');
 if (isDirect || isInline) {
   try {
-    const reference = isDirect ? process.argv[2] : process.argv[1];
+    // Node reads JavaScript from stdin with argv[1] === '-', unlike -e.
+    const reference = resolveInventoryReference(process.argv, isDirect);
     const manifest = await inventory(process.env.SEMSE_STORAGE_ROOT, reference);
     process.stdout.write(JSON.stringify(manifest) + '\n');
   } catch {
