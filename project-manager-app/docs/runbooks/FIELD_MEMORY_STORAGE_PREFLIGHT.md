@@ -296,7 +296,7 @@ Resultado requerido: LOCAL_PREFLIGHT_PASS. Si falla, verificar las claves de Rai
 ~~~powershell
 # Reemplazar D:\SEMSE-Secure-Recovery si la unidad no está cifrada.
 New-Item -ItemType Directory -Force "D:\SEMSE-Secure-Recovery" | Out-Null
-node .\scripts\field-memory-operator-export.mjs --execute --secure-dir "D:\SEMSE-Secure-Recovery" --confirm-encrypted --confirm-quiescent
+node .\scripts\field-memory-operator-export.mjs --execute --secure-dir "D:\SEMSE-Secure-Recovery" --confirm-encrypted --confirm-quiescent --confirm-full-storage-scope
 ~~~
 
 El programa consulta exclusivamente SEMSE_STORAGE_ROOT en semse-API y rechaza rutas fuera de /data, crea carpeta privada nueva, genera el manifiesto antes de SCP, transfiere archivos por SSH a unidad cifrada, genera manifiesto después, compara ambos y ejecuta el gate integrado de recuperación aislada. Escribe un informe privado agregado, sin keys ni nombres de clientes. **Si falla una fase, no acepta PASS**; la exportación parcial permanece en el directorio cifrado para auditoría (no se elimina automáticamente).
@@ -304,3 +304,5 @@ El programa consulta exclusivamente SEMSE_STORAGE_ROOT en semse-API y rechaza ru
 **Interpretación:** OFFSITE_RESTORE_PASS prueba únicamente que la copia externa exportada pasó el ensayo de recuperación, no que el snapshot administrado Railway sea restaurable ni que la foto corresponda a Evidence/Org de un punto DB coherente. Exit != 0 o BLOCKED exige intervención manual antes de CaptureSession o 3D. No pulsar Restore en la API productiva para un ensayo.
 
 **Cierre pendiente:** verificación de backup nativo con ID/fecha/estado, control de suspensión real de escrituras, digest servidor en modo enforce, reconciliación privada con Evidence/Postgres, E2E de permisos multi-organización, métricas RPO/RTO y prueba de apertura de foto real en entorno aislado.
+
+**Advertencia de alcance:** SCP copia **toda** la raíz SEMSE_STORAGE_ROOT (también contratos, disputas, contribuciones y fragmentos multipart si existen), no exclusivamente fotografías de Evidence. Requiere aprobación expresa para **todos los dominios del almacenamiento**, confirmada mediante `--confirm-full-storage-scope`. Los fragmentos multipart no entran en el inventario de originales pero sí pueden estar en la exportación. Mantener cifrado, mínima accesibilidad, retención controlada y política de borrado de material auxiliar.
