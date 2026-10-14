@@ -250,3 +250,22 @@ powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\scripts\field-me
 El runner falla cerrado si SEMSE_STORAGE_ROOT no está en /data, no encuentra código o dependencias, BitLocker no puede comprobarse, no se confirmó quiescencia, SCP falla, hay cambios de inventario o fallan SHA-256 en el restore. Cada ejecución crea una carpeta exclusiva y no sobrescribe backups antiguos. Solo muestra cantidades, sin nombres de fotos.
 
 **Salida aceptable:** OFFSITE_RESTORE_PASS y un recuento mayor que cero, pero CaptureSessionActivationPermitted permanece false. Se verifica una exportación independiente del filesystem vivo, NO la restauración de un snapshot nativo de Railway ni la autoridad de Evidence/Postgres/Org. Conservar solo el informe agregado y el SHA del manifiesto en el expediente de auditoría restringido. Jamás enviar fotos, claves, rutas privadas o manifests al chat o repositorio.
+
+## Fase I — originales sin fila de Evidence (informe, nunca limpieza)
+
+La subida son tres pasos sin transacción: presign, PUT (los bytes ya quedan publicados) y register (fila de Evidence). Si el tercero no ocurre o es rechazado (p. ej. `EXIF_INVALID`, que no deja rastro en AuditLog), el original queda sin fila. Un original recién subido sin fila es normal; uno antiguo requiere una decisión del operador.
+
+~~~bash
+set -euo pipefail
+umask 077
+node scripts/field-memory-orphan-originals-report.mjs \
+  --manifest "$SECURE_DIR/manifest-before.json" \
+  --projection "$SECURE_DIR/evidence-projection.json" \
+  --grace-hours 24 \
+  --private-detail "$SECURE_DIR/orphan-originals-detail.json" \
+  > "$SECURE_DIR/orphan-originals-report.json"
+~~~
+
+La salida agregada no contiene claves, rutas, IDs ni hashes. Las claves de los huérfanos antiguos solo se escriben en `--private-detail` (no sobrescribe un archivo existente) y son datos PRIVADOS. Exit status 0 = sin huérfanos antiguos, 3 = hay huérfanos antiguos, 1 = entrada inválida. Los objetos sin marca de tiempo en el nombre (`<epoch-ms>-<uuid>`) nunca se tratan como "en vuelo".
+
+**Prohibido** borrar, mover o sobrescribir un original a partir de este informe: ADR-043 declara los originales write-once. Cada huérfano antiguo se resuelve por decisión del operador (registrarlo por el flujo normal, o conservarlo sin cambios). Esta herramienta no sustituye la conciliación de la Fase G ni acredita custodia.
