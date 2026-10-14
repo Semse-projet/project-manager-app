@@ -269,3 +269,38 @@ node scripts/field-memory-orphan-originals-report.mjs \
 La salida agregada no contiene claves, rutas, IDs ni hashes. Las claves de los huérfanos antiguos solo se escriben en `--private-detail` (no sobrescribe un archivo existente) y son datos PRIVADOS. Exit status 0 = sin huérfanos antiguos, 3 = hay huérfanos antiguos, 1 = entrada inválida. Los objetos sin marca de tiempo en el nombre (`<epoch-ms>-<uuid>`) nunca se tratan como "en vuelo".
 
 **Prohibido** borrar, mover o sobrescribir un original a partir de este informe: ADR-043 declara los originales write-once. Cada huérfano antiguo se resuelve por decisión del operador (registrarlo por el flujo normal, o conservarlo sin cambios). Esta herramienta no sustituye la conciliación de la Fase G ni acredita custodia.
+
+
+## Fase H — operador Windows 11: un solo comando supervisado (2026-10-14)
+
+Esta fase ejecuta las herramientas del repositorio desde PowerShell, sin archivos PS1 adicionales ni una consola Bash. El archivo scripts/field-memory-operator-export.mjs es **solo para el operador**. No ejecuta Restore nativo de Railway, no modifica /data, no altera variables ni publica evidencia.
+
+**Requisitos obligatorios:** Node.js 20+, Railway CLI autenticado, OpenSSH con scp, equipo autorizado, directorio independiente en disco realmente CIFRADO (verificar BitLocker o cifrado aprobado), espacio suficiente y una ventana operativa con escrituras de originales suspendidas y registradas por responsable. Las banderas de consentimiento no prueban por sí solas que el destino esté cifrado o que se congelaran escrituras.
+
+### 1. Preparar alias SSH local (únicamente ~/.ssh/config)
+
+~~~powershell
+railway ssh config -p 95ad1b14-d1d9-467d-82d8-5354619ba873 -e d682210a-956a-4508-9c5b-4ca5959278f9 -s semse-API --alias semse-api-prod
+~~~
+
+### 2. Preflight que NO lee fotografías ni transfiere archivos
+
+~~~powershell
+node .\scripts\field-memory-operator-export.mjs --check
+~~~
+
+Resultado requerido: LOCAL_PREFLIGHT_PASS. Si falla, verificar las claves de Railway/SSH. El operador debe situarse primero en la carpeta real project-manager-app de la versión aprobada.
+
+### 3. Recuperación de copia independiente durante una ventana sin escrituras
+
+~~~powershell
+# Reemplazar D:\SEMSE-Secure-Recovery si la unidad no está cifrada.
+New-Item -ItemType Directory -Force "D:\SEMSE-Secure-Recovery" | Out-Null
+node .\scripts\field-memory-operator-export.mjs --execute --secure-dir "D:\SEMSE-Secure-Recovery" --confirm-encrypted --confirm-quiescent
+~~~
+
+El programa consulta exclusivamente SEMSE_STORAGE_ROOT en semse-API y rechaza rutas fuera de /data, crea carpeta privada nueva, genera el manifiesto antes de SCP, transfiere archivos por SSH a unidad cifrada, genera manifiesto después, compara ambos y ejecuta el gate integrado de recuperación aislada. Escribe un informe privado agregado, sin keys ni nombres de clientes. **Si falla una fase, no acepta PASS**; la exportación parcial permanece en el directorio cifrado para auditoría (no se elimina automáticamente).
+
+**Interpretación:** OFFSITE_RESTORE_PASS prueba únicamente que la copia externa exportada pasó el ensayo de recuperación, no que el snapshot administrado Railway sea restaurable ni que la foto corresponda a Evidence/Org de un punto DB coherente. Exit != 0 o BLOCKED exige intervención manual antes de CaptureSession o 3D. No pulsar Restore en la API productiva para un ensayo.
+
+**Cierre pendiente:** verificación de backup nativo con ID/fecha/estado, control de suspensión real de escrituras, digest servidor en modo enforce, reconciliación privada con Evidence/Postgres, E2E de permisos multi-organización, métricas RPO/RTO y prueba de apertura de foto real en entorno aislado.
