@@ -11,6 +11,7 @@ const valid = {
   SEMSE_STORAGE_ROOT: "/data/semse-storage",
   SEMSE_MULTIPART_STORAGE_ROOT: "/data/semse-storage/multipart",
   UPLOADS_SIGNED_GET_MODE: "enforce",
+  EVIDENCE_ORIGINAL_SHA256_MODE: "enforce",
   AUTH_SECRET: "a".repeat(40),
   UPLOADS_SIGNING_SECRET: "b".repeat(40),
 };
@@ -76,4 +77,43 @@ test("report never echoes credentials, signed URLs or original file keys", () =>
   assert.ok(!printed.includes(valid.AUTH_SECRET));
   assert.ok(!printed.includes("/data/semse-storage/multipart"));
   assert.ok(!printed.includes("evidence/my-photo.jpg"));
+});
+
+
+test("private capture configuration needs server checksum enforce even with a valid volume and signed GET", () => {
+  const p = inspect({ ...valid, EVIDENCE_ORIGINAL_SHA256_MODE: undefined });
+  assert.equal(p.storageLayoutReady, true);
+  assert.equal(p.configurationEnforcementReady, false);
+  assert.equal(pick(p, "checksum-mode-valid"), "PASS");
+  assert.equal(pick(p, "checksum-mode-enforced"), "WARN");
+  assert.equal(p.privateCaptureReady, false);
+});
+
+test("shadow checksum mode cannot be represented as production Evidence integrity enforcement", () => {
+  const p = inspect({ ...valid, EVIDENCE_ORIGINAL_SHA256_MODE: "shadow" });
+  assert.equal(pick(p, "checksum-mode-enforced"), "WARN");
+  assert.equal(p.configurationEnforcementReady, false);
+});
+
+test("unknown checksum mode blocks readiness rather than silently downgrading protection", () => {
+  const p = inspect({ ...valid, EVIDENCE_ORIGINAL_SHA256_MODE: "oops" });
+  assert.equal(pick(p, "checksum-mode-valid"), "BLOCK");
+  assert.equal(p.configurationEnforcementReady, false);
+});
+
+test("all config flags enforced still cannot prove restored original or cross-Org policy", () => {
+  const p = inspect();
+  assert.equal(p.configurationEnforcementReady, true);
+  assert.equal(p.privateCaptureReady, false);
+  assert.equal(pick(p, "offsite-backup-restore"), "UNVERIFIED");
+  assert.equal(pick(p, "resource-level-read-auth"), "UNVERIFIED");
+});
+
+test("original checksum report does not reveal env values or invent a verified restore", () => {
+  const secret = "very-unique-secret-not-for-report";
+  const p = inspect({ ...valid, EVIDENCE_ORIGINAL_SHA256_MODE: "enforce", UPLOADS_SIGNING_SECRET: secret });
+  const printed = JSON.stringify(p);
+  assert.ok(!printed.includes(secret));
+  assert.ok(!printed.includes("tenants/t1/evidence/photo.jpg"));
+  assert.equal(p.privateCaptureReady, false);
 });

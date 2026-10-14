@@ -311,3 +311,19 @@ El programa consulta exclusivamente SEMSE_STORAGE_ROOT en semse-API y rechaza ru
 **Advertencia de alcance:** SCP copia **toda** la raíz SEMSE_STORAGE_ROOT (también contratos, disputas, contribuciones y fragmentos multipart si existen), no exclusivamente fotografías de Evidence. Requiere aprobación expresa para **todos los dominios del almacenamiento**, confirmada mediante `--confirm-full-storage-scope`. Los fragmentos multipart no entran en el inventario de originales pero sí pueden estar en la exportación. Mantener cifrado, mínima accesibilidad, retención controlada y política de borrado de material auxiliar.
 
 Si se emplea otro sistema de cifrado, el operador debe verificarlo mediante sus controles propios antes de ejecutar; no omitir la verificación simplemente porque Get-BitLockerVolume no esté disponible. Confirmar que existe la unidad evita repetir el error histórico de apuntar a una ruta D: inexistente. La herramienta no verifica BitLocker por su cuenta: el bloque PowerShell de arriba es parte obligatoria del procedimiento de operador para la unidad D: del ejemplo.
+
+## Fase H — Readiness criptográfica de Evidence y lectura firmada (2026-10-14)
+
+El backend ya calcula SHA-256 del original con StorageService.hashOriginal() y EvidenceRepository.create() puede persistirlo. La variable EVIDENCE_ORIGINAL_SHA256_MODE admite off, shadow y enforce. En off no exige digest; en shadow puede omitirse ante error; solo enforce rechaza la evidencia sin original comprobable.
+
+**Observación de Railway production (OAuth, 2026-10-14):** no aparecen entre los nombres de variables EVIDENCE_ORIGINAL_SHA256_MODE, UPLOADS_SIGNED_GET_MODE ni UPLOADS_SIGNING_SECRET. No se han modificado configuraciones.
+
+**Nuevos checks de solo lectura:** checksum-mode-valid bloquea valor desconocido; checksum-mode-enforced advierte si no está en enforce; configurationEnforcementReady solo es true si hash y signed GET están en enforce y hay secreto independiente. Aunque configuración pase, privateCaptureReady permanece false porque un script no prueba restaurabilidad, control por organización ni consentimiento.
+
+Ejecutar únicamente donde exista el script:
+
+```sh
+node scripts/field-memory-storage-preflight.mjs --strict-layout --strict-configuration
+```
+
+**No activar enforce directamente en Railway por este resultado.** Primero verificar compatibilidad de clientes, lectura firmada, URLs temporales, revocación, fotos antiguas, canary con dos organizaciones, auditoría y rollback. El ensayo real y la reconciliación Evidence/Postgres siguen obligatorios; sin ello no marcar CAP-1 VERIFIED ni activar captura 3D real.
