@@ -2,9 +2,9 @@ import { ServiceUnavailableException } from "@nestjs/common";
 import { readFile, realpath, stat } from "node:fs/promises";
 import path from "node:path";
 
-type StorageEnv = Pick<NodeJS.ProcessEnv,
+type StorageEnv = Partial<Pick<NodeJS.ProcessEnv,
   "NODE_ENV" | "RAILWAY_ENVIRONMENT" | "RAILWAY_ENVIRONMENT_NAME" |
-  "STORAGE_PROVIDER" | "SEMSE_STORAGE_ROOT">;
+  "STORAGE_PROVIDER" | "SEMSE_STORAGE_ROOT">>;
 const VOLUME = "/data";
 const FAIL = "Production originals storage volume is unavailable or incorrectly configured";
 
