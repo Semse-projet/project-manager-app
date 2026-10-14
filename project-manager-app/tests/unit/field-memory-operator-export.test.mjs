@@ -36,8 +36,8 @@ test("SCP alias bound to different service instance is rejected before reading b
  const fake={validateDestination:async()=>dir,mkdir,writeFile,readFile,executeCustodyGate,
   invoke(cmd,args){
    if(cmd==="railway"&&args[0]==="--version")return "railway test";
-   if(cmd==="railway"&&args[0]==="ssh"&&args[1]==="config")return "Host semse-api-prod\\n HostName ssh.railway.com\\n User correct.up.railway.app".replaceAll("\\n","\\n");
-   if(cmd==="ssh")return "hostname ssh.railway.com\\nuser wrong.up.railway.app".replaceAll("\\n","\\n");
+   if(cmd==="railway"&&args[0]==="ssh"&&args[1]==="config")return "Host semse-api-prod\n HostName ssh.railway.com\n User correct.up.railway.app";
+   if(cmd==="ssh")return "hostname ssh.railway.com\nuser wrong.up.railway.app";
    reads++;throw Error("remote original accessed when alias mismatched");
   }};
  await assert.rejects(()=>performOperatorExport({execute:true,encrypted:true,quiescent:true,
