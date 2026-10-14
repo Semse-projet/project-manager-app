@@ -13,6 +13,7 @@ const valid = {
   UPLOADS_SIGNED_GET_MODE: "enforce",
   AUTH_SECRET: "a".repeat(40),
   UPLOADS_SIGNING_SECRET: "b".repeat(40),
+  EVIDENCE_ORIGINAL_SHA256_MODE: "enforce",
 };
 
 function inspect(env = valid, extra = {}) {
@@ -76,4 +77,22 @@ test("report never echoes credentials, signed URLs or original file keys", () =>
   assert.ok(!printed.includes(valid.AUTH_SECRET));
   assert.ok(!printed.includes("/data/semse-storage/multipart"));
   assert.ok(!printed.includes("evidence/my-photo.jpg"));
+});
+
+
+test("server checksum mode off cannot certify original provenance", () => {
+  const result=inspect({...valid,EVIDENCE_ORIGINAL_SHA256_MODE:undefined});
+  assert.equal(pick(result,"server-original-sha256-enforced"),"WARN");
+  assert.equal(result.privateCaptureReady,false);
+});
+test("invalid checksum mode is blocking even with a correctly mounted volume", () => {
+  const result=inspect({...valid,EVIDENCE_ORIGINAL_SHA256_MODE:"enabled"});
+  assert.equal(pick(result,"server-original-sha256-mode-known"),"BLOCK");
+  assert.equal(result.privateCaptureReady,false);
+});
+test("enforced hash mode is necessary but not sufficient for capture readiness", () => {
+  const result=inspect();
+  assert.equal(pick(result,"server-original-sha256-mode-known"),"PASS");
+  assert.equal(pick(result,"server-original-sha256-enforced"),"PASS");
+  assert.equal(result.privateCaptureReady,false);
 });

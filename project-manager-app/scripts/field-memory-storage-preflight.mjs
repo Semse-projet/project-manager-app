@@ -46,6 +46,7 @@ export function inspectFieldMemoryStorage({
   const inVolume = withinDir(root, mount);
   const multipartScoped = withinDir(multipart, root) && withinDir(multipart, mount);
   const modeKnown = ["off", "shadow", "enforce"].includes(mode);
+  const checksumMode = env.EVIDENCE_ORIGINAL_SHA256_MODE || "off";
   const secretsReady = typeof env.UPLOADS_SIGNING_SECRET === "string"
     && env.UPLOADS_SIGNING_SECRET.length >= 16
     && env.UPLOADS_SIGNING_SECRET !== env.AUTH_SECRET;
@@ -61,6 +62,8 @@ export function inspectFieldMemoryStorage({
     check("signed-mode-valid", modeKnown, "Signed-read mode must be off, shadow or enforce"),
     check("signed-mode-active", mode === "enforce", "Signed GET not enforced; use approved shadow → enforce rollout", "WARN"),
     check("signing-secret-configured", secretsReady, "Dedicated signing secret of 16+ chars must be configured and differ from AUTH_SECRET", "WARN"),
+    check("server-original-sha256-mode-known", ["off", "shadow", "enforce"].includes(checksumMode), "Original SHA256 mode must be off, shadow or enforce"),
+    check("server-original-sha256-enforced", checksumMode === "enforce", "Evidence originals are not yet registered with server-owned SHA256 enforce mode", "WARN"),
     // No env var or presence check can prove a recovery point: deliberately not a PASS.
     { id: "offsite-backup-restore", status: "UNVERIFIED", message: "Separate offsite/volume backup and isolated restore drill required" },
     { id: "resource-level-read-auth", status: "UNVERIFIED", message: "Signed URL alone is insufficient; verify Org/Project/Evidence policy with two real actors" },
