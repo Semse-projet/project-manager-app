@@ -225,3 +225,28 @@ node scripts/field-memory-evidence-reconcile.mjs \
 **ATENCIÓN:** la herramienta devuelve exit status 2 incluso con MATCHED_METADATA_NOT_ATTESTED. Coincidencia entre JSON y disco NO acredita que el hash fuera originado por API ni que la organización tenga acceso al recurso. No reetiquetar la salida manualmente como VERIFIED para saltarse este gate. Una comprobación completa requiere: Evidence.sha256 calculado por servidor, datos reales exportados del mismo punto temporal, pertenencia de Org/Project/Job verificada con sesiones reales, un restore íntegro y un registro de auditoría de consentimiento/retención.
 
 Los nombres de estado deben distinguir cuatro garantías independientes: RAID/volumen visible, backup Railway creado, copia cifrada offsite recuperable y Evidence con provenance/rights verificadas. No activar CaptureSession hasta que todas tengan evidencia auditada.
+
+
+## Fase H — operador Windows 11 / PowerShell (13-oct-2026)
+
+El conector Railway OAuth no proporciona acceso SSH al equipo local del propietario. Para efectuar el ensayo real sin abrir puertos públicos, usar el runner PowerShell versionado en scripts/field-memory-offsite-recovery-windows.ps1. No inventar una ruta D:\ que no exista; ejecutarlo desde el checkout actualizado.
+
+**Primero:** revisar el PR que incorporó el runner y su CI, actualizar el repositorio, verificar Test-Path y comprobar Railway CLI, SSH, SCP y Node. El modo Preflight consulta solamente la ubicación de originales, y no copia fotografías.
+
+~~~powershell
+# Ejecutar desde project-manager-app/ después de integrar el PR
+Test-Path -LiteralPath .\scripts\field-memory-offsite-recovery-windows.ps1
+powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\scripts\field-memory-offsite-recovery-windows.ps1 -Mode Preflight -RepoRoot (Get-Location).Path
+~~~
+
+**Ensayo REAL:** solamente cuando se confirme BitLocker activo en la unidad, se disponga de espacio para exportación y copia temporal y esté suspendida efectivamente la escritura de originales en TODAS las rutas (API, multipart, agentes, worker y clientes). Una suspensión de una sola pantalla web no garantiza quiescencia global. No indicar UploadsQuiescedConfirmed si no se ha asegurado.
+
+~~~powershell
+# SecureRoot es un ejemplo, NO se crea automáticamente ni presupone cifrado.
+# Elegir una carpeta existente en una unidad Windows con BitLocker ProtectionStatus On.
+powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\scripts\field-memory-offsite-recovery-windows.ps1 -Mode ExportAndVerify -RepoRoot (Get-Location).Path -SecureRoot 'D:\SEMSE-Secure-Recovery' -EncryptedStorageConfirmed -UploadsQuiescedConfirmed
+~~~
+
+El runner falla cerrado si SEMSE_STORAGE_ROOT no está en /data, no encuentra código o dependencias, BitLocker no puede comprobarse, no se confirmó quiescencia, SCP falla, hay cambios de inventario o fallan SHA-256 en el restore. Cada ejecución crea una carpeta exclusiva y no sobrescribe backups antiguos. Solo muestra cantidades, sin nombres de fotos.
+
+**Salida aceptable:** OFFSITE_RESTORE_PASS y un recuento mayor que cero, pero CaptureSessionActivationPermitted permanece false. Se verifica una exportación independiente del filesystem vivo, NO la restauración de un snapshot nativo de Railway ni la autoridad de Evidence/Postgres/Org. Conservar solo el informe agregado y el SHA del manifiesto en el expediente de auditoría restringido. Jamás enviar fotos, claves, rutas privadas o manifests al chat o repositorio.
