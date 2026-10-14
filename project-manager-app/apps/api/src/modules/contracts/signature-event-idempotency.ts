@@ -8,14 +8,14 @@ export interface SignatureEventClaimStore {
   claimOnce(replayKey: string): Promise<boolean>;
 }
 
-export interface SignatureEventTransactionManager {
-  transaction<T>(work: (store: SignatureEventClaimStore) => Promise<T>): Promise<T>;
+export interface SignatureEventTransactionManager<TStore extends SignatureEventClaimStore = SignatureEventClaimStore> {
+  transaction<T>(work: (store: TStore) => Promise<T>): Promise<T>;
 }
 
-export async function applyVerifiedSignatureEventOnce(
+export async function applyVerifiedSignatureEventOnce<TStore extends SignatureEventClaimStore>(
   replayKey: string,
-  manager: SignatureEventTransactionManager,
-  apply: (store: SignatureEventClaimStore) => Promise<void>,
+  manager: SignatureEventTransactionManager<TStore>,
+  apply: (store: TStore) => Promise<void>,
 ): Promise<"applied" | "duplicate"> {
   if (!/^[a-f0-9]{64}$/.test(replayKey)) {
     throw new Error("Invalid signature event replay key");
