@@ -20,10 +20,30 @@ export function parseStorageRoot(stdout){
     root.split("/").some(x=>x===".."||x==="."))throw Error("Unsafe storage root");
   return root;
 }
-export function validateAlias(text){
-  if(!/^\s*hostname\s+ssh\.railway\.com\s*$/im.test(String(text)) ||
-     !/^\s*user\s+\S+/im.test(String(text)))throw Error("Unverified SSH alias");
+export function sshIdentity(text) {
+  const lines=String(text).split(/\r?\n/);
+  const get=name=> {
+    const match=lines.map(l=>l.trim()).find(l=>l.toLowerCase().startsWith(name+" "));
+    return match ? match.slice(name.length).trim() : null;
+  };
+  const host=get("hostname")?.toLowerCase();
+  const user=get("user");
+  if(host!=="ssh.railway.com" || !user || !/^[a-zA-Z0-9._-]+$/.test(user))
+    throw Error("Unverified SSH alias");
+  return {host,user};
 }
+export function validateAlias(text){ return sshIdentity(text); }
+function expectedRailwayAlias(invokeCommand){
+  const cfg=invokeCommand("railway",["ssh","config","-p",target.project,
+    "-e",target.environment,"-s",target.service,"--alias",target.alias,"--dry-run"],15000);
+  return sshIdentity(cfg);
+}
+function assertAliasBound(invokeCommand){
+  const expected=expectedRailwayAlias(invokeCommand);
+  const current=sshIdentity(invokeCommand("ssh",["-G",target.alias],15000));
+  if(expected.user!==current.user || expected.host!==current.host)throw Error("Stale SSH alias for different Railway instance");
+}
+
 function invoke(command,args,timeout=900000,maxBuffer=100*1024*1024) {
   const result=spawnSync(command,args,{encoding:"utf8",windowsHide:true,
     timeout,maxBuffer,stdio:["ignore","pipe","pipe"]});
@@ -45,7 +65,7 @@ export async function performOperatorExport(args,deps={invoke,readFile,writeFile
     throw Error("Explicit encryption and frozen-write attestations required");
   const safe=await deps.validateDestination(args.secureDir);
   deps.invoke("railway",["--version"],15000);
-  validateAlias(deps.invoke("ssh",["-G",target.alias],15000));
+  assertAliasBound(deps.invoke);
   const root=parseStorageRoot(deps.invoke("railway",prefix.concat(["printenv","SEMSE_STORAGE_ROOT"]),30000));
   const code=await deps.readFile(path.join(path.dirname(fileURLToPath(import.meta.url)),
     "field-memory-source-inventory.mjs"),"utf8");
@@ -80,7 +100,7 @@ if(process.argv[1]&&import.meta.url===pathToFileURL(path.resolve(process.argv[1]
   try {
     if(process.argv.includes("--check")){
       invoke("railway",["--version"],15000);
-      validateAlias(invoke("ssh",["-G",target.alias],15000));
+      assertAliasBound(invoke);
       const scp=spawnSync("scp",[],{encoding:"utf8",windowsHide:true,timeout:15000});
       if(scp.error)throw Error("SCP unavailable");
       process.stdout.write("LOCAL_PREFLIGHT_PASS; no originals were accessed.\n");
