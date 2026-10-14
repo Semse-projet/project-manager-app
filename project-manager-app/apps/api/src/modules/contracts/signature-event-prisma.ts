@@ -30,7 +30,7 @@ export function prismaSignatureEventManager(
           },
         };
         return work(store);
-      });
+      }, { isolationLevel: "Serializable", maxWait: 5000, timeout: 10000 });
     },
   };
 }
