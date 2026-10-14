@@ -151,9 +151,12 @@ export class HelloSignService {
 
   /** Check signature request status */
   async getStatus(requestId: string): Promise<SignatureStatusResult> {
-    if (!this.apiKey || requestId.startsWith("mock_")) {
+    if (!requestId?.trim()) throw new Error("Signature request ID is required");
+    if (requestId.startsWith("mock_")) {
+      if (process.env.NODE_ENV === "production") throw new Error("Mock signature status is not allowed in production");
       return { requestId, isComplete: false, clientSigned: false, proSigned: false, pdfUrl: null };
     }
+    if (!this.apiKey) throw new Error("Signature provider is not configured");
 
     try {
       const res = await fetch(`${HELLOSIGN_API}/signature_request/${encodeURIComponent(requestId)}`, {
@@ -163,7 +166,7 @@ export class HelloSignService {
         signal: AbortSignal.timeout(10_000),
       });
 
-      if (!res.ok) return { requestId, isComplete: false, clientSigned: false, proSigned: false, pdfUrl: null };
+      if (!res.ok) throw new Error(`Signature provider status returned HTTP ${res.status}`);
 
       const data = (await res.json()) as {
         signature_request?: {
@@ -174,7 +177,9 @@ export class HelloSignService {
       };
 
       const req = data.signature_request;
-      if (!req) return { requestId, isComplete: false, clientSigned: false, proSigned: false, pdfUrl: null };
+      if (!req || typeof req.is_complete !== "boolean" || !Array.isArray(req.signatures)) {
+        throw new Error("Signature provider status response is invalid");
+      }
 
       const clientSig = req.signatures.find(s => s.signer_role === "Cliente");
       const proSig    = req.signatures.find(s => s.signer_role === "Contratista");
@@ -188,7 +193,7 @@ export class HelloSignService {
       };
     } catch (err) {
       this.logger.warn(`[HelloSign] getStatus failed: ${(err as Error).message}`);
-      return { requestId, isComplete: false, clientSigned: false, proSigned: false, pdfUrl: null };
+      throw err;
     }
   }
 
