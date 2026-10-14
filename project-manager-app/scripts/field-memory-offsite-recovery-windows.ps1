@@ -20,8 +20,8 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
-$OutputEncoding = New-Object System.Text.UTF8Encoding($false)
-$utf8 = New-Object System.Text.UTF8Encoding($false)
+$OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+$utf8 = [System.Text.UTF8Encoding]::new($false)
 $nl = [Environment]::NewLine
 
 $project = '95ad1b14-d1d9-467d-82d8-5354619ba873'
