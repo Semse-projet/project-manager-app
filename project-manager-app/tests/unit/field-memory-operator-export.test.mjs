@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {mkdtemp,mkdir,rm,writeFile,readFile} from "node:fs/promises";
+import {copyFileSync} from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import {parseStorageRoot,validateAlias,performOperatorExport} from "../../scripts/field-memory-operator-export.mjs";
@@ -39,7 +40,7 @@ test("bad remote inventory aborts before SCP and never invents success",async t=
   secureDir:dir},fake));
  assert.equal(copied,false);
 });
-test("two valid inventories and mocked local SCP produce offsite-only PASS",async t=>{
+test("two valid inventories and a local SCP fixture yield offsite-only PASS",async t=>{
  const dir=await mkdtemp(path.join(os.tmpdir(),"semse-operator-success-"));
  t.after(()=>rm(dir,{recursive:true,force:true}));
  const fixture=path.join(dir,"fixture");await mkdir(fixture);
@@ -57,10 +58,14 @@ test("two valid inventories and mocked local SCP produce offsite-only PASS",asyn
     return JSON.stringify({...source,backupReference:args.at(-1),
      createdAt:new Date(Date.now()+reads*5000).toISOString()});
    }
-   if(cmd==="scp") {steps++;throw Error("fixture cannot synchronously write without dependency injection");}
+   if(cmd==="scp") {steps++;copyFileSync(path.join(fixture,"wall.jpg"),path.join(args.at(-1),"wall.jpg"));return "";}
    throw Error("unexpected");
   }};
- await assert.rejects(()=>performOperatorExport({execute:true,encrypted:true,quiescent:true,
-  secureDir:dir},fake));
- assert.equal(reads,1);assert.equal(steps,1);
+ const result=await performOperatorExport({execute:true,encrypted:true,quiescent:true,
+  secureDir:dir},fake);
+ assert.equal(result.result,"OFFSITE_RESTORE_PASS");
+ assert.equal(result.filesRestored,1);
+ assert.equal(result.railwaySnapshotRestored,false);
+ assert.equal(result.captureSessionActivationPermitted,false);
+ assert.equal(reads,2);assert.equal(steps,1);
 });
