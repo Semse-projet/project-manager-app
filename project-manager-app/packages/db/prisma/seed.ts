@@ -14,9 +14,14 @@ import crypto from "node:crypto";
 import { config as dotenvConfig } from "dotenv";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { assertSeedAllowed } from "./seed-guard.ts";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 dotenvConfig({ path: resolve(__dirname, "../../apps/api/.env") });
+
+// Cuentas demo con contraseña pública: nunca contra producción (ver seed-guard.ts).
+// Debe ir antes de crear el cliente y de cualquier escritura.
+assertSeedAllowed(process.env);
 
 const prisma = new PrismaClient();
 

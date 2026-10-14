@@ -10,7 +10,7 @@
     "prisma:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
     "prisma:seed": "tsx prisma/seed.ts",
-    "prisma:reset": "prisma migrate reset --force && tsx prisma/seed.ts",
+    "prisma:reset": "tsx scripts/assert-seed-allowed.ts && prisma migrate reset --force && tsx prisma/seed.ts",
     "prisma:repair-soft-delete": "tsx ./scripts/repair-soft-delete-drift.ts"
   },
   "dependencies": {

@@ -188,21 +188,36 @@ Important Railway detail:
 - they do not persist filesystem changes and do not mount volumes
 - that is fine for Prisma migrations, but not for upload/data initialization
 
-## 10. Seed demo data once
+## 10. Demo seed: never in production
 
-Run this once after Postgres is ready:
-
-```bash
-railway run --service semse-api npm run db:seed
-```
-
-This seeds the demo tenant and demo users:
+**Do not run `db:seed` against the production database.** The seed creates the demo tenant and three
+demo accounts with a public password (`demo1234`, which is in the repository):
 
 - `client@demo.semse`
 - `worker@demo.semse`
-- `admin@demo.semse`
+- `admin@demo.semse` (role `OPS_ADMIN`)
 
-The login flow now authenticates against the API instead of issuing unsigned demo cookies directly in the web layer.
+An earlier version of this section told operators to run `railway run --service semse-api npm run db:seed`
+once after Postgres was ready. That left those accounts `active` in the production database. The API
+refuses demo identities when `NODE_ENV=production`, but that is a second layer, not a reason to seed
+production.
+
+The seed now refuses to run (and `prisma:reset` refuses before it drops anything) when:
+
+- `NODE_ENV=production`, or `RAILWAY_ENVIRONMENT_NAME` / `RAILWAY_ENVIRONMENT` contains `prod` — no override;
+- `DATABASE_URL` points to a non-local host, unless `SEMSE_SEED_ALLOW_REMOTE_DB=true` is set explicitly
+  (meant for a non-production staging database only).
+
+For a non-production environment, seed from a local checkout against that environment's database:
+
+```bash
+SEMSE_SEED_ALLOW_REMOTE_DB=true pnpm db:seed
+```
+
+Production starts empty: create the first real users through the application's registration flow. Re-running the seed re-activates the demo accounts (`upsert` with `status: "active"`), so a database
+that was ever seeded must have those accounts suspended and their sessions revoked by an operator.
+
+The login flow authenticates against the API instead of issuing unsigned demo cookies directly in the web layer.
 
 ## 11. Verify
 
