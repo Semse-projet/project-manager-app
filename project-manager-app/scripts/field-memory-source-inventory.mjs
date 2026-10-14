@@ -60,7 +60,8 @@ const isDirect = Boolean(process.argv[1] && import.meta.url === pathToFileURL(pa
 const isInline = import.meta.url.includes('/[eval');
 if (isDirect || isInline) {
   try {
-    const reference = isDirect ? process.argv[2] : process.argv[1];
+    // Node reads JavaScript from stdin with argv[1] === '-', unlike -e.
+    const reference = isDirect ? process.argv[2] : process.argv[1] === '-' ? process.argv[2] : process.argv[1];
     const manifest = await inventory(process.env.SEMSE_STORAGE_ROOT, reference);
     process.stdout.write(JSON.stringify(manifest) + '\n');
   } catch {
