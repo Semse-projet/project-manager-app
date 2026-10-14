@@ -41,7 +41,7 @@ async function validateDestination(destination){
 const prefix=["ssh","-p",target.project,"-e",target.environment,"-s",target.service,"--"];
 export async function performOperatorExport(args,deps={invoke,readFile,writeFile,mkdir,
   validateDestination,executeCustodyGate}){
-  if(!args.execute||!args.encrypted||!args.quiescent)
+  if(!args.execute||!args.encrypted||!args.quiescent||!args.fullStorageScope)
     throw Error("Explicit encryption and frozen-write attestations required");
   const safe=await deps.validateDestination(args.secureDir);
   deps.invoke("railway",["--version"],15000);
@@ -88,7 +88,8 @@ if(process.argv[1]&&import.meta.url===pathToFileURL(path.resolve(process.argv[1]
       const r=await performOperatorExport({secureDir:option("--secure-dir"),
         execute:process.argv.includes("--execute"),
         encrypted:process.argv.includes("--confirm-encrypted"),
-        quiescent:process.argv.includes("--confirm-quiescent")});
+        quiescent:process.argv.includes("--confirm-quiescent"),
+        fullStorageScope:process.argv.includes("--confirm-full-storage-scope")});
       process.stdout.write(JSON.stringify(r,null,2)+"\n");
       if(r.result!=="OFFSITE_RESTORE_PASS")process.exitCode=2;
     }

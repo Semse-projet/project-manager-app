@@ -23,6 +23,12 @@ test("without encryption and write-quiescence attestation no commands execute",a
  secureDir:"/fake"},{invoke(){count++;}}));
  assert.equal(count,0);
 });
+test("full storage scope needs explicit authorization; copying contracts is not implicit",async()=>{
+ let calls=0;
+ await assert.rejects(()=>performOperatorExport({execute:true,encrypted:true,quiescent:true,fullStorageScope:false,
+  secureDir:"/fake"},{invoke(){calls++;}}));
+ assert.equal(calls,0);
+});
 test("bad remote inventory aborts before SCP and never invents success",async t=>{
  const dir=await mkdtemp(path.join(os.tmpdir(),"semse-operator-test-"));
  t.after(()=>rm(dir,{recursive:true,force:true}));
@@ -36,7 +42,7 @@ test("bad remote inventory aborts before SCP and never invents success",async t=
    if(cmd==="scp"){copied=true;return "";}
    throw Error("unexpected");
   }};
- await assert.rejects(()=>performOperatorExport({execute:true,encrypted:true,quiescent:true,
+ await assert.rejects(()=>performOperatorExport({execute:true,encrypted:true,quiescent:true,fullStorageScope:true,
   secureDir:dir},fake));
  assert.equal(copied,false);
 });
@@ -61,7 +67,7 @@ test("two valid inventories and a local SCP fixture yield offsite-only PASS",asy
    if(cmd==="scp") {steps++;copyFileSync(path.join(fixture,"wall.jpg"),path.join(args.at(-1),"wall.jpg"));return "";}
    throw Error("unexpected");
   }};
- const result=await performOperatorExport({execute:true,encrypted:true,quiescent:true,
+ const result=await performOperatorExport({execute:true,encrypted:true,quiescent:true,fullStorageScope:true,
   secureDir:dir},fake);
  assert.equal(result.result,"OFFSITE_RESTORE_PASS");
  assert.equal(result.filesRestored,1);
