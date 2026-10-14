@@ -251,10 +251,38 @@ model Org {
   tenant                        Tenant                         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   buildOpsProjects              BuildOpsProject[]
   buildOpsTasks                 BuildOpsTask[]
+  invitations                   OrgInvitation[]
   createdAt                     DateTime                       @default(now())
   updatedAt                     DateTime                       @updatedAt
 
   @@index([tenantId, type])
+}
+
+// BO-01 (docs/specs/core/org-invitations.spec.md): invitación personal pre-aceptación.
+// Solo se guarda el hash del token; la Membership se crea al aceptar.
+model OrgInvitation {
+  id               String    @id @default(cuid())
+  tenantId         String
+  orgId            String
+  inviterUserId    String
+  contactEmail     String
+  contactHash      String
+  roleKey          String
+  tokenHash        String    @unique
+  status           String    @default("PENDING") // PENDING | ACCEPTED | DECLINED | CANCELED | EXPIRED
+  expiresAt        DateTime
+  acceptedByUserId String?
+  acceptedAt       DateTime?
+  canceledAt       DateTime?
+  canceledByUserId String?
+  cancelReason     String?
+  lastSentAt       DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  org              Org       @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, orgId, status, createdAt])
+  @@index([orgId, contactHash, status])
 }
 
 model User {
