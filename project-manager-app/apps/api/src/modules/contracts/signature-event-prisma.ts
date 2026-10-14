@@ -1,21 +1,25 @@
-import type { PrismaClient } from "@prisma/client";
-import type { SignatureEventTransactionManager } from "./signature-event-idempotency.js";
+import type { Prisma, PrismaClient } from "@prisma/client";
+import type {
+  SignatureEventClaimStore,
+  SignatureEventTransactionManager,
+} from "./signature-event-idempotency.js";
 
 /**
- * PostgreSQL-backed replay barrier.
- * Requires the signature_event_claims migration to have run.
- * Callers MUST execute every downstream business mutation through the
- * provided transaction client; never use the root Prisma client in apply().\n * The generic replay interface does not yet expose tx to business callbacks;\n * do not connect payment or contract side effects until that is implemented.
+ * A verified signature event's replay claim and business effects MUST use
+ * the same Prisma transaction client. Never use root prisma inside apply().
  */
+export interface PrismaSignatureEventStore extends SignatureEventClaimStore {
+  readonly tx: Prisma.TransactionClient;
+}
+
 export function prismaSignatureEventManager(
   prisma: PrismaClient,
-): SignatureEventTransactionManager {
+): SignatureEventTransactionManager<PrismaSignatureEventStore> {
   return {
-    async transaction<T>(work: (store: {
-      claimOnce(replayKey: string): Promise<boolean>;
-    }) => Promise<T>): Promise<T> {
+    async transaction<T>(work: (store: PrismaSignatureEventStore) => Promise<T>): Promise<T> {
       return prisma.$transaction(async (tx) => {
-        const store = {
+        const store: PrismaSignatureEventStore = {
+          tx,
           async claimOnce(replayKey: string): Promise<boolean> {
             const inserted = await tx.$executeRaw`
               INSERT INTO signature_event_claims (replay_key)
@@ -24,7 +28,6 @@ export function prismaSignatureEventManager(
             `;
             return inserted === 1;
           },
-          tx,
         };
         return work(store);
       });
