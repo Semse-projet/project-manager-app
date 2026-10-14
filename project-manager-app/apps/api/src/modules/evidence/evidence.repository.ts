@@ -13,6 +13,8 @@ import {
 } from "@semse/schemas";
 import { ActorContextService } from "../../infrastructure/persistence/actor-context.service.js";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
+import { StorageService } from "../../infrastructure/storage/storage.service.js";
+import { serverEvidenceChecksum } from "./evidence-original-integrity.js";
 import {
   isLegacyDomainStorageKey,
   isTenantScopedStorageKey,
@@ -117,6 +119,8 @@ export class EvidenceRepository {
     private readonly outboxRepository: OutboxRepository,
     @Optional()
     private readonly lifecycleProjectionEvents?: ProjectLifecycleProjectionEventProducer,
+    @Optional()
+    private readonly storageService?: StorageService,
   ) {}
 
   async create(input: CreateEvidenceInput): Promise<EvidenceView> {
@@ -137,6 +141,10 @@ export class EvidenceRepository {
       return existing;
     }
 
+    // Scope and org policy above MUST precede any access to original bytes.
+    // Do not trust a checksum sent by clients; the checksum is server-owned.
+    const checksum = await serverEvidenceChecksum(bucketKey, this.storageService);
+
     try {
       const evidence = await this.prisma.$transaction(async (tx) => {
         const created = await tx.evidence.create({
@@ -147,6 +155,7 @@ export class EvidenceRepository {
             uploadedById: input.userId,
             kind: input.kind,
             bucketKey,
+            ...(checksum ? { checksum } : {}),
             metadataJson: {
               ...(metadata ?? {}),
               jobId: scope.jobId,

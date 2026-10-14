@@ -236,3 +236,20 @@ Fuentes arquitectónicas existentes en repositorio: `docs/SDD_GOVERNANCE.md`, `d
 - [ ] Tests de seguridad, migración y E2E verdes.
 - [ ] CI, merge, deploy y activación documentados por separado.
 - [ ] Sólo marcar VERIFIED con evidencia de producción y recuperación histórica.
+
+
+## CAP-0 custody amendment — authoritatively hashed ORIGINAL before CaptureSession (2026-10-13)
+
+**Issue P0:** the existing Prisma Evidence.checksum field is nullable, and historical registrations do not prove a digest computed from stored bytes by SEMSE. CAP-1 MUST NOT consider checksum missing or client-provided to be VERIFIED. A successful PUT, backup creation, Railway deployment or offline reconciliation of two arbitrary JSONs is insufficient.
+
+**Proposed compatibility-gated code:** EvidenceRepository.create first performs actor, tenant, org/project and resource policy and idempotency lookup; only then calls serverEvidenceChecksum over the immutable storage original. Never read a private original before the actor check. The File stream is hashed incrementally using SHA-256, with nonempty regular-file check and metadata-change detection. Hash is written into Evidence.checksum within the SAME DB transaction as Evidence registration and outbox. The public request schema cannot pass a checksum, and the digest is not obtained from an untrusted header.
+
+New EVIDENCE_ORIGINAL_SHA256_MODE:
+- off (default while migrating): legacy behavior, NO integrity attestation.
+- shadow: attempts the digest and persists it when available; missing bytes leave checksum null, audit warning with NO key/PII, not verified.
+- enforce: rejects absent, changed, empty, unreadable or otherwise unhashable original with 422 before Evidence/outbox writes, no silent fallback.
+- invalid/unrecognized: 503 and no registration; do not silently downgrade mode.
+
+**Production gate:** The flag remains OFF until CI, same-tenant cross-Org E2E, multipart and mobile retry checks, real container support, backup/restore and signing policy are proven. After shadow canary and backlog cleanup, enforce separately with explicit operator approval and rollback plan. Shadow/off never authorize CAP-1 or Payment Governance.
+
+**Outstanding:** checksum derivation is a point-in-time server read, not a cross-system atomic snapshot of Postgres/filesystem, and cannot recover unavailable legacy originals. Binding checksum to CaptureSession requires immutable Evidence provenance, Org membership and project rights checks. The native Railway backup restore still requires independent operator evidence. Avoid claiming full custody compliance because this helper exists.
