@@ -12,6 +12,10 @@ import {
 } from "../dist/infrastructure/storage/production-storage-guard.js";
 import {StorageService} from "../dist/infrastructure/storage/storage.service.js";
 
+function isUnavailable(e: unknown): boolean {
+  return typeof e === "object" && e !== null && "status" in e && e.status === 503;
+}
+
 test("production env recognition includes Railway production even without NODE_ENV",()=>{
   assert.equal(isProductionStorage({NODE_ENV:"production"}),true);
   assert.equal(isProductionStorage({RAILWAY_ENVIRONMENT:"production"}),true);
@@ -29,7 +33,7 @@ test("production refuses missing root, ephemeral path, traversal and unimplement
     {NODE_ENV:"production",SEMSE_STORAGE_ROOT:"/data/semse-storage"},
   ];
   for(const env of cases) assert.throws(()=>assertProductionStorageConfiguration(env),
-    (e:unknown)=>!!e&&typeof e==="object"&&"status" in e&&e.status===503);
+    isUnavailable);
 });
 
 test("explicit mounted local storage configuration is accepted",()=>{
@@ -64,7 +68,7 @@ test("production store, plan, URL, stat and hashing never use ephemeral /tmp",as
   delete process.env.RAILWAY_ENVIRONMENT_NAME;
   const storage=new StorageService();
   const key="tenants/t1/evidence/wall.jpg";
-  const rejected=(e:unknown)=>!!e&&typeof e==="object"&&"status" in e&&e.status===503;
+  const rejected=isUnavailable;
   await assert.rejects(()=>storage.store({key,stream:Readable.from([Buffer.from("abc")]),contentType:"image/jpeg"}),rejected);
   await assert.rejects(()=>storage.putUploadPlan({key,contentType:"image/jpeg"}),rejected);
   await assert.rejects(()=>storage.stat(key),rejected);
