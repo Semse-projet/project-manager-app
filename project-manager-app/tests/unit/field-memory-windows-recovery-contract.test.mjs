@@ -36,3 +36,11 @@ test('writes reports as UTF-8 without BOM and avoids user-supplied paths in logs
   assert.match(script,/New-Item -Path \$session -ItemType Directory -ErrorAction Stop/);
   assert.doesNotMatch(script, /ConvertTo-Json.*manifest/i);
 });
+
+test('never put sensitive customer originals inside git checkout or Windows junction',()=>{
+  assert.match(script,/repoCanonical/);
+  assert.match(script,/destinationCanonical/);
+  assert.match(script,/StartsWith\(\$repoCanonical/);
+  assert.match(script,/FileAttributes\]::ReparsePoint/);
+  assert.match(script,/SecureRoot NO puede estar dentro del repositorio/);
+});
