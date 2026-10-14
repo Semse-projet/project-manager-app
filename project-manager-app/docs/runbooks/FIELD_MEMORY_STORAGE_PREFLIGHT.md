@@ -269,3 +269,21 @@ node scripts/field-memory-orphan-originals-report.mjs \
 La salida agregada no contiene claves, rutas, IDs ni hashes. Las claves de los huérfanos antiguos solo se escriben en `--private-detail` (no sobrescribe un archivo existente) y son datos PRIVADOS. Exit status 0 = sin huérfanos antiguos, 3 = hay huérfanos antiguos, 1 = entrada inválida. Los objetos sin marca de tiempo en el nombre (`<epoch-ms>-<uuid>`) nunca se tratan como "en vuelo".
 
 **Prohibido** borrar, mover o sobrescribir un original a partir de este informe: ADR-043 declara los originales write-once. Cada huérfano antiguo se resuelve por decisión del operador (registrarlo por el flujo normal, o conservarlo sin cambios). Esta herramienta no sustituye la conciliación de la Fase G ni acredita custodia.
+
+
+## Fase H — protección fail-closed de almacenamiento productivo (PR 2026-10-14)
+
+**P0 identificado:** StorageService tenía fallback a /tmp/semse-storage sin raíz explícita, y permitía usar almacenamiento local cuando se configuraba un proveedor no implementado. La API podía aceptar originales sin garantía de persistencia.
+
+El PR de protección impide que una instalación en producción cree directorios de originales, admita PUT o publique planes de carga cuando no se pueda probar:
+1. STORAGE_PROVIDER está configurado explícitamente como local.
+2. SEMSE_STORAGE_ROOT es ruta absoluta que reside DENTRO de /data, nunca en /tmp ni exactamente /data.
+3. /proc/self/mountinfo confirma un punto de montaje EXACTO en /data, no una carpeta efímera cualquiera.
+4. realpath de la carpeta existe, es directorio y permanece dentro de ese montaje; no se fabrica un volumen mediante mkdir.
+5. Cualquier incumplimiento devuelve 503 genérico, sin exponer archivos o paths.
+
+El diagnóstico read-only ahora incluye EVIDENCE_ORIGINAL_SHA256_MODE, distinguiendo off/shadow de enforce; no cambia ni activa la variable. Un modo enforce todavía NO acredita que se haya restaurado un backup ni comprobado derechos por Org/recurso.
+
+**Antes de merge/despliegue:** comprobar el valor efectivo de SEMSE_STORAGE_ROOT, STORAGE_PROVIDER y EVIDENCE_ORIGINAL_SHA256_MODE desde Railway SSH; ejecutar el preflight dentro de semse-API, hacer canary de PUT/GET de originales con dos organizaciones y error de volumen ausente simulado SOLO en un entorno desechable; monitorizar errores 503 y mantener rollback documentado. No ejecutar pruebas destructivas en producción.
+
+**Situación 2026-10-14:** Railway confirmó volumen semse-API montado /data y existencia de las variables de storage, con valores redacted. EVIDENCE_ORIGINAL_SHA256_MODE no se encontró en los nombres configurados al auditar el servicio, por lo que no existe prueba de enforce. El propietario creó backups de volumen, pero la recuperación efectiva de fotografías reales aún NO está demostrada. CaptureSession sigue inactivo.
