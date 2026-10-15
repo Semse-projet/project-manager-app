@@ -367,6 +367,19 @@ propio incremento. Cada transición deja además `AuditLog`
 - `ops.alert_raised`
 - `ops.alert_resolved`
 
+## Labor — FreeProject (audit-only)
+
+Spec: [`../specs/labor/free-project-mutation-guard.spec.md`](../specs/labor/free-project-mutation-guard.spec.md) (S0, D4).
+Acciones de `AuditLog` (`entityType: "FreeProject"`) escritas en la misma
+transacción que la mutación, sin bus, outbox ni consumidores: existen por
+razón de auditoría. Payload sólo con ids y estados (`beforeJson.status`,
+`afterJson.status`, `afterJson.convertedJobId`, `requestId`, `timestamp`);
+nunca nombre, ubicación, coordenadas ni descripción. Un reintento
+idempotente no genera fila nueva.
+
+- `free_project.converted` — `active → converted` hacia un Job asignado al actor
+- `free_project.archived` — `active | converted → archived`
+
 ## Event consumers mínimos
 
 ### Audit

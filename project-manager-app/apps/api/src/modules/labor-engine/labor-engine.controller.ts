@@ -17,6 +17,11 @@ function actor(req: { headers?: Record<string, unknown> }) {
 function rid(req: { headers?: Record<string, unknown> }) {
   return resolveRequestId(req.headers ?? {});
 }
+/** Dueño y contexto de una mutación de FreeProject: siempre de la sesión. */
+function freeProjectActor(req: { headers?: Record<string, unknown> }) {
+  const a = actor(req);
+  return { tenantId: a.tenantId, orgId: a.orgId, userId: a.userId, requestId: rid(req) };
+}
 
 function parseManualCoords(body: Record<string, unknown>): { latitude?: number; longitude?: number } {
   return {
@@ -89,14 +94,22 @@ export class LaborEngineController {
     @Param("id") id: string,
     @Body() body: Record<string, unknown>,
   ) {
-    const a = actor(req);
-    const data = await this.svc.updateFreeProject(id, a.tenantId, {
+    // status sólo cambia por DELETE (archivar) o POST /convert, que validan
+    // ownership, destino y transición y la auditan. Antes este PATCH aceptaba
+    // cualquier valor salvo "converted" (AUDIT_REMEDIATION_PLAN 2.16): servía
+    // para "restaurar" o dejar valores fuera de dominio. Ningún cliente lo envía
+    // (freeProjectUpdateSchema no lo incluye). Spec labor.free-project-mutation-guard D2.
+    if (body["status"] !== undefined) {
+      throw new BadRequestException(
+        "status cannot be changed here. Archive with DELETE /free-projects/:id or convert with POST /free-projects/:id/convert.",
+      );
+    }
+    const data = await this.svc.updateFreeProject(id, freeProjectActor(req), {
       name: typeof body["name"] === "string" ? body["name"] : undefined,
       color: typeof body["color"] === "string" ? body["color"] : undefined,
       location: typeof body["location"] === "string" ? body["location"] : undefined,
       ...parseManualCoords(body),
       description: typeof body["description"] === "string" ? body["description"] : undefined,
-      status: typeof body["status"] === "string" ? body["status"] : undefined,
     });
     return ok(rid(req), data);
   }
@@ -107,8 +120,7 @@ export class LaborEngineController {
     @Req() req: { headers?: Record<string, unknown> },
     @Param("id") id: string,
   ) {
-    const a = actor(req);
-    const data = await this.svc.archiveFreeProject(id, a.tenantId);
+    const data = await this.svc.archiveFreeProject(id, freeProjectActor(req));
     return ok(rid(req), data);
   }
 
@@ -119,9 +131,8 @@ export class LaborEngineController {
     @Param("id") id: string,
     @Body() body: Record<string, unknown>,
   ) {
-    const a = actor(req);
     if (typeof body["jobId"] !== "string") throw new BadRequestException("jobId required");
-    const data = await this.svc.convertToJob(id, a.tenantId, body["jobId"]);
+    const data = await this.svc.convertToJob(id, freeProjectActor(req), body["jobId"]);
     return ok(rid(req), data);
   }
 

@@ -1,5 +1,9 @@
-import { BadRequestException, ForbiddenException, Injectable } from "@nestjs/common";
-import { LaborEngineRepository } from "./labor-engine.repository.js";
+import {
+  BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException,
+} from "@nestjs/common";
+import {
+  LaborEngineRepository, type FreeProjectMutationActor, type FreeProjectRecord,
+} from "./labor-engine.repository.js";
 import { geocodeAddressSafe } from "../../integrations/google-maps.js";
 import { distanceMeters, isValidCoordinate } from "../../integrations/geo-distance.js";
 import { AdminService } from "../admin/admin.service.js";
@@ -44,8 +48,12 @@ function rollingWindowBounds(days: number): { from: Date; to: Date } {
   return { from, to };
 }
 
+type FreeProjectOperation = "update" | "archive" | "convert";
+
 @Injectable()
 export class LaborEngineService {
+  private readonly logger = new Logger(LaborEngineService.name);
+
   constructor(
     private readonly repo: LaborEngineRepository,
     private readonly adminService: AdminService,
@@ -87,35 +95,28 @@ export class LaborEngineService {
     return this.repo.listFreeProjects(tenantId, createdBy);
   }
 
-  async updateFreeProject(id: string, tenantId: string, data: {
+  /** Sólo campos descriptivos: `status` lo rechaza el controller (D2). */
+  async updateFreeProject(id: string, actor: FreeProjectMutationActor, data: {
     name?: string;
     color?: string;
     location?: string;
     latitude?: number;
     longitude?: number;
     description?: string;
-    status?: string;
   }) {
-    // "converted" solo puede llegar por el flujo dedicado POST /free-projects/:id/convert
-    // (que exige jobId y setea convertedJobId de forma atómica). Este PATCH genérico no
-    // acepta convertedJobId como input, así que aceptar status:"converted" aquí dejaría
-    // el proyecto marcado "convertido" sin ningún job real de destino — la UI lo seguiría
-    // renderizando como "Convertido a job" sin referencia real.
-    // Ver docs/AUDIT_REMEDIATION_PLAN.md 2.16.
-    if (data.status === "converted") {
-      throw new BadRequestException(
-        "status \"converted\" cannot be set directly. Use POST /free-projects/:id/convert instead.",
-      );
-    }
+    // Ownership antes de geocodificar: un id ajeno no debe gastar una llamada
+    // a Google ni distinguirse de uno inexistente.
+    await this.requireOwnedFreeProject(id, actor, "update");
     const coords = await this.resolveLocationCoordinates(data.location, data.latitude, data.longitude);
-    return this.repo.updateFreeProject(id, tenantId, {
+    const updated = await this.repo.updateOwnedFreeProject(actor, id, {
       ...(data.name !== undefined && { name: data.name }),
       ...(data.color !== undefined && { color: data.color }),
       ...(data.location !== undefined && { location: data.location }),
       ...(data.description !== undefined && { description: data.description }),
-      ...(data.status !== undefined && { status: data.status }),
       ...coords,
     });
+    if (!updated) throw this.rejectFreeProjectMutation(new NotFoundException("FreeProject not found"), "update", id, actor, "not_found_or_not_owner");
+    return updated;
   }
 
   /** Best-effort: manual lat/lng override wins if valid, else geocode `location`. Never throws. */
@@ -136,12 +137,97 @@ export class LaborEngineService {
     return {};
   }
 
-  async archiveFreeProject(id: string, tenantId: string) {
-    return this.repo.archiveFreeProject(id, tenantId);
+  /** Idempotente: archivar un archivado devuelve el registro sin reescribir ni
+   * auditar. Las horas (`TimeEntry`) y el `convertedJobId` histórico se conservan. */
+  async archiveFreeProject(id: string, actor: FreeProjectMutationActor) {
+    const project = await this.requireOwnedFreeProject(id, actor, "archive");
+    if (project.status === "archived") return project;
+    const archived = await this.repo.archiveOwnedFreeProject(actor, id, project.status);
+    if (archived) return archived;
+    // El mismo dueño cambió el estado entre la lectura y la escritura.
+    const current = await this.requireOwnedFreeProject(id, actor, "archive");
+    if (current.status === "archived") return current;
+    throw this.rejectFreeProjectMutation(
+      new ConflictException("FreeProject changed concurrently; retry."), "archive", id, actor, "concurrent_change",
+    );
   }
 
-  async convertToJob(id: string, tenantId: string, jobId: string) {
-    return this.repo.updateFreeProject(id, tenantId, { status: "converted", convertedJobId: jobId });
+  /**
+   * Vincula un FreeProject propio y activo a un Job que el actor tiene asignado
+   * según la misma regla que el selector y `startTimer` (`jobAssignmentWhere`,
+   * incluida la asignación a nivel org — D8; la individual llega en S3). No
+   * transfiere propiedad ni toca el Job, sus horas ni pagos. `convertedJobId`
+   * queda como referencia histórica y nunca concede permisos: quien lea el Job
+   * después debe volver a verificar el acceso vigente.
+   */
+  async convertToJob(id: string, actor: FreeProjectMutationActor, jobId: string) {
+    const project = await this.requireOwnedFreeProject(id, actor, "convert");
+    const settled = this.settledConversion(project, actor, jobId);
+    if (settled) return settled;
+
+    // Mismo 403 para Job inexistente, eliminado, de otro tenant o no asignado.
+    const assigned = await this.repo.isJobAssignedToWorker(actor.tenantId, actor.orgId, jobId, actor.userId);
+    if (!assigned) {
+      throw this.rejectFreeProjectMutation(
+        new ForbiddenException("This job is not assigned to you."), "convert", id, actor, "job_not_available",
+      );
+    }
+
+    const converted = await this.repo.convertOwnedFreeProject(actor, id, jobId);
+    if (converted) return converted;
+    // Otra petición del mismo dueño ganó la carrera: idempotente si fue al mismo Job, 409 si no.
+    const current = await this.requireOwnedFreeProject(id, actor, "convert");
+    const after = this.settledConversion(current, actor, jobId);
+    if (after) return after;
+    throw this.rejectFreeProjectMutation(
+      new ConflictException("FreeProject changed concurrently; retry."), "convert", id, actor, "concurrent_change",
+    );
+  }
+
+  /** El proyecto si ya está convertido a este mismo Job (reintento, D3); 409
+   * si está convertido a otro, archivado o fuera de dominio; `null` si activo. */
+  private settledConversion(project: FreeProjectRecord, actor: FreeProjectMutationActor, jobId: string): FreeProjectRecord | null {
+    if (project.status === "active") return null;
+    if (project.status === "converted" && project.convertedJobId === jobId) return project;
+    const alreadyConverted = project.status === "converted";
+    throw this.rejectFreeProjectMutation(
+      new ConflictException(alreadyConverted
+        ? "FreeProject is already converted to another job."
+        : "Only an active FreeProject can be converted."),
+      "convert",
+      project.id,
+      actor,
+      alreadyConverted ? "already_converted" : "not_active",
+    );
+  }
+
+  /** 404 igual para ajeno o inexistente: no revela que el proyecto existe (D1). */
+  private async requireOwnedFreeProject(
+    id: string,
+    actor: FreeProjectMutationActor,
+    operation: FreeProjectOperation,
+  ): Promise<FreeProjectRecord> {
+    const project = await this.repo.findOwnedFreeProject(actor, id);
+    if (!project) {
+      throw this.rejectFreeProjectMutation(new NotFoundException("FreeProject not found"), operation, id, actor, "not_found_or_not_owner");
+    }
+    return project;
+  }
+
+  /** Log estructurado del rechazo: sólo ids y código de razón, nunca nombre,
+   * ubicación ni descripción del proyecto. */
+  private rejectFreeProjectMutation<E extends Error>(
+    error: E,
+    operation: FreeProjectOperation,
+    id: string,
+    actor: FreeProjectMutationActor,
+    reason: string,
+  ): E {
+    this.logger.warn(
+      `free_project.${operation} rejected reason=${reason} tenantId=${actor.tenantId} `
+      + `actorUserId=${actor.userId} freeProjectId=${JSON.stringify(id.slice(0, 64))} requestId=${actor.requestId}`,
+    );
+    return error;
   }
 
   // ── TimeEntry — realtime ──────────────────────────────────────────────────

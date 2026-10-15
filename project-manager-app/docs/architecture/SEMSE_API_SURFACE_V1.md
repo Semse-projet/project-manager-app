@@ -231,3 +231,24 @@ sin filtro. Números nuevos UUID; históricos no se modifican.
 - Si el objeto ya existe, el driver filesystem usa creación exclusiva `wx` y responde **409** sin alterar los bytes. Reintento de cliente: solicitar nuevo `/v1/uploads/plan` (no interpretar key existente como éxito sin checksum/autorización).
 - El registro `POST /v1/evidence` conserva la autorización canónica Org/Project/Job. No habilita por sí mismo GET privado ni reemplaza las URLs firmadas de `platform.signed-file-access`.
 - **Estado de entrega:** sujeto a CI/merge/smoke de PR #870 y canary multi-org; no afirmar producción por documentación.
+
+## Labor — FreeProject (spec `labor.free-project-mutation-guard`, S0)
+
+Todas exigen `field-ops:write` y operan sólo sobre FreeProjects del propio
+usuario (`createdBy`) en su tenant; ajeno o inexistente responde igual.
+
+- `PATCH /v1/labor/free-projects/:id` — campos descriptivos (`name`, `color`,
+  `location`, `latitude`, `longitude`, `description`). **400** si el cuerpo trae
+  `status`; **404** ajeno/inexistente.
+- `DELETE /v1/labor/free-projects/:id` — archiva; idempotente. **404**
+  ajeno/inexistente; **409** sólo si el estado cambió en paralelo. Audita
+  `free_project.archived`.
+- `POST /v1/labor/free-projects/:id/convert` `{ jobId }` — vincula a un Job
+  asignado al actor (`jobAssignmentWhere`). **400** sin `jobId`; **403** Job
+  inexistente/eliminado/de otro tenant/no asignado (mensaje único); **404**
+  proyecto ajeno/inexistente; **409** archivado o ya convertido a otro Job;
+  reintento al mismo Job = 200 sin escritura. Audita `free_project.converted`.
+  No transfiere la propiedad del Job; `convertedJobId` no concede permisos.
+- **Estado de entrega:** sujeto a CI, revisión, merge y smoke de PR #937; no
+  afirmar producción por documentación.
+
