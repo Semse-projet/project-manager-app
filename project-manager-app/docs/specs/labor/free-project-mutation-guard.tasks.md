@@ -73,7 +73,7 @@ date: "2026-10-15"
 
 - [ ] [T-060] Deployment terminal de `semse-API` con el SHA fusionado
 - [ ] [T-061] Health/readiness y logs sin errores nuevos; ante regresión, forward-fix — nunca rollback a un deployment sin el guard
-- [ ] [T-062] Smoke autenticado con dos usuarios de prueba autorizados del mismo tenant (spec §8); nunca proyectos de usuarios reales
+- [ ] [T-062] Smoke autenticado con dos usuarios de prueba autorizados del mismo tenant (spec §8); nunca proyectos de usuarios reales — script `scripts/labor-s0-free-project-smoke.mjs`, procedimiento en `docs/runbooks/LABOR_S0_FREE_PROJECT_SMOKE.md`
 - [ ] [T-063] Registrar `production_evidence` sin PII, `last_verified`, `status: VERIFIED`
 - [ ] [T-064] Enlazar resultado en #935 y #934; no cerrar #935
 - [~] [T-065] Reporte creado (`docs/reportes/2026-10-15_labor-s0-free-project-guard.md`); completar con CI/merge/deploy/smoke cuando ocurran. Crear el reporte de implementación en `docs/reportes/YYYY-MM-DD_labor-s0-free-project-guard.md` (convención de `docs/reportes/README.md`): archivos y SHAs, evidencia rojo→verde, CI, merge, deploy, smoke, lo no verificado y handoff a S1
