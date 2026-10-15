@@ -35,6 +35,16 @@ Si falla cualquier paso: **no** ejecutar lookup de proyecto, no provisión de id
 
 **Importante:** `AuthService.authenticateRequest` valida JWT SEMSE, sesión y membership; no debe recibir un OAuth bearer MCP tal cual sin intercambio/vinculación verificada. Introducir un **bridge explícito** con un contexto server-trusted, nunca construir `authContext` desde input de tool. No duplicar un segundo motor de RBAC.
 
+## 2A. Bloqueo del wiring NestJS: guards globales
+
+**Código inspeccionado:** `apps/api/src/app.module.ts` registra `APP_GUARD` en orden `ThrottlerGuard → AuthGuard → RbacGuard`. `apps/api/src/common/auth.guard.ts` ejecuta `AuthService.authenticateRequest` para toda ruta que no sea `@Public()`; el método vigente requiere JWT interno SEMSE tipo access con `sid`, NO acepta directamente un OAuth access token `aud=semse-mcp`. `RbacGuard` aplica permisos decorados.
+
+**Consecuencia:** agregar un controlador MCP aislado no basta: con token de resource OAuth, el `AuthGuard` global devolvería 401 antes de la tool. Marcar la ruta de herramientas como `@Public()` para evitarlo es **PROHIBIDO**, porque omitiría tanto autenticación como potencialmente la capa de permission guard. No utilizar `@Public()` salvo en discovery/metadata normativamente públicos, con alcance limitado y pruebas separadas.
+
+**Propuesta concreta a revisar:** un marcador de autenticación específica de recurso en la capa de guards (`@McpResourceAuth()` o equivalente) sobre rutas protegidas, donde el **guard global** delega únicamente esas rutas a un verificador OAuth confiable con `issuer/audience/client/grant`; éste produce un `authContext` validado desde sesión/membresía SEMSE. `RbacGuard` y `ProjectsService` siguen exigiendo `projects:read` y ownership; al fallar OAuth no se genera `authContext` y ninguna lectura ocurre. Nunca confiar en contexto suministrado por el cliente. Alternativa: filtro de transporte validado que se ejecute **antes** del guard global y adjunte una identidad verificada, pero requiere una prueba formal de que no puede ser suplantado desde HTTP. La elección pertenece a D2.
+
+**Pruebas P0 adicionales:** (1) endpoint protegido MCP con token OAuth válido pasa guards y **solo** el permiso autorizado; (2) el mismo endpoint con token de otro audience/claims arbitrarios retorna 401; (3) ausencia de `@Public()` en `tools/call`; (4) todas las rutas REST convencionales mantienen intactos `AuthGuard/RbacGuard`; (5) metadata OAuth discovery pública no filtra tenants/clientes ni secretos.
+
 ## 3. Modelo de consent y revocación propuesto (no esquema aplicado)
 
 Entidad lógica `McpDelegatedConsent` (nombre provisional):
