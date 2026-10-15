@@ -50,6 +50,31 @@ function invoke(command,args,timeout=900000,maxBuffer=100*1024*1024) {
   if(result.error||result.status!==0)throw Error("Command failed without accepted output");
   return result.stdout;
 }
+/** Local-only, identity-redacted diagnostics: never opens SSH sessions or reads /data. */
+export function runOperatorLocalPreflight(invokeCommand = invoke, spawnCommand = spawnSync) {
+  let stage = "railway-cli";
+  try {
+    invokeCommand("railway", ["--version"], 15000);
+    stage = "ssh-config-preview";
+    const expected = expectedRailwayAlias(invokeCommand);
+    stage = "ssh-alias-binding";
+    const actual = sshIdentity(invokeCommand("ssh", ["-G", target.alias], 15000));
+    if (expected.user !== actual.user || expected.host !== actual.host)
+      throw Error("SSH alias must match current instance");
+    stage = "scp-executable";
+    // SCP without arguments should exit 1 after displaying usage; no files accessed.
+    const scp = spawnCommand("scp", [], {
+      encoding: "utf8", windowsHide: true, timeout: 15000,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    if (scp.error || ![0, 1].includes(scp.status))
+      throw Error("SCP command not available");
+    return { ready: true, failedStage: null };
+  } catch {
+    return { ready: false, failedStage: stage };
+  }
+}
+
 async function validateDestination(destination){
   if(!destination||!path.isAbsolute(destination))throw Error("Encrypted destination must be absolute");
   const real=await realpath(destination),info=await lstat(destination);
@@ -99,11 +124,14 @@ function option(flag){const i=process.argv.indexOf(flag);return i>=0?process.arg
 if(process.argv[1]&&import.meta.url===pathToFileURL(path.resolve(process.argv[1])).href){
   try {
     if(process.argv.includes("--check")){
-      invoke("railway",["--version"],15000);
-      assertAliasBound(invoke);
-      const scp=spawnSync("scp",[],{encoding:"utf8",windowsHide:true,timeout:15000});
-      if(scp.error)throw Error("SCP unavailable");
-      process.stdout.write("LOCAL_PREFLIGHT_PASS; no originals were accessed.\n");
+      const result = runOperatorLocalPreflight();
+      if (!result.ready) {
+        process.stderr.write("LOCAL_PREFLIGHT_BLOCKED: " + result.failedStage
+          + ". No originals were accessed; no host/user/key details printed.\n");
+        process.exitCode = 1;
+      } else {
+        process.stdout.write("LOCAL_PREFLIGHT_PASS; no originals were accessed.\n");
+      }
     } else {
       const r=await performOperatorExport({secureDir:option("--secure-dir"),
         execute:process.argv.includes("--execute"),
