@@ -4,7 +4,7 @@ import {mkdtemp,mkdir,rm,writeFile,readFile} from "node:fs/promises";
 import {copyFileSync} from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import {parseStorageRoot,validateAlias,performOperatorExport,runOperatorLocalPreflight} from "../../scripts/field-memory-operator-export.mjs";
+import {parseStorageRoot,validateAlias,performOperatorExport,runOperatorLocalPreflight,resolveOperatorCommand} from "../../scripts/field-memory-operator-export.mjs";
 import {makeManifest} from "../../scripts/field-memory-originals-restore-drill.mjs";
 import {executeCustodyGate} from "../../scripts/field-memory-custody-gate.mjs";
 
@@ -51,11 +51,11 @@ test("bad remote inventory aborts before SCP and never invents success",async t=
  let copied=false;
  const fake={validateDestination:async()=>dir,mkdir,writeFile,readFile,executeCustodyGate,
   invoke(cmd,args){
-   if(cmd==="ssh")return "hostname ssh.railway.com\nuser test.up.railway.app";
+   if(cmd==="ssh" && args[0]==="-G")return "hostname ssh.railway.com\nuser test.up.railway.app";
    if(cmd==="railway"&&args[0]==="--version")return "railway test";
    if(cmd==="railway"&&args[0]==="ssh"&&args[1]==="config")return "Host semse-api-prod\n HostName ssh.railway.com\n User test.up.railway.app";
-   if(cmd==="railway"&&args.includes("printenv"))return "/data/semse-storage\n";
-   if(cmd==="railway"&&args.includes("node"))return '{"schema":"wrong"}';
+   if(cmd==="ssh" && args.includes("printenv"))return "/data/semse-storage\n";
+   if(cmd==="ssh" && args.includes("node"))return '{"schema":"wrong"}';
    if(cmd==="scp"){copied=true;return "";}
    throw Error("unexpected");
   }};
@@ -73,12 +73,17 @@ test("two valid inventories and a local SCP fixture yield offsite-only PASS",asy
  let reads=0,steps=0;
  const fake={validateDestination:async()=>dir,mkdir,writeFile,readFile,executeCustodyGate,
   invoke(cmd,args){
-   if(cmd==="ssh")return "hostname ssh.railway.com\nuser test.up.railway.app";
+   if(cmd==="ssh" && args[0]==="-G")return "hostname ssh.railway.com\nuser test.up.railway.app";
    if(cmd==="railway"&&args[0]==="--version")return "railway test";
    if(cmd==="railway"&&args[0]==="ssh"&&args[1]==="config")return "Host semse-api-prod\n HostName ssh.railway.com\n User test.up.railway.app";
-   if(cmd==="railway"&&args.includes("printenv"))return "/data/semse-storage\n";
-   if(cmd==="railway"&&args.includes("node")) {
+   if(cmd==="ssh" && args.includes("printenv"))return "/data/semse-storage\n";
+   if(cmd==="ssh" && args.includes("node")) {
     reads++;
+    assert.equal(args[0],"-T");
+    assert.equal(args[1],"semse-api-prod");
+    assert.equal(args[2],"node");
+    assert.equal(args[3],"--input-type=module");
+    assert.equal(args[4],"-");
     return JSON.stringify({...source,backupReference:args.at(-1),
      createdAt:new Date(Date.now()+reads*5000).toISOString()});
    }
@@ -125,4 +130,20 @@ test("local preflight refuses an SSH alias pointing to another service identity"
   };
   const result=runOperatorLocalPreflight(invoke,()=>({status:1}));
   assert.deepEqual(result,{ready:false,failedStage:"ssh-alias-binding"});
+});
+
+test("Windows Railway shim uses cmd.exe for allowlisted static commands only",()=>{
+  const v=resolveOperatorCommand("railway",["--version"],{platform:"win32",comspec:"cmd.exe"});
+  assert.equal(v.command,"cmd.exe");
+  assert.deepEqual(v.args,["/d","/s","/c","railway --version"]);
+  const config=["ssh","config","-p","95ad1b14-d1d9-467d-82d8-5354619ba873",
+    "-e","d682210a-956a-4508-9c5b-4ca5959278f9","-s","semse-API",
+    "--alias","semse-api-prod","--dry-run"];
+  assert.equal(resolveOperatorCommand("railway",config,{platform:"win32"}).args[3],"railway "+config.join(" "));
+  assert.throws(()=>resolveOperatorCommand("railway",["ssh","config","&whoami"],{platform:"win32"}));
+  assert.throws(()=>resolveOperatorCommand("railway",["ssh","-s","semse-API","--","node","-e","eval"],{platform:"win32"}));
+  assert.deepEqual(resolveOperatorCommand("ssh",["-G","semse-api-prod"],{platform:"win32"}),
+    {command:"ssh",args:["-G","semse-api-prod"]});
+  assert.deepEqual(resolveOperatorCommand("railway",["--version"],{platform:"linux"}),
+    {command:"railway",args:["--version"]});
 });
