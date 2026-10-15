@@ -4,7 +4,7 @@ import {mkdtemp,mkdir,rm,writeFile,readFile} from "node:fs/promises";
 import {copyFileSync} from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import {parseStorageRoot,validateAlias,performOperatorExport} from "../../scripts/field-memory-operator-export.mjs";
+import {parseStorageRoot,validateAlias,performOperatorExport,runOperatorLocalPreflight} from "../../scripts/field-memory-operator-export.mjs";
 import {makeManifest} from "../../scripts/field-memory-originals-restore-drill.mjs";
 import {executeCustodyGate} from "../../scripts/field-memory-custody-gate.mjs";
 
@@ -92,4 +92,37 @@ test("two valid inventories and a local SCP fixture yield offsite-only PASS",asy
  assert.equal(result.railwaySnapshotRestored,false);
  assert.equal(result.captureSessionActivationPermitted,false);
  assert.equal(reads,2);assert.equal(steps,1);
+});
+
+test("local preflight identifies which step failed, without leaking aliases, secrets or keys",()=>{
+  const ok = (command,args) => {
+    if (command === "railway" && args[0] === "--version") return "railway cli";
+    if (command === "railway" && args[0] === "ssh") return "Host semse-api-prod\n HostName ssh.railway.com\n User correct.up.railway.app";
+    if (command === "ssh" && args[0] === "-G") return "hostname ssh.railway.com\nuser correct.up.railway.app";
+    throw Error("unexpected command");
+  };
+  const scpAvailable=()=>({status:1,error:undefined});
+  assert.deepEqual(runOperatorLocalPreflight(ok,scpAvailable),{ready:true,failedStage:null});
+  const failsOn = (stage) => (cmd,args) => {
+    if(stage==="railway-cli" && cmd==="railway" && args[0]==="--version")throw Error("sensitive key");
+    if(stage==="ssh-config-preview" && cmd==="railway" && args[0]==="ssh")throw Error("sensitive key");
+    if(stage==="ssh-alias-binding" && cmd==="ssh")throw Error("sensitive key");
+    return ok(cmd,args);
+  };
+  for (const stage of ["railway-cli","ssh-config-preview","ssh-alias-binding"]) {
+    const r=runOperatorLocalPreflight(failsOn(stage),scpAvailable);
+    assert.equal(r.ready,false);assert.equal(r.failedStage,stage);
+    assert.ok(!JSON.stringify(r).includes("sensitive key"));
+  }
+  assert.equal(runOperatorLocalPreflight(ok,()=>({status:null,error:{code:"ENOENT"}})).failedStage,
+    "scp-executable");
+});
+test("local preflight refuses an SSH alias pointing to another service identity",()=>{
+  const invoke=(cmd,args)=>{
+    if(cmd==="railway" && args[0]==="--version")return "railway";
+    if(cmd==="railway")return "Host semse-api-prod\n HostName ssh.railway.com\n User current.up.railway.app";
+    if(cmd==="ssh")return "hostname ssh.railway.com\nuser old.up.railway.app";
+  };
+  const result=runOperatorLocalPreflight(invoke,()=>({status:1}));
+  assert.deepEqual(result,{ready:false,failedStage:"ssh-alias-binding"});
 });
