@@ -54,7 +54,7 @@ last_verified: "NOT_VERIFIED"
 - Evidencia en `docs/reportes/planning/2026-10-15-interoperability-s0-source-audit.md`. Ninguna comprobación aquí acredita Railway.
 
 ### Incluido
-- Exponer nombre tentativo de tool versionada `semse.project.get_summary.v1`, exclusivamente `read`.
+- Exponer nombre tentativo de tool versionada `semse.project.get_status.v1`, exclusivamente `read`.
 - Transporte MCP remoto compatible con al menos un cliente de pruebas independiente, tras decisión documentada de autenticación (OAuth, client identity, token audience), sin utilizar secretos de usuario en UI/chat.
 - Reusar API / dominio existente y `projects:read`, ownership, membership, Policy, rechazo fail-closed.
 - Proyección allowlist `projectId, jobId, status, sourceRef, correlationId, auditRef` (campos de auditoría realmente respaldados, no cadenas ficticias).
@@ -107,7 +107,9 @@ last_verified: "NOT_VERIFIED"
 
 ## 5. Contratos
 
-### MCP Tool `semse.project.get_summary.v1` (propuesta, NO EXISTENTE)
+### MCP Tool `semse.project.get_status.v1` (propuesta, NO EXISTENTE)
+
+El nombre `get_status` expresa el contrato real de estado y referencia. `get_summary` se reserva para un futuro slice que proyecte título/resumen de forma autorizada y verificable.
 
 ```yaml
 mode: read
