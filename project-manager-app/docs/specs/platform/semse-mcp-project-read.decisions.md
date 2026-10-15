@@ -24,6 +24,8 @@
 
 Desbloquear **únicamente** S1: una tool MCP remota **read-only** para consultar estado de un Project autorizado en SEMSE, sin crear otro kernel de negocio ni otro motor de Policy. La tool propuesta se llama `semse.project.get_status.v1`. No abre MCP Client saliente de Prometeo (ADR-025, opción C vigente), no crea MCP Apps ni permite cambios sobre Project, Evidence, Payment o Escrow.
 
+**Documento de profundización D2/D7:** `docs/specs/platform/semse-mcp-project-read.oauth-bridge.md`. Propone OAuth resource audience, vinculación de sesión SEMSE, consent por empresa y revocación transaccional, pero mantiene pendiente la elección concreta de Authorization Server y persistencia.
+
 ## Decisiones pendientes (recomendación prellenada, sujetas a aceptación explícita)
 
 | ID | Recomendación precisa | Motivo/evidencia | Alternativa rechazada/prohibida | Gate para APPROVED |
