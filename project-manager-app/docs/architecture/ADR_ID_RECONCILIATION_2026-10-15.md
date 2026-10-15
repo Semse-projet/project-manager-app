@@ -22,13 +22,13 @@ Dos ADR distintos usaban la identificación `ADR-042`:
 - `prometeo.operational-intelligence-program` y su task register citan ADR-044; SDD permanece REVIEW y su entrega NO cambia.
 - La arquitectura de Field Memory/4D cita ADR-042 para Universal Connector y ADR-044 para Operational Intelligence.
 - El SDD rector documenta la resolución, sin reescribir el hallazgo histórico original.
-- El antiguo archivo se elimina **solo en la rama del PR**, tras actualizar las referencias; permanece en la historia Git (no se eliminan commits).
+- El antiguo archivo fue retirado de la rama y el cambio quedó fusionado en PR #940 (`62ce802a436554bd6dae95e3cd8958975e74c9df`). Permanece en la historia Git; no se borraron commits.
 - Cualquier referencia externa previa al antiguo enlace debe actualizarse manualmente; el diff muestra procedencia y el mapping anterior permite recuperarla.
 - No se crea un tercer Business Kernel, runtime de conexión, grafo o policy engine mediante esta renumeración.
 - No cambiar `ADR-025` (MCP Client externo pospuesto); cualquier nueva excepción necesita decisión independiente.
 
 ## Verificación de cierre
-- [ ] No existe en HEAD más de un ADR activo/propuesto con el mismo identificador.
-- [ ] No quedan backlinks en documentos canónicos hacia `ADR-042-operational-intelligence-graph.md`.
-- [ ] `pnpm spec:validate:strict` y `pnpm spec:index:check` pasan en CI.
-- [ ] El PR se revisa y fusiona por separado; no se infiere deploy ni activación MCP.
+- [x] PR #940 renumeró la propuesta operacional a ADR-044 y conservó el ADR-042 aceptado de Universal Connector; ver diff y merge SHA.
+- [x] Referencias canónicas conocidas (programa Operational Intelligence y Field Memory SYSTEM_ARCHITECTURE) se actualizaron en #940; la mención histórica del antiguo nombre se conserva deliberadamente en esta acta. Nuevos documentos deben usar ADR-044.
+- [x] GitHub Actions CI #940 `quality-gates`, `unit-coverage`, `e2e` PASS; validación SDD estricta comprobada en quality-gates.
+- [x] PR #940 fusionado 2026-10-15, SHA `62ce802a436554bd6dae95e3cd8958975e74c9df`. Esto NO implica que ADR-044/ADR-045 estén ACCEPTED ni que MCP esté desplegado o activo; no hubo reviews humanos formales registrados.
