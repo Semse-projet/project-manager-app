@@ -3,14 +3,14 @@ id: "labor.free-project-mutation-guard"
 title: "Labor Engine — guard de ownership y destino en mutaciones de FreeProject (S0)"
 domain: "labor"
 sdd_version: "2.0"
-version: "1.0"
-status: "APPROVED"
+version: "1.1"
+status: "IMPLEMENTED"
 owner: "semse-core"
 risk: "high"
 date: "2026-10-15"
 author: "Claude"
 spec_index: "docs/SPEC_INDEX.md"
-code_status: "NOT_STARTED"
+code_status: "COMPLETE"
 ci_status: "NOT_RUN"
 merge_status: "UNMERGED"
 deploy_status: "NOT_DEPLOYED"
@@ -27,7 +27,11 @@ related_files:
   - apps/web/app/(app)/worker/tracker/sections/ProyectosTab.tsx
   - docs/foundation/EVENT_CATALOG.md
   - docs/foundation/DOMAIN_INVARIANTS.md
+  - docs/architecture/SEMSE_API_SURFACE_V1.md
+  - docs/runbooks/LABOR_S0_FREE_PROJECT_CENSUS.md
 related_tests:
+  - apps/api/test/labor-engine-free-project-guard.test.ts
+  - apps/api/test/labor-engine-free-project-integration.test.ts
   - apps/api/test/labor-engine.service.test.ts
   - apps/api/test/labor-engine.controller.test.ts
   - apps/api/test/labor-engine.repository.test.ts
@@ -428,20 +432,20 @@ y fixtures ficticios. Deben **fallar contra `main` @ `83375e6`** (gap
 demostrado) y pasar tras la implementación. La única excepción es el
 rollback real de la transacción, que necesita PostgreSQL (ver abajo).
 
-- [ ] Servicio: N1–N12 con el stub de `labor-engine.service.test.ts`;
+- [x] Servicio: N1–N12 con el stub de `labor-engine.service.test.ts`;
       verifica que en cada rechazo no se llamó a la escritura del repo.
-- [ ] Servicio: P1 conversión legítima; P2 idempotencia (sin escritura ni
+- [x] Servicio: P1 conversión legítima; P2 idempotencia (sin escritura ni
       audit); archivar idempotente.
-- [ ] Servicio: `isJobAssignedToWorker` recibe `tenantId`, `orgId`,
+- [x] Servicio: `isJobAssignedToWorker` recibe `tenantId`, `orgId`,
       `jobId` y `userId` del actor (no del cuerpo).
-- [ ] Servicio: caso D8 (Job relacionado sólo con la org de W) con el
+- [x] Servicio: caso D8 (Job relacionado sólo con la org de W) con el
       resultado que fije la decisión aprobada.
-- [ ] Repositorio (unitario): `updateMany` condicional y `auditLog.create`
+- [x] Repositorio (unitario): `updateMany` condicional y `auditLog.create`
       usan **el mismo cliente `tx`** del callback de `$transaction`, y un
       error del insert de audit se propaga (no se captura ni se ignora). Un
       stub no tiene semántica de transacción, así que este test no afirma
       el rollback.
-- [ ] Integración con BD (`apps/api/test/labor-engine-free-project-integration.test.ts`,
+- [x] Integración con BD (`apps/api/test/labor-engine-free-project-integration.test.ts`,
       convención `*-integration.test.ts`, `pnpm --filter @semse/api
       test:integration`, se salta sin `DATABASE_URL`): forzar el fallo del
       insert de audit y comprobar en PostgreSQL que `status` y
@@ -449,20 +453,20 @@ rollback real de la transacción, que necesita PostgreSQL (ver abajo).
       local o de CI; `api-integration.yml` no ejecuta este archivo hoy, así
       que su evidencia se registra como corrida local salvo que se agregue
       al workflow (cambio de CI fuera de este slice).
-- [ ] Repositorio: la escritura condicional incluye `createdBy` y
+- [x] Repositorio: la escritura condicional incluye `createdBy` y
       `status: "active"` en el `where`; `count = 0` no escribe (N14).
-- [ ] Controlador: pasa `userId`/`orgId` del contexto; `status` en PATCH →
+- [x] Controlador: pasa `userId`/`orgId` del contexto; `status` en PATCH →
       400; `jobId` no string → 400.
-- [ ] Controlador (N13): `Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, …)`
+- [x] Controlador (N13): `Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, …)`
       de `updateFreeProject`, `archiveFreeProject` y `convertFreeProject`
       es exactamente `["field-ops:write"]` (patrón de
       `bids.controller.test.ts`), para que quitar o cambiar el decorador
       rompa un test aunque el smoke de usuario autorizado siga verde.
 - [ ] Regresión: `startTimer`/manual con FreeProject propio siguen pasando.
-- [ ] `convertedJobId` no concede permisos: `startTimer` con `jobId` igual al
+- [x] `convertedJobId` no concede permisos: `startTimer` con `jobId` igual al
       `convertedJobId` de un FreeProject propio, pero sin asignación vigente,
       sigue respondiendo 403.
-- [ ] Audit: payload sin PII (sólo ids, estados, `jobId`, `requestId`).
+- [x] Audit: payload sin PII (sólo ids, estados, `jobId`, `requestId`).
 
 ## 10. Mapa de implementación
 
@@ -517,8 +521,8 @@ rollback real de la transacción, que necesita PostgreSQL (ver abajo).
 - [x] D1–D10 resueltas por el owner y `status: APPROVED` (2026-10-15, §14)
 - [ ] Spec enlazado por `pnpm spec:index`
 - [ ] Spec, plan, tasks, analyze y checklist coherentes
-- [ ] Tests negativos rojos contra `main` y verdes tras el cambio
-- [ ] `pnpm spec:validate:strict` verde
+- [x] Tests negativos rojos contra `main` y verdes tras el cambio (§15)
+- [x] `pnpm spec:validate:strict` verde
 - [ ] CI `PASS`
 - [ ] PR fusionado y SHA registrado
 - [ ] Deployment terminal `DEPLOYED` del servicio API
@@ -575,3 +579,23 @@ rollback real de la transacción, que necesita PostgreSQL (ver abajo).
 - **Restricciones de entrega:** sin merge ni despliegue en producción hasta
   verificar CI, revisión y criterios de aceptación. Conservar los datos
   históricos y las horas registradas por los usuarios.
+
+## 15. Evidencia de implementación
+
+Detalle completo en
+[`docs/reportes/2026-10-15_labor-s0-free-project-guard.md`](../../reportes/2026-10-15_labor-s0-free-project-guard.md).
+
+- Los casos N1–N14, D8, P1 y P2 viven en
+  `apps/api/test/labor-engine-free-project-guard.test.ts` (controller, service
+  y repository reales sobre un Prisma en memoria que evalúa los `where`). En
+  vez de repartirlos entre los tres archivos por capa, un solo archivo prueba
+  la cadena completa. Rojo contra `main` @ `83375e6`: 18/25; verde: 25/25.
+- `apps/api/test/labor-engine-free-project-integration.test.ts` contra
+  PostgreSQL 16 local: 1/1, incluido el rollback real cuando falla el insert
+  de AuditLog. Una prueba de mutación confirma que el test detecta una
+  escritura fuera de la transacción.
+- Regresión de la API, typecheck del workspace, lint de la API y gates SDD
+  verdes, salvo fallos preexistentes que dependen de DNS (reporte §Evidencia).
+- Sin verificar: CI de GitHub, merge, deploy, smoke autenticado, censo D6 y
+  prueba en navegador.
+

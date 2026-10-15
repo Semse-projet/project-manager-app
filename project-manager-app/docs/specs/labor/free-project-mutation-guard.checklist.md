@@ -20,13 +20,13 @@ date: "2026-10-15"
 
 ## Seguridad
 
-- [ ] Permisos se validan en backend — diseño listo; pendiente de código
-- [ ] Tenant, org, ownership y resource scope están probados — tests definidos, no escritos
-- [ ] Excepción de ownership por persona registrada en `DOMAIN_INVARIANTS.md` (D10)
-- [ ] RBAC de las tres rutas cubierto por test de metadata (N13)
+- [x] Permisos se validan en backend (controller + service + repository)
+- [x] Tenant, org, ownership y resource scope están probados (unitarios N1–N14 + integración con PostgreSQL)
+- [x] Excepción de ownership por persona registrada en `DOMAIN_INVARIANTS.md` (D10)
+- [x] RBAC de las tres rutas cubierto por test de metadata (N13)
 - [x] Step-up/aprobación: no aplica (acción personal sin dinero)
 - [x] Los logs y el audit **nuevos** de S0 no llevan secretos ni PII (spec §8: sólo ids y códigos de razón)
-- [ ] Log preexistente con la dirección completa en `google-maps.ts:98-100` cuando falla el geocoding de un PATCH/POST con `location` — fuera de S0, pendiente de D9
+- [ ] Log preexistente con la dirección completa en `google-maps.ts:98-100` — corregido en el PR independiente #938 (D9); se cierra al fusionarlo
 - [x] Posible exposición previa declarada: sin AuditLog previo no se puede atribuir (spec §7, D6)
 
 ## Datos y eventos
@@ -36,8 +36,8 @@ date: "2026-10-15"
 - [x] Datos históricos y horas conservados: S0 no borra ni reescribe filas ni `TimeEntry`
 - [ ] Censo D6 de sólo lectura ejecutado por operador autorizado (runbook listo)
 - [x] Estado + audit atómicos: AuditLog en la misma transacción que la mutación (D4); sin bus ni outbox
-- [ ] Rollback de la transacción verificado contra PostgreSQL real, no sólo con stubs
-- [ ] Acciones de AuditLog registradas en `EVENT_CATALOG.md` (si D4 aprobada)
+- [x] Rollback de la transacción verificado contra PostgreSQL real, no sólo con stubs (y prueba de mutación)
+- [x] Acciones de AuditLog registradas en `EVENT_CATALOG.md`
 
 ## Evidencia y dinero
 
@@ -47,7 +47,7 @@ date: "2026-10-15"
 
 ## Entrega
 
-- [ ] Tests, build, typecheck y lint pasan
+- [x] Tests, build, typecheck y lint pasan localmente (fallos preexistentes de DNS documentados en el reporte)
 - [ ] CI, merge, deploy y activación tienen evidencia separada
 - [x] Healthcheck no sustituye smoke funcional (spec §8)
 - [x] Canary, métricas y recuperación están definidos (spec §7–§8, plan §8)
@@ -56,5 +56,5 @@ date: "2026-10-15"
 ## Documentación
 
 - [x] Spec index regenerado
-- [ ] API surface/event catalog actualizados si aplica (implementación)
+- [x] API surface, event catalog y domain invariants actualizados
 - [x] Investigación externa y decisiones registradas (spec §11, §13)

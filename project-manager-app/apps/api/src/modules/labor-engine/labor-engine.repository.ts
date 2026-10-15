@@ -1,5 +1,6 @@
 ﻿import { Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
+import { ActorContextService } from "../../infrastructure/persistence/actor-context.service.js";
 import { randomUUID } from "node:crypto";
 import { jobAssignmentWhere } from "../../common/job-assignment.js";
 import { NATIONAL_BASELINE_HOURLY_RATE } from "../pricing/contractor-rate.service.js";
@@ -71,9 +72,16 @@ export type FreeProjectRecord = {
   updatedAt: Date;
 };
 
+/** Dueño de un FreeProject, tomado siempre de la sesión, nunca del cuerpo. */
+export type FreeProjectOwner = { tenantId: string; userId: string };
+export type FreeProjectMutationActor = FreeProjectOwner & { orgId: string; requestId: string };
+
 @Injectable()
 export class LaborEngineRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly actorContext: ActorContextService,
+  ) {}
 
   // ── TimeEntry ──────────────────────────────────────────────────────────────
 
@@ -525,7 +533,21 @@ export class LaborEngineRepository {
     }) as unknown as FreeProjectRecord[];
   }
 
-  async updateFreeProject(id: string, tenantId: string, data: {
+  // FreeProject es un agregado personal: toda lectura o mutación por id se
+  // acota por `createdBy`, no sólo por `tenantId` — antes PATCH, archivar y
+  // convertir aceptaban el proyecto de cualquier persona del tenant
+  // (docs/specs/labor/free-project-mutation-guard.spec.md, D10). `null`
+  // significa ajeno o inexistente; el servicio responde 404 en ambos casos.
+
+  async findOwnedFreeProject(owner: FreeProjectOwner, id: string): Promise<FreeProjectRecord | null> {
+    return this.prisma.freeProject.findFirst({
+      where: { id, tenantId: owner.tenantId, createdBy: owner.userId },
+    }) as unknown as FreeProjectRecord | null;
+  }
+
+  /** Sólo campos descriptivos. `status`/`convertedJobId` cambian únicamente
+   * por archive/convert, que validan la transición y la auditan. */
+  async updateOwnedFreeProject(owner: FreeProjectOwner, id: string, data: {
     name?: string;
     color?: string;
     location?: string;
@@ -533,19 +555,77 @@ export class LaborEngineRepository {
     longitude?: number;
     locationSource?: "geocoded" | "manual";
     description?: string;
-    status?: string;
-    convertedJobId?: string;
-  }): Promise<FreeProjectRecord> {
-    const existing = await this.prisma.freeProject.findFirst({ where: { id, tenantId } });
-    if (!existing) throw new NotFoundException("FreeProject not found");
-    return this.prisma.freeProject.update({
-      where: { id },
+  }): Promise<FreeProjectRecord | null> {
+    const { count } = await this.prisma.freeProject.updateMany({
+      where: { id, tenantId: owner.tenantId, createdBy: owner.userId },
       data: { ...data, updatedAt: new Date() },
-    }) as unknown as FreeProjectRecord;
+    });
+    if (count === 0) return null;
+    return this.findOwnedFreeProject(owner, id);
   }
 
-  async archiveFreeProject(id: string, tenantId: string): Promise<FreeProjectRecord> {
-    return this.updateFreeProject(id, tenantId, { status: "archived" });
+  /** active → converted. `null` si el proyecto ya no estaba activo (otra
+   * petición ganó la carrera); el servicio relee y decide 200/409. */
+  async convertOwnedFreeProject(actor: FreeProjectMutationActor, id: string, jobId: string): Promise<FreeProjectRecord | null> {
+    return this.transitionOwnedFreeProject(actor, id, {
+      fromStatus: "active",
+      data: { status: "converted", convertedJobId: jobId },
+      action: "free_project.converted",
+      after: { status: "converted", convertedJobId: jobId },
+    });
+  }
+
+  /** `fromStatus` → archived. `convertedJobId` se conserva como referencia
+   * histórica. `null` si el estado cambió entre la lectura y la escritura. */
+  async archiveOwnedFreeProject(actor: FreeProjectMutationActor, id: string, fromStatus: string): Promise<FreeProjectRecord | null> {
+    return this.transitionOwnedFreeProject(actor, id, {
+      fromStatus,
+      data: { status: "archived" },
+      action: "free_project.archived",
+      after: { status: "archived" },
+    });
+  }
+
+  /** Escritura condicional (compare-and-set sobre el estado) y su AuditLog en
+   * la misma transacción: si el audit falla, la transición no queda escrita. */
+  private async transitionOwnedFreeProject(
+    actor: FreeProjectMutationActor,
+    id: string,
+    transition: {
+      fromStatus: string;
+      data: { status: string; convertedJobId?: string };
+      action: "free_project.converted" | "free_project.archived";
+      after: Record<string, string>;
+    },
+  ): Promise<FreeProjectRecord | null> {
+    // Upserts de tenant/org/user que exige la FK del AuditLog; van fuera de la
+    // transacción, igual que en AuditService.append.
+    await this.actorContext.ensureActorContext({ tenantId: actor.tenantId, orgId: actor.orgId, userId: actor.userId });
+    return this.prisma.$transaction(async (tx) => {
+      const now = new Date();
+      const { count } = await tx.freeProject.updateMany({
+        where: { id, tenantId: actor.tenantId, createdBy: actor.userId, status: transition.fromStatus },
+        data: { ...transition.data, updatedAt: now },
+      });
+      if (count !== 1) return null;
+      // Sólo ids y estados: nunca nombre, ubicación, coordenadas ni descripción.
+      await tx.auditLog.create({
+        data: {
+          id: `aud_${randomUUID()}`,
+          tenantId: actor.tenantId,
+          actorUserId: actor.userId,
+          entityType: "FreeProject",
+          entityId: id,
+          action: transition.action,
+          beforeJson: { status: transition.fromStatus },
+          afterJson: { ...transition.after, requestId: actor.requestId, timestamp: now.toISOString() },
+          occurredAt: now,
+        },
+      });
+      return tx.freeProject.findFirst({
+        where: { id, tenantId: actor.tenantId, createdBy: actor.userId },
+      }) as unknown as FreeProjectRecord | null;
+    });
   }
 }
 
