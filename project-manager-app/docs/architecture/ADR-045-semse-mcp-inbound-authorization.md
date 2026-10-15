@@ -68,6 +68,12 @@ La herramienta `semse.project.get_status.v1` es el nombre recomendado para S1: n
 
 Auditar `actorId`, `tenantId`, `orgId`, `connectionId` si existe, capability, recurso, decisión y correlation; nunca credenciales ni datos privados. Rate limits y SLO tras baseline; flags OFF por defecto y `emergency_stop` para surface MCP.
 
+## D1–D7 y versión concreta de protocolo
+
+El paquete de decisiones, riesgos y pruebas para autorizar S1 se registra en `docs/specs/platform/semse-mcp-project-read.decisions.md`. Ninguna decisión se declara aceptada aquí; siguen bloqueantes D2 (issuer, autorización OAuth y consentimiento), D4 (bootstrap en lectura) y D7 (binding y revocación).
+
+**SDK v2:** en `@modelcontextprotocol/server`, `createMcpHandler(factory)` también acepta 2025 por defecto. Para el perfil **modern-only** recomendado, usar `createMcpHandler(factory, { legacy: "reject" })` y adaptador Node del paquete `@modelcontextprotocol/node`. Probar con el cliente v2 `{versionNegotiation:{mode:{pin:"2026-07-28"}}}`; sin opt-in el cliente v2 utiliza `initialize` legacy. La compatibilidad con hosts 2025 se decidirá después en otro contrato, nunca por fallback invisible. Fuente: https://ts.sdk.modelcontextprotocol.io/v2/migration/support-2026-07-28 .
+
 ## Criterio de decisión
 
 Para pasar a ACCEPTED: seguridad valida proveedor de identidad real, client onboarding, versión/host MCP, token audience, revocación de membership, consentimiento y representación de conexión; se actualizan SDD child spec y ADR con decisión fechada, actor aprobador, firmas/reviews y alcance. De lo contrario mantener opción C. Incluso ACCEPTED no equivale a implementación ni deployment.
