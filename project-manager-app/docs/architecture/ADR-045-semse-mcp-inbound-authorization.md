@@ -23,6 +23,8 @@ owners: ["semse-core", "security", "prometeo"]
 
 Quedaron aprobados en la conversación de trabajo tres requisitos obligatorios para S1: **OAuth/identidad SEMSE con revocación y scopes**, **cero aprovisionamiento o mutaciones a partir de lecturas MCP**, **aislamiento tenant + organización + membership + recurso en cada petición**. Véase el registro `docs/specs/platform/semse-mcp-project-read.decisions.md`, IDs `SEC-S1-01`, `SEC-S1-02`, `SEC-S1-03`. Ninguna variante A/B/C que viole estos principios puede ser aceptada.
 
+**D2/D7 — diseño de propuesta:** `docs/specs/platform/semse-mcp-project-read.oauth-bridge.md` detalla la cadena de autenticación, consent por organización, revocación y el riesgo de provisioning de identidades. Es una propuesta, no una selección aprobada de IdP/AS o migración.
+
 **Límite de la aprobación:** se autorizaron las condiciones de seguridad, pero no una solución particular de OAuth/client registry, no la aceptación global de ADR-045, ni la activación externa. Esta ADR permanece `PROPOSED` mientras D1–D7 y las decisiones de owner/seguridad no se cierren.
 
 ## Propuesta de decisión
