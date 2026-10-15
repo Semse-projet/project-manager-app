@@ -148,6 +148,7 @@ retroactiva.
 | [platform.product-intelligence](specs/platform/product-intelligence.spec.md) | platform | APPROVED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-08-27 |
 | [platform.production-convergence-f3-f9](specs/platform/production-convergence-program.spec.md) | platform | APPROVED | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | yes | 2026-07-31 |
 | [platform.resource-scope](specs/platform/resource-scope.spec.md) | platform | APPROVED | IN_PROGRESS | PASS | MERGED | DEPLOYED | INACTIVE | high | yes | 2026-10-05 |
+| [platform.semse-mcp-project-read](specs/platform/semse-mcp-project-read.spec.md) | platform | REVIEW | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | no | NOT_VERIFIED |
 | [platform.semse-prometeo-interoperability](specs/platform/semse-prometeo-interoperability.spec.md) | platform | REVIEW | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | no | NOT_VERIFIED |
 | [platform.signed-file-access](specs/platform/signed-file-access.spec.md) | platform | APPROVED | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-09-30 |
 | [platform.universal-connector-trust](specs/platform/universal-connector-trust.spec.md) | platform | APPROVED | IN_PROGRESS | FAIL | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | yes | 2026-10-06 |
