@@ -132,10 +132,10 @@ test("local preflight refuses an SSH alias pointing to another service identity"
   assert.deepEqual(result,{ready:false,failedStage:"ssh-alias-binding"});
 });
 
-test("Windows Railway shim uses cmd.exe for allowlisted static commands only",()=>{
-  const v=resolveOperatorCommand("railway",["--version"],{platform:"win32",comspec:"cmd.exe"});
-  assert.equal(v.command,"cmd.exe");
-  assert.deepEqual(v.args,["/d","/s","/c","railway --version"]);
+test("Windows Railway PS1 launcher uses PowerShell for allowlisted static commands only",()=>{
+  const v=resolveOperatorCommand("railway",["--version"],{platform:"win32"});
+  assert.equal(v.command,"powershell.exe");
+  assert.deepEqual(v.args,["-NoProfile","-NonInteractive","-Command","railway --version"]);
   const config=["ssh","config","-p","95ad1b14-d1d9-467d-82d8-5354619ba873",
     "-e","d682210a-956a-4508-9c5b-4ca5959278f9","-s","semse-API",
     "--alias","semse-api-prod","--dry-run"];
@@ -146,4 +146,21 @@ test("Windows Railway shim uses cmd.exe for allowlisted static commands only",()
     {command:"ssh",args:["-G","semse-api-prod"]});
   assert.deepEqual(resolveOperatorCommand("railway",["--version"],{platform:"linux"}),
     {command:"railway",args:["--version"]});
+});
+
+test("Windows local preflight performs only allowlisted CLI checks and OpenSSH alias validation",()=>{
+  const calls=[];
+  const invoke=(cmd,args)=>{
+    calls.push([cmd,args]);
+    if(cmd==="railway" && args[0]==="--version")return "Railway CLI";
+    if(cmd==="railway" && args[0]==="ssh")return "Host semse-api-prod\n HostName ssh.railway.com\n User valid.up.railway.app";
+    if(cmd==="ssh" && args[0]==="-G")return "hostname ssh.railway.com\nuser valid.up.railway.app";
+    throw Error("unexpected command");
+  };
+  assert.equal(runOperatorLocalPreflight(invoke,()=>({status:1})).ready,true);
+  assert.deepEqual(calls.map(([cmd])=>cmd),["railway","railway","ssh"]);
+  const ps=resolveOperatorCommand("railway",["--version"],{platform:"win32"});
+  assert.equal(ps.args[0],"-NoProfile");
+  assert.equal(ps.args[1],"-NonInteractive");
+  assert.ok(!JSON.stringify(ps).includes("SEMSE_STORAGE_ROOT"));
 });
