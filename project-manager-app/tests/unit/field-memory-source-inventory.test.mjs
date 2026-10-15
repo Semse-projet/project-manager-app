@@ -31,8 +31,15 @@ test('rejects unmounted root in production mode', async t => {
 });
 test('rejects filesystem symlink', async t => {
   const dir = await root(t);
-  await symlink('/etc/passwd', path.join(dir, 'zone', 'link'));
+  // Exercise a directory link/junction on either OS without admin privileges.
+  const link=path.join(dir, 'zone', 'link');
+  await symlink(dir, link, process.platform === 'win32' ? 'junction' : 'dir');
   await assert.rejects(() => inventory(dir, 'export-2026-10-13', { enforceProductionRoot: false }), /Symbolic link/);
+  if (process.platform !== 'win32') {
+    await rm(link);
+    await symlink('/etc/passwd', link, 'file');
+    await assert.rejects(() => inventory(dir, 'export-2026-10-13', { enforceProductionRoot: false }), /Symbolic link/);
+  }
 });
 test('rejects invalid snapshot reference and empty source', async t => {
   const dir = await root(t);
