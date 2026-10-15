@@ -82,6 +82,8 @@ El paquete de decisiones, riesgos y pruebas para autorizar S1 se registra en `do
 
 **SDK v2:** en `@modelcontextprotocol/server`, `createMcpHandler(factory)` también acepta 2025 por defecto. Para el perfil **modern-only** recomendado, usar `createMcpHandler(factory, { legacy: "reject" })` y adaptador Node del paquete `@modelcontextprotocol/node`. Probar con el cliente v2 `{versionNegotiation:{mode:{pin:"2026-07-28"}}}`; sin opt-in el cliente v2 utiliza `initialize` legacy. La compatibilidad con hosts 2025 se decidirá después en otro contrato, nunca por fallback invisible. Fuente: https://ts.sdk.modelcontextprotocol.io/v2/migration/support-2026-07-28 .
 
+**D4 — plan sin auto-provisioning:** `docs/specs/platform/semse-mcp-project-read.no-provision.md` recomienda una lectura interna basada en dominio/ownership sin invocar `ensureActorContext`, manteniendo intacto el endpoint web. Este enfoque está propuesto pero no es código ni aprobación final.
+
 ## Criterio de decisión
 
 Para pasar a ACCEPTED: seguridad valida proveedor de identidad real, client onboarding, versión/host MCP, token audience, revocación de membership, consentimiento y representación de conexión; se actualizan SDD child spec y ADR con decisión fechada, actor aprobador, firmas/reviews y alcance. De lo contrario mantener opción C. Incluso ACCEPTED no equivale a implementación ni deployment.
