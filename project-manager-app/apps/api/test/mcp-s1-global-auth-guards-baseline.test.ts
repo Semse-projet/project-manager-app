@@ -79,8 +79,8 @@ test("S1 prerequisite: RbacGuard denies protected handlers without permission me
   assert.throws(() => guard.canActivate(context({authContext: actor}) as never), ForbiddenException);
 });
 
-test("S1 prerequisite: RbacGuard refuses a protected handler when actor has no required permission", () => {
-  const guard = new RbacGuard(reflector({permissions: ["projects:financials:read"]}) as never);
+test("S1 prerequisite: RbacGuard refuses project status mutation permission for PRO", () => {
+  const guard = new RbacGuard(reflector({permissions: ["projects:status:update"]}) as never);
   assert.throws(() => guard.canActivate(context({authContext: actor}) as never), ForbiddenException);
 });
 
