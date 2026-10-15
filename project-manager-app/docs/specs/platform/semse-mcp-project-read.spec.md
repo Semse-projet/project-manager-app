@@ -49,8 +49,8 @@ last_verified: "NOT_VERIFIED"
 - Existe `GET /v1/projects/:projectId` en `ProjectsController.detail` con `@RequirePermissions("projects:read")`.
 - `ProjectsService.detail` delega en `ProjectsRepository.findById`. Este aplica `tenantId` y `job.deletedAt: null`; `assertProjectReadable` usa ownership por `job.clientOrgId` o `assignedProOrgId`, y OPS_ADMIN solo dentro de tenant.
 - `ProjectRecord` en `ProjectsRepository.toRecord` devuelve `id, tenantId, jobId, assignedProOrgId, status`: **no devuelve** `title`, `name`, `summary`, `timestamps`.
-- `resolveRequestContext` prioriza `req.authContext` si está presente; bearer firmado con `AUTH_SECRET` si está configurado y falla cerrado en producción si falta la autoridad. **Verificar quién crea `authContext`** y que las membresías/roles estén actualizados.
-- `ActorContextService.ensureActorContext` hace `upsert` de tenant/org/user. P0: impedir que MCP permita autoprovocar pertenencia o aprovisionamiento de entidades por un token/claims no autorizado; elegir ruta/sesión segura y probar efecto nulo de queries.
+- **AS-IS comprobado:** `AuthGuard` rellena `req.authContext` mediante `AuthService.authenticateRequest`; éste valida bearer de sesión SEMSE, `sid` y tipo access, y consulta en cada petición el estado de sesión y roles `Membership.status=ACTIVE` mediante `AuthRepository.findActiveSessionAuthorization`, con plazo máximo de 1 segundo/fail-closed. `resolveRequestContext` usa ese contexto. **S1 debe reutilizar esa seguridad y resolver el puente OAuth de audience externo → sesión/identidad SEMSE**, sin sobreescribir `authContext` desde tool args o token de proveedor.
+- `ActorContextService.ensureActorContext` hace `upsert` de tenant/org/user dentro de la lectura canónica. P0: impedir que una credencial MCP externa no validada llegue a ese bootstrap; evaluar efectos secundarios de GET y confirmar que permisos/membresía ya se verificaron a través de AuthService, sin introducir otro membership lookup redundante.
 - Evidencia en `docs/reportes/planning/2026-10-15-interoperability-s0-source-audit.md`. Ninguna comprobación aquí acredita Railway.
 
 ### Incluido
@@ -207,7 +207,7 @@ Aplicado ahora: authz y contratos neutrales. Backlog: host específico/UI. Desca
 ## 12. Decisiones abiertas, gates y estado
 
 - D1: transporte/version MCP y host independiente concreto.
-- D2: sesión/oauth/resource audience/membership y revocación inmediata.
+- D2: vínculo OAuth externo con bearer de recurso MCP, sesión SEMSE ya comprobada por AuthService/guard, audience y revocación inmediata sin duplicar consultas fuera del plazo de 1 segundo.
 - D3: `sourceRef/auditRef` durable versus telemetría con referencia recuperable.
 - D4: impedir/contener upsert implícito `ActorContextService` en GET remoto.
 - D5: decidir si `jobId` es admisible en salida pública a la org asignada y si la primera versión evita exponer incluso esa relación.
