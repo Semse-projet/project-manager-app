@@ -19,6 +19,12 @@ owners: ["semse-core", "security", "prometeo"]
 - `Universal Connector` controla estado/conexión/tenant y policies, pero su `ConnectorExecutionContext` no demuestra ownership por Org. Tool Registry F2 evalúa permisos/approval pero no sustituye el domain guard.
 - `AdminIntegrationsService` conserva estados por tenant que **no equivalen** a consentimiento ni conexión ACTIVE por empresa.
 
+## Requisitos vinculantes aprobados por el propietario — 2026-10-15
+
+Quedaron aprobados en la conversación de trabajo tres requisitos obligatorios para S1: **OAuth/identidad SEMSE con revocación y scopes**, **cero aprovisionamiento o mutaciones a partir de lecturas MCP**, **aislamiento tenant + organización + membership + recurso en cada petición**. Véase el registro `docs/specs/platform/semse-mcp-project-read.decisions.md`, IDs `SEC-S1-01`, `SEC-S1-02`, `SEC-S1-03`. Ninguna variante A/B/C que viole estos principios puede ser aceptada.
+
+**Límite de la aprobación:** se autorizaron las condiciones de seguridad, pero no una solución particular de OAuth/client registry, no la aceptación global de ADR-045, ni la activación externa. Esta ADR permanece `PROPOSED` mientras D1–D7 y las decisiones de owner/seguridad no se cierren.
+
 ## Propuesta de decisión
 
 **Opción A (recomendada para S1):** MCP Server remoto **read-only**, alojado detrás del backend/API canónico SEMSE y su autenticación, sin Business Kernel ni Policy Engine nuevos. Adaptador fino, scope de acceso mínimo y verificación de resource ownership **cada llamada**. Versionar el protocolo y comprobar compatibilidad con el host elegido.
