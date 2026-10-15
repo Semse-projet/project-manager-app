@@ -27,6 +27,24 @@ export function isGoogleMapsConfigured(): boolean {
   return mapsApiKey() !== null;
 }
 
+class GoogleMapsRequestError extends Error {
+  constructor(readonly status: number, message: string) {
+    super(message);
+    this.name = "GoogleMapsRequestError";
+  }
+}
+
+/**
+ * Motivo de fallo apto para logs: sólo el status HTTP o el tipo de error.
+ * Nunca la dirección consultada ni el texto libre de Google, que puede
+ * repetirla — una dirección de sitio/obra es dato personal.
+ */
+function describeGeocodeFailure(error: unknown): string {
+  if (error instanceof GoogleMapsRequestError) return `HTTP ${error.status}`;
+  if (error instanceof Error) return error.name;
+  return "unknown error";
+}
+
 async function readGoogleError(response: Response): Promise<string> {
   try {
     const payload = await response.json() as { error?: { message?: string } };
@@ -53,7 +71,7 @@ async function googleFetch<T>(input: string, init?: RequestInit): Promise<T> {
   });
 
   if (!response.ok) {
-    throw new Error(await readGoogleError(response));
+    throw new GoogleMapsRequestError(response.status, await readGoogleError(response));
   }
 
   return response.json() as Promise<T>;
@@ -96,7 +114,7 @@ export async function geocodeAddressSafe(address: string | undefined | null): Pr
       longitude: typeof first.location.longitude === "number" ? first.location.longitude : undefined,
     };
   } catch (error) {
-    logger.warn(`Geocoding failed for "${trimmed}": ${(error as Error).message}`);
+    logger.warn(`Geocoding failed: ${describeGeocodeFailure(error)}`);
     return null;
   }
 }
