@@ -18,7 +18,7 @@ defaults:
 
 jobs:
   quality-gates:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     services:
@@ -95,7 +95,7 @@ jobs:
         run: pnpm verify:workspace
 
   unit-coverage:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     steps:
@@ -163,7 +163,7 @@ jobs:
 
   e2e:
     needs: quality-gates
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     steps:
