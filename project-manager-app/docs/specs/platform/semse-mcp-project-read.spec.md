@@ -25,6 +25,7 @@ related_files:
   - docs/architecture/ADR-045-semse-mcp-inbound-authorization.md
   - docs/specs/platform/semse-mcp-project-read.decisions.md
   - docs/specs/platform/semse-mcp-project-read.oauth-bridge.md
+  - docs/specs/platform/semse-mcp-project-read.no-provision.md
 related_tests: []
 related_endpoints:
   - GET /v1/projects/:projectId
