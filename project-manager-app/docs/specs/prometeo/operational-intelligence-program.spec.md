@@ -20,7 +20,7 @@ feature_flags:
   - "SEMSE_OMNIVERSE_ADAPTER_MODE"
 production_evidence: []
 related_files:
-  - "docs/architecture/ADR-042-operational-intelligence-graph.md"
+  - "docs/architecture/ADR-044-operational-intelligence-graph.md"
 related_tests: []
 related_endpoints: []
 related_events: []
