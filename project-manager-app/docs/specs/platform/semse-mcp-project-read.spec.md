@@ -24,6 +24,7 @@ related_files:
   - apps/api/src/common/resource-scope.ts
   - docs/architecture/ADR-045-semse-mcp-inbound-authorization.md
   - docs/specs/platform/semse-mcp-project-read.decisions.md
+  - docs/specs/platform/semse-mcp-project-read.oauth-bridge.md
 related_tests: []
 related_endpoints:
   - GET /v1/projects/:projectId
