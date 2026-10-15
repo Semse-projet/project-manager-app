@@ -28,7 +28,7 @@ permissions: {}
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # workflow_run: exigir CI success sobre main. workflow_dispatch: exigir
     # que se lance desde main (github.ref del dispatch).
     if: >-
@@ -88,7 +88,7 @@ jobs:
 
   health-check:
     needs: deploy
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # Solo lectura del repo, y solo para traer el verificador de procedencia (C02).
     permissions:
       contents: read
