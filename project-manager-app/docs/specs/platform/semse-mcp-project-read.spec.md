@@ -9,7 +9,7 @@ owner: "semse-core"
 risk: "critical"
 code_status: "NOT_STARTED"
 ci_status: "NOT_RUN"
-merge_status: "UNMERGED"
+merge_status: "MERGED"
 deploy_status: "NOT_DEPLOYED"
 activation_status: "INACTIVE"
 migration_status: "NOT_APPLICABLE"
@@ -33,6 +33,8 @@ last_verified: "NOT_VERIFIED"
 ---
 
 # Spec S1 — SEMSE MCP Server: lectura de proyecto sin mutaciones
+
+> **Merge documental:** PR #939 (merge SHA `21426fda974a21989f8d64145da66eca38367897`) y PR #940 (merge SHA `62ce802a436554bd6dae95e3cd8958975e74c9df`) con `quality-gates`, `unit-coverage` y `e2e` en PASS para documentación/regresión. El `merge_status: MERGED` solo significa documento incorporado a main. `code_status: NOT_STARTED`, `ci_status: NOT_RUN` para la feature, `deploy_status: NOT_DEPLOYED`, `activation_status: INACTIVE` y `last_verified: NOT_VERIFIED` permanecen.
 
 > **Estado REVIEW.** Child spec del programa `platform.semse-prometeo-interoperability`. La lectura de proyecto existente **NO demuestra** que ya exista un servidor MCP. No implementar hasta APPROVED, ADR/seguridad revisadas e índice/CI coherentes.
 
