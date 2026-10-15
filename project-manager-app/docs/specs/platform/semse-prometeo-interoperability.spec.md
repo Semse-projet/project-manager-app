@@ -51,7 +51,7 @@ last_verified: "NOT_VERIFIED"
 Fuentes vinculantes: .specify/memory/constitution.md; docs/SDD_GOVERNANCE.md; docs/SOURCE_OF_TRUTH.md; docs/SPEC_INDEX.md; docs/CANONICAL_STATE_REGISTRY.md; docs/foundation/{DOMAIN_INVARIANTS,STATE_MACHINES,EVENT_CATALOG}.md y ADRs aprobados.
 
 Hallazgos verificados en GitHub (no verifican producción):
-- PR #797, fusionado 2026-10-06, introdujo el Universal Connector Trust Contract v1 y código compartido en packages/shared/src/universal-connector/**. La metadata actual de la spec aún marca merge UNMERGED, CI FAIL, deploy NOT_DEPLOYED, código IN_PROGRESS y activación INACTIVE: **conflicto a reconciliar con SHA y ejecución real**.
+- PR #797, fusionado 2026-10-06, introdujo el Universal Connector Trust Contract v1 y código compartido en packages/shared/src/universal-connector/**. La metadata `merge_status: MERGED` quedó reconciliada en PR #939 con el SHA histórico. Los estados `ci_status: FAIL`, `deploy_status: NOT_DEPLOYED`, `code_status: IN_PROGRESS`, `activation_status: INACTIVE` no se elevan sin pruebas independientes de esas etapas.
 - PR #859, fusionado 2026-10-11, fue exclusivamente documentación de Workspace/conectores/3D/4D; no demuestra integración desplegada.
 - ADR-025 (MCP External Tool Gateway) registró el 2026-10-11 opción C: **no implementar MCP externo por ahora**. La necesidad concreta actual propone reevaluarlo, pero NO lo revoca automáticamente.
 - Colisión histórica: la decisión aceptada Universal Connector conserva `ADR-042-universal-connector-trust-boundary.md`; la propuesta Operational Intelligence se renumera a `ADR-044-operational-intelligence-graph.md` mediante acta `docs/architecture/ADR_ID_RECONCILIATION_2026-10-15.md`. Este cambio documental no aprueba la propuesta.
