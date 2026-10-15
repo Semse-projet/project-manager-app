@@ -9,7 +9,7 @@ owner: "semse-core"
 risk: "critical"
 code_status: "IN_PROGRESS"
 ci_status: "FAIL"
-merge_status: "UNMERGED"
+merge_status: "MERGED"
 deploy_status: "NOT_DEPLOYED"
 activation_status: "INACTIVE"
 migration_status: "NOT_APPLICABLE"
@@ -38,6 +38,8 @@ last_verified: "2026-10-06"
 **Para quién:** tenants SEMSE, operadores, integraciones externas y agentes autorizados.
 
 **Problema:** los conectores externos pueden convertirse en una vía paralela para saltarse aislamiento tenant, Policy, Approval, scopes, consentimiento o límites de Prometeo.
+
+**Evidencia parcial reconciliada (2026-10-15):** PR #797 MERGED el 2026-10-06 con merge SHA `3ffa1be99bc6e3c22873a70776e8eaaaeee6a6c6`. Este hecho solo acredita `merge_status: MERGED`. `ci_status: FAIL`, `deploy_status: NOT_DEPLOYED` y `activation_status: INACTIVE` se conservan hasta nueva evidencia; no implica certificación.
 
 **Resultado esperado:** toda operación externa cruza un límite de confianza fail-closed, provider-agnostic, trazable, revocable y verificable antes de producción.
 
