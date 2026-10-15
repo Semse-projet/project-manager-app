@@ -110,10 +110,12 @@ registro **sin cambios**; las transiciones permitidas quedan en AuditLog.
 - Validación del Job destino en `convert` con `isJobAssignedToWorker`.
 - Guard de estado en `convert`: origen `active` únicamente; reintento con el
   mismo `jobId` idempotente; otro `jobId` sobre un convertido = conflicto.
-- `PATCH` deja de aceptar `status` (alineado al contrato Zod compartido).
+- `PATCH` deja de aceptar `status`. El resto del contrato **manual** actual
+  del controlador (§5) no cambia.
 - Escritura condicional (compare-and-set) para que la comprobación de
-  estado y la escritura no tengan carrera.
-- AuditLog para `convert` y `archive` permitidos (sujeto a D4).
+  estado del FreeProject y la escritura no tengan carrera.
+- AuditLog para `convert` y `archive` permitidos, escrito en la **misma
+  transacción** que la mutación (sujeto a D4).
 - Tests negativos y de aceptación en `apps/api/test/` (unitarios de
   servicio/repositorio/controlador, sin DB real ni datos productivos).
 
@@ -131,6 +133,15 @@ registro **sin cambios**; las transiciones permitidas quedan en AuditLog.
   convertido (comportamiento actual se conserva; candidato a S1).
 - Cambios de UI más allá de comprobar que el mensaje de error del API se
   muestra (ya ocurre vía `setError` en `ProyectosTab.tsx`).
+- Validar `PATCH` con `freeProjectUpdateSchema`. Hoy el controlador extrae
+  campos a mano e ignora cualquier valor que no sea string/number; la web
+  envía `location: null` y `description: null` (`ProyectosTab.tsx:113-115`)
+  que el schema Zod rechazaría y que hoy **no borran** el valor. Unificar
+  contrato y semántica de `null` → S2/#931.
+- Autorización individual estricta frente a asignación de la org del
+  trabajador (#934 caso 7) → S3, salvo que D8 decida otra cosa.
+- Log preexistente de geocoding con la dirección completa
+  (`apps/api/src/integrations/google-maps.ts:98-100`) → arreglo separado (D9).
 
 ## 3. Actores, permisos y límites
 
@@ -190,13 +201,30 @@ ENTONCES responde <código>
 | N5 | W, `jobId` inexistente | convert | 403 genérico (D1) |
 | N6 | W, Job eliminado (`deletedAt` no nulo) | convert | 403 genérico |
 | N7 | W, Job de otro tenant | convert | 403 genérico |
-| N8 | W, Job del tenant **no asignado** a W (incluye org sin asignación individual, #934 caso 7) | convert | 403 genérico |
+| N8 | W, Job del tenant sin ninguna relación de `jobAssignmentWhere` con W **ni con su org** | convert | 403 genérico |
 | N9 | W, F ya convertido a J, nuevo `jobId` K | convert | 409 |
 | N10 | W, F archivado | convert | 409 |
 | N11 | W, `jobId` ausente o no string | convert | 400 (ya existe) |
 | N12 | W, PATCH con `status` (cualquier valor) | PATCH | 400 (D2) |
 | N13 | Rol sin `field-ops:write` | cualquiera | 403 (RBAC actual) |
 | N14 | Dos `convert` concurrentes de W con Jobs distintos | convert | uno 200, otro 409; `convertedJobId` = el del 200 |
+
+**Asignación sólo a nivel org (D8).** `jobAssignmentWhere`
+(`job-assignment.ts:17-20`) acepta reservas, contratos y proyectos de la
+**org** del trabajador, no sólo de la persona. Con la recomendación de D8
+(paridad con el selector y con `startTimer`), un Job relacionado únicamente
+con la org de W **se acepta** (200) en S0, y la granularidad individual de
+#934 caso 7 se resuelve en S3 para selector, timer y conversión a la vez. Si
+el owner decide lo contrario, este caso pasa a 403 y el selector y
+`startTimer` deben alinearse en el mismo slice.
+
+**Validez del destino = en el momento de la petición.** La autorización del
+Job se evalúa al convertir. Un Job eliminado o desasignado después (incluso
+milisegundos después) no invalida la conversión ni se revalida: es el mismo
+estado que eliminar el Job tras convertir, algo que ya es posible y que
+ninguna FK impide. `convertedJobId` es una referencia histórica, no una
+garantía de acceso vigente; quien lo consuma debe resolver el Job con su
+propio scope.
 
 ### P2 — Idempotencia y compatibilidad
 
@@ -236,7 +264,7 @@ Casos borde:
 ```yaml
 auth: required
 permissions: [field-ops:write]
-input_schema: freeProjectUpdateSchema (name, color, location, latitude, longitude, description); status rechazado
+input_schema: extracción manual actual del controlador, sin cambios — name/color/location/description si son string, latitude/longitude si son number; otros tipos (incl. null) se ignoran. freeProjectUpdateSchema NO se aplica en S0 (ver §2 Fuera de alcance). Nuevo: cualquier "status" se rechaza
 output_schema: FreeProjectView (sólo al creador)
 errors:
   400: "status" presente en el cuerpo (D2)
@@ -315,7 +343,12 @@ No aplica: Cronos/LaborChat no muta FreeProjects.
   `free_project.converted` y `free_project.archived` (formato
   `aggregate.action`, sin productor de bus ni outbox). No se emiten hasta
   aprobación y registro en el catálogo.
-- **Productor + outbox atómico:** no aplica (sin bus).
+- **Productor + atomicidad:** sin bus ni outbox. La fila de AuditLog se
+  inserta en la **misma transacción Prisma** que la escritura condicional:
+  si el audit falla, la transición se revierte y el cliente recibe 5xx sin
+  cambio de estado. Así nunca existe una transición confirmada sin audit, y
+  el atajo idempotente de un reintento (D3) no puede ocultar un audit
+  perdido.
 - **Consumidores + idempotencia:** AuditLog; reintentos idempotentes no
   generan filas nuevas.
 - **Replay/rebuild / DLQ:** no aplica.
@@ -341,7 +374,10 @@ No aplica: Cronos/LaborChat no muta FreeProjects.
 
 - **Logs:** rechazos de ownership/destino con `logger.warn` estructurado
   (`requestId`, `tenantId`, `actorUserId`, `freeProjectId`, código de razón);
-  **sin** `name`, `location`, coordenadas ni `description`.
+  **sin** `name`, `location`, coordenadas ni `description`. Esto cubre sólo
+  los logs nuevos de S0: el `logger.warn` preexistente de
+  `google-maps.ts:98-100` sigue escribiendo la dirección completa cuando
+  falla el geocoding de un PATCH/POST con `location` (D9).
 - **Feature flag:** ninguno; es un control de seguridad, no una función
   activable (D7).
 - **Canary/smoke:** tras deploy, smoke autenticado con dos usuarios de
@@ -365,6 +401,10 @@ demostrado) y pasar tras la implementación.
       audit); archivar idempotente.
 - [ ] Servicio: `isJobAssignedToWorker` recibe `tenantId`, `orgId`,
       `jobId` y `userId` del actor (no del cuerpo).
+- [ ] Servicio: caso D8 (Job relacionado sólo con la org de W) con el
+      resultado que fije la decisión aprobada.
+- [ ] Repositorio: si la inserción de AuditLog falla dentro de la
+      transacción, la conversión/archivo no queda escrita.
 - [ ] Repositorio: la escritura condicional incluye `createdBy` y
       `status: "active"` en el `where`; `count = 0` no escribe (N14).
 - [ ] Controlador: pasa `userId`/`orgId` del contexto; `status` en PATCH →
@@ -390,7 +430,9 @@ demostrado) y pasar tras la implementación.
 
 ### Worker/Packages/DB
 
-- Sin cambios. `docs/foundation/EVENT_CATALOG.md` sólo si D4 se aprueba.
+- Sin cambios de código. `docs/foundation/EVENT_CATALOG.md` sólo si D4 se
+  aprueba; `docs/architecture/SEMSE_API_SURFACE_V1.md` registra las tres
+  rutas (hoy no documenta ninguna de Labor).
 
 ### Tests
 
@@ -414,7 +456,7 @@ demostrado) y pasar tras la implementación.
 
 ## 12. Gates de cierre
 
-- [ ] D1–D7 resueltas por el owner y `status: APPROVED`
+- [ ] D1–D9 resueltas por el owner y `status: APPROVED`
 - [ ] Spec enlazado por `pnpm spec:index`
 - [ ] Spec, plan, tasks, analyze y checklist coherentes
 - [ ] Tests negativos rojos contra `main` y verdes tras el cambio
@@ -433,7 +475,9 @@ demostrado) y pasar tras la implementación.
 | D1 | Código para FreeProject ajeno y para Job destino inválido | FreeProject ajeno = **404** (indistinguible de inexistente, igual que hoy el repo); Job inválido = **403** con mensaje único, coherente con `startTimer` | 403 para todo (revela existencia del FreeProject) |
 | D2 | `status` en PATCH | **Rechazar con 400** cualquier `status`: el contrato Zod no lo tiene y ningún cliente lo envía; archivar = DELETE; restaurar = endpoint dedicado en S1 | Permitir sólo `active↔archived` al dueño (adelanta S1 sin su spec) |
 | D3 | Reintento de convert con el mismo `jobId` | **200 idempotente** sin escritura ni audit (colas offline) | 409 también para el mismo Job |
-| D4 | Auditoría | AuditLog awaited (patrón `jobs.service.ts:255`) con acciones audit-only `free_project.converted` / `free_project.archived`, registradas en `EVENT_CATALOG.md` dentro del PR de implementación | Sólo log estructurado en S0 y audit en S1 |
+| D4 | Auditoría | AuditLog `free_project.converted` / `free_project.archived` (audit-only, registradas en `EVENT_CATALOG.md` dentro del PR de implementación) insertado **en la misma transacción** que la mutación; `ensureActorContext` se resuelve antes de abrirla | AuditLog fuera de transacción (patrón `jobs.service.ts:255`): más simple, pero un fallo tras el commit deja la transición sin audit para siempre |
 | D5 | `OPS_ADMIN` sobre FreeProjects ajenos | **Sin override** en S0: FreeProject es personal (`labor.engine-remediation` §3) | Override con justificación + audit (requiere su propio spec) |
 | D6 | Datos existentes posiblemente afectados | Censo de **sólo lectura** (conteo de `converted` cuyo `convertedJobId` no resuelve a Job del tenant) ejecutado por el owner, sin PII ni mutación | No censar; sólo prevenir hacia adelante |
 | D7 | Activación | **Sin flag**: control de seguridad activo al desplegar; rollback = revert | Flag de kill-switch (agrega superficie sin beneficio claro) |
+| D8 | ¿Basta la asignación de la **org** del trabajador para convertir? | **Sí en S0**: misma regla `jobAssignmentWhere` que el selector y `startTimer`; la granularidad individual (#934 caso 7) va a S3 para las tres rutas a la vez | Exigir asignación individual ya en S0 y alinear selector + `startTimer` en este slice (más alcance, riesgo de quitar Jobs hoy visibles) |
+| D9 | Log de geocoding con dirección completa (`google-maps.ts:98-100`) | PR mínimo separado que quite la dirección del log (fuera del guard de ownership) | Incluirlo en S0 o en S2/#931 |

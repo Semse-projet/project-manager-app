@@ -11,7 +11,7 @@ date: "2026-10-15"
 
 # Plan técnico: guard de ownership y destino en mutaciones de FreeProject (S0)
 
-> Prerrequisito: spec `APPROVED` con D1–D7 resueltas. Mientras el spec siga
+> Prerrequisito: spec `APPROVED` con D1–D9 resueltas. Mientras el spec siga
 > en `DRAFT`, este plan es una propuesta y **no autoriza código**. El plan
 > separa implementación, merge, despliegue y activación.
 
@@ -75,13 +75,23 @@ date: "2026-10-15"
   `updateMany({ where: { id, tenantId, createdBy, status: "active" } })`;
   `count = 0` → relectura scoped para distinguir 404 / 409 / idempotente.
   `archive` análogo con `status: { not: "archived" }`.
-- **Auditoría:** `AuditService` (global vía `PrismaModule`) con acciones de
-  D4; payload sólo ids, estados, `jobId`, `requestId`.
+- **Destino del Job:** autorización evaluada en el momento de la petición
+  (spec §4). No se bloquea la fila del Job: un borrado/desasignación
+  concurrente produce el mismo estado que borrarlo justo después de
+  convertir, que ya es posible y que ninguna FK impide.
+- **Auditoría:** fila `AuditLog` con acciones de D4 insertada dentro de la
+  misma `prisma.$transaction` interactiva que la escritura condicional
+  (patrón de `evidence.repository.ts:162`); `ActorContextService.
+  ensureActorContext` se llama antes de abrir la transacción porque hace
+  upserts fuera de ella. Payload sólo ids, estados, `jobId`, `requestId`.
 - **Abuse cases cubiertos:** N1–N14 del spec.
 
 ## 6. Eventos, idempotencia y reconstrucción
 
-- Productores: AuditLog síncrono (awaited) tras escritura exitosa (D4).
+- Productores: AuditLog en la misma transacción que la mutación (D4). Si la
+  inserción falla, la transacción se revierte: no hay transición confirmada
+  sin audit, y el atajo idempotente de un reintento nunca oculta un audit
+  perdido.
 - Outbox/consumers/DLQ/replay: no aplica (sin bus).
 - Idempotencia: reintento `convert` mismo `jobId` y `archive` repetido
   devuelven el registro sin escribir ni auditar (D3).
@@ -97,7 +107,8 @@ date: "2026-10-15"
    `createService` al nuevo constructor.
 2. `labor-engine.repository.test.ts`: `where` de búsqueda/escritura incluye
    `createdBy`; conversión condicional con `status: "active"`; `count = 0`
-   no produce segunda escritura.
+   no produce segunda escritura; un fallo de la inserción de AuditLog dentro
+   de la transacción deja la conversión/archivo sin escribir.
 3. `labor-engine.controller.test.ts`: el controlador pasa `userId`/`orgId`/
    `requestId`; `status` en PATCH → 400.
 4. Ejecutar contra `main` y registrar el fallo (evidencia del gap).
@@ -105,11 +116,13 @@ date: "2026-10-15"
 ### Fase B — Dominio/repositorio
 
 1. Repositorio: `findOwnedFreeProject(tenantId, userId, id)`;
-   `updateOwnedFreeProject(...)`; `convertOwnedFreeProject(...)` condicional;
-   `archiveOwnedFreeProject(...)` condicional.
+   `updateOwnedFreeProject(...)`; `convertOwnedFreeProject(...)` y
+   `archiveOwnedFreeProject(...)` como `$transaction` interactiva:
+   `updateMany` condicional + `auditLog.create` sólo si `count = 1`.
 2. Servicio: firmas con actor `{ tenantId, orgId, userId, requestId }`;
    `convertToJob` = buscar propio → 404 | estado → 409/idempotente →
-   `isJobAssignedToWorker` → 403 → escritura condicional → audit.
+   `isJobAssignedToWorker` (regla según D8) → 403 → `ensureActorContext` →
+   transacción (escritura condicional + audit).
 3. Mantener `updateFreeProject` rechazando `converted` (2.16) y extender a
    cualquier `status` (D2).
 
@@ -143,7 +156,9 @@ date: "2026-10-15"
 |---|---|---|---|---|
 | Un cliente no identificado dependía de PATCH `status` | Baja (contrato Zod no lo tiene; web/móvil no lo envían) | Medio | 400 explícito con mensaje que apunta a DELETE/S1 | 400 desde UI propia |
 | `jobAssignmentWhere` rechaza un Job que la UI ofrecía | Muy baja (misma regla) | Medio | Test de paridad selector↔guard | 403 en convert desde UI propia |
-| Audit falla tras commit → 500 con estado cambiado | Baja | Bajo | Reintento idempotente devuelve 200 | Errores de audit en logs |
+| Audit falla dentro de la transacción | Baja | Bajo | Rollback de la transición; 5xx sin cambio; reintento seguro | Errores de audit en logs |
+| Job borrado/desasignado entre la validación y la escritura | Muy baja (ventana de ms) | Bajo | Aceptado: mismo estado que borrarlo tras convertir; `convertedJobId` es referencia histórica (spec §4) | — |
+| D8 rechazada (exigir asignación individual) | — | Medio | Alinear selector y `startTimer` en el mismo slice para no ofrecer Jobs que luego den 403 | 403 en convert desde UI propia |
 | Datos ya alterados por el hueco | Desconocida | Medio | D6 censo de sólo lectura; no se puede atribuir sin audit previo | — |
 
 ## 9. Investigación externa
