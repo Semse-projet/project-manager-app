@@ -51,9 +51,11 @@ Ninguna opción se declara ACCEPTED hasta revisión de owner/seguridad. **ADR-02
 
 ## Contrato de S1 y límites
 
-Tool tentativa `semse.project.get_summary.v1` (nombre solo de producto): input `projectId` cadena bajo schema validado; output mínimo `projectId,jobId,status` y referencias de origen/traza existentes. No suponer UUID ni devolver `tenantId,assignedProOrgId`, datos financieros, evidencias o campos ficticios.
+Tool tentativa `semse.project.get_status.v1` (nombre solo de producto): input `projectId` cadena bajo schema validado; output mínimo `projectId,jobId,status` y referencias de origen/traza existentes. No suponer UUID ni devolver `tenantId,assignedProOrgId`, datos financieros, evidencias o campos ficticios.
 
 **P0 obligatorio:** identidad correcta, dos tenants, dos orgs mismo tenant, scopes, cambio de membresía, token revocado, token de otro audience, `authContext` falsificado, `Origin` inválido, headers incompatibles, soft-deleted Job, no upsert por GET y auditoría sanitizada. READ_ONLY bloquea writes en descriptor y runtime.
+
+La herramienta `semse.project.get_status.v1` es el nombre recomendado para S1: no se usará `get_summary` mientras el dominio no entregue un resumen real y autorizado. El cambio de nombre ocurre solo en diseño; no hay clientes MCP existentes que migrar.
 
 ## Riesgos y observabilidad
 
