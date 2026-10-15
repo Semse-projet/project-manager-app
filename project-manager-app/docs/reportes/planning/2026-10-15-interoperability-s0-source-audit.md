@@ -40,6 +40,16 @@
 **Confirmado por lectura de código de `main` al 15-oct:** rutas, contrato actual y reglas indicadas.
 **NO confirmado:** pertenencia efectiva de usuario autenticado para cada origen MCP, auditoría/runtime en Railway, configuración tokens, CI del futuro adaptador, pipeline de publicación MCP o compatibilidad de hosts.
 
-## 6. Próximo corte
+## 6. Reconciliación adicional: Universal Connector, Tool Registry e Integraciones
+
+**Universal Connector Trust (`packages/shared/src/universal-connector`):** `contracts.ts` publica el contrato `1.0.0-draft.1`. `enforcement.ts` evalúa tenant, conexión, provider, status ACTIVE, scope y capability, Policy/Approval, delegación, risk budget y bloqueo read-only. **No contiene `orgId` en su `ActorContext` ni en `ConnectorRuntimeState`.** Por lo tanto, NO basta invocar el trust boundary para concluir que el usuario puede leer proyectos de otra empresa del mismo tenant. La membresía/ownership por org sigue siendo un gate obligatorio del servicio de dominio SEMSE.
+
+**Prometeo Tool Registry:** `apps/api/src/modules/prometeo/tool-governance/tool-governance.policy.ts` evalúa permisos de los descriptors por `actorRoles` y `approvalPolicy` (`allow/deny/require_approval`); no resuelve por sí solo ownership por proyecto ni membresía multi-org. Combinar Policy/Tool Registry con el gate de recursos real; no confiar solo en que la tool figure registrada.
+
+**Admin Integrations:** `apps/api/src/modules/admin/admin-integrations.service.ts` lista estados de proveedores mediante variables de servidor y checks persistidos bajo `AdminService.getSettings(tenantId)`. La verificación es tenant-wide y el estado `CONFIGURED_UNVERIFIED` no demuestra conexión viva. Los estados `SIMULATION`, `UNCONFIGURED`, `VERIFIED` y `ERROR` no equivalen a `ConnectorRuntimeState.ACTIVE`; es indispensable modelar y probar separación de control-plane si se habilitan conexiones por Org.
+
+**P0 de S1:** comprobación independiente `actor-session → membership activa → tenant → org/recurso → projects:read → dominio`, incluso después de permitir la capacidad en Universal Connector. No confundir tenant-wide integration status con consentimiento por empresa.
+
+## 7. Próximo corte
 
 Preparar child spec `platform.semse-mcp-project-read` estado REVIEW; reconciliar con arquitectura ADR-025 (la decisión C aplaza *consumo externo de MCP por Prometeo*, no autoriza automáticamente un MCP Server). Validar security review de tokens/OAuth/session binding. Sin autorización SDD y pruebas no se implementa.
