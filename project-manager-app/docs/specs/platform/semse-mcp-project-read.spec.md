@@ -23,6 +23,7 @@ related_files:
   - apps/api/src/common/request-context.ts
   - apps/api/src/common/resource-scope.ts
   - docs/architecture/ADR-045-semse-mcp-inbound-authorization.md
+  - docs/specs/platform/semse-mcp-project-read.decisions.md
 related_tests: []
 related_endpoints:
   - GET /v1/projects/:projectId
@@ -209,6 +210,8 @@ Aplicado ahora: authz y contratos neutrales. Backlog: host específico/UI. Desca
 - Fuentes normativas: https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization y https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/streamable-http .
 
 ## 12. Decisiones abiertas, gates y estado
+
+**Matriz para decisión del owner:** `docs/specs/platform/semse-mcp-project-read.decisions.md`, que contiene propuestas D1–D7, alternativas y pruebas P0. Ninguna está aceptada aún. El contrato mínimo recomendado es `projectId,status` y trazabilidad real; `jobId` se excluye hasta demostrar necesidad y permiso, `auditRef` es opcional hasta que exista registro durable. No asumir que el SDK v2 arranca por defecto en modo 2026: usar `createMcpHandler(...,{legacy:'reject'})` y pin explícito del cliente.
 
 - D1: transporte/version MCP y host independiente concreto.
 - D2: vínculo OAuth externo con bearer de recurso MCP, sesión SEMSE ya comprobada por AuthService/guard, audience y revocación inmediata sin duplicar consultas fuera del plazo de 1 segundo.
