@@ -54,7 +54,7 @@ Hallazgos verificados en GitHub (no verifican producción):
 - PR #797, fusionado 2026-10-06, introdujo el Universal Connector Trust Contract v1 y código compartido en packages/shared/src/universal-connector/**. La metadata actual de la spec aún marca merge UNMERGED, CI FAIL, deploy NOT_DEPLOYED, código IN_PROGRESS y activación INACTIVE: **conflicto a reconciliar con SHA y ejecución real**.
 - PR #859, fusionado 2026-10-11, fue exclusivamente documentación de Workspace/conectores/3D/4D; no demuestra integración desplegada.
 - ADR-025 (MCP External Tool Gateway) registró el 2026-10-11 opción C: **no implementar MCP externo por ahora**. La necesidad concreta actual propone reevaluarlo, pero NO lo revoca automáticamente.
-- Colisión de numeración: docs/architecture/ADR-042-universal-connector-trust-boundary.md y ADR-042-operational-intelligence-graph.md son decisiones distintas con mismo número. Corregir identificadores y referencias sin borrar historia.
+- Colisión histórica: la decisión aceptada Universal Connector conserva `ADR-042-universal-connector-trust-boundary.md`; la propuesta Operational Intelligence se renumera a `ADR-044-operational-intelligence-graph.md` mediante acta `docs/architecture/ADR_ID_RECONCILIATION_2026-10-15.md`. Este cambio documental no aprueba la propuesta.
 - ADR-038 identifica rutas Copilot/Orchestration API+BFF existentes sin consumidor UI observado. Investigar antes de crear otro orquestador.
 - docs/program/semse-4d-field-memory/WORKSPACE_REUSE_AND_CONNECTORS.md identifica Settings → Integraciones existente a nivel tenant, pero el cambio a administración por Org todavía necesita controles de ámbito.
 - Tool Registry F2 tiene spec aprobada: confirmar enforcement, aprobación, auditoría y wiring contra HEAD actual, no suponer por documentación histórica.
@@ -131,7 +131,7 @@ Las operaciones read/write/delete/sync/execute se autorizan individualmente. REA
 
 ## 7. Contratos por slice (propuestas, NO endpoints existentes)
 
-**MCP Server tool propuesta:** `semse.project.get_summary.v1` (nombre tentativo, READ_ONLY; no está registrada).
+**MCP Server tool propuesta:** `semse.project.get_status.v1` (nombre tentativo, READ_ONLY; no está registrada).
 **Ruta de dominio existente verificada:** `GET /v1/projects/:projectId` → `ProjectsService.detail` → `ProjectsRepository.findById`; exige `projects:read` y validación de ownership por tenant y organización.
 Input: `projectId` como cadena validada conforme al esquema de identificadores reales (NO asumir UUID), más identidad derivada de sesión/token confiable. Nunca aceptar `tenantId/orgId/roles` como autoridad por argumentos de la tool.
 Output mínimo permitido en S1: `projectId, jobId, status, sourceRef, correlationId` y `auditRef` respaldado por telemetría/auditoría real. **El `ProjectRecord` actual no contiene `name/title/summary` ni timestamps.** No prometerlos ni fabricarlos; para agregar título debe aprobarse un resolver Job autorizado y sus pruebas.
@@ -188,7 +188,7 @@ Rollback inmediato: filtración tenant/org, bypass Policy/Approval, exposed cred
 
 ## 12. Dependencias, preguntas abiertas y gates de cierre
 
-D1. Renumeración canónica ADR-042 con backlinks e historial.
+D1. Renumeración documental de ADR-042/ADR-044 propuesta, con backlinks e historial, según acta de reconciliación; verificar CI/merge antes del cierre de la tarea de gobernanza.
 D2. Formalizar reevaluación de ADR-025: reabrir solo para un caso MCP Server read-only y decidir separadamente MCP Client externo.
 D3. Determinar ruta canónica de consultas de proyecto y permisos org/ownership por API; no inventar endpoint.
 D4. Reconstruir merge/deploy/CI verificados del Universal Connector y corregir metadata sin inventar evidence.

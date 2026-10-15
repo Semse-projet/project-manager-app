@@ -1,12 +1,14 @@
 ---
-id: "ADR-042"
+id: "ADR-044"
 title: "Operational Intelligence Graph, Decision Ledger and Omniverse Projection"
 status: "PROPOSED"
 date: "2026-10-04"
 owners: ["semse-core", "knowledge", "prometeo"]
 ---
 
-# ADR-042 — Operational Intelligence Graph, Decision Ledger and Omniverse Projection
+# ADR-044 — Operational Intelligence Graph, Decision Ledger and Omniverse Projection
+
+> **Gobernanza de identidad ADR (2026-10-15):** este documento fue publicado originalmente como `ADR-042-operational-intelligence-graph.md` (PROPOSED, 2026-10-04). El identificador `ADR-042` ya lo ocupa la decisión **ACCEPTED** `ADR-042-universal-connector-trust-boundary.md` (2026-10-06). Se renumera la propuesta del grafo a **ADR-044**, preservando todo su contenido, estatus PROPOSED e historial en Git. Esto **no** constituye aprobación de la propuesta ni cambia decisiones técnicas. Consultar `docs/architecture/ADR_ID_RECONCILIATION_2026-10-15.md`.
 
 ## Context
 
@@ -183,7 +185,7 @@ Each slice has its own SDD 2.0 artifacts and independent closure gates.
 
 ## Reconciliación PR 0 (2026-10-06)
 
-- Número: el paquete lo proponía como ADR-035, ya ocupado por `ADR-035-agent-approval-governance-ownership`; se renumera a ADR-042.
+- Número: el paquete lo proponía como ADR-035, ya ocupado por `ADR-035-agent-approval-governance-ownership`; se renumeró provisionalmente a ADR-042; por la colisión posterior con Universal Connector se corrige la identificación documental a ADR-044 el 2026-10-15.
 - Base: `main` avanzó de `370578a` a `e5f19a3` tras preparar el paquete.
 - Solapamiento a resolver antes de aprobar los child specs: `prometeo.tool-call-audit-lineage` (H05, APPROVED, `code_status: IN_PROGRESS`) ya introduce auditoría canónica por tool call y estado de ejecución de aprobaciones, con migración aditiva y modelos nuevos en `schema.prisma`. El Decision Ledger y el provider `runtime` del grafo deben reutilizar esa lineage de tool calls y no duplicarla. Pendiente de decisión del owner.
 - Los paths planificados se movieron del frontmatter a una sección del body de cada child spec porque `spec:validate:strict` exige que existan.

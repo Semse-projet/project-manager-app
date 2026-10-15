@@ -24,7 +24,7 @@ date: "2026-10-15"
 - [ ] P0-007 Auditar código actual del Tool Registry F2: rutas, Policy/Approval y PrometeoToolInvocationAudit.
 - [ ] P0-008 Auditar distintos entrypoints Prometeo y UI consumers (ADR-038); producir matriz AS-IS.
 - [ ] P0-009 Auditar adapters CRM/ERP, webhooks, REST, GraphQL, administración integraciones y trust-runtime reales.
-- [ ] P0-010 Resolver ADR-042 duplicado con renumeración, backlinks e historial.
+- [x] P0-010 Registrar corrección documental ADR-042/ADR-044, actualizar backlinks e historial en `docs/architecture/ADR_ID_RECONCILIATION_2026-10-15.md` (pendiente revisión/merge de PR de seguimiento; ADR-044 sigue PROPOSED).
 - [ ] P0-011 Solicitar resolución formal de ADR-025 si se activa S2; mantener opción C mientras tanto.
 - [ ] P0-012 Confirmar autoridad por org/ownership y estado Workspace F10/ADR-040.
 - [ ] P0-013 Comparar metadata `universal-connector-trust.spec.md` contra merge #797/CI/runtime sin atribuir despliegue ficticio.

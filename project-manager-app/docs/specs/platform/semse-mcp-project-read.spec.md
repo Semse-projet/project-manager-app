@@ -22,6 +22,7 @@ related_files:
   - apps/api/src/modules/projects/projects.policy.ts
   - apps/api/src/common/request-context.ts
   - apps/api/src/common/resource-scope.ts
+  - docs/architecture/ADR-045-semse-mcp-inbound-authorization.md
 related_tests: []
 related_endpoints:
   - GET /v1/projects/:projectId
@@ -48,12 +49,12 @@ last_verified: "NOT_VERIFIED"
 - Existe `GET /v1/projects/:projectId` en `ProjectsController.detail` con `@RequirePermissions("projects:read")`.
 - `ProjectsService.detail` delega en `ProjectsRepository.findById`. Este aplica `tenantId` y `job.deletedAt: null`; `assertProjectReadable` usa ownership por `job.clientOrgId` o `assignedProOrgId`, y OPS_ADMIN solo dentro de tenant.
 - `ProjectRecord` en `ProjectsRepository.toRecord` devuelve `id, tenantId, jobId, assignedProOrgId, status`: **no devuelve** `title`, `name`, `summary`, `timestamps`.
-- `resolveRequestContext` prioriza `req.authContext` si está presente; bearer firmado con `AUTH_SECRET` si está configurado y falla cerrado en producción si falta la autoridad. **Verificar quién crea `authContext`** y que las membresías/roles estén actualizados.
-- `ActorContextService.ensureActorContext` hace `upsert` de tenant/org/user. P0: impedir que MCP permita autoprovocar pertenencia o aprovisionamiento de entidades por un token/claims no autorizado; elegir ruta/sesión segura y probar efecto nulo de queries.
+- **AS-IS comprobado:** `AuthGuard` rellena `req.authContext` mediante `AuthService.authenticateRequest`; éste valida bearer de sesión SEMSE, `sid` y tipo access, y consulta en cada petición el estado de sesión y roles `Membership.status=ACTIVE` mediante `AuthRepository.findActiveSessionAuthorization`, con plazo máximo de 1 segundo/fail-closed. `resolveRequestContext` usa ese contexto. **S1 debe reutilizar esa seguridad y resolver el puente OAuth de audience externo → sesión/identidad SEMSE**, sin sobreescribir `authContext` desde tool args o token de proveedor.
+- `ActorContextService.ensureActorContext` hace `upsert` de tenant/org/user dentro de la lectura canónica. P0: impedir que una credencial MCP externa no validada llegue a ese bootstrap; evaluar efectos secundarios de GET y confirmar que permisos/membresía ya se verificaron a través de AuthService, sin introducir otro membership lookup redundante.
 - Evidencia en `docs/reportes/planning/2026-10-15-interoperability-s0-source-audit.md`. Ninguna comprobación aquí acredita Railway.
 
 ### Incluido
-- Exponer nombre tentativo de tool versionada `semse.project.get_summary.v1`, exclusivamente `read`.
+- Exponer nombre tentativo de tool versionada `semse.project.get_status.v1`, exclusivamente `read`.
 - Transporte MCP remoto compatible con al menos un cliente de pruebas independiente, tras decisión documentada de autenticación (OAuth, client identity, token audience), sin utilizar secretos de usuario en UI/chat.
 - Reusar API / dominio existente y `projects:read`, ownership, membership, Policy, rechazo fail-closed.
 - Proyección allowlist `projectId, jobId, status, sourceRef, correlationId, auditRef` (campos de auditoría realmente respaldados, no cadenas ficticias).
@@ -106,7 +107,9 @@ last_verified: "NOT_VERIFIED"
 
 ## 5. Contratos
 
-### MCP Tool `semse.project.get_summary.v1` (propuesta, NO EXISTENTE)
+### MCP Tool `semse.project.get_status.v1` (propuesta, NO EXISTENTE)
+
+El nombre `get_status` expresa el contrato real de estado y referencia. `get_summary` se reserva para un futuro slice que proyecte título/resumen de forma autorizada y verificable.
 
 ```yaml
 mode: read
@@ -187,16 +190,26 @@ S1 no habilita tool externa en Prometeo ni realiza MCP Client. Su Tool Registry 
 
 ## 11. Investigación externa pendiente de validar contra versión
 
-1. MCP server tools/transport: https://modelcontextprotocol.io/specification
-2. MCP authorization: https://modelcontextprotocol.io/specification/2025-06-18/basic/authorization
+1. MCP 2026-07-28 tools + Streamable HTTP: https://modelcontextprotocol.io/specification/2026-07-28/server/tools y https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/streamable-http
+2. MCP authorization vigente 2026-07-28: https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization
 3. MCP Apps UI opcional: https://github.com/modelcontextprotocol/ext-apps
 
 Aplicado ahora: authz y contratos neutrales. Backlog: host específico/UI. Descartado: exponer ProjectRecord íntegro o declarar compatibilidad universal.
 
+## 11A. Perfil MCP remoto y autorización propuestos (actualización 2026-10-15)
+
+- **Normativa base:** MCP 2026-07-28 para servidor inbound, con transporte **Streamable HTTP stateless** y OAuth de recurso protegido. Esta propuesta aún no constituye aceptación ni implementación. Ver ADR-045 PROPOSED.
+- Cada llamada POST a MCP debe llevar metadatos de protocolo y headers verificables (`MCP-Protocol-Version`, `Mcp-Method`, `Mcp-Name` para tools) y rechazar inconsistencias entre body/headers. No asumir `initialize` ni `Mcp-Session-Id` de la revisión 2025.
+- Recursos protegidos usan OAuth discovery (Protected Resource Metadata), audience/resource específico de servidor MCP, validación de issuer y tokens emitidos para SEMSE; `Authorization: Bearer` en **cada** petición, no token passthrough de otras aplicaciones. HTTP `401` con challenge ante credencial ausente/expirada y `403` con control de scopes; la capa de tool no debe permitir enumeración de proyectos.
+- El host MCP y la versión TypeScript SDK se seleccionan en S1 D1 antes de aprobar. Compatibilidad 2025 solo si host/protocolo heredado la necesita y hay pruebas de conformance separadas.
+- Revocación y pertenencia org efectiva siguen siendo responsabilidad de SEMSE aunque el transporte sea stateless; `x-org-id` o `authContext` sin origen confiable no deben habilitar lectura. Fijar idP, `iss`, `aud`, consentimiento, membership y session revocation en D2.
+- Control de `Origin`/host/proxy, TLS, rate-limit, errores y logs sanitizados; READ_ONLY prohíbe writes aunque el host publique herramientas adicionales.
+- Fuentes normativas: https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization y https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/streamable-http .
+
 ## 12. Decisiones abiertas, gates y estado
 
 - D1: transporte/version MCP y host independiente concreto.
-- D2: sesión/oauth/resource audience/membership y revocación inmediata.
+- D2: vínculo OAuth externo con bearer de recurso MCP, sesión SEMSE ya comprobada por AuthService/guard, audience y revocación inmediata sin duplicar consultas fuera del plazo de 1 segundo.
 - D3: `sourceRef/auditRef` durable versus telemetría con referencia recuperable.
 - D4: impedir/contener upsert implícito `ActorContextService` en GET remoto.
 - D5: decidir si `jobId` es admisible en salida pública a la org asignada y si la primera versión evita exponer incluso esa relación.
