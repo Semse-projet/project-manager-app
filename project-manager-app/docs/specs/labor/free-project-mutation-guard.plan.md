@@ -11,7 +11,7 @@ date: "2026-10-15"
 
 # Plan técnico: guard de ownership y destino en mutaciones de FreeProject (S0)
 
-> Prerrequisito: spec `APPROVED` con D1–D9 resueltas. Mientras el spec siga
+> Prerrequisito: spec `APPROVED` con D1–D10 resueltas. Mientras el spec siga
 > en `DRAFT`, este plan es una propuesta y **no autoriza código**. El plan
 > separa implementación, merge, despliegue y activación.
 
@@ -103,26 +103,34 @@ date: "2026-10-15"
 
 1. `labor-engine.service.test.ts`: casos N1–N12, P1, P2 con el stub de
    repositorio existente; para cada rechazo, aserción de que no hubo
-   llamada de escritura. Agregar stub de `AuditService` y adaptar
-   `createService` al nuevo constructor.
+   llamada de escritura. El servicio **no** recibe `AuditService` (su
+   constructor no cambia): el audit vive en el repositorio.
 2. `labor-engine.repository.test.ts`: `where` de búsqueda/escritura incluye
    `createdBy`; conversión condicional con `status: "active"`; `count = 0`
-   no produce segunda escritura; un fallo de la inserción de AuditLog dentro
-   de la transacción deja la conversión/archivo sin escribir.
-3. `labor-engine.controller.test.ts`: el controlador pasa `userId`/`orgId`/
-   `requestId`; `status` en PATCH → 400.
-4. Ejecutar contra `main` y registrar el fallo (evidencia del gap).
+   no produce segunda escritura; `updateMany` y `auditLog.create` usan el
+   mismo cliente `tx` y el error del audit se propaga (el stub no prueba el
+   rollback).
+3. `labor-engine-free-project-integration.test.ts` (nuevo, BD real, se salta
+   sin `DATABASE_URL`): fallo forzado del insert de audit → PostgreSQL
+   conserva `status` y `convertedJobId`. Sólo datos sintéticos.
+4. `labor-engine.controller.test.ts`: el controlador pasa `userId`/`orgId`/
+   `requestId`; `status` en PATCH → 400; N13: metadata
+   `REQUIRED_PERMISSIONS_KEY` = `["field-ops:write"]` en las tres rutas.
+5. Ejecutar contra `main` y registrar el fallo (evidencia del gap).
 
 ### Fase B — Dominio/repositorio
 
 1. Repositorio: `findOwnedFreeProject(tenantId, userId, id)`;
    `updateOwnedFreeProject(...)`; `convertOwnedFreeProject(...)` y
    `archiveOwnedFreeProject(...)` como `$transaction` interactiva:
-   `updateMany` condicional + `auditLog.create` sólo si `count = 1`.
+   `updateMany` condicional + `tx.auditLog.create` sólo si `count = 1`. El
+   repositorio inyecta `ActorContextService` y llama `ensureActorContext`
+   antes de abrir la transacción; no se usa `AuditService.append` (cliente
+   raíz, fuera de la transacción).
 2. Servicio: firmas con actor `{ tenantId, orgId, userId, requestId }`;
    `convertToJob` = buscar propio → 404 | estado → 409/idempotente →
-   `isJobAssignedToWorker` (regla según D8) → 403 → `ensureActorContext` →
-   transacción (escritura condicional + audit).
+   `isJobAssignedToWorker` (regla según D8) → 403 → repositorio
+   (`ensureActorContext` + transacción con escritura condicional y audit).
 3. Mantener `updateFreeProject` rechazando `converted` (2.16) y extender a
    cualquier `status` (D2).
 
@@ -135,12 +143,16 @@ date: "2026-10-15"
 
 - `pnpm build:packages && pnpm --filter @semse/api build`
 - `node --experimental-strip-types --test apps/api/test/labor-engine.*.test.ts`
+- Con Postgres local (`infra/docker/compose.semse-mvp.yml`):
+  `pnpm --filter @semse/api test:integration` para el rollback real; si no
+  hay BD disponible, registrar `NOT_VERIFIED`, no inventar evidencia.
 - `pnpm --filter @semse/api test:unit` (regresión), `pnpm typecheck`,
   `pnpm lint`, `pnpm spec:validate:strict`, `pnpm spec:index:check`.
 
 ### Fase E — Integración
 
-- PR acotado al módulo + tests + spec/EVENT_CATALOG (si D4). CI terminal.
+- PR acotado al módulo + tests + spec/EVENT_CATALOG (si D4) +
+  `DOMAIN_INVARIANTS.md` (si D10) + API surface. CI terminal.
   Merge sólo con autorización del owner; registrar SHA.
 
 ### Fase F — Producción

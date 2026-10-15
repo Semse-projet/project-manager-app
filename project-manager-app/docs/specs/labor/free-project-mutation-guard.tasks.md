@@ -11,12 +11,12 @@ date: "2026-10-15"
 
 # Tareas: guard de ownership y destino en mutaciones de FreeProject (S0)
 
-> Prerrequisito: spec `APPROVED` (D1–D9 resueltas) y plan aprobado.
+> Prerrequisito: spec `APPROVED` (D1–D10 resueltas) y plan aprobado.
 > `[ ]` pendiente · `[x]` completo · `[~]` bloqueado · `[P]` paralelizable.
 
 ## Fase 0 — SDD y verdad
 
-- [~] [T-001] Confirmar spec `APPROVED` e indexado — bloqueado: owner debe resolver D1–D9
+- [~] [T-001] Confirmar spec `APPROVED` e indexado — bloqueado: owner debe resolver D1–D10
 - [ ] [T-002] Registrar SHA de `main` y SHA desplegado de `semse-API` antes de empezar
 - [x] [T-003] Plan y checklist en borrador (este PR documental)
 - [x] [T-004] Investigación externa y decisiones registradas (spec §11, §13)
@@ -26,16 +26,18 @@ date: "2026-10-15"
 - [ ] [T-010] `labor-engine.service.test.ts`: N1–N4 (404 sin escritura) para PATCH, DELETE y convert
 - [ ] [T-011] `labor-engine.service.test.ts`: N5–N8 (403 genérico; mismo mensaje en los cuatro casos; `isJobAssignedToWorker` recibe ids del actor) y caso D8 (Job sólo vinculado a la org de W) con el resultado aprobado
 - [ ] [T-012] `labor-engine.service.test.ts`: N9–N10 (409), N12 (`status` en PATCH → 400), P1 (convert legítimo + audit), P2 (reintento mismo `jobId` sin escritura ni audit; archive repetido idempotente)
-- [ ] [T-013] [P] `labor-engine.repository.test.ts`: `where` con `createdBy`; conversión condicional `status: "active"`; N14 (`count = 0` → sin segunda escritura); fallo de AuditLog dentro de la transacción → sin escritura
-- [ ] [T-014] [P] `labor-engine.controller.test.ts`: propaga `userId`/`orgId`/`requestId`; `status` → 400; `jobId` no string → 400 (existente)
+- [ ] [T-013] [P] `labor-engine.repository.test.ts`: `where` con `createdBy`; conversión condicional `status: "active"`; N14 (`count = 0` → sin segunda escritura); `updateMany` y `auditLog.create` sobre el mismo `tx` y error de audit propagado
+- [ ] [T-016] [P] `labor-engine-free-project-integration.test.ts` (BD, se salta sin `DATABASE_URL`): fallo forzado de audit → `status`/`convertedJobId` intactos en PostgreSQL; datos sintéticos
+- [ ] [T-014] [P] `labor-engine.controller.test.ts`: propaga `userId`/`orgId`/`requestId`; `status` → 400; `jobId` no string → 400 (existente); N13: `REQUIRED_PERMISSIONS_KEY` = `["field-ops:write"]` en PATCH, DELETE y convert
 - [ ] [T-015] Ejecutar contra `main` @ `83375e6` y guardar salida del fallo como evidencia del gap
 
 ## Fase 2 — Dominio/repositorio
 
 - [ ] [T-020] Repositorio: métodos scoped por `createdBy` y conversión/archivo condicional
 - [ ] [T-021] Servicio: actor en `updateFreeProject`/`archiveFreeProject`/`convertToJob`; guard de estado; validación de Job con `isJobAssignedToWorker`
-- [ ] [T-022] Repositorio/servicio: AuditLog de `convert`/`archive` en la misma `$transaction` que la escritura condicional, con `ensureActorContext` antes (si D4 aprobada); `logger.warn` estructurado sin PII en rechazos
+- [ ] [T-022] Repositorio: `tx.auditLog.create` de `convert`/`archive` en la misma `$transaction` que la escritura condicional, con `ActorContextService.ensureActorContext` antes (si D4 aprobada); el servicio no usa `AuditService`; `logger.warn` estructurado sin PII en rechazos
 - [ ] [T-023] Registrar acciones audit-only en `docs/foundation/EVENT_CATALOG.md` (si D4 aprobada)
+- [ ] [T-025] Agregar "Ownership por Agregado → FreeProject" a `docs/foundation/DOMAIN_INVARIANTS.md` (si D10 aprobada)
 - [ ] [T-024] Tests de Fase 1 en verde
 
 ## Fase 3 — API
@@ -47,7 +49,7 @@ date: "2026-10-15"
 
 ## Fase 4 — Verificación local
 
-- [ ] [T-040] Tests dirigidos `labor-engine.*.test.ts`
+- [ ] [T-040] Tests dirigidos `labor-engine.*.test.ts` y, con Postgres local, `pnpm --filter @semse/api test:integration` (o `NOT_VERIFIED` registrado)
 - [ ] [T-041] `pnpm --filter @semse/api test:unit` (regresión incl. `startTimer`/manual)
 - [ ] [T-042] `pnpm typecheck` y `pnpm lint`
 - [ ] [T-043] `pnpm spec:validate:strict`

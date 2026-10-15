@@ -26,6 +26,7 @@ related_files:
   - packages/schemas/src/labor-engine.schema.ts
   - apps/web/app/(app)/worker/tracker/sections/ProyectosTab.tsx
   - docs/foundation/EVENT_CATALOG.md
+  - docs/foundation/DOMAIN_INVARIANTS.md
 related_tests:
   - apps/api/test/labor-engine.service.test.ts
   - apps/api/test/labor-engine.controller.test.ts
@@ -45,11 +46,14 @@ last_verified: "2026-10-15"
 > derivado de [#934](https://github.com/Semse-projet/project-manager-app/issues/934).
 > Contrato SDD 2.0 en `DRAFT`: **no autoriza código** hasta que el owner
 > cierre las decisiones de §13 y cambie `status` a `APPROVED`.
-> Complementa a `labor.engine-remediation` (APPROVED), cuyo §3 ya establece
-> que "`tenantId` acota, pero ownership por `createdBy` autoriza" y cuyo §9
-> declara que el ownership no se revierte. Este spec cierra la brecha
-> código↔spec en los tres endpoints de mutación de FreeProject que no
-> aplican esa regla.
+> Complementa a `labor.engine-remediation` (APPROVED), cuyo §2 exige que
+> `job_linked` use un "job/proyecto accesible para el worker" y cuyo §7
+> exige rechazar "Job/proyecto ajeno". Su regla "`tenantId` acota, pero
+> ownership por `createdBy` autoriza" (§3) está escrita para **TimeEntry
+> personales**, no para FreeProject. Llevarla a las mutaciones de
+> FreeProject es una excepción por persona al invariante global "ownership
+> se resuelve por organización" de `DOMAIN_INVARIANTS.md`, y por eso se
+> decide explícitamente en D10 y se registra en ese documento.
 
 ## 1. Problema y resultado
 
@@ -155,8 +159,17 @@ registro **sin cambios**; las transiciones permitidas quedan en AuditLog.
 
 - **Tenant boundary:** se mantiene `tenantId` en todas las consultas.
 - **Ownership/resource policy:** `createdBy = actor.userId` para el
-  FreeProject; para el Job destino, `tenantId` + `deletedAt: null` +
+  FreeProject (excepción por persona al invariante de organización, D10);
+  para el Job destino, `tenantId` + `deletedAt: null` +
   `jobAssignmentWhere({ orgId, userId })`.
+- **Por qué por persona y no por org:** FreeProject ya se trata en el
+  código como agregado personal: `listFreeProjects` filtra por `createdBy`
+  (`repository.ts:521-526`), `isFreeProjectOwnedByWorker` lo exige para
+  fichar (`AUDIT_REMEDIATION_PLAN` 2.9, PR #414) y
+  `live-sessions.resource-access.ts:55-62` lo usa para abrir sesiones.
+  Resolver las mutaciones por org dejaría que cualquier miembro de la org
+  edite, archive o convierta el proyecto personal de un compañero que ni
+  siquiera puede ver en su lista.
 - **Delegación:** no existe modelo de delegación; S0 es *owner-only*. Las
   "mutaciones explícitamente delegadas" del handoff quedan para S3.
 - **Step-up/aprobación humana:** no aplica (acción personal sin dinero).
@@ -336,8 +349,13 @@ No aplica: Cronos/LaborChat no muta FreeProjects.
   este spec permite por API: `active → converted` (convert), `active |
   converted → archived` (DELETE). `archived → active` (restaurar) **no**
   existe tras S0 hasta S1. No se agrega FSM a `packages/fsm` en este slice.
-- **Invariantes:** `DOMAIN_INVARIANTS.md` "Ownership por Agregado";
-  `labor.engine-remediation` §2–§3.
+- **Invariantes:** `DOMAIN_INVARIANTS.md` (global "ownership se resuelve
+  por organización" + "Ownership por Agregado"); `labor.engine-remediation`
+  §2 y §7. Al aprobarse D10, el PR de implementación agrega a
+  `DOMAIN_INVARIANTS.md` una entrada "Ownership por Agregado → FreeProject":
+  agregado personal; mutación y lectura sólo por `createdBy` dentro de
+  `tenantId`; la org no autoriza por sí sola; sin override de `OPS_ADMIN`
+  salvo spec propio (D5).
 - **Eventos declarados:** `EVENT_CATALOG.md` no tiene sección Labor. Este
   spec **propone** (D4) registrar acciones de AuditLog *audit-only*
   `free_project.converted` y `free_project.archived` (formato
@@ -391,9 +409,10 @@ No aplica: Cronos/LaborChat no muta FreeProjects.
 
 ## 9. Tests requeridos
 
-Todos en `apps/api/test/` con `node --test`, stubs de repositorio/Prisma y
-fixtures ficticios. Deben **fallar contra `main` @ `83375e6`** (gap
-demostrado) y pasar tras la implementación.
+Unitarios en `apps/api/test/` con `node --test`, stubs de repositorio/Prisma
+y fixtures ficticios. Deben **fallar contra `main` @ `83375e6`** (gap
+demostrado) y pasar tras la implementación. La única excepción es el
+rollback real de la transacción, que necesita PostgreSQL (ver abajo).
 
 - [ ] Servicio: N1–N12 con el stub de `labor-engine.service.test.ts`;
       verifica que en cada rechazo no se llamó a la escritura del repo.
@@ -403,12 +422,28 @@ demostrado) y pasar tras la implementación.
       `jobId` y `userId` del actor (no del cuerpo).
 - [ ] Servicio: caso D8 (Job relacionado sólo con la org de W) con el
       resultado que fije la decisión aprobada.
-- [ ] Repositorio: si la inserción de AuditLog falla dentro de la
-      transacción, la conversión/archivo no queda escrita.
+- [ ] Repositorio (unitario): `updateMany` condicional y `auditLog.create`
+      usan **el mismo cliente `tx`** del callback de `$transaction`, y un
+      error del insert de audit se propaga (no se captura ni se ignora). Un
+      stub no tiene semántica de transacción, así que este test no afirma
+      el rollback.
+- [ ] Integración con BD (`apps/api/test/labor-engine-free-project-integration.test.ts`,
+      convención `*-integration.test.ts`, `pnpm --filter @semse/api
+      test:integration`, se salta sin `DATABASE_URL`): forzar el fallo del
+      insert de audit y comprobar en PostgreSQL que `status` y
+      `convertedJobId` no cambiaron. Sólo con datos sintéticos en una BD
+      local o de CI; `api-integration.yml` no ejecuta este archivo hoy, así
+      que su evidencia se registra como corrida local salvo que se agregue
+      al workflow (cambio de CI fuera de este slice).
 - [ ] Repositorio: la escritura condicional incluye `createdBy` y
       `status: "active"` en el `where`; `count = 0` no escribe (N14).
 - [ ] Controlador: pasa `userId`/`orgId` del contexto; `status` en PATCH →
       400; `jobId` no string → 400.
+- [ ] Controlador (N13): `Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, …)`
+      de `updateFreeProject`, `archiveFreeProject` y `convertFreeProject`
+      es exactamente `["field-ops:write"]` (patrón de
+      `bids.controller.test.ts`), para que quitar o cambiar el decorador
+      rompa un test aunque el smoke de usuario autorizado siga verde.
 - [ ] Regresión: `startTimer`/manual con FreeProject propio siguen pasando.
 - [ ] Audit: payload sin PII (sólo ids, estados, `jobId`, `requestId`).
 
@@ -420,9 +455,14 @@ demostrado) y pasar tras la implementación.
   `a.userId`/`a.orgId`/`requestId`; rechazar `status` en PATCH.
 - `apps/api/src/modules/labor-engine/labor-engine.service.ts` — actor en
   `updateFreeProject`/`archiveFreeProject`/`convertToJob`; validar Job con
-  `repo.isJobAssignedToWorker`; guard de estado; AuditService.
+  `repo.isJobAssignedToWorker`; guard de estado. **No** inyecta
+  `AuditService`: su `append` usa el cliente Prisma raíz, fuera de la
+  transacción de la mutación.
 - `apps/api/src/modules/labor-engine/labor-engine.repository.ts` — búsqueda
-  y escritura con `createdBy`; método de conversión condicional.
+  y escritura con `createdBy`; conversión/archivo como `$transaction`
+  interactiva con `updateMany` condicional + `tx.auditLog.create`; inyecta
+  `ActorContextService` (global vía `PrismaModule`) y llama
+  `ensureActorContext` antes de abrir la transacción.
 
 ### Web
 
@@ -439,6 +479,7 @@ demostrado) y pasar tras la implementación.
 - `apps/api/test/labor-engine.service.test.ts`
 - `apps/api/test/labor-engine.repository.test.ts`
 - `apps/api/test/labor-engine.controller.test.ts`
+- `apps/api/test/labor-engine-free-project-integration.test.ts` (nuevo, BD)
 
 ## 11. Investigación externa
 
@@ -456,7 +497,7 @@ demostrado) y pasar tras la implementación.
 
 ## 12. Gates de cierre
 
-- [ ] D1–D9 resueltas por el owner y `status: APPROVED`
+- [ ] D1–D10 resueltas por el owner y `status: APPROVED`
 - [ ] Spec enlazado por `pnpm spec:index`
 - [ ] Spec, plan, tasks, analyze y checklist coherentes
 - [ ] Tests negativos rojos contra `main` y verdes tras el cambio
@@ -476,8 +517,9 @@ demostrado) y pasar tras la implementación.
 | D2 | `status` en PATCH | **Rechazar con 400** cualquier `status`: el contrato Zod no lo tiene y ningún cliente lo envía; archivar = DELETE; restaurar = endpoint dedicado en S1 | Permitir sólo `active↔archived` al dueño (adelanta S1 sin su spec) |
 | D3 | Reintento de convert con el mismo `jobId` | **200 idempotente** sin escritura ni audit (colas offline) | 409 también para el mismo Job |
 | D4 | Auditoría | AuditLog `free_project.converted` / `free_project.archived` (audit-only, registradas en `EVENT_CATALOG.md` dentro del PR de implementación) insertado **en la misma transacción** que la mutación; `ensureActorContext` se resuelve antes de abrirla | AuditLog fuera de transacción (patrón `jobs.service.ts:255`): más simple, pero un fallo tras el commit deja la transición sin audit para siempre |
-| D5 | `OPS_ADMIN` sobre FreeProjects ajenos | **Sin override** en S0: FreeProject es personal (`labor.engine-remediation` §3) | Override con justificación + audit (requiere su propio spec) |
+| D5 | `OPS_ADMIN` sobre FreeProjects ajenos | **Sin override** en S0: FreeProject es personal (D10) | Override con justificación + audit (requiere su propio spec) |
 | D6 | Datos existentes posiblemente afectados | Censo de **sólo lectura** (conteo de `converted` cuyo `convertedJobId` no resuelve a Job del tenant) ejecutado por el owner, sin PII ni mutación | No censar; sólo prevenir hacia adelante |
 | D7 | Activación | **Sin flag**: control de seguridad activo al desplegar; rollback = revert | Flag de kill-switch (agrega superficie sin beneficio claro) |
 | D8 | ¿Basta la asignación de la **org** del trabajador para convertir? | **Sí en S0**: misma regla `jobAssignmentWhere` que el selector y `startTimer`; la granularidad individual (#934 caso 7) va a S3 para las tres rutas a la vez | Exigir asignación individual ya en S0 y alinear selector + `startTimer` en este slice (más alcance, riesgo de quitar Jobs hoy visibles) |
 | D9 | Log de geocoding con dirección completa (`google-maps.ts:98-100`) | PR mínimo separado que quite la dirección del log (fuera del guard de ownership) | Incluirlo en S0 o en S2/#931 |
+| D10 | ¿FreeProject es un agregado **personal** (ownership por `createdBy`) como excepción a "ownership se resuelve por organización"? | **Sí**, y registrarlo en `DOMAIN_INVARIANTS.md` en el PR de implementación: el código ya lo trata así en listar, fichar y sesiones (§3) | Ownership por org: cualquier miembro de la org podría mutar proyectos personales ajenos que ni siquiera ve en su lista |

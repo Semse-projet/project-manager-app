@@ -16,12 +16,14 @@ date: "2026-10-15"
 - [x] Cada escenario P1 es verificable (spec §4, N1–N14 con código esperado)
 - [x] Scope y no-objetivos evitan ambigüedad (spec §2; S1–S3 explícitamente fuera)
 - [x] API/UI/agent contracts no se contradicen (PATCH documentado con su contrato manual real, sin afirmar que aplica el schema Zod; UI sin cambios; sin agente)
-- [ ] Decisiones D1–D9 resueltas por el owner
+- [ ] Decisiones D1–D10 resueltas por el owner
 
 ## Seguridad
 
 - [ ] Permisos se validan en backend — diseño listo; pendiente de código
 - [ ] Tenant, org, ownership y resource scope están probados — tests definidos, no escritos
+- [ ] Excepción de ownership por persona registrada en `DOMAIN_INVARIANTS.md` (D10)
+- [ ] RBAC de las tres rutas cubierto por test de metadata (N13)
 - [x] Step-up/aprobación: no aplica (acción personal sin dinero)
 - [x] Los logs y el audit **nuevos** de S0 no llevan secretos ni PII (spec §8: sólo ids y códigos de razón)
 - [ ] Log preexistente con la dirección completa en `google-maps.ts:98-100` cuando falla el geocoding de un PATCH/POST con `location` — fuera de S0, pendiente de D9
@@ -32,6 +34,7 @@ date: "2026-10-15"
 - [x] Migración: no aplica
 - [x] Rollback: revert del PR, sin datos que deshacer
 - [x] Estado + audit atómicos: AuditLog en la misma transacción que la mutación (D4); sin bus ni outbox
+- [ ] Rollback de la transacción verificado contra PostgreSQL real, no sólo con stubs
 - [ ] Acciones de AuditLog registradas en `EVENT_CATALOG.md` (si D4 aprobada)
 
 ## Evidencia y dinero
