@@ -39,6 +39,10 @@ last_verified: "NOT_VERIFIED"
 
 > **Estado REVIEW.** Child spec del programa `platform.semse-prometeo-interoperability`. La lectura de proyecto existente **NO demuestra** que ya exista un servidor MCP. No implementar hasta APPROVED, ADR/seguridad revisadas e índice/CI coherentes.
 
+## Decisión del propietario — seguridad S1 (15-oct-2026)
+
+Se aprobaron formalmente tres **requisitos obligatorios**, documentados en `semse-mcp-project-read.decisions.md`: `SEC-S1-01` autenticación OAuth vinculada a identidad y membresía SEMSE, permisos mínimos y revocación; `SEC-S1-02` ninguna consulta MCP aprovisiona Tenant/Org/User ni muta dominios; `SEC-S1-03` comprobación de tenant, org, membresía, permiso y ownership en cada llamada. Constituyen gates de aceptación **no negociables**. La aprobación **no** selecciona un proveedor OAuth, ni aprueba D1–D7 completos, ni eleva `status: REVIEW`, ni autoriza producción.
+
 ## 1. Problema y resultado
 
 **Actores:** propietario o profesional con acceso efectivo al Project dentro de una organización SEMSE y cliente MCP autorizado.
