@@ -61,7 +61,7 @@ date: "2026-10-15"
 | Slice | Alcance entregable | Dependencia bloqueante | Verificación |
 |---|---|---|---|
 | S0 | Auditoría AS-IS, tabla verdad por capacidad, ADRs reconciliados, spec padre + children | Ninguna mutación productiva | trazabilidad módulo→código→test→CI→runtime |
-| S1 | MCP Server read-only `semse.project.get_summary.v1` (nombre propuesto) | S0, child spec APPROVED | usuario A lee su proyecto, usuario B/org B no; logs/audit |
+| S1 | MCP Server read-only `semse.project.get_status.v1` (nombre propuesto) | S0, child spec APPROVED | usuario A lee su proyecto, usuario B/org B no; logs/audit |
 | S2 | MCP Client externo para un proveedor allowlisted y un caso real | actualizar ADR-025, S0/S1 y egress aprobado | permisos reducidos, token revocado, SSRF bloqueado |
 | S3 | MCP Apps visual read-only (Estimate o Projects) | S1 y host compatible real | CSP/sandbox, autorización, fallback texto |
 | S4 | Integraciones visibles por Org en Workspace | F10/ADR-040 permisos/estado segmentados | dos org del mismo tenant, revocación membership |
