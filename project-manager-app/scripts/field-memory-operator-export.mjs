@@ -44,12 +44,12 @@ function assertAliasBound(invokeCommand){
   if(expected.user!==current.user || expected.host!==current.host)throw Error("Stale SSH alias for different Railway instance");
 }
 
-// Windows npm/scoop CLI launchers can be .cmd shims: spawnSync('railway', ...)
-// returns ENOENT even though PowerShell resolves railway. Use cmd.exe ONLY for
-// the two strictly static, approved Railway commands. Never pass inventory
-// source, storage keys or user-controlled strings through a shell.
+// On Windows, the Railway CLI can resolve to railway.ps1. Node spawnSync
+// cannot start a .ps1 file directly. PowerShell is used ONLY to execute one of
+// two static, allowlisted Railway commands. No storage paths, JS inventory
+// source, input from users, or secrets are interpolated into the command.
 export function resolveOperatorCommand(command, args, {
-  platform = process.platform, comspec = process.env.ComSpec || "cmd.exe",
+  platform = process.platform,
 } = {}) {
   if (platform !== "win32" || command !== "railway")
     return { command, args };
@@ -61,7 +61,8 @@ export function resolveOperatorCommand(command, args, {
   if (!version && !config) throw Error("Non-approved Railway command for Windows shim");
   if (!args.every(v => /^[A-Za-z0-9._-]+$/.test(v)))
     throw Error("Unsafe Railway CLI argument");
-  return { command: comspec, args: ["/d","/s","/c","railway " + args.join(" ")] };
+  return { command: "powershell.exe",
+    args: ["-NoProfile", "-NonInteractive", "-Command", "railway " + args.join(" ")] };
 }
 
 function invoke(command,args,timeout=900000,maxBuffer=100*1024*1024,input) {
