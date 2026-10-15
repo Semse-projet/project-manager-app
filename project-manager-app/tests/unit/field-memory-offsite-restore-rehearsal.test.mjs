@@ -56,6 +56,11 @@ test('refuses export directory inside rehearsal parent', async t => {
   const f = await fixture(t);
   await assert.rejects(() => rehearseOffsiteRecovery({ ...f, isolatedParent: f.base }), /disjoint/);
 });
+test('refuses use of production Linux mount on all operator platforms', async t => {
+  const f = await fixture(t);
+  await assert.rejects(() => rehearseOffsiteRecovery({ ...f, isolatedParent: '/data/semse-storage' }), /Production \/data/);
+  await assert.rejects(() => rehearseOffsiteRecovery({ ...f, exportedRoot: '/data/semse-storage' }), /Production \/data/);
+});
 test('refuses missing source manifest', async t => {
   const f = await fixture(t);
   await assert.rejects(() => rehearseOffsiteRecovery({ ...f, manifestFile: path.join(f.base, 'missing.json') }));
@@ -64,7 +69,7 @@ test('refuses symlink as isolated directory', async t => {
   const f = await fixture(t);
   const { symlink } = await import('node:fs/promises');
   const link = path.join(f.base, 'alias');
-  await symlink(f.isolatedParent, link);
+  await symlink(f.isolatedParent, link, process.platform === 'win32' ? 'junction' : 'dir');
   await assert.rejects(() => rehearseOffsiteRecovery({ ...f, isolatedParent: link }), /symlink/);
 });
 

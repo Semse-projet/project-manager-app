@@ -11,6 +11,12 @@ import { verifyRestoredOriginals } from './field-memory-originals-restore-drill.
 function isWithin(parent, child) {
   return parent === child || child.startsWith(parent + path.sep);
 }
+// The live Railway mount uses POSIX paths independently of operator OS.
+function isLiveDataPath(candidate) {
+  if (typeof candidate !== 'string') return false;
+  const normalized = path.posix.normalize(candidate.replace(/\\/g, '/'));
+  return normalized === '/data' || normalized.startsWith('/data/');
+}
 async function canonicalDirectory(dir) {
   const info = await lstat(dir);
   if (!info.isDirectory() || info.isSymbolicLink()) throw Error('Expected ordinary directory, not a symlink');
@@ -18,6 +24,9 @@ async function canonicalDirectory(dir) {
 }
 export async function rehearseOffsiteRecovery({ manifestFile, exportedRoot, isolatedParent }) {
   if (!manifestFile || !exportedRoot || !isolatedParent) throw Error('Manifest, export and isolated parent required');
+  if (isLiveDataPath(exportedRoot) || isLiveDataPath(isolatedParent)) {
+    throw Error('Production /data is not a safe source or rehearsal location');
+  }
   const start = Date.now();
   const [exported, isolated] = await Promise.all([
     canonicalDirectory(exportedRoot), canonicalDirectory(isolatedParent),
@@ -25,7 +34,7 @@ export async function rehearseOffsiteRecovery({ manifestFile, exportedRoot, isol
   if (isWithin(exported, isolated) || isWithin(isolated, exported)) {
     throw Error('Export and rehearsal must be in disjoint directory trees');
   }
-  if (isWithin('/data', exported) || isWithin('/data', isolated)) {
+  if (isLiveDataPath(exported) || isLiveDataPath(isolated)) {
     throw Error('Production /data is not a safe source or rehearsal location');
   }
   const manifestBytes = await readFile(manifestFile);

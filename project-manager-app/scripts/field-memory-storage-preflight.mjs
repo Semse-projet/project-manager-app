@@ -20,10 +20,15 @@ export function readMountPoints(mountInfo = "") {
   }));
 }
 
+// Railway stores originals on Linux. Use POSIX path semantics even when
+// this read-only preflight is exercised by the Windows operator test suite.
 function withinDir(candidate, parent, allowEqual = false) {
-  if (typeof candidate !== "string" || !path.isAbsolute(candidate)) return false;
-  const diff = path.relative(parent, path.resolve(candidate));
-  return (allowEqual && diff === "") || (diff !== "" && diff !== ".." && !diff.startsWith("../") && !path.isAbsolute(diff));
+  if (typeof candidate !== "string" || !path.posix.isAbsolute(candidate)
+    || candidate.includes("\\") || candidate.includes("\0")
+    || path.posix.normalize(candidate) !== candidate) return false;
+  const diff = path.posix.relative(parent, candidate);
+  return (allowEqual && diff === "") || (diff !== "" && diff !== ".."
+    && !diff.startsWith("../") && !path.posix.isAbsolute(diff));
 }
 
 function check(id, ok, message, severity = "BLOCK") {

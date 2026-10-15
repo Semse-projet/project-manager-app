@@ -57,6 +57,14 @@ test("multipart root must be under the volume and under the original root", () =
   assert.equal(pick(p, "multipart-root-scope"), "BLOCK");
 });
 
+test("rejects traversal, separator tricks and lexical noncanonical Railway roots", () => {
+  for (const root of ["/data/../tmp", "/data//semse-storage", "/data/semse-storage/../../tmp", "/data\\semse-storage"]) {
+    const p = inspect({ ...valid, SEMSE_STORAGE_ROOT: root });
+    assert.equal(p.storageLayoutReady, false);
+    assert.equal(pick(p, "original-root-scope"), "BLOCK");
+  }
+});
+
 test("missing distinct /data mount cannot be inferred from an ordinary directory", () => {
   const p = inspect(valid, { mountInfo: "10 1 8:1 / / rw - overlay overlay rw" });
   assert.equal(pick(p, "railway-volume-mount"), "BLOCK");

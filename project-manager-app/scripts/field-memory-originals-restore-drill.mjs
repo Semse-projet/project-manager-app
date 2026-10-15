@@ -72,13 +72,22 @@ function validate(manifest) {
     seen.add(e.relativePath);
   }
 }
+// Reject remote Linux volume paths before Windows path.resolve() can silently
+// turn /data into a local drive path (e.g., C:\data).
+function isLiveDataPath(candidate) {
+  if (typeof candidate !== "string") return false;
+  const normalized = path.posix.normalize(candidate.replace(/\\/g, "/"));
+  return normalized === "/data" || normalized.startsWith("/data/");
+}
 export async function verifyRestoredOriginals(manifest,restoredRoot) {
   validate(manifest);
+  if(isLiveDataPath(restoredRoot))
+    throw Error("Restored copy must be isolated from production /data");
   const resolved=path.resolve(restoredRoot);
-  if(resolved==="/data" || resolved.startsWith("/data/"))
+  if(isLiveDataPath(resolved))
     throw Error("Restored copy must be isolated from production /data");
   const actualRoot=await realpath(resolved);
-  if(actualRoot==="/data" || actualRoot.startsWith("/data/"))
+  if(isLiveDataPath(actualRoot))
     throw Error("Restored copy resolves inside production /data");
   if(!(await lstat(resolved)).isDirectory()) throw Error("Restored root must be ordinary directory");
   const list=await filesUnder(resolved),expected=new Map(manifest.files.map(x=>[x.relativePath,x]));

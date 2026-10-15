@@ -45,9 +45,43 @@ function assertAliasBound(invokeCommand){
 }
 
 function invoke(command,args,timeout=900000,maxBuffer=100*1024*1024) {
-  const result=spawnSync(command,args,{encoding:"utf8",windowsHide:true,
-    timeout,maxBuffer,stdio:["ignore","pipe","pipe"]});
-  if(result.error||result.status!==0)throw Error("Command failed without accepted output");
+  let executable=command;
+  let argv=args;
+
+  if(process.platform==="win32" && command==="railway") {
+    const encodedArgs=Buffer.from(
+      JSON.stringify(args),"utf8"
+    ).toString("base64");
+
+    const psScript=[
+      "$ErrorActionPreference='Stop'",
+      `$json=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${encodedArgs}'))`,
+      "$cliArgs=[string[]](ConvertFrom-Json -InputObject $json)",
+      "& railway.ps1 @cliArgs",
+      "if ($null -eq $LASTEXITCODE) { exit 1 }",
+      "exit $LASTEXITCODE"
+    ].join("; ");
+
+    executable="powershell.exe";
+    argv=[
+      "-NoProfile",
+      "-NonInteractive",
+      "-EncodedCommand",
+      Buffer.from(psScript,"utf16le").toString("base64")
+    ];
+  }
+
+  const result=spawnSync(executable,argv,{
+    encoding:"utf8",
+    windowsHide:true,
+    timeout,
+    maxBuffer,
+    stdio:["ignore","pipe","pipe"]
+  });
+
+  if(result.error||result.status!==0)
+    throw Error("Command failed without accepted output");
+
   return result.stdout;
 }
 async function validateDestination(destination){

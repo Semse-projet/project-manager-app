@@ -37,8 +37,17 @@ test("missing and unexpected files are detected",async t=>{
   assert.equal(a.missingFiles,1);assert.equal(a.unexpectedFiles,1);assert.equal(a.status,"FAIL");
 });
 test("symbolic links cannot be smuggled into restored evidence",async t=>{
-  const f=await setup(t);await symlink("/etc/passwd",path.join(f.restore,"photos","bad"));
+  const f=await setup(t);
+  // A Windows directory junction is a link/reparse point, but needs no admin rights.
+  // On Linux this is a directory symlink with the same rejection requirement.
+  const bad=path.join(f.restore,"photos","bad");
+  await symlink(f.source,bad,process.platform==="win32"?"junction":"dir");
   await assert.rejects(()=>verifyRestoredOriginals(f.manifest,f.restore),/Symbolic links forbidden/);
+  if (process.platform!=="win32") {
+    await rm(bad);
+    await symlink("/etc/passwd",bad,"file");
+    await assert.rejects(()=>verifyRestoredOriginals(f.manifest,f.restore),/Symbolic links forbidden/);
+  }
 });
 test("reject manifest traversal, Windows separators and duplicate names",async t=>{
   const f=await setup(t);
@@ -50,6 +59,12 @@ test("reject manifest traversal, Windows separators and duplicate names",async t
 test("verification must not treat live /data as isolated restoration",async t=>{
   const f=await setup(t);
   await assert.rejects(()=>verifyRestoredOriginals(f.manifest,"/data/semse-storage"),/isolated/);
+});
+test("rejects normalized production paths even on Windows",async t=>{
+  const f=await setup(t);
+  for(const dest of ["/data", "/data/semse-storage", "/data/sub/../semse-storage"]) {
+    await assert.rejects(()=>verifyRestoredOriginals(f.manifest,dest),/isolated/);
+  }
 });
 test("write manifest privately, once, outside source",async t=>{
   const f=await setup(t),dest=path.join(f.base,"manifest.json");
