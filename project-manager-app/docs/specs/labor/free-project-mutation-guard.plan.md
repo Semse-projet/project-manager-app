@@ -4,16 +4,16 @@ feature: "Labor Engine — guard de ownership y destino en mutaciones de FreePro
 domain: "labor"
 spec: "docs/specs/labor/free-project-mutation-guard.spec.md"
 version: "2.0"
-status: "DRAFT"
-branch: "fix/labor-s0-free-project-guard"
+status: "APPROVED"
+branch: "spec/labor-s0-free-project-guard-20261015"
 date: "2026-10-15"
 ---
 
 # Plan técnico: guard de ownership y destino en mutaciones de FreeProject (S0)
 
-> Prerrequisito: spec `APPROVED` con D1–D10 resueltas. Mientras el spec siga
-> en `DRAFT`, este plan es una propuesta y **no autoriza código**. El plan
-> separa implementación, merge, despliegue y activación.
+> Prerrequisito cumplido: spec `APPROVED` el 2026-10-15 con las condiciones
+> de su §14. El plan separa implementación, merge, despliegue y activación;
+> no hay merge ni despliegue sin CI, revisión y criterios de aceptación.
 
 ## 1. Snapshot de verdad
 
@@ -29,7 +29,7 @@ date: "2026-10-15"
 
 ## 2. Constitution check
 
-- [ ] Spec aprobado antes de código — **pendiente (DRAFT)**
+- [x] Spec aprobado antes de código (2026-10-15, spec §14)
 - [x] Tenant/org/ownership y RBAC definidos (spec §3)
 - [x] Evidence/Payment Governance revisados: no aplica (spec §3)
 - [x] Audit/events definidos para cambios críticos (spec §6, sujeto a D4)
@@ -60,7 +60,12 @@ date: "2026-10-15"
   por el owner fuera de este PR.
 - Compatibilidad durante deploy: total para clientes propios (no envían
   `status` en PATCH; no mutan proyectos ajenos).
-- Rollback: revert del PR; no hay datos que deshacer.
+- Recuperación (D7): **sin revert del guard** ni rollback de Railway a un
+  deployment anterior a S0, porque reabre la vulnerabilidad. Forward-fix
+  sobre el guard o vuelta a un SHA que ya lo contenga.
+- Conservación: no se borran ni reescriben filas; `TimeEntry` no se toca.
+- Censo D6: `docs/runbooks/LABOR_S0_FREE_PROJECT_CENSUS.md` (sólo lectura,
+  agregado, lo ejecuta un operador autorizado).
 
 ## 5. Seguridad y política
 
@@ -160,7 +165,8 @@ date: "2026-10-15"
 - Deploy API terminal; health no basta.
 - Smoke autenticado con dos usuarios de prueba autorizados (spec §8);
   evidencia sin PII.
-- Activación: inmediata al desplegar (D7). Rollback = revert.
+- Activación: inmediata al desplegar, sin flag (D7). Recuperación por
+  forward-fix; nunca un SHA sin el guard.
 
 ## 8. Riesgos
 
@@ -171,7 +177,8 @@ date: "2026-10-15"
 | Audit falla dentro de la transacción | Baja | Bajo | Rollback de la transición; 5xx sin cambio; reintento seguro | Errores de audit en logs |
 | Job borrado/desasignado entre la validación y la escritura | Muy baja (ventana de ms) | Bajo | Aceptado: mismo estado que borrarlo tras convertir; `convertedJobId` es referencia histórica (spec §4) | — |
 | D8 rechazada (exigir asignación individual) | — | Medio | Alinear selector y `startTimer` en el mismo slice para no ofrecer Jobs que luego den 403 | 403 en convert desde UI propia |
-| Datos ya alterados por el hueco | Desconocida | Medio | D6 censo de sólo lectura; no se puede atribuir sin audit previo | — |
+| Datos ya alterados por el hueco | Desconocida | Medio | D6 censo de sólo lectura y agregado; no se atribuye a personas sin evidencia | — |
+| Regresión tras desplegar | Baja | Medio | Forward-fix; prohibido revertir a un SHA sin guard (D7) | 4xx desde UI propia |
 
 ## 9. Investigación externa
 
@@ -184,7 +191,7 @@ date: "2026-10-15"
 ## 10. Gates antes de tareas
 
 - [x] Archivos exactos identificados (spec §10)
-- [x] Migración y rollback definidos (no hay migración; revert)
+- [x] Migración y recuperación definidas (no hay migración; forward-fix, D7)
 - [x] Tests ordenados antes del código (Fase A)
 - [x] Canary/feature flag definidos (sin flag, D7; smoke §8)
 - [x] Evidencia requerida para cada estado de entrega

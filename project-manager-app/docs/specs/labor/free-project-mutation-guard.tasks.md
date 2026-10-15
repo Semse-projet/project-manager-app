@@ -4,22 +4,25 @@ feature: "Labor Engine — guard de ownership y destino en mutaciones de FreePro
 domain: "labor"
 plan: "docs/specs/labor/free-project-mutation-guard.plan.md"
 version: "2.0"
-status: "PENDING"
-branch: "fix/labor-s0-free-project-guard"
+status: "IN_PROGRESS"
+branch: "spec/labor-s0-free-project-guard-20261015"
 date: "2026-10-15"
 ---
 
 # Tareas: guard de ownership y destino en mutaciones de FreeProject (S0)
 
-> Prerrequisito: spec `APPROVED` (D1–D10 resueltas) y plan aprobado.
+> Prerrequisito cumplido: spec y plan `APPROVED` el 2026-10-15 (spec §14).
 > `[ ]` pendiente · `[x]` completo · `[~]` bloqueado · `[P]` paralelizable.
 
 ## Fase 0 — SDD y verdad
 
-- [~] [T-001] Confirmar spec `APPROVED` e indexado — bloqueado: owner debe resolver D1–D10
-- [ ] [T-002] Registrar SHA de `main` y SHA desplegado de `semse-API` antes de empezar
-- [x] [T-003] Plan y checklist en borrador (este PR documental)
-- [x] [T-004] Investigación externa y decisiones registradas (spec §11, §13)
+- [x] [T-001] Confirmar spec `APPROVED` e indexado (2026-10-15, spec §14)
+- [~] [T-002] Registrar SHA de `main` (`83375e6`) y SHA desplegado de `semse-API` — este último NOT_VERIFIED (sin acceso a Railway desde la sesión)
+- [x] [T-003] Plan y checklist
+- [x] [T-004] Investigación externa y decisiones registradas (spec §11, §13, §14)
+- [x] [T-005] Runbook del censo D6 de sólo lectura (`docs/runbooks/LABOR_S0_FREE_PROJECT_CENSUS.md`)
+- [ ] [T-006] Ejecutar el censo D6 — operador autorizado con rol de sólo lectura; registrar conteos o `NOT_EXECUTED`
+- [ ] [T-007] PR independiente D9: quitar la dirección del log de geocoding (prioridad de seguridad)
 
 ## Fase 1 — Tests rojos
 
@@ -59,7 +62,7 @@ date: "2026-10-15"
 ## Fase 5 — PR, CI y merge
 
 - [ ] [T-050] Revisar diff y secretos; sin datos reales en fixtures
-- [ ] [T-051] PR acotado con evidencia de rojo→verde y rollback = revert
+- [ ] [T-051] PR acotado con evidencia de rojo→verde y recuperación por forward-fix (D7)
 - [ ] [T-052] CI terminal; registrar `ci_status`
 - [ ] [T-053] Resolver review sin ampliar scope
 - [ ] [T-054] Merge sólo con autorización del owner; registrar SHA y `merge_status`
@@ -67,7 +70,7 @@ date: "2026-10-15"
 ## Fase 6 — Deploy y verificación
 
 - [ ] [T-060] Deployment terminal de `semse-API` con el SHA fusionado
-- [ ] [T-061] Health/readiness y logs sin errores nuevos
+- [ ] [T-061] Health/readiness y logs sin errores nuevos; ante regresión, forward-fix — nunca rollback a un deployment sin el guard
 - [ ] [T-062] Smoke autenticado con dos usuarios de prueba autorizados del mismo tenant (spec §8); nunca proyectos de usuarios reales
 - [ ] [T-063] Registrar `production_evidence` sin PII, `last_verified`, `status: VERIFIED`
 - [ ] [T-064] Enlazar resultado en #935 y #934; no cerrar #935

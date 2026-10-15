@@ -3,8 +3,8 @@ id: "labor.free-project-mutation-guard"
 title: "Labor Engine — guard de ownership y destino en mutaciones de FreeProject (S0)"
 domain: "labor"
 sdd_version: "2.0"
-version: "0.1"
-status: "DRAFT"
+version: "1.0"
+status: "APPROVED"
 owner: "semse-core"
 risk: "high"
 date: "2026-10-15"
@@ -44,8 +44,8 @@ last_verified: "2026-10-15"
 > Slice **S0/P0** del EPIC
 > [#935](https://github.com/Semse-projet/project-manager-app/issues/935),
 > derivado de [#934](https://github.com/Semse-projet/project-manager-app/issues/934).
-> Contrato SDD 2.0 en `DRAFT`: **no autoriza código** hasta que el owner
-> cierre las decisiones de §13 y cambie `status` a `APPROVED`.
+> Contrato SDD 2.0 **APPROVED** por el owner el 2026-10-15, con las
+> condiciones de D6–D9 y de concurrencia registradas en §14.
 > Complementa a `labor.engine-remediation` (APPROVED), cuyo §2 exige que
 > `job_linked` use un "job/proyecto accesible para el worker" y cuyo §7
 > exige rechazar "Job/proyecto ajeno". Su regla "`tenantId` acota, pero
@@ -235,9 +235,12 @@ el owner decide lo contrario, este caso pasa a 403 y el selector y
 Job se evalúa al convertir. Un Job eliminado o desasignado después (incluso
 milisegundos después) no invalida la conversión ni se revalida: es el mismo
 estado que eliminar el Job tras convertir, algo que ya es posible y que
-ninguna FK impide. `convertedJobId` es una referencia histórica, no una
-garantía de acceso vigente; quien lo consuma debe resolver el Job con su
-propio scope.
+ninguna FK impide. `convertedJobId` es una referencia histórica y **nunca
+concede permisos**: ningún endpoint puede usarlo como prueba de acceso al
+Job, y toda lectura posterior del Job vuelve a verificar el acceso vigente
+con su propio scope (hoy `ProyectosTab.tsx:260` sólo muestra el título si el
+Job sigue en la lista de Jobs asignados). El owner autorizó no bloquear la
+fila del Job en S0 bajo esta condición (§14).
 
 ### P2 — Idempotencia y compatibilidad
 
@@ -381,12 +384,22 @@ No aplica: Cronos/LaborChat no muta FreeProjects.
   por la misma regla. Única ruptura deliberada: llamadas directas al API que
   dependían de la ausencia de guard.
 - **Datos ya escritos:** puede haber filas con `convertedJobId` que no
-  resuelve a un Job asignado, o proyectos archivados por terceros; sin
-  AuditLog previo **no es posible atribuirlo**. Un censo de sólo lectura en
-  producción requiere autorización del owner (D6); este spec no lo ejecuta
-  ni modifica datos.
-- **Rollback de código:** revert del PR. No hay datos que deshacer.
-- **Rollback/forward-fix de datos:** no aplica.
+  resuelve a un Job válido, o proyectos archivados por terceros; sin
+  AuditLog previo **no es posible atribuirlo a nadie**. D6 autoriza
+  únicamente un censo de sólo lectura en producción, con conteos agregados
+  y sin datos personales, que distingue referencias inexistentes, Jobs
+  eliminados e inconsistencias de tenant
+  (`docs/runbooks/LABOR_S0_FREE_PROJECT_CENSUS.md`). Un conteo distinto de
+  cero no es evidencia de abuso ni se atribuye a personas.
+- **Conservación:** S0 no borra ni reescribe filas existentes. `TimeEntry`
+  (horas, autoría, pausas) no se toca; un FreeProject archivado o convertido
+  conserva sus horas y su `convertedJobId` histórico.
+- **Recuperación sin reexponer (D7):** **no** se revierte el guard. Un
+  revert del PR o un rollback de Railway a un deployment anterior al SHA de
+  S0 vuelve a abrir la vulnerabilidad. Ante una regresión: forward-fix sobre
+  el guard; si hay que volver atrás, sólo a un SHA que ya contenga el guard.
+- **Rollback/forward-fix de datos:** no aplica (no hay escrituras de datos
+  propias de S0 más allá de las mutaciones autorizadas y su AuditLog).
 
 ## 8. Observabilidad, despliegue y activación
 
@@ -402,9 +415,10 @@ No aplica: Cronos/LaborChat no muta FreeProjects.
   prueba autorizados del mismo tenant: A no puede PATCH/DELETE/convert el
   proyecto de B; A sí puede convertir el propio a un Job asignado. IDs de
   prueba ficticios; nunca proyectos de usuarios reales.
-- **Señal de rollback:** aumento de 4xx en `/v1/labor/free-projects/*` desde
-  la UI propia (no desde llamadas directas) o reportes de "no puedo editar
-  mi proyecto".
+- **Señal de corrección:** aumento de 4xx en `/v1/labor/free-projects/*`
+  desde la UI propia (no desde llamadas directas) o reportes de "no puedo
+  editar mi proyecto". Dispara un forward-fix, nunca la retirada del guard
+  (§7, D7).
 - **Owner operativo:** semse-core.
 
 ## 9. Tests requeridos
@@ -445,6 +459,9 @@ rollback real de la transacción, que necesita PostgreSQL (ver abajo).
       `bids.controller.test.ts`), para que quitar o cambiar el decorador
       rompa un test aunque el smoke de usuario autorizado siga verde.
 - [ ] Regresión: `startTimer`/manual con FreeProject propio siguen pasando.
+- [ ] `convertedJobId` no concede permisos: `startTimer` con `jobId` igual al
+      `convertedJobId` de un FreeProject propio, pero sin asignación vigente,
+      sigue respondiendo 403.
 - [ ] Audit: payload sin PII (sólo ids, estados, `jobId`, `requestId`).
 
 ## 10. Mapa de implementación
@@ -497,7 +514,7 @@ rollback real de la transacción, que necesita PostgreSQL (ver abajo).
 
 ## 12. Gates de cierre
 
-- [ ] D1–D10 resueltas por el owner y `status: APPROVED`
+- [x] D1–D10 resueltas por el owner y `status: APPROVED` (2026-10-15, §14)
 - [ ] Spec enlazado por `pnpm spec:index`
 - [ ] Spec, plan, tasks, analyze y checklist coherentes
 - [ ] Tests negativos rojos contra `main` y verdes tras el cambio
@@ -509,7 +526,7 @@ rollback real de la transacción, que necesita PostgreSQL (ver abajo).
 - [ ] `production_evidence` y `last_verified` actualizados
 - [ ] Sólo entonces `status: VERIFIED`; #935 no se cierra por este slice
 
-## 13. Decisiones pendientes para aprobación
+## 13. Decisiones (aprobadas 2026-10-15; condiciones en §14)
 
 | ID | Decisión | Recomendación | Alternativa |
 |---|---|---|---|
@@ -523,3 +540,38 @@ rollback real de la transacción, que necesita PostgreSQL (ver abajo).
 | D8 | ¿Basta la asignación de la **org** del trabajador para convertir? | **Sí en S0**: misma regla `jobAssignmentWhere` que el selector y `startTimer`; la granularidad individual (#934 caso 7) va a S3 para las tres rutas a la vez | Exigir asignación individual ya en S0 y alinear selector + `startTimer` en este slice (más alcance, riesgo de quitar Jobs hoy visibles) |
 | D9 | Log de geocoding con dirección completa (`google-maps.ts:98-100`) | PR mínimo separado que quite la dirección del log (fuera del guard de ownership) | Incluirlo en S0 o en S2/#931 |
 | D10 | ¿FreeProject es un agregado **personal** (ownership por `createdBy`) como excepción a "ownership se resuelve por organización"? | **Sí**, y registrarlo en `DOMAIN_INVARIANTS.md` en el PR de implementación: el código ya lo trata así en listar, fichar y sesiones (§3) | Ownership por org: cualquier miembro de la org podría mutar proyectos personales ajenos que ni siquiera ve en su lista |
+
+## 14. Registro de aprobación
+
+- **Fecha:** 2026-10-15. **Aprobó:** owner del repositorio (Samuelcastella),
+  en la sesión de implementación vinculada al PR #937.
+- **D1–D5:** recomendación aprobada sin cambios.
+- **D6 (con condiciones):** sólo un censo autorizado de **sólo lectura** en
+  producción, con conteos agregados, sin datos personales y sin modificar
+  registros. Debe distinguir referencias inexistentes, Jobs eliminados e
+  inconsistencias de tenant. No se atribuyen irregularidades a personas sin
+  evidencia. Procedimiento: `docs/runbooks/LABOR_S0_FREE_PROJECT_CENSUS.md`;
+  lo ejecuta un operador autorizado con credenciales de sólo lectura (esta
+  sesión no tiene ese acceso y no lo ejecutó).
+- **D7 (con condiciones):** el control se activa al desplegar, sin feature
+  flag. El procedimiento de recuperación no puede volver a exponer la
+  vulnerabilidad: forward-fix, nunca revert del guard (§7).
+- **D8 (con condiciones):** se mantiene temporalmente la regla vigente de
+  asignación por organización para preservar compatibilidad en S0. La
+  asignación individual se resuelve en S3 para selector, cronómetro y
+  conversión a la vez, con pruebas de permisos por persona y por cuadrilla.
+- **D9 (con condiciones):** la exposición de direcciones en los logs de
+  geocoding se corrige en un PR pequeño e independiente, con prioridad de
+  seguridad.
+- **Concurrencia:** autorizado no bloquear la fila del Job en S0, siempre
+  que `convertedJobId` sea referencia histórica, nunca conceda permisos y
+  toda lectura posterior verifique de nuevo el acceso vigente (§4).
+- **D10:** no figuraba en la lista aprobada (se agregó tras la segunda
+  revisión de Codex). Se trata como cubierta por la aprobación de S0: D1
+  (proyecto ajeno = 404) y D5 (FreeProject personal) presuponen ownership
+  por `createdBy`, y el owner pidió implementar la corrección. La entrada en
+  `DOMAIN_INVARIANTS.md` va en el mismo PR para revisión explícita; si el
+  owner la objeta, se detiene antes del merge.
+- **Restricciones de entrega:** sin merge ni despliegue en producción hasta
+  verificar CI, revisión y criterios de aceptación. Conservar los datos
+  históricos y las horas registradas por los usuarios.
