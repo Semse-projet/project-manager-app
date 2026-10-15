@@ -4,7 +4,21 @@
 **Programa:** `platform.semse-prometeo-interoperability` (SDD REVIEW).  
 **Spec hija:** `platform.semse-mcp-project-read` (REVIEW).  
 **ADR:** `ADR-045-semse-mcp-inbound-authorization.md` (PROPOSED).  
-**Modalidad:** propuesta técnica con recomendaciones verificables. **No hay aprobación final del owner registrada en esta acta; no cambiar estados a APPROVED.**
+**Modalidad:** requisitos de seguridad **aprobados por el propietario en conversación el 2026-10-15**; las opciones de implementación D1–D7 siguen pendientes de aprobación técnica. **No cambiar los estados de la spec a APPROVED ni de la ADR-045 a ACCEPTED sin resolver sus decisiones pendientes y revisión de seguridad.**
+
+## Decisión del propietario — requisitos de seguridad APROBADOS (2026-10-15)
+
+**Fuente de autoridad:** aprobación explícita del propietario de SEMSE Project en la conversación de trabajo del 15-oct-2026, tras solicitarle ratificar tres condiciones obligatorias para S1. **Alcance de la autorización: requisitos de seguridad, no elección de IdP/SDK, no aceptación automática de D1–D7, no aprobación de un rollout ni permiso para activar producción.**
+
+| Invariante | Decisión del propietario | Evidencia de cumplimiento necesaria |
+|---|---|---|
+| **SEC-S1-01: OAuth e identidad SEMSE** | **APROBADO — obligatorio.** Los clientes MCP deben operar con identidad SEMSE vinculada de manera confiable, scopes mínimos y revocación; prohibidos tokens passthrough, identidad arbitraria en headers y roles sobreelevados. | OAuth issuer/audience/consent validados, sesión y membership vigentes, pruebas de revocación y de token de otra audience. |
+| **SEC-S1-02: Cero aprovisionamiento en lectura** | **APROBADO — obligatorio.** Una consulta MCP no puede crear Tenant, Org, User ni modificar Project/Job/Evidence/Payment. | Tests de no efecto lateral con conteos de filas y registro de operaciones Prisma; resolver llamada actual a `ActorContextService.ensureActorContext` antes de habilitar MCP. |
+| **SEC-S1-03: Aislamiento tenant/org/recurso** | **APROBADO — obligatorio.** Comprobar tenant, membership activa, scope org, `projects:read` y ownership del Project por petición. | Fixtures autenticadas con 2 tenants, 2 orgs en uno de ellos y usuarios con grants/revocación; negativas cross-org/cross-tenant sin fuga. |
+
+**Consecuencia operativa:** estas tres salvaguardas ya no son opcionales en ninguna variante de S1. Si no se demuestra una de ellas, mantener la superficie MCP desactivada (`INACTIVE`), incluso si todas las pruebas de documentación pasan.
+
+**Quedan sin decidir:** proveedor o implementación OAuth (D2), compatibilidad exacta del host/SDK (D1), modelo de consentimiento y revocación (D7), estructura de auditoría (D3), tratamiento de `ensureActorContext` (D4), proyección de salida (D5) y errores externos (D6). La ratificación de principios no equivale a aprobación de sus soluciones.
 
 ## Finalidad
 
