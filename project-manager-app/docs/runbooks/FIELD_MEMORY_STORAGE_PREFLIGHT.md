@@ -271,7 +271,24 @@ La salida agregada no contiene claves, rutas, IDs ni hashes. Las claves de los h
 **Prohibido** borrar, mover o sobrescribir un original a partir de este informe: ADR-043 declara los originales write-once. Cada huérfano antiguo se resuelve por decisión del operador (registrarlo por el flujo normal, o conservarlo sin cambios). Esta herramienta no sustituye la conciliación de la Fase G ni acredita custodia.
 
 
-## Fase H — operador Windows 11: un solo comando supervisado (2026-10-14)
+## Fase H — protección fail-closed de almacenamiento productivo (PR 2026-10-14)
+
+**P0 identificado:** StorageService tenía fallback a /tmp/semse-storage sin raíz explícita, y permitía usar almacenamiento local cuando se configuraba un proveedor no implementado. La API podía aceptar originales sin garantía de persistencia.
+
+El PR de protección impide que una instalación en producción cree directorios de originales, admita PUT o publique planes de carga cuando no se pueda probar:
+1. STORAGE_PROVIDER está configurado explícitamente como local.
+2. SEMSE_STORAGE_ROOT es ruta absoluta que reside DENTRO de /data, nunca en /tmp ni exactamente /data.
+3. /proc/self/mountinfo confirma un punto de montaje EXACTO en /data, no una carpeta efímera cualquiera.
+4. realpath de la carpeta existe, es directorio y permanece dentro de ese montaje; no se fabrica un volumen mediante mkdir.
+5. Cualquier incumplimiento devuelve 503 genérico, sin exponer archivos o paths.
+
+El diagnóstico read-only ahora incluye EVIDENCE_ORIGINAL_SHA256_MODE, distinguiendo off/shadow de enforce; no cambia ni activa la variable. Un modo enforce todavía NO acredita que se haya restaurado un backup ni comprobado derechos por Org/recurso.
+
+**Antes de merge/despliegue:** comprobar el valor efectivo de SEMSE_STORAGE_ROOT, STORAGE_PROVIDER y EVIDENCE_ORIGINAL_SHA256_MODE desde Railway SSH; ejecutar el preflight dentro de semse-API, hacer canary de PUT/GET de originales con dos organizaciones y error de volumen ausente simulado SOLO en un entorno desechable; monitorizar errores 503 y mantener rollback documentado. No ejecutar pruebas destructivas en producción.
+
+**Situación 2026-10-14:** Railway confirmó volumen semse-API montado /data y existencia de las variables de storage, con valores redacted. EVIDENCE_ORIGINAL_SHA256_MODE no se encontró en los nombres configurados al auditar el servicio, por lo que no existe prueba de enforce. El propietario creó backups de volumen, pero la recuperación efectiva de fotografías reales aún NO está demostrada. CaptureSession sigue inactivo.
+
+## Operador Windows 11 — un solo comando supervisado (2026-10-14)
 
 Esta fase ejecuta las herramientas del repositorio desde PowerShell, sin archivos PS1 adicionales ni una consola Bash. El archivo scripts/field-memory-operator-export.mjs es **solo para el operador**. No ejecuta Restore nativo de Railway, no modifica /data, no altera variables ni publica evidencia.
 
@@ -312,7 +329,7 @@ El programa consulta exclusivamente SEMSE_STORAGE_ROOT en semse-API y rechaza ru
 
 Si se emplea otro sistema de cifrado, el operador debe verificarlo mediante sus controles propios antes de ejecutar; no omitir la verificación simplemente porque Get-BitLockerVolume no esté disponible. Confirmar que existe la unidad evita repetir el error histórico de apuntar a una ruta D: inexistente. La herramienta no verifica BitLocker por su cuenta: el bloque PowerShell de arriba es parte obligatoria del procedimiento de operador para la unidad D: del ejemplo.
 
-## Fase H — Readiness criptográfica de Evidence y lectura firmada (2026-10-14)
+## Readiness criptográfica de Evidence y lectura firmada (2026-10-14)
 
 El backend ya calcula SHA-256 del original con StorageService.hashOriginal() y EvidenceRepository.create() puede persistirlo. La variable EVIDENCE_ORIGINAL_SHA256_MODE admite off, shadow y enforce. En off no exige digest; en shadow puede omitirse ante error; solo enforce rechaza la evidencia sin original comprobable.
 
