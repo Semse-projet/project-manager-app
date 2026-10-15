@@ -15,13 +15,13 @@
 | MCP Client Prometeo | ADR-025 opción C excluye creación | Consumir tools externas aprobadas | Falta decisión formal, egress y consentimiento | Reabrir ADR, S2 |
 | MCP Apps | Sin evidencia de `ui://` productivo | UI opcional host-compatible | CSP/sandbox/host support | S3 |
 | CRM/ERP existentes | Adapter infrastructure mencionada en PR #797 / Workspace | Reutilizar connectors | Inventario y status connection/tenant ausentes | Auditoría S0 |
-| ADR-042 | Dos documentos con igual número y distinto alcance | IDs únicos y backlinks | Trazabilidad/auditoría contradictoria | Gobernanza S0 |
+| ADR-042 | Colisión histórica de dos decisiones | ADR-044 propuesto para grafo, ADR-042 reservado a conector | Corregir backlinks y ratificar solo mediante aprobación propia | Gobernanza S0 |
 
 ## 2. Contradicciones explícitas
 
 **C-01 (HIGH):** PR #797 fusionado frente a `universal-connector-trust.spec.md` con `merge_status: UNMERGED` y `ci_status: FAIL`. No cambiar estado CI/deploy por inferencia; revisar HEAD, revisión efectiva, SHA, pipeline, Railway.
 
-**C-02 (CRITICAL GOVERNANCE):** dos `ADR-042` con dominios distintos (Universal Connector Trust vs Operational Intelligence Graph). Renumerar en PR propio o con reconciliación atómica de referencias y relaciones, preservando historia de ambas decisiones.
+**C-02 (CRITICAL GOVERNANCE):** la colisión entre dos `ADR-042` se reconcilia documentalmente con `ADR-044-operational-intelligence-graph.md` y un acta de procedencia; no cambia el estado PROPOSED de la decisión del grafo. Confirmar CI y merge del PR de seguimiento.
 
 **C-03 (CRITICAL DECISION):** ADR-025 aceptó opción C de aplazar MCP Client externo el 2026-10-11; el nuevo programa describe S2 prospectivo. **No implementar S2 antes de nueva decisión**. No cambiar ADR retrospectivamente.
 
@@ -56,7 +56,7 @@
 
 | ID | Decisión concreta | Recomendación | Gate |
 |---|---|---|---|
-| D1 | Resolver dos ADR-042 | Reservar ID único nuevo a la decisión con referencias revisadas; no borrar ni reescribir historia | S0 |
+| D1 | Resolver dos ADR-042 | Mantener Universal Connector en ADR-042 y mover grafo propuesto a ADR-044 con acta y backlinks | S0 |
 | D2 | MCP Server read-only interno | Autorizar derivar una child spec sin autorizar S2 | S1 |
 | D3 | MCP Client externo vs ADR-025 | Amendment con caso real, Policy/egress y owner explícitos | S2 |
 | D4 | Arquitectura de herramienta | Tool Registry F2 + Universal Connector Trust; no nuevo policy engine | S0 |
