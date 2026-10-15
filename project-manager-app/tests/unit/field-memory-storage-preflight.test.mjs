@@ -125,3 +125,15 @@ test("original checksum report does not reveal env values or invent a verified r
   assert.ok(!printed.includes("tenants/t1/evidence/photo.jpg"));
   assert.equal(p.privateCaptureReady, false);
 });
+
+test("production does not silently accept a default local provider when STORAGE_PROVIDER is absent", () => {
+  const p = inspect({ ...valid, STORAGE_PROVIDER: undefined });
+  assert.equal(pick(p, "storage-provider"), "BLOCK");
+  assert.equal(p.storageLayoutReady, false);
+});
+
+test("Railway production tag without NODE_ENV also requires an explicit local provider", () => {
+  const p = inspect({ ...valid, NODE_ENV: "test", RAILWAY_ENVIRONMENT_NAME: "production", STORAGE_PROVIDER: undefined });
+  assert.equal(p.production, true);
+  assert.equal(pick(p, "storage-provider"), "BLOCK");
+});

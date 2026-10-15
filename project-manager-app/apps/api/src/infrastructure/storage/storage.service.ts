@@ -6,6 +6,7 @@ import path from "node:path";
 import { pipeline } from "node:stream/promises";
 import type { Readable } from "node:stream";
 import { normalizeStorageKey } from "./storage-key.js";
+import { assertProductionStorageConfiguration, assertProductionStorageMount, isProductionStorage } from "./production-storage-guard.js";
 import {
   resolveSignedGetMode,
   resolveSigningSecrets,
@@ -55,6 +56,7 @@ export class StorageService {
     contentType: string;
     fileSizeBytes?: number;
   }): Promise<UploadPlan> {
+    await assertProductionStorageMount();
     if (this.provider !== "local") {
       this.logger.warn("Non-local storage provider not yet supported — falling back to local");
     }
@@ -136,6 +138,7 @@ export class StorageService {
    * and metadata mutation while hashing. This is not an offsite backup proof.
    */
   async hashOriginal(key: string): Promise<{ sha256: string; sizeBytes: number }> {
+    await assertProductionStorageMount();
     const filePath = this.localPath(key);
     const before = await lstat(filePath);
     if (!before.isFile() || before.size <= 0) {
@@ -188,6 +191,7 @@ export class StorageService {
   }
 
   async stat(key: string): Promise<{ sizeBytes: number; exists: boolean }> {
+    await assertProductionStorageMount();
     try {
       const s = await stat(this.localPath(key));
       return { sizeBytes: s.size, exists: true };
@@ -197,6 +201,7 @@ export class StorageService {
   }
 
   async delete(key: string): Promise<void> {
+    await assertProductionStorageMount();
     try {
       await unlink(this.localPath(key));
     } catch {
@@ -211,6 +216,7 @@ export class StorageService {
    * `ttl`: "browser" (15 min por defecto) o "vision" (5 min), o segundos.
    */
   publicUrl(key: string, opts: { ttl?: "browser" | "vision" | number } = {}): string {
+    assertProductionStorageConfiguration();
     const base = `${this.baseUrl}/v1/uploads/files/${encodeURIComponent(key)}`;
     if (resolveSignedGetMode() === "off") return base;
     const [secret] = resolveSigningSecrets();
@@ -224,6 +230,7 @@ export class StorageService {
   }
 
   private localPath(key: string): string {
+    assertProductionStorageConfiguration();
     const safe = normalizeStorageKey(key);
     const filePath = path.resolve(this.localRoot, safe);
     const rootPrefix = `${this.localRoot}${path.sep}`;
@@ -234,7 +241,10 @@ export class StorageService {
   }
 
   private async ensureLocalRoot(): Promise<void> {
-    await mkdir(this.localRoot, { recursive: true });
+    await assertProductionStorageMount();
+    if (!isProductionStorage(process.env)) {
+      await mkdir(this.localRoot, { recursive: true });
+    }
   }
 
   async assertExists(key: string): Promise<void> {

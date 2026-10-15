@@ -12,7 +12,7 @@ date: "2026-10-04"
 
 ## Phase 0
 - [ ] [OI-001] Refresh GitHub/Railway
-- [ ] [OI-002] Accept ADR-042
+- [ ] [OI-002] Accept ADR-044
 - [ ] [OI-003] Approve parent spec
 
 ## Slice 1

@@ -18,7 +18,7 @@ For company-owner organization creation, worker invitation and membership, one a
 | Events / audit | domain-events, audit and Operational Intelligence Graph proposal | **REUSE existing outbox/audit patterns**, add stable evidence lineage and spatial event projections | Current authority path and duplicates need focused audit |
 | BIM / 4D | No verified canonical construction-spatial/temporal subsystem found during targeted review; 'spatial' search yielded unrelated canvas awareness | **DESIGN NEW capability** under BuildOps + Evidence/Known Building State | Full repo inventory still required before asserting absence |
 
-Key ADRs: ADR-029 canonical Labor Engine, ADR-028 canonical Evidence adapter, ADR-038 orchestration reachability, ADR-042-universal-connector-trust-boundary and ADR-042-operational-intelligence-graph (two documents currently share number 042; governance owner must reconcile ID collision rather than invent a third source of truth).
+Key ADRs: ADR-029 canonical Labor Engine, ADR-028 canonical Evidence adapter, ADR-038 orchestration reachability, ADR-042-universal-connector-trust-boundary and ADR-044-operational-intelligence-graph (renumeración documental propuesta y registrada en `docs/architecture/ADR_ID_RECONCILIATION_2026-10-15.md`; no cambia el estado PROPOSED del grafo).
 
 ## 2. Logical component topology
 1. **Mobile/web capture surfaces** — worker, lead, employer and invited site viewer. Expo location, notifications, media picker, offline queue and PIN/QR/plan placement. UX does not own authoritative time, task or evidence state.
@@ -146,7 +146,7 @@ Legal: FLSA and state-level wage/time rules, worker consent/privacy, site photog
 - Load/failure tests for >30-worker crew and multi-tenant sites, large video uploads, hours-long projects, revisiting historical snapshots months later.
 - Provenance package per release: exact SHA, schema migration+rollback, tests, security scan, verified photos/plan sample, canary mobile iOS+Android, API/web/worker/vision health, secure storage and recovery validation.
 - Never claim deployed/active until CI, merge, Railway SHA + smoke and exact feature activation are verified.
-- ADR-042 ID collision must be resolved by governance owner before a new ADR is ratified; do not quietly overwrite either document.
+- ADR-042/ADR-044 collision reconciled documentally in `docs/architecture/ADR_ID_RECONCILIATION_2026-10-15.md`; ADR-044 remains PROPOSED, not ratified.
 
 ## 11. Implementation ownership map
 - BuildOps/Tasks owns WorkPackage/TaskAllocation and leadership hierarchy references.

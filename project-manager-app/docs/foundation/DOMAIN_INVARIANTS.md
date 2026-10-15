@@ -81,6 +81,22 @@ Mutaciones:
 - crear: cliente o pro segun ownership
 - resolver: ops o arbitro explicitamente autorizado
 
+### FreeProject (Labor Engine)
+
+Excepción explícita a "ownership se resuelve por organizacion" (spec
+`labor.free-project-mutation-guard`, D10, aprobada 2026-10-15):
+
+- es un agregado **personal**: lectura y mutación por id sólo para su creador
+  (`createdBy`) dentro de `tenantId`; pertenecer a la misma org o al mismo
+  tenant no autoriza
+- `OPS_ADMIN` no tiene override sobre proyectos libres ajenos salvo spec propio
+- `status` sólo cambia por archivar (`DELETE`) o convertir (`POST …/convert`),
+  con AuditLog en la misma transacción
+- `convertedJobId` es referencia histórica: nunca concede permisos sobre el
+  Job; toda lectura posterior verifica el acceso vigente
+- convertir no transfiere la propiedad del Job ni toca horas (`TimeEntry`),
+  contratos ni pagos
+
 ## Invariantes de Job
 
 Estados visibles canonicos del MVP:
