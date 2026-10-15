@@ -30,43 +30,56 @@ SELECT
   count(*)                                                        AS free_projects_total,
   count(*) FILTER (WHERE fp.status = 'converted')                 AS convertidos_total,
 
+  -- Informativo, NO es anomalía: archivar un proyecto convertido conserva
+  -- su convertedJobId como referencia histórica (contrato de S0).
+  count(*) FILTER (WHERE fp.status = 'archived'
+                     AND fp."convertedJobId" IS NOT NULL)         AS archivados_con_referencia_historica,
+
   -- Convertido sin referencia (no debería existir).
   count(*) FILTER (WHERE fp.status = 'converted'
                      AND fp."convertedJobId" IS NULL)             AS convertido_sin_referencia,
 
+  -- Las tres categorías siguientes revisan toda referencia histórica:
+  -- proyectos convertidos y proyectos archivados después de convertir.
+
   -- Referencia inexistente: convertedJobId no corresponde a ningún Job.
-  count(*) FILTER (WHERE fp.status = 'converted'
+  count(*) FILTER (WHERE fp.status IN ('converted', 'archived')
                      AND fp."convertedJobId" IS NOT NULL
                      AND j.id IS NULL)                            AS referencia_inexistente,
 
   -- Inconsistencia de tenant: el Job existe pero en otro tenant.
-  count(*) FILTER (WHERE fp.status = 'converted'
+  count(*) FILTER (WHERE fp.status IN ('converted', 'archived')
+                     AND fp."convertedJobId" IS NOT NULL
                      AND j.id IS NOT NULL
                      AND j."tenantId" <> fp."tenantId")           AS tenant_inconsistente,
 
   -- Job eliminado (soft delete), mismo tenant. Puede haberse borrado
-  -- después de una conversión legítima: no indica uso indebido por sí solo.
-  count(*) FILTER (WHERE fp.status = 'converted'
+  -- después de una conversión legítima: no indica uso indebido por sí solo
+  -- y no cuenta en tenants_con_alguna_anomalia.
+  count(*) FILTER (WHERE fp.status IN ('converted', 'archived')
+                     AND fp."convertedJobId" IS NOT NULL
                      AND j.id IS NOT NULL
                      AND j."tenantId" = fp."tenantId"
                      AND j."deletedAt" IS NOT NULL)               AS job_eliminado,
 
-  -- Referencia colgada en un proyecto que ya no figura como convertido
-  -- (p.ej. PATCH status "active" después de convertir).
-  count(*) FILTER (WHERE fp.status <> 'converted'
-                     AND fp."convertedJobId" IS NOT NULL)         AS referencia_en_no_convertido,
+  -- Referencia en un proyecto ACTIVO: sólo posible si se "restauró" con
+  -- PATCH status después de convertir (hueco cerrado por S0, D2).
+  count(*) FILTER (WHERE fp.status = 'active'
+                     AND fp."convertedJobId" IS NOT NULL)         AS referencia_en_activo,
 
   -- Valores de status fuera del dominio active|archived|converted.
   count(*) FILTER (WHERE fp.status NOT IN ('active', 'archived', 'converted'))
                                                                   AS status_fuera_de_dominio,
 
-  -- Cuántos tenants distintos tienen al menos una fila en las categorías
-  -- anteriores (sin listarlos).
+  -- Cuántos tenants distintos tienen al menos una anomalía (sin listarlos).
+  -- Excluye las referencias históricas válidas y los Jobs eliminados.
   count(DISTINCT fp."tenantId") FILTER (
-    WHERE (fp.status = 'converted' AND (j.id IS NULL OR j."tenantId" <> fp."tenantId" OR j."deletedAt" IS NOT NULL))
-       OR (fp.status <> 'converted' AND fp."convertedJobId" IS NOT NULL)
+    WHERE (fp.status = 'converted' AND fp."convertedJobId" IS NULL)
+       OR (fp.status IN ('converted', 'archived') AND fp."convertedJobId" IS NOT NULL
+           AND (j.id IS NULL OR j."tenantId" <> fp."tenantId"))
+       OR (fp.status = 'active' AND fp."convertedJobId" IS NOT NULL)
        OR fp.status NOT IN ('active', 'archived', 'converted')
-  )                                                               AS tenants_con_alguna_categoria
+  )                                                               AS tenants_con_alguna_anomalia
 FROM "FreeProject" fp
 LEFT JOIN "Job" j ON j.id = fp."convertedJobId";
 

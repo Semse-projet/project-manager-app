@@ -450,9 +450,10 @@ rollback real de la transacción, que necesita PostgreSQL (ver abajo).
       test:integration`, se salta sin `DATABASE_URL`): forzar el fallo del
       insert de audit y comprobar en PostgreSQL que `status` y
       `convertedJobId` no cambiaron. Sólo con datos sintéticos en una BD
-      local o de CI; `api-integration.yml` no ejecuta este archivo hoy, así
-      que su evidencia se registra como corrida local salvo que se agregue
-      al workflow (cambio de CI fuera de este slice).
+      local o de CI. El job `integration` de `api-integration.yml` ya ejecuta
+      `pnpm --filter @semse/api test:integration` con `DATABASE_URL`, así que
+      este archivo corre en CI sin cambiar el workflow; su resultado en CI es
+      la evidencia principal y la corrida local es complementaria.
 - [x] Repositorio: la escritura condicional incluye `createdBy` y
       `status: "active"` en el `where`; `count = 0` no escribe (N14).
 - [x] Controlador: pasa `userId`/`orgId` del contexto; `status` en PATCH →
@@ -592,7 +593,7 @@ Detalle completo en
   la cadena completa. Rojo contra `main` @ `83375e6`: 18/25; verde: 25/25.
 - `apps/api/test/labor-engine-free-project-integration.test.ts` contra
   PostgreSQL 16 local: 1/1, incluido el rollback real cuando falla el insert
-  de AuditLog. Una prueba de mutación confirma que el test detecta una
+  de AuditLog. También corre en el job `integration` del CI (`api-integration.yml`). Una prueba de mutación confirma que el test detecta una
   escritura fuera de la transacción.
 - Regresión de la API, typecheck del workspace, lint de la API y gates SDD
   verdes, salvo fallos preexistentes que dependen de DNS (reporte §Evidencia).

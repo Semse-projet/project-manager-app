@@ -73,7 +73,8 @@ externa para DNS. Fixtures 100% sintéticos.
    `prisma migrate deploy`): 1/1. Incluye un trigger temporal que hace fallar
    el `INSERT` en `AuditLog`; la conversión responde error y la fila queda
    `active` sin `convertedJobId` ni audit. Las horas sintéticas (510 min)
-   quedan intactas.
+   quedan intactas. El mismo archivo corre en el job `integration` del CI
+   (`api-integration.yml` ejecuta `test:integration` con `DATABASE_URL`).
 4. **Mutación** — reemplazar en `dist` `tx.freeProject.updateMany` por
    `this.prisma.freeProject.updateMany` hace fallar el test de integración con
    "la transición no debe quedar escrita sin su audit". Restaurado con build.

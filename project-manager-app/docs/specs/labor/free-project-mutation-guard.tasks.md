@@ -32,7 +32,7 @@ date: "2026-10-15"
 - [x] [T-011] `labor-engine.service.test.ts`: N5–N8 (403 genérico; mismo mensaje en los cuatro casos; `isJobAssignedToWorker` recibe ids del actor) y caso D8 (Job sólo vinculado a la org de W) con el resultado aprobado
 - [x] [T-012] `labor-engine.service.test.ts`: N9–N10 (409), N12 (`status` en PATCH → 400), P1 (convert legítimo + audit), P2 (reintento mismo `jobId` sin escritura ni audit; archive repetido idempotente)
 - [x] [T-013] [P] `labor-engine.repository.test.ts`: `where` con `createdBy`; conversión condicional `status: "active"`; N14 (`count = 0` → sin segunda escritura); `updateMany` y `auditLog.create` sobre el mismo `tx` y error de audit propagado
-- [x] [T-016] [P] `labor-engine-free-project-integration.test.ts` (BD, se salta sin `DATABASE_URL`; verde contra PostgreSQL 16 local, y rojo si la escritura sale de la transacción): fallo forzado de audit → `status`/`convertedJobId` intactos en PostgreSQL; datos sintéticos
+- [x] [T-016] [P] `labor-engine-free-project-integration.test.ts` (BD, se salta sin `DATABASE_URL`; verde contra PostgreSQL 16 local, y rojo si la escritura sale de la transacción; también lo ejecuta el job `integration` de CI): fallo forzado de audit → `status`/`convertedJobId` intactos en PostgreSQL; datos sintéticos
 - [x] [T-014] [P] `labor-engine.controller.test.ts`: propaga `userId`/`orgId`/`requestId`; `status` → 400; `jobId` no string → 400 (existente); N13: `REQUIRED_PERMISSIONS_KEY` = `["field-ops:write"]` en PATCH, DELETE y convert
 - [x] [T-015] Ejecutar contra `main` @ `83375e6` y guardar salida del fallo como evidencia del gap
 
