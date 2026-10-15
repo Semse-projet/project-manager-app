@@ -131,7 +131,7 @@ Las operaciones read/write/delete/sync/execute se autorizan individualmente. REA
 
 ## 7. Contratos por slice (propuestas, NO endpoints existentes)
 
-**MCP Server tool propuesta:** `semse.project.get_summary.v1` (nombre tentativo, READ_ONLY; no está registrada).
+**MCP Server tool propuesta:** `semse.project.get_status.v1` (nombre tentativo, READ_ONLY; no está registrada).
 **Ruta de dominio existente verificada:** `GET /v1/projects/:projectId` → `ProjectsService.detail` → `ProjectsRepository.findById`; exige `projects:read` y validación de ownership por tenant y organización.
 Input: `projectId` como cadena validada conforme al esquema de identificadores reales (NO asumir UUID), más identidad derivada de sesión/token confiable. Nunca aceptar `tenantId/orgId/roles` como autoridad por argumentos de la tool.
 Output mínimo permitido en S1: `projectId, jobId, status, sourceRef, correlationId` y `auditRef` respaldado por telemetría/auditoría real. **El `ProjectRecord` actual no contiene `name/title/summary` ni timestamps.** No prometerlos ni fabricarlos; para agregar título debe aprobarse un resolver Job autorizado y sus pruebas.
