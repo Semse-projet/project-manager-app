@@ -9,7 +9,7 @@ owner: "semse-core"
 risk: "critical"
 code_status: "NOT_STARTED"
 ci_status: "NOT_RUN"
-merge_status: "UNMERGED"
+merge_status: "MERGED"
 deploy_status: "NOT_DEPLOYED"
 activation_status: "INACTIVE"
 migration_status: "NOT_APPLICABLE"
@@ -26,7 +26,7 @@ last_verified: "NOT_VERIFIED"
 
 # SDD rector: SEMSE Project, Prometeo Copilot e interoperabilidad universal
 
-**Corte de análisis:** 2026-10-15. **Tipo:** spec paraguas de programa, sin ejecución de negocio propia. **Estado:** REVIEW; no se autoriza implementación de features hasta aprobar los child specs y reconciliar ADRs. No se infiere CI, merge, deploy ni activación de este documento.
+**Corte de análisis:** 2026-10-15. **Reconciliación GitHub:** PR #939 fusionado (`21426fda974a21989f8d64145da66eca38367897`) con CI de calidad/cobertura/E2E verde; el merge de documentos NO demuestra implementación, prueba MCP, despliegue ni activación. **Tipo:** spec paraguas de programa, sin ejecución de negocio propia. **Estado:** REVIEW; no se autoriza implementación de features hasta aprobar los child specs y reconciliar ADRs. No se infiere CI, merge, deploy ni activación de este documento.
 
 ## 1. Problema y resultado
 
