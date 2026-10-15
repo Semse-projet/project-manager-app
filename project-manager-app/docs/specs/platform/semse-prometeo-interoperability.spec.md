@@ -131,10 +131,12 @@ Las operaciones read/write/delete/sync/execute se autorizan individualmente. REA
 
 ## 7. Contratos por slice (propuestas, NO endpoints existentes)
 
-**MCP Server tool propuesta:** semse.project.get_summary.v1 (read).
-Input: projectId (UUID o ID actual validado por schema), optional view; context confiable derivado de sesión; NUNCA aceptar tenantId/orgId como única prueba de acceso.
-Output: projectId, name, authorizedStatus, summary, timestamps, sourceRef, correlationId, auditRef. No secretos, notas privadas sin scope, PII, datos de otros orgs.
-Errores normalizados: UNAUTHENTICATED, FORBIDDEN/NOT_FOUND homogéneo según resource policy, CONNECTOR_INACTIVE, POLICY_DENIED, RATE_LIMITED, SERVICE_UNAVAILABLE.
+**MCP Server tool propuesta:** `semse.project.get_summary.v1` (nombre tentativo, READ_ONLY; no está registrada).
+**Ruta de dominio existente verificada:** `GET /v1/projects/:projectId` → `ProjectsService.detail` → `ProjectsRepository.findById`; exige `projects:read` y validación de ownership por tenant y organización.
+Input: `projectId` como cadena validada conforme al esquema de identificadores reales (NO asumir UUID), más identidad derivada de sesión/token confiable. Nunca aceptar `tenantId/orgId/roles` como autoridad por argumentos de la tool.
+Output mínimo permitido en S1: `projectId, jobId, status, sourceRef, correlationId` y `auditRef` respaldado por telemetría/auditoría real. **El `ProjectRecord` actual no contiene `name/title/summary` ni timestamps.** No prometerlos ni fabricarlos; para agregar título debe aprobarse un resolver Job autorizado y sus pruebas.
+Errores normalizados: UNAUTHENTICATED, FORBIDDEN/NOT_FOUND sin filtrar existencia según el contrato de seguridad por recurso, CONNECTOR_INACTIVE cuando aplique, POLICY_DENIED, RATE_LIMITED, SERVICE_UNAVAILABLE.
+**P0 pendiente:** revisar `ActorContextService.ensureActorContext` (upsert de tenant/org/user desde context) y procedencia de `authContext`, `AUTH_SECRET` y membresía de usuario, para garantizar que una lectura MCP nunca cree identidad implícita ni confunda rol global con permiso por org. Véase `docs/reportes/planning/2026-10-15-interoperability-s0-source-audit.md`.
 
 **MCP Client futura:** connectionId + capabilityId allowlisted, intención, delegated actor, resource scope, policyDecision y correlationId; payload externo etiquetado UNTRUSTED. Schemas exactos Zod y permisos se definirán en spec hija.
 
