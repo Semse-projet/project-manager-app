@@ -21,7 +21,7 @@ related_endpoints: []
 related_events: []
 related_agents:
   - prometeo
-last_verified: ""
+last_verified: "NOT_VERIFIED"
 ---
 
 # SDD rector: SEMSE Project, Prometeo Copilot e interoperabilidad universal
