@@ -20,7 +20,7 @@ date: "2026-10-15"
 - [x] ADR-025 identifica opción C (MCP externo aplazado) y requiere reevaluación formal.
 - [x] Colisión ADR-042 registrada como impedimento.
 - [ ] Capturar HEAD SHA exacto y matrices contra código actual, CI y Railway.
-- [ ] Reparar identificadores ADR-042 con backlinks y referencia en índice, sin reescribir historial.
+- [x] Reparación documental propuesta de identificadores ADR-042/ADR-044 y backlinks trazada en `docs/architecture/ADR_ID_RECONCILIATION_2026-10-15.md` (no ratificar ADR-044 por esto; verificar merge y CI por separado).
 - [ ] Verificar Universal Connector en CI y runtime; actualizar metadata sólo con evidencia.
 - [ ] Auditar Prometeo Orchestration/Copilot y Tool Registry F2 para evitar duplicaciones.
 - [ ] Confirmar permisos multi-org F10/ADR-040 antes de permitir administración por organización.
