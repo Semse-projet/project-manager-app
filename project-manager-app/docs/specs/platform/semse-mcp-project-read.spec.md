@@ -22,6 +22,7 @@ related_files:
   - apps/api/src/modules/projects/projects.policy.ts
   - apps/api/src/common/request-context.ts
   - apps/api/src/common/resource-scope.ts
+  - docs/architecture/ADR-045-semse-mcp-inbound-authorization.md
 related_tests: []
 related_endpoints:
   - GET /v1/projects/:projectId
@@ -192,6 +193,16 @@ S1 no habilita tool externa en Prometeo ni realiza MCP Client. Su Tool Registry 
 3. MCP Apps UI opcional: https://github.com/modelcontextprotocol/ext-apps
 
 Aplicado ahora: authz y contratos neutrales. Backlog: host específico/UI. Descartado: exponer ProjectRecord íntegro o declarar compatibilidad universal.
+
+## 11A. Perfil MCP remoto y autorización propuestos (actualización 2026-10-15)
+
+- **Normativa base:** MCP 2026-07-28 para servidor inbound, con transporte **Streamable HTTP stateless** y OAuth de recurso protegido. Esta propuesta aún no constituye aceptación ni implementación. Ver ADR-045 PROPOSED.
+- Cada llamada POST a MCP debe llevar metadatos de protocolo y headers verificables (`MCP-Protocol-Version`, `Mcp-Method`, `Mcp-Name` para tools) y rechazar inconsistencias entre body/headers. No asumir `initialize` ni `Mcp-Session-Id` de la revisión 2025.
+- Recursos protegidos usan OAuth discovery (Protected Resource Metadata), audience/resource específico de servidor MCP, validación de issuer y tokens emitidos para SEMSE; `Authorization: Bearer` en **cada** petición, no token passthrough de otras aplicaciones. HTTP `401` con challenge ante credencial ausente/expirada y `403` con control de scopes; la capa de tool no debe permitir enumeración de proyectos.
+- El host MCP y la versión TypeScript SDK se seleccionan en S1 D1 antes de aprobar. Compatibilidad 2025 solo si host/protocolo heredado la necesita y hay pruebas de conformance separadas.
+- Revocación y pertenencia org efectiva siguen siendo responsabilidad de SEMSE aunque el transporte sea stateless; `x-org-id` o `authContext` sin origen confiable no deben habilitar lectura. Fijar idP, `iss`, `aud`, consentimiento, membership y session revocation en D2.
+- Control de `Origin`/host/proxy, TLS, rate-limit, errores y logs sanitizados; READ_ONLY prohíbe writes aunque el host publique herramientas adicionales.
+- Fuentes normativas: https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization y https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/streamable-http .
 
 ## 12. Decisiones abiertas, gates y estado
 
