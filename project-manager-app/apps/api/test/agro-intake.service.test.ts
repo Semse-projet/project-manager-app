@@ -141,32 +141,61 @@ test("agro-intake: unknown text asks the human; empty and non-member rejected", 
 
 // ── T-054: ASR (audio → texto) y visión (fotos) ─────────────────────────────
 
-function withTranscriptionStub(svc: any, segmentsByUrl: Record<string, Array<{ text: string }>>) {
-  svc.transcriptionProviderResolver = () => ({
-    transcribe: async ({ storageKey }: { storageKey: string }) => segmentsByUrl[storageKey] ?? [],
-  });
-}
-
-test("agro-intake T-054: no text, audio evidence present → transcribes and proceeds", async () => {
-  const evidenceRows = [{ id: "ev_audio", mediaType: "AUDIO", fileUrl: "https://cdn.test/audio1.m4a" }];
+test("agro ASR P0: an unverified AUDIO URL is rejected without invoking any provider", async () => {
+  const evidenceRows = [{ id: "ev_audio", mediaType: "AUDIO", fileUrl: "http://127.0.0.1/latest/meta-data" }];
   const { svc } = setup({ evidenceRows });
-  withTranscriptionStub(svc, { "https://cdn.test/audio1.m4a": [{ text: "Al lote 15 le falta agua." }] });
-
-  const p = await svc.propose("farm_1", "worker", { evidenceIds: ["ev_audio"] });
-  assert.equal(p.intent, "INCIDENT");
-  assert.equal(p.incident.type, "WATER_SHORTAGE");
-  assert.deepEqual(p.transcribedFrom, ["ev_audio"]);
-});
-
-test("agro-intake T-054: no text, no audio, no ASR provider configured → clear error, not a generic one", async () => {
-  const evidenceRows = [{ id: "ev_audio", mediaType: "AUDIO", fileUrl: "https://cdn.test/audio1.m4a" }];
-  const { svc } = setup({ evidenceRows });
-  svc.transcriptionProviderResolver = () => null; // SEMSE_ASR_PROVIDER not set — real default
+  let providerResolved = false;
+  svc.transcriptionProviderResolver = () => {
+    providerResolved = true;
+    throw new Error("must never resolve a provider for unverified media");
+  };
 
   await assert.rejects(
     () => svc.propose("farm_1", "worker", { evidenceIds: ["ev_audio"] }),
-    (err: unknown) => err instanceof BadRequestException && /transcription provider is configured/.test((err as Error).message),
+    (err: unknown) => err instanceof BadRequestException
+      && /AUDIO_SOURCE_NOT_VERIFIED/.test((err as Error).message),
   );
+  assert.equal(providerResolved, false, "the provider must not receive untrusted bytes or URLs");
+});
+
+test("agro ASR P0: external, internal, and signed-looking URLs are all unverified", async () => {
+  for (const fileUrl of [
+    "https://cdn.test/audio1.m4a",
+    "http://[::1]:4000/secret",
+    "http://169.254.169.254/latest/meta-data",
+    "https://semse.example/api/semse/uploads/files/tenants%2Ftenant_a%2Fevidence%2Ffile.wav?exp=9999999999&sig=bad",
+  ]) {
+    const { svc } = setup({ evidenceRows: [{ id: "e1", mediaType: "AUDIO", fileUrl }] });
+    let transcribed = false;
+    svc.transcriptionProviderResolver = () => ({
+      transcribe: async () => { transcribed = true; return [{ text: "fabricated transcript" }]; },
+    });
+    await assert.rejects(
+      () => svc.propose("farm_1", "worker", { evidenceIds: ["e1"] }),
+      (err: unknown) => err instanceof BadRequestException
+        && /AUDIO_SOURCE_NOT_VERIFIED/.test((err as Error).message),
+    );
+    assert.equal(transcribed, false, "no transcribe call for " + new URL(fileUrl).protocol);
+  }
+});
+
+test("agro ASR P0: legacy HTTP reader fails closed and never fetches", async () => {
+  const { HttpUrlStorageReader } = await import("../dist/modules/agro/agro-asr.js");
+  const originalFetch = globalThis.fetch;
+  let requested = false;
+  try {
+    globalThis.fetch = (async () => {
+      requested = true;
+      throw new Error("NO_NETWORK_EXPECTED");
+    }) as typeof fetch;
+    await assert.rejects(
+      () => new HttpUrlStorageReader().readBuffer("http://127.0.0.1:4000/secret"),
+      /AUDIO_SOURCE_NOT_VERIFIED/,
+    );
+    assert.equal(requested, false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test("agro-intake T-054: text already provided → does not attempt transcription even with audio evidence", async () => {

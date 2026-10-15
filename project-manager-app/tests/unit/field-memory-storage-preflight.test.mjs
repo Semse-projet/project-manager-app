@@ -11,9 +11,9 @@ const valid = {
   SEMSE_STORAGE_ROOT: "/data/semse-storage",
   SEMSE_MULTIPART_STORAGE_ROOT: "/data/semse-storage/multipart",
   UPLOADS_SIGNED_GET_MODE: "enforce",
+  EVIDENCE_ORIGINAL_SHA256_MODE: "enforce",
   AUTH_SECRET: "a".repeat(40),
   UPLOADS_SIGNING_SECRET: "b".repeat(40),
-  EVIDENCE_ORIGINAL_SHA256_MODE: "enforce",
 };
 
 function inspect(env = valid, extra = {}) {
@@ -80,32 +80,52 @@ test("report never echoes credentials, signed URLs or original file keys", () =>
 });
 
 
-test("server checksum mode off cannot certify original provenance", () => {
-  const result=inspect({...valid,EVIDENCE_ORIGINAL_SHA256_MODE:undefined});
-  assert.equal(pick(result,"server-original-sha256-enforced"),"WARN");
-  assert.equal(result.privateCaptureReady,false);
-});
-test("invalid checksum mode is blocking even with a correctly mounted volume", () => {
-  const result=inspect({...valid,EVIDENCE_ORIGINAL_SHA256_MODE:"enabled"});
-  assert.equal(pick(result,"server-original-sha256-mode-known"),"BLOCK");
-  assert.equal(result.privateCaptureReady,false);
-});
-test("enforced hash mode is necessary but not sufficient for capture readiness", () => {
-  const result=inspect();
-  assert.equal(pick(result,"server-original-sha256-mode-known"),"PASS");
-  assert.equal(pick(result,"server-original-sha256-enforced"),"PASS");
-  assert.equal(result.privateCaptureReady,false);
+test("private capture configuration needs server checksum enforce even with a valid volume and signed GET", () => {
+  const p = inspect({ ...valid, EVIDENCE_ORIGINAL_SHA256_MODE: undefined });
+  assert.equal(p.storageLayoutReady, true);
+  assert.equal(p.configurationEnforcementReady, false);
+  assert.equal(pick(p, "checksum-mode-valid"), "PASS");
+  assert.equal(pick(p, "checksum-mode-enforced"), "WARN");
+  assert.equal(p.privateCaptureReady, false);
 });
 
+test("shadow checksum mode cannot be represented as production Evidence integrity enforcement", () => {
+  const p = inspect({ ...valid, EVIDENCE_ORIGINAL_SHA256_MODE: "shadow" });
+  assert.equal(pick(p, "checksum-mode-enforced"), "WARN");
+  assert.equal(p.configurationEnforcementReady, false);
+});
+
+test("unknown checksum mode blocks readiness rather than silently downgrading protection", () => {
+  const p = inspect({ ...valid, EVIDENCE_ORIGINAL_SHA256_MODE: "oops" });
+  assert.equal(pick(p, "checksum-mode-valid"), "BLOCK");
+  assert.equal(p.configurationEnforcementReady, false);
+});
+
+test("all config flags enforced still cannot prove restored original or cross-Org policy", () => {
+  const p = inspect();
+  assert.equal(p.configurationEnforcementReady, true);
+  assert.equal(p.privateCaptureReady, false);
+  assert.equal(pick(p, "offsite-backup-restore"), "UNVERIFIED");
+  assert.equal(pick(p, "resource-level-read-auth"), "UNVERIFIED");
+});
+
+test("original checksum report does not reveal env values or invent a verified restore", () => {
+  const secret = "very-unique-secret-not-for-report";
+  const p = inspect({ ...valid, EVIDENCE_ORIGINAL_SHA256_MODE: "enforce", UPLOADS_SIGNING_SECRET: secret });
+  const printed = JSON.stringify(p);
+  assert.ok(!printed.includes(secret));
+  assert.ok(!printed.includes("tenants/t1/evidence/photo.jpg"));
+  assert.equal(p.privateCaptureReady, false);
+});
 
 test("production does not silently accept a default local provider when STORAGE_PROVIDER is absent", () => {
-  const p=inspect({...valid,STORAGE_PROVIDER:undefined});
-  assert.equal(pick(p,"storage-provider"),"BLOCK");
-  assert.equal(p.storageLayoutReady,false);
+  const p = inspect({ ...valid, STORAGE_PROVIDER: undefined });
+  assert.equal(pick(p, "storage-provider"), "BLOCK");
+  assert.equal(p.storageLayoutReady, false);
 });
 
 test("Railway production tag without NODE_ENV also requires an explicit local provider", () => {
-  const p=inspect({...valid,NODE_ENV:"test",RAILWAY_ENVIRONMENT_NAME:"production",STORAGE_PROVIDER:undefined});
-  assert.equal(p.production,true);
-  assert.equal(pick(p,"storage-provider"),"BLOCK");
+  const p = inspect({ ...valid, NODE_ENV: "test", RAILWAY_ENVIRONMENT_NAME: "production", STORAGE_PROVIDER: undefined });
+  assert.equal(p.production, true);
+  assert.equal(pick(p, "storage-provider"), "BLOCK");
 });

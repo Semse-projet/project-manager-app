@@ -44,10 +44,10 @@ export function inspectFieldMemoryStorage({
   const multipart = env.SEMSE_MULTIPART_STORAGE_ROOT || "/tmp/semse-multipart";
   const provider = env.STORAGE_PROVIDER || "local";
   const mode = env.UPLOADS_SIGNED_GET_MODE || "off";
+  const evidenceHashMode = env.EVIDENCE_ORIGINAL_SHA256_MODE || "off";
   const inVolume = withinDir(root, mount);
   const multipartScoped = withinDir(multipart, root) && withinDir(multipart, mount);
   const modeKnown = ["off", "shadow", "enforce"].includes(mode);
-  const checksumMode = env.EVIDENCE_ORIGINAL_SHA256_MODE || "off";
   const secretsReady = typeof env.UPLOADS_SIGNING_SECRET === "string"
     && env.UPLOADS_SIGNING_SECRET.length >= 16
     && env.UPLOADS_SIGNING_SECRET !== env.AUTH_SECRET;
@@ -63,8 +63,8 @@ export function inspectFieldMemoryStorage({
     check("signed-mode-valid", modeKnown, "Signed-read mode must be off, shadow or enforce"),
     check("signed-mode-active", mode === "enforce", "Signed GET not enforced; use approved shadow → enforce rollout", "WARN"),
     check("signing-secret-configured", secretsReady, "Dedicated signing secret of 16+ chars must be configured and differ from AUTH_SECRET", "WARN"),
-    check("server-original-sha256-mode-known", ["off", "shadow", "enforce"].includes(checksumMode), "Original SHA256 mode must be off, shadow or enforce"),
-    check("server-original-sha256-enforced", checksumMode === "enforce", "Evidence originals are not yet registered with server-owned SHA256 enforce mode", "WARN"),
+    check("checksum-mode-valid", ["off", "shadow", "enforce"].includes(evidenceHashMode), "Evidence checksum mode must be off, shadow or enforce"),
+    check("checksum-mode-enforced", evidenceHashMode === "enforce", "Server SHA-256 is not enforced for newly registered Evidence", "WARN"),
     // No env var or presence check can prove a recovery point: deliberately not a PASS.
     { id: "offsite-backup-restore", status: "UNVERIFIED", message: "Separate offsite/volume backup and isolated restore drill required" },
     { id: "resource-level-read-auth", status: "UNVERIFIED", message: "Signed URL alone is insufficient; verify Org/Project/Evidence policy with two real actors" },
@@ -77,6 +77,10 @@ export function inspectFieldMemoryStorage({
     // Do not emit storage keys, credentials, source paths or signed URLs.
     checks,
     storageLayoutReady: checks.slice(0, 8).every((v) => v.status === "PASS"),
+    configurationEnforcementReady: checks.filter((v) => [
+      "signed-mode-valid", "signed-mode-active", "signing-secret-configured",
+      "checksum-mode-valid", "checksum-mode-enforced",
+    ].includes(v.id)).every((v) => v.status === "PASS"),
     privateCaptureReady: false,
     privateCaptureReason: "Restore drill, signed GET and resource-level Org checks are not provable by this environment preflight",
   };
@@ -118,6 +122,11 @@ if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.ar
     process.stdout.write(JSON.stringify(result, null, 2) + "\n");
     if (process.argv.includes("--strict-layout") && !result.storageLayoutReady) {
       process.exitCode = 1;
+    }
+    // A green config gate is NOT permission to activate CaptureSession.
+    // Restore + authenticated cross-Org policy checks remain human-audited.
+    if (process.argv.includes("--strict-configuration") && !result.configurationEnforcementReady) {
+      process.exitCode = 2;
     }
   } catch {
     process.stderr.write("Field Memory preflight failed: unable to inspect storage without changing it\n");

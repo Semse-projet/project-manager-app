@@ -132,9 +132,10 @@ export class StorageService {
     return createReadStream(filePath);
   }
 
-  /** Stream the canonical original to compute a server-owned SHA-256.
-   * Never accepts or trusts any client-supplied checksum. It rejects
-   * symlinks and detects metadata changes while reading.
+  /** Stream the canonical immutable original and compute a server-owned SHA-256.
+   * Pin the validated inode with O_NOFOLLOW; never follow a swapped symlink
+   * between the pathname lstat and read stream. Reject pathname replacement
+   * and metadata mutation while hashing. This is not an offsite backup proof.
    */
   async hashOriginal(key: string): Promise<{ sha256: string; sizeBytes: number }> {
     await assertProductionStorageMount();
@@ -143,20 +144,39 @@ export class StorageService {
     if (!before.isFile() || before.size <= 0) {
       throw new Error("Original missing or not a nonempty regular file");
     }
-    const hash = createHash("sha256");
-    let sizeBytes = 0;
-    for await (const chunk of createReadStream(filePath)) {
-      const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
-      hash.update(bytes);
-      sizeBytes += bytes.byteLength;
+    // Railway runs Linux: O_NOFOLLOW is defined, and a final-component symlink
+    // results in ELOOP instead of reading bytes from an unrelated file.
+    if (constants.O_NOFOLLOW === undefined) {
+      throw new Error("Original integrity requires O_NOFOLLOW support");
     }
-    const after = await lstat(filePath);
-    if (!after.isFile() || sizeBytes !== before.size || sizeBytes !== after.size ||
-        before.dev !== after.dev || before.ino !== after.ino ||
-        before.ctimeMs !== after.ctimeMs || before.mtimeMs !== after.mtimeMs) {
-      throw new Error("Original modified during SHA-256 verification");
+    const handle = await open(filePath, constants.O_RDONLY | constants.O_NOFOLLOW);
+    try {
+      const opened = await handle.stat();
+      if (!opened.isFile() || opened.size <= 0 ||
+          opened.dev !== before.dev || opened.ino !== before.ino) {
+        throw new Error("Original changed while opening for SHA-256");
+      }
+      const digest = createHash("sha256");
+      let sizeBytes = 0;
+      for await (const chunk of handle.createReadStream({ autoClose: false })) {
+        const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+        digest.update(bytes);
+        sizeBytes += bytes.byteLength;
+      }
+      const [after, pathnameAfter] = await Promise.all([handle.stat(), lstat(filePath)]);
+      if (!after.isFile() || !pathnameAfter.isFile() ||
+          sizeBytes !== before.size || sizeBytes !== opened.size ||
+          sizeBytes !== after.size || sizeBytes !== pathnameAfter.size ||
+          before.dev !== after.dev || before.ino !== after.ino ||
+          after.dev !== pathnameAfter.dev || after.ino !== pathnameAfter.ino ||
+          before.ctimeMs !== after.ctimeMs || before.mtimeMs !== after.mtimeMs ||
+          opened.ctimeMs !== after.ctimeMs || opened.mtimeMs !== after.mtimeMs) {
+        throw new Error("Original modified during SHA-256 verification");
+      }
+      return { sha256: digest.digest("hex"), sizeBytes };
+    } finally {
+      await handle.close();
     }
-    return { sha256: hash.digest("hex"), sizeBytes };
   }
 
   /**
