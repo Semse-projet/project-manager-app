@@ -5,6 +5,10 @@
 **Fecha:** 2026-10-15.  
 **Ambiente de referencia:** no definido; **no** atribuir ejecución real a los casos de esta tabla.
 
+## Invariantes de seguridad ratificados
+
+El propietario aprobó el 2026-10-15 `SEC-S1-01` (OAuth con identidad SEMSE y revocación), `SEC-S1-02` (cero aprovisionamiento/mutación por lectura MCP) y `SEC-S1-03` (aislamiento tenant/org/membership/recurso). **Aprobación de requisitos, no evidencia de ejecución**: todas las pruebas MCP permanecen `NOT_IMPLEMENTED` hasta contar con resultados reproducibles de runtime. Detalles y decisiones abiertas: `semse-mcp-project-read.decisions.md`.
+
 ## 1. Cadena obligatoria
 
 Requirement → Threat → Control → Enforcement point → Test → Expected result → Evidence → Activation scope.
