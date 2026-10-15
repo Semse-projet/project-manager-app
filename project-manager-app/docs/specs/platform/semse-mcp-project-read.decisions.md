@@ -32,6 +32,16 @@ Para 2026-07-28: POST por solicitud con `Accept: application/json, text/event-st
 
 Fuentes: https://ts.sdk.modelcontextprotocol.io/v2/protocol-versions , https://ts.sdk.modelcontextprotocol.io/v2/migration/support-2026-07-28 y https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/streamable-http .
 
+## Compatibilidad de dependencias — bloqueo de integración, no motivo para reescribir el monorepo
+
+El manifiesto real `apps/api/package.json` usa `zod: ^3.24.2` y `@semse/schemas` también usa Zod 3. El SDK MCP v2 depende de Zod 4.2+; un `inputSchema` de Zod 3 puede compilar y fallar **en ejecución de `tools/list`**. No actualizar silenciosamente `@semse/schemas` ni todo el monorepo.
+
+**Propuesta para el adapter S1:** instalar `@modelcontextprotocol/server` y `@modelcontextprotocol/node` en la API solo tras aprobación, y usar una instancia Zod 4 propia para los esquemas MCP mediante alias de paquete `"zod-v4": "npm:zod@^4.2.0"` en `apps/api/package.json` (o aislar esa dependencia en un paquete adapter propio, validado por `pnpm` y CI). Mantener contratos de dominio en `@semse/schemas` Zod 3, convertir datos únicamente en el boundary estable. No mezclar objetos Zod 3 y Zod 4 para definir `inputSchema` MCP.
+
+**Prueba obligatoria D1:** `tools/list` real y `tools/call` real contra `createMcpHandler(factory, { legacy: "reject" })` mediante `StreamableHTTPClientTransport` y pin moderno. Ejecutar además `pnpm build:api`, `pnpm typecheck`, `pnpm test:coverage` y tests regresivos de schema. Adjuntar lockfile para que el upgrade sea reproducible.
+
+**Fuente oficial:** https://ts.sdk.modelcontextprotocol.io/v2/migration/upgrade-to-v2 y https://ts.sdk.modelcontextprotocol.io/v2/migration/support-2026-07-28 .
+
 ## Protocolo de implementación futura: bloqueos y entrega
 
 1. **Antes de implementar:** owner/seguridad acepta ADR-045, cierra D1–D7 y convierte child S1 a APPROVED; registrar decisión y comentarios en GitHub.
