@@ -14,8 +14,8 @@ owners: ["semse-core", "security", "prometeo"]
 
 - `GET /v1/projects/:projectId` ya existe, con `@RequirePermissions("projects:read")` y control de ownership por dominio.
 - `ProjectsRepository.findById` resuelve tenant, `Job.deletedAt` y scope cliente/PRO; `toRecord` no proporciona `name/title/summary`.
-- `resolveRequestContext` acepta `req.authContext` adjunto por middleware, o bearer con `AUTH_SECRET` cuando procede; falta demostrar en el contexto específico MCP la cadena `issuer → audience → session → membership → org → resource`.
-- `ActorContextService.ensureActorContext` puede crear tenant/org/user en la lectura; el adapter MCP **no debe permitir autorregistro implícito de organizaciones** ni conceder scopes mediante claims del host.
+- **Confirmado en código actual:** `AuthGuard.canActivate` establece `request.authContext` mediante `AuthService.authenticateRequest`; ese servicio verifica el bearer SEMSE de tipo access con `sid`, lee `AuthSession` y roles de `Membership.status=ACTIVE` a través de `AuthRepository.findActiveSessionAuthorization` **en cada petición**, y limita esa lectura a 1 segundo (falla cerrado si no responde). `resolveRequestContext` reutiliza `authContext` ya verificado. La brecha MCP es **adaptar la identidad OAuth del host a esta cadena SEMSE**, sin inventar roles/tenant ni confiar en tokens de otra audience.
+- Después de la autorización canónica, `ProjectsRepository.findById` llama a `ActorContextService.ensureActorContext`, que puede hacer upsert de tenant/org/user. En el camino MCP, impedir que una credencial externa no vinculada a sesión SEMSE llegue a este bootstrap; evaluar el impacto de writes en GET. **No afirmar que el sistema actual omite revisión de Membership**; esa revisión existe en `AuthService`.
 - `Universal Connector` controla estado/conexión/tenant y policies, pero su `ConnectorExecutionContext` no demuestra ownership por Org. Tool Registry F2 evalúa permisos/approval pero no sustituye el domain guard.
 - `AdminIntegrationsService` conserva estados por tenant que **no equivalen** a consentimiento ni conexión ACTIVE por empresa.
 
@@ -45,7 +45,7 @@ Ninguna opción se declara ACCEPTED hasta revisión de owner/seguridad. **ADR-02
 4. Flujo de autorización del host con OAuth 2.1/PKCE y Client ID Metadata Documents si disponible; Dynamic Client Registration es compatibilidad heredada, no base nueva. Estado de consent por cliente, org, actor, resource, scopes y expiración.
 5. Exponer HTTP `401` + `WWW-Authenticate`/metadata ante token ausente/inválido; `403` cuando hay token válido sin scopes. Recurso ajeno se responde mediante política de no enumeración en el plano de tool sin exponer datos.
 6. Resolver membresía vigente desde autoridad SEMSE **en cada llamada o desde sesión revocable con invalidación efectiva**; `orgId` del usuario no puede ser sustituido por argumento del tool, cookies del host ni cabeceras reenviadas sin verificar.
-7. `authContext` solo lo fija middleware confiable; eliminar ruta pública que acepte `x-tenant-id`, `x-org-id` o roles de cliente como identidad. Revisar `ActorContextService` para que una lectura MCP no produzca provisioning lateral.
+7. `authContext` debe provenir únicamente de `AuthGuard` / `AuthService` confiables o de un puente OAuth equivalente revisado; no permitir rutas públicas que acepten `x-tenant-id`, `x-org-id` o roles arbitrarios como identidad. Reutilizar la consulta activa de Membership/Session y su deadline fail-closed de 1 segundo como baseline, sin añadir otra lectura de DB redundante no acotada. Auditar el posible upsert de `ActorContextService` en GET.
 8. Revocar consent/conexión o membresía bloquea siguiente `tools/call` aunque token no haya caducado (si requiere introspección, sesión o denylist, definir almacenamiento y migración aditiva).
 9. Separar autenticación HTTP, autorización `projects:read`, ownership por Job/Project y proyección de datos; ninguna etapa puede sustituir la siguiente.
 
