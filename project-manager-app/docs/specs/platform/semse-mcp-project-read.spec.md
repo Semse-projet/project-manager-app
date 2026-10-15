@@ -188,8 +188,8 @@ S1 no habilita tool externa en Prometeo ni realiza MCP Client. Su Tool Registry 
 
 ## 11. Investigación externa pendiente de validar contra versión
 
-1. MCP server tools/transport: https://modelcontextprotocol.io/specification
-2. MCP authorization: https://modelcontextprotocol.io/specification/2025-06-18/basic/authorization
+1. MCP 2026-07-28 tools + Streamable HTTP: https://modelcontextprotocol.io/specification/2026-07-28/server/tools y https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/streamable-http
+2. MCP authorization vigente 2026-07-28: https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization
 3. MCP Apps UI opcional: https://github.com/modelcontextprotocol/ext-apps
 
 Aplicado ahora: authz y contratos neutrales. Backlog: host específico/UI. Descartado: exponer ProjectRecord íntegro o declarar compatibilidad universal.
