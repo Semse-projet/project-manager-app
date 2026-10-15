@@ -48,6 +48,8 @@ Para 2026-07-28: POST por solicitud con `Accept: application/json, text/event-st
 
 Fuentes: https://ts.sdk.modelcontextprotocol.io/v2/protocol-versions , https://ts.sdk.modelcontextprotocol.io/v2/migration/support-2026-07-28 y https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/streamable-http .
 
+**D4 — contrato sin aprovisionamiento:** `docs/specs/platform/semse-mcp-project-read.no-provision.md` propone una ruta interna de lectura que conserva `ProjectsRepository`/Policy y evita `ensureActorContext` exclusivamente para MCP, sin alterar el GET web existente. Pendiente revisión y aceptación técnica; el requisito SEC-S1-02 ya fue aprobado.
+
 ## Compatibilidad de dependencias — bloqueo de integración, no motivo para reescribir el monorepo
 
 El manifiesto real `apps/api/package.json` usa `zod: ^3.24.2` y `@semse/schemas` también usa Zod 3. El SDK MCP v2 depende de Zod 4.2+; un `inputSchema` de Zod 3 puede compilar y fallar **en ejecución de `tools/list`**. No actualizar silenciosamente `@semse/schemas` ni todo el monorepo.
