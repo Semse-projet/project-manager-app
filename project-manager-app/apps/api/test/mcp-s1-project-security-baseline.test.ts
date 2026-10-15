@@ -140,3 +140,27 @@ test("MCP S1 P0 baseline: current read invokes actor-context bootstrap BEFORE pr
   // Do not expose an OAuth-backed MCP route until D4 is resolved and
   // tests prove no unauthorized tenant/org/user upserts.
 });
+
+test("S1 prerequisite: PRO has general RBAC financial-read but domain policy denies unrelated client balances before payment query", async () => {
+  let paymentReads = 0;
+  const prisma = {
+    project: {
+      async findFirst() { return project; }
+    },
+    paymentTxn: {
+      async findMany() { paymentReads += 1; return []; }
+    }
+  };
+  const repository = new ProjectsRepository(prisma as never, {
+    async ensureActorContext() {}
+  } as never);
+
+  await assert.rejects(
+    repository.listPayments(actor("pro_a", ["PRO"])),
+    ForbiddenException
+  );
+  assert.equal(paymentReads, 0, "financial rows cannot be queried before ownership policy");
+
+  assert.deepEqual(await repository.listPayments(actor("client_a", ["CLIENT"])), []);
+  assert.equal(paymentReads, 1);
+});
