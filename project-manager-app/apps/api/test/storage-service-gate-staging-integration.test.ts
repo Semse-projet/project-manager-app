@@ -65,9 +65,37 @@ dbTest("S3a: real DB/FS ticket lifecycle blocks store/delete under DRAINING/FROZ
     assert.equal(await prisma.storageWriteOperation.count({where:{scope,state:"ACTIVE"}}),0);
     assert.equal(await prisma.storageWriteOperation.count({where:{scope,state:"COMPLETED"}}),1);
 
-    assert.deepEqual(await control.transition({
-      scope,expectedEpoch:1n,action:"BEGIN_DRAIN",authority:operator("ci-drain-"+token),
-    }),{phase:"DRAINING",epoch:1n});
+    // Admit a second original and hold its stream mid-upload. This proves
+    // DRAINING does not falsely certify FROZEN while a ticket is ACTIVE.
+    let releaseStream: (() => void) | undefined;
+    let streamStarted: (() => void) | undefined;
+    const waiting = new Promise<void>(resolve => { streamStarted = resolve; });
+    const released = new Promise<void>(resolve => { releaseStream = resolve; });
+    const slowKey = KEY + ".slow";
+    const pendingUpload = storage.store({
+      key: slowKey, contentType:"text/plain",
+      stream:Readable.from((async function* () {
+        yield Buffer.from("before-");
+        streamStarted?.();
+        await released;
+        yield Buffer.from("after");
+      })()),
+    });
+    await waiting;
+    try {
+      assert.equal(await prisma.storageWriteOperation.count({where:{scope,state:"ACTIVE"}}),1);
+      assert.deepEqual(await control.transition({
+        scope,expectedEpoch:1n,action:"BEGIN_DRAIN",authority:operator("ci-drain-"+token),
+      }),{phase:"DRAINING",epoch:1n});
+      await assert.rejects(() => control.transition({
+        scope,expectedEpoch:1n,action:"MARK_FROZEN",authority:operator("ci-early-freeze-"+token),
+      }),error => (error as {reason?:string}).reason === "active_operations");
+    } finally {
+      releaseStream?.();
+    }
+    await pendingUpload;
+    assert.equal((await readFile(path.join(root,slowKey))).toString(),"before-after");
+    assert.equal(await prisma.storageWriteOperation.count({where:{scope,state:"ACTIVE"}}),0);
     await assert.rejects(
       () => storage.store({key:KEY+".new",contentType:"text/plain",stream:Readable.from(["new"])}),
       error => (error as {status?:number}).status === 503,
@@ -92,8 +120,10 @@ dbTest("S3a: real DB/FS ticket lifecycle blocks store/delete under DRAINING/FROZ
       scope,expectedEpoch:1n,action:"THAW",authority:operator("ci-thaw-"+token),
     }),{phase:"OPEN",epoch:2n});
     await storage.delete(KEY);
+    await storage.delete(slowKey);
     assert.equal((await storage.stat(KEY)).exists,false);
-    assert.equal(await prisma.storageWriteOperation.count({where:{scope,state:"COMPLETED"}}),2);
+    assert.equal((await storage.stat(slowKey)).exists,false);
+    assert.equal(await prisma.storageWriteOperation.count({where:{scope,state:"COMPLETED"}}),4);
     assert.equal(await prisma.storageWriteGateAudit.count({where:{scope}}),3);
   } finally {
     await prisma.storageWriteGateAudit.deleteMany({where:{scope}}).catch(()=>undefined);
