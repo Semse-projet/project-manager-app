@@ -136,7 +136,12 @@ async function authorizationCode() {
       const url = new URL(target);
       check(url.searchParams.get("state") === state, "State mismatch");
       const code = url.searchParams.get("code");
-      if (!code) fail("OAuth redirect did not contain authorization code");
+      if (!code) {
+        const oauthError = url.searchParams.get("error") ?? "missing_error_code";
+        // Only log a short OAuth protocol error code, never tokens, URLs or verifier.
+        const safeCode = /^[a-z][a-z0-9_]{0,63}$/.test(oauthError) ? oauthError : "invalid_error_code";
+        fail("OAuth callback returned " + safeCode + " instead of authorization code");
+      }
       return { code, verifier };
     }
     const answer = await request(target);
