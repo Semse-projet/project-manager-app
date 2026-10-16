@@ -119,7 +119,7 @@ test("FROZEN blocks previously admitted ticket before publication", async () => 
   // Such a state must be impossible for a compliant future freeze transition:
   // the pure guard correctly detects a contradictory frozen snapshot.
   f.gate.phase = "FROZEN";
-  await assert.rejects(() => f.coordinator.assertActive(ticket), blocked("already_frozen"));
+  await assert.rejects(() => f.coordinator.assertActive(ticket), blocked("inconsistent_frozen_snapshot"));
   await assert.rejects(() => f.coordinator.settleWrite(ticket, "COMPLETED"), blocked("frozen_with_active_ticket"));
 });
 
