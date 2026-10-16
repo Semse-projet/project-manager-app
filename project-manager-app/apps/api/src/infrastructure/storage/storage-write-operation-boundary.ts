@@ -38,28 +38,29 @@ export class StorageWriteOperationBoundary {
       writerInstanceId: input.writerInstanceId,
       kind: input.kind,
     });
+    let result: T;
     try {
-      // Calls outside the DB lock must not begin before admission commits.
+      // No bytes are admitted before the persistent ticket is committed.
       await this.coordinator.assertActive(ticket);
-      const result = await input.work(ticket);
-      // No reply success until settlement is durable.
-      await this.coordinator.settleWrite(ticket, "COMPLETED");
-      return result;
+      result = await input.work(ticket);
     } catch (cause) {
-      // Ambiguous failure: do NOT silently release the active ticket. For
-      // example a successful link() followed by a failed Evidence insert may
-      // have published a real original; callers must reconcile before thaw.
+      // Work failed: never assume an original was unpublished. Only a caller
+      // able to prove that neither bytes nor metadata remain may settle clean.
       if (!input.proveCleanFailure) throw cause;
       try {
         await input.proveCleanFailure(ticket, cause);
         await this.coordinator.settleWrite(ticket, "FAILED_CLEAN");
       } catch {
-        // Preserve the original error without claiming cleanup succeeded.
-        // The persisted ACTIVE ticket is the fail-closed recovery blocker.
+        // Leave ACTIVE on cleanup/DB uncertainty, preserving original error.
         throw cause;
       }
       throw cause;
     }
+    // Work succeeded, possibly having published immutable bytes. A settlement
+    // error is a DISTINCT uncertainty and MUST NOT invoke cleanup callbacks.
+    // The ACTIVE ticket intentionally remains until audited reconciliation.
+    await this.coordinator.settleWrite(ticket, "COMPLETED");
+    return result;
   }
 
   /**
