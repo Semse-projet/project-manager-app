@@ -5425,3 +5425,69 @@ model ContractSignerStepUpReceipt {
   @@unique([tenantId, authChallengeId], map: "ContractSignerStepUpReceipt_challenge_uniq")
   @@index([tenantId, contractId, revokedAt], map: "ContractSignerStepUpReceipt_contract_idx")
 }
+
+// T-008 S2 — durable storage-write coordination authority.
+// Runtime writers are NOT wired to these models in this slice.
+enum StorageWriteGatePhase {
+  OPEN
+  DRAINING
+  FROZEN
+}
+
+enum StorageWriteOperationStatus {
+  ACTIVE
+  COMPLETED
+  ABORTED
+  AMBIGUOUS
+}
+
+model StorageWriteGate {
+  id                     String                @id @default(cuid())
+  environmentKey         String
+  storageRoot            String
+  phase                  StorageWriteGatePhase @default(OPEN)
+  writerCoverageComplete Boolean               @default(false)
+  version                Int                   @default(0)
+  lastTransitionTicket   String?
+  frozenAt               DateTime?
+  createdAt              DateTime              @default(now())
+  updatedAt              DateTime              @updatedAt
+
+  operations             StorageWriteOperation[]
+  transitionLog          StorageWriteGateTransitionLog[]
+
+  @@unique([environmentKey, storageRoot])
+  @@index([phase, updatedAt])
+}
+
+model StorageWriteOperation {
+  id              String                      @id @default(cuid())
+  gateId          String
+  operationKey    String
+  writerKind      String
+  status          StorageWriteOperationStatus @default(ACTIVE)
+  admittedAt      DateTime                    @default(now())
+  completedAt     DateTime?
+  ambiguityReason String?
+  gate            StorageWriteGate            @relation(fields: [gateId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@unique([gateId, operationKey])
+  @@index([gateId, status, admittedAt])
+}
+
+model StorageWriteGateTransitionLog {
+  id          String                @id @default(cuid())
+  gateId      String
+  ticket      String
+  action      String
+  fromPhase   StorageWriteGatePhase
+  toPhase     StorageWriteGatePhase
+  actorId     String?
+  reason      String?
+  createdAt   DateTime              @default(now())
+  gate        StorageWriteGate      @relation(fields: [gateId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([gateId, createdAt])
+  @@index([ticket])
+}
+
