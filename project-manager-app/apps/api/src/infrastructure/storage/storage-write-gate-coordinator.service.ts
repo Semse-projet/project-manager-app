@@ -1,6 +1,6 @@
 import { Prisma } from "@prisma/client";
 import path from "node:path";
-import { PrismaService } from "../prisma/prisma.service.js";
+import type { PrismaService } from "../prisma/prisma.service.js";
 import {
   assertStorageWriteAdmission,
   assertStorageWritePublication,
