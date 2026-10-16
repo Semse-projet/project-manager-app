@@ -59,7 +59,7 @@ export class StorageService {
   private stagingBoundary(): StorageWriteOperationBoundary | null {
     const mode = process.env.SEMSE_STORAGE_WRITE_GATE_MODE ?? "off";
     if (mode === "off") return null;
-    if (mode !== "staging" || process.env.NODE_ENV === "production") {
+    if (mode !== "staging" || isProductionStorage(process.env)) {
       throw new ServiceUnavailableException("Storage gate mode is not approved for production");
     }
     if (!this.writeBoundary) {
