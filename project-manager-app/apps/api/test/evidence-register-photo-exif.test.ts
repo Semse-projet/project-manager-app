@@ -7,7 +7,10 @@ import { EvidenceService } from "../dist/modules/evidence/evidence.service.js";
 // module's other tests (evidence-crud-phase2.test.ts) don't follow.
 
 function makeFakeStorage(buffer: Buffer) {
-  return { async readBuffer() { return buffer; } };
+  return {
+    async readBuffer() { return buffer; },
+    async withWriteGateMutation<T>(_kind: string, work: () => Promise<T>) { return work(); },
+  };
 }
 
 function makeFakeRepository(calls: Array<Record<string, unknown>>) {
@@ -171,10 +174,13 @@ test("EXIF registration uses the server-authorized normalized storage key", asyn
   };
   const service = new EvidenceService(
     repo as never, makeFakeAudit() as never,
-    { async readBuffer(key: string) {
-      actualReadKey = key;
-      return buildJpegWithExif(true);
-    } } as never,
+    {
+      async readBuffer(key: string) {
+        actualReadKey = key;
+        return buildJpegWithExif(true);
+      },
+      async withWriteGateMutation<T>(_kind: string, work: () => Promise<T>) { return work(); },
+    } as never,
   );
   await service.registerPhotoWithExif({
     tenantId: "t1", orgId: "o1", userId: "u1", roles: ["PRO"], requestId: "r1",
