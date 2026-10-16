@@ -1,10 +1,10 @@
-# D4 — Project status read without implicit provisioning (proposed implementation contract)
+# D4 — Project status read without implicit provisioning (owner-approved design; implementation in isolated PR)
 
 **Program:** `platform.semse-prometeo-interoperability`  
-**Child spec:** `platform.semse-mcp-project-read` (REVIEW, no S1 code approved).  
+**Child spec:** `platform.semse-mcp-project-read` (REVIEW; D4-only internal implementation allowed, MCP activation not approved).  
 **Owner security invariant:** `SEC-S1-02` APPROVED on 2026-10-15 (no Tenant/Org/User or domain mutations from MCP read).  
-**Implementation decision D4:** PROPOSED, not yet accepted.  
-**Operational state:** NOT_IMPLEMENTED / NOT_DEPLOYED / INACTIVE.
+**Implementation decision D4:** **APPROVED** by owner in conversation on 2026-10-15; Option A selected. OAuth D2 still pending.  
+**Operational state:** IMPLEMENTATION_IN_PR / NOT_DEPLOYED / INACTIVE (no MCP controller or OAuth route).
 
 ## Code facts independently verified
 
@@ -14,9 +14,9 @@
 - `AuthGuard` relies on `AuthService.authenticateRequest`; a successfully resolved session has `AuthSession`, `User` and current `Membership.status=ACTIVE`. For external MCP OAuth, the trusted OAuth bridge must verify a corresponding durable SEMSE session and membership **before** calling Project access.
 - `ProjectsRepository.findStoredProjectOrThrow` filters `id`, `tenantId`, `job.deletedAt:null`. `assertProjectReadable` checks resource ownership, including OPS_ADMIN *within tenant*. `toRecord` returns more internal fields than S1 should expose.
 
-## Minimal change proposed
+## Selected change (Option A approved)
 
-**Option A (recommended):** add an internal, explicitly named read path, for example `ProjectsService.detailForTrustedExternalRead` delegating to `ProjectsRepository.findByIdWithoutProvisioning`, with a contract requiring a **server-issued, already authenticated/authorized** `RequestIdentity`. This method performs only existing repository read + domain ownership checks, **never** `ActorContextService.ensureActorContext`. The trusted server-issued actor originates in the OAuth bridge under `AuthGuard` and not from HTTP header/tool payload. Keep existing `ProjectsService.detail` and `GET /v1/projects/:id` unchanged during S1, preserving legacy behavior until a separate migration review. Output projection in adapter is `projectId,status` and a real `correlationId`, not the full ProjectRecord.
+**Option A (selected):** add an internal, explicitly named read path, `ProjectsService.statusForVerifiedActor` delegating to `ProjectsRepository.findByIdWithoutProvisioning`,  with a contract requiring a **server-issued, already authenticated/authorized** `RequestIdentity`. This method performs only existing repository read + domain ownership checks, **never** `ActorContextService.ensureActorContext`. The trusted server-issued actor originates in the OAuth bridge under `AuthGuard` and not from HTTP header/tool payload. Keep existing `ProjectsService.detail` and `GET /v1/projects/:id` unchanged during S1, preserving legacy behavior until a separate migration review. Output projection in adapter is `projectId,status` and a real `correlationId`, not the full ProjectRecord.
 
 **Option B:** remove `ensureActorContext` directly from existing `findById` globally. This is simpler but changes web/worker/legacy callers, so it requires a separate baseline assessment and broader regression testing; **not chosen** for first MCP slice.
 
@@ -24,10 +24,18 @@
 
 **Option D:** keep `ensureActorContext` and trust that the ORM upsert has no side effects. **Rejected**: violates approved SEC-S1-02.
 
+## Current isolated-code implementation contract
+
+- `ProjectsRepository.findByIdWithoutProvisioning` calls existing `findStoredProjectOrThrow` and `assertProjectReadable`; **no** `ActorContextService.ensureActorContext`.
+- `ProjectsService.statusForVerifiedActor` returns `{projectId,status}` only. It is not a route and **does not itself authenticate callers**. Its documented precondition is trusted server actor, current session and membership, and RBAC `projects:read` supplied by the future D2 global OAuth/AuthGuard bridge.
+- Existing `ProjectsRepository.findById` retains its bootstrap and delegates to the same new read method; web REST semantics remain unchanged.
+- `apps/api/test/mcp-s1-no-provision-read.test.ts` asserts bootstrap/writes zero, tenant/job deletion filtering, org/OPS_ADMIN policy and legacy parity using mocks. These tests cannot prove OAuth/membership revocation or real Postgres write absence.
+- Approval/evidence in [issue #952](https://github.com/Semse-projet/project-manager-app/issues/952). This path must not be callable from a client-provided tenant/org/role payload.
+
 ## Typed contract proposal
 
 ```ts
-// Illustrative signature — not implemented.
+// Conceptual external adapter signature — NOT implemented as MCP surface.
 type VerifiedMcpProjectActor = {
   tenantId: string;
   orgId: string;
@@ -44,7 +52,7 @@ readProjectStatus(input: { actor: VerifiedMcpProjectActor; projectId: string }):
 
 Do not assume a TypeScript type alone is an authentication boundary: enforce the origin of actor at runtime in `AuthGuard`/MCP OAuth adapter and require `projects:read` metadata and domain resource policy. `correlationId` must come from a real request ID, not a fabricated audit record.
 
-## Acceptance tests — red before implementation
+## Acceptance tests — D4 local unit tests added; real OAuth/DB integration still pending
 
 1. **Positive:** authenticated `CLIENT` of owning org reads `projectId,status`; `PRO` of assigned org does likewise; correct `RequestIdentity` has current membership.
 2. **Negative same-tenant org:** user org unrelated to both owners gets uniform unavailable tool error, no project fields returned.
@@ -62,6 +70,6 @@ Test fixtures must cover **two tenants**, **two organizations within one tenant*
 
 ## Delivery gate
 
-Required before writing code: D4 option accepted in child S1/ADR-045 through architecture/security review; first-party OAuth bridge trust and role resolution defined in D2, consent binding in D7; child spec state APPROVED. Then implement in a separate code PR with tests-first evidence, flag OFF by default, rollback independent of existing web API, staging authenticated multi-tenant E2E, and operational evidence. Never mark VERIFIED based solely on unit tests.
+D4 Option A was approved by the owner, permitting a strictly internal **no-endpoint** implementation in a separate code PR with tests-first evidence. Before publishing any MCP endpoint, D2 must be selected/reviewed, the S1 child spec approved and ADR-045 accepted; the OAuth bridge must supply trustworthy identity/current membership/scope and D7 revocation. Staging authenticated multi-tenant E2E and rollback remain mandatory. Never mark VERIFIED based solely on unit tests.
 
-**This document is a recommendation for D4, not a claim that no-provisioning is already enforced.**
+**D4 scope limitation:** this implementation is a new *internal* ProjectsService/Repository path with mocked regression tests, not proof of production no-write guarantees. No MCP transport, authorization bridge, consent storage or deployment is implied.
