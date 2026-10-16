@@ -31,8 +31,31 @@ function check(condition, why) { assert.ok(condition, why); checks += 1; }
 function base64url(value) { return Buffer.from(value).toString("base64url"); }
 function fail(reason) { throw new Error(reason); }
 
+// Hydra uses a CSRF cookie between authorization redirects. A real browser
+// preserves it; our loopback-only synthetic browser must do so as well.
+const browserCookies = new Map();
 async function request(url, options = {}) {
-  const response = await fetch(url, { redirect: "manual", signal: AbortSignal.timeout(9000), ...options });
+  const headers = new Headers(options.headers || {});
+  if (browserCookies.size && new URL(url).hostname === "127.0.0.1") {
+    headers.set("Cookie", [...browserCookies].map(([k, v]) => k + "=" + v).join("; "));
+  }
+  const response = await fetch(url, {
+    redirect: "manual",
+    signal: AbortSignal.timeout(9000),
+    ...options,
+    headers,
+  });
+  const issuedCookies = response.headers.getSetCookie?.() ?? [];
+  for (const cookie of issuedCookies) {
+    const first = cookie.split(";")[0];
+    const separator = first.indexOf("=");
+    if (separator > 0) {
+      const name = first.slice(0, separator).trim();
+      const value = first.slice(separator + 1);
+      if (value) browserCookies.set(name, value);
+      else browserCookies.delete(name);
+    }
+  }
   const text = await response.text();
   let data = {};
   try { data = JSON.parse(text); } catch { data = { text: text.slice(0, 400) }; }
