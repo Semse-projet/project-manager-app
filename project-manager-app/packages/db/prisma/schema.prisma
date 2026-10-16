@@ -5437,6 +5437,7 @@ model StorageWriteGate {
   operatorTicket String?
   updatedAt      DateTime                @default(now()) @updatedAt
   operations     StorageWriteOperation[]
+  audits         StorageWriteGateAudit[]
 }
 
 /// Persistent active writer ticket. An interrupted writer remains ACTIVE until
@@ -5454,4 +5455,22 @@ model StorageWriteOperation {
 
   @@index([scope, state], map: "StorageWriteOperation_scope_state_idx")
   @@index([scope, epoch], map: "StorageWriteOperation_scope_epoch_idx")
+}
+
+ 
+/// T-008: append-only journal for audited phase changes; no public route.
+model StorageWriteGateAudit {
+  id          String           @id @db.Uuid
+  scope       String
+  epochBefore BigInt
+  epochAfter  BigInt
+  phaseBefore String
+  phaseAfter  String
+  action      String
+  actorUserId String
+  ticket      String
+  occurredAt  DateTime         @default(now())
+  gate        StorageWriteGate @relation(fields: [scope], references: [scope], onDelete: Restrict)
+
+  @@index([scope, occurredAt], map: "StorageWriteGateAudit_scope_occurredAt_idx")
 }
