@@ -28,7 +28,16 @@ test("T-008 coordinator must serialize admission and drain on a DB row lock", ()
   assert.doesNotMatch(source, /setTimeout|setInterval|Date\.now\(\).*ACTIVE/, "no silent lease expiry");
 });
 
-test("T-008 phase1 coordinator is not wired to production storage yet", () => {
+test("T-008 S3a wires admission only behind staging opt-in, not administrative freeze", () => {
   const module = read("../../apps/api/src/infrastructure/storage/storage.module.ts");
-  assert.doesNotMatch(module, /StorageWriteGateCoordinator/, "runtime integration needs separate release gate");
+  const storage = read("../../apps/api/src/infrastructure/storage/storage.service.ts");
+  assert.match(module, /StorageWriteGateCoordinator/);
+  assert.match(module, /StorageWriteOperationBoundary/);
+  assert.doesNotMatch(module, /StorageWriteGateTransitionService/, "no operator transition service can be exposed");
+  assert.match(storage, /SEMSE_STORAGE_WRITE_GATE_MODE/);
+  assert.match(storage, /mode === "off"/, "default off stays backward compatible");
+  assert.match(storage, /mode !== "staging"/, "only staging opt-in is available");
+  assert.match(storage, /isProductionStorage\(process\.env\)/, "both NODE_ENV and Railway production markers block partial enforcement");
+  assert.match(storage, /this\.storeUngated\(input, \(\) => boundary\.beforePublish\(ticket\)\)/);
+  assert.match(storage, /return this\.deleteUngated\(key\)/);
 });
