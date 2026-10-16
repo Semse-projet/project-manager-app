@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { ForbiddenException, NotFoundException, InternalServerErrorException } from "@nestjs/common";
+import { ZodError } from "zod";
 import {
   projectStatusMcpProjection,
   rethrowSafeMcpProjectReadError,
@@ -39,15 +40,15 @@ test("D5: explicit output allowlist never exposes tenant, org, job, financial or
 test("D5: status must match ProjectRecord and correlation ID cannot be empty", () => {
   assert.throws(
     () => projectStatusMcpProjection({ projectId: "project-a", status: "PAYMENT_RELEASED" }, "req-1"),
-    /Invalid/,
+    ZodError,
   );
   assert.throws(
     () => projectStatusMcpProjection({ projectId: "project-a", status: "open" }, "   "),
-    /Invalid/,
+    ZodError,
   );
   assert.throws(
     () => projectStatusMcpProjection({ projectId: "", status: "open" }, "req-1"),
-    /Invalid/,
+    ZodError,
   );
 });
 
