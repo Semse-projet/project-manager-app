@@ -8,6 +8,29 @@ Estado por capa, sin inferir una de otra:
 |---|---|---|---|---|---|---|---|
 | IMPLEMENTED | COMPLETE | PASS dirigido (8 fallos DNS locales preexistentes) | PASS (#937, 9/9) | MERGED (#937, #938, #941) | DEPLOYED (`6eae43cb`, Railway SUCCESS) | ACTIVE (guard, sin flag) | PARTIAL: navegación A/B; smoke no ejecutado |
 
+## Adenda UAT del owner — cuentas A/B y proyectos sintéticos (2026-10-15)
+
+**Confirmación posterior, sin atribuciones ni PII:** el propietario declaró expresamente en conversación que creó las cuentas A y B para probar SEMSE Project. Esta declaración **sí certifica su propósito de prueba**, pero **no certifica automáticamente** cada Job, cliente, fotografía, TimeEntry o evidencia previamente existente bajo las cuentas. El bloqueo P0 original se conserva como hallazgo histórico sobre los Jobs y se **refina**: no hacen falta nuevas cuentas solo por su propósito; sigue prohibido utilizar Jobs o evidencias no calificados como fixtures para mutaciones riesgosas.
+
+Pruebas UAT con **datos nuevos exclusivamente sintéticos**, realizadas mediante sesiones separadas en el navegador. Todas las horas son UTC y las ejecuciones son auditables en TinyFish:
+
+| Caso | Inicio–fin UTC (2026-10-15) | Evidencia | Resultado |
+|---|---|---|---|
+| UI-CREATE-A | 19:20:08–19:20:47 | [Run](https://agent.tinyfish.ai/runs/dcfd8324-6eba-45f9-a4aa-c5b70979dbd4) | PASS: `SMOKE-S0-20261015-VOZ-A` creado, active |
+| UI-CREATE-B | 19:20:10–19:21:41 | [Run](https://agent.tinyfish.ai/runs/d19f602f-238c-49fd-a717-05ed510db1f9) | PASS: `SMOKE-S0-20261015-VOZ-B` creado, active |
+| UI-LIST-A | 19:22:09–19:22:29 | [Run](https://agent.tinyfish.ai/runs/36e1c2e1-2f68-449f-ab3f-921b27f39f4d) | PASS solo UI: A ve su proyecto y no B |
+| UI-LIST-B | 19:22:12–19:22:43 | [Run](https://agent.tinyfish.ai/runs/3e24235e-fc49-4714-941d-7248318112b1) | PASS solo UI: B ve su proyecto y no A |
+| UI-EDIT-A | 21:08:18–21:10:23 | [Run](https://agent.tinyfish.ai/runs/122c8e81-e285-4d91-a0fe-b81e46b98588) | Nombre editado y persistido; **color INCONCLUSO**: selección verde, tarjeta en ámbar tras guardar |
+| UI-EDIT-B | 21:08:19–21:09:22 | [Run](https://agent.tinyfish.ai/runs/73fe8162-7efa-4546-b751-e075410136e5) | PASS: nombre editado y persistido; selector Job habilitado, **sin conversión** |
+| UI-TIMER-A | 21:10:51–21:12:17 | [Run](https://agent.tinyfish.ai/runs/f7a534cf-47e3-4b21-a038-9fd0cd9b087e) | PASS interfaz: start → running → stop, registro completo de **13 segundos**, ningún timer activo al final; persistencia tras relectura API **NOT_VERIFIED** |
+| UI-ARCHIVE-B | 21:10:54–21:13:02 | [Run](https://agent.tinyfish.ai/runs/fee94956-fdc8-40c2-b188-78332265990e) | PASS creación/archivo de `SMOKE-T032-20261015-VOZ-B`; **dos pestañas / rechazo de conversión NOT_EXECUTED** |
+
+**Efectos escritos por esta UAT:** tres FreeProjects nuevos `SMOKE-*` (dos activos renombrados con sufijo `-EDITADO` y uno archivado), y un TimeEntry sintético de 13 segundos sobre el FreeProject nuevo de A. No se editaron ni archivaron proyectos anteriores; no se envió conversión ni se cambió ningún Job, evidencia, escrow o pago en estas ejecuciones. El TimeEntry **no se borra** automáticamente.
+
+**Límites de la evidencia:** aislamiento solo en listados de UI, no prueba de autorización por IDs cruzados; identidad única y tenant iguales vía `/v1/auth/me` **NO COMPROBADOS**; color A requiere inspección del JSON con `id` y `color`; T-062 en producción **NOT_EXECUTED** (nunca afirmar 13/13); T-032 de dos pestañas **NOT_EXECUTED**; censo D6 y upload/restore real **NOT_EXECUTED/NOT_VERIFIED**. El último intento de lectura autenticada mediante TinyFish no comenzó por falta de saldo; no se generó información ni hubo nuevas escrituras.
+
+**Recuperación:** continuar con smoke T-062 según `LABOR_S0_FREE_PROJECT_SMOKE.md`, que **crea sus propios dos proyectos temporales, los archiva y cierra las sesiones**. Requiere credenciales introducidas de forma oculta por operador y `jobId` inequívocamente autorizado; no usar proyectos existentes ni evidencias de un Job como fixture. Registrar `smoke-s0.json` solo si ejecutado. No declarar `VERIFIED` ni cerrar #935 por pruebas parciales.
+
 ## Acta de verificación de producción (parcial, 2026-10-15 UTC)
 
 La verificación se registra **por capa**, sin equiparar disponibilidad a aceptación funcional:
