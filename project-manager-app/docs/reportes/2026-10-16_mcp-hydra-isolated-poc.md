@@ -2,7 +2,7 @@
 
 ## Autoridad y alcance
 
-El propietario autorizó explícitamente una **prueba de concepto Ory Hydra autoalojada, con datos sintéticos y sin producción**, tras el cierre documental del PR #961 y el primer slice interno D4 (#953). **No es una decisión de adopción ni de despliegue**. D2 permanece PENDING, S1 REVIEW y ADR-045 PROPOSED.
+El propietario autorizó explícitamente una **prueba de concepto Ory Hydra autoalojada, con datos sintéticos y sin producción**, con el PR #961 en revisión documental y el primer slice interno D4 (#953) fusionado. **No es una decisión de adopción ni de despliegue**. D2 permanece PENDING, S1 REVIEW y ADR-045 PROPOSED.
 
 ## Equipo de pruebas
 - Binario Ory Hydra **v26.2.0** Linux SQLite x86_64 (binario oficial de GitHub Releases), descarga solo en runner temporal con SHA-256 fijo: `28baf98c6d5da617c905d5ca77826fe863db9f9edab8f72664c69a56bde56b5a`. No se modifica ni construye imagen Docker.
@@ -14,16 +14,20 @@ El propietario autorizó explícitamente una **prueba de concepto Ory Hydra auto
 
 | Código | Prueba | Criterio | Estado antes de ejecutar CI |
 |---|---|---|---|
-| H-P0 | Binario oficial y suma SHA256 | Versión exacta verificada | NOT_EXECUTED |
-| H-P1 | Hydra migrations y health | Servidor real inicia en loopback | NOT_EXECUTED |
-| H-P2 | Public OAuth client + Authorization Code/PKCE S256 | Rechaza verificador incorrecto, emite token con correcto | NOT_EXECUTED |
-| H-P3 | Hydra introspection, audience, issuer, client, scope | Token válido pasa; token ilegítimo y resource/issuer/client ajenos no | NOT_EXECUTED |
-| H-P4 | Revocación sintética de sesión/rol/consent | El **verificador de laboratorio** deniega siguiente acceso aunque token Hydra permanezca activo | NOT_EXECUTED |
+| H-P0 | Binario oficial y suma SHA256 | Versión exacta verificada | **PASS** — binario 26.2.0 verificado en runner |
+| H-P1 | Hydra migrations y health | Servidor real inicia en loopback | **PASS** — SQLite temporal y health real |
+| H-P2 | Public OAuth client + Authorization Code/PKCE S256 | Rechaza verificador incorrecto, emite token con correcto | **PASS** — OAuth real |
+| H-P3 | Hydra introspection, audience, issuer, client, scope | Token válido pasa; token ilegítimo y resource/issuer/client ajenos no | **PASS** — introspección Hydra real, validaciones del verificador sintético |
+| H-P4 | Revocación sintética de sesión/rol/consent | El **verificador de laboratorio** deniega siguiente acceso aunque token Hydra permanezca activo | **PASS SIMULADO** — Map de estados en memoria; NO sesión SEMSE real |
 | H-P5 | Falla de Hydra/introspección | En prototipo con servidor no disponible se deniega | NOT_EXECUTED |
 
 **Importante:** H-P4 NO demuestra revocación real de un `AuthSession` SEMSE persistido, `Membership` Postgres, ni consentimiento D7; solo que una puerta de autorización simulada reevalúa el estado. La prueba tampoco implementa un MCP host real, introspección integrada en NestJS, un Resource Server aceptado, E2E multinquilino ni aceptación total de D2.
 
-**CI:** tras crear el PR, adjuntar enlace y resultado terminal. No reemplazar `NOT_EXECUTED` por `PASS` antes de comprobar logs y jobs reales.
+**Evidencia CI real:** [Hydra isolated PoC run #38942363307](https://github.com/Semse-projet/project-manager-app/actions/runs/38942363307) **SUCCESS**, último código verificado commit `11f9ce31065a7b92943c8ff5b4e19e6a59d94b89`, el log emite: `PASS: real Hydra OAuth code+PKCE, audience/introspection; synthetic SEMSE revocation (23 checks)`. [CI principal #38942363691](https://github.com/Semse-projet/project-manager-app/actions/runs/38942363691) independiente — no marcar PASS hasta estado terminal.
+
+**Incidentes de laboratorio corregidos (no ocultar):** primer run [#38942074186](https://github.com/Semse-projet/project-manager-app/actions/runs/38942074186) falló por callback OAuth sin código; el [#38942201229](https://github.com/Semse-projet/project-manager-app/actions/runs/38942201229) reveló `request_forbidden` en callback. Se corrigió el cliente de pruebas para conservar la cookie CSRF de Hydra a lo largo de las redirecciones y el tercer run #38942363307 pasó con 23 checks. No se deshabilitó CSRF ni se relajó la validación PKCE.
+
+**Lo que sigue NOT_EXECUTED:** H-P5 simulación controlada de introspection/AS no disponible, conexión a un `AuthSession`/Membership/consent real de SEMSE, roles dinámicos con DB, OAuth resource-server de NestJS, compatibilidad de host MCP y pruebas de cero writes reales.
 
 ## Bloqueos y siguientes pruebas
 
