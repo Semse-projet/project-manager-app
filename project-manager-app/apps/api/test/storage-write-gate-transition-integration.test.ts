@@ -84,7 +84,7 @@ dbTest("T-008 PG: failed audit write rolls back phase transition", async () => {
     // UPDATE within the same transaction.
     await assert.rejects(() => service.transition({
       scope,expectedEpoch:1n,action:"BEGIN_DRAIN",
-      authority:{...authority("audit-t008-rollback"),actorUserId:"operator\\u0000invalid"},
+      authority:{...authority("audit-t008-rollback"),actorUserId:"operator" + String.fromCharCode(0) + "invalid"},
     }));
     const gate = await db.storageWriteGate.findUniqueOrThrow({where:{scope}});
     assert.equal(gate.phase,"OPEN");
