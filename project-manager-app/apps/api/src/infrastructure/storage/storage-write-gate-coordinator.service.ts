@@ -86,7 +86,11 @@ function normalizeScope(scope: StorageWriteScope): StorageWriteScope {
 
 @Injectable()
 export class StorageWriteGateCoordinator {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly prisma: PrismaService;
+
+  constructor(prisma: PrismaService) {
+    this.prisma = prisma;
+  }
 
   private async serializable<T>(fn: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
     return this.prisma.$transaction(fn, {
