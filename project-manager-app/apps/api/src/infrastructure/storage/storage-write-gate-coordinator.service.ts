@@ -1,4 +1,3 @@
-import { Injectable } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import path from "node:path";
 import { PrismaService } from "../prisma/prisma.service.js";
@@ -84,7 +83,6 @@ function normalizeScope(scope: StorageWriteScope): StorageWriteScope {
   return { environmentKey: scope.environmentKey, storageRoot: root };
 }
 
-@Injectable()
 export class StorageWriteGateCoordinator {
   private readonly prisma: PrismaService;
 
