@@ -71,3 +71,28 @@ dbTest("T-008 PG: drain, active ticket, freeze, thaw, epoch and audit are cohere
   }
 });
 
+dbTest("T-008 PG: failed audit write rolls back phase transition", async () => {
+  const db = new PrismaClient();
+  const scope = "test:/auditrollback-" + randomUUID();
+  try {
+    await db.storageWriteGate.create({data:{
+      scope,phase:"OPEN",epoch:1n,coverageDigest:"synthetic-only",
+    }});
+    const service = new StorageWriteGateTransitionService(db as never);
+    // PostgreSQL cannot encode NUL in text. The service validates only that
+    // actorUserId is nonempty; the audit insert is rejected AFTER the phase
+    // UPDATE within the same transaction.
+    await assert.rejects(() => service.transition({
+      scope,expectedEpoch:1n,action:"BEGIN_DRAIN",
+      authority:{...authority("audit-t008-rollback"),actorUserId:"operator\\u0000invalid"},
+    }));
+    const gate = await db.storageWriteGate.findUniqueOrThrow({where:{scope}});
+    assert.equal(gate.phase,"OPEN");
+    assert.equal(gate.epoch,1n);
+    assert.equal(await db.storageWriteGateAudit.count({where:{scope}}),0);
+  } finally {
+    await db.storageWriteGateAudit.deleteMany({where:{scope}}).catch(()=>undefined);
+    await db.storageWriteGate.deleteMany({where:{scope}}).catch(()=>undefined);
+    await db.$disconnect();
+  }
+});
