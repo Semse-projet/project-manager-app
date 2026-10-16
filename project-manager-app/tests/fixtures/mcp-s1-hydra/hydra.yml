@@ -1,0 +1,21 @@
+# LOCAL CI-ONLY SYNTHETIC HYDRA. Never reuse this for production.
+# The system secret and ephemeral sqlite DSN come from runner environment.
+serve:
+  public:
+    host: 127.0.0.1
+  admin:
+    host: 127.0.0.1
+urls:
+  self:
+    issuer: http://127.0.0.1:4444
+  login: http://127.0.0.1:3000/login
+  consent: http://127.0.0.1:3000/consent
+  logout: http://127.0.0.1:3000/logout
+secrets:
+  # CI injects random SECRETS_SYSTEM, not checked into Git.
+  cookie:
+    - PLACEHOLDER_IS_OVERRIDDEN_BY_CI
+oidc:
+  subject_identifiers:
+    supported_types:
+      - public
