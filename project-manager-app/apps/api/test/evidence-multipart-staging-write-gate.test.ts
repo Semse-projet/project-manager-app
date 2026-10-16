@@ -54,7 +54,8 @@ async function setup(t: import("node:test").TestContext) {
   const boundary=fakeBoundary();
   const storage=new StorageService(boundary as never);
   const controller=new EvidenceController({} as never,storage);
-  return {root,multipart,boundary,storage,controller,req:fakeReq("ten-fixture-"+randomUUID())};
+  const tenantId="ten-fixture-"+randomUUID();
+  return {root,multipart,boundary,storage,controller,tenantId,req:fakeReq(tenantId)};
 }
 const validHeader=()=>Buffer.concat([
   Buffer.from([0,0,0,24,...Buffer.from("ftyp"),0x6d,0x70,0x34,0x32]),
@@ -78,7 +79,7 @@ test("S3b multipart create and part are denied during DRAINING without files",as
   f.boundary.setState("DRAINING");
   await assert.rejects(
     ()=>f.controller.uploadMultipartPart(
-      fakeReq(f.req.authContext.tenantId,Readable.from([validHeader()])),
+      fakeReq(f.tenantId,Readable.from([validHeader()])),
       created.data.sessionId,"1"),
     is503,
   );
@@ -93,7 +94,7 @@ test("S3b multipart complete is denied in DRAINING after uploaded part exists",a
     domain:"evidence",filename:"original.mp4",contentType:"video/mp4",fileSizeBytes:header.length,
   }) as {data:{sessionId:string;key:string}};
   const uploaded=await f.controller.uploadMultipartPart(
-    fakeReq(f.req.authContext.tenantId,Readable.from([header])),
+    fakeReq(f.tenantId,Readable.from([header])),
     created.data.sessionId,"1",
   ) as {data:{etag:string}};
   assert.ok(f.boundary.admitted.includes("MULTIPART_PART"));
