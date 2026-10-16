@@ -4,7 +4,7 @@
 **Programa:** `platform.semse-prometeo-interoperability` (SDD REVIEW).  
 **Spec hija:** `platform.semse-mcp-project-read` (REVIEW).  
 **ADR:** `ADR-045-semse-mcp-inbound-authorization.md` (PROPOSED).  
-**Modalidad:** requisitos de seguridad **aprobados por el propietario en conversación el 2026-10-15**; las opciones de implementación D1–D7 siguen pendientes de aprobación técnica. **No cambiar los estados de la spec a APPROVED ni de la ADR-045 a ACCEPTED sin resolver sus decisiones pendientes y revisión de seguridad.**
+**Modalidad:** requisitos de seguridad SEC-S1-01/02/03 aprobados. El propietario además dio luz verde explícita a **D1, D3, D4, D5, D6 y D7** en conversación el 2026-10-15; **D2 (Authorization Server/OAuth concreto) sigue PENDING** y sujeto a revisión de seguridad. La aprobación del diseño no autoriza un endpoint externo, producción ni aceptación automática de ADR-045/S1.
 
 ## Decisión del propietario — requisitos de seguridad APROBADOS (2026-10-15)
 
@@ -18,7 +18,20 @@
 
 **Consecuencia operativa:** estas tres salvaguardas ya no son opcionales en ninguna variante de S1. Si no se demuestra una de ellas, mantener la superficie MCP desactivada (`INACTIVE`), incluso si todas las pruebas de documentación pasan.
 
-**Quedan sin decidir:** proveedor o implementación OAuth (D2), compatibilidad exacta del host/SDK (D1), modelo de consentimiento y revocación (D7), estructura de auditoría (D3), tratamiento de `ensureActorContext` (D4), proyección de salida (D5) y errores externos (D6). La ratificación de principios no equivale a aprobación de sus soluciones.
+**Decisiones técnicas ratificadas después de esta redacción inicial:** D1, D3, D4, D5, D6 y D7 están **APPROVED a nivel de solución propuesta**. D2 (issuer/Authorization Server/client onboarding y verificación de seguridad) sigue **PENDING**; verificar interoperabilidad SDK/host, consentimiento y revocación es obligación de aceptación técnica, no prueba ya realizada.
+
+## Acta técnica complementaria — owner GREEN LIGHT (2026-10-15)
+
+El propietario respondió **«Sí lo apruebo, tienes luz verde»** a la pregunta precisa de aprobar D1, D3, D4, D5, D6 y D7, manteniendo D2 en evaluación. Evidencia de seguimiento en [#952](https://github.com/Semse-projet/project-manager-app/issues/952). **No reinterpretar esta respuesta como aceptación de un IdP, tokens reales, cambio de flags productivas, rollout, migraciones o permiso de fusión automática.**
+
+| Decisiones | Estado | Alcance real |
+|---|---|---|
+| D1, D3, D4, D5, D6 y D7 | **APPROVED (diseño/solución)** | Implementación progresiva en PRs revisables, tests y evidencia obligatoria |
+| D2 | **PENDING (seguridad/IdP/OAuth)** | Sin issuer ni client onboarding elegido: prohíbe publicar MCP |
+| S1 / ADR-045 | **REVIEW / PROPOSED** | No elevar a APPROVED/ACCEPTED hasta cerrar D2 y aceptar threat review |
+| Runtime MCP | **NOT_DEPLOYED / INACTIVE** | Ni endpoint ni credenciales ni consent-store productivo activo |
+
+D4 se adelanta en una rama técnica **interna, no expuesta**: reutiliza la misma autorización de dominio de Projects y omite solo el bootstrap que puede escribir. D5 publica únicamente `projectId,status` desde el servicio interno; `correlationId` lo aportará una futura capa HTTP con request real, no se inventa. D3, D6 y D7 permanecen requisitos de implementación y aceptación final.
 
 ## Finalidad
 
@@ -26,7 +39,7 @@ Desbloquear **únicamente** S1: una tool MCP remota **read-only** para consultar
 
 **Documento de profundización D2/D7:** `docs/specs/platform/semse-mcp-project-read.oauth-bridge.md`. Propone OAuth resource audience, vinculación de sesión SEMSE, consent por empresa y revocación transaccional, pero mantiene pendiente la elección concreta de Authorization Server y persistencia.
 
-## Decisiones pendientes (recomendación prellenada, sujetas a aceptación explícita)
+## Matriz D1–D7: D1 y D3–D7 aprobadas por owner; D2 pendiente (pruebas aún obligatorias)
 
 | ID | Recomendación precisa | Motivo/evidencia | Alternativa rechazada/prohibida | Gate para APPROVED |
 |---|---|---|---|---|
@@ -38,7 +51,7 @@ Desbloquear **únicamente** S1: una tool MCP remota **read-only** para consultar
 | **D6** | 401 para bearer ausente/inválido (challenge OAuth), 403 para scope OAuth insuficiente; **error de tool uniforme** para ID inexistente o recurso de otra org/tenant, sin revelar existencia. Mantener diferencias internas para auditoría. | El API actual puede usar Forbidden/NotFound con semántica distinta; el MCP introduce otra superficie de enumeración. | Mostrar `orgId`, `tenantId` ajeno, IDs o razón exacta de denegación. | Test de paridad de salida y timing razonable para inexistente/ajeno; log auditado sin datos privados. |
 | **D7** | Control plane de consentimiento/binding S1: identidad de actor, org actual, client ID, resource/scope, fecha de vencimiento, estado ACTIVE/REVOKED; **no inventar ACTIVE global**. Feature flag OFF por defecto, revocación de consentimiento independiente de sesión. | Universal Connector maneja trust/provider pero no autoriza automáticamente org ni representa OAuth inbound vinculado a usuario. | Reusar status `AdminIntegrationsService.CONFIGURED_UNVERIFIED` como si fuera consentimiento. | Modelo de datos y migración expand/contract si hace falta, owner de revocación y prueba del siguiente `tools/call` bloqueado. |
 
-**Decisión propuesta:** D1, D3, D5, D6 recomendables sin cambio de kernel; D2, D4 y D7 **requieren diseño/revisión de seguridad específica**. Ninguna recomendación se declara aceptada por editar esta tabla.
+**Registro de aprobación:** el propietario aceptó las soluciones recomendadas D1, D3, D4, D5, D6 y D7; D4 adopta Option A (consulta interna sin bootstrap) y D7 adopta modelo de consent revocable. **D2 sigue sin proveedor seleccionado**. La implementación de D4 en la rama técnica vinculada a [issue #952](https://github.com/Semse-projet/project-manager-app/issues/952) no habilita transportes; OAuth, migración, auditoría durable y pruebas autenticadas reales siguen pendientes.
 
 ## Exigencias técnicas de versión (importante)
 
@@ -62,7 +75,7 @@ El manifiesto real `apps/api/package.json` usa `zod: ^3.24.2` y `@semse/schemas`
 
 ## Protocolo de implementación futura: bloqueos y entrega
 
-1. **Antes de implementar:** owner/seguridad acepta ADR-045, cierra D1–D7 y convierte child S1 a APPROVED; registrar decisión y comentarios en GitHub.
+1. **Antes de exponer MCP/implementar OAuth:** cerrar D2, obtener revisión de seguridad, aceptar ADR-045 y child S1 APPROVED; mientras tanto el código interno D4 sin rutas externas puede desarrollarse en PR separado y permanece INACTIVE. Registrar decisión, actor y SHA.
 2. Implementación en rama/PR técnico independiente; no ejecutar migraciones destructivas ni crear segundo negocio.
 3. **Tests antes del código:** conformidad modern pinned; Auth/OAuth y 2 tenants + 2 orgs mismo tenant; usuario revocado con token vigente; errores no enumerativos; flag OFF; output allowlist; cero writes y cero secretos; fallos de DB auth.
 4. Código: adapter mínimo de lectura conectado a backend de dominios, AuthGuard/Policy y gateway OAuth validado. `tools/list` no confiere derecho a ejecutar `tools/call`.
@@ -74,6 +87,6 @@ El manifiesto real `apps/api/package.json` usa `zod: ^3.24.2` y `@semse/schemas`
 
 **Confirmado en GitHub:** PR #939 fusionado a `21426fda974a21989f8d64145da66eca38367897`; PR #940 fusionado a `62ce802a436554bd6dae95e3cd8958975e74c9df`; ambos con pipelines `quality-gates`, `unit-coverage`, `e2e` exitosos sobre sus SHAs de documentación.
 
-**No confirmado / no implementado:** issuer/resource OAuth, client onboarding, contrato de consentimiento, código de MCP Server, read-only runtime, prueba host ChatGPT, tests autenticados MCP reales, Railway y flags/secretos productivos. La spec sigue REVIEW y la ADR-045 PROPOSED.
+**No confirmado / no implementado:** issuer/resource OAuth D2, client onboarding, almacenamiento de consentimiento D7, código de MCP Server, prueba real de host, tests autenticados MCP, Railway y flags/secretos productivos. La ruta interna D4 está en desarrollo en PR separado, no en producción. La spec sigue REVIEW y la ADR-045 PROPOSED.
 
 **Owner decision record (rellenar al aprobar):** fecha, decision D1–D7, alcance, aprobador, threat review, SHA, enlace de acta y child spec actualizado. Ausencia de firma/review = NO APPROVED.
