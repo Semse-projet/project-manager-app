@@ -54,3 +54,33 @@ date: "2026-10-11"
 - [ ] Analizar diff de implementación y cobertura E2E real antes de activar.
 
 **Referencia de autorización CAP-0:** https://github.com/Semse-projet/project-manager-app/pull/872#issuecomment-6114318002 — no constituye firma legal del GC ni consentimiento de personas visibles.
+
+
+## Gate P0 T-008 — Write-quiescence & recovery, 2026-10-15 (issue #954)
+
+Este checklist describe **criterios de aceptación**, no verificaciones ejecutadas. El contrato aprobado CAP-0 permite planificar la barrera, pero la ventana real y el acceso a originales requieren controles independientes.
+
+### Arquitectura y cobertura
+- [ ] Censo de servicios, procesos, mounts y writers productivos; incluir StorageService.store/delete, plan y PUT, Browser Agent, Evidence register, multipart create/parts/complete y mutaciones de referencias; identificar rutas fuera del gate.
+- [ ] Postgres gate duradero, transición/admision atómica y registro por operación activa; sin fallbacks a memoria o Redis cuando falla autoridad.
+- [ ] \`DRAINING\` rechaza escrituras nuevas; un writer en curso no puede publicar después de certificado \`FROZEN\`.
+- [ ] Ningún heartbeat vencido permite limpiar \`ACTIVE\` sin probar terminación/fencing del escritor; fallos/restarts bloquean freeze.
+- [ ] API/operador administrativo sin acceso público, autorización efectiva + motivo + idempotencia + audit trail, sin secretos en logs.
+- [ ] Prohibida activación de freeze con versiones viejas o procesos no instrumentados; rollback documentado sin abrir writes.
+
+### Validación automatizada y staging
+- [ ] Tests de carrera admission vs drain y publish vs freeze, dos procesos/réplicas, reintento, DB offline, freeze bloqueado ante active huérfana, thaw explícito y multipart temporal.
+- [ ] Evidencia Postgres consistente y sin referencias Evidence creadas durante FROZEN; diferenciar huérfanos históricos/in-flight.
+- [ ] Prueba E2E sintética 2 tenants/2 orgs, actor revocado y permisos. Ningún byte de usuario real llega a GitHub Actions.
+- [ ] Exact head SHA: TS/lint/unit/integration/e2e/security/CI verdes; SDD index y spec:validate:strict pasan.
+
+### Producción y recuperación
+- [ ] Merge autorizado y Railway SHA exacto del nuevo gate verificado: salud, logs, modo OPEN, todas las instancias protegidas.
+- [ ] Ventana efectiva FROZEN verificada, zero-active y fuente íntegra, sin suspender servicios no involucrados.
+- [ ] BitLocker D: On 100 %, ACL privado y clave recovery fuera de D: confirmados por operador; no publicar clave.
+- [ ] Manifest SHA-256 antes/después, exportación fuera de Git + restore aislado con recuento positivo, 0 faltantes/alterados/sobrantes.
+- [ ] Evidencia/Postgres en la misma frontera temporal, reconcilia checksum de bytes del servidor, tenant/org y retención.
+- [ ] Backup gestionado Railway identificado con fecha/retención y restauración probada en destino aislado; no usar Restore en producción.
+- [ ] CAP-1 sigue INACTIVE salvo autorización independiente y cumplimiento del resto de la spec.
+
+**No reportar VERIFIED:** tests de herramienta, preflight local/remoto, BitLocker o Railway SUCCESS no equivalen a congelación de bytes y DB ni a recuperación integral.
