@@ -84,7 +84,8 @@ Mutaciones:
 ### FreeProject (Labor Engine)
 
 Excepción explícita a "ownership se resuelve por organizacion" (spec
-`labor.free-project-mutation-guard`, D10, aprobada 2026-10-15):
+`labor.free-project-mutation-guard`, D10, **ratificada expresamente por el owner**
+el 2026-10-15 y registrada en el hilo de revisión P1 del PR #937):
 
 - es un agregado **personal**: lectura y mutación por id sólo para su creador
   (`createdBy`) dentro de `tenantId`; pertenecer a la misma org o al mismo

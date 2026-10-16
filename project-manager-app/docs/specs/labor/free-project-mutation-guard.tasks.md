@@ -17,7 +17,7 @@ date: "2026-10-15"
 ## Fase 0 — SDD y verdad
 
 - [x] [T-001] Confirmar spec `APPROVED` e indexado (2026-10-15, spec §14)
-- [~] [T-002] Registrar SHA de `main` (`83375e6`) y SHA desplegado de `semse-API` — este último NOT_VERIFIED (sin acceso a Railway desde la sesión)
+- [x] [T-002] Baseline vulnerable `83375e6`; deploy `semse-API` SHA `6eae43cb56888ade2d180dfa12f9350a48c17300` SUCCESS a las 2026-10-15T18:15:53Z en Railway.
 - [x] [T-003] Plan y checklist
 - [x] [T-004] Investigación externa y decisiones registradas (spec §11, §13, §14)
 - [x] [T-005] Runbook del censo D6 de sólo lectura (`docs/runbooks/LABOR_S0_FREE_PROJECT_CENSUS.md`)
@@ -63,29 +63,29 @@ date: "2026-10-15"
 
 ## Fase 5 — PR, CI y merge
 
-- [ ] [T-050] Revisar diff y secretos; sin datos reales en fixtures
-- [ ] [T-051] PR acotado con evidencia de rojo→verde y recuperación por forward-fix (D7)
-- [ ] [T-052] CI terminal; registrar `ci_status`
-- [ ] [T-053] Resolver review sin ampliar scope
-- [ ] [T-054] Merge sólo con autorización del owner; registrar SHA y `merge_status`
+- [x] [T-050] Diff y revisión de seguridad de #937 completados antes de merge; el PR documenta alcance sin secretos en fixtures.
+- [x] [T-051] PR #937 fusionado; recuperación forward-fix D7 documentada.
+- [x] [T-052] CI final de #937 9/9 PASS (head 372846cb); CI #941 SUCCESS run 38777634351.
+- [x] [T-053] Revisión de #937: hilo P1 D10 contestado con aprobación expresa del owner el 2026-10-15 y marcado resuelto.
+- [x] [T-054] Merge #937 SHA 29bf284ca2eb982afad948bb3f80bec395e9f604; #938 y #941 también fusionados.
 
 ## Fase 6 — Deploy y verificación
 
-- [ ] [T-060] Deployment terminal de `semse-API` con el SHA fusionado
-- [ ] [T-061] Health/readiness y logs sin errores nuevos; ante regresión, forward-fix — nunca rollback a un deployment sin el guard
-- [ ] [T-062] Smoke autenticado con dos usuarios de prueba autorizados del mismo tenant (spec §8); nunca proyectos de usuarios reales — script `scripts/labor-s0-free-project-smoke.mjs`, procedimiento en `docs/runbooks/LABOR_S0_FREE_PROJECT_SMOKE.md`
+- [x] [T-060] Railway production semse-API desplegado: SUCCESS 2026-10-15T18:15:53Z, SHA 6eae43cb56888ade2d180dfa12f9350a48c17300.
+- [~] [T-061] GET /v1/ready: ready + storage ok a las 18:23:17Z; servicio online y sin work pending. Queda evaluación completa de logs/avisos y subida autenticada.
+- [ ] [T-062] Smoke autenticado 13/13 en producción NO EJECUTADO. Hay dos sesiones de prueba A/B navegables, pero la igualdad de tenant y el Job sintético autorizado NO ESTÁN CONFIRMADOS por backend. Script y runbook disponibles.
 - [ ] [T-063] Registrar `production_evidence` sin PII, `last_verified`, `status: VERIFIED`
 - [ ] [T-064] Enlazar resultado en #935 y #934; no cerrar #935
-- [~] [T-065] Reporte creado (`docs/reportes/2026-10-15_labor-s0-free-project-guard.md`); completar con CI/merge/deploy/smoke cuando ocurran. Crear el reporte de implementación en `docs/reportes/YYYY-MM-DD_labor-s0-free-project-guard.md` (convención de `docs/reportes/README.md`): archivos y SHAs, evidencia rojo→verde, CI, merge, deploy, smoke, lo no verificado y handoff a S1
+- [~] [T-065] Reporte actualizado con CI/merge/deploy/D10 y navegación A/B, pero NO COMPLETO hasta smoke 13/13, T-032 y D6 (o NOT_EXECUTED justificado).
 
 ## Criterio de Done
 
-- [ ] Código completo y tests verdes
-- [ ] CI `PASS`
-- [ ] Merge `MERGED`
-- [ ] Deploy `DEPLOYED`
+- [x] Código completo y tests dirigidos de S0 verdes; fallos DNS de entorno local documentados, CI PASS
+- [x] CI `PASS` (#937 y #941)
+- [x] Merge `MERGED` (#937/#938/#941)
+- [x] Deploy `DEPLOYED` (API SUCCESS `6eae43cb`)
 - [ ] Activación `ACTIVE` (sin flag, D7) con smoke verificado
-- [ ] Migración `NOT_APPLICABLE`
+- [x] Migración `NOT_APPLICABLE`
 - [ ] Evidencia de producción enlazada
 - [ ] Índice de specs actualizado
-- [ ] Reporte en `docs/reportes/` creado (T-065)
+- [x] Reporte en `docs/reportes/` creado (T-065); aceptación final pendiente

@@ -6,7 +6,27 @@ Estado por capa, sin inferir una de otra:
 
 | SPEC | CODE | TEST local | CI | MERGE | DEPLOY | ACTIVATION | UAT |
 |---|---|---|---|---|---|---|---|
-| IMPLEMENTED | COMPLETE | PASS (ver Evidencia) | pendiente en #937 | UNMERGED | NOT_DEPLOYED | INACTIVE | NOT_RUN |
+| IMPLEMENTED | COMPLETE | PASS dirigido (8 fallos DNS locales preexistentes) | PASS (#937, 9/9) | MERGED (#937, #938, #941) | DEPLOYED (`6eae43cb`, Railway SUCCESS) | ACTIVE (guard, sin flag) | PARTIAL: navegación A/B; smoke no ejecutado |
+
+## Acta de verificación de producción (parcial, 2026-10-15 UTC)
+
+La verificación se registra **por capa**, sin equiparar disponibilidad a aceptación funcional:
+
+- **D10 — decisión explícita:** el owner confirmó en la conversación del 2026-10-15 que FreeProject es personal de su creador (`createdBy`) dentro del tenant. Ratificación registrada en la revisión P1 de [#937](https://github.com/Semse-projet/project-manager-app/pull/937) y ese hilo quedó resuelto. No equivale a cerrar otros gates.
+- **CI de #937:** nueve checks en verde para el head `372846cb7079276e9238eb8f8f802676c9d77b5d`, incluidos quality, coverage, integración, e2e y CodeQL. **#941:** workflow CI `38777634351` terminó SUCCESS (quality-gates, unit-coverage, e2e). Los resultados locales de pruebas dependientes de DNS, descritos abajo, no se ocultan.
+- **Merge:** #937 → `29bf284ca2eb982afad948bb3f80bec395e9f604`; #938 → `cd50c6b75737c8c77af05c54739be4654ebcca0f`; #941 → `6eae43cb56888ade2d180dfa12f9350a48c17300`.
+- **Railway API, production:** despliegue `feca4630-fe39-4dfe-96ac-521bb239edef` de `6eae43cb56888ade2d180dfa12f9350a48c17300` terminado **SUCCESS** 2026-10-15T18:15:53.802Z; API online, sin despliegue pendiente en la comprobación posterior.
+- **Readiness:** GET `https://api.semseproject.com/v1/ready` → `ready` 2026-10-15T18:23:17.418Z; storage `ok` con `Local storage root is writable (local:/data/semse-storage)`, junto con DB, migraciones, Redis y worker `ok`. Un volumen Railway de 5 GB está montado en `/data`. **No demuestra backup ni restore ni una subida autenticada de evidencia.**
+- **Rutas protegidas sin sesión:** GET `/v1/labor/free-projects`, GET `/v1/time-tracker/jobs` y web BFF `/api/semse/time-tracker/jobs` respondieron HTTP **401** sin autenticación. Sólo acredita denegación anónima.
+- **Navegación autenticada:** dos perfiles independientes A/B pudieron abrir `/worker/tracker`; ambos muestran rol «Profesional», las seis pestañas y un selector de Job con una opción. A muestra un FreeProject, B lista vacía. **No se comprobó por `/v1/auth/me` que sean personas distintas ni que pertenezcan al mismo `tenantId`.** Los nombres de Jobs observados no prueban por sí solos su carácter sintético. Se navegó **sin mutar datos**.
+- **Bloqueo P0 — cuenta A / Job existente no seguro para smoke:** la lectura de `docs/AUDIT_REMEDIATION_PLAN.md` en `main` encontró el Job que ve A (`cmqvqsol40023k101j9fh81mq`) referenciado en una auditoría en vivo que lo trata como trabajo de una **cuenta profesional real** e incluye una evidencia JPEG real. Que el título sea genérico **no lo convierte en fixture sintético**. Prohibido usar ese Job o el FreeProject ya existente de A para pruebas de escritura. La cuenta B tampoco tiene un Job verificado como sintético. Crear/provisionar dos cuentas `WORKER/PRO` expresamente de prueba en el mismo tenant y un Job aislado con asignación autorizada antes de T-062; no interpretar perfiles de navegador guardados como autorización para alterar datos reales. No se ha ejecutado ninguna mutación.
+- **T-062:** `NOT_EXECUTED` en producción; **no existe** `smoke-s0.json` verificado de la corrida real. El `PASS (13/13)` del PR #941 procede sólo de fixtures de prueba locales.
+- **T-032:** `NOT_EXECUTED` en navegador el conflicto de dos pestañas / proyecto archivado. Visibilidad de controles no valida error 409 ni estabilidad después de un conflicto.
+- **D6:** `NOT_EXECUTED`; no se dispuso de rol PostgreSQL de sólo lectura para ejecutar el censo sin PII. Conteos **no disponibles**, no cero.
+- **Custodia de evidencia:** subida autenticada de foto, inventario SHA-256 de originales y restore aislado siguen `NOT_VERIFIED` y no forman parte de este gate S0.
+- **Observación de infraestructura:** Railway muestra Postgres online con un aviso no caracterizado; requiere diagnóstico independiente. No se infiere caída de DB a partir de ese aviso.
+
+**Política de liberación:** este reporte no acredita aceptación de S0 ni cierre del EPIC #935. Si se detecta fallo, remediar con PR y forward-fix; no hacer rollback del guard de ownership.
 
 ## Resumen
 
@@ -43,14 +63,15 @@ CI ni Railway. No hay feature flag (D7).
 
 ## Checklist final
 
-- ✅ Aprobación del owner registrada (spec §14), con condiciones D6–D9 y de concurrencia.
+- ✅ D1–D9 y concurrencia documentadas; D10 ratificada **expresamente** el 2026-10-15 y registrada en #937.
 - ✅ Tests negativos escritos primero y rojos contra `main` (18/25).
 - ✅ Implementación; los 25 tests de S0 en verde.
 - ✅ Integración con PostgreSQL real: ownership, destino y rollback de la transacción.
 - ✅ Prueba de mutación: sacar la escritura de la transacción pone rojo el test de rollback.
 - ✅ Regresión API, typecheck del workspace, lint de la API, gates SDD.
 - ✅ D9 en PR independiente (#938), con su propio test rojo→verde.
-- ❌ CI de GitHub, revisión, merge, deploy, smoke autenticado: pendientes.
+- ✅ CI de #937 y #941, revisión de #937, merge de #937/#938/#941 y deploy API terminal verificados.
+- ❌ Smoke autenticado T-062 de producción (13/13): NO EJECUTADO.
 - ❌ Censo D6: runbook listo; no ejecutado (requiere operador con rol de sólo lectura en producción).
 - ❌ Prueba en navegador del mensaje de error en `ProyectosTab`: revisado en código, no ejecutado.
 
@@ -93,23 +114,11 @@ externa para DNS. Fixtures 100% sintéticos.
 9. **SDD** — `spec:validate --strict --base-ref origin/main`, `spec:index:check`
    y `spec:audit-plan-coverage`: 0 errores.
 
-## No verificado
+## Pendientes para aceptación S0
 
-- SHA desplegado de `semse-API` (sin acceso a Railway desde la sesión).
-- CI de GitHub en el head final de #937.
-- Censo D6 en producción (`NOT_EXECUTED`).
-- Smoke autenticado de dos usuarios en producción.
-- UI en navegador.
-
-## Siguientes pasos
-
-1. Esperar CI y revisión de #937; resolver hallazgos sin ampliar el alcance.
-2. Merge sólo con autorización del owner; registrar SHA.
-3. Deploy del API y smoke autenticado con dos usuarios de prueba (spec §8).
-   Ante una regresión: forward-fix, **nunca** volver a un deployment sin el
-   guard (D7).
-4. Ejecutar el censo D6 y anotar los conteos sin atribuirlos a personas.
-5. Fusionar #938 (D9).
-6. S1 (#933): archivados, restauración por endpoint dedicado y paginación;
-   S2 (#931): ubicación y semántica de `null` en PATCH; S3 (#932/#934):
-   asignación individual para selector, cronómetro y conversión.
+1. **Precondiciones T-062:** comprobar por `/v1/auth/me` que A y B son dos usuarios de prueba diferentes del mismo `tenantId`, con `field-ops:write`; verificar que el `SEMSE_SMOKE_JOB_ID` corresponde a un Job **autorizado y designado expresamente de prueba** para A. No usar el Job sólo porque parezca sintético.
+2. Ejecutar `scripts/labor-s0-free-project-smoke.mjs` primero sin `--yes` y luego con `--yes --out smoke-s0.json` desde un entorno autorizado, guardando el JSON sin credenciales; aceptar sólo `PASS (13/13)` y exit 0.
+3. Verificar T-032 de dos pestañas con FreeProject sintético y 409 visible en rojo sin romper la lista; comprobar crear/editar/archivar, temporizador propio y Job asignado sin alterar registros ajenos.
+4. Subir evidencia **sintética** con cuenta autorizada; comprobar no sólo readiness sino bytes/hash y política de custodia por su runbook separado.
+5. Ejecutar censo D6 bajo rol PostgreSQL `READ ONLY` autorizado; registrar sólo agregados. Hasta entonces conservar `NOT_EXECUTED`.
+6. Enlazar artefactos y sus horas UTC en el reporte, issue #934 y EPIC #935; sólo entonces evaluar `status: VERIFIED`. Mantener #935 abierto por S1/S2/S3 y otros gates AAAA.

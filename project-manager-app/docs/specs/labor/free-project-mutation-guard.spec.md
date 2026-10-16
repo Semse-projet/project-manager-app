@@ -11,13 +11,17 @@ date: "2026-10-15"
 author: "Claude"
 spec_index: "docs/SPEC_INDEX.md"
 code_status: "COMPLETE"
-ci_status: "NOT_RUN"
-merge_status: "UNMERGED"
-deploy_status: "NOT_DEPLOYED"
-activation_status: "INACTIVE"
+ci_status: "PASS"
+merge_status: "MERGED"
+deploy_status: "DEPLOYED"
+activation_status: "ACTIVE"
 migration_status: "NOT_APPLICABLE"
 feature_flags: []
-production_evidence: []
+production_evidence:
+  - "https://github.com/Semse-projet/project-manager-app/pull/937"
+  - "https://github.com/Semse-projet/project-manager-app/pull/941"
+  - "https://api.semseproject.com/v1/ready"
+  - "docs/reportes/2026-10-15_labor-s0-free-project-guard.md"
 related_files:
   - apps/api/src/modules/labor-engine/labor-engine.controller.ts
   - apps/api/src/modules/labor-engine/labor-engine.service.ts
@@ -571,12 +575,14 @@ rollback real de la transacción, que necesita PostgreSQL (ver abajo).
 - **Concurrencia:** autorizado no bloquear la fila del Job en S0, siempre
   que `convertedJobId` sea referencia histórica, nunca conceda permisos y
   toda lectura posterior verifique de nuevo el acceso vigente (§4).
-- **D10:** no figuraba en la lista aprobada (se agregó tras la segunda
-  revisión de Codex). Se trata como cubierta por la aprobación de S0: D1
-  (proyecto ajeno = 404) y D5 (FreeProject personal) presuponen ownership
-  por `createdBy`, y el owner pidió implementar la corrección. La entrada en
-  `DOMAIN_INVARIANTS.md` va en el mismo PR para revisión explícita; si el
-  owner la objeta, se detiene antes del merge.
+- **D10 (ratificación expresa 2026-10-15):** el propietario confirmó
+  literalmente en la conversación: «FreeProject es personal de su creador
+  (`createdBy`) dentro de su tenant». La decisión se registró como
+  respuesta al hilo de revisión P1 de #937, y dicho hilo quedó resuelto.
+  Es una excepción **personal explícita** al invariante general de organización,
+  registrada en `DOMAIN_INVARIANTS.md`. Los FreeProjects de terceros del mismo
+  tenant u org no se pueden leer ni mutar por compartir membresía.
+  Esta ratificación no prueba el smoke autenticado ni el censo D6.
 - **Restricciones de entrega:** sin merge ni despliegue en producción hasta
   verificar CI, revisión y criterios de aceptación. Conservar los datos
   históricos y las horas registradas por los usuarios.
@@ -597,6 +603,13 @@ Detalle completo en
   escritura fuera de la transacción.
 - Regresión de la API, typecheck del workspace, lint de la API y gates SDD
   verdes, salvo fallos preexistentes que dependen de DNS (reporte §Evidencia).
-- Sin verificar: CI de GitHub, merge, deploy, smoke autenticado, censo D6 y
-  prueba en navegador.
+- Verificado posteriormente (2026-10-15): CI de #937 PASS 9/9; merge de
+  #937/#938/#941; Railway API SUCCESS (SHA `6eae43cb`);
+  `/v1/ready` storage `ok`. La decisión D10 quedó ratificada expresamente.
+- **No ejecutado:** smoke T-062 en producción (13/13), escenario T-032 de
+  conflicto en dos pestañas, censo D6 y upload/restore auténticos.
+  La navegación A/B sólo confirmó interfaz y autenticación; aún se debe
+  verificar misma identidad de tenant y test Job desde API antes de escribir.
+  La spec permanece `IMPLEMENTED`, **no** `VERIFIED`.
+  Detalles en el reporte enlazado arriba.
 
