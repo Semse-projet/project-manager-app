@@ -489,26 +489,24 @@ export class EvidenceController {
 
     const actor = resolveRequestContext(req);
     const requestId = resolveRequestId(req.headers ?? {});
-    return this.storageService.withWriteGateMutation("EVIDENCE_REGISTER", async () => {
-      const evidence = await this.evidenceService.register({
-        tenantId: actor.tenantId,
-        orgId: actor.orgId,
-        userId: actor.userId,
-        roles: actor.roles,
-        requestId,
-        projectId: parsed.data.projectId,
-        jobId: parsed.data.jobId,
-        milestoneId: parsed.data.milestoneId,
-        key: parsed.data.key,
-        kind: parsed.data.kind,
-        filename: parsed.data.filename,
-        // Metadata is untrusted and remains subject to EvidenceRepository's
-        // parseEvidenceMetadata bounds and reserved-key checks (C67).
-        metadata: parsed.data.metadata
-      });
-
-      return ok(requestId, toVisibleEvidence(evidence));
+    const evidence = await this.evidenceService.register({
+      tenantId: actor.tenantId,
+      orgId: actor.orgId,
+      userId: actor.userId,
+      roles: actor.roles,
+      requestId,
+      projectId: parsed.data.projectId,
+      jobId: parsed.data.jobId,
+      milestoneId: parsed.data.milestoneId,
+      key: parsed.data.key,
+      kind: parsed.data.kind,
+      filename: parsed.data.filename,
+      // Metadata is untrusted and remains subject to EvidenceRepository's
+      // parseEvidenceMetadata bounds and reserved-key checks (C67).
+      metadata: parsed.data.metadata
     });
+
+    return ok(requestId, toVisibleEvidence(evidence));
   }
 
   /**
@@ -532,22 +530,20 @@ export class EvidenceController {
 
     const actor = resolveRequestContext(req);
     const requestId = resolveRequestId(req.headers ?? {});
-    return this.storageService.withWriteGateMutation("EVIDENCE_REGISTER", async () => {
-      const evidence = await this.evidenceService.registerPhotoWithExif({
-        tenantId: actor.tenantId,
-        orgId: actor.orgId,
-        userId: actor.userId,
-        roles: actor.roles,
-        requestId,
-        projectId,
-        key: parsed.data.key,
-        filename: parsed.data.filename,
-        category: parsed.data.category,
-        description: parsed.data.description
-      });
-
-      return ok(requestId, toVisibleEvidence(evidence));
+    const evidence = await this.evidenceService.registerPhotoWithExif({
+      tenantId: actor.tenantId,
+      orgId: actor.orgId,
+      userId: actor.userId,
+      roles: actor.roles,
+      requestId,
+      projectId,
+      key: parsed.data.key,
+      filename: parsed.data.filename,
+      category: parsed.data.category,
+      description: parsed.data.description
     });
+
+    return ok(requestId, toVisibleEvidence(evidence));
   }
 
   @Get("v1/jobs/:jobId/evidence")
