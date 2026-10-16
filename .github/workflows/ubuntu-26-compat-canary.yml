@@ -28,6 +28,7 @@ jobs:
 
     steps:
       - name: Runner diagnostics
+        working-directory: .
         run: |
           set -euo pipefail
           cat /etc/os-release
@@ -68,6 +69,7 @@ jobs:
 
       - name: Record final disk state
         if: always()
+        working-directory: .
         run: |
           df -h .
           df -h /tmp || true
