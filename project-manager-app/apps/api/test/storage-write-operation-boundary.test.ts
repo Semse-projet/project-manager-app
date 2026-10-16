@@ -62,15 +62,21 @@ test("proven clean failure settles FAILED_CLEAN", async () => {
   assert.equal(f.state, "FAILED_CLEAN");
 });
 
-test("failed settlement does not claim success or mark clean", async () => {
+test("failed settlement does not invoke cleanup of an already published original", async () => {
   let settled = 0;
+  let cleaned = 0;
   const boundary = new StorageWriteOperationBoundary({
     admitWrite: async () => ({id:"ticket",...sample,epoch:1n}),
     assertActive: async () => {},
     settleWrite: async () => { settled++; throw Error("database failure during settle"); },
   } as never);
-  await assert.rejects(() => boundary.run({...sample, work: async () => "bytes-published"}),/database failure/);
+  await assert.rejects(() => boundary.run({
+    ...sample,
+    work: async () => "bytes-published",
+    proveCleanFailure: async () => { cleaned++; throw Error("published file MUST NOT be removed"); },
+  }), /database failure/);
   assert.equal(settled, 1);
+  assert.equal(cleaned, 0, "cleanup must not run after successful publication");
 });
 
 test("boundary not provided in runtime Nest StorageModule", () => {
