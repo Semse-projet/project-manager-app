@@ -19,7 +19,7 @@ function fixture() {
   let dbDown = false;
   let hasGate = true;
   let serialized = Promise.resolve();
-  const tx = {
+  const fakeTx = {
     async $queryRaw(strings: TemplateStringsArray, ...args: unknown[]) {
       const query = strings.join("?").replace(/\s+/g, " ");
       if (query.includes('FROM "StorageWriteGate"')) {
@@ -56,9 +56,9 @@ function fixture() {
     },
   };
   const prisma = {
-    async $transaction<T>(fn: (tx: typeof tx) => Promise<T>) {
+    async $transaction<T>(fn: (transaction: typeof fakeTx) => Promise<T>) {
       if (dbDown) throw new Error("DB unavailable");
-      const next = serialized.then(() => fn(tx));
+      const next = serialized.then(() => fn(fakeTx));
       serialized = next.then(() => undefined, () => undefined);
       return next;
     },
