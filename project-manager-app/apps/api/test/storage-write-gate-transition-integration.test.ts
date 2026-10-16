@@ -45,6 +45,13 @@ dbTest("T-008 PG: drain, active ticket, freeze, thaw, epoch and audit are cohere
     assert.deepEqual(drained, {phase:"DRAINING", epoch:1n});
     await assert.rejects(
       () => transition.transition({
+        scope, expectedEpoch:1n, action:"ABORT_DRAIN",
+        authority: authority("audit-t008-abort-with-active"),
+      }), rejectReason("active_operations"));
+    assert.equal((await db.storageWriteGate.findUniqueOrThrow({where:{scope}})).epoch,1n);
+
+    await assert.rejects(
+      () => transition.transition({
         scope, expectedEpoch:1n, action:"MARK_FROZEN", authority:authority("audit-t008-early"),
       }), rejectReason("active_operations"));
     assert.equal(await db.storageWriteGateAudit.count({where:{scope}}), 1);
