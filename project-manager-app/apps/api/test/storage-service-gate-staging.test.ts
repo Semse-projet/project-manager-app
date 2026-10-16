@@ -8,7 +8,7 @@ import { Readable } from "node:stream";
 import { StorageService } from "../dist/infrastructure/storage/storage.service.js";
 
 const KEY = "tenants/tenantA/public-intake/evidence/gate-synthetic.txt";
-const vars = ["SEMSE_STORAGE_ROOT", "SEMSE_STORAGE_WRITE_GATE_MODE", "NODE_ENV", "STORAGE_PROVIDER"];
+const vars = ["SEMSE_STORAGE_ROOT", "SEMSE_STORAGE_WRITE_GATE_MODE", "NODE_ENV", "STORAGE_PROVIDER", "RAILWAY_ENVIRONMENT", "RAILWAY_ENVIRONMENT_NAME"];
 
 async function isolated(t: import("node:test").TestContext, mode = "staging") {
   const original = Object.fromEntries(vars.map(k => [k, process.env[k]]));
@@ -17,6 +17,8 @@ async function isolated(t: import("node:test").TestContext, mode = "staging") {
   process.env.SEMSE_STORAGE_WRITE_GATE_MODE = mode;
   process.env.NODE_ENV = "test";
   process.env.STORAGE_PROVIDER = "local";
+  delete process.env.RAILWAY_ENVIRONMENT;
+  delete process.env.RAILWAY_ENVIRONMENT_NAME;
   t.after(async () => {
     for (const [key, value] of Object.entries(original)) {
       if (value === undefined) delete process.env[key];
@@ -102,6 +104,14 @@ test("production refuses staging gate instead of claiming partial enforcement",a
   await isolated(t);
   process.env.NODE_ENV = "production";
   const storage = new StorageService(fakeBoundary().gate as never);
+  await assert.rejects(()=>storage.store({key:KEY,stream:Readable.from(["x"]),contentType:"text/plain"}),e=>(e as {status?:number}).status===503);
+});
+
+test("Railway production marker rejects partial staging enforcement even with NODE_ENV=test",async t=>{
+  await isolated(t);
+  process.env.RAILWAY_ENVIRONMENT = "production";
+  const storage = new StorageService(fakeBoundary().gate as never);
+  await assert.rejects(()=>storage.putUploadPlan({key:KEY,contentType:"text/plain"}),e=>(e as {status?:number}).status===503);
   await assert.rejects(()=>storage.store({key:KEY,stream:Readable.from(["x"]),contentType:"text/plain"}),e=>(e as {status?:number}).status===503);
 });
 
