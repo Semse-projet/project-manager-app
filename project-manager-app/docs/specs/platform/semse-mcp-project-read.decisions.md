@@ -20,6 +20,10 @@
 
 **Decisiones técnicas ratificadas después de esta redacción inicial:** D1, D3, D4, D5, D6 y D7 están **APPROVED a nivel de solución propuesta**. D2 (issuer/Authorization Server/client onboarding y verificación de seguridad) sigue **PENDING**; verificar interoperabilidad SDK/host, consentimiento y revocación es obligación de aceptación técnica, no prueba ya realizada.
 
+## Evaluación D2 preparada (16-oct-2026; **sin decisión de proveedor**)
+
+Ver [`semse-mcp-project-read.d2-evaluation.md`](semse-mcp-project-read.d2-evaluation.md) para la evaluación comparativa y el contrato de pruebas D2-01…14. Recomienda **solo evaluar** Ory Hydra autoalojado como AS dedicado con login/consent SEMSE, tokens opacos/introspección y membresía vigente verificada en cada llamada. Alternativas: servicio gestionado, Keycloak o mantener MCP inactivo. **No se ha aprobado ni desplegado Hydra**, creado credenciales, aceptado OAuth real o habilitado MCP. El código interno D4 del PR #953 ya fue fusionado, pero **no** es un Resource Server OAuth ni valida identidad en su método por sí solo.
+
 ## Acta técnica complementaria — owner GREEN LIGHT (2026-10-15)
 
 El propietario respondió **«Sí lo apruebo, tienes luz verde»** a la pregunta precisa de aprobar D1, D3, D4, D5, D6 y D7, manteniendo D2 en evaluación. Evidencia de seguimiento en [#952](https://github.com/Semse-projet/project-manager-app/issues/952). **No reinterpretar esta respuesta como aceptación de un IdP, tokens reales, cambio de flags productivas, rollout, migraciones o permiso de fusión automática.**
