@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import {
   StorageWriteGateBlockedError,
+  assertStorageWriteAdmission,
 } from "./storage-write-gate-state.js";
 import {
   StorageWriteGateCoordinator,
@@ -68,6 +69,21 @@ export class StorageWriteOperationBoundary {
    * Validation alone cannot prove all writers are instrumented: it must be
    * followed by a complete writer inventory / SDD freeze certification.
    */
+  /**
+   * Advisory only: a previously issued upload plan is NOT an active ticket.
+   * PUT/store must separately admit a durable ticket under the DB row lock.
+   * Intended for isolated staging tests; no production freeze certification.
+   */
+  async assertPlanOpen(scope: string): Promise<void> {
+    const current = await this.coordinator.inspect(scope);
+    assertStorageWriteAdmission({
+      phase: current.phase,
+      activeOperations: current.activeOperations,
+      ambiguousOperations: 0,
+      writerCoverageComplete: current.coverageDigestPresent,
+    }, true);
+  }
+
   async beforePublish(ticket: StorageWriteTicket): Promise<void> {
     if (!ticket?.id || !ticket.scope) {
       throw new StorageWriteGateBlockedError("missing_active_ticket");
