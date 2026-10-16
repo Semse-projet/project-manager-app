@@ -79,7 +79,9 @@ export class StorageWriteGateTransitionService {
         authorityAvailable: true,
         recoveryWindowClosed: input.authority.recoveryWindowClosed,
       });
-      const nextEpoch = gate.epoch + 1n;
+      // Draining preserves the epoch so pre-admitted writers can finish.
+      // Reopening bumps epoch, invalidating any stale token after the window.
+      const nextEpoch = gate.epoch + ((input.action === "THAW" || input.action === "ABORT_DRAIN") ? 1n : 0n);
       const updated = await tx.$executeRaw`
         UPDATE "StorageWriteGate"
         SET "phase" = ${phase}, "epoch" = ${nextEpoch},
