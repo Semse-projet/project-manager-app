@@ -65,6 +65,12 @@ export class StorageWriteGateTransitionService {
       `;
       const active = counts[0]?.active ?? 0n;
       if (active > BigInt(Number.MAX_SAFE_INTEGER)) throw new StorageWriteGateBlockedError("active_count_overflow");
+      // Never bump the epoch on ABORT_DRAIN while pre-admitted writes are
+      // active: their tokens would be fenced out without a clean settlement.
+      // An operator must wait for zero ACTIVE (or perform audited recovery).
+      if (input.action === "ABORT_DRAIN" && active !== 0n) {
+        throw new StorageWriteGateBlockedError("active_operations");
+      }
       const phase = resolveStorageWriteGateTransition({
         phase: gate.phase,
         activeOperations: Number(active),
