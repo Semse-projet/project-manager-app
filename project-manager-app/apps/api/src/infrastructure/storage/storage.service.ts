@@ -7,6 +7,7 @@ import { pipeline } from "node:stream/promises";
 import type { Readable } from "node:stream";
 import { normalizeStorageKey } from "./storage-key.js";
 import { StorageWriteOperationBoundary } from "./storage-write-operation-boundary.js";
+import type { StorageWriteKind } from "./storage-write-gate-coordinator.js";
 import { assertProductionStorageConfiguration, assertProductionStorageMount, isProductionStorage } from "./production-storage-guard.js";
 import {
   resolveSignedGetMode,
@@ -82,6 +83,29 @@ export class StorageService {
       throw new ServiceUnavailableException("Storage write gate unavailable");
     }
   }
+  /**
+   * T-008 S3b: internal staging-only boundary for multipart manifests/parts
+   * and Evidence metadata writes that do not call store/delete directly.
+   * Existing actor permissions MUST be enforced by the calling controller.
+   * This is NOT a cross-request photo+Evidence transaction; unregistered
+   * originals remain a reconciliation blocker until recovered.
+   */
+  async withWriteGateMutation<T>(kind: StorageWriteKind, work: () => Promise<T>): Promise<T> {
+    const boundary = this.stagingBoundary();
+    if (!boundary) return work();
+    return this.gated(() => boundary.run({
+      scope: this.writeGateScope,
+      writerInstanceId: this.writerInstanceId,
+      kind,
+      work: async (ticket) => {
+        await boundary.beforePublish(ticket);
+        return work();
+      },
+      // No opportunistic cleanup: multipart/Evidence failures can leave
+      // persisted bytes or DB references behind and must block FROZEN.
+    }));
+  }
+
   private readonly provider = (process.env.STORAGE_PROVIDER ?? "local") as "local" | "s3" | "r2";
   private readonly localRoot = path.resolve(
     process.env.SEMSE_STORAGE_ROOT ?? "/tmp/semse-storage",
