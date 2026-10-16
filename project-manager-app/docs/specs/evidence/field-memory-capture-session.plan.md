@@ -86,3 +86,61 @@ Completadas tres comprobaciones primarias en la spec §11 (OWASP File Upload, Pr
 - **D — Validación:** unit, DB integration, E2E, typecheck, lint, spec:validate:strict.
 - **E — Integración:** CI terminal y revisión PR, merge SHA y migración controlada.
 - **F — Producción:** flag off → canary interno, revisión de backed-up originals, smoke autenticado, rollback y evidencia.
+
+
+## 12. T-008 — StorageWriteGate / quiescencia verificable (contrato de implementación, 2026-10-15)
+
+**Trazabilidad:** issue #954, task T-008, spec CAP-0 aprobada. Esta sección detalla cómo implementar la barrera necesaria para un respaldo coherente; **no constituye evidencia de ejecución, freeze, exportación ni activación de CAP-1**. Riesgo P0: no desplegar sin revisar el análisis de concurrencia.
+
+### 12.1 Fuentes reales y frontera
+
+- \`StorageService.store()\`: streaming a \`multipart/.put-staging\`, \`fsync\`, publicación \`link()\`; \`delete()\`: \`unlink()\`; \`putUploadPlan()\` emite una intención, no un derecho irrevocable de escribir.
+- \`UploadsController\`: plan y \`PUT /v1/uploads/files/*\`; la autorización tenant precede al stream. La barrera deberá aplicarse **además** del permiso existente.
+- \`EvidenceController\`: plan, \`createMultipartSessionEndpoint\`, \`uploadMultipartPart\`, \`completeMultipartSession\`; escribe en \`SEMSE_MULTIPART_STORAGE_ROOT\` (default \`/tmp/semse-multipart-sessions\`) y publica originales vía \`StorageService\`.
+- \`BrowserAgentService.saveAsEvidence()\`: escribe PNG/JSON antes de registrar Evidence; cubrir también la fase de registro y fallos intermedios.
+- \`Evidence\` / Postgres: \`register\`, vínculos, archivado/retención y cualquier escritura de referencia que afecte el snapshot deben coordinarse o demostrarse excluidos de la ventana.
+- Verificar exhaustivamente mounts, cron, operaciones operator/SSH, worker y todas las llamadas a filesystem fuera de \`StorageService\` antes de certificar cierre del perímetro. Un grep inicial no es prueba suficiente.
+
+### 12.2 Coordinación duradera y estados
+
+**Autoridad primaria propuesta: PostgreSQL** (no un mapa local ni Redis como única verdad), con tablas aditivas \`StorageWriteGate\` y \`StorageWriteOperation\`/journal auditado. Los nombres exactos y constraints se revisan al diseñar la migración. Identificar por entorno + storage root canónico; no usar un flag global sin scope.
+
+- \`OPEN\`: permite admisiones **atómicas** con la lectura del estado duradero, crea un registro de operación \`ACTIVE\` y un token único antes del primer byte. Si PostgreSQL/autoridad no responde, rechaza la admisión (fail closed).
+- \`DRAINING\`: transición transaccional con row lock/version; rechaza nuevas admisiones/planes y completions sin ticket previo; espera \`ACTIVE=0\` y registros Evidence iniciados. No confundir \`idle\` con terminado.
+- \`FROZEN\`: solo cuando el conjunto de writers probado declara cero operaciones activas y cada versión de código en servicio aplica el gate; no puede publicarse \`link\`, eliminarse \`unlink\`, escribir una parte multipart ni registrar nuevas referencias durante el checkpoint. Si algún writer no instrumentado, lease desconocida o crash ambiguo: \`BLOCKED\`, no \`FROZEN\`.
+- \`OPEN\` posterior: solo transición de thaw autorizada, auditada e idempotente tras inventario/export/reconciliación; no auto-reabrir por reinicio, timeout, caída de Redis/DB ni deployment.
+
+**Invariante:** la admisión y \`DRAINING\` se serializan mediante el mismo bloqueo transaccional de estado, por lo que ninguna admisión puede cruzar el cambio a \`DRAINING\`. Una operación admitida no libera su marca \`ACTIVE\` hasta terminar la publicación/eliminación, metadatos relevantes y limpieza controlada. Procesos reiniciados dejan operaciones ambiguas bloqueantes; solo un procedimiento de recuperación con prueba de que el escritor ya no puede ejecutar puede descartarlas. **Prohibido limpiar lease caducada solo por reloj**: un zombie podría publicar después del freeze.
+
+El cambio de versión durante \`DRAINING/FROZEN\` se bloquea o falla cerrado; desplegar una réplica legacy sin enforcement invalida la prueba. Debe existir validación de writer inventory/provenance de réplicas. El gate protege escritura de originales y consistencia de referencias; no sustituye las políticas existentes tenant/org.
+
+### 12.3 Operaciones administrativas y auditoría
+
+API interna/operador para consultar estado sin PII (actor autenticado con privilegio OPS operativo efectivo). \`begin-drain\`, \`freeze-check\`, \`thaw\` exigen autorización fuerte, motivo/ticket, idempotency key, expiración de solicitud **sin auto-thaw**, auditoría persistente + evento; decisiones revalidadas en backend. No introducir endpoint público para cambiar el estado. No divulgar claves/rutas privadas, originales ni manifiestos en logs. Evitar degradar el healthcheck de lectura innecesariamente; las operaciones de escritura rechazadas responden error explícito recuperable (\`503\` + \`Retry-After\`) sin perder reintentos.
+
+### 12.4 Snapshot coherente y Evidence
+
+La barrera debe incluir **nuevos originales y mutaciones de referencias Evidence** en la misma ventana. Tras \`FROZEN\`, tomar inventario SHA-256 del origen y una proyección DB desde transacción de lectura consistente con timestamp/cursor verificable. Como registro y PUT son operaciones HTTP distintas, los huérfanos anteriores se clasifican sin borrar nada; la coincidencia de dos inventarios de archivos sola **no certifica** consistencia DB. Capturar alcance completo autorizado, incluyendo operaciones en staging que permanezcan pendientes (bloqueo, no borrado automático). Prohibido exponer proyección privada en CI/GitHub.
+
+### 12.5 Rollout por etapas y retroceso
+
+1. **S0 — Documentación y diseño:** esta adición y matriz de aceptación sin runtime/migraciones, PR draft; sin afirmar \`implemented\`.
+2. **S1 — Tests primero:** casos de carrera, doble proceso, muerte de proceso, DB caída, admisión atómica, publish tardío, multipart, borrado, Evidence, tenancy, rollback, versión no instrumentada. Fixtures sintéticos, DB aislada.
+3. **S2 — Motor/fencing + migración aditiva:** no activar freeze. Separar código interno y permisos de administración; migración observada sin tocar archivos existentes. Inicializar \`OPEN\` solo por procedimiento de migración verificado (jamás por catch/fallback ante DB caída).
+4. **S3 — Enforcements:** \`StorageService\`, controlador multipart, Browser Agent, Evidence register/mutaciones. Fallar cerrado cuando gate habilitado y autoridad indisponible; modo de observación sin bloqueo no permite \`FROZEN\`.
+5. **S4 — Prueba staging:** al menos dos procesos; validar \`OPEN → DRAINING → FROZEN → OPEN\`, archivos sintéticos, fallos durante stream, reinicio, freeze impedido por operaciones ambiguas, restauración aislada y correlación DB.
+6. **S5 — PR/CI/release:** CI del SHA exacto, lint/typecheck, pruebas unit/integration/e2e, \`spec:validate:strict\`, revisión security, merge y despliegue Railway desde main. Comprobar SHA, migración, flags, logs/metrics, ninguna instancia legacy, y canary auténtico antes de ventana productiva.
+7. **S6 — Custodia real:** ventana aprobada, backup nativo identificado sin pulsar Restore sobre producción, copia cifrada D: con clave de recuperación externa protegida, inventarios antes/después, ensayo aislado, SHA-256 y reconciliación Evidence/Postgres. Solo informes agregados al repositorio.
+
+**Rollback:** despliegue puede volver a modo normal únicamente si no hay freeze ni operaciones activas y no reabre vulnerabilidades previas; esquema se conserva (forward-fix). Nunca hacer rollback a binario sin gate con estado \`DRAINING/FROZEN\`. Si falla la autoridad, bloquear escritura y restaurar el servicio, no improvisar \`OPEN\`.
+
+### 12.6 Bloqueos que impiden declarar VERIFIED
+
+- [ ] Evidencia de escritura y lectura de todas las instancias productivas bajo el gate.
+- [ ] Pruebas reales de \`FROZEN\` con cero writers, incluido Evidence + multipart, canary sintético y auditoría.
+- [ ] Inventarios remotos reales + exportación cifrada + ensayo aislado \`OFFSITE_RESTORE_PASS\`.
+- [ ] Consistencia de Postgres/Evidence acreditada para el mismo punto lógico.
+- [ ] Backups nativos Railway identificados y capacidad de recuperación probada **sin restaurar sobre producción**.
+- [ ] SHA exacto de merge/deploy, smoke autorizado, runbook de thaw y registro de cierre.
+
+**No equivalencias:** \`CI PASS\` ≠ deploy; \`Railway SUCCESS\` ≠ prueba de freeze; \`OFFSITE_RESTORE_PASS\` ≠ recuperación nativa ni CAP-1 VERIFIED.
