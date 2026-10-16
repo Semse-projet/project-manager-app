@@ -321,8 +321,20 @@ Ninguno aprobado. Diferir un hallazgo exige que el owner lo apruebe, con dueño,
 | B-01 | Falta el paquete completo: el ZIP solo trae el índice | Owner | Enviar el paquete y comparar paquete ↔ PR 0 |
 | B-02 | Decisiones D-01 a D-16 | Owner | Decisión registrada en el registro de progresión |
 | B-03 | Estado real de H05 en producción (migración aplicada, flag `PROMETEO_TOOL_AUDIT_LIFECYCLE`) | Owner, con lectura de Railway | Evidencia sin secretos |
-| B-04 | Repo externo de Omniverse: no está en el repo y no se puede verificar | Owner | Nombre, dueño y acceso de lectura |
+| B-04 | **Verificación de repositorio COMPLETADA:** `Samuelcastella/semse-omniverse-control-center` privado, acceso de lectura comprobado. **Integración NO VERIFICADA:** contrato, identidad, permisos y despliegue permanecen sujetos a D-13 y a los gates de seguridad del repo consumidor | Owner + coordinador | Mantener D-13 abierta y pasar controles de seguridad antes de conectar; ver §9.1 |
 | B-05 | Prueba técnica previa de Graphify estructurado (P-25, G-05) | Coordinador, tras D-08 | Resultado antes de preparar el slice 1 |
+
+## 9.1. Evidencia posterior: repositorio Omniverse y seguridad de la interfaz (2026-10-16 UTC)
+
+Esta es **una actualización de hechos observables posterior al merge de #948**, no una decisión D-13 ni aprobación del programa. El acta conserva **EN CURSO — BLOQUEADA**.
+
+- **B-04 — localización y lectura verificadas:** repositorio privado [`Samuelcastella/semse-omniverse-control-center`](https://github.com/Samuelcastella/semse-omniverse-control-center), propietario `Samuelcastella`, rama principal `main`. Acceso de lectura comprobado vía GitHub, con inspección directa de `README.md`, `package.json`, `api/router.ts`, `api/boot.ts`, `api/context.ts`, `api/middleware.ts`, `api/semse-router.ts`, `src/hooks/useSemseApi.ts` y `src/providers/trpc.tsx`.
+- **Arquitectura observada:** frontend React/Vite, backend Hono/tRPC y persistencia Drizzle/MySQL; `src/providers/trpc.tsx` apunta a `/api/trpc` del propio Omniverse, y `api/router.ts` expone `semse`, `integration`, `connectors`, `intelligence` sobre su API. La semejanza nominal de `semseRouter` **no demuestra** integración con `semse-API` ni transferencia de autoridad canónica. No se han verificado endpoints compartidos, SSO federado, entorno Railway, sincronización auténtica ni lecturas de SEMSE en vivo. D-13 permanece **SIN DECIDIR**.
+- **Gate de seguridad previo a integración:** en `api/middleware.ts`, `publicQuery` y `publicMutation` no exigen autenticación; `api/context.ts` considera opcional la sesión; `api/semse-router.ts` asigna procedimientos públicos a mutaciones como `seed`, `fleetNodes.updateStatus`, `chatMessages.create`, `specTasks.create` y `systemEvents.create`, así como consultas de mensajes e historial de ejecución de herramientas. **Hallazgo demostrado por código, no explotación ni verificación de exposición de un deployment.** Se registró en [Omniverse issue #2](https://github.com/Samuelcastella/semse-omniverse-control-center/issues/2) para su remediación E01–E05.
+- **Condición de implementación:** tratar Omniverse como consumidor no confiable hasta acreditar middleware fail-closed, RBAC, alcance tenant/org, lectura saneada, identidad de servicio, auditoría, revocación, pruebas negativas y ausencia de datos demo disfrazados de producción. No autorizar Omni → SEMSE, migraciones ni deploy en virtud de esta nota.
+- **Sin operaciones productivas:** esta inspección fue solo lectura en GitHub. No se enviaron llamadas a endpoints de Omniverse, no se cambiaron datos ni secretos, no se lanzó un canary, no se probó la base y no se alteró Railway.
+
+**Resultado:** se reduce el bloqueo B-04 al contrato y la evidencia operativa pendientes, pero B-01, B-02, B-03, B-05 y D-01 a D-16 no cambian de estado. La etapa 1 continúa bloqueada y ningún slice puede comenzar sin aprobación.
 
 ## 10. Confirmación
 
