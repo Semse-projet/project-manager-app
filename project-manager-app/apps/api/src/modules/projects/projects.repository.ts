@@ -126,12 +126,27 @@ export class ProjectsRepository {
     roles: string[];
     projectId: string;
   }): Promise<ProjectRecord> {
+    // Preserve existing REST/domain behavior until independently migrated.
     await this.actorContextService.ensureActorContext(input);
+    return this.findByIdWithoutProvisioning(input);
+  }
 
+  /**
+   * Internal S1/D4 read-only path. Call ONLY with server-validated identity,
+   * active membership and projects:read, enforced by the future OAuth bridge.
+   * This repository still enforces tenant, soft-delete and resource ownership;
+   * it does not authenticate an external token or accept tool payload identity.
+   * No HTTP/MCP route is wired to this method until D2 is reviewed.
+   */
+  async findByIdWithoutProvisioning(input: {
+    tenantId: string;
+    orgId: string;
+    userId: string;
+    roles: string[];
+    projectId: string;
+  }): Promise<ProjectRecord> {
     const project = await this.findStoredProjectOrThrow(input);
-
     assertProjectReadable(this.toActor(input), this.toOwnership(project));
-
     return this.toRecord(project);
   }
 
