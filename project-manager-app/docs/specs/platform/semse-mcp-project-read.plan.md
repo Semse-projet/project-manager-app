@@ -47,5 +47,17 @@ No DB migration planeada hasta que D2/D3/D4 definan persistencia; cualquier camb
 - Rollback por flag OFF; nunca fallback a ruta less-governed.
 - Definition of Done = CI+merge+deploy+canary autenticado+audit+rollback+evidencia, estados separados.
 
+## 6A. Adapter MCP y compatibilidad de dependencias
+
+**AS-IS comprobado:** `apps/api` monta módulos NestJS mediante `AppModule`, con `AuthGuard` y `RbacGuard` globales. `ProjectsModule` exporta `ProjectsService` y `ProjectsRepository`; éstos son los puntos de delegación del adaptador, no Prisma directo. `apps/api/package.json` y `packages/schemas/package.json` fijan `zod ^3.24.2`. No existe dependencia demostrada `@modelcontextprotocol/server` en la API actual.
+
+**TO-BE recomendado tras aprobación:**
+- Nuevo módulo `SemseMcpModule` o adapter interno de `apps/api` que importe `ProjectsModule` y use `ProjectsService`, sin nueva tabla Project ni segundo Auth/Policy engine.
+- Transmitir `AuthGuard`/OAuth resource verification en el request HTTP **antes** de resolver cualquier tool, no invocar `resolveRequestContext` sobre claims de tool no verificadas.
+- Integración HTTP a elegir: `@modelcontextprotocol/server` `createMcpHandler(factory, {legacy:'reject'})` + `@modelcontextprotocol/node` `toNodeHandler` en el adaptador del servidor Node. Verificar integración real con el HTTP adapter NestJS del entorno y esquema de `Origin`; si cambia framework, no inventar wiring.
+- SDK v2 requiere `zod ^4.2.0` para esquemas MCP. Mantener `@semse/schemas` (Zod 3) intacto y añadir `zod-v4: npm:zod@^4.2.0` **solo al módulo que define `inputSchema` MCP**, o un paquete MCP autónomo de adapters, con conversión de datos en frontera.
+- `tools/list` es una prueba real de compatibilidad del schema; compilar TypeScript NO basta. El test de modern usa cliente SDK v2 con `versionNegotiation: { mode: { pin: '2026-07-28' } }`.
+- No añadir paquetes, archivos de código ni flags antes de `APPROVED`. Después, PR de código separado con tests rojos primero y package lock reproducible.
+
 ## 7. Investigación externa para diseño aprobado
 Consultar especificaciones primarias MCP y autorización, y documentación del host concreto con compatibilidad real. La versión/transport elegido debe fijarse antes de pruebas de conformidad.

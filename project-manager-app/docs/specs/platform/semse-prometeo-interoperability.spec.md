@@ -9,7 +9,7 @@ owner: "semse-core"
 risk: "critical"
 code_status: "NOT_STARTED"
 ci_status: "NOT_RUN"
-merge_status: "UNMERGED"
+merge_status: "MERGED"
 deploy_status: "NOT_DEPLOYED"
 activation_status: "INACTIVE"
 migration_status: "NOT_APPLICABLE"
@@ -26,7 +26,7 @@ last_verified: "NOT_VERIFIED"
 
 # SDD rector: SEMSE Project, Prometeo Copilot e interoperabilidad universal
 
-**Corte de análisis:** 2026-10-15. **Tipo:** spec paraguas de programa, sin ejecución de negocio propia. **Estado:** REVIEW; no se autoriza implementación de features hasta aprobar los child specs y reconciliar ADRs. No se infiere CI, merge, deploy ni activación de este documento.
+**Corte de análisis:** 2026-10-15. **Reconciliación GitHub:** PR #939 fusionado (`21426fda974a21989f8d64145da66eca38367897`) con CI de calidad/cobertura/E2E verde; el merge de documentos NO demuestra implementación, prueba MCP, despliegue ni activación. **Tipo:** spec paraguas de programa, sin ejecución de negocio propia. **Estado:** REVIEW; no se autoriza implementación de features hasta aprobar los child specs y reconciliar ADRs. No se infiere CI, merge, deploy ni activación de este documento.
 
 ## 1. Problema y resultado
 
@@ -51,7 +51,7 @@ last_verified: "NOT_VERIFIED"
 Fuentes vinculantes: .specify/memory/constitution.md; docs/SDD_GOVERNANCE.md; docs/SOURCE_OF_TRUTH.md; docs/SPEC_INDEX.md; docs/CANONICAL_STATE_REGISTRY.md; docs/foundation/{DOMAIN_INVARIANTS,STATE_MACHINES,EVENT_CATALOG}.md y ADRs aprobados.
 
 Hallazgos verificados en GitHub (no verifican producción):
-- PR #797, fusionado 2026-10-06, introdujo el Universal Connector Trust Contract v1 y código compartido en packages/shared/src/universal-connector/**. La metadata actual de la spec aún marca merge UNMERGED, CI FAIL, deploy NOT_DEPLOYED, código IN_PROGRESS y activación INACTIVE: **conflicto a reconciliar con SHA y ejecución real**.
+- PR #797, fusionado 2026-10-06, introdujo el Universal Connector Trust Contract v1 y código compartido en packages/shared/src/universal-connector/**. La metadata `merge_status: MERGED` quedó reconciliada en PR #939 con el SHA histórico. Los estados `ci_status: FAIL`, `deploy_status: NOT_DEPLOYED`, `code_status: IN_PROGRESS`, `activation_status: INACTIVE` no se elevan sin pruebas independientes de esas etapas.
 - PR #859, fusionado 2026-10-11, fue exclusivamente documentación de Workspace/conectores/3D/4D; no demuestra integración desplegada.
 - ADR-025 (MCP External Tool Gateway) registró el 2026-10-11 opción C: **no implementar MCP externo por ahora**. La necesidad concreta actual propone reevaluarlo, pero NO lo revoca automáticamente.
 - Colisión histórica: la decisión aceptada Universal Connector conserva `ADR-042-universal-connector-trust-boundary.md`; la propuesta Operational Intelligence se renumera a `ADR-044-operational-intelligence-graph.md` mediante acta `docs/architecture/ADR_ID_RECONCILIATION_2026-10-15.md`. Este cambio documental no aprueba la propuesta.

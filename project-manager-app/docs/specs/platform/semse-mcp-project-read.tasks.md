@@ -11,6 +11,14 @@ date: "2026-10-15"
 
 # S1 Tareas — MCP Server de lectura de proyecto
 
+## Autorización del propietario (15-oct-2026)
+
+- [x] Aprobado `SEC-S1-01`: OAuth vinculado a SEMSE, scopes mínimos y revocación; **no implementado**.
+- [x] Aprobado `SEC-S1-02`: cero creación de Tenant/Org/User o mutación por lectura MCP; **no implementado**.
+- [x] Aprobado `SEC-S1-03`: aislamiento tenant/org/membership/recurso cada invocación; **no implementado**.
+- [ ] Resolver D1–D7 y aceptar formalmente ADR-045 con revisión de seguridad antes de pasar S1 a APPROVED.
+- [ ] Ejecutar pruebas autenticadas reales para los tres invariantes y registrar evidencia de no-mutación, revocación e isolation.
+
 ## SDD y permisos
 - [ ] S1-001 Resolver decisiones D1–D7 del child spec y obtener `APPROVED`.
 - [ ] S1-002 Reconciliar ADRs y verificar `main`, CI, Railway y estado de Universal Connector.

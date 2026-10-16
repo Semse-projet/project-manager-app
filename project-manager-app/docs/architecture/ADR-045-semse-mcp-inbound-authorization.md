@@ -19,6 +19,14 @@ owners: ["semse-core", "security", "prometeo"]
 - `Universal Connector` controla estado/conexión/tenant y policies, pero su `ConnectorExecutionContext` no demuestra ownership por Org. Tool Registry F2 evalúa permisos/approval pero no sustituye el domain guard.
 - `AdminIntegrationsService` conserva estados por tenant que **no equivalen** a consentimiento ni conexión ACTIVE por empresa.
 
+## Requisitos vinculantes aprobados por el propietario — 2026-10-15
+
+Quedaron aprobados en la conversación de trabajo tres requisitos obligatorios para S1: **OAuth/identidad SEMSE con revocación y scopes**, **cero aprovisionamiento o mutaciones a partir de lecturas MCP**, **aislamiento tenant + organización + membership + recurso en cada petición**. Véase el registro `docs/specs/platform/semse-mcp-project-read.decisions.md`, IDs `SEC-S1-01`, `SEC-S1-02`, `SEC-S1-03`. Ninguna variante A/B/C que viole estos principios puede ser aceptada.
+
+**D2/D7 — diseño de propuesta:** `docs/specs/platform/semse-mcp-project-read.oauth-bridge.md` detalla la cadena de autenticación, consent por organización, revocación y el riesgo de provisioning de identidades. Es una propuesta, no una selección aprobada de IdP/AS o migración.
+
+**Límite de la aprobación:** se autorizaron las condiciones de seguridad, pero no una solución particular de OAuth/client registry, no la aceptación global de ADR-045, ni la activación externa. Esta ADR permanece `PROPOSED` mientras D1–D7 y las decisiones de owner/seguridad no se cierren.
+
 ## Propuesta de decisión
 
 **Opción A (recomendada para S1):** MCP Server remoto **read-only**, alojado detrás del backend/API canónico SEMSE y su autenticación, sin Business Kernel ni Policy Engine nuevos. Adaptador fino, scope de acceso mínimo y verificación de resource ownership **cada llamada**. Versionar el protocolo y comprobar compatibilidad con el host elegido.
@@ -67,6 +75,14 @@ La herramienta `semse.project.get_status.v1` es el nombre recomendado para S1: n
 - Gobernanza: dos controles de confianza no equivalen a membership org → cross-org.
 
 Auditar `actorId`, `tenantId`, `orgId`, `connectionId` si existe, capability, recurso, decisión y correlation; nunca credenciales ni datos privados. Rate limits y SLO tras baseline; flags OFF por defecto y `emergency_stop` para surface MCP.
+
+## D1–D7 y versión concreta de protocolo
+
+El paquete de decisiones, riesgos y pruebas para autorizar S1 se registra en `docs/specs/platform/semse-mcp-project-read.decisions.md`. Ninguna decisión se declara aceptada aquí; siguen bloqueantes D2 (issuer, autorización OAuth y consentimiento), D4 (bootstrap en lectura) y D7 (binding y revocación).
+
+**SDK v2:** en `@modelcontextprotocol/server`, `createMcpHandler(factory)` también acepta 2025 por defecto. Para el perfil **modern-only** recomendado, usar `createMcpHandler(factory, { legacy: "reject" })` y adaptador Node del paquete `@modelcontextprotocol/node`. Probar con el cliente v2 `{versionNegotiation:{mode:{pin:"2026-07-28"}}}`; sin opt-in el cliente v2 utiliza `initialize` legacy. La compatibilidad con hosts 2025 se decidirá después en otro contrato, nunca por fallback invisible. Fuente: https://ts.sdk.modelcontextprotocol.io/v2/migration/support-2026-07-28 .
+
+**D4 — plan sin auto-provisioning:** `docs/specs/platform/semse-mcp-project-read.no-provision.md` recomienda una lectura interna basada en dominio/ownership sin invocar `ensureActorContext`, manteniendo intacto el endpoint web. Este enfoque está propuesto pero no es código ni aprobación final.
 
 ## Criterio de decisión
 

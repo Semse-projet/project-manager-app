@@ -9,7 +9,7 @@ owner: "semse-core"
 risk: "critical"
 code_status: "NOT_STARTED"
 ci_status: "NOT_RUN"
-merge_status: "UNMERGED"
+merge_status: "MERGED"
 deploy_status: "NOT_DEPLOYED"
 activation_status: "INACTIVE"
 migration_status: "NOT_APPLICABLE"
@@ -23,6 +23,9 @@ related_files:
   - apps/api/src/common/request-context.ts
   - apps/api/src/common/resource-scope.ts
   - docs/architecture/ADR-045-semse-mcp-inbound-authorization.md
+  - docs/specs/platform/semse-mcp-project-read.decisions.md
+  - docs/specs/platform/semse-mcp-project-read.oauth-bridge.md
+  - docs/specs/platform/semse-mcp-project-read.no-provision.md
 related_tests: []
 related_endpoints:
   - GET /v1/projects/:projectId
@@ -34,7 +37,13 @@ last_verified: "NOT_VERIFIED"
 
 # Spec S1 — SEMSE MCP Server: lectura de proyecto sin mutaciones
 
+> **Merge documental:** PR #939 (merge SHA `21426fda974a21989f8d64145da66eca38367897`) y PR #940 (merge SHA `62ce802a436554bd6dae95e3cd8958975e74c9df`) con `quality-gates`, `unit-coverage` y `e2e` en PASS para documentación/regresión. El `merge_status: MERGED` solo significa documento incorporado a main. `code_status: NOT_STARTED`, `ci_status: NOT_RUN` para la feature, `deploy_status: NOT_DEPLOYED`, `activation_status: INACTIVE` y `last_verified: NOT_VERIFIED` permanecen.
+
 > **Estado REVIEW.** Child spec del programa `platform.semse-prometeo-interoperability`. La lectura de proyecto existente **NO demuestra** que ya exista un servidor MCP. No implementar hasta APPROVED, ADR/seguridad revisadas e índice/CI coherentes.
+
+## Decisión del propietario — seguridad S1 (15-oct-2026)
+
+Se aprobaron formalmente tres **requisitos obligatorios**, documentados en `semse-mcp-project-read.decisions.md`: `SEC-S1-01` autenticación OAuth vinculada a identidad y membresía SEMSE, permisos mínimos y revocación; `SEC-S1-02` ninguna consulta MCP aprovisiona Tenant/Org/User ni muta dominios; `SEC-S1-03` comprobación de tenant, org, membresía, permiso y ownership en cada llamada. Constituyen gates de aceptación **no negociables**. La aprobación **no** selecciona un proveedor OAuth, ni aprueba D1–D7 completos, ni eleva `status: REVIEW`, ni autoriza producción.
 
 ## 1. Problema y resultado
 
@@ -207,6 +216,8 @@ Aplicado ahora: authz y contratos neutrales. Backlog: host específico/UI. Desca
 - Fuentes normativas: https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization y https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/streamable-http .
 
 ## 12. Decisiones abiertas, gates y estado
+
+**Matriz para decisión del owner:** `docs/specs/platform/semse-mcp-project-read.decisions.md`, que contiene propuestas D1–D7, alternativas y pruebas P0. Ninguna está aceptada aún. El contrato mínimo recomendado es `projectId,status` y trazabilidad real; `jobId` se excluye hasta demostrar necesidad y permiso, `auditRef` es opcional hasta que exista registro durable. No asumir que el SDK v2 arranca por defecto en modo 2026: usar `createMcpHandler(...,{legacy:'reject'})` y pin explícito del cliente.
 
 - D1: transporte/version MCP y host independiente concreto.
 - D2: vínculo OAuth externo con bearer de recurso MCP, sesión SEMSE ya comprobada por AuthService/guard, audience y revocación inmediata sin duplicar consultas fuera del plazo de 1 segundo.
