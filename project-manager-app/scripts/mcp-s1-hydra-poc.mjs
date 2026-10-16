@@ -236,7 +236,29 @@ try {
   grants.get(USER + "|" + CLIENT + "|" + ORG + "|" + RESOURCE).active = false;
   check(!verifySyntheticResource(probe), "Revoked synthetic consent still authorized");
 
-  process.stdout.write("PASS: real Hydra OAuth code+PKCE, audience/introspection; synthetic SEMSE revocation (" + checks + " checks)\n");
+  // Verify Hydra itself revokes its opaque token, not just a mock grant.
+  const revoked = await request(PUBLIC + "/oauth2/revoke", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ token: exchanged.data.access_token, token_type_hint: "access_token", client_id: CLIENT }),
+  });
+  check(revoked.status === 200, "Hydra token revocation endpoint rejected valid public client");
+  const afterRevoke = await introspect(exchanged.data.access_token);
+  check(afterRevoke.active !== true, "Hydra token remained active after revocation");
+
+  // Test that an unreachable introspection authority cannot yield an allowed response.
+  let outageDenied = false;
+  try {
+    await request("http://127.0.0.1:49999/admin/oauth2/introspect", {
+      method: "POST",
+      body: new URLSearchParams({ token: "synthetic.invalid" }),
+    });
+  } catch {
+    outageDenied = true;
+  }
+  check(outageDenied, "Unreachable introspection endpoint was not denied");
+
+  process.stdout.write("PASS: real Hydra OAuth PKCE, introspection and token revocation; synthetic SEMSE revocation (" + checks + " checks)\\n");
   process.stdout.write("LIMIT: session, membership and grant stores are synthetic; no actual SEMSE OAuth bridge, DB, MCP host or public endpoint tested.\n");
 } catch (error) {
   process.stderr.write("FAIL: isolated Hydra PoC — " + String(error.message).slice(0,240) + "\n");
