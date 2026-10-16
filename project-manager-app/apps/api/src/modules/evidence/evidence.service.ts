@@ -36,35 +36,40 @@ export class EvidenceService {
     /** Anotaciones de cliente (contrato validado en evidence-metadata.ts). */
     metadata?: Record<string, unknown>;
   }) {
-    const evidence = await this.evidenceRepository.create(input);
+    // Canonical Evidence ownership: guard HERE, not only in controllers.
+    // Smart Intake and Evidence Gateway also register directly through
+    // this service; every record/audit must share the same staging ticket.
+    return this.storageService.withWriteGateMutation("EVIDENCE_REGISTER", async () => {
+      const evidence = await this.evidenceRepository.create(input);
 
-    await this.auditService.append({
-      id: `aud_${Date.now()}`,
-      tenantId: input.tenantId,
-      orgId: input.orgId,
-      actorUserId: input.userId,
-      action: "evidence.register",
-      entityType: "Evidence",
-      entityId: evidence.id,
-      requestId: input.requestId,
-      timestamp: new Date().toISOString(),
-      afterJson: {
-        jobId: evidence.jobId,
+      await this.auditService.append({
+        id: `aud_${Date.now()}`,
+        tenantId: input.tenantId,
+        orgId: input.orgId,
+        actorUserId: input.userId,
+        action: "evidence.register",
+        entityType: "Evidence",
+        entityId: evidence.id,
+        requestId: input.requestId,
+        timestamp: new Date().toISOString(),
+        afterJson: {
+          jobId: evidence.jobId,
+          projectId: evidence.projectId,
+          milestoneId: evidence.milestoneId,
+          kind: evidence.kind,
+          canonicalScope: evidence.milestoneId ? "milestone" : "job"
+        }
+      });
+
+      this.operationalContext?.invalidateScope({
+        tenantId: input.tenantId,
         projectId: evidence.projectId,
-        milestoneId: evidence.milestoneId,
-        kind: evidence.kind,
-        canonicalScope: evidence.milestoneId ? "milestone" : "job"
-      }
-    });
+        source: "evidence.registered",
+        reason: "evidence registered",
+      });
 
-    this.operationalContext?.invalidateScope({
-      tenantId: input.tenantId,
-      projectId: evidence.projectId,
-      source: "evidence.registered",
-      reason: "evidence registered",
+      return evidence;
     });
-
-    return evidence;
   }
 
   async listByProject(input: { tenantId: string; orgId: string; userId: string; roles: string[]; projectId: string }) {
