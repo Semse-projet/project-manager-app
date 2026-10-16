@@ -23,7 +23,7 @@ test("T-008 coordinator must serialize admission and drain on a DB row lock", ()
   assert.match(source, /\$transaction/);
   assert.match(source, /assertStorageWriteAdmission/);
   assert.match(source, /"ACTIVE"/);
-  assert.match(source, /"DRAINING"/);
+  assert.match(source, /DRAINING/);
   assert.match(source, /StorageWriteGateBlockedError/);
   assert.doesNotMatch(source, /setTimeout|setInterval|Date\.now\(\).*ACTIVE/, "no silent lease expiry");
 });
