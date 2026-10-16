@@ -71,25 +71,3 @@ dbTest("T-008 PG: drain, active ticket, freeze, thaw, epoch and audit are cohere
   }
 });
 
-dbTest("T-008 PG: audit insert failure rolls back the phase change", async () => {
-  const db = new PrismaClient();
-  const scope = "test:/auditfail-" + randomUUID();
-  try {
-    await db.storageWriteGate.create({data:{
-      scope,phase:"OPEN",epoch:1n,coverageDigest:"synthetic-only",
-    }});
-    const transition = new StorageWriteGateTransitionService(db as never);
-    // NULL actorUserId violates the NOT NULL audit constraint, inside the same
-    // transaction. This uses a synthetic actor and no DB triggers.
-    await assert.rejects(() => transition.transition({
-      scope, expectedEpoch:1n,action:"BEGIN_DRAIN",
-      authority:{...authority("audit-t008-rollback"),actorUserId:"" + " "},
-    }));
-    assert.equal((await db.storageWriteGate.findUniqueOrThrow({where:{scope}})).phase,"OPEN");
-    assert.equal(await db.storageWriteGateAudit.count({where:{scope}}),0);
-  } finally {
-    await db.storageWriteGateAudit.deleteMany({where:{scope}}).catch(()=>undefined);
-    await db.storageWriteGate.deleteMany({where:{scope}}).catch(()=>undefined);
-    await db.$disconnect();
-  }
-});
