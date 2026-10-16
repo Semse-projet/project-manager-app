@@ -113,5 +113,8 @@ test("S3b source guards both Evidence registrations behind the same write bounda
   for(const kind of ["MULTIPART_CREATE","MULTIPART_PART","MULTIPART_COMPLETE"]){
     assert.match(source,new RegExp('withWriteGateMutation\\("'+kind+'"'));
   }
-  assert.equal((source.match(/withWriteGateMutation\("EVIDENCE_REGISTER"/g)??[]).length,2);
+  const canonical=readFileSync(new URL("../src/modules/evidence/evidence.service.ts",import.meta.url),"utf8");
+  assert.equal((canonical.match(/withWriteGateMutation\("EVIDENCE_REGISTER"/g)??[]).length,1);
+  assert.doesNotMatch(source,/withWriteGateMutation\("EVIDENCE_REGISTER"/,
+    "controller must delegate to canonically guarded EvidenceService");
 });
