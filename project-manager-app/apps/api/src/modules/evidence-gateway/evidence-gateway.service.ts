@@ -89,42 +89,47 @@ export class EvidenceGatewayService {
       // metadataJson) la hace EvidenceService.register; aqui solo se adapta la
       // forma de la peticion. La clave se valida tambien antes de delegar
       // (defensa en profundidad y fallo temprano con 400).
-      const bucketKey = normalizeEvidenceBucketKey(request.bucketKey, request.tenantId);
-      const evidence = await this.evidenceService.register({
-        tenantId: request.tenantId,
-        orgId: request.orgId,
-        userId: request.uploadedById,
-        roles: request.roles,
-        requestId: request.requestId ?? `evidence-gateway-${randomUUID()}`,
-        projectId: request.projectId,
-        milestoneId: request.milestoneId,
-        key: bucketKey,
-        kind: request.kind,
-        metadata: request.metadataJson,
-      });
-
-      // Log event
-      await this.repository.logValidationEvent(
-        request.projectId,
-        evidence.id,
-        "evidence_uploaded",
-        { kind: request.kind, bucketKey },
-      );
-
-      // Emit initial SSE event
-      if (this.sseBus) {
-        this.sseBus.emit("evidence", "uploaded", {
-          evidenceId: evidence.id,
+      // The gateway adds validation audit AFTER canonical EvidenceService.
+      // Hold an outer ACTIVE ticket for the entire persisted sequence, not
+      // just the inner Evidence record, to prevent partial FROZEN snapshots.
+      return this.storageService.withWriteGateMutation("EVIDENCE_REGISTER", async () => {
+        const bucketKey = normalizeEvidenceBucketKey(request.bucketKey, request.tenantId);
+        const evidence = await this.evidenceService.register({
+          tenantId: request.tenantId,
+          orgId: request.orgId,
+          userId: request.uploadedById,
+          roles: request.roles,
+          requestId: request.requestId ?? `evidence-gateway-${randomUUID()}`,
           projectId: request.projectId,
-          status: "pending_validation",
-          timestamp: new Date().toISOString(),
+          milestoneId: request.milestoneId,
+          key: bucketKey,
+          kind: request.kind,
+          metadata: request.metadataJson,
         });
-      }
 
-      return {
-        evidenceId: evidence.id,
-        status: "pending_validation",
-      };
+        // Log event
+        await this.repository.logValidationEvent(
+          request.projectId,
+          evidence.id,
+          "evidence_uploaded",
+          { kind: request.kind, bucketKey },
+        );
+
+        // Emit initial SSE event
+        if (this.sseBus) {
+          this.sseBus.emit("evidence", "uploaded", {
+            evidenceId: evidence.id,
+            projectId: request.projectId,
+            status: "pending_validation",
+            timestamp: new Date().toISOString(),
+          });
+        }
+
+        return {
+          evidenceId: evidence.id,
+          status: "pending_validation",
+        };
+      });
     } catch (error) {
       this.logger.error(
         `Upload failed: ${error instanceof Error ? error.message : String(error)}`,
