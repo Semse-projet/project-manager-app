@@ -49,6 +49,26 @@ export class ProjectsService {
     return this.projectsRepository.findById(input);
   }
 
+  /**
+   * Internal D4 boundary; not a controller or an MCP endpoint.
+   *
+   * PRECONDITION: input identity and active membership MUST have been
+   * independently verified by server-side authentication, and projects:read
+   * granted, before this method is called. These checks are NOT implemented
+   * here; D2 OAuth/guard integration remains blocked pending security review.
+   * Do not use client-supplied tool arguments for actor fields.
+   */
+  async statusForVerifiedActor(input: {
+    tenantId: string;
+    orgId: string;
+    userId: string;
+    roles: string[];
+    projectId: string;
+  }): Promise<{ projectId: string; status: ProjectRecord["status"] }> {
+    const project = await this.projectsRepository.findByIdWithoutProvisioning(input);
+    return { projectId: project.id, status: project.status };
+  }
+
   async milestones(input: {
     tenantId: string;
     orgId: string;
