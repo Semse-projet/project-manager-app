@@ -258,7 +258,7 @@ try {
   }
   check(outageDenied, "Unreachable introspection endpoint was not denied");
 
-  process.stdout.write("PASS: real Hydra OAuth PKCE, introspection and token revocation; synthetic SEMSE revocation (" + checks + " checks)\\n");
+  process.stdout.write("PASS: real Hydra OAuth PKCE, introspection and token revocation; synthetic SEMSE revocation (" + checks + " checks)\n");
   process.stdout.write("LIMIT: session, membership and grant stores are synthetic; no actual SEMSE OAuth bridge, DB, MCP host or public endpoint tested.\n");
 } catch (error) {
   process.stderr.write("FAIL: isolated Hydra PoC — " + String(error.message).slice(0,240) + "\n");
