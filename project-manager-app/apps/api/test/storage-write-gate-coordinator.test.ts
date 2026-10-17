@@ -276,8 +276,8 @@ test("thaw remains explicit and requires a closed recovery window", async () => 
   const h = fakePrisma();
   const service = new StorageWriteGateCoordinator(h.prisma);
 
-  await service.setWriterCoverage(scope, coverage());
   await service.transition(scope, admin("BEGIN_DRAIN"));
+  await service.setWriterCoverage(scope, coverage());
   await service.transition(scope, admin("MARK_FROZEN"));
 
   await blocked(
@@ -290,6 +290,60 @@ test("thaw remains explicit and requires a closed recovery window", async () => 
     admin("THAW", { recoveryWindowClosed: true }),
   );
   assert.equal(open.phase, "OPEN");
+});
+
+test("writer coverage is fresh for every recovery window", async () => {
+  const h = fakePrisma();
+  h.gate.writerCoverageComplete = true;
+  const service = new StorageWriteGateCoordinator(h.prisma);
+
+  const draining = await service.transition(scope, admin("BEGIN_DRAIN"));
+  assert.equal(draining.phase, "DRAINING");
+  assert.equal(draining.writerCoverageComplete, false);
+
+  const covered = await service.setWriterCoverage(scope, coverage());
+  assert.equal(covered.writerCoverageComplete, true);
+
+  const frozen = await service.transition(scope, admin("MARK_FROZEN"));
+  assert.equal(frozen.phase, "FROZEN");
+  assert.equal(frozen.writerCoverageComplete, true);
+
+  const thawed = await service.transition(
+    scope,
+    admin("THAW", { recoveryWindowClosed: true }),
+  );
+  assert.equal(thawed.phase, "OPEN");
+  assert.equal(thawed.writerCoverageComplete, false);
+
+  await blocked(
+    service.setWriterCoverage(
+      scope,
+      coverage({ idempotencyKey: "idem:coverage:002" }),
+    ),
+    "coverage_requires_draining",
+  );
+});
+
+test("runtime-invalid missing tokens fail closed instead of string coercion", async () => {
+  const h = fakePrisma();
+  const service = new StorageWriteGateCoordinator(h.prisma);
+
+  await blocked(
+    service.transition(
+      scope,
+      { ...admin("BEGIN_DRAIN"), idempotencyKey: undefined },
+    ),
+    "invalid_idempotency_key",
+  );
+
+  await blocked(
+    service.admitOperation({
+      scope,
+      operationKey: "upload:0001",
+      writerKind: undefined,
+    }),
+    "invalid_writer_kind",
+  );
 });
 
 test("administrative command replay is durable and has no second effect", async () => {
