@@ -88,6 +88,14 @@ function fakePrisma(overrides = {}) {
       },
     },
     storageWriteGateTransitionLog: {
+      async findUnique({ where }) {
+        const key = where.gateId_idempotencyKey;
+        if (!key) return null;
+        return logs.find(
+          log => log.gateId === key.gateId &&
+            log.idempotencyKey === key.idempotencyKey,
+        ) ?? null;
+      },
       async create({ data }) {
         const row = {
           id: `log_${logs.length + 1}`,
@@ -122,6 +130,19 @@ const admin = (action, extra = {}) => ({
   action,
   administratorAuthorized: true,
   ticket: "RECOVERY:954:001",
+  idempotencyKey: `idem:${String(action).toLowerCase()}:001`,
+  actorId: "ops:admin:001",
+  reason: "field-memory recovery window",
+  ...extra,
+});
+
+const coverage = (extra = {}) => ({
+  complete: true,
+  administratorAuthorized: true,
+  ticket: "RECOVERY:954:COVERAGE",
+  idempotencyKey: "idem:coverage:001",
+  actorId: "ops:admin:001",
+  reason: "verified writer inventory",
   ...extra,
 });
 
@@ -182,11 +203,7 @@ test("FROZEN requires complete writer coverage and zero ACTIVE operations", asyn
     writerKind: "evidence.register",
   });
   await service.transition(scope, admin("BEGIN_DRAIN"));
-  await service.setWriterCoverage(scope, {
-    complete: true,
-    administratorAuthorized: true,
-    ticket: "RECOVERY:954:COVERAGE",
-  });
+  await service.setWriterCoverage(scope, coverage());
 
   await blocked(
     service.transition(scope, admin("MARK_FROZEN")),
@@ -214,11 +231,7 @@ test("AMBIGUOUS operations fail closed and cannot be cleared by retry", async ()
     writerKind: "evidence.multipart",
   });
   await service.transition(scope, admin("BEGIN_DRAIN"));
-  await service.setWriterCoverage(scope, {
-    complete: true,
-    administratorAuthorized: true,
-    ticket: "RECOVERY:954:COVERAGE",
-  });
+  await service.setWriterCoverage(scope, coverage());
 
   const ambiguous = await service.markOperationAmbiguous(
     operation.id,
@@ -263,11 +276,7 @@ test("thaw remains explicit and requires a closed recovery window", async () => 
   const h = fakePrisma();
   const service = new StorageWriteGateCoordinator(h.prisma);
 
-  await service.setWriterCoverage(scope, {
-    complete: true,
-    administratorAuthorized: true,
-    ticket: "RECOVERY:954:COVERAGE",
-  });
+  await service.setWriterCoverage(scope, coverage());
   await service.transition(scope, admin("BEGIN_DRAIN"));
   await service.transition(scope, admin("MARK_FROZEN"));
 
@@ -281,6 +290,58 @@ test("thaw remains explicit and requires a closed recovery window", async () => 
     admin("THAW", { recoveryWindowClosed: true }),
   );
   assert.equal(open.phase, "OPEN");
+});
+
+test("administrative command replay is durable and has no second effect", async () => {
+  const h = fakePrisma();
+  const service = new StorageWriteGateCoordinator(h.prisma);
+
+  const request = admin("BEGIN_DRAIN");
+  const first = await service.transition(scope, request);
+  assert.equal(first.phase, "DRAINING");
+  assert.equal(first.replayed, false);
+  assert.equal(h.logs.length, 1);
+
+  const replay = await service.transition(scope, request);
+  assert.equal(replay.phase, "DRAINING");
+  assert.equal(replay.replayed, true);
+  assert.equal(h.logs.length, 1);
+  assert.equal(h.gate.version, 1);
+});
+
+test("reusing an idempotency key with different semantics fails closed", async () => {
+  const h = fakePrisma();
+  const service = new StorageWriteGateCoordinator(h.prisma);
+
+  const request = admin("BEGIN_DRAIN");
+  await service.transition(scope, request);
+
+  await blocked(
+    service.transition(
+      scope,
+      admin("BEGIN_DRAIN", {
+        idempotencyKey: request.idempotencyKey,
+        reason: "different recovery window",
+      }),
+    ),
+    "idempotency_conflict",
+  );
+  assert.equal(h.logs.length, 1);
+  assert.equal(h.gate.version, 1);
+});
+
+test("administrative audit identity and reason are mandatory", async () => {
+  const h = fakePrisma();
+  const service = new StorageWriteGateCoordinator(h.prisma);
+
+  await blocked(
+    service.transition(scope, admin("BEGIN_DRAIN", { actorId: "" })),
+    "invalid_actor_id",
+  );
+  await blocked(
+    service.transition(scope, admin("BEGIN_DRAIN", { reason: "" })),
+    "invalid_reason",
+  );
 });
 
 test("database authority failure has no permissive in-memory fallback", async () => {
