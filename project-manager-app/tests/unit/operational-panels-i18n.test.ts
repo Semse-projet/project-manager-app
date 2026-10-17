@@ -40,6 +40,8 @@ test("all static operational panel translation keys exist in both languages", ()
     "apps/web/components/semse/CrowdDecisionBadge.tsx",
     "apps/web/app/(app)/client/dashboard/page.tsx",
     "apps/web/app/(app)/worker/dashboard/page.tsx",
+    "apps/web/app/(app)/admin/dashboard/page.tsx",
+    "apps/web/app/(app)/admin/mission-control/page.tsx",
   ];
   const required = new Set(["nav.workspace"]);
   for (const filename of files) {
@@ -69,6 +71,27 @@ test("all static operational panel translation keys exist in both languages", ()
   }
   for (const status of ["locked", "pending_review", "released", "disputed"]) {
     required.add(`crowd.status.${status}`);
+  }
+  for (const source of ["signal", "event", "agent_run", "approval", "loop", "incident", "service_health", "worker_queue"]) {
+    required.add(`mc.source.${source}`);
+  }
+  for (const severity of ["critical", "high", "medium", "low", "info"]) {
+    required.add(`mc.severity.${severity}`);
+  }
+  for (const status of ["open", "acknowledged", "failed", "dead_letter", "pending_approval"]) {
+    required.add(`mc.status.${status}`);
+  }
+  for (const status of ["HEALTHY", "ATTENTION", "DEGRADED"]) {
+    required.add(`mc.pageStatus.${status}`);
+  }
+  for (const state of ["connected", "degraded"]) {
+    required.add(`mc.live.${state}`);
+  }
+  for (const action of ["ACKNOWLEDGE", "RESOLVE", "DISMISS", "PAUSE", "RESUME", "RETRY", "REQUEUE", "REPLAY", "ESCALATE"]) {
+    required.add(`mc.action.${action}`);
+  }
+  for (const status of ["RUNNING", "SUCCEEDED", "FAILED", "NO_OP"]) {
+    required.add(`mc.receiptStatus.${status}`);
   }
   for (const key of required) {
     assert.ok(es.has(key), `Missing Spanish translation: ${key}`);
