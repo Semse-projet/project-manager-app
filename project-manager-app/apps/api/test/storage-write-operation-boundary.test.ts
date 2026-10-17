@@ -79,7 +79,13 @@ test("failed settlement does not invoke cleanup of an already published original
   assert.equal(cleaned, 0, "cleanup must not run after successful publication");
 });
 
-test("boundary not provided in runtime Nest StorageModule", () => {
-  const mod = readFileSync(new URL("../src/infrastructure/storage/storage.module.ts",import.meta.url),"utf8");
-  assert.doesNotMatch(mod, /StorageWriteOperationBoundary/);
+test("boundary injected in staging only, without operator transition endpoint", () => {
+  const moduleSource = readFileSync(new URL("../src/infrastructure/storage/storage.module.ts",import.meta.url),"utf8");
+  const storageSource = readFileSync(new URL("../src/infrastructure/storage/storage.service.ts",import.meta.url),"utf8");
+  assert.match(moduleSource, /StorageWriteOperationBoundary/);
+  assert.match(moduleSource, /StorageWriteGateCoordinator/);
+  assert.doesNotMatch(moduleSource, /StorageWriteGateTransitionService/);
+  assert.match(storageSource, /SEMSE_STORAGE_WRITE_GATE_MODE/);
+  assert.match(storageSource, /isProductionStorage/);
+  assert.match(storageSource, /ServiceUnavailableException/);
 });
