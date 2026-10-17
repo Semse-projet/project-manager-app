@@ -557,11 +557,11 @@ export default function PrometeoPage() {
                             <div style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.5, marginBottom: 8 }}>{c.excerpt}</div>
                             {c.chunkId && (
                               <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                                {fb === "sending" && <span style={{ fontSize: 10, color: "var(--muted)" }}>Enviando…</span>}
-                                {fb === "confirm" && <span style={{ fontSize: 10, color: "#86efac" }}>✓ Útil registrado</span>}
-                                {fb === "correct" && <span style={{ fontSize: 10, color: "#fbbf24" }}>✓ Corrección registrada</span>}
-                                {fb === "flag"    && <span style={{ fontSize: 10, color: "#f87171" }}>✓ Irrelevante registrado</span>}
-                                {fb === "error"   && <span style={{ fontSize: 10, color: "#f87171" }}>Error al registrar</span>}
+                                {fb === "sending" && <span style={{ fontSize: 10, color: "var(--muted)" }}>{t("prom.feedback.sending")}</span>}
+                                {fb === "confirm" && <span style={{ fontSize: 10, color: "#86efac" }}>{t("prom.feedback.confirm")}</span>}
+                                {fb === "correct" && <span style={{ fontSize: 10, color: "#fbbf24" }}>{t("prom.feedback.correct")}</span>}
+                                {fb === "flag"    && <span style={{ fontSize: 10, color: "#f87171" }}>{t("prom.feedback.flag")}</span>}
+                                {fb === "error"   && <span style={{ fontSize: 10, color: "#f87171" }}>{t("prom.feedback.error")}</span>}
                                 {!fb && (<>
                                   <button onClick={() => void handleFeedback(c.chunkId, "confirm", ragQuestion)}
                                     style={{ fontSize: 10, padding: "2px 8px", borderRadius: 6, border: "1px solid #86efac44", background: "rgba(134,239,172,.08)", color: "#86efac", cursor: "pointer" }}>
@@ -633,11 +633,11 @@ export default function PrometeoPage() {
                   <div style={{ fontSize: 13, lineHeight: 1.6, color: "var(--ink)", marginBottom: 8 }}>{r.text.slice(0, 400)}{r.text.length > 400 ? "…" : ""}</div>
                   {r.chunkId && (
                     <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                      {fb === "sending" && <span style={{ fontSize: 10, color: "var(--muted)" }}>Enviando…</span>}
-                      {fb === "confirm" && <span style={{ fontSize: 10, color: "#86efac" }}>✓ Útil registrado</span>}
-                      {fb === "correct" && <span style={{ fontSize: 10, color: "#fbbf24" }}>✓ Corrección registrada</span>}
-                      {fb === "flag"    && <span style={{ fontSize: 10, color: "#f87171" }}>✓ Irrelevante registrado</span>}
-                      {fb === "error"   && <span style={{ fontSize: 10, color: "#f87171" }}>Error al registrar</span>}
+                      {fb === "sending" && <span style={{ fontSize: 10, color: "var(--muted)" }}>{t("prom.feedback.sending")}</span>}
+                      {fb === "confirm" && <span style={{ fontSize: 10, color: "#86efac" }}>{t("prom.feedback.confirm")}</span>}
+                      {fb === "correct" && <span style={{ fontSize: 10, color: "#fbbf24" }}>{t("prom.feedback.correct")}</span>}
+                      {fb === "flag"    && <span style={{ fontSize: 10, color: "#f87171" }}>{t("prom.feedback.flag")}</span>}
+                      {fb === "error"   && <span style={{ fontSize: 10, color: "#f87171" }}>{t("prom.feedback.error")}</span>}
                       {!fb && (<>
                         <button onClick={() => void handleFeedback(r.chunkId, "confirm", searchQuery)}
                           style={{ fontSize: 10, padding: "2px 8px", borderRadius: 6, border: "1px solid #86efac44", background: "rgba(134,239,172,.08)", color: "#86efac", cursor: "pointer" }}>
@@ -692,7 +692,7 @@ export default function PrometeoPage() {
                       <Zap size={14} color="#818cf8" />
                       <div style={{ flex: 1 }}>
                         <div style={{ fontWeight: 700, fontSize: 13 }}>{a.name}</div>
-                        <div style={{ fontSize: 11, color: "var(--muted)" }}>{a.category}{a.location ? ` · ${a.location}` : ""}</div>
+                        <div style={{ fontSize: 11, color: "var(--muted)" }}>{(["equipment", "material", "vehicle", "tool", "space"].includes(a.category) ? t(`prom.assetCategory.${a.category}`) : a.category)}{a.location ? ` · ${a.location}` : ""}</div>
                       </div>
                       <StatusBadge status={a.status} />
                     </div>
