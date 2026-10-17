@@ -822,6 +822,14 @@ const T: Record<LanguagePreference, Record<string, string>> = {
     "workerDash.tier.established": "Establecido",
     "workerDash.tier.trusted": "De confianza",
 
+    // ── Crowd decision badge ES/EN ────────────────────────────────────────
+    "crowd.ready": "listo para pago",
+    "crowd.blockers": "bloqueos",
+    "crowd.status.locked": "bloqueado",
+    "crowd.status.pending_review": "pendiente de revisión",
+    "crowd.status.released": "liberado",
+    "crowd.status.disputed": "en disputa",
+
     // ── Agents ────────────────────────────────────────────────────────────────
     "agents.run": "Ejecución",
     "agents.status.running": "Ejecutando",
@@ -1812,6 +1820,14 @@ const T: Record<LanguagePreference, Record<string, string>> = {
     "workerDash.tier.growing": "Growing",
     "workerDash.tier.established": "Established",
     "workerDash.tier.trusted": "Trusted",
+
+    // ── Crowd decision badge ES/EN ────────────────────────────────────────
+    "crowd.ready": "ready for payment",
+    "crowd.blockers": "blockers",
+    "crowd.status.locked": "locked",
+    "crowd.status.pending_review": "pending review",
+    "crowd.status.released": "released",
+    "crowd.status.disputed": "disputed",
 
     // ── Agents ────────────────────────────────────────────────────────────────
     "agents.run": "Run",
