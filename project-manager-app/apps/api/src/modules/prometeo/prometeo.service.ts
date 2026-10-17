@@ -3,7 +3,7 @@ import { GraphifyService } from "../graphify/graphify.service.js";
 import { ChunkerService } from "./chunker.service.js";
 import { DocumentParserService } from "./document-parser.service.js";
 import { EmbeddingService, cosineSimilarity, isZeroVector, type EmbeddingVector } from "./embedding.service.js";
-import { PrometeoRepository, type PrometeoChunkSearchRow, type PrometeoDocumentRecord } from "./prometeo.repository.js";
+import { PrometeoRepository, type PrometeoChunkSearchRow, type PrometeoDocumentRecord, type PrometeoListScopeFilter } from "./prometeo.repository.js";
 
 export type RetrievalMode = "hybrid" | "semantic" | "fts_fallback";
 
@@ -180,8 +180,8 @@ export class PrometeoService {
   }
 
   /** Get document counts organized by trade for the library view. */
-  async getTradeLibrary(tenantId: string) {
-    const docs = await this.repo.listDocuments({ tenantId });
+  async getTradeLibrary(tenantId: string, scope?: PrometeoListScopeFilter) {
+    const docs = await this.repo.listDocuments({ tenantId, scope, limit: 1000 });
     const trades = [
       "electrical", "plumbing", "drywall", "painting", "carpentry",
       "hvac", "siding", "demolition", "cleaning", "bathroom", "kitchen",
@@ -217,13 +217,13 @@ export class PrometeoService {
 
   async search(input: {
     tenantId: string; projectId?: string; query: string; topK?: number;
-    trade?: string;
+    trade?: string; scope?: PrometeoListScopeFilter;
   }): Promise<SearchResult[]> {
     const topK = input.topK ?? 5;
     const queryVec = await this.embedding.embed(input.query);
     const hasRealQueryEmbedding = !isZeroVector(queryVec);
 
-    const chunks = await this.repo.loadChunksForSearch({ tenantId: input.tenantId, projectId: input.projectId });
+    const chunks = await this.repo.loadChunksForSearch({ tenantId: input.tenantId, projectId: input.projectId, scope: input.scope });
     if (!chunks.length) return [];
 
     // Load feedback scores for all chunks (only when feedback data exists)
@@ -308,8 +308,8 @@ export class PrometeoService {
     });
   }
 
-  async getFeedbackStats(tenantId: string) {
-    return this.repo.getFeedbackStats(tenantId);
+  async getFeedbackStats(tenantId: string, scope?: PrometeoListScopeFilter) {
+    return this.repo.getFeedbackStats(tenantId, scope);
   }
 
   /** Keyword overlap score — used as FTS fallback and hybrid component. */
@@ -437,6 +437,7 @@ export class PrometeoService {
 
   async buildRagContext(input: {
     tenantId: string; projectId?: string; query: string; topK?: number;
+    scope?: PrometeoListScopeFilter;
   }): Promise<RagContext> {
     const [results, structuralCtx] = await Promise.all([
       this.search({ ...input, topK: input.topK ?? 6 }),
@@ -482,13 +483,14 @@ export class PrometeoService {
     projectId?: string;
     trade?:     string;
     topK?:      number;
+    scope?:     PrometeoListScopeFilter;
   }): Promise<{
     available:    boolean;
     contextBlock: string;
     citations:    Array<{ documentId: string; documentTitle: string; excerpt: string; score: number }>;
   }> {
     try {
-      const ctx = await this.buildRagContext({ tenantId: input.tenantId, projectId: input.projectId, query: input.query, topK: input.topK ?? 4 });
+      const ctx = await this.buildRagContext({ tenantId: input.tenantId, projectId: input.projectId, query: input.query, topK: input.topK ?? 4, scope: input.scope });
       if (!ctx.chunks.length) return { available: false, contextBlock: "", citations: [] };
 
       // Filter by trade if specified
@@ -519,8 +521,12 @@ export class PrometeoService {
 
   // ── Document management ─────────────────────────────────────────────────────
 
-  async listDocuments(tenantId: string, projectId?: string) {
-    return this.repo.listDocuments({ tenantId, projectId });
+  async listDocuments(tenantId: string, projectId?: string, scope?: PrometeoListScopeFilter) {
+    return this.repo.listDocuments({ tenantId, projectId, scope });
+  }
+
+  async getDocument(id: string) {
+    return this.repo.getDocument(id);
   }
 
   async deleteDocument(input: { tenantId: string; id: string }) {
