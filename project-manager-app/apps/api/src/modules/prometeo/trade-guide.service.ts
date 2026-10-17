@@ -1,3 +1,4 @@
+import type { PrometeoListScopeFilter } from "./prometeo.repository.js";
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import { LLMOrchestrator } from "../../infrastructure/llm/orchestrator.js";
 import { getAgentProfile } from "../../infrastructure/llm/agent-profiles.js";
@@ -49,6 +50,7 @@ export class TradeGuideService {
     tenantId:    string;
     projectId?:  string;
     locale?:     "es" | "en";
+    scope?:     PrometeoListScopeFilter;
   }): Promise<TradeGuideResult> {
     const locale = input.locale ?? "es";
     const tradeLabel = TRADE_LABELS[input.trade] ?? input.trade;
@@ -58,6 +60,7 @@ export class TradeGuideService {
       query:     input.question,
       tenantId:  input.tenantId,
       projectId: input.projectId,
+      scope:     input.scope,
       trade:     input.trade,
       topK:      5,
     });
