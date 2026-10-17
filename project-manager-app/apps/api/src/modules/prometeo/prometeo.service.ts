@@ -219,6 +219,8 @@ export class PrometeoService {
     tenantId: string; projectId?: string; query: string; topK?: number;
     trade?: string; scope?: PrometeoListScopeFilter;
   }): Promise<SearchResult[]> {
+    // Internal agents without an explicitly resolved caller scope must never see tenant-wide chunks.
+    if (!Object.prototype.hasOwnProperty.call(input, "scope")) return [];
     const topK = input.topK ?? 5;
     const queryVec = await this.embedding.embed(input.query);
     const hasRealQueryEmbedding = !isZeroVector(queryVec);
@@ -439,6 +441,10 @@ export class PrometeoService {
     tenantId: string; projectId?: string; query: string; topK?: number;
     scope?: PrometeoListScopeFilter;
   }): Promise<RagContext> {
+    // Covers direct internal buildRagContext callers as well as HTTP retrieval.
+    if (!Object.prototype.hasOwnProperty.call(input, "scope")) {
+      return { chunks: [], contextBlock: "", tokenEstimate: 0 };
+    }
     const [results, structuralCtx] = await Promise.all([
       this.search({ ...input, topK: input.topK ?? 6 }),
       this.graphify ? this.graphify.buildStructuralContext(input.query) : Promise.resolve(""),
@@ -489,6 +495,10 @@ export class PrometeoService {
     contextBlock: string;
     citations:    Array<{ documentId: string; documentTitle: string; excerpt: string; score: number }>;
   }> {
+    // Do not treat a tenantId supplied by an agent as proof of user authorization.
+    if (!Object.prototype.hasOwnProperty.call(input, "scope")) {
+      return { available: false, contextBlock: "", citations: [] };
+    }
     try {
       const ctx = await this.buildRagContext({ tenantId: input.tenantId, projectId: input.projectId, query: input.query, topK: input.topK ?? 4, scope: input.scope });
       if (!ctx.chunks.length) return { available: false, contextBlock: "", citations: [] };
