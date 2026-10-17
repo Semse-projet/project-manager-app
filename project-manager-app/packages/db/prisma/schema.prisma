@@ -5476,17 +5476,20 @@ model StorageWriteOperation {
 }
 
 model StorageWriteGateTransitionLog {
-  id          String                @id @default(cuid())
-  gateId      String
-  ticket      String
-  action      String
-  fromPhase   StorageWriteGatePhase
-  toPhase     StorageWriteGatePhase
-  actorId     String?
-  reason      String?
-  createdAt   DateTime              @default(now())
-  gate        StorageWriteGate      @relation(fields: [gateId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  id                 String                @id @default(cuid())
+  gateId             String
+  ticket             String
+  idempotencyKey     String
+  requestFingerprint String
+  action             String
+  fromPhase          StorageWriteGatePhase
+  toPhase            StorageWriteGatePhase
+  actorId            String
+  reason             String
+  createdAt          DateTime              @default(now())
+  gate               StorageWriteGate      @relation(fields: [gateId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
+  @@unique([gateId, idempotencyKey])
   @@index([gateId, createdAt])
   @@index([ticket])
 }
