@@ -3,6 +3,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { PrometeoRepository } from "../dist/modules/prometeo/prometeo.repository.js";
 import { PrometeoController } from "../dist/modules/prometeo/prometeo.controller.js";
+import { PrometeoService } from "../dist/modules/prometeo/prometeo.service.js";
 
 const scope = { orgId: "org-A", projectIds: ["project-A"], jobIds: [] };
 
@@ -123,4 +124,26 @@ test("public_training cannot be re-enabled by legacy metadata or implicit defaul
     /Public sharing requires approved explicit consent/,
   );
   assert.equal(wrote, false);
+});
+
+
+test("internal agents cannot retrieve RAG without an explicit resolved scope", async () => {
+  let touchedChunks = false;
+  let sentEmbedding = false;
+  const repo = {
+    async loadChunksForSearch() { touchedChunks = true; return []; },
+  };
+  const embedding = {
+    async embed() { sentEmbedding = true; return []; },
+  };
+  const svc = new PrometeoService(repo as never, {} as never, embedding as never, {} as never);
+  const query = { tenantId: "tenant-A", query: "secret" };
+  assert.deepEqual(await svc.search(query), []);
+  const ctx = await svc.buildRagContext(query);
+  assert.deepEqual(ctx, { chunks: [], contextBlock: "", tokenEstimate: 0 });
+  const result = await svc.retrieveContext(query);
+  assert.equal(result.available, false);
+  assert.deepEqual(result.citations, []);
+  assert.equal(touchedChunks, false);
+  assert.equal(sentEmbedding, false);
 });
