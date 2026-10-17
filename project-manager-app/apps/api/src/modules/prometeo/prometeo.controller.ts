@@ -25,6 +25,15 @@ export class PrometeoController {
     @Optional() private readonly executionQuery?: ToolExecutionQueryService,
   ) {}
 
+  /** Legacy public_training labels do not grant cross-org access (C51/#974). */
+  private documentVisibility(body: Record<string, unknown>, projectId?: string): string {
+    const requested = typeof body.visibility === "string" ? body.visibility : (projectId ? "project_private" : "tenant_private");
+    if (requested === "public_training") throw new BadRequestException("Public sharing requires approved explicit consent");
+    if (!["tenant_private", "project_private"].includes(requested)) throw new BadRequestException("Unsupported visibility");
+    if (requested === "project_private" && !projectId) throw new BadRequestException("project_private requires projectId");
+    return requested;
+  }
+
   // ── RAG Documents ───────────────────────────────────────────────────────────
 
   @Get("tools")
@@ -125,16 +134,18 @@ export class PrometeoController {
     const actor = resolveRequestContext(req);
     const rid = resolveRequestId(req.headers ?? {});
     const b = body as Record<string, unknown>;
-    const trade      = typeof b.trade === "string" ? b.trade : "general";
-    const visibility = typeof b.visibility === "string" ? b.visibility : "public_training";
+    const projectId = typeof b.projectId === "string" ? b.projectId : undefined;
+    await this.access.assertCanCreate(actor, { projectId });
+    const trade = typeof b.trade === "string" ? b.trade : "general";
+    const visibility = this.documentVisibility(b, projectId);
     const doc = await this.svc.ingestText({
       tenantId: actor.tenantId, orgId: actor.orgId, userId: actor.userId,
-      projectId: typeof b.projectId === "string" ? b.projectId : undefined,
+      projectId,
       title: typeof b.title === "string" ? b.title : "Documento sin título",
       text: typeof b.text === "string" ? b.text : "",
       sourceType: typeof b.sourceType === "string" ? b.sourceType : "text",
       sourceRef: typeof b.sourceRef === "string" ? b.sourceRef : undefined,
-      metadataJson: { trade, visibility, ...(typeof b.metadataJson === "object" && b.metadataJson !== null ? b.metadataJson as Record<string, unknown> : {}) },
+      metadataJson: { ...(typeof b.metadataJson === "object" && b.metadataJson !== null ? b.metadataJson as Record<string, unknown> : {}), trade, visibility },
     });
     return ok(rid, doc);
   }
@@ -151,6 +162,9 @@ export class PrometeoController {
     const mimeType = typeof b.mimeType === "string" ? b.mimeType : "text/plain";
     const fileName = typeof b.fileName === "string" ? b.fileName : "document";
     const title    = typeof b.title === "string" ? b.title.trim() : fileName;
+    const projectId = typeof b.projectId === "string" ? b.projectId : undefined;
+    await this.access.assertCanCreate(actor, { projectId });
+    const visibility = this.documentVisibility(b, projectId);
 
     if (!base64) {
       const { BadRequestException } = await import("@nestjs/common");
@@ -165,8 +179,8 @@ export class PrometeoController {
       mimeType,
       fileName,
       trade:      typeof b.trade === "string" ? b.trade : "general",
-      visibility: typeof b.visibility === "string" ? b.visibility : "public_training",
-      projectId:  typeof b.projectId === "string" ? b.projectId : undefined,
+      visibility,
+      projectId,
     });
     return ok(rid, doc);
   }
