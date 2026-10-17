@@ -1,0 +1,17 @@
+# Ephemeral and synthetic, loopback-only. Do not use in production.
+# Runtime env supplies DSN, SECRETS_SYSTEM, SECRETS_COOKIE.
+serve:
+  public:
+    host: 127.0.0.1
+  admin:
+    host: 127.0.0.1
+urls:
+  self:
+    issuer: http://127.0.0.1:4444
+  login: http://127.0.0.1:3000/login
+  consent: http://127.0.0.1:3000/consent
+  logout: http://127.0.0.1:3000/logout
+oidc:
+  subject_identifiers:
+    supported_types:
+      - public

@@ -1,0 +1,65 @@
+name: MCP S1 Hydra isolated PoC
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/mcp-s1-hydra-poc.yml'
+      - 'project-manager-app/scripts/mcp-s1-hydra-poc.mjs'
+      - 'project-manager-app/tests/fixtures/mcp-s1-hydra/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mcp-s1-hydra-poc-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  isolated-hydra-pkce:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    env:
+      HYDRA_VERSION: '26.2.0'
+      HYDRA_SHA256: '28baf98c6d5da617c905d5ca77826fe863db9f9edab8f72664c69a56bde56b5a'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Download and verify pinned official SQLite Hydra (no Docker)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/semse-mcp-hydra/bin"
+          file="$RUNNER_TEMP/semse-mcp-hydra/hydra.tar.gz"
+          curl --fail --location --silent --show-error --retry 3 \
+            "https://github.com/ory/hydra/releases/download/v${HYDRA_VERSION}/hydra_${HYDRA_VERSION}-linux_sqlite_64bit.tar.gz" -o "$file"
+          echo "${HYDRA_SHA256}  ${file}" | sha256sum --check --status
+          tar -xzf "$file" -C "$RUNNER_TEMP/semse-mcp-hydra/bin"
+          hydra_bin="$(find "$RUNNER_TEMP/semse-mcp-hydra/bin" -type f -name hydra | head -n 1)"
+          test -n "$hydra_bin"
+          chmod +x "$hydra_bin"
+          echo "HYDRA_BIN=$hydra_bin" >> "$GITHUB_ENV"
+          echo "Verified Hydra v${HYDRA_VERSION} official asset and SHA256."
+      - name: Real OAuth authorization-code PKCE plus synthetic SEMSE revocation
+        shell: bash
+        run: |
+          set -euo pipefail
+          work="$RUNNER_TEMP/semse-mcp-hydra"
+          config="project-manager-app/tests/fixtures/mcp-s1-hydra/hydra.yml"
+          export DSN="sqlite://${work}/hydra.sqlite?_fk=true&mode=rwc"
+          export SECRETS_SYSTEM="$(openssl rand -hex 32)"
+          export SECRETS_COOKIE="$(openssl rand -hex 32)"
+          # Ephemeral synthetic DB only. No SEMSE or Railway connection.
+          "$HYDRA_BIN" migrate -c "$config" sql up -e --yes > "$work/migration.log" 2>&1
+          "$HYDRA_BIN" serve -c "$config" all --dev > "$work/hydra.log" 2>&1 &
+          pid=$!
+          cleanup() {
+            kill "$pid" 2>/dev/null || true
+            wait "$pid" 2>/dev/null || true
+            rm -f "$work/hydra.sqlite" "$work/hydra.sqlite-shm" "$work/hydra.sqlite-wal" "$work/hydra.log" "$work/migration.log"
+          }
+          trap cleanup EXIT
+          node project-manager-app/scripts/mcp-s1-hydra-poc.mjs
