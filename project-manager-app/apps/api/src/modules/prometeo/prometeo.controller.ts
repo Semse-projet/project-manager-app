@@ -3,7 +3,7 @@ import { prometeoToolInvokeSchema } from "@semse/schemas";
 import { ok } from "../../common/api-response.js";
 import { RequirePermissions } from "../../common/permissions.decorator.js";
 import { resolveRequestContext } from "../../common/request-context.js";
-import { isOpsAdmin } from "../../common/resource-scope.js";
+import { isOpsAdmin, sameOrg } from "../../common/resource-scope.js";
 import { resolveRequestId } from "../../common/request-id.js";
 import { LLMOrchestrator } from "../../infrastructure/llm/orchestrator.js";
 import { getAgentProfile } from "../../infrastructure/llm/agent-profiles.js";
@@ -224,7 +224,12 @@ export class PrometeoController {
   async deleteDocument(@Req() req: { headers?: Record<string, unknown> }, @Param("id") id: string) {
     const actor = resolveRequestContext(req);
     const rid = resolveRequestId(req.headers ?? {});
-    await this.access.assertRowAccess(actor, await this.svc.getDocument(id), "Prometeo document not found");
+    const doc = await this.svc.getDocument(id);
+    await this.access.assertRowAccess(actor, doc, "Prometeo document not found");
+    // Read access to a shared project never grants authority to destroy another org's document.
+    if (!isOpsAdmin(actor) && !sameOrg(actor.orgId, doc?.orgId)) {
+      throw new ForbiddenException("Only the owning organization can delete this document");
+    }
     await this.svc.deleteDocument({ tenantId: actor.tenantId, id });
     return ok(rid, { deleted: true });
   }
