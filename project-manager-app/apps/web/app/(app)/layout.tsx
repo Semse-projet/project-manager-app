@@ -114,7 +114,7 @@ const NAV: Record<NavRole, { labelKey: string; color: string; icon: typeof HardH
       { labelKey: "nav.myBids", href: "/worker/bids", icon: Send },
       { labelKey: "nav.agenda", href: "/worker/agenda", icon: Calendar },
       { labelKey: "nav.myJobs", href: "/worker/jobs", icon: Briefcase },
-      { labelKey: "Workspace", href: "/workspace", icon: FolderKanban },
+      { labelKey: "nav.workspace", href: "/workspace", icon: FolderKanban },
       { labelKey: "nav.tasks", href: "/worker/tasks", icon: CheckSquare },
       { labelKey: "nav.timeTracker", href: "/worker/tracker", icon: Clock },
       { labelKey: "nav.evidence", href: "/worker/evidence", icon: Camera },
