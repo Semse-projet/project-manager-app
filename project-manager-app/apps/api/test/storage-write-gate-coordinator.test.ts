@@ -330,6 +330,24 @@ test("reusing an idempotency key with different semantics fails closed", async (
   assert.equal(h.gate.version, 1);
 });
 
+test("idempotent replay never bypasses administrator authorization", async () => {
+  const h = fakePrisma();
+  const service = new StorageWriteGateCoordinator(h.prisma);
+
+  const request = admin("BEGIN_DRAIN");
+  await service.transition(scope, request);
+
+  await blocked(
+    service.transition(
+      scope,
+      { ...request, administratorAuthorized: false },
+    ),
+    "administrator_required",
+  );
+  assert.equal(h.logs.length, 1);
+  assert.equal(h.gate.version, 1);
+});
+
 test("administrative audit identity and reason are mandatory", async () => {
   const h = fakePrisma();
   const service = new StorageWriteGateCoordinator(h.prisma);
