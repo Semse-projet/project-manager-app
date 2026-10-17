@@ -36,11 +36,13 @@ CREATE TABLE "StorageWriteGateTransitionLog" (
     "id" TEXT NOT NULL,
     "gateId" TEXT NOT NULL,
     "ticket" TEXT NOT NULL,
+    "idempotencyKey" TEXT NOT NULL,
+    "requestFingerprint" TEXT NOT NULL,
     "action" TEXT NOT NULL,
     "fromPhase" "StorageWriteGatePhase" NOT NULL,
     "toPhase" "StorageWriteGatePhase" NOT NULL,
-    "actorId" TEXT,
-    "reason" TEXT,
+    "actorId" TEXT NOT NULL,
+    "reason" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "StorageWriteGateTransitionLog_pkey" PRIMARY KEY ("id")
@@ -57,6 +59,9 @@ ON "StorageWriteOperation"("gateId", "operationKey");
 
 CREATE INDEX "StorageWriteOperation_gateId_status_admittedAt_idx"
 ON "StorageWriteOperation"("gateId", "status", "admittedAt");
+
+CREATE UNIQUE INDEX "StorageWriteGateTransitionLog_gateId_idempotencyKey_key"
+ON "StorageWriteGateTransitionLog"("gateId", "idempotencyKey");
 
 CREATE INDEX "StorageWriteGateTransitionLog_gateId_createdAt_idx"
 ON "StorageWriteGateTransitionLog"("gateId", "createdAt");
