@@ -1,8 +1,9 @@
-import { BadRequestException, Body, Controller, Delete, Get, Optional, Param, Patch, Post, Query, Req } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Delete, ForbiddenException, Get, Optional, Param, Patch, Post, Query, Req } from "@nestjs/common";
 import { prometeoToolInvokeSchema } from "@semse/schemas";
 import { ok } from "../../common/api-response.js";
 import { RequirePermissions } from "../../common/permissions.decorator.js";
 import { resolveRequestContext } from "../../common/request-context.js";
+import { isOpsAdmin } from "../../common/resource-scope.js";
 import { resolveRequestId } from "../../common/request-id.js";
 import { LLMOrchestrator } from "../../infrastructure/llm/orchestrator.js";
 import { getAgentProfile } from "../../infrastructure/llm/agent-profiles.js";
@@ -525,13 +526,15 @@ export class PrometeoController {
   async embeddingsHealth(@Req() req: { headers?: Record<string, unknown> }) {
     const actor = resolveRequestContext(req);
     const rid = resolveRequestId(req.headers ?? {});
-    return ok(rid, await this.svc.getEmbeddingRagHealth(actor.tenantId));
+    const scope = await this.access.listScope(actor);
+    return ok(rid, await this.svc.getEmbeddingRagHealth(actor.tenantId, scope));
   }
 
   @Post("embeddings/backfill")
   @RequirePermissions("agents:run:create")
   async backfillEmbeddings(@Req() req: { headers?: Record<string, unknown> }, @Body() body: Record<string, unknown>) {
     const actor = resolveRequestContext(req);
+    if (!isOpsAdmin(actor)) throw new ForbiddenException("OPS_ADMIN is required for tenant-wide embeddings backfill");
     const rid = resolveRequestId(req.headers ?? {});
     const result = await this.svc.backfillEmbeddings({
       tenantId:  actor.tenantId,
