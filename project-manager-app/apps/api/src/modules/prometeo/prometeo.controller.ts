@@ -351,7 +351,8 @@ export class PrometeoController {
           history: [],
           userMessage,
           context: {
-            ...getAgentProfile("evidence-analyzer"), // privacyCritical
+            ...getAgentProfile("evidence-analyzer"),
+            localOnly: true, // Private RAG content must not be routed to a remote provider.
             agentName: "prometeo-rag",
             source: "prometeo",
           },
