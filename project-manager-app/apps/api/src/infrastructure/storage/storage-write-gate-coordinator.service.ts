@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import { createHash } from "node:crypto";
 import path from "node:path";
 import type { PrismaService } from "../prisma/prisma.service.js";
 import {
@@ -28,6 +29,7 @@ export type StorageWriteGateView = StorageWriteGateSnapshot & Readonly<{
   environmentKey: string;
   storageRoot: string;
   version: number;
+  replayed: boolean;
 }>;
 
 type GateRow = Readonly<{
@@ -43,17 +45,19 @@ type TransitionRequest = Readonly<{
   action: StorageWriteGateAction;
   administratorAuthorized: boolean;
   ticket: string;
+  idempotencyKey: string;
   recoveryWindowClosed?: boolean;
-  actorId?: string;
-  reason?: string;
+  actorId: string;
+  reason: string;
 }>;
 
 type CoverageRequest = Readonly<{
   complete: boolean;
   administratorAuthorized: boolean;
   ticket: string;
-  actorId?: string;
-  reason?: string;
+  idempotencyKey: string;
+  actorId: string;
+  reason: string;
 }>;
 
 function blocked(reason: string): never {
@@ -66,6 +70,16 @@ function validAuditToken(value: string): boolean {
 
 function validWriterKind(value: string): boolean {
   return /^[a-z][a-z0-9._:-]{1,63}$/.test(value);
+}
+
+function validReason(value: string): boolean {
+  return typeof value === "string" &&
+    value.trim().length >= 3 &&
+    value.trim().length <= 512;
+}
+
+function commandFingerprint(value: Record<string, unknown>): string {
+  return createHash("sha256").update(JSON.stringify(value)).digest("hex");
 }
 
 function normalizeScope(scope: StorageWriteScope): StorageWriteScope {
@@ -138,6 +152,7 @@ export class StorageWriteGateCoordinator {
   private async snapshotUnderLock(
     tx: Prisma.TransactionClient,
     gate: GateRow,
+    replayed = false,
   ): Promise<StorageWriteGateView> {
     const [activeOperations, ambiguousOperations] = await Promise.all([
       tx.storageWriteOperation.count({ where: { gateId: gate.id, status: "ACTIVE" } }),
@@ -152,6 +167,7 @@ export class StorageWriteGateCoordinator {
       ambiguousOperations,
       writerCoverageComplete: gate.writerCoverageComplete,
       version: gate.version,
+      replayed,
     };
   }
 
@@ -291,9 +307,33 @@ export class StorageWriteGateCoordinator {
   async setWriterCoverage(scope: StorageWriteScope, request: CoverageRequest): Promise<StorageWriteGateView> {
     if (!request.administratorAuthorized) return blocked("administrator_required");
     if (!validAuditToken(request.ticket)) return blocked("invalid_audit_ticket");
+    if (!validAuditToken(request.idempotencyKey)) return blocked("invalid_idempotency_key");
+    if (!validAuditToken(request.actorId)) return blocked("invalid_actor_id");
+    if (!validReason(request.reason)) return blocked("invalid_reason");
+
+    const fingerprint = commandFingerprint({
+      action: "SET_WRITER_COVERAGE",
+      complete: request.complete,
+      ticket: request.ticket,
+      actorId: request.actorId,
+      reason: request.reason.trim(),
+    });
 
     return this.serializable(async tx => {
       const gate = await this.lockGate(tx, scope);
+      const prior = await tx.storageWriteGateTransitionLog.findUnique({
+        where: {
+          gateId_idempotencyKey: {
+            gateId: gate.id,
+            idempotencyKey: request.idempotencyKey,
+          },
+        },
+      });
+      if (prior) {
+        if (prior.requestFingerprint !== fingerprint) return blocked("idempotency_conflict");
+        return this.snapshotUnderLock(tx, gate, true);
+      }
+
       if (gate.phase === "FROZEN" && request.complete !== true) {
         return blocked("inconsistent_frozen_snapshot");
       }
@@ -317,11 +357,13 @@ export class StorageWriteGateCoordinator {
         data: {
           gateId: gate.id,
           ticket: request.ticket,
+          idempotencyKey: request.idempotencyKey,
+          requestFingerprint: fingerprint,
           action: "SET_WRITER_COVERAGE",
           fromPhase: gate.phase,
           toPhase: gate.phase,
           actorId: request.actorId,
-          reason: request.reason,
+          reason: request.reason.trim(),
         },
       });
       return this.snapshotUnderLock(tx, updated as GateRow);
@@ -330,9 +372,33 @@ export class StorageWriteGateCoordinator {
 
   async transition(scope: StorageWriteScope, request: TransitionRequest): Promise<StorageWriteGateView> {
     if (!validAuditToken(request.ticket)) return blocked("invalid_audit_ticket");
+    if (!validAuditToken(request.idempotencyKey)) return blocked("invalid_idempotency_key");
+    if (!validAuditToken(request.actorId)) return blocked("invalid_actor_id");
+    if (!validReason(request.reason)) return blocked("invalid_reason");
+
+    const fingerprint = commandFingerprint({
+      action: request.action,
+      ticket: request.ticket,
+      recoveryWindowClosed: request.recoveryWindowClosed === true,
+      actorId: request.actorId,
+      reason: request.reason.trim(),
+    });
 
     return this.serializable(async tx => {
       const gate = await this.lockGate(tx, scope);
+      const prior = await tx.storageWriteGateTransitionLog.findUnique({
+        where: {
+          gateId_idempotencyKey: {
+            gateId: gate.id,
+            idempotencyKey: request.idempotencyKey,
+          },
+        },
+      });
+      if (prior) {
+        if (prior.requestFingerprint !== fingerprint) return blocked("idempotency_conflict");
+        return this.snapshotUnderLock(tx, gate, true);
+      }
+
       const snapshot = await this.snapshotUnderLock(tx, gate);
       const toPhase = resolveStorageWriteGateTransition(snapshot, {
         action: request.action,
@@ -365,11 +431,13 @@ export class StorageWriteGateCoordinator {
         data: {
           gateId: gate.id,
           ticket: request.ticket,
+          idempotencyKey: request.idempotencyKey,
+          requestFingerprint: fingerprint,
           action: request.action,
           fromPhase: gate.phase,
           toPhase,
           actorId: request.actorId,
-          reason: request.reason,
+          reason: request.reason.trim(),
         },
       });
       return this.snapshotUnderLock(tx, updated as GateRow);
