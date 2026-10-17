@@ -324,6 +324,31 @@ test("writer coverage is fresh for every recovery window", async () => {
   );
 });
 
+test("administrative booleans reject truthy string coercion", async () => {
+  const h = fakePrisma();
+  const service = new StorageWriteGateCoordinator(h.prisma);
+
+  await blocked(
+    service.transition(
+      scope,
+      { ...admin("BEGIN_DRAIN"), administratorAuthorized: "true" },
+    ),
+    "administrator_required",
+  );
+
+  await service.transition(scope, admin("BEGIN_DRAIN"));
+  await blocked(
+    service.setWriterCoverage(
+      scope,
+      coverage({
+        idempotencyKey: "idem:coverage:coercion",
+        complete: "true",
+      }),
+    ),
+    "invalid_coverage_value",
+  );
+});
+
 test("runtime-invalid missing tokens fail closed instead of string coercion", async () => {
   const h = fakePrisma();
   const service = new StorageWriteGateCoordinator(h.prisma);
