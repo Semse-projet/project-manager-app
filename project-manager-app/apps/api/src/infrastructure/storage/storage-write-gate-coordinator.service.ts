@@ -64,12 +64,14 @@ function blocked(reason: string): never {
   throw new StorageWriteGateBlockedError(reason);
 }
 
-function validAuditToken(value: string): boolean {
-  return /^[A-Za-z0-9][A-Za-z0-9._:-]{5,127}$/.test(value);
+function validAuditToken(value: unknown): value is string {
+  return typeof value === "string" &&
+    /^[A-Za-z0-9][A-Za-z0-9._:-]{5,127}$/.test(value);
 }
 
-function validWriterKind(value: string): boolean {
-  return /^[a-z][a-z0-9._:-]{1,63}$/.test(value);
+function validWriterKind(value: unknown): value is string {
+  return typeof value === "string" &&
+    /^[a-z][a-z0-9._:-]{1,63}$/.test(value);
 }
 
 function validReason(value: string): boolean {
@@ -334,8 +336,8 @@ export class StorageWriteGateCoordinator {
         return this.snapshotUnderLock(tx, gate, true);
       }
 
-      if (gate.phase === "FROZEN" && request.complete !== true) {
-        return blocked("inconsistent_frozen_snapshot");
+      if (gate.phase !== "DRAINING") {
+        return blocked("coverage_requires_draining");
       }
       const updated = await tx.storageWriteGate.update({
         where: { id: gate.id },
@@ -413,6 +415,12 @@ export class StorageWriteGateCoordinator {
         where: { id: gate.id },
         data: {
           phase: toPhase,
+          writerCoverageComplete:
+            request.action === "BEGIN_DRAIN" ||
+            request.action === "THAW" ||
+            request.action === "ABORT_DRAIN"
+              ? false
+              : undefined,
           version: { increment: 1 },
           lastTransitionTicket: request.ticket,
           frozenAt: toPhase === "FROZEN" ? new Date() :
