@@ -322,15 +322,15 @@ export class PrometeoService {
   }
 
   /** Embedding health + RAG stats for Mission Control. */
-  async getEmbeddingRagHealth(tenantId: string): Promise<EmbeddingRagHealth> {
+  async getEmbeddingRagHealth(tenantId: string, scope?: PrometeoListScopeFilter): Promise<EmbeddingRagHealth> {
     const stats = this.embedding.getStats();
-    const docs = await this.repo.listDocuments({ tenantId });
+    const docs = await this.repo.listDocuments({ tenantId, scope, limit: 1000 });
     const totalDocs = docs.length;
     const indexedDocs = docs.filter((d) => d.status === "indexed");
     const totalChunks = indexedDocs.reduce((s, d) => s + d.chunkCount, 0);
 
     // Sample chunks to count real vs zero embeddings
-    const sampleChunks = await this.repo.loadChunksForSearch({ tenantId, limit: 200 });
+    const sampleChunks = await this.repo.loadChunksForSearch({ tenantId, scope, limit: 200 });
     const withEmbeddings = sampleChunks.filter((c) => {
       const vec = Array.isArray(c.embeddingJson) ? (c.embeddingJson as EmbeddingVector) : [];
       return vec.length > 0 && !isZeroVector(vec);
