@@ -428,29 +428,29 @@ export default function PrometeoPage() {
             <div style={card}>
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
                 <Layers size={16} color="#818cf8" />
-                <div style={{ fontWeight: 800, fontSize: 14 }}>Biblioteca por Oficio</div>
-                <button onClick={() => void loadTradeLibrary()} style={{ marginLeft: "auto", ...btn("var(--muted)", "transparent"), border: "1px solid var(--border)", fontSize: 11 }}>Actualizar</button>
+                <div style={{ fontWeight: 800, fontSize: 14 }}>{t("prom.library")}</div>
+                <button onClick={() => void loadTradeLibrary()} style={{ marginLeft: "auto", ...btn("var(--muted)", "transparent"), border: "1px solid var(--border)", fontSize: 11 }}>{t("prom.refresh")}</button>
               </div>
               {tradeLibrary.length === 0 ? (
-                <div style={{ color: "var(--muted)", fontSize: 13 }}>Cargando biblioteca…</div>
+                <div style={{ color: "var(--muted)", fontSize: 13 }}>{t("prom.loadingLibrary")}</div>
               ) : (
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 12 }}>
                   {tradeLibrary.map((t) => (
                     <div key={t.trade} style={{ padding: "14px 16px", borderRadius: 12, background: "rgba(255,255,255,.03)", border: "1px solid var(--border)", display: "grid", gap: 6 }}>
                       <div style={{ fontWeight: 800, fontSize: 13, color: "var(--ink)" }}>{t.label}</div>
-                      <div style={{ fontSize: 11, color: "var(--muted)" }}>{t.indexedCount}/{t.documentsCount} docs indexados · {t.chunksCount} chunks</div>
+                      <div style={{ fontSize: 11, color: "var(--muted)" }}>{t.indexedCount}/{t.documentsCount} {t("prom.indexedDocsLabel")} · {t.chunksCount} {t("prom.chunks")}</div>
                       {t.types.length > 0 && <div style={{ fontSize: 10, color: "var(--muted)" }}>{t.types.join(", ")}</div>}
                       {t.indexedCount > 0 && (
                         <button
                           onClick={() => { setFilterTrade(t.trade); setTab("query"); }}
                           style={{ ...btn("#818cf8", "rgba(99,102,241,.08)"), fontSize: 10, padding: "5px 8px", marginTop: 4 }}>
-                          <BookOpen size={10} />Consultar
+                          <BookOpen size={10} />{t("prom.query")}
                         </button>
                       )}
                       {t.indexedCount === 0 && (
                         <button onClick={() => { setIngestTrade(t.trade); setTab("docs"); }}
                           style={{ ...btn("var(--muted)", "transparent"), fontSize: 10, padding: "5px 8px", border: "1px solid var(--border)" }}>
-                          <Plus size={10} />Ingestar primero
+                          <Plus size={10} />{t("prom.ingestFirst")}
                         </button>
                       )}
                     </div>
@@ -465,33 +465,33 @@ export default function PrometeoPage() {
         {tab === "query" && (
           <div style={{ display: "grid", gap: 14 }}>
             <div style={card}>
-              <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 10 }}>Consultar con IA</div>
+              <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 10 }}>{t("prom.askAI")}</div>
               {/* Mode toggle */}
               <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-                {([["rag","📚 Base documental"],["guide","🔧 Guía por oficio"]] as const).map(([m,label]) => (
+                {(["rag","guide"] as const).map((m) => (
                   <button key={m} onClick={() => setRagMode(m)}
                     style={{ ...btn(ragMode === m ? "#fff" : "var(--muted)", ragMode === m ? "#6366f1" : "transparent"), border: ragMode === m ? "none" : "1px solid var(--border)", fontSize: 11 }}>
-                    {label}
+                    {t(`prom.mode.${m}`)}
                   </button>
                 ))}
                 <select value={filterTrade} onChange={(e) => setFilterTrade(e.target.value)}
                   style={{ ...input, width: "auto", fontSize: 11, padding: "5px 8px", cursor: "pointer" }}>
-                  <option value="">Todos los oficios</option>
+                  <option value="">{t("prom.allTrades")}</option>
                   {TRADES.map((trade) => <option key={trade} value={trade}>{t(`prom.trade.${trade}`)}</option>)}
                 </select>
               </div>
               <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 12 }}>
                 {ragMode === "guide"
-                  ? `Training Agent: responde usando manuales de ${(TRADES.find((trade) => trade === filterTrade) ? t(`prom.trade.${filterTrade}`) : t("prom.yourTrade"))} indexados en Prometeo.`
-                  : "Prometeo responde usando todos los documentos indexados con fuentes citadas."}
-                {docs.filter((d) => d.status === "indexed").length === 0 && <span style={{ color: "#fbbf24" }}> — Primero indexa documentos.</span>}
+                  ? `${t("prom.guidePrefix")} ${(TRADES.find((trade) => trade === filterTrade) ? t(`prom.trade.${filterTrade}`) : t("prom.yourTrade"))} ${t("prom.guideSuffix")}`
+                  : t("prom.ragExplanation")}
+                {docs.filter((d) => d.status === "indexed").length === 0 && <span style={{ color: "#fbbf24" }}> — {t("prom.indexFirst")}</span>}
               </div>
               <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
                 <input
                   value={ragQuestion}
                   onChange={(e) => setRagQuestion(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && void handleRagQuery()}
-                  placeholder={ragMode === "guide" ? "¿Qué debo revisar antes de comenzar? ¿Qué herramientas necesito?" : "¿Qué quieres saber?"}
+                  placeholder={ragMode === "guide" ? t("prom.guidePlaceholder") : t("prom.askPlaceholder")}
                   style={{ ...input, flex: 1 }}
                 />
                 <button
@@ -499,7 +499,7 @@ export default function PrometeoPage() {
                   disabled={ragLoading || !ragQuestion.trim()}
                   style={{ ...btn(), opacity: ragLoading ? 0.6 : 1, whiteSpace: "nowrap" }}
                 >
-                  {ragLoading ? <><Loader size={13} />Consultando…</> : <><BookOpen size={13} />Preguntar</>}
+                  {ragLoading ? <><Loader size={13} />{t("prom.querying")}</> : <><BookOpen size={13} />{t("prom.ask")}</>}
                 </button>
               </div>
 
@@ -510,30 +510,30 @@ export default function PrometeoPage() {
                   {/* Answer */}
                   <div style={{ padding: "14px 16px", borderRadius: 12, background: ragResult.insufficientContext ? "rgba(251,191,36,.06)" : "rgba(99,102,241,.06)", border: `1px solid ${ragResult.insufficientContext ? "rgba(251,191,36,.3)" : "rgba(99,102,241,.3)"}` }}>
                     <div style={{ fontSize: 11, fontWeight: 800, color: ragResult.insufficientContext ? "#fbbf24" : "#818cf8", marginBottom: 8, textTransform: "uppercase" }}>
-                      {ragResult.insufficientContext ? "Contexto insuficiente" : "Respuesta de Prometeo"}
+                      {t(ragResult.insufficientContext ? "prom.insufficientContext" : "prom.prometeoAnswer")}
                     </div>
                     <div style={{ fontSize: 13, lineHeight: 1.7, color: "var(--ink)", whiteSpace: "pre-wrap" }}>{ragResult.answer}</div>
                     {ragResult.nextBestAction && (
                       <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 8, background: "rgba(99,102,241,.08)", fontSize: 12, color: "#a5b4fc" }}>
-                        <strong>Siguiente acción:</strong> {ragResult.nextBestAction}
+                        <strong>{t("prom.nextAction")}</strong> {ragResult.nextBestAction}
                       </div>
                     )}
                     {/* Trade Guide extras */}
                     {ragResult.steps && ragResult.steps.length > 0 && (
                       <div style={{ marginTop: 10 }}>
-                        <div style={{ fontSize: 11, fontWeight: 800, color: "#86efac", marginBottom: 4 }}>PASOS</div>
+                        <div style={{ fontSize: 11, fontWeight: 800, color: "#86efac", marginBottom: 4 }}>{t("prom.steps")}</div>
                         {ragResult.steps.map((s, i) => <div key={i} style={{ fontSize: 12, color: "var(--muted)", paddingLeft: 8 }}>{i + 1}. {s}</div>)}
                       </div>
                     )}
                     {ragResult.warnings && ragResult.warnings.length > 0 && (
                       <div style={{ marginTop: 8 }}>
-                        <div style={{ fontSize: 11, fontWeight: 800, color: "#fbbf24", marginBottom: 4 }}>⚠ ADVERTENCIAS</div>
+                        <div style={{ fontSize: 11, fontWeight: 800, color: "#fbbf24", marginBottom: 4 }}>⚠ {t("prom.warnings")}</div>
                         {ragResult.warnings.map((w, i) => <div key={i} style={{ fontSize: 12, color: "#fbbf24", paddingLeft: 8 }}>• {w}</div>)}
                       </div>
                     )}
                     {ragResult.evidenceNeeded && ragResult.evidenceNeeded.length > 0 && (
                       <div style={{ marginTop: 8 }}>
-                        <div style={{ fontSize: 11, fontWeight: 800, color: "#818cf8", marginBottom: 4 }}>EVIDENCIA SEMSE REQUERIDA</div>
+                        <div style={{ fontSize: 11, fontWeight: 800, color: "#818cf8", marginBottom: 4 }}>{t("prom.evidenceRequired")}</div>
                         {ragResult.evidenceNeeded.map((e, i) => <div key={i} style={{ fontSize: 12, color: "var(--muted)", paddingLeft: 8 }}>📷 {e}</div>)}
                       </div>
                     )}
@@ -543,7 +543,7 @@ export default function PrometeoPage() {
                   {ragResult.citations.length > 0 && (
                     <div>
                       <div style={{ fontSize: 11, fontWeight: 800, color: "var(--muted)", marginBottom: 8, textTransform: "uppercase" }}>
-                        Fuentes ({ragResult.citations.length})
+                        {t("prom.sources")} ({ragResult.citations.length})
                       </div>
                       <div style={{ display: "grid", gap: 8 }}>
                         {ragResult.citations.map((c, i) => {
@@ -552,7 +552,7 @@ export default function PrometeoPage() {
                           <div key={i} style={{ padding: "10px 12px", borderRadius: 10, background: "rgba(255,255,255,.03)", border: "1px solid var(--border)" }}>
                             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
                               <strong style={{ fontSize: 12, color: "#818cf8" }}>{c.label}</strong>
-                              {c.score != null && <span style={{ fontSize: 10, color: "var(--muted)" }}>score {c.score.toFixed(3)}</span>}
+                              {c.score != null && <span style={{ fontSize: 10, color: "var(--muted)" }}>{t("prom.score")} {c.score.toFixed(3)}</span>}
                             </div>
                             <div style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.5, marginBottom: 8 }}>{c.excerpt}</div>
                             {c.chunkId && (
@@ -587,10 +587,10 @@ export default function PrometeoPage() {
 
                   {/* Metadata */}
                   <div style={{ fontSize: 10, color: "var(--muted)", display: "flex", gap: 16 }}>
-                    <span>Provider: <strong style={{ color: "var(--ink)" }}>{ragResult.provider}</strong></span>
-                    <span>Confianza: <strong style={{ color: "var(--ink)" }}>{Math.round(ragResult.confidence * 100)}%</strong></span>
-                    {ragResult.fallbackUsed && <span style={{ color: "#fbbf24" }}>fallback usado</span>}
-                    <span style={{ color: "#86efac" }}>🔒 privacyCritical — procesado localmente</span>
+                    <span>{t("prom.provider")} <strong style={{ color: "var(--ink)" }}>{ragResult.provider}</strong></span>
+                    <span>{t("prom.confidence")} <strong style={{ color: "var(--ink)" }}>{Math.round(ragResult.confidence * 100)}%</strong></span>
+                    {ragResult.fallbackUsed && <span style={{ color: "#fbbf24" }}>{t("prom.fallback")}</span>}
+                    <span style={{ color: "#86efac" }}>🔒 {t("prom.localProcessing")}</span>
                   </div>
                 </div>
               )}
@@ -601,21 +601,21 @@ export default function PrometeoPage() {
         {/* ── SEARCH ── */}
         {tab === "search" && (
           <div style={card}>
-            <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 14 }}>Búsqueda semántica RAG</div>
+            <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 14 }}>{t("prom.semanticSearch")}</div>
             <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
               <input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && void handleSearch()}
-                placeholder="¿Qué información buscas?" style={{ ...input, flex: 1 }} />
+                placeholder={t("prom.searchPlaceholder")} style={{ ...input, flex: 1 }} />
               <button onClick={() => void handleSearch()} disabled={searching || !searchQuery.trim()}
                 style={{ ...btn(), opacity: searching ? 0.6 : 1, whiteSpace: "nowrap" }}>
-                {searching ? "Buscando…" : <><Search size={13} />Buscar</>}
+                {searching ? t("prom.searching") : <><Search size={13} />{t("prom.search")}</>}
               </button>
             </div>
             {searchResults.length === 0 && !searching && (
               <div style={{ color: "var(--muted)", fontSize: 13 }}>
                 {docs.filter((d) => d.status === "indexed").length === 0
-                  ? "Primero ingesta documentos en la pestaña Base RAG."
-                  : "Escribe una consulta y presiona Enter."}
+                  ? t("prom.searchNeedsDocs")
+                  : t("prom.searchHint")}
               </div>
             )}
             <div style={{ display: "grid", gap: 10 }}>
@@ -626,7 +626,7 @@ export default function PrometeoPage() {
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
                     <strong style={{ fontSize: 12, color: "#818cf8" }}>{r.documentTitle}</strong>
                     <span style={{ fontSize: 11, color: "var(--muted)" }}>
-                      chunk {r.chunkIndex} · score {r.score.toFixed(3)}
+                      {t("prom.chunks")} {r.chunkIndex} · {t("prom.score")} {r.score.toFixed(3)}
                       {r.retrievalMode === "hybrid" && <span style={{ color: "#818cf8", marginLeft: 6 }}>hybrid</span>}
                     </span>
                   </div>
@@ -665,27 +665,27 @@ export default function PrometeoPage() {
         {tab === "assets" && (
           <div style={{ display: "grid", gap: 14 }}>
             <div style={card}>
-              <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 14 }}>Registrar activo</div>
+              <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 14 }}>{t("prom.registerAsset")}</div>
               <div style={{ display: "flex", gap: 10 }}>
                 <input value={assetName} onChange={(e) => setAssetName(e.target.value)}
-                  placeholder="Nombre del activo" style={{ ...input, flex: 1 }} />
+                  placeholder={t("prom.assetName")} style={{ ...input, flex: 1 }} />
                 <select value={assetCat} onChange={(e) => setAssetCat(e.target.value)}
                   style={{ ...input, width: "auto", cursor: "pointer" }}>
-                  <option value="equipment">Equipo</option>
-                  <option value="material">Material</option>
-                  <option value="vehicle">Vehículo</option>
-                  <option value="tool">Herramienta</option>
-                  <option value="space">Espacio</option>
+                  <option value="equipment">{t("prom.assetCategory.equipment")}</option>
+                  <option value="material">{t("prom.assetCategory.material")}</option>
+                  <option value="vehicle">{t("prom.assetCategory.vehicle")}</option>
+                  <option value="tool">{t("prom.assetCategory.tool")}</option>
+                  <option value="space">{t("prom.assetCategory.space")}</option>
                 </select>
                 <button onClick={() => void handleCreateAsset()} disabled={assetSubmitting || !assetName.trim()}
                   style={{ ...btn(), opacity: assetSubmitting ? 0.6 : 1 }}>
-                  <Plus size={13} />Agregar
+                  <Plus size={13} />{t("prom.add")}
                 </button>
               </div>
             </div>
             <div style={card}>
-              <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 14 }}>Inventario de activos</div>
-              {assets.length === 0 ? <div style={{ color: "var(--muted)", fontSize: 13 }}>Sin activos registrados.</div> : (
+              <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 14 }}>{t("prom.assetInventory")}</div>
+              {assets.length === 0 ? <div style={{ color: "var(--muted)", fontSize: 13 }}>{t("prom.noAssets")}</div> : (
                 <div style={{ display: "grid", gap: 8 }}>
                   {assets.map((a) => (
                     <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", borderRadius: 10, background: "rgba(255,255,255,.03)", border: "1px solid var(--border)" }}>
@@ -707,31 +707,31 @@ export default function PrometeoPage() {
         {tab === "workorders" && (
           <div style={{ display: "grid", gap: 14 }}>
             <div style={card}>
-              <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 14 }}>Nueva Orden de Trabajo</div>
+              <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 14 }}>{t("prom.newOrder")}</div>
               <div style={{ display: "grid", gap: 10 }}>
                 <input value={woTitle} onChange={(e) => setWoTitle(e.target.value)}
-                  placeholder="Título de la orden" style={input} />
+                  placeholder={t("prom.orderTitle")} style={input} />
                 <div style={{ display: "flex", gap: 10 }}>
                   <select value={woPriority} onChange={(e) => setWoPriority(e.target.value)}
                     style={{ ...input, cursor: "pointer" }}>
-                    <option value="low">Baja</option>
-                    <option value="medium">Media</option>
-                    <option value="high">Alta</option>
-                    <option value="urgent">Urgente</option>
+                    <option value="low">{t("prom.priority.low")}</option>
+                    <option value="medium">{t("prom.priority.medium")}</option>
+                    <option value="high">{t("prom.priority.high")}</option>
+                    <option value="urgent">{t("prom.priority.urgent")}</option>
                   </select>
                 </div>
                 <textarea value={woDesc} onChange={(e) => setWoDesc(e.target.value)}
-                  placeholder="Descripción (opcional)" rows={3}
+                  placeholder={t("prom.orderDescription")} rows={3}
                   style={{ ...input, resize: "vertical", fontFamily: "inherit" }} />
                 <button onClick={() => void handleCreateWO()} disabled={woSubmitting || !woTitle.trim()}
                   style={{ ...btn(), opacity: woSubmitting ? 0.6 : 1, width: "fit-content" }}>
-                  <Plus size={13} />Crear OT
+                  <Plus size={13} />{t("prom.createOrder")}
                 </button>
               </div>
             </div>
             <div style={card}>
-              <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 14 }}>Órdenes activas</div>
-              {workOrders.length === 0 ? <div style={{ color: "var(--muted)", fontSize: 13 }}>Sin órdenes de trabajo.</div> : (
+              <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 14 }}>{t("prom.activeOrders")}</div>
+              {workOrders.length === 0 ? <div style={{ color: "var(--muted)", fontSize: 13 }}>{t("prom.noOrders")}</div> : (
                 <div style={{ display: "grid", gap: 8 }}>
                   {workOrders.map((wo) => (
                     <div key={wo.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", borderRadius: 10, background: "rgba(255,255,255,.03)", border: "1px solid var(--border)" }}>
@@ -739,7 +739,7 @@ export default function PrometeoPage() {
                         <div style={{ fontWeight: 700, fontSize: 13 }}>{wo.title}</div>
                         {wo.description && <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>{wo.description.slice(0, 80)}</div>}
                         <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>
-                          prioridad: {wo.priority} · {new Date(wo.createdAt).toLocaleDateString("es-MX")}
+                          {t("prom.priority")} {t(`prom.priority.${wo.priority}`)} · {displayDate(wo.createdAt)}
                         </div>
                       </div>
                       <StatusBadge status={wo.status} />
