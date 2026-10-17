@@ -371,6 +371,7 @@ export class StorageWriteGateCoordinator {
   }
 
   async transition(scope: StorageWriteScope, request: TransitionRequest): Promise<StorageWriteGateView> {
+    if (!request.administratorAuthorized) return blocked("administrator_required");
     if (!validAuditToken(request.ticket)) return blocked("invalid_audit_ticket");
     if (!validAuditToken(request.idempotencyKey)) return blocked("invalid_idempotency_key");
     if (!validAuditToken(request.actorId)) return blocked("invalid_actor_id");
