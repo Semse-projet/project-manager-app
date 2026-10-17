@@ -42,6 +42,9 @@ test("all static operational panel translation keys exist in both languages", ()
     "apps/web/app/(app)/worker/dashboard/page.tsx",
     "apps/web/app/(app)/admin/dashboard/page.tsx",
     "apps/web/app/(app)/admin/mission-control/page.tsx",
+    "apps/web/app/(app)/client/protools/page.tsx",
+    "apps/web/app/(app)/client/marketplace/page.tsx",
+    "apps/web/app/(app)/admin/marketplace/page.tsx",
   ];
   const required = new Set(["nav.workspace"]);
   for (const filename of files) {
@@ -93,8 +96,35 @@ test("all static operational panel translation keys exist in both languages", ()
   for (const status of ["RUNNING", "SUCCEEDED", "FAILED", "NO_OP"]) {
     required.add(`mc.receiptStatus.${status}`);
   }
+  for (const trade of ["electrical", "plumbing", "drywall", "painting", "hvac", "roofing", "carpentry", "cleaning"]) {
+    required.add(`pt.trade.${trade}`);
+  }
+  for (const category of ["painting", "plumbing", "drywall", "electrical", "hvac", "roofing", "carpentry", "cleaning", "general"]) {
+    required.add(`mp.category.${category}`);
+  }
+  for (const urgency of ["urgent", "high", "medium", "low"]) {
+    required.add(`mp.urgency.${urgency}`);
+  }
   for (const key of required) {
     assert.ok(es.has(key), `Missing Spanish translation: ${key}`);
     assert.ok(en.has(key), `Missing English translation: ${key}`);
+  }
+});
+
+test("ProTools and Marketplace avoid known hard-coded Spanish interface strings", () => {
+  const files = [
+    "apps/web/app/(app)/client/protools/page.tsx",
+    "apps/web/app/(app)/client/marketplace/page.tsx",
+    "apps/web/app/(app)/admin/marketplace/page.tsx",
+  ];
+  const legacyStrings = [
+    />(?:Calcular estimado|Enviar propuesta|Trabajos disponibles|Todas las categorías|No hay trabajos disponibles|Estimador de Obra)</,
+    /(?:placeholder|aria-label)="(?:Buscar trabajos|Cerrar|Actualizar|Tipo de trabajo)/,
+  ];
+  for (const filename of files) {
+    const page = readFileSync(path.join(root, filename), "utf8");
+    for (const regex of legacyStrings) {
+      assert.doesNotMatch(page, regex, `${filename}: a visible label bypasses localization`);
+    }
   }
 });
