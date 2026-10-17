@@ -1,0 +1,126 @@
+import "reflect-metadata";
+import test from "node:test";
+import assert from "node:assert/strict";
+import { PrometeoRepository } from "../dist/modules/prometeo/prometeo.repository.js";
+import { PrometeoController } from "../dist/modules/prometeo/prometeo.controller.js";
+
+const scope = { orgId: "org-A", projectIds: ["project-A"], jobIds: [] };
+
+test("document listing constrains organization and authorized projects before take", async () => {
+  let where: Record<string, unknown> | undefined;
+  let take: number | undefined;
+  const prisma = {
+    prometeoDocument: {
+      async findMany(args: { where: Record<string, unknown>; take?: number }) {
+        where = args.where; take = args.take; return [];
+      },
+    },
+  };
+  const repo = new PrometeoRepository(prisma as never);
+  await repo.listDocuments({ tenantId: "tenant-A", scope, limit: 10 });
+  assert.equal(where?.tenantId, "tenant-A");
+  assert.deepEqual(where?.OR, [
+    { projectId: null, orgId: "org-A" },
+    { projectId: { in: ["project-A"] } },
+  ]);
+  assert.equal(take, 10, "filter is in database query, not applied after pagination");
+});
+
+test("retrieval selects only chunks whose parent document passed authorization", async () => {
+  let documentWhere: Record<string, unknown> | undefined;
+  let chunkWhere: Record<string, unknown> | undefined;
+  const prisma = {
+    prometeoDocument: {
+      async findMany(args: { where: Record<string, unknown> }) {
+        documentWhere = args.where;
+        return [{ id: "doc-own" }];
+      },
+    },
+    documentChunk: {
+      async findMany(args: { where: Record<string, unknown> }) {
+        chunkWhere = args.where;
+        return [{ id: "chunk-own", documentId: "doc-own", chunkIndex: 0, text: "allowed" }];
+      },
+    },
+  };
+  const repo = new PrometeoRepository(prisma as never);
+  await repo.loadChunksForSearch({ tenantId: "tenant-A", scope });
+  assert.equal(documentWhere?.status, "indexed");
+  assert.deepEqual(documentWhere?.OR, [
+    { projectId: null, orgId: "org-A" },
+    { projectId: { in: ["project-A"] } },
+  ]);
+  assert.deepEqual(chunkWhere?.documentId, { in: ["doc-own"] });
+  assert.equal(chunkWhere?.tenantId, "tenant-A");
+});
+
+test("feedback stats exclude all inaccessible document IDs", async () => {
+  let feedbackWhere: Record<string, unknown> | undefined;
+  const prisma = {
+    prometeoDocument: {
+      async findMany() { return [{ id: "doc-own" }]; },
+    },
+    prometeoChunkFeedback: {
+      async findMany(args: { where: Record<string, unknown> }) {
+        feedbackWhere = args.where;
+        return [];
+      },
+    },
+  };
+  const repo = new PrometeoRepository(prisma as never);
+  const result = await repo.getFeedbackStats("tenant-A", scope);
+  assert.deepEqual(feedbackWhere?.documentId, { in: ["doc-own"] });
+  assert.equal(result.totalFeedback, 0);
+});
+
+test("Prometeo refuses document ingestion before any write when association is unauthorized", async () => {
+  let wrote = false;
+  const svc = { async ingestText() { wrote = true; return {}; } };
+  const access = {
+    async assertCanCreate() { throw new Error("project access denied"); },
+  };
+  const controller = new PrometeoController(svc as never, access as never);
+  const req = { headers: {}, authContext: { tenantId: "tenant-A", orgId: "org-A", userId: "actor-A", roles: ["CLIENT"] } };
+  await assert.rejects(() => controller.ingest(req as never, { title: "secret", projectId: "project-B", text: "secret" }), /project access denied/);
+  assert.equal(wrote, false);
+});
+
+test("Prometeo refuses deletion when the document row is unauthorized", async () => {
+  let deleted = false;
+  const svc = {
+    async getDocument() { return { tenantId: "tenant-A", orgId: "org-B", projectId: null }; },
+    async deleteDocument() { deleted = true; },
+  };
+  const access = {
+    async assertRowAccess() { throw new Error("row denied"); },
+  };
+  const controller = new PrometeoController(svc as never, access as never);
+  const req = { headers: {}, authContext: { tenantId: "tenant-A", orgId: "org-A", userId: "actor-A", roles: ["CLIENT"] } };
+  await assert.rejects(() => controller.deleteDocument(req as never, "doc-B"), /row denied/);
+  assert.equal(deleted, false);
+});
+
+test("Prometeo refuses RAG retrieval before touching chunks on invalid project", async () => {
+  let retrieved = false;
+  const svc = { async buildRagContext() { retrieved = true; return { chunks: [] }; } };
+  const access = {
+    async assertProjectFilter() { throw new Error("project denied"); },
+  };
+  const controller = new PrometeoController(svc as never, access as never);
+  const req = { headers: {}, authContext: { tenantId: "tenant-A", orgId: "org-A", userId: "actor-A", roles: ["CLIENT"] } };
+  await assert.rejects(() => controller.ragContext(req as never, { projectId: "project-B", query: "secret" }), /project denied/);
+  assert.equal(retrieved, false);
+});
+
+test("public_training cannot be re-enabled by legacy metadata or implicit defaults", async () => {
+  let wrote = false;
+  const svc = { async ingestText() { wrote = true; return {}; } };
+  const access = { async assertCanCreate() {} };
+  const controller = new PrometeoController(svc as never, access as never);
+  const req = { headers: {}, authContext: { tenantId: "tenant-A", orgId: "org-A", userId: "actor-A", roles: ["CLIENT"] } };
+  await assert.rejects(
+    () => controller.ingest(req as never, { title: "secret", text: "secret", visibility: "public_training" }),
+    /Public sharing requires approved explicit consent/,
+  );
+  assert.equal(wrote, false);
+});
