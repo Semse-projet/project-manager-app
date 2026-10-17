@@ -529,6 +529,10 @@ export class PrometeoService {
     return this.repo.getDocument(id);
   }
 
+  async getChunkById(tenantId: string, chunkId: string) {
+    return this.repo.getChunkById(tenantId, chunkId);
+  }
+
   async deleteDocument(input: { tenantId: string; id: string }) {
     return this.repo.deleteDocument(input);
   }
