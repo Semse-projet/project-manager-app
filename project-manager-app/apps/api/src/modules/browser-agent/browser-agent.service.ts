@@ -287,41 +287,47 @@ ${result.visibleTextSample || "(None extracted)"}
     // iba como base64 dentro de metadataJson (MBs en la base de datos); el
     // contrato canonico de metadatos (64 KB) ya no lo admite. La captura sigue
     // disponible en la salida de la inspeccion (run.output).
-    const hasScreenshot = typeof result.screenshotBase64 === "string" && result.screenshotBase64.length > 0;
-    const body = hasScreenshot
-      ? Buffer.from(result.screenshotBase64, "base64")
-      : Buffer.from(JSON.stringify({ url: result.url, finalUrl: result.finalUrl, title: result.title, status: result.status, severity: result.severity, aiSummary }), "utf8");
-    const contentType = hasScreenshot ? "image/png" : "application/json";
-    const bucketKey = buildTenantStorageKey({
-      tenantId: actor.tenantId,
-      domain: "evidence",
-      filename: hasScreenshot ? "browser-agent-screenshot.png" : "browser-agent-report.json",
-      nonce: randomUUID(),
-    });
-    await this.storageService.store({ key: bucketKey, stream: Readable.from([body]), contentType });
+    // Keep a single ACTIVE ticket across storage publication and Evidence
+    // registration. Nested StorageService.store admission also applies;
+    // if DRAINING begins between them, the outer ACTIVE ticket blocks FROZEN
+    // until the rejected operation is reconciled.
+    return this.storageService.withWriteGateMutation("BROWSER_EVIDENCE", async () => {
+      const hasScreenshot = typeof result.screenshotBase64 === "string" && result.screenshotBase64.length > 0;
+      const body = hasScreenshot
+        ? Buffer.from(result.screenshotBase64, "base64")
+        : Buffer.from(JSON.stringify({ url: result.url, finalUrl: result.finalUrl, title: result.title, status: result.status, severity: result.severity, aiSummary }), "utf8");
+      const contentType = hasScreenshot ? "image/png" : "application/json";
+      const bucketKey = buildTenantStorageKey({
+        tenantId: actor.tenantId,
+        domain: "evidence",
+        filename: hasScreenshot ? "browser-agent-screenshot.png" : "browser-agent-report.json",
+        nonce: randomUUID(),
+      });
+      await this.storageService.store({ key: bucketKey, stream: Readable.from([body]), contentType });
 
-    await this.evidenceGateway.uploadEvidence({
-      tenantId: actor.tenantId,
-      orgId: actor.orgId,
-      roles: actor.roles,
-      projectId,
-      milestoneId,
-      uploadedById: actor.userId,
-      kind: "DOCUMENT",
-      bucketKey,
-      requestId: `browser-agent-${randomUUID()}`,
-      metadataJson: {
-        source: "browser-agent",
-        url: result.url,
-        finalUrl: result.finalUrl,
-        title: result.title,
-        status: result.status,
-        severity: result.severity,
-        loadTimeMs: result.loadTimeMs,
-        consoleErrorsCount: result.consoleErrors?.length || 0,
-        networkFailuresCount: result.networkFailures?.length || 0,
-        aiSummary,
-      },
+      await this.evidenceGateway.uploadEvidence({
+        tenantId: actor.tenantId,
+        orgId: actor.orgId,
+        roles: actor.roles,
+        projectId,
+        milestoneId,
+        uploadedById: actor.userId,
+        kind: "DOCUMENT",
+        bucketKey,
+        requestId: `browser-agent-${randomUUID()}`,
+        metadataJson: {
+          source: "browser-agent",
+          url: result.url,
+          finalUrl: result.finalUrl,
+          title: result.title,
+          status: result.status,
+          severity: result.severity,
+          loadTimeMs: result.loadTimeMs,
+          consoleErrorsCount: result.consoleErrors?.length || 0,
+          networkFailuresCount: result.networkFailures?.length || 0,
+          aiSummary,
+        },
+      });
     });
   }
 

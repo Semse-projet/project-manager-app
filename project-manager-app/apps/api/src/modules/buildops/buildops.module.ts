@@ -5,6 +5,7 @@ import { PaymentsModule } from "../payments/payments.module.js";
 import { OperationalRagContextService } from "../prometeo/operational-rag-context.service.js";
 import { IntakeOperationsBridgeModule } from "../intake-operations-bridge/intake-operations-bridge.module.js";
 import { JobsModule } from "../jobs/jobs.module.js";
+import { StorageModule } from "../../infrastructure/storage/storage.module.js";
 import { BuildOpsLegacyPromotionService } from "./buildops-legacy-promotion.service.js";
 import { BuildOpsPlanApprovalService } from "./buildops-plan-approval.service.js";
 import { BuildOpsPlanRerunService } from "./buildops-plan-rerun.service.js";
@@ -12,7 +13,7 @@ import { BuildOpsController } from "./buildops.controller.js";
 import { BuildOpsService } from "./buildops.service.js";
 
 @Module({
-  imports: [PrismaModule, LLMModule, forwardRef(() => PaymentsModule), IntakeOperationsBridgeModule, JobsModule],
+  imports: [PrismaModule, LLMModule, forwardRef(() => PaymentsModule), IntakeOperationsBridgeModule, JobsModule, StorageModule],
   controllers: [BuildOpsController],
   providers: [BuildOpsService, BuildOpsPlanApprovalService, BuildOpsLegacyPromotionService, BuildOpsPlanRerunService, OperationalRagContextService],
   exports: [BuildOpsService, BuildOpsPlanApprovalService, BuildOpsLegacyPromotionService, BuildOpsPlanRerunService, OperationalRagContextService],

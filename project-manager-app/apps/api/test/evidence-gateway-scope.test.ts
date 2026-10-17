@@ -45,7 +45,10 @@ function build() {
       return { id: "ev_new" };
     },
   };
-  const service = new EvidenceGatewayService(repository as never, {} as never, {} as never, evidenceService as never);
+  const stagingCompatibleStorage = {
+    async withWriteGateMutation<T>(_kind: string, work: () => Promise<T>) { return work(); },
+  };
+  const service = new EvidenceGatewayService(repository as never, {} as never, stagingCompatibleStorage as never, evidenceService as never);
   return { service, calls, registered };
 }
 
