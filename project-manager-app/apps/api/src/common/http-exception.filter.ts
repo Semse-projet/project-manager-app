@@ -23,6 +23,15 @@ export class HttpExceptionFilter implements ExceptionFilter {
         method: request?.method
       });
 
+      const retryAfterSeconds = (exception as { retryAfterSeconds?: unknown }).retryAfterSeconds;
+      if (
+        Number.isInteger(retryAfterSeconds) &&
+        Number(retryAfterSeconds) > 0 &&
+        typeof response?.header === "function"
+      ) {
+        response.header("Retry-After", String(retryAfterSeconds));
+      }
+
       response.status(status).send({
         requestId,
         error: {

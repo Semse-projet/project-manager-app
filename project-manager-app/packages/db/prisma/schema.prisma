@@ -5425,3 +5425,52 @@ model ContractSignerStepUpReceipt {
   @@unique([tenantId, authChallengeId], map: "ContractSignerStepUpReceipt_challenge_uniq")
   @@index([tenantId, contractId, revokedAt], map: "ContractSignerStepUpReceipt_contract_idx")
 }
+
+ 
+/// T-008: globally scoped durable control for storage write admission.
+/// This schema alone does not enable runtime enforcement or FROZEN transitions.
+model StorageWriteGate {
+  scope          String                  @id
+  phase          String                  @default("OPEN")
+  epoch          BigInt                  @default(1)
+  coverageDigest String?
+  operatorTicket String?
+  updatedAt      DateTime                @default(now()) @updatedAt
+  operations     StorageWriteOperation[]
+  audits         StorageWriteGateAudit[]
+}
+
+/// Persistent active writer ticket. An interrupted writer remains ACTIVE until
+/// a human-authorized recovery proves it cannot still publish.
+model StorageWriteOperation {
+  id               String           @id @db.Uuid
+  scope            String
+  epoch            BigInt
+  kind             String
+  writerInstanceId String
+  state            String           @default("ACTIVE")
+  admittedAt       DateTime         @default(now())
+  finishedAt       DateTime?
+  gate             StorageWriteGate @relation(fields: [scope], references: [scope], onDelete: Restrict)
+
+  @@index([scope, state], map: "StorageWriteOperation_scope_state_idx")
+  @@index([scope, epoch], map: "StorageWriteOperation_scope_epoch_idx")
+}
+
+ 
+/// T-008: append-only journal for audited phase changes; no public route.
+model StorageWriteGateAudit {
+  id          String           @id @db.Uuid
+  scope       String
+  epochBefore BigInt
+  epochAfter  BigInt
+  phaseBefore String
+  phaseAfter  String
+  action      String
+  actorUserId String
+  ticket      String
+  occurredAt  DateTime         @default(now())
+  gate        StorageWriteGate @relation(fields: [scope], references: [scope], onDelete: Restrict)
+
+  @@index([scope, occurredAt], map: "StorageWriteGateAudit_scope_occurredAt_idx")
+}

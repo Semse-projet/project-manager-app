@@ -66,6 +66,8 @@ type MultipartSessionManifest = {
   }>;
 };
 
+class CleanMultipartPartRejection extends UnprocessableEntityException {}
+
 @Controller()
 export class EvidenceController {
   constructor(
@@ -278,7 +280,7 @@ export class EvidenceController {
 
   @Post("v1/evidence/presign")
   @RequirePermissions("evidence:write")
-  presign(@Req() req: { headers?: Record<string, unknown> }, @Body() body: Record<string, unknown>) {
+  async presign(@Req() req: { headers?: Record<string, unknown> }, @Body() body: Record<string, unknown>) {
     const parsed = presignEvidenceSchema.safeParse(body);
     if (!parsed.success) {
       throw new BadRequestException(parsed.error.flatten());
@@ -286,6 +288,7 @@ export class EvidenceController {
 
     const requestId = resolveRequestId(req.headers ?? {});
     const actor = resolveRequestContext(req);
+    await this.storageService.assertUploadPlanOpen();
     return ok(
       requestId,
       this.buildUploadPlan({
@@ -301,7 +304,7 @@ export class EvidenceController {
 
   @Post("v1/uploads/plan")
   @RequirePermissions("evidence:write")
-  planUpload(@Req() req: { headers?: Record<string, unknown> }, @Body() body: Record<string, unknown>) {
+  async planUpload(@Req() req: { headers?: Record<string, unknown> }, @Body() body: Record<string, unknown>) {
     const parsed = uploadPlanSchema.safeParse(body);
     if (!parsed.success) {
       throw new BadRequestException(parsed.error.flatten());
@@ -309,6 +312,7 @@ export class EvidenceController {
 
     const requestId = resolveRequestId(req.headers ?? {});
     const actor = resolveRequestContext(req);
+    await this.storageService.assertUploadPlanOpen();
     return ok(requestId, this.buildUploadPlan({ ...parsed.data, tenantId: actor.tenantId }));
   }
 
@@ -323,7 +327,10 @@ export class EvidenceController {
     const requestId = resolveRequestId(req.headers ?? {});
     const actor = resolveRequestContext(req);
     const manifest = this.createMultipartSession({ ...parsed.data, tenantId: actor.tenantId }, req.headers ?? {});
-    return this.saveMultipartManifest(manifest).then(() => ok(requestId, this.toMultipartResponse(manifest)));
+    return this.storageService.withWriteGateMutation("MULTIPART_CREATE", async () => {
+      await this.saveMultipartManifest(manifest);
+      return ok(requestId, this.toMultipartResponse(manifest));
+    });
   }
 
   /**
@@ -362,45 +369,61 @@ export class EvidenceController {
     if (!part) {
       throw new BadRequestException("Multipart part not found");
     }
-
-    // Actually persist the part's bytes — this used to only record the
-    // content-length header and fabricate a timestamp-based etag, silently
-    // discarding the uploaded data (see PR-4 ZOOM report). Write to disk and
-    // hash the real bytes so the etag verified at completion is meaningful.
     const partPath = this.getMultipartPartPath(sessionId, partNumber);
-    await mkdir(path.dirname(partPath), { recursive: true });
-    const hash = createHash("sha256");
-    const ws = createWriteStream(partPath);
-    await pipeline(
-      (async function* () {
-        for await (const chunk of req.raw) {
-          const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
-          hash.update(buffer);
-          yield buffer;
+
+    return this.storageService.withWriteGateMutation("MULTIPART_PART", async () => {
+      // Actually persist the part's bytes — this used to only record the
+      // content-length header and fabricate a timestamp-based etag, silently
+      // discarding the uploaded data (see PR-4 ZOOM report). Write to disk and
+      // hash the real bytes so the etag verified at completion is meaningful.
+      await mkdir(path.dirname(partPath), { recursive: true });
+      const hash = createHash("sha256");
+      const ws = createWriteStream(partPath);
+      await pipeline(
+        (async function* () {
+          for await (const chunk of req.raw) {
+            const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+            hash.update(buffer);
+            yield buffer;
+          }
+        })(),
+        ws
+      );
+
+      const written = await stat(partPath);
+      if (written.size === 0) {
+        try {
+          await unlink(partPath);
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
         }
-      })(),
-      ws
-    );
+        throw new CleanMultipartPartRejection("Empty multipart part is not allowed");
+      }
 
-    const written = await stat(partPath);
-    if (written.size === 0) {
-      await unlink(partPath).catch(() => undefined);
-      throw new UnprocessableEntityException("Empty multipart part is not allowed");
-    }
+      part.status = "uploaded";
+      part.uploadedAt = new Date().toISOString();
+      part.bytesReceived = written.size;
+      part.etag = hash.digest("hex");
 
-    part.status = "uploaded";
-    part.uploadedAt = new Date().toISOString();
-    part.bytesReceived = written.size;
-    part.etag = hash.digest("hex");
-
-    await this.saveMultipartManifest(manifest);
-    return ok(requestId, {
-      sessionId,
-      partNumber,
-      status: part.status,
-      bytesReceived: part.bytesReceived,
-      etag: part.etag,
-      uploadedAt: part.uploadedAt
+      await this.saveMultipartManifest(manifest);
+      return ok(requestId, {
+        sessionId,
+        partNumber,
+        status: part.status,
+        bytesReceived: part.bytesReceived,
+        etag: part.etag,
+        uploadedAt: part.uploadedAt
+      });
+    }, {
+      proveCleanFailure: async (cause) => {
+        if (!(cause instanceof CleanMultipartPartRejection)) throw cause;
+        try {
+          await stat(partPath);
+          throw new Error("Multipart part cleanup was not complete");
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+        }
+      },
     });
   }
 
@@ -433,42 +456,44 @@ export class EvidenceController {
       );
     }
 
-    const partPaths = orderedParts.map((part) => this.getMultipartPartPath(manifest.sessionId, part.partNumber));
-    async function* readPartsInOrder(): AsyncGenerator<Buffer> {
-      for (const partPath of partPaths) {
-        for await (const chunk of createReadStream(partPath)) {
-          yield chunk as Buffer;
+    return this.storageService.withWriteGateMutation("MULTIPART_COMPLETE", async () => {
+      const partPaths = orderedParts.map((part) => this.getMultipartPartPath(manifest.sessionId, part.partNumber));
+      async function* readPartsInOrder(): AsyncGenerator<Buffer> {
+        for (const partPath of partPaths) {
+          for await (const chunk of createReadStream(partPath)) {
+            yield chunk as Buffer;
+          }
         }
       }
-    }
 
-    const validated = validateUploadStream(readPartsInOrder(), manifest.contentType, manifest.fileSizeBytes);
-    const stored = await this.storageService.store({
-      key: manifest.key,
-      stream: validated,
-      contentType: manifest.contentType
-    });
+      const validated = validateUploadStream(readPartsInOrder(), manifest.contentType, manifest.fileSizeBytes);
+      const stored = await this.storageService.store({
+        key: manifest.key,
+        stream: validated,
+        contentType: manifest.contentType
+      });
 
-    if (stored.sizeBytes !== manifest.fileSizeBytes) {
-      await this.storageService.delete(manifest.key);
-      throw new ConflictException(
-        `Assembled multipart upload size (${stored.sizeBytes}) does not match the declared size (${manifest.fileSizeBytes}); aborted`
-      );
-    }
+      if (stored.sizeBytes !== manifest.fileSizeBytes) {
+        await this.storageService.delete(manifest.key);
+        throw new ConflictException(
+          `Assembled multipart upload size (${stored.sizeBytes}) does not match the declared size (${manifest.fileSizeBytes}); aborted`
+        );
+      }
 
-    // Best-effort cleanup of the temporary part files — never fails the
-    // response, the completed file at manifest.key is already the source of
-    // truth at this point.
-    await Promise.all(partPaths.map((partPath) => unlink(partPath).catch(() => undefined)));
+      // Best-effort cleanup of the temporary part files — never fails the
+      // response, the completed file at manifest.key is already the source of
+      // truth at this point.
+      await Promise.all(partPaths.map((partPath) => unlink(partPath).catch(() => undefined)));
 
-    return ok(requestId, {
-      sessionId: manifest.sessionId,
-      status: "completed",
-      completedAt: new Date().toISOString(),
-      partsReceived: orderedParts.length,
-      totalParts: manifest.parts.length,
-      key: manifest.key,
-      sizeBytes: stored.sizeBytes
+      return ok(requestId, {
+        sessionId: manifest.sessionId,
+        status: "completed",
+        completedAt: new Date().toISOString(),
+        partsReceived: orderedParts.length,
+        totalParts: manifest.parts.length,
+        key: manifest.key,
+        sizeBytes: stored.sizeBytes
+      });
     });
   }
 

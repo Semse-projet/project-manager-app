@@ -281,3 +281,33 @@ for (const approvalStatus of ["pending", "rejected", "changes_requested"] as con
     );
   });
 }
+
+test("promoteApprovedPlanToLegacy holds an outer storage gate ticket for legacy Evidence mutation", async () => {
+  const { prisma, state } = createFakePrisma();
+  const kinds: string[] = [];
+  const storageService = {
+    async withWriteGateMutation<T>(kind: string, work: () => Promise<T>): Promise<T> {
+      kinds.push(kind);
+      return work();
+    },
+  };
+  const service = new BuildOpsLegacyPromotionService(
+    prisma as never,
+    undefined,
+    undefined,
+    storageService as never,
+  );
+
+  const result = await service.promoteApprovedPlanToLegacy({
+    tenantId: "tenant_default",
+    orgId: "org_client_001",
+    userId: "usr_client_001",
+    roles: ["CLIENT"],
+    buildOpsProjectId: state.plan.id,
+  });
+
+  assert.equal(result.status, "promoted");
+  assert.deepEqual(kinds, ["BUILDOPS_LEGACY_PROMOTION"]);
+  assert.equal(state.evidence.length, 1);
+});
+

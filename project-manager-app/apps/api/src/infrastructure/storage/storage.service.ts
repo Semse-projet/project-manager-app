@@ -1,11 +1,15 @@
-import { ConflictException, Injectable, Logger, NotFoundException } from "@nestjs/common";
+import { ConflictException, HttpException, Injectable, Logger, NotFoundException, Optional, ServiceUnavailableException } from "@nestjs/common";
 import { constants, createReadStream, createWriteStream } from "node:fs";
 import { createHash, randomUUID } from "node:crypto";
+import { AsyncLocalStorage } from "node:async_hooks";
 import { access, link, lstat, mkdir, open, readFile, stat, unlink } from "node:fs/promises";
 import path from "node:path";
 import { pipeline } from "node:stream/promises";
 import type { Readable } from "node:stream";
 import { normalizeStorageKey } from "./storage-key.js";
+import { StorageWriteOperationBoundary } from "./storage-write-operation-boundary.js";
+import type { StorageWriteKind, StorageWriteTicket } from "./storage-write-gate-coordinator.js";
+import { StorageWriteGateBlockedError } from "./storage-write-gate-state.js";
 import { assertProductionStorageConfiguration, assertProductionStorageMount, isProductionStorage } from "./production-storage-guard.js";
 import {
   resolveSignedGetMode,
@@ -35,6 +39,14 @@ export type StorageHealthStatus = {
   detail: string;
 };
 
+export class StorageWriteGateUnavailableException extends ServiceUnavailableException {
+  readonly retryAfterSeconds = 5;
+
+  constructor() {
+    super("Storage write gate temporarily unavailable");
+  }
+}
+
 /**
  * Storage service with a local filesystem backend.
  * S3/R2 support plugged in by setting STORAGE_PROVIDER=s3 + credentials.
@@ -43,6 +55,101 @@ export type StorageHealthStatus = {
 @Injectable()
 export class StorageService {
   private readonly logger = new Logger(StorageService.name);
+  private readonly writerInstanceId = `semse-api-${randomUUID()}`;
+  private readonly writeContext = new AsyncLocalStorage<StorageWriteTicket>();
+
+  constructor(@Optional() private readonly writeBoundary?: StorageWriteOperationBoundary) {}
+
+  /**
+   * T-008: staging-only enforcement of Store/Delete/Plan.
+   *
+   * Default "off" retains the existing production behavior; staging never
+   * silently becomes a fully certified FROZEN system. Enabling it in a
+   * production process is explicitly rejected until Evidence, multipart,
+   * other writers and the operator control plane are instrumented.
+   */
+  private stagingBoundary(): StorageWriteOperationBoundary | null {
+    const mode = process.env.SEMSE_STORAGE_WRITE_GATE_MODE ?? "off";
+    if (mode === "off") return null;
+    if (mode !== "staging" || isProductionStorage(process.env)) {
+      throw new ServiceUnavailableException("Storage gate mode is not approved for production");
+    }
+    if (!this.writeBoundary) {
+      throw new ServiceUnavailableException("Storage gate dependency unavailable");
+    }
+    return this.writeBoundary;
+  }
+
+  private get writeGateScope(): string {
+    return `storage:${this.localRoot.replaceAll("\\", "/")}`;
+  }
+
+  private async gated<T>(operation: () => Promise<T>): Promise<T> {
+    try {
+      return await operation();
+    } catch (error) {
+      if (error instanceof HttpException) throw error;
+      if (error instanceof StorageWriteGateBlockedError) {
+        throw new StorageWriteGateUnavailableException();
+      }
+      // Backing-authority failures remain generic 503s; only an explicit gate
+      // rejection carries Retry-After semantics.
+      throw new ServiceUnavailableException("Storage write gate unavailable");
+    }
+  }
+
+  private currentWriteTicket(): StorageWriteTicket | null {
+    const ticket = this.writeContext.getStore();
+    return ticket?.scope === this.writeGateScope ? ticket : null;
+  }
+
+  async assertUploadPlanOpen(): Promise<void> {
+    const boundary = this.stagingBoundary();
+    if (!boundary) return;
+    const current = this.currentWriteTicket();
+    if (current) {
+      await this.gated(() => boundary.beforePublish(current));
+      return;
+    }
+    await this.gated(() => boundary.assertPlanOpen(this.writeGateScope));
+  }
+  /**
+   * T-008 S3b: internal staging-only boundary for multipart manifests/parts
+   * and Evidence metadata writes that do not call store/delete directly.
+   * Existing actor permissions MUST be enforced by the calling controller.
+   * This is NOT a cross-request photo+Evidence transaction; unregistered
+   * originals remain a reconciliation blocker until recovered.
+   */
+  async withWriteGateMutation<T>(
+    kind: StorageWriteKind,
+    work: () => Promise<T>,
+    options: { proveCleanFailure?: (cause: unknown) => Promise<void> } = {},
+  ): Promise<T> {
+    const boundary = this.stagingBoundary();
+    if (!boundary) return work();
+
+    const current = this.currentWriteTicket();
+    if (current) {
+      return this.gated(async () => {
+        await boundary.beforePublish(current);
+        return work();
+      });
+    }
+
+    return this.gated(() => boundary.run({
+      scope: this.writeGateScope,
+      writerInstanceId: this.writerInstanceId,
+      kind,
+      work: (ticket) => this.writeContext.run(ticket, async () => {
+        await boundary.beforePublish(ticket);
+        return work();
+      }),
+      proveCleanFailure: options.proveCleanFailure
+        ? async (_ticket, cause) => options.proveCleanFailure!(cause)
+        : undefined,
+    }));
+  }
+
   private readonly provider = (process.env.STORAGE_PROVIDER ?? "local") as "local" | "s3" | "r2";
   private readonly localRoot = path.resolve(
     process.env.SEMSE_STORAGE_ROOT ?? "/tmp/semse-storage",
@@ -56,6 +163,7 @@ export class StorageService {
     contentType: string;
     fileSizeBytes?: number;
   }): Promise<UploadPlan> {
+    await this.assertUploadPlanOpen();
     await assertProductionStorageMount();
     if (this.provider !== "local") {
       this.logger.warn("Non-local storage provider not yet supported — falling back to local");
@@ -73,6 +181,34 @@ export class StorageService {
     stream: Readable;
     contentType: string;
   }): Promise<StoredFile> {
+    const boundary = this.stagingBoundary();
+    if (!boundary) return this.storeUngated(input);
+
+    const current = this.currentWriteTicket();
+    if (current) {
+      return this.gated(() =>
+        this.storeUngated(input, () => boundary.beforePublish(current))
+      );
+    }
+
+    return this.gated(() => boundary.run({
+      scope: this.writeGateScope,
+      writerInstanceId: this.writerInstanceId,
+      kind: "ORIGINAL_STORE",
+      work: (ticket) => this.writeContext.run(
+        ticket,
+        () => this.storeUngated(input, () => boundary.beforePublish(ticket)),
+      ),
+      // No automatic FAILED_CLEAN: even a staging/write/fsync error can have
+      // uncertain publication status, requiring operator reconciliation.
+    }));
+  }
+
+  private async storeUngated(input: {
+    key: string;
+    stream: Readable;
+    contentType: string;
+  }, beforePublish?: () => Promise<void>): Promise<StoredFile> {
     await this.ensureLocalRoot();
     const key = normalizeStorageKey(input.key);
     const filePath = this.localPath(key);
@@ -105,6 +241,9 @@ export class StorageService {
       } finally {
         await stagedFile.close();
       }
+      // A second check catches tickets invalidated during streaming. This
+      // check does not replace admission accounting or filesystem fencing.
+      if (beforePublish) await beforePublish();
       await link(stagePath, filePath);
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === "EEXIST") {
@@ -201,11 +340,38 @@ export class StorageService {
   }
 
   async delete(key: string): Promise<void> {
+    const boundary = this.stagingBoundary();
+    if (!boundary) return this.deleteUngated(key);
+
+    const current = this.currentWriteTicket();
+    if (current) {
+      return this.gated(async () => {
+        await boundary.beforePublish(current);
+        return this.deleteUngated(key);
+      });
+    }
+
+    return this.gated(() => boundary.run({
+      scope: this.writeGateScope,
+      writerInstanceId: this.writerInstanceId,
+      kind: "ORIGINAL_DELETE",
+      work: (ticket) => this.writeContext.run(ticket, async () => {
+        await boundary.beforePublish(ticket);
+        return this.deleteUngated(key);
+      }),
+      // An interrupted unlink may already have removed bytes. An operator
+      // must check the filesystem and Evidence before settling a stale ticket.
+    }));
+  }
+
+  private async deleteUngated(key: string): Promise<void> {
     await assertProductionStorageMount();
     try {
       await unlink(this.localPath(key));
-    } catch {
-      // already gone
+    } catch (error) {
+      // Only an absent file is idempotent. Never swallow EACCES/EROFS/EIO or
+      // other failures and then claim a successful deletion.
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
     }
   }
 
