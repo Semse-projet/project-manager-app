@@ -9,3 +9,4 @@
 | I-06 | Controladores org y /v1/invitations | unit + typecheck |
 | I-07 | Build, tests completos, CI | verde |
 | I-08 | PR draft; merge/deploy con autorización | humano |
+| I-09 | BO-04: BFF + cliente + páginas `/client/team` y `/invitations/accept` (ES/EN) | typecheck web + CI |

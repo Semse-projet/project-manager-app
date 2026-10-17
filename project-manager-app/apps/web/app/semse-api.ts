@@ -1042,6 +1042,40 @@ export async function fetchOrganizationMembers(orgId: string): Promise<Record<st
   return fetchSemse<Record<string, unknown>[]>(`/api/semse/organizations/${orgId}/members`);
 }
 
+export type OrgInvitationView = {
+  invitationId: string;
+  status: string;
+  roleKey: string;
+  recipientMasked: string;
+  expiresAt: string;
+  lastSentAt: string | null;
+  createdAt: string;
+};
+
+export async function fetchOrgInvitations(orgId: string): Promise<OrgInvitationView[]> {
+  return fetchSemse<OrgInvitationView[]>(`/api/semse/organizations/${orgId}/invitations`);
+}
+
+export async function createOrgInvitation(orgId: string, email: string): Promise<OrgInvitationView & { token: string | null }> {
+  return mutateSemse(`/api/semse/organizations/${orgId}/invitations`, { email });
+}
+
+export async function cancelOrgInvitation(orgId: string, invitationId: string, reason?: string): Promise<{ status: string }> {
+  return mutateSemse(`/api/semse/organizations/${orgId}/invitations/${invitationId}/cancel`, reason ? { reason } : {});
+}
+
+export async function resendOrgInvitation(orgId: string, invitationId: string): Promise<OrgInvitationView & { token: string }> {
+  return mutateSemse(`/api/semse/organizations/${orgId}/invitations/${invitationId}/resend`, {});
+}
+
+export async function previewInvitation(token: string): Promise<{ companyName: string; roleKey: string; expiresAt: string; recipientMasked: string }> {
+  return mutateSemse("/api/semse/invitations/preview", { token });
+}
+
+export async function acceptInvitation(token: string): Promise<{ membership: { orgId: string; role: string; status: string }; next: string }> {
+  return mutateSemse("/api/semse/invitations/accept", { token });
+}
+
 export type UserView = {
   id: string;
   email: string;

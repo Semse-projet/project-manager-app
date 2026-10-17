@@ -43,7 +43,7 @@ Diseño padre: `docs/program/semse-4d-field-memory/COMPANY_INVITATIONS_DETAILED_
 ## Alcance
 Incluido: modelo aditivo `OrgInvitation`; permisos `org:members:invite` y `org:invitations:read|cancel`; crear, listar, cancelar, reenviar (rotación de token), vista previa y aceptación para una persona que **ya tiene cuenta** y la verifica; todo detrás de `SEMSE_ORG_INVITATIONS_ENABLED` (default apagado → 404).
 
-Excluido (slices posteriores): `register-invited` para cuentas nuevas, envío por email/SMS/WhatsApp (el token se devuelve una sola vez a quien invita), UI, cuadrillas, oferta/contratación (BO-05), invitar roles admin/owner.
+Excluido (slices posteriores): `register-invited` para cuentas nuevas, envío por email/SMS/WhatsApp (el token se devuelve una sola vez a quien invita), cuadrillas, oferta/contratación (BO-05), invitar roles admin/owner.
 
 ## Contrato
 - AC-01: invitar exige `org:members:invite` **y** membresía ACTIVE del actor en la Org objetivo del mismo tenant. Otra Org/tenant → 404.
@@ -63,3 +63,7 @@ Excluido (slices posteriores): `register-invited` para cuentas nuevas, envío po
 
 ## Gates de entrega
 1. Tests rojos primero. 2. `spec:validate:strict`, build, typecheck. 3. PR draft con SHA y evidencia. 4. Merge solo con CI verde y autorización. 5. Despliegue con flag apagado y verificación de esquema en Railway. 6. Canary con cuentas sintéticas A/B antes de activar.
+
+## Slice BO-04 — Capa web (flag sigue apagado)
+
+Incluye: rutas BFF `apps/web/app/api/semse/organizations/[orgId]/invitations/**` y `invitations/{preview,accept}`; funciones en `semse-api.ts`; páginas `/client/team` (invitar, listar, reenviar, cancelar; enlace mostrado una sola vez) y `/invitations/accept` (vista previa y aceptación con la cuenta propia). Textos ES/EN. Con el flag apagado la API responde 404 y la UI muestra "aún no habilitadas". Sin cambios de API, esquema ni permisos. No incluye entrada en la navegación ni envío de correo.
