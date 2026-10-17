@@ -37,6 +37,7 @@ test("all static operational panel translation keys exist in both languages", ()
     "apps/web/components/milestones/MilestoneGovernancePanel.tsx",
     "apps/web/components/buildops/BuildOpsProjectHealthPanel.tsx",
     "apps/web/components/change-orders/ChangeOrderImpactCard.tsx",
+    "apps/web/app/(app)/client/dashboard/page.tsx",
   ];
   const required = new Set(["nav.workspace"]);
   for (const filename of files) {
@@ -51,6 +52,12 @@ test("all static operational panel translation keys exist in both languages", ()
   }
   for (const risk of ["low", "medium", "high", "critical"]) {
     required.add(`risk.${risk}`);
+  }
+  for (const status of ["draft", "posted", "reserved", "accepted", "in_progress", "review", "dispute", "completed", "cancelled"]) {
+    required.add(`clientDash.status.${status}`);
+  }
+  for (const tier of ["nuevo", "confiable", "preferido", "elite"]) {
+    required.add(`clientDash.tier.${tier}`);
   }
   for (const key of required) {
     assert.ok(es.has(key), `Missing Spanish translation: ${key}`);
