@@ -190,7 +190,8 @@ export class PrometeoController {
   async getTradeLibrary(@Req() req: { headers?: Record<string, unknown> }) {
     const actor = resolveRequestContext(req);
     const rid = resolveRequestId(req.headers ?? {});
-    const library = await this.svc.getTradeLibrary(actor.tenantId);
+    const scope = await this.access.listScope(actor);
+    const library = await this.svc.getTradeLibrary(actor.tenantId, scope);
     return ok(rid, library);
   }
 
@@ -204,7 +205,9 @@ export class PrometeoController {
   ) {
     const actor = resolveRequestContext(req);
     const rid = resolveRequestId(req.headers ?? {});
-    const docs = await this.svc.listDocuments(actor.tenantId, projectId);
+    if (projectId) await this.access.assertProjectFilter(actor, projectId);
+    const scope = await this.access.listScope(actor);
+    const docs = await this.svc.listDocuments(actor.tenantId, projectId, scope);
     // Client-side filter on metadataJson trade/status
     const filtered = docs.filter((d) => {
       const meta = (d.metadataJson ?? {}) as Record<string, unknown>;
@@ -220,6 +223,7 @@ export class PrometeoController {
   async deleteDocument(@Req() req: { headers?: Record<string, unknown> }, @Param("id") id: string) {
     const actor = resolveRequestContext(req);
     const rid = resolveRequestId(req.headers ?? {});
+    await this.access.assertRowAccess(actor, await this.svc.getDocument(id), "Prometeo document not found");
     await this.svc.deleteDocument({ tenantId: actor.tenantId, id });
     return ok(rid, { deleted: true });
   }
@@ -230,9 +234,12 @@ export class PrometeoController {
     const actor = resolveRequestContext(req);
     const rid = resolveRequestId(req.headers ?? {});
     const b = body as Record<string, unknown>;
+    const projectId = typeof b.projectId === "string" ? b.projectId : undefined;
+    if (projectId) await this.access.assertProjectFilter(actor, projectId);
+    const scope = await this.access.listScope(actor);
     const results = await this.svc.search({
       tenantId: actor.tenantId,
-      projectId: typeof b.projectId === "string" ? b.projectId : undefined,
+      projectId, scope,
       query: typeof b.query === "string" ? b.query : "",
       topK: typeof b.topK === "number" ? b.topK : 5,
     });
@@ -245,9 +252,12 @@ export class PrometeoController {
     const actor = resolveRequestContext(req);
     const rid = resolveRequestId(req.headers ?? {});
     const b = body as Record<string, unknown>;
+    const projectId = typeof b.projectId === "string" ? b.projectId : undefined;
+    if (projectId) await this.access.assertProjectFilter(actor, projectId);
+    const scope = await this.access.listScope(actor);
     const ctx = await this.svc.buildRagContext({
       tenantId: actor.tenantId,
-      projectId: typeof b.projectId === "string" ? b.projectId : undefined,
+      projectId, scope,
       query: typeof b.query === "string" ? b.query : "",
       topK: typeof b.topK === "number" ? b.topK : 5,
     });
