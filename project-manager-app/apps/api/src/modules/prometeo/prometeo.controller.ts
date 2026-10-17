@@ -277,10 +277,13 @@ export class PrometeoController {
 
     if (!question) return ok(rid, { answer: "La pregunta no puede estar vacía.", citations: [], confidence: 0, insufficientContext: true });
 
-    // 1. Build RAG context (with optional trade filter applied post-retrieval)
+    // Restrict documents before retrieval, citations, or LLM context.
+    const projectId = typeof b.projectId === "string" ? b.projectId : undefined;
+    if (projectId) await this.access.assertProjectFilter(actor, projectId);
+    const scope = await this.access.listScope(actor);
     const ctx = await this.svc.buildRagContext({
       tenantId: actor.tenantId,
-      projectId: typeof b.projectId === "string" ? b.projectId : undefined,
+      projectId, scope,
       query: question,
       topK: tradeFilter ? 10 : 6, // fetch more if filtering by trade
     });
@@ -419,10 +422,13 @@ export class PrometeoController {
       return ok(rid, { answer: "Training Agent no está disponible.", confidence: 0, insufficientContext: true });
     }
 
+    const projectId = typeof b.projectId === "string" ? b.projectId : undefined;
+    if (projectId) await this.access.assertProjectFilter(actor, projectId);
+    const scope = await this.access.listScope(actor);
     const result = await this.tradeGuide.guide({
       question, trade, locale,
       tenantId:  actor.tenantId,
-      projectId: typeof b.projectId === "string" ? b.projectId : undefined,
+      projectId, scope,
     });
 
     return ok(rid, result);
@@ -554,6 +560,8 @@ export class PrometeoController {
       return ok(rid, { error: "type must be: confirm | correct | flag" });
     }
 
+    const chunk = await this.svc.getChunkById(actor.tenantId, chunkId);
+    await this.access.assertRowAccess(actor, chunk ? await this.svc.getDocument(chunk.documentId) : null, "Prometeo chunk not found");
     try {
       const result = await this.svc.submitFeedback({
         tenantId: actor.tenantId,
@@ -576,6 +584,7 @@ export class PrometeoController {
   async feedbackStats(@Req() req: { headers?: Record<string, unknown> }) {
     const actor = resolveRequestContext(req);
     const rid   = resolveRequestId(req.headers ?? {});
-    return ok(rid, await this.svc.getFeedbackStats(actor.tenantId));
+    const scope = await this.access.listScope(actor);
+    return ok(rid, await this.svc.getFeedbackStats(actor.tenantId, scope));
   }
 }
