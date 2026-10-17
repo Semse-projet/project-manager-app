@@ -147,3 +147,17 @@ test("internal agents cannot retrieve RAG without an explicit resolved scope", a
   assert.equal(touchedChunks, false);
   assert.equal(sentEmbedding, false);
 });
+
+
+test("read access to a participant project does not authorize deletion of another organization's document", async () => {
+  let deleted = false;
+  const svc = {
+    async getDocument() { return { tenantId: "tenant-A", orgId: "org-B", projectId: "project-A" }; },
+    async deleteDocument() { deleted = true; },
+  };
+  const access = { async assertRowAccess() {} };
+  const controller = new PrometeoController(svc as never, access as never);
+  const req = { headers: {}, authContext: { tenantId: "tenant-A", orgId: "org-A", userId: "actor-A", roles: ["CLIENT"] } };
+  await assert.rejects(() => controller.deleteDocument(req as never, "doc-B"), /Only the owning organization/);
+  assert.equal(deleted, false);
+});
