@@ -29,15 +29,24 @@ test("transition audit is atomic with phase update and migration is additive", (
   assert.match(schema, /audits\s+StorageWriteGateAudit\[\]/);
 });
 
-test("transition service cannot be instantiated through the Nest production module", () => {
+test("control plane is wired but remains staging-only and production-blocked", () => {
   const module = read("../../apps/api/src/infrastructure/storage/storage.module.ts");
-  assert.doesNotMatch(module, /StorageWriteGateTransitionService/);
+  const control = read("../../apps/api/src/infrastructure/storage/storage-write-gate-control.service.ts");
+  assert.match(module, /StorageWriteGateTransitionService/);
+  assert.match(module, /StorageWriteGateControlService/);
+  assert.match(control, /SEMSE_STORAGE_WRITE_GATE_MODE !== "staging"/);
+  assert.match(control, /isProductionStorage\(process\.env\)/);
 });
 
 test("reopening fences stale tickets and invalidates writer coverage", () => {
   const source = read("../../apps/api/src/infrastructure/storage/storage-write-gate-transition.service.ts");
   assert.match(source, /input.action === "THAW"/);
   assert.match(source, /input.action === "ABORT_DRAIN"/);
-  assert.match(source, /nextCoverageDigest = reopening \? null : gate\.coverageDigest/);
+  assert.match(source, /const beginningDrain = input\.action === "BEGIN_DRAIN"/);
+  assert.match(source, /reopening \|\| beginningDrain \? null : gate\.coverageDigest/);
+  assert.match(source, /const enteringFrozen = input\.action === "MARK_FROZEN"/);
+  assert.match(source, /reopening \|\| beginningDrain \|\| enteringFrozen \? null : gate\.recoveryWindowDigest/);
+  assert.match(source, /recoveryWindowClosed: gate\.recoveryWindowDigest !== null/);
   assert.match(source, /"coverageDigest" = \$\{nextCoverageDigest\}/);
+  assert.match(source, /"recoveryWindowDigest" = \$\{nextRecoveryWindowDigest\}/);
 });

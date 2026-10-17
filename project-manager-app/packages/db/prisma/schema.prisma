@@ -5430,14 +5430,15 @@ model ContractSignerStepUpReceipt {
 /// T-008: globally scoped durable control for storage write admission.
 /// This schema alone does not enable runtime enforcement or FROZEN transitions.
 model StorageWriteGate {
-  scope          String                  @id
-  phase          String                  @default("OPEN")
-  epoch          BigInt                  @default(1)
-  coverageDigest String?
-  operatorTicket String?
-  updatedAt      DateTime                @default(now()) @updatedAt
-  operations     StorageWriteOperation[]
-  audits         StorageWriteGateAudit[]
+  scope                String                  @id
+  phase                String                  @default("OPEN")
+  epoch                BigInt                  @default(1)
+  coverageDigest       String?
+  recoveryWindowDigest String?
+  operatorTicket       String?
+  updatedAt            DateTime                @default(now()) @updatedAt
+  operations           StorageWriteOperation[]
+  audits               StorageWriteGateAudit[]
 }
 
 /// Persistent active writer ticket. An interrupted writer remains ACTIVE until
@@ -5460,17 +5461,23 @@ model StorageWriteOperation {
  
 /// T-008: append-only journal for audited phase changes; no public route.
 model StorageWriteGateAudit {
-  id          String           @id @db.Uuid
-  scope       String
-  epochBefore BigInt
-  epochAfter  BigInt
-  phaseBefore String
-  phaseAfter  String
-  action      String
-  actorUserId String
-  ticket      String
-  occurredAt  DateTime         @default(now())
-  gate        StorageWriteGate @relation(fields: [scope], references: [scope], onDelete: Restrict)
+  id                String           @id @db.Uuid
+  scope             String
+  epochBefore       BigInt
+  epochAfter        BigInt
+  phaseBefore       String
+  phaseAfter        String
+  action            String
+  actorUserId       String
+  ticket            String
+  reason            String?
+  idempotencyKey    String?
+  requestDigest     String?
+  targetOperationId String?          @db.Uuid
+  detailDigest      String?
+  occurredAt        DateTime         @default(now())
+  gate              StorageWriteGate @relation(fields: [scope], references: [scope], onDelete: Restrict)
 
+  @@unique([scope, idempotencyKey], map: "StorageWriteGateAudit_scope_idempotency_uniq")
   @@index([scope, occurredAt], map: "StorageWriteGateAudit_scope_occurredAt_idx")
 }

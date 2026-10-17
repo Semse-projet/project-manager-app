@@ -32,7 +32,7 @@ dbTest("T-008 PG: drain, active ticket, freeze, thaw, epoch and audit are cohere
   const scope = "test:/transition-" + randomUUID();
   try {
     await db.storageWriteGate.create({data: {
-      scope, phase: "OPEN", epoch: 1n, coverageDigest: "synthetic-only-not-production",
+      scope, phase: "OPEN", epoch: 1n,
     }});
     const writer = new StorageWriteGateCoordinator(db as never);
     const transition = new StorageWriteGateTransitionService(db as never);
@@ -43,6 +43,9 @@ dbTest("T-008 PG: drain, active ticket, freeze, thaw, epoch and audit are cohere
       scope, expectedEpoch: 1n, action: "BEGIN_DRAIN", authority: authority("audit-t008-drain"),
     });
     assert.deepEqual(drained, {phase:"DRAINING", epoch:1n});
+    const afterDrain = await db.storageWriteGate.findUniqueOrThrow({where:{scope}});
+    assert.equal(afterDrain.coverageDigest, null, "BEGIN_DRAIN requires fresh coverage");
+    await db.storageWriteGate.update({where:{scope},data:{coverageDigest:"synthetic-cycle-1"}});
     await assert.rejects(
       () => transition.transition({
         scope, expectedEpoch:1n, action:"ABORT_DRAIN",
@@ -64,6 +67,9 @@ dbTest("T-008 PG: drain, active ticket, freeze, thaw, epoch and audit are cohere
     await assert.rejects(() => writer.admitWrite({
       scope, kind:"ORIGINAL_STORE",writerInstanceId:"synthetic-writer-2",
     }),rejectReason("not_open"));
+    await db.storageWriteGate.update({
+      where:{scope},data:{recoveryWindowDigest:"synthetic-window-closed"},
+    });
     const thawed = await transition.transition({
       scope,expectedEpoch:1n,action:"THAW",authority:authority("audit-t008-thaw"),
     });
@@ -72,6 +78,7 @@ dbTest("T-008 PG: drain, active ticket, freeze, thaw, epoch and audit are cohere
     const reopened = await db.storageWriteGate.findUniqueOrThrow({where:{scope}});
     assert.equal(reopened.epoch,2n);
     assert.equal(reopened.coverageDigest,null,"THAW must invalidate writer coverage");
+    assert.equal(reopened.recoveryWindowDigest,null,"THAW must invalidate window evidence");
   } finally {
     await db.storageWriteGateAudit.deleteMany({where:{scope}}).catch(()=>undefined);
     await db.storageWriteOperation.deleteMany({where:{scope}}).catch(()=>undefined);
@@ -85,11 +92,14 @@ dbTest("T-008 PG: abort drain reopens with a fresh epoch and no inherited covera
   const scope = "test:/abort-" + randomUUID();
   try {
     await db.storageWriteGate.create({data:{
-      scope,phase:"OPEN",epoch:1n,coverageDigest:"synthetic-cycle-1",
+      scope,phase:"OPEN",epoch:1n,
     }});
     const service = new StorageWriteGateTransitionService(db as never);
     await service.transition({
       scope,expectedEpoch:1n,action:"BEGIN_DRAIN",authority:authority("audit-t008-begin-abort"),
+    });
+    await db.storageWriteGate.update({
+      where:{scope},data:{recoveryWindowDigest:"synthetic-abort-window-closed"},
     });
     const reopened = await service.transition({
       scope,expectedEpoch:1n,action:"ABORT_DRAIN",authority:authority("audit-t008-abort"),
@@ -97,6 +107,7 @@ dbTest("T-008 PG: abort drain reopens with a fresh epoch and no inherited covera
     assert.deepEqual(reopened,{phase:"OPEN",epoch:2n});
     const gate = await db.storageWriteGate.findUniqueOrThrow({where:{scope}});
     assert.equal(gate.coverageDigest,null);
+    assert.equal(gate.recoveryWindowDigest,null);
   } finally {
     await db.storageWriteGateAudit.deleteMany({where:{scope}}).catch(()=>undefined);
     await db.storageWriteOperation.deleteMany({where:{scope}}).catch(()=>undefined);
