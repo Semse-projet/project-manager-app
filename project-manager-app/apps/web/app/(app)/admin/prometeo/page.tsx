@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { BookOpen, Database, FileText, Layers, Loader, Plus, Search, Trash2, Upload, Zap } from "lucide-react";
 import { HtmlInCanvasPanel } from "@semse/ui";
 import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
+import { useLanguage } from "../../../../lib/language-context";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -66,6 +67,7 @@ async function apiDelete(path: string) {
 // ── StatusBadge ────────────────────────────────────────────────────────────────
 
 function StatusBadge({ status }: { status: string }) {
+  const { t } = useLanguage();
   const colors: Record<string, [string, string]> = {
     indexed:    ["var(--ok)", "rgba(16,185,129,.12)"],
     processing: ["var(--warn)", "rgba(245,158,11,.12)"],
@@ -80,7 +82,7 @@ function StatusBadge({ status }: { status: string }) {
   const [color, bg] = colors[status] ?? ["#94a3b8", "rgba(148,163,184,.1)"];
   return (
     <span style={{ padding: "2px 8px", borderRadius: 6, fontSize: 11, fontWeight: 700, color, background: bg }}>
-      {status}
+      {Object.hasOwn(colors, status) ? t(`prom.status.${status}`) : status}
     </span>
   );
 }
@@ -88,6 +90,8 @@ function StatusBadge({ status }: { status: string }) {
 // ── Page ───────────────────────────────────────────────────────────────────────
 
 export default function PrometeoPage() {
+  const { t, language } = useLanguage();
+  const displayDate = (value: string) => new Date(value).toLocaleDateString(language === "en" ? "en-US" : "es-MX");
   const [tab, setTab] = useState<"docs" | "query" | "search" | "library" | "assets" | "workorders">("docs");
   const [docs, setDocs] = useState<PrometeoDoc[]>([]);
   const [tradeLibrary, setTradeLibrary] = useState<TradeLibEntry[]>([]);
@@ -158,7 +162,7 @@ export default function PrometeoPage() {
     setLoading(true);
     setLoadError(null);
     try { setDocs(await apiGet<PrometeoDoc[]>("/api/semse/prometeo/documents")); }
-    catch (err) { setLoadError(err instanceof Error ? err.message : "Error al cargar documentos"); }
+    catch (err) { setLoadError(err instanceof Error ? err.message : t("prom.loadError")); }
     finally { setLoading(false); }
   }
 
@@ -186,7 +190,7 @@ export default function PrometeoPage() {
       let attempts = 0;
       const poll = setInterval(() => { attempts++; void loadDocs(); void loadTradeLibrary(); if (attempts >= 5) clearInterval(poll); }, 2000);
     } catch (err) {
-      setIngestError(err instanceof Error ? err.message : "Error al ingestar archivo");
+      setIngestError(err instanceof Error ? err.message : t("prom.fileError"));
     } finally { setIngesting(false); }
   }
 
@@ -214,7 +218,7 @@ export default function PrometeoPage() {
       let attempts = 0;
       const poll = setInterval(() => { attempts++; void loadDocs(); if (attempts >= 5) clearInterval(poll); }, 2000);
     } catch (err) {
-      setIngestError(err instanceof Error ? err.message : "Error al ingestar");
+      setIngestError(err instanceof Error ? err.message : t("prom.ingestError"));
     } finally { setIngesting(false); }
   }
 
@@ -226,13 +230,13 @@ export default function PrometeoPage() {
     try {
       const endpoint = ragMode === "guide" ? "/api/semse/prometeo/trade-guide" : "/api/semse/prometeo/rag-query";
       const result = await apiPost<typeof ragResult>(endpoint, {
-        question: ragQuestion, locale: "es",
+        question: ragQuestion, locale: language,
         trade: filterTrade || "general",
         ...(ragMode === "rag" && filterTrade ? { trade: filterTrade } : {}),
       });
       setRagResult(result);
     } catch (err) {
-      setRagError(err instanceof Error ? err.message : "Error en consulta");
+      setRagError(err instanceof Error ? err.message : t("prom.queryError"));
     } finally { setRagLoading(false); }
   }
 
@@ -272,23 +276,11 @@ export default function PrometeoPage() {
   const input: React.CSSProperties = { width: "100%", padding: "10px 12px", borderRadius: 10, border: "1px solid var(--border)", background: "transparent", color: "var(--ink)", fontSize: 13, outline: "none", boxSizing: "border-box" };
   const btn = (color = "#6366f1", bg = "rgba(99,102,241,.15)"): React.CSSProperties => ({ display: "inline-flex", alignItems: "center", gap: 6, padding: "9px 14px", borderRadius: 10, border: "none", background: bg, color, fontSize: 12, fontWeight: 700, cursor: "pointer" });
 
-  const TRADES = [
-    { value: "general", label: "General" }, { value: "electrical", label: "Electricidad" },
-    { value: "plumbing", label: "Plomería" }, { value: "drywall", label: "Drywall" },
-    { value: "painting", label: "Pintura" }, { value: "carpentry", label: "Carpintería" },
-    { value: "hvac", label: "HVAC" }, { value: "siding", label: "Siding" },
-    { value: "demolition", label: "Demolición" }, { value: "cleaning", label: "Limpieza" },
-    { value: "bathroom", label: "Baños" }, { value: "kitchen", label: "Cocinas" },
-    { value: "windows_doors", label: "Ventanas/Puertas" },
-  ] as const;
+  const TRADES = ["general","electrical","plumbing","drywall","painting","carpentry","hvac","siding","demolition","cleaning","bathroom","kitchen","windows_doors"] as const;
 
   const TABS = [
-    { id: "docs",       label: "Ingestar",           icon: Database },
-    { id: "library",    label: "Biblioteca",         icon: Layers },
-    { id: "query",      label: "Consultar IA",       icon: BookOpen },
-    { id: "search",     label: "Búsqueda",           icon: Search },
-    { id: "assets",     label: "Activos",            icon: Zap },
-    { id: "workorders", label: "OTs",                icon: FileText },
+    { id: "docs", icon: Database }, { id: "library", icon: Layers }, { id: "query", icon: BookOpen },
+    { id: "search", icon: Search }, { id: "assets", icon: Zap }, { id: "workorders", icon: FileText },
   ] as const;
 
   return (
@@ -297,26 +289,26 @@ export default function PrometeoPage() {
 
         <AdminPageHeader
           title="Prometeo Engine"
-          subtitle="RAG · Base documental · Activos · Órdenes de trabajo"
+          subtitle={t("prom.subtitle")}
           icon={BookOpen}
           iconColor="#818cf8"
           iconBg="rgba(99,102,241,.15)"
           showBack={false}
           actions={
             <div style={{ display: "flex", gap: 12, fontSize: 12, color: "var(--muted)" }}>
-              <span><strong style={{ color: "var(--ink)" }}>{docs.filter((d) => d.status === "indexed").length}</strong> indexados</span>
-              <span><strong style={{ color: "var(--ink)" }}>{assets.length}</strong> activos</span>
-              <span><strong style={{ color: "var(--ink)" }}>{workOrders.length}</strong> OTs</span>
+              <span><strong style={{ color: "var(--ink)" }}>{docs.filter((d) => d.status === "indexed").length}</strong> {t("prom.indexed")}</span>
+              <span><strong style={{ color: "var(--ink)" }}>{assets.length}</strong> {t("prom.assets")}</span>
+              <span><strong style={{ color: "var(--ink)" }}>{workOrders.length}</strong> {t("prom.ordersShort")}</span>
             </div>
           }
         />
 
         {/* Tabs */}
         <div style={{ display: "flex", gap: 8 }}>
-          {TABS.map(({ id, label, icon: Icon }) => (
+          {TABS.map(({ id, icon: Icon }) => (
             <button key={id} onClick={() => setTab(id)}
               style={{ ...btn(tab === id ? "#fff" : "var(--muted)", tab === id ? "#6366f1" : "transparent"), borderRadius: 10, border: tab === id ? "none" : "1px solid var(--border)" }}>
-              <Icon size={13} />{label}
+              <Icon size={13} />{t(`prom.tab.${id}`)}
             </button>
           ))}
         </div>
@@ -326,50 +318,50 @@ export default function PrometeoPage() {
           <div style={{ display: "grid", gap: 14 }}>
             {/* Ingest form */}
             <div style={card}>
-              <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 10 }}>Ingestar documento</div>
+              <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 10 }}>{t("prom.ingestDoc")}</div>
               {/* Mode toggle */}
               <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
                 {(["text", "file"] as const).map((m) => (
                   <button key={m} onClick={() => setIngestMode(m)}
                     style={{ ...btn(ingestMode === m ? "#fff" : "var(--muted)", ingestMode === m ? "#6366f1" : "transparent"), border: ingestMode === m ? "none" : "1px solid var(--border)", fontSize: 11 }}>
-                    {m === "text" ? <><Plus size={12} />Texto libre</> : <><Upload size={12} />Archivo (PDF/DOCX/TXT)</>}
+                    {m === "text" ? <><Plus size={12} />{t("prom.freeText")}</> : <><Upload size={12} />{t("prom.file")}</>}
                   </button>
                 ))}
               </div>
               <div style={{ display: "grid", gap: 10 }}>
                 <input value={ingestTitle} onChange={(e) => setIngestTitle(e.target.value)}
-                  placeholder="Título del documento" style={input} />
+                  placeholder={t("prom.docTitle")} style={input} />
                 {/* Trade + Type + Visibility */}
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
                   <select value={ingestTrade} onChange={(e) => setIngestTrade(e.target.value)} style={{ ...input, cursor: "pointer" }}>
-                    {TRADES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                    {TRADES.map((trade) => <option key={trade} value={trade}>{t(`prom.trade.${trade}`)}</option>)}
                   </select>
                   <select value={ingestType} onChange={(e) => setIngestType(e.target.value)} style={{ ...input, cursor: "pointer" }}>
-                    <option value="text">Texto libre</option>
-                    <option value="manual">Manual técnico</option>
-                    <option value="book">Libro</option>
-                    <option value="contract">Contrato</option>
-                    <option value="scope">Alcance de trabajo</option>
-                    <option value="report">Reporte</option>
-                    <option value="course">Curso</option>
-                    <option value="checklist">Checklist</option>
-                    <option value="evidence">Evidencia transcrita</option>
+                    <option value="text">{t("prom.freeText")}</option>
+                    <option value="manual">{t("prom.docType.manual")}</option>
+                    <option value="book">{t("prom.docType.book")}</option>
+                    <option value="contract">{t("prom.docType.contract")}</option>
+                    <option value="scope">{t("prom.docType.scope")}</option>
+                    <option value="report">{t("prom.docType.report")}</option>
+                    <option value="course">{t("prom.docType.course")}</option>
+                    <option value="checklist">{t("prom.docType.checklist")}</option>
+                    <option value="evidence">{t("prom.docType.evidence")}</option>
                   </select>
                   <select value={ingestVisibility} onChange={(e) => setIngestVisibility(e.target.value)} style={{ ...input, cursor: "pointer" }}>
-                    <option value="public_training">Público/Entrenamiento</option>
-                    <option value="tenant_private">Privado organización</option>
-                    <option value="project_private">Privado proyecto</option>
+                    <option value="public_training">{t("prom.visibility.public_training")}</option>
+                    <option value="tenant_private">{t("prom.visibility.tenant_private")}</option>
+                    <option value="project_private">{t("prom.visibility.project_private")}</option>
                   </select>
                 </div>
 
                 {ingestMode === "text" ? (
                   <>
                     <textarea value={ingestText} onChange={(e) => setIngestText(e.target.value)}
-                      placeholder="Pega el contenido del documento aquí..." rows={6}
+                      placeholder={t("prom.pasteContent")} rows={6}
                       style={{ ...input, resize: "vertical", fontFamily: "inherit" }} />
                     <button onClick={() => void handleIngest()} disabled={ingesting || !ingestTitle.trim() || !ingestText.trim()}
                       style={{ ...btn(), opacity: ingesting ? 0.6 : 1, width: "fit-content" }}>
-                      {ingesting ? <><Loader size={13} />Procesando…</> : <><Plus size={13} />Ingestar texto</>}
+                      {ingesting ? <><Loader size={13} />{t("prom.processing")}</> : <><Plus size={13} />{t("prom.ingestText")}</>}
                     </button>
                   </>
                 ) : (
@@ -380,17 +372,17 @@ export default function PrometeoPage() {
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                       <button type="button" onClick={() => fileInputRef.current?.click()}
                         style={{ ...btn("var(--muted)", "rgba(255,255,255,.04)"), border: "1px solid var(--border)" }}>
-                        <Upload size={13} />{ingestFile ? ingestFile.name : "Seleccionar archivo"}
+                        <Upload size={13} />{ingestFile ? ingestFile.name : t("prom.selectFile")}
                       </button>
                       {ingestFile && <span style={{ fontSize: 11, color: "var(--muted)" }}>{(ingestFile.size / 1024).toFixed(0)} KB</span>}
                     </div>
                     <button onClick={() => void handleIngestFile()} disabled={ingesting || !ingestTitle.trim() || !ingestFile}
                       style={{ ...btn(), opacity: ingesting ? 0.6 : 1, width: "fit-content" }}>
-                      {ingesting ? <><Loader size={13} />Procesando archivo…</> : <><Upload size={13} />Ingestar archivo</>}
+                      {ingesting ? <><Loader size={13} />{t("prom.processingFile")}</> : <><Upload size={13} />{t("prom.ingestFile")}</>}
                     </button>
                   </>
                 )}
-                {ingestSuccess && <span style={{ fontSize: 12, color: "#86efac" }}>✅ Documento enviado — indexando en segundo plano</span>}
+                {ingestSuccess && <span style={{ fontSize: 12, color: "#86efac" }}>✅ {t("prom.docSent")}</span>}
                 {ingestError && <span style={{ fontSize: 12, color: "#fca5a5" }}>❌ {ingestError}</span>}
               </div>
             </div>
@@ -398,14 +390,14 @@ export default function PrometeoPage() {
             {/* Docs list */}
             <div style={card}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-                <div style={{ fontWeight: 800, fontSize: 14 }}>Documentos indexados</div>
+                <div style={{ fontWeight: 800, fontSize: 14 }}>{t("prom.indexedDocs")}</div>
                 <button onClick={() => void loadDocs()} style={{ ...btn("var(--muted)", "transparent"), border: "1px solid var(--border)", fontSize: 11 }}>
                   Actualizar
                 </button>
               </div>
               {loadError && <div style={{ fontSize: 12, color: "#fca5a5", marginBottom: 10 }}>⚠ {loadError}</div>}
-              {loading ? <div style={{ color: "var(--muted)", fontSize: 13 }}>Cargando…</div> : docs.length === 0 ? (
-                <div style={{ color: "var(--muted)", fontSize: 13 }}>Sin documentos. Ingesta el primero arriba.</div>
+              {loading ? <div style={{ color: "var(--muted)", fontSize: 13 }}>{t("prom.loading")}</div> : docs.length === 0 ? (
+                <div style={{ color: "var(--muted)", fontSize: 13 }}>{t("prom.noDocs")}</div>
               ) : (
                 <div style={{ display: "grid", gap: 8 }}>
                   {docs.map((d) => (
@@ -413,12 +405,12 @@ export default function PrometeoPage() {
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontWeight: 700, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.title}</div>
                         <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>
-                          {d.sourceType} · {d.chunkCount} chunks · {new Date(d.createdAt).toLocaleDateString("es-MX")}
+                          {d.sourceType} · {d.chunkCount} {t("prom.chunks")} · {displayDate(d.createdAt)}
                         </div>
                         {d.errorMsg && <div style={{ fontSize: 11, color: "var(--error)", marginTop: 2 }}>{d.errorMsg}</div>}
                       </div>
                       <StatusBadge status={d.status} />
-                      <button onClick={() => { if (window.confirm(`¿Borrar "${d.title}" de la base de conocimiento? Esta acción es permanente.`)) void handleDeleteDoc(d.id); }}
+                      <button onClick={() => { if (window.confirm(`${t("prom.deleteConfirmPrefix")} "${d.title}" ${t("prom.deleteConfirmSuffix")}`)) void handleDeleteDoc(d.id); }}
                         style={{ background: "none", border: "none", cursor: "pointer", color: "var(--error)", padding: 4 }}>
                         <Trash2 size={14} />
                       </button>
@@ -485,12 +477,12 @@ export default function PrometeoPage() {
                 <select value={filterTrade} onChange={(e) => setFilterTrade(e.target.value)}
                   style={{ ...input, width: "auto", fontSize: 11, padding: "5px 8px", cursor: "pointer" }}>
                   <option value="">Todos los oficios</option>
-                  {TRADES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                  {TRADES.map((trade) => <option key={trade} value={trade}>{t(`prom.trade.${trade}`)}</option>)}
                 </select>
               </div>
               <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 12 }}>
                 {ragMode === "guide"
-                  ? `Training Agent: responde usando manuales de ${TRADES.find((t) => t.value === filterTrade)?.label ?? "tu oficio"} indexados en Prometeo.`
+                  ? `Training Agent: responde usando manuales de ${(TRADES.find((trade) => trade === filterTrade) ? t(`prom.trade.${filterTrade}`) : t("prom.yourTrade"))} indexados en Prometeo.`
                   : "Prometeo responde usando todos los documentos indexados con fuentes citadas."}
                 {docs.filter((d) => d.status === "indexed").length === 0 && <span style={{ color: "#fbbf24" }}> — Primero indexa documentos.</span>}
               </div>
