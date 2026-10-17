@@ -25,6 +25,9 @@ const SESSION = "synthetic-session-a";
 const SCOPES = ["projects:read"];
 const grants = new Map();
 const sessions = new Map([[SESSION, { userId: USER, tenantId: TENANT, orgId: ORG, active: true, membership: true }]]);
+// Only for the CI-linked negative regression: issue two REAL Hydra tokens
+// for the same user/client/resource, bound to DIFFERENT synthetic sessions.
+let sessionForNextConsent = SESSION;
 let checks = 0;
 
 function check(condition, why) { assert.ok(condition, why); checks += 1; }
@@ -96,12 +99,12 @@ async function handleSyntheticConsent(url, res) {
   const audience = req.requested_access_token_audience || [];
   check(audience.includes(RESOURCE), "Hydra did not bind the requested resource audience");
   const grantKey = USER + "|" + CLIENT + "|" + ORG + "|" + RESOURCE;
-  grants.set(grantKey, { user: USER, sessionId: SESSION, clientId: CLIENT, org: ORG, audience: RESOURCE,
+  grants.set(grantKey, { user: USER, sessionId: sessionForNextConsent, clientId: CLIENT, org: ORG, audience: RESOURCE,
     scope: SCOPES, active: true });
   const accepted = await admin("PUT",
     "/admin/oauth2/auth/requests/consent/accept?consent_challenge=" + encodeURIComponent(challenge),
     { grant_scope: SCOPES, grant_access_token_audience: [RESOURCE],
-      session: { access_token: { synthetic_session_binding: SESSION } },
+      session: { access_token: { synthetic_session_binding: sessionForNextConsent } },
       remember: false });
   redirect(res, accepted.redirect_to);
 }
@@ -221,6 +224,34 @@ try {
     "Authorization code exchange failed");
   const probe = await introspect(exchanged.data.access_token);
   check(probe.active === true, "Hydra did not introspect an active access token");
+  if (process.env.MCP_S1_REAL_DB_PROOF === "1") {
+    // Verify Hydra actually persists the consent-provided session as an
+    // introspectable token attribute, not merely as a synthetic Map entry.
+    check(probe.ext?.synthetic_session_binding === SESSION,
+      "Hydra introspection did not bind first token to SEMSE lab session");
+    const firstConsent = grants.get(USER + "|" + CLIENT + "|" + ORG + "|" + RESOURCE);
+    const secondSession = SESSION + "-other";
+    sessionForNextConsent = secondSession;
+    const third = await authorizationCode();
+    const distinct = await token(third.code, third.verifier);
+    check(distinct.status === 200 && typeof distinct.data.access_token === "string",
+      "Different-session Hydra authorization failed");
+    const distinctProbe = await introspect(distinct.data.access_token);
+    check(distinctProbe.active === true &&
+      distinctProbe.ext?.synthetic_session_binding === secondSession,
+      "Hydra did not introspect different session binding");
+    sessionForNextConsent = SESSION;
+    grants.set(USER + "|" + CLIENT + "|" + ORG + "|" + RESOURCE, firstConsent);
+    const { testHydraTokenAgainstRealSemseDatabase } = await import("./mcp-s1-hydra-semse-postgres-proof.mjs");
+    await testHydraTokenAgainstRealSemseDatabase({
+      token: exchanged.data.access_token,
+      otherSessionToken: distinct.data.access_token, otherSessionId: secondSession,
+      introspect,
+      consent: firstConsent,
+      userId: USER, sessionId: SESSION, orgId: ORG, tenantId: TENANT,
+      expectedIssuer: PUBLIC, expectedClient: CLIENT, expectedAudience: RESOURCE
+    });
+  }
   check(verifySyntheticResource(probe), "Audience, scope or synthetic SEMSE session invalid");
   check(!verifySyntheticResource(probe, "https://unrelated.invalid/mcp"), "Wrong resource accepted");
   check(!verifySyntheticResource({ ...probe, client_id: "other-client" }), "Wrong client accepted");
