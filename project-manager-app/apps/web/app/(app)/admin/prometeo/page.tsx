@@ -210,7 +210,7 @@ export default function PrometeoPage() {
     setIngestError(null);
     setIngestSuccess(false);
     try {
-      await apiPost("/api/semse/prometeo/ingest", { title: ingestTitle, text: ingestText, sourceType: ingestType });
+      await apiPost("/api/semse/prometeo/ingest", { title: ingestTitle, text: ingestText, sourceType: ingestType, trade: ingestTrade, visibility: ingestVisibility });
       setIngestTitle(""); setIngestText("");
       setIngestSuccess(true);
       setTimeout(() => setIngestSuccess(false), 5000);
@@ -392,7 +392,7 @@ export default function PrometeoPage() {
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
                 <div style={{ fontWeight: 800, fontSize: 14 }}>{t("prom.indexedDocs")}</div>
                 <button onClick={() => void loadDocs()} style={{ ...btn("var(--muted)", "transparent"), border: "1px solid var(--border)", fontSize: 11 }}>
-                  Actualizar
+                  {t("prom.refresh")}
                 </button>
               </div>
               {loadError && <div style={{ fontSize: 12, color: "#fca5a5", marginBottom: 10 }}>⚠ {loadError}</div>}
@@ -435,20 +435,20 @@ export default function PrometeoPage() {
                 <div style={{ color: "var(--muted)", fontSize: 13 }}>{t("prom.loadingLibrary")}</div>
               ) : (
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 12 }}>
-                  {tradeLibrary.map((t) => (
-                    <div key={t.trade} style={{ padding: "14px 16px", borderRadius: 12, background: "rgba(255,255,255,.03)", border: "1px solid var(--border)", display: "grid", gap: 6 }}>
-                      <div style={{ fontWeight: 800, fontSize: 13, color: "var(--ink)" }}>{t.label}</div>
-                      <div style={{ fontSize: 11, color: "var(--muted)" }}>{t.indexedCount}/{t.documentsCount} {t("prom.indexedDocsLabel")} · {t.chunksCount} {t("prom.chunks")}</div>
-                      {t.types.length > 0 && <div style={{ fontSize: 10, color: "var(--muted)" }}>{t.types.join(", ")}</div>}
-                      {t.indexedCount > 0 && (
+                  {tradeLibrary.map((entry) => (
+                    <div key={entry.trade} style={{ padding: "14px 16px", borderRadius: 12, background: "rgba(255,255,255,.03)", border: "1px solid var(--border)", display: "grid", gap: 6 }}>
+                      <div style={{ fontWeight: 800, fontSize: 13, color: "var(--ink)" }}>{TRADES.includes(entry.trade as typeof TRADES[number]) ? t(`prom.trade.${entry.trade}`) : entry.label}</div>
+                      <div style={{ fontSize: 11, color: "var(--muted)" }}>{entry.indexedCount}/{entry.documentsCount} {t("prom.indexedDocsLabel")} · {entry.chunksCount} {t("prom.chunks")}</div>
+                      {entry.types.length > 0 && <div style={{ fontSize: 10, color: "var(--muted)" }}>{entry.types.join(", ")}</div>}
+                      {entry.indexedCount > 0 && (
                         <button
-                          onClick={() => { setFilterTrade(t.trade); setTab("query"); }}
+                          onClick={() => { setFilterTrade(entry.trade); setTab("query"); }}
                           style={{ ...btn("#818cf8", "rgba(99,102,241,.08)"), fontSize: 10, padding: "5px 8px", marginTop: 4 }}>
                           <BookOpen size={10} />{t("prom.query")}
                         </button>
                       )}
-                      {t.indexedCount === 0 && (
-                        <button onClick={() => { setIngestTrade(t.trade); setTab("docs"); }}
+                      {entry.indexedCount === 0 && (
+                        <button onClick={() => { setIngestTrade(entry.trade); setTab("docs"); }}
                           style={{ ...btn("var(--muted)", "transparent"), fontSize: 10, padding: "5px 8px", border: "1px solid var(--border)" }}>
                           <Plus size={10} />{t("prom.ingestFirst")}
                         </button>
@@ -565,15 +565,15 @@ export default function PrometeoPage() {
                                 {!fb && (<>
                                   <button onClick={() => void handleFeedback(c.chunkId, "confirm", ragQuestion)}
                                     style={{ fontSize: 10, padding: "2px 8px", borderRadius: 6, border: "1px solid #86efac44", background: "rgba(134,239,172,.08)", color: "#86efac", cursor: "pointer" }}>
-                                    ✓ Útil
+                                    {t("prom.feedback.useful")}
                                   </button>
                                   <button onClick={() => void handleFeedback(c.chunkId, "correct", ragQuestion)}
                                     style={{ fontSize: 10, padding: "2px 8px", borderRadius: 6, border: "1px solid #fbbf2444", background: "rgba(251,191,36,.08)", color: "#fbbf24", cursor: "pointer" }}>
-                                    ✎ Incorrecto
+                                    {t("prom.feedback.incorrect")}
                                   </button>
                                   <button onClick={() => void handleFeedback(c.chunkId, "flag", ragQuestion)}
                                     style={{ fontSize: 10, padding: "2px 8px", borderRadius: 6, border: "1px solid #f8717144", background: "rgba(248,113,113,.08)", color: "#f87171", cursor: "pointer" }}>
-                                    ✕ Irrelevante
+                                    {t("prom.feedback.irrelevant")}
                                   </button>
                                 </>)}
                               </div>
@@ -590,7 +590,6 @@ export default function PrometeoPage() {
                     <span>{t("prom.provider")} <strong style={{ color: "var(--ink)" }}>{ragResult.provider}</strong></span>
                     <span>{t("prom.confidence")} <strong style={{ color: "var(--ink)" }}>{Math.round(ragResult.confidence * 100)}%</strong></span>
                     {ragResult.fallbackUsed && <span style={{ color: "#fbbf24" }}>{t("prom.fallback")}</span>}
-                    <span style={{ color: "#86efac" }}>🔒 {t("prom.localProcessing")}</span>
                   </div>
                 </div>
               )}
@@ -641,15 +640,15 @@ export default function PrometeoPage() {
                       {!fb && (<>
                         <button onClick={() => void handleFeedback(r.chunkId, "confirm", searchQuery)}
                           style={{ fontSize: 10, padding: "2px 8px", borderRadius: 6, border: "1px solid #86efac44", background: "rgba(134,239,172,.08)", color: "#86efac", cursor: "pointer" }}>
-                          ✓ Útil
+                          {t("prom.feedback.useful")}
                         </button>
                         <button onClick={() => void handleFeedback(r.chunkId, "correct", searchQuery)}
                           style={{ fontSize: 10, padding: "2px 8px", borderRadius: 6, border: "1px solid #fbbf2444", background: "rgba(251,191,36,.08)", color: "#fbbf24", cursor: "pointer" }}>
-                          ✎ Incorrecto
+                          {t("prom.feedback.incorrect")}
                         </button>
                         <button onClick={() => void handleFeedback(r.chunkId, "flag", searchQuery)}
                           style={{ fontSize: 10, padding: "2px 8px", borderRadius: 6, border: "1px solid #f8717144", background: "rgba(248,113,113,.08)", color: "#f87171", cursor: "pointer" }}>
-                          ✕ Irrelevante
+                          {t("prom.feedback.irrelevant")}
                         </button>
                       </>)}
                     </div>
