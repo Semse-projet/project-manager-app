@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
+import type { Prisma } from "@prisma/client";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import type { EmbeddingVector } from "./embedding.service.js";
 
@@ -68,9 +69,23 @@ export class PrometeoRepository {
     });
   }
 
-  async listDocuments(input: { tenantId: string; projectId?: string; limit?: number }): Promise<PrometeoDocumentRecord[]> {
+  /** Always constrain ownership/project participation in SQL before take/pagination. */
+  private documentWhere(input: { tenantId: string; projectId?: string; scope?: PrometeoListScopeFilter }): Prisma.PrometeoDocumentWhereInput {
+    return {
+      tenantId: input.tenantId,
+      ...(input.projectId ? { projectId: input.projectId } : {}),
+      ...(input.scope ? {
+        OR: [
+          { projectId: null, orgId: input.scope.orgId },
+          { projectId: { in: input.scope.projectIds } },
+        ],
+      } : {}),
+    };
+  }
+
+  async listDocuments(input: { tenantId: string; projectId?: string; limit?: number; scope?: PrometeoListScopeFilter }): Promise<PrometeoDocumentRecord[]> {
     return this.prisma.prometeoDocument.findMany({
-      where: { tenantId: input.tenantId, ...(input.projectId ? { projectId: input.projectId } : {}) },
+      where: this.documentWhere(input),
       orderBy: { createdAt: "desc" }, take: input.limit ?? 50,
     }) as Promise<PrometeoDocumentRecord[]>;
   }
@@ -91,9 +106,9 @@ export class PrometeoRepository {
     }
   }
 
-  async loadChunksForSearch(input: { tenantId: string; projectId?: string; limit?: number }): Promise<PrometeoChunkSearchRow[]> {
+  async loadChunksForSearch(input: { tenantId: string; projectId?: string; limit?: number; scope?: PrometeoListScopeFilter }): Promise<PrometeoChunkSearchRow[]> {
     const docs = await this.prisma.prometeoDocument.findMany({
-      where: { tenantId: input.tenantId, status: "indexed", ...(input.projectId ? { projectId: input.projectId } : {}) },
+      where: { ...this.documentWhere(input), status: "indexed" },
       select: { id: true },
     });
     if (docs.length === 0) return [];
@@ -174,9 +189,15 @@ export class PrometeoRepository {
     return result;
   }
 
-  async getFeedbackStats(tenantId: string) {
+  async getFeedbackStats(tenantId: string, scope?: PrometeoListScopeFilter) {
+    const authorizedDocuments = scope
+      ? await this.prisma.prometeoDocument.findMany({ where: this.documentWhere({ tenantId, scope }), select: { id: true } })
+      : undefined;
+    if (authorizedDocuments && authorizedDocuments.length === 0) {
+      return { totalFeedback: 0, chunksWithFeedback: 0, byType: {}, topDocuments: [], lastFeedbackAt: null };
+    }
     const rows = await this.prisma.prometeoChunkFeedback.findMany({
-      where: { tenantId },
+      where: { tenantId, ...(authorizedDocuments ? { documentId: { in: authorizedDocuments.map(d => d.id) } } : {}) },
       select: { chunkId: true, documentId: true, type: true, createdAt: true },
       orderBy: { createdAt: "desc" },
       take: 1000,
