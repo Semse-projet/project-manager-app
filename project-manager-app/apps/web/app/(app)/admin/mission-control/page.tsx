@@ -572,6 +572,7 @@ function FilterSelect({
   onChange: (value: string) => void;
   options: string[][];
 }) {
+  const { t } = useLanguage();
   return (
     <label className="flex min-w-44 flex-col gap-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">
       {label}
@@ -580,7 +581,7 @@ function FilterSelect({
         onChange={(event) => onChange(event.target.value)}
         className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-normal normal-case tracking-normal text-slate-200"
       >
-        <option value="">All</option>
+        <option value="">{t("mc.filter.all")}</option>
         {options.map(([key, optionLabel]) => (
           <option key={key} value={key}>{optionLabel}</option>
         ))}
@@ -596,6 +597,7 @@ function ExceptionCard({
   item: MissionControlException;
   onAction: (item: MissionControlException, action: MissionControlAction) => void;
 }) {
+  const { t } = useLanguage();
   const severity = SEVERITY_STYLE[item.severity] ?? SEVERITY_STYLE.info;
   return (
     <article className="rounded-xl border border-slate-800 bg-slate-950/50 p-4">
@@ -606,24 +608,24 @@ function ExceptionCard({
               className="rounded px-2 py-1 text-[10px] font-bold uppercase tracking-wider"
               style={{ color: severity.color, background: severity.background }}
             >
-              {item.severity}
+              {t(`mc.severity.${item.severity}`)}
             </span>
-            <span className="text-[11px] text-slate-400">{SOURCE_LABELS[item.source] ?? item.source}</span>
-            <span className="rounded border border-slate-700 px-1.5 py-0.5 text-[10px] text-slate-400">{item.status}</span>
-            <span className="text-[10px] text-slate-600">{relativeTime(item.occurredAt)}</span>
+            <span className="text-[11px] text-slate-400">{SOURCE_LABELS[item.source] ? t(`mc.source.${item.source}`) : item.source}</span>
+            <span className="rounded border border-slate-700 px-1.5 py-0.5 text-[10px] text-slate-400">{t(`mc.status.${item.status}`)}</span>
+            <span className="text-[10px] text-slate-600">{relativeTime(item.occurredAt, t)}</span>
           </div>
           <h2 className="text-sm font-bold text-slate-100">{item.title}</h2>
           <p className="mt-1 text-sm leading-6 text-slate-400">{item.summary}</p>
           <div className="mt-2 flex flex-wrap gap-3 text-[10px] text-slate-600">
             <span>{item.targetType}/{item.targetId}</span>
-            {item.correlationId ? <span>correlation: {item.correlationId}</span> : null}
+            {item.correlationId ? <span>{t("mc.correlation")}: {item.correlationId}</span> : null}
           </div>
         </div>
         <a
           href={item.deepLink}
           className="inline-flex items-center gap-1 text-xs font-semibold text-blue-300 hover:text-blue-200"
         >
-          Owner workspace <ExternalLink size={12} />
+          {t("mc.ownerWorkspace")} <ExternalLink size={12} />
         </a>
       </div>
       <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-800 pt-3">
@@ -638,7 +640,7 @@ function ExceptionCard({
                 : "border-slate-700 bg-slate-900 text-slate-300 hover:border-slate-500"
             }`}
           >
-            {action}
+            {t(`mc.action.${action}`)}
           </button>
         ))}
       </div>
@@ -655,6 +657,7 @@ function StatePanel({
   detail: string;
   retry?: () => void | Promise<void>;
 }) {
+  const { t } = useLanguage();
   return (
     <div className="mx-auto mt-20 max-w-xl rounded-2xl border border-slate-800 bg-slate-950/50 p-10 text-center">
       <AlertTriangle className="mx-auto mb-3 text-orange-400" size={30} />
@@ -666,7 +669,7 @@ function StatePanel({
           onClick={() => void retry()}
           className="mt-5 rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-200"
         >
-          Retry
+          {t("mc.retry")}
         </button>
       ) : null}
     </div>
