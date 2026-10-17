@@ -1,10 +1,10 @@
-# D4 — Project status read without implicit provisioning (owner-approved design; implementation in isolated PR)
+# D4 — Project status read without implicit provisioning (owner-approved, internal implementation merged)
 
 **Program:** `platform.semse-prometeo-interoperability`  
 **Child spec:** `platform.semse-mcp-project-read` (REVIEW; D4-only internal implementation allowed, MCP activation not approved).  
 **Owner security invariant:** `SEC-S1-02` APPROVED on 2026-10-15 (no Tenant/Org/User or domain mutations from MCP read).  
 **Implementation decision D4:** **APPROVED** by owner in conversation on 2026-10-15; Option A selected. OAuth D2 still pending.  
-**Operational state:** IMPLEMENTATION_IN_PR / NOT_DEPLOYED / INACTIVE (no MCP controller or OAuth route).
+**Operational state:** INTERNAL_CODE_MERGED / EXTERNAL_MCP_NOT_DEPLOYED / INACTIVE. [PR #953](https://github.com/Semse-projet/project-manager-app/pull/953) merged with CI PASS; no MCP controller or OAuth route.
 
 ## Code facts independently verified
 
