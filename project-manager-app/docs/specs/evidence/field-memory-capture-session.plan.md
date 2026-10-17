@@ -134,7 +134,24 @@ La barrera debe incluir **nuevos originales y mutaciones de referencias Evidence
 
 **Rollback:** despliegue puede volver a modo normal únicamente si no hay freeze ni operaciones activas y no reabre vulnerabilidades previas; esquema se conserva (forward-fix). Nunca hacer rollback a binario sin gate con estado \`DRAINING/FROZEN\`. Si falla la autoridad, bloquear escritura y restaurar el servicio, no improvisar \`OPEN\`.
 
-### 12.6 Bloqueos que impiden declarar VERIFIED
+### 12.6 Estado de implementación del control plane (2026-10-17)
+
+**Estado: PARTIAL / staging-control-plane implemented; producción continúa OFF.** PR #971 implementa el siguiente slice sin declarar quiescencia ni custodia real:
+
+- scope canónico compartido con `StorageService`; el request administrativo no puede escoger paths;
+- permiso `ops:storage-write-gate:manage` exclusivo de `OPS_ADMIN`, además de verificación explícita de rol;
+- control plane disponible únicamente con `SEMSE_STORAGE_WRITE_GATE_MODE=staging` y rechazado bajo cualquier marcador productivo;
+- provisión explícita del gate; migración no crea `OPEN` implícitamente;
+- transición/idempotencia serializadas bajo el mismo `StorageWriteGate ... FOR UPDATE` usado como autoridad;
+- `BEGIN_DRAIN` invalida coverage/window evidence heredada; `MARK_FROZEN` obliga a una nueva atestación de ventana antes de `THAW`;
+- recovery de un ticket `ACTIVE` requiere operación exacta + writer instance + `terminationEvidenceDigest` y deja estado `RECOVERED_FENCED`; nunca se libera por edad/TTL;
+- pruebas PostgreSQL incluyen reintentos concurrentes exactos con un único efecto durable, bloqueo de freeze con ACTIVE, fencing del ticket recuperado, post-freeze window evidence, migración y rollback transaccional.
+
+Evidencia pre-documentación: head `45e4ac6c21ec3005c0873c3b2427efdf50355163` de #971 terminó con CI (`quality-gates`, `unit-coverage`, `e2e`), API Integration, Autonomy Staged API, Operación Asistida API y ResourceScope Guard en `success`. Esta evidencia **no se transfiere automáticamente** al SHA posterior que modifica solo documentación; el head final debe volver a pasar los mismos gates.
+
+Pendiente antes de merge/release: staging real con al menos dos procesos, inventario/provenance exhaustivo de writers, revisión manual/security final, CI del SHA final. Pendiente después de merge: deploy `main` con modo OFF, runtime provenance/health y canary. Pendiente para VERIFIED: freeze productivo real en ventana aprobada + custodia/export/restore/Evidence consistente.
+
+### 12.7 Bloqueos que impiden declarar VERIFIED
 
 - [ ] Evidencia de escritura y lectura de todas las instancias productivas bajo el gate.
 - [ ] Pruebas reales de \`FROZEN\` con cero writers, incluido Evidence + multipart, canary sintético y auditoría.

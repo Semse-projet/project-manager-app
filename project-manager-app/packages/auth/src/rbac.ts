@@ -239,6 +239,7 @@ export const rolePermissions: Record<string, string[]> = {
     "internal:architecture:read",
     "ops:alerts:ack",
     "ops:runbooks:execute",
+    "ops:storage-write-gate:manage",
     "ops:incidents:create",
     "domain-events:read",
     "domain-events:emit",

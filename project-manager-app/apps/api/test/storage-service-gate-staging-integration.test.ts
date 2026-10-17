@@ -47,7 +47,7 @@ dbTest("S3a: real DB/FS ticket lifecycle blocks store/delete under DRAINING/FROZ
 
   try {
     await prisma.storageWriteGate.create({data:{
-      scope,phase:"OPEN",epoch:1n,coverageDigest:"synthetic-single-process-only",
+      scope,phase:"OPEN",epoch:1n,
     }});
     const coordinator = new StorageWriteGateCoordinator(prisma as never);
     const control = new StorageWriteGateTransitionService(prisma as never);
@@ -87,6 +87,9 @@ dbTest("S3a: real DB/FS ticket lifecycle blocks store/delete under DRAINING/FROZ
       assert.deepEqual(await control.transition({
         scope,expectedEpoch:1n,action:"BEGIN_DRAIN",authority:operator("ci-drain-"+token),
       }),{phase:"DRAINING",epoch:1n});
+      await prisma.storageWriteGate.update({
+        where:{scope},data:{coverageDigest:"synthetic-single-process-only"},
+      });
       await assert.rejects(() => control.transition({
         scope,expectedEpoch:1n,action:"MARK_FROZEN",authority:operator("ci-early-freeze-"+token),
       }),error => (error as {reason?:string}).reason === "active_operations");
@@ -116,6 +119,9 @@ dbTest("S3a: real DB/FS ticket lifecycle blocks store/delete under DRAINING/FROZ
     assert.equal(await prisma.storageWriteOperation.count({where:{scope,state:"ACTIVE"}}),0);
     assert.deepEqual(await readFile(path.join(root,KEY)),bytes);
 
+    await prisma.storageWriteGate.update({
+      where:{scope},data:{recoveryWindowDigest:"synthetic-window-closed"},
+    });
     assert.deepEqual(await control.transition({
       scope,expectedEpoch:1n,action:"THAW",authority:operator("ci-thaw-"+token),
     }),{phase:"OPEN",epoch:2n});

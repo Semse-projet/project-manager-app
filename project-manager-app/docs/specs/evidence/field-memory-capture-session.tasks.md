@@ -49,7 +49,16 @@ date: "2026-10-11"
 ## Fase 0B — Hallazgos P0 de custodia (auditoría 2026-10-13)
 - [ ] T-006 Leer estado real de snapshots Railway: backup del volumen API COMPLETED, referencia/fecha/retención; nunca pulsar Restore de semse-API para un drill.
 - [ ] T-007 Ejecutar preflight REAL en contenedor API: SEMSE_STORAGE_ROOT en volumen /data y negar fallback /tmp en producción. Registrar provenance de SHA deploy/mount.
-- [ ] T-008 Diseñar e implementar barrera de escrituras/snapshot coherente para original + Evidence/Postgres. El par de inventarios no equivale a snapshot atómico.
+- [ ] T-008 Diseñar e implementar barrera de escrituras/snapshot coherente para original + Evidence/Postgres. **PARTIAL**: el control plane durable está implementado y probado en PR #971, pero no existe todavía evidencia de freeze multiinstancia/staging ni producción.
+  - [x] T-008a Estado durable `OPEN → DRAINING → FROZEN → OPEN`, admission ledger y fencing por epoch/ACTIVE tickets bajo PostgreSQL row lock.
+  - [x] T-008b Control plane **staging-only** con permiso dedicado `ops:storage-write-gate:manage` exclusivo de `OPS_ADMIN`; producción se rechaza por código aunque se configure accidentalmente.
+  - [x] T-008c Idempotencia durable serializada bajo el mismo gate lock, atestación fresca de writer coverage por ciclo y `window-closed` obligatoriamente posterior a `FROZEN` para `THAW`.
+  - [x] T-008d Recovery explícito de operación ACTIVE a `RECOVERED_FENCED` solo en `DRAINING`, con `terminationEvidenceDigest`; ningún TTL/reloj libera tickets zombie.
+  - [x] T-008e Pruebas PostgreSQL reales de control plane, carrera de reintentos concurrentes, recovery/fencing, migración, RBAC, API Integration y E2E. Head de implementación `45e4ac6c21ec3005c0873c3b2427efdf50355163` pasó CI/API Integration/Autonomy/Operación Asistida/ResourceScope antes de esta actualización documental; el SHA final debe revalidarse.
+  - [ ] T-008f Ejecutar staging real con ≥2 procesos/réplicas y storage sintético: writer en vuelo, crash/redeploy, `BEGIN_DRAIN`, coverage real, freeze bloqueado hasta drain/recovery, cero publicación post-FROZEN y thaw seguro.
+  - [ ] T-008g Completar inventario exhaustivo de writers sobre originales/multipart/Evidence/Browser Agent/cron/operator y demostrar provenance de todas las instancias; un writer no instrumentado invalida FROZEN.
+  - [ ] T-008h Merge + deploy desde `main` manteniendo `SEMSE_STORAGE_WRITE_GATE_MODE` OFF/no configurado en producción; verificar SHA, migración, health, logs y canary sin provocar freeze productivo.
+  - [ ] T-008i Ventana productiva aprobada: freeze auditable real de todos los writers, inventarios/Evidence consistentes, export/restore aislado y thaw explícito. Solo entonces evaluar VERIFIED.
 - [ ] T-009 Implementar digest SHA-256 calculado **del lado servidor** con bytes reales e inmutabilidad transaccional Evidence; checksum nullable/legacy sigue UNVERIFIED. Test cambio de contenido y concurrencia.
 - [ ] T-009A Evaluar signed GET modo off público para originales privados; smoke browser, móvil, Vision, agente y revocación, siete días shadow; no pasar a enforce sin gates, pero no activar CAP-1 en off.
 - [ ] T-009B Persistir provenance/audit de originales, owner org, derechos y retención/legal hold; derived 3D/360 referencia original por id + SHA y versionado.

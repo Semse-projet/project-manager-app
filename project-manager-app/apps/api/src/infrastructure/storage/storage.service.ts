@@ -10,6 +10,7 @@ import { normalizeStorageKey } from "./storage-key.js";
 import { StorageWriteOperationBoundary } from "./storage-write-operation-boundary.js";
 import type { StorageWriteKind, StorageWriteTicket } from "./storage-write-gate-coordinator.js";
 import { StorageWriteGateBlockedError } from "./storage-write-gate-state.js";
+import { resolveStorageWriteGateScope } from "./storage-write-gate-scope.js";
 import { assertProductionStorageConfiguration, assertProductionStorageMount, isProductionStorage } from "./production-storage-guard.js";
 import {
   resolveSignedGetMode,
@@ -81,7 +82,7 @@ export class StorageService {
   }
 
   private get writeGateScope(): string {
-    return `storage:${this.localRoot.replaceAll("\\", "/")}`;
+    return resolveStorageWriteGateScope();
   }
 
   private async gated<T>(operation: () => Promise<T>): Promise<T> {
