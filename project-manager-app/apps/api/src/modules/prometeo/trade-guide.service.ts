@@ -92,7 +92,7 @@ export class TradeGuideService {
         : `Answer in JSON: {"answer":"...","steps":["step 1"],"warnings":["warning"],"evidenceNeeded":["SEMSE evidence needed"],"nextAction":"...","confidence":0.0-1.0,"insufficientContext":false}`,
     ].join("\n");
 
-    // 4. LLM call — uses public_training profile (not strictly privacyCritical, but local-first)
+    // 4. Private document snippets must use a local-only inference profile.
     let result: z.infer<typeof TradeGuideSchema> | null = null;
     let provider = "rules"; let model: string | undefined; let fallbackUsed = false;
 
@@ -103,7 +103,8 @@ export class TradeGuideService {
           history: [],
           userMessage,
           context: {
-            ...getAgentProfile("prometeo-chat"),
+            ...getAgentProfile("training-guide"),
+            localOnly: true,
             agentName: `trade-guide:${input.trade}`,
             source: "trade-guide",
           },
