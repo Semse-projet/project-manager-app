@@ -33,7 +33,7 @@ export class PrometeoDocumentGrantService {
     const doc = await this.verifyOwner(actor, documentId);
     if (!doc.projectId) throw new BadRequestException("Sharing requires a verified project");
 
-    const project = await this.resolver.resolveProjectScope(actor.tenantId, doc.projectId);
+    const project = await this.resolver.resolveProjectScope(actor.tenantId, doc.projectId, true);
     if (!project) throw new NotFoundException("Project not found");
     const participants = [project.clientOrgId, project.assignedProOrgId];
     // Historical project associations were not always verified. Fail closed.
