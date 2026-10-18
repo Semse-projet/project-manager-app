@@ -374,6 +374,8 @@ export class ProjectCopilotHarness {
       agentId: "project-copilot",
       threadId,
       context: llmContext,
+      // Private RAG, workspace and operational context must never leave local inference.
+      localOnly: true,
       tools: getExposedCopilotTools(),
     });
 
