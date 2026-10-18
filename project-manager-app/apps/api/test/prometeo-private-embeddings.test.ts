@@ -21,6 +21,9 @@ test("private embedding and private query never call OpenAI even with a valid cl
     assert.ok(vectors.every(isZeroVector), "local FTS fallback must be a zero vector");
     const queryVec = await embeddings.embed("PRIVATE OWNER QUESTION", { localOnly: true });
     assert.ok(isZeroVector(queryVec));
+    assert.ok(isZeroVector(await embeddings.embed("UNSPECIFIED-PRIVACY INPUT")),
+      "unspecified privacy must fail closed to local keyword search");
+    assert.ok((await embeddings.embedBatch(["UNSPECIFIED DOCUMENT"])).every(isZeroVector));
     assert.equal(outgoingCalls, 0, "no private content should reach the external HTTP transport");
   } finally {
     globalThis.fetch = previousFetch;
