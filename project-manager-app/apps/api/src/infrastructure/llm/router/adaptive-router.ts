@@ -25,18 +25,15 @@ export class AdaptiveRouter {
     ctx: CopilotRoutingContext | undefined,
     taskType: TaskType,
   ): LLMProviderName[] {
-    if (ctx?.preferredProvider && available.includes(ctx.preferredProvider)) {
-      const pref = ctx.preferredProvider;
-      const rest = this.rankByScore(
-        available.filter((p) => p !== pref && p !== "template"),
-        taskType,
-      );
-      return ([pref, ...rest, "template"] as LLMProviderName[]).filter((p) => available.includes(p));
-    }
-
+    // Preferences must NEVER override privacy, local-only or tool constraints.
     const candidates = this.applyHardConstraints(available, ctx);
     const scored = this.rankByScore(candidates.filter((p) => p !== "template"), taskType);
-    return ([...scored, "template"] as LLMProviderName[]).filter((p) => available.includes(p));
+    const preferred = ctx?.preferredProvider;
+    if (preferred && preferred !== "template" && scored.includes(preferred)) {
+      scored.splice(scored.indexOf(preferred), 1);
+      scored.unshift(preferred);
+    }
+    return [...scored, ...(candidates.includes("template") ? ["template" as LLMProviderName] : [])];
   }
 
   inferTaskType(ctx: CopilotRoutingContext | undefined): TaskType {
@@ -55,28 +52,20 @@ export class AdaptiveRouter {
   ): LLMProviderName[] {
     let candidates = [...providers];
 
-    // Local-only: never leave the machine
-    if (ctx?.localOnly) {
-      const localCandidates = candidates.filter((p) => PRIVATE.has(p));
-      if (localCandidates.length > 0) candidates = localCandidates;
-    }
-
-    // Privacy: only local providers
-    if (ctx?.privacyCritical) {
-      const privCandidates = candidates.filter((p) => PRIVATE.has(p));
-      if (privCandidates.length > 0) candidates = privCandidates;
+    // A hard privacy constraint must fail closed. Never restore a cloud
+    // provider when the local set is empty, even with preferredProvider set.
+    if (ctx?.localOnly || ctx?.privacyCritical) {
+      candidates = candidates.filter((p) => PRIVATE.has(p));
     }
 
     // Tools: only tool-capable providers
     if (ctx?.requiresTools) {
-      const toolCandidates = candidates.filter((p) => TOOL_CAPABLE.has(p) || p === "template");
-      if (toolCandidates.length > 0) candidates = toolCandidates;
+      candidates = candidates.filter((p) => TOOL_CAPABLE.has(p) || p === "template");
     }
 
     // High risk: only providers safe for sensitive actions
     if (ctx?.riskLevel === "high") {
-      const riskCandidates = candidates.filter((p) => RISK_SAFE.has(p) || p === "template");
-      if (riskCandidates.length > 0) candidates = riskCandidates;
+      candidates = candidates.filter((p) => RISK_SAFE.has(p) || p === "template");
     }
 
     return candidates;
