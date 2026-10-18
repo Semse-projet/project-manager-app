@@ -50,12 +50,19 @@ test("bad remote inventory aborts before SCP and never invents success",async t=
  t.after(()=>rm(dir,{recursive:true,force:true}));
  let copied=false;
  const fake={validateDestination:async()=>dir,mkdir,writeFile,readFile,executeCustodyGate,
-  invoke(cmd,args){
+  invoke(cmd,args,_timeout,_maxBuffer,input){
    if(cmd==="ssh" && args[0]==="-G")return "hostname ssh.railway.com\nuser test.up.railway.app";
    if(cmd==="railway"&&args[0]==="--version")return "railway test";
    if(cmd==="railway"&&args[0]==="ssh"&&args[1]==="config")return "Host semse-api-prod\n HostName ssh.railway.com\n User test.up.railway.app";
    if(cmd==="ssh" && args.includes("printenv"))return "/data/semse-storage\n";
-   if(cmd==="ssh" && args.includes("node"))return '{"schema":"wrong"}';
+   if(cmd==="ssh" && args.includes("node")) {
+    if(typeof input==="string"&&input.includes("semse-multipart-quiescence-precheck-v1"))
+      return JSON.stringify({schema:"semse-multipart-quiescence-precheck-v1",
+        readOnly:true,backupVerified:false,evidenceDatabaseReconciled:false,
+        result:"EMPTY_CANDIDATE",
+        counts:{manifests:0,partDirectories:0,partFiles:0,unrecognizedEntries:0}});
+    return '{"schema":"wrong"}';
+   }
    if(cmd==="scp"){copied=true;return "";}
    throw Error("unexpected");
   }};
