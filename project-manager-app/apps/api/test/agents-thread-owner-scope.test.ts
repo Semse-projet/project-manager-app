@@ -98,3 +98,42 @@ test("project copilot never starts a private chat without a project boundary", a
     (e: any) => e.getStatus?.() === 403,
   );
 });
+
+test("generic agent endpoint cannot enter or start Project Copilot history", async () => {
+  const svc = service();
+  const thread = createThread({
+    tenantId: "tenant-A", userId: "owner-A",
+    agentId: "project-copilot", projectId: "project-A",
+  });
+  const count = thread.messages.length;
+  await assert.rejects(
+    () => svc.chat({
+      tenantId: "tenant-A", userId: "owner-A", agentId: "project-copilot",
+      threadId: thread.id, message: "Continue confidential discussion without a project",
+    }),
+    (e: any) => e.getStatus?.() === 403,
+  );
+  await assert.rejects(
+    () => svc.chat({
+      tenantId: "tenant-A", userId: "owner-A", agentId: "project-copilot",
+      message: "Create unscoped project chat",
+    }),
+    (e: any) => e.getStatus?.() === 403,
+  );
+  assert.equal(getThread(thread.id)?.messages.length, count);
+});
+
+test("generic agent route refuses project-bound threads even under another agent ID", async () => {
+  const svc = service();
+  const unusualThread = createThread({
+    tenantId: "tenant-A", userId: "owner-A", agentId: "assistant",
+    projectId: "project-A",
+  });
+  await assert.rejects(
+    () => svc.chat({
+      tenantId: "tenant-A", userId: "owner-A", agentId: "assistant",
+      threadId: unusualThread.id, message: "Bypass the project boundary",
+    }),
+    (e: any) => e.getStatus?.() === 404,
+  );
+});
