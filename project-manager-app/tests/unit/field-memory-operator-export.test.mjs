@@ -70,14 +70,21 @@ test("two valid inventories and a local SCP fixture yield offsite-only PASS",asy
  const bytes=Buffer.from([255,216,255,217]);
  await writeFile(path.join(fixture,"wall.jpg"),bytes);
  const source=await makeManifest(fixture,"fixture-ref");
- let reads=0,steps=0;
+ let reads=0,steps=0,scans=0;
  const fake={validateDestination:async()=>dir,mkdir,writeFile,readFile,executeCustodyGate,
-  invoke(cmd,args){
+  invoke(cmd,args,_timeout,_maxBuffer,input){
    if(cmd==="ssh" && args[0]==="-G")return "hostname ssh.railway.com\nuser test.up.railway.app";
    if(cmd==="railway"&&args[0]==="--version")return "railway test";
    if(cmd==="railway"&&args[0]==="ssh"&&args[1]==="config")return "Host semse-api-prod\n HostName ssh.railway.com\n User test.up.railway.app";
    if(cmd==="ssh" && args.includes("printenv"))return "/data/semse-storage\n";
    if(cmd==="ssh" && args.includes("node")) {
+    if(typeof input==="string" && input.includes("semse-multipart-quiescence-precheck-v1")) {
+      scans++;
+      return JSON.stringify({schema:"semse-multipart-quiescence-precheck-v1",
+        readOnly:true,backupVerified:false,evidenceDatabaseReconciled:false,
+        result:"EMPTY_CANDIDATE",
+        counts:{manifests:0,partDirectories:0,partFiles:0,unrecognizedEntries:0}});
+    }
     reads++;
     assert.equal(args[0],"-T");
     assert.equal(args[1],"semse-api-prod");
@@ -96,7 +103,7 @@ test("two valid inventories and a local SCP fixture yield offsite-only PASS",asy
  assert.equal(result.filesRestored,1);
  assert.equal(result.railwaySnapshotRestored,false);
  assert.equal(result.captureSessionActivationPermitted,false);
- assert.equal(reads,2);assert.equal(steps,1);
+ assert.equal(reads,2);assert.equal(scans,2);assert.equal(steps,1);
 });
 
 test("local preflight identifies which step failed, without leaking aliases, secrets or keys",()=>{
