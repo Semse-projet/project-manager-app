@@ -50,7 +50,10 @@ export class PrometeoDocumentGrantService {
     const actorUserId = actor.userId;
     if (!actorUserId) throw new ForbiddenException("Authenticated actor required");
     const { doc, projectId } = await this.verify(actor, documentId, recipientOrgId);
-    return this.prisma.$transaction(async (tx) => {
+    // Retry unique/serialization races as full transactions, preserving atomic audit.
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        return await this.prisma.$transaction(async (tx) => {
       const stillExists = await tx.prometeoDocument.findFirst({
         where: { id: doc.id, tenantId: actor.tenantId, orgId: doc.orgId, projectId },
         select: { id: true },
@@ -83,7 +86,15 @@ export class PrometeoDocumentGrantService {
         },
       });
       return grant;
-    });
+        }, { isolationLevel: "Serializable" });
+      } catch (err) {
+        const code = err && typeof err === "object" && "code" in err
+          ? (err as { code?: unknown }).code : undefined;
+        if ((code === "P2002" || code === "P2034") && attempt < 2) continue;
+        throw err;
+      }
+    }
+    throw new Error("Document sharing retry limit exceeded");
   }
 
   async revoke(actor: ScopeActor, documentId: string, recipientOrgId: string, requestId: string) {
