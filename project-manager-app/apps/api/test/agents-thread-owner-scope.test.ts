@@ -68,7 +68,11 @@ test("authorized owner can resume its own thread and read it", async () => {
     threadId: thread.id, message: "Continue project plan", localOnly: true, tools: [],
   });
   assert.equal(reply.threadId, thread.id);
-  assert.equal(svc.getThreadMessages({ tenantId: "tenant-A", userId: "owner-A", threadId: thread.id }).id, thread.id);
+  assert.throws(
+    () => svc.getThreadMessages({ tenantId: "tenant-A", userId: "owner-A", threadId: thread.id }),
+    (e: any) => e.getStatus?.() === 404,
+    "generic thread reads cannot revalidate current private project membership",
+  );
 });
 
 test("owner cannot reuse a private Copilot history across its own projects", async () => {
@@ -136,4 +140,26 @@ test("generic agent route refuses project-bound threads even under another agent
     }),
     (e: any) => e.getStatus?.() === 404,
   );
+});
+
+
+test("generic thread list and direct reads exclude private/project-bound conversations", () => {
+  const svc = service();
+  const owner = { tenantId: "tenant-A", userId: "owner-A" };
+  const plain = createThread({ ...owner, agentId: "assistant" });
+  const scoped = createThread({ ...owner, agentId: "project-copilot", projectId: "project-A" });
+  const legacy = createThread({ ...owner, agentId: "project-copilot" });
+  const unusual = createThread({ ...owner, agentId: "assistant", projectId: "project-A" });
+  const ids = new Set(svc.getThreadList(owner).map(t => t.id));
+  assert.ok(ids.has(plain.id));
+  assert.ok(!ids.has(scoped.id));
+  assert.ok(!ids.has(legacy.id));
+  assert.ok(!ids.has(unusual.id));
+  for (const thread of [scoped, legacy, unusual]) {
+    assert.throws(
+      () => svc.getThreadMessages({ ...owner, threadId: thread.id }),
+      (e: any) => e.getStatus?.() === 404,
+    );
+  }
+  assert.equal(svc.getThreadMessages({ ...owner, threadId: plain.id }).id, plain.id);
 });
