@@ -25,6 +25,8 @@ related_files:
   - apps/api/src/modules/prometeo/trade-guide.service.ts
   - apps/api/src/common/resource-scope.resolver.ts
   - apps/api/src/modules/agents/agents.service.ts
+  - apps/api/src/modules/agents/project-access.service.ts
+  - apps/api/src/modules/milestones/milestones.controller.ts
   - apps/api/src/modules/agents/harnesses/project-copilot.harness.ts
   - apps/api/src/modules/operational-intelligence/evidence-review.service.ts
   - apps/api/src/infrastructure/llm/router/adaptive-router.ts
