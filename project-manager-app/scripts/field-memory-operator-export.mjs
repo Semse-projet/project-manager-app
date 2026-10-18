@@ -121,6 +121,26 @@ export async function performOperatorExport(args,deps={invoke,readFile,writeFile
   const code=await deps.readFile(path.join(path.dirname(fileURLToPath(import.meta.url)),
     "field-memory-source-inventory.mjs"),"utf8");
   if(!code.includes("export { inventory }"))throw Error("Invalid source inventory script");
+  // A human checkbox alone is insufficient: require two read-only multipart
+  // observations from the SAME authenticated Railway API instance around SCP.
+  // This does not attest the PostgreSQL checkpoint or the complete writer set.
+  const multipartSource=await deps.readFile(path.join(path.dirname(fileURLToPath(import.meta.url)),
+    "field-memory-multipart-quiescence.mjs"),"utf8");
+  if(!multipartSource.includes("semse-multipart-quiescence-precheck-v1"))
+    throw Error("Multipart precheck source unavailable");
+  function assertMultipartEmpty() {
+    const raw=deps.invoke("ssh",["-T",target.alias,"node","--input-type=module","-"],
+      90000,512*1024,multipartSource);
+    const report=JSON.parse(raw);
+    if(report?.schema!=="semse-multipart-quiescence-precheck-v1"||
+        report.result!=="EMPTY_CANDIDATE"||
+        report.readOnly!==true || report.backupVerified!==false ||
+        report.evidenceDatabaseReconciled!==false ||
+        !report.counts || Object.values(report.counts).some(v=>v!==0)) {
+      throw Error("Multipart staging is not an empty persistent candidate");
+    }
+  }
+  assertMultipartEmpty(); // No SCP is allowed when manifests/parts are pending.
   const reference="export-"+randomUUID();
   const dir=path.join(safe,"semse-"+reference);
   const exportedRoot=path.join(dir,"originals"),isolatedParent=path.join(dir,"isolated");
@@ -140,6 +160,7 @@ export async function performOperatorExport(args,deps={invoke,readFile,writeFile
   await capture("before.json");
   deps.invoke("scp",["-q","-r",target.alias+":"+root+"/.",exportedRoot],1800000,5*1024*1024);
   await capture("after.json");
+  assertMultipartEmpty(); // Refuse acceptance if sessions appeared during copy.
   const result=await deps.executeCustodyGate({beforeFile:path.join(dir,"before.json"),
     afterFile:path.join(dir,"after.json"),exportedRoot,isolatedParent});
   await deps.writeFile(path.join(dir,"aggregate-report.json"),JSON.stringify(result,null,2)+"\n",
