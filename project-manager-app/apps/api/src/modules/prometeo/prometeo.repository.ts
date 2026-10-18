@@ -123,7 +123,11 @@ export class PrometeoRepository {
       tenantId: input.tenantId,
       ...(input.orgId !== undefined ? { orgId: input.orgId } : {}),
     };
-    await this.prisma.$transaction(async (tx) => {
+    // Retry serialization conflicts as whole transactions so the document
+    // mutation and every grant-revocation audit remain exactly atomic.
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        await this.prisma.$transaction(async (tx) => {
       const doc = await tx.prometeoDocument.findFirst({
         where,
         select: {
@@ -160,7 +164,16 @@ export class PrometeoRepository {
           afterJson: { deleted: true, requestId: input.requestId ?? null },
         },
       });
-    }, { isolationLevel: "Serializable" });
+        }, { isolationLevel: "Serializable" });
+        return;
+      } catch (err) {
+        const code = err && typeof err === "object" && "code" in err
+          ? (err as { code?: unknown }).code : undefined;
+        if (code === "P2034" && attempt < 2) continue;
+        throw err;
+      }
+    }
+    throw new Error("Document deletion retry limit exceeded");
   }
 
   async loadChunksForSearch(input: { tenantId: string; projectId?: string; limit?: number; scope?: PrometeoListScopeFilter }): Promise<PrometeoChunkSearchRow[]> {
