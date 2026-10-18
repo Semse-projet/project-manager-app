@@ -33,8 +33,6 @@ related_files:
   - apps/api/src/modules/prometeo/prometeo.controller.ts
 related_tests:
   - tests/unit/contributor-i18n-keys.test.ts
-  - tests/unit/operational-panels-i18n.test.ts
-  - tests/unit/prometeo-i18n-keys.test.ts
 related_endpoints: []
 related_events: []
 related_agents:
