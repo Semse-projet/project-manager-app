@@ -57,6 +57,8 @@ jobs:
           --health-retries 10
     env:
       DATABASE_URL: postgresql://semse:semse@127.0.0.1:5433/semse?schema=public
+      # Isolated synthetic CI only: exercise the explicitly activated grant path.
+      SEMSE_PROMETEO_DOCUMENT_SHARING_ENABLED: "true"
 
     steps:
       - name: Checkout
