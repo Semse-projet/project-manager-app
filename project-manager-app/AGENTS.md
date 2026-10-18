@@ -112,7 +112,7 @@ SÍ HACER:
 - Instalar dependencias globales sin autorización
 - Modificar `packages/db/prisma/schema.prisma` sin migración planificada
 - Inventar nombres de eventos fuera de `EVENT_CATALOG.md`
-- Tocar lógica de Railway, CI/CD o variables de entorno de producción
+- Modificar o ejecutar operaciones de Railway, secretos, variables de entorno o pipelines de **producción** sin autorización específica. El mantenimiento de `.github/workflows/` para CI de desarrollo está permitido **solo** en rama/PR técnico independiente, con autorización explícita para ese alcance, revisión de seguridad, gates completos y sin modificar producción ni el deploy de `main` por defecto.
 
 ---
 
