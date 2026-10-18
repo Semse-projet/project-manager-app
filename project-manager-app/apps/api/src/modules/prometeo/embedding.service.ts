@@ -90,7 +90,7 @@ export class EmbeddingService {
 
     const start = Date.now();
     try {
-      const vec = await this.embedBatch(["health check"]);
+      const vec = await this.embedBatch(["health check"], { localOnly: false });
       const ok = vec.length > 0 && !isZeroVector(vec[0]!);
       return {
         provider:  "openai",
@@ -114,8 +114,9 @@ export class EmbeddingService {
     // Private RAG ingestion, search and backfill must never send raw content to
     // a cloud embedding provider, even if OPENAI_API_KEY is configured.
     // Until a verified local embedding backend is available, return zero vectors
-    // and let hybrid search degrade to deterministic local FTS.
-    if (options.localOnly) {
+    // and let hybrid search degrade to deterministic local FTS. The default is
+    // private; external embeddings require an explicit opt-in by trusted code.
+    if (options.localOnly !== false) {
       this.fallbackCount += texts.length;
       return texts.map(() => new Array(this.dim).fill(0) as number[]);
     }
