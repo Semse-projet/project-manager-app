@@ -12,7 +12,7 @@ ci_status: "NOT_RUN"
 merge_status: "UNMERGED"
 deploy_status: "NOT_DEPLOYED"
 activation_status: "INACTIVE"
-migration_status: "NOT_STARTED"
+migration_status: "NOT_APPLICABLE"
 feature_flags: []
 production_evidence: []
 privacyCritical: true
