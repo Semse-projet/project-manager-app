@@ -17,16 +17,15 @@ const COPY = {
   es: {
     title: "Ofertas internas",
     intro:
-      "Una oferta no es un contrato ni da acceso por sí sola. La persona la acepta y después tú confirmas el engagement. La clasificación la declaras tú; confirma con tu asesor legal.",
+      "Una oferta no es un contrato ni da acceso por sí sola. La persona la acepta y después tú confirmas el engagement. La relación laboral o contractual la defines fuera de SEMSE; confirma con tu asesor legal.",
     person: "Persona (trabajador activo)",
     position: "Cargo",
-    classification: "Clasificación declarada",
     compensation: "Nota de compensación (solo la ven ustedes dos)",
     send: "Enviar oferta",
     none: "No hay ofertas todavía.",
     revoke: "Revocar",
     confirm: "Confirmar engagement",
-    legal: "Confirmo que revisé la clasificación y las obligaciones legales aplicables",
+    legal: "Confirmo que revisé las obligaciones legales aplicables",
     unavailable: "Las ofertas aún no están habilitadas para tu empresa.",
     noOrg: "No hay una empresa asociada a tu cuenta.",
     status: { SENT: "Enviada", ACCEPTED: "Aceptada", DECLINED: "Rechazada", EXPIRED: "Vencida", REVOKED: "Revocada" } as Record<string, string>
@@ -34,16 +33,15 @@ const COPY = {
   en: {
     title: "Internal offers",
     intro:
-      "An offer is not a contract and grants no access by itself. The person accepts it and then you confirm the engagement. You declare the classification; confirm it with your legal advisor.",
+      "An offer is not a contract and grants no access by itself. The person accepts it and then you confirm the engagement. You define the employment or contractor relationship outside SEMSE; confirm it with your legal advisor.",
     person: "Person (active worker)",
     position: "Position",
-    classification: "Declared classification",
     compensation: "Compensation note (only the two of you see it)",
     send: "Send offer",
     none: "No offers yet.",
     revoke: "Revoke",
     confirm: "Confirm engagement",
-    legal: "I confirm I reviewed the classification and applicable legal obligations",
+    legal: "I confirm I reviewed the applicable legal obligations",
     unavailable: "Offers are not enabled for your company yet.",
     noOrg: "No company is associated with your account.",
     status: { SENT: "Sent", ACCEPTED: "Accepted", DECLINED: "Declined", EXPIRED: "Expired", REVOKED: "Revoked" } as Record<string, string>
@@ -58,7 +56,6 @@ export default function OffersManagerPage() {
   const [people, setPeople] = useState<string[]>([]);
   const [person, setPerson] = useState("");
   const [position, setPosition] = useState("");
-  const [classification, setClassification] = useState<"W2" | "1099" | "OTHER">("OTHER");
   const [compensation, setCompensation] = useState("");
   const [legalOk, setLegalOk] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -129,7 +126,6 @@ export default function OffersManagerPage() {
             await createOrgOffer(orgId as string, {
               recipientUserId: person,
               positionTitle: position.trim(),
-              classification,
               ...(compensation.trim() ? { compensationNote: compensation.trim() } : {})
             });
             setPosition("");
@@ -154,14 +150,6 @@ export default function OffersManagerPage() {
           <input required minLength={2} value={position} onChange={(e) => setPosition(e.target.value)} style={{ width: "100%", minHeight: 44 }} />
         </label>
         <label>
-          {c.classification}
-          <select value={classification} onChange={(e) => setClassification(e.target.value as "W2" | "1099" | "OTHER")} style={{ width: "100%", minHeight: 44 }}>
-            <option value="W2">W-2</option>
-            <option value="1099">1099</option>
-            <option value="OTHER">OTHER</option>
-          </select>
-        </label>
-        <label>
           {c.compensation}
           <input value={compensation} onChange={(e) => setCompensation(e.target.value)} maxLength={500} style={{ width: "100%", minHeight: 44 }} />
         </label>
@@ -180,7 +168,7 @@ export default function OffersManagerPage() {
           {offers.map((offer) => (
             <li key={offer.offerId} style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
               <span style={{ flex: "1 1 220px" }}>
-                {offer.positionTitle} · {offer.classification} · {offer.recipientUserId}
+                {offer.positionTitle} · {offer.recipientUserId}
               </span>
               <span>{c.status[offer.status] ?? offer.status}</span>
               {offer.status === "SENT" ? (
