@@ -5,6 +5,8 @@ import { PrometeoRepository } from "../dist/modules/prometeo/prometeo.repository
 import { PrometeoController } from "../dist/modules/prometeo/prometeo.controller.js";
 import { PrometeoService } from "../dist/modules/prometeo/prometeo.service.js";
 
+// Positive grant cases opt in explicitly; production remains disabled by default.
+process.env.SEMSE_PROMETEO_DOCUMENT_SHARING_ENABLED = "true";
 const scope = { orgId: "org-A", projectIds: ["project-A"], jobIds: [] };
 
 test("document listing constrains organization and authorized projects before take", async () => {
