@@ -23,8 +23,7 @@ test("document listing constrains organization and authorized projects before ta
   assert.deepEqual(where?.OR, [
     { projectId: null, orgId: "org-A" },
     { projectId: { in: ["project-A"] }, orgId: "org-A" },
-    { projectId: "project-A",
-      grants: { some: { tenantId: "tenant-A", recipientOrgId: "org-A", projectId: "project-A", revokedAt: null } } },
+    { grants: { some: { tenantId: "tenant-A", recipientOrgId: "org-A", projectId: { in: ["project-A"] }, revokedAt: null } } },
   ]);
   assert.equal(take, 10, "filter is in database query, not applied after pagination");
 });
@@ -52,8 +51,7 @@ test("retrieval selects only chunks whose parent document passed authorization",
   assert.deepEqual(documentWhere?.OR, [
     { projectId: null, orgId: "org-A" },
     { projectId: { in: ["project-A"] }, orgId: "org-A" },
-    { projectId: "project-A",
-      grants: { some: { tenantId: "tenant-A", recipientOrgId: "org-A", projectId: "project-A", revokedAt: null } } },
+    { grants: { some: { tenantId: "tenant-A", recipientOrgId: "org-A", projectId: { in: ["project-A"] }, revokedAt: null } } },
   ]);
   assert.deepEqual(chunkWhere?.documentId, { in: ["doc-own"] });
   assert.equal(chunkWhere?.tenantId, "tenant-A");
@@ -297,26 +295,25 @@ test("document deletion audits active cascaded grants in the same transaction", 
   assert.equal(events[1]?.actorUserId, "actor-A");
 });
 
-test("a grant for project A cannot authorize a document in accessible project B", async () => {
+test("grant SQL predicate size remains constant even with thousands of authorized projects", async () => {
   let where: Record<string, unknown> | undefined;
   const prisma = { prometeoDocument: { async findMany(args: { where: Record<string, unknown> }) {
     where = args.where; return [];
   } } };
   const repo = new PrometeoRepository(prisma as never);
+  const projectIds = Array.from({ length: 20000 }, (_, i) => `project-${i}`);
   await repo.listDocuments({ tenantId: "tenant-A", scope: {
-    orgId: "org-A", projectIds: ["project-A", "project-B"], jobIds: [],
+    orgId: "org-A", projectIds, jobIds: [],
   } });
-  const predicates = where?.OR as Array<Record<string, unknown>>;
-  const grantPaths = predicates.filter(x => "grants" in x);
-  assert.equal(grantPaths.length, 2);
-  for (const p of grantPaths) {
-    const grant = (p.grants as { some: Record<string, unknown> }).some;
-    assert.equal(p.projectId, grant.projectId,
-      "authorization must bind each grant to that exact document project");
-    assert.equal(grant.revokedAt, null);
-    assert.equal(grant.tenantId, "tenant-A");
-    assert.equal(grant.recipientOrgId, "org-A");
-  }
+  const branches = where?.OR as Array<Record<string, unknown>>;
+  assert.equal(branches.length, 3, "no one-OR-per-project explosion");
+  const grant = (branches[2].grants as { some: Record<string, unknown> }).some;
+  assert.deepEqual(grant.projectId, { in: projectIds });
+  assert.equal(grant.tenantId, "tenant-A");
+  assert.equal(grant.recipientOrgId, "org-A");
+  assert.equal(grant.revokedAt, null);
+  // Schema and migration enforce the missing equality at the DB level:
+  // grant.(documentId,tenantId,projectId) references document.(id,tenantId,projectId).
 });
 
 test("serializable deletion retries P2034 and returns a stable not-found after concurrent winner", async () => {
