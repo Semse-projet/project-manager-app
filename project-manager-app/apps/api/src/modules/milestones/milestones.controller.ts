@@ -548,6 +548,7 @@ export class MilestonesController {
       evidenceItemId: itemId,
       tenantId:       actor.tenantId,
       reviewedById:   actor.userId,
+      reviewedByOrgId: actor.orgId,
       locale:         body.locale ?? "es",
       forceRulesOnly: body.forceRulesOnly,
     });
