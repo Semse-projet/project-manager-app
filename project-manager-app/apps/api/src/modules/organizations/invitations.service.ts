@@ -8,8 +8,12 @@ import {
   UnprocessableEntityException
 } from "@nestjs/common";
 import { hasPermission } from "../../common/rbac.js";
+import { hashPassword } from "../../common/auth-password.js";
 import { AuditService } from "../../infrastructure/audit/audit.service.js";
+import { EmailService } from "../../infrastructure/email/email.service.js";
+import { SemseLoggerService } from "../../infrastructure/observability/semse-logger.service.js";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
+import { AuthService } from "../auth/auth.service.js";
 
 /**
  * BO-01 — invitaciones personales a una organización.
@@ -38,6 +42,16 @@ export type InvitationSummary = {
 
 export function isOrgInvitationsEnabled(): boolean {
   return process.env.SEMSE_ORG_INVITATIONS_ENABLED === "true";
+}
+
+/** BO-03: el token viaja solo por correo al destinatario; no se devuelve a quien invita. */
+export function isInvitationEmailDeliveryEnabled(): boolean {
+  return process.env.SEMSE_INVITATION_EMAIL_DELIVERY === "true";
+}
+
+/** BO-03: registro de cuentas nuevas con invitación. Exige también entrega por correo. */
+export function isInvitedRegistrationEnabled(): boolean {
+  return isOrgInvitationsEnabled() && isInvitationEmailDeliveryEnabled() && process.env.SEMSE_INVITED_REGISTRATION_ENABLED === "true";
 }
 
 export function normalizeEmail(email: string): string {
@@ -71,7 +85,10 @@ function expiryFromNow(days: number): Date {
 export class InvitationsService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly audit: AuditService
+    private readonly audit: AuditService,
+    private readonly email: EmailService,
+    private readonly auth: AuthService,
+    private readonly logger: SemseLoggerService
   ) {}
 
   private assertEnabled(): void {
@@ -99,7 +116,7 @@ export class InvitationsService {
     actor: InvitationActor,
     orgId: string,
     input: { email: string; role: string; expiresInDays?: number }
-  ): Promise<InvitationSummary & { token: string | null }> {
+  ): Promise<InvitationSummary & { token: string | null; emailSent?: boolean }> {
     this.assertEnabled();
     await this.requireOrgPermission(actor, orgId, "org:members:invite");
 
@@ -133,7 +150,7 @@ export class InvitationsService {
         lastSentAt: now
       }
     });
-    return { ...this.toSummary(created), token: `${created.id}.${token}` };
+    return this.deliver(created, `${created.id}.${token}`, orgId);
   }
 
   async list(actor: InvitationActor, orgId: string, status?: string): Promise<InvitationSummary[]> {
@@ -160,7 +177,7 @@ export class InvitationsService {
     return { status: "CANCELED" };
   }
 
-  async resend(actor: InvitationActor, orgId: string, invitationId: string): Promise<InvitationSummary & { token: string }> {
+  async resend(actor: InvitationActor, orgId: string, invitationId: string): Promise<InvitationSummary & { token: string | null; emailSent?: boolean }> {
     this.assertEnabled();
     await this.requireOrgPermission(actor, orgId, "org:members:invite");
     const token = newToken();
@@ -174,7 +191,8 @@ export class InvitationsService {
     }
     const row = await this.prisma.orgInvitation.findFirst({ where: { id: invitationId, tenantId: actor.tenantId, orgId } });
     if (!row) throw new NotFoundException();
-    return { ...this.toSummary(row), token: `${row.id}.${token}` };
+    const delivered = await this.deliver(row, `${row.id}.${token}`, orgId);
+    return delivered;
   }
 
   /** Vista previa pública: no consume el token ni revela si el destinatario tiene cuenta. */
@@ -252,6 +270,96 @@ export class InvitationsService {
       afterJson: { invitationId: invitation.id, role: invitation.roleKey }
     });
     return done;
+  }
+
+
+  /** Con entrega por correo activa el token solo llega al destinatario; si no, se devuelve a quien invita (BO-01). */
+  private async deliver(
+    row: {
+      id: string;
+      status: string;
+      roleKey: string;
+      contactEmail: string;
+      expiresAt: Date;
+      lastSentAt: Date | null;
+      createdAt: Date;
+    },
+    fullToken: string,
+    orgId: string
+  ): Promise<InvitationSummary & { token: string | null; emailSent?: boolean }> {
+    if (!isInvitationEmailDeliveryEnabled()) {
+      return { ...this.toSummary(row), token: fullToken };
+    }
+    const org = await this.prisma.org.findFirst({ where: { id: orgId } });
+    const base = (process.env.SEMSE_WEB_BASE_URL?.trim() || "https://semseproject.com").replace(/\/+$/, "");
+    const link = `${base}/invitations/accept?token=${encodeURIComponent(fullToken)}`;
+    const company = org?.name ?? "una empresa en SEMSE";
+    const result = await this.email.send({
+      to: row.contactEmail,
+      subject: `${company} te invitó a unirte en SEMSE`,
+      html: `<p>${company} te invitó a unirte como trabajador en SEMSE.</p><p><a href="${link}">Aceptar invitación</a></p><p>El enlace vence pronto y solo funciona para este correo. Si no lo esperabas, ignora este mensaje.</p>`,
+      text: `${company} te invitó a unirte en SEMSE: ${link} (solo funciona para este correo; ignóralo si no lo esperabas)`
+    });
+    if (!result.sent) {
+      this.logger.error("org.invitation email failed to send", { invitationId: row.id, error: result.error ?? "unknown" });
+    }
+    return { ...this.toSummary(row), token: null, emailSent: result.sent };
+  }
+
+  /**
+   * BO-03 — registro de una cuenta NUEVA con invitación. El control del correo se prueba
+   * porque el token solo viajó por email al destinatario. No crea Org: solo User + Membership
+   * WORKER ACTIVE en la Org que invita, y consume la invitación de forma atómica.
+   */
+  async registerInvited(input: { token: string; name: string; password: string; requestId: string }) {
+    if (!isInvitedRegistrationEnabled()) {
+      throw new NotFoundException();
+    }
+    const invitation = await this.findByToken(input.token);
+    if (!invitation || invitation.status !== "PENDING" || invitation.expiresAt.getTime() <= Date.now()) {
+      throw new NotFoundException();
+    }
+    const role = await this.prisma.role.findUnique({ where: { key: invitation.roleKey } });
+    if (!role) throw new UnprocessableEntityException("Rol no disponible");
+
+    const userId = await this.prisma.$transaction(async (tx) => {
+      const claimed = await tx.orgInvitation.updateMany({
+        where: { id: invitation.id, status: "PENDING", expiresAt: { gt: new Date() } },
+        data: { status: "ACCEPTED", acceptedAt: new Date() }
+      });
+      if (claimed.count === 0) throw new NotFoundException();
+      const existing = await tx.user.findUnique({ where: { email: invitation.contactEmail }, select: { id: true } });
+      if (existing) {
+        throw new ConflictException("Ya existe una cuenta con este correo; inicia sesión para aceptar la invitación");
+      }
+      const user = await tx.user.create({
+        data: { email: invitation.contactEmail, passwordHash: hashPassword(input.password), status: "active", verificationStatus: "unverified" }
+      });
+      await tx.userProfile.create({ data: { userId: user.id, displayName: input.name } });
+      await tx.membership.create({ data: { userId: user.id, orgId: invitation.orgId, roleId: role.id, status: "ACTIVE" } });
+      await tx.orgInvitation.update({ where: { id: invitation.id }, data: { acceptedByUserId: user.id } });
+      return user.id;
+    });
+
+    await this.audit.append({
+      tenantId: invitation.tenantId,
+      orgId: invitation.orgId,
+      actorUserId: userId,
+      action: "membership.created",
+      entityType: "Membership",
+      entityId: `${userId}:${invitation.orgId}`,
+      requestId: input.requestId,
+      timestamp: new Date().toISOString(),
+      afterJson: { invitationId: invitation.id, role: invitation.roleKey, source: "register-invited" }
+    });
+    return this.auth.issueSession({
+      userId,
+      tenantId: invitation.tenantId,
+      orgId: invitation.orgId,
+      roles: [invitation.roleKey],
+      ttlSeconds: 8 * 60 * 60,
+      requestId: input.requestId
+    });
   }
 
   private async findByToken(token: string) {

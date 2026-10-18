@@ -1064,7 +1064,7 @@ export async function cancelOrgInvitation(orgId: string, invitationId: string, r
   return mutateSemse(`/api/semse/organizations/${orgId}/invitations/${invitationId}/cancel`, reason ? { reason } : {});
 }
 
-export async function resendOrgInvitation(orgId: string, invitationId: string): Promise<OrgInvitationView & { token: string }> {
+export async function resendOrgInvitation(orgId: string, invitationId: string): Promise<OrgInvitationView & { token: string | null }> {
   return mutateSemse(`/api/semse/organizations/${orgId}/invitations/${invitationId}/resend`, {});
 }
 
