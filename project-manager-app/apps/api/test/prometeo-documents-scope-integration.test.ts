@@ -57,7 +57,8 @@ dbTest("P0: physical Postgres enforces document/chunk/feedback tenant and org is
     const own1 = await create(tenantA, orgA);
     const own2 = await create(tenantA, orgA);
     const foreignLast = await create(tenantA, orgB);
-    const sharedProject = await create(tenantA, orgB, projectA);
+    const legacyUnverifiedProject = await create(tenantA, orgB, projectA);
+    const ownProject = await create(tenantA, orgA, projectA);
     const crossTenant = await create(tenantB, orgA);
 
     const list = await repo.listDocuments({ tenantId: tenantA, scope: ownerScope, limit: 2 });
@@ -67,7 +68,9 @@ dbTest("P0: physical Postgres enforces document/chunk/feedback tenant and org is
     const ownChunks = await repo.loadChunksForSearch({ tenantId: tenantA, scope: ownerScope });
     assert.deepEqual(new Set(ownChunks.map(c => c.documentId)), new Set([own1.doc.id, own2.doc.id]));
     const projectChunks = await repo.loadChunksForSearch({ tenantId: tenantA, scope: participantScope });
-    assert.ok(projectChunks.some(c => c.documentId === sharedProject.doc.id));
+    assert.ok(projectChunks.some(c => c.documentId === ownProject.doc.id));
+    assert.ok(!projectChunks.some(c => c.documentId === legacyUnverifiedProject.doc.id),
+      "historical projectId without a verified grant must not expose another org's document");
     assert.ok(!projectChunks.some(c => c.documentId === foreignLast.doc.id));
     assert.ok(!projectChunks.some(c => c.documentId === crossTenant.doc.id));
 
