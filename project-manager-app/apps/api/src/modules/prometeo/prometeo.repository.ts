@@ -100,11 +100,12 @@ export class PrometeoRepository {
     return this.prisma.prometeoDocument.findUnique({ where: { id } }) as Promise<PrometeoDocumentRecord | null>;
   }
 
-  async deleteDocument(input: { tenantId: string; id: string }): Promise<void> {
+  async deleteDocument(input: { tenantId: string; id: string; orgId?: string }): Promise<void> {
     const result = await this.prisma.prometeoDocument.deleteMany({
       where: {
         id: input.id,
         tenantId: input.tenantId,
+        ...(input.orgId !== undefined ? { orgId: input.orgId } : {}),
       },
     });
     if (result.count !== 1) {
