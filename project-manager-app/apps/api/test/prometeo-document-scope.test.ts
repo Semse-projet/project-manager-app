@@ -251,20 +251,50 @@ test("a project participant cannot modify another org's legacy chunk feedback", 
 
 test("document deletion is SQL-constrained by tenant and owning org, not only preflight checks", async () => {
   const filters: Array<Record<string, unknown>> = [];
-  const prisma = {
+  const tx = {
     prometeoDocument: {
+      async findFirst({ where }: { where: Record<string, unknown> }) {
+        filters.push(where);
+        return { orgId: "org-A", projectId: null, grants: [] };
+      },
       async deleteMany({ where }: { where: Record<string, unknown> }) {
         filters.push(where);
         return { count: 0 };
       },
     },
   };
+  const prisma = { async $transaction(fn: (tx: typeof tx) => Promise<void>) { return fn(tx); } };
   const repo = new PrometeoRepository(prisma as never);
   await assert.rejects(
     () => repo.deleteDocument({ tenantId: "tenant-A", id: "doc-B", orgId: "org-A" }),
     /not found/,
   );
-  assert.deepEqual(filters, [{ tenantId: "tenant-A", id: "doc-B", orgId: "org-A" }]);
+  assert.deepEqual(filters, Array(2).fill({ tenantId: "tenant-A", id: "doc-B", orgId: "org-A" }));
+});
+
+test("document deletion audits active cascaded grants in the same transaction", async () => {
+  const events: Array<Record<string, unknown>> = [];
+  const tx = {
+    prometeoDocument: {
+      async findFirst() { return { orgId: "org-A", projectId: "project-A", grants: [
+        { id: "grant-active", projectId: "project-A", recipientOrgId: "org-B", revokedAt: null },
+        { id: "grant-old", projectId: "project-A", recipientOrgId: "org-C", revokedAt: new Date() },
+      ] }; },
+      async deleteMany() { return { count: 1 }; },
+    },
+    auditLog: {
+      async createMany({ data }: { data: Record<string, unknown>[] }) { events.push(...data); },
+      async create({ data }: { data: Record<string, unknown> }) { events.push(data); },
+    },
+  };
+  const prisma = { async $transaction(fn: (tx: typeof tx) => Promise<void>) { return fn(tx); } };
+  const repo = new PrometeoRepository(prisma as never);
+  await repo.deleteDocument({ tenantId: "tenant-A", id: "doc-A", orgId: "org-A", actorUserId: "actor-A", requestId: "req-A" });
+  assert.deepEqual(events.map(x => x.action), [
+    "PROMETEO_DOCUMENT_SHARE_REVOKED_BY_DELETE", "PROMETEO_DOCUMENT_DELETED",
+  ]);
+  assert.equal(events[0]?.entityId, "grant-active");
+  assert.equal(events[1]?.actorUserId, "actor-A");
 });
 
 test("a grant for project A cannot authorize a document in accessible project B", async () => {
