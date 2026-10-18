@@ -2405,6 +2405,8 @@ model PrometeoDocument {
   chunks DocumentChunk[]
   grants PrometeoDocumentGrant[]
 
+  // Composite identity: a grant can never refer to a different tenant/project.
+  @@unique([id, tenantId, projectId])
   @@index([tenantId, projectId, status])
   @@index([tenantId, sourceType])
 }
@@ -2422,7 +2424,9 @@ model PrometeoDocumentGrant {
   revokedAt       DateTime?
   revokedByUserId String?
 
-  document PrometeoDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  // Updates to a shared document's project/tenant require explicit grant cleanup.
+  // NEVER cascade a project change into an existing approval.
+  document PrometeoDocument @relation(fields: [documentId, tenantId, projectId], references: [id, tenantId, projectId], onDelete: Cascade, onUpdate: Restrict)
 
   @@unique([documentId, recipientOrgId])
   @@index([tenantId, recipientOrgId, projectId, revokedAt])
