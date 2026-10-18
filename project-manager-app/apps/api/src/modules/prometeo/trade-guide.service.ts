@@ -50,7 +50,7 @@ export class TradeGuideService {
     tenantId:    string;
     projectId?:  string;
     locale?:     "es" | "en";
-    scope?:     PrometeoListScopeFilter;
+    scope?:     PrometeoListScopeFilter | null;
   }): Promise<TradeGuideResult> {
     const locale = input.locale ?? "es";
     const tradeLabel = TRADE_LABELS[input.trade] ?? input.trade;
