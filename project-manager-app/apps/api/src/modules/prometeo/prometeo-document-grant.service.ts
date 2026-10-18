@@ -17,7 +17,7 @@ export class PrometeoDocumentGrantService {
     private readonly resolver: ResourceScopeResolver,
   ) {}
 
-  private async verify(actor: ScopeActor, documentId: string, recipientOrgId: string) {
+  private async verifyOwner(actor: ScopeActor, documentId: string) {
     const doc = await this.prisma.prometeoDocument.findFirst({
       where: { id: documentId, tenantId: actor.tenantId },
       select: { id: true, tenantId: true, orgId: true, projectId: true },
@@ -26,6 +26,11 @@ export class PrometeoDocumentGrantService {
     if (!isOpsAdmin(actor) && !sameOrg(actor.orgId, doc.orgId)) {
       throw new ForbiddenException("Only the owning organization can manage document shares");
     }
+    return doc;
+  }
+
+  private async verify(actor: ScopeActor, documentId: string, recipientOrgId: string) {
+    const doc = await this.verifyOwner(actor, documentId);
     if (!doc.projectId) throw new BadRequestException("Sharing requires a verified project");
 
     const project = await this.resolver.resolveProjectScope(actor.tenantId, doc.projectId);
@@ -84,10 +89,12 @@ export class PrometeoDocumentGrantService {
   async revoke(actor: ScopeActor, documentId: string, recipientOrgId: string, requestId: string) {
     const actorUserId = actor.userId;
     if (!actorUserId) throw new ForbiddenException("Authenticated actor required");
-    const { doc, projectId } = await this.verify(actor, documentId, recipientOrgId);
+    // Revocation is always allowed for the owner even after reassignment or
+    // removal of the former recipient; otherwise an old grant could resurrect.
+    const doc = await this.verifyOwner(actor, documentId);
     return this.prisma.$transaction(async (tx) => {
       const existing = await tx.prometeoDocumentGrant.findFirst({
-        where: { documentId: doc.id, recipientOrgId, tenantId: actor.tenantId, projectId, revokedAt: null },
+        where: { documentId: doc.id, recipientOrgId, tenantId: actor.tenantId, revokedAt: null },
       });
       if (!existing) throw new NotFoundException("Active document grant not found");
       const updated = await tx.prometeoDocumentGrant.updateMany({
@@ -102,7 +109,7 @@ export class PrometeoDocumentGrantService {
           entityType: "PrometeoDocumentGrant",
           entityId: existing.id,
           action: "PROMETEO_DOCUMENT_SHARE_REVOKED",
-          beforeJson: { documentId: doc.id, projectId, recipientOrgId, revokedAt: null },
+          beforeJson: { documentId: doc.id, projectId: existing.projectId, recipientOrgId, revokedAt: null },
           afterJson: { revokedByUserId: actorUserId, requestId },
         },
       });
