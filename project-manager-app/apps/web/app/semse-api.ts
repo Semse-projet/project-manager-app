@@ -1165,6 +1165,27 @@ export async function fetchCrewRoster(crewId: string): Promise<{ crewId: string;
   return fetchSemse(`/api/semse/crews/${crewId}/roster`);
 }
 
+export type CrewTaskView = {
+  taskId: string;
+  title: string;
+  description: string | null;
+  dueDate: string | null;
+  priority: string;
+  status: string;
+  createdAt: string | null;
+};
+
+export async function fetchCrewTasks(crewId: string): Promise<CrewTaskView[]> {
+  return fetchSemse<CrewTaskView[]>(`/api/semse/crews/${crewId}/tasks`);
+}
+
+export async function createCrewTask(
+  crewId: string,
+  input: { title: string; description?: string; priority?: "low" | "medium" | "high" | "urgent" }
+): Promise<CrewTaskView> {
+  return mutateSemse(`/api/semse/crews/${crewId}/tasks`, input);
+}
+
 export async function fetchTaskAllocations(crewId: string, taskId: string): Promise<TaskAllocationView[]> {
   return fetchSemse<TaskAllocationView[]>(`/api/semse/crews/${crewId}/tasks/${taskId}/allocations`);
 }

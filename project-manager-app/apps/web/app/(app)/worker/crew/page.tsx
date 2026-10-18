@@ -4,11 +4,14 @@ import { useCallback, useEffect, useState } from "react";
 import { useLanguage } from "../../../../lib/language-context";
 import {
   assignTaskToCrewMembers,
+  createCrewTask,
+  fetchCrewTasks,
   fetchCrewRoster,
   fetchMyCrews,
   fetchTaskAllocations,
   releaseTaskAllocation,
   SemseApiError,
+  type CrewTaskView,
   type SupervisedCrewView,
   type TaskAllocationView
 } from "../../../semse-api";
@@ -20,8 +23,12 @@ const COPY = {
     noCrew: "No supervisas ninguna cuadrilla.",
     unavailable: "Las cuadrillas o asignaciones aún no están habilitadas.",
     crew: "Cuadrilla",
-    taskId: "Código de la tarea",
-    taskHelp: "Copia el código de la tarea desde su ficha.",
+    taskId: "Tarea",
+    pickTask: "Elige una tarea",
+    newTask: "Nueva tarea",
+    newTaskTitle: "Título de la nueva tarea",
+    createTask: "Crear tarea",
+    created: "Tarea creada.",
     members: "Personas",
     reason: "Motivo (opcional)",
     assign: "Asignar",
@@ -47,8 +54,12 @@ const COPY = {
     noCrew: "You do not supervise any crew.",
     unavailable: "Crews or assignments are not enabled yet.",
     crew: "Crew",
-    taskId: "Task code",
-    taskHelp: "Copy the task code from its page.",
+    taskId: "Task",
+    pickTask: "Pick a task",
+    newTask: "New task",
+    newTaskTitle: "New task title",
+    createTask: "Create task",
+    created: "Task created.",
     members: "People",
     reason: "Reason (optional)",
     assign: "Assign",
@@ -78,6 +89,8 @@ export default function MyCrewPage() {
   const [members, setMembers] = useState<string[]>([]);
   const [picked, setPicked] = useState<string[]>([]);
   const [taskId, setTaskId] = useState("");
+  const [tasks, setTasks] = useState<CrewTaskView[]>([]);
+  const [newTitle, setNewTitle] = useState("");
   const [reason, setReason] = useState("");
   const [releaseReason, setReleaseReason] = useState("");
   const [allocations, setAllocations] = useState<TaskAllocationView[]>([]);
@@ -109,6 +122,8 @@ export default function MyCrewPage() {
       try {
         const roster = await fetchCrewRoster(crewId);
         setMembers(roster.members.map((m) => m.userId));
+        setTasks(await fetchCrewTasks(crewId));
+        setTaskId("");
       } catch (error) {
         setMessage(describe(error));
       }
@@ -162,9 +177,43 @@ export default function MyCrewPage() {
           </label>
           <label>
             {c.taskId}
-            <input value={taskId} onChange={(event) => setTaskId(event.target.value)} style={{ width: "100%", minHeight: 44 }} />
-            <small>{c.taskHelp}</small>
+            <select value={taskId} onChange={(event) => setTaskId(event.target.value)} style={{ width: "100%", minHeight: 44 }}>
+              <option value="">{c.pickTask}</option>
+              {tasks.map((task) => (
+                <option key={task.taskId} value={task.taskId}>
+                  {task.title}
+                </option>
+              ))}
+            </select>
           </label>
+          <span style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "end" }}>
+            <label style={{ flex: "1 1 220px" }}>
+              {c.newTaskTitle}
+              <input value={newTitle} maxLength={200} onChange={(event) => setNewTitle(event.target.value)} style={{ width: "100%", minHeight: 44 }} />
+            </label>
+            <button
+              disabled={busy || newTitle.trim().length < 2}
+              style={{ minHeight: 44 }}
+              onClick={() => {
+                setBusy(true);
+                void (async () => {
+                  try {
+                    const created = await createCrewTask(crewId, { title: newTitle.trim() });
+                    setTasks(await fetchCrewTasks(crewId));
+                    setTaskId(created.taskId);
+                    setNewTitle("");
+                    setMessage(c.created);
+                  } catch (error) {
+                    setMessage(describe(error));
+                  } finally {
+                    setBusy(false);
+                  }
+                })();
+              }}
+            >
+              {c.createTask}
+            </button>
+          </span>
           <fieldset style={{ display: "grid", gap: 4 }}>
             <legend>{c.members}</legend>
             {members.map((userId) => (

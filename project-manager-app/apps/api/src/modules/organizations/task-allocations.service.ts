@@ -98,6 +98,46 @@ export class TaskAllocationsService {
     });
   }
 
+  /**
+   * Crea una tarea canónica (JobTask) de la Org de la cuadrilla, para poder asignarla.
+   * Las tareas del marketplace nacen sin orgId y no son asignables aquí; esta es la vía
+   * para tareas internas. Usa las columnas polimórficas (entityType/entityId), sin migración.
+   */
+  async createCrewTask(
+    actor: AllocationActor,
+    crewId: string,
+    requestId: string,
+    input: { title: string; description?: string; dueDate?: Date; priority?: "low" | "medium" | "high" | "urgent" }
+  ) {
+    this.assertEnabled();
+    const crew = await this.requireCrewScope(actor, crewId);
+    const task = await this.prisma.jobTask.create({
+      data: {
+        tenantId: actor.tenantId,
+        orgId: crew.orgId,
+        title: input.title,
+        description: input.description ?? null,
+        dueDate: input.dueDate ?? null,
+        priority: input.priority ?? "medium",
+        createdBy: actor.userId,
+        sourceTool: "crew",
+        entityType: "Crew",
+        entityId: crew.id
+      }
+    });
+    await this.record(actor.tenantId, crew.orgId, actor.userId, "crew_task.created", task.id, requestId, { crewId: crew.id });
+    return this.taskView(task);
+  }
+
+  async listCrewTasks(actor: AllocationActor, crewId: string) {
+    this.assertEnabled();
+    const crew = await this.requireCrewScope(actor, crewId);
+    const rows = await this.prisma.jobTask.findMany({
+      where: { tenantId: actor.tenantId, orgId: crew.orgId, entityType: "Crew", entityId: crew.id }
+    });
+    return rows.map((row) => this.taskView(row));
+  }
+
   async assign(actor: AllocationActor, crewId: string, taskId: string, requestId: string, userIds: string[], reason?: string) {
     this.assertEnabled();
     const crew = await this.requireCrewScope(actor, crewId);
@@ -224,6 +264,18 @@ export class TaskAllocationsService {
     if (unique.length === 0) return new Map();
     const tasks = await this.prisma.jobTask.findMany({ where: { tenantId, id: { in: unique } } });
     return new Map(tasks.map((t) => [t.id, t.title]));
+  }
+
+  private taskView(row: { id: string; title: string; description: string | null; dueDate: Date | null; priority: string; status: string; createdAt?: Date }) {
+    return {
+      taskId: row.id,
+      title: row.title,
+      description: row.description,
+      dueDate: row.dueDate,
+      priority: row.priority,
+      status: row.status,
+      createdAt: row.createdAt ?? null
+    };
   }
 
   private view(row: AllocationRow, taskTitle?: string) {
