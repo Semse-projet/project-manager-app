@@ -313,6 +313,44 @@ async function prometeoObjectScopeSmoke() {
   await request("DELETE", shares + "/" + pro1.orgId, {
     token: owner.token, expectedStatus: 404,
   });
+
+  // S1: Simulate a durable audit write failure on disposable CI PostgreSQL.
+  // The grant transaction MUST roll back; a revoked share stays revoked.
+  const failFn = "p0_share_audit_fail_" + runId;
+  const failTrigger = "p0_share_audit_trigger_" + runId;
+  await prisma.$executeRawUnsafe(
+    'CREATE FUNCTION "' + failFn + '"() RETURNS trigger AS $ BEGIN ' +
+    'IF NEW."entityType" = \'PrometeoDocumentGrant\' ' +
+    'AND NEW."action" = \'PROMETEO_DOCUMENT_SHARE_GRANTED\' THEN ' +
+    'RAISE EXCEPTION \'synthetic_p0_grant_audit_failure\'; END IF; ' +
+    'RETURN NEW; END; $ LANGUAGE plpgsql'
+  );
+  await prisma.$executeRawUnsafe(
+    'CREATE TRIGGER "' + failTrigger + '" BEFORE INSERT ON "AuditLog" ' +
+    'FOR EACH ROW EXECUTE FUNCTION "' + failFn + '"()'
+  );
+  try {
+    const failedResponse = await fetch(new URL(shares, base), {
+      method: "POST",
+      headers: {
+        authorization: "Bearer " + owner.token,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ recipientOrgId: pro1.orgId }),
+    });
+    assert.ok(failedResponse.status >= 400, "audit failure must prevent grant success");
+    const persisted = await prisma.prometeoDocumentGrant.findFirstOrThrow({
+      where: { tenantId: tenantA, documentId: ownerProject.doc.id, recipientOrgId: pro1.orgId },
+    });
+    assert.ok(persisted.revokedAt, "failed audit must rollback reactivation of revoked grant");
+    assert.ok(!(await documentIds(pro1)).has(ownerProject.doc.id),
+      "audit failure must not expose the document through SQL");
+  } finally {
+    await prisma.$executeRawUnsafe('DROP TRIGGER IF EXISTS "' + failTrigger + '" ON "AuditLog"');
+    await prisma.$executeRawUnsafe('DROP FUNCTION IF EXISTS "' + failFn + '"()');
+  }
+  console.log("[PROMETEO SHARE] failed audit rolls back regrant and keeps access denied PASS");
+
   console.log("[PROMETEO SHARE] owner grant -> pro read -> revoke -> deny + audit PASS");
 
   const otherTenantIds = await documentIds(foreignClient);
