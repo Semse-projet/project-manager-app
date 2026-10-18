@@ -104,6 +104,8 @@ Enlaces de orientación (requieren autorización del usuario para mutar):
 
 ## Política compartida de ejecución con presupuesto — 18-oct-2026
 
+**Decisión trazable:** `DEC-CI-001` en `docs/adr/DEC-CI-001-agent-ci-spend-discipline.md` (propuesta pendiente de aprobación humana y gates CI; no implica fusión ni implementación en `main`).
+
 **Alcance:** Claude, Codex, Prometeo, agentes delegados y cualquier agente que opere en este checkout. La constitución y AGENTS.md prevalecen. Agentes externos o de otros repositorios solo quedan cubiertos si importan explícitamente esta política; la presencia del archivo no demuestra que una sesión remota lo haya leído.
 
 ### Ciclo obligatorio para ahorrar sin perder calidad
