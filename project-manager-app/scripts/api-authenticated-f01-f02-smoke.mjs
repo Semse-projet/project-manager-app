@@ -319,11 +319,11 @@ async function prometeoObjectScopeSmoke() {
   const failFn = "p0_share_audit_fail_" + runId;
   const failTrigger = "p0_share_audit_trigger_" + runId;
   await prisma.$executeRawUnsafe(
-    'CREATE FUNCTION "' + failFn + '"() RETURNS trigger AS $ BEGIN ' +
+    'CREATE FUNCTION "' + failFn + '"() RETURNS trigger AS $audit$ BEGIN ' +
     'IF NEW."entityType" = \'PrometeoDocumentGrant\' ' +
     'AND NEW."action" = \'PROMETEO_DOCUMENT_SHARE_GRANTED\' THEN ' +
     'RAISE EXCEPTION \'synthetic_p0_grant_audit_failure\'; END IF; ' +
-    'RETURN NEW; END; $ LANGUAGE plpgsql'
+    'RETURN NEW; END; $audit$ LANGUAGE plpgsql'
   );
   await prisma.$executeRawUnsafe(
     'CREATE TRIGGER "' + failTrigger + '" BEFORE INSERT ON "AuditLog" ' +
