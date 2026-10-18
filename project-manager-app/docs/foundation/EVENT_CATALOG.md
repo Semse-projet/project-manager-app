@@ -476,6 +476,13 @@ Crear eventos por cambios de dominio o de consecuencia operativa real.
 - `business_engagement.activated`
 - `business_engagement.ended`
 
+## Business OS — política de horario y correcciones (BO-08)
+
+- `labor_policy.created`
+- `labor_correction.requested`
+- `labor_correction.approved`
+- `labor_correction.rejected`
+
 ## Business OS — cuadrillas y obras (BO-07)
 
 - `worksite.created`
@@ -483,6 +490,12 @@ Crear eventos por cambios de dominio o de consecuencia operativa real.
 - `crew.member_added`
 - `crew.member_removed`
 - `crew.archived`
+
+## Business OS — asignación de tareas (BO-10)
+
+- `task_allocation.assigned`
+- `task_allocation.status_changed`
+- `task_allocation.released`
 
 ## Business OS — reportes diarios (BO-11)
 
