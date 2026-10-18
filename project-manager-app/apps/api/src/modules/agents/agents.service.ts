@@ -631,18 +631,30 @@ export class AgentsService {
           maxTokens: 1024,
         });
 
-        response = result.text || generateAgentResponse({ agentId, message: input.message, history: thread.messages, context: input.context });
-        toolCalls = result.toolCalls;
-        mode = (result.mode as ChatReply["mode"]) ?? "llm";
+        // Template responses are not a substitute for executable local tool
+        // plans. State the capability gap rather than silently implying an
+        // action was planned when no local tool-capable provider is available.
+        const unavailableLocalTools = (agentId === "project-copilot" || input.localOnly)
+          && input.tools.length > 0 && result.provider === "template";
+        response = unavailableLocalTools
+          ? "No hay un modelo local con herramientas disponible. No se ha propuesto ni ejecutado ninguna acción."
+          : result.text || generateAgentResponse({ agentId, message: input.message, history: thread.messages, context: input.context });
+        toolCalls = unavailableLocalTools ? [] : result.toolCalls;
+        mode = unavailableLocalTools ? "fallback" : (result.mode as ChatReply["mode"]) ?? "llm";
         provider = result.provider;
         model = result.model;
       } catch (err) {
         this.logger.warn(`[chatWithTools] LLM failed, falling back: ${err instanceof Error ? err.message : String(err)}`);
-        response = generateAgentResponse({ agentId, message: input.message, history: thread.messages, context: input.context });
+        response = (agentId === "project-copilot" || input.localOnly) && input.tools.length > 0
+          ? "No hay un modelo local con herramientas disponible. No se ha propuesto ni ejecutado ninguna acción."
+          : generateAgentResponse({ agentId, message: input.message, history: thread.messages, context: input.context });
         mode = "fallback";
       }
     } else {
-      response = generateAgentResponse({ agentId, message: input.message, history: thread.messages, context: input.context });
+      response = (agentId === "project-copilot" || input.localOnly) && input.tools.length > 0
+        ? "No hay un modelo local con herramientas disponible. No se ha propuesto ni ejecutado ninguna acción."
+        : generateAgentResponse({ agentId, message: input.message, history: thread.messages, context: input.context });
+      if ((agentId === "project-copilot" || input.localOnly) && input.tools.length > 0) mode = "fallback";
     }
 
     appendMessage(thread.id, { role: "assistant", content: response, timestamp: new Date().toISOString() });
