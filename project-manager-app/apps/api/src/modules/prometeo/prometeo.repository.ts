@@ -262,14 +262,21 @@ export class PrometeoRepository {
   }
 
   async getFeedbackStats(tenantId: string, scope?: PrometeoListScopeFilter) {
-    const authorizedDocuments = scope
-      ? await this.prisma.prometeoDocument.findMany({ where: this.documentWhere({ tenantId, scope }), select: { id: true } })
-      : undefined;
-    if (authorizedDocuments && authorizedDocuments.length === 0) {
-      return { totalFeedback: 0, chunksWithFeedback: 0, byType: {}, topDocuments: [], lastFeedbackAt: null };
-    }
+    // Scope the feedback count through its chunk and document in the SAME
+    // database statement. Preselecting document IDs would allow a revoked
+    // grant to survive through stale IDs between the two queries.
     const rows = await this.prisma.prometeoChunkFeedback.findMany({
-      where: { tenantId, ...(authorizedDocuments ? { documentId: { in: authorizedDocuments.map(d => d.id) } } : {}) },
+      where: {
+        tenantId,
+        ...(scope ? {
+          chunk: {
+            is: {
+              tenantId,
+              document: { is: this.documentWhere({ tenantId, scope }) },
+            },
+          },
+        } : {}),
+      },
       select: { chunkId: true, documentId: true, type: true, createdAt: true },
       orderBy: { createdAt: "desc" },
       take: 1000,

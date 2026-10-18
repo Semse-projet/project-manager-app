@@ -71,11 +71,11 @@ test("chunk SQL rechecks document ownership and active grants at content-read ti
   });
 });
 
-test("feedback stats exclude all inaccessible document IDs", async () => {
+test("feedback stats recheck document grants at query time without a stale ID prefetch", async () => {
   let feedbackWhere: Record<string, unknown> | undefined;
   const prisma = {
     prometeoDocument: {
-      async findMany() { return [{ id: "doc-own" }]; },
+      async findMany() { throw new Error("unsafe feedback document-ID prefetch"); },
     },
     prometeoChunkFeedback: {
       async findMany(args: { where: Record<string, unknown> }) {
@@ -86,7 +86,33 @@ test("feedback stats exclude all inaccessible document IDs", async () => {
   };
   const repo = new PrometeoRepository(prisma as never);
   const result = await repo.getFeedbackStats("tenant-A", scope);
-  assert.deepEqual(feedbackWhere?.documentId, { in: ["doc-own"] });
+  assert.deepEqual(feedbackWhere, {
+    tenantId: "tenant-A",
+    chunk: {
+      is: {
+        tenantId: "tenant-A",
+        document: {
+          is: {
+            tenantId: "tenant-A",
+            OR: [
+              { projectId: null, orgId: "org-A" },
+              { projectId: { in: ["project-A"] }, orgId: "org-A" },
+              {
+                grants: {
+                  some: {
+                    tenantId: "tenant-A",
+                    recipientOrgId: "org-A",
+                    projectId: { in: ["project-A"] },
+                    revokedAt: null,
+                  },
+                },
+              },
+            ],
+          },
+        },
+      },
+    },
+  });
   assert.equal(result.totalFeedback, 0);
 });
 

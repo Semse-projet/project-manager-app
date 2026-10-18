@@ -106,6 +106,25 @@ dbTest("P0: physical Postgres enforces document/chunk/feedback tenant and org is
     assert.deepEqual(stats.byType, { confirm: 1 });
     assert.ok(stats.topDocuments.every(entry => entry.documentId !== foreignLast.doc.id));
 
+    // A revoked grant must also remove its feedback counts from future stats.
+    const feedbackGrant = await prisma.prometeoDocumentGrant.create({ data: {
+      tenantId: tenantA, documentId: legacyUnverifiedProject.doc.id, projectId: projectA,
+      recipientOrgId: orgA, grantedByUserId: "p0_test_user",
+    } });
+    await repo.saveFeedback({
+      tenantId: tenantA, chunkId: legacyUnverifiedProject.chunk.id,
+      documentId: legacyUnverifiedProject.doc.id, userId: "p0_actor", type: "correct",
+    });
+    const statsWhileShared = await repo.getFeedbackStats(tenantA, participantScope);
+    assert.ok(statsWhileShared.topDocuments.some(entry => entry.documentId === legacyUnverifiedProject.doc.id),
+      "active grant allows authorized feedback metadata");
+    await prisma.prometeoDocumentGrant.update({
+      where: { id: feedbackGrant.id }, data: { revokedAt: new Date() },
+    });
+    const statsAfterRevocation = await repo.getFeedbackStats(tenantA, participantScope);
+    assert.ok(statsAfterRevocation.topDocuments.every(entry => entry.documentId !== legacyUnverifiedProject.doc.id),
+      "revocation must remove feedback metadata without stale document IDs");
+
     const actorA = { tenantId: tenantA, orgId: orgA, userId: "p0_actor", roles: ["CLIENT"] };
     const otherTenantActor = { ...actorA, tenantId: tenantB };
     await assert.rejects(
