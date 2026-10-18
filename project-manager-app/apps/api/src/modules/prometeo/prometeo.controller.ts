@@ -249,7 +249,7 @@ export class PrometeoController {
 
   /** Explicit, audited sharing with one validated project participant org. */
   @Post("documents/:id/shares")
-  @RequirePermissions("knowledge:write")
+  @RequirePermissions("knowledge:share")
   async grantDocumentAccess(
     @Req() req: { headers?: Record<string, unknown> },
     @Param("id") id: string,
@@ -271,7 +271,7 @@ export class PrometeoController {
 
   /** Revocation takes effect in SQL on the next retrieval, including RAG. */
   @Delete("documents/:id/shares/:recipientOrgId")
-  @RequirePermissions("knowledge:write")
+  @RequirePermissions("knowledge:share")
   async revokeDocumentAccess(
     @Req() req: { headers?: Record<string, unknown> },
     @Param("id") id: string,
