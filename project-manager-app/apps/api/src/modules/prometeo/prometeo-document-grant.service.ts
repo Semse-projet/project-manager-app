@@ -1,7 +1,8 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, ServiceUnavailableException } from "@nestjs/common";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { ResourceScopeResolver } from "../../common/resource-scope.resolver.js";
 import { isOpsAdmin, sameOrg, type ScopeActor } from "../../common/resource-scope.js";
+import { isPrometeoDocumentSharingEnabled } from "./prometeo-document-sharing.flag.js";
 
 /**
  * C51/P0 S1: explicit, revocable cross-organization sharing.
@@ -47,6 +48,7 @@ export class PrometeoDocumentGrantService {
   }
 
   async grant(actor: ScopeActor, documentId: string, recipientOrgId: string, requestId: string) {
+    if (!isPrometeoDocumentSharingEnabled()) throw new ServiceUnavailableException("Document sharing is not activated");
     const actorUserId = actor.userId;
     if (!actorUserId) throw new ForbiddenException("Authenticated actor required");
     const { doc, projectId } = await this.verify(actor, documentId, recipientOrgId);
