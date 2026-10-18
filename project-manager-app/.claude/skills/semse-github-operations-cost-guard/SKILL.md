@@ -104,18 +104,18 @@ Enlaces de orientación (requieren autorización del usuario para mutar):
 
 ## Política compartida de ejecución con presupuesto — 18-oct-2026
 
-**Decisión trazable:** `DEC-CI-001` en `docs/adr/DEC-CI-001-agent-ci-spend-discipline.md` (propuesta pendiente de aprobación humana y gates CI; no implica fusión ni implementación en `main`).
+**Decisión trazable:** `DEC-CI-001` en `docs/adr/DEC-CI-001-agent-ci-spend-discipline.md` (**PROPOSED/SHOULD**, no MUST mientras no exista aprobación humana documentada y revisión formal; no implica fusión ni implementación en `main`).
 
 **Alcance:** Claude, Codex, Prometeo, agentes delegados y cualquier agente que opere en este checkout. La constitución y AGENTS.md prevalecen. Agentes externos o de otros repositorios solo quedan cubiertos si importan explícitamente esta política; la presencia del archivo no demuestra que una sesión remota lo haya leído.
 
-### Ciclo obligatorio para ahorrar sin perder calidad
+### Ciclo propuesto para ahorrar sin perder calidad (SHOULD hasta aprobación humana)
 
 1. **Preflight READ_ONLY:** verificar PR/branch/HEAD, cambios de otros agentes, checks activos y presupuesto vigente con fecha; distinguir el presupuesto de Actions del gasto en Code Quality y de facturas emitidas. Si el presupuesto no es visible, declarar `UNKNOWN` y no inventar saldo.
 2. **Desarrollo incremental local:** reunir cambios compatibles en bloques verificables. Ejecutar tests de archivos/contratos afectados, lint o typecheck cuando aplique y revisiones de seguridad/tenant desde temprano; no posponer todos los tests al final ni reemplazar la prueba de integración por una prueba local. Preparar un único delta revisable antes del primer PR.
 3. **Publicación consciente del disparador:** antes de abrir un PR o actualizar una rama con PR, inspeccionar qué workflows de `pull_request`, `push`, Code Quality o terceros se dispararán. Un PR `draft` también puede iniciar CI; por eso agrupar cambios y evitar commits remotos de tanteo. No crear PR paralelo para la misma tarea si existe uno activo.
 4. **Una validación útil por revisión coherente:** dejar finalizar los checks del HEAD que se pretende revisar; cancelar solo ejecuciones obsoletas del mismo PR conforme a la configuración existente, nunca el gate de `main` ni un check requerido del HEAD final. No reintentar a ciegas ni forzar nuevas ejecuciones mientras sigue un run válido.
-5. **Bloqueo financiero/infrastructura:** si hay `Usage blocked`, presupuesto agotado o `startup_failure`/jobs sin `steps`, clasificar como `UNVERIFIED`, registrar URL/fecha/SHA/estado de facturación y detener reintentos hasta resolver la causa. No usar `[skip ci]`, condiciones `if:` engañosas ni status manuales para aparentar verde. Nunca subir presupuesto, desactivar `Stop usage` o modificar pagos sin aprobación puntual.
-6. **Fusión y despliegue:** antes de declarar `mergeable` por calidad, exigir en el SHA exacto los checks necesarios (`quality-gates`, `unit-coverage`, `e2e`, `API Integration` si aplica, reglas SDD, Prisma, controles de seguridad/tenancy y review pertinente). Docs-only tampoco implica permiso de eludir checks requeridos. No fusionar/desplegar ni activar producción por iniciativa del agente.
+5. **Bloqueo financiero/infrastructura:** si hay `startup_failure`/jobs sin `steps`, investigar primero facturación, YAML/configuración, permisos, runners e infraestructura: el hecho de no iniciar **no demuestra ni descarta** defecto de código. Si se confirma `Usage blocked` o presupuesto agotado, clasificar el CI como `UNVERIFIED`, registrar URL/fecha/SHA/estado de facturación y detener reintentos hasta resolver la causa. No usar `[skip ci]`, condiciones `if:` engañosas ni status manuales para aparentar verde. Nunca subir presupuesto, desactivar `Stop usage` o modificar pagos sin aprobación puntual.
+6. **Fusión y despliegue:** **antes de fusionar**, exigir en el HEAD exacto del PR los checks requeridos (`quality-gates`, `unit-coverage`, `e2e`, `API Integration` si aplica, SDD, Prisma, controles de seguridad/tenancy y review pertinente). **Después de fusionar**, verificar el nuevo SHA de `main` —que puede diferir por squash merge— con su CI completo, Railway Deploy y control de procedencia/health sobre el SHA efectivamente desplegado. No pedir un check post-merge de Railway sobre el HEAD del PR como precondición imposible. Docs-only tampoco implica permiso de eludir checks requeridos. No fusionar/desplegar ni activar producción por iniciativa del agente.
 7. **Optimización técnica por separado:** proponer un PR acotado si se detectan builds e instalaciones duplicados entre CI, API Integration, Autonomy y Operación Asistida; medir antes/después en minutos de jobs, número de runs, fallos y monto facturable. No desactivar pruebas esenciales ni modificar workflows/Railway como parte de una actualización documental. El ahorro es estimación hasta ser medido.
 8. **Handoff entre agentes:** dejar en el PR/issue el SHA, comprobaciones locales efectuadas, checks pendientes, causa de fallos, estado del presupuesto con timestamp y siguiente acción. No afirmar que la política ya rige en `main`, en Claude, Codex o en otros repositorios antes de fusionar y acreditar su lectura.
 
@@ -137,7 +137,7 @@ Auditoría de solo lectura del **18-oct-2026**: `Semse-projet/project-manager-ap
 
 ## Condiciones de entrega / gate
 
-- PR en borrador, diff limitado, no modificar main directamente. No fusionar ni desplegar mientras falte evidencia de pruebas requeridas.
+- PR con diff limitado y sin modificar `main` directamente. Si la decisión sigue `PROPOSED`, no elevarla a obligación `MUST` ni fusionarla sin revisión humana. No fusionar ni desplegar mientras falte evidencia de pruebas requeridas.
 - Verificar por SHA: quality-gates = success; unit-coverage = success; e2e = success; API Integration = success cuando aplique. Comprobar política de branch protection; ausencia de protección no es permiso para fusionar inseguramente.
 - Validar que Railway Deploy se dispara sólo sobre CI success del SHA correcto y que health/provenance verifican el artefacto ejecutado. No disparar producción manualmente por este documento.
 - Publicar tabla de evidencia: cambio, estado VERIFIED/PARTIAL/BLOCKED, link de run, SHA, costo antes/después, incidentes, próximo paso y responsable.
