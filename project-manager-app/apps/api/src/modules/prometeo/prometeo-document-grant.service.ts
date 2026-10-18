@@ -42,6 +42,8 @@ export class PrometeoDocumentGrantService {
   }
 
   async grant(actor: ScopeActor, documentId: string, recipientOrgId: string, requestId: string) {
+    const actorUserId = actor.userId;
+    if (!actorUserId) throw new ForbiddenException("Authenticated actor required");
     const { doc, projectId } = await this.verify(actor, documentId, recipientOrgId);
     return this.prisma.$transaction(async (tx) => {
       const stillExists = await tx.prometeoDocument.findFirst({
@@ -58,16 +60,16 @@ export class PrometeoDocumentGrantService {
       const grant = existing
         ? await tx.prometeoDocumentGrant.update({
             where: { id: existing.id },
-            data: { tenantId: actor.tenantId, projectId, grantedByUserId: actor.userId, revokedAt: null, revokedByUserId: null },
+            data: { tenantId: actor.tenantId, projectId, grantedByUserId: actorUserId, revokedAt: null, revokedByUserId: null },
           })
         : await tx.prometeoDocumentGrant.create({
-            data: { tenantId: actor.tenantId, documentId: doc.id, projectId, recipientOrgId, grantedByUserId: actor.userId },
+            data: { tenantId: actor.tenantId, documentId: doc.id, projectId, recipientOrgId, grantedByUserId: actorUserId },
           });
 
       await tx.auditLog.create({
         data: {
           tenantId: actor.tenantId,
-          actorUserId: actor.userId,
+          actorUserId,
           entityType: "PrometeoDocumentGrant",
           entityId: grant.id,
           action: "PROMETEO_DOCUMENT_SHARE_GRANTED",
@@ -80,6 +82,8 @@ export class PrometeoDocumentGrantService {
   }
 
   async revoke(actor: ScopeActor, documentId: string, recipientOrgId: string, requestId: string) {
+    const actorUserId = actor.userId;
+    if (!actorUserId) throw new ForbiddenException("Authenticated actor required");
     const { doc, projectId } = await this.verify(actor, documentId, recipientOrgId);
     return this.prisma.$transaction(async (tx) => {
       const existing = await tx.prometeoDocumentGrant.findFirst({
@@ -88,18 +92,18 @@ export class PrometeoDocumentGrantService {
       if (!existing) throw new NotFoundException("Active document grant not found");
       const updated = await tx.prometeoDocumentGrant.updateMany({
         where: { id: existing.id, tenantId: actor.tenantId, revokedAt: null },
-        data: { revokedAt: new Date(), revokedByUserId: actor.userId },
+        data: { revokedAt: new Date(), revokedByUserId: actorUserId },
       });
       if (updated.count !== 1) throw new NotFoundException("Active document grant not found");
       await tx.auditLog.create({
         data: {
           tenantId: actor.tenantId,
-          actorUserId: actor.userId,
+          actorUserId,
           entityType: "PrometeoDocumentGrant",
           entityId: existing.id,
           action: "PROMETEO_DOCUMENT_SHARE_REVOKED",
           beforeJson: { documentId: doc.id, projectId, recipientOrgId, revokedAt: null },
-          afterJson: { revokedByUserId: actor.userId, requestId },
+          afterJson: { revokedByUserId: actorUserId, requestId },
         },
       });
       return { id: existing.id, documentId, recipientOrgId, revoked: true };
