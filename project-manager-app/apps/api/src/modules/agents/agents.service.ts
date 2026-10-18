@@ -576,6 +576,8 @@ export class AgentsService {
     message: string;
     agentId?: string;
     threadId?: string;
+    /** Mandatory for project-copilot threads; never reuse one across projects. */
+    projectId?: string;
     context?: Record<string, unknown>;
     /** True when context contains private project/RAG data; enforced by the LLM router. */
     localOnly?: boolean;
@@ -583,18 +585,22 @@ export class AgentsService {
   }): Promise<ChatReply & { toolCalls: Array<{ toolName: string; toolUseId: string; input: Record<string, unknown> }> }> {
     const agentId = input.agentId ?? "assistant";
     const now = new Date().toISOString();
+    if (agentId === "project-copilot" && !input.projectId) {
+      throw new ForbiddenException("Project context required for Copilot thread");
+    }
 
     let thread = input.threadId ? getThread(input.threadId) : undefined;
     // A threadId is not a capability: validate its tenant, owner AND agent
     // before reading history or appending messages. Never reuse a foreign thread.
     if (input.threadId && (
       !thread || thread.tenantId !== input.tenantId ||
-      thread.userId !== input.userId || thread.agentId !== agentId
+      thread.userId !== input.userId || thread.agentId !== agentId ||
+      (agentId === "project-copilot" && thread.projectId !== input.projectId)
     )) {
       throw new NotFoundException("Chat thread not found");
     }
     if (!thread) {
-      thread = createThread({ tenantId: input.tenantId, userId: input.userId, agentId });
+      thread = createThread({ tenantId: input.tenantId, userId: input.userId, agentId, projectId: input.projectId });
     }
 
     appendMessage(thread.id, { role: "user", content: input.message, timestamp: now });
