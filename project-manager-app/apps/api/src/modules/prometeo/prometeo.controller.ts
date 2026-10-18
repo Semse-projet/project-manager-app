@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Delete, ForbiddenException, Get, Optional, Param, Patch, Post, Query, Req } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Delete, ForbiddenException, Get, Optional, Param, Patch, Post, Query, Req, ServiceUnavailableException } from "@nestjs/common";
 import { prometeoToolInvokeSchema } from "@semse/schemas";
 import { ok } from "../../common/api-response.js";
 import { RequirePermissions } from "../../common/permissions.decorator.js";
@@ -10,6 +10,7 @@ import { getAgentProfile } from "../../infrastructure/llm/agent-profiles.js";
 import { PrometeoService } from "./prometeo.service.js";
 import { PrometeoAccessPolicy } from "./prometeo-access.policy.js";
 import { PrometeoDocumentGrantService } from "./prometeo-document-grant.service.js";
+import { isPrometeoDocumentSharingEnabled } from "./prometeo-document-sharing.flag.js";
 import { PrometeoToolExecutionService } from "./prometeo-tool-execution.service.js";
 import { findPrometeoToolDescriptor, listPrometeoToolRegistry } from "./prometeo-tool-registry.js";
 import { TradeGuideService } from "./trade-guide.service.js";
@@ -254,6 +255,7 @@ export class PrometeoController {
     @Param("id") id: string,
     @Body() body: unknown,
   ) {
+    if (!isPrometeoDocumentSharingEnabled()) throw new ServiceUnavailableException("Document sharing is not activated");
     if (!this.documentGrants) throw new BadRequestException("Document sharing is unavailable");
     const b = (body ?? {}) as Record<string, unknown>;
     const recipientOrgId = typeof b.recipientOrgId === "string" ? b.recipientOrgId.trim() : "";
