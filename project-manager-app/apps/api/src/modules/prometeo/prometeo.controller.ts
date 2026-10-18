@@ -32,6 +32,7 @@ export class PrometeoController {
     if (requested === "public_training") throw new BadRequestException("Public sharing requires approved explicit consent");
     if (!["tenant_private", "project_private"].includes(requested)) throw new BadRequestException("Unsupported visibility");
     if (requested === "project_private" && !projectId) throw new BadRequestException("project_private requires projectId");
+    if (requested === "tenant_private" && projectId) throw new BadRequestException("Project documents require project_private visibility");
     return requested;
   }
 
@@ -242,7 +243,7 @@ export class PrometeoController {
     const b = body as Record<string, unknown>;
     const projectId = typeof b.projectId === "string" ? b.projectId : undefined;
     if (projectId) await this.access.assertProjectFilter(actor, projectId);
-    const scope = await this.access.listScope(actor);
+    const scope = (await this.access.listScope(actor)) ?? null;
     const results = await this.svc.search({
       tenantId: actor.tenantId,
       projectId, scope,
@@ -260,7 +261,7 @@ export class PrometeoController {
     const b = body as Record<string, unknown>;
     const projectId = typeof b.projectId === "string" ? b.projectId : undefined;
     if (projectId) await this.access.assertProjectFilter(actor, projectId);
-    const scope = await this.access.listScope(actor);
+    const scope = (await this.access.listScope(actor)) ?? null;
     const ctx = await this.svc.buildRagContext({
       tenantId: actor.tenantId,
       projectId, scope,
@@ -286,7 +287,7 @@ export class PrometeoController {
     // Restrict documents before retrieval, citations, or LLM context.
     const projectId = typeof b.projectId === "string" ? b.projectId : undefined;
     if (projectId) await this.access.assertProjectFilter(actor, projectId);
-    const scope = await this.access.listScope(actor);
+    const scope = (await this.access.listScope(actor)) ?? null;
     const ctx = await this.svc.buildRagContext({
       tenantId: actor.tenantId,
       projectId, scope,
@@ -431,7 +432,7 @@ export class PrometeoController {
 
     const projectId = typeof b.projectId === "string" ? b.projectId : undefined;
     if (projectId) await this.access.assertProjectFilter(actor, projectId);
-    const scope = await this.access.listScope(actor);
+    const scope = (await this.access.listScope(actor)) ?? null;
     const result = await this.tradeGuide.guide({
       question, trade, locale,
       tenantId:  actor.tenantId,
