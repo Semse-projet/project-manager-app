@@ -290,7 +290,7 @@ async function prometeoObjectScopeSmoke() {
 
   const auditGranted = await prisma.auditLog.findFirst({
     where: { tenantId: tenantA, entityType: "PrometeoDocumentGrant",
-      entityId: grant.data?.id, action: "PROMETEO_DOCUMENT_SHARE_GRANTED" },
+      entityId: grant.data?.id, action: "prometeo.document_share_granted" },
   });
   assert.ok(auditGranted, "sharing must be durably audited before success response");
 
@@ -307,7 +307,7 @@ async function prometeoObjectScopeSmoke() {
     "revoke must immediately remove RAG snippets and citations");
   const auditRevoked = await prisma.auditLog.findFirst({
     where: { tenantId: tenantA, entityType: "PrometeoDocumentGrant",
-      entityId: grant.data?.id, action: "PROMETEO_DOCUMENT_SHARE_REVOKED" },
+      entityId: grant.data?.id, action: "prometeo.document_share_revoked" },
   });
   assert.ok(auditRevoked, "revocation must be durably audited before success response");
   await request("DELETE", shares + "/" + pro1.orgId, {
@@ -321,7 +321,7 @@ async function prometeoObjectScopeSmoke() {
   await prisma.$executeRawUnsafe(
     'CREATE FUNCTION "' + failFn + '"() RETURNS trigger AS $audit$ BEGIN ' +
     'IF NEW."entityType" = \'PrometeoDocumentGrant\' ' +
-    'AND NEW."action" = \'PROMETEO_DOCUMENT_SHARE_GRANTED\' THEN ' +
+    'AND NEW."action" = \'prometeo.document_share_granted\' THEN ' +
     'RAISE EXCEPTION \'synthetic_p0_grant_audit_failure\'; END IF; ' +
     'RETURN NEW; END; $audit$ LANGUAGE plpgsql'
   );
