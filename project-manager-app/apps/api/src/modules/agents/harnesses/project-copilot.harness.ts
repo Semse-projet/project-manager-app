@@ -316,9 +316,12 @@ export class ProjectCopilotHarness {
         limit: 10,
       }).catch(() => null),
       this.usersRepository.findProfile(actor.userId).catch(() => null),
+      // run() already verified the actor's project membership via ProjectAccessService.
+      // Never retrieve across the whole tenant from a project-scoped Copilot.
       this.prometeoService.buildRagContext({
         tenantId: actor.tenantId,
         projectId,
+        scope: { orgId: actor.orgId, projectIds: [projectId], jobIds: [] },
         query: message,
         topK: 4,
       }).catch(() => null),
