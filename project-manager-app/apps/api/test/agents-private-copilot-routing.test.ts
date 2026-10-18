@@ -25,7 +25,7 @@ function service() {
 test("private Project Copilot tool chats propagate a hard local-only/critical policy to the LLM facade", async () => {
   const { svc, forwarded } = service();
   const reply = await svc.chatWithTools({
-    tenantId: "tenant-A", userId: "user-A", agentId: "project-copilot",
+    tenantId: "tenant-A", userId: "user-A", agentId: "project-copilot", projectId: "project-A",
     message: "Summarize project evidence",
     context: { prometeoContext: "CONFIDENTIAL_OWNER_ONLY_DOC" },
     localOnly: true,
