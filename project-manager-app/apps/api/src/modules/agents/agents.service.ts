@@ -577,6 +577,8 @@ export class AgentsService {
     agentId?: string;
     threadId?: string;
     context?: Record<string, unknown>;
+    /** True when context contains private project/RAG data; enforced by the LLM router. */
+    localOnly?: boolean;
     tools: LLMToolDefinition[];
   }): Promise<ChatReply & { toolCalls: Array<{ toolName: string; toolUseId: string; input: Record<string, unknown> }> }> {
     const agentId = input.agentId ?? "assistant";
@@ -607,6 +609,9 @@ export class AgentsService {
           history,
           userMessage: input.message,
           tools: input.tools,
+          context: input.localOnly
+            ? { requiresTools: true, localOnly: true, privacyCritical: true, agentName: agentId, source: "private-project-copilot" }
+            : { requiresTools: true },
           maxTokens: 1024,
         });
 
