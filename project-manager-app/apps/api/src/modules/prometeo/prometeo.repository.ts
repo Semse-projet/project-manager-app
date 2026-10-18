@@ -71,15 +71,21 @@ export class PrometeoRepository {
 
   /** Always constrain ownership/project participation in SQL before take/pagination. */
   private documentWhere(input: { tenantId: string; projectId?: string; scope?: PrometeoListScopeFilter }): Prisma.PrometeoDocumentWhereInput {
+    // No legacy projectId by itself can grant another organization access.
+    // The historical ingestion route accepted unverified project associations.
+    // S0 is owner-org-only, even within an otherwise accessible project, until
+    // a server-verified project sharing grant is persisted and checked.
+    const permitted: Prisma.PrometeoDocumentWhereInput[] = [];
+    if (input.scope?.orgId) {
+      permitted.push({ projectId: null, orgId: input.scope.orgId });
+      if (input.scope.projectIds.length) {
+        permitted.push({ projectId: { in: input.scope.projectIds }, orgId: input.scope.orgId });
+      }
+    }
     return {
       tenantId: input.tenantId,
       ...(input.projectId ? { projectId: input.projectId } : {}),
-      ...(input.scope ? {
-        OR: [
-          { projectId: null, orgId: input.scope.orgId },
-          { projectId: { in: input.scope.projectIds } },
-        ],
-      } : {}),
+      ...(input.scope ? { OR: permitted.length ? permitted : [{ id: "__no_authorized_documents__" }] } : {}),
     };
   }
 
