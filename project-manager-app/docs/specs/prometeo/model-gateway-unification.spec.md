@@ -20,9 +20,6 @@ related_files:
   - apps/api/src/modules/ai-models/providers/glm.provider.ts
 related_tests:
   - apps/api/test/ai-model-router-privacy.test.ts
-  - apps/api/test/adaptive-router.test.ts
-  - apps/api/test/private-local-tool-router.test.ts
-  - apps/api/test/agents-private-copilot-routing.test.ts
 related_endpoints: []
 related_events: []
 related_agents:
@@ -210,9 +207,3 @@ providers (§5, punto 2) ya se obtuvo, no queda ningún bloqueo de producto.
 **No se modifica código en este spec.** Sigue el flujo `/speckit.plan` →
 `/speckit.tasks` → tests antes de código → `/speckit.implement`
 (`docs/SDD_GOVERNANCE.md`) como paso siguiente, no incluido en esta pasada.
-
-## Addendum P0 #974 / PR #987 — privacy hard constraints (REVIEW, not a new approval)
-
-This proposed amendment to the previously APPROVED gateway spec is **not independently approved or deployed**. The implementation branch changes the earlier capability table as follows: `localOnly` and `privacyCritical` **must yield only PRIVATE candidates**, and with no local model return a non-action/degraded result, not an unfiltered provider fallback. `preferredProvider` ranks *after* hard constraints and may never bypass them. Ollama's **local prompt-adapted tools** are counted as tool-capable only when the router/adapter verifies local execution. If a local tool-capable model is absent, Project Copilot must return a no-action fallback, never invented tool calls or a cloud model. The same prohibition applies to embedding outbound calls from private Prometeo sources: FTS fallback rather than external egress.
-
-Trace: `apps/api/src/infrastructure/llm/router/adaptive-router.ts`, `apps/api/src/modules/agents/agents.service.ts`, tests `adaptive-router.test.ts`, `private-local-tool-router.test.ts`, `agents-private-copilot-routing.test.ts`; proposed [ADR-046](../../architecture/ADR-046-prometeo-document-grants-private-model-routing.md). This addendum supplements the historic AS-IS snapshot at §2 without rewriting what was true on 2026-07-31. Human reviewer must accept/decline the addendum before production.
