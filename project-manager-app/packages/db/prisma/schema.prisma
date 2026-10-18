@@ -5582,3 +5582,51 @@ model StorageWriteGateAudit {
   @@unique([scope, idempotencyKey], map: "StorageWriteGateAudit_scope_idempotency_uniq")
   @@index([scope, occurredAt], map: "StorageWriteGateAudit_scope_occurredAt_idx")
 }
+
+/// BO-08: política de horario versionada por Org u obra. Dato, no regla fija (OPEN-09).
+model LaborSchedulePolicy {
+  id                         String    @id @default(cuid())
+  tenantId                   String
+  orgId                      String
+  scopeKey                   String // worksiteId o "ORG"
+  worksiteId                 String?
+  name                       String
+  version                    Int
+  status                     String    @default("ACTIVE") // ACTIVE | SUPERSEDED
+  weekdays                   Int[] // 0=domingo..6=sábado
+  scheduledStartMinute       Int // minutos desde medianoche local
+  scheduledEndMinute         Int
+  expectedBreakMinutes       Int       @default(0)
+  overtimeAfterMinutesPerDay Int?
+  createdByUserId            String
+  createdAt                  DateTime  @default(now())
+  supersededAt               DateTime?
+
+  @@unique([tenantId, orgId, scopeKey, version])
+  @@index([tenantId, orgId, scopeKey, status])
+}
+
+/// BO-08: corrección auditada de una hora. Guarda el original; nunca se edita en silencio.
+model LaborTimeCorrection {
+  id                   String    @id @default(cuid())
+  tenantId             String
+  orgId                String
+  timeEntryId          String
+  requestedByUserId    String
+  originalStartedAt    DateTime
+  originalEndedAt      DateTime?
+  originalBreakMinutes Int
+  proposedStartedAt    DateTime
+  proposedEndedAt      DateTime?
+  proposedBreakMinutes Int
+  reason               String
+  status               String    @default("PENDING") // PENDING | APPROVED | REJECTED | CANCELED
+  reviewedByUserId     String?
+  reviewNote           String?
+  reviewedAt           DateTime?
+  createdAt            DateTime  @default(now())
+
+  @@index([tenantId, orgId, status, createdAt])
+  @@index([timeEntryId, status])
+  @@index([requestedByUserId])
+}
