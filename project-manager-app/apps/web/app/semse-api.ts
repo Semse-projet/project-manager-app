@@ -1120,6 +1120,78 @@ export async function respondToOffer(offerId: string, decision: "ACCEPT" | "DECL
   return mutateSemse(`/api/semse/offers/${offerId}/respond`, { decision });
 }
 
+export type LaborPolicyView = {
+  policyId: string;
+  orgId: string;
+  worksiteId: string | null;
+  name: string;
+  version: number;
+  status: string;
+  weekdays: number[];
+  scheduledStartMinute: number;
+  scheduledEndMinute: number;
+  expectedBreakMinutes: number;
+  overtimeAfterMinutesPerDay: number | null;
+  createdAt: string;
+};
+
+export type LaborCorrectionView = {
+  correctionId: string;
+  orgId: string;
+  timeEntryId: string;
+  original: { startedAt: string; endedAt: string | null; breakMinutes: number };
+  proposed: { startedAt: string; endedAt: string | null; breakMinutes: number };
+  reason: string;
+  status: string;
+  reviewNote: string | null;
+  reviewedAt: string | null;
+  createdAt: string;
+};
+
+export async function fetchLaborPolicies(orgId: string): Promise<LaborPolicyView[]> {
+  return fetchSemse<LaborPolicyView[]>(`/api/semse/organizations/${orgId}/labor/policies`);
+}
+
+export async function createLaborPolicy(
+  orgId: string,
+  input: {
+    name: string;
+    weekdays: number[];
+    scheduledStartMinute: number;
+    scheduledEndMinute: number;
+    expectedBreakMinutes?: number;
+    overtimeAfterMinutesPerDay?: number;
+  }
+): Promise<LaborPolicyView> {
+  return mutateSemse(`/api/semse/organizations/${orgId}/labor/policies`, input);
+}
+
+export async function fetchOrgLaborCorrections(orgId: string, status?: string): Promise<LaborCorrectionView[]> {
+  return fetchSemse<LaborCorrectionView[]>(`/api/semse/organizations/${orgId}/labor/corrections${status ? `?status=${status}` : ""}`);
+}
+
+export async function reviewLaborCorrection(
+  orgId: string,
+  correctionId: string,
+  decision: "approve" | "reject",
+  note?: string
+): Promise<{ status: string }> {
+  return mutateSemse(`/api/semse/organizations/${orgId}/labor/corrections/${correctionId}/${decision}`, note ? { note } : {});
+}
+
+export async function fetchMyLaborCorrections(): Promise<LaborCorrectionView[]> {
+  return fetchSemse<LaborCorrectionView[]>("/api/semse/labor/corrections/mine");
+}
+
+export async function requestLaborCorrection(input: {
+  timeEntryId: string;
+  endedAt?: string;
+  breakMinutes?: number;
+  reason: string;
+}): Promise<LaborCorrectionView> {
+  return mutateSemse("/api/semse/labor/corrections", input);
+}
+
 export type UserView = {
   id: string;
   email: string;
