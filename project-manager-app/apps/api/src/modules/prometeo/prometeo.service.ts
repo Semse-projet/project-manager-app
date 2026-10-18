@@ -375,7 +375,6 @@ export class PrometeoService {
   }> {
     const batchSize = input.batchSize ?? 16;
     const dryRun = input.dryRun ?? false;
-    const stats = this.embedding.getStats();
     const privateProvider = "local_fts";
 
     // External embedding availability is not authorization to process private
