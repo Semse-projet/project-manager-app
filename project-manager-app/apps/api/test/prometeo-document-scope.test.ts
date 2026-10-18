@@ -263,7 +263,7 @@ test("document deletion is SQL-constrained by tenant and owning org, not only pr
       },
     },
   };
-  const prisma = { async $transaction(fn: (tx: typeof tx) => Promise<void>) { return fn(tx); } };
+  const prisma = { async $transaction(fn: (client: typeof tx) => Promise<void>) { return fn(tx); } };
   const repo = new PrometeoRepository(prisma as never);
   await assert.rejects(
     () => repo.deleteDocument({ tenantId: "tenant-A", id: "doc-B", orgId: "org-A" }),
@@ -287,7 +287,7 @@ test("document deletion audits active cascaded grants in the same transaction", 
       async create({ data }: { data: Record<string, unknown> }) { events.push(data); },
     },
   };
-  const prisma = { async $transaction(fn: (tx: typeof tx) => Promise<void>) { return fn(tx); } };
+  const prisma = { async $transaction(fn: (client: typeof tx) => Promise<void>) { return fn(tx); } };
   const repo = new PrometeoRepository(prisma as never);
   await repo.deleteDocument({ tenantId: "tenant-A", id: "doc-A", orgId: "org-A", actorUserId: "actor-A", requestId: "req-A" });
   assert.deepEqual(events.map(x => x.action), [
