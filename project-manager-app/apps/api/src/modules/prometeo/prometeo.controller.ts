@@ -571,7 +571,12 @@ export class PrometeoController {
     }
 
     const chunk = await this.svc.getChunkById(actor.tenantId, chunkId);
-    await this.access.assertRowAccess(actor, chunk ? await this.svc.getDocument(chunk.documentId) : null, "Prometeo chunk not found");
+    const doc = chunk ? await this.svc.getDocument(chunk.documentId) : null;
+    await this.access.assertRowAccess(actor, doc, "Prometeo chunk not found");
+    // Project participation cannot mutate legacy unverified documents owned by another org.
+    if (!isOpsAdmin(actor) && !sameOrg(actor.orgId, doc?.orgId)) {
+      throw new ForbiddenException("Only the owning organization can submit document feedback");
+    }
     try {
       const result = await this.svc.submitFeedback({
         tenantId: actor.tenantId,
