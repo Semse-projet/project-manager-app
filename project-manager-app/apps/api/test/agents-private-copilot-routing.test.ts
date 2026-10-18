@@ -62,3 +62,42 @@ test("project-copilot tool calls cannot disable private local inference even wit
     agentName: "project-copilot", source: "private-project-copilot",
   });
 });
+
+test("private Project Copilot explicitly reports unavailable local tools instead of inventing actions", async () => {
+  const llm = {
+    isAvailable: true,
+    async chatWithTools() {
+      return { text: "I completed your tool action", toolCalls: [], mode: "llm",
+        provider: "template", model: "static" };
+    },
+  };
+  const svc = new AgentsService(
+    {} as never, {} as never, {} as never, {} as never,
+    {} as never, {} as never, llm as never, {} as never,
+  );
+  const reply = await svc.chatWithTools({
+    tenantId: "tenant-A", userId: "user-A", agentId: "project-copilot",
+    projectId: "project-A", message: "Update this milestone",
+    context: { prometeoContext: "PRIVATE" }, tools: [{ name: "update_milestone", description: "test", inputSchema: {} }] as never,
+  });
+  assert.equal(reply.mode, "fallback");
+  assert.equal(reply.provider, "template");
+  assert.deepEqual(reply.toolCalls, []);
+  assert.match(reply.response, /No hay un modelo local con herramientas disponible/);
+  assert.doesNotMatch(reply.response, /completed your tool action/);
+});
+
+test("private Copilot with no LLM cannot misrepresent tool availability", async () => {
+  const svc = new AgentsService(
+    {} as never, {} as never, {} as never, {} as never,
+    {} as never, {} as never, { isAvailable: false } as never, {} as never,
+  );
+  const reply = await svc.chatWithTools({
+    tenantId: "tenant-A", userId: "user-A", agentId: "project-copilot",
+    projectId: "project-A", message: "Open private project tool",
+    tools: [{ name: "project_action", description: "test", inputSchema: {} }] as never,
+  });
+  assert.equal(reply.mode, "fallback");
+  assert.deepEqual(reply.toolCalls, []);
+  assert.match(reply.response, /No hay un modelo local con herramientas disponible/);
+});
