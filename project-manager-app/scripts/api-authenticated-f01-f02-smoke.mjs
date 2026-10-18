@@ -264,6 +264,57 @@ async function prometeoObjectScopeSmoke() {
   assert.ok(!proIds.has(ownerProject.doc.id),
     "Project membership alone cannot share a legacy document owned by another org");
 
+  const shares = "/v1/prometeo/documents/" + ownerProject.doc.id + "/shares";
+  await request("POST", shares, {
+    token: otherClient.token, body: { recipientOrgId: pro1.orgId }, expectedStatus: 403,
+  });
+  await request("POST", shares, {
+    token: foreignClient.token, body: { recipientOrgId: pro1.orgId }, expectedStatus: 404,
+  });
+  await request("POST", shares, {
+    token: owner.token, body: { recipientOrgId: otherClient.orgId }, expectedStatus: 403,
+  });
+  const grant = await request("POST", shares, {
+    token: owner.token, body: { recipientOrgId: pro1.orgId },
+  });
+  assert.equal(grant.data?.active, true);
+  assert.equal(grant.data?.recipientOrgId, pro1.orgId);
+  const grantedIds = await documentIds(pro1);
+  assert.ok(grantedIds.has(ownerProject.doc.id), "explicit grant must enable authorized pro read");
+
+  const proSearch = await request("POST", "/v1/prometeo/search", {
+    token: pro1.token, body: { query: ownerMarker + "_PROJECT", topK: 20 },
+  });
+  assert.ok(proSearch.data.some(chunk => chunk.documentId === ownerProject.doc.id),
+    "authorized grant must enable scoped RAG search");
+
+  const auditGranted = await prisma.auditLog.findFirst({
+    where: { tenantId: tenantA, entityType: "PrometeoDocumentGrant",
+      entityId: grant.data?.id, action: "PROMETEO_DOCUMENT_SHARE_GRANTED" },
+  });
+  assert.ok(auditGranted, "sharing must be durably audited before success response");
+
+  const revoked = await request("DELETE", shares + "/" + pro1.orgId, {
+    token: owner.token,
+  });
+  assert.equal(revoked.data?.revoked, true);
+  const revokedIds = await documentIds(pro1);
+  assert.ok(!revokedIds.has(ownerProject.doc.id), "revoke must immediately remove read access");
+  const afterRevoke = await request("POST", "/v1/prometeo/rag-context", {
+    token: pro1.token, body: { query: ownerMarker + "_PROJECT", topK: 20 },
+  });
+  assert.ok(!JSON.stringify(afterRevoke.data).includes(ownerMarker + "_PROJECT"),
+    "revoke must immediately remove RAG snippets and citations");
+  const auditRevoked = await prisma.auditLog.findFirst({
+    where: { tenantId: tenantA, entityType: "PrometeoDocumentGrant",
+      entityId: grant.data?.id, action: "PROMETEO_DOCUMENT_SHARE_REVOKED" },
+  });
+  assert.ok(auditRevoked, "revocation must be durably audited before success response");
+  await request("DELETE", shares + "/" + pro1.orgId, {
+    token: owner.token, expectedStatus: 404,
+  });
+  console.log("[PROMETEO SHARE] owner grant -> pro read -> revoke -> deny + audit PASS");
+
   const otherTenantIds = await documentIds(foreignClient);
   assert.ok(otherTenantIds.has(foreign.doc.id));
   assert.ok(!otherTenantIds.has(own.doc.id));
