@@ -274,11 +274,28 @@ async function prometeoObjectScopeSmoke() {
   await request("POST", shares, {
     token: owner.token, body: { recipientOrgId: otherClient.orgId }, expectedStatus: 403,
   });
-  const grant = await request("POST", shares, {
-    token: owner.token, body: { recipientOrgId: pro1.orgId },
-  });
+  // Send duplicate grant requests concurrently. Both must succeed with the
+  // SAME grant ID; a unique-index race must not leak as a 500 or double-audit.
+  const simultaneousGrants = await Promise.all([
+    request("POST", shares, { token: owner.token, body: { recipientOrgId: pro1.orgId } }),
+    request("POST", shares, { token: owner.token, body: { recipientOrgId: pro1.orgId } }),
+  ]);
+  const grant = simultaneousGrants[0];
   assert.equal(grant.data?.active, true);
   assert.equal(grant.data?.recipientOrgId, pro1.orgId);
+  assert.equal(simultaneousGrants[1]?.data?.active, true);
+  assert.equal(simultaneousGrants[1]?.data?.id, grant.data?.id,
+    "concurrent identical grants must be idempotent");
+  const duplicateGrantAudits = await prisma.auditLog.count({
+    where: {
+      tenantId: tenantA,
+      entityType: "PrometeoDocumentGrant",
+      entityId: grant.data?.id,
+      action: "prometeo.document_share_granted",
+    },
+  });
+  assert.equal(duplicateGrantAudits, 1,
+    "only one durable audit event is allowed for duplicate concurrent grants");
   const grantedIds = await documentIds(pro1);
   assert.ok(grantedIds.has(ownerProject.doc.id), "explicit grant must enable authorized pro read");
 
