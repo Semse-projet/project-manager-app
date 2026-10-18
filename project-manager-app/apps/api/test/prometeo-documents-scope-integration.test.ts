@@ -125,6 +125,37 @@ dbTest("P0: physical Postgres enforces document/chunk/feedback tenant and org is
     });
     assert.deepEqual(new Set(recorded.map(entry => entry.action)),
       new Set(["prometeo.document_deleted", "prometeo.document_share_revoked_by_delete"]));
+
+    // Two synchronized owner requests must produce a single deletion/audit set.
+    const competing = await create(tenantA, orgA, projectA);
+    const competingGrant = await prisma.prometeoDocumentGrant.create({ data: {
+      tenantId: tenantA, documentId: competing.doc.id, projectId: projectA,
+      recipientOrgId: orgB, grantedByUserId: "p0_test_user",
+    } });
+    let release!: () => void;
+    const startGate = new Promise<void>(resolve => { release = resolve; });
+    const twoDeletes = [0, 1].map(async (attempt) => {
+      await startGate;
+      return repo.deleteDocument({
+        tenantId: tenantA, id: competing.doc.id, orgId: orgA,
+        requestId: `concurrent-${attempt}`,
+      });
+    });
+    release();
+    const outcomes = await Promise.allSettled(twoDeletes);
+    assert.equal(outcomes.filter(result => result.status === "fulfilled").length, 1,
+      "exactly one concurrent deletion may commit");
+    const denied = outcomes.find(result => result.status === "rejected");
+    assert.ok(denied && denied.status === "rejected");
+    assert.equal((denied as PromiseRejectedResult).reason?.getStatus?.(), 404,
+      "losing concurrent delete must return stable 404, not a serialization 500");
+    const concurrentAudit = await prisma.auditLog.findMany({
+      where: { tenantId: tenantA, OR: [{ entityId: competing.doc.id }, { entityId: competingGrant.id }] },
+      select: { action: true },
+    });
+    assert.deepEqual(concurrentAudit.map(record => record.action).sort(),
+      ["prometeo.document_deleted", "prometeo.document_share_revoked_by_delete"].sort(),
+      "audits must be written exactly once even with racing delete requests");
   } finally {
     await prisma.tenant.deleteMany({ where: { id: { in: [tenantA, tenantB] } } });
     await prisma.$disconnect();
