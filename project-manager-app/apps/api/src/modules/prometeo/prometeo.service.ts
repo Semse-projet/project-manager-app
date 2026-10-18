@@ -1,4 +1,4 @@
-import { Injectable, Logger, Optional } from "@nestjs/common";
+import { BadRequestException, Injectable, Logger, Optional } from "@nestjs/common";
 import { GraphifyService } from "../graphify/graphify.service.js";
 import { ChunkerService } from "./chunker.service.js";
 import { DocumentParserService } from "./document-parser.service.js";
@@ -128,6 +128,17 @@ export class PrometeoService {
     sourceType?: string; trade?: string; visibility?: string;
     projectId?: string; metadataJson?: Record<string, unknown>;
   }): Promise<PrometeoDocumentRecord & { parseWarnings?: string[] }> {
+    // Internal callers get the same private-by-default policy as HTTP ingestion.
+    // A legacy public_training label must never be persisted as implied consent.
+    const visibility = input.projectId ? "project_private" : "tenant_private";
+    if (input.visibility !== undefined && input.visibility !== visibility) {
+      throw new BadRequestException(
+        input.visibility === "public_training"
+          ? "Public sharing requires approved explicit consent"
+          : "Document visibility must match its project association",
+      );
+    }
+
     // 1. Create doc record with status=parsing
     const doc = await this.repo.createDocument({
       tenantId: input.tenantId, orgId: input.orgId, projectId: input.projectId,
@@ -140,7 +151,7 @@ export class PrometeoService {
         originalFileName: input.fileName,
         mimeType: input.mimeType,
         trade: input.trade ?? "general",
-        visibility: input.visibility ?? "public_training",
+        visibility,
         status: "parsing",
       },
     });
