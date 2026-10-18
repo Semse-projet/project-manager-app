@@ -253,6 +253,8 @@ model Org {
   buildOpsTasks                 BuildOpsTask[]
   invitations                   OrgInvitation[]
   businessOffers                BusinessOffer[]
+  worksites                     Worksite[]
+  crews                         Crew[]
   businessEngagements           BusinessEngagement[]
   createdAt                     DateTime                       @default(now())
   updatedAt                     DateTime                       @updatedAt
@@ -285,6 +287,56 @@ model OrgInvitation {
 
   @@index([tenantId, orgId, status, createdAt])
   @@index([orgId, contactHash, status])
+}
+
+model Worksite {
+  id        String   @id @default(cuid())
+  tenantId  String
+  orgId     String
+  name      String
+  address   String?
+  status    String   @default("ACTIVE") // ACTIVE | ARCHIVED
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  org       Org      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  crews     Crew[]
+
+  @@index([tenantId, orgId, status])
+}
+
+model Crew {
+  id               String       @id @default(cuid())
+  tenantId         String
+  orgId            String
+  worksiteId       String?
+  name             String
+  supervisorUserId String
+  status           String       @default("ACTIVE") // ACTIVE | ARCHIVED
+  createdBy        String
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  org              Org          @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  worksite         Worksite?    @relation(fields: [worksiteId], references: [id], onDelete: SetNull)
+  members          CrewMember[]
+
+  @@index([tenantId, orgId, status])
+  @@index([supervisorUserId, status])
+}
+
+model CrewMember {
+  id        String    @id @default(cuid())
+  crewId    String
+  userId    String
+  status    String    @default("ACTIVE") // ACTIVE | REMOVED
+  addedBy   String
+  addedAt   DateTime  @default(now())
+  removedAt DateTime?
+  removedBy String?
+  crew      Crew      @relation(fields: [crewId], references: [id], onDelete: Cascade)
+
+  @@index([crewId, status])
+  @@index([userId, status])
 }
 
 model BusinessOffer {
