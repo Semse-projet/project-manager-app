@@ -151,3 +151,33 @@ test("project copilot can demand an active job without changing default project 
   );
   assert.deepEqual(calls, [false, true]);
 });
+
+test("active sharing grant for project A cannot be reported as active on reassigned project B", async () => {
+  let auditWrites = 0;
+  const doc = { id: "doc-A", tenantId: "tenant-A", orgId: "org-A", projectId: "project-B" };
+  const tx = {
+    prometeoDocument: { async findFirst() { return { id: doc.id }; } },
+    prometeoDocumentGrant: {
+      async findUnique() {
+        return { id: "grant-old", tenantId: "tenant-A", documentId: doc.id,
+          projectId: "project-A", recipientOrgId: "org-B", revokedAt: null };
+      },
+    },
+    auditLog: { async create() { auditWrites++; } },
+  };
+  const prisma = {
+    prometeoDocument: { async findFirst() { return doc; } },
+    async $transaction(fn: (tx: unknown) => Promise<unknown>) { return fn(tx); },
+  };
+  const resolver = {
+    async resolveProjectScope() {
+      return { tenantId: "tenant-A", clientOrgId: "org-A", assignedProOrgId: "org-B" };
+    },
+  };
+  const svc = new PrometeoDocumentGrantService(prisma as never, resolver as never);
+  await assert.rejects(
+    () => svc.grant(actor as never, doc.id, "org-B", "request-A"),
+    (e: any) => e.getStatus?.() === 409,
+  );
+  assert.equal(auditWrites, 0, "a rejected stale grant must not claim a new authorization");
+});
