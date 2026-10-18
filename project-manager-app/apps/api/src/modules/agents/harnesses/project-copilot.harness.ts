@@ -372,6 +372,7 @@ export class ProjectCopilotHarness {
       userId: actor.userId,
       message,
       agentId: "project-copilot",
+      projectId,
       threadId,
       context: llmContext,
       // Private RAG, workspace and operational context must never leave local inference.
