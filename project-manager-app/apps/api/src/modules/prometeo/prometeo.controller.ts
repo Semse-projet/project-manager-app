@@ -38,6 +38,15 @@ export class PrometeoController {
     return requested;
   }
 
+  /** Reject malformed optional project IDs before authorization or persistence. */
+  private ingestProjectId(body: Record<string, unknown>): string | undefined {
+    if (body.projectId === undefined || body.projectId === null) return undefined;
+    if (typeof body.projectId !== "string" || !body.projectId.trim()) {
+      throw new BadRequestException("projectId must be a non-empty string");
+    }
+    return body.projectId.trim();
+  }
+
   // ── RAG Documents ───────────────────────────────────────────────────────────
 
   @Get("tools")
@@ -138,7 +147,7 @@ export class PrometeoController {
     const actor = resolveRequestContext(req);
     const rid = resolveRequestId(req.headers ?? {});
     const b = body as Record<string, unknown>;
-    const projectId = typeof b.projectId === "string" ? b.projectId : undefined;
+    const projectId = this.ingestProjectId(b);
     await this.access.assertCanCreate(actor, { projectId });
     const trade = typeof b.trade === "string" ? b.trade : "general";
     const visibility = this.documentVisibility(b, projectId);
@@ -166,7 +175,7 @@ export class PrometeoController {
     const mimeType = typeof b.mimeType === "string" ? b.mimeType : "text/plain";
     const fileName = typeof b.fileName === "string" ? b.fileName : "document";
     const title    = typeof b.title === "string" ? b.title.trim() : fileName;
-    const projectId = typeof b.projectId === "string" ? b.projectId : undefined;
+    const projectId = this.ingestProjectId(b);
     await this.access.assertCanCreate(actor, { projectId });
     const visibility = this.documentVisibility(b, projectId);
 
