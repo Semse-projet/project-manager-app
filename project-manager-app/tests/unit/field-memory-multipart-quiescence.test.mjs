@@ -1,10 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { mkdtemp, mkdir, writeFile, readFile, rm, symlink } from "node:fs/promises";
+import { mkdtemp, mkdir, writeFile, readFile, realpath, rm, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { inspectMultipartQuiescence } from "../../scripts/field-memory-multipart-quiescence.mjs";
+import { inspectMultipartQuiescence, realStorageOnPersistentMount } from "../../scripts/field-memory-multipart-quiescence.mjs";
 
 async function fixture(t) {
   const root=await mkdtemp(path.join(tmpdir(),"semse-multipart-preflight-"));
@@ -108,6 +108,25 @@ test("symlink entries in parts are never followed or reported by private name",a
   assert.equal(r.result,"BLOCKED");
   assert.equal(r.reason,"multipart_unreadable_or_unsafe");
   assert.ok(!JSON.stringify(r).includes(secret));
+});
+
+test("canonical-volume check refuses a symlinked parent escaping a nominal mount", async t => {
+  const sandbox=await mkdtemp(path.join(tmpdir(),"semse-t008-symlink-ancestor-"));
+  t.after(()=>rm(sandbox,{recursive:true,force:true}));
+  const fakeMount=path.join(sandbox,"volume");
+  const elsewhere=path.join(sandbox,"ephemeral");
+  await mkdir(fakeMount);
+  await mkdir(path.join(elsewhere,"storage","multipart"),{recursive:true});
+  await symlink(elsewhere,path.join(fakeMount,"via-link"),
+    process.platform==="win32"?"junction":"dir");
+  const apparentStorage=path.join(fakeMount,"via-link","storage");
+  assert.equal(apparentStorage.startsWith(fakeMount+path.sep),true,
+    "the nominal path looks like it belongs to the volume");
+  const physicalStorage=await realpath(apparentStorage);
+  assert.equal(realStorageOnPersistentMount(physicalStorage,fakeMount),false,
+    "a symlink in any ancestor cannot pass persistent-volume attestation");
+  assert.equal(realStorageOnPersistentMount(
+    path.join(fakeMount,"genuine-storage"),fakeMount),true);
 });
 
 test("missing environment cannot be interpreted as an empty multipart root",async()=>{
