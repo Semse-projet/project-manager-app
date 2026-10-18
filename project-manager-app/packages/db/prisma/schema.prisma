@@ -2403,9 +2403,29 @@ model PrometeoDocument {
 
   tenant Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   chunks DocumentChunk[]
+  grants PrometeoDocumentGrant[]
 
   @@index([tenantId, projectId, status])
   @@index([tenantId, sourceType])
+}
+
+/// Auditable, explicitly approved document access for one project participant organization.
+/// Active grants are filtered with revokedAt IS NULL on every retrieval.
+model PrometeoDocumentGrant {
+  id              String    @id @default(cuid())
+  tenantId        String
+  documentId      String
+  projectId       String
+  recipientOrgId  String
+  grantedByUserId String
+  createdAt       DateTime  @default(now())
+  revokedAt       DateTime?
+  revokedByUserId String?
+
+  document PrometeoDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, recipientOrgId])
+  @@index([tenantId, recipientOrgId, projectId, revokedAt])
 }
 
 /// A text chunk of a PrometeoDocument with its embedding vector (stored as JSON float array).

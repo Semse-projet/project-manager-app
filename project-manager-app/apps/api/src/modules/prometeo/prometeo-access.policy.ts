@@ -29,7 +29,7 @@ export class PrometeoAccessPolicy {
   async assertCanCreate(actor: ScopeActor, assoc: { projectId?: string; jobId?: string }): Promise<void> {
     this.assertHasOwner(actor);
     if (assoc.projectId) {
-      const scope = await this.resolver.resolveProjectScope(actor.tenantId, assoc.projectId);
+      const scope = await this.resolver.resolveProjectScope(actor.tenantId, assoc.projectId, true);
       if (!scope) throw new NotFoundException("Project not found");
       assertScopeAccess(actor, scope, "read", "Actor cannot access this project", "Project not found");
     }
@@ -47,7 +47,7 @@ export class PrometeoAccessPolicy {
 
   /** Listar filtrando por un proyecto concreto: el actor debe participar en él. */
   async assertProjectFilter(actor: ScopeActor, projectId: string): Promise<void> {
-    const scope = await this.resolver.resolveProjectScope(actor.tenantId, projectId);
+    const scope = await this.resolver.resolveProjectScope(actor.tenantId, projectId, true);
     if (!scope) throw new NotFoundException("Project not found");
     assertScopeAccess(actor, scope, "read", "Actor cannot access this project", "Project not found");
   }
@@ -57,7 +57,7 @@ export class PrometeoAccessPolicy {
     if (isOpsAdmin(actor)) return undefined;
     if (!actor.orgId) return { orgId: "", projectIds: [], jobIds: [] };
     const [projectIds, jobIds] = await Promise.all([
-      this.resolver.listAccessibleProjectIds(actor.tenantId, actor.orgId),
+      this.resolver.listAccessibleProjectIds(actor.tenantId, actor.orgId, "read", true),
       this.resolver.listAccessibleJobIds(actor.tenantId, actor.orgId),
     ]);
     return { orgId: actor.orgId, projectIds, jobIds };
@@ -69,7 +69,7 @@ export class PrometeoAccessPolicy {
     if (isOpsAdmin(actor)) return;
     if (row.projectId) {
       // Asociada a un proyecto: rigen SUS permisos; un proyecto que ya no existe en el tenant solo lo ve OPS_ADMIN.
-      const scope = await this.resolver.resolveProjectScope(actor.tenantId, row.projectId);
+      const scope = await this.resolver.resolveProjectScope(actor.tenantId, row.projectId, true);
       if (!scope || !hasScopeAccess(actor, scope, "read")) throw new ForbiddenException("Actor cannot access this resource");
       return;
     }

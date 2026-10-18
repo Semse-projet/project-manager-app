@@ -160,6 +160,7 @@ retroactiva.
 | [prometeo.chat-evidence](specs/prometeo/chat-evidence.spec.md) | prometeo | APPROVED | IN_PROGRESS | PASS | MERGED | DEPLOYED | ACTIVE | high | yes | 2026-10-10 |
 | [prometeo.conversation-intelligence](specs/prometeo/conversation-intelligence-foundation.spec.md) | prometeo | APPROVED | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-10-06 |
 | [prometeo.decision-ledger](specs/prometeo/decision-ledger.spec.md) | prometeo | REVIEW | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | no | 2026-10-04 |
+| [prometeo.document-sharing-grants](specs/prometeo/document-sharing-grants.spec.md) | prometeo | REVIEW | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | yes | 2026-10-17 |
 | [prometeo.jev-decision-layer](specs/prometeo/jev-decision-layer.spec.md) | prometeo | APPROVED | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | yes | 2026-09-24 |
 | [prometeo.jev-human-review-queue](specs/prometeo/jev-human-review-queue.spec.md) | prometeo | APPROVED | COMPLETE | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | yes | 2026-09-26 |
 | [prometeo.live-sessions](specs/prometeo/live-sessions.spec.md) | prometeo | APPROVED | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | no | 2026-09-07 |

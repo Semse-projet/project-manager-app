@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
+import type { Prisma } from "@prisma/client";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import type { EmbeddingVector } from "./embedding.service.js";
 
@@ -68,9 +69,45 @@ export class PrometeoRepository {
     });
   }
 
-  async listDocuments(input: { tenantId: string; projectId?: string; limit?: number }): Promise<PrometeoDocumentRecord[]> {
+  /** Always constrain ownership/project participation in SQL before take/pagination. */
+  private documentWhere(input: { tenantId: string; projectId?: string; scope?: PrometeoListScopeFilter }): Prisma.PrometeoDocumentWhereInput {
+    // No legacy projectId by itself can grant another organization access.
+    // The historical ingestion route accepted unverified project associations.
+    // S0 is owner-org-only, even within an otherwise accessible project, until
+    // a server-verified project sharing grant is persisted and checked.
+    const permitted: Prisma.PrometeoDocumentWhereInput[] = [];
+    if (input.scope?.orgId) {
+      permitted.push({ projectId: null, orgId: input.scope.orgId });
+      if (input.scope.projectIds.length) {
+        permitted.push({ projectId: { in: input.scope.projectIds }, orgId: input.scope.orgId });
+        // Each grant must match the SAME project as its document. Two separate
+        // "in accessibleProjects" checks would allow an old grant for project A
+        // to authorize a document later reassociated with accessible project B.
+        for (const projectId of input.scope.projectIds) {
+          permitted.push({
+            projectId,
+            grants: {
+              some: {
+                tenantId: input.tenantId,
+                recipientOrgId: input.scope.orgId,
+                projectId,
+                revokedAt: null,
+              },
+            },
+          });
+        }
+      }
+    }
+    return {
+      tenantId: input.tenantId,
+      ...(input.projectId ? { projectId: input.projectId } : {}),
+      ...(input.scope ? { OR: permitted.length ? permitted : [{ id: "__no_authorized_documents__" }] } : {}),
+    };
+  }
+
+  async listDocuments(input: { tenantId: string; projectId?: string; limit?: number; scope?: PrometeoListScopeFilter }): Promise<PrometeoDocumentRecord[]> {
     return this.prisma.prometeoDocument.findMany({
-      where: { tenantId: input.tenantId, ...(input.projectId ? { projectId: input.projectId } : {}) },
+      where: this.documentWhere(input),
       orderBy: { createdAt: "desc" }, take: input.limit ?? 50,
     }) as Promise<PrometeoDocumentRecord[]>;
   }
@@ -79,11 +116,12 @@ export class PrometeoRepository {
     return this.prisma.prometeoDocument.findUnique({ where: { id } }) as Promise<PrometeoDocumentRecord | null>;
   }
 
-  async deleteDocument(input: { tenantId: string; id: string }): Promise<void> {
+  async deleteDocument(input: { tenantId: string; id: string; orgId?: string }): Promise<void> {
     const result = await this.prisma.prometeoDocument.deleteMany({
       where: {
         id: input.id,
         tenantId: input.tenantId,
+        ...(input.orgId !== undefined ? { orgId: input.orgId } : {}),
       },
     });
     if (result.count !== 1) {
@@ -91,9 +129,9 @@ export class PrometeoRepository {
     }
   }
 
-  async loadChunksForSearch(input: { tenantId: string; projectId?: string; limit?: number }): Promise<PrometeoChunkSearchRow[]> {
+  async loadChunksForSearch(input: { tenantId: string; projectId?: string; limit?: number; scope?: PrometeoListScopeFilter }): Promise<PrometeoChunkSearchRow[]> {
     const docs = await this.prisma.prometeoDocument.findMany({
-      where: { tenantId: input.tenantId, status: "indexed", ...(input.projectId ? { projectId: input.projectId } : {}) },
+      where: { ...this.documentWhere(input), status: "indexed" },
       select: { id: true },
     });
     if (docs.length === 0) return [];
@@ -174,9 +212,15 @@ export class PrometeoRepository {
     return result;
   }
 
-  async getFeedbackStats(tenantId: string) {
+  async getFeedbackStats(tenantId: string, scope?: PrometeoListScopeFilter) {
+    const authorizedDocuments = scope
+      ? await this.prisma.prometeoDocument.findMany({ where: this.documentWhere({ tenantId, scope }), select: { id: true } })
+      : undefined;
+    if (authorizedDocuments && authorizedDocuments.length === 0) {
+      return { totalFeedback: 0, chunksWithFeedback: 0, byType: {}, topDocuments: [], lastFeedbackAt: null };
+    }
     const rows = await this.prisma.prometeoChunkFeedback.findMany({
-      where: { tenantId },
+      where: { tenantId, ...(authorizedDocuments ? { documentId: { in: authorizedDocuments.map(d => d.id) } } : {}) },
       select: { chunkId: true, documentId: true, type: true, createdAt: true },
       orderBy: { createdAt: "desc" },
       take: 1000,

@@ -316,12 +316,17 @@ export class ProjectCopilotHarness {
         limit: 10,
       }).catch(() => null),
       this.usersRepository.findProfile(actor.userId).catch(() => null),
-      this.prometeoService.buildRagContext({
-        tenantId: actor.tenantId,
-        projectId,
-        query: message,
-        topK: 4,
-      }).catch(() => null),
+      // A project may have become archived/deleted since the run() preflight.
+      // Fail closed for private RAG unless its linked job remains active.
+      this.projectAccess.assertProjectAccess(actor, projectId, true)
+        .then(() => this.prometeoService.buildRagContext({
+          tenantId: actor.tenantId,
+          projectId,
+          scope: { orgId: actor.orgId, projectIds: [projectId], jobIds: [] },
+          query: message,
+          topK: 4,
+        }))
+        .catch(() => null),
       this.operationalContextService.buildContext({
         tenantId: actor.tenantId,
         orgId: actor.orgId,
