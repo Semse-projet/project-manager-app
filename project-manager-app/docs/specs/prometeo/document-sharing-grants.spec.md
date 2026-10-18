@@ -3,7 +3,7 @@ id: "prometeo.document-sharing-grants"
 title: "Compartición explícita y revocable de documentos Prometeo"
 sdd_version: "2.0"
 domain: "prometeo"
-version: "1.0"
+version: "1.1"
 status: "REVIEW"
 owner: "semse-core"
 risk: "critical"
@@ -20,23 +20,46 @@ related_files:
   - apps/api/src/modules/prometeo/prometeo.controller.ts
   - apps/api/src/modules/prometeo/prometeo.repository.ts
   - apps/api/src/modules/prometeo/prometeo.module.ts
+  - apps/api/src/modules/prometeo/prometeo.service.ts
+  - apps/api/src/modules/prometeo/prometeo-access.policy.ts
+  - apps/api/src/modules/prometeo/trade-guide.service.ts
+  - apps/api/src/common/resource-scope.resolver.ts
+  - apps/api/src/modules/agents/agents.service.ts
+  - apps/api/src/modules/agents/harnesses/project-copilot.harness.ts
+  - apps/api/src/modules/operational-intelligence/evidence-review.service.ts
+  - apps/api/src/infrastructure/llm/router/adaptive-router.ts
+  - apps/api/src/infrastructure/llm/embedding.service.ts
+  - apps/web/app/(app)/admin/prometeo/page.tsx
   - packages/db/prisma/schema.prisma
   - packages/db/prisma/migrations/20261017213000_prometeo_document_grants/migration.sql
   - scripts/api-authenticated-f01-f02-smoke.mjs
 related_tests:
   - apps/api/test/prometeo-documents-scope-integration.test.ts
+  - apps/api/test/prometeo-document-scope.test.ts
+  - apps/api/test/prometeo-live-project-scope.test.ts
+  - apps/api/test/prometeo-private-embeddings.test.ts
+  - apps/api/test/agents-thread-owner-scope.test.ts
+  - apps/api/test/agents-private-copilot-routing.test.ts
+  - apps/api/test/evidence-review-rag-scope.test.ts
+  - apps/api/test/adaptive-router.test.ts
+  - apps/api/test/private-local-tool-router.test.ts
   - scripts/api-authenticated-f01-f02-smoke.mjs
 related_endpoints:
+  - "DELETE /v1/prometeo/documents/:id"
   - "POST /v1/prometeo/documents/:id/shares"
   - "DELETE /v1/prometeo/documents/:id/shares/:recipientOrgId"
-related_events: []
+related_events:
+  - prometeo.document_share_granted
+  - prometeo.document_share_revoked
+  - prometeo.document_share_revoked_by_delete
+  - prometeo.document_deleted
 related_agents: ["prometeo"]
-last_verified: "2026-10-17"
+last_verified: "2026-10-18"
 ---
 
 # Prometeo Document Sharing Grants — P0/C51 S1
 
-Status: DRAFT — requires CI, authenticated integration, security review; must not deploy standalone.
+Status: REVIEW — requires owner/security approval of contract, current-HEAD CI, authenticated staging and independent sign-off; must not deploy standalone.
 Depends on: PR #977 (S0 owner-only server-side RAG/document scope). Tracks issue #974.
 
 ## Invariants
@@ -79,3 +102,15 @@ Design pending independent approval (this spec stays in `REVIEW`):
 - Migration applies only to a fresh isolated database in CI/staging pending approval. Do not edit any already-deployed production schema or automatically backfill old data.
 - Tests: Prisma filters with many project IDs keep constant OR cardinality; PostgreSQL refuses cross-project and cross-tenant grant insertion and rejects silent reassociation while a grant exists; authorized grant/revoke and audit-delete flows still pass.
 - This design must be signed off with the spec and release plan before merging into production.
+
+## SDD governance and scope traceability (2026-10-18)
+
+This document is **REVIEW**, not authorization to merge or activate the implementation. The code on draft PR #987 is provisional and ahead of approval. Human owner/security sign-off must explicitly cover this design and the composite-key amendment before status may change. The author of this update cannot self-approve it.
+
+- Plan: [document-sharing-grants.plan.md](document-sharing-grants.plan.md); tasks: [document-sharing-grants.tasks.md](document-sharing-grants.tasks.md); checklist: [document-sharing-grants.checklist.md](document-sharing-grants.checklist.md).
+- Architecture decision proposed (not accepted): [ADR-046](../../architecture/ADR-046-prometeo-document-grants-private-model-routing.md), including add-on read grants to ResourceScope, mandatory local-only private inference, and no-cloud embeddings/FTS degradation.
+- S0 document/tenant/org scope and legacy labels, S1 project grant/revoke/audit, S2 agent/project thread ownership and local-only RAG are **separable logical slices** despite the consolidated integration branch. No production activation should infer that all are approved together.
+- Canonical audit catalog: `prometeo.document_share_granted`, `prometeo.document_share_revoked`, `prometeo.document_share_revoked_by_delete`, `prometeo.document_deleted`. AuditLog action naming is verified at code-level; staging traces are outstanding.
+- `projectId` and `tenantId` of documents that have linked grants cannot be reassigned silently. The `ON UPDATE RESTRICT` composite FK and `UNIQUE(id,tenantId,projectId)` parent key enforce the boundary at PostgreSQL level. Approved reassociation workflow is **not implemented** and must be a separate guarded command, not ad-hoc Prisma updates.
+- The existing `public_training` metadata is historical descriptive data, **not consent**. Project-less documents owned by OPS remain private; cross-organization contributor knowledge promotion is tracked in #992, with no automatic backfill, publication or grant.
+- Operational invariants and dependent contracts: `platform.resource-scope` (actor/org/project/job scope), `prometeo.model-gateway-unification` (privacy hard constraints), `api-prometeo-rag-trade-knowledge` (private embeddings/FTS), `api-prometeo-copilot` (thread and tool fallback) and `prometeo.chat-evidence` (authorized evidence/RAG).
