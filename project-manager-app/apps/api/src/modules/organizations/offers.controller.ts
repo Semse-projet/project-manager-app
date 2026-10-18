@@ -14,7 +14,6 @@ const idSchema = z.string().trim().min(1).max(64);
 const createSchema = z.object({
   recipientUserId: idSchema,
   positionTitle: z.string().trim().min(2).max(120),
-  classification: z.enum(["W2", "1099", "OTHER"]),
   startsAt: z.coerce.date().optional(),
   compensationNote: z.string().trim().max(500).optional(),
   expiresInDays: z.number().int().min(1).max(30).optional()

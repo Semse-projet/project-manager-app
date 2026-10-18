@@ -102,7 +102,6 @@ export const rolePermissions: Record<string, string[]> = {
     "org:members:invite",
     "org:invitations:read",
     "org:invitations:cancel",
-    "org:offers:manage",
     "org:crews:manage",
     "users:read",
     "users:memberships:read",

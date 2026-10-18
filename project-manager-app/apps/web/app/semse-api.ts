@@ -1081,7 +1081,6 @@ export type BusinessOfferView = {
   orgId: string;
   recipientUserId: string;
   positionTitle: string;
-  classification: string;
   startsAt: string | null;
   compensationNote: string | null;
   status: string;
@@ -1096,7 +1095,7 @@ export async function fetchOrgOffers(orgId: string): Promise<BusinessOfferView[]
 
 export async function createOrgOffer(
   orgId: string,
-  input: { recipientUserId: string; positionTitle: string; classification: "W2" | "1099" | "OTHER"; compensationNote?: string }
+  input: { recipientUserId: string; positionTitle: string; compensationNote?: string }
 ): Promise<BusinessOfferView> {
   return mutateSemse(`/api/semse/organizations/${orgId}/offers`, input);
 }

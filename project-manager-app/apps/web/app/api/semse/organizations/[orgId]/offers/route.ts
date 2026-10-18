@@ -29,8 +29,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ or
     const body = (await request.json()) as Record<string, unknown>;
     const recipientUserId = typeof body.recipientUserId === "string" ? body.recipientUserId.trim() : "";
     const positionTitle = typeof body.positionTitle === "string" ? body.positionTitle.trim() : "";
-    const classification = typeof body.classification === "string" ? body.classification : "";
-    if (!recipientUserId || positionTitle.length < 2 || !["W2", "1099", "OTHER"].includes(classification)) {
+    if (!recipientUserId || positionTitle.length < 2) {
       return NextResponse.json({ error: { status: 400, message: "Invalid offer payload" } }, { status: 400 });
     }
     const compensationNote = typeof body.compensationNote === "string" && body.compensationNote.trim() ? body.compensationNote.trim() : undefined;
@@ -40,7 +39,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ or
       {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ recipientUserId, positionTitle, classification, ...(compensationNote ? { compensationNote } : {}) })
+        body: JSON.stringify({ recipientUserId, positionTitle, ...(compensationNote ? { compensationNote } : {}) })
       }
     );
     return NextResponse.json({ data });
