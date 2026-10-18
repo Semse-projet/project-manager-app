@@ -80,6 +80,17 @@ export class PrometeoRepository {
       permitted.push({ projectId: null, orgId: input.scope.orgId });
       if (input.scope.projectIds.length) {
         permitted.push({ projectId: { in: input.scope.projectIds }, orgId: input.scope.orgId });
+        permitted.push({
+          projectId: { in: input.scope.projectIds },
+          grants: {
+            some: {
+              tenantId: input.tenantId,
+              recipientOrgId: input.scope.orgId,
+              projectId: { in: input.scope.projectIds },
+              revokedAt: null,
+            },
+          },
+        });
       }
     }
     return {
