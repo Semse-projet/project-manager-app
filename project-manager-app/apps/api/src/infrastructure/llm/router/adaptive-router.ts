@@ -2,8 +2,9 @@ import { Injectable, Logger } from "@nestjs/common";
 import { ProviderMetricsStore } from "../metrics/provider-metrics.store.js";
 import type { CopilotRoutingContext, LLMProviderName, TaskType } from "../types.js";
 
-// Providers that support tool calling natively
-const TOOL_CAPABLE: ReadonlySet<LLMProviderName> = new Set(["anthropic", "openai"]);
+// Includes Ollama prompt-adapted JSON tool calls (parsePromptToolCall), not only
+// native tool APIs. This is essential for private local-only Copilot actions.
+const TOOL_CAPABLE: ReadonlySet<LLMProviderName> = new Set(["anthropic", "openai", "ollama"]);
 // Providers that can handle sensitive/high-risk tasks
 const RISK_SAFE: ReadonlySet<LLMProviderName> = new Set(["anthropic", "openai"]);
 // Providers for private/local inference
