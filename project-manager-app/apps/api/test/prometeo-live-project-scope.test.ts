@@ -81,6 +81,38 @@ test("a grant cannot be created for a document whose project job is deleted", as
   assert.equal(transactionStarted, false);
 });
 
+test("simultaneous duplicate document grants retry and remain idempotent without duplicate audit", async () => {
+  let attempts = 0;
+  let auditWrites = 0;
+  const granted = { id: "grant-A", documentId: "doc-A", projectId: "project-A",
+    recipientOrgId: "org-B", revokedAt: null };
+  const tx = {
+    prometeoDocument: { async findFirst() { return { id: "doc-A" }; } },
+    prometeoDocumentGrant: {
+      async findUnique() { return attempts === 1 ? null : granted; },
+      async create() { throw Object.assign(new Error("unique constraint race"), { code: "P2002" }); },
+    },
+    auditLog: { async create() { auditWrites++; } },
+  };
+  const prisma = {
+    prometeoDocument: { async findFirst() { return {
+      id: "doc-A", tenantId: "tenant-A", orgId: "org-A", projectId: "project-A",
+    }; } },
+    async $transaction(fn: (client: typeof tx) => Promise<unknown>) {
+      attempts++;
+      return fn(tx);
+    },
+  };
+  const resolver = { async resolveProjectScope() { return {
+    clientOrgId: "org-A", assignedProOrgId: "org-B",
+  }; } };
+  const service = new PrometeoDocumentGrantService(prisma as never, resolver as never);
+  const result = await service.grant(actor as never, "doc-A", "org-B", "req-duplicate");
+  assert.equal(result.id, "grant-A");
+  assert.equal(attempts, 2);
+  assert.equal(auditWrites, 0, "retry must not duplicate the grant audit event");
+});
+
 test("default shared resolver behavior is unchanged for non-Prometeo callers", async () => {
   const predicates: Array<Record<string, unknown>> = [];
   const prisma = {
