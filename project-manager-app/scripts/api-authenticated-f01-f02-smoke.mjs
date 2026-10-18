@@ -200,6 +200,123 @@ async function f02() {
   console.log("[F02] authenticated private CRM isolation PASS", { leadId, realUserPilot: false });
 }
 
+/**
+ * Prometeo P0 #974: exercise the real auth guard + HTTP controller + SQL
+ * repository against the temporary Postgres16 service on localhost:4001.
+ * Documents are DB fixtures because CLIENT/PRO cannot manage the library.
+ * This must never be used against staging or production databases.
+ */
+async function prometeoObjectScopeSmoke() {
+  const [owner, otherClient, pro1, , foreignClient] = persons;
+  const ownerMarker = "PROMETEO_P0_OWNER_" + runId;
+  const otherMarker = "PROMETEO_P0_OTHER_" + runId;
+  const foreignMarker = "PROMETEO_P0_FOREIGN_" + runId;
+
+  const sharedProject = await prisma.project.findFirst({
+    where: { tenantId: tenantA, job: { clientOrgId: owner.orgId }, assignedProOrgId: pro1.orgId },
+    select: { id: true },
+  });
+  assert.ok(sharedProject?.id, "F01 should create a project with an authorized client and pro");
+
+  async function documentFor(actor, marker, projectId) {
+    const doc = await prisma.prometeoDocument.create({
+      data: {
+        tenantId: actor.tenantId, orgId: actor.orgId,
+        ...(projectId ? { projectId } : {}),
+        title: marker, sourceType: "text", uploadedById: actor.userId,
+        status: "indexed", chunkCount: 1,
+        // Legacy labels have NO effect on authorization.
+        metadataJson: { visibility: "public_training", trade: "electrical" },
+      },
+    });
+    const chunk = await prisma.documentChunk.create({
+      data: {
+        tenantId: actor.tenantId, documentId: doc.id,
+        chunkIndex: 0, text: marker + " electrical isolation test",
+        tokenCount: 5, embeddingJson: [0, 0], metadataJson: { trade: "electrical" },
+      },
+    });
+    return { doc, chunk };
+  }
+
+  const own = await documentFor(owner, ownerMarker);
+  const ownerProject = await documentFor(owner, ownerMarker + "_PROJECT", sharedProject.id);
+  const unrelated = await documentFor(otherClient, otherMarker);
+  const foreign = await documentFor(foreignClient, foreignMarker);
+
+  const documentIds = async actor => {
+    const res = await request("GET", "/v1/prometeo/documents", { token: actor.token });
+    assert.ok(Array.isArray(res.data), "Prometeo list must return an array");
+    return new Set(res.data.map(d => d.id));
+  };
+  const ownerIds = await documentIds(owner);
+  assert.ok(ownerIds.has(own.doc.id));
+  assert.ok(ownerIds.has(ownerProject.doc.id));
+  assert.ok(!ownerIds.has(unrelated.doc.id));
+  assert.ok(!ownerIds.has(foreign.doc.id));
+
+  const peerIds = await documentIds(otherClient);
+  assert.ok(peerIds.has(unrelated.doc.id));
+  assert.ok(!peerIds.has(own.doc.id));
+  assert.ok(!peerIds.has(ownerProject.doc.id));
+
+  const proIds = await documentIds(pro1);
+  assert.ok(!proIds.has(ownerProject.doc.id),
+    "Project membership alone cannot share a legacy document owned by another org");
+
+  const otherTenantIds = await documentIds(foreignClient);
+  assert.ok(otherTenantIds.has(foreign.doc.id));
+  assert.ok(!otherTenantIds.has(own.doc.id));
+
+  // Authorized project filtering is checked by the API before retrieval.
+  await request("GET", "/v1/prometeo/documents?projectId=" + encodeURIComponent(sharedProject.id), {
+    token: otherClient.token, expectedStatus: 403,
+  });
+  const proProjectView = await request("GET", "/v1/prometeo/documents?projectId=" + encodeURIComponent(sharedProject.id), {
+    token: pro1.token,
+  });
+  assert.ok(!proProjectView.data.some(d => d.id === ownerProject.doc.id));
+
+  const searchAs = async (actor, query) => request("POST", "/v1/prometeo/search", {
+    token: actor.token, body: { query, topK: 20 },
+  });
+  const peerSearch = await searchAs(otherClient, ownerMarker);
+  assert.ok(!peerSearch.data.some(chunk => chunk.documentId === own.doc.id || chunk.documentId === ownerProject.doc.id),
+    "RAG search cannot return another org's chunk even for an exact secret query");
+  const foreignSearch = await searchAs(foreignClient, ownerMarker);
+  assert.ok(!foreignSearch.data.some(chunk => chunk.documentId === own.doc.id));
+
+  const ctx = await request("POST", "/v1/prometeo/rag-context", {
+    token: otherClient.token, body: { query: ownerMarker, topK: 20 },
+  });
+  assert.ok(!JSON.stringify(ctx.data).includes(ownerMarker),
+    "RAG context must not reveal another org's marker, excerpts or citations");
+
+  const denied = await request("POST", "/v1/prometeo/chunks/" + own.chunk.id + "/feedback", {
+    token: otherClient.token, body: { type: "confirm" }, expectedStatus: 403,
+  });
+  assert.equal(denied.status, 403);
+  await request("POST", "/v1/prometeo/chunks/" + own.chunk.id + "/feedback", {
+    token: foreignClient.token, body: { type: "confirm" }, expectedStatus: 404,
+  });
+  const allowed = await request("POST", "/v1/prometeo/chunks/" + own.chunk.id + "/feedback", {
+    token: owner.token, body: { type: "confirm" },
+  });
+  assert.equal(allowed.data?.recorded, true);
+
+  const peerStats = await request("GET", "/v1/prometeo/feedback/stats", { token: otherClient.token });
+  assert.ok(!peerStats.data?.topDocuments?.some(x => x.documentId === own.doc.id));
+
+  // Authorization proof must come from the signed session, not forged headers.
+  await request("GET", "/v1/prometeo/documents", {
+    expectedStatus: 401,
+    spoofedHeaders: { "x-user-id": owner.userId, "x-org-id": owner.orgId, "x-tenant-id": tenantA, "x-roles": "OPS_ADMIN" },
+  });
+  console.log("[PROMETEO P0] signed-session multi-org + RAG + feedback isolation PASS", {
+    ownerDocumentCount: ownerIds.size, crossTenantBlocked: true, realUserPilot: false,
+  });
+}
+
 async function revocation() {
   const owner = persons[0];
   await request("POST", "/v1/auth/logout", { token: owner.token, body: {} });
@@ -222,6 +339,7 @@ async function main() {
     await loginAll();
     await f01();
     await f02();
+    await prometeoObjectScopeSmoke();
     await revocation();
     console.log("[AUTH F01+F02] all isolated authenticated flows PASS", {
       runId, realPayment: false, realPilot: false,
