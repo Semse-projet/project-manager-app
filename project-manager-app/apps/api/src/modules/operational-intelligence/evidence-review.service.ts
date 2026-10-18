@@ -226,6 +226,7 @@ export class EvidenceReviewService {
           userMessage: prompt,
           context: {
             ...getAgentProfile("evidence-analyzer"),
+              localOnly: true, // Private evidence and RAG excerpts must stay on local inference.
             agentName: "evidence-review",
             source: "evidence-review-agent",
           },
@@ -250,6 +251,7 @@ export class EvidenceReviewService {
             userMessage: simplePrompt,
             context: {
               ...getAgentProfile("evidence-analyzer"),
+              localOnly: true, // Private evidence and RAG excerpts must stay on local inference.
               agentName: "evidence-review:retry",
               source: "evidence-review-agent",
             },
