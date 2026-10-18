@@ -7,6 +7,7 @@ import type { AgentAction, AgentActionType } from "@semse/schemas";
 import { agentActionTypeSchema } from "@semse/schemas";
 import { AgentMemoryService } from "../../knowledge/agent-memory.service.js";
 import { ProjectAccessService } from "../project-access.service.js";
+import { isOpsAdmin } from "../../../common/resource-scope.js";
 import { AgentPolicyService } from "../agent-policy.service.js";
 import { PlanExecutionService } from "../plan-execution.service.js";
 import { resolveAuditLifecycleMode } from "../../prometeo/tool-governance/tool-call-audit.js";
@@ -71,6 +72,14 @@ import { CoordinatorService } from "../coordinator.service.js";
 import { PrometeoService } from "../../prometeo/prometeo.service.js";
 import { OperationalContextService } from "../../ai-models/context/operational-context.service.js";
 import { PrometeoOrchestratorService } from "../../ai-models/orchestrator/prometeo-orchestrator.service.js";
+
+/** OPS_ADMIN is tenant-authorized after the live-project preflight; keep full
+ * project RAG coverage without granting that scope to ordinary org actors. */
+export function resolveCopilotRagScope(actor: AgentActor, projectId: string) {
+  return isOpsAdmin(actor)
+    ? null
+    : { orgId: actor.orgId, projectIds: [projectId], jobIds: [] as string[] };
+}
 
 /** Una acción anunciada sin handler real, o un comando que terminó con error: nunca se reporta como completada. */
 export class ActionNotExecutableError extends Error {
@@ -322,7 +331,7 @@ export class ProjectCopilotHarness {
         .then(() => this.prometeoService.buildRagContext({
           tenantId: actor.tenantId,
           projectId,
-          scope: { orgId: actor.orgId, projectIds: [projectId], jobIds: [] },
+          scope: resolveCopilotRagScope(actor, projectId),
           query: message,
           topK: 4,
         }))
