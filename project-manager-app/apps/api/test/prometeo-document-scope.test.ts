@@ -291,7 +291,7 @@ test("document deletion audits active cascaded grants in the same transaction", 
   const repo = new PrometeoRepository(prisma as never);
   await repo.deleteDocument({ tenantId: "tenant-A", id: "doc-A", orgId: "org-A", actorUserId: "actor-A", requestId: "req-A" });
   assert.deepEqual(events.map(x => x.action), [
-    "PROMETEO_DOCUMENT_SHARE_REVOKED_BY_DELETE", "PROMETEO_DOCUMENT_DELETED",
+    "prometeo.document_share_revoked_by_delete", "prometeo.document_deleted",
   ]);
   assert.equal(events[0]?.entityId, "grant-active");
   assert.equal(events[1]?.actorUserId, "actor-A");
@@ -317,4 +317,23 @@ test("a grant for project A cannot authorize a document in accessible project B"
     assert.equal(grant.tenantId, "tenant-A");
     assert.equal(grant.recipientOrgId, "org-A");
   }
+});
+
+test("serializable deletion retries P2034 and returns a stable not-found after concurrent winner", async () => {
+  let attempts = 0;
+  const prisma = {
+    async $transaction(fn: (tx: unknown) => Promise<unknown>) {
+      attempts++;
+      if (attempts === 1) throw Object.assign(new Error("serialization conflict"), { code: "P2034" });
+      return fn({
+        prometeoDocument: { async findFirst() { return null; } },
+      });
+    },
+  };
+  const repo = new PrometeoRepository(prisma as never);
+  await assert.rejects(
+    () => repo.deleteDocument({ tenantId: "tenant-A", id: "doc-concurrent", orgId: "org-A" }),
+    (err: any) => err.getStatus?.() === 404,
+  );
+  assert.equal(attempts, 2);
 });
