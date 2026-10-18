@@ -5,6 +5,7 @@ import { ResourceScopeResolver } from "../dist/common/resource-scope.resolver.js
 import { PrometeoAccessPolicy } from "../dist/modules/prometeo/prometeo-access.policy.js";
 import { PrometeoDocumentGrantService } from "../dist/modules/prometeo/prometeo-document-grant.service.js";
 import { PrometeoRepository } from "../dist/modules/prometeo/prometeo.repository.js";
+import { ProjectAccessService } from "../dist/modules/agents/project-access.service.js";
 
 const actor = { tenantId: "tenant-A", orgId: "org-A", userId: "user-A", roles: ["CLIENT"] };
 
@@ -97,4 +98,24 @@ test("default shared resolver behavior is unchanged for non-Prometeo callers", a
     { id: "project-A", tenantId: "tenant-A" },
     { id: "project-A", tenantId: "tenant-A", job: { deletedAt: null } },
   ]);
+});
+
+
+test("project copilot can demand an active job without changing default project access", async () => {
+  const calls: boolean[] = [];
+  const resolver = {
+    async resolveProjectScope(_tenant: string, _projectId: string, requireLiveJob = false) {
+      calls.push(requireLiveJob);
+      return requireLiveJob
+        ? null
+        : { tenantId: "tenant-A", clientOrgId: "org-A", assignedProOrgId: "org-B" };
+    },
+  };
+  const access = new ProjectAccessService(resolver as never);
+  await access.assertProjectAccess(actor as never, "project-archive");
+  await assert.rejects(
+    () => access.assertProjectAccess(actor as never, "project-archive", true),
+    (e: any) => e.getStatus?.() === 404,
+  );
+  assert.deepEqual(calls, [false, true]);
 });
