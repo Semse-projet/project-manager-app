@@ -217,15 +217,15 @@ export class PrometeoService {
 
   async search(input: {
     tenantId: string; projectId?: string; query: string; topK?: number;
-    trade?: string; scope?: PrometeoListScopeFilter;
+    trade?: string; scope?: PrometeoListScopeFilter | null;
   }): Promise<SearchResult[]> {
     // Internal agents without an explicitly resolved caller scope must never see tenant-wide chunks.
-    if (!Object.prototype.hasOwnProperty.call(input, "scope")) return [];
+    if (!Object.prototype.hasOwnProperty.call(input, "scope") || input.scope === undefined) return [];
     const topK = input.topK ?? 5;
     const queryVec = await this.embedding.embed(input.query);
     const hasRealQueryEmbedding = !isZeroVector(queryVec);
 
-    const chunks = await this.repo.loadChunksForSearch({ tenantId: input.tenantId, projectId: input.projectId, scope: input.scope });
+    const chunks = await this.repo.loadChunksForSearch({ tenantId: input.tenantId, projectId: input.projectId, scope: input.scope ?? undefined });
     if (!chunks.length) return [];
 
     // Load feedback scores for all chunks (only when feedback data exists)
@@ -439,10 +439,10 @@ export class PrometeoService {
 
   async buildRagContext(input: {
     tenantId: string; projectId?: string; query: string; topK?: number;
-    scope?: PrometeoListScopeFilter;
+    scope?: PrometeoListScopeFilter | null;
   }): Promise<RagContext> {
     // Covers direct internal buildRagContext callers as well as HTTP retrieval.
-    if (!Object.prototype.hasOwnProperty.call(input, "scope")) {
+    if (!Object.prototype.hasOwnProperty.call(input, "scope") || input.scope === undefined) {
       return { chunks: [], contextBlock: "", tokenEstimate: 0 };
     }
     const [results, structuralCtx] = await Promise.all([
@@ -489,14 +489,14 @@ export class PrometeoService {
     projectId?: string;
     trade?:     string;
     topK?:      number;
-    scope?:     PrometeoListScopeFilter;
+    scope?:     PrometeoListScopeFilter | null;
   }): Promise<{
     available:    boolean;
     contextBlock: string;
     citations:    Array<{ documentId: string; documentTitle: string; excerpt: string; score: number }>;
   }> {
     // Do not treat a tenantId supplied by an agent as proof of user authorization.
-    if (!Object.prototype.hasOwnProperty.call(input, "scope")) {
+    if (!Object.prototype.hasOwnProperty.call(input, "scope") || input.scope === undefined) {
       return { available: false, contextBlock: "", citations: [] };
     }
     try {
