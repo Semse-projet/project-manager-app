@@ -242,7 +242,7 @@ export class PrometeoController {
     if (!isOpsAdmin(actor) && !sameOrg(actor.orgId, doc?.orgId)) {
       throw new ForbiddenException("Only the owning organization can delete this document");
     }
-    await this.svc.deleteDocument({ tenantId: actor.tenantId, id, orgId: isOpsAdmin(actor) ? undefined : actor.orgId });
+    await this.svc.deleteDocument({ tenantId: actor.tenantId, id, orgId: isOpsAdmin(actor) ? undefined : actor.orgId, actorUserId: actor.userId, requestId: rid });
     return ok(rid, { deleted: true });
   }
 
