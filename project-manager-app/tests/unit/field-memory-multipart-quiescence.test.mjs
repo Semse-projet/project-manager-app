@@ -110,7 +110,7 @@ test("symlink entries in parts are never followed or reported by private name",a
   assert.ok(!JSON.stringify(r).includes(secret));
 });
 
-test("canonical-volume check refuses a symlinked parent escaping a nominal mount", async t => {
+test("canonical-volume check refuses a symlinked parent escaping a nominal mount", {skip:process.platform==="win32"}, async t => {
   const sandbox=await mkdtemp(path.join(tmpdir(),"semse-t008-symlink-ancestor-"));
   t.after(()=>rm(sandbox,{recursive:true,force:true}));
   const fakeMount=path.join(sandbox,"volume");
@@ -127,6 +127,12 @@ test("canonical-volume check refuses a symlinked parent escaping a nominal mount
     "a symlink in any ancestor cannot pass persistent-volume attestation");
   assert.equal(realStorageOnPersistentMount(
     path.join(fakeMount,"genuine-storage"),fakeMount),true);
+});
+
+test("canonical mount guard is strictly POSIX and never treats /tmp as /data",()=>{
+  assert.equal(realStorageOnPersistentMount("/tmp/semse-storage"),false);
+  assert.equal(realStorageOnPersistentMount("/data/semse-storage"),true);
+  assert.equal(realStorageOnPersistentMount("/data"),false);
 });
 
 test("missing environment cannot be interpreted as an empty multipart root",async()=>{
