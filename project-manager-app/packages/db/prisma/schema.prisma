@@ -364,6 +364,45 @@ model TaskAllocation {
   @@index([userId, status])
 }
 
+/// BO-12: experiencia confirmada por un responsable a partir de una asignación terminada (OPEN-12).
+/// Hechos, no insignias: no hay umbrales ni niveles. Una decisión por asignación.
+model SkillExperience {
+  id               String   @id @default(cuid())
+  tenantId         String
+  orgId            String
+  userId           String
+  trade            String
+  sourceType       String   @default("TASK_ALLOCATION")
+  sourceId         String
+  status           String // CONFIRMED | REJECTED
+  evidenceLevel    String   @default("supervisor_reviewed")
+  reviewedByUserId String
+  reviewNote       String?
+  decidedAt        DateTime
+  createdAt        DateTime @default(now())
+
+  @@unique([sourceType, sourceId])
+  @@index([userId, status, trade])
+  @@index([tenantId, orgId])
+}
+
+/// BO-12: resumen portable y redactado de la experiencia, emitido solo con consentimiento (OPEN-13).
+/// Se comparte con un token de un solo uso visible una vez; solo se guarda su hash.
+model SkillAttestation {
+  id          String    @id @default(cuid())
+  userId      String
+  summary     Json
+  contentHash String
+  tokenHash   String    @unique
+  status      String    @default("ACTIVE") // ACTIVE | REVOKED
+  consentedAt DateTime
+  expiresAt   DateTime
+  revokedAt   DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([userId, status])
+}
+
 model BusinessOffer {
   id                     String              @id @default(cuid())
   tenantId               String
