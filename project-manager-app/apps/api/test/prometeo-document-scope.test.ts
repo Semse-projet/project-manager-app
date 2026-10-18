@@ -203,3 +203,21 @@ test("actors without an owning org see no legacy ownerless document, even if org
   await repo.listDocuments({ tenantId: "tenant-A", scope: { orgId: "", projectIds: [], jobIds: [] } });
   assert.deepEqual(where?.OR, [{ id: "__no_authorized_documents__" }]);
 });
+
+
+test("a project participant cannot modify another org's legacy chunk feedback", async () => {
+  let mutated = false;
+  const svc = {
+    async getChunkById() { return { id: "chunk-B", documentId: "doc-B" }; },
+    async getDocument() { return { tenantId: "tenant-A", orgId: "org-B", projectId: "project-A" }; },
+    async submitFeedback() { mutated = true; return { id: "feedback" }; },
+  };
+  const access = { async assertRowAccess() {} };
+  const controller = new PrometeoController(svc as never, access as never);
+  const actor = { headers: {}, authContext: { tenantId: "tenant-A", orgId: "org-A", userId: "actor-A", roles: ["CLIENT"] } };
+  await assert.rejects(
+    () => controller.submitFeedback(actor as never, "chunk-B", { type: "confirm" }),
+    /Only the owning organization can submit document feedback/,
+  );
+  assert.equal(mutated, false);
+});
