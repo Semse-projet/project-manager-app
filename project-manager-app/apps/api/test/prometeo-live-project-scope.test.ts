@@ -7,6 +7,8 @@ import { PrometeoDocumentGrantService } from "../dist/modules/prometeo/prometeo-
 import { PrometeoRepository } from "../dist/modules/prometeo/prometeo.repository.js";
 import { ProjectAccessService } from "../dist/modules/agents/project-access.service.js";
 
+// Tests involving synthetic grants explicitly activate the isolated test feature.
+process.env.SEMSE_PROMETEO_DOCUMENT_SHARING_ENABLED = "true";
 const actor = { tenantId: "tenant-A", orgId: "org-A", userId: "user-A", roles: ["CLIENT"] };
 
 test("Prometeo project listing demands a live job before accepting a project association", async () => {
