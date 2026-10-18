@@ -116,17 +116,51 @@ export class PrometeoRepository {
     return this.prisma.prometeoDocument.findUnique({ where: { id } }) as Promise<PrometeoDocumentRecord | null>;
   }
 
-  async deleteDocument(input: { tenantId: string; id: string; orgId?: string }): Promise<void> {
-    const result = await this.prisma.prometeoDocument.deleteMany({
-      where: {
-        id: input.id,
-        tenantId: input.tenantId,
-        ...(input.orgId !== undefined ? { orgId: input.orgId } : {}),
-      },
-    });
-    if (result.count !== 1) {
-      throw new NotFoundException(`Prometeo document '${input.id}' not found`);
-    }
+  /** Deletion and grant-revocation evidence commit atomically; never rely on unaudited FK cascade. */
+  async deleteDocument(input: { tenantId: string; id: string; orgId?: string; actorUserId?: string; requestId?: string }): Promise<void> {
+    const where = {
+      id: input.id,
+      tenantId: input.tenantId,
+      ...(input.orgId !== undefined ? { orgId: input.orgId } : {}),
+    };
+    await this.prisma.$transaction(async (tx) => {
+      const doc = await tx.prometeoDocument.findFirst({
+        where,
+        select: {
+          orgId: true, projectId: true,
+          grants: { select: { id: true, projectId: true, recipientOrgId: true, revokedAt: true } },
+        },
+      });
+      if (!doc) throw new NotFoundException(`Prometeo document '${input.id}' not found`);
+      const result = await tx.prometeoDocument.deleteMany({ where });
+      if (result.count !== 1) throw new NotFoundException(`Prometeo document '${input.id}' not found`);
+
+      const activeGrants = doc.grants.filter((grant) => grant.revokedAt === null);
+      if (activeGrants.length) {
+        await tx.auditLog.createMany({
+          data: activeGrants.map((grant) => ({
+            tenantId: input.tenantId,
+            actorUserId: input.actorUserId ?? null,
+            entityType: "PrometeoDocumentGrant",
+            entityId: grant.id,
+            action: "PROMETEO_DOCUMENT_SHARE_REVOKED_BY_DELETE",
+            beforeJson: { documentId: input.id, projectId: grant.projectId, recipientOrgId: grant.recipientOrgId, revokedAt: null },
+            afterJson: { documentDeleted: true, requestId: input.requestId ?? null },
+          })),
+        });
+      }
+      await tx.auditLog.create({
+        data: {
+          tenantId: input.tenantId,
+          actorUserId: input.actorUserId ?? null,
+          entityType: "PrometeoDocument",
+          entityId: input.id,
+          action: "PROMETEO_DOCUMENT_DELETED",
+          beforeJson: { orgId: doc.orgId, projectId: doc.projectId, activeGrantIds: activeGrants.map((grant) => grant.id) },
+          afterJson: { deleted: true, requestId: input.requestId ?? null },
+        },
+      });
+    }, { isolationLevel: "Serializable" });
   }
 
   async loadChunksForSearch(input: { tenantId: string; projectId?: string; limit?: number; scope?: PrometeoListScopeFilter }): Promise<PrometeoChunkSearchRow[]> {
