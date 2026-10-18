@@ -102,6 +102,27 @@ Enlaces de orientación (requieren autorización del usuario para mutar):
 - Uso: https://github.com/organizations/Semse-projet/settings/billing/usage
 - Historial: https://github.com/organizations/Semse-projet/billing/history
 
+## Política compartida de ejecución con presupuesto — 18-oct-2026
+
+**Alcance:** Claude, Codex, Prometeo, agentes delegados y cualquier agente que opere en este checkout. La constitución y AGENTS.md prevalecen. Agentes externos o de otros repositorios solo quedan cubiertos si importan explícitamente esta política; la presencia del archivo no demuestra que una sesión remota lo haya leído.
+
+### Ciclo obligatorio para ahorrar sin perder calidad
+
+1. **Preflight READ_ONLY:** verificar PR/branch/HEAD, cambios de otros agentes, checks activos y presupuesto vigente con fecha; distinguir el presupuesto de Actions del gasto en Code Quality y de facturas emitidas. Si el presupuesto no es visible, declarar `UNKNOWN` y no inventar saldo.
+2. **Desarrollo incremental local:** reunir cambios compatibles en bloques verificables. Ejecutar tests de archivos/contratos afectados, lint o typecheck cuando aplique y revisiones de seguridad/tenant desde temprano; no posponer todos los tests al final ni reemplazar la prueba de integración por una prueba local. Preparar un único delta revisable antes del primer PR.
+3. **Publicación consciente del disparador:** antes de abrir un PR o actualizar una rama con PR, inspeccionar qué workflows de `pull_request`, `push`, Code Quality o terceros se dispararán. Un PR `draft` también puede iniciar CI; por eso agrupar cambios y evitar commits remotos de tanteo. No crear PR paralelo para la misma tarea si existe uno activo.
+4. **Una validación útil por revisión coherente:** dejar finalizar los checks del HEAD que se pretende revisar; cancelar solo ejecuciones obsoletas del mismo PR conforme a la configuración existente, nunca el gate de `main` ni un check requerido del HEAD final. No reintentar a ciegas ni forzar nuevas ejecuciones mientras sigue un run válido.
+5. **Bloqueo financiero/infrastructura:** si hay `Usage blocked`, presupuesto agotado o `startup_failure`/jobs sin `steps`, clasificar como `UNVERIFIED`, registrar URL/fecha/SHA/estado de facturación y detener reintentos hasta resolver la causa. No usar `[skip ci]`, condiciones `if:` engañosas ni status manuales para aparentar verde. Nunca subir presupuesto, desactivar `Stop usage` o modificar pagos sin aprobación puntual.
+6. **Fusión y despliegue:** antes de declarar `mergeable` por calidad, exigir en el SHA exacto los checks necesarios (`quality-gates`, `unit-coverage`, `e2e`, `API Integration` si aplica, reglas SDD, Prisma, controles de seguridad/tenancy y review pertinente). Docs-only tampoco implica permiso de eludir checks requeridos. No fusionar/desplegar ni activar producción por iniciativa del agente.
+7. **Optimización técnica por separado:** proponer un PR acotado si se detectan builds e instalaciones duplicados entre CI, API Integration, Autonomy y Operación Asistida; medir antes/después en minutos de jobs, número de runs, fallos y monto facturable. No desactivar pruebas esenciales ni modificar workflows/Railway como parte de una actualización documental. El ahorro es estimación hasta ser medido.
+8. **Handoff entre agentes:** dejar en el PR/issue el SHA, comprobaciones locales efectuadas, checks pendientes, causa de fallos, estado del presupuesto con timestamp y siguiente acción. No afirmar que la política ya rige en `main`, en Claude, Codex o en otros repositorios antes de fusionar y acreditar su lectura.
+
+### Evidencia histórica (no presupuesto actual)
+
+Auditoría de solo lectura del **18-oct-2026**: `Semse-projet/project-manager-app` registraba ~29,971 minutos de Actions Linux y USD 126.77 facturables Linux, USD 3.18 de storage y USD 26.57 separados de Code Quality AI Credits; presupuesto Actions de USD 130/130 bloqueado en ese corte. El usuario comunicó después que lo aumentó a USD 140, **sin que esta skill certifique ese valor como estado vigente**. No usar estos números como configuración, límite o autorización futura.
+
+---
+
 ## Heurísticas de optimización seguras
 
 1. Para ramas de trabajo, comparar push a todas las ramas con pull_request: pueden disparar dos ejecuciones por cambio. Preferir push a main + pull_request + workflow_dispatch si no hay requisitos de CI en ramas sin PR.
