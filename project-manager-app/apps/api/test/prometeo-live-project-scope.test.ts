@@ -84,7 +84,7 @@ test("a grant cannot be created for a document whose project job is deleted", as
 test("simultaneous duplicate document grants retry and remain idempotent without duplicate audit", async () => {
   let attempts = 0;
   let auditWrites = 0;
-  const granted = { id: "grant-A", documentId: "doc-A", projectId: "project-A",
+  const granted = { id: "grant-A", tenantId: "tenant-A", documentId: "doc-A", projectId: "project-A",
     recipientOrgId: "org-B", revokedAt: null };
   const tx = {
     prometeoDocument: { async findFirst() { return { id: "doc-A" }; } },
