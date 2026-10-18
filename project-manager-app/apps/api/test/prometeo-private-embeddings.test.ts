@@ -136,3 +136,62 @@ test("ordinary organization RAG never includes unscoped repository-wide Graphify
   assert.equal(graphCalls, 1, "only an explicit privileged scope may include a global code graph");
   assert.ok(admin.contextBlock.includes("INTERNAL_CODE_GRAPH_DATA"));
 });
+
+
+test("internal file ingestion defaults to private visibility and rejects legacy public labels", async () => {
+  const created: Array<Record<string, unknown>> = [];
+  const repo = {
+    async createDocument(input: Record<string, unknown>) {
+      created.push(input);
+      return { id: `doc-${created.length}`, status: "parsing" };
+    },
+    async markFailed() {},
+  };
+  // Complete the fire-and-forget file parser without writing chunks.
+  const parser = {
+    async parseBuffer() {
+      return { text: "", charCount: 0, warnings: ["empty file"] };
+    },
+  };
+  const service = new PrometeoService(repo as never, {} as never, {} as never, parser as never);
+  const input = {
+    tenantId: "tenant-A",
+    orgId: "org-A",
+    userId: "actor-A",
+    title: "private file",
+    fileBuffer: Buffer.from("private"),
+    mimeType: "text/plain",
+    fileName: "private.txt",
+  };
+
+  await service.ingestFile(input);
+  await service.ingestFile({ ...input, projectId: "project-A" });
+  assert.deepEqual(
+    created.map(({ projectId, metadataJson }) => ({
+      projectId,
+      visibility: (metadataJson as Record<string, unknown>).visibility,
+    })),
+    [
+      { projectId: undefined, visibility: "tenant_private" },
+      { projectId: "project-A", visibility: "project_private" },
+    ],
+  );
+
+  await assert.rejects(
+    () => service.ingestFile({ ...input, visibility: "public_training" }),
+    /Public sharing requires approved explicit consent/,
+  );
+  await assert.rejects(
+    () => service.ingestFile({ ...input, projectId: "project-A", visibility: "public_training" }),
+    /Public sharing requires approved explicit consent/,
+  );
+  await assert.rejects(
+    () => service.ingestFile({ ...input, projectId: "project-A", visibility: "tenant_private" }),
+    /Document visibility must match its project association/,
+  );
+  await assert.rejects(
+    () => service.ingestFile({ ...input, visibility: "project_private" }),
+    /Document visibility must match its project association/,
+  );
+  assert.equal(created.length, 2, "invalid visibility must fail before document persistence");
+});
