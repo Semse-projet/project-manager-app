@@ -28,7 +28,7 @@ related_files:
   - apps/api/src/modules/agents/harnesses/project-copilot.harness.ts
   - apps/api/src/modules/operational-intelligence/evidence-review.service.ts
   - apps/api/src/infrastructure/llm/router/adaptive-router.ts
-  - apps/api/src/infrastructure/llm/embedding.service.ts
+  - apps/api/src/modules/prometeo/embedding.service.ts
   - apps/web/app/(app)/admin/prometeo/page.tsx
   - packages/db/prisma/schema.prisma
   - packages/db/prisma/migrations/20261017213000_prometeo_document_grants/migration.sql
