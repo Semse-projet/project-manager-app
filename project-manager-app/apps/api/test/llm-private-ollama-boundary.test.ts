@@ -80,3 +80,24 @@ test("both adaptive and static private routing refuse remote Ollama and cloud fa
     globalThis.fetch = originalFetch;
   }
 });
+
+test("even loopback Ollama responses cannot redirect a private prompt to another host", async () => {
+  const provider = new OllamaProvider("http://127.0.0.1:11434", "test");
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = (async (_url: unknown, init?: RequestInit) => {
+    calls++;
+    assert.equal(init?.redirect, "error", "private prompt POST must never follow redirects");
+    return {
+      ok: true,
+      async json() { return { message: { content: "local response" }, eval_count: 1, prompt_eval_count: 1 }; },
+    } as Response;
+  }) as typeof fetch;
+  try {
+    const result = await provider.chat(privateInput);
+    assert.equal(result.provider, "ollama");
+    assert.equal(calls, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
