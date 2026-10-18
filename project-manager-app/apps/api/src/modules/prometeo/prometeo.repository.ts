@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from "@nestjs/common";
 import type { Prisma } from "@prisma/client";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import type { EmbeddingVector } from "./embedding.service.js";
+import { isPrometeoDocumentSharingEnabled } from "./prometeo-document-sharing.flag.js";
 
 export type PrometeoDocumentRecord = {
   id: string; tenantId: string; orgId: string; projectId: string | null;
@@ -83,16 +84,19 @@ export class PrometeoRepository {
         // A composite foreign key enforces grant.projectId === document.projectId
         // AND matching tenantId. One relation predicate works for up to the full
         // allowed project list; never construct a nested OR per project.
-        permitted.push({
-          grants: {
-            some: {
-              tenantId: input.tenantId,
-              recipientOrgId: input.scope.orgId,
-              projectId: { in: input.scope.projectIds },
-              revokedAt: null,
+        // A revoked/deactivated sharing program cannot expose grants through RAG.
+        if (isPrometeoDocumentSharingEnabled()) {
+          permitted.push({
+            grants: {
+              some: {
+                tenantId: input.tenantId,
+                recipientOrgId: input.scope.orgId,
+                projectId: { in: input.scope.projectIds },
+                revokedAt: null,
+              },
             },
-          },
-        });
+          });
+        }
       }
     }
     return {
