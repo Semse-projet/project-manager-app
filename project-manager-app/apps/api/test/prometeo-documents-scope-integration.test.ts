@@ -124,7 +124,7 @@ dbTest("P0: physical Postgres enforces document/chunk/feedback tenant and org is
       select: { entityId: true, action: true },
     });
     assert.deepEqual(new Set(recorded.map(entry => entry.action)),
-      new Set(["PROMETEO_DOCUMENT_DELETED", "PROMETEO_DOCUMENT_SHARE_REVOKED_BY_DELETE"]));
+      new Set(["prometeo.document_deleted", "prometeo.document_share_revoked_by_delete"]));
   } finally {
     await prisma.tenant.deleteMany({ where: { id: { in: [tenantA, tenantB] } } });
     await prisma.$disconnect();
