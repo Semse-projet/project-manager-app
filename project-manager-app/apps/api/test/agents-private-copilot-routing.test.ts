@@ -48,3 +48,17 @@ test("other existing agent tool chats retain their regular default routing contr
   });
   assert.deepEqual(forwarded[0].context, { requiresTools: true });
 });
+
+test("project-copilot tool calls cannot disable private local inference even with localOnly=false", async () => {
+  const { svc, forwarded } = service();
+  await svc.chatWithTools({
+    tenantId: "tenant-A", userId: "user-A", agentId: "project-copilot",
+    projectId: "project-A", message: "Show confidential project evidence",
+    context: { prometeoContext: "PRIVATE" }, localOnly: false, tools: [],
+  });
+  assert.equal(forwarded.length, 1);
+  assert.deepEqual(forwarded[0].context, {
+    requiresTools: true, localOnly: true, privacyCritical: true,
+    agentName: "project-copilot", source: "private-project-copilot",
+  });
+});
