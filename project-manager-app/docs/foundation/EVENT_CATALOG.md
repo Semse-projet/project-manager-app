@@ -475,3 +475,11 @@ Crear eventos por cambios de dominio o de consecuencia operativa real.
 - `business_offer.revoked`
 - `business_engagement.activated`
 - `business_engagement.ended`
+
+## Business OS — cuadrillas y obras (BO-07)
+
+- `worksite.created`
+- `crew.created`
+- `crew.member_added`
+- `crew.member_removed`
+- `crew.archived`
