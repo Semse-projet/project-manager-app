@@ -2,8 +2,8 @@ import "reflect-metadata";
 
 import test from "node:test";
 import assert from "node:assert/strict";
-import { SkillsService } from "../dist/modules/skills/skills.service.js";
-import { hashSummary, hashToken, normalizeTrade, summarizeExperience, SKILLS_DISCLAIMER } from "../dist/modules/skills/skills.calc.js";
+import { SkillsService } from "../dist/modules/professional-skills/skills.service.js";
+import { hashSummary, hashToken, normalizeTrade, summarizeExperience, SKILLS_DISCLAIMER } from "../dist/modules/professional-skills/skills.calc.js";
 
 type Row = Record<string, any>;
 

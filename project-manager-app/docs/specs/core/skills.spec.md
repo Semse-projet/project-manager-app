@@ -17,9 +17,9 @@ feature_flags:
   - "SEMSE_SKILLS_ENABLED"
 production_evidence: []
 related_files:
-  - "apps/api/src/modules/skills/skills.service.ts"
-  - "apps/api/src/modules/skills/skills.controller.ts"
-  - "apps/api/src/modules/skills/skills.calc.ts"
+  - "apps/api/src/modules/professional-skills/skills.service.ts"
+  - "apps/api/src/modules/professional-skills/skills.controller.ts"
+  - "apps/api/src/modules/professional-skills/skills.calc.ts"
   - "packages/db/prisma/schema.prisma"
 related_tests:
   - "apps/api/test/skills.test.ts"
