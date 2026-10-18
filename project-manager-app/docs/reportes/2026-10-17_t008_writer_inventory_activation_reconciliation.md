@@ -74,3 +74,21 @@ T-008g cannot be marked fully complete until a real staging environment proves t
 3. Signed GET and Evidence SHA-256 rollout in staging, then browser/mobile/Vision/agent compatibility canary.
 4. Production merge/deploy with write gate still OFF.
 5. Approved production freeze window before any real export/restore rehearsal.
+
+
+## Isolated Railway staging provisioned
+
+A separate Railway project was provisioned for T-008 validation:
+
+- Project: `SEMSE T008 Staging` (`f99987a3-8135-47e1-88ed-d0130af64682`)
+- Environment: `staging` (`f878edd2-2302-4461-bd2f-7a80c9d526af`)
+- Private Postgres: Online
+- Private Redis: Online
+- API A: `semse-api-t008-a`, pinned to main SHA `76e5d1f9320b4b69f1e62fb04111c8dfd9d60b6f`, synthetic 500 MB volume at `/data`
+- API B: `semse-api-t008-b`, same pinned SHA, separate synthetic 500 MB volume at `/data`
+- Both APIs use the same logical `SEMSE_STORAGE_ROOT=/data/semse-storage` and the same isolated Postgres authority.
+- Both have `SEMSE_STORAGE_WRITE_GATE_MODE=staging`, `UPLOADS_SIGNED_GET_MODE=enforce`, and `EVIDENCE_ORIGINAL_SHA256_MODE=enforce`.
+- No production database, Redis instance, volume, secret, or original is referenced.
+- A dedicated `t008-staging-runner` Railway Function is Online and will coordinate cross-instance control-plane/write probes after both API deployments are healthy.
+
+At the time this evidence was written the two API images were still BUILDING, so T-008f remains **PENDING**. Do not treat infrastructure creation as a passed staging test.
