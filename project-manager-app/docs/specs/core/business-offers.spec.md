@@ -86,3 +86,9 @@ El propietario pidió avanzar con supuestos conservadores. **Son supuestos de im
 | OPEN-14 | Sin firma real ni Documenso. | Firma con proveedor |
 
 Cambios respecto al diseño propuesto: la oferta solo se dirige a un `WORKER` ACTIVE de la Org (ya aceptó BO-01); el engagement **no crea ni modifica Membership**; terminar un engagement no suspende la Membership (la revocación de grants llega con BO-07); sin enmiendas versionadas en este slice (revocar y emitir nueva oferta). Eventos añadidos al catálogo: los cinco de `related_events`.
+
+## Slice BO-06 — Capa web de ofertas (flag sigue apagado)
+
+Incluye: rutas BFF `apps/web/app/api/semse/organizations/[orgId]/offers/**`, `.../engagements/[engagementId]/end` y `offers/{mine,[offerId]/respond}`; funciones en `semse-api.ts`; páginas `/client/offers` (emitir, revocar, confirmar engagement con casilla de confirmación legal) y `/worker/offers` (ver y responder las propias). ES/EN. Sin cambios de API, esquema ni permisos. Con el flag apagado la API responde 404 y la UI muestra "aún no habilitadas".
+
+Pendiente: terminar un engagement desde la UI (la vista de oferta no expone todavía el `engagementId`), entrada en la navegación y firma (OPEN-14).

@@ -1076,6 +1076,51 @@ export async function acceptInvitation(token: string): Promise<{ membership: { o
   return mutateSemse("/api/semse/invitations/accept", { token });
 }
 
+export type BusinessOfferView = {
+  offerId: string;
+  orgId: string;
+  recipientUserId: string;
+  positionTitle: string;
+  classification: string;
+  startsAt: string | null;
+  compensationNote: string | null;
+  status: string;
+  expiresAt: string;
+  respondedAt: string | null;
+  createdAt: string;
+};
+
+export async function fetchOrgOffers(orgId: string): Promise<BusinessOfferView[]> {
+  return fetchSemse<BusinessOfferView[]>(`/api/semse/organizations/${orgId}/offers`);
+}
+
+export async function createOrgOffer(
+  orgId: string,
+  input: { recipientUserId: string; positionTitle: string; classification: "W2" | "1099" | "OTHER"; compensationNote?: string }
+): Promise<BusinessOfferView> {
+  return mutateSemse(`/api/semse/organizations/${orgId}/offers`, input);
+}
+
+export async function revokeOrgOffer(orgId: string, offerId: string): Promise<{ status: string }> {
+  return mutateSemse(`/api/semse/organizations/${orgId}/offers/${offerId}/revoke`, {});
+}
+
+export async function confirmOrgOffer(orgId: string, offerId: string): Promise<{ status: string }> {
+  return mutateSemse(`/api/semse/organizations/${orgId}/offers/${offerId}/confirm`, { legalConfirmed: true });
+}
+
+export async function endOrgEngagement(orgId: string, engagementId: string, reason: string): Promise<{ status: string }> {
+  return mutateSemse(`/api/semse/organizations/${orgId}/engagements/${engagementId}/end`, { reason });
+}
+
+export async function fetchMyOffers(): Promise<BusinessOfferView[]> {
+  return fetchSemse<BusinessOfferView[]>("/api/semse/offers/mine");
+}
+
+export async function respondToOffer(offerId: string, decision: "ACCEPT" | "DECLINE"): Promise<{ status: string }> {
+  return mutateSemse(`/api/semse/offers/${offerId}/respond`, { decision });
+}
+
 export type UserView = {
   id: string;
   email: string;
