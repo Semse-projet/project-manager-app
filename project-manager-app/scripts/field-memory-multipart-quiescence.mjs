@@ -132,7 +132,10 @@ export async function inspectMultipartQuiescence({
 }
 const direct = process.argv[1] &&
   import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href;
-if(direct) {
+// Railway operator streams this source via audited SSH stdin, as with the
+// existing originals inventory. An import in tests must never self-execute.
+const inline = import.meta.url.includes("/[eval");
+if(direct || inline) {
   try {
     const env=process.env;
     const mountInfo=await readFile("/proc/self/mountinfo","utf8").catch(()=>"");
