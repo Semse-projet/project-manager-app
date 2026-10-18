@@ -11,9 +11,9 @@ import { assertScopeAccess, isOpsAdmin, type ScopeActor } from "../../common/res
 export class ProjectAccessService {
   constructor(private readonly resolver: ResourceScopeResolver) {}
 
-  async assertProjectAccess(actor: ScopeActor, projectId: string): Promise<void> {
+  async assertProjectAccess(actor: ScopeActor, projectId: string, requireLiveJob = false): Promise<void> {
     if (!projectId) throw new NotFoundException("Project not found");
-    const scope = await this.resolver.resolveProjectScope(actor.tenantId, projectId);
+    const scope = await this.resolver.resolveProjectScope(actor.tenantId, projectId, requireLiveJob);
     if (!scope) throw new NotFoundException("Project not found");
     assertScopeAccess(actor, scope, "read", "Actor cannot access this project", "Project not found");
   }
