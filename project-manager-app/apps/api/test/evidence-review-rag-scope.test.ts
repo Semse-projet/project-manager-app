@@ -93,3 +93,26 @@ test("internal caller without authenticated reviewer org never queries private R
   assert.deepEqual(f.ragInputs, []);
   assert.equal(f.membershipCalls(), 0);
 });
+
+test("verified OPS_ADMIN retains active-project evidence RAG without client/pro membership", async () => {
+  const f = fixture({ validMembership: false, validProject: true });
+  const result = await f.svc.runReview({
+    evidenceItemId: "evidence-1", tenantId: "tenant-A", reviewedById: "ops-admin-A",
+    reviewedByOrgId: "operations-org", reviewedByOpsAdmin: true,
+  });
+  assert.equal(result.ragUsed, true, "approved same-tenant admin review should keep RAG");
+  assert.equal(f.ragInputs.length, 1);
+  assert.equal(f.ragInputs[0].projectId, "project-A");
+  assert.equal(f.ragInputs[0].scope, null, "OPS_ADMIN uses explicitly authorized tenant scope");
+  assert.equal(f.membershipCalls(), 0, "do not require an ordinary client/pro membership from OPS_ADMIN");
+});
+
+test("OPS_ADMIN cannot retrieve evidence RAG from a deleted or foreign tenant project", async () => {
+  const f = fixture({ validMembership: true, validProject: false });
+  const result = await f.svc.runReview({
+    evidenceItemId: "evidence-1", tenantId: "tenant-A", reviewedById: "ops-admin-A",
+    reviewedByOpsAdmin: true,
+  });
+  assert.equal(result.ragUsed, false);
+  assert.deepEqual(f.ragInputs, []);
+});
