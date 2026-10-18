@@ -339,13 +339,14 @@ export class PrometeoService {
     }).length;
     const missingEmbeddings = sampleChunks.length - withEmbeddings;
 
-    const retrievalMode: RetrievalMode = stats.available && withEmbeddings > 0 ? "hybrid" : "fts_fallback";
+    // Private Prometeo search intentionally bypasses remote embedding providers.
+    const retrievalMode: RetrievalMode = "fts_fallback";
 
     return {
-      embeddingsProvider:      stats.provider,
-      embeddingsModel:         stats.model,
-      embeddingsAvailable:     stats.available,
-      embeddingsHealthy:       stats.available && stats.failureCount === 0,
+      embeddingsProvider:      "local_fts",
+      embeddingsModel:         "keyword-overlap",
+      embeddingsAvailable:     false,
+      embeddingsHealthy:       false,
       totalDocuments:          totalDocs,
       totalChunks,
       chunksWithEmbeddings:    withEmbeddings,
@@ -375,6 +376,7 @@ export class PrometeoService {
     const batchSize = input.batchSize ?? 16;
     const dryRun = input.dryRun ?? false;
     const stats = this.embedding.getStats();
+    const privateProvider = "local_fts";
 
     // External embedding availability is not authorization to process private
     // documents off-machine. Without a verified local backend this remains FTS.
@@ -385,7 +387,7 @@ export class PrometeoService {
     const indexed = docs.filter((d) => d.status === "indexed");
 
     if (!indexed.length) {
-      return { total: 0, alreadyEmbedded: 0, embedded: 0, failed: 0, dryRun, provider: stats.provider };
+      return { total: 0, alreadyEmbedded: 0, embedded: 0, failed: 0, dryRun, provider: privateProvider };
     }
 
     // Load all chunks for indexed docs
@@ -402,7 +404,7 @@ export class PrometeoService {
     const alreadyEmbedded = allChunks.length - needsEmbedding.length;
 
     if (!needsEmbedding.length || dryRun) {
-      return { total: allChunks.length, alreadyEmbedded, embedded: 0, failed: 0, dryRun, provider: stats.provider };
+      return { total: allChunks.length, alreadyEmbedded, embedded: 0, failed: 0, dryRun, provider: privateProvider };
     }
 
     let embedded = 0;
@@ -432,7 +434,7 @@ export class PrometeoService {
     }
 
     this.logger.log(`[backfill] done — embedded=${embedded} failed=${failed} total=${allChunks.length}`);
-    return { total: allChunks.length, alreadyEmbedded, embedded, failed, dryRun, provider: stats.provider };
+    return { total: allChunks.length, alreadyEmbedded, embedded, failed, dryRun, provider: privateProvider };
   }
 
   // ── RAG context builder ─────────────────────────────────────────────────────
@@ -445,9 +447,14 @@ export class PrometeoService {
     if (!Object.prototype.hasOwnProperty.call(input, "scope") || input.scope === undefined) {
       return { chunks: [], contextBlock: "", tokenEstimate: 0 };
     }
+    // Graphify indexes repository-wide structural information, not tenant-owned
+    // documents. Expose it only to the explicit OPS_ADMIN scope sentinel; never
+    // mix global code graph text into an organization's private RAG response.
     const [results, structuralCtx] = await Promise.all([
       this.search({ ...input, topK: input.topK ?? 6 }),
-      this.graphify ? this.graphify.buildStructuralContext(input.query) : Promise.resolve(""),
+      input.scope === null && this.graphify
+        ? this.graphify.buildStructuralContext(input.query)
+        : Promise.resolve(""),
     ]);
 
     const lines: string[] = [];
