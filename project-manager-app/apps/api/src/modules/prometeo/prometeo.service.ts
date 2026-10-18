@@ -543,7 +543,7 @@ export class PrometeoService {
     return this.repo.getChunkById(tenantId, chunkId);
   }
 
-  async deleteDocument(input: { tenantId: string; id: string; orgId?: string }) {
+  async deleteDocument(input: Parameters<PrometeoRepository["deleteDocument"]>[0]) {
     return this.repo.deleteDocument(input);
   }
 
