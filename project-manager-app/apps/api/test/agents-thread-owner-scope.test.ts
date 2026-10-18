@@ -14,7 +14,7 @@ function service() {
 
 test("Project Copilot tool chat never reuses another tenant's or user's thread", async () => {
   const svc = service();
-  const privateThread = createThread({ tenantId: "tenant-A", userId: "owner-A", agentId: "project-copilot" });
+  const privateThread = createThread({ tenantId: "tenant-A", userId: "owner-A", agentId: "project-copilot", projectId: "project-A" });
   const priorCount = privateThread.messages.length;
   for (const denied of [
     { tenantId: "tenant-B", userId: "owner-A" },
@@ -22,7 +22,7 @@ test("Project Copilot tool chat never reuses another tenant's or user's thread",
   ]) {
     await assert.rejects(
       () => svc.chatWithTools({
-        ...denied, agentId: "project-copilot", threadId: privateThread.id,
+        ...denied, agentId: "project-copilot", projectId: "project-A", threadId: privateThread.id,
         message: "Can I read the previous confidential discussion?", localOnly: true, tools: [],
       }),
       (e: any) => e.getStatus?.() === 404,
@@ -34,7 +34,7 @@ test("Project Copilot tool chat never reuses another tenant's or user's thread",
 
 test("thread ID cannot be reused across different agents even by the same user", async () => {
   const svc = service();
-  const thread = createThread({ tenantId: "tenant-A", userId: "owner-A", agentId: "project-copilot" });
+  const thread = createThread({ tenantId: "tenant-A", userId: "owner-A", agentId: "project-copilot", projectId: "project-A" });
   await assert.rejects(
     () => svc.chatWithTools({
       tenantId: "tenant-A", userId: "owner-A", agentId: "other-agent",
@@ -62,11 +62,39 @@ test("plain agent chat rejects cross-user thread reuse, and getThreadMessages re
 
 test("authorized owner can resume its own thread and read it", async () => {
   const svc = service();
-  const thread = createThread({ tenantId: "tenant-A", userId: "owner-A", agentId: "project-copilot" });
+  const thread = createThread({ tenantId: "tenant-A", userId: "owner-A", agentId: "project-copilot", projectId: "project-A" });
   const reply = await svc.chatWithTools({
-    tenantId: "tenant-A", userId: "owner-A", agentId: "project-copilot",
+    tenantId: "tenant-A", userId: "owner-A", agentId: "project-copilot", projectId: "project-A",
     threadId: thread.id, message: "Continue project plan", localOnly: true, tools: [],
   });
   assert.equal(reply.threadId, thread.id);
   assert.equal(svc.getThreadMessages({ tenantId: "tenant-A", userId: "owner-A", threadId: thread.id }).id, thread.id);
+});
+
+test("owner cannot reuse a private Copilot history across its own projects", async () => {
+  const svc = service();
+  const projectThread = createThread({
+    tenantId: "tenant-A", userId: "owner-A", agentId: "project-copilot", projectId: "project-A",
+  });
+  const priorCount = projectThread.messages.length;
+  await assert.rejects(
+    () => svc.chatWithTools({
+      tenantId: "tenant-A", userId: "owner-A", agentId: "project-copilot",
+      projectId: "project-B", threadId: projectThread.id,
+      message: "Summarize the other project's confidential evidence", localOnly: true, tools: [],
+    }),
+    (e: any) => e.getStatus?.() === 404,
+  );
+  assert.equal(getThread(projectThread.id)?.messages.length, priorCount);
+});
+
+test("project copilot never starts a private chat without a project boundary", async () => {
+  const svc = service();
+  await assert.rejects(
+    () => svc.chatWithTools({
+      tenantId: "tenant-A", userId: "owner-A", agentId: "project-copilot",
+      message: "Show evidence", localOnly: true, tools: [],
+    }),
+    (e: any) => e.getStatus?.() === 403,
+  );
 });
