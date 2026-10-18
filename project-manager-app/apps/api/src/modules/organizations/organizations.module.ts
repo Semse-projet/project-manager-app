@@ -10,11 +10,13 @@ import { OffersService } from "./offers.service.js";
 import { OrganizationsController } from "./organizations.controller.js";
 import { OrganizationsRepository } from "./organizations.repository.js";
 import { OrganizationsService } from "./organizations.service.js";
+import { CrewTaskAllocationsController, MyTaskAllocationsController } from "./task-allocations.controller.js";
+import { TaskAllocationsService } from "./task-allocations.service.js";
 
 @Module({
   imports: [AuthModule],
-  controllers: [OrganizationsController, OrgInvitationsController, InvitationsController, OrgOffersController, MyOffersController, OrgCrewsController, MyCrewsController],
-  providers: [OrganizationsRepository, OrganizationsService, InvitationsService, OffersService, CrewsService, EmailService],
+  controllers: [OrganizationsController, OrgInvitationsController, InvitationsController, OrgOffersController, MyOffersController, OrgCrewsController, MyCrewsController, CrewTaskAllocationsController, MyTaskAllocationsController],
+  providers: [OrganizationsRepository, OrganizationsService, InvitationsService, OffersService, CrewsService, TaskAllocationsService, EmailService],
   exports: [OrganizationsRepository, OrganizationsService]
 })
 export class OrganizationsModule {}

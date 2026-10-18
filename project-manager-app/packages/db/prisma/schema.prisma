@@ -339,6 +339,31 @@ model CrewMember {
   @@index([userId, status])
 }
 
+/// BO-10: asignación de una tarea canónica (JobTask) a una persona dentro de una cuadrilla.
+/// Una tarea compartida = una JobTask + varias asignaciones; nunca tareas duplicadas.
+model TaskAllocation {
+  id               String    @id @default(cuid())
+  tenantId         String
+  orgId            String
+  taskId           String
+  crewId           String
+  userId           String
+  status           String    @default("ASSIGNED") // ASSIGNED | ACKNOWLEDGED | IN_PROGRESS | BLOCKED | SUBMITTED | RELEASED
+  assignedByUserId String
+  assignReason     String?
+  statusNote       String?
+  assignedAt       DateTime  @default(now())
+  acknowledgedAt   DateTime?
+  releasedAt       DateTime?
+  releasedByUserId String?
+  releaseReason    String?
+  updatedAt        DateTime  @updatedAt
+
+  @@unique([taskId, userId])
+  @@index([tenantId, orgId, crewId, status])
+  @@index([userId, status])
+}
+
 model BusinessOffer {
   id                     String              @id @default(cuid())
   tenantId               String
