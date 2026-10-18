@@ -1,3 +1,39 @@
+---
+id: "prometeo.document-sharing-grants"
+title: "Compartición explícita y revocable de documentos Prometeo"
+sdd_version: "2.0"
+domain: "prometeo"
+version: "1.0"
+status: "REVIEW"
+owner: "semse-core"
+risk: "critical"
+code_status: "IN_PROGRESS"
+ci_status: "NOT_RUN"
+merge_status: "UNMERGED"
+deploy_status: "NOT_DEPLOYED"
+activation_status: "INACTIVE"
+migration_status: "PENDING"
+feature_flags: []
+production_evidence: []
+related_files:
+  - apps/api/src/modules/prometeo/prometeo-document-grant.service.ts
+  - apps/api/src/modules/prometeo/prometeo.controller.ts
+  - apps/api/src/modules/prometeo/prometeo.repository.ts
+  - apps/api/src/modules/prometeo/prometeo.module.ts
+  - packages/db/prisma/schema.prisma
+  - packages/db/prisma/migrations/20261017213000_prometeo_document_grants/migration.sql
+  - scripts/api-authenticated-f01-f02-smoke.mjs
+related_tests:
+  - apps/api/test/prometeo-documents-scope-integration.test.ts
+  - scripts/api-authenticated-f01-f02-smoke.mjs
+related_endpoints:
+  - "POST /v1/prometeo/documents/:id/shares"
+  - "DELETE /v1/prometeo/documents/:id/shares/:recipientOrgId"
+related_events: []
+related_agents: ["prometeo"]
+last_verified: "2026-10-17"
+---
+
 # Prometeo Document Sharing Grants — P0/C51 S1
 
 Status: DRAFT — requires CI, authenticated integration, security review; must not deploy standalone.
