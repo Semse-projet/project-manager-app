@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { ResourceScopeResolver } from "../../common/resource-scope.resolver.js";
 import { isOpsAdmin, sameOrg, type ScopeActor } from "../../common/resource-scope.js";
@@ -63,7 +63,15 @@ export class PrometeoDocumentGrantService {
       const existing = await tx.prometeoDocumentGrant.findUnique({
         where: { documentId_recipientOrgId: { documentId: doc.id, recipientOrgId } },
       });
-      if (existing && !existing.revokedAt) return existing; // idempotent, no duplicate audit
+      if (existing && !existing.revokedAt) {
+        // A document can be reassociated with another project. Never report
+        // success for an old grant whose project/tenant differs from this one.
+        // The owner must explicitly revoke and grant under the new scope.
+        if (existing.tenantId !== actor.tenantId || existing.projectId !== projectId) {
+          throw new ConflictException("Stale document grant: revoke before sharing under another project");
+        }
+        return existing; // unchanged active grant is idempotent; no duplicate audit
+      }
 
       const grant = existing
         ? await tx.prometeoDocumentGrant.update({
