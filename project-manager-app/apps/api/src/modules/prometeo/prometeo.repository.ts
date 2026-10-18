@@ -80,6 +80,22 @@ export class PrometeoRepository {
       permitted.push({ projectId: null, orgId: input.scope.orgId });
       if (input.scope.projectIds.length) {
         permitted.push({ projectId: { in: input.scope.projectIds }, orgId: input.scope.orgId });
+        // Each grant must match the SAME project as its document. Two separate
+        // "in accessibleProjects" checks would allow an old grant for project A
+        // to authorize a document later reassociated with accessible project B.
+        for (const projectId of input.scope.projectIds) {
+          permitted.push({
+            projectId,
+            grants: {
+              some: {
+                tenantId: input.tenantId,
+                recipientOrgId: input.scope.orgId,
+                projectId,
+                revokedAt: null,
+              },
+            },
+          });
+        }
       }
     }
     return {

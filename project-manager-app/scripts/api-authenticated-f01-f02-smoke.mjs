@@ -264,6 +264,95 @@ async function prometeoObjectScopeSmoke() {
   assert.ok(!proIds.has(ownerProject.doc.id),
     "Project membership alone cannot share a legacy document owned by another org");
 
+  const shares = "/v1/prometeo/documents/" + ownerProject.doc.id + "/shares";
+  await request("POST", shares, {
+    token: otherClient.token, body: { recipientOrgId: pro1.orgId }, expectedStatus: 403,
+  });
+  await request("POST", shares, {
+    token: foreignClient.token, body: { recipientOrgId: pro1.orgId }, expectedStatus: 404,
+  });
+  await request("POST", shares, {
+    token: owner.token, body: { recipientOrgId: otherClient.orgId }, expectedStatus: 403,
+  });
+  const grant = await request("POST", shares, {
+    token: owner.token, body: { recipientOrgId: pro1.orgId },
+  });
+  assert.equal(grant.data?.active, true);
+  assert.equal(grant.data?.recipientOrgId, pro1.orgId);
+  const grantedIds = await documentIds(pro1);
+  assert.ok(grantedIds.has(ownerProject.doc.id), "explicit grant must enable authorized pro read");
+
+  const proSearch = await request("POST", "/v1/prometeo/search", {
+    token: pro1.token, body: { query: ownerMarker + "_PROJECT", topK: 20 },
+  });
+  assert.ok(proSearch.data.some(chunk => chunk.documentId === ownerProject.doc.id),
+    "authorized grant must enable scoped RAG search");
+
+  const auditGranted = await prisma.auditLog.findFirst({
+    where: { tenantId: tenantA, entityType: "PrometeoDocumentGrant",
+      entityId: grant.data?.id, action: "PROMETEO_DOCUMENT_SHARE_GRANTED" },
+  });
+  assert.ok(auditGranted, "sharing must be durably audited before success response");
+
+  const revoked = await request("DELETE", shares + "/" + pro1.orgId, {
+    token: owner.token,
+  });
+  assert.equal(revoked.data?.revoked, true);
+  const revokedIds = await documentIds(pro1);
+  assert.ok(!revokedIds.has(ownerProject.doc.id), "revoke must immediately remove read access");
+  const afterRevoke = await request("POST", "/v1/prometeo/rag-context", {
+    token: pro1.token, body: { query: ownerMarker + "_PROJECT", topK: 20 },
+  });
+  assert.ok(!JSON.stringify(afterRevoke.data).includes(ownerMarker + "_PROJECT"),
+    "revoke must immediately remove RAG snippets and citations");
+  const auditRevoked = await prisma.auditLog.findFirst({
+    where: { tenantId: tenantA, entityType: "PrometeoDocumentGrant",
+      entityId: grant.data?.id, action: "PROMETEO_DOCUMENT_SHARE_REVOKED" },
+  });
+  assert.ok(auditRevoked, "revocation must be durably audited before success response");
+  await request("DELETE", shares + "/" + pro1.orgId, {
+    token: owner.token, expectedStatus: 404,
+  });
+
+  // S1: Simulate a durable audit write failure on disposable CI PostgreSQL.
+  // The grant transaction MUST roll back; a revoked share stays revoked.
+  const failFn = "p0_share_audit_fail_" + runId;
+  const failTrigger = "p0_share_audit_trigger_" + runId;
+  await prisma.$executeRawUnsafe(
+    'CREATE FUNCTION "' + failFn + '"() RETURNS trigger AS $audit$ BEGIN ' +
+    'IF NEW."entityType" = \'PrometeoDocumentGrant\' ' +
+    'AND NEW."action" = \'PROMETEO_DOCUMENT_SHARE_GRANTED\' THEN ' +
+    'RAISE EXCEPTION \'synthetic_p0_grant_audit_failure\'; END IF; ' +
+    'RETURN NEW; END; $audit$ LANGUAGE plpgsql'
+  );
+  await prisma.$executeRawUnsafe(
+    'CREATE TRIGGER "' + failTrigger + '" BEFORE INSERT ON "AuditLog" ' +
+    'FOR EACH ROW EXECUTE FUNCTION "' + failFn + '"()'
+  );
+  try {
+    const failedResponse = await fetch(new URL(shares, base), {
+      method: "POST",
+      headers: {
+        authorization: "Bearer " + owner.token,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ recipientOrgId: pro1.orgId }),
+    });
+    assert.ok(failedResponse.status >= 400, "audit failure must prevent grant success");
+    const persisted = await prisma.prometeoDocumentGrant.findFirstOrThrow({
+      where: { tenantId: tenantA, documentId: ownerProject.doc.id, recipientOrgId: pro1.orgId },
+    });
+    assert.ok(persisted.revokedAt, "failed audit must rollback reactivation of revoked grant");
+    assert.ok(!(await documentIds(pro1)).has(ownerProject.doc.id),
+      "audit failure must not expose the document through SQL");
+  } finally {
+    await prisma.$executeRawUnsafe('DROP TRIGGER IF EXISTS "' + failTrigger + '" ON "AuditLog"');
+    await prisma.$executeRawUnsafe('DROP FUNCTION IF EXISTS "' + failFn + '"()');
+  }
+  console.log("[PROMETEO SHARE] failed audit rolls back regrant and keeps access denied PASS");
+
+  console.log("[PROMETEO SHARE] owner grant -> pro read -> revoke -> deny + audit PASS");
+
   const otherTenantIds = await documentIds(foreignClient);
   assert.ok(otherTenantIds.has(foreign.doc.id));
   assert.ok(!otherTenantIds.has(own.doc.id));

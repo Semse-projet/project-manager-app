@@ -9,6 +9,7 @@ import { LLMOrchestrator } from "../../infrastructure/llm/orchestrator.js";
 import { getAgentProfile } from "../../infrastructure/llm/agent-profiles.js";
 import { PrometeoService } from "./prometeo.service.js";
 import { PrometeoAccessPolicy } from "./prometeo-access.policy.js";
+import { PrometeoDocumentGrantService } from "./prometeo-document-grant.service.js";
 import { PrometeoToolExecutionService } from "./prometeo-tool-execution.service.js";
 import { findPrometeoToolDescriptor, listPrometeoToolRegistry } from "./prometeo-tool-registry.js";
 import { TradeGuideService } from "./trade-guide.service.js";
@@ -24,6 +25,7 @@ export class PrometeoController {
     @Optional() private readonly tradeGuide?: TradeGuideService,
     @Optional() private readonly toolExecution?: PrometeoToolExecutionService,
     @Optional() private readonly executionQuery?: ToolExecutionQueryService,
+    @Optional() private readonly documentGrants?: PrometeoDocumentGrantService,
   ) {}
 
   /** Legacy public_training labels do not grant cross-org access (C51/#974). */
@@ -233,6 +235,41 @@ export class PrometeoController {
     }
     await this.svc.deleteDocument({ tenantId: actor.tenantId, id, orgId: isOpsAdmin(actor) ? undefined : actor.orgId });
     return ok(rid, { deleted: true });
+  }
+
+  /** Explicit, audited sharing with one validated project participant org. */
+  @Post("documents/:id/shares")
+  @RequirePermissions("knowledge:write")
+  async grantDocumentAccess(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Param("id") id: string,
+    @Body() body: unknown,
+  ) {
+    if (!this.documentGrants) throw new BadRequestException("Document sharing is unavailable");
+    const b = (body ?? {}) as Record<string, unknown>;
+    const recipientOrgId = typeof b.recipientOrgId === "string" ? b.recipientOrgId.trim() : "";
+    if (!recipientOrgId) throw new BadRequestException("recipientOrgId is required");
+    const actor = resolveRequestContext(req);
+    const rid = resolveRequestId(req.headers ?? {});
+    const grant = await this.documentGrants.grant(actor, id, recipientOrgId, rid);
+    return ok(rid, {
+      id: grant.id, documentId: id, projectId: grant.projectId,
+      recipientOrgId: grant.recipientOrgId, active: grant.revokedAt === null,
+    });
+  }
+
+  /** Revocation takes effect in SQL on the next retrieval, including RAG. */
+  @Delete("documents/:id/shares/:recipientOrgId")
+  @RequirePermissions("knowledge:write")
+  async revokeDocumentAccess(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Param("id") id: string,
+    @Param("recipientOrgId") recipientOrgId: string,
+  ) {
+    if (!this.documentGrants) throw new BadRequestException("Document sharing is unavailable");
+    const actor = resolveRequestContext(req);
+    const rid = resolveRequestId(req.headers ?? {});
+    return ok(rid, await this.documentGrants.revoke(actor, id, recipientOrgId, rid));
   }
 
   @Post("search")
