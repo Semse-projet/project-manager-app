@@ -12,7 +12,7 @@ import { parseWithSchema } from "../../common/zod-validation.js";
 import { MilestonesService } from "./milestones.service.js";
 import { MilestonesRepository } from "./milestones.repository.js";
 import { ResourceScopeResolver } from "../../common/resource-scope.resolver.js";
-import { assertScopeAccess } from "../../common/resource-scope.js";
+import { assertScopeAccess, isOpsAdmin } from "../../common/resource-scope.js";
 import { BuildOpsIntelligenceAgent } from "../operational-intelligence/buildops-intelligence.agent.js";
 import { PaymentGovernanceService } from "../payments/payment-governance.service.js";
 import { EvidenceReviewService } from "../operational-intelligence/evidence-review.service.js";
@@ -549,6 +549,7 @@ export class MilestonesController {
       tenantId:       actor.tenantId,
       reviewedById:   actor.userId,
       reviewedByOrgId: actor.orgId,
+      reviewedByOpsAdmin: isOpsAdmin(actor),
       locale:         body.locale ?? "es",
       forceRulesOnly: body.forceRulesOnly,
     });
