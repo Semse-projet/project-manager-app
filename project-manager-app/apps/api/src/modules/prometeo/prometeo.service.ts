@@ -103,7 +103,7 @@ export class PrometeoService {
       const allEmbeddings: EmbeddingVector[] = [];
       for (let i = 0; i < rawChunks.length; i += BATCH_SIZE) {
         const batch = rawChunks.slice(i, i + BATCH_SIZE);
-        const vecs = await this.embedding.embedBatch(batch.map((c) => c.text));
+        const vecs = await this.embedding.embedBatch(batch.map((c) => c.text), { localOnly: true });
         allEmbeddings.push(...vecs);
       }
 
@@ -222,7 +222,7 @@ export class PrometeoService {
     // Internal agents without an explicitly resolved caller scope must never see tenant-wide chunks.
     if (!Object.prototype.hasOwnProperty.call(input, "scope") || input.scope === undefined) return [];
     const topK = input.topK ?? 5;
-    const queryVec = await this.embedding.embed(input.query);
+    const queryVec = await this.embedding.embed(input.query, { localOnly: true });
     const hasRealQueryEmbedding = !isZeroVector(queryVec);
 
     const chunks = await this.repo.loadChunksForSearch({ tenantId: input.tenantId, projectId: input.projectId, scope: input.scope ?? undefined });
@@ -376,9 +376,9 @@ export class PrometeoService {
     const dryRun = input.dryRun ?? false;
     const stats = this.embedding.getStats();
 
-    if (!stats.available && !dryRun) {
-      throw new Error("EmbeddingService not available — OPENAI_API_KEY not configured");
-    }
+    // External embedding availability is not authorization to process private
+    // documents off-machine. Without a verified local backend this remains FTS.
+
 
     // Load all indexed docs
     const docs = await this.repo.listDocuments({ tenantId: input.tenantId ?? "tenant_default" });
@@ -413,7 +413,7 @@ export class PrometeoService {
       const texts = batch.map((c) => c.text);
 
       try {
-        const vectors = await this.embedding.embedBatch(texts);
+        const vectors = await this.embedding.embedBatch(texts, { localOnly: true });
 
         // Update each chunk via repository
         for (let j = 0; j < batch.length; j++) {
