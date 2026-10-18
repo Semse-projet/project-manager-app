@@ -623,7 +623,9 @@ export class AgentsService {
           history,
           userMessage: input.message,
           tools: input.tools,
-          context: input.localOnly
+          // A private Project Copilot cannot opt out of local inference even
+          // if a future caller omits or explicitly disables localOnly.
+          context: (agentId === "project-copilot" || input.localOnly)
             ? { requiresTools: true, localOnly: true, privacyCritical: true, agentName: agentId, source: "private-project-copilot" }
             : { requiresTools: true },
           maxTokens: 1024,
@@ -658,6 +660,11 @@ export class AgentsService {
   }): Promise<ChatReply> {
     const agentId = input.agentId ?? "assistant";
     const now = new Date().toISOString();
+    // Generic chat lacks a verified project actor. It must never read or start
+    // project-copilot threads, which contain potentially private RAG material.
+    if (agentId === "project-copilot") {
+      throw new ForbiddenException("Project Copilot requires the authorized project harness");
+    }
 
     // Resolve or create thread
     let thread = input.threadId ? getThread(input.threadId) : undefined;
@@ -665,7 +672,7 @@ export class AgentsService {
     // before reading history or appending messages. Never reuse a foreign thread.
     if (input.threadId && (
       !thread || thread.tenantId !== input.tenantId ||
-      thread.userId !== input.userId || thread.agentId !== agentId
+      thread.userId !== input.userId || thread.agentId !== agentId || Boolean(thread.projectId)
     )) {
       throw new NotFoundException("Chat thread not found");
     }
