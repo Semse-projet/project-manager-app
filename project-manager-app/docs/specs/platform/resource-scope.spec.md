@@ -13,7 +13,7 @@ merge_status: "MERGED"
 deploy_status: "DEPLOYED"
 activation_status: "INACTIVE"
 migration_status: "NOT_APPLICABLE"
-verification_scope: "partial:etapas-1-2a-2b-2c-workspace-memory-y-3A-merged-deployed:3B-guarda-informativa-merged-solo-ci-no-es-un-despliegue:weather-intelligence-tasks-milestones-vision-credenciales-y-prometeo-activos-y-ordenes-merged-deployed:documentos-y-rag-de-prometeo-pendientes:filas-previas-de-ordenes-con-proyecto-y-job-incompatibles-sin-reconciliar:migracion-gradual-de-resolutores-pendiente:sin-smoke-autenticado-en-produccion"
+verification_scope: "partial:etapas-1-2a-2b-2c-workspace-memory-y-3A-merged-deployed:3B-guarda-informativa-merged-solo-ci-no-es-un-despliegue:weather-intelligence-tasks-milestones-vision-credenciales-y-prometeo-activos-y-ordenes-merged-deployed:documentos-y-rag-de-prometeo-implementacion-en-PR987-draft-CI-y-staging-pendientes:filas-previas-de-ordenes-con-proyecto-y-job-incompatibles-sin-reconciliar:migracion-gradual-de-resolutores-pendiente:sin-smoke-autenticado-en-produccion"
 feature_flags: []
 production_evidence:
   - github:pr:742:merge:de33e974c88a9f2db9255277f2cdb37ecbc89c3a
@@ -155,3 +155,11 @@ Etapas 2–3 · CI terminal · merge SHA · deploy · smoke autenticado multi-te
 **Contrato de error:** `404 Evidence scope not found` ante ID contradictorio, ajeno o soft-deleted, sin revelar qué ID corresponde a recurso existente. A diferencia del `400` usado por la creación de Prometeo WorkOrders con payload que el actor ya controla en ese recurso, aquí se elige `404` para ocultar la pertenencia de un identificador protegido de Evidence entre organizaciones. No sustituye el `403` por un permiso genérico `evidence:write` faltante.
 
 **P1 verificable:** dado un PRO autorizado para job A, cuando registra `{jobId:A,milestoneId:milestoneB}` o `{projectId:projectA,jobId:jobB}`, entonces devuelve `404` y Evidence/outbox permanecen sin cambios. Igual para hito de Job eliminado. Pruebas: `evidence-resource-scope-consistency.test.ts` y `evidence-outbox-integration.test.ts` con PostgreSQL real. Código, merge, CI, deploy y smoke se registran por separado; este anexo no declara cierre de C51.
+
+## 2026-10-18 — Proposed document/RAG S0/S1 gate (#974, #987 DRAFT)
+
+This extends §3.4's earlier *pending document decision* with a proposed **unapproved** contract, not an assertion of production activation. `PrometeoDocument.orgId` is server-derived. An unassociated document is readable only by its owning organization or OPS_ADMIN of the tenant. A document associated with an active live project is not automatically shared with all participants: a second organization needs an explicit active `PrometeoDocumentGrant`, same tenant and **same exact project**, checked in SQL before pagination/retrieval/citations. An active grant is read-only; deleting/editing source or feedback requires owner rights. Historical `public_training` is not consent. Deleted jobs terminate project-derived read scope; existing OPS_ADMIN is tenant-limited.
+
+`ResourceScopeResolver` receives an opt-in `requireLiveJob` parameter for private Prometeo, leaving other modules' default behavior unchanged. Evidence Review checks ACTIVE membership and exact milestone project before private RAG; local-only inference applies. Tests: `prometeo-document-scope.test.ts`, `prometeo-live-project-scope.test.ts`, `prometeo-documents-scope-integration.test.ts`, `evidence-review-rag-scope.test.ts`, authenticated `scripts/api-authenticated-f01-f02-smoke.mjs`.
+
+Explicit share-grant architecture [ADR-046 PROPOSED](../../architecture/ADR-046-prometeo-document-grants-private-model-routing.md), plan and release gates in `prometeo.document-sharing-grants` (REVIEW). Do not mark documents/RAG migrated or deployed until APPROVED, main merge, Railway deployment and signed-session staging evidence are separately verified.

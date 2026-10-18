@@ -11,8 +11,13 @@ related_files:
   - "apps/web/app/components/prometeo"
   - "apps/web/lib/bff/prometeo.ts"
   - "apps/web/lib/hooks/useCopilotContext.ts"
+  - "apps/api/src/modules/agents/agents.service.ts"
+  - "apps/api/src/modules/agents/harnesses/project-copilot.harness.ts"
+  - "apps/api/src/common/chat-thread.store.ts"
 related_tests:
   - "apps/api/test/prometeo-copilot.service.test.ts"
+  - "apps/api/test/agents-thread-owner-scope.test.ts"
+  - "apps/api/test/agents-private-copilot-routing.test.ts"
 related_endpoints:
   - "v1/prometeo/copilot/context"
   - "v1/prometeo/copilot/message"
@@ -65,3 +70,9 @@ service composes `OrchestrationService` (interpretation) and `WorkspaceService`
 - Mutating quick actions return `requiresWorkspace = true` and a `pending`
   status instead of executing.
 - Audit: message/action/mission events logged via the Nest logger.
+
+## P0 #974 amendment (proposed, PR #987 — no deployment claim)
+
+This contract amendment concerns **Project Copilot agent threads**; it does not silently redefine the separate `/v1/prometeo/copilot/*` context endpoints above. A thread ID is not authority: every read/append verifies tenant, authenticated user, agent and, for Project Copilot, the exact authorized `projectId`. Cross-user/tenant/project IDs are hidden as **404**. Missing authorized project for Project Copilot is **403**. Generic `/v1/agents/chat` cannot open or continue Project Copilot threads (**403**), and generic thread list/history must not expose project-bound or legacy Copilot transcripts. Private Copilot tool calls enforce `localOnly` even if a caller passes false; no eligible local tool model returns a non-action fallback, with no side effects and no cloud escalation. New tests: `agents-thread-owner-scope.test.ts` and `agents-private-copilot-routing.test.ts`.
+
+Source of truth: `prometeo.document-sharing-grants` SDD 2.0 (REVIEW) + proposed ADR-046. This addendum requires independent owner approval before release; earlier `IMPLEMENTED` status applies only to the existing Copilot functionality.

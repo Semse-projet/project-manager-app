@@ -23,6 +23,8 @@ related_tests:
   - apps/api/test/prometeo-orchestrator.service.test.ts
   - apps/api/test/prometeo-rag-phase4-agents.test.ts
   - tests/unit/prometeo-retrieval.test.ts
+  - apps/api/test/prometeo-document-scope.test.ts
+  - apps/api/test/prometeo-private-embeddings.test.ts
 related_endpoints:
   - v1/prometeo
   - v1/prometeo/tools
@@ -349,3 +351,7 @@ describe("POST /v1/prometeo/search") {
 - Queries con `jobId` o `milestoneId` son `privacyCritical` → routing a Ollama
 - Documentos públicos de trade (PDFs de códigos) → pueden usar cloud LLM
 - Score de relevancia mínimo recomendado: 0.45 (hybrid retrieval semántico + keyword)
+
+## P0 privacy contract addendum — 2026-10-18 (draft PR #987 only)
+
+The historic VERIFIED contract above reflects the previous deployed behavior; it must **not** be treated as approval of these proposed changes. New private document ingestion defaults to `tenant_private` (no project) or `project_private` (authorized project) and rejects unverified `public_training`, blank `projectId`, or metadata that would override server policy. Retrieval by search, rag-context, rag-query and trade-guide first applies exact org/project/grant SQL authorization; a tenantId alone does not grant RAG to background agents. EmbeddingService for private data fails closed: no OpenAI outbound embeddings on ingest/query/backfill, zero vectors/local FTS when there is no certified local embedding model; semantic-quality trade-off is explicit. Never classify historical cloud vectors as newly consented. Tests: `prometeo-private-embeddings.test.ts`, `prometeo-document-scope.test.ts`, PostgreSQL integration and HTTP smoke. Proposed ADR-046 + critical sharing SDD REVIEW govern approval.
