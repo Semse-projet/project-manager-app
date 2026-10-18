@@ -22,7 +22,7 @@ test("document listing constrains organization and authorized projects before ta
   assert.equal(where?.tenantId, "tenant-A");
   assert.deepEqual(where?.OR, [
     { projectId: null, orgId: "org-A" },
-    { projectId: { in: ["project-A"] } },
+    { projectId: { in: ["project-A"] }, orgId: "org-A" },
   ]);
   assert.equal(take, 10, "filter is in database query, not applied after pagination");
 });
@@ -49,7 +49,7 @@ test("retrieval selects only chunks whose parent document passed authorization",
   assert.equal(documentWhere?.status, "indexed");
   assert.deepEqual(documentWhere?.OR, [
     { projectId: null, orgId: "org-A" },
-    { projectId: { in: ["project-A"] } },
+    { projectId: { in: ["project-A"] }, orgId: "org-A" },
   ]);
   assert.deepEqual(chunkWhere?.documentId, { in: ["doc-own"] });
   assert.equal(chunkWhere?.tenantId, "tenant-A");
@@ -193,4 +193,13 @@ test("only explicit admin scope sentinel can unlock tenant-wide RAG lookup", asy
   assert.equal(queries, 0);
   assert.deepEqual(await svc.search({ tenantId: "tenant-A", query: "secret", scope: null }), []);
   assert.equal(queries, 1);
+});
+
+
+test("actors without an owning org see no legacy ownerless document, even if orgId is empty", async () => {
+  let where: Record<string, unknown> | undefined;
+  const prisma = { prometeoDocument: { async findMany(args: { where: Record<string, unknown> }) { where = args.where; return []; } } };
+  const repo = new PrometeoRepository(prisma as never);
+  await repo.listDocuments({ tenantId: "tenant-A", scope: { orgId: "", projectIds: [], jobIds: [] } });
+  assert.deepEqual(where?.OR, [{ id: "__no_authorized_documents__" }]);
 });
