@@ -136,7 +136,10 @@ export async function performOperatorExport(args,deps={invoke,readFile,writeFile
         report.result!=="EMPTY_CANDIDATE"||
         report.readOnly!==true || report.backupVerified!==false ||
         report.evidenceDatabaseReconciled!==false ||
-        !report.counts || Object.values(report.counts).some(v=>v!==0)) {
+        !report.counts || typeof report.counts!=="object" ||
+        Object.keys(report.counts).length!==4 ||
+        ["manifests","partDirectories","partFiles","unrecognizedEntries"]
+          .some(key=>report.counts[key]!==0)) {
       throw Error("Multipart staging is not an empty persistent candidate");
     }
   }
