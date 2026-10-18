@@ -18,6 +18,14 @@ CREATE UNIQUE INDEX "PrometeoDocumentGrant_documentId_recipientOrgId_key"
 CREATE INDEX "PrometeoDocumentGrant_tenantId_recipientOrgId_projectId_revokedAt_idx"
   ON "PrometeoDocumentGrant"("tenantId","recipientOrgId","projectId","revokedAt");
 
+-- Database-enforced same-document, same-tenant, same-project relationship:
+-- a grant for project A cannot authorize a document reassociated with B.
+-- Prevent unreviewed project reassociations: require explicit grant cleanup.
+CREATE UNIQUE INDEX "PrometeoDocument_id_tenantId_projectId_key"
+  ON "PrometeoDocument"("id","tenantId","projectId");
+
 ALTER TABLE "PrometeoDocumentGrant"
-  ADD CONSTRAINT "PrometeoDocumentGrant_documentId_fkey"
-  FOREIGN KEY ("documentId") REFERENCES "PrometeoDocument"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  ADD CONSTRAINT "PrometeoDocumentGrant_documentId_tenantId_projectId_fkey"
+  FOREIGN KEY ("documentId","tenantId","projectId")
+  REFERENCES "PrometeoDocument"("id","tenantId","projectId")
+  ON DELETE CASCADE ON UPDATE RESTRICT;
