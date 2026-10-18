@@ -33,7 +33,8 @@ function makeWorld() {
     { userId: "ghost", orgId: "orgA", status: "SUSPENDED", role: { key: "WORKER" }, org: { tenantId: "t1" } }
   ];
   let seq = 0;
-  const match = (row: Row, where: Row): boolean => Object.entries(where).every(([k, v]) => row[k] === v);
+  const match = (row: Row, where: Row): boolean =>
+    Object.entries(where).every(([k, v]) => (v && typeof v === "object" && "in" in (v as Row) ? (v as Row).in.includes(row[k]) : row[k] === v));
   const table = (rows: Row[], defaults: () => Row) => ({
     async findFirst({ where }: any) { return rows.find((r) => match(r, where)) ?? null; },
     async findMany({ where }: any) { return rows.filter((r) => match(r, where)); },
@@ -137,6 +138,16 @@ test("AC-06 liberar exige motivo, audita y permite reasignar a la misma persona"
   assert.deepEqual(w.audits.map((a) => a.action), ["task_allocation.assigned", "task_allocation.released", "task_allocation.assigned"]);
 });
 
+test("AC-07 la vista incluye el título de la tarea canónica", async () => {
+  const w = makeWorld();
+  w.tasks[0].title = "Instalar lámparas";
+  await w.service.assign(sup, "c1", "task1", "r", ["ana"]);
+  const mine: any[] = await w.service.listMine(ana);
+  assert.equal(mine[0].taskTitle, "Instalar lámparas");
+  const forTask: any[] = await w.service.listForTask(sup, "c1", "task1");
+  assert.equal(forTask[0].taskTitle, "Instalar lámparas");
+});
+
 test("AC-07 la persona ve solo lo suyo y no ve las liberadas", async () => {
   const w = makeWorld();
   await w.service.assign(sup, "c1", "task1", "r", ["ana", "bob"]);
@@ -172,4 +183,32 @@ test("AC-08 una asignación liberada no se puede avanzar", async () => {
   const [a] = await w.service.assign(sup, "c1", "task1", "r", ["ana"]);
   await w.service.release(sup, "c1", "task1", "ana", "r2", "ya no aplica");
   await assert.rejects(w.service.updateStatus(ana, a.allocationId, "IN_PROGRESS", undefined, "r"), { status: 422 });
+});
+
+test("AC-09 una tarea interna se crea en la Org de la cuadrilla y luego se puede asignar", async () => {
+  const w = makeWorld();
+  const created: any = await w.service.createCrewTask(sup, "c1", "r1", { title: "Pintar pasillo", priority: "high" });
+  const row = w.tasks.find((t: any) => t.id === created.taskId) as any;
+  assert.equal(row.orgId, "orgA");
+  assert.equal(row.entityType, "Crew");
+  assert.equal(row.entityId, "c1");
+  assert.equal(row.createdBy, "sup");
+  assert.equal(created.priority, "high");
+  const [a]: any[] = await w.service.assign(sup, "c1", created.taskId, "r2", ["ana"]);
+  assert.equal(a.status, "ASSIGNED");
+  const mine: any[] = await w.service.listMine(ana);
+  assert.equal(mine[0].taskTitle, "Pintar pasillo");
+  assert.deepEqual(w.audits.map((x) => x.action), ["crew_task.created", "task_allocation.assigned"]);
+});
+
+test("AC-09 crear o listar tareas respeta el alcance y el flag", async () => {
+  const w = makeWorld();
+  await assert.rejects(w.service.createCrewTask(sup, "c2", "r", { title: "Ajena ajena" }), { status: 403 });
+  await assert.rejects(w.service.createCrewTask(sup, "cx", "r", { title: "Otro tenant" }), { status: 404 });
+  await w.service.createCrewTask(sup, "c1", "r", { title: "Mía" });
+  const list: any[] = await w.service.listCrewTasks(sup, "c1");
+  assert.deepEqual(list.map((t) => t.title), ["Mía"]);
+  await assert.rejects(w.service.listCrewTasks(sup, "c2"), { status: 403 });
+  process.env.SEMSE_TASK_ALLOCATION_ENABLED = "false";
+  await assert.rejects(w.service.createCrewTask(sup, "c1", "r", { title: "Apagado" }), { status: 404 });
 });

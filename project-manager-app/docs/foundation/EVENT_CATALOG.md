@@ -494,6 +494,7 @@ Crear eventos por cambios de dominio o de consecuencia operativa real.
 ## Business OS — asignación de tareas (BO-10)
 
 - `task_allocation.assigned`
+- `crew_task.created`
 - `task_allocation.status_changed`
 - `task_allocation.released`
 
