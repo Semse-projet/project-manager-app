@@ -102,5 +102,34 @@ test("private document backfill cannot send chunks to OpenAI even when it report
   assert.deepEqual(calls[0].options, { localOnly: true });
   assert.equal(result.embedded, 0);
   assert.equal(result.failed, 1);
+  assert.equal(result.provider, "local_fts");
   assert.equal(persisted, false);
+});
+
+test("ordinary organization RAG never includes unscoped repository-wide Graphify context", async () => {
+  let graphCalls = 0;
+  const graphify = {
+    async buildStructuralContext() {
+      graphCalls++;
+      return "INTERNAL_CODE_GRAPH_DATA";
+    },
+  };
+  const repo = {
+    async loadChunksForSearch() { return []; },
+  };
+  const embedding = {
+    async embed(_query: string, opts: Record<string, unknown>) {
+      assert.equal(opts.localOnly, true);
+      return new Array(1536).fill(0);
+    },
+  };
+  const svc = new PrometeoService(repo as never, {} as never, embedding as never, {} as never, graphify as never);
+  const scoped = await svc.buildRagContext({
+    tenantId: "tenant-A", query: "private source code", scope: { orgId: "org-A", projectIds: [], jobIds: [] },
+  });
+  assert.deepEqual(scoped, { chunks: [], contextBlock: "", tokenEstimate: 0 });
+  assert.equal(graphCalls, 0);
+  const admin = await svc.buildRagContext({ tenantId: "tenant-A", query: "code structure", scope: null });
+  assert.equal(graphCalls, 1, "only an explicit privileged scope may include a global code graph");
+  assert.ok(admin.contextBlock.includes("INTERNAL_CODE_GRAPH_DATA"));
 });
