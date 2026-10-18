@@ -90,6 +90,28 @@ test("Prometeo refuses document ingestion before any write when association is u
   assert.equal(wrote, false);
 });
 
+test("both Prometeo ingest routes reject an empty or blank projectId before persistence", async () => {
+  let writes = 0;
+  const svc = {
+    async ingestText() { writes++; return {}; },
+    async ingestFile() { writes++; return {}; },
+  };
+  const access = { async assertCanCreate() {} };
+  const controller = new PrometeoController(svc as never, access as never);
+  const req = { headers: {}, authContext: { tenantId: "tenant-A", orgId: "org-A", userId: "actor-A", roles: ["CLIENT"] } };
+  for (const projectId of ["", "   "]) {
+    await assert.rejects(
+      () => controller.ingest(req as never, { projectId, title: "secret", text: "private" }),
+      /projectId must be a non-empty string/,
+    );
+    await assert.rejects(
+      () => controller.ingestFile(req as never, { projectId, fileBase64: "YQ==", fileName: "private.txt" }),
+      /projectId must be a non-empty string/,
+    );
+  }
+  assert.equal(writes, 0);
+});
+
 test("Prometeo refuses deletion when the document row is unauthorized", async () => {
   let deleted = false;
   const svc = {
