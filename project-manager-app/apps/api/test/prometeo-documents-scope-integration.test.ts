@@ -102,6 +102,29 @@ dbTest("P0: physical Postgres enforces document/chunk/feedback tenant and org is
       (err: any) => err.getStatus?.() === 404,
     );
     assert.ok(await repo.getDocument(own1.doc.id), "foreign-tenant delete must not alter the document");
+
+    // A cascaded share must leave an immutable audit trail; failed audit FK must roll back document deletion.
+    const grant = await prisma.prometeoDocumentGrant.create({ data: {
+      tenantId: tenantA, documentId: own2.doc.id, projectId: projectA,
+      recipientOrgId: orgB, grantedByUserId: "p0_test_user",
+    } });
+    await assert.rejects(() => repo.deleteDocument({
+      tenantId: tenantA, id: own2.doc.id, orgId: orgA,
+      actorUserId: id("nonexistent_actor"), requestId: "failed-audit",
+    }));
+    assert.ok(await repo.getDocument(own2.doc.id), "an audit write failure must roll back deletion");
+    assert.ok(await prisma.prometeoDocumentGrant.findUnique({ where: { id: grant.id } }),
+      "failed audit must retain shares and the document");
+
+    await repo.deleteDocument({ tenantId: tenantA, id: own2.doc.id, orgId: orgA, requestId: "valid-delete" });
+    assert.equal(await repo.getDocument(own2.doc.id), null);
+    assert.equal(await prisma.prometeoDocumentGrant.findUnique({ where: { id: grant.id } }), null);
+    const recorded = await prisma.auditLog.findMany({
+      where: { tenantId: tenantA, OR: [{ entityId: own2.doc.id }, { entityId: grant.id }] },
+      select: { entityId: true, action: true },
+    });
+    assert.deepEqual(new Set(recorded.map(entry => entry.action)),
+      new Set(["PROMETEO_DOCUMENT_DELETED", "PROMETEO_DOCUMENT_SHARE_REVOKED_BY_DELETE"]));
   } finally {
     await prisma.tenant.deleteMany({ where: { id: { in: [tenantA, tenantB] } } });
     await prisma.$disconnect();
