@@ -252,6 +252,8 @@ model Org {
   buildOpsProjects              BuildOpsProject[]
   buildOpsTasks                 BuildOpsTask[]
   invitations                   OrgInvitation[]
+  businessOffers                BusinessOffer[]
+  businessEngagements           BusinessEngagement[]
   createdAt                     DateTime                       @default(now())
   updatedAt                     DateTime                       @updatedAt
 
@@ -284,6 +286,53 @@ model OrgInvitation {
   @@index([tenantId, orgId, status, createdAt])
   @@index([orgId, contactHash, status])
 }
+
+model BusinessOffer {
+  id                     String              @id @default(cuid())
+  tenantId               String
+  orgId                  String
+  issuedByUserId         String
+  recipientUserId        String
+  positionTitle          String
+  classificationDeclared String // W2 | 1099 | OTHER (declarada por el patrón; no es contrato legal)
+  startsAt               DateTime?
+  compensationNote       String?
+  status                 String              @default("SENT") // SENT | ACCEPTED | DECLINED | EXPIRED | REVOKED
+  expiresAt              DateTime
+  respondedAt            DateTime?
+  revokedAt              DateTime?
+  revokedByUserId        String?
+  createdAt              DateTime            @default(now())
+  updatedAt              DateTime            @updatedAt
+  org                    Org                 @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  engagement             BusinessEngagement?
+
+  @@index([tenantId, orgId, status, createdAt])
+  @@index([recipientUserId, status])
+}
+
+model BusinessEngagement {
+  id                String        @id @default(cuid())
+  tenantId          String
+  orgId             String
+  userId            String
+  offerId           String        @unique
+  status            String        @default("PENDING_CONFIRMATION") // PENDING_CONFIRMATION | ACTIVE | ENDED
+  activatedByUserId String?
+  activatedAt       DateTime?
+  legalConfirmedAt  DateTime?
+  endedAt           DateTime?
+  endedByUserId     String?
+  endedReason       String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  org               Org           @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  offer             BusinessOffer @relation(fields: [offerId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, orgId, status])
+  @@index([userId, status])
+}
+
 
 model User {
   id                                  String                        @id @default(cuid())
