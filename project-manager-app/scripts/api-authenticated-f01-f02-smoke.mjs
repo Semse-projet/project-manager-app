@@ -214,9 +214,9 @@ async function prometeoObjectScopeSmoke() {
 
   const sharedProject = await prisma.project.findFirst({
     where: { tenantId: tenantA, job: { clientOrgId: owner.orgId }, assignedProOrgId: pro1.orgId },
-    select: { id: true },
+    select: { id: true, jobId: true },
   });
-  assert.ok(sharedProject?.id, "F01 should create a project with an authorized client and pro");
+  assert.ok(sharedProject?.id && sharedProject.jobId, "F01 should create a project with an authorized client and pro");
 
   async function documentFor(actor, marker, projectId) {
     const doc = await prisma.prometeoDocument.create({
@@ -401,6 +401,37 @@ async function prometeoObjectScopeSmoke() {
     expectedStatus: 401,
     spoofedHeaders: { "x-user-id": owner.userId, "x-org-id": owner.orgId, "x-tenant-id": tenantA, "x-roles": "OPS_ADMIN" },
   });
+  // Soft-deleted jobs must immediately remove project/RAG authorization.
+  // Restore synthetic job state so subsequent F01/F02 cases are unaffected.
+  const jobBeforeDeletion = await prisma.job.findUniqueOrThrow({
+    where: { id: sharedProject.jobId }, select: { deletedAt: true },
+  });
+  await prisma.job.update({
+    where: { id: sharedProject.jobId }, data: { deletedAt: new Date() },
+  });
+  try {
+    const afterJobDeletion = await documentIds(owner);
+    assert.ok(!afterJobDeletion.has(ownerProject.doc.id),
+      "project document must disappear when its job is deleted");
+    assert.ok(afterJobDeletion.has(own.doc.id),
+      "an unrelated owner-private document must remain accessible");
+    await request("GET", "/v1/prometeo/documents?projectId=" + encodeURIComponent(sharedProject.id), {
+      token: owner.token, expectedStatus: 404,
+    });
+    const revokedSearch = await searchAs(owner, ownerMarker + "_PROJECT");
+    assert.ok(!revokedSearch.data.some(chunk => chunk.documentId === ownerProject.doc.id),
+      "RAG must exclude a deleted-job project even for its owning organization");
+    await request("POST", "/v1/prometeo/documents/" + ownerProject.doc.id + "/shares", {
+      token: owner.token, body: { recipientOrgId: pro1.orgId }, expectedStatus: 404,
+    });
+  } finally {
+    await prisma.job.update({
+      where: { id: sharedProject.jobId },
+      data: { deletedAt: jobBeforeDeletion.deletedAt },
+    });
+  }
+  console.log("[PROMETEO P0] deleted job blocks project documents, RAG and regrant PASS");
+
   console.log("[PROMETEO P0] signed-session multi-org + RAG + feedback isolation PASS", {
     ownerDocumentCount: ownerIds.size, crossTenantBlocked: true, realUserPilot: false,
   });
