@@ -23,6 +23,8 @@ test("document listing constrains organization and authorized projects before ta
   assert.deepEqual(where?.OR, [
     { projectId: null, orgId: "org-A" },
     { projectId: { in: ["project-A"] }, orgId: "org-A" },
+    { projectId: { in: ["project-A"] },
+      grants: { some: { tenantId: "tenant-A", recipientOrgId: "org-A", projectId: { in: ["project-A"] }, revokedAt: null } } },
   ]);
   assert.equal(take, 10, "filter is in database query, not applied after pagination");
 });
@@ -50,6 +52,8 @@ test("retrieval selects only chunks whose parent document passed authorization",
   assert.deepEqual(documentWhere?.OR, [
     { projectId: null, orgId: "org-A" },
     { projectId: { in: ["project-A"] }, orgId: "org-A" },
+    { projectId: { in: ["project-A"] },
+      grants: { some: { tenantId: "tenant-A", recipientOrgId: "org-A", projectId: { in: ["project-A"] }, revokedAt: null } } },
   ]);
   assert.deepEqual(chunkWhere?.documentId, { in: ["doc-own"] });
   assert.equal(chunkWhere?.tenantId, "tenant-A");
