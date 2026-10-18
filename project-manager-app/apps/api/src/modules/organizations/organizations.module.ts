@@ -1,6 +1,8 @@
 import { Module } from "@nestjs/common";
-import { CrewsService } from "./crews.service.js";
+import { EmailService } from "../../infrastructure/email/email.service.js";
+import { AuthModule } from "../auth/auth.module.js";
 import { MyCrewsController, OrgCrewsController } from "./crews.controller.js";
+import { CrewsService } from "./crews.service.js";
 import { InvitationsController, OrgInvitationsController } from "./invitations.controller.js";
 import { InvitationsService } from "./invitations.service.js";
 import { MyOffersController, OrgOffersController } from "./offers.controller.js";
@@ -10,8 +12,9 @@ import { OrganizationsRepository } from "./organizations.repository.js";
 import { OrganizationsService } from "./organizations.service.js";
 
 @Module({
+  imports: [AuthModule],
   controllers: [OrganizationsController, OrgInvitationsController, InvitationsController, OrgOffersController, MyOffersController, OrgCrewsController, MyCrewsController],
-  providers: [OrganizationsRepository, OrganizationsService, InvitationsService, OffersService, CrewsService],
+  providers: [OrganizationsRepository, OrganizationsService, InvitationsService, OffersService, CrewsService, EmailService],
   exports: [OrganizationsRepository, OrganizationsService]
 })
 export class OrganizationsModule {}
