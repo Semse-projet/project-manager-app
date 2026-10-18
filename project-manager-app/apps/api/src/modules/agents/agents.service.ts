@@ -723,14 +723,20 @@ export class AgentsService {
 
   getThreadMessages(input: { tenantId: string; userId: string; threadId: string }) {
     const thread = getThread(input.threadId);
-    if (!thread || thread.tenantId !== input.tenantId || thread.userId !== input.userId) {
+    // These generic endpoints cannot revalidate current project membership.
+    // Never expose private Copilot transcripts here, even to the original
+    // user after a project assignment or membership has been revoked.
+    if (!thread || thread.tenantId !== input.tenantId || thread.userId !== input.userId
+        || thread.projectId || thread.agentId === "project-copilot") {
       throw new NotFoundException(`Thread '${input.threadId}' not found`);
     }
     return thread;
   }
 
   getThreadList(input: { tenantId: string; userId: string }) {
-    return listThreads(input);
+    return listThreads(input).filter(thread =>
+      !thread.projectId && thread.agentId !== "project-copilot"
+    );
   }
 
   private async createIdempotent(input: {
