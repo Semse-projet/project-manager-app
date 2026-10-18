@@ -467,3 +467,11 @@ Un evento se considera correctamente introducido cuando:
 No crear eventos por cada microdetalle de UI.
 
 Crear eventos por cambios de dominio o de consecuencia operativa real.
+
+## Business OS — ofertas internas (BO-05)
+
+- `business_offer.sent`
+- `business_offer.responded`
+- `business_offer.revoked`
+- `business_engagement.activated`
+- `business_engagement.ended`
