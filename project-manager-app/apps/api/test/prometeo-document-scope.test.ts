@@ -161,3 +161,36 @@ test("read access to a participant project does not authorize deletion of anothe
   await assert.rejects(() => controller.deleteDocument(req as never, "doc-B"), /Only the owning organization/);
   assert.equal(deleted, false);
 });
+
+
+test("private visibility must agree with project association", async () => {
+  const writes: Record<string, unknown>[] = [];
+  const svc = { async ingestText(data: Record<string, unknown>) { writes.push(data); return { id: "own" }; } };
+  const access = { async assertCanCreate() {} };
+  const controller = new PrometeoController(svc as never, access as never);
+  const req = { headers: {}, authContext: { tenantId: "tenant-A", orgId: "org-A", userId: "actor-A", roles: ["CLIENT"] } };
+  await assert.rejects(
+    () => controller.ingest(req as never, { title: "bad", text: "confidential", projectId: "p1", visibility: "tenant_private" }),
+    /Project documents require project_private visibility/,
+  );
+  await assert.rejects(
+    () => controller.ingest(req as never, { title: "bad", text: "confidential", visibility: "project_private" }),
+    /project_private requires projectId/,
+  );
+  assert.equal(writes.length, 0);
+  await controller.ingest(req as never, { title: "good", text: "confidential", metadataJson: { visibility: "public_training" } });
+  assert.equal((writes[0]?.metadataJson as Record<string, unknown>).visibility, "tenant_private");
+});
+
+test("only explicit admin scope sentinel can unlock tenant-wide RAG lookup", async () => {
+  let queries = 0;
+  const repo = {
+    async loadChunksForSearch() { queries++; return []; },
+  };
+  const embedding = { async embed() { return []; } };
+  const svc = new PrometeoService(repo as never, {} as never, embedding as never, {} as never);
+  assert.deepEqual(await svc.search({ tenantId: "tenant-A", query: "secret", scope: undefined }), []);
+  assert.equal(queries, 0);
+  assert.deepEqual(await svc.search({ tenantId: "tenant-A", query: "secret", scope: null }), []);
+  assert.equal(queries, 1);
+});
