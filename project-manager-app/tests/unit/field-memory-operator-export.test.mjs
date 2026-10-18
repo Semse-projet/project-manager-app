@@ -50,12 +50,19 @@ test("bad remote inventory aborts before SCP and never invents success",async t=
  t.after(()=>rm(dir,{recursive:true,force:true}));
  let copied=false;
  const fake={validateDestination:async()=>dir,mkdir,writeFile,readFile,executeCustodyGate,
-  invoke(cmd,args){
+  invoke(cmd,args,_timeout,_maxBuffer,input){
    if(cmd==="ssh" && args[0]==="-G")return "hostname ssh.railway.com\nuser test.up.railway.app";
    if(cmd==="railway"&&args[0]==="--version")return "railway test";
    if(cmd==="railway"&&args[0]==="ssh"&&args[1]==="config")return "Host semse-api-prod\n HostName ssh.railway.com\n User test.up.railway.app";
    if(cmd==="ssh" && args.includes("printenv"))return "/data/semse-storage\n";
-   if(cmd==="ssh" && args.includes("node"))return '{"schema":"wrong"}';
+   if(cmd==="ssh" && args.includes("node")) {
+    if(typeof input==="string"&&input.includes("semse-multipart-quiescence-precheck-v1"))
+      return JSON.stringify({schema:"semse-multipart-quiescence-precheck-v1",
+        readOnly:true,backupVerified:false,evidenceDatabaseReconciled:false,
+        result:"EMPTY_CANDIDATE",
+        counts:{manifests:0,partDirectories:0,partFiles:0,unrecognizedEntries:0}});
+    return '{"schema":"wrong"}';
+   }
    if(cmd==="scp"){copied=true;return "";}
    throw Error("unexpected");
   }};
@@ -63,6 +70,80 @@ test("bad remote inventory aborts before SCP and never invents success",async t=
   secureDir:dir},fake));
  assert.equal(copied,false);
 });
+test("multipart staging pending blocks export before SCP or reading originals",async t=>{
+ const dir=await mkdtemp(path.join(os.tmpdir(),"semse-multipart-operator-deny-"));
+ t.after(()=>rm(dir,{recursive:true,force:true}));
+ let copied=0,inventories=0,scans=0;
+ const fake={validateDestination:async()=>dir,mkdir,readFile,writeFile,executeCustodyGate,
+  invoke(cmd,args,_timeout,_maxBuffer,input){
+   if(cmd==="railway"&&args[0]==="--version")return "railway synthetic";
+   if(cmd==="railway"&&args[0]==="ssh")return "Host semse-api-prod\n HostName ssh.railway.com\n User synthetic.up.railway.app";
+   if(cmd==="ssh"&&args[0]==="-G")return "hostname ssh.railway.com\nuser synthetic.up.railway.app";
+   if(cmd==="ssh"&&args.includes("printenv"))return "/data/semse-storage\n";
+   if(cmd==="ssh"&&args.includes("node")) {
+     if(typeof input==="string"&&input.includes("semse-multipart-quiescence-precheck-v1")){
+       scans++;
+       return JSON.stringify({schema:"semse-multipart-quiescence-precheck-v1",
+         result:"BLOCKED",readOnly:true,backupVerified:false,
+         evidenceDatabaseReconciled:false,
+         counts:{manifests:1,partDirectories:0,partFiles:0,unrecognizedEntries:0}});
+     }
+     inventories++;
+     throw Error("No original manifest allowed while multipart staging pending");
+   }
+   if(cmd==="scp"){copied++;throw Error("SCP must not execute");}
+   throw Error("Unexpected operator command");
+  }};
+ await assert.rejects(()=>performOperatorExport({
+   execute:true,encrypted:true,quiescent:true,fullStorageScope:true,secureDir:dir,
+ },fake),/Multipart staging/);
+ assert.equal(scans,1);
+ assert.equal(copied,0);
+ assert.equal(inventories,0);
+});
+
+test("multipart precheck after SCP can block custody acceptance without false PASS",async t=>{
+ const dir=await mkdtemp(path.join(os.tmpdir(),"semse-multipart-operator-post-"));
+ t.after(()=>rm(dir,{recursive:true,force:true}));
+ const fixture=path.join(dir,"fixture");await mkdir(fixture);
+ await writeFile(path.join(fixture,"synthetic.jpg"),Buffer.from([255,216,255,217]));
+ const source=await makeManifest(fixture,"synthetic-reference");
+ let copied=0,scans=0,inventories=0,custodyCalls=0;
+ const fake={validateDestination:async()=>dir,mkdir,readFile,writeFile,
+  async executeCustodyGate(){custodyCalls++;throw Error("No custody attestation allowed");},
+  invoke(cmd,args,_timeout,_maxBuffer,input){
+   if(cmd==="railway"&&args[0]==="--version")return "railway synthetic";
+   if(cmd==="railway"&&args[0]==="ssh")return "Host semse-api-prod\n HostName ssh.railway.com\n User synthetic.up.railway.app";
+   if(cmd==="ssh"&&args[0]==="-G")return "hostname ssh.railway.com\nuser synthetic.up.railway.app";
+   if(cmd==="ssh"&&args.includes("printenv"))return "/data/semse-storage\n";
+   if(cmd==="ssh"&&args.includes("node")) {
+     if(typeof input==="string"&&input.includes("semse-multipart-quiescence-precheck-v1")){
+       scans++;
+       return JSON.stringify({schema:"semse-multipart-quiescence-precheck-v1",
+         result:scans===1?"EMPTY_CANDIDATE":"BLOCKED",
+         readOnly:true,backupVerified:false,evidenceDatabaseReconciled:false,
+         counts:{manifests:scans===1?0:1,partDirectories:0,partFiles:0,unrecognizedEntries:0}});
+     }
+     inventories++;
+     return JSON.stringify({...source,backupReference:args.at(-1),
+       createdAt:new Date(Date.now()+inventories*5000).toISOString()});
+   }
+   if(cmd==="scp") {
+     copied++;
+     copyFileSync(path.join(fixture,"synthetic.jpg"),path.join(args.at(-1),"synthetic.jpg"));
+     return "";
+   }
+   throw Error("Unexpected operator command");
+  }};
+ await assert.rejects(()=>performOperatorExport({
+   execute:true,encrypted:true,quiescent:true,fullStorageScope:true,secureDir:dir,
+ },fake),/Multipart staging/);
+ assert.equal(scans,2);
+ assert.equal(inventories,2);
+ assert.equal(copied,1);
+ assert.equal(custodyCalls,0);
+});
+
 test("two valid inventories and a local SCP fixture yield offsite-only PASS",async t=>{
  const dir=await mkdtemp(path.join(os.tmpdir(),"semse-operator-success-"));
  t.after(()=>rm(dir,{recursive:true,force:true}));
@@ -70,14 +151,21 @@ test("two valid inventories and a local SCP fixture yield offsite-only PASS",asy
  const bytes=Buffer.from([255,216,255,217]);
  await writeFile(path.join(fixture,"wall.jpg"),bytes);
  const source=await makeManifest(fixture,"fixture-ref");
- let reads=0,steps=0;
+ let reads=0,steps=0,scans=0;
  const fake={validateDestination:async()=>dir,mkdir,writeFile,readFile,executeCustodyGate,
-  invoke(cmd,args){
+  invoke(cmd,args,_timeout,_maxBuffer,input){
    if(cmd==="ssh" && args[0]==="-G")return "hostname ssh.railway.com\nuser test.up.railway.app";
    if(cmd==="railway"&&args[0]==="--version")return "railway test";
    if(cmd==="railway"&&args[0]==="ssh"&&args[1]==="config")return "Host semse-api-prod\n HostName ssh.railway.com\n User test.up.railway.app";
    if(cmd==="ssh" && args.includes("printenv"))return "/data/semse-storage\n";
    if(cmd==="ssh" && args.includes("node")) {
+    if(typeof input==="string" && input.includes("semse-multipart-quiescence-precheck-v1")) {
+      scans++;
+      return JSON.stringify({schema:"semse-multipart-quiescence-precheck-v1",
+        readOnly:true,backupVerified:false,evidenceDatabaseReconciled:false,
+        result:"EMPTY_CANDIDATE",
+        counts:{manifests:0,partDirectories:0,partFiles:0,unrecognizedEntries:0}});
+    }
     reads++;
     assert.equal(args[0],"-T");
     assert.equal(args[1],"semse-api-prod");
@@ -96,7 +184,7 @@ test("two valid inventories and a local SCP fixture yield offsite-only PASS",asy
  assert.equal(result.filesRestored,1);
  assert.equal(result.railwaySnapshotRestored,false);
  assert.equal(result.captureSessionActivationPermitted,false);
- assert.equal(reads,2);assert.equal(steps,1);
+ assert.equal(reads,2);assert.equal(scans,2);assert.equal(steps,1);
 });
 
 test("local preflight identifies which step failed, without leaking aliases, secrets or keys",()=>{

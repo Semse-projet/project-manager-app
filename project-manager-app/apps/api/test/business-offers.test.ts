@@ -14,11 +14,11 @@ function makeWorld() {
   const audits: Row[] = [];
   let seq = 0;
   const memberships: Row[] = [
-    { userId: "owner", orgId: "orgA", status: "ACTIVE", role: { key: "PRO" }, org: { tenantId: "t1" } },
+    { userId: "owner", orgId: "orgA", status: "ACTIVE", role: { key: "CLIENT" }, org: { tenantId: "t1" } },
     { userId: "ana", orgId: "orgA", status: "ACTIVE", role: { key: "WORKER" }, org: { tenantId: "t1" } },
     { userId: "bob", orgId: "orgA", status: "ACTIVE", role: { key: "WORKER" }, org: { tenantId: "t1" } },
     { userId: "carl", orgId: "orgA", status: "SUSPENDED", role: { key: "WORKER" }, org: { tenantId: "t1" } },
-    { userId: "owner_b", orgId: "orgB", status: "ACTIVE", role: { key: "PRO" }, org: { tenantId: "t2" } }
+    { userId: "owner_b", orgId: "orgB", status: "ACTIVE", role: { key: "CLIENT" }, org: { tenantId: "t2" } }
   ];
   const match = (row: Row, where: Row): boolean =>
     Object.entries(where).every(([k, v]) => {
@@ -54,8 +54,8 @@ function makeWorld() {
   return { service: new OffersService(prisma, audit), offers, engagements, audits, memberships };
 }
 
-const owner = { tenantId: "t1", orgId: "orgA", userId: "owner", roles: ["PRO"] };
-const input = (recipientUserId = "ana") => ({ recipientUserId, positionTitle: "Pintor", classification: "OTHER" });
+const owner = { tenantId: "t1", orgId: "orgA", userId: "owner", roles: ["CLIENT"] };
+const input = (recipientUserId = "ana") => ({ recipientUserId, positionTitle: "Pintor" });
 
 test.beforeEach(() => { process.env.SEMSE_BUSINESS_OFFERS_ENABLED = "true"; });
 test.after(() => { delete process.env.SEMSE_BUSINESS_OFFERS_ENABLED; });
@@ -173,4 +173,23 @@ test("controller declara permisos RBAC", () => {
     const meta = Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, (OrgOffersController.prototype as any)[method]);
     assert.deepEqual(meta, ["org:offers:manage"]);
   }
+});
+
+test("OPEN-04: un PRO ya no gestiona ofertas (403) y OPS_ADMIN sí", async () => {
+  const w = makeWorld();
+  w.memberships.push({ userId: "pro1", orgId: "orgA", status: "ACTIVE", role: { key: "PRO" }, org: { tenantId: "t1" } });
+  const pro = { tenantId: "t1", orgId: "orgA", userId: "pro1", roles: ["PRO"] };
+  await assert.rejects(w.service.create(pro, "orgA", "r", input()), { status: 403 });
+  assert.equal(w.offers.length, 0);
+  w.memberships.push({ userId: "ops1", orgId: "orgA", status: "ACTIVE", role: { key: "OPS_ADMIN" }, org: { tenantId: "t1" } });
+  const ops = { tenantId: "t1", orgId: "orgA", userId: "ops1", roles: ["OPS_ADMIN"] };
+  const offer = await w.service.create(ops, "orgA", "r", input());
+  assert.equal(offer.recipientUserId, "ana");
+});
+
+test("OPEN-03: la clasificación no se pide, no se guarda y no se expone", async () => {
+  const w = makeWorld();
+  const offer = await w.service.create(owner, "orgA", "r", input());
+  assert.equal("classification" in offer, false);
+  assert.equal(w.offers[0].classificationDeclared, "NOT_RECORDED");
 });

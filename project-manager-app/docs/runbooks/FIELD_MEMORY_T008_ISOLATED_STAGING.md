@@ -62,3 +62,22 @@ El reporte registra solamente archivos fuente y llamadas conocidas, **no** imág
 - Ventana aprobada, backup fuera del servidor cifrado, dos manifests SHA, ensayo de restauración aislada y thaw auditado. No confundir offsite PASS con Railway native restore PASS.
 
 **Estados:** T-008f = pendiente staging Railway; T-008g = inventario estático en revisión e inventario runtime pendiente; T-008i = NO EXECUTED; CAP-1 = INACTIVE.
+
+
+## T-008h — preflight de sesiones multipart antes de respaldar originales
+
+Se añadió `scripts/field-memory-multipart-quiescence.mjs` para el operador autorizado. Es **solo lectura** y no abre imágenes ni partes, no carga JSON de los manifiestos, no imprime rutas, identificadores de sesión o secretos; inspecciona exclusivamente la estructura del directorio. Para su ejecución real exige que ambos valores efectivos `SEMSE_STORAGE_ROOT` y `SEMSE_MULTIPART_STORAGE_ROOT` estén definidos, que multipart sea un subdirectorio ordinario del original y que el runtime confirme un mount `/data` separado en `/proc/self/mountinfo`.
+
+En un checkout seguro o en un contenedor autorizado donde el script esté disponible:
+
+```bash
+node scripts/field-memory-multipart-quiescence.mjs
+```
+
+**Interpretación obligatoria**:
+- `BLOCKED` (exit 2): existen sesiones, partes, archivos desconocidos, una raíz no verificada, enlaces simbólicos, falta de permisos, un directorio ausente o un montaje sin confirmar. No ejecutar/certificar export bajo ninguna de estas condiciones.
+- `EMPTY_CANDIDATE` (exit 0): solo significa *no se observaron entradas en el staging multipart conocido* en esa lectura. **No acredita** `FROZEN`, ni ausencia de escritores ajenos, ni snapshot de PostgreSQL/Evidence, ni integridad del respaldo. No convertir en `OFFSITE_RESTORE_PASS` sin las demás evidencias y la autorización vigente.
+- El inventario de originales `field-memory-source-inventory.mjs` excluye `multipart/` deliberadamente. La exclusión **no convierte** las sesiones multipart incompletas en datos seguros para ignorar. El operador debe preservar y reconciliar sesiones en un flujo aprobado de recuperación; **no borrar ni mover** material para hacer pasar este preflight.
+- Si el directorio multipart sigue en `/tmp`, el resultado es `BLOCKED` incluso si parece vacío: los bytes temporales son efímeros y ajenos al volumen custodiado. No cambiar simplemente `SEMSE_MULTIPART_STORAGE_ROOT` en Railway con sesiones existentes: requerir inventario y plan de migración verificable.
+
+**Sigue pendiente:** conectar formalmente este informe con una atestación firmada de la fase `FROZEN` y con el checkpoint consistente Evidence/Postgres para cerrar T-008. Esta sección no autoriza copiar originales reales.

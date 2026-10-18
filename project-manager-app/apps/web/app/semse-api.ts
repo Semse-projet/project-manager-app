@@ -1076,6 +1076,133 @@ export async function acceptInvitation(token: string): Promise<{ membership: { o
   return mutateSemse("/api/semse/invitations/accept", { token });
 }
 
+export type BusinessOfferView = {
+  offerId: string;
+  orgId: string;
+  recipientUserId: string;
+  positionTitle: string;
+  startsAt: string | null;
+  compensationNote: string | null;
+  status: string;
+  expiresAt: string;
+  respondedAt: string | null;
+  createdAt: string;
+};
+
+export async function fetchOrgOffers(orgId: string): Promise<BusinessOfferView[]> {
+  return fetchSemse<BusinessOfferView[]>(`/api/semse/organizations/${orgId}/offers`);
+}
+
+export async function createOrgOffer(
+  orgId: string,
+  input: { recipientUserId: string; positionTitle: string; compensationNote?: string }
+): Promise<BusinessOfferView> {
+  return mutateSemse(`/api/semse/organizations/${orgId}/offers`, input);
+}
+
+export async function revokeOrgOffer(orgId: string, offerId: string): Promise<{ status: string }> {
+  return mutateSemse(`/api/semse/organizations/${orgId}/offers/${offerId}/revoke`, {});
+}
+
+export async function confirmOrgOffer(orgId: string, offerId: string): Promise<{ status: string }> {
+  return mutateSemse(`/api/semse/organizations/${orgId}/offers/${offerId}/confirm`, { legalConfirmed: true });
+}
+
+export async function endOrgEngagement(orgId: string, engagementId: string, reason: string): Promise<{ status: string }> {
+  return mutateSemse(`/api/semse/organizations/${orgId}/engagements/${engagementId}/end`, { reason });
+}
+
+export async function fetchMyOffers(): Promise<BusinessOfferView[]> {
+  return fetchSemse<BusinessOfferView[]>("/api/semse/offers/mine");
+}
+
+export async function respondToOffer(offerId: string, decision: "ACCEPT" | "DECLINE"): Promise<{ status: string }> {
+  return mutateSemse(`/api/semse/offers/${offerId}/respond`, { decision });
+}
+
+export type TaskAllocationView = {
+  allocationId: string;
+  taskTitle: string | null;
+  orgId: string;
+  taskId: string;
+  crewId: string;
+  userId: string;
+  status: string;
+  assignReason: string | null;
+  statusNote: string | null;
+  assignedAt: string;
+  acknowledgedAt: string | null;
+  releasedAt: string | null;
+  releaseReason: string | null;
+};
+
+export type SupervisedCrewView = {
+  crewId: string;
+  orgId: string;
+  name: string;
+  supervisorUserId: string;
+  worksiteId: string | null;
+  status: string;
+};
+
+export async function fetchMyTaskAllocations(): Promise<TaskAllocationView[]> {
+  return fetchSemse<TaskAllocationView[]>("/api/semse/task-allocations/mine");
+}
+
+export async function updateTaskAllocationStatus(
+  allocationId: string,
+  status: "ACKNOWLEDGED" | "IN_PROGRESS" | "BLOCKED" | "SUBMITTED",
+  note?: string
+): Promise<{ status: string }> {
+  return mutateSemse(`/api/semse/task-allocations/${allocationId}/status`, { status, ...(note ? { note } : {}) });
+}
+
+export async function fetchMyCrews(): Promise<SupervisedCrewView[]> {
+  return fetchSemse<SupervisedCrewView[]>("/api/semse/crews/mine");
+}
+
+export async function fetchCrewRoster(crewId: string): Promise<{ crewId: string; members: { userId: string; addedAt: string }[] }> {
+  return fetchSemse(`/api/semse/crews/${crewId}/roster`);
+}
+
+export type CrewTaskView = {
+  taskId: string;
+  title: string;
+  description: string | null;
+  dueDate: string | null;
+  priority: string;
+  status: string;
+  createdAt: string | null;
+};
+
+export async function fetchCrewTasks(crewId: string): Promise<CrewTaskView[]> {
+  return fetchSemse<CrewTaskView[]>(`/api/semse/crews/${crewId}/tasks`);
+}
+
+export async function createCrewTask(
+  crewId: string,
+  input: { title: string; description?: string; priority?: "low" | "medium" | "high" | "urgent" }
+): Promise<CrewTaskView> {
+  return mutateSemse(`/api/semse/crews/${crewId}/tasks`, input);
+}
+
+export async function fetchTaskAllocations(crewId: string, taskId: string): Promise<TaskAllocationView[]> {
+  return fetchSemse<TaskAllocationView[]>(`/api/semse/crews/${crewId}/tasks/${taskId}/allocations`);
+}
+
+export async function assignTaskToCrewMembers(
+  crewId: string,
+  taskId: string,
+  userIds: string[],
+  reason?: string
+): Promise<TaskAllocationView[]> {
+  return mutateSemse(`/api/semse/crews/${crewId}/tasks/${taskId}/allocations`, { userIds, ...(reason ? { reason } : {}) });
+}
+
+export async function releaseTaskAllocation(crewId: string, taskId: string, userId: string, reason: string): Promise<{ status: string }> {
+  return mutateSemse(`/api/semse/crews/${crewId}/tasks/${taskId}/allocations/${userId}/release`, { reason });
+}
+
 export type UserView = {
   id: string;
   email: string;
