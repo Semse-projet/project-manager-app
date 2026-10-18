@@ -27,6 +27,11 @@ function posixChildOf(candidate, parent) {
     !candidate.includes("\\") &&
     !candidate.includes("\0");
 }
+// Exported only to exercise symlink ancestry using disposable test mounts;
+// the real CLI always supplies the fixed /data requirement.
+export function realStorageOnPersistentMount(realStorage, mount = "/data") {
+  return posixChildOf(realStorage, mount);
+}
 function mountedData(mountInfo) {
   return mountInfo.split("\n").some(line => {
     const fields = line.split(" ");
@@ -80,7 +85,7 @@ export async function inspectMultipartQuiescence({
     // The apparent path can sit under /data while a symlink in one of its
     // PARENTS redirects actual bytes outside the mounted persistent volume.
     // lstat() on only the terminal directory does not catch that case.
-    if (enforceProductionLayout && !posixChildOf(realStorage,"/data")) {
+    if (enforceProductionLayout && !realStorageOnPersistentMount(realStorage)) {
       return {...base,reason:"storage_realpath_outside_mount"};
     }
     if (!posixChildOf(realMultipart,realStorage)) {
