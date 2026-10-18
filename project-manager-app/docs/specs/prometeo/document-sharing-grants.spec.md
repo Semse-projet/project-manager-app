@@ -15,6 +15,12 @@ activation_status: "INACTIVE"
 migration_status: "PENDING"
 feature_flags: []
 production_evidence: []
+# Explicit SEMSE cross-domain declarations: REVIEW only, not approval.
+privacyCritical: true
+auditLog: true
+sse: false
+fsmTransicion: "document grant active/revoked (no escrow or job FSM change)"
+paymentGovernance: "N/A — no payment authorization or escrow release from document sharing"
 related_files:
   - apps/api/src/modules/prometeo/prometeo-document-grant.service.ts
   - apps/api/src/modules/prometeo/prometeo.controller.ts
@@ -30,6 +36,8 @@ related_files:
   - apps/api/src/modules/agents/harnesses/project-copilot.harness.ts
   - apps/api/src/modules/operational-intelligence/evidence-review.service.ts
   - apps/api/src/infrastructure/llm/router/adaptive-router.ts
+  - apps/api/src/infrastructure/llm/orchestrator.ts
+  - apps/api/src/infrastructure/llm/providers/ollama.provider.ts
   - apps/api/src/modules/prometeo/embedding.service.ts
   - apps/web/app/(app)/admin/prometeo/page.tsx
   - packages/db/prisma/schema.prisma
@@ -45,6 +53,7 @@ related_tests:
   - apps/api/test/evidence-review-rag-scope.test.ts
   - apps/api/test/adaptive-router.test.ts
   - apps/api/test/private-local-tool-router.test.ts
+  - apps/api/test/llm-private-ollama-boundary.test.ts
   - scripts/api-authenticated-f01-f02-smoke.mjs
 related_endpoints:
   - "DELETE /v1/prometeo/documents/:id"
@@ -116,3 +125,9 @@ This document is **REVIEW**, not authorization to merge or activate the implemen
 - `projectId` and `tenantId` of documents that have linked grants cannot be reassigned silently. The `ON UPDATE RESTRICT` composite FK and `UNIQUE(id,tenantId,projectId)` parent key enforce the boundary at PostgreSQL level. Approved reassociation workflow is **not implemented** and must be a separate guarded command, not ad-hoc Prisma updates.
 - The existing `public_training` metadata is historical descriptive data, **not consent**. Project-less documents owned by OPS remain private; cross-organization contributor knowledge promotion is tracked in #992, with no automatic backfill, publication or grant.
 - Operational invariants and dependent contracts: `platform.resource-scope` (actor/org/project/job scope), `prometeo.model-gateway-unification` (privacy hard constraints), `api-prometeo-rag-trade-knowledge` (private embeddings/FTS), `api-prometeo-copilot` (thread and tool fallback) and `prometeo.chat-evidence` (authorized evidence/RAG).
+
+## Independent security review amendment — Ollama local boundary
+
+The `localOnly`/ `privacyCritical` flags are **hard endpoint constraints**, not merely provider-name selection. `OllamaProvider.isLocalEndpoint()` must validate a parsed, exact loopback hostname; VPS, Docker-network service names, lookalike DNS names, and public URLs are not permitted for private prompts. `LLMOrchestrator` filters out untrusted Ollama even with static fallback routing, and the provider independently refuses a private call on an untrusted URL. Private POST redirects are disabled. When no local inference is available, fail closed to the local template/rules fallback, never to another external provider.
+
+These source changes do not authorize activation; staging outbound-traffic tests and independent review sign-off remain required. The SDD stays `REVIEW`.
