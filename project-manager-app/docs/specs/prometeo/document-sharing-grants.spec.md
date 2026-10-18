@@ -69,3 +69,13 @@ Depends on: PR #977 (S0 owner-only server-side RAG/document scope). Tracks issue
 5. The existing P0 #974 remains OPEN until all production release gates pass.
 
 No production schema migration or deployment is authorized by this document.
+
+## Amendment — bounded authorization SQL for large project memberships (Codex P2)
+
+Design pending independent approval (this spec stays in `REVIEW`):
+- A document grant must reference the exact `(documentId, tenantId, projectId)` of its parent document. Add a unique composite parent key and a composite foreign key from the grant. Deleting the parent remains CASCADE **only through the audited document deletion transaction**; updating tenant/project association with an existing grant is restricted, not automatically cascaded to a new project.
+- Use a single `grants.some({ tenantId, recipientOrgId, projectId: { in: accessibleProjectIds }, revokedAt: null })` branch, instead of one nested `OR` per accessible project. The composite FK guarantees the grant and document refer to the same project/tenant.
+- Legacy `projectId` is not a sharing grant; historical visibility flags do not override authorization.
+- Migration applies only to a fresh isolated database in CI/staging pending approval. Do not edit any already-deployed production schema or automatically backfill old data.
+- Tests: Prisma filters with many project IDs keep constant OR cardinality; PostgreSQL refuses cross-project and cross-tenant grant insertion and rejects silent reassociation while a grant exists; authorized grant/revoke and audit-delete flows still pass.
+- This design must be signed off with the spec and release plan before merging into production.
