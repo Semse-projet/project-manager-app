@@ -119,6 +119,9 @@ export class OllamaProvider implements LLMProvider {
       method: "POST",
       headers: { "content-type": "application/json", ...this.authHeaders() },
       body: JSON.stringify({ model: this.model, messages, stream: false }),
+      // Never follow a 307/308 from a trusted loopback URL to an external
+      // endpoint with private system prompts, user data or RAG excerpts.
+      redirect: "error",
       signal: AbortSignal.timeout(this.timeoutMs),
     });
 
