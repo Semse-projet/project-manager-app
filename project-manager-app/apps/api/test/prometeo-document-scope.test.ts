@@ -221,3 +221,22 @@ test("a project participant cannot modify another org's legacy chunk feedback", 
   );
   assert.equal(mutated, false);
 });
+
+
+test("document deletion is SQL-constrained by tenant and owning org, not only preflight checks", async () => {
+  const filters: Array<Record<string, unknown>> = [];
+  const prisma = {
+    prometeoDocument: {
+      async deleteMany({ where }: { where: Record<string, unknown> }) {
+        filters.push(where);
+        return { count: 0 };
+      },
+    },
+  };
+  const repo = new PrometeoRepository(prisma as never);
+  await assert.rejects(
+    () => repo.deleteDocument({ tenantId: "tenant-A", id: "doc-B", orgId: "org-A" }),
+    /not found/,
+  );
+  assert.deepEqual(filters, [{ tenantId: "tenant-A", id: "doc-B", orgId: "org-A" }]);
+});
