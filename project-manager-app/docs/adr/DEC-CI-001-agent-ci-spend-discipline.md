@@ -17,7 +17,7 @@ Las pruebas completas de CI se ejecutan sobre cada revisión de PR elegible; un 
 1. **Fuente única:** `project-manager-app/AGENTS.md` declara obligaciones comunes; `project-manager-app/.claude/skills/semse-github-operations-cost-guard/SKILL.md` detalla el proceso. Claude/Codex usan referencias ya existentes, evitando duplicados divergentes. Otros repositorios requieren adopción expresa.
 2. **Desarrollo:** agrupar cambios coherentes y ejecutar temprano pruebas locales y específicas, revisión de tipos, contratos, seguridad y tenancy según el cambio. Evitar micro-pushes y reintentos automáticos; inspeccionar workflows que el PR activará.
 3. **Bloqueos:** ante `Usage blocked` o `startup_failure`/cero jobs, parar reintentos y declarar `UNVERIFIED`. No confundir bloqueo de billing con error de código.
-4. **Gates en dos fases:** antes de merge, exigir checks requeridos completos para el HEAD exacto del PR, revisión humana para cualquier nuevo `MUST`, y controles SDD, Prisma, unitarios, cobertura, integración/E2E, seguridad y autorización/tenancy según alcance. Después de squash merge, ejecutar CI de `main` y comprobar Railway Deploy, health y procedencia del nuevo SHA desplegado. No exigir el gate post-merge de Railway sobre un SHA PR que aún no fue desplegado. No omitir `main` CI ni protecciones de despliegue.
+4. **Gates en dos fases:** antes de merge, exigir checks requeridos completos para la integración temporal del HEAD y base actuales del PR (por defecto `refs/pull/<n>/merge` en los workflows; dejar evidencia del SHA de ambos extremos y del run, sin atribuirlo al HEAD literal), revisión humana para cualquier nuevo `MUST`, y controles SDD, Prisma, unitarios, cobertura, integración/E2E, seguridad y autorización/tenancy según alcance. Después de squash merge, ejecutar CI de `main` y comprobar Railway Deploy, health y procedencia del nuevo SHA desplegado. No exigir el gate post-merge de Railway sobre un SHA PR que aún no fue desplegado. No omitir `main` CI ni protecciones de despliegue.
 5. **Autoridad de gasto:** jamás cambiar presupuestos, medios de pago, límites `Stop usage`, secretos o producción sin aprobación puntual y trazable. El gasto Code Quality se controla y reporta por separado de Actions.
 6. **Observabilidad:** comparar periodos equivalentes para número de runs, runner-minutes, build duplicados, cancelaciones, fallos y consumo facturable; ningún porcentaje de ahorro se presenta como logrado antes de medirlo.
 
@@ -30,7 +30,7 @@ Las pruebas completas de CI se ejecutan sobre cada revisión de PR elegible; un 
 
 ## Límites, riesgos y controles
 
-Esta decisión **no modifica** ningún archivo `.github/workflows/`, branch protection, configuración de GitHub billing, cuenta de pago, servicio Railway ni entorno productivo. Un cambio posterior de workflows requiere un PR técnico separado, pruebas sobre el SHA exacto y medición antes/después. No se garantiza ahorro específico.
+Esta decisión **no modifica** ningún archivo `.github/workflows/`, branch protection, configuración de GitHub billing, cuenta de pago, servicio Railway ni entorno productivo. Un cambio posterior de workflows requiere un PR técnico separado, pruebas de la integración del PR actual con ambos SHA identificados y medición antes/después. No se garantiza ahorro específico.
 
 La política permanece **PROPOSED/SHOULD (no MUST)** hasta que cumpla la revisión de un revisor humano exigida por `semseproject` §12, la CI obligatoria y la autorización de fusión del propietario. Ningún agente puede elevar unilateralmente una nueva obligación `MUST` a canon. Las revisiones automatizadas de Codex no sustituyen el requisito humano.
 
@@ -39,7 +39,7 @@ La política permanece **PROPOSED/SHOULD (no MUST)** hasta que cumpla la revisi�
 - [ ] Al menos un revisor humano valida esta decisión y sus controles.
 - [ ] La referencia `DEC-CI-001` es visible desde `AGENTS.md` y la skill.
 - [ ] Las referencias de Claude y Codex siguen remitiendo a una sola fuente canónica.
-- [ ] CI requerido, incluyendo cobertura y E2E cuando aplique, está aprobado para el SHA final del PR.
+- [ ] CI requerido, incluyendo cobertura y E2E cuando aplique, aprobado para la revisión actual (HEAD, base y ref de integración registrados).
 - [ ] Ningún cambio en workflows, producción, presupuesto o pagos forma parte de este PR.
 - [ ] Estado final reportado por separado: PR, CI, review humana, merge, deploy.
 
