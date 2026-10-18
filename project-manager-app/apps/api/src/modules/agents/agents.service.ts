@@ -585,6 +585,14 @@ export class AgentsService {
     const now = new Date().toISOString();
 
     let thread = input.threadId ? getThread(input.threadId) : undefined;
+    // A threadId is not a capability: validate its tenant, owner AND agent
+    // before reading history or appending messages. Never reuse a foreign thread.
+    if (input.threadId && (
+      !thread || thread.tenantId !== input.tenantId ||
+      thread.userId !== input.userId || thread.agentId !== agentId
+    )) {
+      throw new NotFoundException("Chat thread not found");
+    }
     if (!thread) {
       thread = createThread({ tenantId: input.tenantId, userId: input.userId, agentId });
     }
@@ -647,6 +655,14 @@ export class AgentsService {
 
     // Resolve or create thread
     let thread = input.threadId ? getThread(input.threadId) : undefined;
+    // A threadId is not a capability: validate its tenant, owner AND agent
+    // before reading history or appending messages. Never reuse a foreign thread.
+    if (input.threadId && (
+      !thread || thread.tenantId !== input.tenantId ||
+      thread.userId !== input.userId || thread.agentId !== agentId
+    )) {
+      throw new NotFoundException("Chat thread not found");
+    }
     if (!thread) {
       thread = createThread({ tenantId: input.tenantId, userId: input.userId, agentId });
     }
@@ -694,7 +710,7 @@ export class AgentsService {
 
   getThreadMessages(input: { tenantId: string; userId: string; threadId: string }) {
     const thread = getThread(input.threadId);
-    if (!thread || thread.tenantId !== input.tenantId) {
+    if (!thread || thread.tenantId !== input.tenantId || thread.userId !== input.userId) {
       throw new NotFoundException(`Thread '${input.threadId}' not found`);
     }
     return thread;
