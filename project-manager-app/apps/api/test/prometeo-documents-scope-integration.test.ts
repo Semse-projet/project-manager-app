@@ -13,6 +13,8 @@ import { fileURLToPath } from "node:url";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
 loadEnv({ path: path.join(root, ".env") });
 loadEnv({ path: path.join(root, "packages/db/.env") });
+// The temporary PostgreSQL fixtures opt in; application production default stays OFF.
+process.env.SEMSE_PROMETEO_DOCUMENT_SHARING_ENABLED = "true";
 const dbTest = process.env.DATABASE_URL ? test : test.skip;
 
 const id = (label: string) =>
