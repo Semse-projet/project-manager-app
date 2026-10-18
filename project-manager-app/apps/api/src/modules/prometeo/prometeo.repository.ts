@@ -178,13 +178,14 @@ export class PrometeoRepository {
   }
 
   async loadChunksForSearch(input: { tenantId: string; projectId?: string; limit?: number; scope?: PrometeoListScopeFilter }): Promise<PrometeoChunkSearchRow[]> {
-    const docs = await this.prisma.prometeoDocument.findMany({
-      where: { ...this.documentWhere(input), status: "indexed" },
-      select: { id: true },
-    });
-    if (docs.length === 0) return [];
+    // Authorize the parent document in the SAME SQL statement that reads its
+    // chunks. A revoked grant must not survive through a prior, cached list of
+    // authorized document IDs between the two database queries.
     return this.prisma.documentChunk.findMany({
-      where: { tenantId: input.tenantId, documentId: { in: docs.map((d: { id: string }) => d.id) } },
+      where: {
+        tenantId: input.tenantId,
+        document: { is: { ...this.documentWhere(input), status: "indexed" } },
+      },
       take: input.limit ?? 2000,
       select: { id: true, documentId: true, chunkIndex: true, text: true, embeddingJson: true, metadataJson: true },
     }) as Promise<PrometeoChunkSearchRow[]>;

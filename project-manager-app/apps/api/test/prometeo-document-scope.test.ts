@@ -30,33 +30,45 @@ test("document listing constrains organization and authorized projects before ta
   assert.equal(take, 10, "filter is in database query, not applied after pagination");
 });
 
-test("retrieval selects only chunks whose parent document passed authorization", async () => {
-  let documentWhere: Record<string, unknown> | undefined;
+test("chunk SQL rechecks document ownership and active grants at content-read time", async () => {
   let chunkWhere: Record<string, unknown> | undefined;
   const prisma = {
+    // Document IDs must never be preselected into a second unscoped query:
+    // an intervening grant revocation could invalidate that earlier snapshot.
     prometeoDocument: {
-      async findMany(args: { where: Record<string, unknown> }) {
-        documentWhere = args.where;
-        return [{ id: "doc-own" }];
-      },
+      async findMany() { throw new Error("unsafe document-ID prefetch"); },
     },
     documentChunk: {
       async findMany(args: { where: Record<string, unknown> }) {
         chunkWhere = args.where;
-        return [{ id: "chunk-own", documentId: "doc-own", chunkIndex: 0, text: "allowed" }];
+        return [];
       },
     },
   };
   const repo = new PrometeoRepository(prisma as never);
-  await repo.loadChunksForSearch({ tenantId: "tenant-A", scope });
-  assert.equal(documentWhere?.status, "indexed");
-  assert.deepEqual(documentWhere?.OR, [
-    { projectId: null, orgId: "org-A" },
-    { projectId: { in: ["project-A"] }, orgId: "org-A" },
-    { grants: { some: { tenantId: "tenant-A", recipientOrgId: "org-A", projectId: { in: ["project-A"] }, revokedAt: null } } },
-  ]);
-  assert.deepEqual(chunkWhere?.documentId, { in: ["doc-own"] });
+  await repo.loadChunksForSearch({ tenantId: "tenant-A", scope, limit: 3 });
+
   assert.equal(chunkWhere?.tenantId, "tenant-A");
+  assert.deepEqual(chunkWhere?.document, {
+    is: {
+      tenantId: "tenant-A",
+      status: "indexed",
+      OR: [
+        { projectId: null, orgId: "org-A" },
+        { projectId: { in: ["project-A"] }, orgId: "org-A" },
+        {
+          grants: {
+            some: {
+              tenantId: "tenant-A",
+              recipientOrgId: "org-A",
+              projectId: { in: ["project-A"] },
+              revokedAt: null,
+            },
+          },
+        },
+      ],
+    },
+  });
 });
 
 test("feedback stats exclude all inaccessible document IDs", async () => {

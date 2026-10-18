@@ -76,6 +76,23 @@ dbTest("P0: physical Postgres enforces document/chunk/feedback tenant and org is
     assert.ok(!projectChunks.some(c => c.documentId === foreignLast.doc.id));
     assert.ok(!projectChunks.some(c => c.documentId === crossTenant.doc.id));
 
+    // Grant revocation is enforced directly by the parent relation during
+    // chunk retrieval, not by a potentially stale prior list of document IDs.
+    const transientGrant = await prisma.prometeoDocumentGrant.create({ data: {
+      tenantId: tenantA, documentId: legacyUnverifiedProject.doc.id, projectId: projectA,
+      recipientOrgId: orgA, grantedByUserId: "p0_test_user",
+    } });
+    const sharedBeforeRevoke = await repo.loadChunksForSearch({ tenantId: tenantA, scope: participantScope });
+    assert.ok(sharedBeforeRevoke.some(c => c.documentId === legacyUnverifiedProject.doc.id),
+      "an active explicit grant makes the indexed document readable at its authorized scope");
+    await prisma.prometeoDocumentGrant.update({
+      where: { id: transientGrant.id },
+      data: { revokedAt: new Date(), revokedByUserId: "p0_test_user" },
+    });
+    const sharedAfterRevoke = await repo.loadChunksForSearch({ tenantId: tenantA, scope: participantScope });
+    assert.ok(!sharedAfterRevoke.some(c => c.documentId === legacyUnverifiedProject.doc.id),
+      "revoked grants must never select document text on a fresh chunk SQL query");
+
     await repo.saveFeedback({
       tenantId: tenantA, chunkId: own1.chunk.id, documentId: own1.doc.id,
       userId: "p0_actor", type: "confirm",
