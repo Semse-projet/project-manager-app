@@ -51,7 +51,10 @@ Fuente: plan Astra `03_producto/07_CUADRILLAS_OBRAS_HITOS_TAREAS.md`. Depende de
 AC-01 flag apagado → 404 · AC-02 alcance del supervisor (otra cuadrilla 403, otro tenant 404, membresía suspendida 404) · AC-03 solo miembros activos y tarea válida · AC-04 sin duplicados · AC-05 no se modifica la tarea canónica · AC-06 liberar con motivo y reasignar · AC-07 la persona ve solo lo suyo · AC-08 transiciones y bloqueo con motivo.
 
 ## Fuera de alcance
-Revisión de evidencia y reglas de aprobación (siguiente slice), notificaciones (BO-09), habilidades/insignias (BO-12), dependencias entre tareas, cambio de obra con trayecto, pantallas web.
+Revisión de evidencia y reglas de aprobación (siguiente slice), notificaciones (BO-09), habilidades/insignias (BO-12), dependencias entre tareas, cambio de obra con trayecto.
+
+## Capa web (slice `feat/bo-10-ui`)
+`/worker/assignments` (la persona ve y avanza sus asignaciones, con título de la tarea) y `/worker/crew` (el supervisor elige su cuadrilla, escribe el código de la tarea, asigna a miembros y libera con motivo), con rutas BFF `crews/**` y `task-allocations/**`. La API sigue decidiendo: la UI solo refleja las transiciones. **Limitación conocida:** no hay listado de tareas de la Org, así que el supervisor pega el código de la tarea. `taskTitle` se añadió a la vista de asignaciones (solo lectura, acotado al tenant). Con el flag apagado la API responde 404 y la UI muestra "aún no habilitadas".
 
 ## Riesgos
 Escalada de alcance: un supervisor asignando fuera de su cuadrilla. Mitigado con revalidación de membresía y pruebas AC-02. `SUBMITTED` no implica aceptación ni pago.

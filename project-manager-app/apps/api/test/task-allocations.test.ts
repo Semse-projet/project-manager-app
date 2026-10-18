@@ -33,7 +33,8 @@ function makeWorld() {
     { userId: "ghost", orgId: "orgA", status: "SUSPENDED", role: { key: "WORKER" }, org: { tenantId: "t1" } }
   ];
   let seq = 0;
-  const match = (row: Row, where: Row): boolean => Object.entries(where).every(([k, v]) => row[k] === v);
+  const match = (row: Row, where: Row): boolean =>
+    Object.entries(where).every(([k, v]) => (v && typeof v === "object" && "in" in (v as Row) ? (v as Row).in.includes(row[k]) : row[k] === v));
   const table = (rows: Row[], defaults: () => Row) => ({
     async findFirst({ where }: any) { return rows.find((r) => match(r, where)) ?? null; },
     async findMany({ where }: any) { return rows.filter((r) => match(r, where)); },
@@ -135,6 +136,16 @@ test("AC-06 liberar exige motivo, audita y permite reasignar a la misma persona"
   assert.equal(w.allocations[0].status, "ASSIGNED");
   assert.equal(w.allocations[0].releaseReason, null);
   assert.deepEqual(w.audits.map((a) => a.action), ["task_allocation.assigned", "task_allocation.released", "task_allocation.assigned"]);
+});
+
+test("AC-07 la vista incluye el título de la tarea canónica", async () => {
+  const w = makeWorld();
+  w.tasks[0].title = "Instalar lámparas";
+  await w.service.assign(sup, "c1", "task1", "r", ["ana"]);
+  const mine: any[] = await w.service.listMine(ana);
+  assert.equal(mine[0].taskTitle, "Instalar lámparas");
+  const forTask: any[] = await w.service.listForTask(sup, "c1", "task1");
+  assert.equal(forTask[0].taskTitle, "Instalar lámparas");
 });
 
 test("AC-07 la persona ve solo lo suyo y no ve las liberadas", async () => {

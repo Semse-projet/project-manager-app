@@ -176,13 +176,16 @@ export class TaskAllocationsService {
     this.assertEnabled();
     const crew = await this.requireCrewScope(actor, crewId);
     const rows = await this.prisma.taskAllocation.findMany({ where: { taskId, crewId: crew.id } });
-    return rows.map((row) => this.view(row));
+    const titles = await this.titles(actor.tenantId, rows.map((r) => r.taskId));
+    return rows.map((row) => this.view(row, titles.get(row.taskId)));
   }
 
   async listMine(user: { tenantId: string; userId: string }) {
     this.assertEnabled();
     const rows = await this.prisma.taskAllocation.findMany({ where: { tenantId: user.tenantId, userId: user.userId } });
-    return rows.filter((row) => row.status !== "RELEASED").map((row) => this.view(row));
+    const live = rows.filter((row) => row.status !== "RELEASED");
+    const titles = await this.titles(user.tenantId, live.map((r) => r.taskId));
+    return live.map((row) => this.view(row, titles.get(row.taskId)));
   }
 
   async updateStatus(
@@ -215,9 +218,18 @@ export class TaskAllocationsService {
     return { status: next };
   }
 
-  private view(row: AllocationRow) {
+  /** Títulos de las tareas canónicas, para mostrar algo legible (solo lectura, acotado al tenant). */
+  private async titles(tenantId: string, taskIds: string[]): Promise<Map<string, string>> {
+    const unique = [...new Set(taskIds)];
+    if (unique.length === 0) return new Map();
+    const tasks = await this.prisma.jobTask.findMany({ where: { tenantId, id: { in: unique } } });
+    return new Map(tasks.map((t) => [t.id, t.title]));
+  }
+
+  private view(row: AllocationRow, taskTitle?: string) {
     return {
       allocationId: row.id,
+      taskTitle: taskTitle ?? null,
       orgId: row.orgId,
       taskId: row.taskId,
       crewId: row.crewId,
