@@ -19,6 +19,7 @@ import { CapabilityRegistryModule } from "./modules/capability-registry/capabili
 import { DisputesModule } from "./modules/disputes/disputes.module.js";
 import { EvidenceModule } from "./modules/evidence/evidence.module.js";
 import { JobsModule } from "./modules/jobs/jobs.module.js";
+import { DailyReportsModule } from "./modules/daily-reports/daily-reports.module.js";
 import { MilestonesModule } from "./modules/milestones/milestones.module.js";
 import { OpsModule } from "./modules/ops/ops.module.js";
 import { PaymentsModule } from "./modules/payments/payments.module.js";
@@ -118,6 +119,7 @@ const repoRoot = path.resolve(apiDir, "..", "..");
     CapabilityRegistryModule,
     DisputesModule,
     EvidenceModule,
+    DailyReportsModule,
     MilestonesModule,
     OpsModule,
     ProjectsModule,

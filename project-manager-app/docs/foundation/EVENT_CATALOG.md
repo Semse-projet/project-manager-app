@@ -496,3 +496,10 @@ Crear eventos por cambios de dominio o de consecuencia operativa real.
 - `task_allocation.assigned`
 - `task_allocation.status_changed`
 - `task_allocation.released`
+
+## Business OS — reportes diarios (BO-11)
+
+- `daily_report.generated`
+- `daily_report.reviewed`
+- `daily_report.returned`
+- `daily_report.published`

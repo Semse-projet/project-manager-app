@@ -305,6 +305,33 @@ model Worksite {
   @@index([tenantId, orgId, status])
 }
 
+/// BO-11: reporte diario de una cuadrilla. El snapshot y su hash quedan congelados al revisarse.
+model DailyReport {
+  id                String    @id @default(cuid())
+  tenantId          String
+  orgId             String
+  crewId            String
+  worksiteId        String?
+  reportDate        String // YYYY-MM-DD en la zona indicada por tzOffsetMinutes
+  tzOffsetMinutes   Int       @default(0)
+  status            String    @default("DRAFT") // DRAFT | REVIEWED | PUBLISHED
+  snapshot          Json
+  contentHash       String
+  notes             String?
+  generatedByUserId String
+  generatedAt       DateTime
+  reviewedByUserId  String?
+  reviewedAt        DateTime?
+  reviewNote        String?
+  publishedByUserId String?
+  publishedAt       DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@unique([crewId, reportDate])
+  @@index([tenantId, orgId, status, reportDate])
+}
+
 model Crew {
   id               String       @id @default(cuid())
   tenantId         String
