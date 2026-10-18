@@ -483,3 +483,10 @@ Crear eventos por cambios de dominio o de consecuencia operativa real.
 - `crew.member_added`
 - `crew.member_removed`
 - `crew.archived`
+
+## Business OS — reportes diarios (BO-11)
+
+- `daily_report.generated`
+- `daily_report.reviewed`
+- `daily_report.returned`
+- `daily_report.published`
