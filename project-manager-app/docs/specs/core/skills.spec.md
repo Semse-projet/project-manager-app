@@ -9,20 +9,23 @@ owner: "semse-core"
 risk: "high"
 code_status: "IN_PROGRESS"
 ci_status: "NOT_RUN"
-merge_status: "UNMERGED"
+merge_status: "MERGED"
 deploy_status: "NOT_DEPLOYED"
 activation_status: "INACTIVE"
-migration_status: "NOT_APPLICABLE"
+migration_status: "PENDING"
 feature_flags:
   - "SEMSE_SKILLS_ENABLED"
 production_evidence: []
 related_files:
   - "apps/api/src/modules/professional-skills/skills.service.ts"
+  - "apps/api/src/infrastructure/audit/audit.service.ts"
   - "apps/api/src/modules/professional-skills/skills.controller.ts"
   - "apps/api/src/modules/professional-skills/skills.calc.ts"
   - "packages/db/prisma/schema.prisma"
+  - "packages/db/prisma/migrations/20261019180000_skill_experience/migration.sql"
 related_tests:
   - "apps/api/test/skills.test.ts"
+  - "apps/api/test/skills-audit-integration.test.ts"
 related_endpoints: []
 related_events:
   - "skill_experience.confirmed"
@@ -56,16 +59,20 @@ El plan prohíbe **fijar umbrales numéricos de insignia sin investigación de o
 
 ## Reglas
 1. Solo cuenta lo que un responsable **confirma**; rechazar no acredita nada. Una decisión por asignación (409 si se repite).
-2. Nadie revisa su propio trabajo. La membresía del revisor se revalida en cada llamada.
+2. Nadie revisa su propio trabajo. La membresía del revisor se revalida en cada llamada. La cuadrilla debe estar `ACTIVE`; una cuadrilla archivada rechaza la confirmación aunque el revisor tenga membresía activa.
 3. El resumen portable lleva oficio, cantidad, mes de inicio y de fin, y el nivel de evidencia `supervisor_reviewed`. **No** lleva empresa, cuadrilla, tarea, usuario, fotos ni coordenadas, y siempre incluye el aviso de que no es licencia ni certificación.
 4. La persona elige qué oficios comparte; el token se muestra una sola vez y solo se guarda su hash; vence (30 días por defecto, máximo 90) y se puede revocar.
 5. Canjear exige ser gestor vigente (`org:offers:manage`: CLIENT y OPS_ADMIN) y se audita; un token inválido, vencido o revocado da 404 neutro.
+6. Invariante BO-12: confirmar/rechazar experiencia, emitir una atestación o revocarla y escribir su `AuditLog` forman una misma transacción de PostgreSQL. Si falla la auditoría, la mutación se revierte y no se emite el token. Se verifican las cuatro rutas con inyección de falla y emisión/revocación con PostgreSQL real; no se permite registrar una revisión o atestación sin evidencia de auditoría.
 
 ## Criterios de aceptación
-AC-01 flag apagado → 404 · AC-02 solo supervisor/gestor, no el propio trabajo, otro tenant 404 · AC-03 solo lo enviado y revisado; confirmar exige oficio · AC-04 una decisión por asignación; rechazar no acredita · AC-05 sin experiencia no hay atestación · AC-06 resumen redactado y solo el hash del token · AC-07 solo los oficios elegidos · AC-08 canje por gestor de otra empresa, PRO 403, token falso 404, auditado · AC-09 revocar o vencer invalida.
+AC-01 flag apagado → 404 · AC-02 solo supervisor/gestor, no el propio trabajo, otro tenant 404 · AC-03 solo lo enviado y revisado; confirmar exige oficio · AC-04 una decisión por asignación; rechazar no acredita · AC-05 sin experiencia no hay atestación · AC-06 resumen redactado y solo el hash del token · AC-07 solo los oficios elegidos · AC-08 canje por gestor de otra empresa, PRO 403, token falso 404, auditado · AC-09 revocar o vencer invalida · AC-10 cuadrilla archivada impide revisión · AC-11 fallo simulado al escribir `AuditLog` revierte confirmación, rechazo, emisión y revocación.
 
 ## Fuera de alcance
 Insignias y niveles (pendiente de decisión de producto), licencias y certificaciones (autoridad externa), skills finos versionados, disputa de una revisión, pantallas web, y que Prometeo recomiende capacitación (BO-13).
 
 ## Riesgos
 Que un conteo se lea como competencia: por eso no hay niveles y el aviso viaja con el resumen. Que se comparta de más: el resumen está redactado por construcción y se prueba que no incluye identificadores.
+
+## Evidencia y estado de baseline (2026-10-19)
+El modelo/migración y el código base BO-12 ya están incorporados en `main` (verificado en el commit `655e7fc0`); **esto no demuestra que la migración esté aplicada en Railway**. La corrección de auditoría atómica permanece en el PR BO-12 dedicado, sin fusionar. El contrato sigue **DRAFT**, flag `SEMSE_SKILLS_ENABLED` apagado por defecto y migración **PENDING** para activación; requiere aprobación de producto/seguridad y pruebas de aceptación antes del despliegue.
