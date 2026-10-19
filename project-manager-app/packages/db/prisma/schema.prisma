@@ -5750,6 +5750,10 @@ enum CuratedConsentActorType {
   RIGHTS_HOLDER
 }
 
+enum CuratedConsentPurpose {
+  RAG_REFERENCE
+}
+
 /// Private source provenance. Original assets remain under their existing owner ACL.
 /// status and scope start private and are not remotely changed in F1A.
 model CuratedKnowledgeEntry {
@@ -5762,6 +5766,7 @@ model CuratedKnowledgeEntry {
   jurisdiction    String?
   status          CuratedKnowledgeStatus @default(DRAFT)
   publicationScope CuratedKnowledgeScope @default(ORG_PRIVATE)
+  aggregateRevision Int                 @default(0) // monotonic event revision from F2 onward
   createdAt       DateTime               @default(now())
   updatedAt       DateTime               @updatedAt
 
@@ -5809,8 +5814,11 @@ model CuratedPublicationConsent {
   actorUserId         String
   rightsHolderOrgId   String?
   scope               CuratedKnowledgeScope
-  purpose             String
+  purpose             CuratedConsentPurpose
+  versionContentSha256 String
+  audiencePolicySha256 String
   noticeVersion       String
+  expiresAt           DateTime
   proofPrivateRef     String?
   legalBasisReviewed  Boolean                 @default(false)
   grantedAt           DateTime                @default(now())
