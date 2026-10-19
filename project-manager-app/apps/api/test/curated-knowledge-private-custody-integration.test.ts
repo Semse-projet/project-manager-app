@@ -76,6 +76,15 @@ dbTest("F1A: private defaults, tenant-bound FK, version immutability keys, and c
     });
     assert.equal(consent.legalBasisReviewed, false);
     assert.equal(consent.withdrawnAt, null);
+    await assert.rejects(db.curatedPublicationConsent.create({
+      data: {
+        tenantId: tA, versionId: version.id, actorType: "RIGHTS_HOLDER",
+        actorUserId: "impostor", rightsHolderOrgId: orgB,
+        scope: "TENANT_CURATED", purpose: "FORGED_ORG_RIGHTS",
+        noticeVersion: "forged",
+      },
+    }), (e: any) => e.code === "P2003",
+    "An asserted rights-holder organization must belong to the version's tenant");
     // A saved expression of consent is NOT a publication or a sharing grant.
     assert.equal((await db.curatedKnowledgeEntry.findUnique({ where: { id: privateEntry.id } }))?.status, "DRAFT");
 
