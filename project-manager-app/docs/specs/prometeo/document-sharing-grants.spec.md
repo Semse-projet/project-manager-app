@@ -13,7 +13,8 @@ merge_status: "UNMERGED"
 deploy_status: "NOT_DEPLOYED"
 activation_status: "INACTIVE"
 migration_status: "PENDING"
-feature_flags: []
+feature_flags:
+  - SEMSE_PROMETEO_DOCUMENT_SHARING_ENABLED
 production_evidence: []
 # Explicit SEMSE cross-domain declarations: REVIEW only, not approval.
 privacyCritical: true
@@ -89,10 +90,11 @@ Depends on: PR #977 (S0 owner-only server-side RAG/document scope). Tracks issue
 
 ## API
 
-- `POST /v1/prometeo/documents/:id/shares` with `{ recipientOrgId }`: requires knowledge:write and verified owner, returns only grant metadata. Idempotent regrant, audited.
+- `POST /v1/prometeo/documents/:id/shares` with `{ recipientOrgId }`: requires `knowledge:share` and verified owner, returns only grant metadata. Idempotent regrant, audited.
 - `DELETE /v1/prometeo/documents/:id/shares/:recipientOrgId`: owner/OPS_ADMIN only, audited; revoke active grant; repeat revoke must not assert success.
 - Project membership for the recipient is validated server-side. Client-supplied `projectId` and `visibility` are not grant authorities.
 - Existing list/search/rag-query/trade-guide use same SQL grant predicate. No separate unscoped retrieval.
+- `SEMSE_PROMETEO_DOCUMENT_SHARING_ENABLED` is **OFF by default** and enabled only by the literal value `true`. With sharing disabled, POST grants fail closed and grant-based document retrieval remains hidden; owner-authorized DELETE revoke remains available for incident cleanup. Flag activation remains prohibited while this SDD is REVIEW.
 
 ## Verification gates
 

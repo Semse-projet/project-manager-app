@@ -20,7 +20,7 @@ date: "2026-10-18"
 - Esquema en producción y migraciones: **no verificados**; la migración nueva se ha probado en PostgreSQL efímero de CI, no en producción.
 - Configuración de staging: el entorno T008 es una carga distinta y **no está autorizado para reutilizarse**.
 - CI: verificar runs finales del HEAD, no usar un run verde de SHA anterior.
-- Flags/allowlists: no se autoriza activación sin mecanismo y revisión explícita. `public_training` heredado no constituye permiso.
+- Flags/allowlists: `SEMSE_PROMETEO_DOCUMENT_SHARING_ENABLED` queda OFF por defecto (solo el literal `true` habilita nuevos grants); revocar grants existentes permanece disponible con el flag OFF. No se autoriza activación sin mecanismo y revisión explícita. `public_training` heredado no constituye permiso.
 
 ## 2. Constitution check
 
@@ -52,7 +52,7 @@ date: "2026-10-18"
 
 ## 5. Seguridad y política
 
-- Permisos: `knowledge:write`, propietario u OPS_ADMIN, miembro actual del proyecto; ningún permiso cross-org por solo compartir tenant o proyecto.
+- Permisos: `knowledge:share` (no `knowledge:write`), organización propietaria u OPS_ADMIN, participación válida en el proyecto; ningún permiso cross-org por solo compartir tenant o proyecto.
 - Borrado: documento y evidencia de revocación/eliminación auditados en transacción; fallo de auditoría hace rollback; serializable y reintentos acotados.
 - Deny: 404 cross-tenant/inexistente, 403 propietario/org no autorizado, 400 entrada inválida, 409 grants históricos inconsistentes.
 - Local-only: RAG, chat con herramientas, evidencia y embeddings privados no pueden usar proveedor externo; ausencia de modelo local provoca respuesta no-acción o FTS degradado.
