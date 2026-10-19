@@ -31,6 +31,9 @@ dbTest("F1A: private defaults, tenant-bound FK, version immutability keys, and c
     assert.equal(privateEntry.status, "DRAFT");
     assert.equal(privateEntry.publicationScope, "ORG_PRIVATE");
     assert.equal(privateEntry.sourcePrivateRef, null);
+    await assert.rejects(db.curatedKnowledgeEntry.update({
+      where: { id: privateEntry.id }, data: { status: "PUBLISHED", publicationScope: "TENANT_CURATED" },
+    }), "F1A database constraint must forbid publishing even if a code path bypasses the flag");
 
     await assert.rejects(db.curatedKnowledgeEntry.create({
       data: { tenantId: tA, owningOrgId: orgB, createdByUserId: "forged-owner" },
@@ -48,6 +51,9 @@ dbTest("F1A: private defaults, tenant-bound FK, version immutability keys, and c
     });
     assert.equal(version.tenantId, tA);
     assert.equal(version.contentSha256, hash);
+    await assert.rejects(db.curatedKnowledgeVersion.update({
+      where: { id: version.id }, data: { sanitizedBody: "rewritten without a new version" },
+    }), "Published/draft version text must never change in place");
 
     await assert.rejects(db.curatedKnowledgeVersion.create({
       data: {
