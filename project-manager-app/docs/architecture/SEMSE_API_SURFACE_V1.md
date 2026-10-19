@@ -102,7 +102,7 @@ de Production Health las verifica junto con las nueve páginas `/modules/*`.
 - `POST /v1/prometeo/ingest-file`
 - `GET /v1/prometeo/trade-library`
 - `GET /v1/prometeo/documents`
-- `POST /v1/prometeo/documents/:id/shares` — **proposed in draft #987, NOT DEPLOYED**; requires `knowledge:write`, owning org/OPS_ADMIN, verified live project and recipient participant org; body `{recipientOrgId}`; audited idempotent active grant.
+- `POST /v1/prometeo/documents/:id/shares` — **proposed in draft #987, NOT DEPLOYED**; requires `knowledge:share`, owning org/OPS_ADMIN, verified live project and recipient participant org; body `{recipientOrgId}`; audited idempotent active grant.
 - `DELETE /v1/prometeo/documents/:id/shares/:recipientOrgId` — **proposed in draft #987, NOT DEPLOYED**; revokes an active grant with atomic audit, `404` if absent; see `prometeo.document-sharing-grants` REVIEW and proposed ADR-046.
 - `POST /v1/prometeo/search`
 - `POST /v1/prometeo/rag-context`
