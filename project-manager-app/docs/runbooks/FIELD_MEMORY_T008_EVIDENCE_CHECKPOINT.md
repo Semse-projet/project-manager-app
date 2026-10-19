@@ -36,3 +36,20 @@ Dentro de **una transacción PostgreSQL `REPEATABLE READ`**:
 La prueba `field-memory-evidence-snapshot-integration.test.ts` mantiene una conexión PostgreSQL de lectura con `FOR SHARE` dentro de una transacción abierta y, desde otra conexión distinta, intenta adquirir `FOR UPDATE` con timeout. El resultado exigido es rechazo mientras la lectura está activa y éxito de `FOR UPDATE` después del commit de la proyección. Este ensayo únicamente demuestra **fencing de la fila del gate**, no inmovilidad del filesystem, autenticidad de las evidencias ni ausencia de escritores ajenos.
 
 El checkpoint también rechaza claves de almacenamiento no canónicas: segmentos vacíos, `.`, `..`, claves absolutas, separadores Windows, rutas sin archivo y longitudes excesivas. Una ruta inválida bloquea `DB_PROJECTION_ONLY`, sin emitir los identificadores afectados en registros de CI.
+
+
+## T-008j — comparación offline con digest de proyección
+
+El comando de reconciliación offline acepta ahora opcionalmente un **envelope privado de checkpoint**, además de su modo legado `--projection`:
+
+```bash
+node scripts/field-memory-evidence-reconcile.mjs \
+  --manifest /RUTA_PRIVADA/originals.json \
+  --checkpoint /RUTA_PRIVADA/evidence-checkpoint.json
+```
+
+`--checkpoint` exige `FROZEN`, epoch positivo, digest de cobertura, `DB_PROJECTION_ONLY`, los cinco contadores de violaciones a cero, consistencia de transacción declarada y todos los flags de custodia inactivos. Recalcula SHA-256 sobre el JSON de `privateProjection` exactamente como lo genera el productor, exige que coincida con `projectionDigest`, y luego compara referencias contra el inventario de hashes de originales.
+
+La salida **solo incluye contadores**; jamás claves, tenants, IDs ni hashes individuales. **Siempre sale con código 2**, incluso para `OFFLINE_CHECKPOINT_MATCH_NOT_ATTESTED`, porque todavía no hay autenticidad de origen ni constancia de que PostgreSQL, volumen y evidencia fueron inmovilizados en una ventana común. Un hash coincidente puede demostrar consistencia interna de dos artefactos, no quién los creó ni cuándo. No automatizar decisiones de thaw, escrow, CaptureSession o offsite PASS basadas en esta salida.
+
+Los archivos privados utilizados para la comparación deben almacenarse en un directorio de acceso restringido y cifrado. Esta función no descarga datos, no consulta Railway ni PostgreSQL, y no mueve archivos.
