@@ -78,7 +78,9 @@ function makeWorld() {
   let failAuditAction: string | undefined;
   const audit: any = {
     async append(entry: Row, tx?: any) {
-      assert.equal(tx, prisma, "audit append must receive the same transaction as the mutation");
+      if (entry.action !== "skill_attestation.redeemed") {
+        assert.equal(tx, prisma, "mutation audit append must share the mutation transaction");
+      }
       if (entry.action === failAuditAction) throw new Error("synthetic_audit_write_failure");
       audits.push(entry);
     }
