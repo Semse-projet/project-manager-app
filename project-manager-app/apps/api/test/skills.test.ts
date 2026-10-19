@@ -62,7 +62,7 @@ function makeWorld() {
     }
   };
   const audit: any = { async append(entry: Row) { audits.push(entry); } };
-  return { service: new SkillsService(prisma, audit), experiences, attestations, audits, allocations };
+  return { service: new SkillsService(prisma, audit), experiences, attestations, audits, allocations, crews };
 }
 
 const sup = { tenantId: "t1", orgId: "orgA", userId: "sup", roles: ["WORKER"] };
@@ -188,4 +188,20 @@ test("AC-09 revocar o vencer invalida el token; revocar dos veces -> 409; solo l
   const b: any = await w.service.createAttestation(ana, "r6", { consent: true });
   w.attestations[1].expiresAt = new Date(Date.now() - 1000);
   await assert.rejects(w.service.redeem(hr, "orgB", b.token, "r7"), { status: 404 });
+});
+
+
+test("Codex BO-12: archived crew cannot confirm submitted experience even with active supervisor membership", async () => {
+  const w = makeWorld();
+  w.crews[0].status = "ARCHIVED";
+  await assert.rejects(
+    w.service.reviewAllocation(sup, "a1", "archived-crew", { decision: "CONFIRM", trade: "electricidad" }),
+    { status: 404 }
+  );
+  await assert.rejects(
+    w.service.reviewAllocation(boss, "a1", "archived-manager", { decision: "CONFIRM", trade: "electricidad" }),
+    { status: 404 }
+  );
+  assert.equal(w.experiences.length, 0);
+  assert.equal(w.audits.length, 0);
 });
