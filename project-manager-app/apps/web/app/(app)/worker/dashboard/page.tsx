@@ -20,11 +20,11 @@ import { EmptyState, ErrorState, HtmlInCanvasPanel, JobCard, StatCard } from "@s
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
 import { WorkerEvidenceSummary } from "../../../../components/semse/WorkerEvidenceSummary";
 import type { Job, JobRecordView } from "@semse/schemas";
-import { useLanguage } from "../../../../lib/language-context";
+import { useLanguage, type LanguagePreference } from "../../../../lib/language-context";
 import { fetchRatings, fetchMyBids, normalizeErrorMessage, type RatingListItem, type MyBidView } from "../../../semse-api";
 
-function formatMoney(value: number) {
-  return new Intl.NumberFormat("es-US", {
+function formatMoney(value: number, language: LanguagePreference) {
+  return new Intl.NumberFormat(language === "en" ? "en-US" : "es-US", {
     style: "currency",
     currency: "USD",
     maximumFractionDigits: 0,
@@ -91,7 +91,7 @@ function reputationTier(totalRatings: number, avg: number): string {
 }
 
 export default function WorkerDashboardPage() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [jobs, setJobs] = useState<JobRecordView[]>([]);
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
@@ -104,12 +104,12 @@ export default function WorkerDashboardPage() {
         .then((r) => r.json())
         .then((payload: { data?: JobRecordView[]; error?: unknown }) => {
           if (payload.error) {
-            setApiError(normalizeErrorMessage(payload.error) ?? "No se pudieron cargar los trabajos.");
+            setApiError(normalizeErrorMessage(payload.error) ?? t("clientDash.jobsLoadError"));
             return;
           }
           setJobs(payload.data ?? []);
         })
-        .catch(() => setApiError("No se pudo conectar con el servidor")),
+        .catch(() => setApiError(t("clientDash.connectionError"))),
       fetchRatings()
         .then(({ actorUserId, items }) => {
           setReceivedRatings(items.filter((r) => r.toUser.id === actorUserId));
@@ -117,7 +117,7 @@ export default function WorkerDashboardPage() {
         .catch(() => undefined),
       fetchMyBids().then(setMyBids).catch(() => undefined),
     ]).finally(() => setLoading(false));
-  }, []);
+  }, [t]);
 
   const metrics = useMemo(() => {
     const acceptedBids = myBids.filter((b) => b.status === "accepted");
@@ -157,10 +157,8 @@ export default function WorkerDashboardPage() {
         minHeight={96}
       >
         <div>
-          <h1 style={{ fontSize: "24px", fontWeight: 800, color: "var(--ink)", marginBottom: "4px" }}>Mi Panel</h1>
-          <p style={{ color: "var(--muted)", fontSize: "14px" }}>
-            Resumen operativo de tus trabajos, revisiones y oportunidades activas.
-          </p>
+          <h1 style={{ fontSize: "24px", fontWeight: 800, color: "var(--ink)", marginBottom: "4px" }}>{t("workerDash.title")} </h1>
+          <p style={{ color: "var(--muted)", fontSize: "14px" }}>{t("workerDash.subtitle")} </p>
         </div>
 
         <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", alignItems: "center" }}>
@@ -181,9 +179,7 @@ export default function WorkerDashboardPage() {
               fontWeight: 700,
             }}
           >
-            <Briefcase size={15} />
-            Ver mis trabajos
-          </Link>
+            <Briefcase size={15} />{t("workerDash.myJobs")} </Link>
           <Link
             href="/worker/evidence"
             style={{
@@ -199,9 +195,7 @@ export default function WorkerDashboardPage() {
               fontWeight: 700,
             }}
           >
-            <Camera size={15} />
-            Subir evidencia
-          </Link>
+            <Camera size={15} />{t("workerDash.uploadEvidence")} </Link>
           <Link
             href="/worker/travel"
             style={{
@@ -218,9 +212,7 @@ export default function WorkerDashboardPage() {
               fontWeight: 700,
             }}
           >
-            <Wallet size={15} />
-            Movilidad y estancia
-          </Link>
+            <Wallet size={15} />{t("workerDash.travelLodging")} </Link>
           <Link
             href="/worker/disputes?status=open"
             style={{
@@ -237,9 +229,7 @@ export default function WorkerDashboardPage() {
               fontWeight: 700,
             }}
           >
-            <AlertTriangle size={15} />
-            Ver disputas
-          </Link>
+            <AlertTriangle size={15} />{t("workerDash.disputes")} </Link>
         </div>
       </HtmlInCanvasPanel>
 
@@ -248,22 +238,22 @@ export default function WorkerDashboardPage() {
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "12px" }}>
         <Link href="/worker/jobs?tab=Activos" className="card-lift" style={{ textDecoration: "none", display: "block", borderRadius: "16px" }}>
-          <StatCard label="Trabajos activos" value={loading ? "—" : metrics.active.length} icon={Briefcase} color="blue" loading={loading} />
+          <StatCard label={t("workerDash.activeJobs")} value={loading ? "—" : metrics.active.length} icon={Briefcase} color="blue" loading={loading} />
         </Link>
         <Link href="/worker/jobs?tab=Completados" className="card-lift" style={{ textDecoration: "none", display: "block", borderRadius: "16px" }}>
-          <StatCard label="Completados" value={loading ? "—" : metrics.completed.length} icon={CheckSquare} color="green" loading={loading} />
+          <StatCard label={t("workerDash.completed")} value={loading ? "—" : metrics.completed.length} icon={CheckSquare} color="green" loading={loading} />
         </Link>
         <Link href="/worker/jobs?tab=Activos" className="card-lift" style={{ textDecoration: "none", display: "block", borderRadius: "16px" }}>
-          <StatCard label="En revisión" value={loading ? "—" : metrics.review.length} icon={Star} color="amber" loading={loading} />
+          <StatCard label={t("workerDash.inReview")} value={loading ? "—" : metrics.review.length} icon={Star} color="amber" loading={loading} />
         </Link>
         <Link href="/worker/disputes?status=open" className="card-lift" style={{ textDecoration: "none", display: "block", borderRadius: "16px" }}>
-          <StatCard label="Disputas abiertas" value={loading ? "—" : metrics.disputes.length} icon={AlertTriangle} color="red" loading={loading} />
+          <StatCard label={t("workerDash.openDisputes")} value={loading ? "—" : metrics.disputes.length} icon={AlertTriangle} color="red" loading={loading} />
         </Link>
         <Link href="/worker/payments" className="card-lift" style={{ textDecoration: "none", display: "block", borderRadius: "16px" }}>
-          <StatCard label="Presupuesto activo" value={loading ? "—" : metrics.activeBudget > 0 ? formatMoney(metrics.activeBudget) : "—"} icon={DollarSign} color="orange" loading={loading} />
+          <StatCard label={t("workerDash.activeBudget")} value={loading ? "—" : metrics.activeBudget > 0 ? formatMoney(metrics.activeBudget, language) : "—"} icon={DollarSign} color="orange" loading={loading} />
         </Link>
         <Link href="/worker/travel" className="card-lift" style={{ textDecoration: "none", display: "block", borderRadius: "16px" }}>
-          <StatCard label="Viajes y viáticos" value={loading ? "—" : "Abrir"} icon={Wallet} color="violet" loading={loading} />
+          <StatCard label={t("workerDash.travelExpenses")} value={loading ? "—" : t("workerDash.open")} icon={Wallet} color="violet" loading={loading} />
         </Link>
       </div>
 
@@ -280,22 +270,20 @@ export default function WorkerDashboardPage() {
           minHeight={260}
         >
           <div style={{ marginBottom: "14px" }}>
-            <h2 style={{ fontSize: "15px", fontWeight: 700, color: "var(--ink)" }}>Resumen operativo</h2>
-            <p style={{ fontSize: "12px", color: "var(--muted)", marginTop: "4px" }}>
-              Lectura rápida de tu cartera activa y del estado del pipeline.
-            </p>
+            <h2 style={{ fontSize: "15px", fontWeight: 700, color: "var(--ink)" }}>{t("workerDash.summary")} </h2>
+            <p style={{ fontSize: "12px", color: "var(--muted)", marginTop: "4px" }}>{t("workerDash.summaryDescription")} </p>
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "10px" }}>
             {[
               {
-                label: "Oportunidades abiertas",
+                label: t("workerDash.openOpportunities"),
                 value: metrics.opportunities.length,
                 tone: "rgba(59,130,246,.12)",
                 color: "#60a5fa",
               },
               {
-                label: "Aceptados o reservados",
+                label: t("workerDash.acceptedReserved"),
                 // Was reading job.status (a bid, always "accepted" here since
                 // `active` is already pre-filtered to accepted bids) instead
                 // of job.jobStatus (the real job lifecycle status) — the KPI
@@ -306,13 +294,13 @@ export default function WorkerDashboardPage() {
                 color: "#34d399",
               },
               {
-                label: "Tasa de cierre",
+                label: t("workerDash.completionRate"),
                 value: `${metrics.completionRate}%`,
                 tone: "rgba(249,115,22,.12)",
                 color: "#fb923c",
               },
               {
-                label: "Carga en revisión",
+                label: t("workerDash.reviewLoad"),
                 value: `${metrics.reviewRate}%`,
                 tone: "rgba(245,158,11,.12)",
                 color: "#fbbf24",
@@ -348,22 +336,20 @@ export default function WorkerDashboardPage() {
           minHeight={260}
         >
           <div style={{ marginBottom: "14px" }}>
-            <h2 style={{ fontSize: "15px", fontWeight: 700, color: "var(--ink)" }}>Acciones rápidas</h2>
-            <p style={{ fontSize: "12px", color: "var(--muted)", marginTop: "4px" }}>
-              Accesos directos para la ejecución diaria del profesional.
-            </p>
+            <h2 style={{ fontSize: "15px", fontWeight: 700, color: "var(--ink)" }}>{t("workerDash.quickActions")} </h2>
+            <p style={{ fontSize: "12px", color: "var(--muted)", marginTop: "4px" }}>{t("workerDash.quickActionsDesc")} </p>
           </div>
 
           <div style={{ display: "grid", gap: "10px" }}>
             {[
-              { href: "/worker/tracker", label: "Registrar horas", description: "Abrir control de jornada", icon: Clock, color: "var(--info)" },
-              { href: "/worker/evidence", label: "Subir evidencia", description: "Enviar fotos y documentos", icon: Camera, color: "var(--ok)" },
-              { href: "/worker/materials", label: "Materiales", description: "Solicitar o rastrear materiales", icon: Package, color: "var(--warn)" },
-              { href: "/worker/incidents", label: "Incidencias", description: "Reportar un problema en campo", icon: AlertTriangle, color: "var(--error)" },
-              { href: "/worker/payments", label: "Ver mis pagos", description: "Revisar escrow y liberaciones", icon: Wallet, color: "var(--accent)" },
+              { href: "/worker/tracker", label: t("workerDash.trackHours"), description: t("workerDash.trackHoursDesc"), icon: Clock, color: "var(--info)" },
+              { href: "/worker/evidence", label: t("workerDash.uploadEvidence"), description: t("workerDash.uploadEvidenceDesc"), icon: Camera, color: "var(--ok)" },
+              { href: "/worker/materials", label: t("workerDash.materials"), description: t("workerDash.materialsDesc"), icon: Package, color: "var(--warn)" },
+              { href: "/worker/incidents", label: t("workerDash.incidents"), description: t("workerDash.incidentsDesc"), icon: AlertTriangle, color: "var(--error)" },
+              { href: "/worker/payments", label: t("workerDash.myPayments"), description: t("workerDash.myPaymentsDesc"), icon: Wallet, color: "var(--accent)" },
               { href: "/worker/field-ops", label: t("nav.fieldOps"), description: t("dash.fieldOpsDesc"), icon: Wrench, color: "#a78bfa" },
-              { href: "/worker/review", label: "Calificar clientes", description: "Enviar reseñas de trabajos completados", icon: Star, color: "#fbbf24" },
-              { href: "/worker/opportunities", label: "Ver oportunidades", description: "Trabajos disponibles — envía propuestas", icon: Briefcase, color: "#6366f1" },
+              { href: "/worker/review", label: t("workerDash.rateClients"), description: t("workerDash.rateClientsDesc"), icon: Star, color: "#fbbf24" },
+              { href: "/worker/opportunities", label: t("workerDash.viewOpportunities"), description: t("workerDash.viewOpportunitiesDesc"), icon: Briefcase, color: "#6366f1" },
             ].map((action) => {
               const Icon = action.icon;
               return (
@@ -420,11 +406,10 @@ export default function WorkerDashboardPage() {
           <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "16px", padding: "18px 20px" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", marginBottom: "14px", flexWrap: "wrap" }}>
               <div>
-                <h2 style={{ fontSize: "15px", fontWeight: 700, color: "var(--ink)" }}>Mi reputación</h2>
-                <p style={{ fontSize: "12px", color: "var(--muted)", marginTop: "2px" }}>Basada en calificaciones recibidas de clientes.</p>
+                <h2 style={{ fontSize: "15px", fontWeight: 700, color: "var(--ink)" }}>{t("workerDash.reputation")} </h2>
+                <p style={{ fontSize: "12px", color: "var(--muted)", marginTop: "2px" }}>{t("workerDash.reputationDesc")} </p>
               </div>
-              <Link href="/worker/review" style={{ fontSize: "12px", color: "var(--brand)", fontWeight: 700, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "4px" }}>
-                Ver reseñas <ArrowRight size={13} />
+              <Link href="/worker/review" style={{ fontSize: "12px", color: "var(--brand)", fontWeight: 700, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "4px" }}>{t("workerDash.reviews")} <ArrowRight size={13} />
               </Link>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: "10px" }}>
@@ -437,17 +422,17 @@ export default function WorkerDashboardPage() {
                 <p style={{ fontSize: "20px", fontWeight: 800, color: "var(--ink)", margin: "0 0 2px" }}>
                   {receivedRatings.length === 0 ? "—" : avgScore.toFixed(1)}
                 </p>
-                <p style={{ fontSize: "11px", color: "var(--muted)" }}>Promedio</p>
+                <p style={{ fontSize: "11px", color: "var(--muted)" }}>{t("workerDash.average")} </p>
               </div>
               <div style={{ background: "var(--raised)", borderRadius: "12px", padding: "14px 12px", textAlign: "center" }}>
                 <p style={{ fontSize: "20px", fontWeight: 800, color: "var(--ink)", margin: "0 0 2px" }}>{receivedRatings.length}</p>
-                <p style={{ fontSize: "11px", color: "var(--muted)" }}>Reseñas recibidas</p>
+                <p style={{ fontSize: "11px", color: "var(--muted)" }}>{t("workerDash.receivedReviews")} </p>
               </div>
               <div style={{ background: "var(--raised)", borderRadius: "12px", padding: "14px 12px", textAlign: "center" }}>
                 <span style={{ display: "inline-block", padding: "3px 10px", borderRadius: 99, fontSize: "11px", fontWeight: 700, background: `${tierMeta.color}22`, color: tierMeta.color, border: `1px solid ${tierMeta.color}44`, marginBottom: "6px" }}>
-                  {tierMeta.label}
+                  {t(`workerDash.tier.${tier}`)}
                 </span>
-                <p style={{ fontSize: "11px", color: "var(--muted)" }}>Nivel de confianza</p>
+                <p style={{ fontSize: "11px", color: "var(--muted)" }}>{t("workerDash.trustLevel")} </p>
               </div>
             </div>
           </div>
@@ -459,11 +444,10 @@ export default function WorkerDashboardPage() {
         <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "16px", padding: "18px 20px" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", marginBottom: "14px", flexWrap: "wrap" }}>
             <div>
-              <h2 style={{ fontSize: "15px", fontWeight: 700, color: "var(--ink)" }}>Mis propuestas</h2>
-              <p style={{ fontSize: "12px", color: "var(--muted)", marginTop: "2px" }}>Últimas propuestas enviadas.</p>
+              <h2 style={{ fontSize: "15px", fontWeight: 700, color: "var(--ink)" }}>{t("workerDash.myBids")} </h2>
+              <p style={{ fontSize: "12px", color: "var(--muted)", marginTop: "2px" }}>{t("workerDash.myBidsDesc")} </p>
             </div>
-            <Link href="/worker/bids" style={{ fontSize: "12px", color: "var(--brand)", fontWeight: 700, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "4px" }}>
-              Ver todas <ArrowRight size={13} />
+            <Link href="/worker/bids" style={{ fontSize: "12px", color: "var(--brand)", fontWeight: 700, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "4px" }}>{t("workerDash.viewAll")} <ArrowRight size={13} />
             </Link>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -474,14 +458,14 @@ export default function WorkerDashboardPage() {
                 rejected:  { label: "Rechazada", color: "var(--error)", bg: "rgba(239,68,68,.1)"  },
               };
               const s = BID_STATUS[bid.status] ?? BID_STATUS["submitted"]!;
-              const amt = new Intl.NumberFormat("es-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(bid.amount);
+              const amt = new Intl.NumberFormat(language === "en" ? "en-US" : "es-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(bid.amount);
               return (
                 <div key={bid.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", background: "var(--raised)", borderRadius: 10 }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{ fontSize: 13, fontWeight: 700, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{bid.jobTitle}</p>
-                    <p style={{ fontSize: 11, color: "var(--muted)" }}>{amt} · {bid.etaDays} días</p>
+                    <p style={{ fontSize: 11, color: "var(--muted)" }}>{amt} · {bid.etaDays} {t("workerDash.days")}</p>
                   </div>
-                  <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 999, background: s.bg, color: s.color, whiteSpace: "nowrap" }}>{s.label}</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 999, background: s.bg, color: s.color, whiteSpace: "nowrap" }}>{t(`workerDash.bid.${BID_STATUS[bid.status] ? bid.status : "submitted"}`)}</span>
                 </div>
               );
             })}
@@ -501,16 +485,13 @@ export default function WorkerDashboardPage() {
           }}
         >
           <div>
-            <h2 style={{ fontSize: "15px", fontWeight: 700, color: "var(--ink)" }}>Trabajos en curso</h2>
-            <p style={{ fontSize: "12px", color: "var(--muted)", marginTop: "4px" }}>
-              Base activa de ejecución para el profesional.
-            </p>
+            <h2 style={{ fontSize: "15px", fontWeight: 700, color: "var(--ink)" }}>{t("workerDash.activeWork")} </h2>
+            <p style={{ fontSize: "12px", color: "var(--muted)", marginTop: "4px" }}>{t("workerDash.activeWorkDesc")} </p>
           </div>
           <Link
             href="/worker/jobs"
             style={{ display: "inline-flex", alignItems: "center", gap: "5px", fontSize: "12px", color: "var(--brand)", textDecoration: "none", fontWeight: 700 }}
-          >
-            Ver todos <ArrowRight size={13} />
+          >{t("workerDash.viewAllJobs")} <ArrowRight size={13} />
           </Link>
         </div>
 
@@ -524,16 +505,14 @@ export default function WorkerDashboardPage() {
           <ErrorState message={apiError} />
         ) : metrics.active.length === 0 ? (
           <EmptyState
-            title="No tienes trabajos activos"
-            description="Explora las oportunidades disponibles y envía propuestas para comenzar."
+            title={t("workerDash.noActiveJobs")}
+            description={t("workerDash.noActiveJobsDesc")}
             icon={Briefcase}
             action={
               <Link
                 href="/worker/opportunities"
                 style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "10px 22px", borderRadius: "9px", background: "var(--brand)", textDecoration: "none", color: "#fff", fontSize: "13px", fontWeight: 700 }}
-              >
-                Ver oportunidades →
-              </Link>
+              >{t("workerDash.viewOpportunitiesArrow")} </Link>
             }
           />
         ) : (
@@ -545,9 +524,8 @@ export default function WorkerDashboardPage() {
                   compact
                   footer={
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px" }}>
-                      <span style={{ fontSize: "12px", color: "var(--muted)" }}>Abrir detalle operativo</span>
-                      <span style={{ display: "inline-flex", alignItems: "center", gap: "5px", color: "var(--brand)", fontSize: "12px", fontWeight: 700 }}>
-                        Ver trabajo <ArrowRight size={12} />
+                      <span style={{ fontSize: "12px", color: "var(--muted)" }}>{t("workerDash.openDetail")} </span>
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: "5px", color: "var(--brand)", fontSize: "12px", fontWeight: 700 }}>{t("workerDash.viewJob")} <ArrowRight size={12} />
                       </span>
                     </div>
                   }
@@ -570,23 +548,20 @@ export default function WorkerDashboardPage() {
           }}
         >
           <div>
-            <h2 style={{ fontSize: "15px", fontWeight: 700, color: "var(--ink)" }}>Oportunidades abiertas</h2>
-            <p style={{ fontSize: "12px", color: "var(--muted)", marginTop: "4px" }}>
-              Trabajos publicados que pueden alimentar tu siguiente ciclo.
-            </p>
+            <h2 style={{ fontSize: "15px", fontWeight: 700, color: "var(--ink)" }}>{t("workerDash.openOpportunities")} </h2>
+            <p style={{ fontSize: "12px", color: "var(--muted)", marginTop: "4px" }}>{t("workerDash.opportunitiesDesc")} </p>
           </div>
           <Link
             href="/worker/jobs"
             style={{ display: "inline-flex", alignItems: "center", gap: "5px", fontSize: "12px", color: "var(--brand)", textDecoration: "none", fontWeight: 700 }}
-          >
-            Explorar <Search size={13} />
+          >{t("workerDash.explore")} <Search size={13} />
           </Link>
         </div>
 
         {loading ? null : metrics.opportunities.length === 0 ? (
           <EmptyState
-            title="No hay oportunidades abiertas ahora"
-            description="Cuando entren trabajos publicados al pipeline, aparecerán aquí para evaluación."
+            title={t("workerDash.noOpportunities")}
+            description={t("workerDash.noOpportunitiesDesc")}
             image="/brand/empty-states/worker-opportunities.png"
           />
         ) : (
