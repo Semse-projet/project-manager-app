@@ -26,6 +26,7 @@ related_files:
   - apps/web/app/layout.tsx
   - apps/web/app/(app)/layout.tsx
   - apps/web/app/(app)/client/jobs/new/page.tsx
+  - docs/specs/ui/localization-architecture.pilot.md
   - apps/web/app/lib/buildops-i18n.ts
   - apps/web/app/contributors/ContributorsShell.tsx
   - apps/web/middleware.ts
@@ -52,6 +53,8 @@ last_verified: "2026-10-18"
 - BuildOps, navigation, offers, contributors and other screens use the existing API; an immediate provider swap would break callers. The job-posting wizard (`apps/web/app/(app)/client/jobs/new/page.tsx`) still uses untranslated step labels, and money formatting uses `en-US` independently of the UI language.
 - Public metadata/OG currently contains Spanish text, `og:locale = es_MX`, and `robots: { index: false }`. **Multilingual public SEO is a separate explicitly gated decision**, not an automatic requirement of this phase.
 - Existing open, not-merged i18n PRs #968, #969, #970 and #973 modify related UI files and/or the flat dictionary. Their content must be reconciled before rewriting keys. #973 concerns Prometeo and must respect ongoing security issue #974 and P0 integration PR #987.
+
+**Proposed D1–D7 disposition and executable pilot test matrix:** [localization-architecture.pilot.md](localization-architecture.pilot.md). This companion plan is **REVIEW-only** and cannot supersede the SDD delivery states, #974/#987 security gate, or an explicit adoption decision.
 
 ## Target decision
 
