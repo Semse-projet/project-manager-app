@@ -25,17 +25,19 @@ interface OpsAlert {
   severity: AlertSeverity;
 }
 
-// Fallback alerts shown when backend is offline
-const FALLBACK_ALERTS: OpsAlert[] = [
-  { id: "a1", type: "dispute",    text: "Disputa escalada en Job #J-2891 — cliente y pro sin acuerdo",    time: "hace 12 min",  severity: "error" },
-  { id: "a2", type: "escrow",     text: "Escrow de $4,500 pendiente de liberación — milestone aprobado",  time: "hace 34 min",  severity: "warning" },
-  { id: "a3", type: "user",       text: "Profesional nuevo solicita verificación de identidad",            time: "hace 1 hora",  severity: "info" },
-  { id: "a4", type: "compliance", text: "Contrato #C-1092 vence sin milestone completado",                 time: "hace 2 horas", severity: "warning" },
-];
+// Sample alerts are strictly isolated to explicit demo mode while the API is offline.
+function demoAlerts(t: (key: string) => string): OpsAlert[] {
+  return [
+    { id: "demo-dispute", type: "dispute", text: t("adminDash.demoAlert.dispute"), time: t("adminDash.demoTime.12"), severity: "error" },
+    { id: "demo-escrow", type: "escrow", text: t("adminDash.demoAlert.escrow"), time: t("adminDash.demoTime.34"), severity: "warning" },
+    { id: "demo-user", type: "user", text: t("adminDash.demoAlert.user"), time: t("adminDash.demoTime.hour1"), severity: "info" },
+    { id: "demo-compliance", type: "compliance", text: t("adminDash.demoAlert.compliance"), time: t("adminDash.demoTime.hour2"), severity: "warning" },
+  ];
+}
 
 export default function AdminDashboardPage() {
   const canvasSupported = useHtmlInCanvasSupport();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [jobs, setJobs]           = useState<JobRecordView[]>([]);
   const [loading, setLoading]     = useState(true);
   const [apiError, setApiError]   = useState<string | null>(null);
@@ -52,7 +54,7 @@ export default function AdminDashboardPage() {
         setJobs(d.data ?? []);
         setApiError(null);
       })
-      .catch(() => setApiError("No se pudo conectar con el servidor"))
+      .catch(() => setApiError(t("clientDash.connectionError")))
       .finally(() => { setLoading(false); setLastRefresh(new Date()); });
   }
 
@@ -66,7 +68,7 @@ export default function AdminDashboardPage() {
           return;
         }
         if (payload.error) {
-          setApiError(normalizeErrorMessage(payload.error) ?? "No se pudieron cargar los trabajos.");
+          setApiError(normalizeErrorMessage(payload.error) ?? t("clientDash.jobsLoadError"));
           return;
         }
         setJobs(payload.data ?? []);
@@ -74,7 +76,7 @@ export default function AdminDashboardPage() {
       })
       .catch(() => {
         if (!cancelled) {
-          setApiError("No se pudo conectar con el servidor");
+          setApiError(t("clientDash.connectionError"));
         }
       })
       .finally(() => {
@@ -87,7 +89,7 @@ export default function AdminDashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [t]);
 
   const activeJobs    = jobs.filter(j => ["in_progress", "reserved", "accepted", "review"].includes(j.status));
   const disputeJobs   = jobs.filter(j => j.status === "dispute");
@@ -113,7 +115,7 @@ export default function AdminDashboardPage() {
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           <Activity size={16} color="var(--violet)" />
           <span style={{ fontSize: "13px", color: "var(--ink)", fontWeight: 500 }}>
-            Un nuevo **Mission Control** ejecutivo y centrado en excepciones está disponible.
+            {t("adminDash.banner")}
           </span>
         </div>
         <Link
@@ -128,16 +130,16 @@ export default function AdminDashboardPage() {
             borderRadius: "8px",
           }}
         >
-          Probar Mission Control
+          {t("adminDash.tryMissionControl")}
         </Link>
       </div>
 
       <AdminPageHeader
-        title="Panel de Operaciones"
+        title={t("adminDash.title")}
         subtitle={
           <span>
-            Estado del sistema en tiempo real
-            {!loading && <span style={{ color: "var(--faint)", marginLeft: "8px" }}>· Actualizado {lastRefresh.toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" })}</span>}
+            {t("adminDash.subtitle")}
+            {!loading && <span style={{ color: "var(--faint)", marginLeft: "8px" }}>· {t("adminDash.updated")} {lastRefresh.toLocaleTimeString(language === "en" ? "en-US" : "es-US", { hour: "2-digit", minute: "2-digit" })}</span>}
           </span>
         }
         icon={LayoutDashboard}
@@ -147,7 +149,7 @@ export default function AdminDashboardPage() {
         actions={
           <>
             <span
-              title={canvasSupported ? "Canvas nativo activo" : "DOM fallback"}
+              title={canvasSupported ? t("adminDash.nativeCanvas") : t("adminDash.domFallback")}
               style={{
                 padding: "2px 8px",
                 borderRadius: "999px",
@@ -172,7 +174,7 @@ export default function AdminDashboardPage() {
               style={{ display: "flex", alignItems: "center", gap: "6px", padding: "8px 14px", borderRadius: "8px", border: "1px solid var(--border)", background: "transparent", color: "var(--muted)", fontSize: "12px", fontWeight: 600, cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.6 : 1 }}
             >
               <RefreshCw size={12} className={loading ? "animate-spin" : undefined} />
-              Refrescar
+              {t("adminDash.refresh")}
             </button>
           </>
         }
@@ -181,12 +183,12 @@ export default function AdminDashboardPage() {
       {/* Stats from real API */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: "12px", marginBottom: "28px" }}>
         {[
-          { href: "/admin/ops",      label: "Trabajos activos",   value: loading ? "—" : activeJobs.length,    icon: Activity,      color: "blue"   as const },
-          { href: "/admin/disputes", label: "En disputa",         value: loading ? "—" : disputeJobs.length,   icon: AlertTriangle, color: "red"    as const },
-          { href: "/admin/reports",  label: "Completados",        value: loading ? "—" : completedJobs.length, icon: CheckSquare,   color: "green"  as const },
-          { href: "/admin/ops",      label: "Total trabajos",     value: loading ? "—" : jobs.length,          icon: TrendingUp,    color: "violet" as const },
-          { href: "/admin/finance",  label: "Presupuesto activo", value: loading ? "—" : escrowTotal > 0 ? `$${escrowTotal.toLocaleString()}` : "—", icon: DollarSign, color: "orange" as const },
-          { href: "/admin/ops",      label: "API backend",        value: apiError ? "Offline" : "Online",      icon: Activity,      color: (apiError ? "red" : "green") as "red" | "green" },
+          { href: "/admin/ops",      label: t("adminDash.activeJobs"),   value: loading ? "—" : activeJobs.length,    icon: Activity,      color: "blue"   as const },
+          { href: "/admin/disputes", label: t("adminDash.disputes"),         value: loading ? "—" : disputeJobs.length,   icon: AlertTriangle, color: "red"    as const },
+          { href: "/admin/reports",  label: t("adminDash.completed"),        value: loading ? "—" : completedJobs.length, icon: CheckSquare,   color: "green"  as const },
+          { href: "/admin/ops",      label: t("adminDash.totalJobs"),     value: loading ? "—" : jobs.length,          icon: TrendingUp,    color: "violet" as const },
+          { href: "/admin/finance",  label: t("adminDash.activeBudget"), value: loading ? "—" : escrowTotal > 0 ? new Intl.NumberFormat(language === "en" ? "en-US" : "es-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(escrowTotal) : "—", icon: DollarSign, color: "orange" as const },
+          { href: "/admin/ops",      label: t("adminDash.backendApi"),        value: apiError ? t("adminDash.offline") : t("adminDash.online"),      icon: Activity,      color: (apiError ? "red" : "green") as "red" | "green" },
         ].map(s => (
           <Link key={s.href + s.label} href={s.href} style={{ textDecoration: "none", display: "block", borderRadius: "16px", transition: "transform .12s, box-shadow .12s" }}
             onMouseOver={e => { (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)"; (e.currentTarget as HTMLElement).style.boxShadow = "0 6px 20px rgba(0,0,0,.08)"; }}
@@ -200,18 +202,18 @@ export default function AdminDashboardPage() {
       <HtmlInCanvasPanel as="section" canvasClassName="rounded-[16px]" minHeight={100} style={{ marginBottom: "28px" }}>
         <div>
           <h2 style={{ fontSize: "15px", fontWeight: 700, color: "var(--ink)", marginBottom: "14px" }}>
-            Alertas del sistema {apiError && <span style={{ fontSize: "11px", color: "var(--faint)", fontWeight: 400 }}>· modo demo</span>}
+            {t("adminDash.systemAlerts")} {apiError && <span style={{ fontSize: "11px", color: "var(--faint)", fontWeight: 400 }}>· {t("adminDash.demoMode")}</span>}
           </h2>
           <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
             {(disputeJobs.length > 0
               ? disputeJobs.slice(0, 4).map((j): OpsAlert => ({
                   id: j.id,
                   type: "dispute",
-                  text: `Disputa activa: ${j.title}`,
-                  time: "En curso",
+                  text: `${t("adminDash.activeDispute")}: ${j.title}`,
+                  time: t("adminDash.inProgress"),
                   severity: "error",
                 }))
-              : FALLBACK_ALERTS
+              : apiError ? demoAlerts(t) : []
             ).map(alert => (
               <div
                 key={alert.id}
@@ -234,13 +236,14 @@ export default function AdminDashboardPage() {
                 </div>
               </div>
             ))}
+            {!apiError && disputeJobs.length === 0 && <p className="text-sm text-muted">{t("adminDash.noAlerts")}</p>}
           </div>
         </div>
       </HtmlInCanvasPanel>
 
       {/* Quick links */}
       <section>
-        <h2 style={{ fontSize: "15px", fontWeight: 700, color: "var(--ink)", marginBottom: "14px" }}>Gestión rápida</h2>
+        <h2 style={{ fontSize: "15px", fontWeight: 700, color: "var(--ink)", marginBottom: "14px" }}>{t("adminDash.quickManagement")}</h2>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: "10px" }}>
           {[
             { label: t("nav.operations"),   href: "/admin/ops",           icon: Activity,      color: "var(--brand)" },
