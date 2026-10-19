@@ -1201,6 +1201,7 @@ export async function assignTaskToCrewMembers(
 
 export async function releaseTaskAllocation(crewId: string, taskId: string, userId: string, reason: string): Promise<{ status: string }> {
   return mutateSemse(`/api/semse/crews/${crewId}/tasks/${taskId}/allocations/${userId}/release`, { reason });
+}
 
 export type LaborPolicyView = {
   policyId: string;
