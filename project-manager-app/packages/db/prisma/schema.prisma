@@ -135,6 +135,7 @@ model Tenant {
   status                        String                            @default("active")
   orgs                          Org[]
   curatedKnowledgeEntries       CuratedKnowledgeEntry[]
+  curatedRightsConsents         CuratedPublicationConsent[]
   agroFarms                     AgroFarm[]
   jobs                          Job[]
   projects                      Project[]
@@ -5817,6 +5818,7 @@ model CuratedPublicationConsent {
   withdrawnByUserId   String?
 
   version             CuratedKnowledgeVersion @relation(fields: [versionId, tenantId], references: [id, tenantId], onDelete: Restrict)
+  rightsHolderOrg     Org?                    @relation(fields: [rightsHolderOrgId, tenantId], references: [id, tenantId], onDelete: Restrict)
 
   @@index([tenantId, versionId, actorType, withdrawnAt])
   @@index([tenantId, actorUserId, grantedAt])
