@@ -36,6 +36,12 @@ related_files:
   - apps/api/src/modules/milestones/milestones.controller.ts
   - apps/api/src/modules/agents/harnesses/project-copilot.harness.ts
   - apps/api/src/modules/operational-intelligence/evidence-review.service.ts
+  - apps/api/src/modules/operational-intelligence/buildops-intelligence.agent.ts
+  - apps/api/src/modules/contributor-program/contributor-program.service.ts
+  - apps/api/src/common/chat-thread.store.ts
+  - apps/api/src/common/domain-store.ts
+  - apps/api/src/infrastructure/llm/adapters/tools.adapter.ts
+  - packages/auth/src/rbac.ts
   - apps/api/src/infrastructure/llm/router/adaptive-router.ts
   - apps/api/src/infrastructure/llm/orchestrator.ts
   - apps/api/src/infrastructure/llm/providers/ollama.provider.ts
@@ -55,6 +61,8 @@ related_tests:
   - apps/api/test/adaptive-router.test.ts
   - apps/api/test/private-local-tool-router.test.ts
   - apps/api/test/llm-private-ollama-boundary.test.ts
+  - apps/api/test/tools-adapter.test.ts
+  - apps/api/test/buildops-intelligence-milestone-tenant-scope.test.ts
   - scripts/api-authenticated-f01-f02-smoke.mjs
 related_endpoints:
   - "DELETE /v1/prometeo/documents/:id"
@@ -95,6 +103,7 @@ Depends on: PR #977 (S0 owner-only server-side RAG/document scope). Tracks issue
 - Project membership for the recipient is validated server-side. Client-supplied `projectId` and `visibility` are not grant authorities.
 - Existing list/search/rag-query/trade-guide use same SQL grant predicate. No separate unscoped retrieval.
 - `SEMSE_PROMETEO_DOCUMENT_SHARING_ENABLED` is **OFF by default** and enabled only by the literal value `true`. With sharing disabled, POST grants fail closed and grant-based document retrieval remains hidden; owner-authorized DELETE revoke remains available for incident cleanup. Flag activation remains prohibited while this SDD is REVIEW.
+- **Excepción estricta de CI no productiva:** el workflow `api-integration.yml` establece temporalmente `SEMSE_PROMETEO_DOCUMENT_SHARING_ENABLED=true` exclusivamente para pruebas automatizadas con cuentas sintéticas y PostgreSQL efímero. Esto prueba grant/revoke sin activar la funcionalidad en Railway, staging compartido o producción; no constituye aprobación del SDD ni excepción al bloqueo de despliegue. La variable debe permanecer ausente/deshabilitada en entornos reales mientras el contrato esté `REVIEW`.
 
 ## Verification gates
 
