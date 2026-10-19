@@ -12,7 +12,7 @@ ci_status: "NOT_RUN"
 merge_status: "UNMERGED"
 deploy_status: "NOT_DEPLOYED"
 activation_status: "INACTIVE"
-migration_status: "NOT_APPLICABLE"
+migration_status: "PENDING"
 feature_flags:
   - "SEMSE_SKILLS_ENABLED"
 production_evidence: []
@@ -21,6 +21,7 @@ related_files:
   - "apps/api/src/modules/professional-skills/skills.controller.ts"
   - "apps/api/src/modules/professional-skills/skills.calc.ts"
   - "packages/db/prisma/schema.prisma"
+  - "packages/db/prisma/migrations/20261019180000_skill_experience/migration.sql"
 related_tests:
   - "apps/api/test/skills.test.ts"
 related_endpoints: []
