@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { CheckCircle2, Lock, RefreshCw } from "lucide-react";
+import { useLanguage } from "../../lib/language-context";
 
 type CrowdDecision = {
   canRelease: boolean;
@@ -21,6 +22,7 @@ export function CrowdDecisionBadge({
   disputeOpen?: boolean;
   milestoneStatus: string;
 }) {
+  const { t } = useLanguage();
   const [decision, setDecision] = useState<CrowdDecision | null>(null);
   const [loading,  setLoading]  = useState(false);
 
@@ -43,6 +45,10 @@ export function CrowdDecisionBadge({
 
   const color = decision.canRelease ? "#86efac" : "#fca5a5";
   const Icon  = decision.canRelease ? CheckCircle2 : Lock;
+  const statusKey = `crowd.status.${decision.escrowStatus}`;
+  const statusLabel = ["locked", "pending_review", "released", "disputed"].includes(decision.escrowStatus)
+    ? t(statusKey)
+    : decision.escrowStatus;
 
   return (
     <div style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 99, background: `${color}15`, border: `1px solid ${color}30`, fontSize: 11 }}>
@@ -51,10 +57,10 @@ export function CrowdDecisionBadge({
         : <Icon size={10} color={color} />
       }
       <span style={{ fontWeight: 700, color }}>
-        Crowd: {decision.canRelease ? "listo para pago" : decision.escrowStatus}
+        Crowd: {decision.canRelease ? t("crowd.ready") : statusLabel}
       </span>
       {decision.blockers.length > 0 && (
-        <span style={{ color: "var(--muted)", fontSize: 9 }}>({decision.blockers.length} bloq.)</span>
+        <span style={{ color: "var(--muted)", fontSize: 9 }}>({decision.blockers.length} {t("crowd.blockers")})</span>
       )}
     </div>
   );
