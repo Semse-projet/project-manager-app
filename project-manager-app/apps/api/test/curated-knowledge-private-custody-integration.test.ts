@@ -18,6 +18,8 @@ dbTest("F1A: private defaults, tenant-bound FK, version immutability keys, and c
   const orgA = "curated-org-a-" + suffix;
   const orgB = "curated-org-b-" + suffix;
   const hash = createHash("sha256").update("Sanitized training-only example").digest("hex");
+  const policyHash = createHash("sha256").update("scope=TENANT_CURATED;purpose=RAG_REFERENCE;v=1").digest("hex");
+  const expiresAt = new Date(Date.now() + 86400000);
 
   try {
     await db.tenant.create({ data: { id: tA, slug: tA, name: "Curated tenant A" } });
@@ -76,17 +78,21 @@ dbTest("F1A: private defaults, tenant-bound FK, version immutability keys, and c
     const consent = await db.curatedPublicationConsent.create({
       data: {
         tenantId: tA, versionId: version.id, actorType: "CONTRIBUTOR",
-        actorUserId: "contributor-A", scope: "TENANT_CURATED", purpose: "RAG_ONLY",
+        actorUserId: "contributor-A", scope: "TENANT_CURATED", purpose: "RAG_REFERENCE",
+        versionContentSha256: hash, audiencePolicySha256: policyHash, expiresAt,
         noticeVersion: "2026-10-19-f1a", proofPrivateRef: "private-test-proof",
       },
     });
     assert.equal(consent.legalBasisReviewed, false);
+    assert.equal(consent.purpose, "RAG_REFERENCE");
+    assert.ok(consent.expiresAt.getTime() > Date.now());
     assert.equal(consent.withdrawnAt, null);
     await assert.rejects(db.curatedPublicationConsent.create({
       data: {
         tenantId: tA, versionId: version.id, actorType: "RIGHTS_HOLDER",
         actorUserId: "impostor", rightsHolderOrgId: orgB,
-        scope: "TENANT_CURATED", purpose: "FORGED_ORG_RIGHTS",
+        scope: "TENANT_CURATED", purpose: "RAG_REFERENCE",
+        versionContentSha256: hash, audiencePolicySha256: policyHash, expiresAt,
         noticeVersion: "forged",
       },
     }), (e: any) => e.code === "P2003",
@@ -97,7 +103,8 @@ dbTest("F1A: private defaults, tenant-bound FK, version immutability keys, and c
     await assert.rejects(db.curatedPublicationConsent.create({
       data: {
         tenantId: tB, versionId: version.id, actorType: "CONTRIBUTOR",
-        actorUserId: "attacker-B", scope: "TENANT_CURATED", purpose: "FORGED",
+        actorUserId: "attacker-B", scope: "TENANT_CURATED", purpose: "RAG_REFERENCE",
+        versionContentSha256: hash, audiencePolicySha256: policyHash, expiresAt,
         noticeVersion: "forged",
       },
     }), (e: any) => e.code === "P2003",
