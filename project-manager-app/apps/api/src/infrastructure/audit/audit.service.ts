@@ -25,17 +25,14 @@ export class AuditService {
     private readonly actorContextService: ActorContextService
   ) {}
 
-  async append(entry: AuditEntry, tx?: Prisma.TransactionClient): Promise<void> {
+  async append(entry: AuditEntry): Promise<void> {
     await this.actorContextService.ensureActorContext({
       tenantId: entry.tenantId,
       orgId: entry.orgId,
       userId: entry.actorUserId
     });
 
-    // When called from a domain mutation transaction, the audit insert commits
-    // or rolls back together with that mutation. Other callers retain the
-    // existing standalone append behavior.
-    await (tx ?? this.prisma).auditLog.create({
+    await this.prisma.auditLog.create({
       data: {
         id: `aud_${crypto.randomUUID()}`,
         tenantId: entry.tenantId,
