@@ -78,7 +78,7 @@ export class SkillsService {
     this.assertEnabled();
     const allocation = await this.prisma.taskAllocation.findFirst({ where: { id: allocationId, tenantId: actor.tenantId } });
     if (!allocation) throw new NotFoundException();
-    const crew = await this.prisma.crew.findFirst({ where: { id: allocation.crewId, tenantId: actor.tenantId } });
+    const crew = await this.prisma.crew.findFirst({ where: { id: allocation.crewId, tenantId: actor.tenantId, status: "ACTIVE" } });
     if (!crew) throw new NotFoundException();
     const roles = await this.liveRoles(actor.userId, actor.tenantId, allocation.orgId);
     if (crew.supervisorUserId !== actor.userId && !hasPermission(roles, CREWS_MANAGE)) throw new ForbiddenException();
