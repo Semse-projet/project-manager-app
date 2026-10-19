@@ -9,6 +9,7 @@ import {
 import { ErrorState } from "@semse/ui";
 import { BuildOpsPlanCard } from "@/components/semse/BuildOpsPlanCard";
 import { EvidenceChecklistCard } from "@/components/semse/EvidenceChecklistCard";
+import { useLanguage } from "@/lib/language-context";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -39,6 +40,8 @@ const TRADES = [
 ];
 
 export default function ProToolsPage() {
+  const { t, language } = useLanguage();
+  const money = (value: number) => new Intl.NumberFormat(language === "en" ? "en-US" : "es-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
   const [trade,       setTrade]       = useState("electrical");
   const [description, setDescription] = useState("");
   const [area,        setArea]        = useState("100");
@@ -72,17 +75,17 @@ export default function ProToolsPage() {
       if (resp.ok && json.data?.id) {
         setPublishedJobId(json.data.id);
       } else {
-        setPublishError((json.error?.message as string) ?? "No se pudo publicar el trabajo");
+        setPublishError((json.error?.message as string) ?? t("pt.publishFailure"));
       }
     } catch (e) {
-      setPublishError(e instanceof Error ? e.message : "Error de red");
+      setPublishError(e instanceof Error ? e.message : t("pt.networkError"));
     } finally {
       setPublishing(false);
     }
   };
 
   const runEstimate = async () => {
-    if (!description.trim()) { setError("Describe el trabajo"); return; }
+    if (!description.trim()) { setError(t("pt.describeJob")); return; }
     setLoading(true); setError(null); setResult(null);
     try {
       const resp = await fetch("/api/semse/agents/protools/estimate", {
@@ -95,14 +98,14 @@ export default function ProToolsPage() {
       // that surfaced to the user verbatim — check content-type first.
       const isJson = resp.headers.get("content-type")?.includes("application/json");
       if (!isJson) {
-        setError(`No se pudo generar el estimado (error ${resp.status} del servidor).`);
+        setError(`${t("pt.estimateServerError")} ${resp.status}).`);
         return;
       }
       const json = await resp.json() as { data: EstimateResult };
       if (resp.ok && json.data) setResult(json.data);
-      else setError("No se pudo generar el estimado");
+      else setError(t("pt.estimateError"));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Error de red");
+      setError(e instanceof Error ? e.message : t("pt.networkError"));
     } finally { setLoading(false); }
   };
 
@@ -114,9 +117,9 @@ export default function ProToolsPage() {
           <Brain size={20} color="#fcd34d" />
         </div>
         <div>
-          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 900 }}>ProTools — Estimador de Obra</h1>
+          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 900 }}>{t("pt.title")}</h1>
           <p style={{ margin: 0, fontSize: 12, color: "var(--muted)" }}>
-            Materiales · Mano de obra · Riesgos · Checklist SEMSE
+            {t("pt.subtitle")}
           </p>
         </div>
       </div>
@@ -125,28 +128,28 @@ export default function ProToolsPage() {
       <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 16, padding: 20, marginBottom: 24 }}>
         <div style={{ display: "grid", gap: 14 }}>
           <div>
-            <label style={{ fontSize: 10, fontWeight: 700, color: "var(--muted)", display: "block", marginBottom: 6 }}>TIPO DE TRABAJO</label>
-            <select aria-label="Tipo de trabajo" value={trade} onChange={(e) => setTrade(e.target.value)}
+            <label style={{ fontSize: 10, fontWeight: 700, color: "var(--muted)", display: "block", marginBottom: 6 }}>{t("pt.jobType")}</label>
+            <select aria-label={t("pt.jobType")} value={trade} onChange={(e) => setTrade(e.target.value)}
               style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--ink)", fontSize: 13 }}>
-              {TRADES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+              {TRADES.map((tradeOption) => <option key={tradeOption.value} value={tradeOption.value}>{t(`pt.trade.${tradeOption.value}`)}</option>)}
             </select>
           </div>
 
           <div>
-            <label style={{ fontSize: 10, fontWeight: 700, color: "var(--muted)", display: "block", marginBottom: 6 }}>DESCRIPCIÓN DEL TRABAJO *</label>
+            <label style={{ fontSize: 10, fontWeight: 700, color: "var(--muted)", display: "block", marginBottom: 6 }}>{t("pt.description")}</label>
             <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3}
-              placeholder="Ej: Reemplazar panel eléctrico de 100A a 200A, instalar 6 circuitos nuevos para cocina y baños..."
+              placeholder={t("pt.descriptionExample")}
               style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: "1px solid var(--border)", background: "rgba(255,255,255,.05)", color: "var(--ink)", fontSize: 13, resize: "vertical", boxSizing: "border-box" }} />
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <div>
-              <label style={{ fontSize: 10, fontWeight: 700, color: "var(--muted)", display: "block", marginBottom: 6 }}>ÁREA (sqft)</label>
+              <label style={{ fontSize: 10, fontWeight: 700, color: "var(--muted)", display: "block", marginBottom: 6 }}>{t("pt.area")}</label>
               <input type="number" value={area} onChange={(e) => setArea(e.target.value)} min={1}
                 style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: "1px solid var(--border)", background: "rgba(255,255,255,.05)", color: "var(--ink)", fontSize: 13, boxSizing: "border-box" }} />
             </div>
             <div>
-              <label style={{ fontSize: 10, fontWeight: 700, color: "var(--muted)", display: "block", marginBottom: 6 }}>CUARTOS / UNIDADES</label>
+              <label style={{ fontSize: 10, fontWeight: 700, color: "var(--muted)", display: "block", marginBottom: 6 }}>{t("pt.rooms")}</label>
               <input type="number" value={rooms} onChange={(e) => setRooms(e.target.value)} min={1}
                 style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: "1px solid var(--border)", background: "rgba(255,255,255,.05)", color: "var(--ink)", fontSize: 13, boxSizing: "border-box" }} />
             </div>
@@ -156,7 +159,7 @@ export default function ProToolsPage() {
 
           <button onClick={runEstimate} disabled={loading}
             style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: 13, borderRadius: 12, background: "rgba(252,211,77,.15)", border: "1px solid rgba(252,211,77,.3)", cursor: loading ? "wait" : "pointer", fontSize: 14, fontWeight: 800, color: "#fcd34d", opacity: loading ? 0.7 : 1 }}>
-            {loading ? "Calculando…" : <><Send size={15} /> Calcular estimado</>}
+            {loading ? t("pt.calculating") : <><Send size={15} /> {t("pt.calculate")}</>}
           </button>
         </div>
       </div>
@@ -170,24 +173,24 @@ export default function ProToolsPage() {
             <div style={{ padding: "14px 18px", background: "rgba(99,102,241,.08)", border: "1px solid rgba(99,102,241,.25)", borderRadius: 14, display: "flex", alignItems: "center", gap: 14 }}>
               <Briefcase size={18} color="#818cf8" />
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 13, fontWeight: 800, color: "var(--ink)", marginBottom: 2 }}>¿Listo para contratar?</div>
-                <div style={{ fontSize: 11, color: "var(--muted)" }}>Publica este trabajo en el marketplace con el presupuesto estimado</div>
+                <div style={{ fontSize: 13, fontWeight: 800, color: "var(--ink)", marginBottom: 2 }}>{t("pt.readyToHire")}</div>
+                <div style={{ fontSize: 11, color: "var(--muted)" }}>{t("pt.publishHint")}</div>
               </div>
               {publishError && <div style={{ fontSize: 11, color: "#fca5a5" }}>{publishError}</div>}
               <button onClick={publishJob} disabled={publishing}
                 style={{ display: "flex", alignItems: "center", gap: 6, padding: "10px 18px", borderRadius: 10, background: "rgba(99,102,241,.2)", border: "1px solid rgba(99,102,241,.4)", cursor: publishing ? "wait" : "pointer", fontSize: 12, fontWeight: 800, color: "#818cf8", whiteSpace: "nowrap" }}>
-                {publishing ? "Publicando…" : <><Send size={13} /> Publicar trabajo</>}
+                {publishing ? t("pt.publishing") : <><Send size={13} /> {t("pt.postJob")}</>}
               </button>
             </div>
           ) : (
             <div style={{ padding: "14px 18px", background: "rgba(134,239,172,.08)", border: "1px solid rgba(134,239,172,.3)", borderRadius: 14, display: "flex", alignItems: "center", gap: 12 }}>
               <CheckCircle2 size={18} color="#86efac" />
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 13, fontWeight: 800, color: "#86efac" }}>¡Trabajo publicado!</div>
+                <div style={{ fontSize: 13, fontWeight: 800, color: "#86efac" }}>{t("pt.posted")}</div>
                 <div style={{ fontSize: 11, color: "var(--muted)" }}>ID: {publishedJobId}</div>
               </div>
               <Link href="/client/jobs" style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: "#86efac", fontWeight: 700, textDecoration: "none" }}>
-                Ver mis trabajos <ExternalLink size={12} />
+                {t("pt.myJobs")} <ExternalLink size={12} />
               </Link>
             </div>
           )}
@@ -195,9 +198,9 @@ export default function ProToolsPage() {
           {/* Totals */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
             {[
-              { label: "Materiales",      value: `$${result.totalMaterials.toLocaleString()}`,  color: "#818cf8" },
-              { label: "Mano de obra",    value: `$${result.totalLabor.toLocaleString()}`,       color: "#67e8f9" },
-              { label: "TOTAL ESTIMADO",  value: `$${result.totalCost.toLocaleString()}`,        color: "#fcd34d" },
+              { label: t("pt.materials"),      value: money(result.totalMaterials),  color: "#818cf8" },
+              { label: t("pt.labor"),    value: money(result.totalLabor),       color: "#67e8f9" },
+              { label: t("pt.estimatedTotal"),  value: money(result.totalCost),        color: "#fcd34d" },
             ].map(({ label, value, color }) => (
               <div key={label} style={{ padding: "16px", background: "var(--surface)", border: `1px solid ${color}30`, borderRadius: 14, textAlign: "center" }}>
                 <div style={{ fontSize: 10, color: "var(--muted)", fontWeight: 700, marginBottom: 6 }}>{label}</div>
@@ -208,11 +211,11 @@ export default function ProToolsPage() {
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
             <div style={{ padding: "10px 14px", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10 }}>
-              <span style={{ fontSize: 10, color: "var(--muted)", fontWeight: 700 }}>HORAS DE TRABAJO</span>
+              <span style={{ fontSize: 10, color: "var(--muted)", fontWeight: 700 }}>{t("pt.laborHours")}</span>
               <div style={{ fontSize: 18, fontWeight: 900, color: "#86efac" }}>{result.laborHours}h</div>
             </div>
             <div style={{ padding: "10px 14px", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10 }}>
-              <span style={{ fontSize: 10, color: "var(--muted)", fontWeight: 700 }}>CONFIANZA</span>
+              <span style={{ fontSize: 10, color: "var(--muted)", fontWeight: 700 }}>{t("pt.confidence")}</span>
               <div style={{ fontSize: 18, fontWeight: 900, color: result.confidence >= 0.8 ? "#86efac" : "#fcd34d" }}>{Math.round(result.confidence * 100)}%</div>
             </div>
           </div>
@@ -222,20 +225,20 @@ export default function ProToolsPage() {
             <button onClick={() => setShowMaterials((p) => !p)}
               style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "14px 16px", background: "none", border: "none", cursor: "pointer", textAlign: "left" }}>
               <Wrench size={14} color="#818cf8" />
-              <span style={{ fontSize: 14, fontWeight: 800 }}>Lista de materiales ({result.materials.length})</span>
+              <span style={{ fontSize: 14, fontWeight: 800 }}>{t("pt.materialsList")} ({result.materials.length})</span>
               {showMaterials ? <ChevronUp size={13} color="var(--muted)" style={{ marginLeft: "auto" }} /> : <ChevronDown size={13} color="var(--muted)" style={{ marginLeft: "auto" }} />}
             </button>
             {showMaterials && (
               <div>
                 <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr", gap: 8, padding: "8px 16px", fontSize: 9, fontWeight: 800, color: "var(--muted)", borderTop: "1px solid var(--border)" }}>
-                  <span>MATERIAL</span><span>CANTIDAD</span><span>P.UNIT</span><span>TOTAL</span>
+                  <span>{t("pt.material")}</span><span>{t("pt.quantity")}</span><span>{t("pt.unitPrice")}</span><span>{t("pt.total")}</span>
                 </div>
                 {result.materials.map((m, i) => (
                   <div key={i} style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr", gap: 8, padding: "10px 16px", borderTop: "1px solid var(--border)", fontSize: 12, alignItems: "center" }}>
                     <span style={{ color: "var(--ink)" }}>{m.item}</span>
                     <span style={{ color: "var(--muted)" }}>{m.qty} {m.unit}</span>
-                    <span style={{ color: "var(--muted)" }}>${m.unitCost}</span>
-                    <span style={{ fontWeight: 700, color: "#818cf8" }}>${m.total.toLocaleString()}</span>
+                    <span style={{ color: "var(--muted)" }}>{money(m.unitCost)}</span>
+                    <span style={{ fontWeight: 700, color: "#818cf8" }}>{money(m.total)}</span>
                   </div>
                 ))}
               </div>
@@ -247,7 +250,7 @@ export default function ProToolsPage() {
             <div style={{ padding: "12px 16px", background: "rgba(234,179,8,.06)", border: "1px solid rgba(234,179,8,.25)", borderRadius: 12 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
                 <AlertTriangle size={13} color="#fcd34d" />
-                <span style={{ fontSize: 12, fontWeight: 800, color: "#fcd34d" }}>Riesgos a verificar</span>
+                <span style={{ fontSize: 12, fontWeight: 800, color: "#fcd34d" }}>{t("pt.risksToCheck")}</span>
               </div>
               {result.riskFlags.map((f, i) => (
                 <div key={i} style={{ fontSize: 11, color: "var(--muted)", padding: "3px 0" }}>⚠ {f}</div>
@@ -260,7 +263,7 @@ export default function ProToolsPage() {
             <button onClick={() => setShowChecklist((p) => !p)}
               style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "14px 16px", background: "none", border: "none", cursor: "pointer", textAlign: "left" }}>
               <CheckCircle2 size={14} color="#86efac" />
-              <span style={{ fontSize: 14, fontWeight: 800 }}>Checklist SEMSE ({result.checklist.length} pasos)</span>
+              <span style={{ fontSize: 14, fontWeight: 800 }}>{t("pt.checklist")} ({result.checklist.length} {t("pt.steps")})</span>
               {showChecklist ? <ChevronUp size={13} color="var(--muted)" style={{ marginLeft: "auto" }} /> : <ChevronDown size={13} color="var(--muted)" style={{ marginLeft: "auto" }} />}
             </button>
             {showChecklist && (
