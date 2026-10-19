@@ -110,4 +110,97 @@ Choose **one** primary localization runtime after measuring the pilot. Preserve 
 - **D6**: require legal/product approval for translated escrow, payment, dispute and contractual claims.
 - **D7**: defer dynamic-content translation/providers until #974 restrictions, consent, access and audit are independently verified.
 
+## Normative quality annex — ES/EN (proposal, 2026-10-19)
+
+> **Status and precedence:** I18N-01 to I18N-16 are proposed acceptance requirements for approval under this same SDD, not evidence of implementation or permission to ship. Decisions D1–D7 above remain open. This section extends the existing catalog, privacy and pilot contracts; it does not create a second localization runtime or authorize translation vendors. Existing #968 → #969 → #970 changes must be reconciled in order; #973 is additionally subject to #974/#987 security release gates.
+
+### Quality and release invariants
+
+- Treat localization as a functional requirement: a new/changed user-facing workflow is not complete unless both ES and EN pass review, accessibility and functional acceptance.
+- Separate the UI message catalog (Git-versioned JSON per domain, ultimately selected by the approved runtime) from editorial metadata and business/user-generated content. Keep stable semantic IDs and an explicit compatibility map for legacy flat keys.
+- Changing display language must never mutate stored money, transaction currency, quantities, unit conversions, UTC instants, authorized roles, domain states, contracts, signature artifacts, payment governance or project/tenant scope.
+- Human translation approval is mandatory for financial, dispute, consent, employment offer, compensation, escrow and legally significant claims. Do not imply that release approval is the same as evidence approval, or that a translation grants financial custody or legal assurances.
+- Machine translation may prepare editorial drafts only after a separate provider approval. No machine translation during UI rendering, and no processing private source documents/RAG/evidence externally without per-object authorization, explicit consent as applicable, and verified #974/#987 protections.
+- Continue to defer public bilingual SEO routes while the current robots noindex policy is in force. Do not make SEO or provider integration implicit side effects of a UI catalog change.
+
+### Verifiable requirements and blocking acceptance gates
+
+| ID | Proposed MUST requirement | CI / staging acceptance |
+|---|---|---|
+| I18N-01 | Version-controlled ES/EN JSON resources per semantic domain, with stable keys, no duplicate keys and parity for affected flows. | Reject invalid JSON, duplicates or missing keys in either language; key-count parity alone is not proof of route coverage. |
+| I18N-02 | Store editorial context outside runtime catalog: key, description, surface, risk, sourceLocale, sourceHash, translationSourceHash, status, reviewer, reviewedAt and glossaryVersion. | Metadata required for each new or changed message; absence of context or approval blocks critical releases. No PII in metadata. |
+| I18N-03 | Preserve named placeholders and types across languages, according to the approved message runtime (ICU/MessageFormat where supported). | Reject deleted/renamed parameters, unsafe markup, invalid plural/select clauses or protected IDs substituted into translations. |
+| I18N-04 | Use Intl regional formatting, with explicit uiLanguage, formatLocale, timeZone and currency/measurement context rather than conflating them. | Test 0/1/2/many, currency and date behavior; switching ES/EN must preserve raw prices and their currency codes. |
+| I18N-05 | Maintain reviewed, versioned construction/business terminology and contextual notes for jobs, proposals, milestones, evidence, orders and payments. | Terminology checks flag inconsistent sensitive wording; glossary changes re-open affected entries. |
+| I18N-06 | Implement auditable states new → machineDraft/translated → inReview → approved → published, with explicit revoke/outdated outcomes. | Only current, reviewed messages ship for critical flows; no self-asserted automated human approval. |
+| I18N-07 | Bind every translation approval to a deterministic digest of the canonical source text, plus relevant glossary version. | Source/glossary change marks prior translation outdated; reject outdated critical translations in build/release. A Git manifest suffices initially; no DB migration assumed. |
+| I18N-08 | Synchronize supported locale resolution across authenticated account, safe cookie, SSR, hydration, navigation and html.lang, subject to D3/D4 approval. | Independent ES/EN sessions must not bleed content; no locale flash, session change or lost draft when toggling. |
+| I18N-09 | Have APIs supply stable presentation-safe error codes with safe parameters, never use translated prose as a business decision field. | Unknown errors render safe localized fallbacks; no raw exceptions, leaked names or technical keys in user-visible UI. |
+| I18N-10 | Use test-only pseudolocalization with expanded strings, accents and direction/layout stress where practical. | Detect clipping, fixed-width buttons, untranslated strings, unsafe concatenation, overlaps and inaccessible controls. |
+| I18N-11 | Run real ES and EN smoke tests on mobile and desktop for CLIENT, PRO, WORKER and ADMIN, including loading, empty and failure states. | Retain auditable screenshots/results per role; zero raw keys; business actions remain equivalent. Pseudolocale is not a substitute. |
+| I18N-12 | Version catalogs and releases with reproducible build inputs and a tested rollback. | Previous approved resources restore without altering business records or migration state. |
+| I18N-13 | Keep private, user-supplied or AI-created content out of UI auto-translation; future derivatives require per-object authorization and scope-safe caches. | Negative same-tenant org A/B and cross-tenant tests; no cross-project, RAG citation, document or cache exposure. #974/#987 remain independent release blockers. |
+| I18N-14 | Stamp generated notification/email/PDF templates with locale and immutable templateVersion; preserve signed document originals. | Audit reconstructs the displayed/sent version; changing locale never rewrites signed artifacts or payment proofs. |
+| I18N-15 | Require bilingual domain/legal review for sensitive commands and confirmations: accept/reject offers, evidence approval, payment requests, release funds, disputes, signatures. | Verify positive/cancel paths, action semantics, permissions and no misleading legal guarantees in both languages. |
+| I18N-16 | Include locale completeness in the definition of done for every new or modified user-facing feature. | Fail PR/release gate if required ES/EN resources, tests or human reviews for touched critical workflows are missing. |
+
+### Initial bilingual domain glossary (provisional, not legally approved)
+
+| Semantic concept | ES proposed | EN proposed | Distinction |
+|---|---|---|---|
+| job | Trabajo | Job | Not automatically a project or a work order. |
+| project | Proyecto | Project | Can aggregate work; keep entity IDs distinct. |
+| estimate | Presupuesto estimado | Estimate | Must not imply a binding agreed price. |
+| proposal | Propuesta | Proposal | Not an employment offer. |
+| milestone | Hito | Milestone | Completion/approval does not prove funds released. |
+| evidence | Evidencia | Evidence | Submitted, approved and rejected are different states. |
+| approval | Aprobación | Approval | Evidence approval is not payment authorization. |
+| release_funds | Liberar fondos | Release funds | Restricted payment governance action. |
+| escrow | Fondos en custodia (only if verified legally) | Escrow | No unverified protection or custody claim. |
+| change_order | Orden de cambio | Change order | Preserve approval and contractual authorization. |
+| dispute | Disputa | Dispute | Neutral terminology, no prejudgment. |
+| business_offer | Oferta laboral | Job offer | Not an active employment contract. |
+
+### Editorial example: payment confirmation
+
+Illustrative metadata for a **non-approved** message, not approved legal copy:
+
+~~~json
+{
+  "key": "payments.release.confirmAction",
+  "description": "Final confirmation control requesting a milestone-funds release; does not itself authorize a payment",
+  "surface": "/client/milestones",
+  "risk": "critical",
+  "sourceLocale": "es",
+  "sourceText": "Confirmar solicitud de liberación de {amount}",
+  "placeholders": {"amount": "formattedCurrency"},
+  "sourceHash": "<computed SHA-256 of canonical source>",
+  "translationSourceHash": "<digest actually reviewed>",
+  "glossaryVersion": "<approved-version>",
+  "status": "inReview",
+  "reviewer": null,
+  "reviewedAt": null
+}
+~~~
+
+These example angle-bracket values are placeholders, not actual computed hashes or approvals. Monetary values must be formatted from explicit amount+currency data; the backend remains the authority for eligibility, ownership and payment effects.
+
+### Test matrix, deliverables and traceability
+
+1. Inventory actual static UI text, aria labels, validation, user-facing API errors, notification/email templates and public metadata by route and role. Baseline real merged main separately from draft branches: #1003 audited 759/759 keys on its base; draft #968 reports 925/925, #969 1,041/1,041 and #970 1,145/1,145. None of these numbers alone proves app coverage or production deployment.
+2. Run isolated Next.js App Router compatibility spike; choose exactly one runtime under D1. Keep existing LanguageProvider callers working via an adapter until replacement is validated. Do not merge the stacked i18n PRs out of order.
+3. Pilot the full client job-post wizard, not merely navigation: labels, errors, validation, confirm/cancel, ARIA, formatting, initial server locale, persistence on language switch, mobile overflow, separate concurrent logged-in sessions and successful catalog rollback.
+4. Test CLIENT Intake → Estimate → BuildOps → Milestones → Evidence → Approval → Payment and disputes; PRO/WORKER marketplace, ProTools, offers and field ops; ADMIN Mission Control; Prometeo static UI and localized request metadata only, without enabling private-content translation.
+5. Add negative CI fixtures for JSON duplicate keys, missing/changed placeholders, stale source digest, unapproved critical string, unsafe interpolation, unknown raw key, UI overflow, divergent business payload, cross-organization leakage and rollback failures. Differentiate static catalog checks from authenticated staging E2E and independent security validation.
+6. Require evidence per release: reviewed glossary/catalog version, reviewer identity and approval time, linked spec/PR/commit, green CI on final merge head, ES/EN staging smoke artifacts per role, security and legal signoff for affected critical flows, deploy provenance and rollback verification. Keep code_status / ci_status / merge_status / deploy_status / activation_status truthful; none is completed by documentation alone.
+
+### Reference provenance and corrected source mapping
+
+- Shopify: https://shopify.dev/docs/apps/build/localize-your-app (externalized texts, formatting, flexible UI).
+- Shopify GraphQL resource: https://shopify.dev/docs/api/admin-graphql/latest/queries/translatableResource (source digest and outdated translation semantics; adopt the principle, not the API).
+- Microsoft: https://learn.microsoft.com/en-us/globalization/methodology/pseudolocalization and https://learn.microsoft.com/en-us/globalization/testing/how-to-perform-internationalization-testing (pseudo- and functional test methodologies).
+- Android: https://developer.android.com/guide/topics/resources/string-resource (illustrative string resource guidance, not a Next.js dependency).
+
+The earlier user-provided bracketed reference numbers [8], [16] and [19] were mismatched to their corresponding URLs. Link sources by URL/title rather than those indices.
+
 No application runtime changes, migrations, credentials, machine translation calls or production activation are in scope for this document-only PR.
