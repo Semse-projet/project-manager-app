@@ -24,7 +24,11 @@ CREATE TABLE "CuratedKnowledgeEntry" (
   "publicationScope" "CuratedKnowledgeScope" NOT NULL DEFAULT 'ORG_PRIVATE',
   "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "updatedAt" TIMESTAMP(3) NOT NULL,
-  CONSTRAINT "CuratedKnowledgeEntry_pkey" PRIMARY KEY ("id")
+  CONSTRAINT "CuratedKnowledgeEntry_pkey" PRIMARY KEY ("id"),
+  -- F1A carries data in custody but CANNOT publish. F2 must explicitly
+  -- review and lift this constraint under a separately approved migration.
+  CONSTRAINT "CuratedKnowledgeEntry_f1a_private_only"
+    CHECK ("status" = 'DRAFT' AND "publicationScope" = 'ORG_PRIVATE')
 );
 CREATE UNIQUE INDEX "CuratedKnowledgeEntry_id_tenantId_key" ON "CuratedKnowledgeEntry" ("id", "tenantId");
 CREATE INDEX "CuratedKnowledgeEntry_tenantId_owningOrgId_status_idx"
@@ -90,3 +94,16 @@ ALTER TABLE "CuratedPublicationConsent" ADD CONSTRAINT "CuratedPublicationConsen
 ALTER TABLE "CuratedPublicationConsent" ADD CONSTRAINT "CuratedPublicationConsent_rightsHolderOrgId_tenantId_fkey"
   FOREIGN KEY ("rightsHolderOrgId", "tenantId") REFERENCES "Org" ("id", "tenantId")
   ON DELETE RESTRICT ON UPDATE CASCADE;
+
+
+-- Published technical versions are never edited in place. Even while private,
+-- new content, new scope or new sources require a NEW version and approvals.
+CREATE FUNCTION "curated_f1a_block_version_update"() RETURNS trigger AS $$
+BEGIN
+  RAISE EXCEPTION 'curated versions are immutable: create a new version';
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER "curated_f1a_immutable_version"
+BEFORE UPDATE ON "CuratedKnowledgeVersion"
+FOR EACH ROW EXECUTE FUNCTION "curated_f1a_block_version_update"();
