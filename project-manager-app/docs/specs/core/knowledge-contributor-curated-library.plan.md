@@ -23,7 +23,8 @@ date: "2026-10-18"
 
 ## 2. Constitution check
 
-- [ ] Aprobación explícita del nuevo contrato F1 (distinta de la aprobación de grants privados).
+- [x] Decisión de producto F1 ratificada por el propietario en #992: privados originales, `ORG_PRIVATE` por defecto, futuro `TENANT_CURATED` con consentimiento/version/revisores; esto NO es SDD APPROVED ni consentimiento de terceros.
+- [ ] Aprobaciones independientes del SDD/ADR, titularidad, licencia, retención y privacidad antes de cualquier código de feature.
 - [x] Límites tenant/org y deny-by-default diseñados.
 - [x] Sin ejecución de pagos, escrow ni contratos por publicar.
 - [x] Consentimiento, auditoría, outbox y retirada modelados como requisitos.
@@ -73,7 +74,7 @@ Riesgos: fuga entre organizaciones, consentimiento falsificado, prompt injection
 
 ## 8. Investigación y decisiones
 
-NIST AI RMF generativo: procedencia y gobierno; OWASP 2025: prompt injection, información sensible, poisoning, agencia y vectores. No entrenar modelos ni crear certificaciones. **Decisiones abiertas:** alcance F1 tenant y titularidad, retención/licencia, atribución, estándares técnicos/renovación. No atribuir aprobación al usuario sin su decisión explícita en #992.
+NIST AI RMF generativo: procedencia y gobierno; OWASP 2025: prompt injection, información sensible, poisoning, agencia y vectores. No entrenar modelos ni crear certificaciones. **Producto ratificado en #992 (2026-10-19):** F1 inicia en privado, con posible biblioteca curada únicamente dentro del mismo tenant, consentimiento explícito por versión y doble revisión. **Pendiente:** verificar titularidad y representación, licencia/retención/atribución, estándares técnicos/renovación y aprobaciones de seguridad/privacidad. Esta ratificación no es autorización para publicar ni para tratar datos de terceros.
 
 ## 9. Gates de tareas
 

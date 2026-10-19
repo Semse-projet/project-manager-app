@@ -16,6 +16,11 @@ migration_status: "PENDING"
 feature_flags:
   - "SEMSE_CURATED_KNOWLEDGE_ENABLED"
 production_evidence: []
+privacyCritical: true
+auditLog: true
+sse: false
+fsmTransicion: "Private derivative draft, consent and review; publication/withdrawal only in later governed slices"
+paymentGovernance: "N/A — curated knowledge publication never authorizes escrow, payments, credentials or benefits"
 related_files:
   - "apps/api/src/modules/contributor-program/contributor-program.service.ts"
   - "apps/api/src/modules/contributor-program/contributor-program.repository.ts"
@@ -32,7 +37,7 @@ last_verified: "2026-10-18"
 
 # Biblioteca Técnica SEMSE — conocimiento curado, autorizado y revocable
 
-> **DRAFT / NO ACTIVAR.** Diseño propuesto para #992. La aprobación del contrato de *grants privados* de #987 no constituye autorización para divulgar observaciones de colaboradores. Ningún texto histórico `public_training` ni `PROMOTED` permite publicar. Requiere aprobación de alcance de publicación, privacidad y seguridad antes de implementar.
+> **DRAFT / NO ACTIVAR.** Diseño propuesto para #992. La aprobación del contrato de *grants privados* de #987 no constituye autorización para divulgar observaciones de colaboradores. Ningún texto histórico `public_training` ni `PROMOTED` permite publicar. Alcance F1 ratificado por el propietario el 2026-10-19 en #992; sigue requiriendo consentimiento de los titulares, aprobación formal SDD/ADR y revisión jurídica, de privacidad y seguridad antes de implementar o publicar.
 
 ## 1. Problema y resultado
 
@@ -46,7 +51,7 @@ last_verified: "2026-10-18"
 
 ## 2. Alcance y decisión propuesta del producto
 
-**Alcance F1 propuesto (requiere decisión expresa):** `ORG_PRIVATE` por defecto; publicación `TENANT_CURATED` sólo tras permiso del contribuidor y autorización del titular de derechos/organización, junto con revisiones de privacidad y oficio por personas distintas. No se publica entre tenants ni mediante URL abierta. Una organización debe estar autorizada a participar en la biblioteca del mismo tenant; el login no basta para evitar filtraciones. Si no hay consentimiento inequívoco o titular acreditado, **sigue privado**. En fases futuras, `ORG_ALLOWLIST` puede agregar un conjunto específico de organizaciones; `CROSS_TENANT` requiere otro SDD, gobernanza y autorización. El propietario del producto debe ratificar alcance y reglas de consentimiento antes de cambiar este SDD a APPROVED.
+**Alcance F1 ratificado como decisión de producto (2026-10-19, #992; NO habilita publicación):** `ORG_PRIVATE` por defecto; publicación `TENANT_CURATED` sólo tras permiso del contribuidor y autorización del titular de derechos/organización, junto con revisiones de privacidad y oficio por personas distintas. No se publica entre tenants ni mediante URL abierta. Una organización debe estar autorizada a participar en la biblioteca del mismo tenant; el login no basta para evitar filtraciones. Si no hay consentimiento inequívoco o titular acreditado, **sigue privado**. En fases futuras, `ORG_ALLOWLIST` puede agregar un conjunto específico de organizaciones; `CROSS_TENANT` requiere otro SDD, gobernanza y autorización. El propietario ratificó la audiencia de producto `ORG_PRIVATE` por defecto y el futuro `TENANT_CURATED` sujeto a opt-in; esto no reemplaza el consentimiento individual, la validación del titular legítimo ni la revisión independiente antes de cambiar este SDD a APPROVED.
 
 **Incluido:**
 - Observación privada original y archivos de origen separados de una ficha derivada: `problema, contexto seguro, diagnóstico, procedimiento, riesgos, referencias, equipo requerido, evidencia mínima, límites, jurisdicción, fecha de revisión, nivel de habilidad`.
@@ -190,7 +195,8 @@ Aplicar ahora como modelo de amenazas, no como afirmación de certificación NIS
 
 ## 12. Gates de cierre
 
-- [ ] Propietario decide audiencia F1, contribuidor/titular y alcance de consentimientos, uso de material histórico (por defecto NO).
+- [x] Propietario ratificó alcance de producto F1: `ORG_PRIVATE` inicial, futuro `TENANT_CURATED` por versión y sin backfill histórico (issue #992, 2026-10-19).
+- [ ] Titularidad, licencia, atribución, consentimiento real de cada aportante/titular, retención y garantías de retiro validados por autoridades competentes. El propietario no consiente por terceros.
 - [ ] SDD/ADR aprobados por revisores competentes; checklist/plan/tasks/analyze coherentes.
 - [ ] `pnpm spec:index` y `pnpm spec:validate:strict` verdes.
 - [ ] P0 #974 + PR #987 reconciliado, desplegado y seguridad independiente validada.

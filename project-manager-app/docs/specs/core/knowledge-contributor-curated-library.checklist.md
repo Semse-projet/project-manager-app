@@ -10,7 +10,8 @@ date: "2026-10-18"
 
 | Gate | Estado al crear F0 | Evidencia requerida |
 |---|---|---|
-| Audiencia y consentimiento de titular/contribuidor | PENDIENTE | Decisión explícita #992, aviso firmado por actor/version/scope |
+| Audiencia F1 de producto | RATIFICADA, NO ACTIVADA | #992: `ORG_PRIVATE` por defecto; `TENANT_CURATED` futuro opt-in dentro del mismo tenant |
+| Consentimientos del titular y contribuidor | PENDIENTE | Autorización real individual/version/scope y representación comprobada, nunca en nombre de terceros |
 | Derecho/licencia/uso histórico | PENDIENTE | Titularidad revisada; sin `public_training` implícito |
 | Revisión separada privacidad y oficio | DISEÑO | Actores distintos, cualificación, riesgo y hash |
 | Original vs derivado físico | DISEÑO | No fuente original ni metadata en read model compartido |

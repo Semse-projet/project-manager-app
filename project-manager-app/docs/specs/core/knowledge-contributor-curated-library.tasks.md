@@ -16,7 +16,8 @@ date: "2026-10-18"
 ## F0 — Contrato y autoridades
 - [x] T001 Inventariar Observation, promoción, RAG, defaults `public_training` y #992 sin inventar aprobación.
 - [x] T002 Proponer flujo custodio/derivado, ACL SQL, consentimiento y revisión técnica.
-- [ ] T003 Propietario aprueba audiencia F1, actores y derechos; decidir si sólo dentro del tenant.
+- [x] T003 Decisión de producto ratificada en #992 (2026-10-19): F1 `ORG_PRIVATE`; futuro `TENANT_CURATED` solo dentro del tenant, por versión, con consentimiento y doble revisión; no se atribuyen derechos o consentimientos ajenos.
+- [ ] T003b Documentar y verificar titulares autorizados, licencias, atribución y política de retención/retiro con revisión jurídica/privacidad.
 - [ ] T004 Seguridad/privacidad valida PII/EXIF/licencia/retención y ADR.
 - [ ] T005 Regenerar/validar índice SDD y aprobar el spec.
 
