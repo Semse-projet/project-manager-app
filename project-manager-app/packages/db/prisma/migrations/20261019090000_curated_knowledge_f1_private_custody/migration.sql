@@ -87,3 +87,6 @@ CREATE INDEX "CuratedPublicationConsent_tenantId_actorUserId_grantedAt_idx"
 ALTER TABLE "CuratedPublicationConsent" ADD CONSTRAINT "CuratedPublicationConsent_versionId_tenantId_fkey"
   FOREIGN KEY ("versionId", "tenantId") REFERENCES "CuratedKnowledgeVersion" ("id", "tenantId")
   ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "CuratedPublicationConsent" ADD CONSTRAINT "CuratedPublicationConsent_rightsHolderOrgId_tenantId_fkey"
+  FOREIGN KEY ("rightsHolderOrgId", "tenantId") REFERENCES "Org" ("id", "tenantId")
+  ON DELETE RESTRICT ON UPDATE CASCADE;
