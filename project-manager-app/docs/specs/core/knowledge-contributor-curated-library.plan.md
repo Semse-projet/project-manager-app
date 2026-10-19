@@ -32,6 +32,8 @@ date: "2026-10-18"
 - [ ] Test de amenazas y revisión jurídica de derechos/retención.
 - [ ] Confirmar implementación P0 #974 en ambiente antes de cualquier publicación.
 
+**Plano transversal propuesto:** [`knowledge-contributor-curated-library.integration-contracts.md`](knowledge-contributor-curated-library.integration-contracts.md) define una sola puerta de consulta, integración de solo lectura por módulo, revocación y restricciones de Payment Governance.
+
 ## 3. Arquitectura y autoridad
 
 **Canónico:** `CuratedKnowledgeEntry` + versiones inmutables y aprobaciones en Postgres (no metadataJson como ACL).

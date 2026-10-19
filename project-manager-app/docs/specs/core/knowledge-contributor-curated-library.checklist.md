@@ -24,6 +24,8 @@ date: "2026-10-18"
 | Migración/rollback | PENDIENTE | Archivos SQL/checksum y forward-fix, nunca db push |
 | CI, merge, deploy, activación | NO REALIZADOS | Evidencia distinta para cada transición |
 
+**Integración cruzada DRAFT:** [`knowledge-contributor-curated-library.integration-contracts.md`](knowledge-contributor-curated-library.integration-contracts.md) especifica Knowledge Gateway, lectores read-only, escenarios de ACL, vínculos con Vision/Skills y prohibiciones de side effects en pagos. No demuestra implementación ni aprobación formal.
+
 **Análisis de coherencia F0:** existe plataforma de extracción/promoción, pero no consentimiento compartido. La publicación curada es un nuevo contrato, no una reinterpretación de `PROMOTED`. Este diseño depende de seguridad #974 y de decisión #992. No hay contradicción deliberada con Payment Governance: publicar no libera dinero.
 
 **Investigación externa:** NIST AI RMF GAI Profile y OWASP Top 10 for LLM Applications (2025), especialmente divulgación de información, poisoning y debilidades de embeddings. Se usan como marco, **no certifican** SEMSE.

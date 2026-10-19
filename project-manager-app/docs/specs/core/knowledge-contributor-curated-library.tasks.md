@@ -21,6 +21,12 @@ date: "2026-10-18"
 - [ ] T004 Seguridad/privacidad valida PII/EXIF/licencia/retención y ADR.
 - [ ] T005 Regenerar/validar índice SDD y aprobar el spec.
 
+## F0b — Contratos de consumo de conocimiento (sólo diseño)
+- [x] T006 Identificar módulos existentes: Contributor, Prometeo RAG, BuildOps, Evidence, ProTools, Change Orders, Sense Vision, Skills, Mission Control y Payment Governance.
+- [x] T007 Documentar anexo de contratos internos read-only, formatos de citas, datos permitidos, denegaciones y reglas de revocación.
+- [ ] T008 Revisar coherencia con #974/#987 y #1007/#1009 y obtener aprobación independiente del diseño del gateway antes de implementar.
+- [ ] T009 Definir pruebas de contrato para cada consumidor, con comprobación de cero efectos secundarios en pagos, permisos, evidencia y credenciales.
+
 ## F1 — Diseño verificable y datos privados
 - [ ] T010 Crear tests rojos por tenant/org/consentimiento y versiones inmutables.
 - [ ] T011 Agregar modelos `CuratedKnowledgeEntry/Version/Consent/Review/Grant` y migración aditiva.

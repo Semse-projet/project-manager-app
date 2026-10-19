@@ -39,6 +39,8 @@ last_verified: "2026-10-18"
 
 > **DRAFT / NO ACTIVAR.** Diseño propuesto para #992. La aprobación del contrato de *grants privados* de #987 no constituye autorización para divulgar observaciones de colaboradores. Ningún texto histórico `public_training` ni `PROMOTED` permite publicar. Alcance F1 ratificado por el propietario el 2026-10-19 en #992; sigue requiriendo consentimiento de los titulares, aprobación formal SDD/ADR y revisión jurídica, de privacidad y seguridad antes de implementar o publicar.
 
+**Contratos transversales:** véase [`knowledge-contributor-curated-library.integration-contracts.md`](knowledge-contributor-curated-library.integration-contracts.md) para el Knowledge Gateway, consumidores existentes, fronteras de datos, permisos y pruebas de seguridad. Este anexo es DRAFT, no API implementada.
+
 ## 1. Problema y resultado
 
 **Para quién:** trabajadores y profesionales de oficios, empresas participantes, revisores de privacidad y expertos por oficio, Prometeo Copilot y administradores autorizados.
