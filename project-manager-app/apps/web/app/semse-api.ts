@@ -1120,6 +1120,66 @@ export async function respondToOffer(offerId: string, decision: "ACCEPT" | "DECL
   return mutateSemse(`/api/semse/offers/${offerId}/respond`, { decision });
 }
 
+export type DailyReportWorker = {
+  userId: string;
+  workedMinutes: number;
+  openEntries: number;
+  entries: { timeEntryId: string; startedAt: string; endedAt: string | null; breakMinutes: number; workedMinutes: number | null; status: string; edited: boolean }[];
+};
+
+export type DailyReportSnapshot = {
+  reportDate: string;
+  crewWorkedMinutes: number;
+  openEntries: number;
+  workers: DailyReportWorker[];
+  tasksCompleted: { taskId: string; title: string; assignedTo: string | null }[];
+  limitations: string[];
+};
+
+export type DailyReportView = {
+  reportId: string;
+  orgId: string;
+  crewId: string;
+  reportDate: string;
+  status: string;
+  contentHash: string;
+  notes: string | null;
+  generatedByUserId: string;
+  generatedAt: string;
+  reviewedByUserId: string | null;
+  reviewedAt: string | null;
+  reviewNote: string | null;
+  publishedAt: string | null;
+  snapshot?: DailyReportSnapshot;
+};
+
+export async function fetchOrgCrews(orgId: string): Promise<SupervisedCrewView[]> {
+  return fetchSemse<SupervisedCrewView[]>(`/api/semse/organizations/${orgId}/crews`);
+}
+
+export async function fetchDailyReports(crewId: string): Promise<DailyReportView[]> {
+  return fetchSemse<DailyReportView[]>(`/api/semse/crews/${crewId}/daily-reports`);
+}
+
+export async function fetchDailyReport(crewId: string, reportDate: string): Promise<DailyReportView> {
+  return fetchSemse<DailyReportView>(`/api/semse/crews/${crewId}/daily-reports/${reportDate}`);
+}
+
+export async function generateDailyReport(
+  crewId: string,
+  input: { reportDate: string; tzOffsetMinutes?: number; notes?: string }
+): Promise<DailyReportView> {
+  return mutateSemse(`/api/semse/crews/${crewId}/daily-reports`, input);
+}
+
+export async function reviewDailyReport(reportId: string, decision: "APPROVE" | "RETURN", note?: string): Promise<{ status: string }> {
+  return mutateSemse(`/api/semse/daily-reports/${reportId}/review`, { decision, ...(note ? { note } : {}) });
+}
+
+export async function publishDailyReport(reportId: string): Promise<{ status: string }> {
+  return mutateSemse(`/api/semse/daily-reports/${reportId}/publish`, {});
+}
+
 export type TaskAllocationView = {
   allocationId: string;
   taskTitle: string | null;
