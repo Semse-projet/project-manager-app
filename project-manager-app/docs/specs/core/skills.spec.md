@@ -25,6 +25,7 @@ related_files:
   - "packages/db/prisma/migrations/20261019180000_skill_experience/migration.sql"
 related_tests:
   - "apps/api/test/skills.test.ts"
+  - "apps/api/test/skills-audit-integration.test.ts"
 related_endpoints: []
 related_events:
   - "skill_experience.confirmed"
@@ -62,7 +63,7 @@ El plan prohíbe **fijar umbrales numéricos de insignia sin investigación de o
 3. El resumen portable lleva oficio, cantidad, mes de inicio y de fin, y el nivel de evidencia `supervisor_reviewed`. **No** lleva empresa, cuadrilla, tarea, usuario, fotos ni coordenadas, y siempre incluye el aviso de que no es licencia ni certificación.
 4. La persona elige qué oficios comparte; el token se muestra una sola vez y solo se guarda su hash; vence (30 días por defecto, máximo 90) y se puede revocar.
 5. Canjear exige ser gestor vigente (`org:offers:manage`: CLIENT y OPS_ADMIN) y se audita; un token inválido, vencido o revocado da 404 neutro.
-6. Invariante BO-12: confirmar/rechazar experiencia, emitir una atestación o revocarla y escribir su `AuditLog` forman una misma transacción de PostgreSQL. Si falla la auditoría, la mutación se revierte y no se emite el token. Se verifican las cuatro rutas con inyección de falla; no se permite registrar una revisión o atestación sin evidencia de auditoría.
+6. Invariante BO-12: confirmar/rechazar experiencia, emitir una atestación o revocarla y escribir su `AuditLog` forman una misma transacción de PostgreSQL. Si falla la auditoría, la mutación se revierte y no se emite el token. Se verifican las cuatro rutas con inyección de falla y emisión/revocación con PostgreSQL real; no se permite registrar una revisión o atestación sin evidencia de auditoría.
 
 ## Criterios de aceptación
 AC-01 flag apagado → 404 · AC-02 solo supervisor/gestor, no el propio trabajo, otro tenant 404 · AC-03 solo lo enviado y revisado; confirmar exige oficio · AC-04 una decisión por asignación; rechazar no acredita · AC-05 sin experiencia no hay atestación · AC-06 resumen redactado y solo el hash del token · AC-07 solo los oficios elegidos · AC-08 canje por gestor de otra empresa, PRO 403, token falso 404, auditado · AC-09 revocar o vencer invalida · AC-10 cuadrilla archivada impide revisión · AC-11 fallo simulado al escribir `AuditLog` revierte confirmación, rechazo, emisión y revocación.
