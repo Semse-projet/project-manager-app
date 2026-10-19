@@ -129,13 +129,20 @@ Sin texto, nombre, PII o prueba de consentimiento en el envelope. Outbox transac
 | Fase | Contrato mínimo | Gate imprescindible |
 |---|---|---|
 | F0 — diseño | SDD + este anexo + ADR privacidad y derechos; aprobación de audiencias | #992, consentimiento/retención/titular y revisores designados |
-| F1 — custodia privada | API/UI sólo borrador, versiones y consentimiento; flag de publicación OFF | Tests SQL/roles/ownership y migración reversible |
-| F2 — revisión | Doble revisión, cambio de versiones y auditoría/outbox, revalidación de hashes | Casos negativos, no self-approval, revocación |
-| F3 — lectura curada | Knowledge Gateway, FTS PostgreSQL, citas con versión y scope SQL | #974/#987 aprobados, staging aislado/no-egress, org A/B y tenant C |
+| F1 — custodia privada | Borrador/consentimiento humano por versionId+hash+audiencia, autoridad/plazo y retiro propio, **audit+outbox minimizados + aggregateRevision desde F1**; flag OFF | Tests SQL/roles/ownership, expiración, revocación y migración reversible |
+| F2 — revisión | Doble revisión humana sin conflicto, step-up, política firmada y publication CAS; audit/outbox de publicación (consent ya auditado F1) | Casos negativos de todas las coincidencias de rol, servicetokens, revalidación de hashes y revocación |
+| F3 — lectura curada | Knowledge Gateway FTS-only PostgreSQL, citas con versión y scope SQL; embedding local sólo en cambio separado aprobado | #974/#987 aprobados, originales `field_observation` legacy en cuarentena auditada, staging aislado/no-egress, org A/B y tenant C |
 | F4 — integraciones | Sense Vision, Copilot, BuildOps/ProTools, Learning; consumers READ-ONLY | Contract tests por consumer y ausencia de side effects |
 | F5 — piloto | Electricidad: mínimo 10 escenarios sintéticos con fuentes normativas y 2 organizaciones participantes dentro del mismo tenant | Revisor de seguridad independiente, costos y staging aprobados, planes de rollback y medición reales |
 
 No activar `TENANT_CURATED` hasta que los requisitos de confidencialidad y seguridad se cumplan. Los agentes internos de #1009 siguen sin permiso de documentos privados mientras #1007 no tenga principal verificable. Se puede desarrollar diseño/F1 privado de forma independiente **sólo tras aprobación específica del SDD del slice**.
+
+### Contratos P1 obligatorios (no implementados)
+
+- Cada fila Entry/Version/Consent/Review/Grant/Audit/Outbox usa `tenantId` y FK compuestas. Los consentimientos llevan `versionId + contentHash + policyHash`, alcance y finalidad en enums cerrados, `signerUserId` humano, titular representado, prueba/version de autoridad y validez/expiración. Consentir o retirar en F1 = CAS + auditoría + outbox mínimos en la misma transacción.
+- Publicadores y dos revisores PRIVACY/TECHNICAL deben ser **personas diferentes**, excluyendo cualquier identidad de aportante, autor, firmante y publicador; jamás service/worker, con step-up/cualificación vigentes. Cambiar audiencia/purpose o contenido invalida firmas. Retirar un consentimiento es autoridad del firmante o su sucesor legal comprobado, no de otro miembro de la org.
+- `aggregateRevision` monotónico por entry en todos los eventos, consumidor durable high-water mark y relectura del estado; audit, logs y DLQ nunca contienen título, texto, redaction report, chunk, EXIF, PII, fuente ni original.
+- Antes de prometer privacidad para legado, auditar `knowledge-contributor-rag-ingestion.spec.md`, `ragDocumentId`/`field_observation`, `PROMOTED` y `public_training`; aplicar ACL fail-closed/cuarentena/desindexación bajo plan propio con pruebas signed-session. F3 **FTS-only**; se prohíbe llamar al `EmbeddingService` cloud existente, incluso cuando haya credenciales.
 
 ## 8. Matriz de aceptación cruzada
 

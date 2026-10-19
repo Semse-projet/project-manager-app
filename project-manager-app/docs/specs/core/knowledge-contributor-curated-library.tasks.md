@@ -28,25 +28,25 @@ date: "2026-10-18"
 - [ ] T009 Definir pruebas de contrato para cada consumidor, con comprobación de cero efectos secundarios en pagos, permisos, evidencia y credenciales.
 
 ## F1 — Diseño verificable y datos privados
-- [ ] T010 Crear tests rojos por tenant/org/consentimiento y versiones inmutables.
-- [ ] T011 Agregar modelos `CuratedKnowledgeEntry/Version/Consent/Review/Grant` y migración aditiva.
-- [ ] T012 Crear endpoints autenticados sólo para borrador/consentimiento, sin lectura común.
-- [ ] T013 Validar derechos del aportante y dueño org (no actor inyectado).
-- [ ] T014 Integración contra Postgres migrado y smoke A/B.
+- [ ] T010 Tests rojos: FK compuesta multi-tenant por entry/version/consent/review, signer humano real, representación válida/caducada, consentimiento a versión/hash/política concreta, enum inválido y plazo vencido.
+- [ ] T011 Modelos tenant-scoped `CuratedKnowledgeEntry/Version/Consent/Review/Grant` con FKs compuestas, enums cerrados, hash inmutable de contenido/política, expiración, proof of signing authority, `aggregateRevision` y migración aditiva.
+- [ ] T012 F1 API/UI sólo borrador privado, consentimiento firmado por humano `versionId + expectedContentHash + expectedPolicyHash`, con comprobación del verdadero firmante/titular/delegación, y retirada propia; cero búsquedas o publicación.
+- [ ] T013 Validar aportante/firmante titular/delegado bajo sesión y membresía activas (no actor inyectado), representación temporal acreditada, consentimiento caducado y retiro por dueño del consentimiento; mismo-org ajeno/service/revisor denegados.
+- [ ] T014 **Audit+outbox F1 transaccionales**, eventos de firma/retiro sin contenido ni PII, idempotencyKey + revision monotónica con high-water mark; test crash de auditoría, replays, Postgres migrado y sesiones A/B.
 - [ ] T015 Entrega propia CI/PR, sin flag de publicación.
 
 ## F2 — Revisión y auditoría
-- [ ] T020 Depuración local asistida + revisión humana, EXIF/metadatos y detección negativa.
-- [ ] T021 Revisión separada privacidad/oficio; comprobar credenciales de revisores.
-- [ ] T022 Estado/version hash/consentimiento con CAS Serializable y audit+outbox.
-- [ ] T023 Revocar, suspender, superseder; prueba de fallo del audit y publicación concurrente.
+- [ ] T020 Depuración local asistida + revisión humana, EXIF/metadatos y detección negativa; UI de revisión recién desde F2, no en F1.
+- [ ] T021 Dos revisores humanos diferentes entre sí y distintos de aportante, autor, titular firmante y publicador; comprobar membresía, cualificación, MFA/step-up y rechazar cualquier principal de servicio. Pruebas negativas de todos los pares.
+- [ ] T022 Publicación CAS Serializable sobre `versionId/contentHash/policyHash`, audiencia y dos firmas; registra auditoría/outbox de publicación (firma/retiro consentimiento ya se audita en F1). Invalidar revisiones al cambiar versión/política.
+- [ ] T023 Retirar/suspender/superseder **publicación** (el retiro de consentimiento existe desde F1); revalidar derechos y consentimientos vigentes, policyHash y revocación en lectura SQL; probar fallo de audit, replay y publicación concurrente.
 - [ ] T024 UI ES/EN móvil con decisiones y razones.
 
 ## F3 — Consulta y privacidad efectiva
-- [ ] T030 Confirmar #974/PR987 en entorno aprobado y flag OFF inicialmente.
-- [ ] T031 Search FTS + opcional local embeddings sólo de derivados; cita pública opaca por versión.
+- [ ] T030 Confirmar #974/PR987 en entorno aprobado, además de inventariar, poner bajo ACL/cuarentena y probar `field_observation` con `ragDocumentId` legacy, SDD `knowledge-contributor-rag-ingestion` y `public_training`. Sin pruebas no afirmar privados los originales. Flag OFF inicialmente.
+- [ ] T031 Search PostgreSQL FTS-only por defecto sobre derivados publicados; jamás invocar `Prometeo EmbeddingService` cloud ni reenviar privados a OpenAI. Adaptador local opcional es otro cambio aprobado con test red-denied+credenciales cloud; cita opaca por versión.
 - [ ] T032 ACL SQL única para texto/título/feedback/citation, org/tenant y membresía viva.
-- [ ] T033 Tests al revocar/caché/outbox/replay, agente sin scope, otra org y otro tenant.
+- [ ] T033 Tests al revocar/caché/outbox/replay con high-water mark, consentimiento/autoridad vencidos, hash/policy cambiados, agente sin scope, otra org/tenant, resultados sin PII en auditoría/DLQ y permisos de withdrawal.
 - [ ] T034 Captura de red/egreso y pruebas 10k fichas, plan SQL, índices y latencia.
 - [ ] T035 Canary sólo con autorización escrita y reversible.
 
