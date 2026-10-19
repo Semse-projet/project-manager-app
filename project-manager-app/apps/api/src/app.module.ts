@@ -19,11 +19,13 @@ import { CapabilityRegistryModule } from "./modules/capability-registry/capabili
 import { DisputesModule } from "./modules/disputes/disputes.module.js";
 import { EvidenceModule } from "./modules/evidence/evidence.module.js";
 import { JobsModule } from "./modules/jobs/jobs.module.js";
+import { DailyReportsModule } from "./modules/daily-reports/daily-reports.module.js";
 import { MilestonesModule } from "./modules/milestones/milestones.module.js";
 import { OpsModule } from "./modules/ops/ops.module.js";
 import { PaymentsModule } from "./modules/payments/payments.module.js";
 import { ProjectsModule } from "./modules/projects/projects.module.js";
 import { ReservationsModule } from "./modules/reservations/reservations.module.js";
+import { ProfessionalSkillsModule } from "./modules/professional-skills/professional-skills.module.js";
 import { TrustModule } from "./modules/trust/trust.module.js";
 import { FieldOpsModule } from "./modules/field-ops/field-ops.module.js";
 import { LaborEngineModule } from "./modules/labor-engine/labor-engine.module.js";
@@ -118,11 +120,13 @@ const repoRoot = path.resolve(apiDir, "..", "..");
     CapabilityRegistryModule,
     DisputesModule,
     EvidenceModule,
+    DailyReportsModule,
     MilestonesModule,
     OpsModule,
     ProjectsModule,
     PaymentsModule,
     ReservationsModule,
+    ProfessionalSkillsModule,
     TrustModule,
     FieldOpsModule,
     LaborEngineModule,

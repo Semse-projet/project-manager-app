@@ -15,6 +15,12 @@ const assignSchema = z.object({
   userIds: z.array(idSchema).min(1).max(25),
   reason: z.string().trim().max(500).optional()
 });
+const taskSchema = z.object({
+  title: z.string().trim().min(2).max(200),
+  description: z.string().trim().max(2000).optional(),
+  dueDate: z.coerce.date().optional(),
+  priority: z.enum(["low", "medium", "high", "urgent"]).optional()
+});
 const releaseSchema = z.object({ reason: z.string().trim().min(3).max(500) });
 const statusSchema = z.object({
   status: z.enum(["ACKNOWLEDGED", "IN_PROGRESS", "BLOCKED", "SUBMITTED"]),
@@ -23,6 +29,30 @@ const statusSchema = z.object({
 
 const SCOPE_REASON =
   "La autorización es ser el supervisor vigente de esa cuadrilla (o gestor de cuadrillas de la Org); se revalida la membresía en cada llamada";
+
+/** BO-10: tareas internas de una cuadrilla (se crean aquí para poder asignarlas). */
+@Controller("v1/crews/:crewId/tasks")
+export class CrewTasksController {
+  constructor(private readonly allocations: TaskAllocationsService) {}
+
+  @Post()
+  @AuthenticatedAccess(SCOPE_REASON)
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  async create(@Req() req: Req_, @Param("crewId") crewId: string, @Body() body: unknown) {
+    const actor = resolveRequestContext(req);
+    const requestId = resolveRequestId(req.headers ?? {});
+    const data = await this.allocations.createCrewTask(actor, parseWithSchema(idSchema, crewId), requestId, parseWithSchema(taskSchema, body));
+    return ok(requestId, data);
+  }
+
+  @Get()
+  @AuthenticatedAccess(SCOPE_REASON)
+  async list(@Req() req: Req_, @Param("crewId") crewId: string) {
+    const actor = resolveRequestContext(req);
+    const data = await this.allocations.listCrewTasks(actor, parseWithSchema(idSchema, crewId));
+    return ok(resolveRequestId(req.headers ?? {}), data);
+  }
+}
 
 /** BO-10: el supervisor asigna tareas canónicas a personas de SU cuadrilla. Spec: docs/specs/core/task-allocations.spec.md */
 @Controller("v1/crews/:crewId/tasks/:taskId/allocations")
