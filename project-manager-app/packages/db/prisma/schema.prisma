@@ -135,7 +135,6 @@ model Tenant {
   status                        String                            @default("active")
   orgs                          Org[]
   curatedKnowledgeEntries       CuratedKnowledgeEntry[]
-  curatedRightsConsents         CuratedPublicationConsent[]
   agroFarms                     AgroFarm[]
   jobs                          Job[]
   projects                      Project[]
@@ -255,6 +254,7 @@ model Org {
   buildOpsTasks                 BuildOpsTask[]
   invitations                   OrgInvitation[]
   curatedKnowledgeEntries       CuratedKnowledgeEntry[]
+  curatedRightsConsents         CuratedPublicationConsent[]
   businessOffers                BusinessOffer[]
   worksites                     Worksite[]
   crews                         Crew[]
