@@ -33,8 +33,9 @@ dbTest("BO-12: PostgreSQL rolls back skill attestation AND written audit row whe
   let failOn: string | undefined;
   // Insert an AuditLog inside the real Prisma transaction, then deliberately
   // throw: PostgreSQL must undo BOTH the attestation change and AuditLog row.
+  type AuditAppendArgs = Parameters<InstanceType<typeof AuditService>["append"]>;
   const injectedAudit = {
-    async append(entry: Parameters<AuditService["append"]>[0], tx?: Parameters<AuditService["append"]>[1]) {
+    async append(entry: AuditAppendArgs[0], tx?: AuditAppendArgs[1]) {
       assert.ok(tx, "Mutations must pass their active Prisma transaction to AuditService");
       await audit.append(entry, tx);
       if (entry.action === failOn) throw new Error("synthetic_bo12_audit_failure");
