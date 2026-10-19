@@ -32,6 +32,7 @@ dbTest("F1A: private defaults, tenant-bound FK, version immutability keys, and c
     });
     assert.equal(privateEntry.status, "DRAFT");
     assert.equal(privateEntry.publicationScope, "ORG_PRIVATE");
+    assert.equal(privateEntry.aggregateRevision, 0);
     assert.equal(privateEntry.sourcePrivateRef, null);
     await assert.rejects(db.curatedKnowledgeEntry.update({
       where: { id: privateEntry.id }, data: { status: "PUBLISHED", publicationScope: "TENANT_CURATED" },
@@ -87,6 +88,34 @@ dbTest("F1A: private defaults, tenant-bound FK, version immutability keys, and c
     assert.equal(consent.purpose, "RAG_REFERENCE");
     assert.ok(consent.expiresAt.getTime() > Date.now());
     assert.equal(consent.withdrawnAt, null);
+    await assert.rejects(db.curatedPublicationConsent.create({
+      data: {
+        tenantId: tA, versionId: version.id, actorType: "CONTRIBUTOR",
+        actorUserId: "contributor-A", scope: "TENANT_CURATED",
+        purpose: "MODEL_TRAINING" as never,
+        versionContentSha256: hash, audiencePolicySha256: policyHash, expiresAt,
+        noticeVersion: "invalid-purpose",
+      },
+    }), "Free-text model training purposes must be rejected by the closed consent enum");
+    await assert.rejects(db.curatedPublicationConsent.create({
+      data: {
+        tenantId: tA, versionId: version.id, actorType: "CONTRIBUTOR",
+        actorUserId: "contributor-A", scope: "TENANT_CURATED",
+        purpose: "RAG_REFERENCE",
+        versionContentSha256: hash, audiencePolicySha256: policyHash,
+        expiresAt: new Date(Date.now() - 86400000),
+        noticeVersion: "expired",
+      },
+    }), "An expired or indefinite permission is not an allowed F1A consent");
+    await assert.rejects(db.curatedPublicationConsent.create({
+      data: {
+        tenantId: tA, versionId: version.id, actorType: "RIGHTS_HOLDER",
+        actorUserId: "unknown-representative", scope: "TENANT_CURATED",
+        purpose: "RAG_REFERENCE",
+        versionContentSha256: hash, audiencePolicySha256: policyHash, expiresAt,
+        noticeVersion: "no-org",
+      },
+    }), "An org-rights signature without rights-holder organization must be rejected");
     await assert.rejects(db.curatedPublicationConsent.create({
       data: {
         tenantId: tA, versionId: version.id, actorType: "RIGHTS_HOLDER",
