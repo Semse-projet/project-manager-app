@@ -42,6 +42,9 @@ test("all static operational panel translation keys exist in both languages", ()
     "apps/web/app/(app)/worker/dashboard/page.tsx",
     "apps/web/app/(app)/admin/dashboard/page.tsx",
     "apps/web/app/(app)/admin/mission-control/page.tsx",
+    "apps/web/app/(app)/client/protools/page.tsx",
+    "apps/web/app/(app)/client/marketplace/page.tsx",
+    "apps/web/app/(app)/admin/marketplace/page.tsx",
   ];
   const required = new Set(["nav.workspace"]);
   for (const filename of files) {
@@ -93,9 +96,55 @@ test("all static operational panel translation keys exist in both languages", ()
   for (const status of ["RUNNING", "SUCCEEDED", "FAILED", "NO_OP"]) {
     required.add(`mc.receiptStatus.${status}`);
   }
+  for (const trade of ["electrical", "plumbing", "drywall", "painting", "hvac", "roofing", "carpentry", "cleaning"]) {
+    required.add(`pt.trade.${trade}`);
+  }
+  for (const category of ["painting", "plumbing", "drywall", "electrical", "hvac", "roofing", "carpentry", "cleaning", "general"]) {
+    required.add(`mp.category.${category}`);
+  }
+  for (const urgency of ["urgent", "high", "medium", "low"]) {
+    required.add(`mp.urgency.${urgency}`);
+  }
   for (const key of required) {
     assert.ok(es.has(key), `Missing Spanish translation: ${key}`);
     assert.ok(en.has(key), `Missing English translation: ${key}`);
+  }
+});
+
+test("ProTools currency formatting preserves cents for unit prices and totals", () => {
+  const page = readFileSync(path.join(root, "apps/web/app/(app)/client/protools/page.tsx"), "utf8");
+  assert.match(page, /minimumFractionDigits:\s*2/);
+  assert.match(page, /maximumFractionDigits:\s*2/);
+  assert.doesNotMatch(page, /maximumFractionDigits:\s*0/);
+});
+
+test("Marketplace budgets preserve cents and ProTools sends the selected locale", () => {
+  const clientMarketplace = readFileSync(path.join(root, "apps/web/app/(app)/client/marketplace/page.tsx"), "utf8");
+  const adminMarketplace = readFileSync(path.join(root, "apps/web/app/(app)/admin/marketplace/page.tsx"), "utf8");
+  const protools = readFileSync(path.join(root, "apps/web/app/(app)/client/protools/page.tsx"), "utf8");
+
+  for (const source of [clientMarketplace, adminMarketplace]) {
+    assert.match(source, /minimumFractionDigits:\s*2/);
+    assert.match(source, /maximumFractionDigits:\s*2/);
+  }
+  assert.match(protools, /locale:\s*language/);
+});
+
+test("ProTools and Marketplace avoid known hard-coded Spanish interface strings", () => {
+  const files = [
+    "apps/web/app/(app)/client/protools/page.tsx",
+    "apps/web/app/(app)/client/marketplace/page.tsx",
+    "apps/web/app/(app)/admin/marketplace/page.tsx",
+  ];
+  const legacyStrings = [
+    />(?:Calcular estimado|Enviar propuesta|Trabajos disponibles|Todas las categorías|No hay trabajos disponibles|Estimador de Obra)</,
+    /(?:placeholder|aria-label)="(?:Buscar trabajos|Cerrar|Actualizar|Tipo de trabajo)/,
+  ];
+  for (const filename of files) {
+    const page = readFileSync(path.join(root, filename), "utf8");
+    for (const regex of legacyStrings) {
+      assert.doesNotMatch(page, regex, `${filename}: a visible label bypasses localization`);
+    }
   }
 });
 
@@ -137,4 +186,83 @@ test("Mission Control status requires an actual successful response, not a loadi
     assert.ok(source.includes(safetyGuard), "Missing MC fail-closed loading/error guard: " + safetyGuard);
   }
   assert.ok(!source.includes('useState<"connected" | "degraded">("connected")'));
+});
+
+test("Marketplace failed-proposal retry restores the saved draft without another automatic POST", () => {
+  const page = readFileSync(path.join(root, "apps/web/app/(app)/client/marketplace/page.tsx"), "utf8");
+  assert.match(page, /onRetry: \(\) => void;/, "modal must receive an explicit retry handler");
+  assert.match(page, /<button type="button" onClick=\{onRetry\}/, "retry must not be a submit action");
+  assert.match(page, /onRetry=\{\(\) => setBidResult\(null\)\}/, "retry must clear failure state and reveal the saved draft");
+  assert.doesNotMatch(page, /onClick=\{\(\) => setData\(\(p\) => \(\{ \.\.\.p \}\)\)\}/, "a no-op rerender does not retry");
+});
+
+test("ProTools embedded BuildOps and Evidence cards receive the selected locale", () => {
+  const page = readFileSync(path.join(root, "apps/web/app/(app)/client/protools/page.tsx"), "utf8");
+  const plan = readFileSync(path.join(root, "apps/web/components/semse/BuildOpsPlanCard.tsx"), "utf8");
+  const evidence = readFileSync(path.join(root, "apps/web/components/semse/EvidenceChecklistCard.tsx"), "utf8");
+  const controller = readFileSync(path.join(root, "apps/api/src/modules/semse-agents/semse-agents.controller.ts"), "utf8");
+  const bff = readFileSync(path.join(root, "apps/web/app/api/semse/agents/evidence-checklist/route.ts"), "utf8");
+  for (const component of ["BuildOpsPlanCard", "EvidenceChecklistCard"]) {
+    assert.match(page, new RegExp("<" + component + "[^>]*locale=\\{language\\}"), component + " must get selected locale");
+  }
+  for (const component of [plan, evidence]) {
+    assert.match(component, /locale: effectiveLocale/, "embedded request must carry locale");
+    assert.match(component, /useLanguage/, "embedded UI must consume the shared translation context");
+  }
+  assert.match(controller, /buildopsAgent\.createPlan\(trade, hours, body\.locale === "en" \? "en" : "es"\)/);
+  assert.match(controller, /evidenceAgent\.generateChecklist\(milestoneTitle, trade, body\.locale === "en" \? "en" : "es"\)/);
+  assert.doesNotMatch(bff, /generateLocalChecklist/, "upstream failures must not produce fabricated evidence");
+  assert.match(bff, /status: resp\.status/, "backend auth/availability errors must preserve failure status");
+});
+
+test("ProTools never shows stale-language result after switching ES/EN", () => {
+  const page = readFileSync(path.join(root, "apps/web/app/(app)/client/protools/page.tsx"), "utf8");
+  assert.match(page, /const \[resultLocale, setResultLocale\]/);
+  assert.match(page, /setResult\(json\.data\); setResultLocale\(language\)/);
+  assert.match(page, /result && resultLocale === language && \(/);
+  assert.match(page, /result && resultLocale !== language && !loading/);
+  assert.match(page, /t\("pt\.recalculateAfterLanguageChange"\)/);
+});
+
+test("Client and admin marketplace preserve unknown urgency values rather than mislabeling them medium", () => {
+  for (const file of ["apps/web/app/(app)/client/marketplace/page.tsx", "apps/web/app/(app)/admin/marketplace/page.tsx"]) {
+    const page = readFileSync(path.join(root, file), "utf8");
+    assert.match(page, /Object\.hasOwn\(URGENCY_COLORS, urgency\)/);
+    assert.match(page, /: urgency;/);
+    assert.doesNotMatch(page, /Object\.hasOwn\(URGENCY_COLORS, urgency \?\? ""\) \? urgency : "medium"/);
+  }
+});
+
+test("Embedded cards ignore outdated locale requests and expose recovery after an API error", () => {
+  for (const file of [
+    "apps/web/components/semse/EvidenceChecklistCard.tsx",
+    "apps/web/components/semse/BuildOpsPlanCard.tsx",
+  ]) {
+    const component = readFileSync(path.join(root, file), "utf8");
+    assert.match(component, /abortRef\.current\?\.abort\(\)/, "previous request must be cancelled");
+    assert.match(component, /signal: controller\.signal/, "request must respect cancellation");
+    assert.match(component, /controller\.signal\.aborted/, "superseded responses must be ignored");
+    assert.match(component, /response\?\.locale === effectiveLocale/, "old-language content must not be rendered");
+    assert.match(component, /return \(\) => \{ abortRef\.current\?\.abort\(\); \}/, "unmount must abort");
+    assert.match(component, /if \(error\) return \(/, "visible error state must be recoverable");
+    assert.match(component, /onClick=\{\(\) => void load\(\)\}/, "error must include a retry button");
+  }
+  const buildops = readFileSync(path.join(root, "apps/web/components/semse/BuildOpsPlanCard.tsx"), "utf8");
+  assert.doesNotMatch(buildops, /\[trade, estimatedHours, effectiveLocale, t\]/, "translation callback must not cause perpetual requests");
+});
+
+test("ProTools contractor hourly rates always show a USD currency symbol", () => {
+  const agent = readFileSync(path.join(root, "apps/api/src/modules/semse-agents/protools.agent.ts"), "utf8");
+  assert.equal(agent.split("($${contractorOverride.laborRatePerHr}/hr,").length - 1, 2);
+});
+
+test("ProTools estimate loading button preserves DOM subtree across ES/EN transitions", () => {
+  const page = readFileSync(path.join(root, "apps/web/app/(app)/client/protools/page.tsx"), "utf8");
+  assert.match(page, /type="button" onClick=\{runEstimate\} disabled=\{loading\}/);
+  assert.match(page, /aria-busy=\{loading\}/);
+  assert.match(page, /<Send size=\{15\} aria-hidden="true" \/>/);
+  assert.match(page, /<span>\{loading \? t\("pt\.calculating"\) : t\("pt\.calculate"\)\}<\/span>/);
+  assert.doesNotMatch(page, /loading \? t\("pt\.calculating"\) : <></, "no text-node-to-fragment replacement at submit");
+  assert.match(page, /result && resultLocale === language && \(/, "never show stale-language result");
+  assert.match(page, /result && resultLocale !== language && !loading/, "offer explicit recalculate after locale switch");
 });
