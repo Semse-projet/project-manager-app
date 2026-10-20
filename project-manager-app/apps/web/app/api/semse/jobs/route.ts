@@ -25,6 +25,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  if (!isApiBaseConfigured()) return runtimeDisabledResponse();
   try {
     const body = await request.json() as Record<string, unknown>;
     const cfg  = await getAuthenticatedServerConfig(request);

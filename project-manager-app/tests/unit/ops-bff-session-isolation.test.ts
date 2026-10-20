@@ -27,6 +27,10 @@ test("Jobs and Mission Control BFF always use the request-authenticated actor", 
   const jobs = read("apps/web/app/api/semse/jobs/route.ts");
   assert.equal((jobs.match(/getAuthenticatedServerConfig\(request\)/g) ?? []).length, 2);
   assert.doesNotMatch(jobs, /\bgetServerConfig\b/);
+  const postHandler = jobs.split("export async function POST(request: NextRequest) {")[1];
+  assert.ok(postHandler, "Jobs POST must exist");
+  assert.match(postHandler, /^\s*if \(!isApiBaseConfigured\(\)\) return runtimeDisabledResponse\(\);\s*try \{/,
+    "Missing API base in production must return 503 before body parsing or session resolution");
   for (const path of [
     "apps/web/app/api/semse/ops/mission-control/exceptions/route.ts",
     "apps/web/app/api/semse/ops/mission-control/runbooks/route.ts",
