@@ -255,3 +255,14 @@ test("ProTools contractor hourly rates always show a USD currency symbol", () =>
   const agent = readFileSync(path.join(root, "apps/api/src/modules/semse-agents/protools.agent.ts"), "utf8");
   assert.equal(agent.split("($${contractorOverride.laborRatePerHr}/hr,").length - 1, 2);
 });
+
+test("ProTools estimate loading button preserves DOM subtree across ES/EN transitions", () => {
+  const page = readFileSync(path.join(root, "apps/web/app/(app)/client/protools/page.tsx"), "utf8");
+  assert.match(page, /type="button" onClick=\{runEstimate\} disabled=\{loading\}/);
+  assert.match(page, /aria-busy=\{loading\}/);
+  assert.match(page, /<Send size=\{15\} aria-hidden="true" \/>/);
+  assert.match(page, /<span>\{loading \? t\("pt\.calculating"\) : t\("pt\.calculate"\)\}<\/span>/);
+  assert.doesNotMatch(page, /loading \? t\("pt\.calculating"\) : <></, "no text-node-to-fragment replacement at submit");
+  assert.match(page, /result && resultLocale === language && \(/, "never show stale-language result");
+  assert.match(page, /result && resultLocale !== language && !loading/, "offer explicit recalculate after locale switch");
+});

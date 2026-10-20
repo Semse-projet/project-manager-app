@@ -158,9 +158,13 @@ export default function ProToolsPage() {
 
           {error && <ErrorState message={error} />}
 
-          <button onClick={runEstimate} disabled={loading}
+          <button type="button" onClick={runEstimate} disabled={loading}
+            aria-busy={loading}
             style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: 13, borderRadius: 12, background: "rgba(252,211,77,.15)", border: "1px solid rgba(252,211,77,.3)", cursor: loading ? "wait" : "pointer", fontSize: 14, fontWeight: 800, color: "#fcd34d", opacity: loading ? 0.7 : 1 }}>
-            {loading ? t("pt.calculating") : <><Send size={15} /> {t("pt.calculate")}</>}
+            {/* Keep a stable subtree through loading transitions. Switching from
+                a text node to a fragment can collide with translated DOM nodes. */}
+            <Send size={15} aria-hidden="true" />
+            <span>{loading ? t("pt.calculating") : t("pt.calculate")}</span>
           </button>
         </div>
       </div>
