@@ -118,6 +118,18 @@ test("ProTools currency formatting preserves cents for unit prices and totals", 
   assert.doesNotMatch(page, /maximumFractionDigits:\s*0/);
 });
 
+test("Marketplace budgets preserve cents and ProTools sends the selected locale", () => {
+  const clientMarketplace = readFileSync(path.join(root, "apps/web/app/(app)/client/marketplace/page.tsx"), "utf8");
+  const adminMarketplace = readFileSync(path.join(root, "apps/web/app/(app)/admin/marketplace/page.tsx"), "utf8");
+  const protools = readFileSync(path.join(root, "apps/web/app/(app)/client/protools/page.tsx"), "utf8");
+
+  for (const source of [clientMarketplace, adminMarketplace]) {
+    assert.match(source, /minimumFractionDigits:\s*2/);
+    assert.match(source, /maximumFractionDigits:\s*2/);
+  }
+  assert.match(protools, /locale:\s*language/);
+});
+
 test("ProTools and Marketplace avoid known hard-coded Spanish interface strings", () => {
   const files = [
     "apps/web/app/(app)/client/protools/page.tsx",
