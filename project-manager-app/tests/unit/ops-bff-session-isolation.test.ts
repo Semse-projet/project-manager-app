@@ -31,9 +31,14 @@ test("Jobs and Mission Control BFF always use the request-authenticated actor", 
     "apps/web/app/api/semse/ops/mission-control/exceptions/route.ts",
     "apps/web/app/api/semse/ops/mission-control/runbooks/route.ts",
     "apps/web/app/api/semse/ops/mission-control/actions/route.ts",
+    "apps/web/app/api/semse/sse/mission-control/route.ts",
   ]) {
     const source = read(path);
-    assert.match(source, /fetchSemseDataForAuthenticatedRequest\(/, path);
+    if (path.includes("/sse/")) {
+      assert.match(source, /getAuthenticatedServerConfig\(request\)/, path);
+    } else {
+      assert.match(source, /fetchSemseDataForAuthenticatedRequest\(/, path);
+    }
     assert.doesNotMatch(source, /\bfetchSemseDataForRequest\b/, path);
     assert.doesNotMatch(source, /\bgetServerConfig\b/, path);
   }
