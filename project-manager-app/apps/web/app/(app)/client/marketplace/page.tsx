@@ -54,7 +54,7 @@ function UrgencyBadge({ urgency }: { urgency: string | null }) {
 }
 
 function formatBudget(min: number | null, max: number | null, language: LanguagePreference, t: (key: string) => string): string {
-  const money = (amount: number) => new Intl.NumberFormat(language === "en" ? "en-US" : "es-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(amount);
+  const money = (amount: number) => new Intl.NumberFormat(language === "en" ? "en-US" : "es-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount);
   if (!min && !max) return t("mp.budgetOpen");
   if (min && max) return `${money(min)}–${money(max)}`;
   if (min) return `${t("mp.from")} ${money(min)}`;
