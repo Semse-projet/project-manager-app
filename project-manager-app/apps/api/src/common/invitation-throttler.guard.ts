@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { ExecutionContext, Injectable, NotFoundException, ServiceUnavailableException, UnauthorizedException, HttpException } from "@nestjs/common";
 import { PATH_METADATA } from "@nestjs/common/constants.js";
 import { ThrottlerGuard } from "@nestjs/throttler";
-import Redis from "ioredis";
+import { Redis } from "ioredis";
 import { verifyInvitationProxy } from "@semse/auth/invitation-proxy";
 
 @Injectable()
