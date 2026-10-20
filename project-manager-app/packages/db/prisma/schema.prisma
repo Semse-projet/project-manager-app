@@ -2554,8 +2554,6 @@ model PrometeoDocument {
   @@index([tenantId, sourceType])
 }
 
-/// Auditable, explicitly approved document access for one project participant organization.
-/// Active grants are filtered with revokedAt IS NULL on every retrieval.
 model PrometeoDocumentGrant {
   id              String    @id @default(cuid())
   tenantId        String
@@ -5744,4 +5742,40 @@ model LaborTimeCorrection {
   @@index([tenantId, orgId, status, createdAt])
   @@index([timeEntryId, status])
   @@index([requestedByUserId])
+}
+
+/// BO-09: preferencia de ubicación de la persona. ASK por defecto (OPEN-07); AUTO exige un consentimiento aparte.
+model LocationPreference {
+  id                   String    @id @default(cuid())
+  tenantId             String
+  userId               String
+  mode                 String    @default("ASK") // ASK | AUTO | OFF
+  autoStartConsentedAt DateTime?
+  autoStartRevokedAt   DateTime?
+  policyVersion        Int       @default(1)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  @@unique([tenantId, userId])
+}
+
+/// BO-09: decisión del servidor ante un evento de geocerca. NO guarda coordenadas (OPEN-10): solo el resultado y un rango de precisión.
+model GeofenceEvent {
+  id             String   @id @default(cuid())
+  tenantId       String
+  orgId          String
+  userId         String
+  eventId        String // clave de idempotencia que manda la app
+  type           String // ARRIVAL | LEAVE | OFF_SITE_AT_SHIFT
+  worksiteId     String?
+  decision       String // PROMPT | AUTO_START_ALLOWED | MANUAL_ONLY | LEAVE_PROMPT | EXCEPTION | IGNORE
+  reason         String
+  mode           String
+  policyVersion  Int
+  accuracyBucket String // GOOD | POOR | UNKNOWN
+  occurredAt     DateTime
+  createdAt      DateTime @default(now())
+
+  @@unique([tenantId, userId, eventId])
+  @@index([tenantId, userId, createdAt])
 }
