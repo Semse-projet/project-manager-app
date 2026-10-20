@@ -1270,6 +1270,7 @@ const T: Record<LanguagePreference, Record<string, string>> = {
     "pt.evidence.itemsRequired": "elementos requeridos",
     "pt.evidence.paymentBlocked": "sin evidencia completa, el pago permanece bloqueado",
 
+    "pt.recalculateAfterLanguageChange": "El estimado anterior está en otro idioma. Calcula de nuevo para actualizar materiales, riesgos y notas.",
   },
 
   en: {
@@ -2529,6 +2530,7 @@ const T: Record<LanguagePreference, Record<string, string>> = {
     "pt.evidence.itemsRequired": "required items",
     "pt.evidence.paymentBlocked": "payment remains blocked until evidence is complete",
 
+    "pt.recalculateAfterLanguageChange": "The previous estimate uses another language. Calculate again to update materials, risks and notes.",
   },
 };
 

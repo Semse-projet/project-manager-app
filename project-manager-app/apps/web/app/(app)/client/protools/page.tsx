@@ -47,6 +47,7 @@ export default function ProToolsPage() {
   const [area,        setArea]        = useState("100");
   const [rooms,       setRooms]       = useState("2");
   const [result,      setResult]      = useState<EstimateResult | null>(null);
+  const [resultLocale, setResultLocale] = useState<typeof language | null>(null);
   const [loading,     setLoading]     = useState(false);
   const [error,       setError]       = useState<string | null>(null);
   const [showChecklist,  setShowChecklist]  = useState(false);
@@ -102,7 +103,7 @@ export default function ProToolsPage() {
         return;
       }
       const json = await resp.json() as { data: EstimateResult };
-      if (resp.ok && json.data) setResult(json.data);
+      if (resp.ok && json.data) { setResult(json.data); setResultLocale(language); }
       else setError(t("pt.estimateError"));
     } catch (e) {
       setError(e instanceof Error ? e.message : t("pt.networkError"));
@@ -164,8 +165,13 @@ export default function ProToolsPage() {
         </div>
       </div>
 
+      {/* Hide an old-locale estimate; user may rerun without losing draft inputs. */}
+      {result && resultLocale !== language && !loading && (
+        <p role="status" style={{ fontSize: 12, color: "var(--muted)" }}>{t("pt.recalculateAfterLanguageChange")}</p>
+      )}
+
       {/* Result */}
-      {result && (
+      {result && resultLocale === language && (
         <div style={{ display: "grid", gap: 16 }}>
 
           {/* Publish from estimate */}

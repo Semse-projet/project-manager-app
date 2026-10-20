@@ -214,3 +214,21 @@ test("ProTools embedded BuildOps and Evidence cards receive the selected locale"
   assert.doesNotMatch(bff, /generateLocalChecklist/, "upstream failures must not produce fabricated evidence");
   assert.match(bff, /status: resp\.status/, "backend auth/availability errors must preserve failure status");
 });
+
+test("ProTools never shows stale-language result after switching ES/EN", () => {
+  const page = readFileSync(path.join(root, "apps/web/app/(app)/client/protools/page.tsx"), "utf8");
+  assert.match(page, /const \[resultLocale, setResultLocale\]/);
+  assert.match(page, /setResult\(json\.data\); setResultLocale\(language\)/);
+  assert.match(page, /result && resultLocale === language && \(/);
+  assert.match(page, /result && resultLocale !== language && !loading/);
+  assert.match(page, /t\("pt\.recalculateAfterLanguageChange"\)/);
+});
+
+test("Client and admin marketplace preserve unknown urgency values rather than mislabeling them medium", () => {
+  for (const file of ["apps/web/app/(app)/client/marketplace/page.tsx", "apps/web/app/(app)/admin/marketplace/page.tsx"]) {
+    const page = readFileSync(path.join(root, file), "utf8");
+    assert.match(page, /Object\.hasOwn\(URGENCY_COLORS, urgency\)/);
+    assert.match(page, /: urgency;/);
+    assert.doesNotMatch(page, /Object\.hasOwn\(URGENCY_COLORS, urgency \?\? ""\) \? urgency : "medium"/);
+  }
+});

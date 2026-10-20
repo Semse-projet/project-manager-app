@@ -50,7 +50,8 @@ const CATEGORY_IDS = ["painting", "plumbing", "drywall", "electrical", "hvac", "
 function UrgencyBadge({ urgency }: { urgency: string | null }) {
   const { t } = useLanguage();
   const color = URGENCY_COLORS[urgency ?? "medium"] ?? "#94a3b8";
-  return <span style={{ fontSize: 9, fontWeight: 800, color, background: `${color}20`, padding: "2px 7px", borderRadius: 99 }}>{t(`mp.urgency.${Object.hasOwn(URGENCY_COLORS, urgency ?? "") ? urgency : "medium"}`)}</span>;
+  const label = urgency === null ? t("mp.urgency.medium") : Object.hasOwn(URGENCY_COLORS, urgency) ? t(`mp.urgency.${urgency}`) : urgency;
+  return <span style={{ fontSize: 9, fontWeight: 800, color, background: `${color}20`, padding: "2px 7px", borderRadius: 99 }}>{label}</span>;
 }
 
 function formatBudget(min: number | null, max: number | null, language: LanguagePreference, t: (key: string) => string): string {
