@@ -491,6 +491,10 @@ Crear eventos por cambios de dominio o de consecuencia operativa real.
 - `crew.member_removed`
 - `crew.archived`
 
+## Business OS — preferencia de ubicación (BO-09)
+
+- `location_preference.changed`
+
 ## Business OS — experiencia y atestaciones (BO-12)
 
 - `skill_experience.confirmed`

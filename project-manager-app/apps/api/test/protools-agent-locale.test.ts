@@ -40,3 +40,17 @@ test("ProTools estimate defaults to Spanish for absent or unsupported locale", a
   assert.ok(result.riskFlags.includes("Verificar permiso eléctrico requerido"));
   assert.match(result.agentNote, /No reemplaza inspección local ni licencias requeridas/);
 });
+test("Contractor rate override notes keep USD per hour in ES and EN", async () => {
+  const contractorRate = {
+    async getOverride() {
+      return { laborRatePerHr: 35, materialMultiplier: 1, laborMultiplier: 1, materialMarkup: 0.1 };
+    },
+  };
+  const bus = { register() {} };
+  const agent = new ProToolsAgent(bus as never, undefined, undefined, undefined, contractorRate as never);
+  for (const locale of ["es", "en"] as const) {
+    const result = await agent.estimate({ trade: "electrical", description: "Wiring", area: 100, rooms: 2, userId: "test-user", locale });
+    assert.match(result.agentNote, /\$35\/hr/);
+    assert.match(result.agentNote, locale === "en" ? /Custom rates applied/ : /Tarifas propias aplicadas/);
+  }
+});

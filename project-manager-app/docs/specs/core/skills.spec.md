@@ -69,3 +69,6 @@ Insignias y niveles (pendiente de decisión de producto), licencias y certificac
 
 ## Riesgos
 Que un conteo se lea como competencia: por eso no hay niveles y el aviso viaja con el resumen. Que se comparta de más: el resumen está redactado por construcción y se prueba que no incluye identificadores.
+
+## Capa web (slice `feat/bo-12-ui`)
+`/worker/skills` ("Mis oficios": mis hechos por oficio; generar un código para compartir un resumen, con casilla de consentimiento, oficios elegidos y vigencia; el código se muestra **una sola vez**; lista de resúmenes compartidos y revocar), `/client/skill-attestations` (un gestor de otra empresa pega el código y ve el resumen redactado, con el aviso de que no es licencia ni certificación) y, en `/worker/crew`, los botones **Confirmar trabajo** (con el oficio) y **Rechazar** sobre asignaciones enviadas. Rutas BFF `me/skills/**`, `task-allocations/[id]/skill-review` y `organizations/[orgId]/skill-attestations/redeem`. La API decide permisos, alcance y que nadie revise su propio trabajo; la UI no calcula niveles ni insignias (siguen sin existir).

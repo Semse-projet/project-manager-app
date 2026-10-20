@@ -86,6 +86,8 @@ const T: Record<LanguagePreference, Record<string, string>> = {
     "nav.myTeam": "Mi equipo",
     "nav.dailyReport": "Reporte diario",
     "nav.crewReports": "Reportes de cuadrillas",
+    "nav.mySkills": "Mis oficios",
+    "nav.sharedSkills": "Experiencia compartida",
     "nav.timeTracker": "Time Tracker",
     "nav.evidence": "Evidencia",
     "nav.materials": "Materiales",
@@ -1136,8 +1138,7 @@ const T: Record<LanguagePreference, Record<string, string>> = {
     "contributors.admin.registry.results": "resultado(s)",
     "contributors.admin.registry.prev": "Anterior",
     "contributors.admin.registry.next": "Siguiente",
-
-    // ── ProTools / Marketplace — reconciled PR #970 ────────────────────
+    // ── Marketplace / ProTools / BuildOps / Evidence ES-EN ──
     "pt.title": "ProTools — Estimador de obra",
     "pt.subtitle": "Materiales · Mano de obra · Riesgos · Lista SEMSE",
     "pt.jobType": "TIPO DE TRABAJO",
@@ -1244,7 +1245,6 @@ const T: Record<LanguagePreference, Record<string, string>> = {
     "mp.category.cleaning": "Limpieza",
     "mp.category.general": "General",
 
-    // ── Localized BuildOps and Evidence result cards ────────────────
     "pt.refresh": "Actualizar",
     "pt.buildops.title": "Plan BuildOps",
     "pt.buildops.days": "días",
@@ -1271,6 +1271,7 @@ const T: Record<LanguagePreference, Record<string, string>> = {
     "pt.evidence.paymentBlocked": "sin evidencia completa, el pago permanece bloqueado",
 
     "pt.recalculateAfterLanguageChange": "El estimado anterior está en otro idioma. Calcula de nuevo para actualizar materiales, riesgos y notas.",
+
   },
 
   en: {
@@ -1348,6 +1349,8 @@ const T: Record<LanguagePreference, Record<string, string>> = {
     "nav.myTeam": "My team",
     "nav.dailyReport": "Daily report",
     "nav.crewReports": "Crew reports",
+    "nav.mySkills": "My trades",
+    "nav.sharedSkills": "Shared experience",
     "nav.timeTracker": "Time Tracker",
     "nav.evidence": "Evidence",
     "nav.materials": "Materials",
@@ -2396,8 +2399,7 @@ const T: Record<LanguagePreference, Record<string, string>> = {
     "contributors.admin.registry.results": "result(s)",
     "contributors.admin.registry.prev": "Previous",
     "contributors.admin.registry.next": "Next",
-
-    // ── ProTools / Marketplace — reconciled PR #970 ────────────────────
+    // ── Marketplace / ProTools / BuildOps / Evidence ES-EN ──
     "pt.title": "ProTools — Construction estimator",
     "pt.subtitle": "Materials · Labor · Risks · SEMSE checklist",
     "pt.jobType": "JOB TYPE",
@@ -2504,7 +2506,6 @@ const T: Record<LanguagePreference, Record<string, string>> = {
     "mp.category.cleaning": "Cleaning",
     "mp.category.general": "General",
 
-    // ── Localized BuildOps and Evidence result cards ────────────────
     "pt.refresh": "Refresh",
     "pt.buildops.title": "BuildOps plan",
     "pt.buildops.days": "days",
@@ -2531,6 +2532,7 @@ const T: Record<LanguagePreference, Record<string, string>> = {
     "pt.evidence.paymentBlocked": "payment remains blocked until evidence is complete",
 
     "pt.recalculateAfterLanguageChange": "The previous estimate uses another language. Calculate again to update materials, risks and notes.",
+
   },
 };
 

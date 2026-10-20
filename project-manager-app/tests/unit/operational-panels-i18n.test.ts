@@ -232,3 +232,26 @@ test("Client and admin marketplace preserve unknown urgency values rather than m
     assert.doesNotMatch(page, /Object\.hasOwn\(URGENCY_COLORS, urgency \?\? ""\) \? urgency : "medium"/);
   }
 });
+
+test("Embedded cards ignore outdated locale requests and expose recovery after an API error", () => {
+  for (const file of [
+    "apps/web/components/semse/EvidenceChecklistCard.tsx",
+    "apps/web/components/semse/BuildOpsPlanCard.tsx",
+  ]) {
+    const component = readFileSync(path.join(root, file), "utf8");
+    assert.match(component, /abortRef\.current\?\.abort\(\)/, "previous request must be cancelled");
+    assert.match(component, /signal: controller\.signal/, "request must respect cancellation");
+    assert.match(component, /controller\.signal\.aborted/, "superseded responses must be ignored");
+    assert.match(component, /response\?\.locale === effectiveLocale/, "old-language content must not be rendered");
+    assert.match(component, /return \(\) => \{ abortRef\.current\?\.abort\(\); \}/, "unmount must abort");
+    assert.match(component, /if \(error\) return \(/, "visible error state must be recoverable");
+    assert.match(component, /onClick=\{\(\) => void load\(\)\}/, "error must include a retry button");
+  }
+  const buildops = readFileSync(path.join(root, "apps/web/components/semse/BuildOpsPlanCard.tsx"), "utf8");
+  assert.doesNotMatch(buildops, /\[trade, estimatedHours, effectiveLocale, t\]/, "translation callback must not cause perpetual requests");
+});
+
+test("ProTools contractor hourly rates always show a USD currency symbol", () => {
+  const agent = readFileSync(path.join(root, "apps/api/src/modules/semse-agents/protools.agent.ts"), "utf8");
+  assert.equal(agent.split("($${contractorOverride.laborRatePerHr}/hr,").length - 1, 2);
+});

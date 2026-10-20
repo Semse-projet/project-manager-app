@@ -270,8 +270,8 @@ export class ProToolsAgent {
       checklist,
       confidence:     toolResult ? 0.85 : 0.65,
       agentNote: locale === "en"
-        ? `ProTools estimate for ${input.trade}. ${toolResult ? "Tool-assisted." : "Rules-based — verify quantities on site."} ${contractorOverride ? `Custom rates applied (${contractorOverride.laborRatePerHr}/hr, markup ${(contractorOverride.materialMarkup * 100).toFixed(1)}%).` : ""} Does not replace local inspection or required licensing.`
-        : `Estimado ProTools para ${input.trade}. ${toolResult ? "Asistido por herramientas." : "Basado en reglas — verificar cantidades en sitio."} ${contractorOverride ? `Tarifas propias aplicadas (${contractorOverride.laborRatePerHr}/hr, markup ${(contractorOverride.materialMarkup * 100).toFixed(1)}%).` : ""} No reemplaza inspección local ni licencias requeridas.`,
+        ? `ProTools estimate for ${input.trade}. ${toolResult ? "Tool-assisted." : "Rules-based — verify quantities on site."} ${contractorOverride ? `Custom rates applied ($${contractorOverride.laborRatePerHr}/hr, markup ${(contractorOverride.materialMarkup * 100).toFixed(1)}%).` : ""} Does not replace local inspection or required licensing.`
+        : `Estimado ProTools para ${input.trade}. ${toolResult ? "Asistido por herramientas." : "Basado en reglas — verificar cantidades en sitio."} ${contractorOverride ? `Tarifas propias aplicadas ($${contractorOverride.laborRatePerHr}/hr, markup ${(contractorOverride.materialMarkup * 100).toFixed(1)}%).` : ""} No reemplaza inspección local ni licencias requeridas.`,
     };
   }
 

@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AlertTriangle, Camera, CheckCircle2, FileText, RefreshCw, Shield } from "lucide-react";
 import { useLanguage, type LanguagePreference } from "@/lib/language-context";
 
@@ -31,25 +31,36 @@ export function EvidenceChecklistCard({
 }) {
   const { t, language } = useLanguage();
   const effectiveLocale = locale ?? language;
-  const [data,    setData]    = useState<Checklist | null>(null);
+  const [response, setResponse] = useState<{ locale: LanguagePreference; payload: Checklist } | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const data = response?.locale === effectiveLocale ? response.payload : null;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
 
   const load = useCallback(async () => {
-    setLoading(true); setData(null); setError(false);
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    setLoading(true); setResponse(null); setError(false);
     try {
       const resp = await fetch("/api/semse/agents/evidence-checklist", {
         method: "POST",
         headers: { "content-type": "application/json" },
+        signal: controller.signal,
         body: JSON.stringify({ milestoneTitle, trade, locale: effectiveLocale }),
       });
       const json = await resp.json() as { data: Checklist };
-      if (resp.ok && json.data) setData(json.data);
+      if (controller.signal.aborted) return;
+      if (resp.ok && json.data) setResponse({ locale: effectiveLocale, payload: json.data });
       else setError(true);
-    } catch { setError(true); } finally { setLoading(false); }
+    } catch { if (!controller.signal.aborted) setError(true); }
+    finally { if (!controller.signal.aborted) setLoading(false); }
   }, [milestoneTitle, trade, effectiveLocale]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    void load();
+    return () => { abortRef.current?.abort(); };
+  }, [load]);
 
   if (loading && !data) return (
     <div style={{ padding: "12px 14px", background: "var(--surface)", borderRadius: 10, fontSize: 12, color: "var(--muted)" }}>
@@ -57,7 +68,15 @@ export function EvidenceChecklistCard({
     </div>
   );
 
-  if (error) return <div role="alert" style={{ fontSize: 12, color: "#fca5a5" }}>{t("pt.evidence.loadFailed")}</div>;
+  if (error) return (
+    <div role="alert" style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", background: "var(--surface)", borderRadius: 10 }}>
+      <span style={{ fontSize: 12, color: "#fca5a5", flex: 1 }}>{t("pt.evidence.loadFailed")}</span>
+      <button type="button" onClick={() => void load()} aria-label={t("pt.refresh")}
+        style={{ border: "1px solid var(--border)", borderRadius: 8, padding: "6px 10px", color: "var(--ink)", background: "var(--surface)", cursor: "pointer" }}>
+        <RefreshCw size={13} />
+      </button>
+    </div>
+  );
   if (!data) return null;
 
   const riskColor = RISK_COLORS[data.disputeRisk] ?? "#94a3b8";

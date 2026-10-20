@@ -1120,6 +1120,60 @@ export async function respondToOffer(offerId: string, decision: "ACCEPT" | "DECL
   return mutateSemse(`/api/semse/offers/${offerId}/respond`, { decision });
 }
 
+export type SkillTradeView = {
+  trade: string;
+  confirmedCount: number;
+  evidenceLevel: string;
+  since: string;
+  until: string;
+};
+
+export type SkillSummaryView = {
+  generatedAt: string;
+  disclaimer: string;
+  trades: SkillTradeView[];
+};
+
+export type SkillAttestationListItem = {
+  attestationId: string;
+  status: string;
+  expiresAt: string;
+  revokedAt: string | null;
+  contentHash: string;
+  createdAt: string;
+};
+
+export async function fetchMySkills(): Promise<SkillSummaryView> {
+  return fetchSemse<SkillSummaryView>("/api/semse/me/skills");
+}
+
+export async function fetchMySkillAttestations(): Promise<SkillAttestationListItem[]> {
+  return fetchSemse<SkillAttestationListItem[]>("/api/semse/me/skills/attestations");
+}
+
+export async function createSkillAttestation(input: {
+  consent: true;
+  trades?: string[];
+  expiresInDays?: number;
+}): Promise<{ attestationId: string; token: string; expiresAt: string; summary: SkillSummaryView }> {
+  return mutateSemse("/api/semse/me/skills/attestations", input);
+}
+
+export async function revokeSkillAttestation(attestationId: string): Promise<{ status: string }> {
+  return mutateSemse(`/api/semse/me/skills/attestations/${attestationId}/revoke`, {});
+}
+
+export async function reviewAllocationSkill(
+  allocationId: string,
+  input: { decision: "CONFIRM" | "REJECT"; trade?: string; note?: string }
+): Promise<{ status: string }> {
+  return mutateSemse(`/api/semse/task-allocations/${allocationId}/skill-review`, input);
+}
+
+export async function redeemSkillAttestation(orgId: string, token: string): Promise<SkillSummaryView> {
+  return mutateSemse(`/api/semse/organizations/${orgId}/skill-attestations/redeem`, { token });
+}
+
 export type DailyReportWorker = {
   userId: string;
   workedMinutes: number;
