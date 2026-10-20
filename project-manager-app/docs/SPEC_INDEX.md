@@ -92,7 +92,7 @@ retroactiva.
 | [communications.rename-fase2](specs/communications/communications-rename-fase2.spec.md) | communications | APPROVED | legacy | legacy | legacy | legacy | legacy | medium | no | 2026-07-19 |
 | [core.account-center](specs/core/account-center.spec.md) | core | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-25 |
 | [core.business-access-foundation](specs/core/business-access-foundation.spec.md) | core | APPROVED | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | yes | 2026-10-12 |
-| [core.business-offers](specs/core/business-offers.spec.md) | core | REVIEW | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | yes | 2026-10-20 |
+| [core.business-offers](specs/core/business-offers.spec.md) | core | APPROVED | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | yes | 2026-10-20 |
 | [core.communications-canonical-model](specs/core/communications-canonical-model.spec.md) | core | APPROVED | legacy | legacy | legacy | legacy | legacy | medium | no | 2026-07-19 |
 | [core.crews-worksites](specs/core/crews-worksites.spec.md) | core | DRAFT | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-10-18 |
 | [core.daily-reports](specs/core/daily-reports.spec.md) | core | DRAFT | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-10-18 |
@@ -107,7 +107,7 @@ retroactiva.
 | [core.knowledge-contributor-reward-hardening](specs/core/knowledge-contributor-reward-hardening.spec.md) | core | APPROVED | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-09-19 |
 | [core.knowledge-contributor-transcript-observation](specs/core/knowledge-contributor-transcript-observation.spec.md) | core | APPROVED | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | yes | 2026-09-17 |
 | [core.labor-policy](specs/core/labor-policy.spec.md) | core | DRAFT | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | yes | 2026-10-18 |
-| [core.org-invitations](specs/core/org-invitations.spec.md) | core | REVIEW | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | yes | 2026-10-20 |
+| [core.org-invitations](specs/core/org-invitations.spec.md) | core | APPROVED | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | yes | 2026-10-20 |
 | [core.org-membership-status](specs/core/org-membership-status.spec.md) | core | DRAFT | COMPLETE | PASS | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | yes | 2026-09-18 |
 | [core.originador-referral-program](specs/core/originador-referral-program.spec.md) | core | APPROVED | IN_PROGRESS | PASS | MERGED | DEPLOYED | CANARY | critical | yes | 2026-10-12 |
 | [core.preferred-organization-context](specs/core/preferred-organization-context.spec.md) | core | DRAFT | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | low | no | 2026-09-18 |

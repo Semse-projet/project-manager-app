@@ -40,6 +40,8 @@ test("all static operational panel translation keys exist in both languages", ()
     "apps/web/components/semse/CrowdDecisionBadge.tsx",
     "apps/web/app/(app)/client/dashboard/page.tsx",
     "apps/web/app/(app)/worker/dashboard/page.tsx",
+    "apps/web/app/(app)/admin/dashboard/page.tsx",
+    "apps/web/app/(app)/admin/mission-control/page.tsx",
   ];
   const required = new Set(["nav.workspace"]);
   for (const filename of files) {
@@ -70,8 +72,69 @@ test("all static operational panel translation keys exist in both languages", ()
   for (const status of ["locked", "pending_review", "released", "disputed"]) {
     required.add(`crowd.status.${status}`);
   }
+  for (const source of ["signal", "event", "agent_run", "approval", "loop", "incident", "service_health", "worker_queue"]) {
+    required.add(`mc.source.${source}`);
+  }
+  for (const severity of ["critical", "high", "medium", "low", "info"]) {
+    required.add(`mc.severity.${severity}`);
+  }
+  for (const status of ["open", "acknowledged", "failed", "dead_letter", "pending_approval"]) {
+    required.add(`mc.status.${status}`);
+  }
+  for (const status of ["HEALTHY", "ATTENTION", "DEGRADED"]) {
+    required.add(`mc.pageStatus.${status}`);
+  }
+  for (const state of ["connecting", "connected", "degraded"]) {
+    required.add(`mc.live.${state}`);
+  }
+  for (const action of ["ACKNOWLEDGE", "RESOLVE", "DISMISS", "PAUSE", "RESUME", "RETRY", "REQUEUE", "REPLAY", "ESCALATE"]) {
+    required.add(`mc.action.${action}`);
+  }
+  for (const status of ["RUNNING", "SUCCEEDED", "FAILED", "NO_OP"]) {
+    required.add(`mc.receiptStatus.${status}`);
+  }
   for (const key of required) {
     assert.ok(es.has(key), `Missing Spanish translation: ${key}`);
     assert.ok(en.has(key), `Missing English translation: ${key}`);
   }
+});
+
+test("admin demo fallbacks and Mission Control actions remain safely localized", () => {
+  const admin = readFileSync(path.join(root, "apps/web/app/(app)/admin/dashboard/page.tsx"), "utf8");
+  const mission = readFileSync(path.join(root, "apps/web/app/(app)/admin/mission-control/page.tsx"), "utf8");
+
+  assert.match(
+    admin,
+    /NEXT_PUBLIC_SEMSE_DEMO_LOGIN_ENABLED === "true"/,
+    "demo alerts require an explicit public demo-mode signal",
+  );
+  assert.match(
+    admin,
+    /apiError && explicitDemoMode \? demoAlerts\(t\) : \[\]/,
+    "API errors alone must never fabricate sample alerts",
+  );
+  assert.match(
+    admin,
+    /!loading && !apiError && disputeJobs\.length === 0/,
+    "the clean empty-alert state must not render while loading",
+  );
+  assert.match(
+    mission,
+    /t\(`mc\.action\.\$\{draft\.action\}`\)/,
+    "governed-action headings must localize the enum for display",
+  );
+  assert.match(
+    mission,
+    /action: draft\.action/,
+    "the raw action enum must still be submitted unchanged to the API",
+  );
+});
+
+
+test("Mission Control status requires an actual successful response, not a loading placeholder", () => {
+  const source = readFileSync(path.join(root, "apps/web/app/(app)/admin/mission-control/page.tsx"), "utf8");
+  for (const safetyGuard of ["const hasVerifiedPayload = !loading && accessState === \"ready\" && !error && payload?.enabled === true","const pageStatus = !hasVerifiedPayload","{pageStatus && (","{hasVerifiedPayload && (","if (!loading && accessState === \"error\")","useState<\"connecting\" | \"connected\" | \"degraded\">(\"connecting\")","if (!exceptionsBody.data.enabled)"]) {
+    assert.ok(source.includes(safetyGuard), "Missing MC fail-closed loading/error guard: " + safetyGuard);
+  }
+  assert.ok(!source.includes('useState<"connected" | "degraded">("connected")'));
 });

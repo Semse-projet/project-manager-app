@@ -4,7 +4,7 @@ title: "Invitaciones personales a una organización (BO-01)"
 domain: "core"
 sdd_version: "2.0"
 version: "0.2"
-status: "REVIEW"
+status: "APPROVED"
 owner: "semse-core"
 risk: "critical"
 code_status: "IN_PROGRESS"
@@ -80,3 +80,7 @@ Base inspeccionada: `a03bb2b5a211c286874a9f08438b78f29a8e2de5`. Fuente padre: `d
 Flags existentes: `SEMSE_ORG_INVITATIONS_ENABLED`, `SEMSE_INVITATION_EMAIL_DELIVERY`, `SEMSE_INVITED_REGISTRATION_ENABLED`. No modificar sus valores productivos en esta fase.
 
 Merge/deploy requieren contrato formal autorizado, pruebas dirigidas y CI del SHA actual. Activación exige canary sintético A/B y verificación de límites, entrega de correo y aislamiento. Rollback: desactivar los flags afectados y revertir el código compatible; no borrar invitaciones, Memberships o auditoría ya creadas. El rollback no deshace aceptaciones ni elimina exposición histórica de URLs.
+
+## Aprobación del propietario — 2026-10-20
+
+Samuel aprobó expresamente los contratos v0.2 de #1017 y la propuesta de propietario explícito: «También apruebo los contratos y corrige todo los errores». Autoriza implementar y probar la remediación descrita; no constituye revisión independiente, aprobación legal ni activación productiva. Las menciones REVIEW anteriores describen el checkpoint documental previo y quedan sustituidas por esta aprobación.

@@ -4,7 +4,7 @@ title: "Ofertas internas y engagement empresa-profesional (BO-05)"
 domain: "core"
 sdd_version: "2.0"
 version: "0.2"
-status: "REVIEW"
+status: "APPROVED"
 owner: "semse-core"
 risk: "critical"
 code_status: "IN_PROGRESS"
@@ -99,3 +99,7 @@ Migración histórica `20261017120000_business_offers` ya versionada; no editarl
 3. Revisión independiente y aceptación del contrato legal aplicable antes de personas reales; legalConfirmed:true no reemplaza ese requisito.
 4. Canary sintético, verificación de flags/rollback y reconciliación de migraciones antes de activar.
 5. BO-S1 firma sigue planificado y no forma parte del cierre BO-05.
+
+## Aprobación del propietario — 2026-10-20
+
+Samuel aprobó expresamente los contratos v0.2 de #1017 y la propuesta de propietario explícito: «También apruebo los contratos y corrige todo los errores». Autoriza implementar y probar la remediación descrita; no constituye revisión independiente, aprobación legal ni activación productiva. Las menciones REVIEW anteriores describen el checkpoint documental previo y quedan sustituidas por esta aprobación.
