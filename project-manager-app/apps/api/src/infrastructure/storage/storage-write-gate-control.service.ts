@@ -1,9 +1,9 @@
-import { Injectable, ServiceUnavailableException } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import { createHash } from "node:crypto";
 import type { Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service.js";
-import { isProductionStorage } from "./production-storage-guard.js";
 import { StorageWriteGateCoordinator } from "./storage-write-gate-coordinator.js";
+import { assertStorageWriteGateControl, type StorageWriteGateControlLevel } from "./storage-write-gate-mode.js";
 import { resolveStorageWriteGateScope } from "./storage-write-gate-scope.js";
 import {
   StorageWriteGateBlockedError,
@@ -63,15 +63,8 @@ export class StorageWriteGateControlService {
     private readonly transitions: StorageWriteGateTransitionService,
   ) {}
 
-  private assertStagingControlPlane(): void {
-    if (
-      process.env.SEMSE_STORAGE_WRITE_GATE_MODE !== "staging" ||
-      isProductionStorage(process.env)
-    ) {
-      throw new ServiceUnavailableException(
-        "Storage write gate control plane is available only in approved non-production staging",
-      );
-    }
+  private assertControlPlane(level: StorageWriteGateControlLevel): void {
+    assertStorageWriteGateControl(level, process.env);
   }
 
   private get scope(): string {
@@ -121,7 +114,7 @@ export class StorageWriteGateControlService {
     coverageDigestPresent?: boolean;
     recoveryWindowDigestPresent?: boolean;
   }> {
-    this.assertStagingControlPlane();
+    this.assertControlPlane("observe");
     const rows = await this.prisma.$queryRaw<Array<{
       phase: StorageWriteGatePhase;
       epoch: bigint;
@@ -170,7 +163,7 @@ export class StorageWriteGateControlService {
     phase: StorageWriteGatePhase;
     epoch: string;
   }> {
-    this.assertStagingControlPlane();
+    this.assertControlPlane("provision");
     validateMetadata(meta);
     const requestDigest = digestJson({
       action: "PROVISION",
@@ -241,7 +234,7 @@ export class StorageWriteGateControlService {
     expectedEpoch: bigint;
     action: StorageWriteGateAction;
   }): Promise<{phase: StorageWriteGatePhase; epoch: string}> {
-    this.assertStagingControlPlane();
+    this.assertControlPlane("mutate");
     validateMetadata(input);
     const requestDigest = digestJson({
       action: input.action,
@@ -270,7 +263,7 @@ export class StorageWriteGateControlService {
     expectedEpoch: bigint;
     coverageDigest: string;
   }): Promise<{phase: StorageWriteGatePhase; epoch: string}> {
-    this.assertStagingControlPlane();
+    this.assertControlPlane("mutate");
     validateMetadata(input);
     validateDigest(input.coverageDigest, "invalid_coverage_digest");
     const requestDigest = digestJson({
@@ -334,7 +327,7 @@ export class StorageWriteGateControlService {
     expectedEpoch: bigint;
     windowEvidenceDigest: string;
   }): Promise<{phase: StorageWriteGatePhase; epoch: string}> {
-    this.assertStagingControlPlane();
+    this.assertControlPlane("mutate");
     validateMetadata(input);
     validateDigest(input.windowEvidenceDigest, "invalid_window_evidence_digest");
     const requestDigest = digestJson({
@@ -402,7 +395,7 @@ export class StorageWriteGateControlService {
     writerInstanceId: string;
     terminationEvidenceDigest: string;
   }): Promise<{phase: StorageWriteGatePhase; epoch: string; state: "RECOVERED_FENCED"}> {
-    this.assertStagingControlPlane();
+    this.assertControlPlane("mutate");
     validateMetadata(input);
     validateDigest(input.terminationEvidenceDigest, "invalid_termination_evidence_digest");
     if (!/^[0-9a-f-]{36}$/.test(input.operationId)) {
@@ -506,7 +499,7 @@ export class StorageWriteGateControlService {
   }
 
   async activeOperationCount(): Promise<number> {
-    this.assertStagingControlPlane();
+    this.assertControlPlane("observe");
     return (await this.coordinator.inspect(this.scope)).activeOperations;
   }
 }

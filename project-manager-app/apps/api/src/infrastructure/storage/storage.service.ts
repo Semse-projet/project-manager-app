@@ -11,6 +11,7 @@ import { StorageWriteOperationBoundary } from "./storage-write-operation-boundar
 import type { StorageWriteKind, StorageWriteTicket } from "./storage-write-gate-coordinator.js";
 import { StorageWriteGateBlockedError } from "./storage-write-gate-state.js";
 import { resolveStorageWriteGateScope } from "./storage-write-gate-scope.js";
+import { storageWriteGateRuntimeEnabled } from "./storage-write-gate-mode.js";
 import { assertProductionStorageConfiguration, assertProductionStorageMount, isProductionStorage } from "./production-storage-guard.js";
 import {
   resolveSignedGetMode,
@@ -62,19 +63,15 @@ export class StorageService {
   constructor(@Optional() private readonly writeBoundary?: StorageWriteOperationBoundary) {}
 
   /**
-   * T-008: staging-only enforcement of Store/Delete/Plan.
+   * T-008 runtime writer enforcement.
    *
-   * Default "off" retains the existing production behavior; staging never
-   * silently becomes a fully certified FROZEN system. Enabling it in a
-   * production process is explicitly rejected until Evidence, multipart,
-   * other writers and the operator control plane are instrumented.
+   * Default "off" retains legacy behavior. "staging" is accepted only outside
+   * production. "production" is accepted only in production and is intended
+   * for an OPEN-only canary after the durable gate row has been provisioned.
+   * Any mode/environment mismatch fails closed.
    */
-  private stagingBoundary(): StorageWriteOperationBoundary | null {
-    const mode = process.env.SEMSE_STORAGE_WRITE_GATE_MODE ?? "off";
-    if (mode === "off") return null;
-    if (mode !== "staging" || isProductionStorage(process.env)) {
-      throw new ServiceUnavailableException("Storage gate mode is not approved for production");
-    }
+  private configuredBoundary(): StorageWriteOperationBoundary | null {
+    if (!storageWriteGateRuntimeEnabled(process.env)) return null;
     if (!this.writeBoundary) {
       throw new ServiceUnavailableException("Storage gate dependency unavailable");
     }
@@ -105,7 +102,7 @@ export class StorageService {
   }
 
   async assertUploadPlanOpen(): Promise<void> {
-    const boundary = this.stagingBoundary();
+    const boundary = this.configuredBoundary();
     if (!boundary) return;
     const current = this.currentWriteTicket();
     if (current) {
@@ -126,7 +123,7 @@ export class StorageService {
     work: () => Promise<T>,
     options: { proveCleanFailure?: (cause: unknown) => Promise<void> } = {},
   ): Promise<T> {
-    const boundary = this.stagingBoundary();
+    const boundary = this.configuredBoundary();
     if (!boundary) return work();
 
     const current = this.currentWriteTicket();
@@ -182,7 +179,7 @@ export class StorageService {
     stream: Readable;
     contentType: string;
   }): Promise<StoredFile> {
-    const boundary = this.stagingBoundary();
+    const boundary = this.configuredBoundary();
     if (!boundary) return this.storeUngated(input);
 
     const current = this.currentWriteTicket();
@@ -341,7 +338,7 @@ export class StorageService {
   }
 
   async delete(key: string): Promise<void> {
-    const boundary = this.stagingBoundary();
+    const boundary = this.configuredBoundary();
     if (!boundary) return this.deleteUngated(key);
 
     const current = this.currentWriteTicket();
