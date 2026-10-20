@@ -91,7 +91,7 @@ export default function ProToolsPage() {
       const resp = await fetch("/api/semse/agents/protools/estimate", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ trade, description, area: Number(area), rooms: Number(rooms) }),
+        body: JSON.stringify({ trade, description, area: Number(area), rooms: Number(rooms), locale: language }),
       });
       // A non-JSON body (e.g. a 404/502 HTML page) previously crashed
       // resp.json() with a raw parse error ("Unexpected token < ...")
