@@ -113,9 +113,13 @@
     "spec:index": "node ./scripts/spec-index.mjs",
     "spec:index:check": "node ./scripts/spec-index.mjs --check",
     "spec:coverage": "node ./scripts/spec-coverage.mjs",
-    "spec:audit-plan-coverage": "node ./scripts/audit-plan-spec-coverage.mjs"
+    "spec:audit-plan-coverage": "node ./scripts/audit-plan-spec-coverage.mjs",
+    "i18n:validate": "node scripts/i18n-validate.mjs",
+    "i18n:critical": "node scripts/i18n-validate.mjs --critical",
+    "i18n:test": "node --test tests/unit/i18n-validator.test.mjs"
   },
   "devDependencies": {
+    "@formatjs/icu-messageformat-parser": "3.5.22",
     "@jridgewell/sourcemap-codec": "^1.6.0",
     "@playwright/test": "^1.63.0",
     "@semse/agents": "workspace:*",

@@ -15,6 +15,8 @@ type StoredOrg = {
 };
 
 type StoredMembership = {
+  status?: string;
+  role?: { key: string };
   userId: string;
   orgId: string;
   roleId: string;
@@ -31,6 +33,8 @@ export type OrgRecord = {
 };
 
 export type MembershipRecord = {
+  status?: string;
+  roleKey?: string;
   userId: string;
   orgId: string;
   roleId: string;
@@ -118,6 +122,7 @@ export class OrganizationsRepository {
         org: { tenantId: input.tenantId },
         status: "ACTIVE"
       },
+      include: { role: { select: { key: true } } },
       orderBy: { createdAt: "desc" }
     })) as StoredMembership[];
 
@@ -136,6 +141,7 @@ export class OrganizationsRepository {
         userId: input.targetUserId,
         org: { tenantId: input.tenantId }
       },
+      include: { role: { select: { key: true } } },
       orderBy: { createdAt: "desc" }
     })) as StoredMembership[];
 
@@ -168,6 +174,8 @@ export class OrganizationsRepository {
 
   private toMembershipRecord(m: StoredMembership): MembershipRecord {
     return {
+      ...(m.status ? { status: m.status } : {}),
+      ...(m.role ? { roleKey: m.role.key } : {}),
       userId: m.userId,
       orgId: m.orgId,
       roleId: m.roleId,
@@ -175,4 +183,5 @@ export class OrganizationsRepository {
     };
   }
 }
+
 

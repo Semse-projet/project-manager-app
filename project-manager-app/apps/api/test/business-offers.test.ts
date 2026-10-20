@@ -12,6 +12,8 @@ function makeWorld() {
   const offers: Row[] = [];
   const engagements: Row[] = [];
   const audits: Row[] = [];
+  const ownerships: Row[] = [{ orgId: "orgA", tenantId: "t1", ownerUserId: "owner" }];
+  const faults = { audit: false };
   let seq = 0;
   const memberships: Row[] = [
     { userId: "owner", orgId: "orgA", status: "ACTIVE", role: { key: "CLIENT" }, org: { tenantId: "t1" } },
@@ -39,6 +41,7 @@ function makeWorld() {
   const offerApi = table(offers, () => ({ status: "SENT", startsAt: null, compensationNote: null, respondedAt: null, createdAt: new Date() }));
   const engagementApi = table(engagements, () => ({ status: "PENDING_CONFIRMATION" }));
   const prisma: any = {
+    orgOwnership: table(ownerships, () => ({})),
     businessOffer: offerApi,
     businessEngagement: engagementApi,
     membership: {
@@ -48,10 +51,17 @@ function makeWorld() {
           (where.org ? m.org.tenantId === where.org.tenantId : true));
       }
     },
-    async $transaction(fn: any) { return fn({ businessOffer: offerApi, businessEngagement: engagementApi }); }
+    async $transaction(fn: any) {
+      const before = [offers, engagements, audits, ownerships].map(rows => structuredClone(rows));
+      try { return await fn(prisma); }
+      catch (error) {
+        [offers, engagements, audits, ownerships].forEach((rows, i) => rows.splice(0, rows.length, ...before[i]));
+        throw error;
+      }
+    }
   };
-  const audit: any = { async append(entry: Row) { audits.push(entry); } };
-  return { service: new OffersService(prisma, audit), offers, engagements, audits, memberships };
+  const audit: any = { async append(entry: Row) { if (faults.audit) throw new Error("audit unavailable"); audits.push(entry); } };
+  return { service: new OffersService(prisma, audit), offers, engagements, audits, memberships, ownerships, faults };
 }
 
 const owner = { tenantId: "t1", orgId: "orgA", userId: "owner", roles: ["CLIENT"] };
@@ -192,4 +202,73 @@ test("OPEN-03: la clasificación no se pide, no se guarda y no se expone", async
   const offer = await w.service.create(owner, "orgA", "r", input());
   assert.equal("classification" in offer, false);
   assert.equal(w.offers[0].classificationDeclared, "NOT_RECORDED");
+});
+
+
+
+test("owner binding: a second ACTIVE CLIENT cannot manage or read compensation", async () => {
+  const w = makeWorld();
+  const offer = await w.service.create(owner, "orgA", "r", { ...input(), compensationNote: "private" });
+  await w.service.respond({ userId: "ana" }, offer.offerId, "ACCEPT", "r");
+  w.memberships.push({ userId: "other_client", orgId: "orgA", status: "ACTIVE", role: { key: "CLIENT" }, org: { tenantId: "t1" } });
+  const impostor = { ...owner, userId: "other_client" };
+  for (const operation of [
+    () => w.service.create(impostor, "orgA", "r", input("bob")),
+    () => w.service.list(impostor, "orgA"),
+    () => w.service.revoke(impostor, "orgA", offer.offerId, "r"),
+    () => w.service.confirm(impostor, "orgA", offer.offerId, "r"),
+    () => w.service.endEngagement(impostor, "orgA", w.engagements[0].id, "reason", "r")
+  ]) await assert.rejects(operation(), { status: 403 });
+  assert.equal(w.offers.length, 1);
+  assert.equal(w.engagements[0].status, "PENDING_CONFIRMATION");
+});
+
+test("owner binding: legacy missing binding and foreign tenant binding fail closed", async () => {
+  const w = makeWorld();
+  w.ownerships.length = 0;
+  await assert.rejects(w.service.list(owner, "orgA"), { status: 403 });
+  w.ownerships.push({ orgId: "orgA", tenantId: "t2", ownerUserId: "owner" });
+  await assert.rejects(w.service.create(owner, "orgA", "r", input()), { status: 403 });
+  assert.equal(w.offers.length, 0);
+});
+
+test("offer state and audit roll back together when audit fails", async () => {
+  const w = makeWorld();
+  w.faults.audit = true;
+  await assert.rejects(w.service.create(owner, "orgA", "r", input()), /audit unavailable/);
+  assert.equal(w.offers.length, 0);
+  w.faults.audit = false;
+  const offer = await w.service.create(owner, "orgA", "r", input());
+  w.faults.audit = true;
+  await assert.rejects(w.service.respond({ userId: "ana" }, offer.offerId, "ACCEPT", "r"), /audit unavailable/);
+  assert.equal(w.offers[0].status, "SENT");
+  assert.equal(w.engagements.length, 0);
+  await assert.rejects(w.service.revoke(owner, "orgA", offer.offerId, "r"), /audit unavailable/);
+  assert.equal(w.offers[0].status, "SENT");
+});
+
+test("verified owner provisioning requires active scoped OPS, target CLIENT, no transfer, and atomic audit", async () => {
+  const w = makeWorld();
+  const request = { ownerUserId: "owner", evidenceRef: "test://evidence", reason: "Verified synthetic fixture", ticket: "QA-1" };
+  await assert.rejects(w.service.verifyOwner(owner, "orgA", "r", request), { status: 403 });
+  const ops = { ...owner, userId: "ops", roles: ["OPS_ADMIN"] };
+  w.memberships.push({userId: "ops", orgId:"orgA", status:"ACTIVE", role:{key:"OPS_ADMIN"}, org:{tenantId:"t1"}});
+  await assert.rejects(w.service.verifyOwner(ops, "orgB", "r", request), { status:404 });
+  await assert.rejects(w.service.verifyOwner(ops, "orgA", "r", {...request,ownerUserId:"ana"}), {status:422});
+  await assert.rejects(w.service.verifyOwner(ops, "orgA", "r", request), {status:409});
+  w.ownerships.splice(0);w.faults.audit=true;
+  await assert.rejects(w.service.verifyOwner(ops,"orgA","r",request),/audit unavailable/);
+  assert.equal(w.ownerships.length,0);w.faults.audit=false;
+  assert.deepEqual(await w.service.verifyOwner(ops,"orgA","r",request),{orgId:"orgA",ownerUserId:"owner"});
+  assert.equal(w.audits.at(-1)?.action,"organization.owner_verified");
+});
+
+test("audit failure rolls back engagement activation and ending",async()=>{
+ const w=makeWorld();const offer=await w.service.create(owner,"orgA","r",input());
+ await w.service.respond({userId:"ana"},offer.offerId,"ACCEPT","r");w.faults.audit=true;
+ await assert.rejects(w.service.confirm(owner,"orgA",offer.offerId,"r"),/audit unavailable/);
+ assert.equal(w.engagements[0].status,"PENDING_CONFIRMATION");w.faults.audit=false;
+ await w.service.confirm(owner,"orgA",offer.offerId,"r");w.faults.audit=true;
+ await assert.rejects(w.service.endEngagement(owner,"orgA",w.engagements[0].id,"Actual reason","r"),/audit unavailable/);
+ assert.equal(w.engagements[0].status,"ACTIVE");
 });

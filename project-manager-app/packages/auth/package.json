@@ -20,6 +20,11 @@
       "types": "./dist/rbac.d.ts",
       "import": "./dist/rbac.js",
       "default": "./dist/rbac.js"
+    },
+    "./invitation-proxy": {
+      "types": "./dist/invitation-proxy.d.ts",
+      "import": "./dist/invitation-proxy.js",
+      "default": "./dist/invitation-proxy.js"
     }
   },
   "scripts": {

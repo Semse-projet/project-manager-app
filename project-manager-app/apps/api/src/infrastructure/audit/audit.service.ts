@@ -25,14 +25,14 @@ export class AuditService {
     private readonly actorContextService: ActorContextService
   ) {}
 
-  async append(entry: AuditEntry): Promise<void> {
-    await this.actorContextService.ensureActorContext({
+  async append(entry: AuditEntry, tx?: Prisma.TransactionClient): Promise<void> {
+    if (!tx) await this.actorContextService.ensureActorContext({
       tenantId: entry.tenantId,
       orgId: entry.orgId,
       userId: entry.actorUserId
     });
 
-    await this.prisma.auditLog.create({
+    await (tx ?? this.prisma).auditLog.create({
       data: {
         id: `aud_${crypto.randomUUID()}`,
         tenantId: entry.tenantId,
@@ -59,3 +59,4 @@ function toPrismaJson(value: Record<string, unknown> | undefined): Prisma.InputJ
 
   return value as Prisma.InputJsonValue;
 }
+

@@ -1,7 +1,7 @@
 "use client";
 
-import { Suspense, useEffect, useState, type FormEvent } from "react";
-import { useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useRef, useState, type FormEvent } from "react";
+import { consumeInvitationToken } from "../../../../lib/invitation-token";
 import { useLanguage } from "../../../../lib/language-context";
 import { acceptInvitation, previewInvitation } from "../../../semse-api";
 
@@ -33,7 +33,7 @@ const COPY = {
 function AcceptInvitation() {
   const { language } = useLanguage();
   const c = COPY[language];
-  const token = useSearchParams().get("token") ?? "";
+  const tokenRef = useRef<string | null>(null);
   const [company, setCompany] = useState<string | null>(null);
   const [state, setState] = useState<"loading" | "ready" | "invalid" | "done">("loading");
   const [hasSession, setHasSession] = useState(false);
@@ -46,21 +46,30 @@ function AcceptInvitation() {
   }, []);
 
   useEffect(() => {
-    if (token.length < 10) {
+    if (tokenRef.current === null) {
+      tokenRef.current = consumeInvitationToken(new URL(window.location.href), path => window.history.replaceState(null, "", path)) ?? "";
+    }
+    const token = tokenRef.current;
+    if (!token) {
       setState("invalid");
       return;
     }
+    let alive = true;
     previewInvitation(token)
       .then((preview) => {
+        if (!alive) return;
         setCompany(preview.companyName);
         setState("ready");
       })
-      .catch(() => setState("invalid"));
-  }, [token]);
+      .catch(() => { if (alive) setState("invalid"); });
+    return () => { alive = false; };
+  }, []);
 
   async function accept() {
     try {
-      await acceptInvitation(token);
+      if (busy || !tokenRef.current) return;
+      setBusy(true);
+      await acceptInvitation(tokenRef.current);
       setState("done");
     } catch {
       setState("invalid");
@@ -74,7 +83,7 @@ function AcceptInvitation() {
       const response = await fetch("/api/semse/invitations/register", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ token, name: name.trim(), password })
+        body: JSON.stringify({ token: tokenRef.current, name: name.trim(), password })
       });
       const result = (await response.json().catch(() => ({}))) as { ok?: boolean; redirectTo?: string };
       if (!response.ok || !result.ok) {
@@ -140,3 +149,4 @@ export default function AcceptInvitationPage() {
     </Suspense>
   );
 }
+

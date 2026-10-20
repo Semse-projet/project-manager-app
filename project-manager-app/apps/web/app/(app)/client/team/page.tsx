@@ -1,12 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { invitationLink } from "../../../../lib/invitation-token";
 import { useLanguage } from "../../../../lib/language-context";
 import {
   cancelOrgInvitation,
   createOrgInvitation,
   fetchOrgInvitations,
-  fetchOrganizations,
+  fetchActiveOrganization,
   resendOrgInvitation,
   SemseApiError,
   type OrgInvitationView
@@ -18,6 +19,9 @@ const COPY = {
     intro: "Invita a un trabajador por correo. Su acceso solo se crea cuando él acepta con su propia cuenta.",
     email: "Correo del trabajador",
     invite: "Invitar",
+    company: "Empresa",
+    reason: "Motivo de cancelación",
+    error: "No se pudo completar la operación. Verifica tu empresa e inténtalo de nuevo.",
     none: "No hay invitaciones todavía.",
     cancel: "Cancelar",
     resend: "Reenviar",
@@ -31,6 +35,9 @@ const COPY = {
     intro: "Invite a worker by email. Access is only created after they accept with their own account.",
     email: "Worker email",
     invite: "Invite",
+    company: "Company",
+    reason: "Cancellation reason",
+    error: "The operation could not be completed. Check your company and try again.",
     none: "No invitations yet.",
     cancel: "Cancel",
     resend: "Resend",
@@ -44,49 +51,65 @@ const COPY = {
 export default function TeamInvitationsPage() {
   const { language } = useLanguage();
   const c = COPY[language];
+  const requestSeq = useRef(0);
+  const activeOrgRef = useRef<string | null>(null);
   const [orgId, setOrgId] = useState<string | null>(null);
+  const [orgName, setOrgName] = useState("");
+  const [cancelReason, setCancelReason] = useState("");
   const [rows, setRows] = useState<OrgInvitationView[]>([]);
   const [email, setEmail] = useState("");
   const [link, setLink] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const inviteLink = (token: string) => `${window.location.origin}/invitations/accept?token=${encodeURIComponent(token)}`;
+  const inviteLink = (token: string) => invitationLink(window.location.origin, token);
   const describe = useCallback(
-    (error: unknown) => (error instanceof SemseApiError && error.status === 404 ? c.unavailable : String((error as Error).message)),
-    [c.unavailable]
+    (error: unknown) => (error instanceof SemseApiError && error.status === 404 ? c.unavailable : c.error),
+    [c.unavailable, c.error]
   );
 
   const load = useCallback(
     async (id: string) => {
+      const sequence = ++requestSeq.current;
       try {
-        setRows(await fetchOrgInvitations(id));
+        const rows = await fetchOrgInvitations(id);
+        if (sequence !== requestSeq.current) return;
+        setRows(rows);
         setMessage(null);
       } catch (error) {
-        setMessage(describe(error));
+        if (sequence === requestSeq.current) setMessage(describe(error));
       }
     },
     [describe]
   );
 
   useEffect(() => {
+    let active = true;
+
     void (async () => {
       try {
-        const orgs = await fetchOrganizations();
-        const id = typeof orgs[0]?.id === "string" ? (orgs[0].id as string) : null;
+        const org = await fetchActiveOrganization();
+        if (!active) return;
+        const id = org.id;
+        if (activeOrgRef.current && activeOrgRef.current !== id) { setRows([]); setLink(null); setEmail(""); setCancelReason(""); }
+        activeOrgRef.current = id;
+        setOrgName(org.name);
         setOrgId(id);
         if (id) await load(id);
         else setMessage(c.noOrg);
       } catch (error) {
-        setMessage(describe(error));
+        if (active) { setOrgId(null); setRows([]); setLink(null); setMessage(describe(error)); }
       }
     })();
+    return () => { active = false; requestSeq.current++; };
   }, [load, describe, c.noOrg]);
 
   async function run(action: () => Promise<void>) {
     if (!orgId) return;
     setBusy(true);
     try {
+      const current = await fetchActiveOrganization();
+      if (current.id !== orgId) { setRows([]); setLink(null); setOrgId(null); throw new Error("Organization changed"); }
       await action();
       await load(orgId);
     } catch (error) {
@@ -100,6 +123,8 @@ export default function TeamInvitationsPage() {
     <main style={{ maxWidth: 720, margin: "0 auto", padding: 16, display: "grid", gap: 16 }}>
       <h1>{c.title}</h1>
       <p>{c.intro}</p>
+      <p>{c.company}: <strong>{orgName}</strong> <small>{orgId}</small></p>
+      <label>{c.reason}<input name="cancelReason" value={cancelReason} maxLength={500} onChange={e => setCancelReason(e.target.value)} /></label>
       {message ? <p role="status">{message}</p> : null}
       <form
         onSubmit={(event) => {
@@ -152,8 +177,8 @@ export default function TeamInvitationsPage() {
                     {c.resend}
                   </button>
                   <button
-                    disabled={busy}
-                    onClick={() => void run(async () => void (await cancelOrgInvitation(orgId as string, row.invitationId)))}
+                    disabled={busy || !cancelReason.trim()}
+                    onClick={() => void run(async () => void (await cancelOrgInvitation(orgId as string, row.invitationId, cancelReason.trim())))}
                   >
                     {c.cancel}
                   </button>
@@ -166,3 +191,4 @@ export default function TeamInvitationsPage() {
     </main>
   );
 }
+

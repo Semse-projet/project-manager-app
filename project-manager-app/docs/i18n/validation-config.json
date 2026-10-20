@@ -1,0 +1,31 @@
+{
+  "catalogs": [
+    {
+      "id": "global",
+      "path": "apps/web/lib/language-context.tsx",
+      "variable": "T",
+      "allowEmpty": [
+        {
+          "locale": "en",
+          "key": "ui.since",
+          "reason": "Legacy optional prefix; English temporal suffix is ui.ago. Audit consumers before replacing grammar."
+        }
+      ]
+    },
+    {
+      "id": "invitations",
+      "path": "apps/web/app/(app)/client/team/page.tsx",
+      "variable": "COPY"
+    },
+    {
+      "id": "accept",
+      "path": "apps/web/app/(app)/invitations/accept/page.tsx",
+      "variable": "COPY"
+    },
+    {
+      "id": "offers",
+      "path": "apps/web/app/(app)/client/offers/page.tsx",
+      "variable": "COPY"
+    }
+  ]
+}

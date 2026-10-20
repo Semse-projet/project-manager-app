@@ -25,7 +25,7 @@ const tokenSchema = z.object({ token: z.string().trim().min(10).max(200) });
 const registerInvitedSchema = z.object({
   token: z.string().trim().min(10).max(200),
   name: z.string().trim().min(2).max(120),
-  password: z.string().min(8).max(128)
+  password: z.string().min(15).max(128)
 });
 
 /** BO-01: gestión privada de invitaciones de una Org. Spec: docs/specs/core/org-invitations.spec.md */
@@ -125,3 +125,4 @@ export class InvitationsController {
     return ok(requestId, data);
   }
 }
+

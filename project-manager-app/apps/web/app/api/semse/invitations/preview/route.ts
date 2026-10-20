@@ -1,3 +1,4 @@
+import { invitationProxyHeaders } from "../../../../../lib/invitation-proxy";
 import { NextRequest, NextResponse } from "next/server";
 
 /**
@@ -15,10 +16,13 @@ export async function POST(request: NextRequest) {
   if (!apiBaseUrl) {
     return NextResponse.json({ error: { status: 503, message: "Backend no configurado" } }, { status: 503 });
   }
+  let proxyHeaders: Record<string, string>;
+  try { proxyHeaders = invitationProxyHeaders(request, "/v1/invitations/preview"); }
+  catch { return NextResponse.json({ error: "Invitation service unavailable" }, { status: 503, headers: { "cache-control": "no-store" } }); }
   const response = await fetch(`${apiBaseUrl}/v1/invitations/preview`, {
     method: "POST",
     cache: "no-store",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", ...proxyHeaders },
     body: JSON.stringify({ token })
   });
   const payload = (await response.json().catch(() => ({}))) as { data?: unknown };
@@ -28,3 +32,4 @@ export async function POST(request: NextRequest) {
   }
   return NextResponse.json({ data: payload.data }, { headers: { "cache-control": "no-store" } });
 }
+

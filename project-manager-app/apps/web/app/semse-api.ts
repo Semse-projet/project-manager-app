@@ -1030,6 +1030,17 @@ export async function createFieldWorklog(input: {
   return mutateSemse<Record<string, unknown>>("/api/semse/field-ops/worklogs", input);
 }
 
+/** Session context, never the first item of an organization listing. */
+export async function fetchActiveOrganization(): Promise<{ id: string; name: string }> {
+  const response = await fetch("/api/semse/users/me", { credentials: "same-origin", cache: "no-store" });
+  if (!response.ok) throw new Error("Session organization is unavailable");
+  const body = await response.json() as { context?: { orgId?: string } };
+  if (!body.context?.orgId) throw new Error("Session organization is unavailable");
+  const org = await fetchOrganization(body.context.orgId);
+  if (org.id !== body.context.orgId || typeof org.name !== "string") throw new Error("Session organization is unavailable");
+  return { id: body.context.orgId, name: org.name };
+}
+
 export async function fetchOrganizations(): Promise<Record<string, unknown>[]> {
   return fetchSemse<Record<string, unknown>[]>("/api/semse/organizations");
 }
@@ -1060,8 +1071,8 @@ export async function createOrgInvitation(orgId: string, email: string): Promise
   return mutateSemse(`/api/semse/organizations/${orgId}/invitations`, { email });
 }
 
-export async function cancelOrgInvitation(orgId: string, invitationId: string, reason?: string): Promise<{ status: string }> {
-  return mutateSemse(`/api/semse/organizations/${orgId}/invitations/${invitationId}/cancel`, reason ? { reason } : {});
+export async function cancelOrgInvitation(orgId: string, invitationId: string, reason: string): Promise<{ status: string }> {
+  return mutateSemse(`/api/semse/organizations/${orgId}/invitations/${invitationId}/cancel`, { reason });
 }
 
 export async function resendOrgInvitation(orgId: string, invitationId: string): Promise<OrgInvitationView & { token: string | null }> {
@@ -1077,6 +1088,8 @@ export async function acceptInvitation(token: string): Promise<{ membership: { o
 }
 
 export type BusinessOfferView = {
+  engagementId?: string | null;
+  engagementStatus?: string | null;
   offerId: string;
   orgId: string;
   recipientUserId: string;
@@ -3756,3 +3769,4 @@ export async function listAdminContributorKnowledgeRegistry(
   const suffix = params.toString() ? `?${params.toString()}` : "";
   return fetchSemse<KnowledgeRegistryPage>(`/api/semse/contributors/admin/observations/registry${suffix}`);
 }
+

@@ -1,9 +1,10 @@
+import { InvitationThrottlerGuard } from "./common/invitation-throttler.guard.js";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { APP_GUARD } from "@nestjs/core";
-import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
+import { ThrottlerModule } from "@nestjs/throttler";
 import { HealthController } from "./modules/health/health.controller.js";
 import { ForgeModule } from "./modules/forge/forge.module.js";
 import { AuthGuard } from "./common/auth.guard.js";
@@ -187,10 +188,11 @@ const repoRoot = path.resolve(apiDir, "..", "..");
   ],
   controllers: [HealthController],
   providers: [
-    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_GUARD, useClass: InvitationThrottlerGuard },
     { provide: APP_GUARD, useClass: AuthGuard },
     { provide: APP_GUARD, useClass: RbacGuard },
     ReadinessService
   ]
 })
 export class AppModule {}
+
