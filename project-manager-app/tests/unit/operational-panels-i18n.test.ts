@@ -195,3 +195,22 @@ test("Marketplace failed-proposal retry restores the saved draft without another
   assert.match(page, /onRetry=\{\(\) => setBidResult\(null\)\}/, "retry must clear failure state and reveal the saved draft");
   assert.doesNotMatch(page, /onClick=\{\(\) => setData\(\(p\) => \(\{ \.\.\.p \}\)\)\}/, "a no-op rerender does not retry");
 });
+
+test("ProTools embedded BuildOps and Evidence cards receive the selected locale", () => {
+  const page = readFileSync(path.join(root, "apps/web/app/(app)/client/protools/page.tsx"), "utf8");
+  const plan = readFileSync(path.join(root, "apps/web/components/semse/BuildOpsPlanCard.tsx"), "utf8");
+  const evidence = readFileSync(path.join(root, "apps/web/components/semse/EvidenceChecklistCard.tsx"), "utf8");
+  const controller = readFileSync(path.join(root, "apps/api/src/modules/semse-agents/semse-agents.controller.ts"), "utf8");
+  const bff = readFileSync(path.join(root, "apps/web/app/api/semse/agents/evidence-checklist/route.ts"), "utf8");
+  for (const component of ["BuildOpsPlanCard", "EvidenceChecklistCard"]) {
+    assert.match(page, new RegExp("<" + component + "[^>]*locale=\\{language\\}"), component + " must get selected locale");
+  }
+  for (const component of [plan, evidence]) {
+    assert.match(component, /locale: effectiveLocale/, "embedded request must carry locale");
+    assert.match(component, /useLanguage/, "embedded UI must consume the shared translation context");
+  }
+  assert.match(controller, /buildopsAgent\.createPlan\(trade, hours, body\.locale === "en" \? "en" : "es"\)/);
+  assert.match(controller, /evidenceAgent\.generateChecklist\(milestoneTitle, trade, body\.locale === "en" \? "en" : "es"\)/);
+  assert.doesNotMatch(bff, /generateLocalChecklist/, "upstream failures must not produce fabricated evidence");
+  assert.match(bff, /status: resp\.status/, "backend auth/availability errors must preserve failure status");
+});

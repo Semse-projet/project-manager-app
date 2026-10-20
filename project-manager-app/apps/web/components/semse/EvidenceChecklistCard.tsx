@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { AlertTriangle, Camera, CheckCircle2, FileText, RefreshCw, Shield } from "lucide-react";
+import { useLanguage, type LanguagePreference } from "@/lib/language-context";
 
 type ChecklistItem = { label: string; kind: string; description: string };
 type Checklist     = { milestoneTitle: string; required: ChecklistItem[]; disputeRisk: string };
@@ -21,35 +22,42 @@ export function EvidenceChecklistCard({
   milestoneTitle,
   trade,
   compact = false,
+  locale,
 }: {
   milestoneTitle: string;
   trade: string;
   compact?: boolean;
+  locale?: LanguagePreference;
 }) {
+  const { t, language } = useLanguage();
+  const effectiveLocale = locale ?? language;
   const [data,    setData]    = useState<Checklist | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
 
   const load = useCallback(async () => {
-    setLoading(true);
+    setLoading(true); setData(null); setError(false);
     try {
       const resp = await fetch("/api/semse/agents/evidence-checklist", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ milestoneTitle, trade }),
+        body: JSON.stringify({ milestoneTitle, trade, locale: effectiveLocale }),
       });
       const json = await resp.json() as { data: Checklist };
       if (resp.ok && json.data) setData(json.data);
-    } catch { /* silent */ } finally { setLoading(false); }
-  }, [milestoneTitle, trade]);
+      else setError(true);
+    } catch { setError(true); } finally { setLoading(false); }
+  }, [milestoneTitle, trade, effectiveLocale]);
 
   useEffect(() => { void load(); }, [load]);
 
   if (loading && !data) return (
     <div style={{ padding: "12px 14px", background: "var(--surface)", borderRadius: 10, fontSize: 12, color: "var(--muted)" }}>
-      Generando checklist…
+      {t("pt.evidence.generating")}
     </div>
   );
 
+  if (error) return <div role="alert" style={{ fontSize: 12, color: "#fca5a5" }}>{t("pt.evidence.loadFailed")}</div>;
   if (!data) return null;
 
   const riskColor = RISK_COLORS[data.disputeRisk] ?? "#94a3b8";
@@ -59,12 +67,12 @@ export function EvidenceChecklistCard({
       <div style={{ display: "flex", alignItems: "center", gap: 10, padding: compact ? "10px 14px" : "14px 16px", borderBottom: "1px solid var(--border)" }}>
         <Shield size={compact ? 13 : 15} color="#86efac" />
         <span style={{ fontSize: compact ? 12 : 14, fontWeight: 800, flex: 1 }}>
-          Evidencia requerida{!compact && ` — ${trade}`}
+          {t("pt.evidence.required")}{!compact && ` — ${trade}`}
         </span>
         <span style={{ fontSize: 9, fontWeight: 800, color: riskColor, background: `${riskColor}15`, padding: "2px 8px", borderRadius: 99 }}>
-          Riesgo disputa: {data.disputeRisk}
+          {t("pt.evidence.risk")}: {t(`pt.evidence.risk.${data.disputeRisk}`)}
         </span>
-        <button onClick={load} disabled={loading}
+        <button onClick={load} disabled={loading} aria-label={t("pt.refresh")}
           style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: 2 }}>
           <RefreshCw size={10} className={loading ? "animate-spin" : undefined} />
         </button>
@@ -74,7 +82,7 @@ export function EvidenceChecklistCard({
         {data.disputeRisk === "high" && (
           <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", background: "rgba(239,68,68,.06)", borderRadius: 8, marginBottom: 4 }}>
             <AlertTriangle size={11} color="#fca5a5" />
-            <span style={{ fontSize: 10, color: "#fca5a5" }}>Alto riesgo de disputa — evidencia completa es crítica para liberar el pago</span>
+            <span style={{ fontSize: 10, color: "#fca5a5" }}>{t("pt.evidence.highRiskWarning")}</span>
           </div>
         )}
         {data.required.map((item, i) => {
@@ -89,13 +97,13 @@ export function EvidenceChecklistCard({
                 {!compact && <div style={{ fontSize: 10, color: "var(--muted)", marginTop: 2 }}>{item.description}</div>}
               </div>
               <span style={{ marginLeft: "auto", fontSize: 9, color: "var(--muted)", background: "rgba(255,255,255,.06)", padding: "2px 6px", borderRadius: 99, flexShrink: 0 }}>
-                {item.kind}
+                {t(`pt.evidence.kind.${item.kind}`)}
               </span>
             </div>
           );
         })}
         <div style={{ fontSize: 10, color: "var(--muted)", marginTop: 4, paddingTop: 4, borderTop: "1px solid var(--border)" }}>
-          {data.required.length} item{data.required.length !== 1 ? "s" : ""} requerido{data.required.length !== 1 ? "s" : ""} · sin evidencia completa el pago queda bloqueado
+          {data.required.length} {t(data.required.length === 1 ? "pt.evidence.itemRequired" : "pt.evidence.itemsRequired")} · {t("pt.evidence.paymentBlocked")}
         </div>
       </div>
     </div>

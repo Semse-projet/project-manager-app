@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { CheckCircle2, Clock, Layers, RefreshCw, Zap } from "lucide-react";
+import { useLanguage, type LanguagePreference } from "@/lib/language-context";
 
 type Phase = {
   name: string;
@@ -19,25 +20,27 @@ type PlanResult = {
 
 const PHASE_COLORS = ["#818cf8", "#67e8f9", "#86efac", "#fcd34d", "#fb923c"];
 
-export function BuildOpsPlanCard({ trade, estimatedHours }: { trade: string; estimatedHours?: number }) {
+export function BuildOpsPlanCard({ trade, estimatedHours, locale }: { trade: string; estimatedHours?: number; locale?: LanguagePreference }) {
+  const { t, language } = useLanguage();
+  const effectiveLocale = locale ?? language;
   const [plan,    setPlan]    = useState<PlanResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error,   setError]   = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    setLoading(true); setError(null);
+    setLoading(true); setError(null); setPlan(null);
     try {
       const resp = await fetch("/api/semse/agents/plan", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ trade, estimatedHours: estimatedHours ?? 8 }),
+        body: JSON.stringify({ trade, estimatedHours: estimatedHours ?? 8, locale: effectiveLocale }),
       });
       const json = await resp.json() as { data: PlanResult };
       if (resp.ok && json.data) setPlan(json.data);
-      else setError("No se pudo generar el plan");
-    } catch (e) { setError(e instanceof Error ? e.message : "Error"); }
+      else setError(t("pt.buildops.loadFailed"));
+    } catch { setError(t("pt.buildops.loadFailed")); }
     finally { setLoading(false); }
-  }, [trade, estimatedHours]);
+  }, [trade, estimatedHours, effectiveLocale, t]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -49,16 +52,16 @@ export function BuildOpsPlanCard({ trade, estimatedHours }: { trade: string; est
     <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, overflow: "hidden" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 16px", borderBottom: "1px solid var(--border)" }}>
         <Layers size={15} color="#67e8f9" />
-        <span style={{ fontSize: 14, fontWeight: 800, flex: 1 }}>Plan BuildOps — {trade}</span>
-        {plan && <span style={{ fontSize: 11, color: "var(--muted)" }}>{plan.totalDays} días · {plan.phases.length} fases</span>}
-        <button onClick={load} disabled={loading}
+        <span style={{ fontSize: 14, fontWeight: 800, flex: 1 }}>{t("pt.buildops.title")} — {trade}</span>
+        {plan && <span style={{ fontSize: 11, color: "var(--muted)" }}>{plan.totalDays} {t("pt.buildops.days")} · {plan.phases.length} {t("pt.buildops.phases")}</span>}
+        <button onClick={load} disabled={loading} aria-label={t("pt.refresh")}
           style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: 4 }}>
           <RefreshCw size={11} className={loading ? "animate-spin" : undefined} />
         </button>
       </div>
 
       {loading && !plan && (
-        <div style={{ padding: "20px", textAlign: "center", fontSize: 12, color: "var(--muted)" }}>Generando plan…</div>
+        <div style={{ padding: "20px", textAlign: "center", fontSize: 12, color: "var(--muted)" }}>{t("pt.buildops.generating")}</div>
       )}
 
       {plan && (
@@ -72,7 +75,7 @@ export function BuildOpsPlanCard({ trade, estimatedHours }: { trade: string; est
                 <div key={i} style={{ width, minWidth: 80, padding: "8px 10px", background: `${color}15`, borderLeft: `3px solid ${color}`, marginRight: i < plan.phases.length - 1 ? 4 : 0, borderRadius: 8 }}>
                   <div style={{ fontSize: 11, fontWeight: 800, color }}>{phase.name}</div>
                   <div style={{ fontSize: 10, color: "var(--muted)", marginTop: 2 }}>
-                    <Clock size={8} style={{ verticalAlign: "middle" }} /> {phase.durationDays}d
+                    <Clock size={8} style={{ verticalAlign: "middle" }} /> {phase.durationDays}{t("pt.buildops.dayShort")}
                   </div>
                 </div>
               );
@@ -88,13 +91,13 @@ export function BuildOpsPlanCard({ trade, estimatedHours }: { trade: string; est
                   <span style={{ fontSize: 11, fontWeight: 800, color }}>{phase.name}</span>
                   {phase.milestoneTitle && (
                     <span style={{ fontSize: 9, color: "#818cf8", background: "rgba(99,102,241,.1)", padding: "1px 7px", borderRadius: 99 }}>
-                      Milestone: {phase.milestoneTitle}
+                      {t("pt.buildops.milestone")}: {phase.milestoneTitle}
                     </span>
                   )}
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: phase.evidenceRequired?.length ? "1fr 1fr" : "1fr", gap: 8 }}>
                   <div>
-                    <div style={{ fontSize: 9, fontWeight: 700, color: "var(--muted)", marginBottom: 4 }}>TAREAS</div>
+                    <div style={{ fontSize: 9, fontWeight: 700, color: "var(--muted)", marginBottom: 4 }}>{t("pt.buildops.tasks")}</div>
                     {phase.tasks.map((t, j) => (
                       <div key={j} style={{ fontSize: 11, color: "var(--ink)", padding: "2px 0", display: "flex", gap: 6 }}>
                         <Zap size={9} color={color} style={{ flexShrink: 0, marginTop: 2 }} /> {t}
@@ -103,7 +106,7 @@ export function BuildOpsPlanCard({ trade, estimatedHours }: { trade: string; est
                   </div>
                   {phase.evidenceRequired && phase.evidenceRequired.length > 0 && (
                     <div>
-                      <div style={{ fontSize: 9, fontWeight: 700, color: "var(--muted)", marginBottom: 4 }}>EVIDENCIA SEMSE</div>
+                      <div style={{ fontSize: 9, fontWeight: 700, color: "var(--muted)", marginBottom: 4 }}>{t("pt.buildops.evidence")}</div>
                       {phase.evidenceRequired.map((e, j) => (
                         <div key={j} style={{ fontSize: 11, color: "#86efac", padding: "2px 0", display: "flex", gap: 6 }}>
                           <CheckCircle2 size={9} style={{ flexShrink: 0, marginTop: 2 }} /> {e}

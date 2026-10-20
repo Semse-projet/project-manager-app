@@ -279,10 +279,10 @@ export default function ProToolsPage() {
           </div>
 
           {/* BuildOps Plan */}
-          <BuildOpsPlanCard trade={result.trade} estimatedHours={result.laborHours} />
+          <BuildOpsPlanCard trade={result.trade} estimatedHours={result.laborHours} locale={language} />
 
           {/* Evidence Checklist */}
-          <EvidenceChecklistCard milestoneTitle={`Milestone ${result.trade}`} trade={result.trade} />
+          <EvidenceChecklistCard milestoneTitle={`Milestone ${result.trade}`} trade={result.trade} locale={language} />
 
           {/* Agent note */}
           <div style={{ padding: "10px 14px", background: "rgba(252,211,77,.05)", borderRadius: 10, fontSize: 11, color: "var(--muted)", fontStyle: "italic" }}>
