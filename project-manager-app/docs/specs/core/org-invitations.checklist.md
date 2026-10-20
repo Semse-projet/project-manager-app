@@ -1,10 +1,23 @@
-# Checklist — BO-01
-- [ ] Tests rojos registrados antes del código.
-- [ ] Token nunca en GET, logs ni auditoría.
-- [ ] Cross-org y cross-tenant → 404.
-- [ ] Concurrencia de aceptación: una Membership.
-- [ ] Flag apagado → 404 sin efectos.
-- [ ] spec:validate:strict, build, typecheck, tests.
-- [ ] CI verde en el SHA del PR.
-- [ ] Migración verificada para `db push` en Railway.
-- [ ] Canary A/B sintético antes de activar el flag.
+# Checklist — BO-01/03/04 v0.2
+
+## Análisis SDD
+- [x] Contrato, plan y tareas cubren token, organización, PRO, cancelación y rate limit.
+- [x] Preview público existente reconocido; no se declara nuevo arreglo.
+- [x] Se eliminaron db push y exclusión contradictoria de registro ya implementado.
+- [x] Se conservan permisos existentes de invitaciones sin importar restricciones de ofertas.
+- [ ] Aprobación formal SDD; selección/validación de frontera de rate limit.
+
+## Gates de implementación/entrega
+- [ ] Tests rojos registrados antes de cada cambio de negocio.
+- [ ] Token fuera de query, logs, storage del navegador y capturas; formato UI/correo coincidente.
+- [ ] Scrub previo a requests; StrictMode estable; query legacy rotada, no aceptada silenciosamente.
+- [ ] Organización explícita; ninguna selección orgs[0]; requests obsoletos descartados.
+- [ ] Ruta accesible para PRO autorizado; backend sigue denegando roles sin permiso.
+- [ ] Motivo de cancelación real, validado en BFF/API y auditado.
+- [ ] IP confiable sin spoofing; límites compartidos entre réplicas y no globales para todos los clientes BFF.
+- [ ] Aislamiento, concurrencia/idempotencia y flag OFF demostrados con PostgreSQL.
+- [ ] Registro/email solo bajo flags exigidos y sin devolver token al invitador.
+- [ ] spec:validate:strict, typecheck/build/lint/tests y CI del SHA de implementación.
+- [ ] Revisión independiente, migraciones reconciliadas y canary sintético antes de activar.
+
+Los checks vacíos son pendientes reales. Una revisión estática no los marca como pruebas ejecutadas.
