@@ -77,6 +77,7 @@ export class SemseAgentsController {
       description: body.description,
       area:        body.area,
       rooms:       body.rooms,
+      locale:      body.locale === "en" ? "en" : "es",
       projectId:   (body.projectId as string) ?? undefined,
       zipCode:     (body.zipCode as string) ?? undefined,
       userId:      ctx.userId,
