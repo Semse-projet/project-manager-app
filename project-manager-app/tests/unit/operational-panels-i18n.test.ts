@@ -84,7 +84,7 @@ test("all static operational panel translation keys exist in both languages", ()
   for (const status of ["HEALTHY", "ATTENTION", "DEGRADED"]) {
     required.add(`mc.pageStatus.${status}`);
   }
-  for (const state of ["connected", "degraded"]) {
+  for (const state of ["connecting", "connected", "degraded"]) {
     required.add(`mc.live.${state}`);
   }
   for (const action of ["ACKNOWLEDGE", "RESOLVE", "DISMISS", "PAUSE", "RESUME", "RETRY", "REQUEUE", "REPLAY", "ESCALATE"]) {
@@ -130,3 +130,11 @@ test("admin demo fallbacks and Mission Control actions remain safely localized",
   );
 });
 
+
+test("Mission Control status requires an actual successful response, not a loading placeholder", () => {
+  const source = readFileSync(path.join(root, "apps/web/app/(app)/admin/mission-control/page.tsx"), "utf8");
+  for (const safetyGuard of ["const hasVerifiedPayload = !loading && accessState === \"ready\" && !error && payload?.enabled === true","const pageStatus = !hasVerifiedPayload","{pageStatus && (","{hasVerifiedPayload && (","if (!loading && accessState === \"error\")","useState<\"connecting\" | \"connected\" | \"degraded\">(\"connecting\")","if (!exceptionsBody.data.enabled)"]) {
+    assert.ok(source.includes(safetyGuard), "Missing MC fail-closed loading/error guard: " + safetyGuard);
+  }
+  assert.ok(!source.includes('useState<"connected" | "degraded">("connected")'));
+});
