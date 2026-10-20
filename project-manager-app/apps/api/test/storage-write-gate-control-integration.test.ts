@@ -1,6 +1,7 @@
 /**
- * T-008 staging control-plane acceptance against disposable PostgreSQL only.
- * Never runs against production and never touches original bytes.
+ * T-008 control-plane acceptance against disposable PostgreSQL only.
+ * Includes a production-policy simulation, but never targets Railway and never
+ * touches original bytes.
  */
 import "reflect-metadata";
 import test from "node:test";
@@ -12,6 +13,7 @@ import { StorageWriteGateControlService } from "../dist/infrastructure/storage/s
 import { StorageWriteGateTransitionService } from "../dist/infrastructure/storage/storage-write-gate-transition.service.js";
 import { StorageWriteGateCoordinator } from "../dist/infrastructure/storage/storage-write-gate-coordinator.js";
 import { StorageWriteGateBlockedError } from "../dist/infrastructure/storage/storage-write-gate-state.js";
+import { storageWriteGateRuntimeEnabled } from "../dist/infrastructure/storage/storage-write-gate-mode.js";
 
 const isCiDb = (() => {
   try {
@@ -55,6 +57,131 @@ test("control plane is unavailable when any production marker is active", async 
     else process.env.SEMSE_STORAGE_WRITE_GATE_MODE = previousMode;
     if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
     else process.env.NODE_ENV = previousNodeEnv;
+  }
+});
+
+dbTest("T-008 production OPEN-only canary: provision, observe, admit and settle on disposable Postgres", async () => {
+  const db = new PrismaClient();
+  const token = randomUUID();
+  const root = "/data/semse-storage-ci-" + token;
+  const scope = "storage:" + root;
+  const previous = {
+    mode: process.env.SEMSE_STORAGE_WRITE_GATE_MODE,
+    controlMode: process.env.SEMSE_STORAGE_WRITE_GATE_PRODUCTION_CONTROL_MODE,
+    nodeEnv: process.env.NODE_ENV,
+    railwayEnv: process.env.RAILWAY_ENVIRONMENT,
+    railwayName: process.env.RAILWAY_ENVIRONMENT_NAME,
+    root: process.env.SEMSE_STORAGE_ROOT,
+  };
+
+  process.env.NODE_ENV = "production";
+  process.env.RAILWAY_ENVIRONMENT = "production";
+  process.env.RAILWAY_ENVIRONMENT_NAME = "production";
+  process.env.SEMSE_STORAGE_ROOT = root;
+  process.env.SEMSE_STORAGE_WRITE_GATE_MODE = "off";
+  process.env.SEMSE_STORAGE_WRITE_GATE_PRODUCTION_CONTROL_MODE = "provision";
+
+  const coordinator = new StorageWriteGateCoordinator(db as never);
+  const transitions = new StorageWriteGateTransitionService(db as never);
+  const control = new StorageWriteGateControlService(
+    db as never,
+    coordinator,
+    transitions,
+  );
+
+  try {
+    assert.equal(storageWriteGateRuntimeEnabled(), false);
+    assert.deepEqual(await control.status(), {
+      provisioned: false,
+      scopeDigest: (await import("node:crypto"))
+        .createHash("sha256").update(scope).digest("hex"),
+    });
+
+    const provisioned = await control.provision(meta(token, "prod-provision"));
+    assert.deepEqual(provisioned, {created: true, phase: "OPEN", epoch: "1"});
+    assert.equal(
+      await db.storageWriteGateAudit.count({where:{scope,action:"PROVISION"}}),
+      1,
+    );
+
+    await assert.rejects(
+      () => control.transition({
+        ...meta(token, "prod-wrapper-mutate"),
+        expectedEpoch: 1n,
+        action: "BEGIN_DRAIN",
+      }),
+      (error) => error instanceof ServiceUnavailableException,
+    );
+
+    await assert.rejects(
+      () => transitions.transition({
+        scope,
+        expectedEpoch: 1n,
+        action: "BEGIN_DRAIN",
+        authority: {
+          actorUserId: "synthetic-ops-admin",
+          actorAuthorized: true,
+          auditTicket: "t008-direct-prod-" + token,
+        },
+      }),
+      (error) => error instanceof ServiceUnavailableException,
+      "lower-level transition service must reject direct production mutation",
+    );
+
+    process.env.SEMSE_STORAGE_WRITE_GATE_PRODUCTION_CONTROL_MODE = "observe";
+    process.env.SEMSE_STORAGE_WRITE_GATE_MODE = "production";
+    assert.equal(storageWriteGateRuntimeEnabled(), true);
+
+    const before = await control.status();
+    assert.equal(before.provisioned, true);
+    assert.equal(before.phase, "OPEN");
+    assert.equal(before.epoch, "1");
+    assert.deepEqual(before.activeOperations, []);
+
+    await assert.rejects(
+      () => control.provision(meta(token, "prod-reprovision")),
+      (error) => error instanceof ServiceUnavailableException,
+      "observe mode cannot provision after runtime activation",
+    );
+
+    const ticket = await coordinator.admitWrite({
+      scope,
+      kind: "ORIGINAL_STORE",
+      writerInstanceId: "synthetic-prod-canary-" + token,
+    });
+    await coordinator.assertActive(ticket);
+
+    const during = await control.status();
+    assert.equal(during.phase, "OPEN");
+    assert.equal(during.epoch, "1");
+    assert.equal(during.activeOperations?.length, 1);
+    assert.equal(during.activeOperations?.[0]?.id, ticket.id);
+
+    await coordinator.settleWrite(ticket, "COMPLETED");
+    assert.equal(await control.activeOperationCount(), 0);
+
+    const after = await control.status();
+    assert.equal(after.phase, "OPEN");
+    assert.equal(after.epoch, "1");
+    assert.deepEqual(after.activeOperations, []);
+  } finally {
+    await db.storageWriteGateAudit.deleteMany({where:{scope}}).catch(()=>undefined);
+    await db.storageWriteOperation.deleteMany({where:{scope}}).catch(()=>undefined);
+    await db.storageWriteGate.deleteMany({where:{scope}}).catch(()=>undefined);
+    await db.$disconnect();
+
+    if (previous.mode === undefined) delete process.env.SEMSE_STORAGE_WRITE_GATE_MODE;
+    else process.env.SEMSE_STORAGE_WRITE_GATE_MODE = previous.mode;
+    if (previous.controlMode === undefined) delete process.env.SEMSE_STORAGE_WRITE_GATE_PRODUCTION_CONTROL_MODE;
+    else process.env.SEMSE_STORAGE_WRITE_GATE_PRODUCTION_CONTROL_MODE = previous.controlMode;
+    if (previous.nodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = previous.nodeEnv;
+    if (previous.railwayEnv === undefined) delete process.env.RAILWAY_ENVIRONMENT;
+    else process.env.RAILWAY_ENVIRONMENT = previous.railwayEnv;
+    if (previous.railwayName === undefined) delete process.env.RAILWAY_ENVIRONMENT_NAME;
+    else process.env.RAILWAY_ENVIRONMENT_NAME = previous.railwayName;
+    if (previous.root === undefined) delete process.env.SEMSE_STORAGE_ROOT;
+    else process.env.SEMSE_STORAGE_ROOT = previous.root;
   }
 });
 
