@@ -5,7 +5,7 @@
 - [x] Spec, plan y tareas reconciliados con decisiones vigentes.
 - [x] Identificada diferencia entre CLIENT con permiso y dueño persistido.
 - [x] Eliminadas promesas incompatibles sobre Membership, clasificación, PRO y grants al supervisor.
-- [ ] Contrato/modelo ownership formalmente APPROVED; evento de conciliación aprobado antes de código.
+- [x] Contrato/modelo ownership APPROVED por Samuel el 2026-10-20; evento documentado antes de código.
 
 ## Pruebas y entrega
 - [ ] Pruebas primero; dueño verificado positivo y CLIENT no dueño negativo para las cinco operaciones de gestión.
@@ -22,3 +22,5 @@
 - [ ] Revisión independiente, revisión legal requerida y canary antes de uso real.
 
 BO-S1 firma queda planificado, sin autorización de activación ni código de proveedor.
+
+Checkpoint `25cbd26`: CI/API Integration SUCCESS; FK/unicidad/owner y rollback real pasaron en PostgreSQL. No marcar ítems compuestos cuando su parte de UI, matriz completa, migración/rollback operacional o revisión independiente esté pendiente.

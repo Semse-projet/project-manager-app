@@ -5,7 +5,8 @@
 - [x] Preview público existente reconocido; no se declara nuevo arreglo.
 - [x] Se eliminaron db push y exclusión contradictoria de registro ya implementado.
 - [x] Se conservan permisos existentes de invitaciones sin importar restricciones de ofertas.
-- [ ] Aprobación formal SDD; selección/validación de frontera de rate limit.
+- [x] Aprobación formal SDD por Samuel el 2026-10-20.
+- [ ] Validación operacional de frontera de rate limit; diseño firmado/Redis implementado.
 
 ## Gates de implementación/entrega
 - [ ] Tests rojos registrados antes de cada cambio de negocio.
@@ -21,3 +22,5 @@
 - [ ] Revisión independiente, migraciones reconciliadas y canary sintético antes de activar.
 
 Los checks vacíos son pendientes reales. Una revisión estática no los marca como pruebas ejecutadas.
+
+Checkpoint `25cbd26`: CI/API Integration SUCCESS. Prueba local Redis real con dos procesos Nest registrada; frontera Railway y pruebas de aceptación completas pendientes. Los dobles de Membership no equivalen a PostgreSQL para invitaciones.

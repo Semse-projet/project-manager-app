@@ -8,7 +8,7 @@ status: "APPROVED"
 owner: "semse-core"
 risk: "critical"
 code_status: "IN_PROGRESS"
-ci_status: "NOT_RUN"
+ci_status: "PASS"
 merge_status: "UNMERGED"
 deploy_status: "NOT_DEPLOYED"
 activation_status: "INACTIVE"
@@ -38,11 +38,13 @@ last_verified: "2026-10-20"
 
 ## Autoridad y estado
 
-El propietario autorizó continuar las correcciones de #975 y #976 el 2026-10-19 y reiteró «Continúa» el 2026-10-20. Esta autorización permite preparar el cambio; no se registra como aprobación formal de seguridad ni como permiso para activar empleados reales.
+Contrato v0.2 **APPROVED** por Samuel el 2026-10-20, incluido en #1017. Su aprobación permite implementar y probar la remediación; no acredita revisión independiente, revisión legal ni activación real.
 
-**REVIEW:** contrato reconciliado para revisión formal conforme a AGENTS.md y SDD_GOVERNANCE §4/§6. La v0.2 describe la remediación pendiente: su CI, merge y deploy no se heredan del código previo. La base de BO-04 ya está integrada por #975, merge `60a79b94e8d0ff5222f77463fca4781f289f991f`. No se declara esa base UNMERGED ni se afirma que los hallazgos estén corregidos.
+La remediación está implementada en #1018, todavía UNMERGED/NOT_DEPLOYED/INACTIVE. El código base de #975 ya estaba integrado por `60a79b94e8d0ff5222f77463fca4781f289f991f`. No confundir esa base con la remediación nueva.
 
-Base inspeccionada: `a03bb2b5a211c286874a9f08438b78f29a8e2de5`. Fuente padre: `docs/program/semse-4d-field-memory/COMPANY_INVITATIONS_DETAILED_SPEC.md`. Dependencia de identidad: DEC-R1 (#877/#881/#885). Ver plan, tareas y checklist adyacentes.
+Checkpoint validado `25cbd26ec4459021827073351ed0d49e94d954b9`: CI `39385100548` y API Integration `39385100446` SUCCESS. La prueba posterior con Redis real identificó una carrera de conexión inicial, corregida compartiendo la promesa; el nuevo HEAD requiere su CI propio. La metadata CI conserva el último checkpoint observado, no sustituye consultar el HEAD de GitHub antes de integrar.
+
+Fuente padre: `docs/program/semse-4d-field-memory/COMPANY_INVITATIONS_DETAILED_SPEC.md`; identidad DEC-R1 (#877/#881/#885). Persisten pendientes de navegador multi-org/rol, PostgreSQL específico de invitaciones, ingress Railway, aprobación exacta de textos y revisión independiente; ver tareas/checklist e informe de #1018.
 
 ## Alcance actual
 

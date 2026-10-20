@@ -8,6 +8,7 @@ import { verifyInvitationProxy } from "@semse/auth/invitation-proxy";
 @Injectable()
 export class InvitationThrottlerGuard extends ThrottlerGuard {
   private invitationRedis?: Redis;
+  private invitationConnect?: Promise<void>;
 
   override async canActivate(context: ExecutionContext): Promise<boolean> {
     const req = context.switchToHttp().getRequest<{ url: string; method: string; headers: Record<string, unknown>; ip?: string }>();
@@ -29,7 +30,15 @@ export class InvitationThrottlerGuard extends ThrottlerGuard {
       this.invitationRedis.on("error", () => { /* No connection URLs or credentials in logs. */ });
     }
     try {
-      if (this.invitationRedis.status === "wait") await this.invitationRedis.connect();
+      if (this.invitationRedis.status !== "ready") {
+        // Share the cold-start handshake. Concurrent callers must not EVAL while
+        // the socket is still connecting and enableOfflineQueue is disabled.
+        if (!this.invitationConnect && this.invitationRedis.status === "wait") {
+          this.invitationConnect = this.invitationRedis.connect().finally(() => { this.invitationConnect = undefined; });
+        }
+        if (this.invitationConnect) await this.invitationConnect;
+        if ((this.invitationRedis as Redis).status !== "ready") throw new ServiceUnavailableException("Invitation rate limit unavailable");
+      }
       const bucket = "invitation:" + createHash("sha256").update(path + "\n" + identity).digest("hex");
       const count = Number(await this.invitationRedis.eval("local n=redis.call('INCR',KEYS[1]); if n==1 then redis.call('PEXPIRE',KEYS[1],ARGV[1]) end; return n", 1, bucket, 60000));
       if (count > (path.endsWith("/register") ? 5 : 10)) throw new HttpException("Too many requests", 429);
