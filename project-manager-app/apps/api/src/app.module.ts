@@ -20,6 +20,7 @@ import { DisputesModule } from "./modules/disputes/disputes.module.js";
 import { EvidenceModule } from "./modules/evidence/evidence.module.js";
 import { JobsModule } from "./modules/jobs/jobs.module.js";
 import { DailyReportsModule } from "./modules/daily-reports/daily-reports.module.js";
+import { GeofenceModule } from "./modules/geofence/geofence.module.js";
 import { MilestonesModule } from "./modules/milestones/milestones.module.js";
 import { OpsModule } from "./modules/ops/ops.module.js";
 import { PaymentsModule } from "./modules/payments/payments.module.js";
@@ -121,6 +122,7 @@ const repoRoot = path.resolve(apiDir, "..", "..");
     DisputesModule,
     EvidenceModule,
     DailyReportsModule,
+    GeofenceModule,
     MilestonesModule,
     OpsModule,
     ProjectsModule,
