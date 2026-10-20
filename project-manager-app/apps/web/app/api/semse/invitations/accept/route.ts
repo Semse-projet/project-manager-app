@@ -1,5 +1,6 @@
+import { invitationProxyHeaders } from "../../../../../lib/invitation-proxy";
 import { NextRequest, NextResponse } from "next/server";
-import { fetchSemseDataForRequest, handleServerError, runtimeDisabledResponse } from "../../_server";
+import { fetchSemseDataForAuthenticatedRequest, handleServerError, runtimeDisabledResponse } from "../../_server";
 
 export async function POST(request: NextRequest) {
   try {
@@ -8,9 +9,9 @@ export async function POST(request: NextRequest) {
     if (token.length < 10) {
       return NextResponse.json({ error: { status: 400, message: "Invalid token" } }, { status: 400 });
     }
-    const data = await fetchSemseDataForRequest<Record<string, unknown>>("/v1/invitations/accept", request, {
+    const data = await fetchSemseDataForAuthenticatedRequest<Record<string, unknown>>("/v1/invitations/accept", request, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", ...invitationProxyHeaders(request, "/v1/invitations/accept") },
       body: JSON.stringify({ token })
     });
     return NextResponse.json({ data });
@@ -21,3 +22,4 @@ export async function POST(request: NextRequest) {
     return handleServerError(error);
   }
 }
+

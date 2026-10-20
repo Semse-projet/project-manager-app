@@ -20,6 +20,7 @@ function makeWorld() {
     eve: { id: "eve", email: "eve@example.com" }
   };
   const audits: Inv[] = [];
+  const faults = { audit: false };
   let seq = 0;
   const match = (row: Inv, where: Inv): boolean =>
     Object.entries(where).every(([k, v]) => {
@@ -57,10 +58,14 @@ function makeWorld() {
     user: { async findUnique({ where }: any) { return users[where.id] ?? null; } },
     role: { async findUnique({ where }: any) { return where.key === "WORKER" ? { id: "r_worker", key: "WORKER" } : null; } },
     org: { async findFirst({ where }: any) { return where.id === "orgA" ? { id: "orgA", name: "Acme Remodel", tenantId: "t1" } : null; } },
-    async $transaction(fn: any) { return fn({ orgInvitation: invitationApi, membership: membershipApi }); }
+    async $transaction(fn: any) {
+      const before = [invitations, memberships, audits].map(rows => structuredClone(rows));
+      try { return await fn({ orgInvitation: invitationApi, membership: membershipApi }); }
+      catch (error) { [invitations, memberships, audits].forEach((rows,i)=>rows.splice(0,rows.length,...before[i])); throw error; }
+    }
   };
-  const audit: any = { async append(entry: Inv) { audits.push(entry); } };
-  return { service: new InvitationsService(prisma, audit), invitations, memberships, audits };
+  const audit: any = { async append(entry: Inv, tx: unknown) { assert.ok(tx, "membership audit must use transaction"); if(faults.audit)throw Error("audit unavailable"); audits.push(entry); } };
+  return { service: new InvitationsService(prisma, audit), invitations, memberships, audits, faults };
 }
 
 const owner = { tenantId: "t1", orgId: "orgA", userId: "owner", roles: ["PRO"] };
@@ -190,3 +195,10 @@ test("controller declara permisos RBAC", () => {
     assert.deepEqual(meta, [permission]);
   }
 });
+
+ test("accept: audit failure restores pending invitation and does not grant membership", async()=>{
+  const w=makeWorld(); const {token}=await w.service.create(owner,"orgA",{email:"ana@example.com",role:"WORKER"});
+  w.faults.audit=true; await assert.rejects(w.service.accept({userId:"ana"},{token:token!,requestId:"r"}),/audit unavailable/);
+  assert.equal(w.invitations[0].status,"PENDING");assert.equal(w.memberships.some(m=>m.userId==="ana"),false);
+  w.faults.audit=false;await w.service.accept({userId:"ana"},{token:token!,requestId:"retry"});assert.equal(w.audits.length,1);
+ });

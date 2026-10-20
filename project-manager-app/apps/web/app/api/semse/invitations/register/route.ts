@@ -1,3 +1,4 @@
+import { invitationProxyHeaders } from "../../../../../lib/invitation-proxy";
 import { type NextRequest, NextResponse } from "next/server";
 import { encodeSession, SESSION_COOKIE, roleFromRoles, defaultDashboardForRole, type SessionPayload } from "@/lib/auth";
 
@@ -28,10 +29,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ ok: false, error: "Backend no configurado" }, { status: 503 });
   }
 
+  let proxyHeaders: Record<string, string>;
+  try { proxyHeaders = invitationProxyHeaders(req, "/v1/invitations/register"); }
+  catch { return NextResponse.json({ error: "Invitation service unavailable" }, { status: 503, headers: { "cache-control": "no-store" } }); }
   const registered = await fetch(`${apiBaseUrl}/v1/invitations/register`, {
     method: "POST",
     cache: "no-store",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", ...proxyHeaders },
     body: JSON.stringify({ token, name, password })
   });
   const registeredBody = (await registered.json().catch(() => ({}))) as ApiEnvelope<ApiSessionData>;
@@ -77,3 +81,4 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   });
   return res;
 }
+

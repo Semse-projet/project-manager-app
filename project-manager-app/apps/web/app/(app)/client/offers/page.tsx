@@ -1,13 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useLanguage } from "../../../../lib/language-context";
 import {
   confirmOrgOffer,
   createOrgOffer,
   fetchOrgOffers,
   fetchOrganizationMembers,
-  fetchOrganizations,
+  fetchActiveOrganization,
+  endOrgEngagement,
   revokeOrgOffer,
   SemseApiError,
   type BusinessOfferView
@@ -20,8 +21,12 @@ const COPY = {
       "Una oferta no es un contrato ni da acceso por sí sola. La persona la acepta y después tú confirmas el engagement. La relación laboral o contractual la defines fuera de SEMSE; confirma con tu asesor legal.",
     person: "Persona (trabajador activo)",
     position: "Cargo",
-    compensation: "Nota de compensación (solo la ven ustedes dos)",
+    compensation: "Nota de compensación (solo gestores autorizados y destinatario)",
     send: "Enviar oferta",
+    company: "Empresa",
+    end: "Terminar engagement",
+    reason: "Motivo de terminación",
+    error: "No se pudo completar la operación. Verifica tu empresa e inténtalo de nuevo.",
     none: "No hay ofertas todavía.",
     revoke: "Revocar",
     confirm: "Confirmar engagement",
@@ -36,8 +41,12 @@ const COPY = {
       "An offer is not a contract and grants no access by itself. The person accepts it and then you confirm the engagement. You define the employment or contractor relationship outside SEMSE; confirm it with your legal advisor.",
     person: "Person (active worker)",
     position: "Position",
-    compensation: "Compensation note (only the two of you see it)",
+    compensation: "Compensation note (authorized managers and recipient only)",
     send: "Send offer",
+    company: "Company",
+    end: "End engagement",
+    reason: "Reason for ending",
+    error: "The operation could not be completed. Check your company and try again.",
     none: "No offers yet.",
     revoke: "Revoke",
     confirm: "Confirm engagement",
@@ -51,7 +60,11 @@ const COPY = {
 export default function OffersManagerPage() {
   const { language } = useLanguage();
   const c = COPY[language];
+  const requestSeq = useRef(0);
+  const activeOrgRef = useRef<string | null>(null);
   const [orgId, setOrgId] = useState<string | null>(null);
+  const [orgName, setOrgName] = useState("");
+  const [endReason, setEndReason] = useState("");
   const [offers, setOffers] = useState<BusinessOfferView[]>([]);
   const [people, setPeople] = useState<string[]>([]);
   const [person, setPerson] = useState("");
@@ -62,49 +75,62 @@ export default function OffersManagerPage() {
   const [busy, setBusy] = useState(false);
 
   const describe = useCallback(
-    (error: unknown) => (error instanceof SemseApiError && error.status === 404 ? c.unavailable : String((error as Error).message)),
-    [c.unavailable]
+    (error: unknown) => (error instanceof SemseApiError && error.status === 404 ? c.unavailable : c.error),
+    [c.unavailable, c.error]
   );
 
   const load = useCallback(
     async (id: string) => {
+      const sequence = ++requestSeq.current;
       try {
-        setOffers(await fetchOrgOffers(id));
+        const rows = await fetchOrgOffers(id);
+        if (sequence !== requestSeq.current) return;
+        setOffers(rows);
         setMessage(null);
       } catch (error) {
-        setMessage(describe(error));
+        if (sequence === requestSeq.current) setMessage(describe(error));
       }
     },
     [describe]
   );
 
   useEffect(() => {
+    let active = true;
+
     void (async () => {
       try {
-        const orgs = await fetchOrganizations();
-        const id = typeof orgs[0]?.id === "string" ? (orgs[0].id as string) : null;
+        const org = await fetchActiveOrganization();
+        if (!active) return;
+        const id = org.id;
+        if (activeOrgRef.current && activeOrgRef.current !== id) { setOffers([]); setPeople([]); setPerson(""); setPosition(""); setCompensation(""); setEndReason(""); setLegalOk(false); }
+        activeOrgRef.current = id;
+        setOrgName(org.name);
         setOrgId(id);
         if (!id) {
           setMessage(c.noOrg);
           return;
         }
         const members = await fetchOrganizationMembers(id).catch(() => []);
+        if (!active) return;
         setPeople(
           members
-            .filter((m) => (m.status === undefined || m.status === "ACTIVE") && typeof m.userId === "string")
+            .filter((m) => m.status === "ACTIVE" && m.roleKey === "WORKER" && typeof m.userId === "string")
             .map((m) => m.userId as string)
         );
         await load(id);
       } catch (error) {
-        setMessage(describe(error));
+        if (active) { setOrgId(null); setOffers([]); setPeople([]); setMessage(describe(error)); }
       }
     })();
+    return () => { active = false; requestSeq.current++; };
   }, [load, describe, c.noOrg]);
 
   async function run(action: () => Promise<void>) {
     if (!orgId) return;
     setBusy(true);
     try {
+      const current = await fetchActiveOrganization();
+      if (current.id !== orgId) { setOffers([]); setPeople([]); setPerson(""); setPosition(""); setCompensation(""); setEndReason(""); setLegalOk(false); setOrgId(null); throw new Error("Organization changed"); }
       await action();
       await load(orgId);
     } catch (error) {
@@ -118,6 +144,8 @@ export default function OffersManagerPage() {
     <main style={{ maxWidth: 760, margin: "0 auto", padding: 16, display: "grid", gap: 16 }}>
       <h1>{c.title}</h1>
       <p>{c.intro}</p>
+      <p>{c.company}: <strong>{orgName}</strong> <small>{orgId}</small></p>
+      <label>{c.reason}<input name="endReason" value={endReason} maxLength={500} onChange={e => setEndReason(e.target.value)} /></label>
       {message ? <p role="status">{message}</p> : null}
       <form
         onSubmit={(event) => {
@@ -171,12 +199,15 @@ export default function OffersManagerPage() {
                 {offer.positionTitle} · {offer.recipientUserId}
               </span>
               <span>{c.status[offer.status] ?? offer.status}</span>
+              {offer.engagementId && ["PENDING_CONFIRMATION", "ACTIVE"].includes(offer.engagementStatus ?? "") ? (
+                <button disabled={busy || !endReason.trim()} onClick={() => void run(async () => { await endOrgEngagement(orgId as string, offer.engagementId as string, endReason.trim()); setEndReason(""); })}>{c.end}</button>
+              ) : null}
               {offer.status === "SENT" ? (
                 <button disabled={busy} onClick={() => void run(async () => void (await revokeOrgOffer(orgId as string, offer.offerId)))}>
                   {c.revoke}
                 </button>
               ) : null}
-              {offer.status === "ACCEPTED" ? (
+              {offer.status === "ACCEPTED" && offer.engagementStatus === "PENDING_CONFIRMATION" ? (
                 <button
                   disabled={busy || !legalOk}
                   onClick={() => void run(async () => void (await confirmOrgOffer(orgId as string, offer.offerId)))}
@@ -191,3 +222,4 @@ export default function OffersManagerPage() {
     </main>
   );
 }
+

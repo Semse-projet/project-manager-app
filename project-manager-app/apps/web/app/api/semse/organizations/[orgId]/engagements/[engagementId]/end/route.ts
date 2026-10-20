@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchSemseDataForRequest, handleServerError, runtimeDisabledResponse } from "../../../../../_server";
+import { fetchSemseDataForAuthenticatedRequest, handleServerError, runtimeDisabledResponse } from "../../../../../_server";
 
 function fail(error: unknown) {
   if (error instanceof Error && error.message.includes("not configured")) {
@@ -16,13 +16,14 @@ export async function POST(request: NextRequest, context: { params: Promise<{ or
     if (!reason) {
       return NextResponse.json({ error: { status: 400, message: "reason is required" } }, { status: 400 });
     }
-    const data = await fetchSemseDataForRequest<Record<string, unknown>>(
+    const data = await fetchSemseDataForAuthenticatedRequest<Record<string, unknown>>(
       `/v1/organizations/${encodeURIComponent(orgId)}/engagements/${encodeURIComponent(engagementId)}/end`,
       request,
       { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ reason }) }
     );
-    return NextResponse.json({ data });
+    return NextResponse.json({ data }, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     return fail(error);
   }
 }
+

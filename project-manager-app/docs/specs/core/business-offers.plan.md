@@ -1,6 +1,6 @@
 # Plan — BO-05/06 remediación v0.2
 
-**Estado:** REVIEW; diseño pendiente de aprobación formal. Las decisiones OPEN-03/04/06/14 ya están ratificadas y no se solicitan de nuevo.
+**Estado:** contrato y plan aprobados por Samuel el 2026-10-20; implementación en #1018. Fases descritas como secuencia de trabajo, con ejecución real y pendientes en tareas/checklist. No repetir decisiones ya ratificadas.
 
 ## Fases
 

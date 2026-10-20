@@ -8,7 +8,7 @@ status: "APPROVED"
 owner: "semse-core"
 risk: "critical"
 code_status: "IN_PROGRESS"
-ci_status: "NOT_RUN"
+ci_status: "PASS"
 merge_status: "UNMERGED"
 deploy_status: "NOT_DEPLOYED"
 activation_status: "INACTIVE"
@@ -37,9 +37,11 @@ last_verified: "2026-10-20"
 
 ## Estado y evidencia
 
-**REVIEW**, v0.2: no declara aprobada la remediación ni sus gates. La autorización del propietario para continuar correcciones (2026-10-19/20) conserva las decisiones funcionales ya registradas el 2026-10-18; no es aprobación legal ni revisión independiente. La metadata de entrega describe la remediación pendiente, no borra el hecho de que #976 ya fue fusionado por `861eec821d86746423cbd1d8f8f14af672019f8c`.
+Contrato v0.2 **APPROVED** por Samuel el 2026-10-20, incluido ownership persistido y evento de verificación. Preservar las decisiones OPEN ya ratificadas. La aprobación no acredita revisión legal ni de seguridad independiente.
 
-Base inspeccionada `a03bb2b5a211c286874a9f08438b78f29a8e2de5`. El código actual deniega PRO para gestión, usa NOT_RECORDED, oculta clasificación y exige legalConfirmed:true en controller. **Todavía no demuestra owner-only**: `OffersService.requireManage` comprueba roles de Membership ACTIVE y `Org` no tiene vínculo explícito con su dueño. CLIENT por sí solo no satisface OPEN-04. Los tests actuales llaman «owner» a un CLIENT; esa etiqueta no prueba propiedad.
+La remediación está implementada en #1018, todavía UNMERGED/NOT_DEPLOYED/INACTIVE. La base histórica #976 fue fusionada por `861eec821d86746423cbd1d8f8f14af672019f8c`; su integración no cierra este slice.
+
+Checkpoint `25cbd26ec4459021827073351ed0d49e94d954b9`: CI `39385100548` y API Integration `39385100446` SUCCESS. `verified-owner-integration.test.ts` pasó con PostgreSQL real: FK tenant/org, un solo owner bajo concurrencia y rollback de auditoría. El owner deja de ser una etiqueta de fixture y debe corresponder a OrgOwnership; CLIENT por sí solo no concede gestión. Mantener IN_PROGRESS: faltan pruebas de aceptación completas y gates de activación. Nuevos commits requieren CI propio.
 
 ## Decisiones vigentes del propietario — no volver a votar
 
@@ -74,9 +76,9 @@ La tabla de supuestos 2026-10-17 queda sustituida por estas decisiones. No conse
 - AC-09: fixtures distinguen dueño real, segundo CLIENT activo no dueño, OPS_ADMIN autorizado, PRO, WORKER, supervisor, suspendido, revocado, otra org y otro tenant. Probar las cinco operaciones de gestión y lecturas de compensación. Ninguna variable de test llamada owner sustituye vínculo persistido.
 - AC-10: retirar payloads de classification; comprobar que no se persiste clasificación recibida aunque se envíe un campo extra. No prometer borrado histórico sin inventario autorizado y migración separada.
 - AC-11: UI usa organización explícita y visible de sesión/contexto validado; no `orgs[0]`; al cambiar descarta respuestas anteriores y limpia personas/ofertas/compensación/confirmación legal.
-- AC-12: terminar engagement desde UI exige exponer únicamente el engagementId permitido al gestor y su FSM. Esta pieza BO-06 sigue pendiente; no declararla cerrada desde el endpoint existente.
+- AC-12: terminar engagement desde UI exige exponer únicamente el engagementId permitido al gestor y su FSM. La UI y el engagementId de gestión están implementados; su aceptación autenticada sigue pendiente y no se cierra desde el endpoint existente.
 
-## Propuesta técnica de ownership — pendiente de aprobación formal
+## Ownership aprobado — implementación y límites
 
 Persistir un vínculo explícito único organización→usuario dueño, acotado por tenant, separado del rol CLIENT. Propuesta: tabla `OrgOwnership` con `orgId`, `tenantId`, `ownerUserId`, referencia de verificación privada y datos de auditoría; unicidad por organización y claves foráneas consistentes con Org/User. Verificar Membership ACTIVE y rol/permiso de gestión **en cada operación**, además del vínculo. La selección exacta de campos/constraints queda definida en el plan antes de modificar Prisma.
 
@@ -90,11 +92,11 @@ La transferencia de propiedad, HR delegado y elevación de privilegios quedan fu
 
 Modelo vigente: BusinessOffer con positionTitle, startsAt?, compensationNote?, expiresAt, status; BusinessEngagement vinculado a offerId/userId/orgId/tenantId. FSM de oferta: SENT → ACCEPTED | DECLINED | REVOKED; vencimiento temporal impide responder. FSM implementada de engagement: PENDING_CONFIRMATION → ACTIVE; PENDING_CONFIRMATION o ACTIVE → ENDED según guard actual. No añadir estados por deducción.
 
-Migración histórica `20261017120000_business_offers` ya versionada; no editarla. Su aplicación real queda pendiente de reconciliación. Ownership requiere nueva migración aditiva **planificada, no creada/aplicada aquí**. Compatibilidad: app anterior ignora el vínculo; app nueva deniega gestión cuando falta. No activar nueva gestión hasta desplegar guard en todas las instancias. Rollback de código no elimina datos ni revierte engagements/auditoría; mantener flags OFF evita reabrir el permiso anterior más amplio.
+Migración histórica `20261017120000_business_offers` ya versionada; no editarla. Ownership añade `20261020063000_verified_org_ownership`, aplicada en el PostgreSQL aislado de CI. Aplicación real en otros entornos pendiente de reconciliación; no afirmar producción desde CI. Compatibilidad: app anterior ignora el vínculo; app nueva deniega gestión cuando falta. No activar nueva gestión hasta desplegar guard en todas las instancias. Rollback de código no elimina datos ni revierte engagements/auditoría; mantener flags OFF evita reabrir el permiso anterior más amplio.
 
 ## Gates pendientes
 
-1. Aprobar formalmente spec/plan de remediación y vínculo owner; no volver a preguntar OPEN-03/04/06/14.
+1. Aprobación formal spec/plan y owner completada el 2026-10-20; no volver a preguntar OPEN-03/04/06/14.
 2. Tests negativos primero, implementación, CI SHA actual y PostgreSQL real para owner/membership/aislamiento/concurrencia/auditoría.
 3. Revisión independiente y aceptación del contrato legal aplicable antes de personas reales; legalConfirmed:true no reemplaza ese requisito.
 4. Canary sintético, verificación de flags/rollback y reconciliación de migraciones antes de activar.

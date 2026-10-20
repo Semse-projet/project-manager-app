@@ -259,6 +259,9 @@ model Org {
   createdAt                     DateTime                       @default(now())
   updatedAt                     DateTime                       @updatedAt
 
+  ownership                     OrgOwnership?
+
+  @@unique([id, tenantId])
   @@index([tenantId, type])
 }
 
@@ -437,7 +440,7 @@ model BusinessOffer {
   issuedByUserId         String
   recipientUserId        String
   positionTitle          String
-  classificationDeclared String // W2 | 1099 | OTHER (declarada por el patrón; no es contrato legal)
+  classificationDeclared String // Legacy column: new offers store NOT_RECORDED; never infer classification
   startsAt               DateTime?
   compensationNote       String?
   status                 String              @default("SENT") // SENT | ACCEPTED | DECLINED | EXPIRED | REVOKED
@@ -477,6 +480,24 @@ model BusinessEngagement {
 }
 
 
+// Explicit owner verification; no automatic CLIENT/legacy inference.
+model OrgOwnership {
+  orgId             String   @id
+  tenantId          String
+  ownerUserId       String
+  verifiedByUserId  String
+  evidenceRef       String
+  reason            String
+  ticket            String
+  verifiedAt        DateTime @default(now())
+  org               Org      @relation(fields: [orgId, tenantId], references: [id, tenantId], onDelete: Restrict)
+  owner             User     @relation("OrgVerifiedOwner", fields: [ownerUserId], references: [id], onDelete: Restrict)
+  verifier          User     @relation("OrgOwnerVerifier", fields: [verifiedByUserId], references: [id], onDelete: Restrict)
+
+  @@unique([orgId, tenantId])
+  @@index([tenantId, ownerUserId])
+}
+
 model User {
   id                                  String                        @id @default(cuid())
   email                               String                        @unique
@@ -489,6 +510,8 @@ model User {
   riskLevel                           String                        @default("low") // low | medium | high | critical
   flags                               String[]                      @default([]) // fraud_suspect | under_review | etc.
   // ─────────────────────────────────────────────────────────────────────────
+  ownedOrganizations                  OrgOwnership[] @relation("OrgVerifiedOwner")
+  verifiedOrgOwnerships               OrgOwnership[] @relation("OrgOwnerVerifier")
   memberships                         Membership[]
   bidsPlaced                          Bid[]
   evidenceUploads                     Evidence[]
@@ -5721,3 +5744,4 @@ model LaborTimeCorrection {
   @@index([timeEntryId, status])
   @@index([requestedByUserId])
 }
+

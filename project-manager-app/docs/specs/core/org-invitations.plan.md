@@ -1,6 +1,6 @@
 # Plan — BO-01/03/04 remediación v0.2
 
-**Estado:** REVIEW; plan técnico propuesto, no implementación aprobada. Base inspeccionada: a03bb2b5a211c286874a9f08438b78f29a8e2de5. Contrato: org-invitations.spec.md v0.2.
+**Estado:** contrato y plan aprobados por Samuel el 2026-10-20; implementación en #1018. Fases descritas como secuencia de trabajo, con ejecución real y pendientes en tareas/checklist. No repetir decisiones ya ratificadas.
 
 ## Fases y dependencias
 

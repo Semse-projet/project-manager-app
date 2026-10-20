@@ -17,7 +17,7 @@ const createSchema = z.object({
   startsAt: z.coerce.date().optional(),
   compensationNote: z.string().trim().max(500).optional(),
   expiresInDays: z.number().int().min(1).max(30).optional()
-});
+}).strict();
 const listQuerySchema = z.object({
   status: z.enum(["SENT", "ACCEPTED", "DECLINED", "EXPIRED", "REVOKED"]).optional()
 });
@@ -29,6 +29,19 @@ const respondSchema = z.object({ decision: z.enum(["ACCEPT", "DECLINE"]) });
 @Controller("v1/organizations/:orgId")
 export class OrgOffersController {
   constructor(private readonly offers: OffersService) {}
+
+  @Post("owner-verification")
+  @RequirePermissions("org:offers:manage")
+  async verifyOwner(@Req() req: Req_, @Param("orgId") orgId: string, @Body() body: unknown) {
+    const input = parseWithSchema(z.object({
+      ownerUserId: idSchema,
+      evidenceRef: z.string().trim().min(1).max(500),
+      reason: z.string().trim().min(1).max(500),
+      ticket: z.string().trim().min(1).max(120)
+    }).strict(), body);
+    const data = await this.offers.verifyOwner(resolveRequestContext(req), parseWithSchema(idSchema, orgId), resolveRequestId(req.headers ?? {}), input);
+    return ok(resolveRequestId(req.headers ?? {}), data);
+  }
 
   @Post("offers")
   @RequirePermissions("org:offers:manage")
@@ -118,3 +131,4 @@ export class MyOffersController {
     return ok(requestId, data);
   }
 }
+

@@ -512,3 +512,8 @@ Crear eventos por cambios de dominio o de consecuencia operativa real.
 - `daily_report.reviewed`
 - `daily_report.returned`
 - `daily_report.published`
+
+
+## Organization ownership verification (BO-05 v0.2)
+
+`organization.owner_verified` — OPS_ADMIN with an ACTIVE target-organization membership verifies a CLIENT owner from private evidence. Persist ownership and AuditLog in one Serializable transaction. Audit metadata includes ownerUserId and ticket only; private evidenceRef and reason remain in the restricted ownership row. No automatic legacy assignment or transfer.

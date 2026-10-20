@@ -252,3 +252,8 @@ usuario (`createdBy`) en su tenant; ajeno o inexistente responde igual.
 - **Estado de entrega:** sujeto a CI, revisión, merge y smoke de PR #937; no
   afirmar producción por documentación.
 
+
+
+## BO-05 verified organization owner
+
+- `POST /v1/organizations/:orgId/owner-verification`: org:offers:manage plus effective OPS_ADMIN and ACTIVE membership in the target organization/tenant. Body ownerUserId, private evidenceRef, reason, ticket; target CLIENT ACTIVE. Transactional ownership creation + organization.owner_verified audit; no transfer or automatic backfill.

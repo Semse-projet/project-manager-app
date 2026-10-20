@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchSemseDataForRequest, handleServerError, runtimeDisabledResponse } from "../../../../../_server";
+import { fetchSemseDataForAuthenticatedRequest, handleServerError, runtimeDisabledResponse } from "../../../../../_server";
 
 export async function POST(
   request: NextRequest,
@@ -8,8 +8,9 @@ export async function POST(
   try {
     const { orgId, invitationId } = await context.params;
     const input = (await request.json().catch(() => ({}))) as Record<string, unknown>;
-    const reason = typeof input.reason === "string" && input.reason.trim() ? input.reason.trim() : "cancelada por la empresa";
-    const data = await fetchSemseDataForRequest<Record<string, unknown>>(
+    const reason = typeof input.reason === "string" ? input.reason.trim() : "";
+    if (!reason || reason.length > 500) return NextResponse.json({ error: { status: 400, message: "Cancellation reason is required (1-500 characters)" } }, { status: 400 });
+    const data = await fetchSemseDataForAuthenticatedRequest<Record<string, unknown>>(
       `/v1/organizations/${encodeURIComponent(orgId)}/invitations/${encodeURIComponent(invitationId)}/cancel`,
       request,
       {
@@ -18,7 +19,7 @@ export async function POST(
         body: JSON.stringify({ reason })
       }
     );
-    return NextResponse.json({ data });
+    return NextResponse.json({ data }, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     if (error instanceof Error && error.message.includes("not configured")) {
       return runtimeDisabledResponse();
@@ -26,3 +27,4 @@ export async function POST(
     return handleServerError(error);
   }
 }
+

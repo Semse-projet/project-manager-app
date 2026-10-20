@@ -249,6 +249,17 @@ export class InvitationsService {
       if (!existing.some((m) => m.roleId === role.id)) {
         await tx.membership.create({ data: { userId: user.id, orgId: invitation.orgId, roleId: role.id, status: "ACTIVE" } });
       }
+      await this.audit.append({
+        tenantId: invitation.tenantId,
+        orgId: invitation.orgId,
+        actorUserId: user.id,
+        action: "membership.created",
+        entityType: "Membership",
+        entityId: `${user.id}:${invitation.orgId}`,
+        requestId: input.requestId,
+        timestamp: new Date().toISOString(),
+        afterJson: { invitationId: invitation.id, role: invitation.roleKey }
+      }, tx);
       return "ACCEPTED" as const;
     });
 
@@ -258,17 +269,6 @@ export class InvitationsService {
       throw new GoneException();
     }
 
-    await this.audit.append({
-      tenantId: invitation.tenantId,
-      orgId: invitation.orgId,
-      actorUserId: user.id,
-      action: "membership.created",
-      entityType: "Membership",
-      entityId: `${user.id}:${invitation.orgId}`,
-      requestId: input.requestId,
-      timestamp: new Date().toISOString(),
-      afterJson: { invitationId: invitation.id, role: invitation.roleKey }
-    });
     return done;
   }
 
@@ -292,12 +292,13 @@ export class InvitationsService {
     }
     const org = await this.prisma.org.findFirst({ where: { id: orgId } });
     const base = (process.env.SEMSE_WEB_BASE_URL?.trim() || "https://semseproject.com").replace(/\/+$/, "");
-    const link = `${base}/invitations/accept?token=${encodeURIComponent(fullToken)}`;
+    const link = `${base}/invitations/accept#token=${encodeURIComponent(fullToken)}`;
     const company = org?.name ?? "una empresa en SEMSE";
+    const htmlCompany = company.replace(/[&<>"\']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "\'": "&#39;" })[ch] ?? ch);
     const result = await this.email.send({
       to: row.contactEmail,
       subject: `${company} te invitó a unirte en SEMSE`,
-      html: `<p>${company} te invitó a unirte como trabajador en SEMSE.</p><p><a href="${link}">Aceptar invitación</a></p><p>El enlace vence pronto y solo funciona para este correo. Si no lo esperabas, ignora este mensaje.</p>`,
+      html: `<p>${htmlCompany} te invitó a unirte como trabajador en SEMSE.</p><p><a href="${link}">Aceptar invitación</a></p><p>El enlace vence pronto y solo funciona para este correo. Si no lo esperabas, ignora este mensaje.</p>`,
       text: `${company} te invitó a unirte en SEMSE: ${link} (solo funciona para este correo; ignóralo si no lo esperabas)`
     });
     if (!result.sent) {
@@ -338,20 +339,20 @@ export class InvitationsService {
       await tx.userProfile.create({ data: { userId: user.id, displayName: input.name } });
       await tx.membership.create({ data: { userId: user.id, orgId: invitation.orgId, roleId: role.id, status: "ACTIVE" } });
       await tx.orgInvitation.update({ where: { id: invitation.id }, data: { acceptedByUserId: user.id } });
+      await this.audit.append({
+        tenantId: invitation.tenantId,
+        orgId: invitation.orgId,
+        actorUserId: user.id,
+        action: "membership.created",
+        entityType: "Membership",
+        entityId: `${user.id}:${invitation.orgId}`,
+        requestId: input.requestId,
+        timestamp: new Date().toISOString(),
+        afterJson: { invitationId: invitation.id, role: invitation.roleKey, source: "register-invited" }
+      }, tx);
       return user.id;
     });
 
-    await this.audit.append({
-      tenantId: invitation.tenantId,
-      orgId: invitation.orgId,
-      actorUserId: userId,
-      action: "membership.created",
-      entityType: "Membership",
-      entityId: `${userId}:${invitation.orgId}`,
-      requestId: input.requestId,
-      timestamp: new Date().toISOString(),
-      afterJson: { invitationId: invitation.id, role: invitation.roleKey, source: "register-invited" }
-    });
     return this.auth.issueSession({
       userId,
       tenantId: invitation.tenantId,
@@ -398,3 +399,4 @@ export class InvitationsService {
     };
   }
 }
+
