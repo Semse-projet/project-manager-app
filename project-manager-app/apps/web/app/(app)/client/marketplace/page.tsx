@@ -63,9 +63,10 @@ function formatBudget(min: number | null, max: number | null, language: Language
 
 // ── Bid Modal ─────────────────────────────────────────────────────────────────
 
-function BidModal({ form, onClose, onSubmit, submitting, result }: {
+function BidModal({ form, onClose, onRetry, onSubmit, submitting, result }: {
   form: BidForm;
   onClose: () => void;
+  onRetry: () => void;
   onSubmit: (data: Omit<BidForm, "jobTitle">) => Promise<void>;
   submitting: boolean;
   result: BidResult | null;
@@ -113,7 +114,7 @@ function BidModal({ form, onClose, onSubmit, submitting, result }: {
               <>
                 <div style={{ fontSize: 14, fontWeight: 700, color: "#fca5a5", marginBottom: 8 }}>{t("mp.sendError")}</div>
                 <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 16 }}>{result.message}</div>
-                <button onClick={() => setData((p) => ({ ...p }))} style={{ padding: "8px 20px", borderRadius: 10, background: "rgba(239,68,68,.1)", border: "1px solid rgba(239,68,68,.3)", color: "#fca5a5", cursor: "pointer" }}>
+                <button type="button" onClick={onRetry} style={{ padding: "8px 20px", borderRadius: 10, background: "rgba(239,68,68,.1)", border: "1px solid rgba(239,68,68,.3)", color: "#fca5a5", cursor: "pointer" }}>
                   {t("mp.retry")}
                 </button>
               </>
@@ -283,7 +284,7 @@ export default function ClientMarketplacePage() {
     <div style={{ maxWidth: 1000, margin: "0 auto", padding: "28px 20px", color: "var(--ink)" }}>
       {/* Bid Modal */}
       {bidForm && (
-        <BidModal form={bidForm} onClose={() => setBidForm(null)} onSubmit={submitBid} submitting={bidSubmitting} result={bidResult} />
+        <BidModal form={bidForm} onClose={() => setBidForm(null)} onRetry={() => setBidResult(null)} onSubmit={submitBid} submitting={bidSubmitting} result={bidResult} />
       )}
 
       {/* Hero */}

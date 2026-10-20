@@ -187,3 +187,11 @@ test("Mission Control status requires an actual successful response, not a loadi
   }
   assert.ok(!source.includes('useState<"connected" | "degraded">("connected")'));
 });
+
+test("Marketplace failed-proposal retry restores the saved draft without another automatic POST", () => {
+  const page = readFileSync(path.join(root, "apps/web/app/(app)/client/marketplace/page.tsx"), "utf8");
+  assert.match(page, /onRetry: \(\) => void;/, "modal must receive an explicit retry handler");
+  assert.match(page, /<button type="button" onClick=\{onRetry\}/, "retry must not be a submit action");
+  assert.match(page, /onRetry=\{\(\) => setBidResult\(null\)\}/, "retry must clear failure state and reveal the saved draft");
+  assert.doesNotMatch(page, /onClick=\{\(\) => setData\(\(p\) => \(\{ \.\.\.p \}\)\)\}/, "a no-op rerender does not retry");
+});
