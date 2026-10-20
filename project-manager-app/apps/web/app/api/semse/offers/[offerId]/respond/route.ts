@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchSemseDataForRequest, handleServerError, runtimeDisabledResponse } from "../../../_server";
+import { fetchSemseDataForAuthenticatedRequest, handleServerError, runtimeDisabledResponse } from "../../../_server";
 
 function fail(error: unknown) {
   if (error instanceof Error && error.message.includes("not configured")) {
@@ -15,12 +15,12 @@ export async function POST(request: NextRequest, context: { params: Promise<{ of
     if (body.decision !== "ACCEPT" && body.decision !== "DECLINE") {
       return NextResponse.json({ error: { status: 400, message: "decision must be ACCEPT or DECLINE" } }, { status: 400 });
     }
-    const data = await fetchSemseDataForRequest<Record<string, unknown>>(
+    const data = await fetchSemseDataForAuthenticatedRequest<Record<string, unknown>>(
       `/v1/offers/${encodeURIComponent(offerId)}/respond`,
       request,
       { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ decision: body.decision }) }
     );
-    return NextResponse.json({ data });
+    return NextResponse.json({ data }, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     return fail(error);
   }

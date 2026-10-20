@@ -19,7 +19,7 @@ export async function POST(
         body: JSON.stringify({ reason })
       }
     );
-    return NextResponse.json({ data });
+    return NextResponse.json({ data }, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     if (error instanceof Error && error.message.includes("not configured")) {
       return runtimeDisabledResponse();

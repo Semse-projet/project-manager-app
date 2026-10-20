@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchSemseDataForRequest, handleServerError, runtimeDisabledResponse } from "../../../../../_server";
+import { fetchSemseDataForAuthenticatedRequest, handleServerError, runtimeDisabledResponse } from "../../../../../_server";
 
 export async function POST(
   request: NextRequest,
@@ -7,7 +7,7 @@ export async function POST(
 ) {
   try {
     const { orgId, invitationId } = await context.params;
-    const data = await fetchSemseDataForRequest<Record<string, unknown>>(
+    const data = await fetchSemseDataForAuthenticatedRequest<Record<string, unknown>>(
       `/v1/organizations/${encodeURIComponent(orgId)}/invitations/${encodeURIComponent(invitationId)}/resend`,
       request,
       {
@@ -16,7 +16,7 @@ export async function POST(
         body: JSON.stringify({})
       }
     );
-    return NextResponse.json({ data });
+    return NextResponse.json({ data }, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     if (error instanceof Error && error.message.includes("not configured")) {
       return runtimeDisabledResponse();
@@ -24,3 +24,4 @@ export async function POST(
     return handleServerError(error);
   }
 }
+

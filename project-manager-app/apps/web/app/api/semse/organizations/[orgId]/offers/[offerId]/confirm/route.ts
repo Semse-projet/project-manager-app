@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchSemseDataForRequest, handleServerError, runtimeDisabledResponse } from "../../../../../_server";
+import { fetchSemseDataForAuthenticatedRequest, handleServerError, runtimeDisabledResponse } from "../../../../../_server";
 
 function fail(error: unknown) {
   if (error instanceof Error && error.message.includes("not configured")) {
@@ -15,13 +15,14 @@ export async function POST(request: NextRequest, context: { params: Promise<{ or
     if (body.legalConfirmed !== true) {
       return NextResponse.json({ error: { status: 400, message: "legalConfirmed must be true" } }, { status: 400 });
     }
-    const data = await fetchSemseDataForRequest<Record<string, unknown>>(
+    const data = await fetchSemseDataForAuthenticatedRequest<Record<string, unknown>>(
       `/v1/organizations/${encodeURIComponent(orgId)}/offers/${encodeURIComponent(offerId)}/confirm`,
       request,
       { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ legalConfirmed: true }) }
     );
-    return NextResponse.json({ data });
+    return NextResponse.json({ data }, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     return fail(error);
   }
 }
+

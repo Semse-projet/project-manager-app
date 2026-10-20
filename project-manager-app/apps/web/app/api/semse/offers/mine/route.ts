@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchSemseDataForRequest, handleServerError, runtimeDisabledResponse } from "../../_server";
+import { fetchSemseDataForAuthenticatedRequest, handleServerError, runtimeDisabledResponse } from "../../_server";
 
 function fail(error: unknown) {
   if (error instanceof Error && error.message.includes("not configured")) {
@@ -10,8 +10,8 @@ function fail(error: unknown) {
 
 export async function GET(request: NextRequest) {
   try {
-    const data = await fetchSemseDataForRequest<Record<string, unknown>[]>("/v1/offers/mine", request);
-    return NextResponse.json({ data });
+    const data = await fetchSemseDataForAuthenticatedRequest<Record<string, unknown>[]>("/v1/offers/mine", request);
+    return NextResponse.json({ data }, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     return fail(error);
   }

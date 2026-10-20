@@ -5,7 +5,7 @@ Base: main 7bcdb71cc072813bfc4bd71814345b210c75755c; stacked on approved contrac
 ## Implemented
 
 - Invitation links use fragment-only secrets, scrubbed before preview, retained in component memory only. Reject legacy query and ambiguous fragments. Server email links match. Company names HTML-escaped in email.
-- Invitation and offer management bind to authenticated session organization, display it, verify again before mutation and clear sensitive state on org change. No implicit orgs[0]. Keep drafts on language changes. Real cancellation/termination reason; PRO invitation route on worker surface. Neutral localized errors.
+- Invitation and offer management bind to authenticated session organization, display it, verify again before mutation and clear sensitive state on org change. No implicit orgs[0]. All invitation/offer BFF reads/writes require the authenticated helper; no static server-identity fallback. Secret-bearing responses explicitly no-store. Keep drafts on language changes. Real cancellation/termination reason; PRO invitation route on worker surface. Neutral localized errors.
 - Authoritative OrgOwnership registry, additive migration with composite tenant/org FK, no automatic legacy owner assignment. Offer management reads/writes require active effective scoped OPS_ADMIN or an active CLIENT matching verified owner. Provisioning is explicit scoped OPS, evidence/reason/ticket, denies reassignment. PRO and supervisor do not read management compensation; recipient keeps own offers. Classification input rejected and no W2/1099 collected.
 - Offer mutation plus audit use Serializable transactions/retries. Invitation acceptance/registration membership audits share their transaction. Audit failure rolls back domain changes.
 - Public invitation ingress uses HMAC method/canonical-route/IP/timestamp assertion from BFF and an atomic shared Redis bucket. Production unsigned requests are denied. Matched Nest route metadata determines protected endpoints, preventing URL spelling bypass. Store failure denies service. Other routes retain existing ThrottlerGuard behavior.
@@ -20,6 +20,8 @@ Base: main 7bcdb71cc072813bfc4bd71814345b210c75755c; stacked on approved contrac
 - Three token/proxy tests: PASS, including query rejection/scrub and signature method/path/time/client tampering.
 - Five validator regression tests: PASS; 1,098-message structural catalog validation PASS. Critical gate FAIL with 16 CRITICAL_REVIEW_REQUIRED entries, expected outstanding human review.
 - spec-index check: PASS, 203 specs. Approved contract head CI run 39380580728 SUCCESS. This doc CI does not validate implementation.
+
+Added a real PostgreSQL owner/tenant-FK/concurrent-provisioning/audit-rollback integration test; pending CI execution, not counted as PASS. First CI exposed an ioredis default-import NodeNext compile error, corrected with the package named Redis class export.
 
 Full monorepo build/typecheck, real PostgreSQL migration/rollback/concurrent-owner proof, real Redis/multiple replicas, and new-code deployment smoke remain required. Local snapshot is partial; isolated service tests cannot establish these gates.
 
