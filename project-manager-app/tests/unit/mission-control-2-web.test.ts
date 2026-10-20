@@ -35,7 +35,8 @@ test("F4 web: all BFF contracts derive identity from the incoming session", () =
     "apps/web/app/api/semse/ops/mission-control/actions/route.ts",
   ]) {
     const source = read(route);
-    assert.match(source, /fetchSemseDataForRequest/);
+    assert.match(source, /fetchSemseDataForAuthenticatedRequest/, `${route} must require the signed-in actor`);
+    assert.doesNotMatch(source, /\bfetchSemseDataForRequest\b/, "no static actor fallback");
     assert.doesNotMatch(source, /\bfetchSemseData\(/);
   }
 });
