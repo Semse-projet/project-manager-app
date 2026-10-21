@@ -17,6 +17,7 @@ import { NotificationBanner } from "../../../components/notifications/Notificati
 import { CLIENT_ROUTES, clientDisputesHref, clientJobsHref, clientPaymentsHref } from "../../../lib/client-routes";
 import { fetchRatings, type RatingListItem } from "../../../semse-api";
 import { useLanguage, type LanguagePreference } from "../../../../lib/language-context";
+import { messageKey, messageTextOr, renderMessage, type UiMessage } from "../../../../lib/ui-message";
 
 // ─────────────────────────────────────────────────────────────
 // COMPONENTE
@@ -79,7 +80,7 @@ export default function ClientDashboardPage() {
   const [givenJobIds, setGivenJobIds]         = useState<Set<string>>(new Set());
   const [pendingBidCount, setPendingBidCount] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [apiError, setApiError] = useState<string | null>(null);
+  const [apiError, setApiError] = useState<UiMessage | null>(null);
 
   useEffect(() => {
     const jobsPromise = fetch("/api/semse/jobs").then(r => r.json() as Promise<{ data?: JobRecordView[]; error?: unknown }>);
@@ -96,7 +97,7 @@ export default function ClientDashboardPage() {
         setReceivedRatings(received);
 
         // Jobs
-        if (d.error) { setApiError(displayText(d.error, t("clientDash.jobsLoadError"))); return; }
+        if (d.error) { setApiError(messageTextOr(displayText(d.error), "clientDash.jobsLoadError")); return; }
         const jobList = d.data ?? [];
         setJobs(jobList);
         const published = jobList.filter((j: JobRecordView) => j.status === "published" || j.status === "posted");
@@ -114,7 +115,7 @@ export default function ClientDashboardPage() {
         }, 0);
         setPendingBidCount(total);
       })
-      .catch(() => setApiError(t("clientDash.connectionError")))
+      .catch(() => setApiError(messageKey("clientDash.connectionError")))
       .finally(() => setLoading(false));
   }, [t]);
 
@@ -296,7 +297,7 @@ export default function ClientDashboardPage() {
             ))}
           </div>
         ) : apiError ? (
-          <ErrorState message={apiError} action={<span>{t("clientDash.backendConfig")}</span>} />
+          <ErrorState message={renderMessage(apiError, t) ?? ""} action={<span>{t("clientDash.backendConfig")}</span>} />
         ) : jobs.length === 0 ? (
           <ClientDashboardEmptyJobs />
         ) : (
