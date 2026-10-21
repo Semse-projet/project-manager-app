@@ -1,13 +1,16 @@
-import { BadRequestException, Body, Controller, Delete, Get, Optional, Param, Patch, Post, Query, Req } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Delete, ForbiddenException, Get, Optional, Param, Patch, Post, Query, Req, ServiceUnavailableException } from "@nestjs/common";
 import { prometeoToolInvokeSchema } from "@semse/schemas";
 import { ok } from "../../common/api-response.js";
 import { RequirePermissions } from "../../common/permissions.decorator.js";
 import { resolveRequestContext } from "../../common/request-context.js";
+import { isOpsAdmin, sameOrg } from "../../common/resource-scope.js";
 import { resolveRequestId } from "../../common/request-id.js";
 import { LLMOrchestrator } from "../../infrastructure/llm/orchestrator.js";
 import { getAgentProfile } from "../../infrastructure/llm/agent-profiles.js";
 import { PrometeoService } from "./prometeo.service.js";
 import { PrometeoAccessPolicy } from "./prometeo-access.policy.js";
+import { PrometeoDocumentGrantService } from "./prometeo-document-grant.service.js";
+import { isPrometeoDocumentSharingEnabled } from "./prometeo-document-sharing.flag.js";
 import { PrometeoToolExecutionService } from "./prometeo-tool-execution.service.js";
 import { findPrometeoToolDescriptor, listPrometeoToolRegistry } from "./prometeo-tool-registry.js";
 import { TradeGuideService } from "./trade-guide.service.js";
@@ -23,7 +26,27 @@ export class PrometeoController {
     @Optional() private readonly tradeGuide?: TradeGuideService,
     @Optional() private readonly toolExecution?: PrometeoToolExecutionService,
     @Optional() private readonly executionQuery?: ToolExecutionQueryService,
+    @Optional() private readonly documentGrants?: PrometeoDocumentGrantService,
   ) {}
+
+  /** Legacy public_training labels do not grant cross-org access (C51/#974). */
+  private documentVisibility(body: Record<string, unknown>, projectId?: string): string {
+    const requested = typeof body.visibility === "string" ? body.visibility : (projectId ? "project_private" : "tenant_private");
+    if (requested === "public_training") throw new BadRequestException("Public sharing requires approved explicit consent");
+    if (!["tenant_private", "project_private"].includes(requested)) throw new BadRequestException("Unsupported visibility");
+    if (requested === "project_private" && !projectId) throw new BadRequestException("project_private requires projectId");
+    if (requested === "tenant_private" && projectId) throw new BadRequestException("Project documents require project_private visibility");
+    return requested;
+  }
+
+  /** Reject malformed optional project IDs before authorization or persistence. */
+  private ingestProjectId(body: Record<string, unknown>): string | undefined {
+    if (body.projectId === undefined || body.projectId === null) return undefined;
+    if (typeof body.projectId !== "string" || !body.projectId.trim()) {
+      throw new BadRequestException("projectId must be a non-empty string");
+    }
+    return body.projectId.trim();
+  }
 
   // ── RAG Documents ───────────────────────────────────────────────────────────
 
@@ -125,16 +148,18 @@ export class PrometeoController {
     const actor = resolveRequestContext(req);
     const rid = resolveRequestId(req.headers ?? {});
     const b = body as Record<string, unknown>;
-    const trade      = typeof b.trade === "string" ? b.trade : "general";
-    const visibility = typeof b.visibility === "string" ? b.visibility : "public_training";
+    const projectId = this.ingestProjectId(b);
+    await this.access.assertCanCreate(actor, { projectId });
+    const trade = typeof b.trade === "string" ? b.trade : "general";
+    const visibility = this.documentVisibility(b, projectId);
     const doc = await this.svc.ingestText({
       tenantId: actor.tenantId, orgId: actor.orgId, userId: actor.userId,
-      projectId: typeof b.projectId === "string" ? b.projectId : undefined,
+      projectId,
       title: typeof b.title === "string" ? b.title : "Documento sin título",
       text: typeof b.text === "string" ? b.text : "",
       sourceType: typeof b.sourceType === "string" ? b.sourceType : "text",
       sourceRef: typeof b.sourceRef === "string" ? b.sourceRef : undefined,
-      metadataJson: { trade, visibility, ...(typeof b.metadataJson === "object" && b.metadataJson !== null ? b.metadataJson as Record<string, unknown> : {}) },
+      metadataJson: { ...(typeof b.metadataJson === "object" && b.metadataJson !== null ? b.metadataJson as Record<string, unknown> : {}), trade, visibility },
     });
     return ok(rid, doc);
   }
@@ -151,6 +176,9 @@ export class PrometeoController {
     const mimeType = typeof b.mimeType === "string" ? b.mimeType : "text/plain";
     const fileName = typeof b.fileName === "string" ? b.fileName : "document";
     const title    = typeof b.title === "string" ? b.title.trim() : fileName;
+    const projectId = this.ingestProjectId(b);
+    await this.access.assertCanCreate(actor, { projectId });
+    const visibility = this.documentVisibility(b, projectId);
 
     if (!base64) {
       const { BadRequestException } = await import("@nestjs/common");
@@ -165,8 +193,8 @@ export class PrometeoController {
       mimeType,
       fileName,
       trade:      typeof b.trade === "string" ? b.trade : "general",
-      visibility: typeof b.visibility === "string" ? b.visibility : "public_training",
-      projectId:  typeof b.projectId === "string" ? b.projectId : undefined,
+      visibility,
+      projectId,
     });
     return ok(rid, doc);
   }
@@ -176,7 +204,8 @@ export class PrometeoController {
   async getTradeLibrary(@Req() req: { headers?: Record<string, unknown> }) {
     const actor = resolveRequestContext(req);
     const rid = resolveRequestId(req.headers ?? {});
-    const library = await this.svc.getTradeLibrary(actor.tenantId);
+    const scope = await this.access.listScope(actor);
+    const library = await this.svc.getTradeLibrary(actor.tenantId, scope);
     return ok(rid, library);
   }
 
@@ -190,7 +219,9 @@ export class PrometeoController {
   ) {
     const actor = resolveRequestContext(req);
     const rid = resolveRequestId(req.headers ?? {});
-    const docs = await this.svc.listDocuments(actor.tenantId, projectId);
+    if (projectId) await this.access.assertProjectFilter(actor, projectId);
+    const scope = await this.access.listScope(actor);
+    const docs = await this.svc.listDocuments(actor.tenantId, projectId, scope);
     // Client-side filter on metadataJson trade/status
     const filtered = docs.filter((d) => {
       const meta = (d.metadataJson ?? {}) as Record<string, unknown>;
@@ -206,8 +237,50 @@ export class PrometeoController {
   async deleteDocument(@Req() req: { headers?: Record<string, unknown> }, @Param("id") id: string) {
     const actor = resolveRequestContext(req);
     const rid = resolveRequestId(req.headers ?? {});
-    await this.svc.deleteDocument({ tenantId: actor.tenantId, id });
+    const doc = await this.svc.getDocument(id);
+    await this.access.assertRowAccess(actor, doc, "Prometeo document not found");
+    // Read access to a shared project never grants authority to destroy another org's document.
+    if (!isOpsAdmin(actor) && !sameOrg(actor.orgId, doc?.orgId)) {
+      throw new ForbiddenException("Only the owning organization can delete this document");
+    }
+    await this.svc.deleteDocument({ tenantId: actor.tenantId, id, orgId: isOpsAdmin(actor) ? undefined : actor.orgId, actorUserId: actor.userId, requestId: rid });
     return ok(rid, { deleted: true });
+  }
+
+  /** Explicit, audited sharing with one validated project participant org. */
+  @Post("documents/:id/shares")
+  @RequirePermissions("knowledge:share")
+  async grantDocumentAccess(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Param("id") id: string,
+    @Body() body: unknown,
+  ) {
+    if (!isPrometeoDocumentSharingEnabled()) throw new ServiceUnavailableException("Document sharing is not activated");
+    if (!this.documentGrants) throw new BadRequestException("Document sharing is unavailable");
+    const b = (body ?? {}) as Record<string, unknown>;
+    const recipientOrgId = typeof b.recipientOrgId === "string" ? b.recipientOrgId.trim() : "";
+    if (!recipientOrgId) throw new BadRequestException("recipientOrgId is required");
+    const actor = resolveRequestContext(req);
+    const rid = resolveRequestId(req.headers ?? {});
+    const grant = await this.documentGrants.grant(actor, id, recipientOrgId, rid);
+    return ok(rid, {
+      id: grant.id, documentId: id, projectId: grant.projectId,
+      recipientOrgId: grant.recipientOrgId, active: grant.revokedAt === null,
+    });
+  }
+
+  /** Revocation takes effect in SQL on the next retrieval, including RAG. */
+  @Delete("documents/:id/shares/:recipientOrgId")
+  @RequirePermissions("knowledge:share")
+  async revokeDocumentAccess(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Param("id") id: string,
+    @Param("recipientOrgId") recipientOrgId: string,
+  ) {
+    if (!this.documentGrants) throw new BadRequestException("Document sharing is unavailable");
+    const actor = resolveRequestContext(req);
+    const rid = resolveRequestId(req.headers ?? {});
+    return ok(rid, await this.documentGrants.revoke(actor, id, recipientOrgId, rid));
   }
 
   @Post("search")
@@ -216,9 +289,12 @@ export class PrometeoController {
     const actor = resolveRequestContext(req);
     const rid = resolveRequestId(req.headers ?? {});
     const b = body as Record<string, unknown>;
+    const projectId = typeof b.projectId === "string" ? b.projectId : undefined;
+    if (projectId) await this.access.assertProjectFilter(actor, projectId);
+    const scope = (await this.access.listScope(actor)) ?? null;
     const results = await this.svc.search({
       tenantId: actor.tenantId,
-      projectId: typeof b.projectId === "string" ? b.projectId : undefined,
+      projectId, scope,
       query: typeof b.query === "string" ? b.query : "",
       topK: typeof b.topK === "number" ? b.topK : 5,
     });
@@ -231,9 +307,12 @@ export class PrometeoController {
     const actor = resolveRequestContext(req);
     const rid = resolveRequestId(req.headers ?? {});
     const b = body as Record<string, unknown>;
+    const projectId = typeof b.projectId === "string" ? b.projectId : undefined;
+    if (projectId) await this.access.assertProjectFilter(actor, projectId);
+    const scope = (await this.access.listScope(actor)) ?? null;
     const ctx = await this.svc.buildRagContext({
       tenantId: actor.tenantId,
-      projectId: typeof b.projectId === "string" ? b.projectId : undefined,
+      projectId, scope,
       query: typeof b.query === "string" ? b.query : "",
       topK: typeof b.topK === "number" ? b.topK : 5,
     });
@@ -253,10 +332,13 @@ export class PrometeoController {
 
     if (!question) return ok(rid, { answer: "La pregunta no puede estar vacía.", citations: [], confidence: 0, insufficientContext: true });
 
-    // 1. Build RAG context (with optional trade filter applied post-retrieval)
+    // Restrict documents before retrieval, citations, or LLM context.
+    const projectId = typeof b.projectId === "string" ? b.projectId : undefined;
+    if (projectId) await this.access.assertProjectFilter(actor, projectId);
+    const scope = (await this.access.listScope(actor)) ?? null;
     const ctx = await this.svc.buildRagContext({
       tenantId: actor.tenantId,
-      projectId: typeof b.projectId === "string" ? b.projectId : undefined,
+      projectId, scope,
       query: question,
       topK: tradeFilter ? 10 : 6, // fetch more if filtering by trade
     });
@@ -318,7 +400,8 @@ export class PrometeoController {
           history: [],
           userMessage,
           context: {
-            ...getAgentProfile("evidence-analyzer"), // privacyCritical
+            ...getAgentProfile("evidence-analyzer"),
+            localOnly: true, // Private RAG content must not be routed to a remote provider.
             agentName: "prometeo-rag",
             source: "prometeo",
           },
@@ -395,10 +478,13 @@ export class PrometeoController {
       return ok(rid, { answer: "Training Agent no está disponible.", confidence: 0, insufficientContext: true });
     }
 
+    const projectId = typeof b.projectId === "string" ? b.projectId : undefined;
+    if (projectId) await this.access.assertProjectFilter(actor, projectId);
+    const scope = (await this.access.listScope(actor)) ?? null;
     const result = await this.tradeGuide.guide({
       question, trade, locale,
       tenantId:  actor.tenantId,
-      projectId: typeof b.projectId === "string" ? b.projectId : undefined,
+      projectId, scope,
     });
 
     return ok(rid, result);
@@ -495,13 +581,15 @@ export class PrometeoController {
   async embeddingsHealth(@Req() req: { headers?: Record<string, unknown> }) {
     const actor = resolveRequestContext(req);
     const rid = resolveRequestId(req.headers ?? {});
-    return ok(rid, await this.svc.getEmbeddingRagHealth(actor.tenantId));
+    const scope = await this.access.listScope(actor);
+    return ok(rid, await this.svc.getEmbeddingRagHealth(actor.tenantId, scope));
   }
 
   @Post("embeddings/backfill")
   @RequirePermissions("agents:run:create")
   async backfillEmbeddings(@Req() req: { headers?: Record<string, unknown> }, @Body() body: Record<string, unknown>) {
     const actor = resolveRequestContext(req);
+    if (!isOpsAdmin(actor)) throw new ForbiddenException("OPS_ADMIN is required for tenant-wide embeddings backfill");
     const rid = resolveRequestId(req.headers ?? {});
     const result = await this.svc.backfillEmbeddings({
       tenantId:  actor.tenantId,
@@ -530,6 +618,13 @@ export class PrometeoController {
       return ok(rid, { error: "type must be: confirm | correct | flag" });
     }
 
+    const chunk = await this.svc.getChunkById(actor.tenantId, chunkId);
+    const doc = chunk ? await this.svc.getDocument(chunk.documentId) : null;
+    await this.access.assertRowAccess(actor, doc, "Prometeo chunk not found");
+    // Project participation cannot mutate legacy unverified documents owned by another org.
+    if (!isOpsAdmin(actor) && !sameOrg(actor.orgId, doc?.orgId)) {
+      throw new ForbiddenException("Only the owning organization can submit document feedback");
+    }
     try {
       const result = await this.svc.submitFeedback({
         tenantId: actor.tenantId,
@@ -552,6 +647,7 @@ export class PrometeoController {
   async feedbackStats(@Req() req: { headers?: Record<string, unknown> }) {
     const actor = resolveRequestContext(req);
     const rid   = resolveRequestId(req.headers ?? {});
-    return ok(rid, await this.svc.getFeedbackStats(actor.tenantId));
+    const scope = await this.access.listScope(actor);
+    return ok(rid, await this.svc.getFeedbackStats(actor.tenantId, scope));
   }
 }

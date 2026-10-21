@@ -95,7 +95,7 @@ export default function PrometeoPage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [ingestFile, setIngestFile] = useState<File | null>(null);
   const [ingestTrade, setIngestTrade] = useState("general");
-  const [ingestVisibility, setIngestVisibility] = useState("public_training");
+  const [ingestVisibility, setIngestVisibility] = useState("tenant_private");
   const [ingestMode, setIngestMode] = useState<"text" | "file">("text");
   const [assets, setAssets] = useState<Asset[]>([]);
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
@@ -356,11 +356,12 @@ export default function PrometeoPage() {
                     <option value="evidence">Evidencia transcrita</option>
                   </select>
                   <select value={ingestVisibility} onChange={(e) => setIngestVisibility(e.target.value)} style={{ ...input, cursor: "pointer" }}>
-                    <option value="public_training">Público/Entrenamiento</option>
                     <option value="tenant_private">Privado organización</option>
-                    <option value="project_private">Privado proyecto</option>
                   </select>
                 </div>
+                <p style={{ color: "var(--muted)", fontSize: 11, marginTop: 4 }}>
+                  Compartir documentos o asociarlos a proyectos requiere autorización explícita y una asociación verificada; estas opciones permanecen deshabilitadas por seguridad.
+                </p>
 
                 {ingestMode === "text" ? (
                   <>

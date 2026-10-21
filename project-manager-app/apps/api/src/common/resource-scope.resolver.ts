@@ -24,10 +24,10 @@ export class ResourceScopeResolver {
   constructor(private readonly prisma: PrismaService) {}
 
   /** `Project` del tenant → alcance (cliente = org del `job`; profesional = `assignedProOrgId`). */
-  async resolveProjectScope(tenantId: string, projectId: string): Promise<ProjectScope | null> {
+  async resolveProjectScope(tenantId: string, projectId: string, requireLiveJob = false): Promise<ProjectScope | null> {
     if (!tenantId || !projectId) return null;
     const project = await this.prisma.project.findFirst({
-      where: { id: projectId, tenantId },
+      where: { id: projectId, tenantId, ...(requireLiveJob ? { job: { deletedAt: null } } : {}) },
       select: { tenantId: true, assignedProOrgId: true, job: { select: { clientOrgId: true } } },
     });
     if (!project) return null;
@@ -61,11 +61,11 @@ export class ResourceScopeResolver {
    * Ids de proyecto del tenant en los que la org del actor es cliente o profesional asignada (para listados).
    * Pagina TODOS los ids (nunca trunca en silencio): por encima de `MAX_ACCESSIBLE_IDS` falla cerrado y pide filtrar por proyecto.
    */
-  async listAccessibleProjectIds(tenantId: string, orgId: string, access: "read" | "client" = "read"): Promise<string[]> {
+  async listAccessibleProjectIds(tenantId: string, orgId: string, access: "read" | "client" = "read", requireLiveJob = false): Promise<string[]> {
     if (!tenantId || !orgId) return [];
     return this.collectIds((cursor) =>
       this.prisma.project.findMany({
-        where: { tenantId, ...(access === "client" ? { job: { clientOrgId: orgId } } : { OR: [{ assignedProOrgId: orgId }, { job: { clientOrgId: orgId } }] }) },
+        where: { tenantId, ...(requireLiveJob ? { job: { deletedAt: null } } : {}), ...(access === "client" ? { job: { clientOrgId: orgId, ...(requireLiveJob ? { deletedAt: null } : {}) } } : { OR: [{ assignedProOrgId: orgId }, { job: { clientOrgId: orgId } }] }) },
         select: { id: true },
         orderBy: { id: "asc" },
         take: ID_PAGE_SIZE,

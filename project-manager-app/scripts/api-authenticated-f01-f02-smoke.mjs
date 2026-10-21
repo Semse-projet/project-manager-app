@@ -200,6 +200,260 @@ async function f02() {
   console.log("[F02] authenticated private CRM isolation PASS", { leadId, realUserPilot: false });
 }
 
+/**
+ * Prometeo P0 #974: exercise the real auth guard + HTTP controller + SQL
+ * repository against the temporary Postgres16 service on localhost:4001.
+ * Documents are DB fixtures because CLIENT/PRO cannot manage the library.
+ * This must never be used against staging or production databases.
+ */
+async function prometeoObjectScopeSmoke() {
+  const [owner, otherClient, pro1, , foreignClient] = persons;
+  const ownerMarker = "PROMETEO_P0_OWNER_" + runId;
+  const otherMarker = "PROMETEO_P0_OTHER_" + runId;
+  const foreignMarker = "PROMETEO_P0_FOREIGN_" + runId;
+
+  const sharedProject = await prisma.project.findFirst({
+    where: { tenantId: tenantA, job: { clientOrgId: owner.orgId }, assignedProOrgId: pro1.orgId },
+    select: { id: true, jobId: true },
+  });
+  assert.ok(sharedProject?.id && sharedProject.jobId, "F01 should create a project with an authorized client and pro");
+
+  async function documentFor(actor, marker, projectId) {
+    const doc = await prisma.prometeoDocument.create({
+      data: {
+        tenantId: actor.tenantId, orgId: actor.orgId,
+        ...(projectId ? { projectId } : {}),
+        title: marker, sourceType: "text", uploadedById: actor.userId,
+        status: "indexed", chunkCount: 1,
+        // Legacy labels have NO effect on authorization.
+        metadataJson: { visibility: "public_training", trade: "electrical" },
+      },
+    });
+    const chunk = await prisma.documentChunk.create({
+      data: {
+        tenantId: actor.tenantId, documentId: doc.id,
+        chunkIndex: 0, text: marker + " electrical isolation test",
+        tokenCount: 5, embeddingJson: [0, 0], metadataJson: { trade: "electrical" },
+      },
+    });
+    return { doc, chunk };
+  }
+
+  const own = await documentFor(owner, ownerMarker);
+  const ownerProject = await documentFor(owner, ownerMarker + "_PROJECT", sharedProject.id);
+  const unrelated = await documentFor(otherClient, otherMarker);
+  const foreign = await documentFor(foreignClient, foreignMarker);
+
+  const documentIds = async actor => {
+    const res = await request("GET", "/v1/prometeo/documents", { token: actor.token });
+    assert.ok(Array.isArray(res.data), "Prometeo list must return an array");
+    return new Set(res.data.map(d => d.id));
+  };
+  const ownerIds = await documentIds(owner);
+  assert.ok(ownerIds.has(own.doc.id));
+  assert.ok(ownerIds.has(ownerProject.doc.id));
+  assert.ok(!ownerIds.has(unrelated.doc.id));
+  assert.ok(!ownerIds.has(foreign.doc.id));
+
+  const peerIds = await documentIds(otherClient);
+  assert.ok(peerIds.has(unrelated.doc.id));
+  assert.ok(!peerIds.has(own.doc.id));
+  assert.ok(!peerIds.has(ownerProject.doc.id));
+
+  const proIds = await documentIds(pro1);
+  assert.ok(!proIds.has(ownerProject.doc.id),
+    "Project membership alone cannot share a legacy document owned by another org");
+
+  const shares = "/v1/prometeo/documents/" + ownerProject.doc.id + "/shares";
+  await request("POST", shares, {
+    token: otherClient.token, body: { recipientOrgId: pro1.orgId }, expectedStatus: 403,
+  });
+  await request("POST", shares, {
+    token: foreignClient.token, body: { recipientOrgId: pro1.orgId }, expectedStatus: 404,
+  });
+  await request("POST", shares, {
+    token: owner.token, body: { recipientOrgId: otherClient.orgId }, expectedStatus: 403,
+  });
+  // Send duplicate grant requests concurrently. Both must succeed with the
+  // SAME grant ID; a unique-index race must not leak as a 500 or double-audit.
+  const simultaneousGrants = await Promise.all([
+    request("POST", shares, { token: owner.token, body: { recipientOrgId: pro1.orgId } }),
+    request("POST", shares, { token: owner.token, body: { recipientOrgId: pro1.orgId } }),
+  ]);
+  const grant = simultaneousGrants[0];
+  assert.equal(grant.data?.active, true);
+  assert.equal(grant.data?.recipientOrgId, pro1.orgId);
+  assert.equal(simultaneousGrants[1]?.data?.active, true);
+  assert.equal(simultaneousGrants[1]?.data?.id, grant.data?.id,
+    "concurrent identical grants must be idempotent");
+  const duplicateGrantAudits = await prisma.auditLog.count({
+    where: {
+      tenantId: tenantA,
+      entityType: "PrometeoDocumentGrant",
+      entityId: grant.data?.id,
+      action: "prometeo.document_share_granted",
+    },
+  });
+  assert.equal(duplicateGrantAudits, 1,
+    "only one durable audit event is allowed for duplicate concurrent grants");
+  const grantedIds = await documentIds(pro1);
+  assert.ok(grantedIds.has(ownerProject.doc.id), "explicit grant must enable authorized pro read");
+
+  const proSearch = await request("POST", "/v1/prometeo/search", {
+    token: pro1.token, body: { query: ownerMarker + "_PROJECT", topK: 20 },
+  });
+  assert.ok(proSearch.data.some(chunk => chunk.documentId === ownerProject.doc.id),
+    "authorized grant must enable scoped RAG search");
+
+  const auditGranted = await prisma.auditLog.findFirst({
+    where: { tenantId: tenantA, entityType: "PrometeoDocumentGrant",
+      entityId: grant.data?.id, action: "prometeo.document_share_granted" },
+  });
+  assert.ok(auditGranted, "sharing must be durably audited before success response");
+
+  const revoked = await request("DELETE", shares + "/" + pro1.orgId, {
+    token: owner.token,
+  });
+  assert.equal(revoked.data?.revoked, true);
+  const revokedIds = await documentIds(pro1);
+  assert.ok(!revokedIds.has(ownerProject.doc.id), "revoke must immediately remove read access");
+  const afterRevoke = await request("POST", "/v1/prometeo/rag-context", {
+    token: pro1.token, body: { query: ownerMarker + "_PROJECT", topK: 20 },
+  });
+  assert.ok(!JSON.stringify(afterRevoke.data).includes(ownerMarker + "_PROJECT"),
+    "revoke must immediately remove RAG snippets and citations");
+  const auditRevoked = await prisma.auditLog.findFirst({
+    where: { tenantId: tenantA, entityType: "PrometeoDocumentGrant",
+      entityId: grant.data?.id, action: "prometeo.document_share_revoked" },
+  });
+  assert.ok(auditRevoked, "revocation must be durably audited before success response");
+  await request("DELETE", shares + "/" + pro1.orgId, {
+    token: owner.token, expectedStatus: 404,
+  });
+
+  // S1: Simulate a durable audit write failure on disposable CI PostgreSQL.
+  // The grant transaction MUST roll back; a revoked share stays revoked.
+  const failFn = "p0_share_audit_fail_" + runId;
+  const failTrigger = "p0_share_audit_trigger_" + runId;
+  await prisma.$executeRawUnsafe(
+    'CREATE FUNCTION "' + failFn + '"() RETURNS trigger AS $audit$ BEGIN ' +
+    'IF NEW."entityType" = \'PrometeoDocumentGrant\' ' +
+    'AND NEW."action" = \'prometeo.document_share_granted\' THEN ' +
+    'RAISE EXCEPTION \'synthetic_p0_grant_audit_failure\'; END IF; ' +
+    'RETURN NEW; END; $audit$ LANGUAGE plpgsql'
+  );
+  await prisma.$executeRawUnsafe(
+    'CREATE TRIGGER "' + failTrigger + '" BEFORE INSERT ON "AuditLog" ' +
+    'FOR EACH ROW EXECUTE FUNCTION "' + failFn + '"()'
+  );
+  try {
+    const failedResponse = await fetch(new URL(shares, base), {
+      method: "POST",
+      headers: {
+        authorization: "Bearer " + owner.token,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ recipientOrgId: pro1.orgId }),
+    });
+    assert.ok(failedResponse.status >= 400, "audit failure must prevent grant success");
+    const persisted = await prisma.prometeoDocumentGrant.findFirstOrThrow({
+      where: { tenantId: tenantA, documentId: ownerProject.doc.id, recipientOrgId: pro1.orgId },
+    });
+    assert.ok(persisted.revokedAt, "failed audit must rollback reactivation of revoked grant");
+    assert.ok(!(await documentIds(pro1)).has(ownerProject.doc.id),
+      "audit failure must not expose the document through SQL");
+  } finally {
+    await prisma.$executeRawUnsafe('DROP TRIGGER IF EXISTS "' + failTrigger + '" ON "AuditLog"');
+    await prisma.$executeRawUnsafe('DROP FUNCTION IF EXISTS "' + failFn + '"()');
+  }
+  console.log("[PROMETEO SHARE] failed audit rolls back regrant and keeps access denied PASS");
+
+  console.log("[PROMETEO SHARE] owner grant -> pro read -> revoke -> deny + audit PASS");
+
+  const otherTenantIds = await documentIds(foreignClient);
+  assert.ok(otherTenantIds.has(foreign.doc.id));
+  assert.ok(!otherTenantIds.has(own.doc.id));
+
+  // Authorized project filtering is checked by the API before retrieval.
+  await request("GET", "/v1/prometeo/documents?projectId=" + encodeURIComponent(sharedProject.id), {
+    token: otherClient.token, expectedStatus: 403,
+  });
+  const proProjectView = await request("GET", "/v1/prometeo/documents?projectId=" + encodeURIComponent(sharedProject.id), {
+    token: pro1.token,
+  });
+  assert.ok(!proProjectView.data.some(d => d.id === ownerProject.doc.id));
+
+  const searchAs = async (actor, query) => request("POST", "/v1/prometeo/search", {
+    token: actor.token, body: { query, topK: 20 },
+  });
+  const peerSearch = await searchAs(otherClient, ownerMarker);
+  assert.ok(!peerSearch.data.some(chunk => chunk.documentId === own.doc.id || chunk.documentId === ownerProject.doc.id),
+    "RAG search cannot return another org's chunk even for an exact secret query");
+  const foreignSearch = await searchAs(foreignClient, ownerMarker);
+  assert.ok(!foreignSearch.data.some(chunk => chunk.documentId === own.doc.id));
+
+  const ctx = await request("POST", "/v1/prometeo/rag-context", {
+    token: otherClient.token, body: { query: ownerMarker, topK: 20 },
+  });
+  assert.ok(!JSON.stringify(ctx.data).includes(ownerMarker),
+    "RAG context must not reveal another org's marker, excerpts or citations");
+
+  const denied = await request("POST", "/v1/prometeo/chunks/" + own.chunk.id + "/feedback", {
+    token: otherClient.token, body: { type: "confirm" }, expectedStatus: 403,
+  });
+  assert.equal(denied.status, 403);
+  await request("POST", "/v1/prometeo/chunks/" + own.chunk.id + "/feedback", {
+    token: foreignClient.token, body: { type: "confirm" }, expectedStatus: 404,
+  });
+  const allowed = await request("POST", "/v1/prometeo/chunks/" + own.chunk.id + "/feedback", {
+    token: owner.token, body: { type: "confirm" },
+  });
+  assert.equal(allowed.data?.recorded, true);
+
+  const peerStats = await request("GET", "/v1/prometeo/feedback/stats", { token: otherClient.token });
+  assert.ok(!peerStats.data?.topDocuments?.some(x => x.documentId === own.doc.id));
+
+  // Authorization proof must come from the signed session, not forged headers.
+  await request("GET", "/v1/prometeo/documents", {
+    expectedStatus: 401,
+    spoofedHeaders: { "x-user-id": owner.userId, "x-org-id": owner.orgId, "x-tenant-id": tenantA, "x-roles": "OPS_ADMIN" },
+  });
+  // Soft-deleted jobs must immediately remove project/RAG authorization.
+  // Restore synthetic job state so subsequent F01/F02 cases are unaffected.
+  const jobBeforeDeletion = await prisma.job.findUniqueOrThrow({
+    where: { id: sharedProject.jobId }, select: { deletedAt: true },
+  });
+  await prisma.job.update({
+    where: { id: sharedProject.jobId }, data: { deletedAt: new Date() },
+  });
+  try {
+    const afterJobDeletion = await documentIds(owner);
+    assert.ok(!afterJobDeletion.has(ownerProject.doc.id),
+      "project document must disappear when its job is deleted");
+    assert.ok(afterJobDeletion.has(own.doc.id),
+      "an unrelated owner-private document must remain accessible");
+    await request("GET", "/v1/prometeo/documents?projectId=" + encodeURIComponent(sharedProject.id), {
+      token: owner.token, expectedStatus: 404,
+    });
+    const revokedSearch = await searchAs(owner, ownerMarker + "_PROJECT");
+    assert.ok(!revokedSearch.data.some(chunk => chunk.documentId === ownerProject.doc.id),
+      "RAG must exclude a deleted-job project even for its owning organization");
+    await request("POST", "/v1/prometeo/documents/" + ownerProject.doc.id + "/shares", {
+      token: owner.token, body: { recipientOrgId: pro1.orgId }, expectedStatus: 404,
+    });
+  } finally {
+    await prisma.job.update({
+      where: { id: sharedProject.jobId },
+      data: { deletedAt: jobBeforeDeletion.deletedAt },
+    });
+  }
+  console.log("[PROMETEO P0] deleted job blocks project documents, RAG and regrant PASS");
+
+  console.log("[PROMETEO P0] signed-session multi-org + RAG + feedback isolation PASS", {
+    ownerDocumentCount: ownerIds.size, crossTenantBlocked: true, realUserPilot: false,
+  });
+}
+
 async function revocation() {
   const owner = persons[0];
   await request("POST", "/v1/auth/logout", { token: owner.token, body: {} });
@@ -222,6 +476,7 @@ async function main() {
     await loginAll();
     await f01();
     await f02();
+    await prometeoObjectScopeSmoke();
     await revocation();
     console.log("[AUTH F01+F02] all isolated authenticated flows PASS", {
       runId, realPayment: false, realPilot: false,

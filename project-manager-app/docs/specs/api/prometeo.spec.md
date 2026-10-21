@@ -5,7 +5,7 @@ type: spec
 feature: "Prometeo Engine — RAG & Trade Knowledge"
 domain: "prometeo"
 version: "1.0"
-status: "VERIFIED"
+status: "REVIEW"
 owner: semse-core
 risk: high
 date: "2026-05-20"
@@ -34,6 +34,15 @@ related_agents:
   - prometeo-chat
   - training-guide
 last_verified: 2026-07-12
+sdd_version: "2.0"
+code_status: "IN_PROGRESS"
+ci_status: "NOT_RUN"
+merge_status: "UNMERGED"
+deploy_status: "NOT_DEPLOYED"
+activation_status: "INACTIVE"
+migration_status: "NOT_APPLICABLE"
+feature_flags: []
+production_evidence: []
 ---
 
 # Spec: Prometeo Engine
