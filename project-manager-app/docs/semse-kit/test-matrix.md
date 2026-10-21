@@ -30,8 +30,21 @@ Todos son sintéticos y se crean con `semse-synthetic-test-data` (`TEST_<runId>_
 |---|---|
 | Specs Playwright existentes | `tests/e2e-semse/*.spec.ts`, por ejemplo `buildops-milestones`, `job-lifecycle-rating`, `dispute-resolution` y `worker-tracker` |
 | Tests de claves ES/EN existentes | `tests/unit/operational-panels-i18n.test.ts`, `tests/unit/contributor-i18n-keys.test.ts` |
-| Spec autenticado ES/EN multirol (`tests/e2e-semse/authenticated-es-en.spec.ts`) | **pendiente** (fase 3 del kit) |
-| Validador de catálogos críticos (`scripts/quality/validate-critical-i18n.ts`) | **pendiente** (fase 3 del kit) |
+| Validador de catálogos críticos (`scripts/quality/validate-critical-i18n.ts`, `pnpm quality:i18n`) | **implementado** (fase 3). 12 catálogos y 1373 claves por idioma; 0 errores y 14 avisos en el estado actual. Corre en `pnpm test:unit` (`tests/unit/validate-critical-i18n.test.ts`) |
+| Spec autenticado ES/EN multirol (`tests/e2e-semse/authenticated-es-en.spec.ts`, `pnpm test:e2e:semse:es-en`) | **implementado** (fase 3). 4/4 en stack local con web en modo producción (2026-10-21, `docs/semse-kit/local-stack.md`). **No** corre en CI: el job `e2e` sólo ejecuta `tests/e2e` |
 | Ejecución en preview de Railway | **pendiente** (fase 5 del kit, requiere autorización) |
+
+Cobertura del spec, por ahora: panel de inicio más una ruta por rol (OPS_ADMIN `/admin/mission-control`, cliente `/client/marketplace`, profesional `/worker/dashboard`) en ES → EN → recarga, y aislamiento de trabajos entre dos organizaciones cliente. Faltan los intrusos profesional (`pro_b`), el resto de recursos (proyectos, evidencia, pagos) y los casos límite y negativos de la tabla anterior.
+
+## Hallazgos de la fase 3 (2026-10-21)
+
+| ID | Sev. | Estado | Hallazgo | Evidencia |
+|---|---|---|---|---|
+| KIT-F3-01 | S2 | reproducido, sin arreglar | El stream en vivo de Mission Control no funciona para nadie. `@Sse("mission-control")` (`apps/api/src/infrastructure/sse/sse.controller.ts`) no declara `@RequirePermissions` y el guard deny-by-default (`apps/api/src/common/rbac.guard.ts`) responde 403 "RBAC metadata required", OPS_ADMIN incluido. La BFF lo muestra como 503 | API: `GET /v1/sse/mission-control` → 403 ×7 con OPS_ADMIN. El spec lo registra como anotación `known-defect`. Elegir el permiso es una decisión RBAC (`semse-rbac-permissions`, `semseproject`) |
+| KIT-F3-02 | S3 | reproducido, sin arreglar | Algunas rutas BFF (`/api/semse/my-bids`, `/api/semse/sse/mission-control`) convierten cualquier respuesta no-OK de la API (401, 403, 429) en 503 "SEMSE server runtime is not configured", lo que oculta errores de autenticación y permisos | `apps/web/app/api/semse/my-bids/route.ts` (`if (!response.ok) return runtimeDisabledResponse()`); 401 de la API visto como 503 en el navegador |
+| KIT-F3-03 | S3 | reproducido, sin arreglar | Texto traducido guardado en el estado de React: si falla una carga en ES y el usuario cambia a EN, el error sigue en español. 12 apariciones en 5 páginas | Visto en vivo: `/client/dashboard` en EN mostraba "No se pudieron cargar los trabajos." (`clientDash.jobsLoadError`). El validador lo reporta como `translated-text-in-state` |
+| KIT-F3-04 | — | por comprobar | Con `next dev`, cada ruta compilada tiene su propia caché de tokens de la BFF y se supera el límite de 5/min de `POST /v1/auth/token` (429). Las peticiones siguen sin token y fallan con 401. No se reprodujo con la web en modo producción. Queda por confirmar el valor de `RATE_LIMIT_LIMIT` en Railway, porque el límite global por defecto (20/min por IP) se aplicaría al tráfico BFF → API | API local: 25 respuestas 429 en `/v1/auth/token` en modo dev; 0 en modo producción |
+| — | ✔ | positivo | La web en producción rechaza las sesiones de las cuentas demo de la semilla (`isDisabledDemoSession`), aunque el login devuelva `ok` | Login demo → redirección a `/login?expired=1` con `NODE_ENV=production` |
+| — | ✔ | positivo | Un cliente de otra organización recibe 403/404 al leer un trabajo ajeno y no lo ve en su lista; el dueño sí lo lee | Caso "aislamiento" del spec, 4/4 |
 
 Esta matriz no declara ningún flujo como verificado. El estado de cada flujo se reporta con el vocabulario de `semse-business-flow-e2e`.
