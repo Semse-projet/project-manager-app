@@ -93,6 +93,21 @@ test("translated text stored in state is a warning (it will not follow a languag
   ]);
 });
 
+test("translated-text-in-state also sees fallbacks, objects and thrown errors, but not updater callbacks", () => {
+  const central = catalogFrom(`  es: { "a.err": "Error A", "b.ok": "Hecho" },\n  en: { "a.err": "Error A en", "b.ok": "Done" }`, "apps/web/lib/language-context.tsx");
+  const page = [
+    "const { t } = useLanguage();",
+    "setError(err instanceof Error ? err.message : t(\"a.err\"));",
+    "setError(json.error?.message ?? t('a.err'));",
+    "setResult({ success: true, message: t(\"b.ok\") });",
+    "setError(`${t(\"a.err\")} ${status}).`);",
+    "throw new Error(t(\"a.err\"));",
+    "setItems((prev) => prev.map((x) => ({ ...x, label: t(\"b.ok\") })));",
+  ].join("\n");
+  const findings = checkUsages([{ file: "apps/web/app/p.tsx", src: page }], central);
+  assert.deepEqual(findings.map((f) => f.key), ["a.err", "a.err", "b.ok", "a.err", "a.err"]);
+});
+
 test("placeholders() ignores literal braces in prose but sees template variables", () => {
   assert.deepEqual(placeholders({ kind: "template", raw: "`${a} y ${b.c}`", params: [] }), ["${a}", "${b.c}"]);
   assert.deepEqual(placeholders({ kind: "string", raw: '"Total: {total} ({{currency}})"', params: [] }), ["{currency}", "{total}"]);

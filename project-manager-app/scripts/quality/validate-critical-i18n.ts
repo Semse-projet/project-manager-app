@@ -264,9 +264,16 @@ export function checkUsages(files: Array<{ file: string; src: string }>, central
     }
     // Text translated at fetch time and kept in state stays in the old language
     // after a switch (seen live: clientDash.jobsLoadError shown in Spanish in EN).
-    for (const m of src.matchAll(/\b(set[A-Z]\w*)\(\s*(?:displayText\([^()]*,\s*)?t\(\s*["'`]([^"'`]+)["'`]/g)) {
-      if (!allowed(allowlist, "translated-text-in-state", `${file}#${m[2]}`)) {
-        findings.push({ level: "warning", code: "translated-text-in-state", where: file, key: m[2], message: `${m[1]}(t(...)) freezes the text in the current language; store the key or the raw error and translate when rendering` });
+    // The whole argument is scanned, so `x ?? t(…)`, `e ? e.message : t(…)`,
+    // `{ message: t(…) }` and `throw new Error(t(…))` (stored later from the
+    // catch) are caught too; state-updater callbacks (`prev => …`) are not.
+    for (const m of src.matchAll(/\b(set[A-Z]\w*|throw new Error)\(/g)) {
+      const open = m.index! + m[0].length - 1;
+      const argument = src.slice(open, readBalanced(src, open));
+      const key = /\bt\(\s*["'`]([^"'`]+)["'`]/.exec(argument)?.[1];
+      if (!key || (m[1] !== "throw new Error" && argument.includes("=>"))) continue;
+      if (!allowed(allowlist, "translated-text-in-state", `${file}#${key}`)) {
+        findings.push({ level: "warning", code: "translated-text-in-state", where: file, key, message: `${m[1]}(… t(...) …) freezes the text in the current language; store the key or the raw error and translate when rendering` });
       }
     }
     for (const m of src.matchAll(/\bt\(\s*`([^`$]*)\$\{/g)) {

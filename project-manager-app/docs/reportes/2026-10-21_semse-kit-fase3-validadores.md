@@ -58,3 +58,9 @@ Detalle y evidencia en `docs/semse-kit/test-matrix.md`.
 3. Corregir KIT-F3-02 y KIT-F3-03 en PRs pequeños; el validador ya marca los 12 sitios de KIT-F3-03.
 4. Ampliar el spec: intruso profesional (`pro_b`), proyectos, evidencia y pagos.
 5. Fases 4 y 5, sólo con autorización.
+
+## Actualización (2026-10-21, después de #1023)
+
+- La regla `translated-text-in-state` se amplió a ternarios, `??`, objetos, plantillas y `throw new Error(t(…))`, que estaban fuera del primer recuento. Escanea el argumento completo con paréntesis balanceados y excluye los callbacks de actualización. Sobre `main` da 40 avisos en 16 archivos; sobre la rama de #1023, 0. Hay un fixture nuevo en `tests/unit/validate-critical-i18n.test.ts` (11 tests).
+- `test-matrix.md`: KIT-F3-02 y KIT-F3-03 figuran como corregidos en #1023 (pendiente de CI y merge). KIT-F3-01 sigue abierto; desde #1023 se ve como el 403 real.
+- Se evaluó ampliar el aislamiento a un profesional intruso y a proyectos y se dejó documentado por qué no aplica todavía (ver matriz).
