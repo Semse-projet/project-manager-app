@@ -6,6 +6,7 @@ import { SseEventBusService } from "./sse-event-bus.service.js";
 import { HealthService } from "../../modules/health/health.service.js";
 import { AgentWorkPlanService } from "../../modules/agents/agent-work-plan.service.js";
 import { AgentDelegationService } from "../../modules/agents/agent-delegation.service.js";
+import { ProjectAccessService } from "../../modules/agents/project-access.service.js";
 import { PrismaService } from "../prisma/prisma.service.js";
 import { resolveRequestContext, type RequestContext } from "../../common/request-context.js";
 
@@ -38,6 +39,7 @@ export class SseController {
     private readonly plans: AgentWorkPlanService,
     private readonly delegations: AgentDelegationService,
     private readonly prisma: PrismaService,
+    private readonly projectAccess: ProjectAccessService,
   ) {}
 
   /**
@@ -63,14 +65,23 @@ export class SseController {
    * comes from resolveRequestContext's verified session/token, never from a
    * header the caller controls.
    */
+  // Same permission and the same plan-access check as GET /v1/agents/plans/:planId.
+  // The permission alone would let a client of another organization in the
+  // tenant follow any plan whose id it knows (KIT-F3-01).
   @Sse("plans/:planId")
+  @RequirePermissions("agents:run:create")
   planStream(
     @Param("planId") planId: string,
     @Req() req: SseRequest,
   ): Observable<MessageEvent> {
-    const { tenantId } = resolveRequestContext(req);
+    const actor = resolveRequestContext(req);
 
-    return from(this.plans.findById(tenantId, planId).catch(() => null)).pipe(
+    const visiblePlan = this.plans.findById(actor.tenantId, planId).then(async (plan) => {
+      await this.projectAccess.assertPlanAccess(actor, { projectId: plan.projectId, createdBy: plan.createdBy });
+      return plan;
+    });
+
+    return from(visiblePlan.catch(() => null)).pipe(
       switchMap(plan => {
         if (!plan) return keepalive$();
         const push$ = this.bus.on<unknown>(`plan:${planId}`).pipe(
@@ -82,7 +93,9 @@ export class SseController {
     );
   }
 
+  // Same permission as GET /v1/agents/delegations (coordinator dashboard).
   @Sse("delegations")
+  @RequirePermissions("ops:coordinator:read")
   delegationsStream(
     @Query("projectId") projectId: string | undefined,
     @Req() req: SseRequest,
@@ -133,7 +146,11 @@ export class SseController {
     return merge(poll$, push$, keepalive$());
   }
 
+  // Context events are tenant-wide (`context:${tenantId}:…`), not scoped to an
+  // organization, so only OPS may follow them until they are filtered by org.
+  // The only consumer is /admin/semse-x.
   @Sse("context")
+  @RequirePermissions("ops:dashboard:read")
   contextStream(
     @Query("projectId") projectId: string | undefined,
     @Req() req: SseRequest,
@@ -170,7 +187,9 @@ export class SseController {
     );
   }
 
+  // Same permission as GET /v1/ops/mission-control/exceptions.
   @Sse("mission-control")
+  @RequirePermissions("ops:dashboard:read")
   missionControlStream(
     @Req() req: SseRequest,
   ): Observable<MessageEvent> {

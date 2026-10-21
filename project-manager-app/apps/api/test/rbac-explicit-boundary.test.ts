@@ -14,7 +14,9 @@ import { RbacGuard } from "../dist/common/rbac.guard.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const apiSrcRoot = path.resolve(__dirname, "../src");
-const httpDecorators = new Set(["Get", "Post", "Put", "Patch", "Delete", "Head", "Options", "All"]);
+// Sse handlers go through the same RbacGuard: four streams once shipped with
+// no metadata and answered 403 to every role (KIT-F3-01).
+const httpDecorators = new Set(["Get", "Post", "Put", "Patch", "Delete", "Head", "Options", "All", "Sse"]);
 const accessDecorators = new Set(["Public", "RequirePermissions", "AuthenticatedAccess"]);
 
 function walkControllers(dir: string): string[] {
