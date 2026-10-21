@@ -16,7 +16,21 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../.
 loadEnv({ path: path.join(root, ".env") });
 loadEnv({ path: path.join(root, "packages/db/.env") });
 
-const integrationTest = process.env.DATABASE_URL ? test : test.skip;
+// Refuse to run write-capable fixtures against an arbitrary DATABASE_URL.
+// GitHub Actions supplies a disposable local PostgreSQL 16 on port 5433.
+// Local runs require an explicit opt-in and a named throwaway database.
+const dbUrl = process.env.DATABASE_URL;
+const dbTarget = dbUrl ? new URL(dbUrl) : null;
+const dbName = dbTarget?.pathname.replace(/^\//, "") ?? "";
+const loopback = dbTarget?.hostname === "127.0.0.1" || dbTarget?.hostname === "localhost";
+const ciIsolatedDb = process.env.GITHUB_ACTIONS === "true" &&
+  dbTarget?.hostname === "127.0.0.1" && dbTarget?.port === "5433" && dbName === "semse";
+const localIsolatedDb = process.env.SEMSE_PROMETEO_ISOLATED_DB_TEST === "1" &&
+  loopback && /^semse_(?:test|qa|p0)(?:_|$)/.test(dbName);
+if (dbUrl && !ciIsolatedDb && !localIsolatedDb) {
+  throw new Error("P0 grant integration test refuses a non-isolated database target");
+}
+const integrationTest = dbUrl ? test : test.skip;
 const fixtureId = (suffix: string) => "p0_grant_" + suffix + "_" + randomUUID().replaceAll("-", "").slice(0, 20);
 
 integrationTest("P0: real DB grant/revoke is idempotent, auditable and scoped to project participants", async () => {

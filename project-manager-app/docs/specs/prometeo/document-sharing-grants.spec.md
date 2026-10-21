@@ -52,6 +52,7 @@ related_files:
   - scripts/api-authenticated-f01-f02-smoke.mjs
 related_tests:
   - apps/api/test/prometeo-documents-scope-integration.test.ts
+  - apps/api/test/prometeo-document-grant-integration.test.ts
   - apps/api/test/prometeo-document-scope.test.ts
   - apps/api/test/prometeo-live-project-scope.test.ts
   - apps/api/test/prometeo-private-embeddings.test.ts
