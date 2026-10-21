@@ -70,6 +70,7 @@ import { PrometeoMissionService } from "./prometeo-mission.service.js";
     PlanTemplatesService,
     ProjectCopilotHarness,
     PrometeoMissionService,
+    ProjectAccessService,
   ],
 })
 export class AgentsModule {}
