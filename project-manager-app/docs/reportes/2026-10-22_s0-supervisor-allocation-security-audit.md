@@ -169,9 +169,10 @@ transaction/invariantes y pruebas N10-N12 en PR separado si
 impacta demasiado la superficie de S0a. No alterar
 `JobTask`, `TimeEntry`, Evidence, pagos ni contratos.
 
-**S1-S4 — delegación explícita:** tras resolver propietario/representación
-legal y OPEN-SUP-01…06, implementar grants temporales con policy
-independiente, API, UI ES/EN y canary autorizado.
+**S1-S4 — delegación explícita:** el principio OPEN-SUP-01 de
+propietario/representante verificado ya está ratificado. Tras establecer
+su fuente de prueba canónica y resolver OPEN-SUP-02…06, implementar grants
+temporales con policy independiente, API, UI ES/EN y canary autorizado.
 
 ## 5. Bloqueos y siguiente gate
 
