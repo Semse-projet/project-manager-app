@@ -12,7 +12,8 @@ date: "2026-10-22"
 - [x] Problema AS-IS y objetivo descritos sin inventar rol global.
 - [x] Scopes org, tenant, crew y acción explicitados.
 - [x] Separación identidad / relación comercial / cargo.
-- [ ] Propietario y delegante resueltos (OPEN-SUP-01).
+- [x] OPEN-SUP-01: solo propietario o representante verificado designa/revoca (aprobado 2026-10-22).
+- [ ] Evidencia de titularidad/representación y guardas backend diseñados y probados.
 - [ ] Elegibilidad, suplencia, capacidad y seguridad resueltas (OPEN-SUP-02…06).
 - [ ] Contratos API/UI/agent ratificados; spec APPROVED.
 
@@ -55,4 +56,5 @@ date: "2026-10-22"
 - [x] Nuevo spec y archivos plan/tasks/checklist se mantienen separados.
 - [x] No cambia API, schema, roles, flags ni entorno productivo.
 - [ ] Validación automática de specs y CI ejecutados sobre este PR.
-- [ ] Revisión/aprobación explícita del dueño del producto.
+- [x] Aprobación específica del principio OPEN-SUP-01 por el dueño del producto.
+- [ ] Aprobación global de la spec y decisiones restantes OPEN-SUP-02…06.
