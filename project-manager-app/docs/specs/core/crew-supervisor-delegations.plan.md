@@ -120,9 +120,9 @@ date: "2026-10-22"
 1. OPEN-SUP-01: conservar la regla ya ratificada; completar el diseño técnico
    de verificación del dueño/representante, sin asumir `Org.ownerUserId`.
 2. Resolver OPEN-SUP-02/04 y las demás decisiones aplicables al contrato.
-2. Control de delegar y revocar; no inferir permisos desde CLIENT/PRO.
-3. Tests de empresario PRO legítimo, profesional ajeno, OPS_ADMIN
-   y miembro de otra organización.
+3. Control de delegar y revocar; no inferir permisos desde CLIENT/PRO.
+4. Tests: propietario verificado sí, representante verificado sí,
+   PRO/CLIENT/OPS_ADMIN sin prueba de representación no, tercero no.
 
 ### S2 — Modelo de delegación y endpoints
 1. Tests antes de migración/código; tabla, índices, vigencia y version.
