@@ -135,12 +135,16 @@ date: "2026-10-22"
 3. Checklist del supervisor como información/contexto, no autorización.
 4. Time Tracker y Evidence siguen siendo sus propias fuentes de verdad.
 
-### S4 — Validación y entrega
-1. Typecheck, lint, tests y `pnpm spec:validate:strict`.
-2. Review independiente security/funcional, CI terminal y migración.
-3. Merge solo aprobado; deploy y activación por separado.
-4. Canary con 2 tenants, 2 orgs, 2 crews y usuarios sintéticos multi-rol;
-   smoke autenticado + rollback ensayado.
+### S4 — Validación y entrega (CI al final de la preparación)
+1. Terminar contrato, tareas, implementación acotada y documentación.
+2. Pruebas locales: unit/API/integration, negativos, build/typecheck/lint,
+   `pnpm spec:validate:strict`, índice y cobertura local.
+3. Revisión independiente de seguridad/gobernanza y reconciliación de HEAD.
+4. **Último gate antes de merge:** diagnosticar fallos históricos y confirmar
+   CI terminal completo PASS sobre el HEAD definitivo (no debilitar gates).
+5. Merge solo tras autorización y CI; deploy y migraciones por separado.
+6. Staging y canary con 2 tenants, 2 orgs, 2 crews y usuarios sintéticos
+   multi-rol; smoke autenticado y rollback ensayado. No activar por HEALTH.
 
 ## 8. Riesgos
 
@@ -163,6 +167,12 @@ date: "2026-10-22"
 - Descartar: ROLE_SUPERVISOR global, aprobación de pagos por supervisar.
 
 ## 10. Gates para comenzar implementación
+
+Inventario maestro y orden de pendientes: `docs/reportes/2026-10-22_supervisor-backlog-pending-and-ci-last.md`.
+El propietario pidió dejar **diagnóstico/re-ejecución manual del CI al último**
+control pre-merge; no desactivar workflows automáticos, no declarar CI PASS
+sin evidencia. El CI no se posterga para después de producción.
+
 
 - [x] OPEN-SUP-01: aprobado principio de delegante propietario o representante verificado.
 - [ ] Verificar fuente canónica de autoridad y cerrar OPEN-SUP-02…06 antes de `APPROVED`.
