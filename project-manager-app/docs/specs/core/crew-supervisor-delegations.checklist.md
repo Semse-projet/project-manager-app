@@ -41,6 +41,16 @@ date: "2026-10-22"
 - [ ] Audit + outbox atómicos; consumers idempotentes.
 - [ ] Replay no restaura privilegios revocados.
 
+## Orden de ejecución confirmado (2026-10-22)
+
+- [x] CI reservado para el **último gate de preparación** antes de merge,
+  después de contratos, cambios, tests locales y revisión independiente.
+- [x] Pendientes P-01…P-22 registrados en
+  `docs/reportes/2026-10-22_supervisor-backlog-pending-and-ci-last.md`.
+- [ ] Resolver pendientes críticos antes de solicitar CI final.
+- [ ] CI terminal PASS requerido **antes de merge**; no suavizar gates.
+- [ ] No cambiar producción ni asumir que despliegue = aceptación funcional.
+
 ## Operación y entrega
 - [ ] ES/EN sin pérdida al cambiar idioma.
 - [ ] UX loading/empty/ready/forbidden/degraded/revoked/error.
