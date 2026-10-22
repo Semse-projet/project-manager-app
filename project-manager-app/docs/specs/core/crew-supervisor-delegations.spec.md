@@ -107,6 +107,24 @@ de BO-07/BO-10. **No se propone abrir acceso permisivo como fallback.**
 
 ## 3. Actores, permisos y límites
 
+**Decisión aprobada por el propietario el 2026-10-22 (OPEN-SUP-01, regla funcional):**
+solo el **propietario o representante autorizado y verificado de la empresa**
+puede designar, sustituir o revocar a un supervisor. La sola condición
+CLIENT, PRO, WORKER, Membership ACTIVE o tener `org:crews:manage` no acredita
+titularidad ni faculta para nombramientos. El backend debe verificar en cada
+mutación una constancia activa y revocable de propietario/representación,
+vinculada a `tenantId+orgId+userId`, su origen y vigencia. Si esa constancia
+no existe o no está verificada, el nombramiento se deniega.
+
+**Pendiente técnico, no nueva aprobación del principio:** definir, revisar y
+probar la fuente canónica de verificación y su flujo de emisión/revocación.
+`Org` carece de `ownerUserId` directo; no se debe inventar un owner desde
+la primera Membership, el rol PRO/CLIENT ni la cuenta creadora por
+inferencia. Proteger el último propietario verificado y evitar que un
+representante se autodesigne como propietario. OPS_ADMIN no obtiene
+facultad automática de nombrar por el solo hecho de ser operador de SEMSE.
+
+
 | Actor | Autorización candidata | Scope | Permitido | Prohibido |
 |---|---|---|---|---|
 | Propietario o representante verificado de Org | `org:supervisors:delegate` | org propia + crew | emitir/revocar delegación | crear autoridad en org ajena |
@@ -351,9 +369,14 @@ forbidden_behavior:
 
 ## 12. Decisiones abiertas y gates
 
-- **OPEN-SUP-01 — autoridad empresarial:** ¿cómo verificar al propietario/
-  representante autorizado si `Org` no tiene dueño canónico? No autorizar
-  a todo PRO/CLIENT para delegar o contratar por defecto.
+- **OPEN-SUP-01 — decisión funcional RATIFICADA (2026-10-22):**
+  únicamente propietario o representante autorizado y **verificado de la
+  organización** puede nombrar o revocar supervisores. PRO/CLIENT/WORKER
+  por sí solos no confieren esta autoridad; no se concede a OPS_ADMIN un
+  bypass silencioso. **Subtarea técnica pendiente:** diseñar y validar
+  la fuente canónica de titularidad/representación en Org, comprobación
+  server-side por tenant/org/actor, vigencia, revocación y protección
+  del último propietario. La ratificación NO aprueba todavía la spec global.
 - **OPEN-SUP-02 — elegibilidad:** para designar supervisor, ¿exigir
   `BusinessEngagement ACTIVE` además de WORKER ACTIVE, o permitir una
   delegación con fuente de autorización alternativa validada? La invitación
@@ -370,7 +393,8 @@ forbidden_behavior:
   legacy y con separación de seguridad BO-07/BO-10.
 
 Gates:
-- [ ] Decisiones ratificadas por el propietario.
+- [x] OPEN-SUP-01: principio de delegante propietario/representante verificado ratificado (2026-10-22).
+- [ ] Fuente verificable de representación y demás decisiones OPEN-SUP-02…06 resueltas; aprobación global aún pendiente.
 - [ ] Spec APPROVED; plan/tasks/checklist y análisis completos.
 - [ ] `STATE_MACHINES.md` y `EVENT_CATALOG.md` aprobados/actualizados.
 - [ ] Tests rojos y luego PASS, CI terminal verde.
