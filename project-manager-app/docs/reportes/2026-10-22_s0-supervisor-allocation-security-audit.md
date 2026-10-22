@@ -77,7 +77,7 @@ información operativa ya no autorizada. Mantener auditoría y
 historial a disposición del dueño/gestor autorizado: ocultar acceso
 no equivale a eliminar registros.
 
-### S0-F04 — Política de gestor vs. propietario no resuelta (bloqueador funcional)
+### S0-F04 — Política de gestor vs. propietario: principio ratificado, prueba pendiente (bloqueador técnico)
 
 **Fuente:** `packages/auth/src/rbac.ts` y
 `TaskAllocationsService.requireCrewScope`.
@@ -88,8 +88,13 @@ en el scope de su Membership organizacional. `Org` no define
 empresa necesita poder administrar trabajadores, pero un PRO ajeno no
 debe convertirse en propietario por solo figurar como miembro.
 
-**Requisito:** confirmar modelo de propietario/representante/delegado
-por org y no cambiar `org:crews:manage` globalmente como atajo.
+**Decisión ratificada el 2026-10-22:** solo el propietario o
+representante autorizado y verificado de la Org puede nombrar o revocar
+supervisores. Una Membership CLIENT/PRO/WORKER, `org:crews:manage`,
+o el privilegio OPS_ADMIN no prueban por sí solos representación legal o
+administrativa. **Permanece bloqueada la implementación:** falta diseñar
+el origen canónico, verificación revocable y control server-side de esa
+autoridad. No cambiar `org:crews:manage` globalmente como atajo.
 La política actual de PRO gestor es diferente de la nueva autoridad
 temporal de supervisor.
 
@@ -170,8 +175,10 @@ independiente, API, UI ES/EN y canary autorizado.
 
 ## 5. Bloqueos y siguiente gate
 
-- [ ] Definir policy de PRO con `org:crews:manage`, propietario y
-  delegante (OPEN-SUP-01) sin eliminar acceso legítimo de empresarios.
+- [x] Ratificada OPEN-SUP-01: delegación exclusivamente por propietario
+  o representante verificado (2026-10-22).
+- [ ] Definir evidencia canónica y guardas de verificación del delegante;
+  reconciliar `org:crews:manage` sin eliminar accesos legítimos de gestión.
 - [ ] Determinar si revocación WORKER implica inhabilitar inmediatamente
   TaskAllocation y si se permite progreso posterior solo como registro
   histórico supervisado (propuesta: bloquear mutaciones normales).
