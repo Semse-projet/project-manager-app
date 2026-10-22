@@ -18,7 +18,8 @@ date: "2026-10-22"
 - [x] DOC-01 — inventariar Crew, TaskAllocation, Membership, roles y ofertas desde main.
 - [x] DOC-02 — registrar hallazgo de guard WORKER vs cualquier ACTIVE.
 - [x] DOC-03 — documentar roles, permisos candidatos, flujos y fuentes primarias.
-- [ ] DOC-04 — resolver OPEN-SUP-01 propietario/representante.
+- [x] DOC-04 — OPEN-SUP-01: aprobar regla exclusiva de propietario/representante verificado (2026-10-22).
+- [ ] DOC-04b — validar fuente canónica, lifecycle y prueba backend de titularidad/delegación.
 - [ ] DOC-05 — resolver OPEN-SUP-02 elegibilidad/engagement.
 - [ ] DOC-06 — resolver OPEN-SUP-03 suplencia.
 - [ ] DOC-07 — resolver OPEN-SUP-04 grados de autonomía.
@@ -36,9 +37,13 @@ date: "2026-10-22"
 - [ ] S0-07 — review independiente; sin merge/deploy implícito.
 
 ## S1 — autoridad empresarial (PR propio)
-- [ ] S1-01 — definir owner/representante canónico, sin `Org.ownerUserId` supuesto.
+- [ ] S1-01 — aplicar regla ratificada: solo dueño o representante VERIFICADO;
+  definir la fuente canónica y su prueba server-side, sin suponer `Org.ownerUserId`.
 - [ ] S1-02 — policy `org:supervisors:delegate` o alternativa aprobada.
-- [ ] S1-03 — tests de PRO dueño, PRO ajeno, CLIENT, OPS_ADMIN.
+- [ ] S1-03 — tests: dueño verificado sí; representante verificado sí;
+  PRO dueño no verificado no; PRO ajeno no; CLIENT/WORKER sin prueba no;
+  OPS_ADMIN sin título propio no; revocación de representante => no;
+  no eliminar último dueño verificado.
 - [ ] S1-04 — gobernar revocación/delegación con motivo y auditoría.
 - [ ] S1-05 — no cambiar `org:offers:manage` sin spec de ofertas.
 
