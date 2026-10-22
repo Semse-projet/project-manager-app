@@ -53,8 +53,12 @@ date: "2026-10-22"
   sin compensación ni información de otras crews.
 - Reutilizar `CrewsService` y `TaskAllocationsService` tras un guard
   centralizado; no inventar permisos por pathname ni UI.
-- Owner empresarial: **bloqueado por OPEN-SUP-01**. Ninguna persona
-  con CLIENT/PRO accede por defecto a `org:supervisors:delegate`.
+- Owner empresarial: **OPEN-SUP-01 aprobado en su regla funcional**
+  (2026-10-22): únicamente el propietario o representante verificado de
+  esa Org puede designar o revocar supervisores. Se mantiene bloqueada
+  la implementación hasta definir la prueba canónica de titularidad,
+  su revocación y los guardas server-side. Ninguna persona con CLIENT,
+  PRO, WORKER u OPS_ADMIN hereda `org:supervisors:delegate` por su rol.
 - No firmar con Documenso ni clasificar empleo desde este servicio.
 - ADR: reconciliar `ADR-040` y capacidad activa por contexto,
   sin switch persistente incompatible con el contrato universal.
@@ -113,7 +117,9 @@ date: "2026-10-22"
 3. Pruebas de no-regresión del supervisor legítimo y del gestor autorizado.
 
 ### S1 — Política del propietario/representante (dependencia)
-1. Cerrar OPEN-SUP-01/02/04 con contrato empresarial.
+1. OPEN-SUP-01: conservar la regla ya ratificada; completar el diseño técnico
+   de verificación del dueño/representante, sin asumir `Org.ownerUserId`.
+2. Resolver OPEN-SUP-02/04 y las demás decisiones aplicables al contrato.
 2. Control de delegar y revocar; no inferir permisos desde CLIENT/PRO.
 3. Tests de empresario PRO legítimo, profesional ajeno, OPS_ADMIN
    y miembro de otra organización.
@@ -158,7 +164,8 @@ date: "2026-10-22"
 
 ## 10. Gates para comenzar implementación
 
-- [ ] Resolver OPEN-SUP-01…06 y dejar spec APPROVED.
+- [x] OPEN-SUP-01: aprobado principio de delegante propietario o representante verificado.
+- [ ] Verificar fuente canónica de autoridad y cerrar OPEN-SUP-02…06 antes de `APPROVED`.
 - [ ] Obtener firma de revisión de seguridad del diseño.
 - [ ] Indexar y validar documentación con comandos reales.
 - [ ] Capturar SHA de main, CI y snapshots operativos con datos verificables.
