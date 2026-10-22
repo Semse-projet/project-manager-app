@@ -65,15 +65,28 @@ date: "2026-10-22"
 - [ ] S3-05 — pruebas de cambio idioma, logout/switch org, revoked/error.
 - [ ] S3-06 — Prometeo solo read-only y deny-by-default.
 
-## S4 — verificación / entrega
-- [ ] S4-01 — build/typecheck/lint + unit/API/integration.
-- [ ] S4-02 — `pnpm spec:validate:strict`, `pnpm spec:index` y cobertura.
-- [ ] S4-03 — revisión manual de seguridad y de gobernanza funcional.
-- [ ] S4-04 — CI verde y SHA exactos por PR.
-- [ ] S4-05 — aprobación de merge; migración/deploy separados.
+## S4 — verificación / entrega: CI como último gate pre-merge
+- [ ] S4-01 — terminar código/spec y tests locales unit/API/integration;
+  build/typecheck/lint (sin ejecutar CI manual todavía).
+- [ ] S4-02 — `pnpm spec:validate:strict`, `pnpm spec:index`, cobertura
+  local y reconciliación de documentos.
+- [ ] S4-03 — revisión independiente de seguridad y gobernanza funcional;
+  cerrar observaciones sin ampliar alcance.
+- [ ] S4-04 — **CI AL FINAL**: después de S4-01…03, diagnosticar histórico,
+  validar todos los checks obligatorios sobre HEAD final y registrar SHA.
+- [ ] S4-05 — merge explícitamente autorizado solo con CI PASS;
+  migración y deploy se verifican por separado.
 - [ ] S4-06 — staging sintético, smoke autenticado ES/EN, móvil.
 - [ ] S4-07 — canary opt-in, señales de rollback y evidencia.
 - [ ] S4-08 — estado VERIFIED solo con evidencias reales.
+
+## Registro maestro de pendientes
+
+- [x] Se documentaron los pendientes y orden P-01…P-22 en
+  `docs/reportes/2026-10-22_supervisor-backlog-pending-and-ci-last.md`.
+- [ ] Completar decisiones OPEN-SUP-02…06 y fuente verificable de OPEN-SUP-01.
+- [ ] Cerrar S0-F01…F05, pruebas N01…N12 y review antes de CI.
+- [ ] Mantener `ci_status` NO_VERIFIED/FAIL según evidencia, nunca PASS asumido.
 
 ## Criterio de done
 
