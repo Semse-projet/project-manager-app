@@ -23,20 +23,23 @@ date: "2026-10-18"
 
 ## 2. Constitution check
 
-- [ ] Aprobación explícita del nuevo contrato F1 (distinta de la aprobación de grants privados).
+- [x] Decisión de producto F1 ratificada por el propietario en #992: privados originales, `ORG_PRIVATE` por defecto, futuro `TENANT_CURATED` con consentimiento/version/revisores; esto NO es SDD APPROVED ni consentimiento de terceros.
+- [ ] Aprobaciones independientes del SDD/ADR, titularidad, licencia, retención y privacidad antes de cualquier código de feature.
 - [x] Límites tenant/org y deny-by-default diseñados.
 - [x] Sin ejecución de pagos, escrow ni contratos por publicar.
-- [x] Consentimiento, auditoría, outbox y retirada modelados como requisitos.
+- [x] Consentimiento, auditoría, outbox y retirada modelados como requisitos **con audit+outbox y retiro propio desde F1**, no aplazados a F2.
 - [x] Se separan spec, código, CI, merge, deploy y activación.
 - [ ] Test de amenazas y revisión jurídica de derechos/retención.
 - [ ] Confirmar implementación P0 #974 en ambiente antes de cualquier publicación.
+
+**Plano transversal propuesto:** [`knowledge-contributor-curated-library.integration-contracts.md`](knowledge-contributor-curated-library.integration-contracts.md) define una sola puerta de consulta, integración de solo lectura por módulo, revocación y restricciones de Payment Governance.
 
 ## 3. Arquitectura y autoridad
 
 **Canónico:** `CuratedKnowledgeEntry` + versiones inmutables y aprobaciones en Postgres (no metadataJson como ACL).
 **Privado:** Observation / PrometeoDocument original bajo dueño org; vínculo `sourcePrivateRef` privado sólo para curadores autorizados.
 **Proyección:** sólo versión saneada `PUBLISHED`, accesible tras consentimiento + revisor privacidad + revisor técnico + permiso/tenant verificados.
-**Search:** FTS Postgres primero; opcional vector local medido; sin proveedor cloud para chunk/embedding privados. Títulos, conteos, feedback y citas siguen mismo `where` que el texto.
+**Search:** F3 comienza FTS-only en PostgreSQL; prohibido reutilizar `Prometeo EmbeddingService` que llama a OpenAI. Adaptador local separado sólo tras aprobación y no-egress probado incluso con `OPENAI_API_KEY` configurado; nunca cloud fallback. Títulos, conteos, feedback y citas siguen mismo `where` que el texto.
 **Cachés:** scope/policyVersion, sin servir contenido al margen de SQL; revocación invalida inmediatamente ACL y asíncronamente los índices.
 
 ## 4. Slices y dependencias
@@ -44,9 +47,10 @@ date: "2026-10-18"
 | Slice | Contenido | Precondición / salida |
 |---|---|---|
 | F0 | SDD, consentimiento, matriz de seguridad y decisión #992 | Producto + privacidad + seguridad aprueban contrato |
-| F1 | Tablas/versiones y consentimiento, UI de borradores | Test actor/titular + no publicación |
-| F2 | Pipeline de depuración, 2 revisores, firma editorial, outbox | Transiciones concurrentes y auditoría atómica |
-| F3 | RAG SQL/FTS sólo sobre fichas sanitizadas; cita y revocación | #974 activo, no-egress y test de aislamiento |
+| F1A | #1010: esquema privado Entry/Version/Consent, FK compuestas, versiones inmutables y prohibición SQL de publicar | Migración y prueba de integridad observadas en CI; sin API ni aceptación completa F1 |
+| F1B (sobre F1A) | Custodia privada; borradores, firma humana por versión+hash/policy+caducidad, prueba de representación, retirar consentimiento propio, audit+outbox y aggregateRevision transaccionales; UI privada | Test actor/titular/retiradas/expiración/crash; cero publicación |
+| F2 | Depuración y dos revisiones humanas incondicionalmente independientes, step-up, firma editorial, publication CAS+outbox de publicación | Transiciones concurrentes, no self-review y auditoría atómica; outbox de consentimientos ya existe desde F1 |
+| F3 | FTS-only al inicio; RAG sólo derivados sanitizados con cita+ACL en la misma SQL | #974 activo, cuarentena de `field_observation` heredada, no-egress, actor verificado y tests de aislamiento |
 | F4 | Capacitación por oficio, cuestionarios y feedback supervisado | Calidad técnico-editorial y advertencias verificadas |
 | F5 | Canario y métricas, operación DLQ, rollback | Seguridad independiente, latencia y revocación probadas |
 
@@ -55,14 +59,14 @@ Cada slice tiene PR independiente y reversible; F0 de este PR **no ejecuta códi
 ## 5. Datos, migraciones y compatibilidad
 
 - Expand: tablas nuevas, claves compuestas tenant y versiones; SQL migratorio revisado, checksum y `prisma migrate deploy`; no `db push`.
-- Backfill: inventariar observaciones sin mutar visibilidad. Ningún `public_training` histórico es automáticamente elegible.
+- Backfill: inventariar observaciones sin mutar visibilidad. **Bloqueante antes de afirmar privacidad:** reconciliar el SDD APPROVED de raw observation ingestion, `ragDocumentId`, `field_observation`, defaults `public_training`, consumidores legacy y scripts. Aplicar ACL fail-closed/cuarentena o desindexación **bajo PR de seguridad independiente**, con pruebas SQL positivas/negativas y plan de rollback. Ningún `public_training` histórico es automáticamente elegible.
 - Contract: ninguna columna existente se elimina en F1–F3; rollback desactiva flag y grants; forward-fix auditable si una migración ya se aplicó.
-- Un outbox atómico gobierna publish/withdraw, y reintentos idempotentes evitan resurrección por indexación tardía.
+- **F1** introduce audit+outbox minimizados en la misma transacción que firma/retira consentimiento, sin cuerpo del borrador ni PII. **F2** añade publish/withdraw del derivado; todas las mutaciones incrementan `aggregateRevision` y el consumidor exige high-water mark persistente + estado vigente para impedir replay que resucite contenido retirado.
 - Cualquier purga física respeta hold/retención; bloqueo de lectura ocurre primero.
 
 ## 6. Seguridad y abuso
 
-Riesgos: fuga entre organizaciones, consentimiento falsificado, prompt injection, redacción insuficiente, consejo de oficio peligroso, código obsoleto, indice huérfano, publicaciones concurrentes a revocación, ganancias indebidas del programa. Mitigaciones: principal verificado, SQL ACL del mismo statement, cuatro puertas humanas (aportante, titular, privacidad, oficio), hash por versión, fuentes comprobables, flags y revisión doble, worker de purga y logs minimizados.
+Riesgos: fuga entre organizaciones, consentimiento falsificado, prompt injection, redacción insuficiente, consejo de oficio peligroso, índice huérfano, publicaciones concurrentes a revocación, ganancias indebidas. Mitigaciones: principal humano verificado para consentimientos y revisiones, firmante titular/delegado con autoridad vigente, SQL ACL del mismo statement, cuatro puertas de personas (aportante, titular, PRIVACY y TECHNICAL independientes), `contentHash + policyHash` por versión, plazo finito, enums cerrados, `tenantId` en toda la cadena con FKs compuestas, audit/outbox sin texto+revision monotónica y high-water mark, flags/FTS-only/no-egress.
 
 ## 7. Indicadores, despliegue y rollback
 
@@ -73,11 +77,13 @@ Riesgos: fuga entre organizaciones, consentimiento falsificado, prompt injection
 
 ## 8. Investigación y decisiones
 
-NIST AI RMF generativo: procedencia y gobierno; OWASP 2025: prompt injection, información sensible, poisoning, agencia y vectores. No entrenar modelos ni crear certificaciones. **Decisiones abiertas:** alcance F1 tenant y titularidad, retención/licencia, atribución, estándares técnicos/renovación. No atribuir aprobación al usuario sin su decisión explícita en #992.
+NIST AI RMF generativo: procedencia y gobierno; OWASP 2025: prompt injection, información sensible, poisoning, agencia y vectores. No entrenar modelos ni crear certificaciones. **Producto ratificado en #992 (2026-10-19):** F1 inicia en privado, con posible biblioteca curada únicamente dentro del mismo tenant, consentimiento explícito por versión y doble revisión. **Pendiente:** verificar titularidad y representación, licencia/retención/atribución, estándares técnicos/renovación y aprobaciones de seguridad/privacidad. Esta ratificación no es autorización para publicar ni para tratar datos de terceros.
 
 ## 9. Gates de tareas
 
-- [ ] Resolución de #992 y SDD APPROVED.
+La [matriz de entregas](knowledge-contributor-curated-library.delivery-gates.md) separa evidencia F1A, diferencias F1B y aprobaciones pendientes. No trasladar audit/outbox/retiro de F1B a F2.
+
+- [ ] Decisión F1 de audiencia ya ratificada en #992; **pendiente** SDD APPROVED, validación jurídica/privacidad de firmantes y derechos y aceptación de seguridad.
 - [ ] ADR de privacidad/propiedad y licencia aprobado.
 - [ ] Dependencia real #974 reconciliada.
 - [ ] Tests negativos y migraciones escritas ANTES del código de dominio.
