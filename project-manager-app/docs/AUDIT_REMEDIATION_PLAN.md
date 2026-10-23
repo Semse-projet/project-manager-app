@@ -419,7 +419,7 @@ Origen: el pendiente de 0.44 (2026-10-23). **Verificado por lectura de código y
 - **Fix:** antes de encolar o ejecutar, `invokeWriteTool` llama a `PaymentsService.assertCanProposeRelease()`. Por dentro, un chequeo de solo lectura en el repositorio (sin el upsert de `ensureActorContext`): hito del tenant del actor (si no ⇒ 404) y participación en el proyecto (`assertProjectReadable`: org cliente, org PRO asignada u OPS_ADMIN; si no ⇒ 403). Se usa a propósito la regla de **lectura del proyecto** y no la de finanzas, que es solo cliente/ops: producto permite que el PRO asignado proponga la liberación de su propio hito. Sin `PaymentsService` la propuesta falla **cerrada** (403). La denegación queda auditada como `blocked`.
 - **Verificación:** `prometeo-release-proposal-scope.test.ts` (8 casos, con `PaymentsService`/`PaymentsRepository` y política reales): cliente, PRO asignado y OPS_ADMIN encolan; PRO de otra org ⇒ 403; hito de otro tenant ⇒ 404 incluso para OPS_ADMIN; inexistente ⇒ 404; sin `milestoneId` ⇒ 400; sin servicio ⇒ 403; `time_tracker.start` no pasa por el chequeo. Con el ejecutor anterior fallan los 4 casos de denegación. Prometeo y pagos: 257/257. Suite API: 3587 pass; los 12 fallos son los mismos de `main` (motor de Prisma y DNS no disponibles en el entorno del agente).
 - **Exposición previa:** las propuestas encoladas quedan en `PrometeoProposedAction`, así que se puede revisar si alguna se creó sobre un hito cuyo proyecto no incluye la org del proponente.
-- **Estado:** [x] Corregido (2026-10-23), PR pendiente.
+- **Estado:** [x] Corregido (2026-10-23), PR #1032.
 
 ### 0.49 — MEDIO/ALTO — Hallazgos del reporte de auditoría del 2026-07-20 que nunca se registraron en este plan
 

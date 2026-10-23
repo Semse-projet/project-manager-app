@@ -1,6 +1,6 @@
 # Reporte — 0.48: alcance del proponente en `payments.propose_release`
 
-**Fecha:** 2026-10-23 · **Hallazgo:** [`AUDIT_REMEDIATION_PLAN.md` 0.48](../AUDIT_REMEDIATION_PLAN.md) (seguimiento de 0.44) · **Rama:** `fix/prometeo-release-proposal-scope` · **PR:** pendiente
+**Fecha:** 2026-10-23 · **Hallazgo:** [`AUDIT_REMEDIATION_PLAN.md` 0.48](../AUDIT_REMEDIATION_PLAN.md) (seguimiento de 0.44) · **Rama:** `fix/prometeo-release-proposal-scope` · **PR:** #1032
 
 | SPEC | CODE | TEST local | CI | MERGE | DEPLOY | ACTIVATION | UAT |
 |---|---|---|---|---|---|---|---|
