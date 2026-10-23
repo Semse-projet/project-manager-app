@@ -8,7 +8,7 @@ import { evaluateRequiredEvidence, resolveEvidenceRevalidationMode } from "../mi
 import { ActorContextService } from "../../infrastructure/persistence/actor-context.service.js";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { findProjectLinkByJobIdOrThrow, findProjectLinkByProjectIdOrThrow } from "../projects/project-link.repository.js";
-import { assertProjectFinancialsReadable, type ProjectActor, type ProjectOwnership } from "../projects/projects.policy.js";
+import { assertProjectFinancialsReadable, assertProjectReadable, type ProjectActor, type ProjectOwnership } from "../projects/projects.policy.js";
 
 const { Prisma } = prismaClientPackage as typeof import("@prisma/client");
 const EscrowStatus = {
@@ -95,6 +95,35 @@ export class PaymentsRepository {
     }
 
     return milestone;
+  }
+
+  /**
+   * Read-only participation check (no actor-context upsert): the milestone
+   * exists in the actor's tenant (else 404) and the actor takes part in its
+   * project — client org, assigned pro org or OPS_ADMIN (else 403).
+   * Deliberately the project-READ rule, not the financials rule: product lets
+   * the assigned PRO propose a release of their own milestone (finance:write),
+   * while escrow balances stay client/ops-only.
+   */
+  async assertMilestoneProjectParticipant(input: {
+    tenantId: string;
+    milestoneId: string;
+    orgId: string;
+    userId: string;
+    roles?: string[];
+  }): Promise<void> {
+    const milestone = await this.prisma.milestone.findFirst({
+      where: { id: input.milestoneId, deletedAt: null, project: { tenantId: input.tenantId } },
+      select: { projectId: true },
+    });
+    if (!milestone) {
+      throw new NotFoundException(`Milestone '${input.milestoneId}' not found`);
+    }
+    const project = await findProjectLinkByProjectIdOrThrow(this.prisma, {
+      tenantId: input.tenantId,
+      projectId: milestone.projectId,
+    });
+    assertProjectReadable(this.toActor(input), this.toOwnership(project));
   }
 
   async findEscrowByProject(projectId: string) {
