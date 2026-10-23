@@ -43,9 +43,9 @@ test("buildopsStream, contextStream, planStream, delegationsStream are no longer
   }
 });
 
-test("healthStream and agentsStream remain @Public() — global, non-tenant-scoped feeds, unaffected by this fix", () => {
+test("healthStream remains @Public(); agentsStream no longer is (0.47 — it carried every tenant's projectIds and errors)", () => {
   assert.equal(Reflect.getMetadata(IS_PUBLIC_KEY, SseController.prototype.healthStream), true);
-  assert.equal(Reflect.getMetadata(IS_PUBLIC_KEY, SseController.prototype.agentsStream), true);
+  assert.notEqual(Reflect.getMetadata(IS_PUBLIC_KEY, SseController.prototype.agentsStream), true);
 });
 
 test("financeStream derives its channel from the verified authContext, never from a client-supplied header", async () => {

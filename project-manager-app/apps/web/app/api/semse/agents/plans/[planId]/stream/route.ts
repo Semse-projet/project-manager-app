@@ -1,5 +1,5 @@
 import { type NextRequest } from "next/server";
-import { buildAuthorizedHeaders, getServerConfig, runtimeDisabledResponse } from "../../../../_server";
+import { buildAuthorizedHeaders, getAuthenticatedServerConfig, runtimeDisabledResponse } from "../../../../_server";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -10,7 +10,7 @@ export async function GET(
 ) {
   try {
     const { planId } = await context.params;
-    const cfg = await getServerConfig(request);
+    const cfg = await getAuthenticatedServerConfig(request);
     const headers = (await buildAuthorizedHeaders(cfg));
 
     const apiRes = await fetch(
