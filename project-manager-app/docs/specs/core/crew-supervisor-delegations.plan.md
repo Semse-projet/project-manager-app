@@ -53,6 +53,12 @@ date: "2026-10-22"
   sin compensación ni información de otras crews.
 - Reutilizar `CrewsService` y `TaskAllocationsService` tras un guard
   centralizado; no inventar permisos por pathname ni UI.
+- Owner empresarial: inventario técnico del estado AS-IS y alternativa
+  `OrgAuthorityGrant` (solo propuesta) documentados en
+  `docs/reportes/2026-10-22_p01-canonical-org-owner-authority-design.md`.
+  Las opciones OPEN-SUP-02…06 están en
+  `docs/reportes/2026-10-22_p02-p06-supervisor-decision-proposals.md`.
+  La regla OPEN-SUP-01 está aprobada pero su mecanismo aún NO.
 - Owner empresarial: **OPEN-SUP-01 aprobado en su regla funcional**
   (2026-10-22): únicamente el propietario o representante verificado de
   esa Org puede designar o revocar supervisores. Se mantiene bloqueada
