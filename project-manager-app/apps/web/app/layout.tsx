@@ -1,4 +1,6 @@
 import type { Metadata, Viewport } from "next";
+import { GeistMono } from "geist/font/mono";
+import { GeistSans } from "geist/font/sans";
 import { ServiceWorkerRegistrar } from "@/components/pwa/ServiceWorkerRegistrar";
 import "./globals.css";
 
@@ -58,10 +60,10 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="es" className="scroll-smooth">
+    <html lang="es" className={`scroll-smooth ${GeistSans.variable} ${GeistMono.variable}`}>
       <body
         className="min-h-screen antialiased"
-        style={{ fontFamily: "var(--font-sans, 'Geist', system-ui)" }}
+        style={{ fontFamily: "var(--font-sans, system-ui)" }}
       >
         {children}
         <ServiceWorkerRegistrar />
