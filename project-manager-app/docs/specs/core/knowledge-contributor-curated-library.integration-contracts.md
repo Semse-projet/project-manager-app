@@ -26,16 +26,18 @@ date: "2026-10-19"
 | Contenido | Quién lee | Requisitos adicionales |
 |---|---|---|
 | Fuente original `ORG_PRIVATE` | Titular/roles autorizados en módulo de origen | Política original del proyecto, job, evidence, consentimiento y auditoría propias |
-| Derivado `DRAFT` | Aportante + revisores con permiso específico | Original jamás incluido en la respuesta del lector general |
+| Derivado `DRAFT` | F1: aportante + custodio autorizado de su org; F2: revisores con permiso específico | Original jamás incluido en la respuesta del lector general |
 | `TENANT_CURATED/PUBLISHED` | Miembro vivo de organización participante **del mismo tenant** con `knowledge:read-curated` | Consentimiento vigente por versión y audiencia, titularidad vigente, privacidad y oficio aprobados, no suspendido/revocado/caducado |
-| Retirado, suspendido, `NEEDS_REVIEW` | Sólo panel autorizado, sin texto a consumidores | Se conservan audit logs mínimos; chunks y cachés dejan de servirse para consultas nuevas |
+| Retirado, suspendido o sustituido | Sólo panel autorizado, sin texto a consumidores | Se conservan audit logs mínimos; chunks y cachés dejan de servirse para consultas nuevas |
 | Cross-tenant, público anónimo o licencia incierta | Nadie | Otro contrato + aprobación; **F1 prohíbe** |
 
 No confundir permiso de **crear/editar ficha** con el de **consumir contenido compartido**. En todas las consultas retornar 404 neutral al descubrir recurso fuera de ámbito; no exponer diferencia entre ID existente e inaccesible.
 
 ## 3. Contrato de lectura único: Knowledge Gateway (futuro)
 
-**Única puerta interna** para Copilot, BuildOps, ProTools, Sense Vision, Learning y API BFF. Los consumidores **no** llaman directamente a `PrometeoRepository` para originales ni leen las tablas nuevas saltándose políticas. Propuesta TypeScript orientativa:
+**Ownership:** extensión del `KnowledgeModule` de `apps/api/src/modules/knowledge/`, según el [ADR propuesto](../../architecture/ADR-curated-knowledge-custody-and-gateway.md). [ADR-036](../../architecture/ADR-036-prometeo-agents-boundary.md) conserva la orquestación y `evaluatePrometeoToolPolicy` en Prometeo; el gateway sólo aplica el contrato de consulta del dominio. [ADR-022](../../architecture/ADR-022-transactional-outbox-bullmq.md) gobierna outbox/receipts/BullMQ.
+
+**Única puerta interna para la biblioteca curada** para Copilot, BuildOps, ProTools, Sense Vision, Learning y API BFF. Los consumidores **no** llaman directamente a `PrometeoRepository` para originales ni leen las tablas nuevas saltándose políticas. Propuesta TypeScript orientativa:
 
 ```ts
 type VerifiedKnowledgeCaller = {
@@ -75,7 +77,7 @@ type CuratedSearchResult = {
 };
 ```
 
-`searchCurated(caller, query)`: primero valida principal firmado y roles/tenant/org actuales; luego aplica audiencia+consentimientos+revisores+vigencia por SQL al mismo tiempo que recupera versiones. Un servicio que no pueda demostrar autoridad recibe `RAG_SCOPE_UNAVAILABLE` y **cero citas**. La respuesta sólo contiene campos saneados anteriores, sin URL de original, IDs de evidencia/cliente, EXIF, firma de consentimiento ni texto sin validar. Query `limit`, ranking y trazabilidad son acotados por política. Las fichas recuperadas son datos no confiables: nunca instrucciones para tool registry, pagos o publicación.
+`searchCuratedKnowledge(caller, query)`: primero valida principal firmado y roles/tenant/org actuales; luego aplica audiencia+consentimientos+revisores+vigencia por SQL al mismo tiempo que recupera versiones. Un servicio que no pueda demostrar autoridad recibe `RAG_SCOPE_UNAVAILABLE` y **cero citas**. La respuesta sólo contiene campos saneados anteriores, sin URL de original, IDs de evidencia/cliente, EXIF, firma de consentimiento ni texto sin validar. Query `limit`, ranking y trazabilidad son acotados por política. Las fichas recuperadas son datos no confiables: nunca instrucciones para tool registry, pagos o publicación.
 
 **Versionado/cita:** `citationRef` identifica la versión; en retirada, resolver cita devuelve `WITHDRAWN` sin texto. Un historial de chat ya entregado no se puede borrar retroactivamente: mostrar aviso y no volver a consultar contenido retirado. Cambiar cuerpo, jurisdicción, audiencia o consentimiento exige una nueva versión y nueva revisión.
 
@@ -84,7 +86,7 @@ type CuratedSearchResult = {
 | Consumidor existente | Integración segura propuesta | Prohibición + condición de habilitación |
 |---|---|---|
 | Contributor Program / Knowledge Registry | Sólo crea candidato o borrador derivado de Observation; curadores comparan fuente privada sin publicarla | `PROMOTED`, demo mission, términos generales y rewards NO equivalen a permiso; aprobación individual + titular |
-| Prometeo Copilot / #1007 | `searchCurated` read-only con actor verificado y scope del proyecto cuando aplique; respuestas con citas por versión y advertencias | Bus payload falsificado y RAG sin actor `RAG_SCOPE_UNAVAILABLE`; jamás `scope:null` libre ni SQL directo |
+| Prometeo Copilot / #1007 | `searchCuratedKnowledge` read-only con actor verificado y scope del proyecto cuando aplique; respuestas con citas por versión y advertencias | Bus payload falsificado y RAG sin actor `RAG_SCOPE_UNAVAILABLE`; jamás `scope:null` libre ni SQL directo |
 | BuildOps / operational intelligence | Tool de sugerencias/checklist por oficio/jurisdicción; conservar señales basadas en reglas cuando RAG no esté disponible | IA no cambia milestone, permisos, estado de Evidence, riskLevel, firma, ni release |
 | Evidence / Milestones | Mostrar qué evidencia conviene capturar según oficio, sin copiar evidencia original al índice | Documentos del cliente sólo por política privada; ninguna ficha valida automáticamente la evidencia |
 | ProTools / Estimates | Referencias de materiales, compatibilidades y metodología como explicación anexa a un estimate | Nunca usar anécdotas como tarifa/precio, productividad de trabajo o cálculo contractual automático |
@@ -98,17 +100,20 @@ type CuratedSearchResult = {
 
 ## 5. Seguridad, auditoría y eventos
 
-Flujo: `PRIVATE_SOURCE → DRAFT_DERIVATIVE → PRIVACY_REVIEW → TECHNICAL_REVIEW → READY → PUBLISHED → SUSPENDED / WITHDRAWN / SUPERSEDED`. Publicar comprueba consentimiento activo de aportante y titular legítimo, hashes de versión, audiencia permitida y **dos revisiones humanas independientes** en la transacción serializable; audita + outbox atómicos. Revisiones se invalidan si cambia el cuerpo o el alcance. Material crítico con norma obsoleta pasa a `NEEDS_REVIEW` fuera de búsqueda verificable.
+Flujo canónico: `DRAFT → REDACTION_REVIEW → TECH_REVIEW → READY → PUBLISHED → SUSPENDED / WITHDRAWN / SUPERSEDED`. Las transiciones y denegaciones se rigen exclusivamente por la sección 4 del [spec](knowledge-contributor-curated-library.spec.md); la fuente privada vive fuera de esta FSM. F1 sólo permite DRAFT. Publicar comprueba consentimiento activo de aportante y titular legítimo, hashes de versión, audiencia permitida y **dos revisiones humanas independientes** en la transacción serializable; audita + outbox atómicos. Revisiones se invalidan si cambia el cuerpo o el alcance. Material crítico con norma obsoleta pasa a `SUSPENDED` con motivo de revisión técnica fuera de búsqueda verificable.
 
-**Evento propuesto (aún no registrado en EVENT_CATALOG):**
+**Lista canónica propuesta:** `curated_knowledge.consent_granted`, `.consent_withdrawn`, `.privacy_reviewed`, `.technical_reviewed`, `.published`, `.withdrawn`, `.index_purged`, según spec §6. Los productores se registrarán en EVENT_CATALOG al implementarlos.
+
+**Ejemplo propuesto (aún no registrado en EVENT_CATALOG):**
 ```json
 {
-  "event": "curated_knowledge.version_withdrawn",
+  "event": "curated_knowledge.withdrawn",
   "tenantId": "<verified>",
   "entryId": "<opaque>",
   "versionId": "<opaque>",
   "policyVersion": "<server-owned>",
-  "sequence": 5,
+  "aggregateRevision": 5,
+  "eventSchemaVersion": 1,
   "requestId": "<opaque>",
   "occurredAt": "<UTC>"
 }
@@ -169,5 +174,8 @@ No activar `TENANT_CURATED` hasta que los requisitos de confidencialidad y segur
 **Seguridad — condición de liberación:** 0 filtraciones en pruebas cross-org/cross-tenant; 100% fichas publicadas con consentimiento y doble revisión; 100% revocaciones impiden consultas nuevas; prueba de red no-egress. **Calidad:** 100% de fichas de riesgo alto con revisor identificable, jurisdicción, edición y advertencias; medir tasa de corrección, vigencia y respuesta sin fuentes. **Eficiencia:** p95 búsqueda con 10k fichas y benchmark Postgres EXPLAIN real; no presentar < 1 segundo como validado. **Utilidad:** tiempo hasta encontrar respuesta, búsquedas resueltas, ayudas de campo solicitadas y retroalimentación de supervisores vs línea base. No inferir ahorro de dinero sin ensayo controlado.
 
 ## 10. Traceabilidad y no-objetivos
+
+La relación con `core.knowledge-contributor-rag-ingestion` es una **enmienda propuesta**, acotada a publicación/recuperación compartida; ver spec §7 y ADR. El contrato anterior sigue APPROVED hasta su propio proceso de modificación. Este anexo no acredita cuarentena ni cambia ese estado.
+
 
 Dependencias: #992 / SDD #1008 (este programa), #974 / #987 (ACL private RAG), #1007 / PR #1009 (diagnóstico y futuro scope verificado), `core.knowledge-contributor-registry`, `core.knowledge-contributor-rag-ingestion`, `vision.sense-vision-field-library`, `core.skills` BO-12, `operations.mission-control-2`, Change Orders y Payment Governance. Si el revisor detecta divergencia código-vs-spec, prevalece la implementación verificada sólo para describir el estado actual; modificar el SDD por proceso de gobierno antes de implementarlo. No crear servicio de Railway nuevo en F1 salvo necesidad técnica demostrada y aprobada con costos. Prohibido activar publicación, cruzar tenants, entrenar modelos con datos de usuarios, recompensar contribución sin contrato, adjudicar ranking, emitir licencias o desbloquear escrow automáticamente.

@@ -89,3 +89,5 @@ La [matriz de entregas](knowledge-contributor-curated-library.delivery-gates.md)
 - [ ] Tests negativos y migraciones escritas ANTES del código de dominio.
 - [ ] Integración autenticada y red instrumentada en staging aislado.
 - [ ] CI/merge/deploy/canary/rollback validados por separado.
+
+**ADR F0 propuesto:** [custodia y gateway](../../architecture/ADR-curated-knowledge-custody-and-gateway.md). Define Knowledge como módulo propietario, mantiene ADR-036/ADR-022, registra alternativas y enmienda pendiente del contrato de ingesta legacy. Ver [análisis de revisión del 23-oct](../../reportes/2026-10-23_curated-library-review-followup.md). Estado PROPOSED; aprobación formal pendiente.

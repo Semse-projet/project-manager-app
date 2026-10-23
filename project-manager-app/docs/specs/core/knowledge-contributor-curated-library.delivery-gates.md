@@ -128,3 +128,14 @@ retiro: bloquear acceso primero; recuperación física según política aprobada
 No prometer borrar copias descargadas. Rollback de aplicación no equivale a revertir
 schema ni recuperar datos. Ningún resultado de esta entrega cambia pagos, firmas,
 credenciales, grants privados existentes ni licencias profesionales.
+
+## 8. Revisión posterior del 23-oct-2026
+
+El [seguimiento de revisión](../../reportes/2026-10-23_curated-library-review-followup.md)
+registra las seis correcciones documentales de Devin y los seis hilos F1A abiertos.
+Cinco controles persistentes siguen faltando: reserva de identidad ante delete/recreate,
+retirada monotónica e identidad inmutable del consentimiento, procedencia por versión,
+FK del actor y deduplicación concurrente. Son requisitos de cierre de integridad F1A;
+no aplazarlos como simples validaciones de frontend F1B. El CHECK de titular org ya
+está presente, pero su cierre independiente no consta. El test histórico verde no
+cubre los cinco huecos. ADR nuevo PROPOSED, SDD DRAFT y activación OFF.
