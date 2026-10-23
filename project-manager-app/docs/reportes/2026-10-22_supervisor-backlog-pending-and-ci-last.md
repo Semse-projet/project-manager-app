@@ -36,6 +36,17 @@ ha sido ejecutado por la auditoría estática.
 
 ## 2. Registro priorizado de pendientes (single source para este programa)
 
+**Actualización de análisis (2026-10-22):** P-01 y P-02…P-06 ya tienen
+informes técnicos de propuestas, **no implementaciones ni decisiones ratificadas**:
+
+- [P-01 — investigación de autoridad empresarial](2026-10-22_p01-canonical-org-owner-authority-design.md): `createUserWithOrg()` crea Org + Membership y User no verificado, sin owner empresarial canónico; `OrgAuthorityGrant` es propuesta pendiente de evaluación/ratificación.
+- [P-02 a P-06 — opciones de producto](2026-10-22_p02-p06-supervisor-decision-proposals.md): elegibilidad, suplente, facultades, seguridad y migración con recomendaciones **PENDIENTES** de aprobación.
+
+La fase de inventario y redacción de propuestas está adelantada. P-01…P-06
+solo se cierran cuando se pruebe la fuente canónica/guardas y se ratifiquen
+las decisiones contractuales; no marcar DONE por añadir estos documentos.
+
+
 | ID | Prioridad | Pendiente verificable | Requisito previo | Cierre observable |
 |---|---|---|---|---|
 | P-01 | P0 diseño | Identificar fuente canónica que prueba dueño/representante de Org; diseñar claim, verificación, revocación y protección de último propietario | DEC-SUP-01 | policy comprobable por `tenantId+orgId+actorId`, sin inferencia por PRO/CLIENT/OPS_ADMIN |
@@ -122,11 +133,16 @@ accesos indebidos, conservando auditoría e historial.
 
 ## 6. Próxima sesión: punto de reentrada
 
-**Empezar por P-01:** reconciliar la fuente de propietario/representante
-en `Org` y flujos de onboarding/claim; proponer policy en SDD y tests
-denegados para PRO/CLIENT/OPS_ADMIN sin verificación. En paralelo
-completar OPEN-SUP-02…06 en documento, sin generar nuevo módulo ni
-cambiar Payment/TimeEntry/Evidence. Luego S0-F01…05.
+**P-01 inventariado, propuesta no aprobada:** la revisión de
+`AuthRepository.createUserWithOrg`, `Org` y `Membership` está
+registrada en `2026-10-22_p01-canonical-org-owner-authority-design.md`.
+La fuente de prueba empresarial **sigue por implementar/verificar**.
+
+**Continuar con la ratificación de OPEN-SUP-02…06:** opciones documentadas
+en `2026-10-22_p02-p06-supervisor-decision-proposals.md` (no aprobadas).
+Después definir especificación del guard S0a con negativos N01-N09,
+sin crear nuevo módulo ni cambiar Payment/TimeEntry/Evidence. CI manual
+se reserva como último control antes de merge.
 
 **No hacer todavía:** rerun manual del CI; relajar quality-gates;
 fusionar #1027; editar migraciones/flags de Railway; activar con
