@@ -45,3 +45,5 @@ date: "2026-10-18"
 - [ ] Aislamiento multi-tenant, revocación, no-egress, respaldo y rollback probados.
 - [ ] Índice SDD regenerado, PR propio fusionado y stages verificados.
 - [ ] Sin rollout ni afirmación de producción hasta canary autorizado.
+
+**Corte 2026-10-22:** [matriz de entregas y evidencia F1A](knowledge-contributor-curated-library.delivery-gates.md). La prueba DB de F1A pasó en CI; los gates de endpoints, consentimiento real, independencia, cuarentena legacy, staging y rollback permanecen pendientes. No marcar los 25 escenarios F1 como aprobados por esa única prueba.

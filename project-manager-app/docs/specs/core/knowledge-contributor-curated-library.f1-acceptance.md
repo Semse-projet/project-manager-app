@@ -23,7 +23,9 @@ La fuente original (Evidence/Observation/medios) permanece en su sistema propiet
 
 **Precondición P0:** inventario real de `ragDocumentId` y `sourceType=field_observation`, consulta de acceso vigente del índice histórico y disposición de cuarentena para ACL no acreditada. La existencia de #987 en DRAFT no prueba cuarentena ni despliegue. Si una ruta legacy sigue sirviendo texto de origen sin titularidad/ACL probada, mantenerla bloqueada y detener F1/F3 en esa audiencia; registrar el bloqueo, no sustituirlo por un `scope:null` global.
 
-## 2. Modelo mínimo propuesto (NO migración aplicada)
+## 2. Modelo objetivo F1 (F1A parcial, F1B pendiente)
+
+F1A de #1010 contiene Entry/Version/Consent y tiene evidencia de migración/test en CI, no despliegue ni API. Esta tabla describe el objetivo completo: los campos y modelos adicionales no se consideran existentes. Ver [mapeo y gates](knowledge-contributor-curated-library.delivery-gates.md).
 
 | Agregado | Identificadores y restricciones obligatorias |
 |---|---|
@@ -34,11 +36,11 @@ La fuente original (Evidence/Observation/medios) permanece en su sistema propiet
 | CuratedAccessGrant | `tenantId,id,entryId,versionId,audienceOrgId,revokedAt`; F1 no emite grants de lectura `TENANT_CURATED` |
 | CuratedKnowledgeAudit + DomainOutboxEvent | Mismo `tenantId/entryId`, `aggregateRevision` monotónica, `eventSchemaVersion` separado; sólo IDs opacos, actor verificado, transiciones, hashes y fechas |
 
-Todos los identificadores entrantes se correlacionan con `tenantId` resuelto **por la sesión**, nunca inferido del body. Claves foráneas cruzadas de tenant deben fallar **en PostgreSQL** incluso al llamar por error a una función interna. En F1, el alcance efectivo permitido es únicamente `ORG_PRIVATE`; `TENANT_CURATED` existe sólo como futura opción normativa **no activable**. Enum `ConsentPurpose=CURATED_RAG_REFERENCE` significa permiso para una futura revisión/uso sujeto a gates; **no** autoriza consulta de F1. Rechazar `PUBLIC`, `CROSS_TENANT`, `MODEL_TRAINING`, `public_training` y campos fuera de los enums.
+Todos los identificadores entrantes se correlacionan con `tenantId` resuelto **por la sesión**, nunca inferido del body. Claves foráneas cruzadas de tenant deben fallar **en PostgreSQL** incluso al llamar por error a una función interna. En F1, el alcance efectivo permitido es únicamente `ORG_PRIVATE`; `TENANT_CURATED` existe sólo como futura opción normativa **no activable**. Enum `ConsentPurpose=RAG_REFERENCE` significa permiso para una futura revisión/uso sujeto a gates; **no** autoriza consulta de F1. Rechazar `PUBLIC`, `CROSS_TENANT`, `MODEL_TRAINING`, `public_training` y campos fuera de los enums.
 
 ## 3. Endpoints propuestos y precondiciones
 
-- `POST /v1/curated-knowledge/drafts`: HUMAN autenticado con rol de aportante y org actual; permite crear borrador privado con vínculo de procedencia guardado en almacén privado. Devuelve ID opaco y estado `DRAFT_PRIVATE`, sin URL original.
+- `POST /v1/curated-knowledge/drafts`: HUMAN autenticado con rol de aportante y org actual; permite crear borrador privado con vínculo de procedencia guardado en almacén privado. Devuelve ID opaco y estado persistido `DRAFT` (borrador privado), sin URL original.
 - `POST /v1/curated-knowledge/:entryId/versions/:versionId/consents`: HUMAN autor/titular o representante demostrado; entrada incluye `expectedContentHash`, `expectedPolicyHash`, `noticeVersion`, `validFrom`, `expiresAt`, `actorType`, evidencia de autoridad privada cuando corresponda. El servidor obtiene `signerUserId` de sesión y revalida versión, tenant, titularidad, mandato vigente, audiencia permitida, consentimiento explícito y consentimiento no duplicado bajo transacción serializable. Crea consentimiento + incremento de `aggregateRevision` + audit + outbox **en una misma transacción**.
 - `POST /v1/curated-knowledge/:entryId/versions/:versionId/consents/:consentId/withdraw`: HUMAN firmante original o actual representante legítimo del titular **para ese consentimiento**; denegar compañero de la misma organización, otro aportante, antiguo delegado, revisor, publicador y principal de servicio. Revocación + audit + outbox en una transacción; reintento idempotente conserva rastro sin reactivar consentimiento.
 - `GET /v1/curated-knowledge/private/drafts` y `GET /v1/curated-knowledge/private/consents`: vistas privadas paginadas, sólo para actor/organización autorizados; no sirven originales, consentimiento firmado ni referencias privadas de otro participante. No hay en F1 `/search`, `/publish`, `/reviews` ni `/public`.

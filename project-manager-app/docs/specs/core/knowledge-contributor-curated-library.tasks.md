@@ -27,7 +27,9 @@ date: "2026-10-18"
 - [ ] T008 Revisar coherencia con #974/#987 y #1007/#1009 y obtener aprobación independiente del diseño del gateway antes de implementar.
 - [ ] T009 Definir pruebas de contrato para cada consumidor, con comprobación de cero efectos secundarios en pagos, permisos, evidencia y credenciales.
 
-## F1 — Diseño verificable y datos privados
+## F1 — F1A esquema privado / F1B flujo autenticado
+
+F1A existe parcialmente en #1010 y su prueba PostgreSQL pasó en el merge de prueba `6db362ab`; eso no completa T010–T015 ni los 25 escenarios de API. [Evidencia y diferencias](knowledge-contributor-curated-library.delivery-gates.md).
 - [ ] T010 Tests rojos: FK compuesta multi-tenant por entry/version/consent/review, signer humano real, representación válida/caducada, consentimiento a versión/hash/política concreta, enum inválido y plazo vencido.
 - [ ] T011 Modelos tenant-scoped `CuratedKnowledgeEntry/Version/Consent/Review/Grant` con FKs compuestas, enums cerrados, hash inmutable de contenido/política, expiración, proof of signing authority, `aggregateRevision` y migración aditiva.
 - [ ] T012 F1 API/UI sólo borrador privado, consentimiento firmado por humano `versionId + expectedContentHash + expectedPolicyHash`, con comprobación del verdadero firmante/titular/delegación, y retirada propia; cero búsquedas o publicación.
@@ -63,3 +65,11 @@ date: "2026-10-18"
 - [ ] T054 P0 #974 y #992 sólo cierran después de las pruebas autorizadas.
 
 **Done:** sin fuga, consentimiento válido y verificable, información vigente y citada, revocación efectiva y auditoría; flags/prod permanecen OFF mientras exista cualquier gate abierto.
+
+## Entrega documental 2026-10-22
+
+- [x] Reconciliar aprobación de producto #992 con F0, conservando SDD DRAFT.
+- [x] Documentar evidencia CI F1A, procedencia del merge de prueba y validación Prisma local.
+- [x] Unificar propósito cerrado `RAG_REFERENCE` y estado persistido `DRAFT`; documentar campos faltantes sin fingir implementación.
+- [ ] Incorporar la documentación vigente de #1008 a la rama #1010 y revalidar la integración antes de continuar código.
+- [ ] Completar dictámenes independientes y el registro de decisiones pendientes de la matriz de entregas.

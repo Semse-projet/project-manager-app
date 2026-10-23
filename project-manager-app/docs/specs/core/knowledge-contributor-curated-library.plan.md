@@ -47,7 +47,8 @@ date: "2026-10-18"
 | Slice | Contenido | Precondición / salida |
 |---|---|---|
 | F0 | SDD, consentimiento, matriz de seguridad y decisión #992 | Producto + privacidad + seguridad aprueban contrato |
-| F1 | Custodia privada; borradores, firma humana por versión+hash/policy+caducidad, prueba de representación, retirar consentimiento propio, audit+outbox y aggregateRevision transaccionales; UI privada | Test actor/titular/retiradas/expiración/crash; cero publicación |
+| F1A | #1010: esquema privado Entry/Version/Consent, FK compuestas, versiones inmutables y prohibición SQL de publicar | Migración y prueba de integridad observadas en CI; sin API ni aceptación completa F1 |
+| F1B (sobre F1A) | Custodia privada; borradores, firma humana por versión+hash/policy+caducidad, prueba de representación, retirar consentimiento propio, audit+outbox y aggregateRevision transaccionales; UI privada | Test actor/titular/retiradas/expiración/crash; cero publicación |
 | F2 | Depuración y dos revisiones humanas incondicionalmente independientes, step-up, firma editorial, publication CAS+outbox de publicación | Transiciones concurrentes, no self-review y auditoría atómica; outbox de consentimientos ya existe desde F1 |
 | F3 | FTS-only al inicio; RAG sólo derivados sanitizados con cita+ACL en la misma SQL | #974 activo, cuarentena de `field_observation` heredada, no-egress, actor verificado y tests de aislamiento |
 | F4 | Capacitación por oficio, cuestionarios y feedback supervisado | Calidad técnico-editorial y advertencias verificadas |
@@ -79,6 +80,8 @@ Riesgos: fuga entre organizaciones, consentimiento falsificado, prompt injection
 NIST AI RMF generativo: procedencia y gobierno; OWASP 2025: prompt injection, información sensible, poisoning, agencia y vectores. No entrenar modelos ni crear certificaciones. **Producto ratificado en #992 (2026-10-19):** F1 inicia en privado, con posible biblioteca curada únicamente dentro del mismo tenant, consentimiento explícito por versión y doble revisión. **Pendiente:** verificar titularidad y representación, licencia/retención/atribución, estándares técnicos/renovación y aprobaciones de seguridad/privacidad. Esta ratificación no es autorización para publicar ni para tratar datos de terceros.
 
 ## 9. Gates de tareas
+
+La [matriz de entregas](knowledge-contributor-curated-library.delivery-gates.md) separa evidencia F1A, diferencias F1B y aprobaciones pendientes. No trasladar audit/outbox/retiro de F1B a F2.
 
 - [ ] Decisión F1 de audiencia ya ratificada en #992; **pendiente** SDD APPROVED, validación jurídica/privacidad de firmantes y derechos y aceptación de seguridad.
 - [ ] ADR de privacidad/propiedad y licencia aprobado.
