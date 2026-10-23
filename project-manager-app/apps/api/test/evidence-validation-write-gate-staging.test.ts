@@ -56,6 +56,7 @@ function build(input?: { blocked?: boolean }) {
     visionService as never,
     storageService as never,
     {} as never,
+    {} as never,
   );
 
   return {
