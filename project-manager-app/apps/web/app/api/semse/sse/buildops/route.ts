@@ -1,5 +1,5 @@
 import { type NextRequest } from "next/server";
-import { buildAuthorizedHeaders, getServerConfig, runtimeDisabledResponse } from "../../_server";
+import { buildAuthorizedHeaders, getAuthenticatedServerConfig, runtimeDisabledResponse } from "../../_server";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -7,7 +7,7 @@ export const runtime = "nodejs";
 /** Proxies GET /v1/sse/buildops → streams evidence-item:updated and evidence-item:reviewed events */
 export async function GET(request: NextRequest) {
   try {
-    const cfg = await getServerConfig(request);
+    const cfg = await getAuthenticatedServerConfig(request);
     const headers = (await buildAuthorizedHeaders(cfg));
 
     const apiRes = await fetch(
