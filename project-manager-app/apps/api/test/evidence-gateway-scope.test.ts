@@ -15,13 +15,6 @@ const PRO_ORG = "org_pro";
 function build() {
   const calls: string[] = [];
   const repository = {
-    // Only project "proj_1" of "tenant_1" exists.
-    async getProjectOwnership(projectId: string, tenantId: string) {
-      calls.push(`ownership:${projectId}:${tenantId}`);
-      return projectId === "proj_1" && tenantId === "tenant_1"
-        ? { clientOrgId: CLIENT_ORG, assignedProOrgId: PRO_ORG }
-        : null;
-    },
     async milestoneBelongsToProject(milestoneId: string, projectId: string, tenantId: string) {
       calls.push(`milestone:${milestoneId}:${projectId}:${tenantId}`);
       return milestoneId === "ms_1" && projectId === "proj_1" && tenantId === "tenant_1";
@@ -48,7 +41,22 @@ function build() {
   const stagingCompatibleStorage = {
     async withWriteGateMutation<T>(_kind: string, work: () => Promise<T>) { return work(); },
   };
-  const service = new EvidenceGatewayService(repository as never, {} as never, stagingCompatibleStorage as never, evidenceService as never);
+  // Resolver canónico (C51): solo existe el proyecto "proj_1" de "tenant_1".
+  const scopeResolver = {
+    async resolveProjectScope(tenantId: string, projectId: string) {
+      calls.push(`ownership:${projectId}:${tenantId}`);
+      return projectId === "proj_1" && tenantId === "tenant_1"
+        ? { tenantId, clientOrgId: CLIENT_ORG, assignedProOrgId: PRO_ORG }
+        : null;
+    },
+  };
+  const service = new EvidenceGatewayService(
+    repository as never,
+    {} as never,
+    stagingCompatibleStorage as never,
+    evidenceService as never,
+    scopeResolver as never,
+  );
   return { service, calls, registered };
 }
 
