@@ -1,6 +1,6 @@
 # Reporte — 0.47: streams SSE sin metadata RBAC y stream de agentes público
 
-**Fecha:** 2026-10-23 · **Hallazgo:** [`AUDIT_REMEDIATION_PLAN.md` 0.47](../AUDIT_REMEDIATION_PLAN.md) · **Rama:** `fix/sse-rbac-metadata-and-project-scope` · **PR:** pendiente
+**Fecha:** 2026-10-23 · **Hallazgo:** [`AUDIT_REMEDIATION_PLAN.md` 0.47](../AUDIT_REMEDIATION_PLAN.md) · **Rama:** `fix/sse-rbac-metadata-and-project-scope` · **PR:** #1031
 
 Estado por capa, sin inferir una de otra:
 
