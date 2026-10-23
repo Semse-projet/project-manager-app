@@ -19,12 +19,15 @@ date: "2026-10-22"
 - [x] DOC-02 — registrar hallazgo de guard WORKER vs cualquier ACTIVE.
 - [x] DOC-03 — documentar roles, permisos candidatos, flujos y fuentes primarias.
 - [x] DOC-04 — OPEN-SUP-01: aprobar regla exclusiva de propietario/representante verificado (2026-10-22).
-- [ ] DOC-04b — validar fuente canónica, lifecycle y prueba backend de titularidad/delegación.
-- [ ] DOC-05 — resolver OPEN-SUP-02 elegibilidad/engagement.
-- [ ] DOC-06 — resolver OPEN-SUP-03 suplencia.
-- [ ] DOC-07 — resolver OPEN-SUP-04 grados de autonomía.
-- [ ] DOC-08 — resolver OPEN-SUP-05 safety / no confundir con OSHA competente.
-- [ ] DOC-09 — resolver OPEN-SUP-06 transición legacy segura.
+- [x] DOC-04b-a — inventariar creación de Org, Membership y las fuentes de autoridad (P-01).
+- [x] DOC-04b-b — documentar candidato de verificación/revocación de autoridad (sin implementar).
+- [ ] DOC-04b-c — ratificar modelo canónico, revisor, pruebas y migración, e implementar guard tras aprobación.
+- [x] DOC-05a a DOC-09a — recopilar opciones y propuesta técnica de OPEN-SUP-02…06.
+- [ ] DOC-05 — **ratificar** OPEN-SUP-02 elegibilidad/engagement.
+- [ ] DOC-06 — **ratificar** OPEN-SUP-03 suplencia.
+- [ ] DOC-07 — **ratificar** OPEN-SUP-04 grados de autonomía.
+- [ ] DOC-08 — **ratificar** OPEN-SUP-05 safety / no confundir con OSHA competente.
+- [ ] DOC-09 — **ratificar** OPEN-SUP-06 transición legacy segura.
 - [ ] DOC-10 — revisión independiente, `APPROVED`, index, análisis.
 
 ## S0 — Guardas existentes (PR propio)
@@ -79,6 +82,14 @@ date: "2026-10-22"
 - [ ] S4-06 — staging sintético, smoke autenticado ES/EN, móvil.
 - [ ] S4-07 — canary opt-in, señales de rollback y evidencia.
 - [ ] S4-08 — estado VERIFIED solo con evidencias reales.
+
+## Documentación de decisiones preparada
+
+- [x] P-01: informe de situación real y modelo candidato en
+  `docs/reportes/2026-10-22_p01-canonical-org-owner-authority-design.md`.
+- [x] P-02…P-06: alternativas y recomendaciones sin aprobar en
+  `docs/reportes/2026-10-22_p02-p06-supervisor-decision-proposals.md`.
+- [ ] Ratificar decisiones y ejecutar gates de SDD; ningún cambio de código.
 
 ## Registro maestro de pendientes
 
