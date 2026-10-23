@@ -68,6 +68,12 @@ last_verified: "2026-10-18"
 
 **Excluido de F1:** publicación abierta en internet, colaboración entre tenants, utilización de fotos originales para entrenar modelos, publicación retrospectiva de `public_training`, cobro/recompensas automáticos, generación de credenciales/licencias profesionales y decisiones económicas/escrow por la IA. Las lecciones de capacitación pueden proponer ejercicios y autoevaluaciones, pero **no equivalen a habilitación legal para ejecutar trabajos peligrosos**.
 
+### Ownership y arquitectura propuestos
+
+El bounded context responsable es **Knowledge**, extendiendo el `KnowledgeModule` existente en `apps/api/src/modules/knowledge/`. Ese módulo será dueño del controlador `/v1/curated-knowledge/*`, policy, repositorio de derivados y servicio de consulta curada. Contributor Program conserva las observaciones originales; Prometeo conserva orquestación/modelos y gobierno de tools. No se propone otro backend ni otro motor de policy.
+
+El [ADR de custodia y gateway](../../architecture/ADR-curated-knowledge-custody-and-gateway.md), **PROPOSED**, registra alternativas y límites. Conforme a [ADR-036](../../architecture/ADR-036-prometeo-agents-boundary.md), `searchCuratedKnowledge` se invocará como herramienta de sólo lectura bajo `evaluatePrometeoToolPolicy`, que no reemplaza las ACL del dominio Knowledge. Conforme a [ADR-022](../../architecture/ADR-022-transactional-outbox-bullmq.md), estado, AuditLog y outbox se escriben en la misma transacción; BullMQ transporta IDs y los receipts son durables. Estos son contratos propuestos, no nuevas integraciones existentes.
+
 ## 3. Actores, autoridad y privacidad
 
 | Actor | Permiso propuesto (nuevo, backend) | Puede | Nunca puede |
@@ -91,11 +97,24 @@ last_verified: "2026-10-18"
 ## 4. Recorrido P1 y criterios verificables
 
 ```text
-Observation privada → DRAFT_DERIVATIVE → REDACTION_REVIEW → TECH_REVIEW
+Observation privada (fuente, fuera de la FSM) → DRAFT → REDACTION_REVIEW → TECH_REVIEW
   → READY (consentimientos + derechos + ambos revisores)
   → PUBLISHED (audiencia fija + versión inmutable)
   → SUSPENDED / WITHDRAWN / SUPERSEDED
 ```
+
+**Vocabulario canónico propuesto:** `DRAFT`, `REDACTION_REVIEW`, `TECH_REVIEW`, `READY`, `PUBLISHED`, `SUSPENDED`, `WITHDRAWN`, `SUPERSEDED`. La fuente privada no es un estado de este agregado. F1A/F1B sólo permiten `DRAFT`; F2 deberá implementar y probar las transiciones siguientes antes de retirar el CHECK privado.
+
+| Transición F2 propuesta | Condición |
+|---|---|
+| DRAFT → REDACTION_REVIEW → TECH_REVIEW → READY | Revisiones humanas independientes, misma versión/política y consentimiento vigente |
+| REDACTION_REVIEW/TECH_REVIEW/READY → DRAFT | Rechazo o cambio; toda corrección del cuerpo crea versión nueva e invalida firmas |
+| READY → PUBLISHED | CAS, derechos, consentimientos, ambas revisiones y audiencia revalidados; audit/outbox atómicos |
+| PUBLISHED → SUSPENDED | Reporte de riesgo, caducidad técnica o revisión necesaria; deja de ser recuperable |
+| DRAFT/REDACTION_REVIEW/TECH_REVIEW/READY/PUBLISHED/SUSPENDED → WITHDRAWN | Retirada editorial; retirada de consentimiento bloquea publicación/lectura aunque el agregado siga privado |
+| PUBLISHED/SUSPENDED → SUPERSEDED | Sustitución por una versión nueva aprobada; nunca sobrescribir el cuerpo anterior |
+
+No hay transición directa SUSPENDED → PUBLISHED ni reapertura de WITHDRAWN/SUPERSEDED; para volver a publicar se requiere nueva versión y ciclo de firmas/revisión.
 
 `PROMOTED` del programa de colaboradores **no cambia por sí solo** este FSM. Estados de privacidad y consentimiento se evalúan como predicados **actuales**, no señales históricas.
 
@@ -106,7 +125,7 @@ Observation privada → DRAFT_DERIVATIVE → REDACTION_REVIEW → TECH_REVIEW
 | P3 Revocar | Al confirmar revocación, una **consulta nueva** no devuelve ficha, chunk, título, cita, feedback o estadísticas; purga/cachés se reconcilian por outbox |
 | P4 Aislamiento | Org ajena sin permiso, tenant B, membresía revocada, usuario desactivado, agente sin scope firmado → 403/404 y cero contenido |
 | P5 Concurrencia | Publicar/revocar en carrera: la revocación prevalece en la lectura futura; revisión/consentimiento se revalidan dentro de transacción serializable y lectura SQL |
-| P6 Vigencia y calidad | Ficha obsoleta o sin referencia verificable para procedimiento crítico → `NEEDS_REVIEW`/suspensión, no aparece como consejo verificado |
+| P6 Vigencia y calidad | Ficha obsoleta o sin referencia verificable para procedimiento crítico → `SUSPENDED` con motivo de revisión técnica, no aparece como consejo verificado |
 | P7 Piloto | Cuenta de prueba real A/B, scopes positivos y negativos, auditoría y monitoreo de red sin egreso externo |
 | P8 Reintentos | Worker, outbox y DLQ idempotentes; no republicar tras retirada por replay fuera de orden |
 
@@ -124,7 +143,9 @@ Observation privada → DRAFT_DERIVATIVE → REDACTION_REVIEW → TECH_REVIEW
 Cada modelo de la cadena `Entry/Version/Consent/Review/Grant/Audit/Outbox` lleva `tenantId`; exigir FK compuestas y únicas que impidan referencias a entrada/versión de otro tenant, incluso con IDs falsificados. Índices B-tree `(tenantId,status,scope,trade,jurisdiction)` y predicados obligatorios en SQL para tenant, audiencia, consentimiento no revocado **y no expirado** con reloj del servidor PostgreSQL, autoridad del firmante aún válida, dos revisiones humanas, estado, policyHash, vigencia y revocación, en la **misma consulta que retorna contenido/metadatos**. Consentimiento vencido cierra acceso sin esperar worker; renovación requiere nueva firma válida y, cuando cambie audiencia/política, nueva revisión. Valores inválidos en alcance, finalidad o actor se rechazan con enums cerrados tanto en API como en base de datos; `public_training`, CROSS_TENANT y fine-tuning no son variantes permitidas. F3 inicia **FTS-only** en PostgreSQL: no usar `EmbeddingService` de Prometeo ni un fallback OpenAI aunque exista `OPENAI_API_KEY`. Un adaptador local aislado se podrá incorporar en otro cambio aprobado tras prueba con credenciales cloud presentes y egreso de red bloqueado; fallar cerrado a FTS/`insufficientContext`. PGVector opcional sólo tras medición y aprobación; F1 nunca construye índice RAG.
 
 **API propuesta** (autorización independiente por endpoint):
-- `POST /v1/curated-knowledge/drafts` crea un borrador sin publicación.
+- `POST /v1/curated-knowledge/drafts` crea un borrador privado en estado `DRAFT`, sin publicación.
+- `GET /v1/curated-knowledge/private/drafts` lista borradores paginados sólo del aportante/custodio autorizado; sin referencias originales ni conteos ajenos.
+- `GET /v1/curated-knowledge/private/consents` lista consentimientos propios o representados legítimamente; no devuelve pruebas privadas de otros participantes.
 - `POST /v1/curated-knowledge/:id/versions/:versionId/consents` registra consentimiento humano sólo del **firmante autenticado** con `expectedContentHash`, `expectedPolicyHash`, `noticeVersion`, `validFrom`, `expiresAt` y prueba privada de autoridad cuando corresponda; servidor coteja ambos hashes y representación antes de registrar el evento+outbox transaccionales. No basta resolver una versión actual no vista por quien firma.
 - `POST /v1/curated-knowledge/:id/versions/:versionId/consents/:consentId/withdraw` (F1) retira sólo el consentimiento propio o de un titular que continúe legalmente representado y autorizado; actor ajeno, mismo org sin titularidad, revisor, publicador y principal de servicio son denegados; auditoría/outbox CAS atómicos. Retirar consentimiento bloquea cualquier publicación o lectura nueva; `withdraw` editorial de ficha publicado llega en F2.
 - `POST /v1/curated-knowledge/:id/reviews/privacy` y `/reviews/technical` registran decisiones con hash/version.
@@ -154,6 +175,9 @@ Errores: 400 validación, 401 sin sesión, 403 permiso faltante, 404 cross-tenan
 - Auditoría inmutable y minimizada bajo control privado; retención/hold definida legalmente antes de publicar. Sin réplica íntegra del original en logs o telemetría.
 
 ## 7. Dependencias, migración y compatibilidad
+
+**Relación de enmienda propuesta (no sustitución vigente):** este SDD propone enmendar `core.knowledge-contributor-rag-ingestion` exclusivamente en la publicación/recuperación compartida de observaciones `field_observation`. La decisión anterior de indexar al promover y desindexar al rechazar se conserva como antecedente, pero no acredita consentimiento compartido. El contrato APPROVED anterior no se cambia ni se declara superseded mediante este DRAFT. Su modificación gobernada y la cuarentena/ACL demostradas requieren seguimiento propio enlazado a #974/#992 antes de operar la audiencia afectada. La relación, alcance y pruebas quedan en el ADR propuesto.
+
 
 1. Verificar despliegue real y aislamiento del P0 #974 / PR #987 antes de habilitar consultas de biblioteca; el SDD de grants privados es **distinto** de este contrato de publicación.
 2. Migración **aditiva** para modelos curatoriales; `Observation.promotionStatus` sigue editorial y los `ragDocumentId` históricos no cambian de alcance.

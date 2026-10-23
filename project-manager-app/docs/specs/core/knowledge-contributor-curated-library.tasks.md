@@ -73,3 +73,5 @@ F1A existe parcialmente en #1010 y su prueba PostgreSQL pasó en el merge de pru
 - [x] Unificar propósito cerrado `RAG_REFERENCE` y estado persistido `DRAFT`; documentar campos faltantes sin fingir implementación.
 - [ ] Incorporar la documentación vigente de #1008 a la rama #1010 y revalidar la integración antes de continuar código.
 - [ ] Completar dictámenes independientes y el registro de decisiones pendientes de la matriz de entregas.
+
+**ADR F0 propuesto:** [custodia y gateway](../../architecture/ADR-curated-knowledge-custody-and-gateway.md). Define Knowledge como módulo propietario, mantiene ADR-036/ADR-022, registra alternativas y enmienda pendiente del contrato de ingesta legacy. Ver [análisis de revisión del 23-oct](../../reportes/2026-10-23_curated-library-review-followup.md). Estado PROPOSED; aprobación formal pendiente.

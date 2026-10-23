@@ -47,3 +47,5 @@ date: "2026-10-18"
 - [ ] Sin rollout ni afirmación de producción hasta canary autorizado.
 
 **Corte 2026-10-22:** [matriz de entregas y evidencia F1A](knowledge-contributor-curated-library.delivery-gates.md). La prueba DB de F1A pasó en CI; los gates de endpoints, consentimiento real, independencia, cuarentena legacy, staging y rollback permanecen pendientes. No marcar los 25 escenarios F1 como aprobados por esa única prueba.
+
+**ADR F0 propuesto:** [custodia y gateway](../../architecture/ADR-curated-knowledge-custody-and-gateway.md). Define Knowledge como módulo propietario, mantiene ADR-036/ADR-022, registra alternativas y enmienda pendiente del contrato de ingesta legacy. Ver [análisis de revisión del 23-oct](../../reportes/2026-10-23_curated-library-review-followup.md). Estado PROPOSED; aprobación formal pendiente.
