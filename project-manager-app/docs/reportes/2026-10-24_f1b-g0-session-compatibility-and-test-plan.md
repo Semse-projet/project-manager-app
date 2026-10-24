@@ -42,7 +42,7 @@ type VerifiedPrincipal = OrgPrincipal | PersonalPrincipal;
 
 **Regla R2:** `AuthGuard` valida la credencial HMAC, `sid` duradero, User activo, expiración y `kind` firmado/reconciliado con sesión persistida. `RbacGuard` deniega clase incorrecta antes de analizar `@AuthenticatedAccess` o `@RequirePermissions`. Falta de clase en token antiguo puede mapearse a `ORG` **solo si** la sesión se verifica contra Membership ACTIVE; `PERSONAL` sin discriminante se rechaza. Campo desconocido => 401 (no fallback).
 
-**Regla R3:** no modelar sesión PERSONAL con `roles: []`, `tenantId` de nueva empresa o `orgId` ficticio para satisfacer `RequestIdentity`. `packages/auth/src/rbac.ts` convierte roles vacíos en `client`; `apps/web/middleware.ts` convierte ese valor en rutas; deberá comprobar `kind` antes de usar `appRoleFromRoles`. Los headers `x-semse-*` de BFF no son autoridad personal ni permiten crear OrgActor.
+**Regla R3:** no modelar sesión PERSONAL con `roles: []`, `tenantId` de nueva empresa o `orgId` ficticio para satisfacer `RequestIdentity`. `packages/auth/src/rbac.ts` hace que `appRoleFromRoles([])` devuelva `client`; `apps/web/middleware.ts` convierte ese valor en rutas; deberá comprobar `kind` antes de usar `appRoleFromRoles`. Los headers `x-semse-*` de BFF no son autoridad personal ni permiten crear OrgActor.
 
 **Regla R4:** la sesión ORG mantiene compatibilidad, revocación inmediata por Membership y scope por recurso. PERSONAL sólo abre rutas `me/personal-*` nuevas, con `ownerUserId`, clasificación de dato, revocación y retención validables. No reutilizar `GET /v1/labor/entries` para consulta libre cross-tenant.
 
