@@ -48,3 +48,13 @@ date: "2026-10-24"
 - [ ] CI terminal y merge/deploy/activación separados y con evidencia.
 
 **Estado:** pendiente de decisiones formales y ejecución.
+
+## G0 adicional — bloqueo del código Auth
+
+- [ ] `@AuthenticatedAccess` en API existente es ORG-only por defecto al introducir PERSONAL; ningún controlador antiguo hereda self.
+- [ ] `appRoleFromRoles([])` no puede redirigir cookie PERSONAL al dashboard `client` ni habilitar rutas organizacionales.
+- [ ] `RequestContext` de Org no se rellena con `tenantId/orgId` sintéticos; principal personal distinto/validado por servidor.
+- [ ] Cookie web, BFF y `sanitizeSemseIdentityHeaders` no producen identidad organizacional desde PERSONAL.
+- [ ] JWT + sesión durable poseen clase/audience estrictos, tokens viejos son ORG exclusivamente y tokens desconocidos se deniegan.
+- [ ] `@RequirePermissions`, `@AuthenticatedAccess`, SSE, WebSocket y herramientas de agentes rechazan PERSONAL sin política explícita.
+- [ ] Revisar `docs/reportes/2026-10-24_f1b-auth-compatibility-threat-review.md` por Security/Auth independiente antes de code GO.
