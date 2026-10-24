@@ -234,3 +234,13 @@ effects:
 **AC-G0-04:** comprobar compatibilidad bajo logout/refresh/revocación/expiración, sesión suspendida, cambio de Membership, procesos, SSE y fallos de disponibilidad Auth.
 
 **Decisión requerida:** Identity/Security aprueban política exacta por decorador/ruta, discriminación de tokens y plan de compatibilidad. Este addendum NO cambia el estado DRAFT ni autoriza implementación.
+
+## 11. Gate G0 — HMAC y casos TDD existentes
+
+La revisión cruzada de `apps/api/src/common/auth-token.ts`, `apps/web/lib/auth.ts`, `packages/shared/src/index.ts`, los guards y las suites de autenticación se documenta en `docs/reportes/2026-10-24_f1b-g0-session-compatibility-and-test-plan.md`.
+
+**Corrección canónica:** token API propio de SEMSE con firma HMAC-SHA256 y **dos segmentos**, NO JWT estándar; cookie web HMAC separada; `AuthSession` persistida. El nuevo contrato PERSONAL debe discriminar clase/audience y validarlo expresamente en los tres niveles, sin modificar implicitamente sesiones legacy.
+
+**G0-NO-GO:** faltan decisiones D-AUTH-01/02, D-WEB-03, D-RECORD-04 y D-DB-05, y aprobación independiente. La tabla T01–T22 del informe es un **plan de tests**, no prueba ejecutada. Los endpoints existentes `@AuthenticatedAccess` y `appRoleFromRoles([])=client` deben seguir bloqueados a PERSONAL antes de permitir nuevos tokens.
+
+**Orden:** contratos y revisión → tests de rechazo → micro-slice de auth → custodia legalmente autorizada → smoke sintético → CI al final → merge/deploy separados. F1A permanece independiente; no hacer merge por arrastre.
