@@ -58,3 +58,15 @@ date: "2026-10-24"
 - [ ] Token HMAC propio de SEMSE (no JWT), cookie web HMAC y sesión durable poseen clase/audience estrictos, tokens viejos son ORG exclusivamente y tokens desconocidos se deniegan.
 - [ ] `@RequirePermissions`, `@AuthenticatedAccess`, SSE, WebSocket y herramientas de agentes rechazan PERSONAL sin política explícita.
 - [ ] Revisar `docs/reportes/2026-10-24_f1b-auth-compatibility-threat-review.md` por Security/Auth independiente antes de code GO.
+
+## G0 — Paquete de decisiones y tests
+
+- [x] Contrato corregido: bearer API no es JWT; formato HMAC propio de dos partes, cookie web HMAC separada.
+- [x] Matriz T01–T22 propuesta, con rutas a pruebas legacy; `docs/reportes/2026-10-24_f1b-g0-session-compatibility-and-test-plan.md`.
+- [ ] D-AUTH-01/02 y D-WEB-03 aprobadas por Identity/Auth/Security/Web.
+- [ ] D-RECORD-04 y D-DB-05 aprobadas por Legal/Privacy/DB/Architecture.
+- [ ] Nuevas rutas PERSONALES no habilitadas antes de rechazo de token PERSONAL en todos los guards ORG.
+- [ ] Test real `AuthSession` y token legacy HMAC de dos segmentos + expiración/refresco/step-up.
+- [ ] Test cookie web HMAC y middleware `roles=[]` no desvían a `client`.
+- [ ] Resultados de T01–T22 verificables, no confundidos con el inventario documental.
+- [ ] Revisión independiente y rollback, CI al final; no merge/deploy sin GO posterior.
