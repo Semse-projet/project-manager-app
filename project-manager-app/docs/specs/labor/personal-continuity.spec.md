@@ -213,3 +213,24 @@ effects:
 7. Merge/deploy/activación por autorizaciones separadas; evidencia real, no inferida.
 
 **Estado:** DRAFT, NOT_STARTED, NOT_RUN, UNMERGED, NOT_DEPLOYED, INACTIVE. No hay migración ni feature flag activa.
+
+## 10. Addendum G0: contrato obligatorio de separación de principal
+
+**Revisión de seguridad de diseño 2026-10-24:** `docs/reportes/2026-10-24_f1b-auth-compatibility-threat-review.md` inspecciona guardas API, `RequestContext`, middleware/cookie web, SSE, modelos DB y autenticación.
+
+**Bloqueos críticos previos al primer código:**
+- `@AuthenticatedAccess` actual en `RbacGuard` no discrimina una hipotética sesión PERSONAL de una sesión ORG. Debe mantener comportamiento **ORG-only** por defecto hasta migración explícita de rutas self y su policy.
+- `appRoleFromRoles([])` devuelve `client`. **Está prohibido** representar `PERSONAL` como `roles: []` y esperar que el middleware web restrinja rutas; el discriminante se valida antes de cualquier ruta o dashboard por rol.
+- `RequestContext = RequestIdentity` exige `tenantId/orgId/roles`: no falsificar tenant/Org en una sesión personal para satisfacer tipos. Los controladores ORG deben usar exclusivamente actor de Org validado; los controladores personales, principal de identidad verificable.
+- Los headers `x-semse-*` y la sesión web firmada no son facultades corporativas. El backend debe validar token de ámbito y sesión durable; todos los SSE, Worker, agentes, WebSocket y API empresariales rechazan PERSONAL si no existe una policy individual especializada.
+- La cookie/JWT y `AuthSession` deberán diferenciar clase/`audience` y fail-closed; sesiones antiguas sin clase se interpretan solo como ORG con Membership activa, y valores desconocidos deben rechazarse.
+
+**AC-G0-01:** autenticación personal sin Membership no abre ni una ruta organizacional marcada `@AuthenticatedAccess`, aunque no haya `@RequirePermissions`.
+
+**AC-G0-02:** roles vacíos en cookie PERSONAL nunca redirigen a cliente ni permiten `/client`, `/worker`, `/admin`, `/jobs`, `/agents` ni `/workspace`.
+
+**AC-G0-03:** `principalKind` y `audience` declarados/revalidados en sesión durable y token; `ORG` legado sin discriminante no eleva privilegios y `PERSONAL` no puede acceder a endpoints `GET /v1/labor/entries` originarios de tenants anteriores.
+
+**AC-G0-04:** comprobar compatibilidad bajo logout/refresh/revocación/expiración, sesión suspendida, cambio de Membership, procesos, SSE y fallos de disponibilidad Auth.
+
+**Decisión requerida:** Identity/Security aprueban política exacta por decorador/ruta, discriminación de tokens y plan de compatibilidad. Este addendum NO cambia el estado DRAFT ni autoriza implementación.
