@@ -34,7 +34,7 @@ last_verified: "2026-10-24"
 **Evidencia AS-IS de main, revisión de código 2026-10-24 (NO runtime):**
 
 - `User` es identidad global, pero `findUserByEmail` filtra únicamente `Membership.status=ACTIVE`.
-- `AuthService.loginWithPassword` rechaza cuentas sin membresía activa; `AuthSession` y JWT se emiten con `tenantId`, `orgId`, roles. `AuthService.authenticateRequest` verifica roles contra membresía de esa Org.
+- `AuthService.loginWithPassword` rechaza cuentas sin membresía activa; `AuthSession` y los tokens de acceso firmados de dos partes (formato propio de SEMSE, **no JWT**) incluyen `tenantId`, `orgId` y roles. `AuthService.authenticateRequest` verifica roles contra membresía de esa Org.
 - `AuthService.register` crea User+Org+Membership propia bajo `SEMSE_DEFAULT_TENANT_ID`; esto ya permite usar SEMSE sin registro del empleador, pero **NO permite permanecer sin cualquier Org**.
 - `TimeEntry` y `FreeProject` están asociados a `Tenant` con `onDelete: Cascade`. Un cambio/eliminación de tenant puede amenazar retención si los registros no tienen custodia independiente; no se verificó un flujo real de borrado de tenants.
 - `GET /v1/labor/entries` usa tenant y usuario de sesión; no constituye una API self-only universal entre tenants.
@@ -223,7 +223,7 @@ effects:
 - `appRoleFromRoles([])` devuelve `client`. **Está prohibido** representar `PERSONAL` como `roles: []` y esperar que el middleware web restrinja rutas; el discriminante se valida antes de cualquier ruta o dashboard por rol.
 - `RequestContext = RequestIdentity` exige `tenantId/orgId/roles`: no falsificar tenant/Org en una sesión personal para satisfacer tipos. Los controladores ORG deben usar exclusivamente actor de Org validado; los controladores personales, principal de identidad verificable.
 - Los headers `x-semse-*` y la sesión web firmada no son facultades corporativas. El backend debe validar token de ámbito y sesión durable; todos los SSE, Worker, agentes, WebSocket y API empresariales rechazan PERSONAL si no existe una policy individual especializada.
-- La cookie/JWT y `AuthSession` deberán diferenciar clase/`audience` y fail-closed; sesiones antiguas sin clase se interpretan solo como ORG con Membership activa, y valores desconocidos deben rechazarse.
+- La cookie web HMAC, el token de acceso firmado HMAC y `AuthSession` deberán diferenciar clase y público destinatario (`audience` propuesto) y fail-closed; sesiones antiguas sin clase se interpretan solo como ORG con Membership activa, y valores desconocidos deben rechazarse.
 
 **AC-G0-01:** autenticación personal sin Membership no abre ni una ruta organizacional marcada `@AuthenticatedAccess`, aunque no haya `@RequirePermissions`.
 
