@@ -60,3 +60,40 @@ El hecho de que se requiera un guard PERSONAL **no prueba** que el código actua
 5. Registrar revisión independiente antes de comenzar código, **CI al final** y despliegue/activación por autorización separada.
 
 **NO se han explotado fallas, no hay cambio de auth ni datos productivos en este informe.**
+
+## Revisión cruzada detallada G0 — hallazgos concretos y contrato propuesto
+
+**Hallazgos corroborados en `main` (no equivalen a incidentes explotados):**
+
+| ID | Severidad de un cambio mal implementado | Evidencia exacta | Decisión de implementación requerida |
+|---|---|---|---|
+| SEC-G0-01 | **P0** | `apps/api/src/common/rbac.guard.ts`: rama `AUTHENTICATED_ACCESS_KEY` devuelve `true` tras autenticación, sin comprobar clase de principal | Mantener `@AuthenticatedAccess` existente como **ORG-only por defecto**, salvo auditoría endpoint a endpoint; añadir política PERSONAL explícita y fail-closed para todos los demás |
+| SEC-G0-02 | **P0** | `packages/auth/src/rbac.ts`: `appRoleFromRoles([])` devuelve `client`; `apps/web/middleware.ts` clasifica por `roleFromRoles(session.roles)` | Un token/cookie PERSONAL nunca debe interpretarse como CLIENT ni entrar al dashboard/menú organizacional; comprobar clase de sesión ANTES de resolver rol |
+| SEC-G0-03 | **P0** | `apps/api/src/common/request-context.ts`: `RequestContext = RequestIdentity`, con `tenantId/orgId/roles` obligatorios; `resolveRequestContext` usa `req.authContext` o verifica bearer/header en dev | Separar API de extracción: `requireOrgActor(request)` y `requirePersonalPrincipal(request)` o equivalentes; no usar IDs de tenant ficticios, valores null no tipados o fallback por headers para crear autoridad |
+| SEC-G0-04 | **P0** | `apps/api/src/modules/auth/auth.service.ts`: `authorizedRoles` exige membresía actual; `AuthSession` tiene tenant/org obligatorios; `apps/api/src/modules/auth/auth.repository.ts` busca sólo membresía ACTIVE | Sesión PERSONAL necesita ciclo de vida, refresh, logout y revocación propios, verificando User activo y sesión durable sin depender de Membership; token `ORG` antiguo sin discriminante se trata como ORG solamente |
+| SEC-G0-05 | **P1** | `apps/web/lib/semse-api-auth.ts`: `sanitizeSemseIdentityHeaders` reenvía `userId/tenantId/orgId/roles`; la API pública debería revalidar JWT | Bloquear construcción de headers organizacionales desde sesión PERSONAL; revisar BFF, middleware, páginas y descargas por ruta, y no atribuir autoridad al header reenviado |
+| SEC-G0-06 | **P0** | `apps/api/src/infrastructure/sse/sse.controller.ts` resuelve tenant verificado para planes/delegaciones y no admite contexto sin tenant | Rechazar PERSONAL en todos los SSE/WS de Org, incluidos canales abiertos previamente; pruebas de suscripción, revocación y notificaciones |
+| SEC-G0-07 | **P0** | `apps/api/src/modules/labor-engine/labor-engine.controller.ts`: `GET /entries` tiene `@RequirePermissions("field-ops:read")` y filtra por tenant + creador | Sesión PERSONAL **no** reutiliza ese endpoint para leer retrospectivamente todos los tenants; solo consulta archivo derivado elegible con `ownerUserId` y policy |
+| SEC-G0-08 | **P0 condicionado** | Prisma `TimeEntry.tenantId` y `FreeProject.tenantId` referencian `Tenant` con `onDelete: Cascade` | Ensayar borrado de tenant sólo en base sintética autorizada; confirmar retención y copia permitida antes del borrado real. NO se ha observado borrado productivo |
+
+**Propuesta de contrato de autenticación (a aprobar por Identity/Security, NO código):**
+
+1. `principalKind = ORG | PERSONAL` en sesión durable y en el token firmado, unido a un `audience` adecuado. Falta de discriminante en sesión legada se interpreta como `ORG` *únicamente* cuando su sesión de Org y Membership continúan verificándose. Valores desconocidos: 401, sin fallback.
+2. `AuthGuard` valida criptografía, expiración, `sid`, clase y persistencia de sesión. El siguiente guard exige política por clase: por defecto sólo ORG en rutas existentes; PERSONAL exclusivamente en rutas marcadas expresamente para acceso individual.
+3. El decorador `@AuthenticatedAccess` sigue restringido a ORG, salvo migración individual revisada y probada. Crear una policy de acceso personal `@AuthenticatedPersonalAccess` (nombre provisional) con `User.id` confirmado y `ownerUserId` *server-side*; nunca delegar esta distinción a `roles: []`.
+4. `resolveRequestContext` debe mantener contratos para controladores ORG; el principal PERSONAL no se convierte a `RequestIdentity` con un tenant u Org sintéticos. Ningún header `x-semse-*` recibido de usuario crea un principal de mayor alcance.
+5. Renovación/revocación tienen el mismo estándar o superior al de sesiones de Org; sin modo test/legacy capaz de producir principal PERSONAL en producción.
+6. Cualquier exportación self exige policy de datos, corte y campo elegible. **La autoría `createdBy` no implica automáticamente derecho de conservar datos de obra o salarios**, ni permiso para consultar recursos corporativos tras revocación.
+
+**Matriz de aceptación adicional (todas pendientes de prueba):**
+
+- PERSONAL con `roles=[]` + cookie HMAC válida → UI de cuenta personal, **NO** dashboard `client`; rutas admin/worker/client/jobs/agentes denegadas.
+- PERSONAL con JWT válido → `@AuthenticatedAccess` de Users/Auth empresariales no abre datos organizacionales; `@RequirePermissions` no reconoce permisos.
+- ORG con sesión vieja sin `principalKind` y Membership ACTIVE → compatibilidad en rutas ORG; ORG revocada → denegación.
+- PERSONAL con `tenantId` o `orgId` forjado en cookie, header, query o bearer → ignorar/rechazar; sin cruzar tenancy.
+- ORG X activo y ORG Y suspendido para mismo User → los roles no se suman y ninguna request Y cruza a X.
+- Sesión PERSONAL comprometida → export masivo con reautenticación fuerte y controles de revocación/uso; nunca abrir `personal_private` desde cuentas de terceros.
+- Inicio de sesión sin Membership → sólo acceso personal, no se usa un rol ficticio CLIENT/PRO/WORKER.
+- En fallo de DB/Auth → fail-closed sin reusar claims/cache ni degradación silenciosa.
+
+**Alcance de esta revisión:** estática, preventiva, sin acceso a cuentas productivas ni ejecutar scripts de seguridad, tests o CI. Se exige revisión independiente antes de promover ADR/SDD a APPROVED.
