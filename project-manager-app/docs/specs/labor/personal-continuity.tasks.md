@@ -69,3 +69,12 @@ date: "2026-10-24"
 - [ ] [F1B-013] Definir policy `@AuthenticatedPersonalAccess` (nombre provisional), autorización de archivo self y denegación ORG-only por defecto.
 - [ ] [F1B-014] Añadir casos negativos de `@AuthenticatedAccess` organizacional, rutas del middleware, BFF headers, SSE/Worker/Prometeo y tokens desconocidos.
 - [ ] [F1B-015] Revisar latencia/carga de Auth bajo clase PERSONAL, timeout fail-closed y la fuente durable de permisos antes de implementation.
+
+## G0 — Paquete de verificación HMAC y TDD
+
+- [x] [F1B-016] Corregir referencias erróneas a JWT: bearer SEMSE HMAC de dos partes y cookie web HMAC separada.
+- [x] [F1B-017] Inventariar pruebas base reales: `rbac-explicit-boundary.test.ts`, `mcp-s1-global-auth-guards-baseline.test.ts`, `auth-login-membership-status.service.test.ts`, `business-access-foundation.test.ts`, `tests/unit/web-session.test.ts`, `sse-tenant-context.test.ts`.
+- [x] [F1B-018] Preparar matriz T01–T22 y seis decisiones en `docs/reportes/2026-10-24_f1b-g0-session-compatibility-and-test-plan.md`.
+- [ ] [F1B-019] Aprobar diseño exacto de principal, token HMAC, cookie, `AuthSession` y guard (D-AUTH-01/02 + D-WEB-03).
+- [ ] [F1B-020] Aprobar elegibilidad/retención de datos y proyección fuera de cascada (D-RECORD-04 + D-DB-05).
+- [ ] [F1B-021] Convertir T01–T22 en pruebas reales **sólo después** del APPROVED y antes del código de negocio; registrar SHA, entorno, evidencia.
