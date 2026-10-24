@@ -60,3 +60,12 @@ date: "2026-10-24"
 - [ ] [F1B-408] Solicitar merge/deploy/activación sólo con autorizaciones separadas y evidencias completas.
 
 **Estado:** diseño documental, no implementación ni pruebas ejecutadas.
+
+## G0 — Hallazgos adicionales de autorización (PRE-CODE)
+
+- [x] [F1B-010] Leer `AuthGuard`, `RbacGuard`, `RequestContext`, `appRoleFromRoles`, middleware/cookie, `sanitizeSemseIdentityHeaders` y SSE en main.
+- [x] [F1B-011] Documentar el riesgo futuro de `@AuthenticatedAccess` sin clase de principal y de `appRoleFromRoles([])=client` — no afirmar explotación actual.
+- [ ] [F1B-012] Diseñar discriminante JWT + sesión durable `principalKind` y `audience`, política de tokens legacy y revocación.
+- [ ] [F1B-013] Definir policy `@AuthenticatedPersonalAccess` (nombre provisional), autorización de archivo self y denegación ORG-only por defecto.
+- [ ] [F1B-014] Añadir casos negativos de `@AuthenticatedAccess` organizacional, rutas del middleware, BFF headers, SSE/Worker/Prometeo y tokens desconocidos.
+- [ ] [F1B-015] Revisar latencia/carga de Auth bajo clase PERSONAL, timeout fail-closed y la fuente durable de permisos antes de implementation.
