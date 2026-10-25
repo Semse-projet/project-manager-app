@@ -46,6 +46,8 @@ la prueba sobre PostgreSQL 16. Algunas aserciones aceptan cualquier rechazo:
 reforzar códigos/constraints esperados al ampliar F1B, sin presentar ese refuerzo
 como ya realizado.
 
+**P1 adicional registrado (25-oct-2026):** la [cuarentena de RAG legacy](knowledge-contributor-curated-library.legacy-quarantine-acceptance.md) es **NOT VERIFIED** y exige L01–L18 antes de afirmar privados los originales; el [piloto de electricidad](knowledge-contributor-curated-library.electricity-pilot-acceptance.md) contiene diez casos sintéticos y P-01…P-15, sin ejecución. La revisión F1A #1010 conserva seis hallazgos de integridad. **No promover DRAFT a APPROVED ni cerrar el P1 solo por anexos.**
+
 ## 3. Gates y criterio de cierre
 
 | Gate | Entrada | Salida verificable | No permite |

@@ -191,6 +191,8 @@ Metas propuestas para canary, a validar con datos reales: **0** documentos/chunk
 
 Indicadores y panel: consentimientos activos, fichas pendientes/rechazadas, edad desde última revisión, retiros, cachés pendientes de purga, rechazos de autorización (sin PII), respuestas sin fuentes, errores de técnica reportados. Operación: cola/DLQ, rate limits, circuit breaker de proveedores locales, desactivar flag ante egreso o fuga.
 
+**Cuarentena legacy P1:** [matriz L01–L18](knowledge-contributor-curated-library.legacy-quarantine-acceptance.md) registra el riesgo confirmado en main, las alternativas de ACL/quarantine y el bloqueo de liberación. **Piloto eléctrico F5:** [casos E01–E10](knowledge-contributor-curated-library.electricity-pilot-acceptance.md) propone fichas bilingües sintéticas, límites profesionales y pruebas P-01…P-15. Ambos documentos son sólo contratos de aceptación; no prueban implementación ni revisión independiente.
+
 ## 9. Pruebas obligatorias (bloquean activación)
 
 - [ ] Contribuidor niega consentimiento; fuente original no se copia/indexa en biblioteca.

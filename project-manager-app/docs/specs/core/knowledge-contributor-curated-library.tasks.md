@@ -57,6 +57,13 @@ F1A existe parcialmente en #1010 y su prueba PostgreSQL pasó en el merge de pru
 - [ ] T041 Lecciones, autoevaluaciones y feedback humano; no credenciales profesionales automáticas.
 - [ ] T042 Fecha de expiración/superseded y revisión de normativa técnica.
 
+## Seguridad P1 y piloto de oficio — contratos preparados, ejecución pendiente
+- [x] T036 Documentar matriz L01–L18 de cuarentena de `field_observation` legacy sin dar por ejecutado el control: [aceptación legacy](knowledge-contributor-curated-library.legacy-quarantine-acceptance.md).
+- [ ] T037 Reparar y probar rutas legacy / ACL SQL, resguardar origin, títulos y fragmentos, independientemente del flag curado, en PR autorizado; no cerrar hilo P1 sin pruebas y revisor.
+- [x] T043 Diseñar 10 casos E01–E10 sintéticos ES/EN con rúbrica, permisos y consumidores [matriz piloto](knowledge-contributor-curated-library.electricity-pilot-acceptance.md).
+- [ ] T044 Obtener revisión técnica de electricidad y jurisdicción/fuentes para cada caso, sin asumir cumplimiento; ejecutar P-01…P-15 en staging sólo tras autorización y gates.
+- [ ] T045 Corregir seis observaciones de integridad de F1A del PR #1010 y validar contra PostgreSQL antes de F1B.
+
 ## F5 — Operación y liberación
 - [ ] T050 Revisión independiente seguridad/privacidad, consentimientos comprobados.
 - [ ] T051 CI completo, tipos, cobertura y validación SDD.
