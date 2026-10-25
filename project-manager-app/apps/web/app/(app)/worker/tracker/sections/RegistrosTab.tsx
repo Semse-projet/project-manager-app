@@ -259,17 +259,18 @@ export function RegistrosTab({ jobs }: { jobs: JobRecordView[] }) {
           <div>
             <h3 style={{ fontSize: "14px", fontWeight: 800, color: "var(--ink)", margin: 0 }}>Registros de horas</h3>
             <p style={{ fontSize: "11px", color: "var(--muted)", margin: "3px 0 0" }}>
-              Inmutables una vez guardados: el historial es la fuente auditable para pagos y disputas.
+              El CSV descarga solo las filas cargadas (hasta 500 del servidor) y puede incluir entradas locales pendientes. No es un respaldo completo.
             </p>
           </div>
           <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
             <button
               type="button"
+              title="Exporta solo filas cargadas; los registros locales pueden estar pendientes de sincronización."
               onClick={() => exportEntriesCsv(filtered, resolveProject, `semse-registros-${range}.csv`)}
               disabled={filtered.length === 0}
               style={toolbarButton(filtered.length === 0)}
             >
-              <Download size={13} /> CSV
+              <Download size={13} /> CSV de vista
             </button>
             <button type="button" data-testid="labor-manual-toggle" onClick={() => setShowForm((current) => !current)} style={toolbarButton(false)}>
               <Plus size={13} /> Entrada manual
@@ -281,7 +282,7 @@ export function RegistrosTab({ jobs }: { jobs: JobRecordView[] }) {
           <select value={range} onChange={(event) => setRange(event.target.value as EntriesRange)} style={fieldInput()} aria-label="Rango">
             <option value="week">Últimos 7 días</option>
             <option value="month">Últimos 30 días</option>
-            <option value="all">Todo el historial</option>
+            <option value="all">Sin filtro de fechas (vista limitada)</option>
           </select>
           <select value={purposeFilter} onChange={(event) => setPurposeFilter(event.target.value as PurposeFilter)} style={fieldInput()} aria-label="Propósito">
             <option value="all">Todos los propósitos</option>
