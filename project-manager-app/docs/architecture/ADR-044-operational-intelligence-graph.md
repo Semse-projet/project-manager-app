@@ -19,7 +19,7 @@ the event backbone and Mission Control.
 The missing capability is not another graph engine. It is a common operational
 lineage contract plus an authorized Decision Ledger capable of reconstructing:
 
-`source -> finding -> proposal -> decision -> action -> verification -> outcome`
+`source -> finding -> proposal -> decision -> action -> outcome`, con la verificación como arista `verified_by` y como rol `VERIFICATION` de `DecisionEffectRef`, no como etapa semántica propia
 
 ## Decision
 
@@ -187,5 +187,58 @@ Each slice has its own SDD 2.0 artifacts and independent closure gates.
 
 - Número: el paquete lo proponía como ADR-035, ya ocupado por `ADR-035-agent-approval-governance-ownership`; se renumeró provisionalmente a ADR-042; por la colisión posterior con Universal Connector se corrige la identificación documental a ADR-044 el 2026-10-15.
 - Base: `main` avanzó de `370578a` a `e5f19a3` tras preparar el paquete.
-- Solapamiento a resolver antes de aprobar los child specs: `prometeo.tool-call-audit-lineage` (H05, APPROVED, `code_status: IN_PROGRESS`) ya introduce auditoría canónica por tool call y estado de ejecución de aprobaciones, con migración aditiva y modelos nuevos en `schema.prisma`. El Decision Ledger y el provider `runtime` del grafo deben reutilizar esa lineage de tool calls y no duplicarla. Pendiente de decisión del owner.
+- Solapamiento con `prometeo.tool-call-audit-lineage` (H05): resuelto por D-02 (ver «Decisiones del owner»). H05 no añade modelos nuevos: añade columnas nulables a `PrometeoToolInvocationAudit` mediante una migración aditiva.
 - Los paths planificados se movieron del frontmatter a una sección del body de cada child spec porque `spec:validate:strict` exige que existan.
+
+## Decisiones del owner (2026-10-25)
+
+El owner aceptó en bloque las recomendaciones del acta de reconciliación (D-01 a D-16; ver el registro de progresión). Las que condicionan este ADR:
+
+- **D-02 (H05):** el Decision Ledger y el provider `runtime` **referencian** H05 y no copian nada. `approvalRef` apunta a `AgentApproval` o `PrometeoProposedAction`; cada ejecución es un `DecisionEffectRef` con `targetId = executionId`; el estado se lee en vivo con `ToolExecutionQueryService`. No se guardan los resúmenes de H05, que se purgan a los 90 días.
+- **D-10 (MCP):** la tool del grafo es solo para Prometeo interno y no se expone por MCP hasta que exista un spec hijo.
+- **D-16 (orden):** se mantiene 1 → 2 → 3 → 4.
+
+## Criterio de aceptación
+
+Este ADR pasa de `PROPOSED` a `ACCEPTED` cuando se cumplan todos:
+
+1. El owner lo acepta con fecha en el registro de progresión.
+2. Las decisiones D-01 a D-16 están aplicadas en los documentos (sección 6 del acta).
+3. La prueba técnica de Graphify (B-05) tiene resultado registrado.
+
+Aceptarlo no aprueba ningún slice: cada spec hijo se aprueba por separado, en el orden de «Rollout order».
+
+## Opciones consideradas
+
+| Opción | Resultado |
+|---|---|
+| A. Base de datos de grafos nueva | Descartada: segunda fuente de verdad y costo operativo; PostgreSQL con CTE recursivas acotadas alcanza en V1. |
+| B. Copiar Graphify y la memoria a tablas propias | Descartada: duplica autoridad y los datos divergen. |
+| C. Ampliar `AgentDecision`, `AgentApproval` o `AuditLog` | Descartada: significan otra cosa (hallazgo del bucle de autonomía, artefacto de aprobación, evidencia). |
+| D. Lectura federada + ledger append-only (esta decisión) | Elegida. |
+
+## Riesgos
+
+| Riesgo | Mitigación |
+|---|---|
+| Fuga entre tenants u organizaciones | Autorizar en cada proveedor, fallar cerrado, matriz de pruebas con 2 tenants y 2 organizaciones (D-05). |
+| Datos sensibles en atributos del grafo | Allowlist por proveedor y redacción (D-07). |
+| Un tercer vocabulario de lineage | Compatibilidad con `conversationSourceRefSchema` y el contrato del Universal Connector (D-12). |
+| Escritura desde Omniverse | Solo lectura, sin `upsert`, con kill switch (D-13). |
+| Ledger inmutable con error de datos | Corrección por fila nueva con supersesión; nunca se borra historia. |
+
+## Consecuencias
+
+- Aparece un módulo nuevo y una tabla de solo-agregar (slice 2); los demás slices no migran.
+- Los productores de decisiones deben aportar autoridad, política y aprobación para las decisiones críticas.
+- Toda lectura del grafo exige permisos nuevos de solo lectura (D-04) y queda auditada sin contenido (D-09).
+
+## Rollback
+
+- Flags `SEMSE_OPERATIONAL_GRAPH_MODE`, `SEMSE_DECISION_LEDGER_MODE`, `SEMSE_UNIFIED_QUERY_MODE` y `SEMSE_OMNIVERSE_ADAPTER_MODE` en `off` apagan cada slice.
+- Los slices 1, 3 y 4 no tienen migración y se revierten con el código.
+- El slice 2 solo se revierte hacia adelante en datos: el historial del ledger no se borra.
+
+## Aprobador
+
+Owner del proyecto (@Samuelcastella), en los roles de documentación y arquitectura, seguridad, usabilidad y aprobación final.
