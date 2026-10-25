@@ -64,19 +64,26 @@ dbTest("T-008 production OPEN-only canary: provision, observe, admit and settle 
   const db = new PrismaClient();
   const token = randomUUID();
   const root = "/data/semse-storage-ci-" + token;
-  const scope = "storage:" + root;
+  // Simulate stable IDs from a disposable Railway environment, never prod.
+  const projectId = randomUUID();
+  const environmentId = randomUUID();
+  const scope = `storage:${projectId}:${environmentId}:${root}`;
   const previous = {
     mode: process.env.SEMSE_STORAGE_WRITE_GATE_MODE,
     controlMode: process.env.SEMSE_STORAGE_WRITE_GATE_PRODUCTION_CONTROL_MODE,
     nodeEnv: process.env.NODE_ENV,
     railwayEnv: process.env.RAILWAY_ENVIRONMENT,
     railwayName: process.env.RAILWAY_ENVIRONMENT_NAME,
+    projectId: process.env.RAILWAY_PROJECT_ID,
+    environmentId: process.env.RAILWAY_ENVIRONMENT_ID,
     root: process.env.SEMSE_STORAGE_ROOT,
   };
 
   process.env.NODE_ENV = "production";
   process.env.RAILWAY_ENVIRONMENT = "production";
   process.env.RAILWAY_ENVIRONMENT_NAME = "production";
+  process.env.RAILWAY_PROJECT_ID = projectId;
+  process.env.RAILWAY_ENVIRONMENT_ID = environmentId;
   process.env.SEMSE_STORAGE_ROOT = root;
   process.env.SEMSE_STORAGE_WRITE_GATE_MODE = "off";
   process.env.SEMSE_STORAGE_WRITE_GATE_PRODUCTION_CONTROL_MODE = "provision";
@@ -180,6 +187,10 @@ dbTest("T-008 production OPEN-only canary: provision, observe, admit and settle 
     else process.env.RAILWAY_ENVIRONMENT = previous.railwayEnv;
     if (previous.railwayName === undefined) delete process.env.RAILWAY_ENVIRONMENT_NAME;
     else process.env.RAILWAY_ENVIRONMENT_NAME = previous.railwayName;
+    if (previous.projectId === undefined) delete process.env.RAILWAY_PROJECT_ID;
+    else process.env.RAILWAY_PROJECT_ID = previous.projectId;
+    if (previous.environmentId === undefined) delete process.env.RAILWAY_ENVIRONMENT_ID;
+    else process.env.RAILWAY_ENVIRONMENT_ID = previous.environmentId;
     if (previous.root === undefined) delete process.env.SEMSE_STORAGE_ROOT;
     else process.env.SEMSE_STORAGE_ROOT = previous.root;
   }
