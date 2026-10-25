@@ -70,3 +70,13 @@ date: "2026-10-24"
 - [ ] Test cookie web HMAC y middleware `roles=[]` no desvían a `client`.
 - [ ] Resultados de T01–T22 verificables, no confundidos con el inventario documental.
 - [ ] Revisión independiente y rollback, CI al final; no merge/deploy sin GO posterior.
+
+## G0-R — Datos mínimos y versión real
+
+- [x] Schema permite `TimeEntry` con horas y datos de nómina, ubicación, GPS, notas y referencias de obra mezclados: inventariado.
+- [x] Reglas **candidatas** de campos/clases en informe G0 §8; T23–T27 agregadas como plan.
+- [ ] `createdBy` y `purpose=personal` no se usan como permiso universal de retención/lectura cross-tenant.
+- [ ] Legal/Privacy aprueba clases elegibles y matriz de retención; `job_linked`/`payable` no se copian implícitamente.
+- [ ] `TimeEvidence`, fotos, GPS, tarifas, notas y referencias empresariales no entran a archivo personal por defecto.
+- [ ] Fuente de `sourceRevision` real verificada: `updatedAt` no se presenta como historial inmutable.
+- [ ] Pruebas T23–T27 escritas/ejecutadas en fase implementable, sin afirmar resultado antes de CI.
