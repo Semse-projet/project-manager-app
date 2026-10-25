@@ -11,8 +11,13 @@ import { isProductionStorage } from "./production-storage-guard.js";
  * staging environment gets its own project+environment discriminator; any
  * active staging gate must be re-provisioned explicitly under the new scope.
  */
+type ScopeEnv = Partial<Pick<NodeJS.ProcessEnv,
+  "SEMSE_STORAGE_ROOT" | "NODE_ENV" | "RAILWAY_ENVIRONMENT" |
+  "RAILWAY_ENVIRONMENT_NAME" | "RAILWAY_PROJECT_ID" | "RAILWAY_ENVIRONMENT_ID"
+>>;
+
 export function resolveStorageWriteGateScope(
-  env: NodeJS.ProcessEnv = process.env,
+  env: ScopeEnv = process.env,
 ): string {
   const root = path.resolve(env.SEMSE_STORAGE_ROOT ?? "/tmp/semse-storage")
     .replaceAll("\\", "/");
