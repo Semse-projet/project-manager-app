@@ -217,11 +217,12 @@ export function ReportesTab({ jobs }: { jobs: JobRecordView[] }) {
           </button>
           <button
             type="button"
+            title="Exporta solo filas cargadas de esta semana (hasta 500 del servidor), más pendientes locales; no es un respaldo completo."
             onClick={() => exportEntriesCsv(weekEntries, resolveProject, `semse-reporte-semana-${weekly?.from.slice(0, 10) ?? weekOffset}.csv`)}
             disabled={weekEntries.length === 0}
             style={navButton(weekEntries.length === 0)}
           >
-            <Download size={13} /> CSV semana
+            <Download size={13} /> CSV vista semanal
           </button>
         </div>
       </div>
