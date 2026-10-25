@@ -22,6 +22,14 @@ export function safeTrackerCsvCell(value: unknown): string {
 }
 
 /** Origin of the CSV row, not worker approval or payroll status. */
-export function trackerCsvSyncState(status: string): "pendiente_dispositivo" | "guardado_servidor" {
-  return status === "pending_sync" ? "pendiente_dispositivo" : "guardado_servidor";
+export function trackerCsvSyncState(
+  status: string,
+): "pendiente_dispositivo" | "guardado_servidor" | "origen_desconocido" {
+  if (status === "pending_sync") return "pendiente_dispositivo";
+  // If the backend introduces a new state, don't claim it is server-verified
+  // until the contract and local/offline queue have been reviewed.
+  if (["running", "paused", "completed", "pending_review", "approved", "deleted"].includes(status)) {
+    return "guardado_servidor";
+  }
+  return "origen_desconocido";
 }
