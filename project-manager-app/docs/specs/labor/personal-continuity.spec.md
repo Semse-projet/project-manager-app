@@ -244,3 +244,16 @@ La revisión cruzada de `apps/api/src/common/auth-token.ts`, `apps/web/lib/auth.
 **G0-NO-GO:** faltan decisiones D-AUTH-01/02, D-WEB-03, D-RECORD-04 y D-DB-05, y aprobación independiente. La tabla T01–T22 del informe es un **plan de tests**, no prueba ejecutada. Los endpoints existentes `@AuthenticatedAccess` y `appRoleFromRoles([])=client` deben seguir bloqueados a PERSONAL antes de permitir nuevos tokens.
 
 **Orden:** contratos y revisión → tests de rechazo → micro-slice de auth → custodia legalmente autorizada → smoke sintético → CI al final → merge/deploy separados. F1A permanece independiente; no hacer merge por arrastre.
+
+## 12. Gate G0-R — clasificación y origen de versiones (bloqueante)
+
+Auditoría de campos en `packages/db/prisma/schema.prisma` documentada en `docs/reportes/2026-10-24_f1b-g0-session-compatibility-and-test-plan.md` §8.
+
+- La combinación `createdBy` + `purpose=personal` **no** confiere automáticamente derecho a conservar o compartir el registro. `TimeEntry` también admite `jobId` y contexto empresarial en la misma fila.
+- **Elegibilidad positiva y mínima:** solo candidatos `purpose=personal`, `jobId=null`, recurso propio cuando corresponda, sin contexto/datos de terceros y sujeto a revisión Legal/Privacy. Registros `payable`/`job_linked` permanecen restringidos hasta política específica.
+- **Campos fuera de proyección por defecto:** tarifa/moneda, `LaborSheet`, notas, GPS/localización, nombres de obras/clientes, `contextEntity*`, `TimeEvidence`, adjuntos y enlaces a fuentes empresariales. No copiar filas completas, TimeEvidence ni información del patrón por una afiliación anterior.
+- **No hay `sourceRevision` persistido en `TimeEntry`**: `updatedAt`, `editedBy` y `editReason` no son prueba de historial inmutable. Antes de versionar recibos, decidir fuente de revisión autorizada (outbox/AuditLog/version monotónico u otra solución probada). No inventar firmas, revisiones ni estado de aceptación.
+- Los recibos personales, de aprobarse, son derivaciones de lectura con hash de integridad y procedencia; **no sustituyen** TimeEntry, payroll ni documentos legales. `source_unavailable` debe ser distinguible de `source_verified`.
+- Nuevas pruebas candidatas **T23–T27** en informe §8; son planes, **NO tests implementados**.
+
+**G0-R NO-GO:** D-RECORD-04 (clasificación/retención) y D-DB-05 (origen de versiones/custodia) deben resolverse con revisión independiente antes de escribir proyector, backfill, schema o endpoint.
