@@ -7,7 +7,7 @@ version: "0.1"
 status: "DRAFT"
 owner: "semse-core"
 risk: "critical"
-code_status: "NOT_STARTED"
+code_status: "IN_PROGRESS"
 ci_status: "NOT_RUN"
 merge_status: "UNMERGED"
 deploy_status: "NOT_DEPLOYED"
@@ -27,17 +27,20 @@ related_files:
   - "apps/api/src/modules/prometeo/prometeo.service.ts"
   - "apps/api/src/modules/prometeo/prometeo.repository.ts"
   - "packages/db/prisma/schema.prisma"
-related_tests: []
+related_tests:
+  - "apps/api/test/curated-knowledge-private-custody-integration.test.ts"
 related_endpoints: []
 related_events: []
 related_agents:
   - "prometeo"
-last_verified: "2026-10-18"
+last_verified: "2026-10-25"
 ---
 
 # Biblioteca Técnica SEMSE — conocimiento curado, autorizado y revocable
 
 > **DRAFT / NO ACTIVAR.** Diseño propuesto para #992. La aprobación del contrato de *grants privados* de #987 no constituye autorización para divulgar observaciones de colaboradores. Ningún texto histórico `public_training` ni `PROMOTED` permite publicar. Alcance F1 ratificado por el propietario el 2026-10-19 en #992; sigue requiriendo consentimiento de los titulares, aprobación formal SDD/ADR y revisión jurídica, de privacidad y seguridad antes de implementar o publicar.
+
+**Mandato del propietario, 2026-10-25:** continuar la implementación para completar sharing, publicación y RAG, dejando CI al final. Este mandato habilita avanzar el trabajo de código en esta rama pese al DRAFT documental; no se atribuye dictamen independiente, consentimiento de terceros ni verificación de producción. Se conservan las condiciones de autorización por recurso y las revisiones humanas por ficha. Evidencia y límites en [entrega de integridad](../../reportes/2026-10-25_curated-custody-integrity.md). La implementación actual sigue siendo custodia privada parcial, no F1B/F2/F3 completos.
 
 **Entrega y diferencias F1A/F1B:** véase [`knowledge-contributor-curated-library.delivery-gates.md`](knowledge-contributor-curated-library.delivery-gates.md). La ratificación de producto está registrada; SDD/ADR siguen pendientes de revisión independiente.
 

@@ -11,7 +11,7 @@ date: "2026-10-18"
 
 # Plan F0–F5 — Biblioteca Técnica SEMSE
 
-> Sólo planificación; spec aún DRAFT y código NOT_STARTED. Issue #992. No tocar el PR crítico #987 ni desplegar.
+> Plan F0–F5; spec DRAFT y código de custodia IN_PROGRESS. El mandato del propietario de 2026-10-25 autoriza continuar implementación y dejar CI al final. No equivale a dictamen independiente ni a consentimiento por ficha. Ver reporte de integridad de esa fecha.
 
 ## 1. Snapshot de verdad
 
@@ -24,7 +24,7 @@ date: "2026-10-18"
 ## 2. Constitution check
 
 - [x] Decisión de producto F1 ratificada por el propietario en #992: privados originales, `ORG_PRIVATE` por defecto, futuro `TENANT_CURATED` con consentimiento/version/revisores; esto NO es SDD APPROVED ni consentimiento de terceros.
-- [ ] Aprobaciones independientes del SDD/ADR, titularidad, licencia, retención y privacidad antes de cualquier código de feature.
+- [ ] Aprobaciones independientes del SDD/ADR, titularidad, licencia, retención y privacidad pendientes. El mandato posterior permite avanzar código; no convierte estas revisiones en cumplidas.
 - [x] Límites tenant/org y deny-by-default diseñados.
 - [x] Sin ejecución de pagos, escrow ni contratos por publicar.
 - [x] Consentimiento, auditoría, outbox y retirada modelados como requisitos **con audit+outbox y retiro propio desde F1**, no aplazados a F2.

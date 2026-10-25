@@ -523,6 +523,8 @@ model User {
   // Knowledge Contributor Program
   contributorProfile                  ContributorProfile?
   contributorConsents                 ContributorConsent[]
+  curatedConsents                     CuratedPublicationConsent[] @relation("CuratedConsentActor")
+  curatedWithdrawals                  CuratedPublicationConsent[] @relation("CuratedConsentWithdrawal")
   createdKnowledgeMissions            KnowledgeMission[]
   knowledgeMissionAcceptances         KnowledgeMissionAcceptance[]
   knowledgeSubmissions                KnowledgeSubmission[]
@@ -5766,7 +5768,7 @@ model CuratedKnowledgeEntry {
   jurisdiction    String?
   status          CuratedKnowledgeStatus @default(DRAFT)
   publicationScope CuratedKnowledgeScope @default(ORG_PRIVATE)
-  aggregateRevision Int                 @default(0) // monotonic event revision from F2 onward
+  aggregateRevision Int                 @default(0) // monotonic audited event revision from F1B onward
   createdAt       DateTime               @default(now())
   updatedAt       DateTime               @updatedAt
 
@@ -5790,6 +5792,8 @@ model CuratedKnowledgeVersion {
   contentSha256            String
   referencesJson           Json?
   redactionReportPrivateJson Json?
+  sourcePrivateRef         String?               @db.Text
+  sourceCapturedAt         DateTime? // NULL for legacy versions with unknown provenance
   language                 String                @default("es")
   technicalRisk            String?
   expiresAt                DateTime?
@@ -5806,6 +5810,8 @@ model CuratedKnowledgeVersion {
 
 /// Consent records are private evidence, NOT active access grants. F1A has no
 /// publication path. A reviewer must validate actor identity and rights first.
+/// SQL owns the partial active-identity unique index (NULLS NOT DISTINCT) and
+/// immutable-evidence/withdrawal triggers; Prisma schema alone is not sufficient.
 model CuratedPublicationConsent {
   id                  String                  @id @default(cuid())
   tenantId            String
@@ -5825,9 +5831,27 @@ model CuratedPublicationConsent {
   withdrawnAt         DateTime?
   withdrawnByUserId   String?
 
+  actor               User                    @relation("CuratedConsentActor", fields: [actorUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  withdrawnBy         User?                   @relation("CuratedConsentWithdrawal", fields: [withdrawnByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   version             CuratedKnowledgeVersion @relation(fields: [versionId, tenantId], references: [id, tenantId], onDelete: Restrict)
   rightsHolderOrg     Org?                    @relation(fields: [rightsHolderOrgId, tenantId], references: [id, tenantId], onDelete: Restrict)
 
   @@index([tenantId, versionId, actorType, withdrawnAt])
   @@index([tenantId, actorUserId, grantedAt])
+}
+
+/// Durable opaque reservations; intentionally no cascade to deletable content.
+/// Mutation/truncation guards are defined in the SQL migration.
+model CuratedVersionIdentity {
+  id       String @id
+  tenantId String
+  entryId  String
+  version  Int
+
+  @@unique([tenantId, entryId, version])
+}
+
+model CuratedConsentIdentity {
+  id       String @id
+  tenantId String
 }
