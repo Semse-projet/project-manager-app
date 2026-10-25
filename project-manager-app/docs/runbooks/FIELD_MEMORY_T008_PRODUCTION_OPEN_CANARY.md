@@ -74,3 +74,20 @@ This canary does not prove production quiescence and cannot be used as evidence
 that an offsite export or snapshot is consistent. T-008 remains PARTIAL until a
 separately approved production freeze proves all writers quiescent and thaw is
 verified.
+
+
+## P1 — Aislamiento duradero entre ambientes (gate previo a merge)
+
+**NO habilitar producción hasta obtener aprobación específica del propietario sobre el cambio SDD y revisión de seguridad independiente.** El contrato T-008 vigente (§12.6) limita el control plane a staging. La extensión OPEN-only propuesta por este PR sigue DRAFT; código y CI no equivalen a aprobación.
+
+Para impedir que staging afecte producción cuando comparten PostgreSQL y utilizan la misma ruta /data/semse-storage, la clave del gate ahora incluye identificadores estables suministrados por Railway:
+
+- RAILWAY_PROJECT_ID: proyecto.
+- RAILWAY_ENVIRONMENT_ID: ambiente.
+- SEMSE_STORAGE_ROOT: raíz canónica del volumen.
+
+Producción falla cerrado cuando no están presentes ambos IDs. El scope compuesto tiene la forma storage:projectId:environmentId:/data/semse-storage, diferente de storage:/data/semse-storage. Un control de staging no puede congelar o recuperar el scope de producción usando un volumen local que casualmente tiene el mismo path.
+
+**Migración:** staging conectado a Railway también usa la identidad compuesta; su fila histórica basada solo en ruta NO debe migrarse ni asumirse OPEN automáticamente. Reaprovisionar explícitamente una fila OPEN de nuevo scope en ambiente sintético autorizado, comprobar ACTIVE/epoch/coverage/auditoría y no transferir leases previas. Si existe un viejo gate DRAINING/FROZEN, detener el rollout; no encender un nuevo scope que permita bypass a escritores todavía activos.
+
+**Go/no-go:** OPS_ADMIN valida que el digest de scope producción no coincide con staging, que no hay operaciones ACTIVE, que mutaciones productivas permanecen denegadas y que runtime producción está off antes de empezar. No colocar IDs, claves ni paths privados en logs públicos ni artefactos CI.
