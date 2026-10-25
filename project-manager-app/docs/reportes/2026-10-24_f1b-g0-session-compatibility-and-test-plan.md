@@ -110,3 +110,52 @@ type VerifiedPrincipal = OrgPrincipal | PersonalPrincipal;
 ## 7. Gate de aceptación G0
 
 **NO-GO actualmente**, hasta que D-AUTH-01/D-AUTH-02/D-WEB-03/D-RECORD-04/D-DB-05 obtengan aprobación documentada y el plan de compatibilidad legacy no contradiga ADR-040 ni Business Access Foundation. No hay autorización para migraciones, pruebas contra datos reales, pagos, firmas, CI de implementación, merge o deploy.
+
+## 8. G0-R — Custodia mínima y contrato de campos (propuesta, NO decisión legal)
+
+**Hallazgos verificables del esquema actual:**
+- `TimeEntry` contiene `tenantId, orgId, createdBy, mode, purpose, jobId, freeProjectId, status, startedAt, endedAt, breakMinutes, durationMinutes, accumulatedSeconds, hourlyRate, currency, location, checkInLatitude, checkInLongitude, checkInDistanceMeters, checkInMethod, notes, editedBy, editReason, contextEntityType, contextEntityId, clientEventId, createdAt, updatedAt`.
+- `purpose` es `personal|payable|job_linked` en las APIs, pero el campo de persistencia es `String` y el valor `personal` **no garantiza por sí solo** que `jobId` sea nulo o que los derechos contractuales del dato sean individuales.
+- `TimeEvidence` permite `photo|message|call|receipt|document|note|location|uber` y cuelga de `TimeEntry` con `onDelete: Cascade`. No incluye una política de propiedad/cesión por archivo dentro de la tabla.
+- `TimeEntry.updatedAt`, `editedBy` y `editReason` **no equivalen a un `sourceRevision` monótono ni a una bitácora inmutable de versiones**. Antes de adoptar una clave idempotente `(sourceTenantId, sourceEntryId, sourceRevision, recordClass)`, revisar el AuditLog/event catalog y decidir la fuente real de revisión. No inventar `sourceRevision` o prometer que está implementado.
+
+### Política recomendada — tabla de elegibilidad
+
+| Clase | Filtro de elegibilidad técnico y legal | Acción F1B por defecto |
+|---|---|---|
+| `SELF_PRIVATE_CANDIDATE` | `createdBy = User.id`, `purpose=personal`, `jobId=null`, `FreeProject` propio o ninguna vinculación; comprobar que no contiene confidencialidad ajena y derechos de conservación | Solo **candidato** a proyección, no copiar antes de que Legal/Privacy ratifique |
+| `JOB_OR_PAYABLE` | `purpose=job_linked` o `payable`, o cualquier `jobId` presente | NO proyectar automáticamente: podrían existir derechos de acceso del trabajador, pero necesitan política legal/contractual independiente |
+| `CONTEXT_AMBIGUOUS` | `purpose=personal` pero refiere a Job, cliente, material empresarial, identificadores contextuales o medios externos | **RESTRICTED** y revisión de campo/finalidad, sin exportación automática |
+| `DISPUTED_OR_REMOVED` | Estado o historial indica disputa, rechazo, eliminación o legal hold | Bloquear publicación y decisión automática; seguir política de preservación, corrección y retención |
+| `EVIDENCE_MEDIA` | `TimeEvidence` o fotos/recibos/archivos/lugares/ubicaciones | Fuera de F1B: contrato F1C especializado de Evidence/Storage y autorización de terceros |
+
+### Proyección mínima *candidata*, sólo datos no confidenciales
+
+| Campo / grupo fuente | Tratamiento propuesto | Motivo |
+|---|---|---|
+| `startedAt`, `endedAt`, `breakMinutes`, duración calculada, `mode`, `purpose`, `status` | Elegible solo tras validación de clase; preservar instantes UTC y marcar provisional si running/paused | Hechos de tiempo, no nómina ni aprobación empresarial |
+| `id`, `createdBy`, `tenantId`, `orgId`, `freeProjectId`, `createdAt/updatedAt` | IDs de procedencia en metadatos cifrados, controlados por servidor; no mostrar IDs empresariales en CSV público | Fuente y trazabilidad sin crear una capability para abrir tenants anteriores |
+| `jobId`, `contextEntityType/contextEntityId` | EXCLUIR de proyección self por defecto; si aparece, clasificar como ambiguo o empresarial | Riesgo de referencias a clientes/obras |
+| `hourlyRate`, `currency` y datos de `LaborSheet` | EXCLUIR por defecto | Compensación y estados financieros requieren contrato BO-05/08/Payroll, no prueba de horas propias |
+| `location`, `checkInLatitude/Longitude/DistanceMeters/Method` | EXCLUIR por defecto | Geolocalización y vigilancia requieren política separada |
+| `notes`, `editedBy`, `editReason` | EXCLUIR texto y nombres por defecto; guardar sólo estado derivado mínimamente necesario con procedencia verificable | Pueden contener información de cliente, comunicaciones, datos personales de terceros |
+| `clientEventId`, `TimeEvidence.*`, `FreeProject.location/description` | EXCLUIR de export; trazado interno con minimización y controles | Idempotencia, medios y datos libres no son automáticamente publicables |
+
+**Campos adicionales de recibo, propuestos pero NO aprobados:** `receiptId` aleatorio, `ownerUserId`, `recordClass`, `retentionClass`, `capturedAt`, `sourceAvailability`, `sourceState`, huella de carga permitida y bandera `derived_unverified` o `derived_source_confirmed` según comprobación. La huella certifica únicamente integridad de bits, **no** identidad laboral, salario, aceptación, inmutabilidad del origen o validez jurídica de una firma. No inventar zona horaria histórica: el dato canónico es UTC; una zona IANA indicada durante exportación es preferencia de visualización, salvo evidencia de zona registrada al capturar.
+
+### Gate de versión (nuevo riesgo estructural G0-R01)
+
+El esquema `TimeEntry` no tiene `version`/revisionNum. La propuesta inicial de idempotencia por `sourceRevision` sólo es implementable si se aprueba e introduce una fuente real de revisión (evento/audit/version monotónico) o un algoritmo probado de captura con identificador de cambio; `updatedAt` **no** es cadena de historia completa. Sin esa decisión, **NO** afirmar revisiones completas, replay seguro o conciliación de correcciones.
+
+### Gate de clasificación (nuevo riesgo G0-R02)
+
+`purpose=personal` + `createdBy` no son un sustituto de autorización de custodia legal ni de revisión del contexto empresarial. Un cambio de org o tenant **nunca** transforma un dato de Job en personal. La lista de inclusión debe ser positiva y preceder a cualquier backfill/proyección. La captura total de TimeEntry, `SELECT *` y replicar `TimeEvidence` están prohibidos por defecto.
+
+**Pruebas nuevas candidatas T23–T27, sin implementación ni ejecución:**
+- T23: `purpose=personal` con `jobId` presente => RESTRICTED, no recibo.
+- T24: `purpose=personal`, `jobId=null`, pero `notes` contienen datos del cliente => notas nunca incluidas.
+- T25: fila con `hourlyRate`, `currency`, GPS, `TimeEvidence` => todos esos campos fuera del recibo y CSV self.
+- T26: dos correcciones con mismo `updatedAt` o orden ambiguo => no inventar `sourceRevision`, bloquear historial probado hasta contrato de eventos.
+- T27: `FreeProject` archivado y fuente TimeEntry eliminada por tenant sintético => recibo sólo disponible si captura legal/operacional confirmada; `source_unavailable` distinto de `source_verified`.
+
+**Autoridades que quedan:** D-RECORD-04 Legal/Privacy sobre derecho de acceso/conservación por jurisdicción, D-DB-05 Architecture/Data sobre fuente de revisiones/retención y D-AUTH-01/02 sobre autenticación personal. El addendum es una **recomendación técnica**, no ratificación.
