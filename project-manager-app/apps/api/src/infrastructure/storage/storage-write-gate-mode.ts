@@ -1,8 +1,10 @@
 import { ServiceUnavailableException } from "@nestjs/common";
 import { isProductionStorage } from "./production-storage-guard.js";
+import { resolveStorageWriteGateScope } from "./storage-write-gate-scope.js";
 
 type GateModeEnv = Partial<Pick<NodeJS.ProcessEnv,
   "NODE_ENV" | "RAILWAY_ENVIRONMENT" | "RAILWAY_ENVIRONMENT_NAME" |
+  "RAILWAY_PROJECT_ID" | "RAILWAY_ENVIRONMENT_ID" | "SEMSE_STORAGE_ROOT" |
   "SEMSE_STORAGE_WRITE_GATE_MODE" |
   "SEMSE_STORAGE_WRITE_GATE_PRODUCTION_CONTROL_MODE"
 >>;
@@ -37,7 +39,11 @@ export function storageWriteGateRuntimeEnabled(
 
   const production = isProductionStorage(env);
   if (mode === "staging" && !production) return true;
-  if (mode === "production" && production) return true;
+  if (mode === "production" && production) {
+    // A missing ID must not bind production writers to a staging scope.
+    resolveStorageWriteGateScope(env);
+    return true;
+  }
 
   throw new ServiceUnavailableException(
     "Storage write gate mode is not approved for this environment",
@@ -77,6 +83,9 @@ export function assertStorageWriteGateControl(
     );
   }
 
+  // Even a read-only production canary must identify its own durable row.
+  // Do not expose control on a scope derived from a filesystem path alone.
+  resolveStorageWriteGateScope(env);
   const control = productionControlMode(env);
   if (level === "observe" && (control === "observe" || control === "provision")) {
     return;
