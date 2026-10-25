@@ -41,4 +41,7 @@ test("CSV sync state does not confuse local entries with persisted hours", () =>
   for (const status of ["running", "paused", "completed", "pending_review", "approved", "deleted"]) {
     assert.equal(trackerCsvSyncState(status), "guardado_servidor");
   }
+  for (const status of ["", "unknown", "failed_sync", "pending_replay"]) {
+    assert.equal(trackerCsvSyncState(status), "origen_desconocido");
+  }
 });
