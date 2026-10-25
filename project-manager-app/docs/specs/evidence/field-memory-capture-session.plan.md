@@ -161,3 +161,22 @@ Pendiente antes de merge/release: staging real con al menos dos procesos, invent
 - [ ] SHA exacto de merge/deploy, smoke autorizado, runbook de thaw y registro de cierre.
 
 **No equivalencias:** \`CI PASS\` ≠ deploy; \`Railway SUCCESS\` ≠ prueba de freeze; \`OFFSITE_RESTORE_PASS\` ≠ recuperación nativa ni CAP-1 VERIFIED.
+
+
+### 12.8 Enmienda propuesta para T-008 OPEN-only productivo — REVIEW, NO APROBADA
+
+**Esta sección es una propuesta de cambio al contrato, no altera la autorización del CAP-0 original ni la restricción de staging de §12.6.** Hasta decisión explícita del propietario y revisor de seguridad independiente, PR #1014 debe permanecer en borrador y NO fusionarse, desplegarse ni activarse.
+
+Propósito: observar y provisionar de forma idempotente SOLO un gate durable OPEN productivo, sin conceder autoridad para BEGIN_DRAIN, MARK_FROZEN, THAW, recovery ni atestación de FROZEN. El entorno sigue ofreciendo cero modos de transición productiva.
+
+Invariantes obligatorias de la propuesta:
+
+1. El scope durable debe identificar proyecto Railway, ambiente Railway y raíz canónica del volumen; un path /data idéntico en staging/producción NO implica compartir gate.
+2. La ausencia de RAILWAY_PROJECT_ID o RAILWAY_ENVIRONMENT_ID en el proceso productivo causa fallo cerrado; no fallback a scope heredado ni auto-provisión implícita.
+3. Staging con identificadores Railway también usa scope compuesto; filas anteriores no se copian ni se reinterpretan. Reprovisionamiento requiere comprobación del estado histórico y ausencia de escritores activos.
+4. El control plane productivo por defecto sigue apagado. Solo observe puede leer; provision agrega una fila OPEN tras actor OPS_ADMIN, permiso dedicado, auditoría e idempotencia; la activación de runtime llega después, mediante operación aprobada y reversible.
+5. La transición de cualquier estado diferente de OPEN en producción sigue prohibida incluso al invocar directamente servicios de bajo nivel.
+6. No usar CI, health o restore sintético como prueba de congelación real del volumen. No tratar un canary OPEN como respaldo VERIFIED ni como permiso para CAP-1 o 3D.
+7. No se autoriza tocar variables productivas ni operar endpoints desde este PR; se requiere verificación terminal de scope/rollback y revisión separada de despliegue.
+
+**Gates pendientes:** decisión del owner sobre esta enmienda, auditoría independiente de los dos hallazgos P1 de Codex, cobertura E2E contra PostgreSQL desechable con mismo path en dos ambientes, CI completo del head, y plan de despliegue revisado. De no aprobarse, el contrato vigente continúa prohibiendo el control plane en producción.
