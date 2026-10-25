@@ -81,3 +81,12 @@ node scripts/field-memory-multipart-quiescence.mjs
 - Si el directorio multipart sigue en `/tmp`, el resultado es `BLOCKED` incluso si parece vacío: los bytes temporales son efímeros y ajenos al volumen custodiado. No cambiar simplemente `SEMSE_MULTIPART_STORAGE_ROOT` en Railway con sesiones existentes: requerir inventario y plan de migración verificable.
 
 **Sigue pendiente:** conectar formalmente este informe con una atestación firmada de la fase `FROZEN` y con el checkpoint consistente Evidence/Postgres para cerrar T-008. Esta sección no autoriza copiar originales reales.
+
+
+## Ajuste del auditor multipart para originales publicados atómicamente (2026-10-25)
+
+El driver local conserva el directorio privado SEMSE_STORAGE_ROOT/multipart/.put-staging incluso tras finalizar un PUT. Su existencia vacía **no es una operación multipart pendiente**: los originales pasan al key definitivo únicamente después del cierre y publicación atómica. El preflight anterior lo clasificaba como una entrada desconocida y bloqueaba el ensayo aun sin escrituras activas.
+
+Regla fail-closed actualizada: el preflight solo tolera el directorio exacto .put-staging si es ordinario, no es symlink, su realpath coincide con el esperado y **no contiene entrada alguna**. Cualquier .part incompleto, directorio anidado, contenido ajeno o symlink es BLOCKED; no se lee, borra ni mueve información. Multipart manifests y directorios de partes siguen bloqueando. Se mantienen las comprobaciones de mount y las advertencias de que EMPTY_CANDIDATE NO prueba FROZEN, consistencia de PostgreSQL, respaldo recuperable ni autorización de originales.
+
+La tolerancia del directorio vacío es necesaria para completar la Fase F operativa sin falsos positivos. El operador sigue obligado a demostrar la ventana sin writers, el gate durable, inventario before/after, proyección de Evidence y recuperación cifrada. Esta corrección no habilita CaptureSession ni operación sobre producción.
