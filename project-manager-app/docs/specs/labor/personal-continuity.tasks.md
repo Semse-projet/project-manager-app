@@ -78,3 +78,12 @@ date: "2026-10-24"
 - [ ] [F1B-019] Aprobar diseño exacto de principal, token HMAC, cookie, `AuthSession` y guard (D-AUTH-01/02 + D-WEB-03).
 - [ ] [F1B-020] Aprobar elegibilidad/retención de datos y proyección fuera de cascada (D-RECORD-04 + D-DB-05).
 - [ ] [F1B-021] Convertir T01–T22 en pruebas reales **sólo después** del APPROVED y antes del código de negocio; registrar SHA, entorno, evidencia.
+
+## G0-R — Data allowlist y revisiones
+
+- [x] [F1B-022] Censar campos reales de `TimeEntry`, `TimeEvidence`, `FreeProject` y `AuthSession` en schema `main`.
+- [x] [F1B-023] Documentar matriz de clasificación/allowlist y pruebas candidatas T23–T27 en informe G0 §8.
+- [ ] [F1B-024] Legal/Privacy ratifica elegibilidad `SELF_PRIVATE_CANDIDATE` y prohíbe copia automática de `JOB_OR_PAYABLE`/terceros.
+- [ ] [F1B-025] Architecture/Data identifica fuente real de revisión (AuditLog, outbox u otro), define idempotencia/corrección antes de proponer `sourceRevision`.
+- [ ] [F1B-026] Security valida que proyección no contiene GPS, fotos, salarios, clientEventId, notas, datos de empresa, ni referencias abiertas.
+- [ ] [F1B-027] Convertir pruebas T23–T27 en tests ejecutables **después de APPROVED y antes de implementación funcional**; CI al final.
