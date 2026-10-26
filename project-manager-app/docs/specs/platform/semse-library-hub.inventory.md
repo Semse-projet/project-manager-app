@@ -1,6 +1,6 @@
 # SEMSE Library Hub — inventario preliminar de dependencias (2026-10-25)
 
-**Alcance de la auditoría:** lectura de los manifiestos de primer nivel bajo `apps/*` y `packages/*` de `main` de `Semse-projet/project-manager-app` (antes de abrir la rama documental). **No** se inspeccionó Railway en vivo, `node_modules`, las imágenes desplegadas, el SBOM transitorio completo ni el uso en ejecución. «Declarada» no significa «instalada», «en producción», «cargada», «segura» o «licenciada». Este es un **censo completo de declaraciones directas de primer nivel del workspace**, no un SBOM de dependencias transitivas ni una certificación de producción.
+**Alcance de la auditoría:** lectura de los manifiestos de primer nivel bajo `apps/*` y `packages/*` de `main` de `Semse-projet/project-manager-app` (antes de abrir la rama documental). **No** se inspeccionó Railway en vivo, `node_modules`, las imágenes desplegadas, el SBOM transitorio completo ni el uso en ejecución. «Declarada» no significa «instalada», «en producción», «cargada», «segura» o «licenciada». Es una **muestra inicial de declaraciones directas de varios manifiestos relevantes**; no es aún un censo exhaustivo del workspace, un SBOM de dependencias transitivas ni una certificación de producción. El barrido automatizado de todos los manifiestos se reserva para F1.
 
 ## 1. Fuentes inspeccionadas y SHA blob
 
@@ -120,4 +120,4 @@ Documentos que **no** equivalen a librerías software: `ConstructionLibraryItem`
 
 `apps/vision-service/requirements.txt` (`182b537c50a7`) declara FastAPI, Uvicorn, OpenCV, NumPy, Pillow, Pydantic, Requests y python-multipart con versiones mínimas (`>=`), no versiones totalmente fijadas; su versión desplegada queda sin verificar. La diferencia entre Zod 3 (packages/schemas y API) y Zod 4 (assistant-portal) impide asumir compatibilidad directa. No se ha demostrado que `assistant-portal` comparta runtime o despliegue con `web`.
 
-**Próximo gate F1:** automatizar los 20 manifests y 1 requirements, detectar nuevos manifests y archivos de dependencias Python, derivar versions/lockfile + SBOM, comparar imports y runtime desplegado, revisar licencias y CVE. No hay aún evidencia de un SBOM completo ni de costo medido.
+**Próximo gate F1:** verificar el universo actual de manifests y automatizar el recorrido completo (20 declarados en tareas, conteo aún por acreditar) y 1 requirements, detectar nuevos manifests y archivos de dependencias Python, derivar versions/lockfile + SBOM, comparar imports y runtime desplegado, revisar licencias y CVE. No hay aún evidencia de un SBOM completo ni de costo medido.
