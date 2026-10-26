@@ -34,6 +34,10 @@ En ejecución de GitHub CI **#4229** para commit \`c9970ac0\`, \`quality-gates\`
 
 **Regla:** el cuadro expresa recomendaciones para decisión humana/técnica, no cambios de \`status\` del SDD. Se mantiene \`REVIEW\`, \`NOT_STARTED\`, \`NOT_RUN\`, \`UNMERGED\`, \`NOT_DEPLOYED\` e \`INACTIVE\`.
 
+## Revisión aplicable al mantenedor único (2026-10-26)
+
+Este plan está subordinado a [DEC-PLATFORM-001](../../architecture/DEC-PLATFORM-001-solo-maintainer-review.md): el PR #1003, **solo documental**, requiere CI verde del SHA final, una revisión automatizada sin hallazgos bloqueantes y aprobación del propietario registrada con fecha/SHA/alcance (nivel 1). Los cambios posteriores de sesión, cookies, privacidad, pagos o autorizaciones necesitan clasificación de riesgo propia; nivel 2 exige dos revisiones automatizadas independientes, pruebas negativas contra PostgreSQL real y 24 horas antes de fusión; nivel 3 exige también **revisión humana externa, canary y rollback**. En ningún nivel se omite revisión humana bilingüe y jurídica del texto crítico. Ninguna revisión automatizada se presentará como externa/humana.
+
 ## Plan de trabajo — PR separados solo después de APPROVED
 
 ### P0 — Sanear base y CI del documento

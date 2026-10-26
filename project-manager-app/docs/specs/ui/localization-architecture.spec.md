@@ -65,6 +65,13 @@ last_verified: "2026-10-18"
 - Merge `main` into this documentation branch using an explicit two-parent integration commit with `main` as the file tree base, preserving every unrelated merged change. The only delivered changes relative to that `main` should be this SDD, its pilot plan, and one regenerated-compatible `SPEC_INDEX` row.
 - The proposal stays `REVIEW`; neither PR merge nor runtime activation is approved by successful CI alone.
 
+## Governance alignment — DEC-PLATFORM-001 (2026-10-26)
+
+- Apply the accepted [DEC-PLATFORM-001](../../architecture/DEC-PLATFORM-001-solo-maintainer-review.md) to reviews and merges while SEMSE has only one authorized maintainer. This document-only PR is **risk level 1**: final-head CI green, at least one linked automated review with no unresolved blocking findings, and an owner approval comment that records SHA/date/scope. A green CI run is **necessary but not sufficient**.
+- A subsequent code change affecting authenticated locale, cookie/session handling, cross-tenant caches, authorization, private-source translation, payments or consent may meet **level 2**: level-1 evidence plus two independent automated tools, negative real-PostgreSQL tests, 24-hour cooling period, and owner checklist review. Classify the implementation PR on its actual exposure before proceeding.
+- Any **level-3 production activation or external exposure of sensitive data/payment functions** still requires a genuine external human security assessment, allowlisted canary and rollback. Automated reviews never impersonate this signoff.
+- This governance exception does **not** waive human bilingual domain/legal review of sensitive content (D6), nor security scopes, legal consent, validated translations, or separate production authorization.
+
 ## Target decision
 
 **No second translation system for the same screens.** Perform a small compatibility spike comparing:
