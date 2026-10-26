@@ -15,7 +15,7 @@ date: "2026-10-25"
 
 ## F0 — auditoría y SDD (rama documental)
 
-- [x] [T-001] Auditar manifiestos Web, API, Worker, assistant-portal, schemas, tools, vision-service y lockfile inicial; registrar SHA y límites.
+- [x] [T-001] Censar los 20 package.json de primer nivel de apps/* y packages/*, requirements Python de vision-service y existencia del lockfile; registrar SHA y límites (sin afirmar transitivas ni runtime).
 - [x] [T-002] Diferenciar software libs, Tool Registry, Capability Reality Registry y bibliotecas de conocimiento.
 - [x] [T-003] Redactar spec SDD 2.0, versión de capacidad 1.0, y restricciones del owner.
 - [x] [T-004] Redactar ADR PROPOSED y plan de ejecución por PRs.
