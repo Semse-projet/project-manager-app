@@ -41,7 +41,7 @@ test("discovers workspace manifests and deterministic, sorted dependency invento
   assert.equal(one.summary.pythonManifests, 1);
   assert.equal(one.summary.uniquePackageNames, 4);
   assert.equal(one.summary.declarations, 5);
-  assert.deepEqual(one.dependencies.map(d => d.name), ["playwright", "@semse/shared", "typescript", "zod", "zod"].sort((a,b) => a.localeCompare(b)) .length === 0 ? [] : one.dependencies.map(d => d.name));
+  assert.deepEqual(one.dependencies.map(d => d.manifest), ["apps/web/package.json", "apps/web/package.json", "apps/web/package.json", "package.json", "packages/shared/package.json"]);
   const webZod = one.dependencies.find(d => d.manifest === "apps/web/package.json" && d.name === "zod");
   assert.equal(webZod.resolvedVersion, "3.25.3");
   assert.equal(webZod.resolvedReference, "3.25.3(peer@1)");
