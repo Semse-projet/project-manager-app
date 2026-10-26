@@ -290,3 +290,13 @@ test("worker mobile navigation renders five localized tab labels", () => {
   }
   assert.doesNotMatch(navigation, /label:\s*"(?:Inicio|Trabajos|Tiempo|Evidencia|Ofertas)"/);
 });
+
+test("Prometeo keeps ingestion private and disables sharing until #974/#987 server gates", () => {
+  const page = readFileSync(path.join(root, "apps/web/app/(app)/admin/prometeo/page.tsx"), "utf8");
+  assert.match(page, /useState\\("tenant_private"\\)/, "new ingestion must default to tenant private");
+  assert.match(page, /<option value="public_training" disabled>/, "public training cannot be selectable without approved consent");
+  assert.match(page, /<option value="project_private" disabled>/, "project-private selection requires a verified project authorization context");
+  assert.match(page, /<option value="tenant_private">/, "tenant-private ingestion must remain selectable");
+  assert.match(page, /visibility: ingestVisibility/, "file ingestion must retain the selected visibility metadata");
+  assert.match(page, /visibility: ingestVisibility/, "text ingestion must retain the selected visibility metadata");
+});
