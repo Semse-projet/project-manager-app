@@ -136,3 +136,36 @@ test("lockfile format outside pinned supported v9 fails closed", () => makeFixtu
   write("pnpm-lock.yaml","lockfileVersion: '8.0'\nimporters:\n");
   assert.throws(()=>inventoryRepository(root),/Unsupported pnpm-lock/);
 }));
+test("retains optional and peer types without inventing lockfile resolutions", () => makeFixture(({root,write}) => {
+  base(write);
+  const file=path.join(root,"apps/web/package.json");
+  const manifest=JSON.parse(readFileSync(file,"utf8"));
+  manifest.optionalDependencies={"optional-lib":"^1.0.0"};
+  manifest.peerDependencies={"react":"^19.0.0"};
+  write("apps/web/package.json",JSON.stringify(manifest));
+  const out=inventoryRepository(root);
+  const optional=out.dependencies.find(x=>x.name==="optional-lib");
+  const peer=out.dependencies.find(x=>x.name==="react");
+  assert.equal(optional.dependencyType,"optionalDependencies");
+  assert.equal(peer.dependencyType,"peerDependencies");
+  assert.equal(optional.resolutionStatus,"UNVERIFIED");
+  assert.equal(peer.resolutionStatus,"UNVERIFIED");
+  assert.equal(out.summary.declarations,7);
+}));
+test("rejects dangling symlink manifests and symlink app directories", () => makeFixture(({root,write}) => {
+  base(write);
+  rmSync(path.join(root,"apps/web/package.json"));
+  symlinkSync(path.join(root,"no-longer-here"),path.join(root,"apps/web/package.json"));
+  assert.throws(()=>inventoryRepository(root),/symbolic link/i);
+  rmSync(path.join(root,"apps/web/package.json"));
+  rmSync(path.join(root,"apps/web"),{recursive:true});
+  symlinkSync(path.join(root,"packages/shared"),path.join(root,"apps/web"));
+  assert.throws(()=>inventoryRepository(root),/symbolic link/i);
+}));
+test("records unsupported Python metadata without guessing package versions", () => makeFixture(({root,write}) => {
+  base(write);
+  write("apps/vision-service/pyproject.toml",'[project]\nname="vision"\n');
+  const out=inventoryRepository(root);
+  assert.ok(out.diagnostics.some(x=>x.code==="PYTHON_MANIFEST_UNSUPPORTED"&&x.manifest==="apps/vision-service/pyproject.toml"));
+  assert.ok(out.pythonRequirements.every(x=>x.resolvedVersion===null));
+}));
