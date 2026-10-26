@@ -3,8 +3,8 @@ id: "platform.semse-mcp-delegated-consent"
 title: "S1/D7 — Consentimiento OAuth delegado persistente y revocable para SEMSE MCP"
 domain: "platform"
 sdd_version: "2.0"
-version: "0.1"
-status: "DRAFT"
+version: "0.2"
+status: "REVIEW"
 owner: "semse-core"
 risk: "critical"
 code_status: "NOT_STARTED"
@@ -39,7 +39,9 @@ last_verified: "NOT_VERIFIED"
 # Spec: S1/D7 — Consentimiento OAuth delegado persistente y revocable
 
 > Spec hijo de [`platform.semse-mcp-project-read`](semse-mcp-project-read.spec.md)
-> (S1, `REVIEW`). Contrato SDD 2.0 en **DRAFT**: no autoriza schema Prisma,
+> (S1, `REVIEW`). Contrato SDD 2.0 en **REVIEW** (decisiones del propietario
+> Q1–Q6 cerradas el 2026-10-26; falta revisión de seguridad independiente para
+> `APPROVED`): no autoriza schema Prisma,
 > migración, endpoint, flag, despliegue ni activación MCP. D7 está aprobado
 > por el propietario **a nivel de solución** (2026-10-15, ver
 > [`decisions`](semse-mcp-project-read.decisions.md)); **D2 (Authorization
@@ -49,8 +51,7 @@ last_verified: "NOT_VERIFIED"
 > Insumo de diseño: plan D7 del PR #978
 > (`semse-mcp-project-read.d7-persistence-plan.md`, aún no fusionado) y la
 > revisión técnica publicada en ese PR el 2026-10-26. Este spec incorpora el
-> contrato de ese plan. De las preguntas que la revisión detectó, Q1–Q4 están
-> decididas por el propietario (2026-10-26) y Q5–Q6 siguen abiertas (§13).
+> contrato de ese plan y las decisiones Q1–Q6 del propietario (2026-10-26, §13).
 
 ## 1. Problema y resultado
 
@@ -97,7 +98,8 @@ bloquea la **siguiente** `tools/call`, sin escribir nada en la vía de lectura.
 | Actor | Permiso backend | Alcance tenant/org/recurso | Puede | No puede |
 |---|---|---|---|---|
 | Usuario con Membership `ACTIVE` | rol con `projects:read` (`CLIENT`, `PRO`, `OPS_ADMIN` en `packages/auth/src/rbac.ts`) | su `tenantId` + **una** `orgId` = la de su `AuthSession` | conceder grant `projects:read` a un cliente registrado; revocar sus grants | conceder scopes que sus roles no tienen; conceder sobre otra org; reactivar un grant `REVOKED`/`EXPIRED` |
-| Administrador de la org | **por decidir (D7b, Q5)** | su org | revocar grants de la org | conceder en nombre de otro usuario |
+| Administrador de la org (**v1.1**, Q5) | `mcp:consents:revoke:org` (permiso y rol nuevos en v1.1; hoy no existe rol admin de org en `rbac.ts`) | grants con `orgId` de su org | revocar grants de su org, uno a uno o por cliente | conceder en nombre de otro usuario; revocar fuera de su org |
+| `OPS_ADMIN` (**v1**, Q5) | `mcp:consents:revoke:tenant` (permiso nuevo en v1, asignado a `OPS_ADMIN`) | grants de su `tenantId` | revocar grants del tenant, uno a uno o por cliente, con motivo obligatorio | conceder; leer contenido de negocio vía grant; actuar fuera de su tenant |
 | Cliente MCP (host) | ninguno propio | solo el grant `ACTIVE` vinculado a su token | leer `projectId,status` vía S1 | elegir org/tenant/usuario por argumento; elevar scopes |
 | `WORKER` | sin `projects:read` | — | — | obtener lectura de proyecto vía grant |
 
@@ -218,7 +220,16 @@ deny: 401/403 no enumerativo; 503 si DB/introspección falla o supera el deadlin
 ### Servicio interno — revocar
 
 ```yaml
-auth: el propio usuario del grant; administrador según Q5
+auth:   # Q5, por niveles; todos usan la misma operación
+  v1:
+    - nivel 1: el propio usuario del grant (sin permiso extra)
+    - nivel 3: OPS_ADMIN con mcp:consents:revoke:tenant, solo grants de su tenantId, motivo obligatorio
+  v1.1:
+    - nivel 2: admin de org con mcp:consents:revoke:org, solo grants de su orgId
+    - nivel 4: revocación masiva por oauthClientId dentro del alcance del nivel 2 o 3, motivo obligatorio
+  sistema:
+    - borrado de User/Org: revoca todos sus grants con motivo subject_deleted antes de borrar (§7)
+scope_filter: userId | orgId | tenantId | oauthClientId, siempre AND tenantId del actor
 transition: compare-and-set ACTIVE → REVOKED (también PENDING → REVOKED)
 idempotent: true   # REVOKED → REVOKED devuelve el mismo estado sin cambios
 effects:
@@ -283,14 +294,17 @@ forbidden_behavior:
   `oauthIssuer`, `oauthClientId`, `resourceUri`, `scopeSet`,
   `grantBindingDigest`, `status`, `createdAt`, `authorizedAt`, `expiresAt`,
   `revokedAt`, `updatedAt`, `policyVersion`, `consentVersion`,
-  `idempotencyKeyDigest?`, `revokedByUserId?`, `revocationReasonCode?`.
+  `idempotencyKeyDigest?`, `revokedByUserId?`, `revocationReasonCode?`,
+  `anonymizedAt?` (Q6). `userId` y `sessionId` pasan a nulables **solo** para
+  filas anonimizadas; la verificación deniega cualquier grant con `userId` nulo.
 - **Expiración del grant (Q1, DECIDIDO 2026-10-26):** al aceptar,
   `expiresAt = min(AuthSession.refreshExpiresAt, authorizedAt + MCP_GRANT_MAX_TTL)`.
   En cada llamada se exige `grant.expiresAt > now()` **y**
   `AuthSession.refreshExpiresAt > now()`; `accessExpiresAt` (token web de 1 h)
   no interviene, de modo que MCP no depende del uso activo de la web. El valor
-  de `MCP_GRANT_MAX_TTL` es política del propietario y se fija antes de
-  `APPROVED` (sin valor por defecto inventado). La renovación web
+  de **`MCP_GRANT_MAX_TTL` = 30 días** (decisión del propietario 2026-10-26).
+  Es un máximo, no un valor fijo: cada grant puede pedir menos según su
+  riesgo (p. ej. 24 h o 7 días), nunca más. La renovación web
   (`rotateSessionRefreshToken`) puede ampliar `refreshExpiresAt` pero **nunca**
   amplía `grant.expiresAt`: un grant caducado exige nuevo consentimiento.
 - **Índices:** `(tenantId, orgId, userId, status, expiresAt)`,
@@ -301,9 +315,31 @@ forbidden_behavior:
   `AuthSession` no declara relaciones Prisma hoy (comentario en
   `auth.repository.ts`) y añadirle una relación toca un modelo central de Auth.
   La coherencia grant↔sesión↔org↔tenant se verifica en lectura, como ya hace
-  `findActiveSessionAuthorization`. FKs a `Tenant`/`Org`/`User`: a decidir en
-  fase A junto con `ON DELETE` y retención (no borrar evidencia auditable en
-  cascada).
+  `findActiveSessionAuthorization`. Tampoco hay FK a `Tenant`/`Org`/`User`
+  (Q6-X1): el borrado de estos no se bloquea ni arrastra grants en cascada.
+- **Conservación (Q6, DECIDIDO 2026-10-26), por capas:**
+  - registros de auditoría de aceptación/revocación/denegación: `AuditEvent`,
+    mínimo legal de la jurisdicción del tenant; nunca se purgan por debajo
+    (matriz M-06 de `semseproject`);
+  - grant `ACTIVE`: mientras esté vigente;
+  - grant `REVOKED`/`EXPIRED`: completo durante **90 días** desde
+    `revokedAt`/`expiresAt` para investigar incidentes;
+  - pasados 90 días, un job anonimiza la fila: `userId`, `sessionId`,
+    `revokedByUserId` e `idempotencyKeyDigest` → nulos; `anonymizedAt = now()`;
+    se conservan `tenantId`, `orgId`, `oauthClientId`, scopes, fechas, estado y
+    motivo, salvo que una obligación legal o legal hold exija conservar más;
+  - agregados sin datos personales (conteos por cliente/org): sin límite.
+  - Un tenant puede **alargar** los 90 días, nunca acortarlos.
+  - Antes de almacenar el primer grant se añade su fila a la matriz de
+    retención M-06 (tarea de fase A).
+  - Verificación de no reidentificación: la fila anonimizada no puede volver a
+    vincularse a una persona combinando sus campos con otras tablas fuera de la
+    auditoría legal (prueba D7-21).
+- **Borrado de User/Org (Q6, DECIDIDO):** (1) revocar todos sus grants con
+  motivo `subject_deleted`; (2) anonimizarlos de inmediato, sin esperar los 90
+  días (derecho de supresión); (3) si la revocación previa falla, el borrado se
+  detiene y avisa (salvaguarda); (4) cualquier llamada con un grant cuyo User
+  ya no existe se deniega.
 - **Migración:** aditiva (nueva tabla), sin tocar tablas existentes.
   `migration_status` pasa a `PENDING` solo cuando este spec esté `APPROVED` y
   el propietario autorice la migración.
@@ -365,6 +401,10 @@ el mismo tenant, además de unitarios. Los casos con host MCP real solo tras D2.
 | D7-15 | Auditoría de aceptación/revocación/denegación | Solo IDs opacos, códigos y correlationId |
 | D7-16 | Carrera revoke/authorize con barrera determinista | Ninguna verificación posterior a la revocación autoriza |
 | **D7-17** | Usuario con filas Membership `PRO` y `WORKER` en la misma org; se revoca la fila `PRO` | Siguiente llamada rechazada: `WORKER` no tiene `projects:read` |
+| **D7-19** | `OPS_ADMIN` revoca un grant de su tenant y otro de un tenant ajeno; también por `oauthClientId` | El primero queda `REVOKED`; el ajeno se rechaza sin revelar existencia; la masiva solo toca su tenant (v1.1 para la masiva) |
+| **D7-20** | Borrado de User con grants `ACTIVE` | Grants `REVOKED` con `subject_deleted` y anonimizados antes de que termine el borrado; auditoría intacta; si la revocación falla, el borrado se detiene |
+| **D7-21** | Job de anonimización a los 90 días y con tenant que alarga el plazo | Se anonimiza solo lo vencido; ningún campo restante identifica a la persona; `AuditEvent` sin tocar; plazo del tenant respetado |
+| **D7-22** | Aceptación pidiendo más de 30 días o con `refreshExpiresAt` menor | `expiresAt` = mínimo de los tres; nunca supera 30 días |
 | **D7-18** | Expiración de sesión según Q1: (a) `accessExpiresAt` vencido con `refreshExpiresAt` y grant vigentes; (b) `refreshExpiresAt` vencido con grant vigente; (c) `grant.expiresAt` vencido con sesión vigente; (d) refresh web amplía `refreshExpiresAt` | (a) se autoriza; (b) y (c) se deniegan; (d) `grant.expiresAt` no cambia |
 
 Checklist de plantilla:
@@ -421,14 +461,15 @@ Checklist de plantilla:
 ## 12. Gates de cierre
 
 - [x] Q1–Q4 decididas por el propietario (2026-10-26, §13)
-- [ ] Q5, Q6 y valor de `MCP_GRANT_MAX_TTL` decididos y registrados
+- [x] Q5, Q6 y valor de `MCP_GRANT_MAX_TTL` decididos (2026-10-26, §13)
+- [ ] Fila del grant añadida a la matriz de retención M-06
 - [ ] Revisión de seguridad por persona **independiente del autor** con estado
   `APPROVED` sobre este spec (regla S1)
 - [ ] FSM registrada en `STATE_MACHINES.md`; eventos en `EVENT_CATALOG.md` si
   se adoptan
 - [ ] Spec enlazado por `pnpm spec:index`
 - [ ] Spec, plan, tasks, analyze y checklist coherentes
-- [ ] Tests D7-01…D7-18 derivados del spec y verdes
+- [ ] Tests D7-01…D7-22 derivados del spec y verdes
 - [ ] `pnpm spec:validate:strict` verde
 - [ ] Migración reproducible y rollback/forward-fix documentado
 - [ ] CI `PASS`
@@ -438,22 +479,24 @@ Checklist de plantilla:
 - [ ] `production_evidence` y `last_verified` actualizados
 - [ ] Sólo entonces `status: VERIFIED`
 
-## 13. Decisiones del propietario y preguntas abiertas
+## 13. Decisiones del propietario
 
 **Registro de decisión (2026-10-26):** el propietario aceptó en conversación
-de trabajo las recomendaciones de Q1–Q4. Esto fija el diseño de este spec; no
-autoriza migración, código, flag productivo, despliegue ni cambia D2, S1 o
-ADR-045. Q5 y Q6 siguen abiertas y bloquean el paso a `REVIEW`, igual que el
-valor de `MCP_GRANT_MAX_TTL`.
+de trabajo las recomendaciones de Q1–Q4 y, después, el diseño integrado de
+Q5–Q6 con tres valores: conservación completa **90 días**, `MCP_GRANT_MAX_TTL`
+**30 días** y revocación por administrador de org en **v1.1**. Esto fija el
+diseño de este spec y lo pasa a `REVIEW`; no autoriza migración, código, flag
+productivo, despliegue ni cambia D2, S1 o ADR-045. `APPROVED` sigue exigiendo
+revisión de seguridad independiente del autor (§12).
 
 | # | Pregunta | Estado | Decisión |
 |---|---|---|---|
-| **Q1** | ¿Qué expiración de `AuthSession` gobierna el grant? (`ACCESS_TOKEN_TTL_SECONDS = 1h`, `REFRESH_TOKEN_TTL_SECONDS = 30d`) | **DECIDIDO** | `refreshExpiresAt` + tope propio `MCP_GRANT_MAX_TTL` (§7). Valor del tope: **pendiente**. |
+| **Q1** | ¿Qué expiración de `AuthSession` gobierna el grant? (`ACCESS_TOKEN_TTL_SECONDS = 1h`, `REFRESH_TOKEN_TTL_SECONDS = 30d`) | **DECIDIDO** | `refreshExpiresAt` + tope `MCP_GRANT_MAX_TTL` = **30 días**, máximo y no valor fijo (§7). |
 | **Q2** | ¿Qué sustituye a `claims.roles` en la intersección? | **DECIDIDO** | `permisos(activeRoles ∩ session.roles) ∩ grant.scopeSet`, reutilizando `authorizedRoles` (§3). |
 | **Q3** | ¿FK de `sessionId` a `AuthSession`? | **DECIDIDO** | Sin FK; verificación en lectura (§7). |
 | **Q4** | Flag de apagado | **DECIDIDO** | `MCP_S1_SERVER_ENABLED`, default `false`, evaluado al registrar el módulo/rutas MCP (§8). |
-| **Q5** | ¿Quién puede revocar grants de otros usuarios de la org? | **ABIERTA** | Opciones en §13.1. |
-| **Q6** | Retención de grants terminales y `ON DELETE` de User/Org | **ABIERTA** | Opciones en §13.2. |
+| **Q5** | ¿Quién puede revocar grants de otros usuarios de la org? | **DECIDIDO** | Niveles integrados: v1 = usuario + `OPS_ADMIN` del tenant; v1.1 = admin de org + revocación masiva por cliente (§3, §5). Opciones evaluadas en §13.1. |
+| **Q6** | Retención de grants terminales y `ON DELETE` de User/Org | **DECIDIDO** | Capas: auditoría al mínimo legal; grant terminal completo 90 días y luego anonimizado (R2+R3+R4); sin FK y revocar + anonimizar al borrar (X1+X4, X3 como salvaguarda) (§7). Opciones evaluadas en §13.2. |
 
 ### 13.1 Q5 — Quién revoca
 
@@ -503,7 +546,8 @@ auditoría.
 | **X3** | FK con `Restrict` | Nada se borra por accidente | Bloquea el borrado de User/Org hasta tratar los grants; afecta flujos existentes |
 | **X4** | FK con `SetNull` en `userId` + anonimización | Conserva el grant anonimizado | Columnas nullable; la verificación debe denegar grants sin `userId` |
 
-**Recomendación técnica, sujeta a decisión legal:** R3 + X1. Antes de borrar
-un User/Org, todos sus grants deben estar `REVOKED` (borrar un usuario implica
-revocar). El plazo N lo fija el propietario o el DPO; este spec no inventa
-días.
+**Adoptado (2026-10-26):** R2+R3 sobre la fila del grant, R4 sobre su
+auditoría, X1+X4 con X3 como salvaguarda; N = 90 días fijado por el
+propietario. Antes de borrar un User/Org, todos sus grants deben estar
+`REVOKED` (borrar un usuario implica revocar). Anonimizar el grant no borra su
+auditoría legal. Detalle normativo en §7.
