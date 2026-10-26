@@ -7,8 +7,8 @@ version: "1.0"
 status: "APPROVED"
 owner: "semse-core"
 risk: "medium"
-code_status: "IN_PROGRESS"
-ci_status: "NOT_RUN"
+code_status: "COMPLETE"
+ci_status: "PASS"
 merge_status: "UNMERGED"
 deploy_status: "NOT_DEPLOYED"
 activation_status: "INACTIVE"
@@ -28,7 +28,7 @@ related_tests:
 related_endpoints: []
 related_events: []
 related_agents: []
-last_verified: "NOT_VERIFIED"
+last_verified: "2026-10-26"
 ---
 
 # F1 — SEMSE Library Hub, corte estático
@@ -93,8 +93,10 @@ Ejecución local/CI cuando se autorice. No servicios, bandera ni deploy; `deploy
 - [ ] Python requirements básicos y líneas complejas como UNRESOLVED.
 - [ ] Falla controlada cuando patrón de workspace no corresponde al contrato.
 - [x] Smoke del checkout real ejecutado en CI #40262055473 para SHA `961c7036` (21 JS/TS, 2 requirements Python, 285 declaraciones; previo a overrides).
-- [ ] Smoke del HEAD con `OVERRIDE_APPLIED` y ausencia de falsa deriva; registro actualizado y revisión técnica pendientes.
-- [ ] CI al final y checks de spec una vez estabilizado el código.
+- [x] Smoke del HEAD con 4 `OVERRIDE_APPLIED`, 0 `STALE_LOCKFILE` y 2 peers sin resolver: `quality-gates` CI #40264754613 PASS en commit `0e4f1815`.
+- [ ] Revisión independiente del contrato y de los 3 pins potencialmente incompatibles; sin merge/deploy.
+- [x] CI #40264754613: `quality-gates`, `unit-coverage`, `e2e` SUCCESS, incluyendo SDD/índice sobre commit `0e4f1815`.
+- [ ] Último PR review humano independiente y prueba de resolución post-merge si se aprueba; la ejecución actual NO valida producción.
 
 ## 10. Mapa de implementación
 

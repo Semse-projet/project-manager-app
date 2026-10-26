@@ -19,7 +19,7 @@ date: "2026-10-25"
 - [x] Se eliminan credenciales de referencias Python con esquema URL.
 - [x] Tests Node reales aislados sobre archivos con SHA Git idéntico: 15 casos PASS (Node 22; evidencia vinculada).
 - [x] Smoke CI Node 22 previo al cambio de overrides: #40262055473, 3 jobs SUCCESS.
-- [ ] Revalidar el HEAD con las pruebas de overrides y CI final.
+- [x] HEAD del código F1 `0e4f1815` validado por CI #40264754613 en quality, cobertura y E2E.
 - [ ] Revisar si hay manifests Python adicionales fuera de requirements en las apps.
 - [ ] Revisión de seguridad independiente antes de ampliar ejecución.
 
@@ -28,14 +28,15 @@ date: "2026-10-25"
 - [x] Lockfile: coincidencia directa `RESOLVED` o override global exacto `OVERRIDE_APPLIED`; discrepancia sin override `STALE_LOCKFILE`. Ninguna equivale a seguridad, integridad o compatibilidad demostrada.
 - [x] Datos no resueltos `UNVERIFIED`/`UNRESOLVED`.
 - [x] Salida JSON en checkout real (previa a override) comprobada mediante suite CI #40262055473; nuevos contadores pendientes.
-- [ ] Reconciliación de 4 overrides y 2 peers confirmada en resultado post-corrección.
+- [x] Cuatro overrides y dos peers confirmados; cero falsos stale (CI #40264754613).
 - [ ] SBOM/licencias/CVEs: fase posterior, **NO implementada**.
 
 ## Release
 - [x] CLI + pruebas dirigidas de archivos SHA idénticos en fixture sintético.
 - [x] Test de lectura real del checkout y CLI incluido y ejecutado en CI #40262055473; volver a ejecutar tras corrección.
 - [x] Primera lectura en checkout real acreditada (21 JS/TS, 2 Python) en SHA `961c7036`.
-- [ ] Registrar ejecución del nuevo HEAD con métricas `OVERRIDE_APPLIED` y sin falsa alarma.
-- [ ] Spec strict e índice actualizados y comprobados.
-- [ ] CI final, diff revisado, PR abierto y revisión.
+- [x] Métricas registradas en el log GitHub del smoke y en informe de reconciliación.
+- [x] Spec strict e índice de commit `0e4f1815` aprobados en CI; metadata final a revalidar en nuevo HEAD.
+- [x] CI de código F1 y diff completados; PR abierto en DRAFT.
+- [ ] Review humano independiente pendiente.
 - [ ] Merge, deploy, activación: fuera de F1 y no ejecutados.

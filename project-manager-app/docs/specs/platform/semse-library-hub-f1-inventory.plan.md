@@ -15,7 +15,7 @@ date: "2026-10-25"
 - Derivado de PR #1048 (documentación); F1 tiene permiso expreso del propietario, independiente del SDD general en DRAFT.
 - Códigos fuente sólo en `scripts/library-hub-inventory*.mjs`; sin dependencias nuevas, Railway ni Prisma.
 - Fuentes: `pnpm-workspace.yaml`, `package.json`, `apps/*/package.json`, `packages/*/package.json`, `pnpm-lock.yaml` v9 y `requirements*.txt` de apps.
-- CI completo de SHA `961c7036`: SUCCESS en GitHub Actions #40262055473; nuevas correcciones de override pendientes de revalidación en CI del HEAD. Deployment y runtime productivo: **no verificados**.
+- CI del HEAD de código F1 `0e4f1815` SUCCESS en GitHub Actions #40264754613: quality-gates, unit-coverage y E2E. Código y smoke checkout real validados; no equivale a revisión humana, merge, despliegue o verificación de producción.
 
 ## Arquitectura
 1. Descubrimiento dinámico y validación de paths; rechazo de symlinks; manifiestos de sólo lectura.

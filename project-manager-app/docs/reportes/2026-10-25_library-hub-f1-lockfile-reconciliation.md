@@ -52,3 +52,9 @@ Las `peerDependencies` describen una exigencia al consumidor; su presencia en el
 - [ ] Planificar F2 como corte separado, sin automatizar instalación ni activar código pesado.
 
 **Conclusión:** F1 es un inventario declarativo offline; `OVERRIDE_APPLIED` requiere una revisión de compatibilidad y gobernanza, no significa vulnerabilidad corregida. Ningún cambio de dependencias se hizo en este PR.
+
+## 5. Gate CI final del código F1
+
+La ejecución GitHub Actions [#40264754613](https://github.com/Semse-projet/project-manager-app/actions/runs/40264754613), SHA `0e4f1815d91952a970a2ff5a9bb0c5fc053fb10f`, finalizó **SUCCESS** en `quality-gates`, `unit-coverage` y `e2e`. El test sobre checkout real corrió con los conteos reconciliados: 21 manifiestos JS/TS, 2 Python, 285 declaraciones, 214 nombres únicos, 246 referencias resueltas de las cuales 4 `OVERRIDE_APPLIED`, 0 `STALE_LOCKFILE` y 2 `UNVERIFIED` (peers). No representa auditoría de seguridad de producción. El PR #1052 es un control independiente para revisar la compatibilidad funcional del portal sin afectar este slice.
+
+**Gobernanza:** F1 code + CI PASS, pero permanece `UNMERGED` / `NOT_DEPLOYED` / `INACTIVE`, en DRAFT hasta revisión técnica humana.
