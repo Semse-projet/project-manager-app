@@ -13,14 +13,33 @@ import { fileURLToPath } from "node:url";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
 loadEnv({ path: path.join(root, ".env") });
 loadEnv({ path: path.join(root, "packages/db/.env") });
-// The temporary PostgreSQL fixtures opt in; application production default stays OFF.
-process.env.SEMSE_PROMETEO_DOCUMENT_SHARING_ENABLED = "true";
-const dbTest = process.env.DATABASE_URL ? test : test.skip;
+// Refuse arbitrary databases: these fixtures write synthetic documents, chunks and
+// grants. Only the disposable GitHub Actions PostgreSQL 16 service or an
+// explicitly opted-in local semse_* QA database is allowed. Never Railway/prod.
+const dbUrl = process.env.DATABASE_URL;
+const target = dbUrl ? new URL(dbUrl) : null;
+const dbName = target?.pathname.replace(/^\\//, "") ?? "";
+const localHost = ["127.0.0.1", "localhost"].includes(target?.hostname ?? "");
+const ciIsolated = process.env.GITHUB_ACTIONS === "true" &&
+  process.env.CI === "true" &&
+  target?.hostname === "127.0.0.1" &&
+  target?.port === "5433" &&
+  dbName === "semse";
+const localIsolated = process.env.SEMSE_PROMETEO_ISOLATED_DB_TEST === "1" &&
+  localHost &&
+  /^semse_(?:test|qa|p0)(?:_|$)/.test(dbName);
+if (dbUrl && !ciIsolated && !localIsolated) {
+  throw new Error("P0 document scope integration refuses a non-isolated database target");
+}
+const dbTest = dbUrl ? test : test.skip;
+// The sharing flag is enabled only while this isolated test is executing.
 
 const id = (label: string) =>
   `p0_${label}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 9)}`;
 
 dbTest("P0: physical Postgres enforces document/chunk/feedback tenant and org isolation before pagination", async () => {
+  const previousFlag = process.env.SEMSE_PROMETEO_DOCUMENT_SHARING_ENABLED;
+  process.env.SEMSE_PROMETEO_DOCUMENT_SHARING_ENABLED = "true";
   const { PrismaService } = await import("../dist/infrastructure/prisma/prisma.service.js");
   const { PrometeoRepository } = await import("../dist/modules/prometeo/prometeo.repository.js");
   const { PrometeoAccessPolicy } = await import("../dist/modules/prometeo/prometeo-access.policy.js");
@@ -219,5 +238,7 @@ dbTest("P0: physical Postgres enforces document/chunk/feedback tenant and org is
   } finally {
     await prisma.tenant.deleteMany({ where: { id: { in: [tenantA, tenantB] } } });
     await prisma.$disconnect();
+    if (previousFlag === undefined) delete process.env.SEMSE_PROMETEO_DOCUMENT_SHARING_ENABLED;
+    else process.env.SEMSE_PROMETEO_DOCUMENT_SHARING_ENABLED = previousFlag;
   }
 });
