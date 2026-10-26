@@ -7,6 +7,7 @@ import {
   type SessionPayload,
 } from "@/lib/auth";
 import { resolveSafeRedirectPath } from "@/lib/safe-redirect";
+import { clientIpFromHeaders } from "../../_client-ip";
 import { demoPasswordMatches, resolveDemoLoginPassword } from "@/lib/demo-login";
 
 const TTL_SECONDS = 8 * 60 * 60;
@@ -66,8 +67,9 @@ type LoginRateLimitBucket = {
 const loginRateLimitBuckets = new Map<string, LoginRateLimitBucket>();
 
 function getClientIp(req: NextRequest): string {
-  const forwardedFor = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
-  return forwardedFor || req.headers.get("x-real-ip")?.trim() || "unknown";
+  // The proxy's own hop, not the left-most entry: the client writes those and
+  // could otherwise get a fresh IP bucket on every attempt.
+  return clientIpFromHeaders(req.headers) ?? "unknown";
 }
 
 function consumeLoginAttempt(req: NextRequest, email: string): { limited: boolean; retryAfterSeconds?: number } {
