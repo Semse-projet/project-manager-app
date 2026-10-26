@@ -37,6 +37,10 @@ date: "2026-10-22"
 - [ ] Ratificar D-S0B-01…05 en BO-10 y proteger origin `Crew`.
 - [ ] Tests N10…N18, incluyendo error tardío, carrera P2002, cross-crew
   y audit transaccional, reproducibles en PostgreSQL.
+- [x] Revisión documental de riesgo `AuditService/ActorContextService`:
+  `docs/reportes/2026-10-26_s0b-audit-transaction-boundary-review.md`.
+- [ ] Tests AUD-01…AUD-08 (sin creación de contextos sintéticos, tx audit,
+  rollback, reintentos y compatibilidad de worker/bootstrap).
 - [ ] Verificar que reintento y release nunca devuelven datos de otra crew.
 - [ ] Conservar JobTask/TimeEntry/Evidence y no autorizar transferencias implícitas.
 
