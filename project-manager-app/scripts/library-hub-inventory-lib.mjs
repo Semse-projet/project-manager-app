@@ -123,7 +123,7 @@ function scanPython(root,patterns,diagnostics) {
         buf.toString("utf8").split(/\r?\n/).forEach((line,i)=>{
           let trimmed=line.trim();
           if(!trimmed||trimmed.startsWith("#"))return;
-          if(/(?:https?:\/\/|git\+https?:\/\/|ftp:\/\/)/i.test(trimmed)){
+          if(trimmed.includes("://")){
             pythonRequirements.push({manifest:rel,line:i+1,raw:"[REDACTED]",name:null,declaredRange:null,resolvedVersion:null,resolutionStatus:"UNRESOLVED"});
             diagnostics.push({code:"PYTHON_REQUIREMENT_REDACTED",manifest:rel,line:i+1});return;
           }
@@ -161,7 +161,7 @@ export function inventoryRepository(rootPath) {
       for(const name of Object.keys(group).sort(cmp)){
         const declaredRange=group[name];
         if(typeof declaredRange!=="string")fail("Invalid dependency spec in "+rel);
-        dependencies.push({ecosystem:"npm",name,manifest:rel,dependencyType:type,declaredRange,...resolution(lock,importer,type,name,declaredRange),licenseStatus:"UNKNOWN",vulnerabilityStatus:"UNKNOWN",runtimeStatus:"UNVERIFIED"});
+        dependencies.push({ecosystem:"npm",name,manifest:rel,dependencyType:type,declaredRange:declaredRange.includes("://")?"[REDACTED]":declaredRange,...(declaredRange.includes("://")?{lockSpecifier:null,resolvedReference:null,resolvedVersion:null,resolutionStatus:"UNVERIFIED"}:resolution(lock,importer,type,name,declaredRange)),licenseStatus:"UNKNOWN",vulnerabilityStatus:"UNKNOWN",runtimeStatus:"UNVERIFIED"});
       }
     }
   }
