@@ -21,6 +21,7 @@ related_files:
   - "pnpm-workspace.yaml"
   - "pnpm-lock.yaml"
   - "docs/specs/platform/semse-library-hub.spec.md"
+  - "docs/reportes/2026-10-25_library-hub-f1-local-test-evidence.md"
 related_tests:
   - "tests/unit/library-hub-inventory.test.mjs"
 related_endpoints: []
@@ -109,8 +110,8 @@ Aplicado ahora: inspección estática; backlog: SBOM transitorio, licencias/CVE 
 
 ## 12. Gates
 
-- [ ] Tests locales dirigidos
-- [ ] Conteos y warnings reconciliados
+- [x] 15/15 tests locales Node 22 en copias exactas verificadas por Git blob SHA; evidencia en reporte adjunto (no repo entero)
+- [ ] Reconciliar conteos y diagnósticos de todo el monorepo con snapshots
 - [ ] `pnpm spec:validate:strict` y `pnpm spec:index` al final
 - [ ] CI registrado sin inventar PASS
 - [ ] PR separado y sin merge/deploy
