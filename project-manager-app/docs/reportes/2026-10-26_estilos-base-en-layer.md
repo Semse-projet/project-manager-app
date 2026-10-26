@@ -41,6 +41,14 @@ Ese bloque (reset universal, `html/body`, controles de formulario y `a`/`a:hover
 
 Capturas antes/después de `/`, `/como-funciona`, `/login` y `/contributors` en la carpeta de la sesión.
 
-## A tener en cuenta
+## Pantallas internas de la app (comprobado)
 
-Como ahora las utilidades de Tailwind sí se aplican, los componentes que las usan dentro de `(app)` (por ejemplo, partes de `components/semse/*`) se verán **como estaban diseñados**, con su relleno y sus colores. Conviene echar un vistazo rápido a las pantallas principales en la vista previa antes de publicar.
+Como ahora las utilidades de Tailwind sí se aplican, también cambian los componentes que las usan dentro de `(app)`. Se revisaron 9 pantallas con sesión iniciada (cuentas sintéticas, web en modo producción, 1280 px), con el CSS de `main` y con el de este PR:
+
+| Rol | Pantallas | Píxeles que cambian |
+|---|---|---|
+| Cliente | `/client/dashboard`, `/client/jobs`, `/client/marketplace` | 7.9 %, 4.9 %, 8.1 % |
+| Profesional | `/worker/dashboard`, `/worker/tracker`, `/worker/settings` | 8.6 %, 9.2 %, 6.3 % |
+| Admin | `/admin/dashboard`, `/admin/mission-control`, `/admin/marketplace` | 6.9 %, 2.5 %, 9.2 % |
+
+El cambio común es la **barra lateral**. Antes tenía el logo pegado al borde, el botón de plegar encima del nombre y los enlaces sin margen. Ahora tiene el espaciado de su diseño, lo que desplaza unos píxeles el contenido principal. No hay errores de página ni elementos rotos.
