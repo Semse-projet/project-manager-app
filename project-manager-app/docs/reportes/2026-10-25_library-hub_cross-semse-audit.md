@@ -178,3 +178,39 @@ Beneficio neto mensual estimado =
 La ganancia más inmediata de SEMSE viene de **organizar y reutilizar sus motores reales de oficios**, conectarlos a flujos de Estimate/BuildOps/Prometeo de forma read-only, y demostrar ahorro sin comprometer proyectos, evidencias ni pagos. **Más librerías no equivalen a más producto. Más capacidades terminadas, verificadas y económicamente sostenibles sí.**
 
 **Estado final de esta auditoría:** investigación documental realizada; no se ejecutó CI, no se instaló librería, no se hizo merge, no se desplegó servicio, no se activaron sharing, RAG o acciones autónomas.
+
+## 11. Productos y líneas comerciales que esta integración puede habilitar (hipótesis, NO compromisos)
+
+El Hub es infraestructura de oferta: su principal mérito económico es **hacer viable una función repetible y segura sin pagar una plataforma tecnológica nueva por cada cliente**. Las monetizaciones no se aprueban desde una librería; requieren decisión comercial, validación de mercado, experiencia completa, protección de datos y un precio que cubra uso real.
+
+| Cliente o actor | Función vendible *solo después de estar verificada* | Fuente del valor | Cómo validar el mercado |
+|---|---|---|---|
+| Contratista individual | simulador de materiales, tiempos y variaciones de Estimate | cotización más rápida y menos compra equivocada | piloto con 10–20 estimaciones sin comprometer precios reales |
+| Empresa con varias cuadrillas | planeación de horas, carga y escenarios de asignación | menos sobrecosto operativo y retrasos de coordinación | tiempo de supervisor ahorrado y corrección de entradas |
+| Supervisor de obra | reportes y evidencias consistentes con trazabilidad | mejor cierre de hitos y comunicación | casos sintéticos o voluntarios, sin exponer fotos |
+| Contratista de remodelaciones | comparación de antes/después y modelo 3D | claridad en cambios y as-built visual | solo tras custodia/restore verificable y permisos |
+| Trabajador/aprendiz | diccionario de oficios y formación a partir de fichas autorizadas | productividad y mejor aprendizaje ES/EN | retención/uso de vocabulario, sin emitir licencias profesionales |
+| Operaciones de finca | planificación/costos/alertas de Agro | decisiones más rápidas con datos propios | prueba con fincas autorizadas y revisión humana |
+| Organizaciones multi-proyecto | panel Mission Control de costos y riesgo tecnológico | fiabilidad y transparencia | tasa de incidentes y costo incremental por capacidad |
+
+**Mecanismos de negocio a evaluar:** incluir calculadoras básicas en el nivel estándar; cobrar por reportes avanzados o escenarios de alta complejidad si generan valor; cuota por organización para análisis intensivos; y ofrecer formación con material validado cuando los permisos lo permitan. No diseñar microcargos a nivel librería ni facturar por función antes de comprobar costos, licencias y autorizaciones. Ninguna ficha técnica con consentimiento para RAG autoriza reventa ni entrenamiento.
+
+## 12. Cómo medir el efecto en la cadena de negocio
+
+| Etapa | Línea base requerida | Señal de mejora | Riesgo que no debe cambiar |
+|---|---|---|---|
+| Intake | minutos para ingresar alcance | menos formularios abandonados / errores | tenant, autoría, identidad |
+| Estimate | minutos y revisiones por presupuesto | tiempo y error de cantidad reducidos | precio y tasas no deducidos sin fuentes |
+| BuildOps | ciclos de planeación y change order | replanificación más rápida | el Job real no cambia por una simulación |
+| Milestones | discrepancias de hitos | menos retrabajo de avance | no aprobación de avance sin regla de dominio |
+| Evidence | tiempo para localizar prueba y verificar hash | evidencia localizable/autenticable | originales y permisos no se modifican |
+| Approval | tiempo de revisión humana | documentación verificable para decisión | IA no sustituye al aprobador |
+| Payment | errores de conciliación | reportes consistentes | liberación de dinero sólo vía flujo vigente |
+
+Cualquier análisis de ingresos o ahorro deberá segmentarse por **tenant**, tipo de negocio, frecuencia real y uso de recursos, sin exponer métricas privadas de otra organización. La interfaz siempre mostrará si una cifra es medida, estimada o simulada.
+
+## 13. Limitaciones de esta auditoría y verificación restante
+
+**Verificado documentalmente:** presencia de manifiestos, exportación de motores propios, rutas de Tool Registry, estado declarado de specs/PRs, patrones del Worker, y las decisiones aprobadas del propietario. **Todavía no verificado:** import graph completo, disponibilidad de cada motor en producción, versiones efectivas de imágenes, CVEs y licencias de todo el árbol, tasas de uso por módulo, facturación real Railway, pruebas E2E multi-tenant, ROI y estabilidad bajo carga. Este informe no autoriza por sí mismo un merge, un cambio en contratos, la activación de Omega ni el despliegue de conocimiento compartido.
+
+La siguiente auditoría técnica deberá usar herramientas repetibles de inventario/carga sobre un SHA identificado y entorno seguro; la decisión de habilitación se toma por capacidad y por slice, nunca por cantidad de librerías en el catálogo.
