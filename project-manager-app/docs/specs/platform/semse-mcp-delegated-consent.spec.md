@@ -99,7 +99,7 @@ bloquea la **siguiente** `tools/call`, sin escribir nada en la vía de lectura.
 |---|---|---|---|---|
 | Usuario con Membership `ACTIVE` | rol con `projects:read` (`CLIENT`, `PRO`, `OPS_ADMIN` en `packages/auth/src/rbac.ts`) | su `tenantId` + **una** `orgId` = la de su `AuthSession` | conceder grant `projects:read` a un cliente registrado; revocar sus grants | conceder scopes que sus roles no tienen; conceder sobre otra org; reactivar un grant `REVOKED`/`EXPIRED` |
 | Administrador de la org (**v1.1**, Q5) | `mcp:consents:revoke:org` (permiso y rol nuevos en v1.1; hoy no existe rol admin de org en `rbac.ts`) | grants con `orgId` de su org | revocar grants de su org, uno a uno o por cliente | conceder en nombre de otro usuario; revocar fuera de su org |
-| `OPS_ADMIN` (**v1**, Q5) | `mcp:consents:revoke:tenant` (permiso nuevo en v1, asignado a `OPS_ADMIN`) | grants de su `tenantId` | revocar grants del tenant, uno a uno o por cliente, con motivo obligatorio | conceder; leer contenido de negocio vía grant; actuar fuera de su tenant |
+| `OPS_ADMIN` (**v1**, Q5) | `mcp:consents:revoke:tenant` (permiso nuevo en v1, asignado a `OPS_ADMIN`) | grants de su `tenantId` | **v1:** revocar grants del tenant **uno a uno**, con motivo obligatorio. **v1.1:** además revocación masiva por `oauthClientId` | en v1, revocar en bloque por cliente; conceder; leer contenido de negocio vía grant; actuar fuera de su tenant |
 | Cliente MCP (host) | ninguno propio | solo el grant `ACTIVE` vinculado a su token | leer `projectId,status` vía S1 | elegir org/tenant/usuario por argumento; elevar scopes |
 | `WORKER` | sin `projects:read` | — | — | obtener lectura de proyecto vía grant |
 
@@ -261,8 +261,8 @@ forbidden_behavior:
 
 ## 6. FSM, eventos y reconstrucción
 
-- **FSM `McpDelegatedConsent` (propuesta, no registrada aún en
-  `docs/foundation/STATE_MACHINES.md`):**
+- **FSM `McpDelegatedConsent`** (registrada como reservada, no implementada,
+  en `docs/foundation/STATE_MACHINES.md`, 2026-10-26):
 
   ```text
   PENDING → ACTIVE → REVOKED
@@ -272,7 +272,7 @@ forbidden_behavior:
   REVOKED, EXPIRED = terminales; reautorizar = nuevo id y versión
   ```
 
-  Registrar la FSM en `STATE_MACHINES.md` es tarea de la fase A.
+  Autorización por transición y condiciones: ver `STATE_MACHINES.md`.
 - **Invariantes** (`docs/foundation/DOMAIN_INVARIANTS.md` + propias):
   - un grant pertenece a una sola org y a la org de su `AuthSession`;
   - un grant nunca otorga permisos que el usuario no tiene en el momento de la
@@ -322,24 +322,67 @@ forbidden_behavior:
     mínimo legal de la jurisdicción del tenant; nunca se purgan por debajo
     (matriz M-06 de `semseproject`);
   - grant `ACTIVE`: mientras esté vigente;
-  - grant `REVOKED`/`EXPIRED`: completo durante **90 días** desde
-    `revokedAt`/`expiresAt` para investigar incidentes;
-  - pasados 90 días, un job anonimiza la fila: `userId`, `sessionId`,
-    `revokedByUserId` e `idempotencyKeyDigest` → nulos; `anonymizedAt = now()`;
-    se conservan `tenantId`, `orgId`, `oauthClientId`, scopes, fechas, estado y
-    motivo, salvo que una obligación legal o legal hold exija conservar más;
+  - grant terminal: completo durante **90 días** contados desde su
+    **momento terminal** `terminalAt = coalesce(revokedAt, expiresAt)`, para
+    investigar incidentes. El reloj **no depende del estado**: un grant que
+    sigue `ACTIVE` en la tabla pero con `expiresAt` vencido (porque el
+    mantenimiento `ACTIVE → EXPIRED` no corrió) entra igual en retención desde
+    su `expiresAt`. Así la anonimización nunca depende de ese mantenimiento
+    opcional;
+  - pasados 90 días desde `terminalAt`, el job de anonimización selecciona
+    `anonymizedAt IS NULL AND coalesce(revokedAt, expiresAt) + plazo <= now()`,
+    con independencia de `status`, y en la misma transacción: (a) si el grant
+    sigue `ACTIVE`, lo pasa a `EXPIRED` (transición válida de la FSM; es un
+    worker, no la vía de lectura); (b) pone a nulo `userId`, `sessionId`,
+    `revokedByUserId`, `idempotencyKeyDigest` **y `grantBindingDigest`**;
+    (c) trunca `createdAt`, `authorizedAt`, `expiresAt`, `revokedAt` y
+    `updatedAt` al **día** (UTC); (d) fija `anonymizedAt`. Se conservan
+    `tenantId`, `orgId`, `oauthClientId`, `resourceUri`, `scopeSet`, `status`,
+    `revocationReasonCode` y las versiones de política, salvo legal hold;
   - agregados sin datos personales (conteos por cliente/org): sin límite.
   - Un tenant puede **alargar** los 90 días, nunca acortarlos.
-  - Antes de almacenar el primer grant se añade su fila a la matriz de
-    retención M-06 (tarea de fase A).
-  - Verificación de no reidentificación: la fila anonimizada no puede volver a
-    vincularse a una persona combinando sus campos con otras tablas fuera de la
-    auditoría legal (prueba D7-21).
+  - Fila añadida a la matriz de retención M-06
+    (`.claude/skills/semseproject/references/operations.md`, 2026-10-26).
+  - Verificación de no reidentificación (D7-21): la fila anonimizada no debe
+    poder vincularse a una persona combinando sus campos con otras tablas o con
+    el AS. Por eso se elimina `grantBindingDigest` (el AS puede conservar el
+    grant asociado al sujeto) y se truncan las fechas (un timestamp exacto
+    permite cruzar con `AuthSession.createdAt`/`lastUsedAt` o con logs). La
+    unicidad de `(tenantId, grantBindingDigest)` debe ser **parcial** (solo
+    filas no nulas) para admitir varias filas anonimizadas.
+  - **Riesgo residual declarado:** en una org con un solo miembro, `orgId` +
+    `oauthClientId` + día siguen apuntando a una persona. La fase A decide con el
+    DPO si en ese caso se elimina también `orgId` de la fila (dejando solo los
+    agregados) o se acepta el riesgo con acceso restringido. D7-21 incluye ese
+    caso para que la decisión quede probada. La correlación con el
+    `AuditEvent`, que conserva identificadores por obligación legal, es
+    esperada y queda protegida por el control de acceso a la auditoría, no por
+    la anonimización.
 - **Borrado de User/Org (Q6, DECIDIDO):** (1) revocar todos sus grants con
   motivo `subject_deleted`; (2) anonimizarlos de inmediato, sin esperar los 90
   días (derecho de supresión); (3) si la revocación previa falla, el borrado se
   detiene y avisa (salvaguarda); (4) cualquier llamada con un grant cuyo User
-  ya no existe se deniega.
+  ya no existe se deniega. Hoy **no existe** flujo de borrado de User ni Org en
+  `apps/api/src`; esta regla obliga a cualquier flujo futuro de supresión,
+  también a uno manual de operaciones.
+- **Concurrencia aceptación ↔ borrado:** sin un orden fijo, un grant puede
+  crearse entre el barrido de revocación y el borrado y quedar `ACTIVE` sin
+  titular. Contrato:
+  1. el flujo de borrado **primero cierra la puerta**: pone el User en estado
+     no `active` (o, para una Org, revoca las Membership) y revoca sus
+     `AuthSession`, en una transacción propia y confirmada;
+  2. **después** barre y revoca + anonimiza los grants;
+  3. **al final** borra User/Org;
+  4. la aceptación, dentro de su transacción de inserción, relee con bloqueo
+     compartido (`SELECT … FOR SHARE`) la `AuthSession` y el `User` y exige
+     `AuthSession ACTIVE` y `User active`; como el paso 1 actualiza esas
+     mismas filas, PostgreSQL serializa ambas operaciones: o la aceptación
+     termina antes (y su grant cae en el barrido del paso 2) o ve la puerta
+     cerrada y falla;
+  5. un barrido final tras el paso 3 revoca cualquier grant de ese `userId`
+     que siga `ACTIVE` (defensa en profundidad), y la verificación por llamada
+     ya deniega grants sin User (punto 4 anterior).
+  Prueba determinista con barrera: D7-23.
 - **Migración:** aditiva (nueva tabla), sin tocar tablas existentes.
   `migration_status` pasa a `PENDING` solo cuando este spec esté `APPROVED` y
   el propietario autorice la migración.
@@ -401,9 +444,12 @@ el mismo tenant, además de unitarios. Los casos con host MCP real solo tras D2.
 | D7-15 | Auditoría de aceptación/revocación/denegación | Solo IDs opacos, códigos y correlationId |
 | D7-16 | Carrera revoke/authorize con barrera determinista | Ninguna verificación posterior a la revocación autoriza |
 | **D7-17** | Usuario con filas Membership `PRO` y `WORKER` en la misma org; se revoca la fila `PRO` | Siguiente llamada rechazada: `WORKER` no tiene `projects:read` |
-| **D7-19** | `OPS_ADMIN` revoca un grant de su tenant y otro de un tenant ajeno; también por `oauthClientId` | El primero queda `REVOKED`; el ajeno se rechaza sin revelar existencia; la masiva solo toca su tenant (v1.1 para la masiva) |
+| **D7-19** | v1: `OPS_ADMIN` revoca un grant de su tenant y otro de un tenant ajeno, e intenta la revocación masiva por `oauthClientId` | El primero queda `REVOKED`; el ajeno se rechaza sin revelar existencia; la masiva se rechaza en v1 (no existe la operación) |
+| **D7-19b** | v1.1: revocación masiva por `oauthClientId` de admin de org y de `OPS_ADMIN` | Solo cambian grants de ese cliente dentro de la org / tenant del actor; idempotente |
 | **D7-20** | Borrado de User con grants `ACTIVE` | Grants `REVOKED` con `subject_deleted` y anonimizados antes de que termine el borrado; auditoría intacta; si la revocación falla, el borrado se detiene |
-| **D7-21** | Job de anonimización a los 90 días y con tenant que alarga el plazo | Se anonimiza solo lo vencido; ningún campo restante identifica a la persona; `AuditEvent` sin tocar; plazo del tenant respetado |
+| **D7-21** | Job de anonimización a los 90 días, con tenant que alarga el plazo, y org de un solo miembro | Se anonimiza solo lo vencido; `grantBindingDigest` nulo y fechas truncadas al día; ningún campo restante permite cruzar con `AuthSession`, `User` ni el AS; el caso de org unipersonal sigue la decisión de fase A; `AuditEvent` sin tocar; plazo del tenant respetado |
+| **D7-23** | Aceptación y borrado del mismo User en paralelo, con barrera entre la relectura de la aceptación y el paso 1 del borrado, en ambos órdenes | Nunca queda un grant `ACTIVE` sin titular: o se crea y el barrido lo revoca + anonimiza, o la aceptación falla con 401 |
+| **D7-24** | Grant con `expiresAt` vencido hace 91 días que sigue `ACTIVE` porque el mantenimiento no corrió | El job de anonimización lo pasa a `EXPIRED` y lo anonimiza en la misma transacción |
 | **D7-22** | Aceptación pidiendo más de 30 días o con `refreshExpiresAt` menor | `expiresAt` = mínimo de los tres; nunca supera 30 días |
 | **D7-18** | Expiración de sesión según Q1: (a) `accessExpiresAt` vencido con `refreshExpiresAt` y grant vigentes; (b) `refreshExpiresAt` vencido con grant vigente; (c) `grant.expiresAt` vencido con sesión vigente; (d) refresh web amplía `refreshExpiresAt` | (a) se autoriza; (b) y (c) se deniegan; (d) `grant.expiresAt` no cambia |
 
@@ -436,8 +482,9 @@ Checklist de plantilla:
 - `packages/db/prisma/schema.prisma`: modelo `McpDelegatedConsent` +
   migración aditiva.
 - `packages/schemas/src/`: tipos Zod del grant.
-- `apps/worker/`: job de mantenimiento `ACTIVE → EXPIRED` (opcional en v1; la
-  lectura ya deniega por `expiresAt`).
+- `apps/worker/`: job de anonimización por `terminalAt` (**obligatorio**, §7)
+  y job de mantenimiento `ACTIVE → EXPIRED` (opcional en v1; la lectura ya
+  deniega por `expiresAt` y la anonimización no depende de él).
 
 ### Tests
 
@@ -462,14 +509,15 @@ Checklist de plantilla:
 
 - [x] Q1–Q4 decididas por el propietario (2026-10-26, §13)
 - [x] Q5, Q6 y valor de `MCP_GRANT_MAX_TTL` decididos (2026-10-26, §13)
-- [ ] Fila del grant añadida a la matriz de retención M-06
+- [x] Fila del grant añadida a la matriz de retención M-06 (`.claude/skills/semseproject/references/operations.md`)
+- [x] FSM registrada en `STATE_MACHINES.md` como reservada
 - [ ] Revisión de seguridad por persona **independiente del autor** con estado
   `APPROVED` sobre este spec (regla S1)
-- [ ] FSM registrada en `STATE_MACHINES.md`; eventos en `EVENT_CATALOG.md` si
+- [ ] Eventos en `EVENT_CATALOG.md` si
   se adoptan
 - [ ] Spec enlazado por `pnpm spec:index`
 - [ ] Spec, plan, tasks, analyze y checklist coherentes
-- [ ] Tests D7-01…D7-22 derivados del spec y verdes
+- [ ] Tests D7-01…D7-24 derivados del spec y verdes
 - [ ] `pnpm spec:validate:strict` verde
 - [ ] Migración reproducible y rollback/forward-fix documentado
 - [ ] CI `PASS`
