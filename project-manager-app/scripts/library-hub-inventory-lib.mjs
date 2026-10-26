@@ -46,8 +46,10 @@ function dirsFor(root,base) {
   const dirs=[];
   for(const name of readdirSync(p).sort(cmp)) {
     const rel=base+"/"+name;
-    const dir=nodeAt(root,rel,"dir");
-    if(dir) dirs.push(rel);
+    const entry=path.join(p,name);
+    const st=lstatSync(entry);
+    if(st.isSymbolicLink()) fail("Refusing symbolic link directory: "+rel);
+    if(st.isDirectory()) dirs.push(rel);
   }
   return dirs;
 }
@@ -121,7 +123,7 @@ function scanPython(root,patterns,diagnostics) {
         buf.toString("utf8").split(/\r?\n/).forEach((line,i)=>{
           let trimmed=line.trim();
           if(!trimmed||trimmed.startsWith("#"))return;
-          if(/https?:\/\/[^\s/]*@/i.test(trimmed)||/:\/\/[^\s]*:[^\s@]+@/.test(trimmed)){
+          if(/(?:https?:\/\/|git\+https?:\/\/|ftp:\/\/)/i.test(trimmed)){
             pythonRequirements.push({manifest:rel,line:i+1,raw:"[REDACTED]",name:null,declaredRange:null,resolvedVersion:null,resolutionStatus:"UNRESOLVED"});
             diagnostics.push({code:"PYTHON_REQUIREMENT_REDACTED",manifest:rel,line:i+1});return;
           }
