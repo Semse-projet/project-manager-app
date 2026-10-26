@@ -15,12 +15,12 @@ date: "2026-10-25"
 - Derivado de PR #1048 (documentación); F1 tiene permiso expreso del propietario, independiente del SDD general en DRAFT.
 - Códigos fuente sólo en `scripts/library-hub-inventory*.mjs`; sin dependencias nuevas, Railway ni Prisma.
 - Fuentes: `pnpm-workspace.yaml`, `package.json`, `apps/*/package.json`, `packages/*/package.json`, `pnpm-lock.yaml` v9 y `requirements*.txt` de apps.
-- CI, deployment y runtime productivo: **no verificados**.
+- CI completo de SHA `961c7036`: SUCCESS en GitHub Actions #40262055473; nuevas correcciones de override pendientes de revalidación en CI del HEAD. Deployment y runtime productivo: **no verificados**.
 
 ## Arquitectura
 1. Descubrimiento dinámico y validación de paths; rechazo de symlinks; manifiestos de sólo lectura.
 2. Extracción declarativa JS/TS y Python conservando lo no resuelto.
-3. Reconciliación con sólo `importers` del pnpm lock v9; no inferir integridad/transitivos.
+3. Reconciliación conservadora con `importers` y overrides globales de nombre exacto del pnpm lock v9; distinguir pin intencional de `STALE_LOCKFILE`, sin inferir integridad, transitivas ni compatibilidad. Overrides condicionados quedan fuera del alcance F1.
 4. JSON estable por stdout, sin filesystem writes. CLI local, sin endpoint y sin herramientas del agente.
 5. Tests con repositorios temporales; ningún paquete observado se ejecuta. Sin afectar otros dominios.
 
@@ -33,6 +33,6 @@ date: "2026-10-25"
 
 ## Entrega
 - Tests primero; implementación de la librería y CLI.
-- Verificación estática/fixtures aislados; posteriormente corrida con checkout real.
+- Pruebas Node 22 aisladas y corrida del checkout real ya acreditadas en SHA anterior; ver `docs/reportes/2026-10-25_library-hub-f1-lockfile-reconciliation.md` para 4 overrides y 2 declaraciones peer pendientes de certificación post-corrección.
 - Actualizar SDD, tareas, checklist e índice; revisar diff.
 - **Último gate:** tests locales y `pnpm spec:validate:strict`, `pnpm spec:index:check`, CI; PR separado en draft sin merge/deploy.
