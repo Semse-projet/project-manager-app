@@ -24,6 +24,8 @@ date: "2026-10-25"
 - [ ] [T-007] Revisión independiente de documentación y ratificación de detalles técnicos; spec `APPROVED`.
 - [x] [T-007A] Cruce arquitectónico de 9 dominios, Mission Control, Product Intelligence y Omega registrado en `docs/reportes/2026-10-25_library-hub_cross-semse-audit.md`; NO equivale a auditoría exhaustiva de código ni runtime.
 - [ ] [T-008] Verificar índice y `pnpm spec:validate:strict` cuando llegue el gate final.
+- [x] [T-009] Capturar dos snapshots JSON declarativos para 20 `package.json` de primer nivel más 8 requisitos Python y reconciliar 210 nombres, 29 repetidos y 7 especificadores divergentes; **no es F1 SBOM ni scanner automatizado**.
+- [x] [T-010] Documentar escenarios y criterios de aceptación del futuro escáner F1 en `semse-library-hub.direct-reconciliation.md`, sin implementar ni ejecutar CI.
 
 ## F1 — inventario automático (PR posterior; NO HECHO)
 
