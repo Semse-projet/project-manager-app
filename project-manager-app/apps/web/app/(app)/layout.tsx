@@ -307,7 +307,7 @@ function NavLink({
       }}
     >
       <Icon size={16} style={{ flexShrink: 0 }} />
-      {(!collapsed || mobile) && <span>{t(labelKey)}</span>}
+      {(!collapsed || mobile) && <span>{label}</span>}
     </Link>
   );
 }
@@ -682,7 +682,7 @@ function WorkerMobileBottomNav({ pathname }: { pathname: string }) {
             }}
           >
             <Icon size={20} />
-            <span style={{ fontSize: 10, fontWeight: active ? 700 : 400 }}>{label}</span>
+            <span style={{ fontSize: 10, fontWeight: active ? 700 : 400 }}>{t(labelKey)}</span>
           </Link>
         );
       })}
