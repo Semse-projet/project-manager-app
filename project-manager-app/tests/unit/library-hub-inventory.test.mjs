@@ -211,3 +211,42 @@ test("scans the real SEMSE workspace and runs CLI without installing packages", 
   assert.deepEqual(parsed,first,"CLI output must exactly match the module on real checkout");
   console.log("# SEMSE F1 checkout smoke: "+JSON.stringify(first.summary));
 });
+
+test("pnpm top-level override is distinguished from stale importer and retains resolved version", () => makeFixture(({root,write}) => {
+  base(write);
+  let lock=readFileSync(path.join(root,"pnpm-lock.yaml"),"utf8");
+  lock=lock.replace("importers:","overrides:\n  zod: 4.1.12\nimporters:");
+  lock=lock.replace("specifier: ^3\n        version: 3.25.3(peer@1)","specifier: 4.1.12\n        version: 4.1.12");
+  write("pnpm-lock.yaml",lock);
+  const inv=inventoryRepository(root);
+  const dep=inv.dependencies.find(x=>x.manifest==="apps/web/package.json"&&x.name==="zod");
+  assert.equal(dep.declaredRange,"^3");
+  assert.equal(dep.lockSpecifier,"4.1.12");
+  assert.equal(dep.resolutionStatus,"OVERRIDE_APPLIED");
+  assert.equal(dep.resolvedVersion,"4.1.12");
+  assert.equal(inv.summary.overrideAppliedDependencies,1);
+  assert.equal(inv.summary.staleLockfileEntries,0);
+}));
+test("unrelated or ambiguous pnpm override does not erase actual stale mismatch", () => makeFixture(({root,write}) => {
+  base(write);
+  let lock=readFileSync(path.join(root,"pnpm-lock.yaml"),"utf8");
+  lock=lock.replace("importers:","overrides:\n  zod@^4: 4.1.12\nimporters:");
+  lock=lock.replace("specifier: ^3\n        version: 3.25.3(peer@1)","specifier: 4.1.12\n        version: 4.1.12");
+  write("pnpm-lock.yaml",lock);
+  const dep=inventoryRepository(root).dependencies.find(x=>x.manifest==="apps/web/package.json"&&x.name==="zod");
+  assert.equal(dep.resolutionStatus,"STALE_LOCKFILE");
+  assert.equal(dep.resolvedVersion,null);
+}));
+test("pnpm scoped override is parsed without treating peer declarations as installed", () => makeFixture(({root,write}) => {
+  base(write);
+  const manifest=JSON.parse(readFileSync(path.join(root,"apps/web/package.json"),"utf8"));
+  manifest.dependencies["@types/express"]="^5.0.6";
+  write("apps/web/package.json",JSON.stringify(manifest));
+  let lock=readFileSync(path.join(root,"pnpm-lock.yaml"),"utf8");
+  lock=lock.replace("importers:","overrides:\n  '@types/express': 4.17.21\nimporters:");
+  lock=lock.replace("    devDependencies:\n      typescript:", "      '@types/express':\n        specifier: 4.17.21\n        version: 4.17.21\n    devDependencies:\n      typescript:");
+  write("pnpm-lock.yaml",lock);
+  const dep=inventoryRepository(root).dependencies.find(x=>x.name==="@types/express");
+  assert.equal(dep.resolutionStatus,"OVERRIDE_APPLIED");
+  assert.equal(dep.resolvedVersion,"4.17.21");
+}));
