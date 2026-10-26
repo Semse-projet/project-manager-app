@@ -39,6 +39,18 @@ date: "2026-10-22"
 - [ ] S0-06 — ejecutar spec:validate:strict, typecheck, lint y CI.
 - [ ] S0-07 — review independiente; sin merge/deploy implícito.
 
+## S0b — integridad de asignaciones (PR propio, después de S0a)
+- [x] S0b-DOC-01 — revisión estática `TaskAllocation`, `JobTask`, índice
+  único, servicio de auditoría y suites, con contrato N10…N18 en
+  `docs/reportes/2026-10-26_s0b-allocation-atomicity-cross-crew-contract.md`.
+- [ ] S0b-DEC-01 — ratificar D-S0B-01…05 en BO-10 (tareas crew, conflicto
+  inter-crew, lote atómico, traslados y unicidad).
+- [ ] S0b-TEST-01 — escribir tests rojos N10…N18 con PostgreSQL.
+- [ ] S0b-CODE-01 — implementar solución transaccional y auditoría segura
+  tras SDD APPROVED; proteger idempotencia y fronteras tenant/org/crew.
+- [ ] S0b-VALIDATE-01 — tests locales, regresión y revisión seguridad;
+  CI solo al final de la preparación y antes del merge.
+
 ## S1 — autoridad empresarial (PR propio)
 - [ ] S1-01 — aplicar regla ratificada: solo dueño o representante VERIFICADO;
   definir la fuente canónica y su prueba server-side, sin suponer `Org.ownerUserId`.
@@ -96,8 +108,9 @@ date: "2026-10-22"
 - [x] Se documentaron los pendientes y orden P-01…P-22 en
   `docs/reportes/2026-10-22_supervisor-backlog-pending-and-ci-last.md`.
 - [ ] Completar decisiones OPEN-SUP-02…06 y fuente verificable de OPEN-SUP-01.
-- [ ] Cerrar S0-F01…F05, pruebas N01…N12 y review antes de CI. Contrato
-  propuesto S0a N01…N09: `docs/reportes/2026-10-25_s0a-supervisor-negative-test-contract.md`.
+- [ ] Cerrar S0-F01…F10, pruebas N01…N18 y revisión antes de CI.
+  S0a N01…N09: `docs/reportes/2026-10-25_s0a-supervisor-negative-test-contract.md`;
+  S0b N10…N18: `docs/reportes/2026-10-26_s0b-allocation-atomicity-cross-crew-contract.md`.
 - [ ] Mantener `ci_status` NO_VERIFIED/FAIL según evidencia, nunca PASS asumido.
 
 ## Criterio de done
