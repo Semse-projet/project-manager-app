@@ -95,6 +95,38 @@ test.describe("PR #973 — authenticated ES/EN smoke", () => {
     await expect(page.locator("html")).toHaveAttribute("lang", "es");
   });
 
+  test("OPS_ADMIN: large TXT upload encoding remains private without reaching backend", async ({ page }) => {
+    await loginAsQa(page, "admin");
+    await page.goto("/admin/prometeo", { waitUntil: "domcontentloaded" });
+    await languagePicker(page).selectOption("en");
+
+    const bytes = Buffer.alloc(256 * 1024, 0x61); // exceeds practical spread-argument limits
+    let intercepted = false;
+    await page.route("**/api/semse/prometeo/ingest-file", async (route) => {
+      const body = route.request().postDataJSON() as {
+        fileName: string; fileBase64: string; visibility: string; sourceType: string;
+      };
+      expect(route.request().method()).toBe("POST");
+      expect(body.fileName).toBe("qa-large.txt");
+      expect(body.fileBase64).toBe(bytes.toString("base64"));
+      expect(body.visibility).toBe("tenant_private");
+      expect(body.sourceType).toBe("text");
+      intercepted = true;
+      // Fulfill in the browser: no document is written to the API or database.
+      await route.fulfill({ status: 200, contentType: "application/json", body: '{"data":{"id":"qa-intercepted"}}' });
+    });
+
+    await page.getByRole("button", { name: "File (PDF/DOCX/TXT)" }).click();
+    await page.getByPlaceholder("Document title").fill("QA encoded TXT — intercepted, not uploaded");
+    await expect(page.locator('select:has(option[value="tenant_private"])')).toHaveValue("tenant_private");
+    await page.locator('input[type="file"]').setInputFiles({
+      name: "qa-large.txt", mimeType: "text/plain", buffer: bytes,
+    });
+    await page.getByRole("button", { name: "Ingest file", exact: true }).click();
+    await expect.poll(() => intercepted).toBe(true);
+    await expect(page.getByText("Document submitted — indexing in background")).toBeVisible();
+  });
+
   test("CLIENT: ProTools keeps an unsent estimate description while switching locale", async ({ page }) => {
     await loginAsQa(page, "client");
     await page.goto("/client/protools", { waitUntil: "domcontentloaded" });
