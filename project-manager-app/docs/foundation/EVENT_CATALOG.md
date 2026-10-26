@@ -491,8 +491,28 @@ Crear eventos por cambios de dominio o de consecuencia operativa real.
 - `crew.member_removed`
 - `crew.archived`
 
+## Business OS — preferencia de ubicación (BO-09)
+
+- `location_preference.changed`
+
+## Business OS — experiencia y atestaciones (BO-12)
+
+- `skill_experience.confirmed`
+- `skill_experience.rejected`
+- `skill_attestation.created`
+- `skill_attestation.revoked`
+- `skill_attestation.redeemed`
+
 ## Business OS — asignación de tareas (BO-10)
 
 - `task_allocation.assigned`
+- `crew_task.created`
 - `task_allocation.status_changed`
 - `task_allocation.released`
+
+## Business OS — reportes diarios (BO-11)
+
+- `daily_report.generated`
+- `daily_report.reviewed`
+- `daily_report.returned`
+- `daily_report.published`

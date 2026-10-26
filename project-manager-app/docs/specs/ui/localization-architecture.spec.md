@@ -56,6 +56,15 @@ last_verified: "2026-10-18"
 
 **Proposed D1–D7 disposition and executable pilot test matrix:** [localization-architecture.pilot.md](localization-architecture.pilot.md). This companion plan is **REVIEW-only** and cannot supersede the SDD delivery states, #974/#987 security gate, or an explicit adoption decision.
 
+## Reconciliation checkpoint — 2026-10-26 (documentation only)
+
+- This SDD originally audited the then-current `main` at `38d7cb3a`. Its 759 ES / 759 EN key baseline and hard-coded wizard findings are **historical measurements**, not assertions of the latest default-branch count.
+- Internationalization PRs **#968 (2026-10-19), #969 (2026-10-20), and #970 (2026-10-20) have now been merged into `main`**. Their route coverage and smoke evidence must be treated separately from the remaining architecture decisions D1–D7.
+- **#973 remains open** and must not bypass the Prometeo document-access safeguards in **#974 / draft #987**.
+- The previous failures of GitHub Actions CI run **#4232 (ID 39288712379)** were superseded by a successful rerun for prior head `0b1c10a8`: `quality-gates`, `unit-coverage`, and `e2e` each completed with `success`. This does **not** certify real authenticated ES/EN staging smoke, nor checks for the reconciled head.
+- Merge `main` into this documentation branch using an explicit two-parent integration commit with `main` as the file tree base, preserving every unrelated merged change. The only delivered changes relative to that `main` should be this SDD, its pilot plan, and one regenerated-compatible `SPEC_INDEX` row.
+- The proposal stays `REVIEW`; neither PR merge nor runtime activation is approved by successful CI alone.
+
 ## Target decision
 
 **No second translation system for the same screens.** Perform a small compatibility spike comparing:

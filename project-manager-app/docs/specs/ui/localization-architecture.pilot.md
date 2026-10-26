@@ -5,6 +5,8 @@
 **PR documental:** #1003  
 **Estatus:** **PLAN PROPUESTO — NO AUTORIZA IMPLEMENTACIÓN NI DESPLIEGUE**
 
+> **Actualización 2026-10-26:** El CI #4232 (ID 39288712379) del head histórico `0b1c10a8` terminó finalmente en **success** después de una nueva ejecución: `quality-gates`, `unit-coverage` y `e2e` PASS. Las anotaciones siguientes sobre fallos describen intentos anteriores, no el resultado final. Los PR #968, #969 y #970 están **fusionados a `main`**; #973 continúa abierto. El nuevo head reconciliado necesitará sus propias comprobaciones y el smoke ES/EN autenticado sigue pendiente.
+
 ## Alcance y evidencia de código
 
 Inspección de \`main\`, 2026-10-19:

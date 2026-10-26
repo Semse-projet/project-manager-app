@@ -10,6 +10,7 @@ import {
   X,
 } from "lucide-react";
 import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
+import { useLanguage } from "../../../../lib/language-context";
 
 type MissionControlAction =
   | "ACKNOWLEDGE"
@@ -116,10 +117,10 @@ const SOURCE_LABELS: Record<string, string> = {
   worker_queue: "Worker queue",
 };
 
-function relativeTime(value: string): string {
+function relativeTime(value: string, t: (key: string) => string): string {
   const elapsed = Date.now() - new Date(value).getTime();
   const minutes = Math.max(0, Math.floor(elapsed / 60_000));
-  if (minutes < 1) return "now";
+  if (minutes < 1) return t("mc.now");
   if (minutes < 60) return `${minutes}m`;
   const hours = Math.floor(minutes / 60);
   if (hours < 24) return `${hours}h`;
@@ -149,13 +150,14 @@ function errorMessage(body: unknown, fallback: string): string {
 }
 
 export default function MissionControlPage() {
+  const { t } = useLanguage();
   const [payload, setPayload] = useState<ExceptionsPayload | null>(null);
   const [runbooks, setRunbooks] = useState<MissionControlRunbook[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [accessState, setAccessState] = useState<"ready" | "forbidden" | "inactive" | "error">("ready");
   const [error, setError] = useState<string | null>(null);
-  const [liveState, setLiveState] = useState<"connected" | "degraded">("connected");
+  const [liveState, setLiveState] = useState<"connecting" | "connected" | "degraded">("connecting");
   const [source, setSource] = useState("");
   const [severity, setSeverity] = useState("");
   const [status, setStatus] = useState("");
@@ -197,22 +199,29 @@ export default function MissionControlPage() {
       }
       if (!exceptionsResponse.ok || !runbooksResponse.ok) {
         const body = await exceptionsResponse.json().catch(() => null);
-        throw new Error(errorMessage(body, "Mission Control is temporarily unavailable."));
+        throw new Error(errorMessage(body, t("mc.error.unavailable")));
       }
       const exceptionsBody = await exceptionsResponse.json() as { data?: ExceptionsPayload };
       const runbooksBody = await runbooksResponse.json() as {
         data?: { runbooks?: MissionControlRunbook[] };
       };
-      setPayload(exceptionsBody.data ?? null);
+      if (!exceptionsBody.data) throw new Error(t("mc.error.load"));
+      if (!exceptionsBody.data.enabled) {
+        setPayload(null);
+        setRunbooks([]);
+        setAccessState("inactive");
+        return;
+      }
+      setPayload(exceptionsBody.data);
       setRunbooks(runbooksBody.data?.runbooks ?? []);
       setAccessState("ready");
     } catch (caught) {
       setAccessState("error");
-      setError(caught instanceof Error ? caught.message : "Mission Control could not be loaded.");
+      setError(caught instanceof Error ? caught.message : t("mc.error.load"));
     } finally {
       setLoading(false);
     }
-  }, [buildQuery]);
+  }, [buildQuery, t]);
 
   useEffect(() => {
     void fetchData();
@@ -283,16 +292,16 @@ export default function MissionControlPage() {
         data?: { receipt?: Receipt };
       } | null;
       if (!response.ok || !body?.data?.receipt) {
-        throw new Error(errorMessage(body, `Action failed with HTTP ${response.status}.`));
+        throw new Error(errorMessage(body, `${t("mc.error.actionHttp")} ${response.status}.`));
       }
       setReceipt(body.data.receipt);
       await fetchData();
     } catch (caught) {
-      setActionError(caught instanceof Error ? caught.message : "The governed action failed.");
+      setActionError(caught instanceof Error ? caught.message : t("mc.error.action"));
     } finally {
       setSubmitting(false);
     }
-  }, [draft, fetchData]);
+  }, [draft, fetchData, t]);
 
   const loadMore = useCallback(async () => {
     if (!payload?.nextCursor) return;
@@ -302,7 +311,7 @@ export default function MissionControlPage() {
         `/api/semse/ops/mission-control/exceptions?${buildQuery(payload.nextCursor)}`,
         { credentials: "include", cache: "no-store" },
       );
-      if (!response.ok) throw new Error("The next page could not be loaded.");
+      if (!response.ok) throw new Error(t("mc.error.nextPage"));
       const body = await response.json() as { data?: ExceptionsPayload };
       if (!body.data) return;
       setPayload((current) => current ? {
@@ -310,82 +319,95 @@ export default function MissionControlPage() {
         items: [...current.items, ...body.data!.items],
       } : body.data!);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "The next page could not be loaded.");
+      setError(caught instanceof Error ? caught.message : t("mc.error.nextPage"));
     } finally {
       setLoadingMore(false);
     }
-  }, [buildQuery, payload?.nextCursor]);
+  }, [buildQuery, payload?.nextCursor, t]);
 
   const selectedRunbook = useMemo(
     () => runbooks.find((runbook) => runbook.id === draft?.runbookId) ?? null,
     [draft?.runbookId, runbooks],
   );
 
-  const pageStatus = payload?.sourceErrors.length
-    ? "DEGRADED"
-    : (payload?.counts.total ?? 0) > 0
-      ? "ATTENTION"
-      : "HEALTHY";
-  const statusColor = pageStatus === "HEALTHY"
-    ? "#22c55e"
-    : pageStatus === "DEGRADED"
-      ? "#f97316"
-      : "#eab308";
+  // Do not announce a healthy system or render zero KPIs until an authenticated
+  // response from the canonical exceptions API has been verified.
+  const hasVerifiedPayload = !loading && accessState === "ready" && !error && payload?.enabled === true;
+  const pageStatus = !hasVerifiedPayload
+    ? null
+    : payload?.sourceErrors.length
+      ? "DEGRADED"
+      : (payload?.counts.total ?? 0) > 0
+        ? "ATTENTION"
+        : "HEALTHY";
+  const statusColor = pageStatus === null
+    ? "#94a3b8"
+    : pageStatus === "HEALTHY"
+      ? "#22c55e"
+      : pageStatus === "DEGRADED"
+        ? "#f97316"
+        : "#eab308";
 
   if (!loading && accessState === "forbidden") {
-    return <StatePanel title="Access denied" detail="Your session does not have ops:dashboard:read." />;
+    return <StatePanel title={t("mc.access.denied")} detail={t("mc.access.deniedDetail")} />;
   }
   if (!loading && accessState === "inactive") {
-    return <StatePanel title="Mission Control 2.0 is not active" detail="This tenant is outside the current canary allowlist." />;
+    return <StatePanel title={t("mc.access.inactive")} detail={t("mc.access.inactiveDetail")} />;
   }
-  if (!loading && accessState === "error" && !payload) {
-    return <StatePanel title="Mission Control unavailable" detail={error ?? "The service did not return a usable response."} retry={fetchData} />;
+  if (!loading && accessState === "error") {
+    return <StatePanel title={t("mc.access.unavailable")} detail={error ?? t("mc.access.unavailableDetail")} retry={fetchData} />;
   }
 
   return (
     <div className="mx-auto max-w-[1280px] p-6">
       <AdminPageHeader
-        title="Mission Control 2.0"
-        subtitle="Tenant-safe exception queue with governed, idempotent recovery actions."
+        title={t("mc.title")}
+        subtitle={t("mc.subtitle")}
         icon={Activity}
         iconColor={statusColor}
         iconBg={`${statusColor}18`}
         showBack={false}
         actions={
           <div className="flex items-center gap-2">
-            <span
-              className="rounded border px-2 py-1 text-[10px] font-bold tracking-widest"
-              style={{ borderColor: `${statusColor}55`, color: statusColor }}
-            >
-              {pageStatus}
-            </span>
-            <span className={`text-[10px] ${liveState === "connected" ? "text-emerald-400" : "text-orange-400"}`}>
-              {liveState === "connected" ? "LIVE" : "POLLING"}
-            </span>
+            {pageStatus && (
+              <span
+                className="rounded border px-2 py-1 text-[10px] font-bold tracking-widest"
+                style={{ borderColor: `${statusColor}55`, color: statusColor }}
+              >
+                {t(`mc.pageStatus.${pageStatus}`)}
+              </span>
+            )}
+            {hasVerifiedPayload && (
+              <span className={`text-[10px] ${liveState === "connected" ? "text-emerald-400" : "text-orange-400"}`}>
+                {t(`mc.live.${liveState}`)}
+              </span>
+            )}
             <button
               type="button"
               onClick={() => void fetchData()}
               className="inline-flex items-center gap-1 rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-300 hover:border-slate-500"
             >
               <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
-              Refresh
+              {t("mc.refresh")}
             </button>
           </div>
         }
       />
 
-      <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        <Metric label="Total" value={payload?.counts.total ?? 0} />
-        <Metric label="Critical" value={payload?.counts.bySeverity.critical ?? 0} tone="var(--error)" />
-        <Metric label="Dead letter" value={payload?.counts.byStatus.dead_letter ?? 0} tone="#f97316" />
-        <Metric label="Failed" value={payload?.counts.byStatus.failed ?? 0} tone="#eab308" />
-        <Metric label="Pending approval" value={payload?.counts.byStatus.pending_approval ?? 0} tone="var(--violet)" />
-      </div>
+      {hasVerifiedPayload && (
+        <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <Metric label={t("mc.metric.total")} value={payload?.counts.total ?? 0} />
+          <Metric label={t("mc.metric.critical")} value={payload?.counts.bySeverity.critical ?? 0} tone="var(--error)" />
+          <Metric label={t("mc.metric.deadLetter")} value={payload?.counts.byStatus.dead_letter ?? 0} tone="#f97316" />
+          <Metric label={t("mc.metric.failed")} value={payload?.counts.byStatus.failed ?? 0} tone="#eab308" />
+          <Metric label={t("mc.metric.pendingApproval")} value={payload?.counts.byStatus.pending_approval ?? 0} tone="var(--violet)" />
+        </div>
+      )}
 
       {payload?.sourceErrors.length ? (
         <div className="mb-4 flex items-start gap-2 rounded-xl border border-orange-500/30 bg-orange-500/10 p-3 text-sm text-orange-200">
           <AlertTriangle size={17} className="mt-0.5 shrink-0" />
-          Partial data: {payload.sourceErrors.map((item) => item.source).join(", ")}. Healthy sources remain actionable.
+          {t("mc.partialData.pre")} {payload.sourceErrors.map((item) => SOURCE_LABELS[item.source] ? t(`mc.source.${item.source}`) : item.source).join(", ")}. {t("mc.partialData.post")}
         </div>
       ) : null}
 
@@ -394,23 +416,23 @@ export default function MissionControlPage() {
       ) : null}
 
       <div className="mb-4 flex flex-wrap gap-2 rounded-xl border border-slate-800 bg-slate-950/40 p-3">
-        <FilterSelect label="Source" value={source} onChange={setSource} options={Object.entries(SOURCE_LABELS)} />
+        <FilterSelect label={t("mc.filter.source")} value={source} onChange={setSource} options={Object.keys(SOURCE_LABELS).map((key) => [key, t(`mc.source.${key}`)])} />
         <FilterSelect
-          label="Severity"
+          label={t("mc.filter.severity")}
           value={severity}
           onChange={setSeverity}
-          options={["critical", "high", "medium", "low", "info"].map((item) => [item, item])}
+          options={["critical", "high", "medium", "low", "info"].map((item) => [item, t(`mc.severity.${item}`)])}
         />
         <FilterSelect
-          label="Status"
+          label={t("mc.filter.status")}
           value={status}
           onChange={setStatus}
-          options={["open", "acknowledged", "failed", "dead_letter", "pending_approval"].map((item) => [item, item])}
+          options={["open", "acknowledged", "failed", "dead_letter", "pending_approval"].map((item) => [item, t(`mc.status.${item}`)])}
         />
       </div>
 
-      {loading && !payload ? (
-        <div className="rounded-xl border border-slate-800 p-12 text-center text-sm text-slate-400">Loading canonical exceptions…</div>
+      {loading ? (
+        <div className="rounded-xl border border-slate-800 p-12 text-center text-sm text-slate-400">{t("mc.loading")}</div>
       ) : payload?.items.length ? (
         <div className="space-y-3">
           {payload.items.map((item) => (
@@ -423,15 +445,15 @@ export default function MissionControlPage() {
               disabled={loadingMore}
               className="w-full rounded-xl border border-slate-700 py-3 text-sm text-slate-300 hover:border-slate-500 disabled:opacity-50"
             >
-              {loadingMore ? "Loading…" : "Load more"}
+              {loadingMore ? t("mc.loadingMore") : t("mc.loadMore")}
             </button>
           ) : null}
         </div>
       ) : (
         <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-12 text-center">
           <ShieldCheck className="mx-auto mb-3 text-emerald-400" size={32} />
-          <p className="font-semibold text-slate-100">No exceptions match this view.</p>
-          <p className="mt-1 text-sm text-slate-400">GET remains the source of truth after every SSE reconnect.</p>
+          <p className="font-semibold text-slate-100">{t("mc.empty")}</p>
+          <p className="mt-1 text-sm text-slate-400">{t("mc.emptyDetail")}</p>
         </div>
       )}
 
@@ -440,12 +462,12 @@ export default function MissionControlPage() {
           <div className="w-full max-w-xl rounded-2xl border border-slate-700 bg-slate-950 p-5 shadow-2xl">
             <div className="mb-4 flex items-start justify-between gap-4">
               <div>
-                <p className="text-xs font-bold uppercase tracking-widest text-violet-300">Governed action</p>
-                <h2 className="mt-1 text-lg font-bold text-white">{draft.action}: {draft.exception.title}</h2>
+                <p className="text-xs font-bold uppercase tracking-widest text-violet-300">{t("mc.governedAction")}</p>
+                <h2 className="mt-1 text-lg font-bold text-white">{t(`mc.action.${draft.action}`)}: {draft.exception.title}</h2>
               </div>
               <button
                 type="button"
-                aria-label="Close action dialog"
+                aria-label={t("mc.closeDialog")}
                 onClick={() => setDraft(null)}
                 className="rounded p-1 text-slate-400 hover:bg-slate-800"
               >
@@ -454,18 +476,18 @@ export default function MissionControlPage() {
             </div>
 
             <div className="mb-4 rounded-lg border border-slate-800 bg-slate-900/60 p-3 text-xs text-slate-300">
-              <div>Target: <code>{draft.targetType}/{draft.targetId}</code></div>
-              <div className="mt-1">Receipt key: <code className="break-all">{draft.idempotencyKey}</code></div>
+              <div>{t("mc.target")}: <code>{draft.targetType}/{draft.targetId}</code></div>
+              <div className="mt-1">{t("mc.receiptKey")}: <code className="break-all">{draft.idempotencyKey}</code></div>
             </div>
 
-            <label className="mb-1 block text-xs font-semibold text-slate-300" htmlFor="mission-control-runbook">Approved runbook</label>
+            <label className="mb-1 block text-xs font-semibold text-slate-300" htmlFor="mission-control-runbook">{t("mc.approvedRunbook")}</label>
             <select
               id="mission-control-runbook"
               value={draft.runbookId}
               onChange={(event) => setDraft((current) => current ? { ...current, runbookId: event.target.value } : current)}
               className="mb-3 w-full rounded-lg border border-slate-700 bg-slate-900 p-2 text-sm text-slate-100"
             >
-              <option value="">Select a compatible runbook</option>
+              <option value="">{t("mc.selectRunbook")}</option>
               {runbooks
                 .filter((runbook) =>
                   draft.exception.runbookIds.includes(runbook.id) &&
@@ -474,19 +496,19 @@ export default function MissionControlPage() {
                 )
                 .map((runbook) => (
                   <option key={runbook.id} value={runbook.id}>
-                    {runbook.title} · risk {runbook.risk}
+                    {runbook.title} · {t("mc.risk")} {t(`mc.severity.${runbook.risk}`)}
                   </option>
                 ))}
             </select>
 
             {selectedRunbook ? (
               <p className="mb-3 text-xs text-slate-400">
-                Version {selectedRunbook.version} · {selectedRunbook.documentationPath}
+                {t("mc.version")} {selectedRunbook.version} · {selectedRunbook.documentationPath}
               </p>
             ) : null}
 
             <label className="mb-1 block text-xs font-semibold text-slate-300" htmlFor="mission-control-reason">
-              Operator reason (10–500 characters)
+              {t("mc.operatorReason")}
             </label>
             <textarea
               id="mission-control-reason"
@@ -495,7 +517,7 @@ export default function MissionControlPage() {
               value={draft.reason}
               onChange={(event) => setDraft((current) => current ? { ...current, reason: event.target.value } : current)}
               className="w-full resize-none rounded-lg border border-slate-700 bg-slate-900 p-3 text-sm text-slate-100"
-              placeholder="State what was verified, why this action is appropriate, and the expected result."
+              placeholder={t("mc.reasonPlaceholder")}
             />
             <div className="mt-2 flex items-center justify-between gap-3">
               <label className="flex items-center gap-2 text-xs text-slate-300">
@@ -504,7 +526,7 @@ export default function MissionControlPage() {
                   checked={draft.dryRun}
                   onChange={(event) => setDraft((current) => current ? { ...current, dryRun: event.target.checked } : current)}
                 />
-                Dry-run (validate without applying the owning-domain effect)
+                {t("mc.dryRun")}
               </label>
               <span className="text-[10px] text-slate-500">{draft.reason.trim().length}/500</span>
             </div>
@@ -518,7 +540,7 @@ export default function MissionControlPage() {
                   ? "border-red-500/30 bg-red-500/10 text-red-200"
                   : "border-emerald-500/30 bg-emerald-500/10 text-emerald-200"
               }`}>
-                Receipt <code>{receipt.id}</code> · {receipt.status}
+                {t("mc.receipt")} <code>{receipt.id}</code> · {t(`mc.receiptStatus.${receipt.status}`)}
                 {receipt.dryRun ? " · DRY-RUN" : ""}
                 <pre className="mt-2 max-h-32 overflow-auto whitespace-pre-wrap text-[11px]">
                   {JSON.stringify(receipt.result, null, 2)}
@@ -532,7 +554,7 @@ export default function MissionControlPage() {
                 onClick={() => setDraft(null)}
                 className="rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-300"
               >
-                Close
+                {t("mc.close")}
               </button>
               <button
                 type="button"
@@ -540,7 +562,7 @@ export default function MissionControlPage() {
                 disabled={submitting || draft.reason.trim().length < 10 || !draft.runbookId}
                 className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-40"
               >
-                {submitting ? "Creating receipt…" : draft.dryRun ? "Confirm dry-run" : "Confirm governed action"}
+                {submitting ? t("mc.creatingReceipt") : draft.dryRun ? t("mc.confirmDryRun") : t("mc.confirmAction")}
               </button>
             </div>
           </div>
@@ -570,6 +592,7 @@ function FilterSelect({
   onChange: (value: string) => void;
   options: string[][];
 }) {
+  const { t } = useLanguage();
   return (
     <label className="flex min-w-44 flex-col gap-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">
       {label}
@@ -578,7 +601,7 @@ function FilterSelect({
         onChange={(event) => onChange(event.target.value)}
         className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-normal normal-case tracking-normal text-slate-200"
       >
-        <option value="">All</option>
+        <option value="">{t("mc.filter.all")}</option>
         {options.map(([key, optionLabel]) => (
           <option key={key} value={key}>{optionLabel}</option>
         ))}
@@ -594,6 +617,7 @@ function ExceptionCard({
   item: MissionControlException;
   onAction: (item: MissionControlException, action: MissionControlAction) => void;
 }) {
+  const { t } = useLanguage();
   const severity = SEVERITY_STYLE[item.severity] ?? SEVERITY_STYLE.info;
   return (
     <article className="rounded-xl border border-slate-800 bg-slate-950/50 p-4">
@@ -604,24 +628,24 @@ function ExceptionCard({
               className="rounded px-2 py-1 text-[10px] font-bold uppercase tracking-wider"
               style={{ color: severity.color, background: severity.background }}
             >
-              {item.severity}
+              {t(`mc.severity.${item.severity}`)}
             </span>
-            <span className="text-[11px] text-slate-400">{SOURCE_LABELS[item.source] ?? item.source}</span>
-            <span className="rounded border border-slate-700 px-1.5 py-0.5 text-[10px] text-slate-400">{item.status}</span>
-            <span className="text-[10px] text-slate-600">{relativeTime(item.occurredAt)}</span>
+            <span className="text-[11px] text-slate-400">{SOURCE_LABELS[item.source] ? t(`mc.source.${item.source}`) : item.source}</span>
+            <span className="rounded border border-slate-700 px-1.5 py-0.5 text-[10px] text-slate-400">{t(`mc.status.${item.status}`)}</span>
+            <span className="text-[10px] text-slate-600">{relativeTime(item.occurredAt, t)}</span>
           </div>
           <h2 className="text-sm font-bold text-slate-100">{item.title}</h2>
           <p className="mt-1 text-sm leading-6 text-slate-400">{item.summary}</p>
           <div className="mt-2 flex flex-wrap gap-3 text-[10px] text-slate-600">
             <span>{item.targetType}/{item.targetId}</span>
-            {item.correlationId ? <span>correlation: {item.correlationId}</span> : null}
+            {item.correlationId ? <span>{t("mc.correlation")}: {item.correlationId}</span> : null}
           </div>
         </div>
         <a
           href={item.deepLink}
           className="inline-flex items-center gap-1 text-xs font-semibold text-blue-300 hover:text-blue-200"
         >
-          Owner workspace <ExternalLink size={12} />
+          {t("mc.ownerWorkspace")} <ExternalLink size={12} />
         </a>
       </div>
       <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-800 pt-3">
@@ -636,7 +660,7 @@ function ExceptionCard({
                 : "border-slate-700 bg-slate-900 text-slate-300 hover:border-slate-500"
             }`}
           >
-            {action}
+            {t(`mc.action.${action}`)}
           </button>
         ))}
       </div>
@@ -653,6 +677,7 @@ function StatePanel({
   detail: string;
   retry?: () => void | Promise<void>;
 }) {
+  const { t } = useLanguage();
   return (
     <div className="mx-auto mt-20 max-w-xl rounded-2xl border border-slate-800 bg-slate-950/50 p-10 text-center">
       <AlertTriangle className="mx-auto mb-3 text-orange-400" size={30} />
@@ -664,7 +689,7 @@ function StatePanel({
           onClick={() => void retry()}
           className="mt-5 rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-200"
         >
-          Retry
+          {t("mc.retry")}
         </button>
       ) : null}
     </div>

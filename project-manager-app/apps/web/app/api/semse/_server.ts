@@ -354,7 +354,8 @@ export function isSemseRuntimeEnabled(): boolean {
  * local-dev fallback. Use this as the gate in API route handlers.
  */
 export function isApiBaseConfigured(): boolean {
-  return resolveRuntimeConfig() !== null;
+  // API connectivity is independent of the actor. Middleware/cookie supplies session identity.
+  return Boolean(trimToUndefined(process.env.SEMSE_API_BASE_URL)) || process.env.NODE_ENV !== "production";
 }
 
 export function handleServerError(error: unknown): NextResponse {
@@ -376,6 +377,15 @@ export function handleServerError(error: unknown): NextResponse {
 export async function getServerConfig(req: NextRequest): Promise<RuntimeConfig> {
   const cfg = await resolveRuntimeConfigForRequest(req);
   if (!cfg) throw new Error("SEMSE server runtime is not configured");
+  return cfg;
+}
+
+/** Resolve only the signed-in actor; never fall back to static server credentials. */
+export async function getAuthenticatedServerConfig(req: NextRequest): Promise<RuntimeConfig> {
+  const cfg = resolveConfigFromRequest(req) ?? await resolveConfigFromCookie(req);
+  if (!cfg) {
+    throw new SemseProxyError(401, req.nextUrl.pathname, "Authenticated SEMSE session required");
+  }
   return cfg;
 }
 
