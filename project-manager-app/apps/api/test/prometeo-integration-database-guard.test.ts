@@ -15,6 +15,10 @@ function shouldRejectDatabaseTarget(url: string, ci = false): void {
       cwd: here,
       env: {
         ...process.env,
+        // The parent node:test runner sets NODE_TEST_CONTEXT=child-v8.
+        // A nested --test command inherits it and silently skips running files
+        // with exit status 0, yielding a dangerous false-positive.
+        NODE_TEST_CONTEXT: undefined,
         DATABASE_URL: url,
         CI: String(ci),
         GITHUB_ACTIONS: String(ci),
