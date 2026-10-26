@@ -31,6 +31,7 @@ export type McpConsentCreateData = {
   policyVersion: string;
   consentVersion: string;
   idempotencyKeyDigest: string | null;
+  requestFingerprint: string;
 };
 
 type Tx = Prisma.TransactionClient;
@@ -125,19 +126,30 @@ export class McpConsentRepository {
     });
   }
 
-  /** Anonimiza una fila; si seguía PENDING/ACTIVE pasa a EXPIRED en la misma escritura. */
+  /**
+   * Anonimiza una fila; si seguía PENDING/ACTIVE pasa a EXPIRED en la misma escritura.
+   * Compare-and-set sobre el snapshot leído: si una revocación concurrente cambió
+   * estado o revokedAt (y por tanto el momento terminal), no escribe y devuelve false.
+   */
   async anonymize(
     row: { id: string; status: string; createdAt: Date; authorizedAt: Date | null; expiresAt: Date; revokedAt: Date | null },
     now: Date,
   ): Promise<boolean> {
     const result = await this.prisma.mcpDelegatedConsent.updateMany({
-      where: { id: row.id, anonymizedAt: null },
+      where: {
+        id: row.id,
+        anonymizedAt: null,
+        status: row.status,
+        revokedAt: row.revokedAt,
+        expiresAt: row.expiresAt,
+      },
       data: {
         status: LIVE_STATUSES.includes(row.status) ? "EXPIRED" : row.status,
         userId: null,
         sessionId: null,
         revokedByUserId: null,
         idempotencyKeyDigest: null,
+        requestFingerprint: null,
         grantBindingDigest: null,
         createdAt: truncateToUtcDay(row.createdAt),
         authorizedAt: row.authorizedAt ? truncateToUtcDay(row.authorizedAt) : null,

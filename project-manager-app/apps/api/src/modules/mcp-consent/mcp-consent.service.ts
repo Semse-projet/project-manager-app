@@ -21,6 +21,7 @@ import {
 import { hasPermission } from "../../common/rbac.js";
 import { AuthRepository } from "../auth/auth.repository.js";
 import {
+  acceptRequestFingerprint,
   computeGrantExpiry,
   idempotencyKeyDigest,
   mcpEffectiveRoles,
@@ -33,6 +34,8 @@ export type McpConsentTrust = {
   oauthIssuer: string;
   resourceUri: string;
   allowedClientIds: readonly string[];
+  /** Versiones de política vigentes: un grant emitido bajo otra no autoriza (D7-09). */
+  acceptedPolicyVersions: readonly string[];
 };
 export const MCP_CONSENT_TRUST = Symbol("MCP_CONSENT_TRUST");
 /** Reloj inyectable para pruebas de expiración y retención. */
@@ -75,8 +78,12 @@ export class McpConsentService {
     if (!parsed.success) throw new BadRequestException("Invalid MCP consent request");
     const input = parsed.data;
     this.assertTrusted(input.oauthIssuer, input.oauthClientId, input.resourceUri);
+    if (!this.trust.acceptedPolicyVersions.includes(input.policyVersion)) {
+      throw new ForbiddenException("Consent policy version not accepted");
+    }
     const now = this.clock();
     const scopeSet = [...new Set(input.scopeSet)].sort();
+    const requestFingerprint = acceptRequestFingerprint({ ...input, scopeSet });
 
     try {
       return await this.repository.acceptInTransaction(input.sessionId, async (tx, { session, userStatus }) => {
@@ -113,11 +120,12 @@ export class McpConsentService {
           policyVersion: input.policyVersion,
           consentVersion: input.consentVersion,
           idempotencyKeyDigest: digest,
+          requestFingerprint,
         });
       });
     } catch (error) {
       if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== "P2002") throw error;
-      return this.resolveDuplicate(input, scopeSet);
+      return this.resolveDuplicate(input, requestFingerprint);
     }
   }
 
@@ -146,6 +154,7 @@ export class McpConsentService {
       grant.oauthIssuer !== input.oauthIssuer ||
       grant.oauthClientId !== input.oauthClientId ||
       grant.resourceUri !== input.resourceUri ||
+      !this.trust.acceptedPolicyVersions.includes(grant.policyVersion) ||
       !grant.scopeSet.includes(input.scope)
     ) {
       throw new UnauthorizedException("MCP consent not valid");
@@ -220,18 +229,11 @@ export class McpConsentService {
     return grant;
   }
 
-  private async resolveDuplicate(input: AcceptMcpConsentInput, scopeSet: string[]) {
+  private async resolveDuplicate(input: AcceptMcpConsentInput, requestFingerprint: string) {
     const existing = input.idempotencyKey
       ? await this.findByIdempotency(input.sessionId, input.idempotencyKey)
       : null;
-    if (
-      existing &&
-      existing.sessionId === input.sessionId &&
-      existing.oauthClientId === input.oauthClientId &&
-      existing.resourceUri === input.resourceUri &&
-      existing.grantBindingDigest === input.grantBindingDigest &&
-      existing.scopeSet.join(" ") === scopeSet.join(" ")
-    ) {
+    if (existing && existing.requestFingerprint === requestFingerprint) {
       return existing;
     }
     throw new ConflictException("MCP consent conflicts with an existing grant");

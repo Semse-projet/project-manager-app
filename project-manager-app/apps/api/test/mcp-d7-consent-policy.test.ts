@@ -7,6 +7,7 @@ import {
   UnauthorizedException,
 } from "@nestjs/common";
 import {
+  acceptRequestFingerprint,
   assertProjectInGrantOrg,
   computeGrantExpiry,
   idempotencyKeyDigest,
@@ -30,6 +31,7 @@ const trust = {
   oauthIssuer: "https://auth.example.invalid/",
   resourceUri: "https://mcp.example.invalid/semse",
   allowedClientIds: ["client-ok"],
+  acceptedPolicyVersions: ["p1"],
 };
 
 test("D7-22: expiry is min(refresh, 30-day cap, requested) and rejects past or over-cap requests", () => {
@@ -85,6 +87,18 @@ test("Q5: only OPS_ADMIN holds mcp:consents:revoke:tenant", () => {
   }
 });
 
+test("D7-03: request fingerprint changes with requested expiry, policy or consent version", () => {
+  const base = {
+    sessionId: "s1", oauthIssuer: trust.oauthIssuer, oauthClientId: "client-ok", resourceUri: trust.resourceUri,
+    scopeSet: ["projects:read"], grantBindingDigest: "b1", policyVersion: "p1", consentVersion: "c1",
+  };
+  const fp = acceptRequestFingerprint(base);
+  assert.equal(acceptRequestFingerprint({ ...base, scopeSet: ["projects:read", "projects:read"] }), fp);
+  assert.notEqual(acceptRequestFingerprint({ ...base, requestedExpiresAt: new Date(now.getTime() + DAY) }), fp);
+  assert.notEqual(acceptRequestFingerprint({ ...base, policyVersion: "p2" }), fp);
+  assert.notEqual(acceptRequestFingerprint({ ...base, consentVersion: "c2" }), fp);
+});
+
 test("Q6 helpers: day truncation, terminal moment and tenant-scoped idempotency digest", () => {
   assert.equal(truncateToUtcDay(new Date("2026-10-26T23:59:59.999Z")).toISOString(), "2026-10-26T00:00:00.000Z");
   const expiresAt = new Date("2026-01-01T00:00:00.000Z");
@@ -121,7 +135,7 @@ test("D7-09/D7-11: missing, expired, anonymized or non-ACTIVE grants are denied 
   const base = {
     id: "g1", tenantId: "tenant-a", orgId: "org-a", userId: "u1", sessionId: "s1",
     oauthIssuer: trust.oauthIssuer, oauthClientId: "client-ok", resourceUri: trust.resourceUri,
-    scopeSet: ["projects:read"], status: "ACTIVE", anonymizedAt: null,
+    scopeSet: ["projects:read"], status: "ACTIVE", anonymizedAt: null, policyVersion: "p1",
     expiresAt: new Date(now.getTime() + DAY),
   };
   let sessionReads = 0;
@@ -135,6 +149,7 @@ test("D7-09/D7-11: missing, expired, anonymized or non-ACTIVE grants are denied 
     { ...base, userId: null },
     { ...base, oauthClientId: "client-other" },
     { ...base, scopeSet: [] },
+    { ...base, policyVersion: "p0-retired" },
   ]) {
     const service = serviceWith({ async findByBinding() { return grant; } }, authRepository);
     await assert.rejects(service.authorizeRead(readInput), UnauthorizedException);
@@ -146,7 +161,7 @@ test("D7-04/D7-08: session of another user/org, inactive user or expired refresh
   const grant = {
     id: "g1", tenantId: "tenant-a", orgId: "org-a", userId: "u1", sessionId: "s1",
     oauthIssuer: trust.oauthIssuer, oauthClientId: "client-ok", resourceUri: trust.resourceUri,
-    scopeSet: ["projects:read"], status: "ACTIVE", anonymizedAt: null,
+    scopeSet: ["projects:read"], status: "ACTIVE", anonymizedAt: null, policyVersion: "p1",
     expiresAt: new Date(now.getTime() + DAY),
   };
   const session = {
@@ -191,4 +206,17 @@ test("§5: malformed acceptance input is a 400 before touching the database", as
     async acceptInTransaction() { throw new Error("must not open a transaction"); },
   });
   await assert.rejects(service.accept({ sessionId: "s1" }), BadRequestException);
+});
+
+test("D7-09: acceptance under a policy version that is not accepted is refused before the database", async () => {
+  const service = serviceWith({
+    async acceptInTransaction() { throw new Error("must not open a transaction"); },
+  });
+  await assert.rejects(
+    service.accept({
+      sessionId: "s1", oauthIssuer: trust.oauthIssuer, oauthClientId: "client-ok", resourceUri: trust.resourceUri,
+      scopeSet: ["projects:read"], grantBindingDigest: "binding-digest-0001", policyVersion: "p0-retired", consentVersion: "c1",
+    }),
+    ForbiddenException,
+  );
 });

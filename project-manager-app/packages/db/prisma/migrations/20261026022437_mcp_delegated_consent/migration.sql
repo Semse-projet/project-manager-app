@@ -21,6 +21,7 @@ CREATE TABLE "McpDelegatedConsent" (
     "policyVersion" TEXT NOT NULL,
     "consentVersion" TEXT NOT NULL,
     "idempotencyKeyDigest" TEXT,
+    "requestFingerprint" TEXT,
     "anonymizedAt" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,

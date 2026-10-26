@@ -733,6 +733,9 @@ model McpDelegatedConsent {
   policyVersion        String
   consentVersion       String
   idempotencyKeyDigest String?
+  // Huella del payload aceptado: un reintento con la misma idempotencyKey solo
+  // devuelve el grant si la huella coincide (plazo y versiones incluidos).
+  requestFingerprint   String?
   anonymizedAt         DateTime?
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt

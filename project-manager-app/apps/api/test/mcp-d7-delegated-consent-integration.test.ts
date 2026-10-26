@@ -62,6 +62,7 @@ test("MCP D7 phase B — persisted delegated consent against real ephemeral Post
     oauthIssuer: "https://auth.example.invalid/",
     resourceUri: "https://mcp.example.invalid/semse",
     allowedClientIds: ["client-ok", "client-two"],
+    acceptedPolicyVersions: ["p1"],
   };
   const authRepository = new AuthRepository(guarded);
   const consentRepository = new McpConsentRepository(guarded);
@@ -181,6 +182,12 @@ test("MCP D7 phase B — persisted delegated consent against real ephemeral Post
       service.accept({ ...inputPar, oauthClientId: "client-two", grantBindingDigest: "binding-" + randomUUID() }),
       ConflictException,
     );
+    // Codex P2: same key and binding but a different requested expiry or version is a 409, not the old grant.
+    await assert.rejects(
+      service.accept({ ...inputPar, requestedExpiresAt: new Date(clockNow.getTime() + DAY) }),
+      ConflictException,
+    );
+    await assert.rejects(service.accept({ ...inputPar, consentVersion: "c2" }), ConflictException);
     // Same binding digest without idempotency key is also a conflict, never a second grant.
     await assert.rejects(service.accept({ ...acceptInput(sid.client), grantBindingDigest: inputA.grantBindingDigest }), ConflictException);
 
@@ -199,9 +206,14 @@ test("MCP D7 phase B — persisted delegated consent against real ephemeral Post
 
     // D7-13: verification and project reads are SELECT-only.
     disallowWrites = true;
+    // Scoped to this fixture so other integration tests writing in parallel cannot skew it.
+    const tenants = { in: [tenantA, tenantB] };
+    const users = { in: Object.values(user) };
     const counts = () => Promise.all([
-      db.tenant.count(), db.org.count(), db.user.count(), db.membership.count(),
-      db.job.count(), db.project.count(), db.mcpDelegatedConsent.count(),
+      db.tenant.count({ where: { id: tenants } }), db.org.count({ where: { tenantId: tenants } }),
+      db.user.count({ where: { id: users } }), db.membership.count({ where: { userId: users } }),
+      db.job.count({ where: { tenantId: tenants } }), db.project.count({ where: { tenantId: tenants } }),
+      db.mcpDelegatedConsent.count({ where: { tenantId: tenants } }),
     ]);
     const before = await counts();
     const ctxA = await service.authorizeRead(readInput(tenantA, inputA.grantBindingDigest));
@@ -264,6 +276,14 @@ test("MCP D7 phase B — persisted delegated consent against real ephemeral Post
     assert.equal(byOps.revocationReasonCode, "ops_incident");
     assert.equal(typeof service.revokeAllForClient, "undefined", "bulk revocation is v1.1, not v1");
 
+    // D7-09 (Codex P2): retiring the grant's policy version denies it without writing.
+    const retiredPolicy = new McpConsentService(
+      consentRepository, authRepository, { ...trust, acceptedPolicyVersions: ["p2"] }, clock,
+    );
+    disallowWrites = true;
+    await assert.rejects(retiredPolicy.authorizeRead(readInput(tenantA, opsInput.grantBindingDigest)), UnauthorizedException);
+    disallowWrites = false;
+
     // D7-09: an ACTIVE grant past expiresAt is denied without writing.
     clockNow = new Date(Date.now() + 2 * DAY);
     disallowWrites = true;
@@ -297,7 +317,7 @@ test("MCP D7 phase B — persisted delegated consent against real ephemeral Post
       oauthIssuer: trust.oauthIssuer, oauthClientId: "client-ok", resourceUri: trust.resourceUri,
       scopeSet: ["projects:read"], grantBindingDigest: "binding-" + randomUUID(), status: "ACTIVE",
       authorizedAt: new Date("2026-01-01T10:11:12Z"), expiresAt: new Date("2026-01-31T10:11:12Z"),
-      policyVersion: "p1", consentVersion: "c1", idempotencyKeyDigest: "digest-" + randomUUID(),
+      policyVersion: "p1", consentVersion: "c1", idempotencyKeyDigest: "digest-" + randomUUID(), requestFingerprint: "fp-" + randomUUID(),
     } });
     const recentRevoked = await db.mcpDelegatedConsent.create({ data: {
       tenantId: tenantA, orgId: orgA, userId: user.client, sessionId: sid.client,
@@ -312,13 +332,30 @@ test("MCP D7 phase B — persisted delegated consent against real ephemeral Post
     assert.ok(anonymized >= 1);
     const after = await db.mcpDelegatedConsent.findUnique({ where: { id: stale.id } });
     assert.equal(after.status, "EXPIRED", "D7-24: ACTIVE past retention is expired in the same write");
-    for (const field of ["userId", "sessionId", "grantBindingDigest", "idempotencyKeyDigest", "revokedByUserId"]) {
+    for (const field of ["userId", "sessionId", "grantBindingDigest", "idempotencyKeyDigest", "requestFingerprint", "revokedByUserId"]) {
       assert.equal(after[field], null, field + " must be removed");
     }
     assert.equal(after.expiresAt.toISOString(), "2026-01-31T00:00:00.000Z", "dates truncated to the day");
     assert.equal(after.authorizedAt.toISOString(), "2026-01-01T00:00:00.000Z");
     assert.equal(after.orgId, orgA);
     assert.ok(after.anonymizedAt);
+    // Codex P2: a revocation between candidate selection and the write wins; the stale snapshot is skipped.
+    const racer = await db.mcpDelegatedConsent.create({ data: {
+      tenantId: tenantA, orgId: orgA, userId: user.client, sessionId: sid.client,
+      oauthIssuer: trust.oauthIssuer, oauthClientId: "client-ok", resourceUri: trust.resourceUri,
+      scopeSet: ["projects:read"], grantBindingDigest: "binding-" + randomUUID(), status: "ACTIVE",
+      authorizedAt: new Date("2026-01-01T00:00:00Z"), expiresAt: new Date("2026-02-01T00:00:00Z"),
+      policyVersion: "p1", consentVersion: "c1",
+    } });
+    const snapshot = await db.mcpDelegatedConsent.findUnique({ where: { id: racer.id } });
+    await service.revokeAsTenantOps(opsActorA, racer.id, "ops_incident");
+    assert.equal(await consentRepository.anonymize(snapshot, clockNow), false);
+    const racerAfter = await db.mcpDelegatedConsent.findUnique({ where: { id: racer.id } });
+    assert.equal(racerAfter.status, "REVOKED");
+    assert.ok(racerAfter.revokedAt);
+    assert.equal(racerAfter.anonymizedAt, null);
+    assert.equal(racerAfter.userId, user.client);
+
     const notYet = await db.mcpDelegatedConsent.findUnique({ where: { id: recentRevoked.id } });
     assert.equal(notYet.anonymizedAt, null, "revoked 6 days ago: inside the 90-day window by revokedAt");
     assert.equal(notYet.userId, user.client);

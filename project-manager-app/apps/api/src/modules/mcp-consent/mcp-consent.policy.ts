@@ -62,6 +62,35 @@ export function idempotencyKeyDigest(tenantId: string, key: string): string {
   return createHash("sha256").update(`${tenantId}:${key}`).digest("hex");
 }
 
+/**
+ * Huella del payload de aceptación (§5): un reintento idempotente es idéntico solo si
+ * coinciden sesión, cliente, recurso, scopes, binding, plazo pedido y versiones.
+ */
+export function acceptRequestFingerprint(input: {
+  sessionId: string;
+  oauthIssuer: string;
+  oauthClientId: string;
+  resourceUri: string;
+  scopeSet: readonly string[];
+  grantBindingDigest: string;
+  requestedExpiresAt?: Date;
+  policyVersion: string;
+  consentVersion: string;
+}): string {
+  const canonical = JSON.stringify([
+    input.sessionId,
+    input.oauthIssuer,
+    input.oauthClientId,
+    input.resourceUri,
+    [...new Set(input.scopeSet)].sort(),
+    input.grantBindingDigest,
+    input.requestedExpiresAt?.toISOString() ?? null,
+    input.policyVersion,
+    input.consentVersion,
+  ]);
+  return createHash("sha256").update(canonical).digest("hex");
+}
+
 /** Q6: las fechas de una fila anonimizada se truncan al día (UTC). */
 export function truncateToUtcDay(value: Date): Date {
   return new Date(Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate()));
