@@ -134,7 +134,10 @@ jobs:
       # This is a throwaway GitHub runner and an ephemeral Postgres container.
       - name: Start authenticated API (isolated localhost)
         run: |
-          AUTH_SECRET="$(openssl rand -hex 32)" PORT=4001 HOST=127.0.0.1 NODE_ENV=test pnpm start:api > /tmp/semse-api-auth-integration.log 2>&1 &
+          AUTH_SECRET="$(openssl rand -hex 32)"
+          echo "::add-mask::$AUTH_SECRET"
+          echo "SEMSE_AUTH_INTEGRATION_SECRET=$AUTH_SECRET" >> "$GITHUB_ENV"
+          AUTH_SECRET="$AUTH_SECRET" PORT=4001 HOST=127.0.0.1 NODE_ENV=test pnpm start:api > /tmp/semse-api-auth-integration.log 2>&1 &
           echo $! > /tmp/semse-api-auth-integration.pid
 
       - name: Wait for authenticated API healthcheck
@@ -150,12 +153,40 @@ jobs:
           tail -n 100 /tmp/semse-api-auth-integration.log || true
           exit 1
 
+      # Same signed identity/temporary DB, but grants disabled in a second API
+      # process. This is a real HTTP kill-switch test without touching Railway.
+      - name: Start sharing-OFF signed API (isolated localhost)
+        run: |
+          SEMSE_PROMETEO_DOCUMENT_SHARING_ENABLED=false AUTH_SECRET="$SEMSE_AUTH_INTEGRATION_SECRET" PORT=4002 HOST=127.0.0.1 NODE_ENV=test pnpm start:api > /tmp/semse-api-sharing-off-integration.log 2>&1 &
+          echo $! > /tmp/semse-api-sharing-off-integration.pid
+
+      - name: Wait for sharing-OFF signed API
+        run: |
+          for i in {1..60}; do
+            if curl -sSf http://127.0.0.1:4002/v1/health >/dev/null; then
+              echo "Sharing-OFF API is up"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Sharing-OFF API did not start"
+          tail -n 100 /tmp/semse-api-sharing-off-integration.log || true
+          exit 1
+
       - name: F01 F02 signed-session HTTP Postgres acceptance tests
         env:
           SEMSE_API_URL: http://127.0.0.1:4001
+          SEMSE_SHARE_OFF_API_URL: http://127.0.0.1:4002
           SEMSE_AUTH_TEST_ONLY: "1"
           NODE_ENV: test
         run: node ./scripts/api-authenticated-f01-f02-smoke.mjs
+
+      - name: Stop sharing-OFF API
+        if: always()
+        run: |
+          if [ -f /tmp/semse-api-sharing-off-integration.pid ]; then
+            kill "$(cat /tmp/semse-api-sharing-off-integration.pid)" || true
+          fi
 
       - name: Stop authenticated API
         if: always()
@@ -179,4 +210,5 @@ jobs:
           path: |
             /tmp/semse-api-integration.log
             /tmp/semse-api-auth-integration.log
+            /tmp/semse-api-sharing-off-integration.log
           if-no-files-found: ignore
