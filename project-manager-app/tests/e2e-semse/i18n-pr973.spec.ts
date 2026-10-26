@@ -59,9 +59,11 @@ async function loginAsQa(page: Page, role: QaRole): Promise<void> {
 const languagePicker = (page: import("@playwright/test").Page) =>
   page.getByRole("combobox", { name: /^(Idioma|Language)$/ });
 
+// Never capture login credentials in traces, screenshots or video.
+// Worker-scoped Playwright options must be set at file level, not in describe.
+test.use({ trace: "off", screenshot: "off", video: "off" });
+
 test.describe("PR #973 — authenticated ES/EN smoke", () => {
-  // Passwords typed in the browser must not be recorded in QA trace/video artifacts.
-  test.use({ trace: "off", screenshot: "off", video: "off" });
   test.setTimeout(120_000);
 
   test("OPS_ADMIN: Prometeo retains unsent ingestion fields after ES ↔ EN and tab changes", async ({ page }) => {
