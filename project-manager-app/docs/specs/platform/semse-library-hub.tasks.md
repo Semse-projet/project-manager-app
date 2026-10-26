@@ -21,7 +21,8 @@ date: "2026-10-25"
 - [x] [T-004] Redactar ADR PROPOSED y plan de ejecución por PRs.
 - [x] [T-005] Inventariar las 30 entradas, con declaración verificada/no probada, sin inventar licencias.
 - [x] [T-006] Registrar fuentes OWASP, OpenSSF, CISA, Node; decisiones aplicadas/backlog.
-- [ ] [T-007] Revisión cruzada de documentación y ratificación de detalles técnicos; spec `APPROVED`.
+- [ ] [T-007] Revisión independiente de documentación y ratificación de detalles técnicos; spec `APPROVED`.
+- [x] [T-007A] Cruce arquitectónico de 9 dominios, Mission Control, Product Intelligence y Omega registrado en `docs/reportes/2026-10-25_library-hub_cross-semse-audit.md`; NO equivale a auditoría exhaustiva de código ni runtime.
 - [ ] [T-008] Verificar índice y `pnpm spec:validate:strict` cuando llegue el gate final.
 
 ## F1 — inventario automático (PR posterior; NO HECHO)
