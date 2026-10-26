@@ -96,7 +96,8 @@ date: "2026-10-22"
 - [x] Se documentaron los pendientes y orden P-01…P-22 en
   `docs/reportes/2026-10-22_supervisor-backlog-pending-and-ci-last.md`.
 - [ ] Completar decisiones OPEN-SUP-02…06 y fuente verificable de OPEN-SUP-01.
-- [ ] Cerrar S0-F01…F05, pruebas N01…N12 y review antes de CI.
+- [ ] Cerrar S0-F01…F05, pruebas N01…N12 y review antes de CI. Contrato
+  propuesto S0a N01…N09: `docs/reportes/2026-10-25_s0a-supervisor-negative-test-contract.md`.
 - [ ] Mantener `ci_status` NO_VERIFIED/FAIL según evidencia, nunca PASS asumido.
 
 ## Criterio de done

@@ -23,6 +23,8 @@ date: "2026-10-22"
 - [ ] Revocación y expiración efectivas con token antiguo.
 - [ ] Tests de mismo tenant/diferente owner, cross-org y cross-crew.
 - [ ] Test supervisor sin membresía, crew/obra/Job archivados.
+- [ ] Ratificar y ejecutar N01…N09 del contrato
+      `docs/reportes/2026-10-25_s0a-supervisor-negative-test-contract.md`.
 - [ ] Denegar aprobación propia y salarios privados.
 - [ ] Prohibir cambio de ofertas, nómina y pagos sin autoridad externa.
 - [ ] Registros auditables sin secretos, PII sensible ni geolocalización.
