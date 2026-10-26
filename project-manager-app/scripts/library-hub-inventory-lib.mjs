@@ -123,7 +123,7 @@ function resolution(lock,importer,group,name,range) {
   if(!lock)return unknown;
   const x=lock.importers.get(importer)?.get(group+"\u0000"+name);
   if(!x?.specifier||!x?.version)return unknown;
-  if(safeSpecifier(x.specifier)==="[REDACTED]")return {...unknown,lockSpecifier:"[REDACTED]"};
+  if(safeSpecifier(x.specifier)==="[REDACTED]")return {...unknown,lockSpecifier:"[REDACTED]",resolutionStatus:x.specifier===range?"UNVERIFIED":"STALE_LOCKFILE"};
   const overrideApplied=x.specifier!==range && lock.overrides.get(name)===x.specifier;
   if(x.specifier!==range && !overrideApplied)return {...unknown,lockSpecifier:safeSpecifier(x.specifier),resolutionStatus:"STALE_LOCKFILE"};
   const ref=x.version;
