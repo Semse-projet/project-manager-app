@@ -30,6 +30,7 @@ related_files:
   - docs/specs/ui/localization-architecture.plan.md
   - docs/specs/ui/localization-architecture.tasks.md
   - docs/specs/ui/localization-architecture.checklist.md
+  - docs/specs/ui/localization-architecture.analyze.md
   - apps/web/app/lib/buildops-i18n.ts
   - apps/web/app/contributors/ContributorsShell.tsx
   - apps/web/middleware.ts
@@ -41,7 +42,7 @@ related_endpoints: []
 related_events: []
 related_agents:
   - prometeo
-last_verified: "2026-10-18"
+last_verified: "2026-10-26"
 ---
 
 
@@ -162,6 +163,7 @@ No se añade herramienta. Sólo se admite locale de presentación donde ya exist
 ## 7. Datos y migración
 
 - **Actual:** traducciones UI en el proveedor plano de `apps/web/lib/language-context.tsx` y preferencia localStorage; no se ha demostrado un campo autenticado persistente para idioma de cuenta.
+- **Auditoría estática del 2026-10-26:** catálogo de `main` con 1,182 claves ES/EN, 0 claves faltantes entre idiomas y 0 duplicadas encontradas por extracción textual; campos de idioma no encontrados en los modelos Prisma `User`/`UserProfile`. Véase [análisis de consistencia y D4](localization-architecture.analyze.md). Paridad no prueba cobertura ni SSR.
 - **D4 pendiente:** opción A cookie validada + preferencia de cliente sin migración, menor autoridad cross-device; opción B campo Prisma/account preference y ruta autenticada de actualización, lo que exige migración aditiva, autorización de escritura, compatibilidad expand/contract y rollback. **No seleccionar implícitamente B.**
 - **Metadata actual:** `migration_status: NOT_APPLICABLE` describe este PR sólo documental; reevaluar antes de APPROVED si D4 implica Prisma, marcando PENDING y endpoints relacionados entonces.
 - **Backfill:** ninguno autorizado. **Drift:** verificar migraciones si B se elige; prohibido `db push` en producción.
@@ -217,6 +219,7 @@ Tres líneas independientes de investigación primaria para decisiones del dise�
 - [x] Contrato propuesto con roles, API/UI, FSM, datos y seguridad descritos.
 - [x] Plan, tareas y checklist escritos **en estado pendiente**, sin implementación.
 - [ ] Ratificar D1–D7 y aprobar ADR del runtime antes de cambiar dependencias.
+- [ ] Resolver gaps y aceptar análisis spec↔plan↔tasks↔checklist (véase [analyze](localization-architecture.analyze.md)).
 - [ ] Revisar D4 y fijar si `migration_status` sigue N/A o pasa a PENDING.
 - [ ] Revisión automatizada sin bloqueantes del último SHA y aprobación explícita del propietario conforme DEC-PLATFORM-001.
 - [ ] CI verde sobre HEAD que se pretende fusionar, además de validación `spec:validate:strict`, `spec:index:check`, `spec:audit-plan-coverage`.

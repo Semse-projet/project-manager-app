@@ -16,6 +16,7 @@ date: "2026-10-26"
 - Base del análisis reconciliada: `main` commit `c6d4d323` (2026-10-26); verificar nueva base si cambia antes de implementar.
 - PR #968, #969, #970 están fusionados; #973 permanece abierto sujeto a #974/#987.
 - Proveedor actual Web: `useLanguage`, diccionario plano ES/EN, `localStorage`; wizard de cuatro pasos en texto español fijo, moneda USD con `en-US` fijo (evidencia histórica auditada).
+- Auditoría estática de fuente en `main` (2026-10-26): 1,182 claves ES / 1,182 EN, paridad en extracción textual sin duplicadas detectadas; `User` y `UserProfile` Prisma sin campos de locale por los nombres inspeccionados. Método, límites y D4-A/B en [analyze](localization-architecture.analyze.md).
 - SHA de Railway Web/API, estado de flags y migraciones: **NO VERIFICADOS EN ESTE PR**. No inferir de CI.
 - Gobernanza: DEC-PLATFORM-001 por niveles y revisión bilingüe/legal para texto crítico.
 

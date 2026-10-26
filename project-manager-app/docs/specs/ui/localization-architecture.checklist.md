@@ -9,6 +9,8 @@ date: "2026-10-26"
 
 **Estatus:** pendiente de D1–D7; no representa tests ejecutados ni aprobación de publicación.
 
+**Fuente inspeccionada 2026-10-26:** paridad textual 1,182/1,182 ES/EN sin duplicados detectados; evidencia y límites en [analyze](localization-architecture.analyze.md). Esto no cierra V01–V06, L01–L12 ni el gate de implementación.
+
 ## Requisitos y decisiones
 - [x] Problema, scope, exclusiones, roles y escenarios P1 documentados.
 - [x] Contratos de UI/API y frontera Prometeo privados distinguidos.
