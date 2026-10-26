@@ -3,6 +3,8 @@ import { test } from "node:test";
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, symlinkSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { spawnSync } from "node:child_process";
 import { inventoryRepository } from "../../scripts/library-hub-inventory-lib.mjs";
 
 function makeFixture(callback) {
@@ -186,3 +188,26 @@ test("redacts lockfile-only credentials when specifier or reference contains URL
   assert.equal(shared.resolvedVersion,null);
   assert.ok(!JSON.stringify(out).includes("user:pass"));
 }));
+
+test("scans the real SEMSE workspace and runs CLI without installing packages", (t) => {
+  const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),"../..");
+  if(!existsSync(path.join(root,"pnpm-workspace.yaml")) || !existsSync(path.join(root,"package.json"))) {
+    t.skip("complete SEMSE workspace not present in isolated fixture");
+    return;
+  }
+  const first=inventoryRepository(root);
+  const second=inventoryRepository(root);
+  assert.deepEqual(first,second,"workspace inventory must be deterministic");
+  assert.ok(first.summary.jsManifests>=21,"root and known 20 workspace package manifests must be found");
+  assert.ok(first.summary.pythonManifests>=1,"vision-service requirements must be found");
+  assert.ok(first.summary.verifiedResolvedReferences>0,"must reconcile at least one pnpm lock resolution");
+  assert.ok(first.dependencies.some(x=>x.name==="zod"),"Zod declaration must be present");
+  assert.ok(first.pythonRequirements.some(x=>x.name==="numpy"),"NumPy requirement must be present");
+  assert.equal(first.sources.find(x=>x.path==="pnpm-lock.yaml")?.present,true);
+  assert.ok(first.dependencies.every(x=>x.licenseStatus==="UNKNOWN"&&x.vulnerabilityStatus==="UNKNOWN"));
+  const cli=spawnSync(process.execPath,[path.join(root,"scripts/library-hub-inventory.mjs")],{cwd:root,encoding:"utf8",maxBuffer:8*1024*1024});
+  assert.equal(cli.status,0,"offline scanner CLI failed: "+cli.stderr);
+  const parsed=JSON.parse(cli.stdout);
+  assert.deepEqual(parsed,first,"CLI output must exactly match the module on real checkout");
+  console.log("# SEMSE F1 checkout smoke: "+JSON.stringify(first.summary));
+});
