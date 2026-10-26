@@ -109,6 +109,18 @@ bloquea la **siguiente** `tools/call`, sin escribir nada en la vía de lectura.
 - **Ownership/resource policy:** tras autorizar el grant, la lectura sigue
   pasando por la política de `ProjectsService`/`ProjectsRepository` (tenant,
   org, Project/Job no borrado) del camino D4 sin aprovisionamiento.
+- **Límite de org del grant, sin override operativo (obligatorio):** la
+  política D4 **no basta**. `findByIdWithoutProvisioning` →
+  `assertProjectReadable` → `hasScopeAccess`
+  (`apps/api/src/common/resource-scope.ts`) devuelve `true` para `OPS_ADMIN`
+  ante cualquier proyecto del tenant **antes** de comprobar la org. Por tanto,
+  en la vía MCP: (a) el `authContext` entregado a D4 se construye **sin
+  `OPS_ADMIN`** (ni otro rol con override operativo), aunque el usuario lo
+  tenga; y (b) además se exige explícitamente
+  `sameOrg(grant.orgId, scope.clientOrgId) || sameOrg(grant.orgId, scope.assignedProOrgId)`
+  sobre el proyecto leído. Un `OPS_ADMIN` puede conceder un grant, pero ese
+  grant solo lee proyectos de **su** org (D7-05b). Nunca se reutiliza
+  `hasScopeAccess` con el rol operativo en esta vía.
 - **Intersección de permisos (Q2, DECIDIDO 2026-10-26):** la vía web calcula
   `activeRoles ∩ session.roles ∩ claims.roles` en `authorizedRoles`
   (`auth.service.ts`). En MCP no existe JWT SEMSE; la regla es
@@ -184,6 +196,7 @@ input_schema:
   scopeSet: ["projects:read"]  # v1: único scope admitido
   grantBindingDigest: string   # huella del grant del AS (mecanismo D2)
   idempotencyKey: string?      # opcional
+  requestedExpiresAt: datetime? # plazo elegido por el usuario en el consentimiento; > now() y <= authorizedAt + MCP_GRANT_MAX_TTL, si no 400
   policyVersion: string
   consentVersion: string
 output_schema:
@@ -192,6 +205,7 @@ output_schema:
   expiresAt: datetime
 errors:
   401: sesión inexistente, revocada o expirada
+  400: requestedExpiresAt en el pasado o por encima de MCP_GRANT_MAX_TTL
   403: usuario sin projects:read, scope no permitido, cliente/issuer/recurso no permitido
   409: idempotencyKey reutilizada con payload distinto
   503: autoridad de autenticación o DB no disponible
@@ -213,7 +227,8 @@ steps:
   - AuthSession ACTIVE, revokedAt null y refreshExpiresAt > now()  # Q1; accessExpiresAt NO se exige
   - User active; activeRoles de Membership ACTIVE en grant.orgId y tenantId
   - permisos(activeRoles ∩ session.roles) ∩ grant.scopeSet contiene projects:read
-  - entregar authContext server-trusted al camino D4 de Projects
+  - entregar authContext server-trusted al camino D4 de Projects, SIN OPS_ADMIN ni roles con override operativo
+  - exigir sameOrg(grant.orgId, clientOrgId) || sameOrg(grant.orgId, assignedProOrgId) del proyecto leído
 writes: ninguno (ni lastUsedAt, ni cambio a EXPIRED)
 deny: 401/403 no enumerativo; 503 si DB/introspección falla o supera el deadline
 ```
@@ -299,13 +314,14 @@ forbidden_behavior:
   `anonymizedAt?` (Q6). `userId` y `sessionId` pasan a nulables **solo** para
   filas anonimizadas; la verificación deniega cualquier grant con `userId` nulo.
 - **Expiración del grant (Q1, DECIDIDO 2026-10-26):** al aceptar,
-  `expiresAt = min(AuthSession.refreshExpiresAt, authorizedAt + MCP_GRANT_MAX_TTL)`.
+  `expiresAt = min(AuthSession.refreshExpiresAt, authorizedAt + MCP_GRANT_MAX_TTL, requestedExpiresAt)`
+  (el último solo si el usuario eligió un plazo menor en el consentimiento).
   En cada llamada se exige `grant.expiresAt > now()` **y**
   `AuthSession.refreshExpiresAt > now()`; `accessExpiresAt` (token web de 1 h)
   no interviene, de modo que MCP no depende del uso activo de la web. El valor
   de **`MCP_GRANT_MAX_TTL` = 30 días** (decisión del propietario 2026-10-26).
   Es un máximo, no un valor fijo: cada grant puede pedir menos según su
-  riesgo (p. ej. 24 h o 7 días), nunca más. La renovación web
+  riesgo (p. ej. 24 h o 7 días) mediante `requestedExpiresAt` (§5), nunca más. La renovación web
   (`rotateSessionRefreshToken`) puede ampliar `refreshExpiresAt` pero **nunca**
   amplía `grant.expiresAt`: un grant caducado exige nuevo consentimiento.
 - **Índices:** `(tenantId, orgId, userId, status, expiresAt)`,
@@ -433,6 +449,7 @@ el mismo tenant, además de unitarios. Los casos con host MCP real solo tras D2.
 | D7-03 | Misma idempotencyKey con otro scope/org/cliente | 409 sin modificar el grant |
 | D7-04 | Token de usuario/cliente/scope idénticos vinculado a **otra sesión** | Rechazo antes de consultar Project |
 | D7-05 | Grant de Org A pidiendo Project de Org B, mismo tenant | Rechazo no enumerativo |
+| **D7-05b** | Igual que D7-05, con el usuario que concedió el grant teniendo `OPS_ADMIN` activo en Org A | Rechazo: el override operativo de `hasScopeAccess` no aplica en la vía MCP |
 | D7-06 | Org o Project de otro tenant | Rechazo y cero fuga |
 | D7-07 | Revocar grant con bearer aún `active` en el AS | Siguiente llamada rechazada |
 | D7-08 | Revocar AuthSession o Membership con grant aún `ACTIVE` | Siguiente llamada rechazada |
@@ -451,7 +468,7 @@ el mismo tenant, además de unitarios. Los casos con host MCP real solo tras D2.
 | **D7-21** | Job de anonimización a los 90 días, con tenant que alarga el plazo, y org de un solo miembro | Se anonimiza solo lo vencido; `grantBindingDigest` nulo y fechas truncadas al día; ningún campo restante permite cruzar con `AuthSession`, `User` ni el AS; el caso de org unipersonal sigue la decisión de fase A; `AuditEvent` sin tocar; plazo del tenant respetado |
 | **D7-23** | Aceptación y borrado del mismo User en paralelo, con barrera entre la relectura de la aceptación y el paso 1 del borrado, en ambos órdenes | Nunca queda un grant `ACTIVE` sin titular: o se crea y el barrido lo revoca + anonimiza, o la aceptación falla con 401 |
 | **D7-24** | Grant con `expiresAt` vencido hace 91 días que sigue `ACTIVE` porque el mantenimiento no corrió | El job de anonimización lo pasa a `EXPIRED` y lo anonimiza en la misma transacción |
-| **D7-22** | Aceptación pidiendo más de 30 días o con `refreshExpiresAt` menor | `expiresAt` = mínimo de los tres; nunca supera 30 días |
+| **D7-22** | Aceptación con `requestedExpiresAt` de 24 h, de 7 días, por encima de 30 días, en el pasado, y sin él; y con `refreshExpiresAt` menor que todos | `expiresAt` = mínimo de `refreshExpiresAt`, `authorizedAt + 30 días` y `requestedExpiresAt`; >30 días o pasado → 400; nunca supera el plazo consentido |
 | **D7-18** | Expiración de sesión según Q1: (a) `accessExpiresAt` vencido con `refreshExpiresAt` y grant vigentes; (b) `refreshExpiresAt` vencido con grant vigente; (c) `grant.expiresAt` vencido con sesión vigente; (d) refresh web amplía `refreshExpiresAt` | (a) se autoriza; (b) y (c) se deniegan; (d) `grant.expiresAt` no cambia |
 
 Checklist de plantilla:
