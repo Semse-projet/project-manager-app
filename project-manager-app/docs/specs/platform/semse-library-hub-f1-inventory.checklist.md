@@ -18,21 +18,24 @@ date: "2026-10-25"
 - [x] Diseño rechaza paths no autorizados, symlinks y JSON inválido.
 - [x] Se eliminan credenciales de referencias Python con esquema URL.
 - [x] Tests Node reales aislados sobre archivos con SHA Git idéntico: 15 casos PASS (Node 22; evidencia vinculada).
-- [ ] Repetir en checkout completo y CI Node de SEMSE, incluyendo validación de SDD/índice.
+- [x] Smoke CI Node 22 previo al cambio de overrides: #40262055473, 3 jobs SUCCESS.
+- [ ] Revalidar el HEAD con las pruebas de overrides y CI final.
 - [ ] Revisar si hay manifests Python adicionales fuera de requirements en las apps.
 - [ ] Revisión de seguridad independiente antes de ampliar ejecución.
 
 ## Datos
 - [x] Solo lectura; hashes de manifiesto, no de artefactos.
-- [x] Lockfile resuelto sólo cuando se confirma que el specifier coincide.
+- [x] Lockfile: coincidencia directa `RESOLVED` o override global exacto `OVERRIDE_APPLIED`; discrepancia sin override `STALE_LOCKFILE`. Ninguna equivale a seguridad, integridad o compatibilidad demostrada.
 - [x] Datos no resueltos `UNVERIFIED`/`UNRESOLVED`.
-- [ ] Salida JSON verificada en repo real contra snapshots.
+- [x] Salida JSON en checkout real (previa a override) comprobada mediante suite CI #40262055473; nuevos contadores pendientes.
+- [ ] Reconciliación de 4 overrides y 2 peers confirmada en resultado post-corrección.
 - [ ] SBOM/licencias/CVEs: fase posterior, **NO implementada**.
 
 ## Release
 - [x] CLI + pruebas dirigidas de archivos SHA idénticos en fixture sintético.
-- [x] Test de lectura real del checkout y CLI incluido en suite unitaria; pendiente resultado.
-- [ ] CLI en checkout real y reconciliación contra manifiestos/lockfile del monorepo (evidencia CI).
+- [x] Test de lectura real del checkout y CLI incluido y ejecutado en CI #40262055473; volver a ejecutar tras corrección.
+- [x] Primera lectura en checkout real acreditada (21 JS/TS, 2 Python) en SHA `961c7036`.
+- [ ] Registrar ejecución del nuevo HEAD con métricas `OVERRIDE_APPLIED` y sin falsa alarma.
 - [ ] Spec strict e índice actualizados y comprobados.
 - [ ] CI final, diff revisado, PR abierto y revisión.
 - [ ] Merge, deploy, activación: fuera de F1 y no ejecutados.
