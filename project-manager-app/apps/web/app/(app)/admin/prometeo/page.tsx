@@ -371,9 +371,11 @@ export default function PrometeoPage() {
                     <option value="evidence">{t("prom.docType.evidence")}</option>
                   </select>
                   <select value={ingestVisibility} onChange={(e) => setIngestVisibility(e.target.value)} style={{ ...input, cursor: "pointer" }}>
-                    <option value="public_training">{t("prom.visibility.public_training")}</option>
+                    {/* Sharing requires an approved consent/access policy (#974/#987).
+                        Keep these options visible but unavailable until server-side authorization is enforced. */}
+                    <option value="public_training" disabled>{t("prom.visibility.public_training")}</option>
                     <option value="tenant_private">{t("prom.visibility.tenant_private")}</option>
-                    <option value="project_private">{t("prom.visibility.project_private")}</option>
+                    <option value="project_private" disabled>{t("prom.visibility.project_private")}</option>
                   </select>
                 </div>
 
