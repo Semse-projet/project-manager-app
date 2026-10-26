@@ -392,6 +392,12 @@ forbidden_behavior:
 - **OPEN-SUP-06 — activación:** secuencia de migración sin abrir accesos
   legacy y con separación de seguridad BO-07/BO-10.
 
+El contrato complementario S0b de integridad/atomicidad y aislamiento
+por cuadrilla también continúa **propuesto**, sin decisión de negocio
+ni implementación: `docs/reportes/2026-10-26_s0b-allocation-atomicity-cross-crew-contract.md`.
+Incluye D-S0B-01…05 y escenarios N10…N18, pendientes de reconciliar
+con BO-10. No atribuir permisos o cierres por crear este documento.
+
 Las investigaciones y opciones de cierre están documentadas, pero no
 ratificadas, en:
 
