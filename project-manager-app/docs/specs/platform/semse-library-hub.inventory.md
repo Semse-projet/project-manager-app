@@ -1,6 +1,6 @@
 # SEMSE Library Hub — inventario preliminar de dependencias (2026-10-25)
 
-**Alcance de la auditoría:** lectura de los archivos declarativos presentes en `main` de `Semse-projet/project-manager-app` (antes de abrir la rama documental). **No** se inspeccionó Railway en vivo, `node_modules`, las imágenes desplegadas, el SBOM transitorio completo ni el uso en ejecución. «Declarada» no significa «instalada», «en producción», «cargada», «segura» o «licenciada». Este es el **primer corte de inventario**, no una certificación del repositorio entero.
+**Alcance de la auditoría:** lectura de los manifiestos de primer nivel bajo `apps/*` y `packages/*` de `main` de `Semse-projet/project-manager-app` (antes de abrir la rama documental). **No** se inspeccionó Railway en vivo, `node_modules`, las imágenes desplegadas, el SBOM transitorio completo ni el uso en ejecución. «Declarada» no significa «instalada», «en producción», «cargada», «segura» o «licenciada». Este es un **censo completo de declaraciones directas de primer nivel del workspace**, no un SBOM de dependencias transitivas ni una certificación de producción.
 
 ## 1. Fuentes inspeccionadas y SHA blob
 
@@ -21,7 +21,7 @@ Documentos que **no** equivalen a librerías software: `ConstructionLibraryItem`
 
 ## 2. Las 30 entradas evaluadas en la conversación
 
-**Leyenda:** `DECLARADA` = presente como dependencia directa en manifiesto inspeccionado; `NO_DECLARADA_EN_MUESTRA` = no figura como dependencia directa en los manifiestos citados (no prueba ausencia global ni transitiva); `REFERENCIA` = aparece en ideas/docs, no prueba instalación; `PLATAFORMA` = API de navegador, no paquete a instalar.
+**Leyenda:** `DECLARADA` = presente como dependencia directa en manifiesto inspeccionado; `NO_DECLARADA_EN_MUESTRA` = no figura como dependencia directa en los manifiestos revisados (no prueba ausencia transitiva ni anidada); `REFERENCIA` = aparece en ideas/docs, no prueba instalación; `PLATAFORMA` = API de navegador, no paquete a instalar.
 
 | # | Entrada | Estado probado | Ubicación o decisión F1 |
 |---|---|---|---|
@@ -41,7 +41,7 @@ Documentos que **no** equivalen a librerías software: `ConstructionLibraryItem`
 | 14 | Librosa | REFERENCIA | aparece en documentación de assistant-portal; no en requirements inspeccionado |
 | 15 | NumPy + SciPy | PARCIAL | NumPy en vision-service; SciPy no declarado allí |
 | 16 | TanStack Query | DECLARADA | apps/assistant-portal, no en apps/web |
-| 17 | Zustand | REFERENCIA | mencionada en planificación; no declarada en manifiestos muestra |
+| 17 | Zustand | REFERENCIA | mencionada en planificación; no declarada en manifiestos inspeccionados |
 | 18 | React Hook Form | DECLARADA | apps/assistant-portal |
 | 19 | D3.js | NO_DECLARADA_EN_MUESTRA | priorizar Recharts existente; D3 solo con necesidad |
 | 20 | Yjs | NO_DECLARADA_EN_MUESTRA | evitar colaboración CRDT sin caso |
@@ -61,7 +61,7 @@ Documentos que **no** equivalen a librerías software: `ConstructionLibraryItem`
 ## 3. Hallazgos de seguridad y economía
 
 1. **Duplicación evitada:** Web y assistant-portal son aplicaciones diferentes. Tener Recharts, Tiptap o TanStack Query en el segundo NO los hace importables desde el primero sin declarar explícitamente dependencia compatible. La reutilización requiere confirmar restricciones de bundling, versiones y UX.
-2. **Distintas majors:** en manifiestos muestreados, Zod 3 aparece en `@semse/schemas` y API, mientras assistant-portal declara Zod 4; no unificar hasta pruebas de contratos/API.
+2. **Distintas majors:** en manifiestos inspeccionados, Zod 3 aparece en `@semse/schemas` y API, mientras assistant-portal declara Zod 4; no unificar hasta pruebas de contratos/API.
 3. **Python no es sinónimo de microservicio nuevo:** NumPy está declarado en el servicio de visión existente, pero este componente no debe asumir que la API Node puede importar NumPy ni que vision-service tiene capacidad disponible para simulaciones de otro dominio.
 4. **Lockfile no es un SBOM validado:** versionado sí, pero la lista completa de dependencias transitivas, hashes, licencias y vulnerabilidades no se acreditó en esta revisión.
 5. **Consumo sin servicio adicional:** ejecutar código dentro del Worker ya existente puede elevar consumo total y afectar jobs críticos; asignar límites, métricas y corte antes de activar.
@@ -90,3 +90,34 @@ Documentos que **no** equivalen a librerías software: `ConstructionLibraryItem`
 **Referencias:** OWASP SCVS https://scvs.owasp.org/scvs/v1-inventory/ ; OpenSSF Scorecard https://openssf.org/projects/scorecard/ ; CISA SBOM https://www.cisa.gov/sbom .
 
 **Conclusión auditada:** el repositorio ya contiene piezas esenciales para un Library Hub gobernado. **Aún NO existe evidencia de un catálogo central de dependencias completo y operativo**, ni de un benchmark de rentabilidad. F1 debe probarlo, no presumirlo.
+
+## Apéndice A — censo del workspace completo, manifiestos de primer nivel
+
+`pnpm-workspace.yaml` contiene `apps/*` y `packages/*`. La inspección de directorios de GitHub identificó **8 apps**: 7 con `package.json` y `vision-service` con dependencias Python; además **13 paquetes** con `package.json`. En total se leyeron **20 manifiestos package.json** de primer nivel más **1 requirements.txt**. Este resultado no incluye dependencias transitivas, posibles manifests anidados fuera del workspace ni las imágenes actuales de Railway.
+
+| Archivo `package.json` (relativo al root) | Blob SHA abreviado | Ejemplos declarados |
+|---|---|---|
+| `apps/angular/package.json` | `e9545db6031d` | Angular, Material, RxJS |
+| `apps/api/package.json` | `0a633f6c0c27` | NestJS, BullMQ, OpenAI, Anthropic SDK, Zod |
+| `apps/assistant-portal/package.json` | `722ee76e67c9` | TanStack Query, Recharts, React Hook Form, Tiptap |
+| `apps/autonomy-server/package.json` | `886297435aa7` | paquetes internos @semse |
+| `apps/mobile/package.json` | `f1d8c66e176c` | Expo, React Native, Stripe React Native |
+| `apps/web/package.json` | `4cee98a4e535` | Next.js, React, Tailwind, Lucide, Three.js |
+| `apps/worker/package.json` | `05cf5647ef31` | BullMQ, Redis client, Playwright, Pino |
+| `packages/agents/package.json` | `b29719211634` | paquetes internos @semse |
+| `packages/auth/package.json` | `30cb598115c4` | @semse/shared |
+| `packages/autonomy/package.json` | `6d8e488c5f75` | Playwright |
+| `packages/db/package.json` | `c463c0bbf1f8` | Prisma, dotenv |
+| `packages/design-tokens/package.json` | `b8728ad1db5b` | TypeScript (desarrollo) |
+| `packages/forge/package.json` | `72d6e6c0ee37` | TypeScript (desarrollo) |
+| `packages/knowledge/package.json` | `4a24cd92ae21` | @semse/schemas |
+| `packages/product-events/package.json` | `7c868f898937` | @semse/schemas |
+| `packages/schemas/package.json` | `5600372f3678` | Zod 3 |
+| `packages/sdk/package.json` | `1c19f7930758` | TypeScript (desarrollo) |
+| `packages/shared/package.json` | `d9e2e17f1ab4` | Zod y @semse/schemas |
+| `packages/tools/package.json` | `fbdbd0b6b619` | TypeScript (desarrollo) |
+| `packages/ui/package.json` | `497f4cdf9451` | clsx, tailwind-merge, React peer |
+
+`apps/vision-service/requirements.txt` (`182b537c50a7`) declara FastAPI, Uvicorn, OpenCV, NumPy, Pillow, Pydantic, Requests y python-multipart con versiones mínimas (`>=`), no versiones totalmente fijadas; su versión desplegada queda sin verificar. La diferencia entre Zod 3 (packages/schemas y API) y Zod 4 (assistant-portal) impide asumir compatibilidad directa. No se ha demostrado que `assistant-portal` comparta runtime o despliegue con `web`.
+
+**Próximo gate F1:** automatizar los 20 manifests y 1 requirements, detectar nuevos manifests y archivos de dependencias Python, derivar versions/lockfile + SBOM, comparar imports y runtime desplegado, revisar licencias y CVE. No hay aún evidencia de un SBOM completo ni de costo medido.
