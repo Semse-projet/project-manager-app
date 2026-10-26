@@ -31,7 +31,8 @@ date: "2026-10-25"
 
 ## Release
 - [x] CLI + pruebas dirigidas de archivos SHA idénticos en fixture sintético.
-- [ ] CLI en checkout real y reconciliación contra manifiestos/lockfile del monorepo.
+- [x] Test de lectura real del checkout y CLI incluido en suite unitaria; pendiente resultado.
+- [ ] CLI en checkout real y reconciliación contra manifiestos/lockfile del monorepo (evidencia CI).
 - [ ] Spec strict e índice actualizados y comprobados.
 - [ ] CI final, diff revisado, PR abierto y revisión.
 - [ ] Merge, deploy, activación: fuera de F1 y no ejecutados.
