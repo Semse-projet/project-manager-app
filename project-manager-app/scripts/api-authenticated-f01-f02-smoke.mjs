@@ -5,6 +5,7 @@ import { randomUUID, randomBytes, scryptSync } from "node:crypto";
 import { PrismaClient } from "@prisma/client";
 
 const base = new URL(process.env.SEMSE_API_URL ?? "http://127.0.0.1:4001");
+const sharingOffBase = new URL(process.env.SEMSE_SHARE_OFF_API_URL ?? "http://127.0.0.1:4002");
 const dbUrl = new URL(process.env.DATABASE_URL ?? "postgresql://invalid:invalid@invalid/invalid");
 assert.equal(process.env.CI, "true", "Only GitHub CI is allowed");
 assert.equal(process.env.SEMSE_AUTH_TEST_ONLY, "1", "Explicit isolated auth test opt-in required");
@@ -12,6 +13,9 @@ assert.equal(process.env.NODE_ENV, "test", "CI must start the auth test in NODE_
 assert.equal(base.protocol, "http:");
 assert.ok(["127.0.0.1", "localhost"].includes(base.hostname));
 assert.equal(base.port, "4001", "Authenticated test API must use isolated port 4001");
+assert.equal(sharingOffBase.protocol, "http:");
+assert.equal(sharingOffBase.hostname, "127.0.0.1");
+assert.equal(sharingOffBase.port, "4002", "Sharing-OFF API must use isolated port 4002");
 assert.equal(dbUrl.hostname, "127.0.0.1");
 assert.equal(dbUrl.port, "5433", "Authenticated test must not connect to production DB");
 assert.equal(dbUrl.pathname, "/semse", "Unexpected DB name");
@@ -36,8 +40,8 @@ for (const p of persons) {
   p.email = p.key.toLowerCase() + "." + runId + "@example.invalid";
 }
 
-async function request(method, route, { token, body, expectedStatus, spoofedHeaders } = {}) {
-  const res = await fetch(new URL(route, base), {
+async function request(method, route, { token, body, expectedStatus, spoofedHeaders, target = base } = {}) {
+  const res = await fetch(new URL(route, target), {
     method,
     headers: {
       ...(body === undefined ? {} : { "content-type": "application/json" }),
@@ -304,6 +308,30 @@ async function prometeoObjectScopeSmoke() {
   });
   assert.ok(proSearch.data.some(chunk => chunk.documentId === ownerProject.doc.id),
     "authorized grant must enable scoped RAG search");
+
+  // Same signed tokens, same disposable DB, two API instances: active sharing
+  // at :4001, kill-switch OFF at :4002. The legacy public_training marker
+  // must never override the OFF policy, even for a stored active grant.
+  const disabledList = await request("GET", "/v1/prometeo/documents", {
+    token: pro1.token, target: sharingOffBase,
+  });
+  assert.ok(!disabledList.data.some(doc => doc.id === ownerProject.doc.id),
+    "sharing OFF must reject otherwise-active grant in signed HTTP listing");
+  const disabledCtx = await request("POST", "/v1/prometeo/rag-context", {
+    token: pro1.token, target: sharingOffBase,
+    body: { query: ownerMarker + "_PROJECT", topK: 20 },
+  });
+  assert.ok(!JSON.stringify(disabledCtx.data).includes(ownerMarker + "_PROJECT"),
+    "sharing OFF must not leak RAG text, titles or citations");
+  await request("POST", shares, {
+    token: owner.token, target: sharingOffBase,
+    body: { recipientOrgId: pro1.orgId }, expectedStatus: 503,
+  });
+  assert.equal(await prisma.auditLog.count({
+    where: { tenantId: tenantA, entityId: grant.data?.id,
+      action: "prometeo.document_share_granted" },
+  }), 1, "blocked grant request must not write another durable audit");
+  console.log("[PROMETEO P0] signed-session sharing-OFF mirror suppresses active grant, RAG and mutations PASS");
 
   const auditGranted = await prisma.auditLog.findFirst({
     where: { tenantId: tenantA, entityType: "PrometeoDocumentGrant",
