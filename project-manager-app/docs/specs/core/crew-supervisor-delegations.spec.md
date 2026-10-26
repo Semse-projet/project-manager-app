@@ -392,6 +392,17 @@ forbidden_behavior:
 - **OPEN-SUP-06 — activación:** secuencia de migración sin abrir accesos
   legacy y con separación de seguridad BO-07/BO-10.
 
+Las investigaciones y opciones de cierre están documentadas, pero no
+ratificadas, en:
+
+- `docs/reportes/2026-10-22_p01-canonical-org-owner-authority-design.md`
+  para la fuente canónica de propietario/representante.
+- `docs/reportes/2026-10-22_p02-p06-supervisor-decision-proposals.md`
+  para elegibilidad, suplencia, autonomía, seguridad y migración.
+
+Estos documentos no sustituyen la aprobación de OPEN-SUP-02…06 ni autorizan
+modelos, migraciones, endpoints, flags, personas reales o producción.
+
 Gates:
 - [x] OPEN-SUP-01: principio de delegante propietario/representante verificado ratificado (2026-10-22).
 - [ ] Fuente verificable de representación y demás decisiones OPEN-SUP-02…06 resueltas; aprobación global aún pendiente.
