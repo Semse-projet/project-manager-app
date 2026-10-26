@@ -86,9 +86,10 @@ test("malformed manifests fail closed, scripts are never run", () => makeFixture
   base(write);
   write("apps/web/package.json", "{bad json");
   assert.throws(() => inventoryRepository(root), /Invalid JSON/);
-  write("apps/web/package.json", JSON.stringify({ name: "x", scripts: { preinstall: "touch /tmp/semse-F1-never-execute" }, dependencies: {} }));
+  const marker=path.join(root,"malicious-script-executed");
+  write("apps/web/package.json", JSON.stringify({ name: "x", scripts: { preinstall: "touch "+marker }, dependencies: {} }));
   inventoryRepository(root);
-  assert.equal(existsSync("/tmp/semse-F1-never-execute"), false);
+  assert.equal(existsSync(marker), false);
 }));
 test("rejects symlinked package manifests and symlinked directories", () => makeFixture(({ root, write }) => {
   base(write);
