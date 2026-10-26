@@ -111,7 +111,7 @@ function resolution(lock,importer,group,name,range) {
   const ref=x.version;
   if(safeSpecifier(ref)==="[REDACTED]") return {...unknown,lockSpecifier:safeSpecifier(x.specifier),resolvedReference:"[REDACTED]"};
   if(ref.startsWith("link:")||ref.startsWith("workspace:"))return {...unknown,lockSpecifier:safeSpecifier(x.specifier),resolvedReference:ref,resolutionStatus:"LOCAL_LINK"};
-  if(!/^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?(?:\(.+\))?$/.test(ref))return {...unknown,lockSpecifier:x.specifier,resolvedReference:ref};
+  if(!/^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?(?:\(.+\))?$/.test(ref))return {...unknown,lockSpecifier:safeSpecifier(x.specifier),resolvedReference:ref};
   return {lockSpecifier:safeSpecifier(x.specifier),resolvedReference:ref,resolvedVersion:ref.split("(")[0],resolutionStatus:"RESOLVED"};
 }
 function scanPython(root,patterns,diagnostics) {
