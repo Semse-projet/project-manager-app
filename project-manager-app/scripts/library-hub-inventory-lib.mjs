@@ -70,10 +70,26 @@ function readLock(root,diagnostics) {
   if(!p) { diagnostics.push({code:"LOCKFILE_MISSING"});return null; }
   const data=readFileSync(p,"utf8");
   if(!/^lockfileVersion:\s*['"]?9(?:\.0)?['"]?\s*$/m.test(data)) fail("Unsupported pnpm-lock.yaml version; requires v9");
-  const output=new Map();
-  let active=false, importer=null, group=null, dep=null;
+  const output=new Map(), overrides=new Map();
+  let active=false, parsingOverrides=false, importer=null, group=null, dep=null;
   for(const line of data.split(/\r?\n/)) {
     if(!line.trim()||/^\s*#/.test(line))continue;
+    if(/^overrides:\s*$/.test(line)){parsingOverrides=true;continue;}
+    if(parsingOverrides) {
+      if(/^\S/.test(line)) parsingOverrides=false;
+      else {
+        const m=line.match(/^ {2}(.+?):\s*(.+?)\s*$/);
+        if(!m) fail("Unsupported pnpm override syntax");
+        const key=unquote(m[1]), version=unquote(m[2]);
+        // Only unconditional exact package names; selectors such as name@range need a richer parser.
+        const simple=key.startsWith("@") ? !key.slice(1).includes("@") : !key.includes("@");
+        if(simple) {
+          if(overrides.has(key)) fail("Duplicate pnpm override: "+key);
+          overrides.set(key,version);
+        }
+        continue;
+      }
+    }
     if(/^importers:\s*$/.test(line)){active=true;continue;}
     if(!active)continue;
     if(/^\S/.test(line))break;
@@ -97,7 +113,7 @@ function readLock(root,diagnostics) {
     if(m&&group&&dep&&output.has(importer))output.get(importer).get(group+"\u0000"+dep)[m[1]]=unquote(m[2]);
   }
   if(!active)fail("Missing pnpm lockfile importers");
-  return output;
+  return {importers:output,overrides};
 }
 function safeSpecifier(value) {
   return typeof value === "string" && (value.includes("://") || /(?:git@|\S+:[^@\s]+@)/i.test(value)) ? "[REDACTED]" : value;
@@ -105,14 +121,16 @@ function safeSpecifier(value) {
 function resolution(lock,importer,group,name,range) {
   const unknown={lockSpecifier:null,resolvedReference:null,resolvedVersion:null,resolutionStatus:"UNVERIFIED"};
   if(!lock)return unknown;
-  const x=lock.get(importer)?.get(group+"\u0000"+name);
+  const x=lock.importers.get(importer)?.get(group+"\u0000"+name);
   if(!x?.specifier||!x?.version)return unknown;
-  if(x.specifier!==range)return {...unknown,lockSpecifier:safeSpecifier(x.specifier),resolutionStatus:"STALE_LOCKFILE"};
+  if(safeSpecifier(x.specifier)==="[REDACTED]")return {...unknown,lockSpecifier:"[REDACTED]"};
+  const overrideApplied=x.specifier!==range && lock.overrides.get(name)===x.specifier;
+  if(x.specifier!==range && !overrideApplied)return {...unknown,lockSpecifier:safeSpecifier(x.specifier),resolutionStatus:"STALE_LOCKFILE"};
   const ref=x.version;
   if(safeSpecifier(ref)==="[REDACTED]") return {...unknown,lockSpecifier:safeSpecifier(x.specifier),resolvedReference:"[REDACTED]"};
   if(ref.startsWith("link:")||ref.startsWith("workspace:"))return {...unknown,lockSpecifier:safeSpecifier(x.specifier),resolvedReference:ref,resolutionStatus:"LOCAL_LINK"};
   if(!/^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?(?:\(.+\))?$/.test(ref))return {...unknown,lockSpecifier:safeSpecifier(x.specifier),resolvedReference:ref};
-  return {lockSpecifier:safeSpecifier(x.specifier),resolvedReference:ref,resolvedVersion:ref.split("(")[0],resolutionStatus:"RESOLVED"};
+  return {lockSpecifier:safeSpecifier(x.specifier),resolvedReference:ref,resolvedVersion:ref.split("(")[0],resolutionStatus:overrideApplied?"OVERRIDE_APPLIED":"RESOLVED"};
 }
 function scanPython(root,patterns,diagnostics) {
   const pythonRequirements=[], sources=[];
@@ -178,5 +196,5 @@ export function inventoryRepository(rootPath) {
   diagnostics.sort((a,b)=>cmp(a.code+"|"+(a.manifest||"")+"|"+(a.line||0),b.code+"|"+(b.manifest||"")+"|"+(b.line||0)));
   const names=new Map();
   for(const d of dependencies){if(!names.has(d.name))names.set(d.name,[]);names.get(d.name).push(d.declaredRange);}
-  return {schemaVersion:"semse.library-hub.inventory.v1",sourceRef:"checkout",sources:[{path:"pnpm-workspace.yaml"},{path:"pnpm-lock.yaml",present:lock!==null},...py.sources],manifests,dependencies,pythonRequirements:py.pythonRequirements,diagnostics,summary:{jsManifests:manifests.length,pythonManifests:py.sources.length,declarations:dependencies.length,uniquePackageNames:names.size,repeatedNames:[...names.values()].filter(x=>x.length>1).length,versionConstraintDifferences:[...names.values()].filter(x=>new Set(x).size>1).length,verifiedResolvedReferences:dependencies.filter(x=>x.resolutionStatus==="RESOLVED").length,staleLockfileEntries:dependencies.filter(x=>x.resolutionStatus==="STALE_LOCKFILE").length,unresolvedDependencies:dependencies.filter(x=>x.resolutionStatus==="UNVERIFIED").length}};
+  return {schemaVersion:"semse.library-hub.inventory.v1",sourceRef:"checkout",sources:[{path:"pnpm-workspace.yaml"},{path:"pnpm-lock.yaml",present:lock!==null},...py.sources],manifests,dependencies,pythonRequirements:py.pythonRequirements,diagnostics,summary:{jsManifests:manifests.length,pythonManifests:py.sources.length,declarations:dependencies.length,uniquePackageNames:names.size,repeatedNames:[...names.values()].filter(x=>x.length>1).length,versionConstraintDifferences:[...names.values()].filter(x=>new Set(x).size>1).length,verifiedResolvedReferences:dependencies.filter(x=>x.resolutionStatus==="RESOLVED"||x.resolutionStatus==="OVERRIDE_APPLIED").length,overrideAppliedDependencies:dependencies.filter(x=>x.resolutionStatus==="OVERRIDE_APPLIED").length,staleLockfileEntries:dependencies.filter(x=>x.resolutionStatus==="STALE_LOCKFILE").length,unresolvedDependencies:dependencies.filter(x=>x.resolutionStatus==="UNVERIFIED").length}};
 }
