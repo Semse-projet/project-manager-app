@@ -117,3 +117,21 @@ test("Python files are static, with complex directives marked unsupported", () =
   const include = result.pythonRequirements.find(r => r.resolutionStatus === "UNRESOLVED");
   assert.ok(include);
 }));
+
+test("npm dependency URLs containing credentials are not echoed", () => makeFixture(({root,write}) => {
+  base(write);
+  const data=JSON.parse(readFileSync(path.join(root,"apps/web/package.json"),"utf8"));
+  data.dependencies.private="git+https://robot:secret@github.example/private.git";
+  write("apps/web/package.json",JSON.stringify(data));
+  const result=inventoryRepository(root);
+  const record=result.dependencies.find(x=>x.name==="private");
+  assert.equal(record.declaredRange,"[REDACTED]");
+  assert.equal(record.resolvedVersion,null);
+  assert.equal(record.resolutionStatus,"UNVERIFIED");
+  assert.ok(!JSON.stringify(result).includes("robot:secret"));
+}));
+test("lockfile format outside pinned supported v9 fails closed", () => makeFixture(({root,write}) => {
+  base(write);
+  write("pnpm-lock.yaml","lockfileVersion: '8.0'\nimporters:\n");
+  assert.throws(()=>inventoryRepository(root),/Unsupported pnpm-lock/);
+}));
