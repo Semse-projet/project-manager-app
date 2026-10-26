@@ -30,6 +30,7 @@ function makeWorld() {
     { userId: "pro", orgId: "orgB", status: "ACTIVE", role: { key: "PRO" }, org: { tenantId: "t2" } }
   ];
   let seq = 0;
+  let failAudit = false;
   const match = (row: Row, where: Row): boolean => Object.entries(where).every(([k, v]) => row[k] === v);
   const table = (rows: Row[], defaults: () => Row) => ({
     async findFirst({ where }: any) { return rows.find((r) => match(r, where)) ?? null; },
@@ -59,10 +60,35 @@ function makeWorld() {
           (where.status ? m.status === where.status : true) &&
           (where.org ? m.org.tenantId === where.org.tenantId : true));
       }
+    },
+    auditLog: {
+      async create({ data }: any) {
+        if (failAudit) throw new Error("synthetic audit write failed");
+        audits.push(data);
+        return data;
+      }
+    },
+    async $transaction(callback: (tx: any) => Promise<any>) {
+      const before = [structuredClone(experiences), structuredClone(attestations), structuredClone(audits)];
+      try {
+        return await callback(prisma);
+      } catch (error) {
+        experiences.splice(0, experiences.length, ...before[0]);
+        attestations.splice(0, attestations.length, ...before[1]);
+        audits.splice(0, audits.length, ...before[2]);
+        throw error;
+      }
     }
   };
-  const audit: any = { async append(entry: Row) { audits.push(entry); } };
-  return { service: new SkillsService(prisma, audit), experiences, attestations, audits, allocations };
+  const audit: any = {
+    async prepareActorContext() {},
+    async appendInTransaction(entry: Row, tx: any) { await tx.auditLog.create({ data: entry }); },
+    async append(entry: Row) { audits.push(entry); }
+  };
+  return {
+    service: new SkillsService(prisma, audit), experiences, attestations, audits, allocations, crews,
+    setAuditFailure(value: boolean) { failAudit = value; }
+  };
 }
 
 const sup = { tenantId: "t1", orgId: "orgA", userId: "sup", roles: ["WORKER"] };
@@ -188,4 +214,63 @@ test("AC-09 revocar o vencer invalida el token; revocar dos veces -> 409; solo l
   const b: any = await w.service.createAttestation(ana, "r6", { consent: true });
   w.attestations[1].expiresAt = new Date(Date.now() - 1000);
   await assert.rejects(w.service.redeem(hr, "orgB", b.token, "r7"), { status: 404 });
+});
+
+test("Codex P2: archived crew supervisor and manager cannot confirm any leftover assignment", async () => {
+  const w = makeWorld();
+  w.crews[0].status = "ARCHIVED";
+  await assert.rejects(
+    w.service.reviewAllocation(sup, "a1", "r1", { decision: "CONFIRM", trade: "pintura" }),
+    { status: 404 },
+  );
+  await assert.rejects(
+    w.service.reviewAllocation(boss, "a1", "r2", { decision: "CONFIRM", trade: "pintura" }),
+    { status: 404 },
+  );
+  assert.equal(w.experiences.length, 0);
+  assert.equal(w.audits.length, 0);
+});
+
+test("Codex P1: failed audit cannot persist a skill confirmation", async () => {
+  const w = makeWorld();
+  w.setAuditFailure(true);
+  await assert.rejects(
+    w.service.reviewAllocation(sup, "a1", "r1", { decision: "CONFIRM", trade: "pintura" }),
+    /synthetic audit write failed/,
+  );
+  assert.equal(w.experiences.length, 0, "domain mutation must roll back");
+  assert.equal(w.audits.length, 0);
+  w.setAuditFailure(false);
+  await w.service.reviewAllocation(sup, "a1", "r2", { decision: "CONFIRM", trade: "pintura" });
+  assert.equal(w.experiences.length, 1, "retry is valid after audit failure");
+  assert.equal(w.audits.length, 1);
+});
+
+test("Codex P1: failed audit cannot create an attestation without delivering its one-time token", async () => {
+  const w = makeWorld();
+  await w.service.reviewAllocation(sup, "a1", "r1", { decision: "CONFIRM", trade: "pintura" });
+  w.setAuditFailure(true);
+  await assert.rejects(
+    w.service.createAttestation(ana, "r2", { consent: true }),
+    /synthetic audit write failed/,
+  );
+  assert.equal(w.attestations.length, 0, "attestation including token hash must roll back");
+  assert.equal(w.audits.filter((x) => x.action === "skill_attestation.created").length, 0);
+});
+
+test("Codex P1: failed audit leaves attestation active and allows later revocation", async () => {
+  const w = makeWorld();
+  await w.service.reviewAllocation(sup, "a1", "r1", { decision: "CONFIRM", trade: "pintura" });
+  const issued = await w.service.createAttestation(ana, "r2", { consent: true });
+  w.setAuditFailure(true);
+  await assert.rejects(
+    w.service.revokeAttestation(ana, issued.attestationId, "r3"),
+    /synthetic audit write failed/,
+  );
+  assert.equal(w.attestations[0].status, "ACTIVE", "revocation must roll back");
+  assert.equal(w.audits.filter((x) => x.action === "skill_attestation.revoked").length, 0);
+  w.setAuditFailure(false);
+  await w.service.revokeAttestation(ana, issued.attestationId, "r4");
+  assert.equal(w.attestations[0].status, "REVOKED");
+  assert.equal(w.audits.filter((x) => x.action === "skill_attestation.revoked").length, 1);
 });
