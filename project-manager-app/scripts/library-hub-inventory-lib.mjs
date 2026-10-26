@@ -73,7 +73,7 @@ function readLock(root,diagnostics) {
     if(/^importers:\s*$/.test(line)){active=true;continue;}
     if(!active)continue;
     if(/^\S/.test(line))break;
-    let m=line.match(/^ {2}(.+):\s*$/);
+    let m=line.match(/^ {2}(\S.*):\s*$/);
     if(m){ importer=unquote(m[1]);group=null;dep=null;
       if(output.has(importer)) fail("Duplicate importer in lockfile");
       output.set(importer,new Map());continue;
