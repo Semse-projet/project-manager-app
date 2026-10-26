@@ -4,17 +4,17 @@ feature: "S1/D7 — Consentimiento OAuth delegado persistente (fase B)"
 domain: "platform"
 spec: "docs/specs/platform/semse-mcp-delegated-consent.spec.md"
 version: "2.0"
-status: "APPROVED"
+status: "REVIEW"
 branch: "claude/new-session-jdxlw4"
 date: "2026-10-26"
 ---
 
 # Plan técnico: S1/D7 fase B — persistencia apagada
 
-> Prerrequisito: spec `APPROVED` (nivel 1 de DEC-PLATFORM-001; aprobación del
-> propietario en conversación de trabajo el 2026-10-26: «Empieza la fase B de
-> D7»). El plan separa implementación, merge, despliegue y activación; ningún
-> estado se infiere de otro.
+> Prerrequisito de fusión: spec `APPROVED` con evidencia documental de nivel 1
+> (DEC-PLATFORM-001). La fase B se ha preparado en rama aislada, pero falta
+> el comentario formal de aprobación de #1049 y reconciliar SKILL.md §12.
+> Mientras tanto no se autoriza merge ni migración productiva.
 
 ## 1. Snapshot de verdad
 
@@ -28,7 +28,7 @@ date: "2026-10-26"
 
 ## 2. Constitution check
 
-- [x] Spec aprobado antes de código (nivel 1 de DEC-PLATFORM-001)
+- [ ] Evidencia formal pendiente: comentario del propietario con SHA/fecha/alcance y reconciliación SKILL.md §12; fase B aún no fusionable
 - [x] Tenant/org/ownership y RBAC definidos (§3 del spec, Q2, D7-05b)
 - [x] Migración aditiva, sin FK ni DML (Q3, Q6-X1)
 - [x] Sin ruta HTTP/MCP, sin módulo Nest registrado, sin flag productivo
@@ -56,7 +56,7 @@ borrado de User/Org (no existe), ampliación de retención por tenant y legal ho
 
 | Riesgo | Mitigación |
 |---|---|
-| `OPS_ADMIN` lee todo el tenant vía `hasScopeAccess` | `mcpEffectiveRoles` quita roles con override (también el alias `ADMIN`); `assertProjectInGrantOrg` para la fase C; prueba D7-05b |
+| `OPS_ADMIN` lee todo el tenant vía `hasScopeAccess` | El rol operativo puro no concede lecturas MCP; con CLIENT/PRO se limita a esos permisos; `assertProjectInGrantOrg` obligatorio en C; D7-05b/05c |
 | Grant creado durante el borrado del titular | `FOR SHARE` sobre `AuthSession` y `User` en la transacción del INSERT; prueba D7-23 con barrera y prueba de mutación (sin `FOR SHARE` falla) |
 | Lectura que escribe | Pruebas D7-13 con extensión Prisma que bloquea no-SELECT |
 | Refactor de `authorizedRoles` cambia la web | Función pura con la misma semántica; prueba S1 de sesión/membership en PostgreSQL sigue verde |
@@ -66,5 +66,6 @@ borrado de User/Org (no existe), ampliación de retención por tenant y legal ho
 - Unitarias: `apps/api/test/mcp-d7-consent-policy.test.ts`.
 - Integración PostgreSQL real: `apps/api/test/mcp-d7-delegated-consent-integration.test.ts`
   (la ejecuta el workflow `API Integration` en cada PR que toca `apps/api`).
+- D7 comparte un deadline monotónico de 1000 ms; D2 deberá iniciar el mismo presupuesto antes de introspección.
 - Dos revisiones automatizadas de herramientas distintas, pausa de 24 h y
   autorrevisión del propietario con checklist antes de fusionar.

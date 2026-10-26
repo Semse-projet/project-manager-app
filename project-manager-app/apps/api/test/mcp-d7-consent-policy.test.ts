@@ -184,6 +184,52 @@ test("D7-04/D7-08: session of another user/org, inactive user or expired refresh
   await assert.rejects(read(opsOnly), ForbiddenException, "OPS_ADMIN never authorizes the MCP read path");
 });
 
+
+test("D7-10b: combined authority lookups exceeding the 1000ms budget fail closed", async () => {
+  let elapsedMs = 0;
+  const grant = {
+    id: "g-budget", tenantId: "tenant-a", orgId: "org-a", userId: "u1", sessionId: "s1",
+    oauthIssuer: trust.oauthIssuer, oauthClientId: "client-ok", resourceUri: trust.resourceUri,
+    scopeSet: ["projects:read"], status: "ACTIVE", anonymizedAt: null, policyVersion: "p1",
+    expiresAt: new Date(now.getTime() + DAY),
+  };
+  const authority = {
+    session: {
+      userId: "u1", orgId: "org-a", tenantId: "tenant-a", roles: ["CLIENT"],
+      refreshExpiresAt: new Date(now.getTime() + DAY),
+    },
+    userStatus: "active", activeRoles: ["CLIENT"],
+  };
+  const repo = { async findByBinding() { elapsedMs += 600; return grant; } };
+  const authRepo = { async findActiveSessionAuthorization() { elapsedMs += 600; return authority; } };
+  const svc = new McpConsentService(repo, authRepo, trust, () => now, () => elapsedMs);
+  await assert.rejects(svc.authorizeRead(readInput), ServiceUnavailableException);
+  assert.equal(elapsedMs, 1200);
+});
+
+test("D7-10c: shared budget permits two short authority lookups", async () => {
+  let elapsedMs = 0;
+  const grant = {
+    id: "g-short", tenantId: "tenant-a", orgId: "org-a", userId: "u1", sessionId: "s1",
+    oauthIssuer: trust.oauthIssuer, oauthClientId: "client-ok", resourceUri: trust.resourceUri,
+    scopeSet: ["projects:read"], status: "ACTIVE", anonymizedAt: null, policyVersion: "p1",
+    expiresAt: new Date(now.getTime() + DAY),
+  };
+  const repo = { async findByBinding() { elapsedMs += 350; return grant; } };
+  const authRepo = { async findActiveSessionAuthorization() {
+    elapsedMs += 350;
+    return {
+      session: { userId: "u1", orgId: "org-a", tenantId: "tenant-a", roles: ["CLIENT"],
+        refreshExpiresAt: new Date(now.getTime() + DAY) },
+      userStatus: "active", activeRoles: ["CLIENT"],
+    };
+  } };
+  const svc = new McpConsentService(repo, authRepo, trust, () => now, () => elapsedMs);
+  const result = await svc.authorizeRead(readInput);
+  assert.equal(result.grantId, "g-short");
+  assert.equal(elapsedMs, 700);
+});
+
 test("D7-10: a hanging authority fails closed with 503", async () => {
   const service = serviceWith({ findByBinding: () => new Promise(() => {}) });
   await assert.rejects(service.authorizeRead(readInput), ServiceUnavailableException);

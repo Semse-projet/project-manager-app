@@ -31,7 +31,10 @@ date: "2026-10-26"
 - [x] [T-016] Servicio interno sin ruta: `accept`, `authorizeRead`, `revokeOwn`, `revokeAsTenantOps`, `anonymizeDue`
 - [x] [T-017] Pruebas unitarias (D7-04, 05b, 09, 10, 11, 17, 22, Q5, Q6)
 - [x] [T-018] Pruebas de integración PostgreSQL (D7-01, 02, 03, 05, 05b, 06, 07, 08, 09, 13, 17, 19, 21, 22, 23, 24)
-- [ ] [T-019] CI verde (incluido `API Integration`) sobre el SHA final
+- [ ] [T-019] CI verde (incluido `API Integration`) sobre el SHA final de estas correcciones; el success de `f742a33` no lo sustituye
+- [ ] [T-019b] Reconciliar spec REVIEW/APPROVED: evidencia del propietario con SHA/fecha/alcance y SKILL.md §12
+- [ ] [T-019c] Confirmar tests D7-10b/10c de deadline monotónico; D2 debe pasar el presupuesto end-to-end
+- [ ] [T-019d] Confirmar test PostgreSQL D7-05c: `OPS_ADMIN` puro no concede grants de lectura
 - [ ] [T-020] Controles de nivel 2: dos revisiones automatizadas, pausa de 24 h, autorrevisión del propietario
 
 ## Pendiente para fases siguientes

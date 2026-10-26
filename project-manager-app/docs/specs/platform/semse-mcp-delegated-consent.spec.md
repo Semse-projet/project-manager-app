@@ -4,7 +4,7 @@ title: "S1/D7 — Consentimiento OAuth delegado persistente y revocable para SEM
 domain: "platform"
 sdd_version: "2.0"
 version: "0.3"
-status: "APPROVED"
+status: "REVIEW"
 owner: "semse-core"
 risk: "critical"
 code_status: "IN_PROGRESS"
@@ -108,7 +108,7 @@ bloquea la **siguiente** `tools/call`, sin escribir nada en la vía de lectura.
 
 | Actor | Permiso backend | Alcance tenant/org/recurso | Puede | No puede |
 |---|---|---|---|---|
-| Usuario con Membership `ACTIVE` | rol con `projects:read` (`CLIENT`, `PRO`, `OPS_ADMIN` en `packages/auth/src/rbac.ts`) | su `tenantId` + **una** `orgId` = la de su `AuthSession` | conceder grant `projects:read` a un cliente registrado; revocar sus grants | conceder scopes que sus roles no tienen; conceder sobre otra org; reactivar un grant `REVOKED`/`EXPIRED` |
+| Usuario con Membership `ACTIVE` | rol de lectura org elegible para MCP (`CLIENT` o `PRO`; no `OPS_ADMIN` por sí solo) | su `tenantId` + **una** `orgId` = la de su `AuthSession` | conceder grant `projects:read` a un cliente registrado; revocar sus grants | conceder scopes que sus roles no tienen; conceder sobre otra org; reactivar un grant `REVOKED`/`EXPIRED` |
 | Administrador de la org (**v1.1**, Q5) | `mcp:consents:revoke:org` (permiso y rol nuevos en v1.1; hoy no existe rol admin de org en `rbac.ts`) | grants con `orgId` de su org | revocar grants de su org, uno a uno o por cliente | conceder en nombre de otro usuario; revocar fuera de su org |
 | `OPS_ADMIN` (**v1**, Q5) | `mcp:consents:revoke:tenant` (permiso nuevo en v1, asignado a `OPS_ADMIN`) | grants de su `tenantId` | **v1:** revocar grants del tenant **uno a uno**, con motivo obligatorio. **v1.1:** además revocación masiva por `oauthClientId` | en v1, revocar en bloque por cliente; conceder; leer contenido de negocio vía grant; actuar fuera de su tenant |
 | Cliente MCP (host) | ninguno propio | solo el grant `ACTIVE` vinculado a su token | leer `projectId,status` vía S1 | elegir org/tenant/usuario por argumento; elevar scopes |
@@ -128,9 +128,11 @@ bloquea la **siguiente** `tools/call`, sin escribir nada en la vía de lectura.
   `OPS_ADMIN`** (ni otro rol con override operativo), aunque el usuario lo
   tenga; y (b) además se exige explícitamente
   `sameOrg(grant.orgId, scope.clientOrgId) || sameOrg(grant.orgId, scope.assignedProOrgId)`
-  sobre el proyecto leído. Un `OPS_ADMIN` puede conceder un grant, pero ese
-  grant solo lee proyectos de **su** org (D7-05b). Nunca se reutiliza
-  `hasScopeAccess` con el rol operativo en esta vía.
+  sobre el proyecto leído. En v1, `OPS_ADMIN` por sí solo no puede conceder
+  ni utilizar grants MCP de lectura; conserva el permiso separado de revocación
+  dentro de su tenant. Con `CLIENT` o `PRO` activo en Membership y sesión,
+  solo el rol no operativo autoriza la lectura en su org (D7-05b/D7-05c).
+  Nunca se reutiliza `hasScopeAccess` con un rol operativo en esta vía.
 - **Intersección de permisos (Q2, DECIDIDO 2026-10-26):** la vía web calcula
   `activeRoles ∩ session.roles ∩ claims.roles` en `authorizedRoles`
   (`auth.service.ts`). En MCP no existe JWT SEMSE; la regla es
@@ -429,7 +431,9 @@ forbidden_behavior:
 ## 8. Observabilidad, despliegue y activación
 
 - **Métricas/SLO:** latencia p95/p99 de la verificación completa (introspección
-  + grant + sesión/Membership) frente al deadline de 1000 ms del auth actual;
+  + grant + sesión/Membership). D7 usa un presupuesto monotónico compartido
+  de 1000 ms entre sus consultas; D2 deberá propagar el mismo deadline desde
+  antes de la introspección, sin reiniciarlo;
   conteo de denegaciones por código de motivo.
 - **Logs/traces/correlation:** `correlationId` en aceptación, revocación y
   denegación; sin tokens ni PII.
@@ -459,12 +463,15 @@ el mismo tenant, además de unitarios. Los casos con host MCP real solo tras D2.
 | D7-03 | Misma idempotencyKey con otro scope/org/cliente | 409 sin modificar el grant |
 | D7-04 | Token de usuario/cliente/scope idénticos vinculado a **otra sesión** | Rechazo antes de consultar Project |
 | D7-05 | Grant de Org A pidiendo Project de Org B, mismo tenant | Rechazo no enumerativo |
-| **D7-05b** | Igual que D7-05, con el usuario que concedió el grant teniendo `OPS_ADMIN` activo en Org A | Rechazo: el override operativo de `hasScopeAccess` no aplica en la vía MCP |
+| **D7-05b** | Igual que D7-05, con usuario `CLIENT` + `OPS_ADMIN` en Org A | Rechazo: el override operativo de `hasScopeAccess` no aplica en MCP |
+| **D7-05c** | Usuario solo `OPS_ADMIN` (sin `CLIENT`/`PRO`) intenta consentir una lectura MCP | Aceptación rechazada sin convertir la potestad de revocar en lectura org |
 | D7-06 | Org o Project de otro tenant | Rechazo y cero fuga |
 | D7-07 | Revocar grant con bearer aún `active` en el AS | Siguiente llamada rechazada |
 | D7-08 | Revocar AuthSession o Membership con grant aún `ACTIVE` | Siguiente llamada rechazada |
 | D7-09 | `expiresAt <= now` o `policyVersion` incompatible | Rechazo sin escribir en la lectura |
 | D7-10 | Introspección o PostgreSQL caídos / timeout | 503 fail-closed, sin fallback a claims |
+| **D7-10b** | Dos lecturas de autoridad de 600 ms cada una | Se rechaza con 503 al superar el presupuesto conjunto de 1000 ms |
+| **D7-10c** | Dos lecturas de autoridad de 350 ms cada una | Se autoriza si las restantes comprobaciones pasan dentro del mismo presupuesto |
 | D7-11 | Sin grant, cliente/scope/audience distinto, replay de grant revocado | Rechazo sin lookups indebidos |
 | D7-12 | `tools/list` y revocación antes de `tools/call` | `tools/call` rechazada |
 | D7-13 | Lectura instrumentada | Conteos Tenant/Org/User/Membership/Project/Job/Grant idénticos; no-SELECT bloqueadas |
@@ -535,6 +542,12 @@ Checklist de plantilla:
 
 ## 12. Gates de cierre
 
+> Control documental pendiente: registrar en #1049 la aprobación con SHA, fecha
+> y alcance, y armonizar la excepción de mantenedor único con
+> `.claude/skills/semseproject/SKILL.md` §12. Una revisión automatizada
+> no se presenta como aprobación humana independiente.
+
+
 - [x] Q1–Q4 decididas por el propietario (2026-10-26, §13)
 - [x] Q5, Q6 y valor de `MCP_GRANT_MAX_TTL` decididos (2026-10-26, §13)
 - [x] Fila del grant añadida a la matriz de retención M-06 (`.claude/skills/semseproject/references/operations.md`)
@@ -563,13 +576,12 @@ Checklist de plantilla:
 
 ## 13. Decisiones del propietario
 
-**Aprobación del spec (2026-10-26, nivel 1 de DEC-PLATFORM-001):** CI en verde y
-Codex sin hallazgos sobre `9bdaea4` (PR #1049, fusionado como `c6d4d32`); el
-propietario ordenó en conversación de trabajo «Empieza la fase B de D7», lo que
-se registra como aprobación del spec y autorización de la migración **aditiva**
-de la fase B. El comentario de aprobación en el PR queda pendiente del
-propietario. No autoriza aplicar la migración en producción, la fase C (D2) ni
-activar MCP.
+**Evidencia parcial (2026-10-26; nivel 1 de DEC-PLATFORM-001):** CI verde y
+revisión Codex sin hallazgos sobre `9bdaea4` (PR #1049, merge `c6d4d32`).
+La instrucción del propietario de preparar la fase B no sustituye el comentario
+formal con SHA, fecha y alcance exigido en el PR. Hasta reconciliar esa
+evidencia y la regla del skill §12, el spec permanece `REVIEW` y el código de
+fase B no autoriza migración productiva, fusión de #1051 ni activación MCP.
 
 **Registro de decisión (2026-10-26):** el propietario aceptó en conversación
 de trabajo las recomendaciones de Q1–Q4 y, después, el diseño integrado de

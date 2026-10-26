@@ -229,6 +229,9 @@ test("MCP D7 phase B — persisted delegated consent against real ephemeral Post
     assert.deepEqual(writeCalls, []);
     disallowWrites = false;
 
+    // D7-05c: a tenant operator without a CLIENT/PRO org role cannot issue a read grant.
+    await assert.rejects(service.accept(acceptInput(sid.opsB)), ForbiddenException);
+    // A dual-role actor may use CLIENT, never the operational override.
     // D7-05b: a grant consented by a CLIENT+OPS_ADMIN user never inherits the ops override.
     const opsInput = acceptInput(sid.ops);
     await service.accept(opsInput);

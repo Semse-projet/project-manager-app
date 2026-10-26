@@ -10,6 +10,7 @@ import {
   UnauthorizedException,
 } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
+import { performance } from "node:perf_hooks";
 import {
   MCP_GRANT_RETENTION_DAYS,
   acceptMcpConsentInputSchema,
@@ -40,6 +41,8 @@ export type McpConsentTrust = {
 export const MCP_CONSENT_TRUST = Symbol("MCP_CONSENT_TRUST");
 /** Reloj inyectable para pruebas de expiración y retención. */
 export const MCP_CONSENT_CLOCK = Symbol("MCP_CONSENT_CLOCK");
+/** Testable monotonic source for one shared authorization time budget. */
+export const MCP_CONSENT_MONOTONIC_CLOCK = Symbol("MCP_CONSENT_MONOTONIC_CLOCK");
 
 /** Contexto server-trusted para el camino de lectura D4. Nunca incluye roles con override operativo. */
 export type McpReadContext = {
@@ -66,11 +69,14 @@ export class McpConsentService {
     private readonly authRepository: AuthRepository,
     @Inject(MCP_CONSENT_TRUST) private readonly trust: McpConsentTrust,
     @Optional() @Inject(MCP_CONSENT_CLOCK) clock?: () => Date,
+    @Optional() @Inject(MCP_CONSENT_MONOTONIC_CLOCK) monotonicClock?: () => number,
   ) {
     this.clock = clock ?? (() => new Date());
+    this.monotonicClock = monotonicClock ?? (() => performance.now());
   }
 
   private readonly clock: () => Date;
+  private readonly monotonicClock: () => number;
 
   /** §5 aceptar. `sessionId` lo aporta el flujo de consentimiento confiable (D2), no el cliente. */
   async accept(rawInput: AcceptMcpConsentInput) {
@@ -141,9 +147,14 @@ export class McpConsentService {
     resourceUri: string;
     scope: McpConsentScope;
   }): Promise<McpReadContext> {
+    // D7 has a single monotonic budget; future D2 must pass the same
+    // end-to-end deadline starting before external token introspection.
+    const deadlineAt = this.monotonicClock() + AUTHORITY_DEADLINE_MS;
     const now = this.clock();
     this.assertTrusted(input.oauthIssuer, input.oauthClientId, input.resourceUri);
-    const grant = await this.withDeadline(() => this.repository.findByBinding(input.tenantId, input.grantBindingDigest));
+    const grant = await this.withDeadline(deadlineAt, () =>
+      this.repository.findByBinding(input.tenantId, input.grantBindingDigest),
+    );
     if (
       !grant ||
       grant.status !== "ACTIVE" ||
@@ -161,7 +172,9 @@ export class McpConsentService {
     }
 
     const sessionId = grant.sessionId;
-    const snapshot = await this.withDeadline(() => this.authRepository.findActiveSessionAuthorization(sessionId));
+    const snapshot = await this.withDeadline(deadlineAt, () =>
+      this.authRepository.findActiveSessionAuthorization(sessionId),
+    );
     if (
       !snapshot ||
       snapshot.userStatus !== ACTIVE_USER_STATUS ||
@@ -176,6 +189,7 @@ export class McpConsentService {
     if (!rolesCoverScopes(roles, [input.scope])) {
       throw new ForbiddenException("MCP consent not valid");
     }
+    this.assertWithinDeadline(deadlineAt);
     return { grantId: grant.id, tenantId: grant.tenantId, orgId: grant.orgId, userId: grant.userId, roles };
   }
 
@@ -258,18 +272,29 @@ export class McpConsentService {
     }
   }
 
-  private async withDeadline<T>(lookup: () => Promise<T>): Promise<T> {
+  private assertWithinDeadline(deadlineAt: number): void {
+    if (this.monotonicClock() >= deadlineAt) {
+      throw new ServiceUnavailableException("Authorization authority unavailable");
+    }
+  }
+
+  /** Do not restart the authorization timeout for each authority lookup. */
+  private async withDeadline<T>(deadlineAt: number, lookup: () => Promise<T>): Promise<T> {
+    this.assertWithinDeadline(deadlineAt);
+    const remainingMs = Math.max(1, Math.ceil(deadlineAt - this.monotonicClock()));
     let timeout: ReturnType<typeof setTimeout> | undefined;
     try {
-      return await Promise.race([
+      const result = await Promise.race([
         lookup(),
         new Promise<never>((_, reject) => {
           timeout = setTimeout(
             () => reject(new ServiceUnavailableException("Authorization authority unavailable")),
-            AUTHORITY_DEADLINE_MS,
+            remainingMs,
           );
         }),
       ]);
+      this.assertWithinDeadline(deadlineAt);
+      return result;
     } catch (error) {
       if (error instanceof ServiceUnavailableException) throw error;
       throw new ServiceUnavailableException("Authorization authority unavailable");
