@@ -169,3 +169,19 @@ test("records unsupported Python metadata without guessing package versions", ()
   assert.ok(out.diagnostics.some(x=>x.code==="PYTHON_MANIFEST_UNSUPPORTED"&&x.manifest==="apps/vision-service/pyproject.toml"));
   assert.ok(out.pythonRequirements.every(x=>x.resolvedVersion===null));
 }));
+test("redacts lockfile-only credentials when specifier or reference contains URL", () => makeFixture(({root,write}) => {
+  base(write);
+  const file=path.join(root,"pnpm-lock.yaml");
+  let lock=readFileSync(file,"utf8");
+  lock=lock.replace("specifier: ^3", "specifier: https://user:pass@evil.example/pkg");
+  lock=lock.replace("version: 4.1.12", "version: https://user:pass@evil.example/other");
+  write("pnpm-lock.yaml",lock);
+  const out=inventoryRepository(root);
+  const web=out.dependencies.find(x=>x.name==="zod"&&x.manifest==="apps/web/package.json");
+  const shared=out.dependencies.find(x=>x.name==="zod"&&x.manifest==="packages/shared/package.json");
+  assert.equal(web.resolutionStatus,"STALE_LOCKFILE");
+  assert.equal(web.lockSpecifier,"[REDACTED]");
+  assert.equal(shared.resolvedReference,"[REDACTED]");
+  assert.equal(shared.resolvedVersion,null);
+  assert.ok(!JSON.stringify(out).includes("user:pass"));
+}));
