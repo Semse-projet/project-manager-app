@@ -45,7 +45,11 @@ date: "2026-10-22"
   `docs/reportes/2026-10-26_s0b-allocation-atomicity-cross-crew-contract.md`.
 - [ ] S0b-DEC-01 — ratificar D-S0B-01…05 en BO-10 (tareas crew, conflicto
   inter-crew, lote atómico, traslados y unicidad).
+- [x] S0b-DOC-02 — documentar S0-F11 y límite transaccional del audit
+  en `docs/reportes/2026-10-26_s0b-audit-transaction-boundary-review.md`.
 - [ ] S0b-TEST-01 — escribir tests rojos N10…N18 con PostgreSQL.
+- [ ] S0b-TEST-02 — pruebas AUD-01…AUD-08: error de audit, no creación
+  de User/Org/Tenant implícitos, retries y competencia de revocación.
 - [ ] S0b-CODE-01 — implementar solución transaccional y auditoría segura
   tras SDD APPROVED; proteger idempotencia y fronteras tenant/org/crew.
 - [ ] S0b-VALIDATE-01 — tests locales, regresión y revisión seguridad;
@@ -108,7 +112,7 @@ date: "2026-10-22"
 - [x] Se documentaron los pendientes y orden P-01…P-22 en
   `docs/reportes/2026-10-22_supervisor-backlog-pending-and-ci-last.md`.
 - [ ] Completar decisiones OPEN-SUP-02…06 y fuente verificable de OPEN-SUP-01.
-- [ ] Cerrar S0-F01…F10, pruebas N01…N18 y revisión antes de CI.
+- [ ] Cerrar S0-F01…F11, pruebas N01…N18 + AUD-01…AUD-08 y revisión antes de CI.
   S0a N01…N09: `docs/reportes/2026-10-25_s0a-supervisor-negative-test-contract.md`;
   S0b N10…N18: `docs/reportes/2026-10-26_s0b-allocation-atomicity-cross-crew-contract.md`.
 - [ ] Mantener `ci_status` NO_VERIFIED/FAIL según evidencia, nunca PASS asumido.
