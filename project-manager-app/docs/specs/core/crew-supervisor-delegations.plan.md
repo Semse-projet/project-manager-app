@@ -122,6 +122,18 @@ date: "2026-10-22"
    **solo** tras spec/permiso APPROVED; mantener flags BO apagados.
 3. Pruebas de no-regresión del supervisor legítimo y del gestor autorizado.
 
+### S0b — Integridad y concurrencia de asignaciones (PR técnico independiente)
+1. Contrato de colisiones task/persona entre crews, origen de tareas
+   `entityType:Crew`, idempotencia y operaciones de lote documentado en
+   `docs/reportes/2026-10-26_s0b-allocation-atomicity-cross-crew-contract.md`.
+2. Ratificar D-S0B-01…05 y BO-10 antes de código. Tests N10…N18
+   primero, incluido PostgreSQL transaccional y auditoría.
+3. No basta envolver el bucle con `$transaction`: `AuditService.append`
+   usa Prisma inyectado y `ActorContextService.ensureActorContext`.
+   Evaluar vía atómica aprobada, sin duplicar audit ni permitir fallback.
+4. Validación local y revisión independiente; CI manual se deja al final
+   de la preparación y antes de fusionar.
+
 ### S1 — Política del propietario/representante (dependencia)
 1. OPEN-SUP-01: conservar la regla ya ratificada; completar el diseño técnico
    de verificación del dueño/representante, sin asumir `Org.ownerUserId`.
