@@ -285,7 +285,10 @@ export const rolePermissions: Record<string, string[]> = {
     "agro:workforce:admin",
     "live_sessions:read",
     "live_sessions:write",
-    "satellites:admin"
+    "satellites:admin",
+    // S1/D7 v1: revocar consentimientos MCP de su tenant uno a uno, con motivo
+    // obligatorio (docs/specs/platform/semse-mcp-delegated-consent.spec.md §3).
+    "mcp:consents:revoke:tenant"
   ],
   // Sesión demo pública (ui.demo-sandbox): SOLO agro, nada más — el aislamiento
   // del sandbox depende de que este set nunca crezca hacia jobs/payments/matching.

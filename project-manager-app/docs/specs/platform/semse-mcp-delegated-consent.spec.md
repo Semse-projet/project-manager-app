@@ -3,21 +3,29 @@ id: "platform.semse-mcp-delegated-consent"
 title: "S1/D7 — Consentimiento OAuth delegado persistente y revocable para SEMSE MCP"
 domain: "platform"
 sdd_version: "2.0"
-version: "0.2"
-status: "REVIEW"
+version: "0.3"
+status: "APPROVED"
 owner: "semse-core"
 risk: "critical"
-code_status: "NOT_STARTED"
+code_status: "IN_PROGRESS"
 ci_status: "NOT_RUN"
 merge_status: "UNMERGED"
 deploy_status: "NOT_DEPLOYED"
 activation_status: "INACTIVE"
-migration_status: "NOT_APPLICABLE"
+migration_status: "PENDING"
 feature_flags: []
 production_evidence: []
 related_files:
   - packages/db/prisma/schema.prisma
+  - packages/db/prisma/migrations/20261026022437_mcp_delegated_consent/migration.sql
+  - packages/schemas/src/mcp-delegated-consent.schema.ts
   - packages/auth/src/rbac.ts
+  - apps/api/src/modules/auth/session-roles.ts
+  - apps/api/src/modules/mcp-consent/mcp-consent.policy.ts
+  - apps/api/src/modules/mcp-consent/mcp-consent.repository.ts
+  - apps/api/src/modules/mcp-consent/mcp-consent.service.ts
+  - docs/specs/platform/semse-mcp-delegated-consent.plan.md
+  - docs/specs/platform/semse-mcp-delegated-consent.tasks.md
   - apps/api/src/modules/auth/auth.repository.ts
   - apps/api/src/modules/auth/auth.service.ts
   - apps/api/src/common/auth.guard.ts
@@ -28,7 +36,9 @@ related_files:
   - docs/specs/platform/semse-mcp-project-read.oauth-bridge.md
   - docs/specs/platform/semse-mcp-project-read.d2-evaluation.md
   - docs/reportes/2026-10-17_mcp-hydra-postgres-linked-poc.md
-related_tests: []
+related_tests:
+  - apps/api/test/mcp-d7-consent-policy.test.ts
+  - apps/api/test/mcp-d7-delegated-consent-integration.test.ts
 related_endpoints: []
 related_events: []
 related_agents:
@@ -552,6 +562,14 @@ Checklist de plantilla:
 - [ ] Sólo entonces `status: VERIFIED`
 
 ## 13. Decisiones del propietario
+
+**Aprobación del spec (2026-10-26, nivel 1 de DEC-PLATFORM-001):** CI en verde y
+Codex sin hallazgos sobre `9bdaea4` (PR #1049, fusionado como `c6d4d32`); el
+propietario ordenó en conversación de trabajo «Empieza la fase B de D7», lo que
+se registra como aprobación del spec y autorización de la migración **aditiva**
+de la fase B. El comentario de aprobación en el PR queda pendiente del
+propietario. No autoriza aplicar la migración en producción, la fase C (D2) ni
+activar MCP.
 
 **Registro de decisión (2026-10-26):** el propietario aceptó en conversación
 de trabajo las recomendaciones de Q1–Q4 y, después, el diseño integrado de

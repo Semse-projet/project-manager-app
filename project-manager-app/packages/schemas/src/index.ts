@@ -70,3 +70,5 @@ export * from "./vision-library.schema.js";
 export * from "./construction-library.seed.js";
 // C39 — catálogo global de precios de modelos de IA (spec: prometeo/ai-pricing-catalog)
 export * from "./ai-pricing.schema.js";
+// S1/D7 — consentimiento OAuth delegado MCP (spec: platform/semse-mcp-delegated-consent)
+export * from "./mcp-delegated-consent.schema.js";
