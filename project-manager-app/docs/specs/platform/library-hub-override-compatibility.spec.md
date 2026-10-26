@@ -16,14 +16,14 @@ migration_status: "NOT_APPLICABLE"
 feature_flags: []
 production_evidence: []
 related_files:
-  - ".github/workflows/assistant-portal-compat.yml"
+  - "../.github/workflows/assistant-portal-compat.yml"
   - "package.json"
   - "pnpm-lock.yaml"
   - "apps/assistant-portal/package.json"
   - "apps/api/package.json"
   - "docs/reportes/2026-10-25_library-hub-override-compatibility.md"
 related_tests:
-  - "apps/assistant-portal"
+  - "../.github/workflows/assistant-portal-compat.yml"
 related_endpoints: []
 related_events: []
 related_agents: []
