@@ -51,6 +51,13 @@ transacción. Decisiones D-S0B-01…05 **no ratificadas**; no hay tests
 ni patch operativo. S0-F06…F10 son hallazgos de revisión estática,
 no fallos comprobados en producción.
 
+**AUDITORÍA 2026-10-26:** se añadió
+[revisión del límite transaccional y de `ActorContextService`](2026-10-26_s0b-audit-transaction-boundary-review.md):
+S0-F11 (posible creación de Tenant/Org/User por `ensureActorContext`
+en ruta de audit) y pruebas pendientes AUD-01…AUD-08.
+No retirar globalmente el helper compartido ni crear una API tx sin
+revisión de impacto en workers y auth.
+
 La fase de inventario y redacción de propuestas está adelantada. P-01…P-06
 solo se cierran cuando se pruebe la fuente canónica/guardas y se ratifiquen
 las decisiones contractuales; no marcar DONE por añadir estos documentos.
@@ -68,7 +75,7 @@ las decisiones contractuales; no marcar DONE por añadir estos documentos.
 | P-08 | P0 security | S0-F02: assign usa `CrewMember.ACTIVE` sin revalidar WORKER ACTIVE del destinatario | P-07 / guard común | prueba N03 y 0 mutaciones ilegítimas |
 | P-09 | P0 security | S0-F03: `TaskAllocationsService.listMine/updateStatus` con acceso anterior tras revocación de membership/crew | P-07 / política de historical read | pruebas N04-N07; conservación de historial |
 | P-10 | P0 security | Separar acceso de gestor org (`org:crews:manage`) del supervisor operativo; no retirar facultades legítimas a PRO dueño | P-01 | pruebas de dueño verificado, PRO ajeno, OPS_ADMIN, cross-org |
-| P-11 | P1 integridad | S0-F05…F10: contrato S0b de lote atómico, no reutilizar asignaciones de otra crew, proteger tareas internas y prueba audit transaccional | D-S0B-01…05 + BO-10 ratificado | N10–N18 en PostgreSQL y auditoría íntegra |
+| P-11 | P1 integridad | S0-F05…F11: contrato S0b de lote atómico, no reutilizar asignaciones de otra crew, proteger tareas internas, audit transaccional sin crear actor/contexto sintético | D-S0B-01…05 + BO-10 ratificado | N10–N18 y AUD-01…08 en PostgreSQL y auditoría íntegra |
 | P-12 | P0 SDD | Actualizar/armonizar BO-07, BO-10, identidad, Membership y business offers; permisos, respuestas 401/403/404/409/422, eventos y estados | P-01…P-11 | spec coherente `APPROVED`, plan/tasks/checklist y análisis |
 | P-13 | P1 seguridad | Diseñar `CrewSupervisorDelegation` con tenant/org/crew, vigencia, permisos, versión, motivo y revocación | P-01…P-06 | schema, índices, lifecycle, política y rollout revisados |
 | P-14 | P1 implementación | S0a: tests rojos antes del parche mínimo de guardas; PR acotado | P-12 | N01-N09 demostradas FAIL antes / PASS después, sin regresión |
