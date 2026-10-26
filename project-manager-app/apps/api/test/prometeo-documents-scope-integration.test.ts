@@ -18,7 +18,7 @@ loadEnv({ path: path.join(root, "packages/db/.env") });
 // explicitly opted-in local semse_* QA database is allowed. Never Railway/prod.
 const dbUrl = process.env.DATABASE_URL;
 const target = dbUrl ? new URL(dbUrl) : null;
-const dbName = target?.pathname.replace(/^\\//, "") ?? "";
+const dbName = target?.pathname.slice(1) ?? "";
 const localHost = ["127.0.0.1", "localhost"].includes(target?.hostname ?? "");
 const ciIsolated = process.env.GITHUB_ACTIONS === "true" &&
   process.env.CI === "true" &&
