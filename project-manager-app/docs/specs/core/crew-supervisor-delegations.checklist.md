@@ -30,6 +30,16 @@ date: "2026-10-22"
 - [ ] Registros auditables sin secretos, PII sensible ni geolocalización.
 - [ ] OSHA competent person no se infiere por UI.
 
+## Integridad S0b (nuevo contrato, aún no implementado)
+
+- [x] Análisis estático S0b documentado en
+  `docs/reportes/2026-10-26_s0b-allocation-atomicity-cross-crew-contract.md`.
+- [ ] Ratificar D-S0B-01…05 en BO-10 y proteger origin `Crew`.
+- [ ] Tests N10…N18, incluyendo error tardío, carrera P2002, cross-crew
+  y audit transaccional, reproducibles en PostgreSQL.
+- [ ] Verificar que reintento y release nunca devuelven datos de otra crew.
+- [ ] Conservar JobTask/TimeEntry/Evidence y no autorizar transferencias implícitas.
+
 ## Datos
 - [ ] No romper Membership ni `Crew.supervisorUserId` legacy.
 - [ ] Grant temporal y versión con constraints/concurrencia.
