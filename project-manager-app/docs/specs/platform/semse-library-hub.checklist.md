@@ -45,3 +45,13 @@ date: "2026-10-25"
 - [ ] CI terminal, merge SHA, deployment y activación separados.
 - [ ] Smoke autenticado real y evidencia, jamás inferir de health 200.
 - [ ] Nota final de auditoría actualizará estado sin inventar cobertura.
+
+## Verificación estática de documentación (sin CI ni ejecución del proyecto)
+
+- [x] Ambos archivos `*.snapshot.json` se pudieron interpretar como JSON.
+- [x] Los snapshots contienen 7 apps + 13 paquetes de primer nivel y 8 requisitos de `vision-service`.
+- [x] Recuento independiente sobre los snapshots: 213 `dependencies`, 61 `devDependencies`, 2 `peerDependencies`, 210 nombres únicos, 29 con múltiples declaraciones y 7 con rangos textuales diferentes.
+- [x] El informe `semse-library-hub.direct-reconciliation.md` concuerda con los contadores.
+- [x] El PR #1048, comprobado al final de esta revisión, sólo contiene rutas bajo `project-manager-app/docs/` (10 archivos).
+- [x] El SDD sigue en `DRAFT`, no `APPROVED`, y no se modificó runtime.
+- [ ] **Pendiente:** `pnpm spec:validate:strict`, `pnpm spec:index`, tests/CI, revisión de licencia/CVE, comparación con lockfile y aprobación técnica del SDD. No se infiere PASS de esta inspección documental.
