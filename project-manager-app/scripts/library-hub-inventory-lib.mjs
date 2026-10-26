@@ -99,16 +99,20 @@ function readLock(root,diagnostics) {
   if(!active)fail("Missing pnpm lockfile importers");
   return output;
 }
+function safeSpecifier(value) {
+  return typeof value === "string" && (value.includes("://") || /(?:git@|\S+:[^@\s]+@)/i.test(value)) ? "[REDACTED]" : value;
+}
 function resolution(lock,importer,group,name,range) {
   const unknown={lockSpecifier:null,resolvedReference:null,resolvedVersion:null,resolutionStatus:"UNVERIFIED"};
   if(!lock)return unknown;
   const x=lock.get(importer)?.get(group+"\u0000"+name);
   if(!x?.specifier||!x?.version)return unknown;
-  if(x.specifier!==range)return {...unknown,lockSpecifier:x.specifier,resolutionStatus:"STALE_LOCKFILE"};
+  if(x.specifier!==range)return {...unknown,lockSpecifier:safeSpecifier(x.specifier),resolutionStatus:"STALE_LOCKFILE"};
   const ref=x.version;
-  if(ref.startsWith("link:")||ref.startsWith("workspace:"))return {...unknown,lockSpecifier:x.specifier,resolvedReference:ref,resolutionStatus:"LOCAL_LINK"};
+  if(safeSpecifier(ref)==="[REDACTED]") return {...unknown,lockSpecifier:safeSpecifier(x.specifier),resolvedReference:"[REDACTED]"};
+  if(ref.startsWith("link:")||ref.startsWith("workspace:"))return {...unknown,lockSpecifier:safeSpecifier(x.specifier),resolvedReference:ref,resolutionStatus:"LOCAL_LINK"};
   if(!/^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?(?:\(.+\))?$/.test(ref))return {...unknown,lockSpecifier:x.specifier,resolvedReference:ref};
-  return {lockSpecifier:x.specifier,resolvedReference:ref,resolvedVersion:ref.split("(")[0],resolutionStatus:"RESOLVED"};
+  return {lockSpecifier:safeSpecifier(x.specifier),resolvedReference:ref,resolvedVersion:ref.split("(")[0],resolutionStatus:"RESOLVED"};
 }
 function scanPython(root,patterns,diagnostics) {
   const pythonRequirements=[], sources=[];
@@ -165,7 +169,7 @@ export function inventoryRepository(rootPath) {
       for(const name of Object.keys(group).sort(cmp)){
         const declaredRange=group[name];
         if(typeof declaredRange!=="string")fail("Invalid dependency spec in "+rel);
-        dependencies.push({ecosystem:"npm",name,manifest:rel,dependencyType:type,declaredRange:declaredRange.includes("://")?"[REDACTED]":declaredRange,...(declaredRange.includes("://")?{lockSpecifier:null,resolvedReference:null,resolvedVersion:null,resolutionStatus:"UNVERIFIED"}:resolution(lock,importer,type,name,declaredRange)),licenseStatus:"UNKNOWN",vulnerabilityStatus:"UNKNOWN",runtimeStatus:"UNVERIFIED"});
+        dependencies.push({ecosystem:"npm",name,manifest:rel,dependencyType:type,declaredRange:safeSpecifier(declaredRange),...(safeSpecifier(declaredRange)==="[REDACTED]"?{lockSpecifier:null,resolvedReference:null,resolvedVersion:null,resolutionStatus:"UNVERIFIED"}:resolution(lock,importer,type,name,declaredRange)),licenseStatus:"UNKNOWN",vulnerabilityStatus:"UNKNOWN",runtimeStatus:"UNVERIFIED"});
       }
     }
   }
