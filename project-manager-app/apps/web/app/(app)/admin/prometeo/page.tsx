@@ -63,6 +63,29 @@ async function apiDelete(path: string) {
   if (!res.ok) { const d = await res.json() as { error?: { message?: string } }; throw new Error(d?.error?.message ?? `Error ${res.status}`); }
 }
 
+// Base64 encode without String.fromCharCode(...bytes) argument-count overflow.
+function readFileAsBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(reader.error ?? new Error("File read failed"));
+    reader.onabort = () => reject(new Error("File read cancelled"));
+    reader.onload = () => {
+      const data = reader.result;
+      if (typeof data !== "string" || !data.startsWith("data:")) {
+        reject(new Error("Invalid file data"));
+        return;
+      }
+      const separator = data.indexOf(",");
+      if (separator < 0) {
+        reject(new Error("Invalid file data"));
+        return;
+      }
+      resolve(data.slice(separator + 1));
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 // ── StatusBadge ────────────────────────────────────────────────────────────────
 
 function StatusBadge({ status }: { status: string }) {
@@ -172,9 +195,8 @@ export default function PrometeoPage() {
     setIngestError(null);
     setIngestSuccess(false);
     try {
-      // Convert file to base64
-      const ab = await ingestFile.arrayBuffer();
-      const fileBase64 = btoa(String.fromCharCode(...new Uint8Array(ab)));
+      // FileReader avoids passing every file byte as a JS function argument.
+      const fileBase64 = await readFileAsBase64(ingestFile);
       await apiPost("/api/semse/prometeo/ingest-file", {
         fileBase64, mimeType: ingestFile.type, fileName: ingestFile.name,
         title: ingestTitle, trade: ingestTrade, visibility: ingestVisibility,
