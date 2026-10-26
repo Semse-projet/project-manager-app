@@ -293,10 +293,13 @@ test("worker mobile navigation renders five localized tab labels", () => {
 
 test("Prometeo keeps ingestion private and disables sharing until #974/#987 server gates", () => {
   const page = readFileSync(path.join(root, "apps/web/app/(app)/admin/prometeo/page.tsx"), "utf8");
-  assert.match(page, /useState\\("tenant_private"\\)/, "new ingestion must default to tenant private");
-  assert.match(page, /<option value="public_training" disabled>/, "public training cannot be selectable without approved consent");
-  assert.match(page, /<option value="project_private" disabled>/, "project-private selection requires a verified project authorization context");
-  assert.match(page, /<option value="tenant_private">/, "tenant-private ingestion must remain selectable");
-  assert.match(page, /visibility: ingestVisibility/, "file ingestion must retain the selected visibility metadata");
-  assert.match(page, /visibility: ingestVisibility/, "text ingestion must retain the selected visibility metadata");
+  assert.ok(page.includes('useState("tenant_private")'), "new ingestion must default to tenant private");
+  assert.ok(page.includes('<option value="public_training" disabled>'), "public training requires approved consent");
+  assert.ok(page.includes('<option value="project_private" disabled>'), "project private requires authorized project context");
+  assert.ok(page.includes('<option value="tenant_private">'), "tenant-private ingestion remains selectable");
+  const fileIngest = page.indexOf('apiPost("/api/semse/prometeo/ingest-file"');
+  const textIngest = page.indexOf('apiPost("/api/semse/prometeo/ingest"');
+  assert.ok(fileIngest >= 0 && textIngest >= 0, "both ingestion paths must exist");
+  assert.ok(page.slice(fileIngest, fileIngest + 400).includes("visibility: ingestVisibility"), "file metadata is private by default");
+  assert.ok(page.slice(textIngest, textIngest + 400).includes("visibility: ingestVisibility"), "text metadata is private by default");
 });
