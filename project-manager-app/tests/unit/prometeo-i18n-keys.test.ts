@@ -6,6 +6,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
@@ -52,4 +53,23 @@ test("Prometeo text ingestion forwards visibility and trade to the API", () => {
     /apiPost\("\/api\/semse\/prometeo\/ingest",\s*\{[^}]*trade:\s*ingestTrade,\s*visibility:\s*ingestVisibility/
   );
   assert.match(pageSource, /question:\s*ragQuestion,\s*locale:\s*language/);
+});
+
+test("PR #973 authenticated QA smoke fails closed and parses on the CI Node toolchain", () => {
+  const qaSpecPath = path.resolve(directory, "../e2e-semse/i18n-pr973.spec.ts");
+  const qaSpec = readFileSync(qaSpecPath, "utf8");
+  for (const role of ["admin", "client", "worker"]) {
+    assert.ok(qaSpec.includes(`loginAsQa(page, "${role}")`), `Missing QA login: ${role}`);
+  }
+  assert.match(qaSpec, /SEMSE_QA_ISOLATED_PREVIEW/);
+  assert.match(qaSpec, /SEMSE_QA_\$\{role\.toUpperCase\(\)\}/);
+  assert.match(qaSpec, /production target is forbidden/);
+  assert.match(qaSpec, /login redirected outside approved preview origin/);
+  assert.match(qaSpec, /trace: "off", screenshot: "off", video: "off"/);
+  assert.doesNotMatch(qaSpec, /import \{ loginAs \} from "\.\/utils\/auth"/);
+  const parse = spawnSync(process.execPath, ["--experimental-strip-types", "--check", qaSpecPath], {
+    encoding: "utf8",
+    timeout: 10_000,
+  });
+  assert.equal(parse.status, 0, `PR #973 QA test syntax check failed: ${parse.stderr || parse.error}`);
 });
