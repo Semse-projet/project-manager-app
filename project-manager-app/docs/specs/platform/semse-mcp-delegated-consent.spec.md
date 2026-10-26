@@ -40,8 +40,9 @@ last_verified: "NOT_VERIFIED"
 
 > Spec hijo de [`platform.semse-mcp-project-read`](semse-mcp-project-read.spec.md)
 > (S1, `REVIEW`). Contrato SDD 2.0 en **REVIEW** (decisiones del propietario
-> Q1–Q6 cerradas el 2026-10-26; falta revisión de seguridad independiente para
-> `APPROVED`): no autoriza schema Prisma,
+> Q1–Q6 cerradas el 2026-10-26; `APPROVED` según los controles de nivel 1 de
+> [DEC-PLATFORM-001](../../architecture/DEC-PLATFORM-001-solo-maintainer-review.md)):
+> no autoriza schema Prisma,
 > migración, endpoint, flag, despliegue ni activación MCP. D7 está aprobado
 > por el propietario **a nivel de solución** (2026-10-15, ver
 > [`decisions`](semse-mcp-project-read.decisions.md)); **D2 (Authorization
@@ -511,8 +512,14 @@ Checklist de plantilla:
 - [x] Q5, Q6 y valor de `MCP_GRANT_MAX_TTL` decididos (2026-10-26, §13)
 - [x] Fila del grant añadida a la matriz de retención M-06 (`.claude/skills/semseproject/references/operations.md`)
 - [x] FSM registrada en `STATE_MACHINES.md` como reservada
-- [ ] Revisión de seguridad por persona **independiente del autor** con estado
-  `APPROVED` sobre este spec (regla S1)
+- [ ] Este spec (documento): controles de **nivel 1** de
+  [DEC-PLATFORM-001](../../architecture/DEC-PLATFORM-001-solo-maintainer-review.md):
+  CI verde, revisión automatizada sin bloqueantes y registro de aprobación del
+  propietario en el PR
+- [ ] Fases B y C (código con flag OFF): controles de **nivel 2** de
+  DEC-PLATFORM-001 (dos revisiones automatizadas, pruebas D7 contra PostgreSQL
+  real, pausa de 24 h, autorrevisión con checklist)
+- [ ] Fase D (activación): **nivel 3**, revisión humana externa real
 - [ ] Eventos en `EVENT_CATALOG.md` si
   se adoptan
 - [ ] Spec enlazado por `pnpm spec:index`
@@ -534,8 +541,9 @@ de trabajo las recomendaciones de Q1–Q4 y, después, el diseño integrado de
 Q5–Q6 con tres valores: conservación completa **90 días**, `MCP_GRANT_MAX_TTL`
 **30 días** y revocación por administrador de org en **v1.1**. Esto fija el
 diseño de este spec y lo pasa a `REVIEW`; no autoriza migración, código, flag
-productivo, despliegue ni cambia D2, S1 o ADR-045. `APPROVED` sigue exigiendo
-revisión de seguridad independiente del autor (§12).
+productivo, despliegue ni cambia D2, S1 o ADR-045. `APPROVED` sigue los
+controles por nivel de DEC-PLATFORM-001 (§12), que sustituyen al revisor
+humano independiente mientras haya un solo mantenedor.
 
 | # | Pregunta | Estado | Decisión |
 |---|---|---|---|
