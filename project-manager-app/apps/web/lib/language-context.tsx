@@ -24,6 +24,11 @@ const T: Record<LanguagePreference, Record<string, string>> = {
 
     // ── Nav items ─────────────────────────────────────────────────────────────
     "nav.dashboard": "Dashboard",
+    "workerMobile.home": "Inicio",
+    "workerMobile.jobs": "Trabajos",
+    "workerMobile.time": "Tiempo",
+    "workerMobile.evidence": "Evidencia",
+    "workerMobile.offers": "Ofertas",
     "nav.operations": "Operaciones",
     "nav.autonomy": "Autonomía",
     "nav.developerRuntime": "Entorno Dev",
@@ -1381,6 +1386,11 @@ const T: Record<LanguagePreference, Record<string, string>> = {
 
     // ── Nav items ─────────────────────────────────────────────────────────────
     "nav.dashboard": "Dashboard",
+    "workerMobile.home": "Home",
+    "workerMobile.jobs": "Jobs",
+    "workerMobile.time": "Time",
+    "workerMobile.evidence": "Evidence",
+    "workerMobile.offers": "Offers",
     "nav.operations": "Operations",
     "nav.autonomy": "Autonomy",
     "nav.developerRuntime": "Developer Runtime",

@@ -128,3 +128,27 @@ test("ProTools and Marketplace avoid known hard-coded Spanish interface strings"
     }
   }
 });
+
+test("worker mobile navigation renders five localized tab labels", () => {
+  const layout = readFileSync(path.join(root, "apps/web/app/(app)/layout.tsx"), "utf8");
+  const start = layout.indexOf("function WorkerMobileBottomNav");
+  const end = layout.indexOf("function AdminOnlyBanner", start);
+  assert.ok(start >= 0 && end > start, "Worker mobile navigation component not found");
+  const navigation = layout.slice(start, end);
+  assert.match(navigation, /const \{ t \} = useLanguage\(\)/);
+  assert.match(navigation, /\{t\(labelKey\)\}/);
+  const tabs = [
+    ["/worker/dashboard", "workerMobile.home"],
+    ["/worker/jobs", "workerMobile.jobs"],
+    ["/worker/tracker", "workerMobile.time"],
+    ["/worker/evidence", "workerMobile.evidence"],
+    ["/worker/opportunities", "workerMobile.offers"],
+  ] as const;
+  for (const [href, key] of tabs) {
+    const line = navigation.split("\n").find((entry) => entry.includes(`href: "${href}"`));
+    assert.ok(line?.includes(`labelKey: "${key}"`), `Wrong localization key for ${href}`);
+    assert.ok(es.has(key), `Missing Spanish mobile navigation key: ${key}`);
+    assert.ok(en.has(key), `Missing English mobile navigation key: ${key}`);
+  }
+  assert.doesNotMatch(navigation, /label:\s*"(?:Inicio|Trabajos|Tiempo|Evidencia|Ofertas)"/);
+});
