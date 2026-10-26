@@ -91,7 +91,7 @@ Ejecución local/CI cuando se autorice. No servicios, bandera ni deploy; `deploy
 - [ ] Rechazo de symlink y JSON malformado; `scripts.preinstall` no ejecutado.
 - [ ] Python requirements básicos y líneas complejas como UNRESOLVED.
 - [ ] Falla controlada cuando patrón de workspace no corresponde al contrato.
-- [ ] Corrida local sobre repo real y verificación de conteos vs snapshots, sin atribuir runtime.
+- [ ] Smoke en checkout real de CI (test añadido, ejecución y resultados pendientes); cotejar conteos vs snapshots sin atribuir runtime.
 - [ ] CI al final y checks de spec una vez estabilizado el código.
 
 ## 10. Mapa de implementación
