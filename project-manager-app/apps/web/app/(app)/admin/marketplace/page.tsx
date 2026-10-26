@@ -40,15 +40,16 @@ const CATEGORY_IDS = ["painting", "plumbing", "drywall", "electrical", "hvac", "
 function UrgencyBadge({ urgency }: { urgency: string | null }) {
   const { t } = useLanguage();
   const color = URGENCY_COLORS[urgency ?? "medium"] ?? "#94a3b8";
+  const label = urgency === null ? t("mp.urgency.medium") : Object.hasOwn(URGENCY_COLORS, urgency) ? t(`mp.urgency.${urgency}`) : urgency;
   return (
     <span style={{ fontSize: 9, fontWeight: 800, color, background: `${color}20`, padding: "2px 7px", borderRadius: 99 }}>
-      {t(`mp.urgency.${Object.hasOwn(URGENCY_COLORS, urgency ?? "") ? urgency : "medium"}`)}
+      {label}
     </span>
   );
 }
 
 function formatBudget(min: number | null, max: number | null, type: string | null, language: LanguagePreference, t: (key: string) => string): string {
-  const money = (amount: number) => new Intl.NumberFormat(language === "en" ? "en-US" : "es-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(amount);
+  const money = (amount: number) => new Intl.NumberFormat(language === "en" ? "en-US" : "es-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount);
   if (!min && !max) return t("mp.budgetOpen");
   if (min && max) return `${money(min)}–${money(max)} ${type ?? ""}`.trim();
   if (min) return `${t("mp.from")} ${money(min)}`;
@@ -120,7 +121,7 @@ export default function MarketplacePage() {
           {[
             { label: t("mp.posted"), value: String(stats.totalListings), icon: Briefcase, color: "#818cf8" },
             { label: t("mp.urgentJobs"),   value: String(stats.byUrgency["urgent"] ?? 0), icon: Zap, color: "#fca5a5" },
-            { label: t("mp.avgBudget"), value: stats.avgBudgetMin ? new Intl.NumberFormat(language === "en" ? "en-US" : "es-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(stats.avgBudgetMin) : "—", icon: DollarSign, color: "#86efac" },
+            { label: t("mp.avgBudget"), value: stats.avgBudgetMin ? new Intl.NumberFormat(language === "en" ? "en-US" : "es-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(stats.avgBudgetMin) : "—", icon: DollarSign, color: "#86efac" },
             { label: t("mp.professionals"), value: String(professionals.length), icon: Users, color: "#67e8f9" },
           ].map(({ label, value, icon: Icon, color }) => (
             <div key={label} style={{ padding: "14px 16px", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12 }}>

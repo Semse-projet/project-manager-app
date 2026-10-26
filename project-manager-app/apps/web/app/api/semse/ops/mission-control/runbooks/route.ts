@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import {
-  fetchSemseDataForRequest,
+  fetchSemseDataForAuthenticatedRequest,
   handleServerError,
   isApiBaseConfigured,
   runtimeDisabledResponse,
@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
     return runtimeDisabledResponse();
   }
   try {
-    const data = await fetchSemseDataForRequest(
+    const data = await fetchSemseDataForAuthenticatedRequest(
       "/v1/ops/mission-control/runbooks",
       request,
     );

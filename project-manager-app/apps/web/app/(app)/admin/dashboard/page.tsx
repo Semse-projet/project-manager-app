@@ -42,6 +42,7 @@ export default function AdminDashboardPage() {
   const [loading, setLoading]     = useState(true);
   const [apiError, setApiError]   = useState<string | null>(null);
   const [lastRefresh, setLastRefresh] = useState(new Date());
+  const explicitDemoMode = process.env.NEXT_PUBLIC_SEMSE_DEMO_LOGIN_ENABLED === "true";
 
   async function loadData(options?: { skipLoading?: boolean }) {
     if (!options?.skipLoading) {
@@ -202,7 +203,7 @@ export default function AdminDashboardPage() {
       <HtmlInCanvasPanel as="section" canvasClassName="rounded-[16px]" minHeight={100} style={{ marginBottom: "28px" }}>
         <div>
           <h2 style={{ fontSize: "15px", fontWeight: 700, color: "var(--ink)", marginBottom: "14px" }}>
-            {t("adminDash.systemAlerts")} {apiError && <span style={{ fontSize: "11px", color: "var(--faint)", fontWeight: 400 }}>· {t("adminDash.demoMode")}</span>}
+            {t("adminDash.systemAlerts")} {apiError && explicitDemoMode && <span style={{ fontSize: "11px", color: "var(--faint)", fontWeight: 400 }}>· {t("adminDash.demoMode")}</span>}
           </h2>
           <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
             {(disputeJobs.length > 0
@@ -213,7 +214,7 @@ export default function AdminDashboardPage() {
                   time: t("adminDash.inProgress"),
                   severity: "error",
                 }))
-              : apiError ? demoAlerts(t) : []
+              : apiError && explicitDemoMode ? demoAlerts(t) : []
             ).map(alert => (
               <div
                 key={alert.id}
@@ -236,7 +237,8 @@ export default function AdminDashboardPage() {
                 </div>
               </div>
             ))}
-            {!apiError && disputeJobs.length === 0 && <p className="text-sm text-muted">{t("adminDash.noAlerts")}</p>}
+            {!loading && !apiError && disputeJobs.length === 0 && <p className="text-sm text-muted">{t("adminDash.noAlerts")}</p>}
+            {!loading && apiError && !explicitDemoMode && <p className="text-sm text-muted">{apiError}</p>}
           </div>
         </div>
       </HtmlInCanvasPanel>

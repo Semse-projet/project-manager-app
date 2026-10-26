@@ -89,42 +89,47 @@ export class EvidenceGatewayService {
       // metadataJson) la hace EvidenceService.register; aqui solo se adapta la
       // forma de la peticion. La clave se valida tambien antes de delegar
       // (defensa en profundidad y fallo temprano con 400).
-      const bucketKey = normalizeEvidenceBucketKey(request.bucketKey, request.tenantId);
-      const evidence = await this.evidenceService.register({
-        tenantId: request.tenantId,
-        orgId: request.orgId,
-        userId: request.uploadedById,
-        roles: request.roles,
-        requestId: request.requestId ?? `evidence-gateway-${randomUUID()}`,
-        projectId: request.projectId,
-        milestoneId: request.milestoneId,
-        key: bucketKey,
-        kind: request.kind,
-        metadata: request.metadataJson,
-      });
-
-      // Log event
-      await this.repository.logValidationEvent(
-        request.projectId,
-        evidence.id,
-        "evidence_uploaded",
-        { kind: request.kind, bucketKey },
-      );
-
-      // Emit initial SSE event
-      if (this.sseBus) {
-        this.sseBus.emit("evidence", "uploaded", {
-          evidenceId: evidence.id,
+      // The gateway adds validation audit AFTER canonical EvidenceService.
+      // Hold an outer ACTIVE ticket for the entire persisted sequence, not
+      // just the inner Evidence record, to prevent partial FROZEN snapshots.
+      return this.storageService.withWriteGateMutation("EVIDENCE_REGISTER", async () => {
+        const bucketKey = normalizeEvidenceBucketKey(request.bucketKey, request.tenantId);
+        const evidence = await this.evidenceService.register({
+          tenantId: request.tenantId,
+          orgId: request.orgId,
+          userId: request.uploadedById,
+          roles: request.roles,
+          requestId: request.requestId ?? `evidence-gateway-${randomUUID()}`,
           projectId: request.projectId,
-          status: "pending_validation",
-          timestamp: new Date().toISOString(),
+          milestoneId: request.milestoneId,
+          key: bucketKey,
+          kind: request.kind,
+          metadata: request.metadataJson,
         });
-      }
 
-      return {
-        evidenceId: evidence.id,
-        status: "pending_validation",
-      };
+        // Log event
+        await this.repository.logValidationEvent(
+          request.projectId,
+          evidence.id,
+          "evidence_uploaded",
+          { kind: request.kind, bucketKey },
+        );
+
+        // Emit initial SSE event
+        if (this.sseBus) {
+          this.sseBus.emit("evidence", "uploaded", {
+            evidenceId: evidence.id,
+            projectId: request.projectId,
+            status: "pending_validation",
+            timestamp: new Date().toISOString(),
+          });
+        }
+
+        return {
+          evidenceId: evidence.id,
+          status: "pending_validation",
+        };
+      });
     } catch (error) {
       this.logger.error(
         `Upload failed: ${error instanceof Error ? error.message : String(error)}`,
@@ -188,23 +193,26 @@ export class EvidenceGatewayService {
       // band into "failed".
       const status = score.status;
 
-      // Update evidence with validation result
-      await this.repository.updateEvidenceValidation(evidenceId, {
-        evidenceId,
-        projectId,
-        validationStatus: status,
-        aiQualityScore: score.overall,
-        validatedAt: new Date(),
-        feedback: score.feedback,
-      });
+      // Validation status is part of the logical Evidence snapshot. Gate the
+      // persisted mutation in staging so DRAINING/FROZEN cannot race a late
+      // vision result into Postgres after the storage snapshot boundary.
+      await this.storageService.withWriteGateMutation("EVIDENCE_VALIDATION", async () => {
+        await this.repository.updateEvidenceValidation(evidenceId, {
+          evidenceId,
+          projectId,
+          validationStatus: status,
+          aiQualityScore: score.overall,
+          validatedAt: new Date(),
+          feedback: score.feedback,
+        });
 
-      // Log validation result
-      await this.repository.logValidationEvent(
-        projectId,
-        evidenceId,
-        `evidence_${status}`,
-        { score: score.overall, feedback: score.feedback },
-      );
+        await this.repository.logValidationEvent(
+          projectId,
+          evidenceId,
+          `evidence_${status}`,
+          { score: score.overall, feedback: score.feedback },
+        );
+      });
 
       // Emit completion
       if (this.sseBus) {

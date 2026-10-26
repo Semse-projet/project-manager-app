@@ -50,11 +50,12 @@ const CATEGORY_IDS = ["painting", "plumbing", "drywall", "electrical", "hvac", "
 function UrgencyBadge({ urgency }: { urgency: string | null }) {
   const { t } = useLanguage();
   const color = URGENCY_COLORS[urgency ?? "medium"] ?? "#94a3b8";
-  return <span style={{ fontSize: 9, fontWeight: 800, color, background: `${color}20`, padding: "2px 7px", borderRadius: 99 }}>{t(`mp.urgency.${Object.hasOwn(URGENCY_COLORS, urgency ?? "") ? urgency : "medium"}`)}</span>;
+  const label = urgency === null ? t("mp.urgency.medium") : Object.hasOwn(URGENCY_COLORS, urgency) ? t(`mp.urgency.${urgency}`) : urgency;
+  return <span style={{ fontSize: 9, fontWeight: 800, color, background: `${color}20`, padding: "2px 7px", borderRadius: 99 }}>{label}</span>;
 }
 
 function formatBudget(min: number | null, max: number | null, language: LanguagePreference, t: (key: string) => string): string {
-  const money = (amount: number) => new Intl.NumberFormat(language === "en" ? "en-US" : "es-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(amount);
+  const money = (amount: number) => new Intl.NumberFormat(language === "en" ? "en-US" : "es-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount);
   if (!min && !max) return t("mp.budgetOpen");
   if (min && max) return `${money(min)}–${money(max)}`;
   if (min) return `${t("mp.from")} ${money(min)}`;
@@ -63,9 +64,10 @@ function formatBudget(min: number | null, max: number | null, language: Language
 
 // ── Bid Modal ─────────────────────────────────────────────────────────────────
 
-function BidModal({ form, onClose, onSubmit, submitting, result }: {
+function BidModal({ form, onClose, onRetry, onSubmit, submitting, result }: {
   form: BidForm;
   onClose: () => void;
+  onRetry: () => void;
   onSubmit: (data: Omit<BidForm, "jobTitle">) => Promise<void>;
   submitting: boolean;
   result: BidResult | null;
@@ -113,7 +115,7 @@ function BidModal({ form, onClose, onSubmit, submitting, result }: {
               <>
                 <div style={{ fontSize: 14, fontWeight: 700, color: "#fca5a5", marginBottom: 8 }}>{t("mp.sendError")}</div>
                 <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 16 }}>{result.message}</div>
-                <button onClick={() => setData((p) => ({ ...p }))} style={{ padding: "8px 20px", borderRadius: 10, background: "rgba(239,68,68,.1)", border: "1px solid rgba(239,68,68,.3)", color: "#fca5a5", cursor: "pointer" }}>
+                <button type="button" onClick={onRetry} style={{ padding: "8px 20px", borderRadius: 10, background: "rgba(239,68,68,.1)", border: "1px solid rgba(239,68,68,.3)", color: "#fca5a5", cursor: "pointer" }}>
                   {t("mp.retry")}
                 </button>
               </>
@@ -283,7 +285,7 @@ export default function ClientMarketplacePage() {
     <div style={{ maxWidth: 1000, margin: "0 auto", padding: "28px 20px", color: "var(--ink)" }}>
       {/* Bid Modal */}
       {bidForm && (
-        <BidModal form={bidForm} onClose={() => setBidForm(null)} onSubmit={submitBid} submitting={bidSubmitting} result={bidResult} />
+        <BidModal form={bidForm} onClose={() => setBidForm(null)} onRetry={() => setBidResult(null)} onSubmit={submitBid} submitting={bidSubmitting} result={bidResult} />
       )}
 
       {/* Hero */}

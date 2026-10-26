@@ -157,7 +157,7 @@ export default function MissionControlPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [accessState, setAccessState] = useState<"ready" | "forbidden" | "inactive" | "error">("ready");
   const [error, setError] = useState<string | null>(null);
-  const [liveState, setLiveState] = useState<"connected" | "degraded">("connected");
+  const [liveState, setLiveState] = useState<"connecting" | "connected" | "degraded">("connecting");
   const [source, setSource] = useState("");
   const [severity, setSeverity] = useState("");
   const [status, setStatus] = useState("");
@@ -205,7 +205,14 @@ export default function MissionControlPage() {
       const runbooksBody = await runbooksResponse.json() as {
         data?: { runbooks?: MissionControlRunbook[] };
       };
-      setPayload(exceptionsBody.data ?? null);
+      if (!exceptionsBody.data) throw new Error(t("mc.error.load"));
+      if (!exceptionsBody.data.enabled) {
+        setPayload(null);
+        setRunbooks([]);
+        setAccessState("inactive");
+        return;
+      }
+      setPayload(exceptionsBody.data);
       setRunbooks(runbooksBody.data?.runbooks ?? []);
       setAccessState("ready");
     } catch (caught) {
@@ -323,16 +330,23 @@ export default function MissionControlPage() {
     [draft?.runbookId, runbooks],
   );
 
-  const pageStatus = payload?.sourceErrors.length
-    ? "DEGRADED"
-    : (payload?.counts.total ?? 0) > 0
-      ? "ATTENTION"
-      : "HEALTHY";
-  const statusColor = pageStatus === "HEALTHY"
-    ? "#22c55e"
-    : pageStatus === "DEGRADED"
-      ? "#f97316"
-      : "#eab308";
+  // Do not announce a healthy system or render zero KPIs until an authenticated
+  // response from the canonical exceptions API has been verified.
+  const hasVerifiedPayload = !loading && accessState === "ready" && !error && payload?.enabled === true;
+  const pageStatus = !hasVerifiedPayload
+    ? null
+    : payload?.sourceErrors.length
+      ? "DEGRADED"
+      : (payload?.counts.total ?? 0) > 0
+        ? "ATTENTION"
+        : "HEALTHY";
+  const statusColor = pageStatus === null
+    ? "#94a3b8"
+    : pageStatus === "HEALTHY"
+      ? "#22c55e"
+      : pageStatus === "DEGRADED"
+        ? "#f97316"
+        : "#eab308";
 
   if (!loading && accessState === "forbidden") {
     return <StatePanel title={t("mc.access.denied")} detail={t("mc.access.deniedDetail")} />;
@@ -340,7 +354,7 @@ export default function MissionControlPage() {
   if (!loading && accessState === "inactive") {
     return <StatePanel title={t("mc.access.inactive")} detail={t("mc.access.inactiveDetail")} />;
   }
-  if (!loading && accessState === "error" && !payload) {
+  if (!loading && accessState === "error") {
     return <StatePanel title={t("mc.access.unavailable")} detail={error ?? t("mc.access.unavailableDetail")} retry={fetchData} />;
   }
 
@@ -355,15 +369,19 @@ export default function MissionControlPage() {
         showBack={false}
         actions={
           <div className="flex items-center gap-2">
-            <span
-              className="rounded border px-2 py-1 text-[10px] font-bold tracking-widest"
-              style={{ borderColor: `${statusColor}55`, color: statusColor }}
-            >
-              {t(`mc.pageStatus.${pageStatus}`)}
-            </span>
-            <span className={`text-[10px] ${liveState === "connected" ? "text-emerald-400" : "text-orange-400"}`}>
-              {t(`mc.live.${liveState}`)}
-            </span>
+            {pageStatus && (
+              <span
+                className="rounded border px-2 py-1 text-[10px] font-bold tracking-widest"
+                style={{ borderColor: `${statusColor}55`, color: statusColor }}
+              >
+                {t(`mc.pageStatus.${pageStatus}`)}
+              </span>
+            )}
+            {hasVerifiedPayload && (
+              <span className={`text-[10px] ${liveState === "connected" ? "text-emerald-400" : "text-orange-400"}`}>
+                {t(`mc.live.${liveState}`)}
+              </span>
+            )}
             <button
               type="button"
               onClick={() => void fetchData()}
@@ -376,13 +394,15 @@ export default function MissionControlPage() {
         }
       />
 
-      <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        <Metric label={t("mc.metric.total")} value={payload?.counts.total ?? 0} />
-        <Metric label={t("mc.metric.critical")} value={payload?.counts.bySeverity.critical ?? 0} tone="var(--error)" />
-        <Metric label={t("mc.metric.deadLetter")} value={payload?.counts.byStatus.dead_letter ?? 0} tone="#f97316" />
-        <Metric label={t("mc.metric.failed")} value={payload?.counts.byStatus.failed ?? 0} tone="#eab308" />
-        <Metric label={t("mc.metric.pendingApproval")} value={payload?.counts.byStatus.pending_approval ?? 0} tone="var(--violet)" />
-      </div>
+      {hasVerifiedPayload && (
+        <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <Metric label={t("mc.metric.total")} value={payload?.counts.total ?? 0} />
+          <Metric label={t("mc.metric.critical")} value={payload?.counts.bySeverity.critical ?? 0} tone="var(--error)" />
+          <Metric label={t("mc.metric.deadLetter")} value={payload?.counts.byStatus.dead_letter ?? 0} tone="#f97316" />
+          <Metric label={t("mc.metric.failed")} value={payload?.counts.byStatus.failed ?? 0} tone="#eab308" />
+          <Metric label={t("mc.metric.pendingApproval")} value={payload?.counts.byStatus.pending_approval ?? 0} tone="var(--violet)" />
+        </div>
+      )}
 
       {payload?.sourceErrors.length ? (
         <div className="mb-4 flex items-start gap-2 rounded-xl border border-orange-500/30 bg-orange-500/10 p-3 text-sm text-orange-200">
@@ -411,7 +431,7 @@ export default function MissionControlPage() {
         />
       </div>
 
-      {loading && !payload ? (
+      {loading ? (
         <div className="rounded-xl border border-slate-800 p-12 text-center text-sm text-slate-400">{t("mc.loading")}</div>
       ) : payload?.items.length ? (
         <div className="space-y-3">
@@ -443,7 +463,7 @@ export default function MissionControlPage() {
             <div className="mb-4 flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs font-bold uppercase tracking-widest text-violet-300">{t("mc.governedAction")}</p>
-                <h2 className="mt-1 text-lg font-bold text-white">{draft.action}: {draft.exception.title}</h2>
+                <h2 className="mt-1 text-lg font-bold text-white">{t(`mc.action.${draft.action}`)}: {draft.exception.title}</h2>
               </div>
               <button
                 type="button"

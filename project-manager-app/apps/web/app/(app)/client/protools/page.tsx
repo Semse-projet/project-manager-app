@@ -41,12 +41,13 @@ const TRADES = [
 
 export default function ProToolsPage() {
   const { t, language } = useLanguage();
-  const money = (value: number) => new Intl.NumberFormat(language === "en" ? "en-US" : "es-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(value);
+  const money = (value: number) => new Intl.NumberFormat(language === "en" ? "en-US" : "es-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
   const [trade,       setTrade]       = useState("electrical");
   const [description, setDescription] = useState("");
   const [area,        setArea]        = useState("100");
   const [rooms,       setRooms]       = useState("2");
   const [result,      setResult]      = useState<EstimateResult | null>(null);
+  const [resultLocale, setResultLocale] = useState<typeof language | null>(null);
   const [loading,     setLoading]     = useState(false);
   const [error,       setError]       = useState<string | null>(null);
   const [showChecklist,  setShowChecklist]  = useState(false);
@@ -91,7 +92,7 @@ export default function ProToolsPage() {
       const resp = await fetch("/api/semse/agents/protools/estimate", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ trade, description, area: Number(area), rooms: Number(rooms) }),
+        body: JSON.stringify({ trade, description, area: Number(area), rooms: Number(rooms), locale: language }),
       });
       // A non-JSON body (e.g. a 404/502 HTML page) previously crashed
       // resp.json() with a raw parse error ("Unexpected token < ...")
@@ -102,7 +103,7 @@ export default function ProToolsPage() {
         return;
       }
       const json = await resp.json() as { data: EstimateResult };
-      if (resp.ok && json.data) setResult(json.data);
+      if (resp.ok && json.data) { setResult(json.data); setResultLocale(language); }
       else setError(t("pt.estimateError"));
     } catch (e) {
       setError(e instanceof Error ? e.message : t("pt.networkError"));
@@ -157,15 +158,24 @@ export default function ProToolsPage() {
 
           {error && <ErrorState message={error} />}
 
-          <button onClick={runEstimate} disabled={loading}
+          <button type="button" onClick={runEstimate} disabled={loading}
+            aria-busy={loading}
             style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: 13, borderRadius: 12, background: "rgba(252,211,77,.15)", border: "1px solid rgba(252,211,77,.3)", cursor: loading ? "wait" : "pointer", fontSize: 14, fontWeight: 800, color: "#fcd34d", opacity: loading ? 0.7 : 1 }}>
-            {loading ? t("pt.calculating") : <><Send size={15} /> {t("pt.calculate")}</>}
+            {/* Keep a stable subtree through loading transitions. Switching from
+                a text node to a fragment can collide with translated DOM nodes. */}
+            <Send size={15} aria-hidden="true" />
+            <span>{loading ? t("pt.calculating") : t("pt.calculate")}</span>
           </button>
         </div>
       </div>
 
+      {/* Hide an old-locale estimate; user may rerun without losing draft inputs. */}
+      {result && resultLocale !== language && !loading && (
+        <p role="status" style={{ fontSize: 12, color: "var(--muted)" }}>{t("pt.recalculateAfterLanguageChange")}</p>
+      )}
+
       {/* Result */}
-      {result && (
+      {result && resultLocale === language && (
         <div style={{ display: "grid", gap: 16 }}>
 
           {/* Publish from estimate */}
@@ -279,10 +289,10 @@ export default function ProToolsPage() {
           </div>
 
           {/* BuildOps Plan */}
-          <BuildOpsPlanCard trade={result.trade} estimatedHours={result.laborHours} />
+          <BuildOpsPlanCard trade={result.trade} estimatedHours={result.laborHours} locale={language} />
 
           {/* Evidence Checklist */}
-          <EvidenceChecklistCard milestoneTitle={`Milestone ${result.trade}`} trade={result.trade} />
+          <EvidenceChecklistCard milestoneTitle={`Milestone ${result.trade}`} trade={result.trade} locale={language} />
 
           {/* Agent note */}
           <div style={{ padding: "10px 14px", background: "rgba(252,211,77,.05)", borderRadius: 10, fontSize: 11, color: "var(--muted)", fontStyle: "italic" }}>

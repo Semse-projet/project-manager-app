@@ -9,6 +9,7 @@ import { ChunkerService } from "./chunker.service.js";
 import { DocumentParserService } from "./document-parser.service.js";
 import { EmbeddingService } from "./embedding.service.js";
 import { ResourceScopeModule } from "../../common/resource-scope.module.js";
+import { BusinessOsToolsService } from "./business-os-tools.service.js";
 import { PrometeoAccessPolicy } from "./prometeo-access.policy.js";
 import { PrometeoController } from "./prometeo.controller.js";
 import { PrometeoRepository } from "./prometeo.repository.js";
@@ -21,7 +22,7 @@ import { ToolExecutionQueryService } from "./tool-governance/tool-execution-quer
 @Module({
   imports: [ResourceScopeModule, LLMModule, GraphifyModule, FieldOpsModule, AgroModule, VisionModule, PaymentsModule],
   controllers: [PrometeoController],
-  providers: [PrometeoAccessPolicy, ChunkerService, DocumentParserService, EmbeddingService, PrometeoRepository, PrometeoService, PrometeoToolExecutionService, TradeGuideService, ToolGovernanceRepository, ToolExecutionQueryService],
+  providers: [PrometeoAccessPolicy, ChunkerService, DocumentParserService, EmbeddingService, PrometeoRepository, PrometeoService, PrometeoToolExecutionService, TradeGuideService, ToolGovernanceRepository, ToolExecutionQueryService, BusinessOsToolsService],
   exports: [PrometeoService, EmbeddingService, ChunkerService, DocumentParserService, PrometeoToolExecutionService, TradeGuideService, ToolGovernanceRepository],
 })
 export class PrometeoModule {}

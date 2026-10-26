@@ -8,6 +8,7 @@ import {
 import { Prisma } from "@prisma/client";
 import { AuditService } from "../../infrastructure/audit/audit.service.js";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
+import { StorageService } from "../../infrastructure/storage/storage.service.js";
 import { ProjectLifecycleProjectionEventProducer } from "../domain-events/project-lifecycle-projection-event-producer.service.js";
 import type { BuildOpsPlanActorInput } from "./buildops-plan-approval.types.js";
 import {
@@ -84,10 +85,12 @@ export class BuildOpsLegacyPromotionService {
     @Optional() private readonly auditService?: AuditService,
     @Optional()
     private readonly lifecycleProjectionEvents?: ProjectLifecycleProjectionEventProducer,
+    @Optional() private readonly storageService?: StorageService,
   ) {}
 
   async promoteApprovedPlanToLegacy(input: PromoteApprovedPlanToLegacyInput): Promise<BuildOpsLegacyPromotionResult> {
-    const result = await this.runSerializable(async (tx) => {
+    const executePromotion = async (): Promise<BuildOpsLegacyPromotionResult> => {
+      const result = await this.runSerializable(async (tx) => {
       const plan = await this.findPlanOrThrow(tx, input.tenantId, input.buildOpsProjectId);
       this.assertPromotionPermission(plan, input);
 
@@ -382,18 +385,24 @@ export class BuildOpsLegacyPromotionService {
     });
 
     await this.appendPromotionAudit(input, result);
-    await this.lifecycleProjectionEvents?.emit({
-      tenantId: input.tenantId,
-      orgId: input.orgId,
-      projectId: result.legacyProjectId,
-      sourceEventType: "buildops.plan.promoted",
-      sourceEntityType: "BuildOpsProject",
-      sourceEntityId: result.buildOpsProjectId,
-      actorType: "user",
-      actorId: input.userId,
-      correlationId: `buildops-promotion:${result.buildOpsProjectId}:${result.promotedAt}`,
-    });
-    return result;
+      await this.lifecycleProjectionEvents?.emit({
+        tenantId: input.tenantId,
+        orgId: input.orgId,
+        projectId: result.legacyProjectId,
+        sourceEventType: "buildops.plan.promoted",
+        sourceEntityType: "BuildOpsProject",
+        sourceEntityId: result.buildOpsProjectId,
+        actorType: "user",
+        actorId: input.userId,
+        correlationId: `buildops-promotion:${result.buildOpsProjectId}:${result.promotedAt}`,
+      });
+      return result;
+    };
+
+    if (!this.storageService) {
+      return executePromotion();
+    }
+    return this.storageService.withWriteGateMutation("BUILDOPS_LEGACY_PROMOTION", executePromotion);
   }
 
   private async runSerializable<T>(work: (tx: PromotionTx) => Promise<T>): Promise<T> {
