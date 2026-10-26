@@ -26,6 +26,7 @@ related_files:
   - "pnpm-lock.yaml"
   - "docs/specs/platform/semse-library-hub.inventory.md"
   - "docs/architecture/ADR-SEMSE-LIBRARY-HUB-001.md"
+  - "docs/reportes/2026-10-25_library-hub_cross-semse-audit.md"
 related_tests: []
 related_endpoints: []
 related_events: []
@@ -57,6 +58,8 @@ last_verified: ""
 6. **Revisión trimestral**, más revisión inmediata ante vulnerabilidad crítica, cambio de licencia, abandono o regresión.
 
 ### Alcance documental F0 (este PR)
+
+- Cruce de nueve dominios, Mission Control, Product Intelligence, Biblioteca Técnica, ProTools y el prototipo Omega, documentado en `docs/reportes/2026-10-25_library-hub_cross-semse-audit.md`. Este cruce identifica oportunidades; no certifica runtime.
 
 - Inventario por manifiestos existentes, distinguiendo «declarada», «usada», «instalada», «desplegada», «ejecutable» y «verificada». No confundir categorías.
 - Arquitectura y separación de dominios; criterios de costos, versiones, SBOM y aprobación.
