@@ -214,3 +214,17 @@ Cualquier análisis de ingresos o ahorro deberá segmentarse por **tenant**, tip
 **Verificado documentalmente:** presencia de manifiestos, exportación de motores propios, rutas de Tool Registry, estado declarado de specs/PRs, patrones del Worker, y las decisiones aprobadas del propietario. **Todavía no verificado:** import graph completo, disponibilidad de cada motor en producción, versiones efectivas de imágenes, CVEs y licencias de todo el árbol, tasas de uso por módulo, facturación real Railway, pruebas E2E multi-tenant, ROI y estabilidad bajo carga. Este informe no autoriza por sí mismo un merge, un cambio en contratos, la activación de Omega ni el despliegue de conocimiento compartido.
 
 La siguiente auditoría técnica deberá usar herramientas repetibles de inventario/carga sobre un SHA identificado y entorno seguro; la decisión de habilitación se toma por capacidad y por slice, nunca por cantidad de librerías en el catálogo.
+
+## 14. Contextos adicionales: SEMSE Manager App, Time Tracker y Universe/Omniverse
+
+El **Manager App** no debería tener su propio catálogo paralelo: consume las capacidades aprobadas de Web/API y `@semse/tools` mediante permisos de plataforma y autorización de Job/Project. Las vistas para administrador, profesional, cliente, supervisor y trabajador no reciben automáticamente el mismo contenido ni la misma autoridad. Cada formulario/estimación se ajusta al actor, pero el cálculo versionado se mantiene único.
+
+El **Time Tracker y las cuadrillas** tienen especial valor como fuente de escenarios: horas proyectadas frente a horas reales, intervalos de descanso, asignaciones y costo laboral aproximado. Se deben diferenciar simulaciones de entradas laborales oficiales; estas últimas conservan su FSM, ownership, cambios auditables y reglas de `Labor Engine`. Al seleccionar Job del patrón, no crear otro Job ni copiar pagos por usar una librería.
+
+**Universe/Omniverse** es una capa de coordinación de proyectos y no un superusuario global de datos: puede leer **metadatos no sensibles** de salud de la dependencia, costo agregado y referencias verificadas según grants explícitos. No debe centralizar API keys, embeddings privados o fotografías de organizaciones distintas. Para reutilización entre productos, compartir únicamente código/versiones y políticas de interfaz, no registros de tenants ni bases de datos sin autorización.
+
+**Prometeo Academy / capacitación:** Knowledge y Biblioteca Técnica pueden referenciar algoritmos aprobados para explicar cálculos con ejemplos educativos, pero la decisión de crear fichas `TENANT_CURATED` exige consentimientos y revisiones propios. Una librería de software no concede derechos sobre textos, fotos, experiencia del trabajador ni certificaciones automáticas.
+
+## 15. Foco de maximización
+
+El primer circuito que mejor demuestra integración transversal es **Estimate de construcción → simulación de costos/horas `@semse/tools` → comparación sin persistencia de negocio → validación supervisora → panel de costos/errores**. Involucra BuildOps, Connect, Labor Engine, Prometeo Tool Registry, Mission Control, observabilidad y Core sin tocar dinero ni Evidence original. Solo tras resultado medido se amplía a otras verticales y a Marketplace como función contratista diferenciadora.
