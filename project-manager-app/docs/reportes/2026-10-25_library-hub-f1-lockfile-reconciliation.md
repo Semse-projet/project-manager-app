@@ -40,13 +40,14 @@ Las `peerDependencies` describen una exigencia al consumidor; su presencia en el
 - `overrideAppliedDependencies` diferencia explícitamente una resolución gobernada por override de una `RESOLVED` sin override.
 - Preservar `licenseStatus: UNKNOWN`, `vulnerabilityStatus: UNKNOWN`, `runtimeStatus: UNVERIFIED` — no es un SBOM certificado ni una evaluación legal.
 
-**Predicción a verificar en el nuevo CI**, manteniendo idéntico workspace: `staleLockfileEntries=0`, `overrideAppliedDependencies=4`, `unresolvedDependencies=2`, `verifiedResolvedReferences=246`. No marcar estas cifras como ejecución comprobada antes de la corrida del nuevo HEAD.
+**Observación en el smoke real de CI #40264029541** (HEAD anterior a corrección puntual de redacción): `staleLockfileEntries=0`, `overrideAppliedDependencies=4`, `unresolvedDependencies=2`, `verifiedResolvedReferences=246`; el smoke individual pasó en checkout real. **CI global no pasó** porque una regresión exigía `STALE_LOCKFILE` en una referencia de lockfile redactada, mientras el lector devolvía `UNVERIFIED`. Se corrigió el estado sin filtrar la URL en el commit `564e77aa` y se exige nueva corrida completa antes de certificar F1.
 
 ## 4. Gate final F1
 
 - [x] CI del commit anterior y smoke real confirmados: ejecución #40262055473.
 - [x] Analizados seis registros y corregida lógica de overrides por contrato.
-- [ ] Tests de regresión y smoke real para el HEAD actualizado; registrar resultado y SHA.
+- [x] Smoke real con 4 overrides y 0 falsas alarmas acreditado en CI #40264029541; CI total FALLÓ en una prueba de redacción, fallo corregido.
+- [ ] Revalidar la regresión de redacción y todos los trabajos del CI sobre HEAD posterior a `564e77aa`, registrar nuevo SHA y resultado.
 - [ ] Revisión del PR por responsable técnico; sin merge/deploy ni habilitación runtime.
 - [ ] Planificar F2 como corte separado, sin automatizar instalación ni activar código pesado.
 
