@@ -24,7 +24,7 @@ o la empresa por `ensureActorContext`.
 Si un actor/resource id inexistente llegara hasta una llamada a `AuditService.append`,
 `ensureActorContext()` puede crear registros auxiliares. Los guards de
 aplicación ya buscan mitigar entradas inválidas, pero no se debe
-dependender de eso como única protección cuando se refactorice
+depender de eso como única protección cuando se refactorice
 la transacción. Aun si se rechaza el lote luego, un upsert de contexto
 fuera del `tx` podría persistir registros independientes.
 
