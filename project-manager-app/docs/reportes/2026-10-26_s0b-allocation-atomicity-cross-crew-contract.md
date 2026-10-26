@@ -195,7 +195,20 @@ por simplicidad y seguridad operativa.
 - Documentar rollback/forward-fix de datos; no usar `db push`
   en producción.
 
-## 6. Gates
+## 6. Revisión adicional de AuditLog y contexto de actor
+
+El análisis separado
+[**S0b — AuditLog, transacción y contexto del actor**](2026-10-26_s0b-audit-transaction-boundary-review.md)
+expone una dependencia de seguridad adicional (**S0-F11**):
+`AuditService.append` actualmente usa `ActorContextService.ensureActorContext`,
+que puede crear Tenant/Org/User sintéticos, y escribe con Prisma propio,
+no el cliente `tx`. Para este flujo de trabajadores, un audit de éxito
+no debe auto-crear identidades ni quedar fuera de la transacción del
+cambio. Se agregan tests de inyección de falla AUD-01…AUD-08,
+**sin afirmar que fueron ejecutados**. Toda propuesta de refactor
+compartido requiere revisión de compatibilidad del bootstrap/worker.
+
+## 7. Gates
 
 - [x] Revisión estática del comportamiento y schema actual.
 - [x] Contrato escrito para casos N10…N18.
