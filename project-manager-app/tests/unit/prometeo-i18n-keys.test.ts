@@ -73,3 +73,12 @@ test("PR #973 authenticated QA smoke fails closed and parses on the CI Node tool
   });
   assert.equal(parse.status, 0, `PR #973 QA test syntax check failed: ${parse.stderr || parse.error}`);
 });
+
+test("Prometeo file uploads avoid argument overflow and default to private", () => {
+  assert.match(pageSource, /new FileReader\(\)/);
+  assert.match(pageSource, /reader\.readAsDataURL\(file\)/);
+  assert.match(pageSource, /const fileBase64 = await readFileAsBase64\(ingestFile\)/);
+  assert.doesNotMatch(pageSource, /String\.fromCharCode\(\.\.\.new Uint8Array\(/);
+  assert.match(pageSource, /\[ingestVisibility, setIngestVisibility\] = useState\("tenant_private"\)/);
+  assert.doesNotMatch(pageSource, /\[ingestVisibility, setIngestVisibility\] = useState\("public_training"\)/);
+});
