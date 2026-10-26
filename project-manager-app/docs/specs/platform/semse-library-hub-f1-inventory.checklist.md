@@ -17,7 +17,8 @@ date: "2026-10-25"
 ## Seguridad
 - [x] Diseño rechaza paths no autorizados, symlinks y JSON inválido.
 - [x] Se eliminan credenciales de referencias Python con esquema URL.
-- [ ] Tests Node reales sobre esos casos y contra JSON/YAML malformados.
+- [x] Tests Node reales aislados sobre archivos con SHA Git idéntico: 15 casos PASS (Node 22; evidencia vinculada).
+- [ ] Repetir en checkout completo y CI Node de SEMSE, incluyendo validación de SDD/índice.
 - [ ] Revisar si hay manifests Python adicionales fuera de requirements en las apps.
 - [ ] Revisión de seguridad independiente antes de ampliar ejecución.
 
@@ -29,7 +30,8 @@ date: "2026-10-25"
 - [ ] SBOM/licencias/CVEs: fase posterior, **NO implementada**.
 
 ## Release
-- [ ] CLI en checkout real y tests dirigidos.
+- [x] CLI + pruebas dirigidas de archivos SHA idénticos en fixture sintético.
+- [ ] CLI en checkout real y reconciliación contra manifiestos/lockfile del monorepo.
 - [ ] Spec strict e índice actualizados y comprobados.
 - [ ] CI final, diff revisado, PR abierto y revisión.
 - [ ] Merge, deploy, activación: fuera de F1 y no ejecutados.
