@@ -242,3 +242,92 @@ dbTest("P0: physical Postgres enforces document/chunk/feedback tenant and org is
     else process.env.SEMSE_PROMETEO_DOCUMENT_SHARING_ENABLED = previousFlag;
   }
 });
+
+
+/** Synthetic expanded-schema rehearsal. NOT a staging census or old binary rollback. */
+dbTest("P0: legacy public_training remains private and sharing OFF hides expanded-schema grants", async () => {
+  const previousFlag = process.env.SEMSE_PROMETEO_DOCUMENT_SHARING_ENABLED;
+  const { PrismaService } = await import("../dist/infrastructure/prisma/prisma.service.js");
+  const { PrometeoRepository } = await import("../dist/modules/prometeo/prometeo.repository.js");
+  const prisma = new PrismaService({ getOrThrow: (key: string) => process.env[key] } as never);
+  const tenantId = id("legacy_tenant"), ownerOrg = id("legacy_owner");
+  const recipientOrg = id("legacy_recipient"), projectId = id("legacy_project");
+  const repo = new PrometeoRepository(prisma);
+  await prisma.$connect();
+  try {
+    await prisma.tenant.create({ data: { id: tenantId, slug: tenantId, name: "Ephemeral legacy P0 fixture" } });
+    process.env.SEMSE_PROMETEO_DOCUMENT_SHARING_ENABLED = "true";
+    const createLegacy = async (orgId: string, association?: string) => {
+      const doc = await repo.createDocument({
+        tenantId, orgId, projectId: association, title: id("legacy_doc"),
+        sourceType: "text", uploadedById: "legacy_fixture_actor",
+        metadataJson: { visibility: "public_training", provenance: "synthetic_pregrant" },
+      });
+      await repo.saveChunks(doc.id, tenantId, [{
+        index: 0, text: "private historical content " + doc.id, tokenCount: 5,
+        embedding: [0, 0], metadata: {},
+      }]);
+      await repo.markIndexed(doc.id, 1);
+      return doc.id;
+    };
+    const unassociated = await createLegacy(ownerOrg);
+    const linked = await createLegacy(ownerOrg, projectId);
+    const own = await createLegacy(recipientOrg);
+    const scope = { orgId: recipientOrg, projectIds: [projectId], jobIds: [] };
+    assert.equal(await prisma.prometeoDocumentGrant.count({
+      where: { tenantId, documentId: { in: [unassociated, linked] } },
+    }), 0, "legacy visibility labels must not generate inferred grants");
+    const listed = await repo.listDocuments({ tenantId, scope });
+    assert.ok(listed.some(row => row.id === own));
+    assert.ok(!listed.some(row => row.id === unassociated || row.id === linked));
+    const chunks = await repo.loadChunksForSearch({ tenantId, scope });
+    assert.ok(!chunks.some(row => row.documentId === unassociated || row.documentId === linked));
+
+    const before = await prisma.prometeoDocument.findUniqueOrThrow({
+      where: { id: linked }, select: { metadataJson: true },
+    });
+    assert.equal((before.metadataJson as Record<string, unknown>).visibility, "public_training");
+    // Constant read-only SQL introspection on an allowlisted disposable database.
+    const fk = await prisma.$queryRawUnsafe<Array<{ update_action: string; delete_action: string }>>(
+      "SELECT confupdtype::text AS update_action, confdeltype::text AS delete_action " +
+      "FROM pg_constraint WHERE conname = 'PrometeoDocumentGrant_documentId_tenantId_projectId_fkey'",
+    );
+    assert.equal(fk.length, 1, "migration must install the composite grant FK");
+    assert.equal(fk[0]?.update_action, "r", "parent project reassociation must be RESTRICT");
+    assert.equal(fk[0]?.delete_action, "c", "parent deletion must cascade grant rows");
+    const unique = await prisma.$queryRawUnsafe<Array<{ indexname: string }>>(
+      "SELECT indexname FROM pg_indexes WHERE tablename = 'PrometeoDocument' " +
+      "AND indexname = 'PrometeoDocument_id_tenantId_projectId_key'",
+    );
+    assert.equal(unique.length, 1, "expanded schema must include document composite unique index");
+
+    const grant = await prisma.prometeoDocumentGrant.create({ data: {
+      tenantId, documentId: linked, projectId, recipientOrgId: recipientOrg,
+      grantedByUserId: "legacy_fixture_actor",
+    } });
+    const canRead = async () => (await repo.loadChunksForSearch({ tenantId, scope }))
+      .some(row => row.documentId === linked);
+    assert.equal(await canRead(), true, "explicit grant opens only the scoped document");
+    process.env.SEMSE_PROMETEO_DOCUMENT_SHARING_ENABLED = "false";
+    assert.equal(await canRead(), false, "OFF must immediately hide persistent grants");
+    assert.ok(await prisma.prometeoDocumentGrant.findUnique({ where: { id: grant.id } }),
+      "turning the feature off must not destructively drop historical grants");
+    process.env.SEMSE_PROMETEO_DOCUMENT_SHARING_ENABLED = "true";
+    assert.equal(await canRead(), true,
+      "re-enabling restores still-active grants; release process must account for this");
+    await prisma.prometeoDocumentGrant.update({
+      where: { id: grant.id }, data: { revokedAt: new Date() },
+    });
+    assert.equal(await canRead(), false, "revoked grants stay denied after re-enabling");
+    const after = await prisma.prometeoDocument.findUniqueOrThrow({
+      where: { id: linked }, select: { metadataJson: true },
+    });
+    assert.equal((after.metadataJson as Record<string, unknown>).visibility, "public_training",
+      "migration must not silently relabel or promote legacy content");
+  } finally {
+    await prisma.tenant.deleteMany({ where: { id: tenantId } });
+    await prisma.$disconnect();
+    if (previousFlag === undefined) delete process.env.SEMSE_PROMETEO_DOCUMENT_SHARING_ENABLED;
+    else process.env.SEMSE_PROMETEO_DOCUMENT_SHARING_ENABLED = previousFlag;
+  }
+});
