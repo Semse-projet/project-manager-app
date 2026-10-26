@@ -34,7 +34,7 @@ related_tests: []
 related_endpoints: []
 related_events: []
 related_agents: []
-last_verified: ""
+last_verified: "NOT_VERIFIED"
 ---
 
 # Spec: SEMSE Library Hub — SDD del componente v1.0
