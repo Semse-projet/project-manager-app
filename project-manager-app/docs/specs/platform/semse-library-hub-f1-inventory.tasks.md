@@ -17,7 +17,8 @@ date: "2026-10-25"
 - [x] [T-004] Parser conservador Python; URL sanitizada y requirements sin resolver.
 - [x] [T-005] CLI stdout JSON, sin añadir deps ni modificar instalación.
 - [x] [T-006] Revisión de sintaxis y fixture aislado (no equivale a tests Node reales).
-- [ ] [T-007] Ejecutar pruebas Node sobre checkout completo y medir resultados.
+- [x] [T-007A] Ejecutar 15/15 pruebas reales con Node 22 sobre archivos idénticos por SHA Git, cobertura 98.90% líneas / 85.54% ramas / 100% funciones del lector y CLI determinista sobre fixture sintético; registrar evidencia en `docs/reportes/2026-10-25_library-hub-f1-local-test-evidence.md`.
+- [ ] [T-007] Repetir pruebas en el checkout completo con el runtime y herramientas de SEMSE; no confundir con la prueba aislada.
 - [ ] [T-008] Reconciliar versiones con lockfile completo y false negatives detectados.
 - [ ] [T-009] Ejecutar `pnpm spec:index:check` y `pnpm spec:validate:strict` al final.
 - [ ] [T-010] CI terminal y review independiente; PR no fusionado.
