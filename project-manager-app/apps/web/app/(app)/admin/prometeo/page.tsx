@@ -64,6 +64,29 @@ async function apiDelete(path: string) {
   if (!res.ok) { const d = await res.json() as { error?: { message?: string } }; throw new Error(d?.error?.message ?? `Error ${res.status}`); }
 }
 
+// Avoid the argument-count overflow caused by String.fromCharCode(...fileBytes).
+function readFileAsBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(reader.error ?? new Error("File read failed"));
+    reader.onabort = () => reject(new Error("File read cancelled"));
+    reader.onload = () => {
+      const value = reader.result;
+      if (typeof value !== "string" || !value.startsWith("data:")) {
+        reject(new Error("Invalid file data"));
+        return;
+      }
+      const separator = value.indexOf(",");
+      if (separator < 0) {
+        reject(new Error("Invalid file data"));
+        return;
+      }
+      resolve(value.slice(separator + 1));
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 // ── StatusBadge ────────────────────────────────────────────────────────────────
 
 function StatusBadge({ status }: { status: string }) {
@@ -99,7 +122,8 @@ export default function PrometeoPage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [ingestFile, setIngestFile] = useState<File | null>(null);
   const [ingestTrade, setIngestTrade] = useState("general");
-  const [ingestVisibility, setIngestVisibility] = useState("public_training");
+  // Private by default; public sharing requires explicit server-side consent governance (#974).
+  const [ingestVisibility, setIngestVisibility] = useState("tenant_private");
   const [ingestMode, setIngestMode] = useState<"text" | "file">("text");
   const [assets, setAssets] = useState<Asset[]>([]);
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
@@ -176,9 +200,8 @@ export default function PrometeoPage() {
     setIngestError(null);
     setIngestSuccess(false);
     try {
-      // Convert file to base64
-      const ab = await ingestFile.arrayBuffer();
-      const fileBase64 = btoa(String.fromCharCode(...new Uint8Array(ab)));
+      // FileReader encodes the file without spreading every byte into a JS call.
+      const fileBase64 = await readFileAsBase64(ingestFile);
       await apiPost("/api/semse/prometeo/ingest-file", {
         fileBase64, mimeType: ingestFile.type, fileName: ingestFile.name,
         title: ingestTitle, trade: ingestTrade, visibility: ingestVisibility,
