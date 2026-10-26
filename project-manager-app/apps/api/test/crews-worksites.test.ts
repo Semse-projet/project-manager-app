@@ -131,6 +131,16 @@ test("sesión obsoleta: si la Membership del supervisor ya no está ACTIVE, deja
   assert.equal((await w.service.listMine({ userId: "ana" })).length, 0);
 });
 
+test("N01: PRO ACTIVE no conserva autoridad de supervisor si WORKER queda suspendido", async () => {
+  const w = makeWorld();
+  const c1 = await w.service.createCrew(owner, "orgA", "r", { name: "C1", supervisorUserId: "sup" });
+  w.memberships.push({ userId: "sup", orgId: "orgA", status: "ACTIVE", role: { key: "PRO" }, org: { tenantId: "t1" } });
+  w.memberships.find((m) => m.userId === "sup" && m.role.key === "WORKER")!.status = "SUSPENDED";
+
+  await assert.rejects(w.service.rosterForSupervisor({ userId: "sup" }, c1.crewId), { status: 404 });
+  assert.equal((await w.service.listMine({ userId: "sup" })).length, 0);
+});
+
 test("mis cuadrillas: el miembro ve la suya con rol MEMBER; archivar una vez", async () => {
   const w = makeWorld();
   const c1 = await w.service.createCrew(owner, "orgA", "r", { name: "C1", supervisorUserId: "sup" });

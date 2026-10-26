@@ -66,7 +66,7 @@ function makeWorld() {
     taskAllocation: table(allocations, () => ({ status: "ASSIGNED", assignedAt: new Date(), acknowledgedAt: null, releasedAt: null, releaseReason: null, statusNote: null, assignReason: null }))
   };
   const audit: any = { async append(entry: Row) { audits.push(entry); } };
-  return { service: new TaskAllocationsService(prisma, audit), allocations, audits, tasks };
+  return { service: new TaskAllocationsService(prisma, audit), allocations, audits, tasks, crews, crewMembers, memberships };
 }
 
 const sup = { tenantId: "t1", userId: "sup", roles: ["WORKER"] };
@@ -106,6 +106,25 @@ test("AC-03 solo miembros ACTIVOS de la cuadrilla; la tarea debe ser de la Org y
   await assert.rejects(w.service.assign(sup, "c1", "ajena", "r", ["ana"]), { status: 422 });
   await assert.rejects(w.service.assign(sup, "c1", "done1", "r", ["ana"]), { status: 422 });
   assert.equal(w.allocations.length, 0);
+});
+
+test("N02: supervisor sin WORKER ACTIVE ni permiso de gestor no conserva alcance", async () => {
+  const w = makeWorld();
+  w.memberships.find((m) => m.userId === "sup" && m.role.key === "WORKER")!.status = "SUSPENDED";
+  w.memberships.push({ userId: "sup", orgId: "orgA", status: "ACTIVE", role: { key: "VIEWER" }, org: { tenantId: "t1" } });
+
+  await assert.rejects(w.service.assign(sup, "c1", "task1", "r", ["ana"]), { status: 403 });
+  assert.equal(w.allocations.length, 0);
+  assert.equal(w.audits.length, 0);
+});
+
+test("N03: CrewMember ACTIVE sin WORKER ACTIVE no puede recibir asignaciones", async () => {
+  const w = makeWorld();
+  w.memberships.find((m) => m.userId === "ana" && m.role.key === "WORKER")!.status = "SUSPENDED";
+
+  await assert.rejects(w.service.assign(sup, "c1", "task1", "r", ["ana"]), { status: 422 });
+  assert.equal(w.allocations.length, 0);
+  assert.equal(w.audits.length, 0);
 });
 
 test("AC-04 una tarea compartida = una tarea con varias asignaciones; repetir no duplica", async () => {
@@ -183,6 +202,42 @@ test("AC-08 una asignación liberada no se puede avanzar", async () => {
   const [a] = await w.service.assign(sup, "c1", "task1", "r", ["ana"]);
   await w.service.release(sup, "c1", "task1", "ana", "r2", "ya no aplica");
   await assert.rejects(w.service.updateStatus(ana, a.allocationId, "IN_PROGRESS", undefined, "r"), { status: 422 });
+});
+
+test("N04/N07: revocar WORKER oculta la asignación e impide mutarla", async () => {
+  const w = makeWorld();
+  const [allocation] = await w.service.assign(sup, "c1", "task1", "r", ["ana"]);
+  const auditCount = w.audits.length;
+  w.memberships.find((m) => m.userId === "ana" && m.role.key === "WORKER")!.status = "REVOKED";
+
+  await assert.rejects(w.service.updateStatus(ana, allocation.allocationId, "IN_PROGRESS", undefined, "r2"), { status: 404 });
+  assert.equal((await w.service.listMine(ana)).length, 0);
+  assert.equal(w.allocations[0].status, "ASSIGNED");
+  assert.equal(w.audits.length, auditCount);
+});
+
+test("N05/N07: retirar CrewMember oculta la asignación e impide mutarla", async () => {
+  const w = makeWorld();
+  const [allocation] = await w.service.assign(sup, "c1", "task1", "r", ["ana"]);
+  const auditCount = w.audits.length;
+  w.crewMembers.find((member) => member.crewId === "c1" && member.userId === "ana")!.status = "REMOVED";
+
+  await assert.rejects(w.service.updateStatus(ana, allocation.allocationId, "IN_PROGRESS", undefined, "r2"), { status: 404 });
+  assert.equal((await w.service.listMine(ana)).length, 0);
+  assert.equal(w.allocations[0].status, "ASSIGNED");
+  assert.equal(w.audits.length, auditCount);
+});
+
+test("N06/N07: archivar Crew oculta la asignación e impide mutarla", async () => {
+  const w = makeWorld();
+  const [allocation] = await w.service.assign(sup, "c1", "task1", "r", ["ana"]);
+  const auditCount = w.audits.length;
+  w.crews.find((crew) => crew.id === "c1")!.status = "ARCHIVED";
+
+  await assert.rejects(w.service.updateStatus(ana, allocation.allocationId, "IN_PROGRESS", undefined, "r2"), { status: 404 });
+  assert.equal((await w.service.listMine(ana)).length, 0);
+  assert.equal(w.allocations[0].status, "ASSIGNED");
+  assert.equal(w.audits.length, auditCount);
 });
 
 test("AC-09 una tarea interna se crea en la Org de la cuadrilla y luego se puede asignar", async () => {
