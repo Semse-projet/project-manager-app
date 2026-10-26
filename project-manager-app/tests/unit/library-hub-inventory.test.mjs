@@ -169,6 +169,7 @@ test("records unsupported Python metadata without guessing package versions", ()
   assert.ok(out.diagnostics.some(x=>x.code==="PYTHON_MANIFEST_UNSUPPORTED"&&x.manifest==="apps/vision-service/pyproject.toml"));
   assert.ok(out.pythonRequirements.every(x=>x.resolvedVersion===null));
 }));
+
 test("redacts lockfile-only credentials when specifier or reference contains URL", () => makeFixture(({root,write}) => {
   base(write);
   const file=path.join(root,"pnpm-lock.yaml");
