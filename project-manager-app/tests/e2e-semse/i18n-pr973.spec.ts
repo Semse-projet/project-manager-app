@@ -44,6 +44,10 @@ async function loginAsQa(page: Page, role: QaRole): Promise<void> {
     throw new Error(`PR #973 QA: missing approved ${role} credentials in environment`);
   }
   await page.goto("/login", { waitUntil: "domcontentloaded" });
+  const approvedTarget = process.env.PLAYWRIGHT_BASE_URL ?? process.env.SEMSE_WEB_BASE_URL!;
+  if (new URL(page.url()).origin !== new URL(approvedTarget).origin) {
+    throw new Error("PR #973 QA: login redirected outside approved preview origin");
+  }
   await page.getByLabel("Email", { exact: true }).fill(email.trim());
   await page.getByLabel("Contraseña", { exact: true }).fill(password);
   await Promise.all([
