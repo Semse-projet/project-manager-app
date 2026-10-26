@@ -1,0 +1,86 @@
+name: Assistant Portal Override Compatibility
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/assistant-portal-compat.yml"
+      - "project-manager-app/package.json"
+      - "project-manager-app/pnpm-lock.yaml"
+      - "project-manager-app/apps/api/package.json"
+      - "project-manager-app/apps/assistant-portal/**"
+      - "project-manager-app/docs/specs/platform/library-hub-override-compatibility.spec.md"
+      - "project-manager-app/docs/reportes/2026-10-25_library-hub-override-compatibility.md"
+  workflow_dispatch:
+
+# Runner efímero y aislado: no servicio Railway, DB ni paso en quality-gates
+concurrency:
+  group: assistant-portal-compat-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: project-manager-app
+
+jobs:
+  portal-compat:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6.1.0
+        with:
+          version: 10.33.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: project-manager-app/pnpm-lock.yaml
+
+      - name: Verify scoped override contract
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import { readFileSync } from 'node:fs';
+          const root = JSON.parse(readFileSync('package.json', 'utf8'));
+          const portal = JSON.parse(readFileSync('apps/assistant-portal/package.json', 'utf8'));
+          const api = JSON.parse(readFileSync('apps/api/package.json', 'utf8'));
+          const overrides = root.pnpm?.overrides ?? {};
+          for (const name of ['@types/express', 'esbuild', 'postcss', 'vite']) {
+            assert.match(overrides[name] ?? '', /^\d+\.\d+\.\d+$/, name + ' requires an explicit version pin');
+          }
+          assert.match(portal.dependencies?.express ?? '', /^\^4\./, 'portal Express 4 contract changed, review needed');
+          assert.match(overrides['@types/express'], /^4\./, 'do not upgrade Express typings without review');
+          assert.match(api.dependencies?.['@types/express'] ?? '', /^\^5\./, 'API Express 5 typings declaration changed; review needed');
+          console.log('Override contract recorded (not vulnerability or runtime certification):', JSON.stringify({
+            types: overrides['@types/express'], esbuild: overrides.esbuild,
+            postcss: overrides.postcss, vite: overrides.vite,
+          }));
+          NODE
+
+      - name: Install frozen workspace dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check and test assistant portal
+        run: pnpm check:assistant-portal
+
+      - name: Build assistant portal
+        run: pnpm build:assistant-portal
+
+      - name: Write evidence summary
+        if: success()
+        run: |
+          {
+            echo "### Assistant Portal override compatibility"
+            echo "- Frozen install: PASS"
+            echo "- Typecheck + tests: PASS"
+            echo "- Portal build: PASS"
+            echo "- No runtime deployment or security/license certification performed."
+          } >> "$GITHUB_STEP_SUMMARY"
