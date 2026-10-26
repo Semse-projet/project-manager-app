@@ -129,7 +129,10 @@ date: "2026-10-22"
 2. Ratificar D-S0B-01…05 y BO-10 antes de código. Tests N10…N18
    primero, incluido PostgreSQL transaccional y auditoría.
 3. No basta envolver el bucle con `$transaction`: `AuditService.append`
-   usa Prisma inyectado y `ActorContextService.ensureActorContext`.
+   usa Prisma inyectado y `ActorContextService.ensureActorContext`,
+   que puede auto-crear Tenant/Org/User. El análisis y las pruebas
+   AUD-01…AUD-08 están en
+   `docs/reportes/2026-10-26_s0b-audit-transaction-boundary-review.md`.
    Evaluar vía atómica aprobada, sin duplicar audit ni permitir fallback.
 4. Validación local y revisión independiente; CI manual se deja al final
    de la preparación y antes de fusionar.
