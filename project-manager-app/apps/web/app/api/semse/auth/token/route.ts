@@ -9,6 +9,7 @@ import {
 import { resolveSafeRedirectPath } from "@/lib/safe-redirect";
 import { clientIpFromHeaders } from "../../_client-ip";
 import { demoPasswordMatches, resolveDemoLoginPassword } from "@/lib/demo-login";
+import { trustedClientHeaders } from "../../_server";
 
 const TTL_SECONDS = 8 * 60 * 60;
 const LOGIN_RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
@@ -134,13 +135,14 @@ async function fetchApiEnvelope<T>(url: string, init?: RequestInit): Promise<T> 
 async function resolveSessionPayload(input: {
   email: string;
   password: string;
+  trustedHeaders: Record<string, string>;
 }): Promise<Omit<SessionPayload, "exp">> {
   const apiBaseUrl = process.env.SEMSE_API_BASE_URL?.trim().replace(/\/+$/, "");
   if (apiBaseUrl) {
     try {
       const login = await fetchApiEnvelope<ApiLoginData>(`${apiBaseUrl}/v1/auth/login`, {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: { ...input.trustedHeaders, "content-type": "application/json" },
         body: JSON.stringify({ email: input.email, password: input.password }),
       });
 
@@ -200,7 +202,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   try {
-    const identity = await resolveSessionPayload({ email, password });
+    const identity = await resolveSessionPayload({ email, password, trustedHeaders: trustedClientHeaders(req) });
     const now = Math.floor(Date.now() / 1000);
     const payload: SessionPayload = { ...identity, exp: now + TTL_SECONDS };
 
