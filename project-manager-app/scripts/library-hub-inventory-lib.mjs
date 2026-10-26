@@ -10,7 +10,11 @@ const fail = m => { throw Error("SEMSE Library Hub inventory: " + m); };
 function nodeAt(root, relative, kind, required=false) {
   const p=path.resolve(root,relative);
   if(p!==root && !p.startsWith(root+path.sep)) fail("Path leaves authorized root");
-  if(!existsSync(p)) { if(required) fail("Missing: "+relative); return null; }
+  if(!existsSync(p)) {
+    try { if(lstatSync(p).isSymbolicLink()) fail("Refusing symbolic link: "+relative); } catch(e) { if(e?.code!=="ENOENT") throw e; }
+    if(required) fail("Missing: "+relative);
+    return null;
+  }
   const st=lstatSync(p);
   if(st.isSymbolicLink()) fail("Refusing symbolic link: "+relative);
   if(kind==="file"&&!st.isFile()) fail("Not regular file: "+relative);
