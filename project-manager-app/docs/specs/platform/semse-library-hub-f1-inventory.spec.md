@@ -22,6 +22,7 @@ related_files:
   - "pnpm-lock.yaml"
   - "docs/specs/platform/semse-library-hub.spec.md"
   - "docs/reportes/2026-10-25_library-hub-f1-local-test-evidence.md"
+  - "docs/reportes/2026-10-25_library-hub-f1-lockfile-reconciliation.md"
 related_tests:
   - "tests/unit/library-hub-inventory.test.mjs"
 related_endpoints: []
@@ -42,7 +43,7 @@ last_verified: "NOT_VERIFIED"
 
 - Inspeccionar `package.json` root y `apps/*` / `packages/*` según patrones `pnpm-workspace.yaml`.
 - Leer `dependencies`, `devDependencies`, `optionalDependencies`, `peerDependencies` sin ejecutarlas.
-- Conciliar contra entradas `importers` del `pnpm-lock.yaml` v9; extraer `specifier` y `version` exactos cuando sean comprobables, conservando referencia completa de peers.
+- Conciliar contra entradas `importers` y `overrides` **globales por nombre exacto** del `pnpm-lock.yaml` v9; distinguir `RESOLVED`, `OVERRIDE_APPLIED`, `STALE_LOCKFILE`, `LOCAL_LINK` y `UNVERIFIED` sin inferir integridad ni una instalación efectiva. Los overrides condicionados por selector quedan fuera del parser F1, sin aprobación automática.
 - Descubrir archivos `requirements*.txt` de apps del workspace y capturar sus líneas sin fingir resolver versiones ni interpretar completamente sintaxis pip; reportar `UNRESOLVED` cuando haya líneas no soportadas.
 - Calcular SHA-256 del contenido de cada manifiesto, no del paquete externo.
 - Producir salida ordenada y estable, warnings explícitos ante falta de lock o Python complejo.
@@ -61,7 +62,7 @@ CLI local para operadores con acceso al checkout; no HTTP, auth ni datos tenant/
 
 ## 4. Escenarios de aceptación
 
-P1: escanear fixtures de varios apps/packages + root y asociar importers a rangos/deps; misma entrada => mismo JSON y orden. P1: detectar duplicados, diferencias textuales y versiones resueltas con sufijos de peers. P0: lockfile desactualizado ⇒ `STALE_LOCKFILE` con versión nula; ausencia de entrada ⇒ `UNVERIFIED`; no false PASS. P0: symlink malicioso, JSON inválido, patrones inesperados o YAML incompatible ⇒ error controlado sin ejecución. P1: requirements Python fijo o complejo ⇒ conservar texto y `UNRESOLVED`, no instalar. P0: package.json con `preinstall` malicioso ⇒ tratar como dato, jamás ejecutar.
+P1: escanear fixtures de varios apps/packages + root y asociar importers a rangos/deps; misma entrada => mismo JSON y orden. P1: detectar duplicados, diferencias textuales y versiones resueltas con sufijos de peers. P0: lockfile desactualizado sin override global coincidente ⇒ `STALE_LOCKFILE` con versión nula; override global exacto ⇒ `OVERRIDE_APPLIED`, conservando rango declarado y versión resuelta; ausencia de entrada ⇒ `UNVERIFIED`; no false PASS. Las declaraciones `peerDependencies` que carecen de importer permanecen `UNVERIFIED`. P0: symlink malicioso, JSON inválido, patrones inesperados o YAML incompatible ⇒ error controlado sin ejecución. P1: requirements Python fijo o complejo ⇒ conservar texto y `UNRESOLVED`, no instalar. P0: package.json con `preinstall` malicioso ⇒ tratar como dato, jamás ejecutar.
 
 ## 5. Contrato CLI y salida
 
@@ -86,12 +87,13 @@ Ejecución local/CI cuando se autorice. No servicios, bandera ni deploy; `deploy
 ## 9. Tests requeridos
 
 - [ ] Descubrimiento dinámico de root/apps/packages, tipos prod/dev/optional/peer.
-- [ ] Fixture lock v9 con peer suffix, workspace link, dependencia ausente y stale spec.
+- [ ] Fixture lock v9 con peer suffix, workspace link, dependencia ausente, stale spec **y tres regresiones de override global/scoped/selector condicionado**.
 - [ ] Output estable, ordenado y SHA-256 con cambio real.
 - [ ] Rechazo de symlink y JSON malformado; `scripts.preinstall` no ejecutado.
 - [ ] Python requirements básicos y líneas complejas como UNRESOLVED.
 - [ ] Falla controlada cuando patrón de workspace no corresponde al contrato.
-- [ ] Smoke en checkout real de CI (test añadido, ejecución y resultados pendientes); cotejar conteos vs snapshots sin atribuir runtime.
+- [x] Smoke del checkout real ejecutado en CI #40262055473 para SHA `961c7036` (21 JS/TS, 2 requirements Python, 285 declaraciones; previo a overrides).
+- [ ] Smoke del HEAD con `OVERRIDE_APPLIED` y ausencia de falsa deriva; registro actualizado y revisión técnica pendientes.
 - [ ] CI al final y checks de spec una vez estabilizado el código.
 
 ## 10. Mapa de implementación
