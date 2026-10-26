@@ -25,6 +25,9 @@ related_files:
   - "packages/tools/package.json"
   - "pnpm-lock.yaml"
   - "docs/specs/platform/semse-library-hub.inventory.md"
+  - "docs/specs/platform/semse-library-hub.apps.snapshot.json"
+  - "docs/specs/platform/semse-library-hub.packages.snapshot.json"
+  - "docs/specs/platform/semse-library-hub.direct-reconciliation.md"
   - "docs/architecture/ADR-SEMSE-LIBRARY-HUB-001.md"
   - "docs/reportes/2026-10-25_library-hub_cross-semse-audit.md"
 related_tests: []
