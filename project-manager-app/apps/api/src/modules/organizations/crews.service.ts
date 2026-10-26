@@ -62,6 +62,14 @@ export class CrewsService {
     }
   }
 
+  private async hasActiveWorkerMembership(tenantId: string, orgId: string, userId: string): Promise<boolean> {
+    const memberships = await this.prisma.membership.findMany({
+      where: { userId, orgId, status: "ACTIVE", org: { tenantId } },
+      include: { role: true }
+    });
+    return memberships.some((membership) => membership.role.key === "WORKER");
+  }
+
   private async record(
     actor: CrewActor,
     orgId: string,
@@ -206,10 +214,8 @@ export class CrewsService {
     const all = [...supervised, ...memberCrews.filter((c) => !supervised.some((s) => s.id === c.id))];
     const visible = [];
     for (const crew of all) {
-      const live = await this.prisma.membership.findMany({
-        where: { userId: user.userId, orgId: crew.orgId, status: "ACTIVE", org: { tenantId: crew.tenantId } }
-      });
-      if (live.length > 0) {
+      const activeWorker = await this.hasActiveWorkerMembership(crew.tenantId, crew.orgId, user.userId);
+      if (activeWorker) {
         visible.push({ ...this.crewView(crew), myRole: crew.supervisorUserId === user.userId ? "SUPERVISOR" : "MEMBER" });
       }
     }
@@ -221,10 +227,7 @@ export class CrewsService {
     this.assertEnabled();
     const crew = await this.prisma.crew.findFirst({ where: { id: crewId, supervisorUserId: user.userId, status: "ACTIVE" } });
     if (!crew) throw new NotFoundException();
-    const live = await this.prisma.membership.findMany({
-      where: { userId: user.userId, orgId: crew.orgId, status: "ACTIVE", org: { tenantId: crew.tenantId } }
-    });
-    if (live.length === 0) throw new NotFoundException();
+    if (!(await this.hasActiveWorkerMembership(crew.tenantId, crew.orgId, user.userId))) throw new NotFoundException();
     const members = await this.prisma.crewMember.findMany({ where: { crewId, status: "ACTIVE" } });
     return { crewId, members: members.map((m) => ({ userId: m.userId, addedAt: m.addedAt })) };
   }

@@ -70,10 +70,22 @@ export class TaskAllocationsService {
       include: { role: true }
     });
     if (live.length === 0) throw new NotFoundException();
-    const isSupervisor = crew.supervisorUserId === actor.userId;
+    const isSupervisor = crew.supervisorUserId === actor.userId && live.some((membership) => membership.role.key === "WORKER");
     const isManager = hasPermission(live.map((m) => m.role.key), CREWS_MANAGE);
     if (!isSupervisor && !isManager) throw new ForbiddenException();
     return crew;
+  }
+
+  private async isActiveWorkerInCrew(tenantId: string, orgId: string, crewId: string, userId: string): Promise<boolean> {
+    const [crew, member, memberships] = await Promise.all([
+      this.prisma.crew.findFirst({ where: { id: crewId, tenantId, orgId, status: "ACTIVE" } }),
+      this.prisma.crewMember.findFirst({ where: { crewId, userId, status: "ACTIVE" } }),
+      this.prisma.membership.findMany({
+        where: { userId, orgId, status: "ACTIVE", org: { tenantId } },
+        include: { role: true }
+      })
+    ]);
+    return Boolean(crew && member && memberships.some((membership) => membership.role.key === "WORKER"));
   }
 
   private async record(
@@ -151,6 +163,12 @@ export class TaskAllocationsService {
     if (unique.some((id) => !memberIds.has(id))) {
       throw new UnprocessableEntityException("Solo se asigna a miembros activos de la cuadrilla");
     }
+    const workerEligibility = await Promise.all(
+      unique.map((userId) => this.isActiveWorkerInCrew(actor.tenantId, crew.orgId, crew.id, userId))
+    );
+    if (workerEligibility.some((eligible) => !eligible)) {
+      throw new UnprocessableEntityException("Solo se asigna a trabajadores activos de la organización y la cuadrilla");
+    }
     const result: AllocationRow[] = [];
     for (const userId of unique) {
       const existing = await this.prisma.taskAllocation.findFirst({ where: { taskId, userId } });
@@ -223,7 +241,11 @@ export class TaskAllocationsService {
   async listMine(user: { tenantId: string; userId: string }) {
     this.assertEnabled();
     const rows = await this.prisma.taskAllocation.findMany({ where: { tenantId: user.tenantId, userId: user.userId } });
-    const live = rows.filter((row) => row.status !== "RELEASED");
+    const visible = await Promise.all(
+      rows.map(async (row) => row.status !== "RELEASED" &&
+        await this.isActiveWorkerInCrew(user.tenantId, row.orgId, row.crewId, user.userId))
+    );
+    const live = rows.filter((_row, index) => visible[index]);
     const titles = await this.titles(user.tenantId, live.map((r) => r.taskId));
     return live.map((row) => this.view(row, titles.get(row.taskId)));
   }
@@ -238,6 +260,9 @@ export class TaskAllocationsService {
     this.assertEnabled();
     const row = await this.prisma.taskAllocation.findFirst({ where: { id: allocationId, tenantId: user.tenantId, userId: user.userId } });
     if (!row) throw new NotFoundException();
+    if (!(await this.isActiveWorkerInCrew(user.tenantId, row.orgId, row.crewId, user.userId))) {
+      throw new NotFoundException();
+    }
     const allowed = TRANSITIONS[row.status] ?? [];
     if (!allowed.includes(next)) {
       throw new UnprocessableEntityException("Transición de estado no permitida");
