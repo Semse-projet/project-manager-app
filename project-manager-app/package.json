@@ -40,6 +40,7 @@
     "typecheck": "pnpm run typecheck:all",
     "typecheck:all": "node ./scripts/workspace-runner.mjs typecheck:all",
     "lint": "pnpm --filter @semse/api lint && pnpm --filter @semse/web lint",
+    "quality:i18n": "node --experimental-strip-types ./scripts/quality/validate-critical-i18n.ts",
     "skill:route": "node ./scripts/skill-router/cli.mjs",
     "skill:route:report": "node ./scripts/skill-router/cli.mjs --report",
     "validate:workspace": "node ./scripts/validate-workspace.mjs",
