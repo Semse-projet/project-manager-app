@@ -714,7 +714,7 @@ model AuthSession {
 // solo son nulos en filas anonimizadas (anonymizedAt != null); la verificación
 // deniega cualquier grant sin userId. No hay ruta que lo use todavía (fase B).
 model McpDelegatedConsent {
-  id                   String    @id @default(cuid())
+  id                   String    @id @default(uuid())
   tenantId             String
   orgId                String
   userId               String?

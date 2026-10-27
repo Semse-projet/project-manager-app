@@ -31,6 +31,7 @@ date: "2026-10-26"
 - [x] [T-016] Servicio interno sin ruta: `accept`, `authorizeRead`, `revokeOwn`, `revokeAsTenantOps`, `anonymizeDue`
 - [x] [T-017] Pruebas unitarias (D7-04, 05b, 09, 10, 11, 17, 22, Q5, Q6)
 - [x] [T-018] Pruebas de integración PostgreSQL (D7-01, 02, 03, 05, 05b, 06, 07, 08, 09, 13, 17, 19, 21, 22, 23, 24)
+- [x] [T-018b] Hallazgos de Copilot: orden de bloqueo `User` → `AuthSession` (D7-23b), reloj muestreado tras los bloqueos y revalidación de expiraciones tras las lecturas de autoridad (D7-02b, D7-09b), `id` UUID v4 (D7-21)
 - [ ] [T-019] CI verde (incluido `API Integration`) sobre el SHA final de estas correcciones; el success de `f742a33` no lo sustituye
 - [ ] [T-019b] Reconciliar spec REVIEW/APPROVED: evidencia del propietario con SHA/fecha/alcance y SKILL.md §12
 - [ ] [T-019c] Confirmar tests D7-10b/10c de deadline monotónico; D2 debe pasar el presupuesto end-to-end

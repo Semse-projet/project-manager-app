@@ -50,23 +50,28 @@ export class McpConsentRepository {
    * User con FOR SHARE dentro de la misma transacción del INSERT, de modo que un
    * flujo de borrado que primero revoca la sesión o desactiva el usuario espera o
    * es esperado, nunca intercala.
+   *
+   * Orden de bloqueo canónico User → AuthSession, el mismo que
+   * changePasswordAndRevokeOtherSessions y consumePasswordResetToken; el orden
+   * inverso permite un deadlock con esos flujos. Un futuro borrado de titular
+   * (T-032) debe seguir este orden.
    */
   acceptInTransaction<T>(
     sessionId: string,
     work: (tx: Tx, locked: { session: LockedSessionRow | null; userStatus: string | null }) => Promise<T>,
   ): Promise<T> {
     return this.prisma.$transaction(async (tx) => {
+      const owners = await tx.$queryRaw<Array<{ userId: string }>>`
+        SELECT "userId" FROM "AuthSession" WHERE "id" = ${sessionId}`;
+      const ownerId = owners[0]?.userId;
+      if (!ownerId) return work(tx, { session: null, userStatus: null });
+      const users = await tx.$queryRaw<Array<{ status: string }>>`
+        SELECT "status" FROM "User" WHERE "id" = ${ownerId} FOR SHARE`;
       const sessions = await tx.$queryRaw<LockedSessionRow[]>`
         SELECT "id", "tenantId", "orgId", "userId", "roles", "refreshExpiresAt", "status", "revokedAt"
         FROM "AuthSession" WHERE "id" = ${sessionId} FOR SHARE`;
-      const session = sessions[0] ?? null;
-      let userStatus: string | null = null;
-      if (session) {
-        const users = await tx.$queryRaw<Array<{ status: string }>>`
-          SELECT "status" FROM "User" WHERE "id" = ${session.userId} FOR SHARE`;
-        userStatus = users[0]?.status ?? null;
-      }
-      return work(tx, { session, userStatus });
+      const session = sessions[0]?.userId === ownerId ? sessions[0] : null;
+      return work(tx, { session, userStatus: users[0]?.status ?? null });
     });
   }
 

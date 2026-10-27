@@ -266,3 +266,58 @@ test("D7-09: acceptance under a policy version that is not accepted is refused b
     ForbiddenException,
   );
 });
+
+test("D7-09b: a grant or session that expires during the authority lookups is denied", async () => {
+  let clockNow = now;
+  const grant = {
+    id: "g-late", tenantId: "tenant-a", orgId: "org-a", userId: "u1", sessionId: "s1",
+    oauthIssuer: trust.oauthIssuer, oauthClientId: "client-ok", resourceUri: trust.resourceUri,
+    scopeSet: ["projects:read"], status: "ACTIVE", anonymizedAt: null, policyVersion: "p1",
+    expiresAt: new Date(now.getTime() + 100),
+  };
+  const session = {
+    userId: "u1", orgId: "org-a", tenantId: "tenant-a", roles: ["CLIENT"],
+    refreshExpiresAt: new Date(now.getTime() + DAY),
+  };
+  const read = (g, s) => new McpConsentService(
+    { async findByBinding() { return g; } },
+    { async findActiveSessionAuthorization() { clockNow = new Date(now.getTime() + 700); return { session: s, userStatus: "active", activeRoles: ["CLIENT"] }; } },
+    trust, () => clockNow, () => 0,
+  ).authorizeRead(readInput);
+
+  await assert.rejects(read(grant, session), UnauthorizedException, "grant expired mid-lookup");
+  clockNow = now;
+  await assert.rejects(
+    read({ ...grant, expiresAt: new Date(now.getTime() + DAY) }, { ...session, refreshExpiresAt: new Date(now.getTime() + 100) }),
+    UnauthorizedException,
+    "session expired mid-lookup",
+  );
+});
+
+test("D7-02b: acceptance validates the session expiry with the clock sampled after the locks", async () => {
+  let clockNow = now;
+  let created = 0;
+  const repository = {
+    async acceptInTransaction(_sessionId, work) {
+      clockNow = new Date(now.getTime() + 500); // waited on FOR SHARE past refreshExpiresAt
+      return work({}, {
+        session: {
+          id: "s1", tenantId: "tenant-a", orgId: "org-a", userId: "u1", roles: ["CLIENT"],
+          refreshExpiresAt: new Date(now.getTime() + 100), status: "ACTIVE", revokedAt: null,
+        },
+        userStatus: "active",
+      });
+    },
+    async activeRolesInTx() { return ["CLIENT"]; },
+    async createInTx() { created += 1; return {}; },
+  };
+  const service = new McpConsentService(repository, {}, trust, () => clockNow);
+  await assert.rejects(
+    service.accept({
+      sessionId: "s1", oauthIssuer: trust.oauthIssuer, oauthClientId: "client-ok", resourceUri: trust.resourceUri,
+      scopeSet: ["projects:read"], grantBindingDigest: "binding-digest-0001", policyVersion: "p1", consentVersion: "c1",
+    }),
+    UnauthorizedException,
+  );
+  assert.equal(created, 0);
+});

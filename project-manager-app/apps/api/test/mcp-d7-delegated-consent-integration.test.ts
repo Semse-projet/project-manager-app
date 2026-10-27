@@ -73,8 +73,8 @@ test("MCP D7 phase B — persisted delegated consent against real ephemeral Post
 
   const tenantA = id("tenant_a"), tenantB = id("tenant_b");
   const orgA = id("org_a"), orgB = id("org_b"), orgC = id("org_c"), proA = id("pro_a"), proB = id("pro_b"), proC = id("pro_c");
-  const user = { client: id("u_client"), ops: id("u_ops"), mixed: id("u_mixed"), other: id("u_other"), opsB: id("u_ops_b") };
-  const sid = { client: id("s_client"), ops: id("s_ops"), mixed: id("s_mixed"), other: id("s_other"), opsB: id("s_ops_b") };
+  const user = { client: id("u_client"), ops: id("u_ops"), mixed: id("u_mixed"), other: id("u_other"), opsB: id("u_ops_b"), reset: id("u_reset") };
+  const sid = { client: id("s_client"), ops: id("s_ops"), mixed: id("s_mixed"), other: id("s_other"), opsB: id("s_ops_b"), reset: id("s_reset") };
   const jobs = { a: id("job_a"), b: id("job_b"), c: id("job_c") };
   const project = { a: id("project_a"), b: id("project_b"), c: id("project_c") };
   const createdRoles = [];
@@ -131,6 +131,7 @@ test("MCP D7 phase B — persisted delegated consent against real ephemeral Post
       [user.mixed, proA, ["PRO", "WORKER"]],
       [user.other, orgB, ["CLIENT"]],
       [user.opsB, orgC, ["OPS_ADMIN"]],
+      [user.reset, orgA, ["CLIENT"]],
     ];
     for (const [u, org, roles] of memberships) {
       await db.user.create({ data: { id: u, email: u + "@example.invalid", status: "active" } });
@@ -145,6 +146,7 @@ test("MCP D7 phase B — persisted delegated consent against real ephemeral Post
       [sid.mixed, user.mixed, tenantA, proA, ["PRO", "WORKER"]],
       [sid.other, user.other, tenantA, orgB, ["CLIENT"]],
       [sid.opsB, user.opsB, tenantB, orgC, ["OPS_ADMIN"]],
+      [sid.reset, user.reset, tenantA, orgA, ["CLIENT"]],
     ]) {
       await db.authSession.create({ data: {
         id: s, userId: u, tenantId: tenant, orgId: org, roles, refreshTokenHash: randomUUID(),
@@ -169,6 +171,8 @@ test("MCP D7 phase B — persisted delegated consent against real ephemeral Post
     assert.equal(grantA.orgId, orgA);
     assert.equal(grantA.userId, user.client);
     assert.equal(grantA.sessionId, sid.client);
+    // D7-21 (Copilot): the primary key is a random UUID v4, so it does not leak the creation time after anonymization.
+    assert.match(grantA.id, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
     assert.equal(grantA.expiresAt.getTime(), clockNow.getTime() + 30 * DAY, "D7-22: 30-day cap below 60-day refresh");
 
     // D7-02: parallel acceptance with same key and payload returns the same grant.
@@ -300,8 +304,9 @@ test("MCP D7 phase B — persisted delegated consent against real ephemeral Post
     let locked;
     const lockedPromise = new Promise((resolve) => { locked = resolve; });
     const deletion = db.$transaction(async (tx) => {
-      await tx.authSession.update({ where: { id: sid.client }, data: { status: "REVOKED", revokedAt: new Date() } });
+      // Canonical lock order User → AuthSession (same as password change/reset).
       await tx.user.update({ where: { id: user.client }, data: { status: "deleted" } });
+      await tx.authSession.update({ where: { id: sid.client }, data: { status: "REVOKED", revokedAt: new Date() } });
       locked();
       await new Promise((resolve) => { release = resolve; });
     }, { timeout: 15_000 });
@@ -313,6 +318,29 @@ test("MCP D7 phase B — persisted delegated consent against real ephemeral Post
     release();
     await deletion;
     await assert.rejects(racing, UnauthorizedException);
+
+    // D7-23b (Copilot): a password reset (User then AuthSession, as consumePasswordResetToken) racing an
+    // acceptance must not deadlock; acceptance waits on User and then sees the revoked session.
+    let releaseReset;
+    let resetLocked;
+    const resetLockedPromise = new Promise((resolve) => { resetLocked = resolve; });
+    const reset = db.$transaction(async (tx) => {
+      await tx.user.update({ where: { id: user.reset }, data: { passwordHash: "synthetic-" + randomUUID() } });
+      resetLocked();
+      await new Promise((resolve) => { releaseReset = resolve; });
+      await tx.authSession.updateMany({
+        where: { userId: user.reset, status: "ACTIVE", revokedAt: null },
+        data: { status: "REVOKED", revokedAt: new Date() },
+      });
+    }, { timeout: 15_000 });
+    await resetLockedPromise;
+    let resetRaceSettled = false;
+    const resetRace = service.accept(acceptInput(sid.reset)).finally(() => { resetRaceSettled = true; });
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    assert.equal(resetRaceSettled, false, "acceptance must wait on the User row held by the reset");
+    releaseReset();
+    await reset;
+    await assert.rejects(resetRace, UnauthorizedException);
 
     // D7-21 / D7-24: anonymization by terminal moment, independent of the stored status.
     const stale = await db.mcpDelegatedConsent.create({ data: {

@@ -87,12 +87,15 @@ export class McpConsentService {
     if (!this.trust.acceptedPolicyVersions.includes(input.policyVersion)) {
       throw new ForbiddenException("Consent policy version not accepted");
     }
-    const now = this.clock();
     const scopeSet = [...new Set(input.scopeSet)].sort();
     const requestFingerprint = acceptRequestFingerprint({ ...input, scopeSet });
 
     try {
       return await this.repository.acceptInTransaction(input.sessionId, async (tx, { session, userStatus }) => {
+        const activeRoles = session ? await this.repository.activeRolesInTx(tx, session) : [];
+        // Sampled after the locks and the membership read: waiting on a lock must not
+        // let an already-expired session produce an ACTIVE grant.
+        const now = this.clock();
         if (
           !session ||
           session.status !== ACTIVE_SESSION_STATUS ||
@@ -102,7 +105,6 @@ export class McpConsentService {
         ) {
           throw new UnauthorizedException("Invalid or revoked auth session");
         }
-        const activeRoles = await this.repository.activeRolesInTx(tx, session);
         if (!rolesCoverScopes(mcpEffectiveRoles(activeRoles, session.roles), scopeSet)) {
           throw new ForbiddenException("Requested scopes exceed current permissions");
         }
@@ -190,6 +192,11 @@ export class McpConsentService {
       throw new ForbiddenException("MCP consent not valid");
     }
     this.assertWithinDeadline(deadlineAt);
+    // The deadline bounds latency, not validity: re-check both expiries after the lookups.
+    const checkedAt = this.clock().getTime();
+    if (grant.expiresAt.getTime() <= checkedAt || snapshot.session.refreshExpiresAt.getTime() <= checkedAt) {
+      throw new UnauthorizedException("MCP consent not valid");
+    }
     return { grantId: grant.id, tenantId: grant.tenantId, orgId: grant.orgId, userId: grant.userId, roles };
   }
 

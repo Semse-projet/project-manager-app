@@ -318,7 +318,8 @@ forbidden_behavior:
 ## 7. Datos y migración
 
 - **Modelo Prisma (candidato, no agregado):** `McpDelegatedConsent` con los
-  campos del plan D7: `id`, `tenantId`, `orgId`, `userId`, `sessionId`,
+  campos del plan D7: `id` (UUID v4 aleatorio, sin marca de tiempo, para que no
+  revele la creación tras anonimizar), `tenantId`, `orgId`, `userId`, `sessionId`,
   `oauthIssuer`, `oauthClientId`, `resourceUri`, `scopeSet`,
   `grantBindingDigest`, `status`, `createdAt`, `authorizedAt`, `expiresAt`,
   `revokedAt`, `updatedAt`, `policyVersion`, `consentVersion`,
@@ -407,7 +408,9 @@ forbidden_behavior:
      `AuthSession ACTIVE` y `User active`; como el paso 1 actualiza esas
      mismas filas, PostgreSQL serializa ambas operaciones: o la aceptación
      termina antes (y su grant cae en el barrido del paso 2) o ve la puerta
-     cerrada y falla;
+     cerrada y falla. Orden de bloqueo canónico `User` → `AuthSession`, el
+     mismo de los flujos de cambio y reseteo de contraseña; el borrado del
+     paso 1 debe seguirlo para no provocar deadlocks (D7-23b);
   5. un barrido final tras el paso 3 revoca cualquier grant de ese `userId`
      que siga `ACTIVE` (defensa en profundidad), y la verificación por llamada
      ya deniega grants sin User (punto 4 anterior).
