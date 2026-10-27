@@ -22,16 +22,16 @@ date: "2026-10-26"
 ## Fase 1 — Tests primero
 - [ ] T-010 Tests de detección real de duplicados AST/JSON, claves faltantes, placeholders, plurales, valores vacíos y digest (I18N-01..07).
 - [ ] T-011 Tests de rechazo: traducción crítica stale/unreviewed, HTML inseguro, fallback técnico y errores de API (I18N-03/06/07/09).
-- [ ] T-012 Tests de SSR/concurrencia A/B, sesión/permisos y `html.lang` (I18N-08/13).
+- [ ] T-012 **Ampliar pruebas existentes**, no duplicarlas: `tests/unit/language-preference-cookie.test.ts` y SSR/cambio de cookie, concurrencia A/B, sesión/permisos, caché, modo privado, datos de usuario y `html.lang` (I18N-08/13).
 - [ ] T-013 Playwright para adjuntos, drafts, validación, prefill, cambiar idioma y ausencia de POST duplicado (L01/L02/L05/L07).
 - [ ] T-014 Snapshot payload exacto de importe minor units, currency, IDs, status, `canRelease` (L03/L04/L11).
 - [ ] T-015 Pseudolocalización móvil, accesibilidad y rollback (L08/L12).
 
 ## Fase 2 — Arquitectura y catálogos
 - [ ] T-020 Spike comparativo de runtime en rama separada tras APPROVED.
-- [ ] T-021 Registrar ADR aprobado D1; no agregar dos librerías simultáneas.
+- [ ] T-021 Elevar [ADR-046](../../architecture/ADR-046-semse-ui-localization-runtime.md) de PROPOSED a ACCEPTED tras comparación D1/D3/D4; no agregar dos librerías simultáneas.
 - [ ] T-022 Extraer módulos JSON y adaptador de claves, glosario/metadatos con aprobaciones reales.
-- [ ] T-023 Si D4 selecciona cuenta persistente, contrato auth y Prisma expand/contract con pruebas DB reales.
+- [ ] T-023 Respetar cookie SSR de navegador ya implementada en `main`; sólo si D4-B selecciona persistencia de cuenta, diseñar nuevo contrato autenticado y Prisma expand/contract con pruebas PostgreSQL reales.
 
 ## Fase 3 — Interfaz y API
 - [ ] T-030 Localizar pasos del wizard, aria labels, placeholders, errores, formatos de tiempo/dinero y vacíos.
