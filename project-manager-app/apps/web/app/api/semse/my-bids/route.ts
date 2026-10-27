@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { handleServerError, runtimeDisabledResponse, buildAuthorizedHeaders, getServerConfig } from "../_server";
+import { handleServerError, runtimeDisabledResponse, buildAuthorizedHeaders, getServerConfig, upstreamErrorResponse } from "../_server";
 
 const API = process.env.SEMSE_API_BASE_URL ?? "http://localhost:4000";
 
@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
     const cfg = await getServerConfig(request);
     const headers = { "content-type": "application/json", ...(await buildAuthorizedHeaders(cfg)) };
     const response = await fetch(`${API}/v1/my-bids`, { headers });
-    if (!response.ok) return runtimeDisabledResponse();
+    if (!response.ok) return upstreamErrorResponse(response, "/v1/my-bids");
     const payload = await response.json() as { data?: MyBid[] };
     const bidResults = (payload.data ?? []).map(toClientBid);
     bidResults.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());

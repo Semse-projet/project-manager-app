@@ -21,6 +21,7 @@ import { NotificationBanner } from "../../../components/notifications/Notificati
 import { WorkerEvidenceSummary } from "../../../../components/semse/WorkerEvidenceSummary";
 import type { Job, JobRecordView } from "@semse/schemas";
 import { useLanguage, type LanguagePreference } from "../../../../lib/language-context";
+import { messageKey, messageTextOr, renderMessage, type UiMessage } from "../../../../lib/ui-message";
 import { fetchRatings, fetchMyBids, normalizeErrorMessage, type RatingListItem, type MyBidView } from "../../../semse-api";
 
 function formatMoney(value: number, language: LanguagePreference) {
@@ -94,7 +95,7 @@ export default function WorkerDashboardPage() {
   const { t, language } = useLanguage();
   const [jobs, setJobs] = useState<JobRecordView[]>([]);
   const [loading, setLoading] = useState(true);
-  const [apiError, setApiError] = useState<string | null>(null);
+  const [apiError, setApiError] = useState<UiMessage | null>(null);
   const [receivedRatings, setReceivedRatings] = useState<RatingListItem[]>([]);
   const [myBids, setMyBids] = useState<MyBidView[]>([]);
 
@@ -104,12 +105,12 @@ export default function WorkerDashboardPage() {
         .then((r) => r.json())
         .then((payload: { data?: JobRecordView[]; error?: unknown }) => {
           if (payload.error) {
-            setApiError(normalizeErrorMessage(payload.error) ?? t("clientDash.jobsLoadError"));
+            setApiError(messageTextOr(normalizeErrorMessage(payload.error), "clientDash.jobsLoadError"));
             return;
           }
           setJobs(payload.data ?? []);
         })
-        .catch(() => setApiError(t("clientDash.connectionError"))),
+        .catch(() => setApiError(messageKey("clientDash.connectionError"))),
       fetchRatings()
         .then(({ actorUserId, items }) => {
           setReceivedRatings(items.filter((r) => r.toUser.id === actorUserId));
@@ -502,7 +503,7 @@ export default function WorkerDashboardPage() {
             ))}
           </div>
         ) : apiError ? (
-          <ErrorState message={apiError} />
+          <ErrorState message={renderMessage(apiError, t) ?? ""} />
         ) : metrics.active.length === 0 ? (
           <EmptyState
             title={t("workerDash.noActiveJobs")}

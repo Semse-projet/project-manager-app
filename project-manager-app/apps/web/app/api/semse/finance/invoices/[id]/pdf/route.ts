@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { buildAuthorizedHeaders, getServerConfig, runtimeDisabledResponse } from "../../../../_server";
+import { buildAuthorizedHeaders, getServerConfig, routeErrorResponse, upstreamErrorResponse } from "../../../../_server";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +17,7 @@ export async function GET(
     const apiRes = await fetch(`${cfg.apiBaseUrl}/v1/finance/invoices/${id}/pdf${qs}`, { headers });
 
     if (!apiRes.ok) {
-      return runtimeDisabledResponse();
+      return upstreamErrorResponse(apiRes, `/v1/finance/invoices/${id}/pdf`);
     }
 
     const buf = await apiRes.arrayBuffer();
@@ -30,7 +30,7 @@ export async function GET(
         "Cache-Control": "no-store",
       },
     });
-  } catch {
-    return runtimeDisabledResponse();
+  } catch (error) {
+    return routeErrorResponse(error);
   }
 }
