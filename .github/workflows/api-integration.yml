@@ -222,6 +222,11 @@ jobs:
     timeout-minutes: 40
     permissions:
       contents: read
+    # Overrides global project-manager-app working directory because both
+    # candidate checkouts live in sibling subdirectories under GITHUB_WORKSPACE.
+    defaults:
+      run:
+        working-directory: .
     services:
       postgres:
         image: postgres:16
