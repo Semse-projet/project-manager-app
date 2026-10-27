@@ -1,11 +1,12 @@
-@import url('https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600&display=swap');
 @import "tailwindcss";
 
 /* ── Design tokens exposed as Tailwind utilities ── */
 @theme {
   /* Typography */
-  --font-sans: 'Geist', ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-mono: 'Geist Mono', ui-monospace, "SFMono-Regular", Consolas, monospace;
+  /* Geist is self-hosted through the `geist` package (next/font/local), see app/layout.tsx:
+     no request to Google Fonts, which the CSP's style-src/font-src would block. */
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, "SFMono-Regular", Consolas, monospace;
 
   /* Brand — SEMSE blue + orange accent */
   --color-brand:        #3b82f6;
@@ -214,41 +215,48 @@ html[data-theme="dark"] .public-theme,
   border-radius: var(--radius-sm);
 }
 
-/* ── Base ── */
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
+/* ── Base ──
+   Inside @layer base on purpose: Tailwind v4 puts utilities in @layer utilities,
+   and unlayered rules beat every layer. Unlayered, `* { padding: 0 }` and
+   `a { color }` overrode every padding, margin and text-colour utility (white
+   CTA text rendered brand-blue on a blue button with no padding). Inline styles
+   still win. Never write a star followed by a slash in this comment: it ends it. */
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
 
-html,
-body {
-  min-height: 100%;
-  background: var(--bg);
-  color: var(--ink);
-  font-family: var(--font-sans);
-  font-size: 15px;
-  line-height: 1.6;
-  -webkit-font-smoothing: antialiased;
-}
+  html,
+  body {
+    min-height: 100%;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: 15px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
 
-button,
-input,
-textarea,
-select {
-  font: inherit;
-  color: inherit;
-}
+  button,
+  input,
+  textarea,
+  select {
+    font: inherit;
+    color: inherit;
+  }
 
-a {
-  color: var(--brand);
-  text-decoration: none;
-}
+  a {
+    color: var(--brand);
+    text-decoration: none;
+  }
 
-a:hover {
-  text-decoration: underline;
+  a:hover {
+    text-decoration: underline;
+  }
 }
 
 ::selection {
