@@ -132,8 +132,28 @@ export class McpConsentService {
         });
       });
     } catch (error) {
-      if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== "P2002") throw error;
-      return this.resolveDuplicate(input, requestFingerprint);
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+        try {
+          return await this.resolveDuplicate(input, requestFingerprint);
+        } catch (resolutionError) {
+          this.rethrowPrismaAvailability(resolutionError);
+          throw resolutionError;
+        }
+      }
+      this.rethrowPrismaAvailability(error);
+      throw error;
+    }
+  }
+
+  /** Fail closed when the consent store cannot establish or serve a connection. */
+  private rethrowPrismaAvailability(error: unknown): void {
+    if (
+      (error instanceof Prisma.PrismaClientKnownRequestError &&
+        ["P1001", "P1002", "P1008", "P1017", "P2024", "P2034"].includes(error.code)) ||
+      error instanceof Prisma.PrismaClientInitializationError ||
+      error instanceof Prisma.PrismaClientUnknownRequestError
+    ) {
+      throw new ServiceUnavailableException("Consent authority unavailable");
     }
   }
 
