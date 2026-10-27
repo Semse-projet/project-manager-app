@@ -5,71 +5,93 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { normalizeSafeRedirectPath } from "@/lib/safe-redirect";
 import { flushProductEvents, trackProductEvent } from "@/lib/product-intelligence";
+import { LanguageProvider, useLanguage } from "@/lib/language-context";
+import { LanguageSwitch } from "../_auth/LanguageSwitch";
+import { PasswordStrength } from "../_auth/PasswordStrength";
 
 type AccountRole = "CLIENT" | "PRO";
 
-const ROLE_OPTIONS: { role: AccountRole; label: string; icon: string; desc: string; color: string }[] = [
-  {
-    role: "CLIENT",
-    label: "Cliente",
-    icon: "🏢",
-    desc: "Publica trabajos, gestiona proyectos y pagos",
-    color: "var(--brand)",
+const COPY = {
+  es: {
+    tagline: "Plataforma de gestión de obras y servicios",
+    title: "Crear cuenta",
+    accountType: "Tipo de cuenta",
+    roleClient: "Cliente",
+    roleClientDesc: "Publica trabajos, gestiona proyectos y pagos",
+    rolePro: "Profesional",
+    roleProDesc: "Recibe trabajos, gestiona obras y cobra",
+    nameClient: "Nombre de empresa / persona",
+    nameClientPlaceholder: "ACME Corp o Juan Pérez",
+    namePro: "Nombre completo",
+    nameProPlaceholder: "Juan Pérez",
+    email: "Email",
+    emailPlaceholder: "tu@email.com",
+    password: "Contraseña",
+    passwordPlaceholder: "Mínimo 15 caracteres",
+    confirmPassword: "Confirmar contraseña",
+    confirmPlaceholder: "Repite la contraseña",
+    mismatch: "Las contraseñas no coinciden",
+    length: "La contraseña debe tener entre 15 y 128 caracteres",
+    accountExists: "Ya existe una cuenta con ese email. ¿Quieres iniciar sesión?",
+    tooManyAttempts: "Demasiados intentos. Intenta de nuevo más tarde.",
+    registerFailed: "No se pudo crear la cuenta",
+    networkError: "No se pudo conectar con el servidor",
+    goToLogin: "Ir al login",
+    submit: "Crear cuenta →",
+    submitting: "Creando cuenta…",
+    haveAccount: "¿Ya tienes cuenta?",
+    signIn: "Iniciar sesión",
   },
-  {
-    role: "PRO",
-    label: "Profesional",
-    icon: "🪖",
-    desc: "Recibe trabajos, gestiona obras y cobra",
-    color: "var(--ok)",
+  en: {
+    tagline: "Construction and services management platform",
+    title: "Create account",
+    accountType: "Account type",
+    roleClient: "Client",
+    roleClientDesc: "Post jobs, manage projects and payments",
+    rolePro: "Professional",
+    roleProDesc: "Get jobs, run projects and get paid",
+    nameClient: "Company or person name",
+    nameClientPlaceholder: "ACME Corp or Jane Doe",
+    namePro: "Full name",
+    nameProPlaceholder: "Jane Doe",
+    email: "Email",
+    emailPlaceholder: "you@email.com",
+    password: "Password",
+    passwordPlaceholder: "At least 15 characters",
+    confirmPassword: "Confirm password",
+    confirmPlaceholder: "Repeat the password",
+    mismatch: "Passwords do not match",
+    length: "Password must be between 15 and 128 characters",
+    accountExists: "An account with that email already exists. Do you want to sign in?",
+    tooManyAttempts: "Too many attempts. Please try again later.",
+    registerFailed: "Could not create the account",
+    networkError: "Could not reach the server",
+    goToLogin: "Go to sign in",
+    submit: "Create account →",
+    submitting: "Creating account…",
+    haveAccount: "Already have an account?",
+    signIn: "Sign in",
   },
-];
+} as const;
 
-function errorMessage(error: unknown, fallback: string): string {
-  if (typeof error === "string") return error;
-  if (error && typeof error === "object" && "message" in error) {
-    const message = (error as { message?: unknown }).message;
-    if (typeof message === "string" && message.trim()) return message;
-  }
-  return fallback;
-}
+type RegisterErrorKey = "mismatch" | "length" | "accountExists" | "tooManyAttempts" | "registerFailed" | "networkError";
 
-function PasswordStrength({ password }: { password: string }) {
-  if (!password) return null;
-  const score = [
-    password.length >= 15,
-    /[A-Z]/.test(password),
-    /[0-9]/.test(password),
-    /[^A-Za-z0-9]/.test(password),
-  ].filter(Boolean).length;
+const ROLE_OPTIONS = [
+  { role: "CLIENT", label: "roleClient", icon: "🏢", desc: "roleClientDesc", color: "var(--brand)" },
+  { role: "PRO", label: "rolePro", icon: "🪖", desc: "roleProDesc", color: "var(--ok)" },
+] as const satisfies readonly { role: AccountRole; label: keyof typeof COPY.es; icon: string; desc: keyof typeof COPY.es; color: string }[];
 
-  const labels = ["Muy débil", "Débil", "Regular", "Fuerte", "Muy fuerte"];
-  const colors = ["var(--error)", "#f97316", "#eab308", "#22c55e", "var(--ok)"];
-
+export default function RegisterPage() {
   return (
-    <div style={{ marginTop: "6px" }}>
-      <div style={{ display: "flex", gap: "4px", marginBottom: "4px" }}>
-        {[0, 1, 2, 3].map((i) => (
-          <div
-            key={i}
-            style={{
-              flex: 1,
-              height: "3px",
-              borderRadius: "2px",
-              background: i < score ? colors[score] : "var(--border, #1f2d3d)",
-              transition: "background 0.2s",
-            }}
-          />
-        ))}
-      </div>
-      <span style={{ fontSize: "11px", color: score >= 3 ? "#22c55e" : "var(--muted, #94a3b8)" }}>
-        {labels[score] ?? "Débil"}
-      </span>
-    </div>
+    <LanguageProvider>
+      <RegisterForm />
+    </LanguageProvider>
   );
 }
 
-export default function RegisterPage() {
+function RegisterForm() {
+  const { language } = useLanguage();
+  const c = COPY[language];
   const searchParams = useSearchParams();
   const redirectTo = normalizeSafeRedirectPath(searchParams?.get("from")) ?? undefined;
   const loginHref = redirectTo ? `/login?from=${encodeURIComponent(redirectTo)}` : "/login";
@@ -86,7 +108,7 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<RegisterErrorKey | null>(null);
 
   const passwordMismatch = confirm.length > 0 && password !== confirm;
 
@@ -111,11 +133,11 @@ export default function RegisterPage() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (password !== confirm) {
-      setError("Las contraseñas no coinciden");
+      setError("mismatch");
       return;
     }
     if (password.length < 15 || password.length > 128) {
-      setError("La contraseña debe tener entre 15 y 128 caracteres");
+      setError("length");
       return;
     }
 
@@ -130,14 +152,13 @@ export default function RegisterPage() {
         body: JSON.stringify({ email, password, name, role, redirectTo }),
       });
 
-      const data = (await res.json()) as { ok?: boolean; redirectTo?: string; error?: unknown };
+      const data = (await res.json().catch(() => ({}))) as { ok?: boolean; redirectTo?: string };
 
       if (!res.ok || !data.ok) {
-        if (res.status === 409) {
-          setError("Ya existe una cuenta con ese email. ¿Quieres iniciar sesión?");
-        } else {
-          setError(errorMessage(data.error, "No se pudo crear la cuenta"));
-        }
+        // The register API answers in Spanish; pick the page's own copy by status.
+        if (res.status === 409) setError("accountExists");
+        else if (res.status === 429) setError("tooManyAttempts");
+        else setError("registerFailed");
         return;
       }
 
@@ -148,7 +169,7 @@ export default function RegisterPage() {
       await flushProductEvents();
       window.location.assign(data.redirectTo ?? "/client/dashboard");
     } catch {
-      setError("No se pudo conectar con el servidor");
+      setError("networkError");
     } finally {
       setLoading(false);
     }
@@ -166,6 +187,7 @@ export default function RegisterPage() {
       }}
     >
       <div style={{ width: "100%", maxWidth: "480px" }}>
+        <LanguageSwitch />
         {/* Logo */}
         <div style={{ textAlign: "center", marginBottom: "32px" }}>
           <div style={{ display: "inline-flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
@@ -188,7 +210,7 @@ export default function RegisterPage() {
             </span>
           </div>
           <p style={{ color: "var(--muted, #94a3b8)", fontSize: "14px" }}>
-            Plataforma de gestión de obras y servicios
+            {c.tagline}
           </p>
         </div>
 
@@ -202,7 +224,7 @@ export default function RegisterPage() {
           }}
         >
           <h2 style={{ fontSize: "18px", fontWeight: 700, color: "var(--ink, #f1f5f9)", marginBottom: "20px" }}>
-            Crear cuenta
+            {c.title}
           </h2>
 
           {/* Role selector */}
@@ -217,7 +239,7 @@ export default function RegisterPage() {
                 marginBottom: "10px",
               }}
             >
-              Tipo de cuenta
+              {c.accountType}
             </p>
             <div style={{ display: "flex", gap: "10px" }}>
               {ROLE_OPTIONS.map((opt) => {
@@ -240,8 +262,8 @@ export default function RegisterPage() {
                     }}
                   >
                     <div style={{ fontSize: "20px", marginBottom: "4px" }}>{opt.icon}</div>
-                    <div style={{ fontSize: "12px", fontWeight: 700 }}>{opt.label}</div>
-                    <div style={{ fontSize: "10px", marginTop: "2px", opacity: 0.8 }}>{opt.desc}</div>
+                    <div style={{ fontSize: "12px", fontWeight: 700 }}>{c[opt.label]}</div>
+                    <div style={{ fontSize: "10px", marginTop: "2px", opacity: 0.8 }}>{c[opt.desc]}</div>
                   </button>
                 );
               })}
@@ -253,34 +275,34 @@ export default function RegisterPage() {
             {/* Name */}
             <div style={{ marginBottom: "14px" }}>
               <label style={labelStyle}>
-                {role === "CLIENT" ? "Nombre de empresa / persona" : "Nombre completo"}
+                {role === "CLIENT" ? c.nameClient : c.namePro}
               </label>
               <input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
-                placeholder={role === "CLIENT" ? "ACME Corp o Juan Pérez" : "Juan Pérez"}
+                placeholder={role === "CLIENT" ? c.nameClientPlaceholder : c.nameProPlaceholder}
                 style={inputStyle}
               />
             </div>
 
             {/* Email */}
             <div style={{ marginBottom: "14px" }}>
-              <label style={labelStyle}>Email</label>
+              <label style={labelStyle}>{c.email}</label>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                placeholder="tu@email.com"
+                placeholder={c.emailPlaceholder}
                 style={inputStyle}
               />
             </div>
 
             {/* Password */}
             <div style={{ marginBottom: "14px" }}>
-              <label style={labelStyle}>Contraseña</label>
+              <label style={labelStyle}>{c.password}</label>
               <input
                 type="password"
                 value={password}
@@ -289,7 +311,7 @@ export default function RegisterPage() {
                 minLength={15}
                 maxLength={128}
                 autoComplete="new-password"
-                placeholder="Mínimo 15 caracteres"
+                placeholder={c.passwordPlaceholder}
                 style={inputStyle}
               />
               <PasswordStrength password={password} />
@@ -297,7 +319,7 @@ export default function RegisterPage() {
 
             {/* Confirm password */}
             <div style={{ marginBottom: "20px" }}>
-              <label style={labelStyle}>Confirmar contraseña</label>
+              <label style={labelStyle}>{c.confirmPassword}</label>
               <input
                 type="password"
                 value={confirm}
@@ -306,7 +328,7 @@ export default function RegisterPage() {
                 minLength={15}
                 maxLength={128}
                 autoComplete="new-password"
-                placeholder="Repite la contraseña"
+                placeholder={c.confirmPlaceholder}
                 style={{
                   ...inputStyle,
                   borderColor: passwordMismatch ? "var(--error)" : "var(--border, #1f2d3d)",
@@ -314,7 +336,7 @@ export default function RegisterPage() {
               />
               {passwordMismatch && (
                 <span style={{ fontSize: "11px", color: "var(--error)", marginTop: "4px", display: "block" }}>
-                  Las contraseñas no coinciden
+                  {c.mismatch}
                 </span>
               )}
             </div>
@@ -331,12 +353,12 @@ export default function RegisterPage() {
                   marginBottom: "16px",
                 }}
               >
-                {error}
-                {error.includes("iniciar sesión") && (
+                {c[error]}
+                {error === "accountExists" && (
                   <>
                     {" "}
                     <Link href={loginHref} style={{ color: "#93c5fd", textDecoration: "underline" }}>
-                      Ir al login
+                      {c.goToLogin}
                     </Link>
                   </>
                 )}
@@ -363,14 +385,14 @@ export default function RegisterPage() {
                 opacity: loading || passwordMismatch ? 0.7 : 1,
               }}
             >
-              {loading ? "Creando cuenta…" : "Crear cuenta →"}
+              {loading ? c.submitting : c.submit}
             </button>
           </form>
 
           <p style={{ marginTop: "18px", fontSize: "13px", color: "var(--muted, #94a3b8)", textAlign: "center" }}>
-            ¿Ya tienes cuenta?{" "}
+            {c.haveAccount}{" "}
             <Link href={loginHref} style={{ color: "#93c5fd", textDecoration: "none", fontWeight: 600 }}>
-              Iniciar sesión
+              {c.signIn}
             </Link>
           </p>
         </div>

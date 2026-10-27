@@ -3,11 +3,12 @@ import { fileURLToPath } from "node:url";
 import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { APP_GUARD } from "@nestjs/core";
-import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
+import { ThrottlerModule } from "@nestjs/throttler";
 import { HealthController } from "./modules/health/health.controller.js";
 import { ForgeModule } from "./modules/forge/forge.module.js";
 import { AuthGuard } from "./common/auth.guard.js";
 import { RbacGuard } from "./common/rbac.guard.js";
+import { SemseThrottlerGuard } from "./common/semse-throttler.guard.js";
 import { validateApiEnv } from "./config/env.schema.js";
 import { ReadinessService } from "./modules/health/readiness.service.js";
 import { AuthModule } from "./modules/auth/auth.module.js";
@@ -189,7 +190,7 @@ const repoRoot = path.resolve(apiDir, "..", "..");
   ],
   controllers: [HealthController],
   providers: [
-    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_GUARD, useClass: SemseThrottlerGuard },
     { provide: APP_GUARD, useClass: AuthGuard },
     { provide: APP_GUARD, useClass: RbacGuard },
     ReadinessService
