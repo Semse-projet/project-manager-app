@@ -80,9 +80,9 @@ jobs:
           # GitHub's runner home can be non-traversable to another UID.
           # Grant only the QA UID execute/traverse rights on ancestors,
           # not world-readable permissions or write access.
-          if ! command -v setfacl >/dev/null; then
+          if ! command -v setfacl >/dev/null || ! command -v strace >/dev/null; then
             sudo apt-get update -qq
-            sudo apt-get install -qq -y acl
+            sudo apt-get install -qq -y acl strace
           fi
           cursor="$PWD"
           while [ "$cursor" != / ]; do
@@ -123,7 +123,9 @@ jobs:
               SEMSE_CURATED_KNOWLEDGE_ENABLED=false PAYMENT_PROVIDER=mock \
               AUTH_SECRET="$secret" \
               HOST=127.0.0.1 PORT="$port" \
-              node apps/api/dist/main.js > "$RUNNER_TEMP/semse-p0-$port.log" 2>&1 &
+              strace -f -e trace=connect -s 0 node apps/api/dist/main.js \
+                > "$RUNNER_TEMP/semse-p0-$port.log" \
+                2> "$RUNNER_TEMP/semse-p0-$port.connect-trace" &
             echo $! > "$RUNNER_TEMP/semse-p0-$port.pid"
           done
 
@@ -197,7 +199,29 @@ jobs:
             done | awk '{sum += $1} END {print sum + 0}'
           }
           before="$(packet_count)"
-          if [ "$before" -ne 0 ]; then echo "Unexpected egress before smoke: $before"; exit 1; fi
+          if [ "$before" -ne 0 ]; then
+            echo "FAIL: outbound attempts during API boot: $before packets (blocked)"
+            # Only print TCP/UDP address and port metadata from connect();
+            # never print request bodies, secrets, application logs or stack traces.
+            node - <<'NODE'
+          const fs = require("node:fs");
+          const path = require("node:path");
+          for (const appPort of [4001, 4002]) {
+            const file = path.join(process.env.RUNNER_TEMP, "semse-p0-" + appPort + ".connect-trace");
+            const raw = fs.existsSync(file) ? fs.readFileSync(file, "utf8") : "";
+            const ipv4 = [...raw.matchAll(/connect\([^\n]*?sin_port=htons\((\d+)\), sin_addr=inet_addr\("([0-9.]+)"\)/g)]
+              .map(m => ({ address: m[2], port: m[1] }));
+            const ipv6 = [...raw.matchAll(/connect\([^\n]*?sin6_port=htons\((\d+)\), sin6_addr=inet_pton\(AF_INET6, "([0-9a-fA-F:]+)"/g)]
+              .map(m => ({ address: m[2], port: m[1] }));
+            const destinations = [...ipv4, ...ipv6]
+              .filter(d => d.address !== "127.0.0.1" && d.address !== "::1")
+              .map(d => d.address + ":" + d.port);
+            console.log("api_port=" + appPort + " external_connect_destinations=" +
+              [...new Set(destinations)].slice(0, 15).join(","));
+          }
+          NODE
+            exit 1
+          fi
           node scripts/api-authenticated-f01-f02-smoke.mjs
           after="$(packet_count)"
           echo "Observed outbound attempts from API user during signed smoke: $after"
