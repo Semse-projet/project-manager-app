@@ -201,3 +201,122 @@ jobs:
             project-manager-app/test-results/
           if-no-files-found: ignore
           retention-days: 7
+
+  # PR #973 only: real signed login against an ephemeral Postgres/Redis/Next/Nest stack.
+  # Nothing reaches Railway or production; credentials are randomly generated per run.
+  pr973-authenticated-qa:
+    if: ${{ github.event_name == 'pull_request' && github.event.pull_request.number == 973 }}
+    needs: quality-gates
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    permissions:
+      contents: read
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: semse
+          POSTGRES_PASSWORD: semse
+          POSTGRES_DB: semse
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U semse -d semse"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:8.2
+        ports:
+          - 6379:6379
+    env:
+      DATABASE_URL: postgresql://semse:semse@127.0.0.1:5433/semse?schema=public
+      REDIS_URL: redis://127.0.0.1:6379
+      SEMSE_PR973_E2E_QA: "1"
+      NEXT_PUBLIC_SEMSE_RUNTIME_ENABLED: "true"
+      NEXT_PUBLIC_SEMSE_DEMO_LOGIN_ENABLED: "false"
+      PAYMENT_PROVIDER: mock
+      SEMSE_EVENT_CONSUMERS_ENABLED: "false"
+      SEMSE_EVENT_OUTBOX_DISPATCH_ENABLED: "false"
+      SEMSE_CURATED_KNOWLEDGE_ENABLED: "false"
+    steps:
+      - name: Checkout PR merge candidate
+        uses: actions/checkout@v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6.1.0
+        with:
+          version: 10.33.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: project-manager-app/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate isolated signing keys
+        run: |
+          set -euo pipefail
+          SIGNING_KEY="$(openssl rand -hex 48)"
+          BOOTSTRAP_KEY="$(openssl rand -hex 48)"
+          echo "::add-mask::$SIGNING_KEY"
+          echo "::add-mask::$BOOTSTRAP_KEY"
+          echo "AUTH_SECRET=$SIGNING_KEY" >> "$GITHUB_ENV"
+          echo "SEMSE_WEB_SESSION_SECRET=$SIGNING_KEY" >> "$GITHUB_ENV"
+          echo "SEMSE_BOOTSTRAP_TOKEN=$BOOTSTRAP_KEY" >> "$GITHUB_ENV"
+
+      - name: Migrate disposable QA database
+        env:
+          NODE_ENV: test
+        run: |
+          pnpm db:generate
+          pnpm db:migrate
+
+      - name: Seed non-demo QA accounts with active memberships
+        env:
+          NODE_ENV: test
+        run: node scripts/pr973-qa-seed-ci.mjs
+
+      - name: Build real API and Web apps
+        env:
+          NODE_ENV: production
+          NODE_OPTIONS: --max-old-space-size=4096
+        run: |
+          pnpm build:api
+          pnpm --filter @semse/web build
+
+      - name: Install isolated Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Authenticate three roles and run four bilingual scenarios
+        env:
+          NODE_ENV: production
+          PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
+          SEMSE_API_BASE_URL: http://127.0.0.1:4001
+          SEMSE_QA_ISOLATED_PREVIEW: "false"
+        run: |
+          set -euo pipefail
+          PORT=4001 HOST=127.0.0.1 node apps/api/dist/main.js > "$RUNNER_TEMP/pr973-api.log" 2>&1 &
+          API_PID=$!
+          mkdir -p apps/web/.next/standalone/apps/web/.next
+          cp -R apps/web/.next/static apps/web/.next/standalone/apps/web/.next/static
+          PORT=3000 HOSTNAME=127.0.0.1 node apps/web/.next/standalone/apps/web/server.js > "$RUNNER_TEMP/pr973-web.log" 2>&1 &
+          WEB_PID=$!
+          trap 'kill "$API_PID" "$WEB_PID" 2>/dev/null || true' EXIT
+          API_READY=0
+          WEB_READY=0
+          for n in $(seq 1 90); do
+            if curl -fsS -o /dev/null http://127.0.0.1:4001/v1/health; then API_READY=1; break; fi
+            sleep 2
+          done
+          if [ "$API_READY" != 1 ]; then echo "Isolated PR973 API failed readiness"; exit 1; fi
+          for n in $(seq 1 90); do
+            if curl -fsS -o /dev/null http://127.0.0.1:3000/api/semse/healthz; then WEB_READY=1; break; fi
+            sleep 2
+          done
+          if [ "$WEB_READY" != 1 ]; then echo "Isolated PR973 Web failed readiness"; exit 1; fi
+          pnpm exec playwright test -c playwright.semse.config.ts tests/e2e-semse/i18n-pr973.spec.ts
