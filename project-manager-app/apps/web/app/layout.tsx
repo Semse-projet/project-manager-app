@@ -1,4 +1,6 @@
 import type { Metadata, Viewport } from "next";
+import { GeistMono } from "geist/font/mono";
+import { GeistSans } from "geist/font/sans";
 import { cookies } from "next/headers";
 import { ServiceWorkerRegistrar } from "@/components/pwa/ServiceWorkerRegistrar";
 import { InitialLanguageProvider } from "@/lib/language-context";
@@ -63,10 +65,10 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   // Already force-dynamic, so reading the cookie costs no static rendering.
   const language = parseLanguagePreference((await cookies()).get(LANGUAGE_STORAGE_KEY)?.value) ?? DEFAULT_LANGUAGE;
   return (
-    <html lang={language} className="scroll-smooth">
+    <html lang={language} className={`scroll-smooth ${GeistSans.variable} ${GeistMono.variable}`}>
       <body
         className="min-h-screen antialiased"
-        style={{ fontFamily: "var(--font-sans, 'Geist', system-ui)" }}
+        style={{ fontFamily: "var(--font-sans, system-ui)" }}
       >
         <InitialLanguageProvider value={language}>{children}</InitialLanguageProvider>
         <ServiceWorkerRegistrar />

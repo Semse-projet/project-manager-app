@@ -1,11 +1,12 @@
-@import url('https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600&display=swap');
 @import "tailwindcss";
 
 /* ── Design tokens exposed as Tailwind utilities ── */
 @theme {
   /* Typography */
-  --font-sans: 'Geist', ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-mono: 'Geist Mono', ui-monospace, "SFMono-Regular", Consolas, monospace;
+  /* Geist is self-hosted through the `geist` package (next/font/local), see app/layout.tsx:
+     no request to Google Fonts, which the CSP's style-src/font-src would block. */
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, "SFMono-Regular", Consolas, monospace;
 
   /* Brand — SEMSE blue + orange accent */
   --color-brand:        #3b82f6;
