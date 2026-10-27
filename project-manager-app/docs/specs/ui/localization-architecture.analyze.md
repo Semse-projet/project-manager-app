@@ -5,6 +5,8 @@
 **Base de código examinada:** `main` = `c6d4d323bdbdf925fd539d241ba1435bdc50c5c0` al preparar este análisis. Verificar de nuevo si `main` cambia.  
 **Carácter:** análisis documental, no aceptación, pruebas ejecutadas ni autorización de runtime.
 
+> **Checkpoint de `main` del 2026-10-27 (`40b77710`):** la versión actual de `language-context.tsx` (blob `4f95939f`) conserva 1,182 claves ES y 1,182 EN por extracción textual, pero **ya no depende únicamente de `localStorage`**. El módulo `language-preference.ts` valida `es/en`, el layout raíz lee la cookie `semse-language` en SSR y `InitialLanguageProvider` inicializa el cliente. Existen `tests/unit/language-preference-cookie.test.ts` y el reporte local `docs/reportes/2026-10-23_idioma-sin-destello.md`. Son evidencia de implementación parcial por navegador, **no** de preferencia autenticada/cross-device ni de producción. El texto histórico posterior refleja el snapshot `c6d4d323`, no el estado actual. Véase [ADR-046 PROPOSED](../../architecture/ADR-046-semse-ui-localization-runtime.md).
+
 ## 1. Evidencia de código — situación actual
 
 | Superficie | Archivo / evidencia | Resultado observado | Límite de la verificación |
@@ -20,7 +22,7 @@
 
 ## 2. D4 — contrato de persistencia no decidido
 
-**Opción A — por navegador / sin Prisma:** conservar compatibilidad con `localStorage`, proponer cookie estrictamente validada (`es`|`en`) para resolver SSR en una futura implementación. Un endpoint autenticado seguro o server action puede emitir cookie con `Path=/`, `Secure` en producción y `SameSite=Lax`; decidir explícitamente `HttpOnly` y sincronización con el selector. Invalidar/prevenir caché compartida de render privado. **No promete** preferencia cross-device ni impone vínculo de cuenta cuando se cambia de usuario en el mismo navegador. Probar herencia/límites de sesión y comportamiento tras logout.
+**Opción A — por navegador / sin Prisma (parcialmente existente):** conservar `localStorage` y la cookie actual estrictamente validada (`es`|`en`) que ya permite SSR. **No crear otra cookie ni duplicar el proveedor**. Actualmente la cookie de preferencia utiliza `Path=/`, `Secure` en HTTPS, `SameSite=Lax`, y es accesible al cliente (no `HttpOnly`): no es una credencial. Evaluar posibles endpoints futuros sólo si D4-B se aprueba. Invalidar/prevenir caché compartida de render privado. **No promete** preferencia cross-device ni impone vínculo de cuenta cuando se cambia de usuario en el mismo navegador. Probar herencia/límites de sesión y comportamiento tras logout.
 
 **Opción B — preferencia de cuenta:** añadir campo validado a `User` o `UserProfile` y API autenticada para lectura/escritura con owner y controles de organización. Resolver precedencia `preferencia explícita del usuario > cookie de continuidad > negociación del navegador > fallback`, pero aclarar si cuenta prevalece en el mismo dispositivo al entrar otro usuario. Requiere `migration_status: PENDING` en el **slice de implementación**, migration SQL aditiva, `prisma migrate deploy`, compatibilidad durante rollout, prueba Postgres real, forward-fix y salida sin pérdida de datos. **No aprobado.**
 
@@ -33,7 +35,7 @@
 | Schema/DB migration | No | Sí, en PR propio, reversibilidad demostrada |
 | Secretos, RBAC, tenant/org | Sin cambios ni bypass | Misma invariante + ownership del endpoint |
 
-**Recomendación para decisión, no aprobación:** usar A como baseline mínimo de comparación y autorizar B solo si la experiencia cross-device es requisito de producto. Evitar introducir B mientras D1, D3 y D4 permanezcan `REVIEW`. Cualquier cambio de auth/DB o acceso a datos privados requiere su clasificación DEC-PLATFORM-001 independiente.
+**Recomendación para decisión, no aprobación:** usar A ya existente como baseline técnico, sin rehacer la cookie, y autorizar B sólo si la experiencia cross-device es un requisito explícito. Evitar introducir B mientras D1, D3 y D4 permanezcan `REVIEW`. Cualquier cambio de auth/DB o acceso a datos privados requiere su clasificación DEC-PLATFORM-001 independiente.
 
 ## 3. Análisis cruzado de artefactos
 
