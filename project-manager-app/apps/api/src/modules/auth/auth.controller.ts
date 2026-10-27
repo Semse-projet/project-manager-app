@@ -1,4 +1,3 @@
-import crypto from "node:crypto";
 import { BadRequestException, Body, Controller, ForbiddenException, Get, Post, Req } from "@nestjs/common";
 import { Throttle } from "@nestjs/throttler";
 import {
@@ -9,8 +8,8 @@ import {
   authRegisterBodySchema,
   authTokenBodySchema
 } from "@semse/schemas";
-import { SEMSE_BOOTSTRAP_HEADER_NAME } from "@semse/shared";
 import { ok } from "../../common/api-response.js";
+import { expectedBootstrapToken, hasValidBootstrapToken } from "../../common/bootstrap-token.js";
 import { AuthenticatedAccess } from "../../common/permissions.decorator.js";
 import { Public } from "../../common/public.decorator.js";
 import { resolveRequestContext } from "../../common/request-context.js";
@@ -30,8 +29,7 @@ type AuthenticatedRequest = {
 };
 
 function requireBootstrapToken(headers: Record<string, unknown> | undefined): void {
-  const expected = process.env.SEMSE_BOOTSTRAP_TOKEN?.trim();
-  if (!expected) {
+  if (!expectedBootstrapToken()) {
     if (process.env.NODE_ENV === "production") {
       // Fail closed, not open: an unset token used to mean "mint a session
       // for any userId/tenantId/orgId/roles the caller asks for" in prod.
@@ -40,17 +38,7 @@ function requireBootstrapToken(headers: Record<string, unknown> | undefined): vo
     return;
   }
 
-  const provided = headers?.[SEMSE_BOOTSTRAP_HEADER_NAME];
-  if (typeof provided !== "string") {
-    throw new ForbiddenException("Bootstrap token required");
-  }
-
-  // Hash both sides so timingSafeEqual always receives equal-length buffers,
-  // preventing the length short-circuit from leaking information.
-  const expectedHash = crypto.createHash("sha256").update(expected).digest();
-  const providedHash = crypto.createHash("sha256").update(provided.trim()).digest();
-
-  if (!crypto.timingSafeEqual(expectedHash, providedHash)) {
+  if (!hasValidBootstrapToken(headers)) {
     throw new ForbiddenException("Bootstrap token required");
   }
 }
