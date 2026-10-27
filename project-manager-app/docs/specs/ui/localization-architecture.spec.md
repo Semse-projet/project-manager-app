@@ -231,16 +231,16 @@ Tres líneas independientes de investigación primaria para decisiones del dise�
 ## Anexo — auditoría original y requisitos de calidad
 
 
-> REVIEW is not approval to replace libraries, release new translations, turn on provider calls, or add public routes. This file describes a proposal reconciled with live repository source at commit `38d7cb3a`. It is not production evidence.
+> REVIEW is not approval to replace libraries, release new translations, turn on provider calls, or add public routes. The snapshot below is historical (`38d7cb3a`) and MUST NOT be interpreted as the current `main` baseline; see the reconciliation checkpoint and current-source analysis below. This is not production evidence.
 
-### Verified as-is (source inspection)
+### Historical as-is snapshot — commit `38d7cb3a` (not current `main`)
 
 - `@semse/web` uses Next.js **15.5.27**, React 19, and the App Router; client components coexist with server-renderable routes. It is **not** a conventional standalone React SPA.
 - `apps/web/lib/language-context.tsx` already exposes `LanguageProvider`, `useLanguage()`, `language`, `setLanguage` and `t(string)`. Flat ES and EN maps contain **759 unique entries each** at the audited commit, with equal key sets and no duplicate keys found by static key extraction. This measures dictionary parity, **not page coverage**.
-- Current fallback is `T[language][key] ?? T.en[key] ?? key` (English and then a raw technical key), despite Spanish being the initial UI state. `semse-language` is persisted in browser localStorage after mount, not resolved per request or from an authenticated account preference. The root HTML starts `lang="es"`.
+- At this historical snapshot, fallback was `T[language][key] ?? T.en[key] ?? key` (English and then a raw technical key); `semse-language` was persisted in browser localStorage after mount. **This is superseded for SSR preference:** current `main` reads the validated `semse-language` cookie in the root layout and initializes `InitialLanguageProvider`; account-level cross-device preference is still not established.
 - BuildOps, navigation, offers, contributors and other screens use the existing API; an immediate provider swap would break callers. The job-posting wizard (`apps/web/app/(app)/client/jobs/new/page.tsx`) still uses untranslated step labels, and money formatting uses `en-US` independently of the UI language.
 - Public metadata/OG currently contains Spanish text, `og:locale = es_MX`, and `robots: { index: false }`. **Multilingual public SEO is a separate explicitly gated decision**, not an automatic requirement of this phase.
-- Existing open, not-merged i18n PRs #968, #969, #970 and #973 modify related UI files and/or the flat dictionary. Their content must be reconciled before rewriting keys. #973 concerns Prometeo and must respect ongoing security issue #974 and P0 integration PR #987.
+- At this historical snapshot, i18n PRs #968, #969, #970 and #973 were pending. **Current status (2026-10-27): #968, #969 and #970 were merged into `main`; #973 remains open and CI-green but not merged.** Do not conflate #973's candidate catalog with `main`, and do not bypass issue #974 / security PR #987 for Prometeo.
 
 **Proposed D1–D7 disposition and executable pilot test matrix:** [localization-architecture.pilot.md](localization-architecture.pilot.md). This companion plan is **REVIEW-only** and cannot supersede the SDD delivery states, #974/#987 security gate, or an explicit adoption decision.
 
@@ -248,7 +248,7 @@ Tres líneas independientes de investigación primaria para decisiones del dise�
 
 - This SDD originally audited the then-current `main` at `38d7cb3a`. Its 759 ES / 759 EN key baseline and hard-coded wizard findings are **historical measurements**, not assertions of the latest default-branch count.
 - Internationalization PRs **#968 (2026-10-19), #969 (2026-10-20), and #970 (2026-10-20) have now been merged into `main`**. Their route coverage and smoke evidence must be treated separately from the remaining architecture decisions D1–D7.
-- **#973 remains open** and must not bypass the Prometeo document-access safeguards in **#974 / draft #987**.
+- **#973 remains open** and must not bypass the Prometeo document-access safeguards in **#974 / PR #987**; #987 is now ready for review (not draft) but has no independent security sign-off or production release approval.
 - The previous failures of GitHub Actions CI run **#4232 (ID 39288712379)** were superseded by a successful rerun for prior head `0b1c10a8`: `quality-gates`, `unit-coverage`, and `e2e` each completed with `success`. This does **not** certify real authenticated ES/EN staging smoke, nor checks for the reconciled head.
 - Merge `main` into this documentation branch using an explicit two-parent integration commit with `main` as the file tree base, preserving every unrelated merged change. The only delivered changes relative to that `main` should be this SDD, its pilot plan, and one regenerated-compatible `SPEC_INDEX` row.
 - The proposal stays `REVIEW`; neither PR merge nor runtime activation is approved by successful CI alone.
@@ -300,7 +300,7 @@ Choose **one** primary localization runtime after measuring the pilot. Preserve 
 
 **Proposed pilot:** full client job-posting wizard, not just one button. First execute a short Next App Router compatibility spike on an isolated branch; preserve current wizard drafts and server auth boundaries.
 
-1. Record inventory for each role and route: static UI strings, server errors, `aria-label`, placeholders, emails/notifications, page metadata and untranslated business data. Baseline existing 759 ES/EN flat keys before any extraction.
+1. Record inventory for each role and route: static UI strings, server errors, `aria-label`, placeholders, emails/notifications, page metadata and untranslated business data. Revalidate the current `main` catalog (1,182 ES / 1,182 EN in the 2026-10-27 audit) before any extraction; 759/759 was a historical baseline, not the current count. Report unmerged #973 additions separately (candidate 1,317/1,317), without claiming their presence in `main`.
 2. Extract namespaces to a Git-owned source folder; introduce a compatibility adapter retaining existing `useLanguage` callers. Import the same approved resources on server and client without a mutable cross-request singleton.
 3. Pilot wizard ES/EN labels, validation, error codes, status and confirmation. Switching locale cannot erase intake drafts, change posted price/currency, change authorization or expose raw keys.
 4. Gate CI for duplicate JSON keys, identical semantic coverage, missing parameters, valid plural forms, unapproved/high-risk changes, unresolved raw keys, broken links, and consistency with `@semse/web` build.
