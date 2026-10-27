@@ -51,7 +51,25 @@
 | Prometeo/private MT | #973 / #974 / #987 | **Bloqueado:** sin autorización de contenido dinámico ni proveedor externo |
 | CI | GitHub Actions del **último SHA** | Se verifica fuera de este análisis; un verde anterior no acredita un commit nuevo |
 
-## 4. Gaps que permanecen abiertos antes de código o publicación
+## 4. Auditoría precisa del wizard (main `40b77710`, 2026-10-27)
+
+Fuente: `apps/web/app/(app)/client/jobs/new/page.tsx`, blob Git `152be90379ebd4e9b8580607f12e19f4970fcb1d`, 963 líneas. Esta es **lectura estática del código** (sin ejecución de navegador ni servidor); los defectos independientes de i18n deben tener correcciones separadas y no ocultarse con una traducción.
+
+| Prioridad | Evidencia por líneas | Hallazgo verificable | Prueba/corrección exigida |
+|---|---|---|---|
+| P1 - Cobertura UI | L46–50, L489–490, L619–690, L717–849, L907–955 | Los 4 pasos, el título, placeholders, etiquetas, `aria-label` de importes, botones y confirmación están en español literal; el módulo no invoca `useLanguage`. | L01, L08: todos los pasos y controles ES/EN con catálogo seguro, lector de pantalla y pseudolocale |
+| P1 - Datos monetarios | L53–54, L738–751, L815–817 | `fmt()` fuerza `en-US`, USD y 0 fracciones para visualización; el presupuesto sugerido usa `toLocaleString()` sin locale explícito. | L03, L11: formatos ES/EN explícitos y payload numérico/currency **idéntico**; no inferir conversión de moneda |
+| P1 - API/errors | L370–463, L435, L460 | En el error de publicar se muestra `data.error?.message` directamente; otro error se crea en español fijo. | L05: código semántico seguro para errores presentados, nunca traduzca la excepción arbitraria ni cambie decisiones backend |
+| P0 - Adjuntos preexistentes | L160–161, L228–249, L677–707, L370–429 | La UI permite seleccionar `File[]`; el draft registra sólo `hadFiles` y avisa si hay que reseleccionar. En las dos variantes de `requestBody` del POST de publicación **no aparecen los bytes, IDs ni referencias de estos archivos**. El `handleSubmit` inspeccionado no contiene una subida asociada. | Separar corrección funcional de Evidence/upload del cambio de traducción; test de ida y vuelta real por backend/objeto y reselección. No afirmar que se publicaron adjuntos por ver sus nombres en UI |
+| P1 - Continuidad | L192–260, L396–458, L940–955 | Se guarda el draft por `user.id` en `sessionStorage`; existen rutas POST diferentes para Job directo o Intake publish. El botón se deshabilita mediante estado `submitting`, pero no se ha probado idempotencia backend ante doble clic/reintento. | L02/L07: cambio ES↔EN mitad de flujo, prefill y logout; ausencia de publicaciones duplicadas verificada en requests y backend |
+| P1 - Fecha límite | L849 | Input date usa `new Date().toISOString().split("T")[0]` para `min`. Es una fecha UTC, que puede no coincidir con la fecha local cerca de medianoche. | L04: comprobar date-only y zona horaria; no desplazar fechas de negocio por idioma |
+| P0 - Texto de custodia | L878–883 | La confirmación afirma que el pago se realizará vía **escrow** para proteger a ambas partes. Ni el código ni un catálogo verifican por sí mismos una garantía contractual o la disponibilidad real de custodia. | D6/L11: revisión humana legal y producto, verificar estado real del proveedor y condiciones vigentes; evitar traducir o aprobar automáticamente esta afirmación |
+
+**Riesgo de integración:** estos hallazgos no son atribuibles a los PR de internacionalización ni una autorización para modificar pagos, Evidence o gestión de archivos desde #1003 (SDD REVIEW). Abrir slices de corrección y pruebas según la gobernanza, preservar seguridad/multi-organización y no alterar el payload económico para arreglar la presentación.
+
+**Orden propuesto para el primer PR ejecutable cuando el SDD esté APPROVED:** (1) pruebas fallidas de catálogo y wizard; (2) sustitución de textos UI estáticos y etiquetas `aria` sin cambiar datos; (3) formatos region-aware seguros; (4) pruebas L01–L12 e invariantes; (5) CI/SMOKE y revisión. Los adjuntos y el copy legal se tratan como bloqueantes de publicación y se corrigen por contratos específicos antes de atribuirles estado PASS.
+
+## 5. Gaps que permanecen abiertos antes de código o publicación
 
 - [ ] D1–D7 ratificadas con **ADR de runtime** y D4 elegido; ni Next.js ni Prisma se cambian en el PR documental.
 - [ ] AST/JSON validator detecta duplicados reales, mensajes vacíos, cambios de variables, ICU plural/select, aprobación obsoleta y cobertura por ruta (incluido el comentario del propietario del 2026-10-20).
