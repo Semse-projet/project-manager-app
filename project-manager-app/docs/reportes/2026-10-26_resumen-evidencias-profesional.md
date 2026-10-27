@@ -38,3 +38,13 @@ Los datos de prueba se crearon en la base local y se borraron al terminar.
 - `ops/mission-control/exceptions` y `runbooks` → 404: es intencionado, Mission Control 2.0 está desactivado por flag (`MISSION_CONTROL_V2_DISABLED`).
 - `/contributors` → 503 en `contributors/public/missions`: pendiente de revisar.
 - El aviso de evidencias solo está en español, aunque el panel tiene selector de idioma.
+
+## Corrección posterior (2026-10-27): sólo trabajos asignados
+
+La revisión de Codex en #1057 señaló que `GET /v1/jobs` también devuelve los trabajos en los que el profesional sólo pujó (y perdió). Si alguno estaba `ACCEPTED`/`IN_PROGRESS`, su lectura de hitos fallaba por permisos: el resumen quedaba `complete: false` y nunca podía decir «al día». Además, diez trabajos así, más recientes que el asignado, agotaban el límite de 10 y ocultaban sus evidencias pendientes.
+
+- El resumen lee `GET /v1/time-tracker/jobs`, que aplica la regla única de asignación (`jobAssignmentWhere`: oferta aceptada, reserva, contrato o proyecto asignado). Es la lista de trabajos de field-ops que sigue en uso.
+- En vivo, con un trabajo asignado (2 sin subir y 1 rechazado) y otro más reciente en curso con la puja del profesional rechazada:
+  - antes: `{"missingCount":3,"totalCount":4,"complete":false}`;
+  - después: `{"missingCount":3,"totalCount":4,"complete":true}`;
+  - con todo aprobado: «Evidencia al día».

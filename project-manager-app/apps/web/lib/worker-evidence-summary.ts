@@ -11,6 +11,7 @@
 export const ACTIVE_JOB_STATUSES = new Set(["RESERVED", "ACCEPTED", "IN_PROGRESS"]);
 export const WORKER_ACTIONABLE_EVIDENCE_STATUSES = new Set(["missing", "rejected", "needs_reupload", "archived"]);
 export const MAX_JOBS_SCANNED = 10;
+export const ASSIGNED_JOBS_PATH = "/v1/time-tracker/jobs";
 
 export type WorkerEvidenceSummary = {
   missingCount: number;
@@ -35,8 +36,10 @@ function jobStatus(row: Row): string {
 }
 
 export async function computeWorkerEvidenceSummary(fetchData: Fetcher): Promise<WorkerEvidenceSummary> {
-  // GET /v1/jobs accepts one lowercase status, so filter the visible (uppercase) status here.
-  const jobs = rows(await fetchData<unknown>("/v1/jobs"))
+  // Assigned jobs only (accepted bid, reservation, contract or project assignment): GET /v1/jobs also
+  // returns jobs the worker merely bid on, whose milestones they cannot read, and those would eat the
+  // scan limit and block a verified all-clear. Statuses come lowercase; compare in uppercase.
+  const jobs = rows(await fetchData<unknown>(ASSIGNED_JOBS_PATH))
     .filter((job) => ACTIVE_JOB_STATUSES.has(jobStatus(job)))
     .map(id)
     .filter((jobId): jobId is string => jobId !== null);
