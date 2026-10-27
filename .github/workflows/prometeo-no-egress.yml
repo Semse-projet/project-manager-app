@@ -105,7 +105,7 @@ jobs:
               SEMSE_CURATED_KNOWLEDGE_ENABLED=false PAYMENT_PROVIDER=mock \
               AUTH_SECRET="$secret" \
               HOST=127.0.0.1 PORT="$port" \
-              node apps/api/dist/main.js > "$RUNNER_TEMP/semse-p0-$port.log" 2>&1 &
+              pnpm --filter @semse/api start > "$RUNNER_TEMP/semse-p0-$port.log" 2>&1 &
             echo $! > "$RUNNER_TEMP/semse-p0-$port.pid"
           done
 
@@ -148,10 +148,15 @@ jobs:
               continue;
             }
             const raw = fs.readFileSync(log, "utf8");
+            const names = [...raw.matchAll(/Cannot find (?:module|package) [\x27\x22]([^\x27\x22\n]+)[\x27\x22]/g)]
+              .map(match => match[1].replaceAll("\\", "/").split("/").slice(-2).join("/"))
+              .filter(name => /^[a-zA-Z0-9@._/-]{1,90}$/.test(name))
+              .slice(0, 3);
             console.log("port=" + port + " bytes=" + raw.length +
               " classes=" + Object.entries(categories)
                 .filter(([_, regex]) => regex.test(raw))
-                .map(([name]) => name).join(","));
+                .map(([name]) => name).join(",") +
+              " missing_module_basename=" + names.join(","));
           }
           NODE
               exit 1
