@@ -149,7 +149,12 @@ export class McpConsentService {
   private rethrowPrismaAvailability(error: unknown): void {
     if (
       (error instanceof Prisma.PrismaClientKnownRequestError &&
-        ["P1001", "P1002", "P1008", "P1017", "P2024", "P2034"].includes(error.code)) ||
+        ["P1001", "P1002", "P1008", "P1017", "P2024", "P2028", "P2034"].includes(error.code)) ||
+      // The FOR SHARE locks are raw queries: a deadlock/serialization failure there
+      // surfaces as P2010 carrying the SQLSTATE, not as P2034.
+      (error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2010" &&
+        ["40P01", "40001"].includes(String((error.meta as { code?: unknown } | undefined)?.code))) ||
       error instanceof Prisma.PrismaClientInitializationError ||
       error instanceof Prisma.PrismaClientUnknownRequestError
     ) {

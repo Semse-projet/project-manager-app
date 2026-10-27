@@ -271,6 +271,23 @@ test("D7-10d: acceptance returns 503 on Prisma/PostgreSQL availability failures"
     );
     await assert.rejects(service.accept(input), ServiceUnavailableException, code);
   }
+  // Raw FOR SHARE queries report deadlock/serialization as P2010 + SQLSTATE; other raw failures stay as they are.
+  for (const sqlState of ["40P01", "40001"]) {
+    const deadlock = new Prisma.PrismaClientKnownRequestError("Raw query failed", {
+      code: "P2010", clientVersion: "test", meta: { code: sqlState },
+    });
+    const service = new McpConsentService(
+      { async acceptInTransaction() { throw deadlock; } }, {}, trust, () => now,
+    );
+    await assert.rejects(service.accept(input), ServiceUnavailableException, sqlState);
+  }
+  const rawSyntax = new Prisma.PrismaClientKnownRequestError("Raw query failed", {
+    code: "P2010", clientVersion: "test", meta: { code: "42601" },
+  });
+  await assert.rejects(
+    new McpConsentService({ async acceptInTransaction() { throw rawSyntax; } }, {}, trust, () => now).accept(input),
+    (error) => error === rawSyntax,
+  );
   // A conflict is not an outage: keep the existing 409/idempotency resolution path.
   const unrelated = new Prisma.PrismaClientKnownRequestError("Invalid constraint", {
     code: "P2003", clientVersion: "test",
