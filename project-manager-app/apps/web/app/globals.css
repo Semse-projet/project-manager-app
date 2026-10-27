@@ -204,41 +204,47 @@ html[data-theme="dark"] .public-theme,
   border-radius: var(--radius-sm);
 }
 
-/* ── Base ── */
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
+/* ── Base ──
+   Inside @layer base on purpose: Tailwind v4 puts utilities in @layer utilities,
+   and unlayered rules beat every layer. Unlayered, `* { padding: 0 }` and
+   `a { color }` overrode every p-*/m-*/text-* utility (white CTA text rendered
+   brand-blue on a blue button with no padding). Inline styles still win. */
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
 
-html,
-body {
-  min-height: 100%;
-  background: var(--bg);
-  color: var(--ink);
-  font-family: var(--font-sans);
-  font-size: 15px;
-  line-height: 1.6;
-  -webkit-font-smoothing: antialiased;
-}
+  html,
+  body {
+    min-height: 100%;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: 15px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
 
-button,
-input,
-textarea,
-select {
-  font: inherit;
-  color: inherit;
-}
+  button,
+  input,
+  textarea,
+  select {
+    font: inherit;
+    color: inherit;
+  }
 
-a {
-  color: var(--brand);
-  text-decoration: none;
-}
+  a {
+    color: var(--brand);
+    text-decoration: none;
+  }
 
-a:hover {
-  text-decoration: underline;
+  a:hover {
+    text-decoration: underline;
+  }
 }
 
 ::selection {
