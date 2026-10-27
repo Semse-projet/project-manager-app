@@ -19,6 +19,8 @@ import {
 import { McpConsentService } from "../dist/modules/mcp-consent/mcp-consent.service.js";
 import { intersectSessionRoles } from "../dist/modules/auth/session-roles.js";
 import { hasPermission } from "../dist/common/rbac.js";
+import prismaClientPackage from "../../../node_modules/.prisma/client/index.js";
+const { Prisma } = prismaClientPackage;
 
 /**
  * S1/D7 fase B — reglas puras y fail-closed del servicio sin base de datos.
@@ -252,6 +254,31 @@ test("§5: malformed acceptance input is a 400 before touching the database", as
     async acceptInTransaction() { throw new Error("must not open a transaction"); },
   });
   await assert.rejects(service.accept({ sessionId: "s1" }), BadRequestException);
+});
+
+test("D7-10d: acceptance returns 503 on Prisma/PostgreSQL availability failures", async () => {
+  const input = {
+    sessionId: "s1", oauthIssuer: trust.oauthIssuer, oauthClientId: "client-ok", resourceUri: trust.resourceUri,
+    scopeSet: ["projects:read"], grantBindingDigest: "binding-digest-0001",
+    policyVersion: "p1", consentVersion: "c1",
+  };
+  for (const code of ["P1001", "P1002", "P1008", "P1017", "P2024", "P2034"]) {
+    const unavailable = new Prisma.PrismaClientKnownRequestError("Consent database unavailable", {
+      code, clientVersion: "test",
+    });
+    const service = new McpConsentService(
+      { async acceptInTransaction() { throw unavailable; } }, {}, trust, () => now,
+    );
+    await assert.rejects(service.accept(input), ServiceUnavailableException, code);
+  }
+  // A conflict is not an outage: keep the existing 409/idempotency resolution path.
+  const unrelated = new Prisma.PrismaClientKnownRequestError("Invalid constraint", {
+    code: "P2003", clientVersion: "test",
+  });
+  const bad = new McpConsentService(
+    { async acceptInTransaction() { throw unrelated; } }, {}, trust, () => now,
+  );
+  await assert.rejects(bad.accept(input), (error) => error === unrelated);
 });
 
 test("D7-09: acceptance under a policy version that is not accepted is refused before the database", async () => {
