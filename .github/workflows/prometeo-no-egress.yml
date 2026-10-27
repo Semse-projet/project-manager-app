@@ -119,10 +119,41 @@ jobs:
                 ready=true
                 break
               fi
+              if [ -f "$RUNNER_TEMP/semse-p0-$port.pid" ] &&
+                  ! kill -0 "$(cat "$RUNNER_TEMP/semse-p0-$port.pid")" 2>/dev/null; then
+                echo "Restricted API $port exited during startup"
+                break
+              fi
               sleep 2
             done
             if [ "$ready" != true ]; then
-              echo "Restricted API $port did not become ready (no private logs uploaded)"
+              echo "Restricted API $port did not become ready — displaying error categories only"
+              node - <<'NODE'
+          const fs = require("node:fs");
+          const path = require("node:path");
+          const root = process.env.RUNNER_TEMP;
+          const categories = {
+            filesystem_permission: /EACCES|EPERM|permission denied/i,
+            module_resolution: /ERR_MODULE_NOT_FOUND|Cannot find module/i,
+            postgres_connection: /P1001|P1002|PrismaClientInitializationError|ECONNREFUSED/i,
+            invalid_config: /invalid.+(?:secret|environment|config)|AUTH_SECRET.+required/i,
+            port_conflict: /EADDRINUSE/i,
+            fatal_bootstrap: /fatal_bootstrap_error/i,
+            storage: /EROFS|storage root|mkdir|ENOSPC/i,
+          };
+          for (const port of [4001, 4002]) {
+            const log = path.join(root, "semse-p0-" + port + ".log");
+            if (!fs.existsSync(log)) {
+              console.log("port=" + port + " startup_log=missing");
+              continue;
+            }
+            const raw = fs.readFileSync(log, "utf8");
+            console.log("port=" + port + " bytes=" + raw.length +
+              " classes=" + Object.entries(categories)
+                .filter(([_, regex]) => regex.test(raw))
+                .map(([name]) => name).join(","));
+          }
+          NODE
               exit 1
             fi
           done
