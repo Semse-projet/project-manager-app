@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import {
   SEMSE_BOOTSTRAP_HEADER_NAME,
+  SEMSE_CLIENT_IP_HEADER_NAME,
   buildIdentityHeaders,
   parseRoleList,
   SEMSE_PROXY_HEADER_NAMES,
@@ -9,6 +10,7 @@ import {
 } from "@semse/shared";
 import { decodeSession, SESSION_COOKIE } from "../../../lib/auth";
 import { AccessTokenBootstrapper } from "./_access-token-bootstrap";
+import { clientIpFromHeaders } from "./_client-ip";
 
 type ApiEnvelope<T> = {
   requestId: string;
@@ -150,6 +152,22 @@ function buildBootstrapHeaders(): Record<string, string> {
 
   return {
     [SEMSE_BOOTSTRAP_HEADER_NAME]: bootstrapToken
+  };
+}
+
+/**
+ * Headers for BFF→API calls made on behalf of an anonymous visitor (login,
+ * register, password reset, demo). The API rate-limits by the forwarded client
+ * IP only when the bootstrap token proves the call comes from this server;
+ * without them every visitor shares the BFF's own IP bucket (KIT-F3-04).
+ */
+export function trustedClientHeaders(req: NextRequest): Record<string, string> {
+  const bootstrapToken = trimToUndefined(process.env.SEMSE_BOOTSTRAP_TOKEN);
+  const clientIp = clientIpFromHeaders(req.headers);
+  if (!bootstrapToken || !clientIp) return {};
+  return {
+    [SEMSE_BOOTSTRAP_HEADER_NAME]: bootstrapToken,
+    [SEMSE_CLIENT_IP_HEADER_NAME]: clientIp
   };
 }
 
