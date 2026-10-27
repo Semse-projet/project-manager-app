@@ -13,9 +13,9 @@ date: "2026-10-26"
 > Documento preparatorio, SDD todavía REVIEW. No autoriza ejecutar ningún spike de código ni publicar traducciones.
 
 ## 1. Snapshot de verdad
-- Base del análisis reconciliada: `main` commit `c6d4d323` (2026-10-26); verificar nueva base si cambia antes de implementar.
+- Referencia actualizada: `main` commit `40b77710` (2026-10-27); reexaminar SHA, flags y deploy antes de cada PR ejecutable.
 - PR #968, #969, #970 están fusionados; #973 permanece abierto sujeto a #974/#987.
-- Proveedor actual Web: `useLanguage`, diccionario plano ES/EN, `localStorage`; wizard de cuatro pasos en texto español fijo, moneda USD con `en-US` fijo (evidencia histórica auditada).
+- Proveedor Web: `useLanguage`, diccionario plano ES/EN (1,182 claves por idioma en extracción estática). Ya existen cookie `semse-language`, lectura SSR en `app/layout.tsx` e `InitialLanguageProvider`, sincronizados con `localStorage`; faltan smoke de todos los flujos y aprobación de D1.
 - Auditoría estática de fuente en `main` (2026-10-26): 1,182 claves ES / 1,182 EN, paridad en extracción textual sin duplicadas detectadas; `User` y `UserProfile` Prisma sin campos de locale por los nombres inspeccionados. Método, límites y D4-A/B en [analyze](localization-architecture.analyze.md).
 - SHA de Railway Web/API, estado de flags y migraciones: **NO VERIFICADOS EN ESTE PR**. No inferir de CI.
 - Gobernanza: DEC-PLATFORM-001 por niveles y revisión bilingüe/legal para texto crítico.
@@ -23,7 +23,7 @@ date: "2026-10-26"
 ## 2. Constitution check
 - [ ] Especificación APPROVED antes de código (bloqueante).
 - [x] Propuesta de roles/tenant/org/RBAC, invariantes económicos y privacidad documentada.
-- [ ] D1 runtime único decidido y ADR aceptado.
+- [ ] D1 runtime único decidido y [ADR-046](../../architecture/ADR-046-semse-ui-localization-runtime.md) de PROPOSED a ACCEPTED.
 - [ ] D4 fuente de preferencia y migración decidida.
 - [x] API, CI, merge, deploy y activación separadas; sin proveedor externo de MT.
 - [ ] Tests rojos escritos ANTES de implementación; smoke autenticado separado de E2E legacy.
@@ -32,12 +32,12 @@ date: "2026-10-26"
 - Fuente de textos: catálogos Git JSON por dominio, editorial metadata separada.
 - Autoridad de datos/acciones: API y Prisma actuales, **no la traducción**.
 - UI: `language-context.tsx` compatibilidad de claves; sólo un runtime tras ADR D1.
-- Sesión: middleware Node.js existente conserva rutas y controles. Cookie/account SSR sólo según D4.
+- Sesión: middleware Node.js conserva rutas y RBAC. La cookie de idioma SSR por navegador **ya existe**, pero la preferencia autenticada y sincronización cross-device siguen sin decidirse (D4).
 - Adjunto/draft: `job-wizard-draft` y `sessionStorage`; preservar archivos y datos en cambio de idioma.
 - Proveedores de traducción y Prometeo privado: fuera de alcance hasta aprobaciones y P0 #974/#987.
 
 ## 4. Datos y migración
-- Variante D4-A: no tocar Prisma, cookie validada para SSR y preferencia cliente; probar persistencia/limitaciones.
+- Variante D4-A ya implementada parcialmente: no tocar Prisma ni duplicar cookie; ampliar pruebas existentes para usuarios concurrentes, cookie inválida, cambio de sesión, modo privado y borradores.
 - Variante D4-B: nuevo campo de preferencia en cuenta y endpoint auth; requiere migration_status=PENDING, SQL/checksum, expand/contract, backfill explícito, rollback y pruebas de PostgreSQL. **No elegido**.
 - Catálogos: despliegue con versión/digest inmutable; rollback de mensajes sin reescribir documentos firmados ni cambios de negocio.
 - Drift y feature flags: inventariar antes de código; no ejecutar `db push`.
@@ -61,7 +61,7 @@ date: "2026-10-26"
 - Tests negativos y casos L01–L12 definidos en checklist antes de código.
 ### B — Runtime y datos
 - Spike controlado `useLanguage` vs `next-intl` bajo ADR D1; no crear segunda fuente de traducción.
-- D4 puede implicar PR separado de Prisma/migración sólo si se aprueba.
+- La opción D4-A existente no exige migración; D4-B requiere PR separado de Prisma/migración sólo si se aprueba.
 ### C — API/BFF/UI
 - Localizar wizard, accesibilidad, validación, errores, mensajes de API y datos formateados.
 - Conservar payloads, archivo adjunto, IDs, moneda, timeZone, estado y RBAC.
