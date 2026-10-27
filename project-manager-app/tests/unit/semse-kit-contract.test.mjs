@@ -105,6 +105,22 @@ test("semse-tokens exports the real SEMSE palette for the contrast checker", asy
   }
 });
 
+test("semse-tokens refuses to export when globals.css drifts from colors.ts", async () => {
+  const mod = await import(join(skillsRoot, "semse-release-gate/scripts/semse-tokens.mjs"));
+  const { dark, light } = await mod.loadPalettes();
+  const css = readFileSync(new URL(mod.GLOBALS_CSS), "utf8");
+  // The web renders these CSS blocks, not colors.ts: today they must agree.
+  for (const [theme, palette] of Object.entries({ dark, light })) {
+    assert.deepEqual(mod.cssDrift(palette, mod.readCssBlock(css, mod.CSS_BLOCKS[theme])), [], `${theme} drift`);
+  }
+  // A CSS-only change (white --ink on the light theme) must be caught, not checked against stale tokens.
+  const tampered = css.replace(/(:root\[data-theme="light"\]\s*\{[^}]*--ink:\s*)#[0-9a-f]+/i, "$1#ffffff");
+  const drift = mod.cssDrift(light, mod.readCssBlock(tampered, mod.CSS_BLOCKS.light));
+  assert.deepEqual(drift.map((d) => [d.token, d.css]), [["ink", "#ffffff"]]);
+  assert.equal(mod.cssVarName("base"), "--bg");
+  assert.equal(mod.cssVarName("border2"), "--border-2");
+});
+
 const python = spawnSync("python3", ["--version"], { encoding: "utf8" });
 for (const name of ["semse-recon", "semse-parity-audit", "semse-release-gate"]) {
   test(`${name}: upstream Python tests pass`, { skip: python.status !== 0 && "python3 not available" }, () => {

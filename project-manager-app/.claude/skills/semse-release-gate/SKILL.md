@@ -76,7 +76,7 @@ python3 .claude/skills/semse-release-gate/scripts/contrast.py /tmp/semse-dark.js
 python3 .claude/skills/semse-release-gate/scripts/contrast.py /tmp/semse-light.json
 ```
 
-`semse-tokens.mjs` lee `packages/design-tokens/src/colors.ts` (la fuente que usan web y mobile) y añade los pares de texto y fondo que la UI usa de verdad. La paleta actual **ya tiene fallos AA** (5 en oscuro y 8 en claro), registrados en `docs/semse-kit/contrast-baseline.md`. Mientras no se corrijan, el gate **falla sólo si aparece un par nuevo por debajo de AA o si empeora el ratio de uno de la línea base**. Corregir la línea base es un cambio de diseño en tres archivos (`semse-design-tokens`), no algo que este gate haga por su cuenta.
+`semse-tokens.mjs` lee `packages/design-tokens/src/colors.ts` (la fuente que usan web y mobile) y añade los pares de texto y fondo que la UI usa de verdad. Antes de exportar, compara la paleta con los bloques de `apps/web/app/globals.css` de los que se transcribe (`:root` para oscuro y `:root[data-theme="light"]` para claro). Si difieren, sale con código 1 sin exportar: la web pinta esas variables CSS, no `colors.ts`, y medir el contraste de unos tokens desfasados daría un resultado falso. Los bloques `.public-theme` tienen su propia paleta y no se comprueban. La paleta actual **ya tiene fallos AA** (5 en oscuro y 8 en claro), registrados en `docs/semse-kit/contrast-baseline.md`. Mientras no se corrijan, el gate **falla sólo si aparece un par nuevo por debajo de AA o si empeora el ratio de uno de la línea base**. Corregir la línea base es un cambio de diseño en tres archivos (`semse-design-tokens`), no algo que este gate haga por su cuenta.
 
 ## Veredicto
 
