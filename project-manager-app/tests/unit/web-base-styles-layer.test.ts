@@ -10,7 +10,10 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
-const css = readFileSync(path.join(root, "apps/web/app/globals.css"), "utf8");
+const raw = readFileSync(path.join(root, "apps/web/app/globals.css"), "utf8");
+// Strip comments the way a browser does: each comment ends at the FIRST `*/`. A stray `*/`
+// inside a comment (e.g. "p-*/m-*") ends it early and turns the rest into a broken rule.
+const css = raw.replace(/\/\*[\s\S]*?\*\//g, "");
 
 function baseLayer(): string {
   const start = css.indexOf("@layer base {");
@@ -22,6 +25,10 @@ function baseLayer(): string {
   }
   throw new Error("unterminated @layer base");
 }
+
+test("@layer base is a real rule once comments are stripped (no early comment terminator)", () => {
+  assert.match(css, /(^|[;}])\s*@layer base \{/, "text before @layer base is not a complete rule — check for a stray */ in a comment");
+});
 
 test("the universal reset and the link colour live inside @layer base", () => {
   const layer = baseLayer();

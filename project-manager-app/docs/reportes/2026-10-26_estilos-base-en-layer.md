@@ -52,3 +52,12 @@ Como ahora las utilidades de Tailwind sí se aplican, también cambian los compo
 | Admin | `/admin/dashboard`, `/admin/mission-control`, `/admin/marketplace` | 6.9 %, 2.5 %, 9.2 % |
 
 El cambio común es la **barra lateral**. Antes tenía el logo pegado al borde, el botón de plegar encima del nombre y los enlaces sin margen. Ahora tiene el espaciado de su diseño, lo que desplaza unos píxeles el contenido principal. No hay errores de página ni elementos rotos.
+
+## Corrección posterior (2026-10-27): el comentario cerraba antes de tiempo
+
+La revisión de Codex en #1055 detectó que el comentario sobre el bloque decía `p-*/m-*/text-*`. Ese `*/` cierra el comentario, el resto se lee como un selector roto delante de `@layer base {` y el navegador descarta el bloque entero. En producción el `body` quedó sin fondo (transparente), con texto negro, 16px e interlineado normal. Los botones se veían bien porque el reinicio de Tailwind (preflight) ya cubre márgenes y relleno.
+
+- Comentario reescrito sin `*/` dentro.
+- El test quita los comentarios como lo hace el navegador (cada uno acaba en el primer `*/`) y exige que `@layer base {` quede como regla válida. Con el CSS anterior falla.
+- Comprobado en Chromium con el CSS solo: antes `body` transparente, negro, 16px; después `rgb(5, 8, 16)`, `rgb(241, 245, 249)`, 15px, interlineado 24px.
+- Build de producción local: estilos base aplicados, los CTA «Publicar proyecto» siguen blancos y con relleno, 9 pantallas de cliente, profesional y admin sin errores.

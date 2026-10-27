@@ -206,8 +206,9 @@ html[data-theme="dark"] .public-theme,
 /* ── Base ──
    Inside @layer base on purpose: Tailwind v4 puts utilities in @layer utilities,
    and unlayered rules beat every layer. Unlayered, `* { padding: 0 }` and
-   `a { color }` overrode every p-*/m-*/text-* utility (white CTA text rendered
-   brand-blue on a blue button with no padding). Inline styles still win. */
+   `a { color }` overrode every padding, margin and text-colour utility (white
+   CTA text rendered brand-blue on a blue button with no padding). Inline styles
+   still win. Never write a star followed by a slash in this comment: it ends it. */
 @layer base {
   *,
   *::before,
