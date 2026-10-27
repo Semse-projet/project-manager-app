@@ -1,0 +1,183 @@
+name: Prometeo P0 real network egress boundary
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "project-manager-app/apps/api/**"
+      - "project-manager-app/packages/db/**"
+      - "project-manager-app/scripts/api-authenticated-f01-f02-smoke.mjs"
+      - ".github/workflows/prometeo-no-egress.yml"
+
+concurrency:
+  group: prometeo-no-egress-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  private-http-with-firewall:
+    if: ${{ github.event_name == 'pull_request' && github.event.pull_request.number == 987 }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    defaults:
+      run:
+        working-directory: project-manager-app
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: semse
+          POSTGRES_PASSWORD: semse
+          POSTGRES_DB: semse
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U semse -d semse"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://semse:semse@127.0.0.1:5433/semse?schema=public
+      SEMSE_EVENT_CONSUMERS_ENABLED: "false"
+      SEMSE_EVENT_OUTBOX_DISPATCH_ENABLED: "false"
+      SEMSE_CURATED_KNOWLEDGE_ENABLED: "false"
+      PAYMENT_PROVIDER: mock
+    steps:
+      - name: Checkout exact PR candidate
+        uses: actions/checkout@v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6.1.0
+        with:
+          version: 10.33.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: project-manager-app/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build and migrate disposable PostgreSQL
+        run: |
+          set -euo pipefail
+          pnpm build:api
+          node scripts/pre-migrate.mjs
+
+      - name: Install independent per-process egress firewall
+        run: |
+          set -euo pipefail
+          if ! command -v iptables >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -qq -y iptables
+          fi
+          sudo useradd --system --no-create-home --shell /usr/sbin/nologin semse_p0
+          uid="$(id -u semse_p0)"
+          echo "SEMSE_P0_UID=$uid" >> "$GITHUB_ENV"
+          sudo iptables -N SEMSE_P0_OUTBOUND
+          sudo iptables -A SEMSE_P0_OUTBOUND -j REJECT
+          # Only the deliberately restricted API user is affected. Runner,
+          # GitHub services, Postgres and all other processes remain intact.
+          sudo iptables -I OUTPUT 1 -m owner --uid-owner "$uid" ! -o lo -j SEMSE_P0_OUTBOUND
+          echo "Firewall installed for restricted API UID; only loopback allowed"
+
+      - name: Start two signed APIs as network-isolated user
+        run: |
+          set -euo pipefail
+          secret="$(openssl rand -hex 48)"
+          echo "::add-mask::$secret"
+          for port in 4001 4002; do
+            if [ "$port" = 4001 ]; then enabled=true; else enabled=false; fi
+            sudo -u semse_p0 env -i \
+              PATH="$PATH" HOME=/tmp NODE_ENV=test CI=true \
+              DATABASE_URL="$DATABASE_URL" \
+              SEMSE_PROMETEO_DOCUMENT_SHARING_ENABLED="$enabled" \
+              SEMSE_EVENT_CONSUMERS_ENABLED=false \
+              SEMSE_EVENT_OUTBOX_DISPATCH_ENABLED=false \
+              SEMSE_CURATED_KNOWLEDGE_ENABLED=false PAYMENT_PROVIDER=mock \
+              AUTH_SECRET="$secret" \
+              HOST=127.0.0.1 PORT="$port" \
+              node apps/api/dist/main.js > "$RUNNER_TEMP/semse-p0-$port.log" 2>&1 &
+            echo $! > "$RUNNER_TEMP/semse-p0-$port.pid"
+          done
+
+      - name: Wait for signed local APIs
+        run: |
+          set -euo pipefail
+          for port in 4001 4002; do
+            ready=false
+            for attempt in $(seq 1 90); do
+              if curl --fail --silent --show-error -o /dev/null "http://127.0.0.1:$port/v1/health" 2>/dev/null; then
+                ready=true
+                break
+              fi
+              sleep 2
+            done
+            if [ "$ready" != true ]; then
+              echo "Restricted API $port did not become ready (no private logs uploaded)"
+              exit 1
+            fi
+          done
+
+      - name: Prove no external network attempt during signed private HTTP smoke
+        env:
+          CI: "true"
+          SEMSE_AUTH_TEST_ONLY: "1"
+          NODE_ENV: test
+          SEMSE_API_URL: http://127.0.0.1:4001
+          SEMSE_SHARE_OFF_API_URL: http://127.0.0.1:4002
+        run: |
+          set -euo pipefail
+          packet_count() {
+            sudo iptables --numeric --verbose --exact -L SEMSE_P0_OUTBOUND \
+              | awk '$3 == "REJECT" {sum += $1} END {print sum + 0}'
+          }
+          before="$(packet_count)"
+          if [ "$before" -ne 0 ]; then echo "Unexpected egress before smoke: $before"; exit 1; fi
+          node scripts/api-authenticated-f01-f02-smoke.mjs
+          after="$(packet_count)"
+          echo "Observed outbound attempts from API user during signed smoke: $after"
+          if [ "$after" -ne 0 ]; then
+            echo "FAIL: restricted API process attempted non-loopback egress"
+            exit 1
+          fi
+          echo "PASS: no outbound packets attempted by restricted API UID during scoped HTTP suite"
+
+      - name: Negative control proves firewall really rejects outbound TCP
+        run: |
+          set -euo pipefail
+          sudo -u semse_p0 env -i PATH="$PATH" HOME=/tmp node -e '
+            const net = require("node:net");
+            const socket = net.connect({host:"192.0.2.1",port:443});
+            socket.on("error",()=>process.exit(0));
+            setTimeout(()=>{socket.destroy();process.exit(0)},3000);
+          '
+          count="$(sudo iptables --numeric --verbose --exact -L SEMSE_P0_OUTBOUND \
+            | awk '$3 == "REJECT" {sum += $1} END {print sum + 0}')"
+          echo "Firewall negative-control rejected packets: $count"
+          if [ "$count" -lt 1 ]; then
+            echo "FAIL: firewall did not register rejected control packet"
+            exit 1
+          fi
+          echo "PASS: egress firewall blocked deliberate synthetic non-loopback probe"
+
+      - name: Stop APIs and remove per-user firewall
+        if: always()
+        run: |
+          sudo pkill -u semse_p0 || true
+          if sudo iptables -S OUTPUT 2>/dev/null | grep -q "SEMSE_P0_OUTBOUND"; then
+            sudo iptables -D OUTPUT -m owner --uid-owner "${SEMSE_P0_UID:-0}" ! -o lo -j SEMSE_P0_OUTBOUND || true
+          fi
+          sudo iptables -F SEMSE_P0_OUTBOUND 2>/dev/null || true
+          sudo iptables -X SEMSE_P0_OUTBOUND 2>/dev/null || true
+
+      - name: Scope of evidence
+        if: success()
+        run: |
+          echo "PASS: real OS firewall and signed P0 HTTP checks on disposable GitHub runner"
+          echo "NOT PROVEN: staging VLAN/egress telemetry, production host capture, or human approval"
