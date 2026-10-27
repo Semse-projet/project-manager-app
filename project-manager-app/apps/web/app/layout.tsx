@@ -1,5 +1,8 @@
 import type { Metadata, Viewport } from "next";
+import { cookies } from "next/headers";
 import { ServiceWorkerRegistrar } from "@/components/pwa/ServiceWorkerRegistrar";
+import { InitialLanguageProvider } from "@/lib/language-context";
+import { DEFAULT_LANGUAGE, LANGUAGE_STORAGE_KEY, parseLanguagePreference } from "@/lib/language-preference";
 import "./globals.css";
 
 export const dynamic = "force-dynamic";
@@ -56,14 +59,16 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  // Already force-dynamic, so reading the cookie costs no static rendering.
+  const language = parseLanguagePreference((await cookies()).get(LANGUAGE_STORAGE_KEY)?.value) ?? DEFAULT_LANGUAGE;
   return (
-    <html lang="es" className="scroll-smooth">
+    <html lang={language} className="scroll-smooth">
       <body
         className="min-h-screen antialiased"
         style={{ fontFamily: "var(--font-sans, 'Geist', system-ui)" }}
       >
-        {children}
+        <InitialLanguageProvider value={language}>{children}</InitialLanguageProvider>
         <ServiceWorkerRegistrar />
       </body>
     </html>
