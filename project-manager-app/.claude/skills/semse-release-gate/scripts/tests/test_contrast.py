@@ -1,11 +1,8 @@
 import io
-import json
-import os
-import tempfile
 import unittest
 from contextlib import redirect_stdout
 
-from _load import load, ROOT
+from _load import load
 
 contrast = load("replica-design", "contrast")
 
