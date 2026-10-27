@@ -61,7 +61,7 @@ Ejecutar desde `project-manager-app/` las que apliquen según los archivos del d
 | 2 | Unitarios | siempre | `pnpm test:unit`, `pnpm --filter @semse/api test:unit` |
 | 3 | Contratos y spec | `docs/specs/**`, `packages/schemas/**` | `pnpm spec:validate:strict` |
 | 4 | Migraciones | `packages/db/prisma/schema.prisma` | existe migración nueva en `packages/db/prisma/migrations/` y `pnpm db:generate` pasa (`semse-prisma-workflow`) |
-| 5 | ES/EN | `apps/web/**` con texto visible, `language-context.tsx` | `node --experimental-strip-types --test tests/unit/operational-panels-i18n.test.ts tests/unit/contributor-i18n-keys.test.ts`; cada clave nueva existe en `es` y en `en` |
+| 5 | ES/EN | `apps/web/**` con texto visible, `language-context.tsx`, catálogos `COPY` | `pnpm quality:i18n` (0 errores; un aviso nuevo de `translated-text-in-state` debe justificarse) y los tests de claves existentes |
 | 6 | Seguridad | controladores, BFF, `rbac.ts`, pagos | checklist de `semse-security-baseline`: ownership/tenant en lecturas y escrituras, sin IDOR, estado de pago verificado en servidor, sin secretos en el diff |
 | 7 | Contraste WCAG | `packages/design-tokens/**`, bloques de color de `globals.css` | ver abajo |
 | 8 | Funcional | flujos con UI | specs relevantes de `tests/e2e-semse/` (`semse-functional-test`) |
@@ -94,4 +94,4 @@ Una tabla en el cuerpo del PR o en el reporte de sesión: `# | comprobación | c
 
 - Los pares de `semse-tokens.mjs` son una aproximación razonable del uso real (por ejemplo, `ok/warn/info` como texto sobre `surface`). Si un color de estado se usa sólo como fondo de chip con texto `ink`, ese par debe cambiar en el script, no ignorarse.
 - `.btn-primary` y `.btn-accent` usan `color: #fff` fijo en `globals.css`, no un token. Por eso el exportador define `onFill`.
-- El validador automático de catálogos críticos ES/EN (`scripts/quality/validate-critical-i18n.ts`) es la fase 3 del kit y aún no existe; hasta entonces la comprobación 5 se apoya en los tests de claves existentes y en revisión del diff.
+- `pnpm quality:i18n` (`scripts/quality/validate-critical-i18n.ts`) revisa el diccionario central y los catálogos `COPY` locales. No ve los 15 ternarios en línea `language === "es" ? … : …` de `apps/web`, que siguen dependiendo de revisión del diff. Las excepciones van en `scripts/quality/i18n-allowlist.json`, cada una con su motivo.

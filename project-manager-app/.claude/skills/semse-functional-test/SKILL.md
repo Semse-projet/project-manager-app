@@ -92,5 +92,7 @@ Cada ejecución deja en el PR o en el reporte: el SHA, el entorno, el comando ex
 
 ## Notas para futuros agentes
 
-- El spec `authenticated-es-en.spec.ts` y el validador de catálogos críticos ES/EN están **planificados** en `docs/semse-kit/README.md` (fase 3) y todavía no existen. Mientras tanto, los tests de claves ya existentes son `tests/unit/operational-panels-i18n.test.ts` y `tests/unit/contributor-i18n-keys.test.ts`.
+- Base ya disponible (fase 3): `tests/e2e-semse/authenticated-es-en.spec.ts` (`pnpm test:e2e:semse:es-en`) cubre roles × ES/EN × recarga en el panel y una ruta por rol, más el aislamiento de trabajos entre dos organizaciones. Se ejecuta contra el stack de `docs/semse-kit/local-stack.md`, con cuentas por `SEMSE_E2E_{ADMIN,CLIENT,WORKER}_{EMAIL,PASSWORD}`. Para un flujo nuevo conviene extenderlo o copiar su patrón (login por formulario, comprobación de claves crudas y de mezcla de idiomas, actores sintéticos creados en el propio test).
+- Los defectos ya reportados se registran en `KNOWN_BFF_FAILURES` del spec, con su ID de `docs/semse-kit/test-matrix.md`. Aparecen como anotación `known-defect` y no se pueden añadir sin ese ID.
+- El job `e2e` de CI sólo ejecuta `tests/e2e`; los specs de `tests/e2e-semse` corren en local o en un preview autorizado.
 - No hay `@axe-core/playwright` instalado. La parte de accesibilidad se queda en revisión de roles y etiquetas hasta que alguien autorice la dependencia.

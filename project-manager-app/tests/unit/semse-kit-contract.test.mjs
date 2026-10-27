@@ -132,3 +132,24 @@ for (const name of ["semse-recon", "semse-parity-audit", "semse-release-gate"]) 
     assert.equal(run.status, 0, run.stderr || run.stdout);
   });
 }
+
+test("Phase 3 tools are wired and keep their safety guards", () => {
+  const pkg = JSON.parse(readFileSync(join(projectRoot, "package.json"), "utf8"));
+  assert.match(pkg.scripts["quality:i18n"] ?? "", /scripts\/quality\/validate-critical-i18n\.ts/);
+  assert.match(pkg.scripts["test:e2e:semse:es-en"] ?? "", /authenticated-es-en\.spec\.ts/);
+  const spec = readFileSync(join(projectRoot, "tests/e2e-semse/authenticated-es-en.spec.ts"), "utf8");
+  assert.match(spec, /SEMSE_E2E_ALLOW_REMOTE/, "spec must refuse non-local targets unless explicitly allowed");
+  assert.doesNotMatch(spec, /demo1234/, "credentials come from env or the shared test-data helper, never inline");
+  const matrix = readFileSync(join(kitDocs, "test-matrix.md"), "utf8");
+  const block = spec.match(/const KNOWN_BFF_FAILURES[^=]*=\s*\{([\s\S]*?)\};/);
+  assert.ok(block, "spec must declare KNOWN_BFF_FAILURES");
+  const entries = [...block[1].matchAll(/"(\/api\/semse\/[^"]+)":/g)].length;
+  const known = [...block[1].matchAll(/"(\/api\/semse\/[^"]+)":\s*\n?\s*"(KIT-F\d+-\d+):/g)];
+  assert.equal(known.length, entries, "every KNOWN_BFF_FAILURES entry must start with a finding ID");
+  for (const [, path, id] of known) assert.ok(matrix.includes(`| ${id} |`), `${path}: finding ${id} missing from test-matrix.md`);
+  const allowlist = JSON.parse(readFileSync(join(projectRoot, "scripts/quality/i18n-allowlist.json"), "utf8"));
+  for (const [rule, entries] of Object.entries(allowlist)) {
+    if (rule.startsWith("_")) continue;
+    for (const [key, reason] of Object.entries(entries)) assert.ok(String(reason).length >= 10, `i18n allowlist ${rule}/${key} needs a reason`);
+  }
+});
