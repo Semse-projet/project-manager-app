@@ -30,6 +30,7 @@ const server = load(path.join(webApi, "_server.ts"), {
   "next/server": nextServer,
   "@semse/shared": {
     SEMSE_BOOTSTRAP_HEADER_NAME: "x-semse-bootstrap",
+    SEMSE_CLIENT_IP_HEADER_NAME: "x-semse-client-ip",
     SEMSE_PROXY_HEADER_NAMES: { userId: "x-semse-user-id", tenantId: "x-semse-tenant-id", orgId: "x-semse-org-id", roles: "x-semse-roles" },
     buildIdentityHeaders: () => ({}),
     parseRoleList: (roles: string) => roles.split(","),
@@ -38,6 +39,7 @@ const server = load(path.join(webApi, "_server.ts"), {
   },
   "../../../lib/auth": { SESSION_COOKIE: "semse_session", decodeSession: async () => null },
   "./_access-token-bootstrap": { AccessTokenBootstrapper: class {} },
+  "./_client-ip": { clientIpFromHeaders: () => undefined },
 });
 
 const unauthenticatedRequest = {
