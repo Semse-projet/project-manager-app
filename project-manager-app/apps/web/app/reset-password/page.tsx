@@ -3,59 +3,69 @@
 import { useState, type FormEvent, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { LanguageProvider, useLanguage } from "@/lib/language-context";
+import { LanguageSwitch } from "../_auth/LanguageSwitch";
+import { PasswordStrength } from "../_auth/PasswordStrength";
 
-function errorMessage(error: unknown, fallback: string): string {
-  if (typeof error === "string") return error;
-  if (error && typeof error === "object" && "message" in error) {
-    const message = (error as { message?: unknown }).message;
-    if (typeof message === "string" && message.trim()) return message;
-  }
-  return fallback;
-}
+const COPY = {
+  es: {
+    invalidTitle: "Enlace inválido",
+    invalidBody: "Este enlace de recuperación no es válido o ya fue usado.",
+    requestNew: "Solicitar nuevo enlace",
+    successTitle: "Contraseña actualizada",
+    successBody: "Tu contraseña fue actualizada correctamente. Ya puedes iniciar sesión.",
+    goToLogin: "Ir al login →",
+    title: "Nueva contraseña",
+    intro: "Ingresa y confirma tu nueva contraseña.",
+    newPassword: "Nueva contraseña",
+    newPasswordPlaceholder: "Mínimo 15 caracteres",
+    confirmPassword: "Confirmar contraseña",
+    confirmPlaceholder: "Repite la contraseña",
+    mismatch: "Las contraseñas no coinciden",
+    length: "La contraseña debe tener entre 15 y 128 caracteres",
+    resetFailed: "No se pudo restablecer la contraseña. El enlace puede haber caducado.",
+    networkError: "No se pudo conectar con el servidor",
+    submit: "Actualizar contraseña →",
+    submitting: "Actualizando…",
+    backToLogin: "← Volver al login",
+    loading: "Cargando…",
+  },
+  en: {
+    invalidTitle: "Invalid link",
+    invalidBody: "This recovery link is not valid or has already been used.",
+    requestNew: "Request a new link",
+    successTitle: "Password updated",
+    successBody: "Your password was updated. You can now sign in.",
+    goToLogin: "Go to sign in →",
+    title: "New password",
+    intro: "Enter and confirm your new password.",
+    newPassword: "New password",
+    newPasswordPlaceholder: "At least 15 characters",
+    confirmPassword: "Confirm password",
+    confirmPlaceholder: "Repeat the password",
+    mismatch: "Passwords do not match",
+    length: "Password must be between 15 and 128 characters",
+    resetFailed: "Could not reset the password. The link may have expired.",
+    networkError: "Could not reach the server",
+    submit: "Update password →",
+    submitting: "Updating…",
+    backToLogin: "← Back to sign in",
+    loading: "Loading…",
+  },
+} as const;
 
-function PasswordStrength({ password }: { password: string }) {
-  if (!password) return null;
-  const score = [
-    password.length >= 15,
-    /[A-Z]/.test(password),
-    /[0-9]/.test(password),
-    /[^A-Za-z0-9]/.test(password),
-  ].filter(Boolean).length;
-
-  const labels = ["Muy débil", "Débil", "Regular", "Fuerte", "Muy fuerte"];
-  const colors = ["var(--error)", "#f97316", "#eab308", "#22c55e", "var(--ok)"];
-
-  return (
-    <div style={{ marginTop: "6px" }}>
-      <div style={{ display: "flex", gap: "4px", marginBottom: "4px" }}>
-        {[0, 1, 2, 3].map((i) => (
-          <div
-            key={i}
-            style={{
-              flex: 1,
-              height: "3px",
-              borderRadius: "2px",
-              background: i < score ? colors[score] : "var(--border, #1f2d3d)",
-              transition: "background 0.2s",
-            }}
-          />
-        ))}
-      </div>
-      <span style={{ fontSize: "11px", color: score >= 3 ? "#22c55e" : "var(--muted, #94a3b8)" }}>
-        {labels[score] ?? "Débil"}
-      </span>
-    </div>
-  );
-}
+type ResetPasswordErrorKey = "mismatch" | "length" | "resetFailed" | "networkError";
 
 function ResetPasswordForm() {
+  const { language } = useLanguage();
+  const c = COPY[language];
   const searchParams = useSearchParams();
   const token = searchParams?.get("token") ?? "";
 
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ResetPasswordErrorKey | null>(null);
   const [success, setSuccess] = useState(false);
 
   const passwordMismatch = confirm.length > 0 && password !== confirm;
@@ -65,10 +75,10 @@ function ResetPasswordForm() {
       <div style={{ textAlign: "center", padding: "8px 0" }}>
         <div style={{ fontSize: "40px", marginBottom: "12px" }}>🔗</div>
         <h2 style={{ fontSize: "18px", fontWeight: 700, color: "var(--ink, #f1f5f9)", marginBottom: "10px" }}>
-          Enlace inválido
+          {c.invalidTitle}
         </h2>
         <p style={{ fontSize: "14px", color: "var(--muted, #94a3b8)", marginBottom: "20px" }}>
-          Este enlace de recuperación no es válido o ya fue usado.
+          {c.invalidBody}
         </p>
         <Link
           href="/forgot-password"
@@ -83,7 +93,7 @@ function ResetPasswordForm() {
             textDecoration: "none",
           }}
         >
-          Solicitar nuevo enlace
+          {c.requestNew}
         </Link>
       </div>
     );
@@ -94,10 +104,10 @@ function ResetPasswordForm() {
       <div style={{ textAlign: "center", padding: "8px 0" }}>
         <div style={{ fontSize: "40px", marginBottom: "12px" }}>✅</div>
         <h2 style={{ fontSize: "18px", fontWeight: 700, color: "var(--ink, #f1f5f9)", marginBottom: "10px" }}>
-          Contraseña actualizada
+          {c.successTitle}
         </h2>
         <p style={{ fontSize: "14px", color: "var(--muted, #94a3b8)", marginBottom: "20px" }}>
-          Tu contraseña fue actualizada correctamente. Ya puedes iniciar sesión.
+          {c.successBody}
         </p>
         <Link
           href="/login?reset=1"
@@ -112,7 +122,7 @@ function ResetPasswordForm() {
             textDecoration: "none",
           }}
         >
-          Ir al login →
+          {c.goToLogin}
         </Link>
       </div>
     );
@@ -121,11 +131,11 @@ function ResetPasswordForm() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (password !== confirm) {
-      setError("Las contraseñas no coinciden");
+      setError("mismatch");
       return;
     }
     if (password.length < 15 || password.length > 128) {
-      setError("La contraseña debe tener entre 15 y 128 caracteres");
+      setError("length");
       return;
     }
 
@@ -138,16 +148,16 @@ function ResetPasswordForm() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ token, newPassword: password }),
       });
-      const data = (await res.json()) as { ok?: boolean; error?: unknown };
+      const data = (await res.json().catch(() => ({}))) as { ok?: boolean };
 
       if (!res.ok || !data.ok) {
-        setError(errorMessage(data.error, "No se pudo restablecer la contraseña"));
+        setError("resetFailed");
         return;
       }
 
       setSuccess(true);
     } catch {
-      setError("No se pudo conectar con el servidor");
+      setError("networkError");
     } finally {
       setLoading(false);
     }
@@ -156,15 +166,15 @@ function ResetPasswordForm() {
   return (
     <>
       <h2 style={{ fontSize: "18px", fontWeight: 700, color: "var(--ink, #f1f5f9)", marginBottom: "8px" }}>
-        Nueva contraseña
+        {c.title}
       </h2>
       <p style={{ fontSize: "13px", color: "var(--muted, #94a3b8)", marginBottom: "20px" }}>
-        Ingresa y confirma tu nueva contraseña.
+        {c.intro}
       </p>
 
       <form onSubmit={handleSubmit}>
         <div style={{ marginBottom: "14px" }}>
-          <label style={labelStyle}>Nueva contraseña</label>
+          <label style={labelStyle}>{c.newPassword}</label>
           <input
             type="password"
             value={password}
@@ -173,14 +183,14 @@ function ResetPasswordForm() {
             minLength={15}
             maxLength={128}
             autoComplete="new-password"
-            placeholder="Mínimo 15 caracteres"
+            placeholder={c.newPasswordPlaceholder}
             style={inputStyle}
           />
           <PasswordStrength password={password} />
         </div>
 
         <div style={{ marginBottom: "20px" }}>
-          <label style={labelStyle}>Confirmar contraseña</label>
+          <label style={labelStyle}>{c.confirmPassword}</label>
           <input
             type="password"
             value={confirm}
@@ -189,7 +199,7 @@ function ResetPasswordForm() {
             minLength={15}
             maxLength={128}
             autoComplete="new-password"
-            placeholder="Repite la contraseña"
+            placeholder={c.confirmPlaceholder}
             style={{
               ...inputStyle,
               borderColor: passwordMismatch ? "var(--error)" : "var(--border, #1f2d3d)",
@@ -197,7 +207,7 @@ function ResetPasswordForm() {
           />
           {passwordMismatch && (
             <span style={{ fontSize: "11px", color: "var(--error)", marginTop: "4px", display: "block" }}>
-              Las contraseñas no coinciden
+              {c.mismatch}
             </span>
           )}
         </div>
@@ -214,7 +224,7 @@ function ResetPasswordForm() {
               marginBottom: "16px",
             }}
           >
-            {error}
+            {c[error]}
           </div>
         )}
 
@@ -237,13 +247,13 @@ function ResetPasswordForm() {
             opacity: loading || passwordMismatch ? 0.7 : 1,
           }}
         >
-          {loading ? "Actualizando…" : "Actualizar contraseña →"}
+          {loading ? c.submitting : c.submit}
         </button>
       </form>
 
       <p style={{ marginTop: "18px", fontSize: "13px", color: "var(--muted, #94a3b8)", textAlign: "center" }}>
         <Link href="/login" style={{ color: "#93c5fd", textDecoration: "none", fontWeight: 600 }}>
-          ← Volver al login
+          {c.backToLogin}
         </Link>
       </p>
     </>
@@ -251,6 +261,15 @@ function ResetPasswordForm() {
 }
 
 export default function ResetPasswordPage() {
+  return (
+    <LanguageProvider>
+      <ResetPasswordShell />
+    </LanguageProvider>
+  );
+}
+
+function ResetPasswordShell() {
+  const { language } = useLanguage();
   return (
     <div
       style={{
@@ -263,6 +282,7 @@ export default function ResetPasswordPage() {
       }}
     >
       <div style={{ width: "100%", maxWidth: "440px" }}>
+        <LanguageSwitch />
         {/* Logo */}
         <div style={{ textAlign: "center", marginBottom: "32px" }}>
           <div style={{ display: "inline-flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
@@ -295,7 +315,7 @@ export default function ResetPasswordPage() {
             padding: "28px",
           }}
         >
-          <Suspense fallback={<div style={{ color: "var(--muted, #94a3b8)", textAlign: "center" }}>Cargando…</div>}>
+          <Suspense fallback={<div style={{ color: "var(--muted, #94a3b8)", textAlign: "center" }}>{COPY[language].loading}</div>}>
             <ResetPasswordForm />
           </Suspense>
         </div>
