@@ -212,3 +212,130 @@ jobs:
             /tmp/semse-api-auth-integration.log
             /tmp/semse-api-sharing-off-integration.log
           if-no-files-found: ignore
+
+  # A rollback to pre-P0 main is UNSAFE: legacy Prometeo lists by tenant alone.
+  # Exercise a pinned post-P0 security checkpoint binary on the HEAD's expanded
+  # schema instead. This is isolated CI evidence, NOT production rollback.
+  rollback-safe-checkpoint:
+    if: ${{ github.event_name == 'pull_request' && github.event.pull_request.number == 987 }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    permissions:
+      contents: read
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: semse
+          POSTGRES_PASSWORD: semse
+          POSTGRES_DB: semse
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U semse -d semse"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://semse:semse@127.0.0.1:5433/semse?schema=public
+      SEMSE_EVENT_CONSUMERS_ENABLED: "false"
+      SEMSE_EVENT_OUTBOX_DISPATCH_ENABLED: "false"
+      SEMSE_CURATED_KNOWLEDGE_ENABLED: "false"
+      PAYMENT_PROVIDER: mock
+    steps:
+      - name: Checkout candidate HEAD for current expanded-schema migration and smoke
+        uses: actions/checkout@v7
+        with:
+          path: current
+
+      - name: Checkout pinned post-P0 safe rollback binary source
+        uses: actions/checkout@v7
+        with:
+          ref: 4ba16f4e598bea702c5629518e0701a31c68b7ae
+          path: safe-rollback
+
+      - name: Refuse any rollback target other than signed-off security checkpoint
+        run: |
+          set -euo pipefail
+          cd "$GITHUB_WORKSPACE/safe-rollback"
+          CANDIDATE="$(git rev-parse HEAD)"
+          test "$CANDIDATE" = "4ba16f4e598bea702c5629518e0701a31c68b7ae"
+          echo "P0 rollback drill: pinned post-P0 checkpoint only; pre-fix main is not an approved rollback target"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6.1.0
+        with:
+          version: 10.33.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Build candidate HEAD and migrate isolated expanded schema
+        run: |
+          set -euo pipefail
+          cd "$GITHUB_WORKSPACE/current/project-manager-app"
+          pnpm install --frozen-lockfile
+          pnpm build:api
+          node scripts/pre-migrate.mjs
+
+      - name: Build pinned safe checkpoint without reverting database migrations
+        run: |
+          set -euo pipefail
+          cd "$GITHUB_WORKSPACE/safe-rollback/project-manager-app"
+          pnpm install --frozen-lockfile
+          pnpm build:api
+
+      - name: Start previous security-safe binary against expanded-schema database
+        run: |
+          set -euo pipefail
+          AUTH_SECRET="$(openssl rand -hex 48)"
+          echo "::add-mask::$AUTH_SECRET"
+          echo "SEMSE_ROLLBACK_DRILL_AUTH_SECRET=$AUTH_SECRET" >> "$GITHUB_ENV"
+          cd "$GITHUB_WORKSPACE/safe-rollback/project-manager-app"
+          AUTH_SECRET="$AUTH_SECRET" HOST=127.0.0.1 PORT=4001 NODE_ENV=test SEMSE_PROMETEO_DOCUMENT_SHARING_ENABLED=true pnpm start:api > "$RUNNER_TEMP/safe-rollback-api-on.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/safe-rollback-api-on.pid"
+          AUTH_SECRET="$AUTH_SECRET" HOST=127.0.0.1 PORT=4002 NODE_ENV=test SEMSE_PROMETEO_DOCUMENT_SHARING_ENABLED=false pnpm start:api > "$RUNNER_TEMP/safe-rollback-api-off.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/safe-rollback-api-off.pid"
+
+      - name: Wait for both signed rollback APIs
+        run: |
+          set -euo pipefail
+          for port in 4001 4002; do
+            ready=0
+            for attempt in $(seq 1 90); do
+              if curl -fsS -o /dev/null "http://127.0.0.1:$port/v1/health"; then ready=1; break; fi
+              sleep 2
+            done
+            if [ "$ready" -ne 1 ]; then
+              echo "Rollback checkpoint API $port did not become ready"
+              exit 1
+            fi
+          done
+
+      - name: Verify real signed-session private scopes survive binary rollback
+        env:
+          CI: "true"
+          SEMSE_AUTH_TEST_ONLY: "1"
+          NODE_ENV: test
+          SEMSE_API_URL: http://127.0.0.1:4001
+          SEMSE_SHARE_OFF_API_URL: http://127.0.0.1:4002
+        run: |
+          set -euo pipefail
+          cd "$GITHUB_WORKSPACE/current/project-manager-app"
+          node scripts/api-authenticated-f01-f02-smoke.mjs
+
+      - name: Stop isolated rollback APIs
+        if: always()
+        run: |
+          for name in on off; do
+            path="$RUNNER_TEMP/safe-rollback-api-$name.pid"
+            if [ -f "$path" ]; then kill "$(cat "$path")" || true; fi
+          done
+
+      - name: Report test scope
+        if: success()
+        run: |
+          echo "PASS: post-P0 safe checkpoint boots with expanded HEAD schema and signed scope smoke"
+          echo "NOT PROVEN: rollback to pre-P0 main, real staging, traffic capture or production cutover"
