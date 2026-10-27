@@ -182,6 +182,22 @@ class Compare(unittest.TestCase):
         self.assertIn("taller", imgdiff.render_text(rep, "a", "b"))
 
 
+    def test_right_edge_leftover_pixels_are_compared(self):
+        # 390 px with 12 columns leaves 390 % 12 = 6 px past the last full
+        # column; a change confined to them must still be seen.
+        base = page(w=390, h=240)
+        changed = page(w=390, h=240)
+        for row in changed[2]:
+            for x in range(385, 390):
+                row[x] = (0, 0, 0)
+        for mode in ("layout", "pixel"):
+            report, _ = imgdiff.compare(base, changed, mode=mode, width=390)
+            self.assertLess(report["score"], 100.0, mode)
+            self.assertTrue(report["regions"], mode)
+            last = report["regions"][-1]
+            self.assertEqual(last["x"] + last["w"], 390, mode)
+
+
 class Cli(unittest.TestCase):
     def test_json_out_and_fail_under(self):
         with tempfile.TemporaryDirectory() as d:

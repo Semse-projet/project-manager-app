@@ -272,6 +272,12 @@ def _regions(flags, n_rows, n_cols):
     return regions
 
 
+def _col_span(c, cols, cell, w):
+    """Columns are w // cols wide; the last one runs to the right edge so the
+    w % cols leftover pixels are compared too."""
+    return c * cell, (w if c == cols - 1 else min(w, (c + 1) * cell))
+
+
 def compare(img_a, img_b, mode="layout", width=480, cols=12, tolerance=24,
             edge_threshold=40):
     """Compare two decoded images. Returns (report dict, diff rows)."""
@@ -322,9 +328,10 @@ def compare(img_a, img_b, mode="layout", width=480, cols=12, tolerance=24,
             for c in range(cols):
                 hits = 0
                 area = 0
+                x0, x1 = _col_span(c, cols, cell, w)
                 for y in range(r * cell, min(h, (r + 1) * cell)):
                     row = flags_px[y]
-                    for x in range(c * cell, min(w, (c + 1) * cell)):
+                    for x in range(x0, x1):
                         area += 1
                         hits += row[x]
                 flags[r][c] = area > 0 and hits / float(area) > 0.02
@@ -338,7 +345,7 @@ def compare(img_a, img_b, mode="layout", width=480, cols=12, tolerance=24,
         for r in range(n_rows):
             for c in range(cols):
                 y0, y1 = r * cell, min(h, (r + 1) * cell)
-                x0, x1 = c * cell, min(w, (c + 1) * cell)
+                x0, x1 = _col_span(c, cols, cell, w)
                 area = (y1 - y0) * (x1 - x0)
                 if area <= 0:
                     continue
@@ -363,7 +370,7 @@ def compare(img_a, img_b, mode="layout", width=480, cols=12, tolerance=24,
         y = int(r0 * cell * to_orig)
         regions.append({
             "x": x, "y": y,
-            "w": min(wa - x, int((c1 - c0 + 1) * cell * to_orig)),
+            "w": wa - x if c1 == cols - 1 else min(wa - x, int((c1 - c0 + 1) * cell * to_orig)),
             "h": min(ha - y, int((r1 - r0 + 1) * cell * to_orig)),
             "cells": n,
             "where": _where(r0, c0, r1, c1, len(flags), cols),
