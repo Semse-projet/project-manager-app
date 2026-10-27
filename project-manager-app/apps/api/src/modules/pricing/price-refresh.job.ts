@@ -7,7 +7,7 @@ const REFRESH_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24h
 // Preserve the existing default behavior; only an explicit "false" opts out.
 // This gate does not disable manual price reads from the local DB cache.
 export function isExternalPriceRefreshEnabled(
-  env: Pick<NodeJS.ProcessEnv, "SEMSE_PRICE_REFRESH_EXTERNAL_ENABLED"> = process.env,
+  env: Readonly<{ SEMSE_PRICE_REFRESH_EXTERNAL_ENABLED?: string }> = process.env,
 ): boolean {
   return env.SEMSE_PRICE_REFRESH_EXTERNAL_ENABLED !== "false";
 }
