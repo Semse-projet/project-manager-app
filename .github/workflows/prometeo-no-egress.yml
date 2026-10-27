@@ -72,19 +72,22 @@ jobs:
       - name: Install independent per-process egress firewall
         run: |
           set -euo pipefail
-          if ! command -v iptables >/dev/null; then
+          if ! command -v iptables >/dev/null || ! command -v ip6tables >/dev/null; then
             sudo apt-get update -qq
             sudo apt-get install -qq -y iptables
           fi
           sudo useradd --system --no-create-home --shell /usr/sbin/nologin semse_p0
           uid="$(id -u semse_p0)"
           echo "SEMSE_P0_UID=$uid" >> "$GITHUB_ENV"
-          sudo iptables -N SEMSE_P0_OUTBOUND
-          sudo iptables -A SEMSE_P0_OUTBOUND -j REJECT
-          # Only the deliberately restricted API user is affected. Runner,
-          # GitHub services, Postgres and all other processes remain intact.
-          sudo iptables -I OUTPUT 1 -m owner --uid-owner "$uid" ! -o lo -j SEMSE_P0_OUTBOUND
-          echo "Firewall installed for restricted API UID; only loopback allowed"
+          # Block both IPv4 and IPv6. Filtering only IPv4 leaves an egress
+          # bypass through AAAA records and IPv6 literal endpoints.
+          for family in iptables ip6tables; do
+            sudo "$family" -N SEMSE_P0_OUTBOUND
+            sudo "$family" -A SEMSE_P0_OUTBOUND -j REJECT
+            sudo "$family" -I OUTPUT 1 -m owner --uid-owner "$uid" ! -o lo -j SEMSE_P0_OUTBOUND
+          done
+          # Only the deliberately restricted API UID is affected.
+          echo "IPv4 and IPv6 outbound denied for restricted API UID; loopback allowed"
 
       - name: Start two signed APIs as network-isolated user
         run: |
@@ -134,8 +137,10 @@ jobs:
         run: |
           set -euo pipefail
           packet_count() {
-            sudo iptables --numeric --verbose --exact -L SEMSE_P0_OUTBOUND \
-              | awk '$3 == "REJECT" {sum += $1} END {print sum + 0}'
+            for family in iptables ip6tables; do
+              sudo "$family" --numeric --verbose --exact -L SEMSE_P0_OUTBOUND \
+                | awk '$3 == "REJECT" {sum += $1} END {print sum + 0}'
+            done | awk '{sum += $1} END {print sum + 0}'
           }
           before="$(packet_count)"
           if [ "$before" -ne 0 ]; then echo "Unexpected egress before smoke: $before"; exit 1; fi
@@ -159,7 +164,7 @@ jobs:
           '
           count="$(sudo iptables --numeric --verbose --exact -L SEMSE_P0_OUTBOUND \
             | awk '$3 == "REJECT" {sum += $1} END {print sum + 0}')"
-          echo "Firewall negative-control rejected packets: $count"
+          echo "IPv4 firewall negative-control rejected packets: $count"
           if [ "$count" -lt 1 ]; then
             echo "FAIL: firewall did not register rejected control packet"
             exit 1
@@ -170,11 +175,13 @@ jobs:
         if: always()
         run: |
           sudo pkill -u semse_p0 || true
-          if sudo iptables -S OUTPUT 2>/dev/null | grep -q "SEMSE_P0_OUTBOUND"; then
-            sudo iptables -D OUTPUT -m owner --uid-owner "${SEMSE_P0_UID:-0}" ! -o lo -j SEMSE_P0_OUTBOUND || true
-          fi
-          sudo iptables -F SEMSE_P0_OUTBOUND 2>/dev/null || true
-          sudo iptables -X SEMSE_P0_OUTBOUND 2>/dev/null || true
+          for family in iptables ip6tables; do
+            if sudo "$family" -S OUTPUT 2>/dev/null | grep -q "SEMSE_P0_OUTBOUND"; then
+              sudo "$family" -D OUTPUT -m owner --uid-owner "${SEMSE_P0_UID:-0}" ! -o lo -j SEMSE_P0_OUTBOUND || true
+            fi
+            sudo "$family" -F SEMSE_P0_OUTBOUND 2>/dev/null || true
+            sudo "$family" -X SEMSE_P0_OUTBOUND 2>/dev/null || true
+          done
 
       - name: Scope of evidence
         if: success()
