@@ -87,10 +87,8 @@ async function login(page: Page, role: Role): Promise<boolean> {
 // Already-reported defects: reported as annotations instead of failing the
 // whole case, and flagged when they stop reproducing so the entry gets removed.
 // Each needs a finding reference in docs/semse-kit/test-matrix.md.
-const KNOWN_BFF_FAILURES: Record<string, string> = {
-  "/api/semse/sse/mission-control":
-    "KIT-F3-01: @Sse(\"mission-control\") has no RBAC metadata, the deny-by-default guard returns 403 for every role and the BFF reports it as 503",
-};
+// Empty since #1023: the mission-control stream (KIT-F3-01) now answers its real 403, not 503.
+const KNOWN_BFF_FAILURES: Record<string, string> = {};
 
 function watchBff(page: Page) {
   const failures: string[] = [];
