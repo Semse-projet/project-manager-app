@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useLanguage } from "../../../../../lib/language-context";
+import { messageFromError, renderMessage, type UiMessage } from "../../../../../lib/ui-message";
 import { ArrowLeft, BadgeCheck, CheckSquare } from "lucide-react";
 import { Badge, Card } from "@/components/ui";
 import { buildOpsTaskPriorityLabel, buildOpsTaskStatusLabel } from "../../../../lib/buildops-i18n";
@@ -43,7 +44,7 @@ export default function NewBuildOpsTaskPage() {
     projectId: projectIdFromQuery,
   });
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<UiMessage | null>(null);
 
   async function handleSave() {
     setSaving(true);
@@ -63,7 +64,7 @@ export default function NewBuildOpsTaskPage() {
       });
       router.push(`/buildops/tasks/${task.id}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("common.serverError"));
+      setError(messageFromError(err, "common.serverError"));
     } finally {
       setSaving(false);
     }
@@ -89,7 +90,7 @@ export default function NewBuildOpsTaskPage() {
             {t("buildops.newTaskIntro")}
           </p>
           {projectIdFromQuery ? <p className="text-sm text-muted">{t("buildops.projectContext")}: {projectIdFromQuery}</p> : null}
-          {error ? <p className="text-sm text-red-400">{error}</p> : null}
+          {error ? <p className="text-sm text-red-400">{renderMessage(error, t)}</p> : null}
         </section>
 
         <Card className="grid gap-4">

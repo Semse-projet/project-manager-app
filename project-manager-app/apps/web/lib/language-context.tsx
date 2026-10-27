@@ -1,8 +1,15 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import {
+  DEFAULT_LANGUAGE,
+  LANGUAGE_STORAGE_KEY,
+  languageCookie,
+  parseLanguagePreference,
+  type LanguagePreference,
+} from "./language-preference";
 
-export type LanguagePreference = "es" | "en";
+export type { LanguagePreference } from "./language-preference";
 
 interface LanguageContextValue {
   language: LanguagePreference;
@@ -2537,26 +2544,57 @@ const T: Record<LanguagePreference, Record<string, string>> = {
 };
 
 const LanguageContext = createContext<LanguageContextValue>({
-  language: "es",
+  language: DEFAULT_LANGUAGE,
   setLanguage: () => {},
   t: (key) => key,
 });
 
+// Language the server rendered with, read from the preference cookie in the root
+// layout. Every LanguageProvider starts from it, so the first paint is already in
+// the visitor's language instead of flashing Spanish until an effect runs.
+const InitialLanguageContext = createContext<LanguagePreference>(DEFAULT_LANGUAGE);
+
+export function InitialLanguageProvider({ value, children }: { value: LanguagePreference; children: ReactNode }) {
+  return <InitialLanguageContext.Provider value={value}>{children}</InitialLanguageContext.Provider>;
+}
+
+function persistLanguage(lang: LanguagePreference) {
+  try {
+    window.localStorage.setItem(LANGUAGE_STORAGE_KEY, lang);
+  } catch {
+    // Private mode or blocked storage: the cookie below still carries the choice.
+  }
+  document.cookie = languageCookie(lang, window.location.protocol === "https:");
+  document.documentElement.lang = lang;
+}
+
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [language, setLanguageState] = useState<LanguagePreference>("es");
+  const initialLanguage = useContext(InitialLanguageContext);
+  const [language, setLanguageState] = useState<LanguagePreference>(initialLanguage);
 
   useEffect(() => {
-    const saved = window.localStorage.getItem("semse-language");
-    if (saved === "es" || saved === "en") {
-      setLanguageState(saved);
-      document.documentElement.lang = saved;
+    // Visitors who chose a language before the cookie existed only have it in
+    // localStorage: apply it once and write the cookie so the next load renders
+    // directly in that language.
+    let saved: LanguagePreference | null = null;
+    try {
+      saved = parseLanguagePreference(window.localStorage.getItem(LANGUAGE_STORAGE_KEY));
+    } catch {
+      saved = null;
     }
+    const cookie = parseLanguagePreference(
+      document.cookie.match(new RegExp(`(?:^|; )${LANGUAGE_STORAGE_KEY}=([^;]*)`))?.[1],
+    );
+    const effective = cookie ?? saved ?? initialLanguage;
+    if (effective !== language) setLanguageState(effective);
+    if (cookie !== effective || saved !== effective) persistLanguage(effective);
+    // Only on mount: later changes go through setLanguage.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function setLanguage(lang: LanguagePreference) {
     setLanguageState(lang);
-    window.localStorage.setItem("semse-language", lang);
-    document.documentElement.lang = lang;
+    persistLanguage(lang);
   }
 
   function t(key: string): string {
