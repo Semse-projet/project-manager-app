@@ -5,6 +5,9 @@
 **PR documental:** #1003  
 **Estatus:** **PLAN PROPUESTO — NO AUTORIZA IMPLEMENTACIÓN NI DESPLIEGUE**
 
+> **Checkpoint 2026-10-27: cookie SSR ya existente.** En `main` ya están `apps/web/lib/language-preference.ts`, lectura de cookie `semse-language` en el layout, `InitialLanguageProvider` y `tests/unit/language-preference-cookie.test.ts`. Esta sección registra la auditoría histórica anterior, **no** describe su ausencia actual. [ADR-046](../../architecture/ADR-046-semse-ui-localization-runtime.md) sigue PROPOSED; [análisis](localization-architecture.analyze.md) actualizado. La cuenta cross-device y el smoke autenticado del wizard siguen pendientes.
+
+
 
 > **Estado del plan:** decisiones D1–D7 abiertas y smoke ES/EN autenticado no ejecutado para este PR documental.
 
@@ -29,7 +32,7 @@ Auditoría histórica de `main` (2026-10-19); requiere rebaseline antes de aprob
 | **D1** Runtime | **Conservar temporalmente `useLanguage`**, ejecutar spike aislado comparativo `next-intl` con Next.js 15.5.27/React 19. Seleccionar solo una solución tras piloto. | El spike no cambia dependencias de `main` ni el middleware existente sin revisión. Comparar SSR, compatibilidad de claves, paquete final y regresión por roles. |
 | **D2** Piloto | Realizar **los 4 pasos** de `/client/jobs/new`, incluidas validaciones, errores, propuestas de presupuesto, revisión final y estado vacío. | Flujo completo ES/EN en navegador móvil y escritorio; el piloto no publica trabajos reales en producción. |
 | **D3** Fallback | Proponer español como fallback **solo tras completar cobertura y pruebas**; registrar claves ausentes y fallar CI en riesgo alto. | No enseñar `payments.release.confirmAction` al usuario ni usar fallback silencioso para mensajes legales; errores críticos requieren mensaje seguro y aprobado. |
-| **D4** Preferencia | Fuente autenticada propuesta: preferencia de cuenta validada y cookie de sesión segura para SSR; preferencia explícita guardada prevalece sobre cabecera del navegador. | Evitar lectura de `localStorage` en servidor, fugas entre usuarios o parpadeos de hidratación; cuentas/tenants concurrentes. No diseñar migraciones hasta SDD APPROVED. |
+| **D4** Preferencia | Cookie SSR + `localStorage` por navegador **ya implementados parcialmente**; fuente autenticada opcional propuesta: preferencia de cuenta validada y cookie de sesión segura para SSR; preferencia explícita guardada prevalece sobre cabecera del navegador. | Evitar lectura de `localStorage` en servidor, fugas entre usuarios o parpadeos de hidratación; cuentas/tenants concurrentes. No diseñar migraciones hasta SDD APPROVED. |
 | **D5** SEO | No introducir rutas públicas `/es` y `/en` ni `hreflang` durante este piloto, porque hay `robots:noindex`. | Revisar política SEO aparte. Con `next-intl`, `localePrefix:"never"` también precisa estudiar reescrituras/rutas y su interacción con auth; no configurarlo a ciegas. |
 | **D6** Textos críticos | Revisión humana técnica y legal/producto antes de aprobar mensajes de pagos, custodias, disputas, consentimientos, ofertas y firmas. | Ninguna traducción puede implicar garantía de custodia no verificada, cambiar aceptación contractual ni autorizar fondos. |
 | **D7** Contenido dinámico | Aplazar proveedores externos y traducción de documentos privados, chats, RAG y evidencias. En el piloto solo UI estática, códigos semánticos seguros y metadatos de idioma. | Respetar issue P0 #974, PR #987, consentimiento y controles org/proyecto/tenant. |
@@ -47,7 +50,7 @@ Este plan está subordinado a [DEC-PLATFORM-001](../../architecture/DEC-PLATFORM
 
 ### P0 — Sanear base y CI del documento
 
-1. Verificar CI sobre cada HEAD final y registrar los estados de jobs; no usar los resultados de commits anteriores como prueba de nuevos cambios.
+1. Verificar CI sobre el HEAD final y registrar pasos, no usar resultados de commits anteriores. El fallo antiguo de `quality-gates` en #4413 fue `spec:index:check`: índice desincronizado (206 specs); `spec:validate:strict` y `spec:audit-plan-coverage` pasaron. La fila del índice fue actualizada después, pero sólo el nuevo CI permite acreditar el arreglo.
 2. Validar correspondencia de metadata/index generado con `pnpm spec:validate:strict --base-ref <sha-main>`, `pnpm spec:index:check`, `pnpm spec:audit-plan-coverage`. No editar a mano la matriz generada.
 3. Reconocer #968, #969 y #970 como fusionados; #973 abierto con bloqueo de seguridad. Recalcular cobertura real de `main`: la paridad de claves de ramas no mide cobertura de rutas.
 
