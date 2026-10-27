@@ -121,6 +121,7 @@ jobs:
               SEMSE_EVENT_CONSUMERS_ENABLED=false \
               SEMSE_EVENT_OUTBOX_DISPATCH_ENABLED=false \
               SEMSE_CURATED_KNOWLEDGE_ENABLED=false PAYMENT_PROVIDER=mock \
+              SEMSE_PRICE_REFRESH_EXTERNAL_ENABLED=false \
               AUTH_SECRET="$secret" \
               HOST=127.0.0.1 PORT="$port" \
               strace -f -e trace=connect -s 0 node apps/api/dist/main.js \
