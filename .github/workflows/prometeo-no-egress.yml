@@ -77,6 +77,24 @@ jobs:
             sudo apt-get install -qq -y iptables
           fi
           sudo useradd --system --no-create-home --shell /usr/sbin/nologin semse_p0
+          # GitHub's runner home can be non-traversable to another UID.
+          # Grant only the QA UID execute/traverse rights on ancestors,
+          # not world-readable permissions or write access.
+          if ! command -v setfacl >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -qq -y acl
+          fi
+          cursor="$PWD"
+          while [ "$cursor" != / ]; do
+            sudo setfacl -m u:semse_p0:--x "$cursor"
+            cursor="$(dirname "$cursor")"
+          done
+          sudo setfacl -m u:semse_p0:r-x "$PWD"
+          if ! sudo -u semse_p0 test -r apps/api/dist/main.js; then
+            echo "Restricted API user cannot read the compiled entrypoint"
+            exit 1
+          fi
+          echo "PASS: restricted UID can read only required built-code paths"
           uid="$(id -u semse_p0)"
           echo "SEMSE_P0_UID=$uid" >> "$GITHUB_ENV"
           # Block both IPv4 and IPv6. Filtering only IPv4 leaves an egress
@@ -105,7 +123,7 @@ jobs:
               SEMSE_CURATED_KNOWLEDGE_ENABLED=false PAYMENT_PROVIDER=mock \
               AUTH_SECRET="$secret" \
               HOST=127.0.0.1 PORT="$port" \
-              pnpm --filter @semse/api start > "$RUNNER_TEMP/semse-p0-$port.log" 2>&1 &
+              node apps/api/dist/main.js > "$RUNNER_TEMP/semse-p0-$port.log" 2>&1 &
             echo $! > "$RUNNER_TEMP/semse-p0-$port.pid"
           done
 
