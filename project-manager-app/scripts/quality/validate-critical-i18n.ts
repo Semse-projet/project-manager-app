@@ -166,7 +166,9 @@ export function parseObjectLiteral(src: string, start: number, prefix = "", out 
 }
 
 function findProperty(src: string, from: number, to: number, name: string): number {
-  const re = new RegExp(`\\n\\s*${name}\\s*:\\s*\\{`, "g");
+  // Accept both multiline and compact `}, en: {` catalog properties.
+  // The previous newline-only matcher silently skipped compact fixtures.
+  const re = new RegExp(`(?:\\n|,)\\s*${name}\\s*:\\s*\\{`, "g");
   re.lastIndex = from;
   const m = re.exec(src);
   return m && m.index < to ? src.indexOf("{", m.index + 1) : -1;
