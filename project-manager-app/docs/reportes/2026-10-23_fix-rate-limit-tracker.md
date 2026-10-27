@@ -65,3 +65,11 @@ No se ha podido ver la configuración real de Railway (el conector no está auto
 2. El limitador propio del login web (`auth/token/route.ts`) cuenta por la entrada **más a la izquierda** de `X-Forwarded-For`, que el cliente controla. Se puede saltar su cupo por IP, aunque el cupo por correo sigue funcionando. No se cambia aquí para no ampliar el PR.
 3. Confirmar en Railway qué cabeceras añade el proxy delante de la web. Si delante hay otro proxy (por ejemplo Cloudflare), la entrada de la derecha sería la de ese proxy y habría que tomar la anterior.
 4. En #1022, marcar KIT-F3-04 como corregido.
+
+## Corrección posterior (2026-10-27): la identidad del cuerpo, sólo al emitir tokens
+
+La revisión de Codex en #1029 señaló que el guard usaba `tenantId` y `userId` del cuerpo en **cualquier** petición de la BFF acreditada con el bootstrap token. Pero `/api/semse/auth/login` (móvil), registro y recuperación de contraseña reenvían el JSON que escribe el visitante. Añadiendo esos dos campos, y cambiándolos en cada intento, se obtenía un cupo nuevo por intento y se esquivaba el límite de 5 logins por minuto.
+
+- La identidad del cuerpo sólo cuenta en `POST /v1/auth/token`, la única llamada en la que la propia BFF elige la identidad. El resto se cuenta por la IP del visitante.
+- Tests: 2 nuevos que fallan con el guard anterior; 11/11 en verde con el arreglo.
+- En vivo (API local): 6 logins con contraseña incorrecta desde el mismo visitante, cambiando `tenantId`/`userId` cada vez, dan 401 ×5 y luego 429. El login web de cliente, profesional y admin, que pasa por `/v1/auth/token`, sigue funcionando.

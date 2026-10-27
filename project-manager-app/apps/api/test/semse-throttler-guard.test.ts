@@ -58,11 +58,26 @@ test("the BFF: forwarded client IP, or the identity it bootstraps a token for", 
   const login = { ip: BFF_IP, headers: { "x-semse-bootstrap-token": BOOTSTRAP, "x-semse-client-ip": "203.0.113.1" }, body: { email: "a@b.c" } };
   assert.equal(resolveThrottleTracker(login), "ip:203.0.113.1");
 
-  const tokenBootstrap = { ip: BFF_IP, headers: { "x-semse-bootstrap-token": BOOTSTRAP }, body: { tenantId: "tenant_1", userId: "usr_9" } };
+  const tokenBootstrap = { ip: BFF_IP, url: "/v1/auth/token", headers: { "x-semse-bootstrap-token": BOOTSTRAP }, body: { tenantId: "tenant_1", userId: "usr_9" } };
   assert.equal(resolveThrottleTracker(tokenBootstrap), "identity:tenant_1:usr_9");
 
   const notAnIp = { ip: BFF_IP, headers: { "x-semse-bootstrap-token": BOOTSTRAP, "x-semse-client-ip": "unknown" } };
   assert.equal(resolveThrottleTracker(notAnIp), `ip:${BFF_IP}`);
+}));
+
+test("a visitor-written tenantId/userId never picks the bucket outside token issuance", withEnv(ENV, () => {
+  // /api/semse/auth/login (mobile), register and password reset forward the visitor's JSON body.
+  for (const url of ["/v1/auth/login", "/v1/auth/register", "/v1/auth/password-reset/request", "/v1/auth/token/extra"]) {
+    const request = {
+      ip: BFF_IP,
+      url,
+      headers: { "x-semse-bootstrap-token": BOOTSTRAP, "x-semse-client-ip": "203.0.113.8" },
+      body: { email: "a@b.c", password: "guess", tenantId: "t_rotated", userId: "u_rotated" },
+    };
+    assert.equal(resolveThrottleTracker(request), "ip:203.0.113.8", url);
+  }
+  const withQuery = { ip: BFF_IP, url: "/v1/auth/token?x=1", headers: { "x-semse-bootstrap-token": BOOTSTRAP }, body: { tenantId: "tenant_1", userId: "usr_9" } };
+  assert.equal(resolveThrottleTracker(withQuery), "identity:tenant_1:usr_9");
 }));
 
 test("the BFF's forwarded IP wins over the server's static Bearer identity", withEnv(ENV, () => {
@@ -129,4 +144,16 @@ test("one visitor is still limited, and so is an untrusted caller rotating forwa
     guard.canActivate(http({ ip: "198.51.100.9", headers: { "x-semse-client-ip": "203.0.113.200" } })),
     ThrottlerException,
   );
+}));
+
+test("rotating tenantId/userId in a login body does not escape the visitor's limit", withEnv(ENV, async () => {
+  const guard = await makeGuard();
+  const attempt = (i: number) => ({
+    ip: BFF_IP,
+    url: "/v1/auth/login",
+    headers: { "x-semse-bootstrap-token": BOOTSTRAP, "x-semse-client-ip": "203.0.113.60" },
+    body: { email: "victim@example.com", password: `guess-${i}`, tenantId: `t_${i}`, userId: `u_${i}` },
+  });
+  for (let i = 0; i < 5; i++) assert.equal(await guard.canActivate(http(attempt(i))), true);
+  await assert.rejects(guard.canActivate(http(attempt(5))), ThrottlerException);
 }));
