@@ -132,19 +132,19 @@ export class TaskAllocationsService {
     const crew = await this.requireCrewScope(actor, crewId);
     return this.prisma.$transaction(async (tx) => {
       const task = await tx.jobTask.create({
-      data: {
-        tenantId: actor.tenantId,
-        orgId: crew.orgId,
-        title: input.title,
-        description: input.description ?? null,
-        dueDate: input.dueDate ?? null,
-        priority: input.priority ?? "medium",
-        createdBy: actor.userId,
-        sourceTool: "crew",
-        entityType: "Crew",
-        entityId: crew.id
-      }
-    });
+        data: {
+          tenantId: actor.tenantId,
+          orgId: crew.orgId,
+          title: input.title,
+          description: input.description ?? null,
+          dueDate: input.dueDate ?? null,
+          priority: input.priority ?? "medium",
+          createdBy: actor.userId,
+          sourceTool: "crew",
+          entityType: "Crew",
+          entityId: crew.id
+        }
+      });
       await this.record(actor.tenantId, crew.orgId, actor.userId, "crew_task.created", task.id, requestId, { crewId: crew.id }, tx);
       return this.taskView(task);
     }, { isolationLevel: "Serializable" });
@@ -195,60 +195,60 @@ export class TaskAllocationsService {
     // batch back. This does not yet replace the full authorization/race gates.
     return this.prisma.$transaction(async (tx) => {
       const result: AllocationRow[] = [];
-    for (const userId of unique) {
-      const existing = await tx.taskAllocation.findFirst({ where: { taskId, userId } });
-      // La consulta de prevalidación no sustituye la verificación en cada intento.
-      if (existing && (existing.tenantId !== actor.tenantId || existing.orgId !== crew.orgId || existing.crewId !== crew.id)) {
-        throw new ConflictException("La asignación no está disponible; solicita revisión al responsable");
-      }
-      let row: AllocationRow;
-      if (!existing) {
-        row = await tx.taskAllocation.create({
-          data: {
-            tenantId: actor.tenantId,
-            orgId: crew.orgId,
-            taskId,
-            crewId: crew.id,
-            userId,
-            assignedByUserId: actor.userId,
-            assignReason: reason ?? null
-          }
-        });
-      } else if (existing.status === "RELEASED") {
-        const reopened = await tx.taskAllocation.updateMany({
-          where: {
-            id: existing.id,
-            tenantId: actor.tenantId,
-            orgId: crew.orgId,
-            crewId: crew.id,
-            taskId,
-            userId,
-            status: "RELEASED"
-          },
-          data: {
-            status: "ASSIGNED",
-            crewId: crew.id,
-            assignedByUserId: actor.userId,
-            assignReason: reason ?? null,
-            assignedAt: new Date(),
-            acknowledgedAt: null,
-            releasedAt: null,
-            releasedByUserId: null,
-            releaseReason: null,
-            statusNote: null
-          }
-        });
-        if (reopened.count !== 1) throw new ConflictException("La asignación cambió; vuelve a intentar");
-        row = { ...existing, status: "ASSIGNED", crewId: crew.id, assignReason: reason ?? null, releasedAt: null, releaseReason: null, acknowledgedAt: null, statusNote: null, assignedAt: new Date() };
-      } else {
-        // Ya asignada y vigente: idempotente, no se duplica.
-        row = existing;
+      for (const userId of unique) {
+        const existing = await tx.taskAllocation.findFirst({ where: { taskId, userId } });
+        // La consulta de prevalidación no sustituye la verificación en cada intento.
+        if (existing && (existing.tenantId !== actor.tenantId || existing.orgId !== crew.orgId || existing.crewId !== crew.id)) {
+          throw new ConflictException("La asignación no está disponible; solicita revisión al responsable");
+        }
+        let row: AllocationRow;
+        if (!existing) {
+          row = await tx.taskAllocation.create({
+            data: {
+              tenantId: actor.tenantId,
+              orgId: crew.orgId,
+              taskId,
+              crewId: crew.id,
+              userId,
+              assignedByUserId: actor.userId,
+              assignReason: reason ?? null
+            }
+          });
+        } else if (existing.status === "RELEASED") {
+          const reopened = await tx.taskAllocation.updateMany({
+            where: {
+              id: existing.id,
+              tenantId: actor.tenantId,
+              orgId: crew.orgId,
+              crewId: crew.id,
+              taskId,
+              userId,
+              status: "RELEASED"
+            },
+            data: {
+              status: "ASSIGNED",
+              crewId: crew.id,
+              assignedByUserId: actor.userId,
+              assignReason: reason ?? null,
+              assignedAt: new Date(),
+              acknowledgedAt: null,
+              releasedAt: null,
+              releasedByUserId: null,
+              releaseReason: null,
+              statusNote: null
+            }
+          });
+          if (reopened.count !== 1) throw new ConflictException("La asignación cambió; vuelve a intentar");
+          row = { ...existing, status: "ASSIGNED", crewId: crew.id, assignReason: reason ?? null, releasedAt: null, releaseReason: null, acknowledgedAt: null, statusNote: null, assignedAt: new Date() };
+        } else {
+          // Ya asignada y vigente: idempotente, no se duplica.
+          row = existing;
+          result.push(row);
+          continue;
+        }
+        await this.record(actor.tenantId, crew.orgId, actor.userId, "task_allocation.assigned", row.id, requestId, { taskId, crewId: crew.id, userId }, tx);
         result.push(row);
-        continue;
       }
-      await this.record(actor.tenantId, crew.orgId, actor.userId, "task_allocation.assigned", row.id, requestId, { taskId, crewId: crew.id, userId }, tx);
-      result.push(row);
-    }
       return result.map((row) => this.view(row));
     }, { isolationLevel: "Serializable" });
   }
