@@ -34,6 +34,7 @@ function makeWorld() {
     { userId: "ghost", orgId: "orgA", status: "SUSPENDED", role: { key: "WORKER" }, org: { tenantId: "t1" } }
   ];
   let seq = 0;
+  let beforeAllocationUpdate: (() => void) | null = null;
   const match = (row: Row, where: Row): boolean =>
     Object.entries(where).every(([k, v]) => (v && typeof v === "object" && "in" in (v as Row) ? (v as Row).in.includes(row[k]) : row[k] === v));
   const table = (rows: Row[], defaults: () => Row) => ({
@@ -48,6 +49,11 @@ function makeWorld() {
       return row;
     },
     async updateMany({ where, data }: any) {
+      if (rows === allocations && beforeAllocationUpdate) {
+        const callback = beforeAllocationUpdate;
+        beforeAllocationUpdate = null;
+        callback();
+      }
       const hit = rows.filter((r) => match(r, where));
       hit.forEach((r) => Object.assign(r, data));
       return { count: hit.length };
@@ -67,7 +73,10 @@ function makeWorld() {
     taskAllocation: table(allocations, () => ({ status: "ASSIGNED", assignedAt: new Date(), acknowledgedAt: null, releasedAt: null, releaseReason: null, statusNote: null, assignReason: null }))
   };
   const audit: any = { async append(entry: Row) { audits.push(entry); } };
-  return { service: new TaskAllocationsService(prisma, audit), allocations, audits, tasks, crews, crewMembers, memberships };
+  return {
+    service: new TaskAllocationsService(prisma, audit), allocations, audits, tasks, crews, crewMembers, memberships,
+    beforeNextAllocationUpdate(callback: () => void) { beforeAllocationUpdate = callback; }
+  };
 }
 
 const sup = { tenantId: "t1", userId: "sup", roles: ["WORKER"] };
@@ -184,6 +193,41 @@ test("S0A-SCOPE-01: listado y liberación ignoran asignaciones con org/tenant in
   await assert.rejects(w.service.release(sup, "c1", "task1", "bob", "r-foreign-org", "sin autoridad"), { status: 404 });
   assert.deepEqual(w.allocations.map((row) => row.status), ["ASSIGNED", "ASSIGNED"]);
   assert.equal(w.audits.length, 0);
+});
+
+test("S0A-CAS-01: release no modifica allocation si cambia de crew entre lectura y escritura", async () => {
+  const w = makeWorld();
+  await w.service.assign(sup, "c1", "task1", "r-before", ["ana"]);
+  const beforeAuditCount = w.audits.length;
+  w.beforeNextAllocationUpdate(() => {
+    // Emular otra transacción que reemplaza la fila entre findFirst y updateMany.
+    w.allocations[0] = { ...w.allocations[0], crewId: "c2" };
+  });
+  await assert.rejects(
+    w.service.release(sup, "c1", "task1", "ana", "r-race", "se mueve a otro frente"),
+    { status: 409 }
+  );
+  assert.equal(w.allocations[0].crewId, "c2");
+  assert.equal(w.allocations[0].status, "ASSIGNED");
+  assert.equal(w.audits.length, beforeAuditCount, "no success audit on failed compare-and-swap");
+});
+
+test("S0A-CAS-02: worker status no modifica allocation si cambia de Org antes de updateMany", async () => {
+  const w = makeWorld();
+  const [allocation] = await w.service.assign(sup, "c1", "task1", "r-before", ["ana"]);
+  const beforeAuditCount = w.audits.length;
+  w.beforeNextAllocationUpdate(() => {
+    // El objeto devuelto por findFirst es un snapshot; reemplazar la fila
+    // emula una escritura externa sin mutar el snapshot que conserva el servicio.
+    w.allocations[0] = { ...w.allocations[0], orgId: "orgC" };
+  });
+  await assert.rejects(
+    w.service.updateStatus(ana, allocation.allocationId, "IN_PROGRESS", undefined, "r-race"),
+    { status: 409 }
+  );
+  assert.equal(w.allocations[0].orgId, "orgC");
+  assert.equal(w.allocations[0].status, "ASSIGNED");
+  assert.equal(w.audits.length, beforeAuditCount);
 });
 
 test("N03b: lote mixto de WORKER ACTIVE y suspendido no deja escrituras parciales", async () => {
