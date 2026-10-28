@@ -28,6 +28,18 @@ date: "2026-10-22"
 - [x] Mapa de dependencias y evidencia en
   `docs/reportes/2026-10-28_s0a-s0b-live-pr-reconciliation.md`.
 
+## Aislamiento multi-tenant S0a — cambios en PR #1054
+
+- [x] Lecturas `crews/mine` y `crews/:id/roster` ahora reciben
+  tenant desde el actor autenticado, en el código propuesto #1054.
+- [x] Caso `S0A-TENANT-01` escrito: misma identidad en dos tenants,
+  visibilidad solo en el tenant de sesión y 404 cruzado.
+- [x] Casos complementarios `N03b` y `N04b` escritos: suspensión
+  WORKER con PRO activo, lote sin escrituras y revocación de acciones.
+- [ ] Ejecutar pruebas dirigidas (no se ha ejecutado el código);
+  prueba autenticada y revisión de seguridad sobre HEAD definitivo.
+- [ ] CI al final de preparación, antes de merge; sin debilitar gates.
+
 ## Seguridad y privacidad
 - [ ] Política backend en toda ruta, incluidas list y roster.
 - [ ] WORKER ACTIVE exigido aunque PRO siga ACTIVE.
