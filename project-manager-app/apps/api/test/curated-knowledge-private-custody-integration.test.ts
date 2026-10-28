@@ -97,6 +97,21 @@ dbTest("F1A: private defaults, tenant-bound FK, version immutability keys, and c
     assert.equal(consent.purpose, "RAG_REFERENCE");
     assert.ok(consent.expiresAt.getTime() > Date.now());
     assert.equal(consent.withdrawnAt, null);
+    // A direct PostgreSQL caller can bypass Prisma's Date checks.
+    // 'infinity' compares greater than grantedAt, but is not a finite consent.
+    await assert.rejects(db.$executeRawUnsafe(`
+      INSERT INTO "CuratedPublicationConsent"
+        ("id", "tenantId", "versionId", "actorType", "actorUserId",
+         "scope", "purpose", "versionContentSha256", "audiencePolicySha256",
+         "noticeVersion", "idempotencyKey", "expiresAt")
+      VALUES ($1, $2, $3, 'CONTRIBUTOR', $4, 'TENANT_CURATED',
+              'RAG_REFERENCE', $5, $6, 'infinity-sql-negative',
+              $7, 'infinity'::timestamp(3))
+    `, "ck-infinite-consent-" + suffix, tA, version.id, userB, hash,
+      policyHash, "ck-infinite-key-" + suffix),
+      /CuratedPublicationConsent_finite_timestamps/,
+      "Raw SQL consent expiry infinity must fail the DB constraint");
+
     await assert.rejects(db.curatedPublicationConsent.create({
       data: {
         tenantId: tA, versionId: version.id, actorType: "CONTRIBUTOR",
