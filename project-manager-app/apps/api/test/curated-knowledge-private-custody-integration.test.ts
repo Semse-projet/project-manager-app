@@ -281,6 +281,10 @@ dbTest("F1A: private defaults, tenant-bound FK, version immutability keys, and c
       data: { versionEverCreated: false },
     }), "Historical version latch cannot be reset");
     await assert.rejects(
+      db.$executeRawUnsafe('TRUNCATE TABLE "CuratedKnowledgeEntry" CASCADE'),
+      "Parent TRUNCATE cannot bypass historical provenance safeguards",
+    );
+    await assert.rejects(
       db.$executeRawUnsafe('TRUNCATE TABLE "CuratedKnowledgeVersion" CASCADE'),
       "TRUNCATE CASCADE cannot bypass version-delete tombstones",
     );
