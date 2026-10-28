@@ -109,6 +109,66 @@ test("AC-02 un gestor de cuadrillas de la Org sí puede; un supervisor suspendid
   await assert.rejects(w.service.assign(ghost, "c1", "task1", "r", ["ana"]), { status: 404 });
 });
 
+test("S0B-N10: tarea Crew c1 no se puede asignar desde c2 en la misma org", async () => {
+  const w = makeWorld();
+  w.memberships.push({ userId: "eva", orgId: "orgA", status: "ACTIVE", role: { key: "WORKER" }, org: { tenantId: "t1" } });
+  const created = await w.service.createCrewTask(sup, "c1", "r1", { title: "Hab. 205 — Reparar pared" });
+  const initialAuditCount = w.audits.length;
+  await assert.rejects(
+    w.service.assign({ tenantId: "t1", userId: "sup2", roles: ["WORKER"] }, "c2", created.taskId, "r2", ["eva"]),
+    { status: 422 }
+  );
+  assert.equal(w.allocations.length, 0);
+  assert.equal(w.audits.length, initialAuditCount);
+});
+
+test("S0B-N11: asignación existente de c1 nunca se devuelve como idempotente en c2", async () => {
+  const w = makeWorld();
+  w.crewMembers.push({ crewId: "c2", userId: "ana", status: "ACTIVE" });
+  const [original] = await w.service.assign(sup, "c1", "task1", "r1", ["ana"]);
+  const initialAuditCount = w.audits.length;
+  await assert.rejects(
+    w.service.assign({ tenantId: "t1", userId: "sup2", roles: ["WORKER"] }, "c2", "task1", "r2", ["ana"]),
+    { status: 409 }
+  );
+  assert.equal(w.allocations.length, 1);
+  assert.equal(w.allocations[0].id, original.allocationId);
+  assert.equal(w.allocations[0].crewId, "c1");
+  assert.equal(w.allocations[0].status, "ASSIGNED");
+  assert.equal(w.audits.length, initialAuditCount);
+});
+
+test("S0B-N12: asignación RELEASED de otra crew no se transfiere silenciosamente", async () => {
+  const w = makeWorld();
+  w.crewMembers.push({ crewId: "c2", userId: "ana", status: "ACTIVE" });
+  await w.service.assign(sup, "c1", "task1", "r1", ["ana"]);
+  await w.service.release(sup, "c1", "task1", "ana", "r2", "terminó asignación");
+  const initialAuditCount = w.audits.length;
+  await assert.rejects(
+    w.service.assign({ tenantId: "t1", userId: "sup2", roles: ["WORKER"] }, "c2", "task1", "r3", ["ana"]),
+    { status: 409 }
+  );
+  assert.equal(w.allocations[0].status, "RELEASED");
+  assert.equal(w.allocations[0].crewId, "c1");
+  assert.equal(w.audits.length, initialAuditCount);
+});
+
+test("S0B-N13: lote mixto con asignación ajena no crea asignaciones parciales", async () => {
+  const w = makeWorld();
+  w.crewMembers.push({ crewId: "c2", userId: "ana", status: "ACTIVE" });
+  w.memberships.push({ userId: "eva", orgId: "orgA", status: "ACTIVE", role: { key: "WORKER" }, org: { tenantId: "t1" } });
+  await w.service.assign(sup, "c1", "task1", "r1", ["ana"]);
+  const initialAuditCount = w.audits.length;
+  await assert.rejects(
+    w.service.assign({ tenantId: "t1", userId: "sup2", roles: ["WORKER"] }, "c2", "task1", "r2", ["eva", "ana"]),
+    { status: 409 }
+  );
+  assert.equal(w.allocations.length, 1);
+  assert.equal(w.allocations[0].userId, "ana");
+  assert.equal(w.allocations[0].crewId, "c1");
+  assert.equal(w.audits.length, initialAuditCount);
+});
+
 test("AC-03 solo miembros ACTIVOS de la cuadrilla; la tarea debe ser de la Org y no estar cerrada", async () => {
   const w = makeWorld();
   await assert.rejects(w.service.assign(sup, "c1", "task1", "r", ["eva"]), { status: 422 });
