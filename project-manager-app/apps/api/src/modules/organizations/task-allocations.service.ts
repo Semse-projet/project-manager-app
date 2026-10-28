@@ -109,7 +109,12 @@ export class TaskAllocationsService {
       requestId,
       timestamp: new Date().toISOString(),
       afterJson
-    });
+    };
+    if (tx) {
+      await this.audit.appendInTransaction(entry, tx);
+    } else {
+      await this.audit.append(entry);
+    }
   }
 
   /**
