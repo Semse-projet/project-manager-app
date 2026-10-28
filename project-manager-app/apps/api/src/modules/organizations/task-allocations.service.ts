@@ -194,6 +194,41 @@ export class TaskAllocationsService {
     // Transaction guarantees that any failed allocation OR audit rolls the entire
     // batch back. This does not yet replace the full authorization/race gates.
     return this.prisma.$transaction(async (tx) => {
+      // Recheck authorization and recipients INSIDE the serializable snapshot.
+      // A membership or crew revocation between preflight and transaction must
+      // not produce a new allocation using stale authority.
+      const liveCrew = await tx.crew.findFirst({
+        where: { id: crew.id, tenantId: actor.tenantId, orgId: crew.orgId, status: "ACTIVE" }
+      });
+      if (!liveCrew) throw new ConflictException("La cuadrilla cambió; vuelve a intentar");
+      const liveActorRoles = await tx.membership.findMany({
+        where: { userId: actor.userId, orgId: crew.orgId, status: "ACTIVE", org: { tenantId: actor.tenantId } },
+        include: { role: true }
+      });
+      const validSupervisor = liveCrew.supervisorUserId === actor.userId &&
+        liveActorRoles.some((membership) => membership.role.key === "WORKER");
+      const validManager = hasPermission(liveActorRoles.map((membership) => membership.role.key), CREWS_MANAGE);
+      if (!validSupervisor && !validManager) throw new ConflictException("La autoridad cambió; vuelve a intentar");
+
+      const liveTask = await tx.jobTask.findFirst({
+        where: { id: taskId, tenantId: actor.tenantId, orgId: crew.orgId }
+      });
+      if (!liveTask || liveTask.status === "done" || liveTask.status === "canceled" ||
+          (liveTask.entityType === "Crew" && liveTask.entityId !== crew.id)) {
+        throw new ConflictException("La tarea cambió; vuelve a intentar");
+      }
+      for (const userId of unique) {
+        const activeMember = await tx.crewMember.findFirst({
+          where: { crewId: crew.id, userId, status: "ACTIVE" }
+        });
+        const liveWorkerRoles = await tx.membership.findMany({
+          where: { userId, orgId: crew.orgId, status: "ACTIVE", org: { tenantId: actor.tenantId } },
+          include: { role: true }
+        });
+        if (!activeMember || !liveWorkerRoles.some((membership) => membership.role.key === "WORKER")) {
+          throw new ConflictException("La membresía cambió; vuelve a intentar");
+        }
+      }
       const result: AllocationRow[] = [];
       for (const userId of unique) {
         const existing = await tx.taskAllocation.findFirst({ where: { taskId, userId } });
