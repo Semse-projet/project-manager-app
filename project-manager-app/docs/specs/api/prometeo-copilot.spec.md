@@ -2,7 +2,7 @@
 id: "api-prometeo-copilot"
 title: "Prometeo Copilot API"
 domain: "prometeo"
-status: "IMPLEMENTED"
+status: "REVIEW"
 owner: "semse-core"
 risk: "medium"
 related_files:
@@ -25,6 +25,15 @@ related_events:
 related_agents:
   - "prometeo"
 last_verified: "2026-07-18"
+sdd_version: "2.0"
+code_status: "IN_PROGRESS"
+ci_status: "NOT_RUN"
+merge_status: "UNMERGED"
+deploy_status: "NOT_DEPLOYED"
+activation_status: "INACTIVE"
+migration_status: "NOT_APPLICABLE"
+feature_flags: []
+production_evidence: []
 ---
 
 # Spec: Prometeo Copilot API

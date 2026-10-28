@@ -1,0 +1,376 @@
+import "reflect-metadata";
+import test from "node:test";
+import assert from "node:assert/strict";
+import { PrometeoRepository } from "../dist/modules/prometeo/prometeo.repository.js";
+import { PrometeoController } from "../dist/modules/prometeo/prometeo.controller.js";
+import { PrometeoService } from "../dist/modules/prometeo/prometeo.service.js";
+
+// Positive grant cases opt in explicitly; production remains disabled by default.
+process.env.SEMSE_PROMETEO_DOCUMENT_SHARING_ENABLED = "true";
+const scope = { orgId: "org-A", projectIds: ["project-A"], jobIds: [] };
+
+test("document listing constrains organization and authorized projects before take", async () => {
+  let where: Record<string, unknown> | undefined;
+  let take: number | undefined;
+  const prisma = {
+    prometeoDocument: {
+      async findMany(args: { where: Record<string, unknown>; take?: number }) {
+        where = args.where; take = args.take; return [];
+      },
+    },
+  };
+  const repo = new PrometeoRepository(prisma as never);
+  await repo.listDocuments({ tenantId: "tenant-A", scope, limit: 10 });
+  assert.equal(where?.tenantId, "tenant-A");
+  assert.deepEqual(where?.OR, [
+    { projectId: null, orgId: "org-A" },
+    { projectId: { in: ["project-A"] }, orgId: "org-A" },
+    { grants: { some: { tenantId: "tenant-A", recipientOrgId: "org-A", projectId: { in: ["project-A"] }, revokedAt: null } } },
+  ]);
+  assert.equal(take, 10, "filter is in database query, not applied after pagination");
+});
+
+test("chunk SQL rechecks document ownership and active grants at content-read time", async () => {
+  let chunkWhere: Record<string, unknown> | undefined;
+  const prisma = {
+    // Document IDs must never be preselected into a second unscoped query:
+    // an intervening grant revocation could invalidate that earlier snapshot.
+    prometeoDocument: {
+      async findMany() { throw new Error("unsafe document-ID prefetch"); },
+    },
+    documentChunk: {
+      async findMany(args: { where: Record<string, unknown> }) {
+        chunkWhere = args.where;
+        return [];
+      },
+    },
+  };
+  const repo = new PrometeoRepository(prisma as never);
+  await repo.loadChunksForSearch({ tenantId: "tenant-A", scope, limit: 3 });
+
+  assert.equal(chunkWhere?.tenantId, "tenant-A");
+  assert.deepEqual(chunkWhere?.document, {
+    is: {
+      tenantId: "tenant-A",
+      status: "indexed",
+      OR: [
+        { projectId: null, orgId: "org-A" },
+        { projectId: { in: ["project-A"] }, orgId: "org-A" },
+        {
+          grants: {
+            some: {
+              tenantId: "tenant-A",
+              recipientOrgId: "org-A",
+              projectId: { in: ["project-A"] },
+              revokedAt: null,
+            },
+          },
+        },
+      ],
+    },
+  });
+});
+
+test("feedback stats recheck document grants at query time without a stale ID prefetch", async () => {
+  let feedbackWhere: Record<string, unknown> | undefined;
+  const prisma = {
+    prometeoDocument: {
+      async findMany() { throw new Error("unsafe feedback document-ID prefetch"); },
+    },
+    prometeoChunkFeedback: {
+      async findMany(args: { where: Record<string, unknown> }) {
+        feedbackWhere = args.where;
+        return [];
+      },
+    },
+  };
+  const repo = new PrometeoRepository(prisma as never);
+  const result = await repo.getFeedbackStats("tenant-A", scope);
+  assert.deepEqual(feedbackWhere, {
+    tenantId: "tenant-A",
+    chunk: {
+      is: {
+        tenantId: "tenant-A",
+        document: {
+          is: {
+            tenantId: "tenant-A",
+            OR: [
+              { projectId: null, orgId: "org-A" },
+              { projectId: { in: ["project-A"] }, orgId: "org-A" },
+              {
+                grants: {
+                  some: {
+                    tenantId: "tenant-A",
+                    recipientOrgId: "org-A",
+                    projectId: { in: ["project-A"] },
+                    revokedAt: null,
+                  },
+                },
+              },
+            ],
+          },
+        },
+      },
+    },
+  });
+  assert.equal(result.totalFeedback, 0);
+});
+
+test("Prometeo refuses document ingestion before any write when association is unauthorized", async () => {
+  let wrote = false;
+  const svc = { async ingestText() { wrote = true; return {}; } };
+  const access = {
+    async assertCanCreate() { throw new Error("project access denied"); },
+  };
+  const controller = new PrometeoController(svc as never, access as never);
+  const req = { headers: {}, authContext: { tenantId: "tenant-A", orgId: "org-A", userId: "actor-A", roles: ["CLIENT"] } };
+  await assert.rejects(() => controller.ingest(req as never, { title: "secret", projectId: "project-B", text: "secret" }), /project access denied/);
+  assert.equal(wrote, false);
+});
+
+test("both Prometeo ingest routes reject an empty or blank projectId before persistence", async () => {
+  let writes = 0;
+  const svc = {
+    async ingestText() { writes++; return {}; },
+    async ingestFile() { writes++; return {}; },
+  };
+  const access = { async assertCanCreate() {} };
+  const controller = new PrometeoController(svc as never, access as never);
+  const req = { headers: {}, authContext: { tenantId: "tenant-A", orgId: "org-A", userId: "actor-A", roles: ["CLIENT"] } };
+  for (const projectId of ["", "   "]) {
+    await assert.rejects(
+      () => controller.ingest(req as never, { projectId, title: "secret", text: "private" }),
+      /projectId must be a non-empty string/,
+    );
+    await assert.rejects(
+      () => controller.ingestFile(req as never, { projectId, fileBase64: "YQ==", fileName: "private.txt" }),
+      /projectId must be a non-empty string/,
+    );
+  }
+  assert.equal(writes, 0);
+});
+
+test("Prometeo refuses deletion when the document row is unauthorized", async () => {
+  let deleted = false;
+  const svc = {
+    async getDocument() { return { tenantId: "tenant-A", orgId: "org-B", projectId: null }; },
+    async deleteDocument() { deleted = true; },
+  };
+  const access = {
+    async assertRowAccess() { throw new Error("row denied"); },
+  };
+  const controller = new PrometeoController(svc as never, access as never);
+  const req = { headers: {}, authContext: { tenantId: "tenant-A", orgId: "org-A", userId: "actor-A", roles: ["CLIENT"] } };
+  await assert.rejects(() => controller.deleteDocument(req as never, "doc-B"), /row denied/);
+  assert.equal(deleted, false);
+});
+
+test("Prometeo refuses RAG retrieval before touching chunks on invalid project", async () => {
+  let retrieved = false;
+  const svc = { async buildRagContext() { retrieved = true; return { chunks: [] }; } };
+  const access = {
+    async assertProjectFilter() { throw new Error("project denied"); },
+  };
+  const controller = new PrometeoController(svc as never, access as never);
+  const req = { headers: {}, authContext: { tenantId: "tenant-A", orgId: "org-A", userId: "actor-A", roles: ["CLIENT"] } };
+  await assert.rejects(() => controller.ragContext(req as never, { projectId: "project-B", query: "secret" }), /project denied/);
+  assert.equal(retrieved, false);
+});
+
+test("public_training cannot be re-enabled by legacy metadata or implicit defaults", async () => {
+  let wrote = false;
+  const svc = { async ingestText() { wrote = true; return {}; } };
+  const access = { async assertCanCreate() {} };
+  const controller = new PrometeoController(svc as never, access as never);
+  const req = { headers: {}, authContext: { tenantId: "tenant-A", orgId: "org-A", userId: "actor-A", roles: ["CLIENT"] } };
+  await assert.rejects(
+    () => controller.ingest(req as never, { title: "secret", text: "secret", visibility: "public_training" }),
+    /Public sharing requires approved explicit consent/,
+  );
+  assert.equal(wrote, false);
+});
+
+
+test("internal agents cannot retrieve RAG without an explicit resolved scope", async () => {
+  let touchedChunks = false;
+  let sentEmbedding = false;
+  const repo = {
+    async loadChunksForSearch() { touchedChunks = true; return []; },
+  };
+  const embedding = {
+    async embed() { sentEmbedding = true; return []; },
+  };
+  const svc = new PrometeoService(repo as never, {} as never, embedding as never, {} as never);
+  const query = { tenantId: "tenant-A", query: "secret" };
+  assert.deepEqual(await svc.search(query), []);
+  const ctx = await svc.buildRagContext(query);
+  assert.deepEqual(ctx, { chunks: [], contextBlock: "", tokenEstimate: 0 });
+  const result = await svc.retrieveContext(query);
+  assert.equal(result.available, false);
+  assert.deepEqual(result.citations, []);
+  assert.equal(touchedChunks, false);
+  assert.equal(sentEmbedding, false);
+});
+
+
+test("read access to a participant project does not authorize deletion of another organization's document", async () => {
+  let deleted = false;
+  const svc = {
+    async getDocument() { return { tenantId: "tenant-A", orgId: "org-B", projectId: "project-A" }; },
+    async deleteDocument() { deleted = true; },
+  };
+  const access = { async assertRowAccess() {} };
+  const controller = new PrometeoController(svc as never, access as never);
+  const req = { headers: {}, authContext: { tenantId: "tenant-A", orgId: "org-A", userId: "actor-A", roles: ["CLIENT"] } };
+  await assert.rejects(() => controller.deleteDocument(req as never, "doc-B"), /Only the owning organization/);
+  assert.equal(deleted, false);
+});
+
+
+test("private visibility must agree with project association", async () => {
+  const writes: Record<string, unknown>[] = [];
+  const svc = { async ingestText(data: Record<string, unknown>) { writes.push(data); return { id: "own" }; } };
+  const access = { async assertCanCreate() {} };
+  const controller = new PrometeoController(svc as never, access as never);
+  const req = { headers: {}, authContext: { tenantId: "tenant-A", orgId: "org-A", userId: "actor-A", roles: ["CLIENT"] } };
+  await assert.rejects(
+    () => controller.ingest(req as never, { title: "bad", text: "confidential", projectId: "p1", visibility: "tenant_private" }),
+    /Project documents require project_private visibility/,
+  );
+  await assert.rejects(
+    () => controller.ingest(req as never, { title: "bad", text: "confidential", visibility: "project_private" }),
+    /project_private requires projectId/,
+  );
+  assert.equal(writes.length, 0);
+  await controller.ingest(req as never, { title: "good", text: "confidential", metadataJson: { visibility: "public_training" } });
+  assert.equal((writes[0]?.metadataJson as Record<string, unknown>).visibility, "tenant_private");
+});
+
+test("only explicit admin scope sentinel can unlock tenant-wide RAG lookup", async () => {
+  let queries = 0;
+  const repo = {
+    async loadChunksForSearch() { queries++; return []; },
+  };
+  const embedding = { async embed() { return []; } };
+  const svc = new PrometeoService(repo as never, {} as never, embedding as never, {} as never);
+  assert.deepEqual(await svc.search({ tenantId: "tenant-A", query: "secret", scope: undefined }), []);
+  assert.equal(queries, 0);
+  assert.deepEqual(await svc.search({ tenantId: "tenant-A", query: "secret", scope: null }), []);
+  assert.equal(queries, 1);
+});
+
+
+test("actors without an owning org see no legacy ownerless document, even if orgId is empty", async () => {
+  let where: Record<string, unknown> | undefined;
+  const prisma = { prometeoDocument: { async findMany(args: { where: Record<string, unknown> }) { where = args.where; return []; } } };
+  const repo = new PrometeoRepository(prisma as never);
+  await repo.listDocuments({ tenantId: "tenant-A", scope: { orgId: "", projectIds: [], jobIds: [] } });
+  assert.deepEqual(where?.OR, [{ id: "__no_authorized_documents__" }]);
+});
+
+
+test("a project participant cannot modify another org's legacy chunk feedback", async () => {
+  let mutated = false;
+  const svc = {
+    async getChunkById() { return { id: "chunk-B", documentId: "doc-B" }; },
+    async getDocument() { return { tenantId: "tenant-A", orgId: "org-B", projectId: "project-A" }; },
+    async submitFeedback() { mutated = true; return { id: "feedback" }; },
+  };
+  const access = { async assertRowAccess() {} };
+  const controller = new PrometeoController(svc as never, access as never);
+  const actor = { headers: {}, authContext: { tenantId: "tenant-A", orgId: "org-A", userId: "actor-A", roles: ["CLIENT"] } };
+  await assert.rejects(
+    () => controller.submitFeedback(actor as never, "chunk-B", { type: "confirm" }),
+    /Only the owning organization can submit document feedback/,
+  );
+  assert.equal(mutated, false);
+});
+
+
+test("document deletion is SQL-constrained by tenant and owning org, not only preflight checks", async () => {
+  const filters: Array<Record<string, unknown>> = [];
+  const tx = {
+    prometeoDocument: {
+      async findFirst({ where }: { where: Record<string, unknown> }) {
+        filters.push(where);
+        return { orgId: "org-A", projectId: null, grants: [] };
+      },
+      async deleteMany({ where }: { where: Record<string, unknown> }) {
+        filters.push(where);
+        return { count: 0 };
+      },
+    },
+  };
+  const prisma = { async $transaction(fn: (client: typeof tx) => Promise<void>) { return fn(tx); } };
+  const repo = new PrometeoRepository(prisma as never);
+  await assert.rejects(
+    () => repo.deleteDocument({ tenantId: "tenant-A", id: "doc-B", orgId: "org-A" }),
+    /not found/,
+  );
+  assert.deepEqual(filters, Array(2).fill({ tenantId: "tenant-A", id: "doc-B", orgId: "org-A" }));
+});
+
+test("document deletion audits active cascaded grants in the same transaction", async () => {
+  const events: Array<Record<string, unknown>> = [];
+  const tx = {
+    prometeoDocument: {
+      async findFirst() { return { orgId: "org-A", projectId: "project-A", grants: [
+        { id: "grant-active", projectId: "project-A", recipientOrgId: "org-B", revokedAt: null },
+        { id: "grant-old", projectId: "project-A", recipientOrgId: "org-C", revokedAt: new Date() },
+      ] }; },
+      async deleteMany() { return { count: 1 }; },
+    },
+    auditLog: {
+      async createMany({ data }: { data: Record<string, unknown>[] }) { events.push(...data); },
+      async create({ data }: { data: Record<string, unknown> }) { events.push(data); },
+    },
+  };
+  const prisma = { async $transaction(fn: (client: typeof tx) => Promise<void>) { return fn(tx); } };
+  const repo = new PrometeoRepository(prisma as never);
+  await repo.deleteDocument({ tenantId: "tenant-A", id: "doc-A", orgId: "org-A", actorUserId: "actor-A", requestId: "req-A" });
+  assert.deepEqual(events.map(x => x.action), [
+    "prometeo.document_share_revoked_by_delete", "prometeo.document_deleted",
+  ]);
+  assert.equal(events[0]?.entityId, "grant-active");
+  assert.equal(events[1]?.actorUserId, "actor-A");
+});
+
+test("grant SQL predicate size remains constant even with thousands of authorized projects", async () => {
+  let where: Record<string, unknown> | undefined;
+  const prisma = { prometeoDocument: { async findMany(args: { where: Record<string, unknown> }) {
+    where = args.where; return [];
+  } } };
+  const repo = new PrometeoRepository(prisma as never);
+  const projectIds = Array.from({ length: 20000 }, (_, i) => `project-${i}`);
+  await repo.listDocuments({ tenantId: "tenant-A", scope: {
+    orgId: "org-A", projectIds, jobIds: [],
+  } });
+  const branches = where?.OR as Array<Record<string, unknown>>;
+  assert.equal(branches.length, 3, "no one-OR-per-project explosion");
+  const grant = (branches[2].grants as { some: Record<string, unknown> }).some;
+  assert.deepEqual(grant.projectId, { in: projectIds });
+  assert.equal(grant.tenantId, "tenant-A");
+  assert.equal(grant.recipientOrgId, "org-A");
+  assert.equal(grant.revokedAt, null);
+  // Schema and migration enforce the missing equality at the DB level:
+  // grant.(documentId,tenantId,projectId) references document.(id,tenantId,projectId).
+});
+
+test("serializable deletion retries P2034 and returns a stable not-found after concurrent winner", async () => {
+  let attempts = 0;
+  const prisma = {
+    async $transaction(fn: (tx: unknown) => Promise<unknown>) {
+      attempts++;
+      if (attempts === 1) throw Object.assign(new Error("serialization conflict"), { code: "P2034" });
+      return fn({
+        prometeoDocument: { async findFirst() { return null; } },
+      });
+    },
+  };
+  const repo = new PrometeoRepository(prisma as never);
+  await assert.rejects(
+    () => repo.deleteDocument({ tenantId: "tenant-A", id: "doc-concurrent", orgId: "org-A" }),
+    (err: any) => err.getStatus?.() === 404,
+  );
+  assert.equal(attempts, 2);
+});

@@ -1,9 +1,9 @@
-import { Injectable, Logger, Optional } from "@nestjs/common";
+import { BadRequestException, Injectable, Logger, Optional } from "@nestjs/common";
 import { GraphifyService } from "../graphify/graphify.service.js";
 import { ChunkerService } from "./chunker.service.js";
 import { DocumentParserService } from "./document-parser.service.js";
 import { EmbeddingService, cosineSimilarity, isZeroVector, type EmbeddingVector } from "./embedding.service.js";
-import { PrometeoRepository, type PrometeoChunkSearchRow, type PrometeoDocumentRecord } from "./prometeo.repository.js";
+import { PrometeoRepository, type PrometeoChunkSearchRow, type PrometeoDocumentRecord, type PrometeoListScopeFilter } from "./prometeo.repository.js";
 
 export type RetrievalMode = "hybrid" | "semantic" | "fts_fallback";
 
@@ -103,7 +103,7 @@ export class PrometeoService {
       const allEmbeddings: EmbeddingVector[] = [];
       for (let i = 0; i < rawChunks.length; i += BATCH_SIZE) {
         const batch = rawChunks.slice(i, i + BATCH_SIZE);
-        const vecs = await this.embedding.embedBatch(batch.map((c) => c.text));
+        const vecs = await this.embedding.embedBatch(batch.map((c) => c.text), { localOnly: true });
         allEmbeddings.push(...vecs);
       }
 
@@ -128,6 +128,17 @@ export class PrometeoService {
     sourceType?: string; trade?: string; visibility?: string;
     projectId?: string; metadataJson?: Record<string, unknown>;
   }): Promise<PrometeoDocumentRecord & { parseWarnings?: string[] }> {
+    // Internal callers get the same private-by-default policy as HTTP ingestion.
+    // A legacy public_training label must never be persisted as implied consent.
+    const visibility = input.projectId ? "project_private" : "tenant_private";
+    if (input.visibility !== undefined && input.visibility !== visibility) {
+      throw new BadRequestException(
+        input.visibility === "public_training"
+          ? "Public sharing requires approved explicit consent"
+          : "Document visibility must match its project association",
+      );
+    }
+
     // 1. Create doc record with status=parsing
     const doc = await this.repo.createDocument({
       tenantId: input.tenantId, orgId: input.orgId, projectId: input.projectId,
@@ -140,7 +151,7 @@ export class PrometeoService {
         originalFileName: input.fileName,
         mimeType: input.mimeType,
         trade: input.trade ?? "general",
-        visibility: input.visibility ?? "public_training",
+        visibility,
         status: "parsing",
       },
     });
@@ -180,8 +191,8 @@ export class PrometeoService {
   }
 
   /** Get document counts organized by trade for the library view. */
-  async getTradeLibrary(tenantId: string) {
-    const docs = await this.repo.listDocuments({ tenantId });
+  async getTradeLibrary(tenantId: string, scope?: PrometeoListScopeFilter) {
+    const docs = await this.repo.listDocuments({ tenantId, scope, limit: 1000 });
     const trades = [
       "electrical", "plumbing", "drywall", "painting", "carpentry",
       "hvac", "siding", "demolition", "cleaning", "bathroom", "kitchen",
@@ -217,13 +228,15 @@ export class PrometeoService {
 
   async search(input: {
     tenantId: string; projectId?: string; query: string; topK?: number;
-    trade?: string;
+    trade?: string; scope?: PrometeoListScopeFilter | null;
   }): Promise<SearchResult[]> {
+    // Internal agents without an explicitly resolved caller scope must never see tenant-wide chunks.
+    if (!Object.prototype.hasOwnProperty.call(input, "scope") || input.scope === undefined) return [];
     const topK = input.topK ?? 5;
-    const queryVec = await this.embedding.embed(input.query);
+    const queryVec = await this.embedding.embed(input.query, { localOnly: true });
     const hasRealQueryEmbedding = !isZeroVector(queryVec);
 
-    const chunks = await this.repo.loadChunksForSearch({ tenantId: input.tenantId, projectId: input.projectId });
+    const chunks = await this.repo.loadChunksForSearch({ tenantId: input.tenantId, projectId: input.projectId, scope: input.scope ?? undefined });
     if (!chunks.length) return [];
 
     // Load feedback scores for all chunks (only when feedback data exists)
@@ -308,8 +321,8 @@ export class PrometeoService {
     });
   }
 
-  async getFeedbackStats(tenantId: string) {
-    return this.repo.getFeedbackStats(tenantId);
+  async getFeedbackStats(tenantId: string, scope?: PrometeoListScopeFilter) {
+    return this.repo.getFeedbackStats(tenantId, scope);
   }
 
   /** Keyword overlap score — used as FTS fallback and hybrid component. */
@@ -322,28 +335,29 @@ export class PrometeoService {
   }
 
   /** Embedding health + RAG stats for Mission Control. */
-  async getEmbeddingRagHealth(tenantId: string): Promise<EmbeddingRagHealth> {
+  async getEmbeddingRagHealth(tenantId: string, scope?: PrometeoListScopeFilter): Promise<EmbeddingRagHealth> {
     const stats = this.embedding.getStats();
-    const docs = await this.repo.listDocuments({ tenantId });
+    const docs = await this.repo.listDocuments({ tenantId, scope, limit: 1000 });
     const totalDocs = docs.length;
     const indexedDocs = docs.filter((d) => d.status === "indexed");
     const totalChunks = indexedDocs.reduce((s, d) => s + d.chunkCount, 0);
 
     // Sample chunks to count real vs zero embeddings
-    const sampleChunks = await this.repo.loadChunksForSearch({ tenantId, limit: 200 });
+    const sampleChunks = await this.repo.loadChunksForSearch({ tenantId, scope, limit: 200 });
     const withEmbeddings = sampleChunks.filter((c) => {
       const vec = Array.isArray(c.embeddingJson) ? (c.embeddingJson as EmbeddingVector) : [];
       return vec.length > 0 && !isZeroVector(vec);
     }).length;
     const missingEmbeddings = sampleChunks.length - withEmbeddings;
 
-    const retrievalMode: RetrievalMode = stats.available && withEmbeddings > 0 ? "hybrid" : "fts_fallback";
+    // Private Prometeo search intentionally bypasses remote embedding providers.
+    const retrievalMode: RetrievalMode = "fts_fallback";
 
     return {
-      embeddingsProvider:      stats.provider,
-      embeddingsModel:         stats.model,
-      embeddingsAvailable:     stats.available,
-      embeddingsHealthy:       stats.available && stats.failureCount === 0,
+      embeddingsProvider:      "local_fts",
+      embeddingsModel:         "keyword-overlap",
+      embeddingsAvailable:     false,
+      embeddingsHealthy:       false,
       totalDocuments:          totalDocs,
       totalChunks,
       chunksWithEmbeddings:    withEmbeddings,
@@ -372,18 +386,18 @@ export class PrometeoService {
   }> {
     const batchSize = input.batchSize ?? 16;
     const dryRun = input.dryRun ?? false;
-    const stats = this.embedding.getStats();
+    const privateProvider = "local_fts";
 
-    if (!stats.available && !dryRun) {
-      throw new Error("EmbeddingService not available — OPENAI_API_KEY not configured");
-    }
+    // External embedding availability is not authorization to process private
+    // documents off-machine. Without a verified local backend this remains FTS.
+
 
     // Load all indexed docs
     const docs = await this.repo.listDocuments({ tenantId: input.tenantId ?? "tenant_default" });
     const indexed = docs.filter((d) => d.status === "indexed");
 
     if (!indexed.length) {
-      return { total: 0, alreadyEmbedded: 0, embedded: 0, failed: 0, dryRun, provider: stats.provider };
+      return { total: 0, alreadyEmbedded: 0, embedded: 0, failed: 0, dryRun, provider: privateProvider };
     }
 
     // Load all chunks for indexed docs
@@ -400,7 +414,7 @@ export class PrometeoService {
     const alreadyEmbedded = allChunks.length - needsEmbedding.length;
 
     if (!needsEmbedding.length || dryRun) {
-      return { total: allChunks.length, alreadyEmbedded, embedded: 0, failed: 0, dryRun, provider: stats.provider };
+      return { total: allChunks.length, alreadyEmbedded, embedded: 0, failed: 0, dryRun, provider: privateProvider };
     }
 
     let embedded = 0;
@@ -411,7 +425,7 @@ export class PrometeoService {
       const texts = batch.map((c) => c.text);
 
       try {
-        const vectors = await this.embedding.embedBatch(texts);
+        const vectors = await this.embedding.embedBatch(texts, { localOnly: true });
 
         // Update each chunk via repository
         for (let j = 0; j < batch.length; j++) {
@@ -430,17 +444,27 @@ export class PrometeoService {
     }
 
     this.logger.log(`[backfill] done — embedded=${embedded} failed=${failed} total=${allChunks.length}`);
-    return { total: allChunks.length, alreadyEmbedded, embedded, failed, dryRun, provider: stats.provider };
+    return { total: allChunks.length, alreadyEmbedded, embedded, failed, dryRun, provider: privateProvider };
   }
 
   // ── RAG context builder ─────────────────────────────────────────────────────
 
   async buildRagContext(input: {
     tenantId: string; projectId?: string; query: string; topK?: number;
+    scope?: PrometeoListScopeFilter | null;
   }): Promise<RagContext> {
+    // Covers direct internal buildRagContext callers as well as HTTP retrieval.
+    if (!Object.prototype.hasOwnProperty.call(input, "scope") || input.scope === undefined) {
+      return { chunks: [], contextBlock: "", tokenEstimate: 0 };
+    }
+    // Graphify indexes repository-wide structural information, not tenant-owned
+    // documents. Expose it only to the explicit OPS_ADMIN scope sentinel; never
+    // mix global code graph text into an organization's private RAG response.
     const [results, structuralCtx] = await Promise.all([
       this.search({ ...input, topK: input.topK ?? 6 }),
-      this.graphify ? this.graphify.buildStructuralContext(input.query) : Promise.resolve(""),
+      input.scope === null && this.graphify
+        ? this.graphify.buildStructuralContext(input.query)
+        : Promise.resolve(""),
     ]);
 
     const lines: string[] = [];
@@ -482,13 +506,18 @@ export class PrometeoService {
     projectId?: string;
     trade?:     string;
     topK?:      number;
+    scope?:     PrometeoListScopeFilter | null;
   }): Promise<{
     available:    boolean;
     contextBlock: string;
     citations:    Array<{ documentId: string; documentTitle: string; excerpt: string; score: number }>;
   }> {
+    // Do not treat a tenantId supplied by an agent as proof of user authorization.
+    if (!Object.prototype.hasOwnProperty.call(input, "scope") || input.scope === undefined) {
+      return { available: false, contextBlock: "", citations: [] };
+    }
     try {
-      const ctx = await this.buildRagContext({ tenantId: input.tenantId, projectId: input.projectId, query: input.query, topK: input.topK ?? 4 });
+      const ctx = await this.buildRagContext({ tenantId: input.tenantId, projectId: input.projectId, query: input.query, topK: input.topK ?? 4, scope: input.scope });
       if (!ctx.chunks.length) return { available: false, contextBlock: "", citations: [] };
 
       // Filter by trade if specified
@@ -519,11 +548,19 @@ export class PrometeoService {
 
   // ── Document management ─────────────────────────────────────────────────────
 
-  async listDocuments(tenantId: string, projectId?: string) {
-    return this.repo.listDocuments({ tenantId, projectId });
+  async listDocuments(tenantId: string, projectId?: string, scope?: PrometeoListScopeFilter) {
+    return this.repo.listDocuments({ tenantId, projectId, scope });
   }
 
-  async deleteDocument(input: { tenantId: string; id: string }) {
+  async getDocument(id: string) {
+    return this.repo.getDocument(id);
+  }
+
+  async getChunkById(tenantId: string, chunkId: string) {
+    return this.repo.getChunkById(tenantId, chunkId);
+  }
+
+  async deleteDocument(input: Parameters<PrometeoRepository["deleteDocument"]>[0]) {
     return this.repo.deleteDocument(input);
   }
 

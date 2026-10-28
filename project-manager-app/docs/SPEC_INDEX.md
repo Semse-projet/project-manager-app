@@ -71,9 +71,9 @@ retroactiva.
 | [api-milestone-lifecycle](specs/api/milestones.spec.md) | milestones | VERIFIED | legacy | legacy | legacy | legacy | legacy | critical | yes | 2026-07-17 |
 | [api-payments-escrow](specs/api/payments.spec.md) | payments | VERIFIED | legacy | legacy | legacy | legacy | legacy | critical | yes | 2026-07-25 |
 | [api.payout-method-tokenization](specs/api/payout-method-tokenization.spec.md) | payments | REVIEW | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | yes | 2026-10-04 |
-| [api-prometeo-copilot](specs/api/prometeo-copilot.spec.md) | prometeo | IMPLEMENTED | legacy | legacy | legacy | legacy | legacy | medium | yes | 2026-07-18 |
+| [api-prometeo-copilot](specs/api/prometeo-copilot.spec.md) | prometeo | REVIEW | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | yes | 2026-07-18 |
 | [api-prometeo-orchestrator](specs/api/prometeo-orchestrator.spec.md) | prometeo | IMPLEMENTED | legacy | legacy | legacy | legacy | legacy | medium | yes | 2026-07-18 |
-| [api-prometeo-rag-trade-knowledge](specs/api/prometeo.spec.md) | prometeo | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-12 |
+| [api-prometeo-rag-trade-knowledge](specs/api/prometeo.spec.md) | prometeo | REVIEW | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-07-12 |
 | [api.rbac-explicit-boundary](specs/api/rbac-explicit-boundary.spec.md) | core | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-12 |
 | [api.readiness](specs/api/readiness.spec.md) | platform | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-12 |
 | [api-reservations](specs/api/reservations.spec.md) | reservations | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-23 |
@@ -168,10 +168,11 @@ retroactiva.
 | [prometeo.chat-evidence](specs/prometeo/chat-evidence.spec.md) | prometeo | APPROVED | IN_PROGRESS | PASS | MERGED | DEPLOYED | ACTIVE | high | yes | 2026-10-10 |
 | [prometeo.conversation-intelligence](specs/prometeo/conversation-intelligence-foundation.spec.md) | prometeo | APPROVED | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-10-06 |
 | [prometeo.decision-ledger](specs/prometeo/decision-ledger.spec.md) | prometeo | REVIEW | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | no | 2026-10-04 |
+| [prometeo.document-sharing-grants](specs/prometeo/document-sharing-grants.spec.md) | prometeo | REVIEW | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | yes | 2026-10-18 |
 | [prometeo.jev-decision-layer](specs/prometeo/jev-decision-layer.spec.md) | prometeo | APPROVED | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | yes | 2026-09-24 |
 | [prometeo.jev-human-review-queue](specs/prometeo/jev-human-review-queue.spec.md) | prometeo | APPROVED | COMPLETE | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | yes | 2026-09-26 |
 | [prometeo.live-sessions](specs/prometeo/live-sessions.spec.md) | prometeo | APPROVED | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | no | 2026-09-07 |
-| [prometeo.model-gateway-unification](specs/prometeo/model-gateway-unification.spec.md) | prometeo | APPROVED | legacy | legacy | legacy | legacy | legacy | critical | yes | 2026-08-27 |
+| [prometeo.model-gateway-unification](specs/prometeo/model-gateway-unification.spec.md) | prometeo | REVIEW | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | yes | 2026-08-27 |
 | [prometeo.omniverse-adapter](specs/prometeo/omniverse-adapter.spec.md) | prometeo | REVIEW | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | no | 2026-10-04 |
 | [prometeo.operational-intelligence-program](specs/prometeo/operational-intelligence-program.spec.md) | prometeo | REVIEW | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | no | 2026-10-06 |
 | [prometeo.tool-call-audit-lineage](specs/prometeo/tool-call-audit-lineage.spec.md) | prometeo | APPROVED | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-10-05 |
