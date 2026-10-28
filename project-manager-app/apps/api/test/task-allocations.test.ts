@@ -209,7 +209,7 @@ test("FIELD-R01 habitación 205: supervisor crea, asigna y solo el trabajador de
 
   const [allocation]: any[] = await w.service.assign(sup, "c1", created.taskId, "r2", ["ana"]);
   assert.equal(allocation.status, "ASSIGNED");
-  assert.equal(allocation.taskTitle, undefined);
+  assert.equal(allocation.taskTitle, null);
 
   const mineAna: any[] = await w.service.listMine(ana);
   const mineBob: any[] = await w.service.listMine({ tenantId: "t1", userId: "bob" });
