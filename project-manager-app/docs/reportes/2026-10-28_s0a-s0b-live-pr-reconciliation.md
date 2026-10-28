@@ -54,6 +54,32 @@ El mismo diff conserva `prepareActorContext(entry)` que llama `ActorContextServi
 
 **Fricción con BO-10 a resolver formalmente antes de S0b:** `assign` usa `taskId+userId` para encontrar la fila sin validar `crewId`; cuando `JobTask.entityType==='Crew'`, no compara `entityId` contra la crew invocante. Se requiere ratificar conflicto neutral cross-crew, transferencia explícita, atomicidad todo-o-nada y preservación de historial, no inferir cambio de diseño del registro original.
 
+## 4A. Bloqueador de autoridad empresarial (DEC-SUP-01)
+
+En `main` y en #1054, `CrewsService.createCrew()` invoca
+`requireManage(actor, orgId)`, que autoriza una Membership ACTIVE con
+`org:crews:manage`, y acepta `supervisorUserId` de un WORKER ACTIVE.
+**No comprueba propiedad ni representación empresarial verificada.**
+Por tanto, un gestor PRO con ese permiso puede nombrar al supervisor
+inicial al crear una crew, aunque no se haya acreditado como propietario
+ni representante. Esto es **comportamiento legacy existente**,
+separado de los guards S0a y en conflicto con la regla funcional
+OPEN-SUP-01 ya ratificada.
+
+**Bloqueador funcional P0 para nuevas designaciones empresariales:**
+definir/ratificar la fuente canónica de OWNER o representante verificado;
+requerirla en create/reemplazo/revocación del supervisor; cubrir creación
+de crew por un gestor con permiso pero sin authority grant, con
+404/403 neutro sin efectos, y propietario verificado legítimo.
+No retirar globalmente `org:crews:manage` a PRO/CLIENT;
+separar gestionar crews existentes de **designar la persona supervisora**.
+No activar nuevos grants ni migrar en automático desde
+`supervisorUserId` antes de que el contrato SDD sea APPROVED
+y exista prueba funcional.
+
+Este hallazgo es **revisión estática**, no demuestra exposición
+productiva, flags habilitados ni explotación real.
+
 ## 5. Secuencia de entrega efectiva (sin ejecutar CI ahora)
 
 1. **S0a en #1054:** N08/N09 ya escritos (no ejecutados); revisar diff y fixtures, instalar dependencias en entorno permitido (el bloqueo offline no es fallo funcional), ejecutar N01–N09 y regresiones dirigidas/locales y evaluación independiente de seguridad. Mantener el PR draft hasta aprobación aplicable del SDD.
