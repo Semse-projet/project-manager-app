@@ -17,6 +17,17 @@ date: "2026-10-22"
 - [ ] Elegibilidad, suplencia, capacidad y seguridad resueltas (OPEN-SUP-02…06).
 - [ ] Contratos API/UI/agent ratificados; spec APPROVED.
 
+## Estado de implementación externa (2026-10-28)
+
+- [x] Localizados PR #1054 (S0a con guardas y N01–N07) y #1053
+  (`AuditService.appendInTransaction` con pruebas de **BO-12**, no BO-10).
+- [ ] N01–N09 ejecutados y review independiente sobre HEAD final de #1054.
+- [ ] Auditoría S0b adaptada sin preparar identidades sintéticas en worker
+  assignment; pruebas de rollback/TOCTOU en DB aislada.
+- [ ] Resolver dependencia de base #1054 sobre #1027 y no fusionar DRAFT.
+- [x] Mapa de dependencias y evidencia en
+  `docs/reportes/2026-10-28_s0a-s0b-live-pr-reconciliation.md`.
+
 ## Seguridad y privacidad
 - [ ] Política backend en toda ruta, incluidas list y roster.
 - [ ] WORKER ACTIVE exigido aunque PRO siga ACTIVE.
