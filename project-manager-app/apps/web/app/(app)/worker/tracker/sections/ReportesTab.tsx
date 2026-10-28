@@ -91,6 +91,10 @@ export function ReportesTab({ jobs }: { jobs: JobRecordView[] }) {
     let cancelled = false;
     const run = async () => {
       setWeekLoading(true);
+      setError(null);
+      // A prior week's figures must not appear in a CSV for the new week.
+      setWeekly(null);
+      setWeekEntriesRaw([]);
       try {
         const [weeklyResult, weekEntriesResult] = await Promise.all([
           fetchWeeklySummary(weekOffset),
@@ -219,8 +223,8 @@ export function ReportesTab({ jobs }: { jobs: JobRecordView[] }) {
             type="button"
             title="Exporta solo filas cargadas de esta semana (hasta 500 del servidor), más pendientes locales; no es un respaldo completo."
             onClick={() => exportEntriesCsv(weekEntries, resolveProject, `semse-reporte-semana-${weekly?.from.slice(0, 10) ?? weekOffset}.csv`)}
-            disabled={weekEntries.length === 0}
-            style={navButton(weekEntries.length === 0)}
+            disabled={weekLoading || !weekly || weekEntries.length === 0}
+            style={navButton(weekLoading || !weekly || weekEntries.length === 0)}
           >
             <Download size={13} /> CSV vista semanal
           </button>
