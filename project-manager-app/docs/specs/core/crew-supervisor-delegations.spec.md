@@ -20,7 +20,7 @@ related_tests: []
 related_endpoints: []
 related_events: []
 related_agents: []
-last_verified: ""
+last_verified: "2026-10-28"
 ---
 
 # SDD 2.0 — Autoridad verificable de supervisores de cuadrilla
