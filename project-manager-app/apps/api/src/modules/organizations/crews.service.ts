@@ -203,13 +203,13 @@ export class CrewsService {
   }
 
   /** Cuadrillas donde la persona supervisa o es miembro, solo en Orgs donde su Membership sigue ACTIVE. */
-  async listMine(user: { userId: string }) {
+  async listMine(user: { tenantId: string; userId: string }) {
     this.assertEnabled();
     const asMember = await this.prisma.crewMember.findMany({ where: { userId: user.userId, status: "ACTIVE" } });
     const memberCrewIds = asMember.map((m) => m.crewId);
-    const supervised = await this.prisma.crew.findMany({ where: { supervisorUserId: user.userId, status: "ACTIVE" } });
+    const supervised = await this.prisma.crew.findMany({ where: { tenantId: user.tenantId, supervisorUserId: user.userId, status: "ACTIVE" } });
     const memberCrews = memberCrewIds.length
-      ? await this.prisma.crew.findMany({ where: { id: { in: memberCrewIds }, status: "ACTIVE" } })
+      ? await this.prisma.crew.findMany({ where: { id: { in: memberCrewIds }, tenantId: user.tenantId, status: "ACTIVE" } })
       : [];
     const all = [...supervised, ...memberCrews.filter((c) => !supervised.some((s) => s.id === c.id))];
     const visible = [];
@@ -223,9 +223,9 @@ export class CrewsService {
   }
 
   /** Lista de miembros: solo el supervisor vigente de ESA cuadrilla (membresía ACTIVE revalidada). */
-  async rosterForSupervisor(user: { userId: string }, crewId: string) {
+  async rosterForSupervisor(user: { tenantId: string; userId: string }, crewId: string) {
     this.assertEnabled();
-    const crew = await this.prisma.crew.findFirst({ where: { id: crewId, supervisorUserId: user.userId, status: "ACTIVE" } });
+    const crew = await this.prisma.crew.findFirst({ where: { id: crewId, tenantId: user.tenantId, supervisorUserId: user.userId, status: "ACTIVE" } });
     if (!crew) throw new NotFoundException();
     if (!(await this.hasActiveWorkerMembership(crew.tenantId, crew.orgId, user.userId))) throw new NotFoundException();
     const members = await this.prisma.crewMember.findMany({ where: { crewId, status: "ACTIVE" } });
