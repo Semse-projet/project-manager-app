@@ -62,7 +62,10 @@ function makeWorld() {
         if (transactionSnapshot) {
           for (const row of allocations) {
             const before = transactionSnapshot.allocations.find((prior) => prior.id === row.id);
-            if (before) before.crewId = row.crewId;
+            if (before) {
+              before.crewId = row.crewId;
+              before.orgId = row.orgId;
+            }
           }
         }
       }
