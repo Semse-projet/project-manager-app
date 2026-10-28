@@ -4,7 +4,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { REQUIRED_PERMISSIONS_KEY } from "../src/common/permissions.decorator.ts";
 import { CrewsService } from "../dist/modules/organizations/crews.service.js";
-import { OrgCrewsController } from "../dist/modules/organizations/crews.controller.js";
+import { MyCrewsController, OrgCrewsController } from "../dist/modules/organizations/crews.controller.js";
 
 type Row = Record<string, any>;
 
@@ -179,6 +179,31 @@ test("S0A-TENANT-01: un mismo usuario en dos tenants no puede mezclar crews ni r
     w.service.rosterForSupervisor({ tenantId: "t2", userId: "ana" }, tenantA.crewId),
     { status: 404 }
   );
+});
+
+test("S0A-TENANT-02: controller uses authenticated tenant for mine and roster, not request headers", async () => {
+  const received: Row[] = [];
+  const service: any = {
+    async listMine(actor: Row) {
+      received.push({ action: "mine", ...actor });
+      return [];
+    },
+    async rosterForSupervisor(actor: Row, crewId: string) {
+      received.push({ action: "roster", ...actor, crewId });
+      return { crewId, members: [] };
+    }
+  };
+  const controller = new MyCrewsController(service);
+  const request: any = {
+    authContext: { tenantId: "t1", orgId: "orgA", userId: "ana", roles: ["WORKER"] },
+    headers: { "x-tenant-id": "t2", "x-user-id": "other" }
+  };
+  await controller.mine(request);
+  await controller.roster(request, "crewA");
+  assert.deepEqual(received, [
+    { action: "mine", tenantId: "t1", userId: "ana" },
+    { action: "roster", tenantId: "t1", userId: "ana", crewId: "crewA" }
+  ]);
 });
 
 test("controller declara permisos RBAC", () => {
