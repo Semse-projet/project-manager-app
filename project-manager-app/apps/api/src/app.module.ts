@@ -3,11 +3,12 @@ import { fileURLToPath } from "node:url";
 import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { APP_GUARD } from "@nestjs/core";
-import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
+import { ThrottlerModule } from "@nestjs/throttler";
 import { HealthController } from "./modules/health/health.controller.js";
 import { ForgeModule } from "./modules/forge/forge.module.js";
 import { AuthGuard } from "./common/auth.guard.js";
 import { RbacGuard } from "./common/rbac.guard.js";
+import { SemseThrottlerGuard } from "./common/semse-throttler.guard.js";
 import { validateApiEnv } from "./config/env.schema.js";
 import { ReadinessService } from "./modules/health/readiness.service.js";
 import { AuthModule } from "./modules/auth/auth.module.js";
@@ -19,11 +20,14 @@ import { CapabilityRegistryModule } from "./modules/capability-registry/capabili
 import { DisputesModule } from "./modules/disputes/disputes.module.js";
 import { EvidenceModule } from "./modules/evidence/evidence.module.js";
 import { JobsModule } from "./modules/jobs/jobs.module.js";
+import { DailyReportsModule } from "./modules/daily-reports/daily-reports.module.js";
+import { GeofenceModule } from "./modules/geofence/geofence.module.js";
 import { MilestonesModule } from "./modules/milestones/milestones.module.js";
 import { OpsModule } from "./modules/ops/ops.module.js";
 import { PaymentsModule } from "./modules/payments/payments.module.js";
 import { ProjectsModule } from "./modules/projects/projects.module.js";
 import { ReservationsModule } from "./modules/reservations/reservations.module.js";
+import { ProfessionalSkillsModule } from "./modules/professional-skills/professional-skills.module.js";
 import { TrustModule } from "./modules/trust/trust.module.js";
 import { FieldOpsModule } from "./modules/field-ops/field-ops.module.js";
 import { LaborEngineModule } from "./modules/labor-engine/labor-engine.module.js";
@@ -118,11 +122,14 @@ const repoRoot = path.resolve(apiDir, "..", "..");
     CapabilityRegistryModule,
     DisputesModule,
     EvidenceModule,
+    DailyReportsModule,
+    GeofenceModule,
     MilestonesModule,
     OpsModule,
     ProjectsModule,
     PaymentsModule,
     ReservationsModule,
+    ProfessionalSkillsModule,
     TrustModule,
     FieldOpsModule,
     LaborEngineModule,
@@ -183,7 +190,7 @@ const repoRoot = path.resolve(apiDir, "..", "..");
   ],
   controllers: [HealthController],
   providers: [
-    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_GUARD, useClass: SemseThrottlerGuard },
     { provide: APP_GUARD, useClass: AuthGuard },
     { provide: APP_GUARD, useClass: RbacGuard },
     ReadinessService
