@@ -278,6 +278,25 @@ dbTest("F1A: private defaults, tenant-bound FK, version immutability keys, and c
     }), "A previously versioned entry cannot be deleted and recreated with another source");
     await assert.rejects(db.curatedKnowledgeEntry.update({
       where: { id: legacyEntry.id },
+      data: { id: "curated-rekey-" + suffix },
+    }), "Historical entry primary key cannot be reassigned");
+    await assert.rejects(db.curatedKnowledgeEntry.update({
+      where: { id: legacyEntry.id },
+      data: { createdByUserId: userB },
+    }), "Historical entry author cannot be rewritten");
+    const archivedEntryId = "curated-previously-deleted-" + suffix;
+    await db.curatedKnowledgeVersionTombstone.create({ data: {
+      versionId: "curated-old-version-" + suffix,
+      tenantId: tA, entryId: archivedEntryId, version: 1,
+    } });
+    await assert.rejects(db.curatedKnowledgeEntry.create({ data: {
+      id: archivedEntryId, tenantId: tA, owningOrgId: orgA,
+      createdByUserId: userB,
+      sourcePrivateRef: "forged-source-" + suffix,
+    } }), "A tombstone-only historical entry ID cannot be recycled");
+
+    await assert.rejects(db.curatedKnowledgeEntry.update({
+      where: { id: legacyEntry.id },
       data: { versionEverCreated: false },
     }), "Historical version latch cannot be reset");
     await assert.rejects(
