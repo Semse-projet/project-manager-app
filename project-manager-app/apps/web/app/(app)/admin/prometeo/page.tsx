@@ -380,7 +380,7 @@ export default function PrometeoPage() {
                   </select>
                 </div>
                 <p style={{ color: "var(--muted)", fontSize: 11, marginTop: 4 }}>
-                  Compartir documentos o asociarlos a proyectos requiere autorización explícita y una asociación verificada; estas opciones permanecen deshabilitadas por seguridad.
+                  {t("prom.visibility.sharingDisabledHint")}
                 </p>
 
                 {ingestMode === "text" ? (
