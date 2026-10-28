@@ -75,7 +75,7 @@ las decisiones contractuales; no marcar DONE por añadir estos documentos.
 
 | ID | Prioridad | Pendiente verificable | Requisito previo | Cierre observable |
 |---|---|---|---|---|
-| P-01 | P0 diseño | Identificar fuente canónica que prueba dueño/representante de Org; diseñar claim, verificación, revocación y protección de último propietario | DEC-SUP-01 | policy comprobable por `tenantId+orgId+actorId`, sin inferencia por PRO/CLIENT/OPS_ADMIN |
+| P-01 | P0 diseño | Identificar fuente canónica que prueba dueño/representante y cerrar brecha de `createCrew()` que hoy nombra supervisor inicial solo con `org:crews:manage` | DEC-SUP-01; ver análisis 2026-10-28 | policy comprobable por `tenantId+orgId+actorId`; nombramiento no autorizado por PRO/CLIENT/OPS_ADMIN sin prueba empresarial |
 | P-02 | P0 diseño | Resolver OPEN-SUP-02: elegibilidad `WORKER ACTIVE` + `BusinessEngagement ACTIVE` o fuente alternativa de autorización | P-01 y política de ofertas | contrato ratificado que nunca confunda invitación y contratación |
 | P-03 | P1 diseño | Resolver OPEN-SUP-03: supervisor principal y suplente, sustitución, superposición de fechas y concurrencia | P-01 | cardinalidad y FSM definidos |
 | P-04 | P0 diseño | Resolver OPEN-SUP-04: permisos que puede ejecutar vs solicitar (tareas, horas, materiales, mover personal entre crews/obras) | P-01 | matriz de capabilities por recurso y responsabilidad |
