@@ -17,6 +17,8 @@ dbTest("F1A: private defaults, tenant-bound FK, version immutability keys, and c
   const tB = "curated-b-" + suffix;
   const orgA = "curated-org-a-" + suffix;
   const orgB = "curated-org-b-" + suffix;
+  const userA = "curated-user-a-" + suffix;
+  const userB = "curated-user-b-" + suffix;
   const hash = createHash("sha256").update("Sanitized training-only example").digest("hex");
   const policyHash = createHash("sha256").update("scope=TENANT_CURATED;purpose=RAG_REFERENCE;v=1").digest("hex");
   const expiresAt = new Date(Date.now() + 86400000);
@@ -27,6 +29,8 @@ dbTest("F1A: private defaults, tenant-bound FK, version immutability keys, and c
     await db.org.create({ data: { id: orgA, tenantId: tA, name: "A owner", type: "PRO" } });
     await db.org.create({ data: { id: orgB, tenantId: tB, name: "B owner", type: "PRO" } });
 
+    await db.user.create({ data: { id: userA, email: userA + "@example.invalid" } });
+    await db.user.create({ data: { id: userB, email: userB + "@example.invalid" } });
     const privateEntry = await db.curatedKnowledgeEntry.create({
       data: { tenantId: tA, owningOrgId: orgA, createdByUserId: "contributor-A", trade: "electrical" },
     });
@@ -79,9 +83,9 @@ dbTest("F1A: private defaults, tenant-bound FK, version immutability keys, and c
     const consent = await db.curatedPublicationConsent.create({
       data: {
         tenantId: tA, versionId: version.id, actorType: "CONTRIBUTOR",
-        actorUserId: "contributor-A", scope: "TENANT_CURATED", purpose: "RAG_REFERENCE",
+        actorUserId: userA, scope: "TENANT_CURATED", purpose: "RAG_REFERENCE",
         versionContentSha256: hash, audiencePolicySha256: policyHash, expiresAt,
-        noticeVersion: "2026-10-19-f1a", proofPrivateRef: "private-test-proof",
+        noticeVersion: "2026-10-19-f1a", idempotencyKey: "ck-original-1-" + suffix, proofPrivateRef: "private-test-proof",
       },
     });
     assert.equal(consent.legalBasisReviewed, false);
@@ -91,58 +95,118 @@ dbTest("F1A: private defaults, tenant-bound FK, version immutability keys, and c
     await assert.rejects(db.curatedPublicationConsent.create({
       data: {
         tenantId: tA, versionId: version.id, actorType: "CONTRIBUTOR",
-        actorUserId: "contributor-A", scope: "TENANT_CURATED",
+        actorUserId: userA, scope: "TENANT_CURATED",
         purpose: "MODEL_TRAINING" as never,
         versionContentSha256: hash, audiencePolicySha256: policyHash, expiresAt,
-        noticeVersion: "invalid-purpose",
+        noticeVersion: "invalid-purpose", idempotencyKey: "ck-original-2-" + suffix,
       },
     }), "Free-text model training purposes must be rejected by the closed consent enum");
     await assert.rejects(db.curatedPublicationConsent.create({
       data: {
         tenantId: tA, versionId: version.id, actorType: "CONTRIBUTOR",
-        actorUserId: "contributor-A", scope: "TENANT_CURATED",
+        actorUserId: userA, scope: "TENANT_CURATED",
         purpose: "RAG_REFERENCE",
         versionContentSha256: hash, audiencePolicySha256: policyHash,
         expiresAt: new Date(Date.now() - 86400000),
-        noticeVersion: "expired",
+        noticeVersion: "expired", idempotencyKey: "ck-original-3-" + suffix,
       },
     }), "An expired or indefinite permission is not an allowed F1A consent");
     await assert.rejects(db.curatedPublicationConsent.create({
       data: {
         tenantId: tA, versionId: version.id, actorType: "RIGHTS_HOLDER",
-        actorUserId: "unknown-representative", scope: "TENANT_CURATED",
+        actorUserId: userA, scope: "TENANT_CURATED",
         purpose: "RAG_REFERENCE",
         versionContentSha256: hash, audiencePolicySha256: policyHash, expiresAt,
-        noticeVersion: "no-org",
+        noticeVersion: "no-org", idempotencyKey: "ck-original-4-" + suffix,
       },
     }), "An org-rights signature without rights-holder organization must be rejected");
     await assert.rejects(db.curatedPublicationConsent.create({
       data: {
         tenantId: tA, versionId: version.id, actorType: "RIGHTS_HOLDER",
-        actorUserId: "impostor", rightsHolderOrgId: orgB,
+        actorUserId: userB, rightsHolderOrgId: orgB,
         scope: "TENANT_CURATED", purpose: "RAG_REFERENCE",
         versionContentSha256: hash, audiencePolicySha256: policyHash, expiresAt,
-        noticeVersion: "forged",
+        noticeVersion: "forged", idempotencyKey: "ck-original-5-" + suffix,
       },
     }), (e: any) => e.code === "P2003",
     "An asserted rights-holder organization must belong to the version's tenant");
+    await assert.rejects(db.curatedPublicationConsent.create({ data: {
+      tenantId: tA, versionId: version.id, actorType: "CONTRIBUTOR",
+      actorUserId: "nonexistent-" + suffix, scope: "TENANT_CURATED",
+      purpose: "RAG_REFERENCE", versionContentSha256: hash,
+      audiencePolicySha256: policyHash, expiresAt, noticeVersion: "invalid-actor",
+      idempotencyKey: "ck-nonexistent-" + suffix,
+    }}), (e: any) => e.code === "P2003",
+      "An unpersisted human cannot sign consent");
+    await assert.rejects(db.curatedKnowledgeEntry.update({
+      where: { id: privateEntry.id },
+      data: { sourcePrivateRef: "repointed-after-version" },
+    }), "Original provenance cannot be changed after version creation");
+
     // A saved expression of consent is NOT a publication or a sharing grant.
     assert.equal((await db.curatedKnowledgeEntry.findUnique({ where: { id: privateEntry.id } }))?.status, "DRAFT");
 
     await assert.rejects(db.curatedPublicationConsent.create({
       data: {
         tenantId: tB, versionId: version.id, actorType: "CONTRIBUTOR",
-        actorUserId: "attacker-B", scope: "TENANT_CURATED", purpose: "RAG_REFERENCE",
+        actorUserId: userB, scope: "TENANT_CURATED", purpose: "RAG_REFERENCE",
         versionContentSha256: hash, audiencePolicySha256: policyHash, expiresAt,
-        noticeVersion: "forged",
+        noticeVersion: "forged", idempotencyKey: "ck-original-6-" + suffix,
       },
     }), (e: any) => e.code === "P2003",
     "A consent cannot be linked to another tenant's derived version");
 
     await db.curatedPublicationConsent.update({
-      where: { id: consent.id }, data: { withdrawnAt: new Date(), withdrawnByUserId: "contributor-A" },
+      where: { id: consent.id }, data: { withdrawnAt: new Date(), withdrawnByUserId: userA },
     });
     assert.ok((await db.curatedPublicationConsent.findUnique({ where: { id: consent.id } }))?.withdrawnAt);
+
+    await assert.rejects(db.curatedPublicationConsent.update({
+      where: { id: consent.id }, data: { withdrawnAt: null },
+    }), "Withdrawn consent cannot be reactivated");
+    await assert.rejects(db.curatedPublicationConsent.update({
+      where: { id: consent.id }, data: { actorUserId: userB },
+    }), "Signing identity cannot change");
+    await assert.rejects(db.curatedPublicationConsent.create({ data: {
+      tenantId: tA, versionId: version.id, actorType: "CONTRIBUTOR",
+      actorUserId: userA, scope: "TENANT_CURATED", purpose: "RAG_REFERENCE",
+      versionContentSha256: hash, audiencePolicySha256: policyHash, expiresAt,
+      noticeVersion: "retry", idempotencyKey: "ck-original-1-" + suffix,
+    }}), (e: any) => e.code === "P2002",
+      "Replaying withdrawn idempotency key cannot restore consent");
+
+    const second = await db.curatedKnowledgeVersion.create({ data: {
+      tenantId: tA, entryId: privateEntry.id, version: 2,
+      createdByUserId: userA, title: "Synthetic v2",
+      sanitizedBody: "Second private version", contentSha256: hash,
+    }});
+    const concurrent = await Promise.allSettled([1, 2].map(i =>
+      db.curatedPublicationConsent.create({ data: {
+        tenantId: tA, versionId: second.id, actorType: "CONTRIBUTOR",
+        actorUserId: userA, scope: "TENANT_CURATED", purpose: "RAG_REFERENCE",
+        versionContentSha256: hash, audiencePolicySha256: policyHash,
+        expiresAt, noticeVersion: "parallel", idempotencyKey: "ck-parallel-" + i + "-" + suffix,
+      }})
+    ));
+    assert.equal(concurrent.filter(x => x.status === "fulfilled").length, 1,
+      "Exactly one active same-actor/version consent can be created concurrently");
+
+    const deleted = await db.curatedKnowledgeVersion.create({ data: {
+      tenantId: tA, entryId: privateEntry.id, version: 3,
+      createdByUserId: userA, title: "Deleted synthetic version",
+      sanitizedBody: "Not publishable", contentSha256: hash,
+    }});
+    await db.curatedKnowledgeVersion.delete({ where: { id: deleted.id } });
+    await assert.rejects(db.curatedKnowledgeVersion.create({ data: {
+      id: deleted.id, tenantId: tA, entryId: privateEntry.id, version: 3,
+      createdByUserId: userA, title: "Unsafe reissue",
+      sanitizedBody: "Rewritten", contentSha256: hash,
+    }}), "Deleted version ID cannot be reused");
+    await assert.rejects(db.curatedKnowledgeVersion.create({ data: {
+      tenantId: tA, entryId: privateEntry.id, version: 3,
+      createdByUserId: userA, title: "Unsafe sequence reuse",
+      sanitizedBody: "Rewritten", contentSha256: hash,
+    }}), "Deleted version number cannot be reused");
 
     const listB = await db.curatedKnowledgeEntry.findMany({ where: { tenantId: tB } });
     assert.equal(listB.length, 0, "New curated artifacts are not copied across tenants");
@@ -152,6 +216,7 @@ dbTest("F1A: private defaults, tenant-bound FK, version immutability keys, and c
     await db.curatedKnowledgeEntry.deleteMany({ where: { tenantId: { in: [tA, tB] } } });
     await db.org.deleteMany({ where: { id: { in: [orgA, orgB] } } });
     await db.tenant.deleteMany({ where: { id: { in: [tA, tB] } } });
+    await db.user.deleteMany({ where: { id: { in: [userA, userB] } } });
     await db.$disconnect();
   }
 });
