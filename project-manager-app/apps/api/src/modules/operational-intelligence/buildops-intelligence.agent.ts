@@ -219,29 +219,12 @@ export class BuildOpsIntelligenceAgent {
         if (result.created) signalsCreated.push("DISPUTE_RISK_HIGH");
       }
 
-      // RAG enrichment — query Prometeo for best-practice docs (fire-and-forget)
-      let ragSources: string[] = [];
-      if (this.rag && signalsCreated.length > 0) {
-        const trade = (milestone as Record<string, unknown>).trade as string | undefined;
-        const ragQuery = [
-          missingItems.length > 0 ? `evidencia faltante milestone ${milestoneStatus}` : "",
-          rejectedItems.length > 0 ? `evidencia rechazada disputa construcción` : "",
-          paymentReadiness === "not_ready" ? `pago bloqueado milestone verificación` : "",
-          trade ? `${trade} construcción procedimiento` : "",
-        ].filter(Boolean).join(" ").trim() || "milestone evaluación construcción";
-
-        this.rag.retrieveContext({
-          query: ragQuery,
-          tenantId: input.tenantId,
-          trade: trade ?? "general",
-          topK: 3,
-        }).then((ragCtx) => {
-          if (ragCtx.available) {
-            ragSources = ragCtx.citations.map((c) => c.documentTitle);
-            this.logger.debug(`[${AGENT_NAME}][RAG] milestone=${input.milestoneId} sources=${ragSources.join(",")}`);
-          }
-        }).catch(() => undefined);
-      }
+      // These background signals do not carry a verified user/service principal.
+      // Never read or expose document citations using only a tenant ID.
+      // #1007 governs restoring RAG with an approved, audited caller scope.
+      const ragSources: string[] = [];
+      const ragDiagnostic = signalsCreated.length > 0
+        ? (this.rag ? "RAG_SCOPE_UNAVAILABLE" : "RAG_SERVICE_UNAVAILABLE") : undefined;
 
       // Record the intelligence run
       await this.runs.record({
@@ -256,7 +239,8 @@ export class BuildOpsIntelligenceAgent {
           rulesEvaluated: 5,
           skippedDueToDedup: signalsCreated.length === 0,
           ragSources,
-          ragProvider: "prometeo-documental",
+          ragProvider: null,
+          ragDiagnostic,
           privacyMode: "localOnly",
         },
         signalsCreated,
@@ -351,26 +335,16 @@ export class BuildOpsIntelligenceAgent {
         if (r.created) signalsCreated.push("DISPUTE_RISK_HIGH");
       }
 
-      // RAG enrichment for project-level evaluation (fire-and-forget)
-      let projectRagSources: string[] = [];
-      if (this.rag && signalsCreated.length > 0) {
-        const riskQuery = project.riskLevel === "high" || project.riskLevel === "critical"
-          ? `riesgo ${project.riskLevel} proyecto construcción estimado`
-          : "información faltante presupuesto construcción scope";
-
-        this.rag.retrieveContext({ query: riskQuery, tenantId: input.tenantId, topK: 2 })
-          .then((ragCtx) => {
-            if (ragCtx.available) {
-              projectRagSources = ragCtx.citations.map((c) => c.documentTitle);
-            }
-          }).catch(() => undefined);
-      }
+      // Fail closed without a verified principal. Only rule-based signals run.
+      const projectRagSources: string[] = [];
+      const projectRagDiagnostic = signalsCreated.length > 0
+        ? (this.rag ? "RAG_SCOPE_UNAVAILABLE" : "RAG_SERVICE_UNAVAILABLE") : undefined;
 
       await this.runs.record({
         tenantId: input.tenantId, agentName: AGENT_NAME, triggerEvent: input.triggerEvent,
         entityType: "BuildOpsProject", entityId: project.id,
         contextSnapshotJson: { riskLevel: project.riskLevel, missingInputsCount: missingInputs.length },
-        decisionJson: { signalsCreated, ragSources: projectRagSources, privacyMode: "localOnly" },
+        decisionJson: { signalsCreated, ragSources: projectRagSources, ragDiagnostic: projectRagDiagnostic, privacyMode: "localOnly" },
         signalsCreated, status: "completed",
         durationMs: Date.now() - started,
       });

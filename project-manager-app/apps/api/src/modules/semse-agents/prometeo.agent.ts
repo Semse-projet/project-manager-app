@@ -10,6 +10,8 @@ export type ProjectNarrative = {
   riskLevel:    "low" | "medium" | "high";
   citations:    string[];
   fromRAG:      boolean;
+  /** No unverified bus message is allowed to grant private RAG access. */
+  ragDiagnostic?: "RAG_SCOPE_UNAVAILABLE" | "RAG_SERVICE_UNAVAILABLE";
 };
 
 @Injectable()
@@ -57,28 +59,19 @@ export class PrometeoAgent {
     }
   }
 
-  async generateNarrative(query: string, projectId: string, tenantId: string): Promise<ProjectNarrative> {
-    let ragCitations: string[] = [];
-    let fromRAG = false;
-
-    if (this.prometeo) {
-      try {
-        const ctx = await this.prometeo.retrieveContext({
-          query, tenantId, projectId, topK: 3,
-        });
-        if (ctx.available) {
-          ragCitations = ctx.citations.map((c) => c.documentTitle);
-          fromRAG = true;
-        }
-      } catch { /* fallback */ }
-    }
-
+  async generateNarrative(query: string, projectId: string, _tenantId: string): Promise<ProjectNarrative> {
+    // CONTEXT_REQUESTED is an in-memory bus event, not an authenticated actor.
+    // Project/tenant IDs (and any org/user/scope fields) may be forged by the
+    // producer. Do not call RAG or pass a fabricated scope on this path.
+    // #1007 owns the verified actor/service-principal recovery contract.
+    const ragDiagnostic = this.prometeo ? "RAG_SCOPE_UNAVAILABLE" : "RAG_SERVICE_UNAVAILABLE";
     return {
-      summary:    `Análisis del proyecto ${projectId}: ${query}. ${fromRAG ? "Basado en documentación indexada." : "Sin contexto documental disponible."}`,
-      nextAction: fromRAG ? "Consultar la documentación citada para más detalles" : "Subir documentos relevantes a Prometeo RAG",
-      riskLevel:  "medium",
-      citations:  ragCitations,
-      fromRAG,
+      summary: `Análisis del proyecto ${projectId}: ${query}. Contexto documental privado no disponible sin autorización verificada.`,
+      nextAction: "Solicitar acceso documental autorizado antes de citar fuentes",
+      riskLevel: "medium",
+      citations: [],
+      fromRAG: false,
+      ragDiagnostic,
     };
   }
 
