@@ -54,6 +54,33 @@ El mismo diff conserva `prepareActorContext(entry)` que llama `ActorContextServi
 
 **Fricción con BO-10 a resolver formalmente antes de S0b:** `assign` usa `taskId+userId` para encontrar la fila sin validar `crewId`; cuando `JobTask.entityType==='Crew'`, no compara `entityId` contra la crew invocante. Se requiere ratificar conflicto neutral cross-crew, transferencia explícita, atomicidad todo-o-nada y preservación de historial, no inferir cambio de diseño del registro original.
 
+## 3A. Seguridad de lecturas en contexto multi-tenant (2026-10-28)
+
+Durante la implementación de #1054 se detectó que `MyCrewsController`
+pasaba solo `userId` a `CrewsService.listMine` y
+`rosterForSupervisor`. Las consultas de crews se hacían por
+`supervisorUserId`/membresías de la persona **sin imponer tenant
+del request**: una cuenta con WORKER activo en dos tenants podía
+consultar información de ambas compañías desde una sola sesión.
+
+**Parche incorporado a #1054:**
+- El controlador envía `tenantId: actor.tenantId` y `userId`
+  en ambas rutas, sin aceptar tenant arbitrario en parámetros cliente.
+- El servicio exige `tenantId` en ambas firmas y lo aplica a
+  las consultas de crews por supervisor/miembro y por roster.
+- Caso `S0A-TENANT-01` simula al mismo usuario como supervisor
+  legítimo en tenants t1 y t2, exige solo crews del tenant de la
+  sesión y 404 para roster del otro tenant.
+- Regresiones adicionales `N03b` (preflight de lote mixto
+  con WORKER suspendido y PRO activo) y `N04b` (PRO activo no
+  conserva avance de asignaciones tras revocación de WORKER).
+
+**Evidencia:** los archivos y referencias de código se contrastaron
+estáticamente en la rama de #1054; el commit que incorpora el último
+caso es `70621f3c93dfd1f9edd304981bac19de1e9bf25e`.
+Tests ejecutables, integración PostgreSQL, build y CI **no ejecutados**
+por esta actualización. La numeración S0b N10–N18 permanece reservada.
+
 ## 4A. Bloqueador de autoridad empresarial (DEC-SUP-01)
 
 En `main` y en #1054, `CrewsService.createCrew()` invoca
