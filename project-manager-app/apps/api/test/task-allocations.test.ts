@@ -153,6 +153,24 @@ test("S0B-N12: asignación RELEASED de otra crew no se transfiere silenciosament
   assert.equal(w.audits.length, initialAuditCount);
 });
 
+test("S0B-N14: carrera en reactivación RELEASED no reabre asignación movida a otra crew", async () => {
+  const w = makeWorld();
+  await w.service.assign(sup, "c1", "task1", "r1", ["ana"]);
+  await w.service.release(sup, "c1", "task1", "ana", "r2", "fin del turno");
+  const auditCount = w.audits.length;
+
+  // Simula una mutación concurrente después de leer y validar la asignación,
+  // justo antes del compare-and-swap en la base de datos.
+  w.beforeNextAllocationUpdate(() => {
+    w.allocations[0].crewId = "c2";
+  });
+
+  await assert.rejects(w.service.assign(sup, "c1", "task1", "r3", ["ana"]), { status: 409 });
+  assert.equal(w.allocations[0].status, "RELEASED");
+  assert.equal(w.allocations[0].crewId, "c2");
+  assert.equal(w.audits.length, auditCount);
+});
+
 test("S0B-N13: lote mixto con asignación ajena no crea asignaciones parciales", async () => {
   const w = makeWorld();
   w.crewMembers.push({ crewId: "c2", userId: "ana", status: "ACTIVE" });
