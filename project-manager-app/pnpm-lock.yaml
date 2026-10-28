@@ -215,8 +215,8 @@ importers:
         specifier: ^1.12.3
         version: 1.12.3
       nodemailer:
-        specifier: ^10.0.9
-        version: 10.0.9
+        specifier: ^10.1.4
+        version: 10.1.4
       openai:
         specifier: ^6.49.0
         version: 6.49.0(@aws-sdk/credential-provider-node@3.972.84)(@smithy/signature-v4@5.7.3)(ws@8.21.3)(zod@3.25.76)
@@ -9631,8 +9631,8 @@ packages:
     resolution: {integrity: sha512-kQK9LGGFiHtrWiNhZtA7Qbw17AQz+dmsEKODRIVTXA9+e5MS/2gZEBhYJt13GrAz5/IOZKddH/0Z3TP/Zgo+yw==}
     engines: {node: '>=18'}
 
-  nodemailer@10.0.9:
-    resolution: {integrity: sha512-BF0qcyplCwp+jMk6HCjFykBz/YhhZSsxrARhOldLwFWH+8kGjQsd2WIMIZhqEuyXRoGFi0ONbDeWDMDoL8MhLw==}
+  nodemailer@10.1.4:
+    resolution: {integrity: sha512-EsMnOR2oRv4LGnWvHgcVYkkQ4O2j8KO4WTw6l+PHR4sOXo8SAgIraxtEnGDmotjbhv0hDsu3IuDIFZm8iXwO4A==}
     engines: {node: '>=20.0.0'}
 
   nopt@9.0.0:
@@ -22302,7 +22302,7 @@ snapshots:
 
   node-releases@2.0.57: {}
 
-  nodemailer@10.0.9: {}
+  nodemailer@10.1.4: {}
 
   nopt@9.0.0:
     dependencies:
