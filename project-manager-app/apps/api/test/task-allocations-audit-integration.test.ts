@@ -33,6 +33,7 @@ dbTest("S0B-PG-01: PostgreSQL rolls back the entire two-worker batch when its se
   const trigger = uniqueId("audittr");
   const originalFlag = process.env.SEMSE_TASK_ALLOCATION_ENABLED;
   process.env.SEMSE_TASK_ALLOCATION_ENABLED = "true";
+  let createdRoleId: string | null = null;
   let installedFunction = false;
   let installedTrigger = false;
 
@@ -52,6 +53,7 @@ dbTest("S0B-PG-01: PostgreSQL rolls back the entire two-worker batch when its se
     const role = existingRole ?? await prisma.role.create({
       data: { id: uniqueId("role"), key: "WORKER", name: "Worker" }
     });
+    if (!existingRole) createdRoleId = role.id;
     await prisma.tenant.create({ data: { id: tenantId, slug: tenantId, name: "Isolated BO-10 fixture" } });
     await prisma.org.create({ data: { id: orgId, tenantId, name: "BO-10 test org", type: "client" } });
     await prisma.user.createMany({ data: [supervisorId, workerA, workerB].map((id) => ({
@@ -113,6 +115,7 @@ dbTest("S0B-PG-01: PostgreSQL rolls back the entire two-worker batch when its se
     await prisma.org.deleteMany({ where: { id: orgId } });
     await prisma.tenant.deleteMany({ where: { id: tenantId } });
     await prisma.user.deleteMany({ where: { id: { in: [supervisorId, workerA, workerB] } } });
+    if (createdRoleId) await prisma.role.deleteMany({ where: { id: createdRoleId } });
     if (originalFlag === undefined) delete process.env.SEMSE_TASK_ALLOCATION_ENABLED;
     else process.env.SEMSE_TASK_ALLOCATION_ENABLED = originalFlag;
     await prisma.$disconnect();
