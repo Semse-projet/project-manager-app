@@ -38,7 +38,7 @@ FOR EACH ROW EXECUTE FUNCTION "curated_f1a_lock_source_during_version_insert"();
 
 -- The last deleted version is still provenance evidence. Freezing the source
 -- must inspect both live versions and the permanent identity reservations.
-CREATE OR REPLACE FUNCTION "curated_f1a_source_guard"() RETURNS trigger AS $
+CREATE OR REPLACE FUNCTION "curated_f1a_source_guard"() RETURNS trigger AS $$
 BEGIN
   IF OLD."sourcePrivateRef" IS DISTINCT FROM NEW."sourcePrivateRef"
     AND (
@@ -53,7 +53,7 @@ BEGIN
   END IF;
   RETURN NEW;
 END;
-$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql;
 
 -- A rights-holder organization cannot have a second concurrently active
 -- grant of the same version/scope/purpose through a different signer.
