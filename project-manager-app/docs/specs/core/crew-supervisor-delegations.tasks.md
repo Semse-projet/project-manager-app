@@ -22,6 +22,11 @@ date: "2026-10-22"
 - [x] DOC-04b-a — inventariar creación de Org, Membership y las fuentes de autoridad (P-01).
 - [x] DOC-04b-b — documentar candidato de verificación/revocación de autoridad (sin implementar).
 - [ ] DOC-04b-c — ratificar modelo canónico, revisor, pruebas y migración, e implementar guard tras aprobación.
+- [x] DOC-04b-d — comprobar que createCrew() sigue nombrando supervisor inicial
+  con solo `org:crews:manage` (sin owner verificado); brecha legacy documentada.
+- [ ] DOC-04b-e — cerrar autorización de nombramiento en `createCrew`
+  y futuros replace/revoke según autoridad empresarial verificada,
+  sin retirar permisos generales de gestión legítimos.
 - [x] DOC-05a a DOC-09a — recopilar opciones y propuesta técnica de OPEN-SUP-02…06.
 - [ ] DOC-05 — **ratificar** OPEN-SUP-02 elegibilidad/engagement.
 - [ ] DOC-06 — **ratificar** OPEN-SUP-03 suplencia.
