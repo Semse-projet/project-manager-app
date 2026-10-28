@@ -33,12 +33,15 @@ date: "2026-10-22"
 ## Estado real S0a/S0b en GitHub (2026-10-28)
 
 - [x] Comparación con [#1054](https://github.com/Semse-projet/project-manager-app/pull/1054):
-  código S0a y tests N01–N07 presentes en PR DRAFT, **no ejecutados**.
+  código S0a y tests N01–N09 presentes en PR DRAFT tras commit
+  `d5b2520` (2026-10-28), **no ejecutados**.
 - [x] Comparación con [#1053](https://github.com/Semse-projet/project-manager-app/pull/1053):
   `appendInTransaction` presente y prueba PostgreSQL reportada para **BO-12**.
 - [x] Registrar base de #1054 sobre #1027 y necesidad de refrescarla
   antes de merge, sin confundir el dif de la rama con test PASS.
-- [ ] Completar N08/N09, revisión seguridad de S0a y validar en entorno
+- [x] Escribir tests N08/N09 en #1054: gestor PRO legítimo y denegaciones
+  por Org/tenant aun con claims de sesión (commit `d5b2520`).
+- [ ] Ejecutar N01–N09, revisión de seguridad de S0a y validar en entorno
   local adecuado; el autor reportó caché offline incompleta, no falla del código.
 - [ ] Reconciliar auditoría S0b con #1053 y prueba de ausencia de
   `ensureActorContext`/upserts sintéticos en mutaciones de assignments.
