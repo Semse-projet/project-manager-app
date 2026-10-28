@@ -152,6 +152,51 @@ test("AC-02 un gestor de cuadrillas de la Org sí puede; un supervisor suspendid
   await assert.rejects(w.service.assign(ghost, "c1", "task1", "r", ["ana"]), { status: 404 });
 });
 
+test("S0B-N23: perder autoridad antes de guardar creación no deja JobTask sin control", async () => {
+  const w = makeWorld();
+  w.beforeTransaction(() => {
+    w.memberships.find((m) => m.userId === "sup" && m.role.key === "WORKER")!.status = "SUSPENDED";
+  });
+  const before = w.tasks.length;
+  await assert.rejects(
+    w.service.createCrewTask(sup, "c1", "r1", { title: "Hab. 205 — Reparar pared" }),
+    { status: 409 }
+  );
+  assert.equal(w.tasks.length, before);
+  assert.equal(w.audits.length, 0);
+});
+
+test("S0B-N24: supervisor revocado al liberar no cambia asignación", async () => {
+  const w = makeWorld();
+  await w.service.assign(sup, "c1", "task1", "r1", ["ana"]);
+  const auditsBefore = w.audits.length;
+  w.beforeTransaction(() => {
+    w.memberships.find((m) => m.userId === "sup" && m.role.key === "WORKER")!.status = "REVOKED";
+  });
+  await assert.rejects(
+    w.service.release(sup, "c1", "task1", "ana", "r2", "cambio"),
+    { status: 409 }
+  );
+  assert.equal(w.allocations[0].status, "ASSIGNED");
+  assert.equal(w.audits.length, auditsBefore);
+});
+
+test("S0B-N25: retirar WORKER antes de actualizar estado impide avance", async () => {
+  const w = makeWorld();
+  const [a] = await w.service.assign(sup, "c1", "task1", "r1", ["ana"]);
+  const auditsBefore = w.audits.length;
+  w.beforeTransaction(() => {
+    w.memberships.find((m) => m.userId === "ana" && m.role.key === "WORKER")!.status = "REVOKED";
+  });
+  await assert.rejects(
+    w.service.updateStatus(ana, a.allocationId, "ACKNOWLEDGED", undefined, "r2"),
+    { status: 404 }
+  );
+  assert.equal(w.allocations[0].status, "ASSIGNED");
+  assert.equal(w.allocations[0].acknowledgedAt, null);
+  assert.equal(w.audits.length, auditsBefore);
+});
+
 test("S0B-N20: suspensión del supervisor justo antes del lote invalida su autoridad", async () => {
   const w = makeWorld();
   w.beforeTransaction(() => {
