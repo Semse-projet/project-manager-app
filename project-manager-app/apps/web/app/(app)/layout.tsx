@@ -649,12 +649,13 @@ function AppLayoutInner({ children }: { children: ReactNode }) {
 }
 
 function WorkerMobileBottomNav({ pathname }: { pathname: string }) {
+  const { t } = useLanguage();
   const tabs = [
-    { href: "/worker/dashboard",    icon: LayoutDashboard, label: "Inicio" },
-    { href: "/worker/jobs",         icon: Briefcase,        label: "Trabajos" },
-    { href: "/worker/tracker",      icon: Clock,            label: "Tiempo" },
-    { href: "/worker/evidence",     icon: Camera,           label: "Evidencia" },
-    { href: "/worker/opportunities",icon: Store,            label: "Ofertas" },
+    { href: "/worker/dashboard",    icon: LayoutDashboard, labelKey: "workerMobile.home" },
+    { href: "/worker/jobs",         icon: Briefcase,        labelKey: "workerMobile.jobs" },
+    { href: "/worker/tracker",      icon: Clock,            labelKey: "workerMobile.time" },
+    { href: "/worker/evidence",     icon: Camera,           labelKey: "workerMobile.evidence" },
+    { href: "/worker/opportunities",icon: Store,            labelKey: "workerMobile.offers" },
   ] as const;
 
   return (
@@ -674,7 +675,7 @@ function WorkerMobileBottomNav({ pathname }: { pathname: string }) {
         paddingBottom: "env(safe-area-inset-bottom, 0px)",
       }}
     >
-      {tabs.map(({ href, icon: Icon, label }) => {
+      {tabs.map(({ href, icon: Icon, labelKey }) => {
         const active = pathname === href || pathname.startsWith(href + "/");
         return (
           <Link
@@ -692,7 +693,7 @@ function WorkerMobileBottomNav({ pathname }: { pathname: string }) {
             }}
           >
             <Icon size={20} />
-            <span style={{ fontSize: 10, fontWeight: active ? 700 : 400 }}>{label}</span>
+            <span style={{ fontSize: 10, fontWeight: active ? 700 : 400 }}>{t(labelKey)}</span>
           </Link>
         );
       })}
