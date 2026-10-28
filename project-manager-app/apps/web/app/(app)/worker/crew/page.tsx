@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useLanguage } from "../../../../lib/language-context";
+import { buildCrewRoomTaskTitle } from "../../../../lib/crew-room-task-title";
 import {
   assignTaskToCrewMembers,
   createCrewTask,
@@ -217,13 +218,15 @@ export default function MyCrewPage() {
               <input value={newTitle} maxLength={130} onChange={(event) => setNewTitle(event.target.value)} style={{ width: "100%", minHeight: 44 }} />
             </label>
             <button
-              disabled={busy || !crewId || room.trim().length < 1 || newTitle.trim().length < 2}
+              disabled={busy || !crewId || !buildCrewRoomTaskTitle(room, newTitle)}
               style={{ minHeight: 44 }}
               onClick={() => {
+                const title = buildCrewRoomTaskTitle(room, newTitle);
+                if (!title) return;
                 setBusy(true);
                 void (async () => {
                   try {
-                    const created = await createCrewTask(crewId, { title: `${room.trim()} — ${newTitle.trim()}` });
+                    const created = await createCrewTask(crewId, { title });
                     setTasks(await fetchCrewTasks(crewId));
                     setTaskId(created.taskId);
                     setNewTitle("");
