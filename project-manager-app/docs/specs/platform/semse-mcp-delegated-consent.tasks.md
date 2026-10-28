@@ -18,7 +18,7 @@ date: "2026-10-26"
 - [x] [T-001] Spec, decisiones Q1–Q6 y correcciones de revisión
 - [x] [T-002] FSM reservada en `STATE_MACHINES.md` y fila de retención M-06
 - [x] [T-003] DEC-PLATFORM-001 (revisión para mantenedor único)
-- [~] [T-004] Viñeta de mantenedor único en `semseproject` §12 (la aplica el propietario a mano)
+- [~] [T-004] Viñeta de mantenedor único en `semseproject` §12: la aplica el propietario en el PR #1065 (sin fusionar)
 
 ## Fase B — Persistencia apagada
 
@@ -33,9 +33,9 @@ date: "2026-10-26"
 - [x] [T-018] Pruebas de integración PostgreSQL (D7-01, 02, 03, 05, 05b, 06, 07, 08, 09, 13, 17, 19, 21, 22, 23, 24)
 - [x] [T-018b] Hallazgos de Copilot: orden de bloqueo `User` → `AuthSession` (D7-23b), reloj muestreado tras los bloqueos y revalidación de expiraciones tras las lecturas de autoridad (D7-02b, D7-09b), `id` UUID v4 (D7-21)
 - [ ] [T-019] CI verde (incluido `API Integration`) sobre el SHA final de estas correcciones; el success de `f742a33` no lo sustituye
-- [ ] [T-019b] Reconciliar spec REVIEW/APPROVED: evidencia del propietario con SHA/fecha/alcance y SKILL.md §12
-- [ ] [T-019c] Confirmar tests D7-10b/10c de deadline monotónico; D2 debe pasar el presupuesto end-to-end
-- [ ] [T-019d] Confirmar test PostgreSQL D7-05c: `OPS_ADMIN` puro no concede grants de lectura
+- [x] [T-019b] Spec, plan e índice en `APPROVED` con la [aprobación del propietario en #1049](https://github.com/Semse-projet/project-manager-app/pull/1049#issuecomment-6458315027); §12 sigue en #1065 (T-004)
+- [x] [T-019c] Tests D7-10b/10c de deadline monotónico en verde en CI; D2 deberá pasar el presupuesto end-to-end (fase C)
+- [x] [T-019d] Test PostgreSQL D7-05c en verde en CI: `OPS_ADMIN` puro no concede grants de lectura
 - [ ] [T-020] Controles de nivel 2: dos revisiones automatizadas, pausa de 24 h, autorrevisión del propietario
 
 ## Pendiente para fases siguientes

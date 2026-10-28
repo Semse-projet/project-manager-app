@@ -3,8 +3,8 @@ id: "platform.semse-mcp-delegated-consent"
 title: "S1/D7 — Consentimiento OAuth delegado persistente y revocable para SEMSE MCP"
 domain: "platform"
 sdd_version: "2.0"
-version: "0.3"
-status: "REVIEW"
+version: "0.4"
+status: "APPROVED"
 owner: "semse-core"
 risk: "critical"
 code_status: "IN_PROGRESS"
@@ -49,11 +49,12 @@ last_verified: "NOT_VERIFIED"
 # Spec: S1/D7 — Consentimiento OAuth delegado persistente y revocable
 
 > Spec hijo de [`platform.semse-mcp-project-read`](semse-mcp-project-read.spec.md)
-> (S1, `REVIEW`). Contrato SDD 2.0 en **REVIEW** (decisiones del propietario
-> Q1–Q6 cerradas el 2026-10-26; `APPROVED` según los controles de nivel 1 de
-> [DEC-PLATFORM-001](../../architecture/DEC-PLATFORM-001-solo-maintainer-review.md)):
-> no autoriza schema Prisma,
-> migración, endpoint, flag, despliegue ni activación MCP. D7 está aprobado
+> (S1, `REVIEW`). Contrato SDD 2.0 **APPROVED** el 2026-10-28 por el
+> propietario ([aprobación en #1049](https://github.com/Semse-projet/project-manager-app/pull/1049#issuecomment-6458315027), SHA `9bdaea4`), según los controles de
+> nivel 1 de [DEC-PLATFORM-001](../../architecture/DEC-PLATFORM-001-solo-maintainer-review.md).
+> Alcance aprobado: Q1–Q6, FSM y fases A y B (persistencia apagada). La
+> aprobación **no** autoriza endpoint, flag, despliegue productivo, activación
+> MCP ni las fases C y D; fusionar la fase B sigue sujeto al nivel 2. D7 está aprobado
 > por el propietario **a nivel de solución** (2026-10-15, ver
 > [`decisions`](semse-mcp-project-read.decisions.md)); **D2 (Authorization
 > Server/issuer) sigue PENDING** y bloquea las fases C y D. Código, CI, merge,
@@ -545,20 +546,21 @@ Checklist de plantilla:
 
 ## 12. Gates de cierre
 
-> Control documental pendiente: registrar en #1049 la aprobación con SHA, fecha
-> y alcance, y armonizar la excepción de mantenedor único con
-> `.claude/skills/semseproject/SKILL.md` §12. Una revisión automatizada
-> no se presenta como aprobación humana independiente.
+> Aprobación de nivel 1 registrada en [#1049](https://github.com/Semse-projet/project-manager-app/pull/1049#issuecomment-6458315027) (2026-10-28, SHA `9bdaea4`).
+> La viñeta de mantenedor único de `.claude/skills/semseproject/SKILL.md` §12
+> está en el PR #1065 (sin fusionar); debe fusionarse antes que la fase B (#1051).
+> Una revisión automatizada no se presenta como aprobación humana independiente.
 
 
 - [x] Q1–Q4 decididas por el propietario (2026-10-26, §13)
 - [x] Q5, Q6 y valor de `MCP_GRANT_MAX_TTL` decididos (2026-10-26, §13)
 - [x] Fila del grant añadida a la matriz de retención M-06 (`.claude/skills/semseproject/references/operations.md`)
 - [x] FSM registrada en `STATE_MACHINES.md` como reservada
-- [ ] Este spec (documento): controles de **nivel 1** de
+- [x] Este spec (documento): controles de **nivel 1** de
   [DEC-PLATFORM-001](../../architecture/DEC-PLATFORM-001-solo-maintainer-review.md):
-  CI verde, revisión automatizada sin bloqueantes y registro de aprobación del
-  propietario en el PR
+  CI verde y Codex sin hallazgos sobre `9bdaea4` (#1049), y
+  [aprobación del propietario](https://github.com/Semse-projet/project-manager-app/pull/1049#issuecomment-6458315027) con SHA, fecha y alcance (2026-10-28)
+- [ ] Excepción de mantenedor único en `semseproject/SKILL.md` §12 fusionada (PR #1065)
 - [ ] Fases B y C (código con flag OFF): controles de **nivel 2** de
   DEC-PLATFORM-001 (dos revisiones automatizadas, pruebas D7 contra PostgreSQL
   real, pausa de 24 h, autorrevisión con checklist)
@@ -579,12 +581,13 @@ Checklist de plantilla:
 
 ## 13. Decisiones del propietario
 
-**Evidencia parcial (2026-10-26; nivel 1 de DEC-PLATFORM-001):** CI verde y
-revisión Codex sin hallazgos sobre `9bdaea4` (PR #1049, merge `c6d4d32`).
-La instrucción del propietario de preparar la fase B no sustituye el comentario
-formal con SHA, fecha y alcance exigido en el PR. Hasta reconciliar esa
-evidencia y la regla del skill §12, el spec permanece `REVIEW` y el código de
-fase B no autoriza migración productiva, fusión de #1051 ni activación MCP.
+**Aprobación de nivel 1 (2026-10-28; DEC-PLATFORM-001):** CI verde y
+revisión Codex sin hallazgos sobre `9bdaea4` (PR #1049, merge `c6d4d32`), más el
+[comentario formal del propietario](https://github.com/Semse-projet/project-manager-app/pull/1049#issuecomment-6458315027) con SHA, fecha y alcance: Q1–Q6, FSM
+y fases A y B; excluye D2, las fases C y D y cualquier activación. El spec pasa a
+`APPROVED`. La excepción de §12 del skill está en el PR #1065 (sin fusionar). Fusionar
+la fase B (#1051) aplica la migración en producción vía `pre-migrate.mjs` y
+exige además el nivel 2 y #1065 fusionado; no autoriza activación MCP.
 
 **Registro de decisión (2026-10-26):** el propietario aceptó en conversación
 de trabajo las recomendaciones de Q1–Q4 y, después, el diseño integrado de

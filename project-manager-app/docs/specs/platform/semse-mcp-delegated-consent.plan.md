@@ -4,17 +4,17 @@ feature: "S1/D7 — Consentimiento OAuth delegado persistente (fase B)"
 domain: "platform"
 spec: "docs/specs/platform/semse-mcp-delegated-consent.spec.md"
 version: "2.0"
-status: "REVIEW"
+status: "APPROVED"
 branch: "claude/new-session-jdxlw4"
 date: "2026-10-26"
 ---
 
 # Plan técnico: S1/D7 fase B — persistencia apagada
 
-> Prerrequisito de fusión: spec `APPROVED` con evidencia documental de nivel 1
-> (DEC-PLATFORM-001). La fase B se ha preparado en rama aislada, pero falta
-> el comentario formal de aprobación de #1049 y reconciliar SKILL.md §12.
-> Mientras tanto no se autoriza merge ni migración productiva.
+> Spec `APPROVED` (nivel 1 de DEC-PLATFORM-001, [aprobación en #1049](https://github.com/Semse-projet/project-manager-app/pull/1049#issuecomment-6458315027),
+> 2026-10-28). Prerrequisitos que siguen abiertos para fusionar la fase B: nivel 2
+> completo sobre el HEAD final y la viñeta de §12 de SKILL.md fusionada (#1065).
+> Fusionar aplica la migración en producción (`pre-migrate.mjs` → `prisma migrate deploy`).
 
 ## 1. Snapshot de verdad
 
@@ -28,7 +28,8 @@ date: "2026-10-26"
 
 ## 2. Constitution check
 
-- [ ] Evidencia formal pendiente: comentario del propietario con SHA/fecha/alcance y reconciliación SKILL.md §12; fase B aún no fusionable
+- [x] Evidencia formal de nivel 1: [comentario del propietario en #1049](https://github.com/Semse-projet/project-manager-app/pull/1049#issuecomment-6458315027) con SHA, fecha y alcance
+- [ ] Excepción de §12 de SKILL.md fusionada (#1065); hasta entonces la fase B no es fusionable
 - [x] Tenant/org/ownership y RBAC definidos (§3 del spec, Q2, D7-05b)
 - [x] Migración aditiva, sin FK ni DML (Q3, Q6-X1)
 - [x] Sin ruta HTTP/MCP, sin módulo Nest registrado, sin flag productivo
