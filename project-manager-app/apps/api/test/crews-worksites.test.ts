@@ -153,7 +153,7 @@ test("mis cuadrillas: el miembro ve la suya con rol MEMBER; archivar una vez", a
   assert.equal((await w.service.listMine({ tenantId: "t1", userId: "ana" })).length, 0);
 });
 
-test("N10: un mismo usuario en dos tenants no puede mezclar crews ni rosters entre sesiones", async () => {
+test("S0A-TENANT-01: un mismo usuario en dos tenants no puede mezclar crews ni rosters entre sesiones", async () => {
   const w = makeWorld();
   const tenantA = await w.service.createCrew(owner, "orgA", "r-tenanta", { name: "Crew tenant A", supervisorUserId: "ana" });
   const ownerB = { tenantId: "t2", orgId: "orgB", userId: "owner_b", roles: ["PRO"] };
