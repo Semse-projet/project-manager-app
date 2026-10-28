@@ -169,6 +169,23 @@ test("N09: claims PRO/WORKER no sustituyen Membership de la Org ni tenant real",
   assert.equal(w.audits.length, 0);
 });
 
+test("S0A-SCOPE-01: listado y liberación ignoran asignaciones con org/tenant inconsistente", async () => {
+  const w = makeWorld();
+  // Datos sintéticos corruptos: misma crew y task, pero distintas autoridades.
+  // Sin FK de TaskAllocation a Crew, el servicio debe rechazar también la lectura.
+  const foreign = [
+    { id: "foreign-tenant", tenantId: "t2", orgId: "orgB", crewId: "c1", taskId: "task1", userId: "ana", status: "ASSIGNED", assignedAt: new Date() },
+    { id: "foreign-org", tenantId: "t1", orgId: "orgC", crewId: "c1", taskId: "task1", userId: "bob", status: "ASSIGNED", assignedAt: new Date() }
+  ];
+  w.allocations.push(...foreign);
+
+  assert.deepEqual(await w.service.listForTask(sup, "c1", "task1"), []);
+  await assert.rejects(w.service.release(sup, "c1", "task1", "ana", "r-foreign-tenant", "sin autoridad"), { status: 404 });
+  await assert.rejects(w.service.release(sup, "c1", "task1", "bob", "r-foreign-org", "sin autoridad"), { status: 404 });
+  assert.deepEqual(w.allocations.map((row) => row.status), ["ASSIGNED", "ASSIGNED"]);
+  assert.equal(w.audits.length, 0);
+});
+
 test("N03b: lote mixto de WORKER ACTIVE y suspendido no deja escrituras parciales", async () => {
   const w = makeWorld();
   w.memberships.find((m) => m.userId === "bob" && m.role.key === "WORKER")!.status = "SUSPENDED";
