@@ -130,7 +130,8 @@ export class TaskAllocationsService {
   ) {
     this.assertEnabled();
     const crew = await this.requireCrewScope(actor, crewId);
-    const task = await this.prisma.jobTask.create({
+    return this.prisma.$transaction(async (tx) => {
+      const task = await tx.jobTask.create({
       data: {
         tenantId: actor.tenantId,
         orgId: crew.orgId,
@@ -144,8 +145,9 @@ export class TaskAllocationsService {
         entityId: crew.id
       }
     });
-    await this.record(actor.tenantId, crew.orgId, actor.userId, "crew_task.created", task.id, requestId, { crewId: crew.id });
-    return this.taskView(task);
+      await this.record(actor.tenantId, crew.orgId, actor.userId, "crew_task.created", task.id, requestId, { crewId: crew.id }, tx);
+      return this.taskView(task);
+    }, { isolationLevel: "Serializable" });
   }
 
   async listCrewTasks(actor: AllocationActor, crewId: string) {
