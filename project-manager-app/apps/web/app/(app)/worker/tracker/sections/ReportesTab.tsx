@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, Download } from "lucide-react";
 import {
   fetchFreeProjects,
@@ -14,6 +14,7 @@ import {
 } from "../../../labor-api";
 import type { JobRecordView } from "../../../../semse-api";
 import { readTrackerLocalState, type TrackerLocalState } from "../trackerLocalStore";
+import { createTrackerRequestGate } from "./trackerRequestGate";
 import {
   BarList,
   ChangeBadge,
@@ -53,6 +54,7 @@ export function ReportesTab({ jobs }: { jobs: JobRecordView[] }) {
   const [localState, setLocalState] = useState<TrackerLocalState | null>(null);
   const [loading, setLoading] = useState(true);
   const [weekLoading, setWeekLoading] = useState(false);
+  const weekRequestGate = useRef(createTrackerRequestGate());
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -88,7 +90,7 @@ export function ReportesTab({ jobs }: { jobs: JobRecordView[] }) {
   // reales de esa semana calendario específica (mismo weekOffset que el resumen).
   // Ver docs/AUDIT_REMEDIATION_PLAN.md 2.13.
   useEffect(() => {
-    let cancelled = false;
+    const requestId = weekRequestGate.current.begin();
     const run = async () => {
       setWeekLoading(true);
       setError(null);
@@ -100,21 +102,30 @@ export function ReportesTab({ jobs }: { jobs: JobRecordView[] }) {
           fetchWeeklySummary(weekOffset),
           fetchLaborEntries({ weekOffset, limit: 500 }),
         ]);
-        if (!cancelled) {
+        if (weekRequestGate.current.isCurrent(requestId)) {
           setWeekly(weeklyResult);
           setWeekEntriesRaw(weekEntriesResult);
         }
       } catch (caught) {
-        if (!cancelled) setError(caught instanceof Error ? caught.message : "No se pudo cargar la semana.");
+        if (weekRequestGate.current.isCurrent(requestId)) setError(caught instanceof Error ? caught.message : "No se pudo cargar la semana.");
       } finally {
-        if (!cancelled) setWeekLoading(false);
+        if (weekRequestGate.current.isCurrent(requestId)) setWeekLoading(false);
       }
     };
     void run();
     return () => {
-      cancelled = true;
+      weekRequestGate.current.invalidate();
     };
   }, [weekOffset]);
+
+  const navigateWeek = useCallback((direction: -1 | 1) => {
+    // Invalidate in the click handler, before React runs the next effect.
+    weekRequestGate.current.invalidate();
+    setWeekLoading(true);
+    setWeekly(null);
+    setWeekEntriesRaw([]);
+    setWeekOffset((current) => Math.min(11, Math.max(0, current + direction)));
+  }, []);
 
   // Sesión activa aún no confirmada + entradas manuales encoladas offline
   // (trackerLocalStore) — sin esto, Reportes solo cuenta lo ya sincronizado
@@ -213,10 +224,10 @@ export function ReportesTab({ jobs }: { jobs: JobRecordView[] }) {
           </p>
         </div>
         <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-          <button type="button" onClick={() => setWeekOffset((current) => Math.min(current + 1, 11))} disabled={weekLoading || weekOffset >= 11} style={navButton(weekLoading || weekOffset >= 11)} aria-label="Semana anterior">
+          <button type="button" onClick={() => navigateWeek(1)} disabled={weekLoading || weekOffset >= 11} style={navButton(weekLoading || weekOffset >= 11)} aria-label="Semana anterior">
             <ChevronLeft size={14} />
           </button>
-          <button type="button" onClick={() => setWeekOffset((current) => Math.max(current - 1, 0))} disabled={weekLoading || weekOffset === 0} style={navButton(weekLoading || weekOffset === 0)} aria-label="Semana siguiente">
+          <button type="button" onClick={() => navigateWeek(-1)} disabled={weekLoading || weekOffset === 0} style={navButton(weekLoading || weekOffset === 0)} aria-label="Semana siguiente">
             <ChevronRight size={14} />
           </button>
           <button
