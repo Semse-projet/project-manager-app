@@ -1,5 +1,5 @@
 import { type NextRequest } from "next/server";
-import { buildAuthorizedHeaders, getServerConfig, routeErrorResponse, upstreamErrorResponse } from "../../_server";
+import { buildAuthorizedHeaders, getAuthenticatedServerConfig, routeErrorResponse, upstreamErrorResponse } from "../../_server";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -7,7 +7,7 @@ export const runtime = "nodejs";
 /** Proxies GET /v1/sse/agents → streams agent:message and agent:error events */
 export async function GET(request: NextRequest) {
   try {
-    const cfg = await getServerConfig(request);
+    const cfg = await getAuthenticatedServerConfig(request);
     const apiRes = await fetch(
       `${cfg.apiBaseUrl}/v1/sse/agents`,
       { headers: (await buildAuthorizedHeaders(cfg)), signal: request.signal },

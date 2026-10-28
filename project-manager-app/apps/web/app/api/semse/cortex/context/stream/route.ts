@@ -1,5 +1,5 @@
 import { type NextRequest } from "next/server";
-import { buildAuthorizedHeaders, getServerConfig, routeErrorResponse, upstreamErrorResponse } from "../../../_server";
+import { buildAuthorizedHeaders, getAuthenticatedServerConfig, routeErrorResponse, upstreamErrorResponse } from "../../../_server";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const projectId = searchParams.get("projectId");
-    const cfg = await getServerConfig(request);
+    const cfg = await getAuthenticatedServerConfig(request);
     const headers = (await buildAuthorizedHeaders(cfg));
     const qs = projectId ? `?projectId=${encodeURIComponent(projectId)}` : "";
 
