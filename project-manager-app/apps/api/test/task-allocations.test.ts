@@ -35,6 +35,7 @@ function makeWorld() {
   ];
   let seq = 0;
   let beforeAllocationUpdate: (() => void) | null = null;
+  let beforeNextTransaction: (() => void) | null = null;
   let transactionSnapshot: { allocations: Row[]; audits: Row[]; tasks: Row[] } | null = null;
   let failAuditForAction: string | null = null;
   let failAuditForUser: string | null = null;
@@ -83,6 +84,11 @@ function makeWorld() {
     },
     taskAllocation: table(allocations, () => ({ status: "ASSIGNED", assignedAt: new Date(), acknowledgedAt: null, releasedAt: null, releaseReason: null, statusNote: null, assignReason: null })),
     async $transaction<T>(operation: (tx: any) => Promise<T>): Promise<T> {
+      if (beforeNextTransaction) {
+        const hook = beforeNextTransaction;
+        beforeNextTransaction = null;
+        hook();
+      }
       const snapshot = { allocations: structuredClone(allocations), audits: structuredClone(audits), tasks: structuredClone(tasks) };
       transactionSnapshot = snapshot;
       try {
@@ -110,6 +116,7 @@ function makeWorld() {
   return {
     service: new TaskAllocationsService(prisma, audit), allocations, audits, tasks, crews, crewMembers, memberships,
     beforeNextAllocationUpdate(callback: () => void) { beforeAllocationUpdate = callback; },
+    beforeTransaction(callback: () => void) { beforeNextTransaction = callback; },
     failTransactionalAuditFor(userId: string) { failAuditForUser = userId; },
     failTransactionalAuditForAction(action: string) { failAuditForAction = action; }
   };
@@ -143,6 +150,34 @@ test("AC-02 un gestor de cuadrillas de la Org sí puede; un supervisor suspendid
   assert.equal(w.allocations.length, 1);
   const ghost = { tenantId: "t1", userId: "ghost", roles: ["WORKER"] };
   await assert.rejects(w.service.assign(ghost, "c1", "task1", "r", ["ana"]), { status: 404 });
+});
+
+test("S0B-N20: suspensión del supervisor justo antes del lote invalida su autoridad", async () => {
+  const w = makeWorld();
+  w.beforeTransaction(() => {
+    w.memberships.find((m) => m.userId === "sup" && m.role.key === "WORKER")!.status = "SUSPENDED";
+  });
+  await assert.rejects(w.service.assign(sup, "c1", "task1", "r", ["ana"]), { status: 409 });
+  assert.equal(w.allocations.length, 0);
+  assert.equal(w.audits.length, 0);
+});
+
+test("S0B-N21: retirada del destinatario entre preflight y transacción aborta lote completo", async () => {
+  const w = makeWorld();
+  w.beforeTransaction(() => {
+    w.crewMembers.find((m) => m.userId === "bob" && m.crewId === "c1")!.status = "REMOVED";
+  });
+  await assert.rejects(w.service.assign(sup, "c1", "task1", "r", ["ana", "bob"]), { status: 409 });
+  assert.equal(w.allocations.length, 0);
+  assert.equal(w.audits.length, 0);
+});
+
+test("S0B-N22: cambio de tarea antes de la transacción impide asignar una tarea cerrada", async () => {
+  const w = makeWorld();
+  w.beforeTransaction(() => { w.tasks.find((t) => t.id === "task1")!.status = "done"; });
+  await assert.rejects(w.service.assign(sup, "c1", "task1", "r", ["ana"]), { status: 409 });
+  assert.equal(w.allocations.length, 0);
+  assert.equal(w.audits.length, 0);
 });
 
 test("S0B-N18: fallo de auditoría al liberar mantiene intacta la asignación", async () => {
