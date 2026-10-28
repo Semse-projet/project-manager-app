@@ -218,7 +218,7 @@ export class TaskAllocationsService {
   async release(actor: AllocationActor, crewId: string, taskId: string, userId: string, requestId: string, reason: string) {
     this.assertEnabled();
     const crew = await this.requireCrewScope(actor, crewId);
-    const existing = await this.prisma.taskAllocation.findFirst({ where: { taskId, userId, crewId: crew.id } });
+    const existing = await this.prisma.taskAllocation.findFirst({ where: { tenantId: actor.tenantId, orgId: crew.orgId, taskId, userId, crewId: crew.id } });
     if (!existing) throw new NotFoundException();
     if (existing.status === "RELEASED") throw new ConflictException("La asignación ya fue liberada");
     const claimed = await this.prisma.taskAllocation.updateMany({
@@ -233,7 +233,7 @@ export class TaskAllocationsService {
   async listForTask(actor: AllocationActor, crewId: string, taskId: string) {
     this.assertEnabled();
     const crew = await this.requireCrewScope(actor, crewId);
-    const rows = await this.prisma.taskAllocation.findMany({ where: { taskId, crewId: crew.id } });
+    const rows = await this.prisma.taskAllocation.findMany({ where: { tenantId: actor.tenantId, orgId: crew.orgId, taskId, crewId: crew.id } });
     const titles = await this.titles(actor.tenantId, rows.map((r) => r.taskId));
     return rows.map((row) => this.view(row, titles.get(row.taskId)));
   }
