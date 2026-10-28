@@ -89,6 +89,14 @@ BEGIN
      OR OLD."owningOrgId" IS DISTINCT FROM NEW."owningOrgId"
      OR OLD."createdByUserId" IS DISTINCT FROM NEW."createdByUserId")
  THEN RAISE EXCEPTION 'curated historical entry identity/ownership is immutable'; END IF;
+ -- A not-yet-versioned entry cannot be rekeyed onto an identity reserved
+ -- by a tombstone from a historically deleted entry.
+ IF (OLD."id" IS DISTINCT FROM NEW."id"
+     OR OLD."tenantId" IS DISTINCT FROM NEW."tenantId")
+    AND EXISTS (SELECT 1 FROM "CuratedKnowledgeVersionTombstone"
+      WHERE "tenantId"=NEW."tenantId" AND "entryId"=NEW."id") THEN
+   RAISE EXCEPTION 'target entry identity reserved by version history';
+ END IF;
  RETURN NEW;
 END;
 $identityguard$ LANGUAGE plpgsql;
@@ -225,6 +233,22 @@ $curated$ LANGUAGE plpgsql;
 CREATE TRIGGER "curated_f1a_no_consent_truncate"
  BEFORE TRUNCATE ON "CuratedPublicationConsent" FOR EACH STATEMENT
  EXECUTE FUNCTION "curated_f1a_consent_no_truncate"();
+
+-- The previous withdrawal trigger protects signer/scope/evidence but the
+-- consent primary key itself must not be changed during that FIRST withdrawal.
+-- Use a separate trigger so already-applied migration checksums remain intact.
+CREATE FUNCTION "curated_f1a_consent_id_immutable"()
+RETURNS trigger AS $consentid$
+BEGIN
+ IF OLD."id" IS DISTINCT FROM NEW."id" THEN
+   RAISE EXCEPTION 'curated consent identity is immutable';
+ END IF;
+ RETURN NEW;
+END;
+$consentid$ LANGUAGE plpgsql;
+CREATE TRIGGER "curated_f1a_consent_freeze_primary_key"
+ BEFORE UPDATE OF "id" ON "CuratedPublicationConsent" FOR EACH ROW
+ EXECUTE FUNCTION "curated_f1a_consent_id_immutable"();
 
 -- To limit retention to an approved period, F1B must explicitly implement
 -- audited retention/erasure policies. These irreversible private-only
