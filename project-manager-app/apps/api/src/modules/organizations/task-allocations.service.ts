@@ -204,7 +204,15 @@ export class TaskAllocationsService {
         });
       } else if (existing.status === "RELEASED") {
         const reopened = await this.prisma.taskAllocation.updateMany({
-          where: { id: existing.id, status: "RELEASED" },
+          where: {
+            id: existing.id,
+            tenantId: actor.tenantId,
+            orgId: crew.orgId,
+            crewId: crew.id,
+            taskId,
+            userId,
+            status: "RELEASED"
+          },
           data: {
             status: "ASSIGNED",
             crewId: crew.id,
