@@ -8,7 +8,12 @@ import assert from "node:assert/strict";
 import { randomUUID, createHash } from "node:crypto";
 import { PrismaClient } from "@prisma/client";
 
-const dbTest = process.env.DATABASE_URL ? test : test.skip;
+// Permanent history guards intentionally prevent full fixture deletion.
+// This test may retain only SYNTHETIC rows in the ephemeral GitHub Actions DB.
+// Never run this suite against a persistent user/customer database.
+const isEphemeralCiDb = process.env.CI === "true" &&
+  /^postgres(?:ql)?:\/\/[^/]*@127\.0\.0\.1:5433\/semse(?:\?|$)/.test(process.env.DATABASE_URL ?? "");
+const dbTest = isEphemeralCiDb ? test : test.skip;
 
 dbTest("F1A: private defaults, tenant-bound FK, version immutability keys, and consent isolation", async () => {
   const db = new PrismaClient();
@@ -263,15 +268,127 @@ dbTest("F1A: private defaults, tenant-bound FK, version immutability keys, and c
       withdrawnAt: new Date(Date.now() + 2_000), withdrawnByUserId: userB,
     } }), "Consent must not be inserted in an already withdrawn state");
 
+
+    // Codex/Copilot current-head review: historical identities and DDL bypasses.
+    assert.equal((await db.curatedKnowledgeEntry.findUnique({
+      where: { id: legacyEntry.id },
+    }))?.versionEverCreated, true, "Historical version latch must survive deletion");
+    await assert.rejects(db.curatedKnowledgeEntry.delete({
+      where: { id: legacyEntry.id },
+    }), "A previously versioned entry cannot be deleted and recreated with another source");
+    await assert.rejects(db.curatedKnowledgeEntry.update({
+      where: { id: legacyEntry.id },
+      data: { versionEverCreated: false },
+    }), "Historical version latch cannot be reset");
+    await assert.rejects(
+      db.$executeRawUnsafe('TRUNCATE TABLE "CuratedKnowledgeVersion" CASCADE'),
+      "TRUNCATE CASCADE cannot bypass version-delete tombstones",
+    );
+    await assert.rejects(
+      db.$executeRawUnsafe('TRUNCATE TABLE "CuratedPublicationConsent" CASCADE'),
+      "TRUNCATE CASCADE cannot erase consent identities",
+    );
+
+    await assert.rejects(db.curatedPublicationConsent.create({ data: {
+      tenantId: tA, versionId: second.id, actorType: "CONTRIBUTOR",
+      actorUserId: userA, rightsHolderOrgId: orgA,
+      scope: "TENANT_CURATED", purpose: "RAG_REFERENCE",
+      versionContentSha256: hash, audiencePolicySha256: policyHash, expiresAt,
+      noticeVersion: "forged-contributor-holder",
+      idempotencyKey: "ck-contributor-holder-" + suffix,
+    } }), "Contributor cannot claim rights-holder organization to bypass deduplication");
+
+    await db.curatedPublicationConsent.delete({ where: { id: consent.id } });
+    const consentTombstone = await db.curatedPublicationConsentTombstone.findUnique({
+      where: { consentId: consent.id },
+    });
+    assert.equal(consentTombstone?.idempotencyKey, "ck-original-1-" + suffix);
+    assert.ok(consentTombstone?.withdrawnAt, "Withdrawn status must remain auditable");
+    await assert.rejects(db.curatedPublicationConsent.create({ data: {
+      id: consent.id, tenantId: tA, versionId: second.id,
+      actorType: "CONTRIBUTOR", actorUserId: userB,
+      scope: "TENANT_CURATED", purpose: "RAG_REFERENCE",
+      versionContentSha256: hash, audiencePolicySha256: policyHash, expiresAt,
+      noticeVersion: "recycled-consent-id", idempotencyKey: "ck-new-" + suffix,
+    } }), "Deleted consent ID must not be re-used");
+    await assert.rejects(db.curatedPublicationConsent.create({ data: {
+      tenantId: tA, versionId: second.id, actorType: "CONTRIBUTOR",
+      actorUserId: userB, scope: "TENANT_CURATED", purpose: "RAG_REFERENCE",
+      versionContentSha256: hash, audiencePolicySha256: policyHash, expiresAt,
+      noticeVersion: "recycled-consent-key", idempotencyKey: "ck-original-1-" + suffix,
+    } }), "Deleted consent idempotency key must not be replayed");
+    await assert.rejects(db.curatedPublicationConsentTombstone.delete({
+      where: { consentId: consent.id },
+    }), "Consent tombstones themselves must be immutable");
+
+    // Two-connection regression: the RR snapshot predates the first version
+    // created by a separate connection and must NOT permit source repoint.
+    const raceEntry = await db.curatedKnowledgeEntry.create({ data: {
+      tenantId: tA, owningOrgId: orgA, createdByUserId: userA,
+      sourcePrivateRef: "race-original-" + suffix,
+    } });
+    let snapshotReady!: () => void;
+    let continueOldSnapshot!: () => void;
+    const snapshotIsReady = new Promise<void>(resolve => { snapshotReady = resolve; });
+    const canContinue = new Promise<void>(resolve => { continueOldSnapshot = resolve; });
+    const staleUpdate = db.$transaction(async tx => {
+      await tx.curatedKnowledgeEntry.findUnique({ where: { id: raceEntry.id } });
+      snapshotReady();
+      await canContinue;
+      return tx.curatedKnowledgeEntry.update({
+        where: { id: raceEntry.id },
+        data: { sourcePrivateRef: "race-forged-" + suffix },
+      });
+    }, { isolationLevel: "RepeatableRead", timeout: 20000 });
+    await snapshotIsReady;
+    try {
+      await db.curatedKnowledgeVersion.create({ data: {
+        tenantId: tA, entryId: raceEntry.id, version: 1,
+        createdByUserId: userA, title: "Race synthetic",
+        sanitizedBody: "Synthetic only", contentSha256: hash,
+      } });
+    } finally {
+      continueOldSnapshot();
+    }
+    await assert.rejects(staleUpdate,
+      "Old RR snapshot must never repoint a version's private source");
+
+    const staleVersion = await db.curatedKnowledgeVersion.create({ data: {
+      tenantId: tA, entryId: raceEntry.id, version: 2,
+      createdByUserId: userA, title: "Version to delete in race",
+      sanitizedBody: "Synthetic only", contentSha256: hash,
+    } });
+    let deletionSnapshotReady!: () => void;
+    let continueAfterDelete!: () => void;
+    const deletionReady = new Promise<void>(resolve => { deletionSnapshotReady = resolve; });
+    const deletionDone = new Promise<void>(resolve => { continueAfterDelete = resolve; });
+    const staleInsert = db.$transaction(async tx => {
+      await tx.curatedKnowledgeEntry.findUnique({ where: { id: raceEntry.id } });
+      deletionSnapshotReady();
+      await deletionDone;
+      return tx.curatedKnowledgeVersion.create({ data: {
+        id: staleVersion.id, tenantId: tA, entryId: raceEntry.id,
+        version: 2, createdByUserId: userB,
+        title: "Recycled under stale snapshot",
+        sanitizedBody: "Changed contents", contentSha256: hash,
+      } });
+    }, { isolationLevel: "RepeatableRead", timeout: 20000 });
+    await deletionReady;
+    try {
+      await db.curatedKnowledgeVersion.delete({ where: { id: staleVersion.id } });
+    } finally {
+      continueAfterDelete();
+    }
+    await assert.rejects(staleInsert,
+      "Old RR snapshot must not resurrect a deleted version identity");
+
     const listB = await db.curatedKnowledgeEntry.findMany({ where: { tenantId: tB } });
     assert.equal(listB.length, 0, "New curated artifacts are not copied across tenants");
   } finally {
-    await db.curatedPublicationConsent.deleteMany({ where: { tenantId: { in: [tA, tB] } } });
-    await db.curatedKnowledgeVersion.deleteMany({ where: { tenantId: { in: [tA, tB] } } });
-    await db.curatedKnowledgeEntry.deleteMany({ where: { tenantId: { in: [tA, tB] } } });
-    await db.org.deleteMany({ where: { id: { in: [orgA, orgB] } } });
-    await db.tenant.deleteMany({ where: { id: { in: [tA, tB] } } });
-    await db.user.deleteMany({ where: { id: { in: [userA, userB] } } });
+    // F1A's durable audit invariants deliberately prevent deleting versioned
+    // entries and consent identity reservations. This is a dedicated ephemeral
+    // PostgreSQL CI service, not production. Synthetic fixtures remain until
+    // the service is destroyed; NEVER weaken the triggers to clean them up.
     await db.$disconnect();
   }
 });
