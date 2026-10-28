@@ -77,6 +77,43 @@ CREATE TRIGGER "curated_f1a_protect_entry_history_flag"
  BEFORE UPDATE OF "versionEverCreated" ON "CuratedKnowledgeEntry"
  FOR EACH ROW EXECUTE FUNCTION "curated_f1a_entry_history_guard"();
 
+-- Preserve identity/ownership of the historically versioned entry itself.
+-- Unreviewed rekeying would let old tombstones point to a new source owner.
+CREATE FUNCTION "curated_f1a_entry_identity_guard"()
+RETURNS trigger AS $identityguard$
+BEGIN
+ PERFORM "curated_f1a_reject_stale_snapshot"();
+ IF OLD."versionEverCreated" AND
+    (OLD."id" IS DISTINCT FROM NEW."id"
+     OR OLD."tenantId" IS DISTINCT FROM NEW."tenantId"
+     OR OLD."owningOrgId" IS DISTINCT FROM NEW."owningOrgId"
+     OR OLD."createdByUserId" IS DISTINCT FROM NEW."createdByUserId")
+ THEN RAISE EXCEPTION 'curated historical entry identity/ownership is immutable'; END IF;
+ RETURN NEW;
+END;
+$identityguard$ LANGUAGE plpgsql;
+CREATE TRIGGER "curated_f1a_freeze_entry_identity"
+ BEFORE UPDATE OF "id","tenantId","owningOrgId","createdByUserId"
+ ON "CuratedKnowledgeEntry" FOR EACH ROW
+ EXECUTE FUNCTION "curated_f1a_entry_identity_guard"();
+
+-- Backfilled tombstones may refer to an entry removed BEFORE this migration.
+-- Reject recreating its ID even if there is no current parent row to lock.
+CREATE FUNCTION "curated_f1a_reject_recycled_entry"()
+RETURNS trigger AS $identityguard$
+BEGIN
+ PERFORM "curated_f1a_reject_stale_snapshot"();
+ IF EXISTS (SELECT 1 FROM "CuratedKnowledgeVersionTombstone"
+      WHERE "tenantId"=NEW."tenantId" AND "entryId"=NEW."id") THEN
+   RAISE EXCEPTION 'entry identity reserved by historical version tombstone';
+ END IF;
+ RETURN NEW;
+END;
+$identityguard$ LANGUAGE plpgsql;
+CREATE TRIGGER "curated_f1a_entry_insert_no_recycle"
+ BEFORE INSERT ON "CuratedKnowledgeEntry" FOR EACH ROW
+ EXECUTE FUNCTION "curated_f1a_reject_recycled_entry"();
+
 -- Even when only historical tombstones remain, TRUNCATE on the parent
 -- bypasses DELETE guards and could allow silent replacement of provenance.
 CREATE FUNCTION "curated_f1a_entry_no_truncate"()
