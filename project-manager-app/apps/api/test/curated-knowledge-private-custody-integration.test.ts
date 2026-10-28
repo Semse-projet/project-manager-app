@@ -295,6 +295,15 @@ dbTest("F1A: private defaults, tenant-bound FK, version immutability keys, and c
       sourcePrivateRef: "forged-source-" + suffix,
     } }), "A tombstone-only historical entry ID cannot be recycled");
 
+    const unversionedEntry = await db.curatedKnowledgeEntry.create({ data: {
+      tenantId: tA, owningOrgId: orgA, createdByUserId: userB,
+      sourcePrivateRef: "forged-unversioned-source-" + suffix,
+    } });
+    await assert.rejects(db.curatedKnowledgeEntry.update({
+      where: { id: unversionedEntry.id },
+      data: { id: archivedEntryId },
+    }), "Rekeying an unversioned entry onto a tombstone-only historical ID is forbidden");
+
     await assert.rejects(db.curatedKnowledgeEntry.update({
       where: { id: legacyEntry.id },
       data: { versionEverCreated: false },
@@ -327,6 +336,17 @@ dbTest("F1A: private defaults, tenant-bound FK, version immutability keys, and c
     });
     assert.equal(consentTombstone?.idempotencyKey, "ck-original-1-" + suffix);
     assert.ok(consentTombstone?.withdrawnAt, "Withdrawn status must remain auditable");
+    await assert.rejects(db.curatedPublicationConsent.update({
+      where: { id: holder.id },
+      data: {
+        id: consent.id,
+        withdrawnAt: new Date(Date.now() + 1_000),
+        withdrawnByUserId: userA,
+      },
+    }), "First consent withdrawal cannot repoint its primary key onto tombstoned ID");
+    assert.equal((await db.curatedPublicationConsent.findUnique({
+      where: { id: holder.id },
+    }))?.withdrawnAt, null, "Failed rekey must not partially withdraw or move consent");
     await assert.rejects(db.curatedPublicationConsent.create({ data: {
       id: consent.id, tenantId: tA, versionId: second.id,
       actorType: "CONTRIBUTOR", actorUserId: userB,
