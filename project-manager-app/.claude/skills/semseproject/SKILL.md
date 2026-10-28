@@ -1,6 +1,6 @@
 ---
 name: semseproject
-version: 2.1.0
+version: 2.2.0
 status: draft-canonical
 language: es
 description: >
@@ -18,9 +18,16 @@ description: >
   y documentación/handoffs de SEMSEproject.
 ---
 
-# SEMSEproject Skill (v2.1.0)
+# SEMSEproject Skill (v2.2.0)
 
 ## 0. Qué cambió
+
+**v2.2.0** alinea la gobernanza del §12 con `DEC-PLATFORM-001` para el caso de
+mantenedor único: aplica controles compensatorios de revisión por niveles de riesgo
+sin sustituir la revisión humana externa de activaciones (nivel 3). El principio
+de revisión por niveles se documentó en el PR #1049; la modificación constitutiva
+de este MUST/MUST NOT en §12 necesita ratificación expresa del propietario en el
+PR #1065 antes de fusionarse. No se atribuye a #1049 esa aprobación específica.
 
 **v2.1.0** cierra los hallazgos medios que v2.0.0 había dejado `PROPOSED` o parcialmente
 resueltos, ahora que no queda ningún hallazgo crítico o alto abierto:
@@ -400,6 +407,12 @@ sustituto, evidencia, y si es dependencia crítica o no — y moverlo a
 - **Cambios de nivel MUST/MUST NOT**: requieren revisión explícita (PR + al menos un revisor
   humano) — un agente no puede promoverse a sí mismo un SHOULD a MUST sin esa revisión.
   Cambios de redacción o SHOULD/MAY/PROPOSED pueden ir directo a PR normal.
+- **Mantenedor único**: mientras el proyecto tenga una sola persona con permisos de
+  revisión, el "revisor humano" de este punto y cualquier "revisión de seguridad
+  independiente" de specs o ADRs se cumplen con los controles por nivel de riesgo de
+  `docs/architecture/DEC-PLATFORM-001-solo-maintainer-review.md`. La activación o
+  exposición externa (nivel 3) sigue exigiendo revisión humana externa real. Las
+  revisiones automatizadas nunca se presentan como revisión humana independiente.
 - **Proceso de emergencia**: un MUST de seguridad puede añadirse sin el ciclo completo cuando
   mitiga un incidente activo; debe re-revisarse en los 5 días hábiles siguientes.
 - **Versionado**: este archivo usa versión semántica en el frontmatter (`version`). Cambios

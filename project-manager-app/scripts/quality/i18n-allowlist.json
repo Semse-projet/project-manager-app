@@ -1,0 +1,9 @@
+{
+  "_about": "Excepciones de scripts/quality/validate-critical-i18n.ts. Cada entrada: regla -> clave -> motivo escrito. Las claves de catálogos locales se escriben 'ruta/del/archivo.tsx#clave'. Añadir una excepción requiere revisión en el PR.",
+  "empty-value": {
+    "ui.since": "Vacío a propósito en EN: el español antepone 'hace' ('hace 5 min') y el inglés pospone 'ago'; sin usos estáticos en apps/web al 2026-10-21."
+  },
+  "spanish-in-en": {
+    "contributors.langSwitch": "Selector de idioma: muestra cada idioma con su nombre nativo ('Español | English') en ambas versiones."
+  }
+}
