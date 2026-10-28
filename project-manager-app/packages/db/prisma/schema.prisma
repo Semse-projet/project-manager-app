@@ -209,6 +209,7 @@ model Tenant {
   // Knowledge Contributor Program
   contributorProfiles           ContributorProfile[]
   contributorConsents           ContributorConsent[]
+  curatedConsentActors          CuratedPublicationConsent[] @relation("CuratedConsentActor")
   knowledgeMissions             KnowledgeMission[]
   knowledgeMissionAcceptances   KnowledgeMissionAcceptance[]
   knowledgeSubmissions          KnowledgeSubmission[]
@@ -5804,6 +5805,18 @@ model CuratedKnowledgeVersion {
   @@index([tenantId, entryId, createdAt])
 }
 
+/// Permanent version identity reservations survive a version's deletion.
+/// This record never stores the title/body, and deliberately has no cascading FK.
+model CuratedKnowledgeVersionTombstone {
+  versionId String   @id
+  tenantId  String
+  entryId   String
+  version   Int
+  deletedAt DateTime @default(now())
+
+  @@unique([tenantId, entryId, version])
+}
+
 /// Consent records are private evidence, NOT active access grants. F1A has no
 /// publication path. A reviewer must validate actor identity and rights first.
 model CuratedPublicationConsent {
@@ -5818,6 +5831,7 @@ model CuratedPublicationConsent {
   versionContentSha256 String
   audiencePolicySha256 String
   noticeVersion       String
+  idempotencyKey      String                  @unique
   expiresAt           DateTime
   proofPrivateRef     String?
   legalBasisReviewed  Boolean                 @default(false)
@@ -5827,6 +5841,7 @@ model CuratedPublicationConsent {
 
   version             CuratedKnowledgeVersion @relation(fields: [versionId, tenantId], references: [id, tenantId], onDelete: Restrict)
   rightsHolderOrg     Org?                    @relation(fields: [rightsHolderOrgId, tenantId], references: [id, tenantId], onDelete: Restrict)
+  actorUser           User                    @relation("CuratedConsentActor", fields: [actorUserId], references: [id], onDelete: Restrict)
 
   @@index([tenantId, versionId, actorType, withdrawnAt])
   @@index([tenantId, actorUserId, grantedAt])
