@@ -5770,6 +5770,7 @@ model CuratedKnowledgeEntry {
   status          CuratedKnowledgeStatus @default(DRAFT)
   publicationScope CuratedKnowledgeScope @default(ORG_PRIVATE)
   aggregateRevision Int                 @default(0) // monotonic event revision from F2 onward
+  versionEverCreated Boolean            @default(false) // durable provenance latch; never reset
   createdAt       DateTime               @default(now())
   updatedAt       DateTime               @updatedAt
 
@@ -5817,6 +5818,15 @@ model CuratedKnowledgeVersionTombstone {
   deletedAt DateTime @default(now())
 
   @@unique([tenantId, entryId, version])
+}
+
+/// Minimal irreversible reservation for consent IDs and request keys after
+/// row deletion. The publication gate remains OFF and this stores no full proof.
+model CuratedPublicationConsentTombstone {
+  consentId      String   @id
+  idempotencyKey String   @unique
+  withdrawnAt    DateTime?
+  deletedAt      DateTime @default(now())
 }
 
 /// Consent records are private evidence, NOT active access grants. F1A has no
