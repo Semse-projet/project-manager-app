@@ -79,6 +79,10 @@ dbTest("S0B-PG-01: PostgreSQL rolls back the entire two-worker batch when its se
     // On the second AuditLog INSERT, the first row is visible inside the same tx.
     await prisma.$executeRawUnsafe(`CREATE FUNCTION "${fn}"() RETURNS trigger AS $bo10$
       BEGIN
+        IF NEW."tenantId" = '${tenantId}' AND NEW."action" = 'crew_task.created'
+        THEN
+          RAISE EXCEPTION 'synthetic_bo10_creation_audit_failure';
+        END IF;
         IF NEW."tenantId" = '${tenantId}' AND NEW."action" = 'task_allocation.assigned' AND
           (SELECT COUNT(*) FROM "AuditLog" WHERE "tenantId" = '${tenantId}'
            AND "action" = 'task_allocation.assigned') >= 1
@@ -91,6 +95,13 @@ dbTest("S0B-PG-01: PostgreSQL rolls back the entire two-worker batch when its se
     await prisma.$executeRawUnsafe(`CREATE TRIGGER "${trigger}" BEFORE INSERT ON "AuditLog"
       FOR EACH ROW EXECUTE FUNCTION "${fn}"()`);
     installedTrigger = true;
+
+    await assert.rejects(
+      svc.createCrewTask(actor, crewId, uniqueId("create_failure"), { title: "Hab. 999 — Pintar pared" }),
+      /synthetic_bo10_creation_audit_failure/
+    );
+    assert.equal(await prisma.jobTask.count({ where: { tenantId, title: "Hab. 999 — Pintar pared" } }), 0);
+    assert.equal(await prisma.auditLog.count({ where: { tenantId, action: "crew_task.created" } }), 0);
 
     await assert.rejects(
       svc.assign(actor, crewId, taskId, uniqueId("failure"), [workerA, workerB]),
