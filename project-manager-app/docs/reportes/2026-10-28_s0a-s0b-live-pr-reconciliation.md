@@ -24,8 +24,8 @@
 - Tests incorporados al diff: N01 (WORKER suspendido + PRO activo en roster); N02 (VIEWER activo sin WORKER y sin permiso manager); N03 (destinatario suspendido); N04–N07 (perder WORKER, CrewMember removido o Crew archivada).
 
 **Limitaciones todavía visibles:**
-1. La rama #1054 no documenta pruebas dirigidas PASS. El autor reportó `--check` y `git diff --check` PASS, pero `pnpm install --frozen-lockfile --offline` no completó por metadata de `@algolia/abtesting` no disponible. Ese fallo no prueba un defecto del código.
-2. **N08** (gestor PRO/CLIENT legítimo) y **N09** (cross-tenant/cross-org) cuentan con pruebas legacy parciales, pero se requiere verificación de regresión sobre nuevo HEAD; N02 con VIEWER no sustituye el caso mixto PRO+WORKER suspendido con permiso independiente.
+1. La rama #1054 ya tiene **N08/N09 escritos** en `task-allocations.test.ts` (commit `d5b2520` del 2026-10-28), pero **no se han ejecutado**, por lo que no hay PASS confirmado. Antes de ese commit no documentaba pruebas dirigidas PASS. El autor reportó `--check` y `git diff --check` PASS, pero `pnpm install --frozen-lockfile --offline` no completó por metadata de `@algolia/abtesting` no disponible. Ese fallo no prueba un defecto del código.
+2. **N08** comprueba PRO ACTIVE + WORKER SUSPENDED como gestor legítimo; **N09** comprueba misma tenant/org ajena y tenant ajeno sin confiar en claims. Ambos tests fueron agregados al PR #1054 el 2026-10-28; faltan ejecución local, integración y revisión. N08 **no autoriza** a designar supervisores sin verificación empresarial.
 3. El helper `isActiveWorkerInCrew` hace varias lecturas por persona y por asignación (N+1). En casos con una cuadrilla grande, diseñar consulta/batch scope para evitar latencia y cargar PostgreSQL; medir antes de optimizar.
 4. Las validaciones S0a ocurren antes de las mutaciones sin bloqueo/protocolo de revocación compartido: **no cierran carreras TOCTOU** por sí solas. La reparación de concurrencia necesita S0b.
 5. `main` todavía muestra los guards legacy sin la corrección de #1054. **No marcar S0a COMPLETADO ni en producción**.
@@ -56,7 +56,7 @@ El mismo diff conserva `prepareActorContext(entry)` que llama `ActorContextServi
 
 ## 5. Secuencia de entrega efectiva (sin ejecutar CI ahora)
 
-1. **S0a en #1054:** revisar diff y fixtures, completar tests negativos N08/N09/regresiones, instalar dependencias en entorno permitido (el bloqueo offline no es fallo funcional), ejecutar tests dirigidos/locales y evaluación de seguridad. Mantener el PR draft hasta aprobación aplicable del SDD.
+1. **S0a en #1054:** N08/N09 ya escritos (no ejecutados); revisar diff y fixtures, instalar dependencias en entorno permitido (el bloqueo offline no es fallo funcional), ejecutar N01–N09 y regresiones dirigidas/locales y evaluación independiente de seguridad. Mantener el PR draft hasta aprobación aplicable del SDD.
 2. **Conciliar BO-07/BO-10:** insertar referencias al contrato S0a y cerrar las decisiones semánticas nuevas de S0b. OPEN-SUP-01 está aprobada, pero OPEN-SUP-02…06 y D-S0B-01…05 **no**.
 3. **Revisar #1053:** decidir merge independiente de BO-12 con sus propios gates; luego reutilizar `appendInTransaction` en S0b. Si #1053 no es integrable aún, registrar dependencia y preparar adaptación acotada.
 4. **S0b en PR técnico separado:** pruebas rojas N10–N18 y AUD-01…AUD-08 primero; luego atomicidad, scope de tareas, colisiones por crew, auditoría y pruebas PostgreSQL reales.
@@ -67,10 +67,10 @@ El mismo diff conserva `prepareActorContext(entry)` que llama `ActorContextServi
 
 | ID | Dueño/PR sugerido | Estado |
 |---|---|---|
-| G-S0-01 — worker suspendido con PRO activo | #1054 | Código preparado, sin pruebas ejecutadas |
+| G-S0-01 — worker suspendido con PRO activo | #1054 | Código y tests N01–N09 en PR DRAFT, sin pruebas ejecutadas |
 | G-S0-02 — elegibilidad destinatario | #1054 | Código preparado, sin pruebas ejecutadas |
 | G-S0-03 — revocación de acceso worker | #1054 | Código preparado, sin pruebas ejecutadas |
-| G-S0-04 — N08/N09 y rendimiento/TOCTOU | #1054 + S0b | Revisar casos y regredir |
+| G-S0-04 — N08/N09 y rendimiento/TOCTOU | #1054 + S0b | N08/N09 escritos en #1054; ejecutar, revisar y tratar TOCTOU en S0b |
 | G-S0B-05 — cross-crew `TaskAllocation` | PR S0b futuro | No implementado |
 | G-S0B-06 — origin `JobTask.Crew` | PR S0b futuro | No implementado |
 | G-S0B-07 — atomicidad transaccional/rollback real | #1053 aporta infraestructura, PR S0b futuro | BO-12 con evidencia; BO-10 no |
