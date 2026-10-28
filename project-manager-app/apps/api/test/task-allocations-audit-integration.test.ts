@@ -12,7 +12,15 @@ import { fileURLToPath } from "node:url";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
 loadEnv({ path: path.join(root, ".env") });
 loadEnv({ path: path.join(root, "packages/db/.env") });
-const dbTest = process.env.DATABASE_URL ? test : test.skip;
+// This test installs temporary PostgreSQL triggers. Fail closed unless running
+// in CI against the isolated local/Docker database; never touch Railway/production.
+const testDatabaseHost = (() => {
+  try { return process.env.DATABASE_URL ? new URL(process.env.DATABASE_URL).hostname : ""; }
+  catch { return ""; }
+})();
+const isolatedDatabase = process.env.CI === "true" &&
+  ["localhost", "127.0.0.1", "postgres"].includes(testDatabaseHost);
+const dbTest = isolatedDatabase ? test : test.skip;
 const uniqueId = (part: string) => `bo10_${part}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
 
 dbTest("S0B-PG-01: PostgreSQL rolls back the entire two-worker batch when its second audit fails", async () => {
