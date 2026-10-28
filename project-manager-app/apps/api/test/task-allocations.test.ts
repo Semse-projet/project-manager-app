@@ -169,6 +169,30 @@ test("N09: claims PRO/WORKER no sustituyen Membership de la Org ni tenant real",
   assert.equal(w.audits.length, 0);
 });
 
+test("N03b: lote mixto de WORKER ACTIVE y suspendido no deja escrituras parciales", async () => {
+  const w = makeWorld();
+  w.memberships.find((m) => m.userId === "bob" && m.role.key === "WORKER")!.status = "SUSPENDED";
+  w.memberships.push({ userId: "bob", orgId: "orgA", status: "ACTIVE", role: { key: "PRO" }, org: { tenantId: "t1" } });
+
+  // No comenzar a asignar a ana antes de validar también al segundo destinatario.
+  await assert.rejects(w.service.assign(sup, "c1", "task1", "r-n03b", ["ana", "bob"]), { status: 422 });
+  assert.equal(w.allocations.length, 0);
+  assert.equal(w.audits.length, 0);
+});
+
+test("N04b: asignación propia denegada tras revocar WORKER aunque PRO siga activo", async () => {
+  const w = makeWorld();
+  const [allocation] = await w.service.assign(sup, "c1", "task1", "r-start", ["ana"]);
+  const auditsBefore = w.audits.length;
+  w.memberships.find((m) => m.userId === "ana" && m.role.key === "WORKER")!.status = "REVOKED";
+  w.memberships.push({ userId: "ana", orgId: "orgA", status: "ACTIVE", role: { key: "PRO" }, org: { tenantId: "t1" } });
+
+  await assert.rejects(w.service.updateStatus(ana, allocation.allocationId, "IN_PROGRESS", undefined, "r-n04b"), { status: 404 });
+  assert.equal((await w.service.listMine(ana)).length, 0);
+  assert.equal(w.allocations[0].status, "ASSIGNED");
+  assert.equal(w.audits.length, auditsBefore);
+});
+
 test("AC-04 una tarea compartida = una tarea con varias asignaciones; repetir no duplica", async () => {
   const w = makeWorld();
   const first = await w.service.assign(sup, "c1", "task1", "r1", ["ana", "bob"], "instalar lámparas");
