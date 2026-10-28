@@ -25,9 +25,8 @@ BEGIN
   PERFORM 1 FROM "CuratedKnowledgeEntry"
    WHERE "id" = NEW."entryId" AND "tenantId" = NEW."tenantId"
    FOR UPDATE;
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'curated version has no tenant-bound source entry';
-  END IF;
+  -- An absent or cross-tenant parent is rejected by the existing composite
+  -- foreign key, preserving PostgreSQL's precise FK error and audit behavior.
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
