@@ -1,4 +1,5 @@
 import { ConflictException, ForbiddenException, Injectable, NotFoundException, UnprocessableEntityException } from "@nestjs/common";
+import type { Prisma } from "@prisma/client";
 import { hasPermission } from "../../common/rbac.js";
 import { AuditService } from "../../infrastructure/audit/audit.service.js";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
@@ -95,9 +96,10 @@ export class TaskAllocationsService {
     action: string,
     entityId: string,
     requestId: string,
-    afterJson: Record<string, unknown>
+    afterJson: Record<string, unknown>,
+    tx?: Prisma.TransactionClient
   ): Promise<void> {
-    await this.audit.append({
+    const entry = {
       tenantId,
       orgId,
       actorUserId,
@@ -182,16 +184,19 @@ export class TaskAllocationsService {
     if (prior.some((row) => row.tenantId !== actor.tenantId || row.orgId !== crew.orgId || row.crewId !== crew.id)) {
       throw new ConflictException("La asignación no está disponible; solicita revisión al responsable");
     }
-    const result: AllocationRow[] = [];
+    // Transaction guarantees that any failed allocation OR audit rolls the entire
+    // batch back. This does not yet replace the full authorization/race gates.
+    return this.prisma.$transaction(async (tx) => {
+      const result: AllocationRow[] = [];
     for (const userId of unique) {
-      const existing = await this.prisma.taskAllocation.findFirst({ where: { taskId, userId } });
+      const existing = await tx.taskAllocation.findFirst({ where: { taskId, userId } });
       // La consulta de prevalidación no sustituye la verificación en cada intento.
       if (existing && (existing.tenantId !== actor.tenantId || existing.orgId !== crew.orgId || existing.crewId !== crew.id)) {
         throw new ConflictException("La asignación no está disponible; solicita revisión al responsable");
       }
       let row: AllocationRow;
       if (!existing) {
-        row = await this.prisma.taskAllocation.create({
+        row = await tx.taskAllocation.create({
           data: {
             tenantId: actor.tenantId,
             orgId: crew.orgId,
@@ -203,7 +208,7 @@ export class TaskAllocationsService {
           }
         });
       } else if (existing.status === "RELEASED") {
-        const reopened = await this.prisma.taskAllocation.updateMany({
+        const reopened = await tx.taskAllocation.updateMany({
           where: {
             id: existing.id,
             tenantId: actor.tenantId,
@@ -234,10 +239,11 @@ export class TaskAllocationsService {
         result.push(row);
         continue;
       }
-      await this.record(actor.tenantId, crew.orgId, actor.userId, "task_allocation.assigned", row.id, requestId, { taskId, crewId: crew.id, userId });
+      await this.record(actor.tenantId, crew.orgId, actor.userId, "task_allocation.assigned", row.id, requestId, { taskId, crewId: crew.id, userId }, tx);
       result.push(row);
     }
-    return result.map((row) => this.view(row));
+      return result.map((row) => this.view(row));
+    }, { isolationLevel: "Serializable" });
   }
 
   async release(actor: AllocationActor, crewId: string, taskId: string, userId: string, requestId: string, reason: string) {
