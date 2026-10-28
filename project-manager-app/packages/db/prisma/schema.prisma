@@ -209,7 +209,7 @@ model Tenant {
   // Knowledge Contributor Program
   contributorProfiles           ContributorProfile[]
   contributorConsents           ContributorConsent[]
-  curatedConsentActors          CuratedPublicationConsent[] @relation("CuratedConsentActor")
+
   knowledgeMissions             KnowledgeMission[]
   knowledgeMissionAcceptances   KnowledgeMissionAcceptance[]
   knowledgeSubmissions          KnowledgeSubmission[]
@@ -524,6 +524,7 @@ model User {
   // Knowledge Contributor Program
   contributorProfile                  ContributorProfile?
   contributorConsents                 ContributorConsent[]
+  curatedConsentActors                CuratedPublicationConsent[]   @relation("CuratedConsentActor")
   createdKnowledgeMissions            KnowledgeMission[]
   knowledgeMissionAcceptances         KnowledgeMissionAcceptance[]
   knowledgeSubmissions                KnowledgeSubmission[]
