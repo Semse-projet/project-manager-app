@@ -55,6 +55,17 @@ date: "2026-10-22"
 
 Informe: `docs/reportes/2026-10-28_s0a-s0b-live-pr-reconciliation.md`.
 
+- [x] S0-SEC-TENANT-01 — código #1054: `listMine/roster` de Crew
+  requieren tenant de sesión y filtran consultas; test
+  `S0A-TENANT-01` escrito, **NO EJECUTADO**.
+- [x] S0-SEC-MULTIROLE-02 — tests `N03b` y `N04b` escritos
+  para WORKER suspendido/revocado con PRO ACTIVE; **NO EJECUTADOS**.
+- [ ] S0-SEC-VALIDATION-03 — ejecución dirigida y PostgreSQL,
+  revisión HTTP multi-tenant, no regresión y evidencia SHA #1054.
+- [ ] S0-SEC-MERGE-04 — actualizar rama de #1054 respecto a la
+  última #1027, resolver conflictos y CI terminal al final, antes
+  de fusionar; no merge/deploy por este documento.
+
 ## S0 — Guardas existentes (PR propio)
 - [ ] S0-01 — capturar head SHA, flags reales y tests existentes.
 - [ ] S0-02 — test rojo: WORKER suspendido y PRO activo, supervisorUserId legacy.
