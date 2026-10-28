@@ -101,6 +101,12 @@ convierte automáticamente una spec en `VERIFIED`.
 | `0.42` | `prometeo.tool-call-audit-lineage` | EXECUTABLE |
 | `0.43` | `api-prometeo-copilot` | CLOSED |
 | `0.44` | `api-prometeo-copilot`, `api.vision-service-security` | CLOSED |
+| `0.48` | `api-prometeo-copilot`, `api-payments-escrow`, `prometeo.tool-registry-governance-f2` | CLOSED |
+| `0.49`, `0.49a` | `ui.audit-product-decisions` | DECISION_REQUIRED |
+| `0.49b` | `api.governance-tenant-boundary`, `ui.audit-product-decisions` | DECISION_REQUIRED |
+| `0.49c` | `api-evidence-upload-review`, `evidence.canonical-fase1` | DECISION_REQUIRED |
+| `0.49d` | `api-bff-auth-boundary`, `api.auth-account-session-remediation` | DECISION_REQUIRED |
+| `0.49e` | `platform.event-backbone-f1` | DECISION_REQUIRED |
 | `0.45` | `api-prometeo-copilot` | CLOSED |
 | `0.46` | `api-prometeo-copilot` | CLOSED |
 
