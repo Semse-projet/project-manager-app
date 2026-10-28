@@ -46,6 +46,16 @@ Ver [reconciliación del 28 de octubre](2026-10-28_s0a-s0b-live-pr-reconciliatio
 La próxima aceptación S0a exige ejecución real y review sobre HEAD
 `70621f3`, además de consolidar la rama apilada.
 
+**Actualización código #1054 (2026-10-28):** el roster de supervisores
+también descarta de la vista activa a miembros que perdieron
+`Membership WORKER ACTIVE` aun cuando permanezcan `CrewMember ACTIVE`
+y `PRO ACTIVE`. Usa búsqueda de memberships por lote para reducir
+consultas repetidas. Se añadieron las pruebas `S0A-ROSTER-01` y
+`S0A-TENANT-02` (propagación del tenant autenticado al servicio).
+**Commit #1054 `414d15a`**, aún DRAFT, cambios y fixtures sólo
+revisados estáticamente. Pruebas ejecutables y PostgreSQL pendientes.
+No asumir que el contrato de nombramiento OPEN-SUP-01 está implementado.
+
 **Reconciliación GitHub 2026-10-28:** [informe S0a/S0b sobre PR reales](2026-10-28_s0a-s0b-live-pr-reconciliation.md).
 El [PR #1054](https://github.com/Semse-projet/project-manager-app/pull/1054) ya contiene código y casos N01–N07 para S0a, pero es DRAFT,
 se apila sobre #1027 y **no tiene pruebas ejecutables PASS**. El 2026-10-28
