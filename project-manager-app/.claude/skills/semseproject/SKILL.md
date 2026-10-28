@@ -24,8 +24,10 @@ description: >
 
 **v2.2.0** alinea la gobernanza del §12 con `DEC-PLATFORM-001` para el caso de
 mantenedor único: aplica controles compensatorios de revisión por niveles de riesgo
-sin sustituir la revisión humana externa de activaciones (nivel 3). Cambio normativo
-de gobernanza aprobado por el propietario en el PR #1049.
+sin sustituir la revisión humana externa de activaciones (nivel 3). El principio
+de revisión por niveles se documentó en el PR #1049; la modificación constitutiva
+de este MUST/MUST NOT en §12 necesita ratificación expresa del propietario en el
+PR #1065 antes de fusionarse. No se atribuye a #1049 esa aprobación específica.
 
 **v2.1.0** cierra los hallazgos medios que v2.0.0 había dejado `PROPOSED` o parcialmente
 resueltos, ahora que no queda ningún hallazgo crítico o alto abierto:
