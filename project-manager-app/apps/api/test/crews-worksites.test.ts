@@ -44,7 +44,7 @@ function makeWorld() {
     crewMember: table(crewMembers, () => ({ status: "ACTIVE", addedAt: new Date() })),
     membership: {
       async findMany({ where }: any) {
-        return memberships.filter((m) => m.userId === where.userId && m.orgId === where.orgId &&
+        return memberships.filter((m) => (typeof where.userId === "string" ? m.userId === where.userId : where.userId?.in?.includes(m.userId)) && m.orgId === where.orgId &&
           (where.status ? m.status === where.status : true) &&
           (where.org ? m.org.tenantId === where.org.tenantId : true));
       }
@@ -151,6 +151,24 @@ test("mis cuadrillas: el miembro ve la suya con rol MEMBER; archivar una vez", a
   await w.service.archiveCrew(owner, "orgA", c1.crewId, "r");
   await assert.rejects(w.service.archiveCrew(owner, "orgA", c1.crewId, "r"), { status: 409 });
   assert.equal((await w.service.listMine({ tenantId: "t1", userId: "ana" })).length, 0);
+});
+
+test("S0A-ROSTER-01: no listar miembro WORKER revocado aunque su CrewMember y PRO sigan activos", async () => {
+  const w = makeWorld();
+  const crew = await w.service.createCrew(owner, "orgA", "r-roster", { name: "C1", supervisorUserId: "sup" });
+  await w.service.addMember(owner, "orgA", crew.crewId, "ana", "r1");
+  await w.service.addMember(owner, "orgA", crew.crewId, "bob", "r2");
+  const initial = await w.service.rosterForSupervisor({ tenantId: "t1", userId: "sup" }, crew.crewId);
+  assert.deepEqual(initial.members.map((m: Row) => m.userId), ["ana", "bob"]);
+  const previousAuditCount = w.audits.length;
+
+  w.memberships.find((m) => m.userId === "ana" && m.orgId === "orgA" && m.role.key === "WORKER")!.status = "REVOKED";
+  w.memberships.push({ userId: "ana", orgId: "orgA", status: "ACTIVE", role: { key: "PRO" }, org: { tenantId: "t1" } });
+  // Una identidad todavía WORKER en otro tenant no restituye pertenencia a orgA.
+  const roster = await w.service.rosterForSupervisor({ tenantId: "t1", userId: "sup" }, crew.crewId);
+  assert.deepEqual(roster.members.map((m: Row) => m.userId), ["bob"]);
+  assert.equal(w.crewMembers.filter((m) => m.crewId === crew.crewId && m.userId === "ana").length, 1, "keep historical CrewMember");
+  assert.equal(w.audits.length, previousAuditCount, "roster read must not change audit history");
 });
 
 test("S0A-TENANT-01: un mismo usuario en dos tenants no puede mezclar crews ni rosters entre sesiones", async () => {
