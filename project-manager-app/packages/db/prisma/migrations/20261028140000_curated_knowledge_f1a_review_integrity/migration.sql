@@ -141,7 +141,7 @@ CREATE TRIGGER "curated_f1a_no_version_truncate"
 -- 3. Existing pre-delete version tombstones are immutable, but readers at
 -- REPEATABLE READ could see stale snapshots. The existing insert trigger
 -- delegates to this replacement function which explicitly rejects RR.
-CREATE OR REPLACE FUNCTION "curated_f1a_prevent_reused_version"()
+CREATE OR REPLACE FUNCTION "curated_f1a_version_inserted"()
 RETURNS trigger AS $curated$
 BEGIN
  PERFORM "curated_f1a_reject_stale_snapshot"();
