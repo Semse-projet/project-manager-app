@@ -525,6 +525,7 @@ model User {
   contributorProfile                  ContributorProfile?
   contributorConsents                 ContributorConsent[]
   curatedConsentActors                CuratedPublicationConsent[]   @relation("CuratedConsentActor")
+  curatedConsentWithdrawals           CuratedPublicationConsent[]   @relation("CuratedConsentWithdrawalActor")
   createdKnowledgeMissions            KnowledgeMission[]
   knowledgeMissionAcceptances         KnowledgeMissionAcceptance[]
   knowledgeSubmissions                KnowledgeSubmission[]
@@ -5843,6 +5844,7 @@ model CuratedPublicationConsent {
   version             CuratedKnowledgeVersion @relation(fields: [versionId, tenantId], references: [id, tenantId], onDelete: Restrict)
   rightsHolderOrg     Org?                    @relation(fields: [rightsHolderOrgId, tenantId], references: [id, tenantId], onDelete: Restrict)
   actorUser           User                    @relation("CuratedConsentActor", fields: [actorUserId], references: [id], onDelete: Restrict)
+  withdrawnByUser     User?                   @relation("CuratedConsentWithdrawalActor", fields: [withdrawnByUserId], references: [id], onDelete: Restrict)
 
   @@index([tenantId, versionId, actorType, withdrawnAt])
   @@index([tenantId, actorUserId, grantedAt])
