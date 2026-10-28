@@ -145,6 +145,35 @@ test("AC-02 un gestor de cuadrillas de la Org sí puede; un supervisor suspendid
   await assert.rejects(w.service.assign(ghost, "c1", "task1", "r", ["ana"]), { status: 404 });
 });
 
+test("S0B-N18: fallo de auditoría al liberar mantiene intacta la asignación", async () => {
+  const w = makeWorld();
+  const [a] = await w.service.assign(sup, "c1", "task1", "r1", ["ana"]);
+  const beforeAudits = w.audits.length;
+  w.failTransactionalAuditForAction("task_allocation.released");
+  await assert.rejects(
+    w.service.release(sup, "c1", "task1", "ana", "r2", "cambio de área"),
+    /synthetic S0b audit failure/
+  );
+  assert.equal(w.allocations[0].id, a.allocationId);
+  assert.equal(w.allocations[0].status, "ASSIGNED");
+  assert.equal(w.allocations[0].releasedAt, null);
+  assert.equal(w.audits.length, beforeAudits);
+});
+
+test("S0B-N19: fallo de auditoría al avanzar no cambia estado ni marca recepción", async () => {
+  const w = makeWorld();
+  const [a] = await w.service.assign(sup, "c1", "task1", "r1", ["ana"]);
+  const beforeAudits = w.audits.length;
+  w.failTransactionalAuditForAction("task_allocation.status_changed");
+  await assert.rejects(
+    w.service.updateStatus(ana, a.allocationId, "ACKNOWLEDGED", undefined, "r2"),
+    /synthetic S0b audit failure/
+  );
+  assert.equal(w.allocations[0].status, "ASSIGNED");
+  assert.equal(w.allocations[0].acknowledgedAt, null);
+  assert.equal(w.audits.length, beforeAudits);
+});
+
 test("S0B-N17: fallo en auditoría de creación no deja tarea huérfana", async () => {
   const w = makeWorld();
   w.failTransactionalAuditForAction("crew_task.created");
