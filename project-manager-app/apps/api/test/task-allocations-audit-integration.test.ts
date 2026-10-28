@@ -115,6 +115,38 @@ dbTest("S0B-PG-01: PostgreSQL rolls back the entire two-worker batch when its se
     assert.equal(assigned.length, 2);
     assert.equal(await prisma.taskAllocation.count({ where: { taskId } }), 2);
     assert.equal(await prisma.auditLog.count({ where: { tenantId, action: "task_allocation.assigned" } }), 2);
+
+    // Separate trigger checks the other two mutations in the same isolated PG db.
+    await prisma.$executeRawUnsafe(`CREATE FUNCTION "${fn}"() RETURNS trigger AS $bo10$
+      BEGIN
+        IF NEW."tenantId" = '${tenantId}'
+           AND NEW."action" IN ('task_allocation.released', 'task_allocation.status_changed')
+        THEN
+          RAISE EXCEPTION 'synthetic_bo10_mutation_audit_failure';
+        END IF;
+        RETURN NEW;
+      END; $bo10$ LANGUAGE plpgsql`);
+    installedFunction = true;
+    await prisma.$executeRawUnsafe(`CREATE TRIGGER "${trigger}" BEFORE INSERT ON "AuditLog"
+      FOR EACH ROW EXECUTE FUNCTION "${fn}"()`);
+    installedTrigger = true;
+
+    await assert.rejects(
+      svc.release(actor, crewId, taskId, workerA, uniqueId("release_fail"), "reassign"),
+      /synthetic_bo10_mutation_audit_failure/
+    );
+    assert.equal((await prisma.taskAllocation.findUniqueOrThrow({ where: { id: assigned[0].allocationId } })).status, "ASSIGNED");
+    assert.equal(await prisma.auditLog.count({ where: { tenantId, action: "task_allocation.released" } }), 0);
+
+    await assert.rejects(
+      svc.updateStatus({ tenantId, userId: workerA }, assigned[0].allocationId, "ACKNOWLEDGED", undefined, uniqueId("status_fail")),
+      /synthetic_bo10_mutation_audit_failure/
+    );
+    const afterRejectedStatus = await prisma.taskAllocation.findUniqueOrThrow({ where: { id: assigned[0].allocationId } });
+    assert.equal(afterRejectedStatus.status, "ASSIGNED");
+    assert.equal(afterRejectedStatus.acknowledgedAt, null);
+    assert.equal(await prisma.auditLog.count({ where: { tenantId, action: "task_allocation.status_changed" } }), 0);
+    await clearFailureTrigger();
   } finally {
     await clearFailureTrigger();
     await prisma.auditLog.deleteMany({ where: { tenantId } });
