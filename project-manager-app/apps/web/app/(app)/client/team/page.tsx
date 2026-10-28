@@ -145,7 +145,7 @@ export default function TeamInvitationsPage() {
                     onClick={() =>
                       void run(async () => {
                         const sent = await resendOrgInvitation(orgId as string, row.invitationId);
-                        setLink(inviteLink(sent.token));
+                        setLink(sent.token ? inviteLink(sent.token) : null);
                       })
                     }
                   >

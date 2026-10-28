@@ -22,6 +22,9 @@ test("keeps only explicit SEMSE API allowlist public", () => {
   assert.equal(isPublicSemseApiPath("/api/semse/auth/forgot-password"), true);
   assert.equal(isPublicSemseApiPath("/api/semse/auth/reset-password"), true);
   assert.equal(isPublicSemseApiPath("/api/semse/healthz"), true);
+  assert.equal(isPublicSemseApiPath("/api/semse/invitations/preview"), true);
+  assert.equal(isPublicSemseApiPath("/api/semse/invitations/register"), true);
+  assert.equal(isPublicSemseApiPath("/api/semse/invitations/accept"), false);
   assert.equal(isPublicSemseApiPath("/api/semse/stats/public"), true);
   assert.equal(isPublicSemseApiPath("/api/semse/product-intelligence/ingest"), true);
   assert.equal(isPublicSemseApiPath("/api/semse/public/intake/analyze"), true);

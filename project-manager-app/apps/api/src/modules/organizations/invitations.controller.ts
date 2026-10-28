@@ -22,6 +22,11 @@ const listQuerySchema = z.object({
   status: z.enum(["PENDING", "ACCEPTED", "DECLINED", "CANCELED", "EXPIRED"]).optional()
 });
 const tokenSchema = z.object({ token: z.string().trim().min(10).max(200) });
+const registerInvitedSchema = z.object({
+  token: z.string().trim().min(10).max(200),
+  name: z.string().trim().min(2).max(120),
+  password: z.string().min(8).max(128)
+});
 
 /** BO-01: gestión privada de invitaciones de una Org. Spec: docs/specs/core/org-invitations.spec.md */
 @Controller("v1/organizations/:orgId/invitations")
@@ -95,6 +100,17 @@ export class InvitationsController {
     const { token } = parseWithSchema(tokenSchema, body);
     const data = await this.invitations.preview(token);
     return ok(resolveRequestId(req.headers ?? {}), data);
+  }
+
+  @Post("register")
+  @Public()
+  @HttpCode(200)
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  async registerInvited(@Req() req: Req_, @Body() body: unknown) {
+    const input = parseWithSchema(registerInvitedSchema, body);
+    const requestId = resolveRequestId(req.headers ?? {});
+    const data = await this.invitations.registerInvited({ ...input, requestId });
+    return ok(requestId, data);
   }
 
   @Post("accept")

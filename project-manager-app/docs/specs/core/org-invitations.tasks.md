@@ -10,3 +10,4 @@
 | I-07 | Build, tests completos, CI | verde |
 | I-08 | PR draft; merge/deploy con autorización | humano |
 | I-09 | BO-04: BFF + cliente + páginas `/client/team` y `/invitations/accept` (ES/EN) | typecheck web + CI |
+| I-10 | BO-03: entrega por correo + register-invited (API, flags apagados) | build + tests |

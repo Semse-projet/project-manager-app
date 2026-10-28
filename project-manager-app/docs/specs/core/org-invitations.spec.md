@@ -67,3 +67,13 @@ Excluido (slices posteriores): `register-invited` para cuentas nuevas, envío po
 ## Slice BO-04 — Capa web (flag sigue apagado)
 
 Incluye: rutas BFF `apps/web/app/api/semse/organizations/[orgId]/invitations/**` y `invitations/{preview,accept}`; funciones en `semse-api.ts`; páginas `/client/team` (invitar, listar, reenviar, cancelar; enlace mostrado una sola vez) y `/invitations/accept` (vista previa y aceptación con la cuenta propia). Textos ES/EN. Con el flag apagado la API responde 404 y la UI muestra "aún no habilitadas". Sin cambios de API, esquema ni permisos. No incluye entrada en la navegación ni envío de correo.
+
+## Slice BO-03 — Registro de invitados y entrega por correo (flags apagados)
+
+Dos flags nuevos, ambos apagados: `SEMSE_INVITATION_EMAIL_DELIVERY` y `SEMSE_INVITED_REGISTRATION_ENABLED` (este último exige además los dos anteriores).
+
+- **Entrega por correo:** al crear o reenviar, el enlace con el token se envía al `contactEmail` por `EmailService` (Resend con dominio propio verificado). Con esta entrega activa el token **no se devuelve** a quien invita (`token: null`, `emailSent`), porque si no el invitador podría registrarse como el invitado. Con ella apagada se conserva el comportamiento de BO-01.
+- **`POST /v1/invitations/register` (público, 5/min):** `{ token, name, password }`. La prueba de control del correo es haber recibido el token por email. Crea `User` + `UserProfile` + `Membership` WORKER ACTIVE en la Org que invita, **sin crear Org**, consume la invitación de forma atómica (PENDING→ACCEPTED con guard de vencimiento) e inicia sesión con rol WORKER en esa Org.
+- Token inválido, vencido o ya usado → 404 neutro. Si ya existe una cuenta con ese correo → 409 (debe iniciar sesión y aceptar con `/accept`). Auditoría con `membership.created`.
+- **Pantalla pública de registro (cerrado en `fix/invitation-public-register`):** `/invitations/accept` muestra, sin sesión, un formulario de nombre y contraseña (15-128 caracteres, igual que el registro normal). El BFF `POST /api/semse/invitations/preview` y `POST /api/semse/invitations/register` son públicos y llaman a la API sin reenviar identidad; `register` abre la misma cookie de sesión que el registro normal. `accept` sigue exigiendo sesión. El BFF nunca acepta un email del cliente: sale de la invitación en el servidor. Fallos de cualquier causa se muestran con el mismo mensaje neutro.
+- **Fuera de este slice:** verificación de correo como atributo del `User`.

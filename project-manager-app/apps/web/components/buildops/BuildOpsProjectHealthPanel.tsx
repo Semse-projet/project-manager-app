@@ -2,6 +2,8 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { Activity, AlertTriangle, CheckCircle, RefreshCw, ShieldAlert } from "lucide-react";
+import { useLanguage } from "../../lib/language-context";
+import { messageFromError, messageTextOr, renderMessage, UiMessageError, type UiMessage } from "../../lib/ui-message";
 
 type ProjectHealth = {
   projectId:           string;
@@ -32,9 +34,10 @@ interface Props {
 }
 
 export function BuildOpsProjectHealthPanel({ projectId }: Props) {
+  const { t } = useLanguage();
   const [data, setData] = useState<ProjectHealth | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<UiMessage | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -42,10 +45,10 @@ export function BuildOpsProjectHealthPanel({ projectId }: Props) {
     try {
       const res = await fetch(`/api/semse/buildops/projects/${projectId}/health`);
       const json = await res.json() as { data?: ProjectHealth; error?: { message?: string } };
-      if (!res.ok) throw new Error(json?.error?.message ?? "No se pudo cargar el estado del proyecto.");
+      if (!res.ok) throw new UiMessageError(messageTextOr(json?.error?.message, "health.error.load"));
       setData(json.data ?? null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error al cargar health.");
+      setError(messageFromError(err, "health.error.fallback"));
     } finally {
       setLoading(false);
     }
@@ -54,13 +57,13 @@ export function BuildOpsProjectHealthPanel({ projectId }: Props) {
   useEffect(() => { void load(); }, [load]);
 
   if (loading) {
-    return <div style={{ padding: 14, borderRadius: 12, background: "var(--surface)", border: "1px solid var(--border)", fontSize: 12, color: "var(--muted)" }}>Analizando salud del proyecto...</div>;
+    return <div style={{ padding: 14, borderRadius: 12, background: "var(--surface)", border: "1px solid var(--border)", fontSize: 12, color: "var(--muted)" }}>{t("health.loading")}</div>;
   }
 
   if (error || !data) {
     return (
       <div style={{ padding: 12, borderRadius: 12, background: "rgba(239,68,68,.06)", border: "1px solid rgba(239,68,68,.2)", color: "#fca5a5", fontSize: 12 }}>
-        {error ?? "Sin datos de salud"}
+        {renderMessage(error, t) ?? t("health.empty")}
       </div>
     );
   }
@@ -74,13 +77,13 @@ export function BuildOpsProjectHealthPanel({ projectId }: Props) {
       <div style={{ display: "flex", alignItems: "center", gap: 10, justifyContent: "space-between" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <Activity size={15} color={riskColor(data.riskLevel)} />
-          <span style={{ fontSize: 13, fontWeight: 800, color: "var(--ink)" }}>Salud del proyecto</span>
+          <span style={{ fontSize: 13, fontWeight: 800, color: "var(--ink)" }}>{t("health.title")}</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <span style={{ fontSize: 11, fontWeight: 800, color: riskColor(data.riskLevel), textTransform: "uppercase" }}>
-            Riesgo {data.riskLevel}
+            {t("health.risk")} {t(`risk.${data.riskLevel}`)}
           </span>
-          <button type="button" onClick={() => void load()} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)" }}>
+          <button type="button" aria-label={t("health.refresh")} onClick={() => void load()} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)" }}>
             <RefreshCw size={12} />
           </button>
         </div>
@@ -89,10 +92,10 @@ export function BuildOpsProjectHealthPanel({ projectId }: Props) {
       {/* Counters */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(100px, 1fr))", gap: 8 }}>
         {[
-          { label: "Señales críticas", value: data.criticalSignals, color: data.criticalSignals > 0 ? "var(--error)" : "#86efac" },
-          { label: "Señales abiertas", value: data.openSignals, color: data.openSignals > 0 ? "#fbbf24" : "var(--muted)" },
-          { label: "Change orders", value: data.openChangeCandidates, color: data.openChangeCandidates > 0 ? "#fbbf24" : "var(--muted)" },
-          { label: "Completado", value: `${data.completion}%`, color: data.completion >= 80 ? "#86efac" : "var(--ink)" },
+          { label: t("health.criticalSignals"), value: data.criticalSignals, color: data.criticalSignals > 0 ? "var(--error)" : "#86efac" },
+          { label: t("health.openSignals"), value: data.openSignals, color: data.openSignals > 0 ? "#fbbf24" : "var(--muted)" },
+          { label: t("health.changeOrders"), value: data.openChangeCandidates, color: data.openChangeCandidates > 0 ? "#fbbf24" : "var(--muted)" },
+          { label: t("health.completed"), value: `${data.completion}%`, color: data.completion >= 80 ? "#86efac" : "var(--ink)" },
         ].map((item) => (
           <div key={item.label} style={{ padding: "8px 10px", borderRadius: 10, background: "rgba(255,255,255,.03)", border: "1px solid var(--border)", textAlign: "center" }}>
             <div style={{ fontSize: 17, fontWeight: 800, color: item.color }}>{item.value}</div>
@@ -110,8 +113,8 @@ export function BuildOpsProjectHealthPanel({ projectId }: Props) {
       {/* Algorithm confidence */}
       {data.algorithmConfidence != null && (
         <div style={{ fontSize: 11, color: "var(--muted)", display: "flex", gap: 12 }}>
-          <span>Confianza estimado: <strong style={{ color: "var(--ink)" }}>{data.algorithmConfidence}/100</strong></span>
-          {data.algorithmRisk != null && <span>Riesgo algoritmo: <strong style={{ color: riskColor(data.algorithmRisk > 60 ? "high" : data.algorithmRisk > 30 ? "medium" : "low") }}>{data.algorithmRisk}/100</strong></span>}
+          <span>{t("health.confidence")}: <strong style={{ color: "var(--ink)" }}>{data.algorithmConfidence}/100</strong></span>
+          {data.algorithmRisk != null && <span>{t("health.algorithmRisk")}: <strong style={{ color: riskColor(data.algorithmRisk > 60 ? "high" : data.algorithmRisk > 30 ? "medium" : "low") }}>{data.algorithmRisk}/100</strong></span>}
         </div>
       )}
     </div>
