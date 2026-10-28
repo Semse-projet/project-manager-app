@@ -128,6 +128,47 @@ test("N03: CrewMember ACTIVE sin WORKER ACTIVE no puede recibir asignaciones", a
   assert.equal(w.audits.length, 0);
 });
 
+test("N08: PRO ACTIVE conserva gestión legítima de crews aunque WORKER de supervisor esté suspendido", async () => {
+  const w = makeWorld();
+  // WORKER y PRO son memberships independientes en una misma organización.
+  w.memberships.find((m) => m.userId === "sup" && m.role.key === "WORKER")!.status = "SUSPENDED";
+  w.memberships.push({ userId: "sup", orgId: "orgA", status: "ACTIVE", role: { key: "PRO" }, org: { tenantId: "t1" } });
+  w.memberships.push({ userId: "eva", orgId: "orgA", status: "ACTIVE", role: { key: "WORKER" }, org: { tenantId: "t1" } });
+
+  // No recibe autoridad por el cargo de supervisor suspendido: accede por
+  // el permiso organizacional org:crews:manage de su PRO vigente.
+  const result = await w.service.assign(sup, "c2", "task1", "r-n08", ["eva"]);
+  assert.equal(result.length, 1);
+  assert.equal(w.allocations[0].crewId, "c2");
+  assert.equal(w.allocations[0].userId, "eva");
+  assert.deepEqual(w.audits.map((a) => a.action), ["task_allocation.assigned"]);
+});
+
+test("N09: claims PRO/WORKER no sustituyen Membership de la Org ni tenant real", async () => {
+  const w = makeWorld();
+  w.crews.push({ id: "c3", tenantId: "t1", orgId: "orgC", supervisorUserId: "someoneElse", status: "ACTIVE" });
+  w.crewMembers.push({ crewId: "c3", userId: "ana", status: "ACTIVE" });
+
+  // El mismo tenant no basta: sin Membership activa en orgC, 404.
+  await assert.rejects(
+    w.service.assign({ tenantId: "t1", userId: "sup", roles: ["WORKER", "PRO"] }, "c3", "task1", "r-n09a", ["ana"]),
+    { status: 404 }
+  );
+  // Aunque tenga WORKER en orgC, no es su supervisor ni un gestor.
+  w.memberships.push({ userId: "sup", orgId: "orgC", status: "ACTIVE", role: { key: "WORKER" }, org: { tenantId: "t1" } });
+  await assert.rejects(
+    w.service.assign({ tenantId: "t1", userId: "sup", roles: ["PRO"] }, "c3", "task1", "r-n09b", ["ana"]),
+    { status: 403 }
+  );
+  // Cambiar roles del JWT y tenant del actor no permite acceder a una crew de otro tenant.
+  await assert.rejects(
+    w.service.assign({ tenantId: "t2", userId: "sup", roles: ["PRO"] }, "c1", "task1", "r-n09c", ["ana"]),
+    { status: 404 }
+  );
+  assert.equal(w.allocations.length, 0);
+  assert.equal(w.audits.length, 0);
+});
+
 test("AC-04 una tarea compartida = una tarea con varias asignaciones; repetir no duplica", async () => {
   const w = makeWorld();
   const first = await w.service.assign(sup, "c1", "task1", "r1", ["ana", "bob"], "instalar lámparas");
