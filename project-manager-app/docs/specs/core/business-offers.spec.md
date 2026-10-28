@@ -86,3 +86,29 @@ El propietario pidió avanzar con supuestos conservadores. **Son supuestos de im
 | OPEN-14 | Sin firma real ni Documenso. | Firma con proveedor |
 
 Cambios respecto al diseño propuesto: la oferta solo se dirige a un `WORKER` ACTIVE de la Org (ya aceptó BO-01); el engagement **no crea ni modifica Membership**; terminar un engagement no suspende la Membership (la revocación de grants llega con BO-07); sin enmiendas versionadas en este slice (revocar y emitir nueva oferta). Eventos añadidos al catálogo: los cinco de `related_events`.
+
+## Decisiones del propietario (2026-10-18)
+El propietario respondió las cuatro decisiones en sesión. Quedan registradas aquí; **no sustituyen asesoría legal**: OPEN-03 y OPEN-14 se revisan con el asesor legal antes de usar ofertas con personas reales fuera de pruebas.
+
+| ID | Decisión | Efecto en el código |
+|---|---|---|
+| OPEN-03 | Quitar la clasificación W-2/1099. | La API ya no acepta ni expone `classification`; la columna `classificationDeclared` se conserva con el valor fijo `NOT_RECORDED` (sin migración). La confirmación `legalConfirmed:true` del patrón se mantiene. |
+| OPEN-04 | Solo dueño y OPS_ADMIN. | `org:offers:manage` se retira de PRO y queda en CLIENT y OPS_ADMIN. Consecuencia: una cuenta PRO ya no puede emitir, revocar, confirmar ni terminar ofertas. |
+| OPEN-06 | Mantener el supuesto. | Sin cambios: la compensación solo la ven quienes gestionan ofertas y el destinatario. |
+| OPEN-14 | Planificar la firma. | Slice BO-S1 abajo; sigue sin implementarse ni activarse. |
+
+## Slice BO-S1 — Firma electrónica (planificado, sin implementar)
+Objetivo: que una oferta confirmada pueda formalizarse con firma real mediante un proveedor (Documenso), sin que la aceptación en SEMSE se confunda con un contrato firmado. Hasta cumplir los cuatro requisitos siguientes, Documenso permanece OFF y la UI no ofrece firma:
+
+1. **Identidad:** cómo se verifica quién firma (cuenta verificada, correo verificado como atributo del `User`, o verificación del proveedor).
+2. **Consentimiento:** texto de consentimiento a firmar electrónicamente, con versión y registro de aceptación.
+3. **Custodia:** dónde se guarda el documento firmado, quién lo retiene, por cuánto tiempo y cómo se borra o exporta.
+4. **UAT:** pruebas de aceptación con el proveedor en entorno de prueba y evidencia antes de cualquier uso real.
+
+Pendiente antes de implementar: spec propia con contrato de API, evento(s) en `EVENT_CATALOG.md`, modelo de datos y plan de pruebas, más la respuesta del asesor legal sobre validez de la firma según la relación que el patrón defina fuera de SEMSE.
+
+## Slice BO-06 — Capa web de ofertas (flag sigue apagado)
+
+Incluye: rutas BFF `apps/web/app/api/semse/organizations/[orgId]/offers/**`, `.../engagements/[engagementId]/end` y `offers/{mine,[offerId]/respond}`; funciones en `semse-api.ts`; páginas `/client/offers` (emitir, revocar, confirmar engagement con casilla de confirmación legal) y `/worker/offers` (ver y responder las propias). ES/EN. Sin cambios de API, esquema ni permisos. Con el flag apagado la API responde 404 y la UI muestra "aún no habilitadas".
+
+Pendiente: terminar un engagement desde la UI (la vista de oferta no expone todavía el `engagementId`), entrada en la navegación y firma (OPEN-14).

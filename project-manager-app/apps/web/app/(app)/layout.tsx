@@ -112,11 +112,17 @@ const NAV: Record<NavRole, { labelKey: string; color: string; icon: typeof HardH
       { labelKey: "nav.workerDashboard", href: "/worker/dashboard", icon: LayoutDashboard, section: "section.main" },
       { labelKey: "nav.opportunities", href: "/worker/opportunities", icon: Store },
       { labelKey: "nav.myBids", href: "/worker/bids", icon: Send },
+      { labelKey: "nav.myOffers", href: "/worker/offers", icon: Briefcase },
+      { labelKey: "nav.myAssignments", href: "/worker/assignments", icon: CheckSquare },
+      { labelKey: "nav.myCrew", href: "/worker/crew", icon: Users },
+      { labelKey: "nav.dailyReport", href: "/worker/daily-report", icon: FileText },
+      { labelKey: "nav.mySkills", href: "/worker/skills", icon: Star },
       { labelKey: "nav.agenda", href: "/worker/agenda", icon: Calendar },
       { labelKey: "nav.myJobs", href: "/worker/jobs", icon: Briefcase },
-      { labelKey: "Workspace", href: "/workspace", icon: FolderKanban },
+      { labelKey: "nav.workspace", href: "/workspace", icon: FolderKanban },
       { labelKey: "nav.tasks", href: "/worker/tasks", icon: CheckSquare },
       { labelKey: "nav.timeTracker", href: "/worker/tracker", icon: Clock },
+      { labelKey: "nav.myCorrections", href: "/worker/corrections", icon: Clock },
       { labelKey: "nav.evidence", href: "/worker/evidence", icon: Camera },
       { labelKey: "nav.materials", href: "/worker/materials", icon: Package },
       { labelKey: "nav.senseVision", href: "/worker/sense-vision", icon: ScanSearch },
@@ -152,6 +158,11 @@ const NAV: Record<NavRole, { labelKey: string; color: string; icon: typeof HardH
       { labelKey: "nav.aiCopilot", href: "/client/projects", icon: Bot },
       { labelKey: "nav.milestones", href: "/client/milestones", icon: CheckSquare },
       { labelKey: "nav.professionals", href: "/client/professionals", icon: Users },
+      { labelKey: "nav.crewReports", href: "/client/daily-reports", icon: FileText },
+      { labelKey: "nav.sharedSkills", href: "/client/skill-attestations", icon: ShieldCheck },
+      { labelKey: "nav.myTeam", href: "/client/team", icon: Users },
+      { labelKey: "nav.internalOffers", href: "/client/offers", icon: Briefcase },
+      { labelKey: "nav.laborPolicy", href: "/client/labor-policy", icon: Clock },
       { labelKey: "nav.documents", href: "/client/documents", icon: FileText },
       { labelKey: "nav.reviews", href: "/client/reviews", icon: Star },
       { labelKey: "nav.payments", href: "/client/payments", icon: CreditCard },
@@ -638,12 +649,13 @@ function AppLayoutInner({ children }: { children: ReactNode }) {
 }
 
 function WorkerMobileBottomNav({ pathname }: { pathname: string }) {
+  const { t } = useLanguage();
   const tabs = [
-    { href: "/worker/dashboard",    icon: LayoutDashboard, label: "Inicio" },
-    { href: "/worker/jobs",         icon: Briefcase,        label: "Trabajos" },
-    { href: "/worker/tracker",      icon: Clock,            label: "Tiempo" },
-    { href: "/worker/evidence",     icon: Camera,           label: "Evidencia" },
-    { href: "/worker/opportunities",icon: Store,            label: "Ofertas" },
+    { href: "/worker/dashboard",    icon: LayoutDashboard, labelKey: "workerMobile.home" },
+    { href: "/worker/jobs",         icon: Briefcase,        labelKey: "workerMobile.jobs" },
+    { href: "/worker/tracker",      icon: Clock,            labelKey: "workerMobile.time" },
+    { href: "/worker/evidence",     icon: Camera,           labelKey: "workerMobile.evidence" },
+    { href: "/worker/opportunities",icon: Store,            labelKey: "workerMobile.offers" },
   ] as const;
 
   return (
@@ -663,7 +675,7 @@ function WorkerMobileBottomNav({ pathname }: { pathname: string }) {
         paddingBottom: "env(safe-area-inset-bottom, 0px)",
       }}
     >
-      {tabs.map(({ href, icon: Icon, label }) => {
+      {tabs.map(({ href, icon: Icon, labelKey }) => {
         const active = pathname === href || pathname.startsWith(href + "/");
         return (
           <Link
@@ -681,7 +693,7 @@ function WorkerMobileBottomNav({ pathname }: { pathname: string }) {
             }}
           >
             <Icon size={20} />
-            <span style={{ fontSize: 10, fontWeight: active ? 700 : 400 }}>{label}</span>
+            <span style={{ fontSize: 10, fontWeight: active ? 700 : 400 }}>{t(labelKey)}</span>
           </Link>
         );
       })}

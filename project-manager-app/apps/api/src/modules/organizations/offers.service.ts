@@ -19,7 +19,8 @@ import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
  * (con confirmación legal declarada) lo activa. Sin firma ni nómina.
  */
 
-export const OFFER_CLASSIFICATIONS = ["W2", "1099", "OTHER"] as const;
+/** OPEN-03: la clasificación W-2/1099 no se pide ni se infiere; la columna se conserva sin uso. */
+const CLASSIFICATION_NOT_RECORDED = "NOT_RECORDED";
 const DEFAULT_EXPIRY_DAYS = 7;
 const MANAGE = "org:offers:manage";
 
@@ -104,7 +105,6 @@ export class OffersService {
     input: {
       recipientUserId: string;
       positionTitle: string;
-      classification: string;
       startsAt?: Date;
       compensationNote?: string;
       expiresInDays?: number;
@@ -112,9 +112,6 @@ export class OffersService {
   ) {
     this.assertEnabled();
     await this.requireManage(actor, orgId);
-    if (!(OFFER_CLASSIFICATIONS as readonly string[]).includes(input.classification)) {
-      throw new UnprocessableEntityException("Clasificación no válida");
-    }
     if (input.recipientUserId === actor.userId) {
       throw new UnprocessableEntityException("No se puede ofertar a uno mismo");
     }
@@ -145,7 +142,7 @@ export class OffersService {
         issuedByUserId: actor.userId,
         recipientUserId: input.recipientUserId,
         positionTitle: input.positionTitle,
-        classificationDeclared: input.classification,
+        classificationDeclared: CLASSIFICATION_NOT_RECORDED,
         startsAt: input.startsAt ?? null,
         compensationNote: input.compensationNote ?? null,
         expiresAt: expiryFromNow(input.expiresInDays ?? DEFAULT_EXPIRY_DAYS)
@@ -274,7 +271,6 @@ export class OffersService {
       orgId: row.orgId,
       recipientUserId: row.recipientUserId,
       positionTitle: row.positionTitle,
-      classification: row.classificationDeclared,
       startsAt: row.startsAt,
       compensationNote: row.compensationNote,
       status: row.status,
