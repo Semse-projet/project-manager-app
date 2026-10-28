@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Download, Plus, Search } from "lucide-react";
 import {
   createManualEntry,
@@ -69,6 +69,7 @@ export function RegistrosTab({ jobs }: { jobs: JobRecordView[] }) {
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
+  const latestLoadId = useRef(0);
 
   const [formPurpose, setFormPurpose] = useState<TimeEntryView["purpose"]>("personal");
   const [formJobId, setFormJobId] = useState("");
@@ -81,24 +82,31 @@ export function RegistrosTab({ jobs }: { jobs: JobRecordView[] }) {
   const [formNotes, setFormNotes] = useState("");
 
   const loadEntries = useCallback(async (nextRange: EntriesRange) => {
+    // Requests may resolve out of order when the user switches date ranges.
+    // Never let an old response populate the currently selected CSV view.
+    const loadId = ++latestLoadId.current;
     setLoading(true);
     setError(null);
+    setEntries([]);
     try {
       const [entriesResult, projectsResult] = await Promise.all([
         fetchLaborEntries({ range: nextRange, limit: 500 }),
         fetchFreeProjects(),
       ]);
+      if (loadId !== latestLoadId.current) return;
       setEntries(entriesResult);
       setFreeProjects(projectsResult);
     } catch (caught) {
+      if (loadId !== latestLoadId.current) return;
       setError(caught instanceof Error ? caught.message : "No se pudieron cargar los registros.");
     } finally {
-      setLoading(false);
+      if (loadId === latestLoadId.current) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
     void loadEntries(range);
+    return () => { latestLoadId.current += 1; };
   }, [loadEntries, range]);
 
   // Sesión activa aún no confirmada + entradas manuales encoladas offline
@@ -267,8 +275,8 @@ export function RegistrosTab({ jobs }: { jobs: JobRecordView[] }) {
               type="button"
               title="Exporta solo filas cargadas; los registros locales pueden estar pendientes de sincronización."
               onClick={() => exportEntriesCsv(filtered, resolveProject, `semse-registros-${range}.csv`)}
-              disabled={filtered.length === 0}
-              style={toolbarButton(filtered.length === 0)}
+              disabled={loading || filtered.length === 0}
+              style={toolbarButton(loading || filtered.length === 0)}
             >
               <Download size={13} /> CSV de vista
             </button>
@@ -279,7 +287,7 @@ export function RegistrosTab({ jobs }: { jobs: JobRecordView[] }) {
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: "8px", marginBottom: "14px" }}>
-          <select value={range} onChange={(event) => setRange(event.target.value as EntriesRange)} style={fieldInput()} aria-label="Rango">
+          <select value={range} onChange={(event) => { setLoading(true); setEntries([]); setRange(event.target.value as EntriesRange); }} style={fieldInput()} aria-label="Rango">
             <option value="week">Últimos 7 días</option>
             <option value="month">Últimos 30 días</option>
             <option value="all">Sin filtro de fechas (vista limitada)</option>
