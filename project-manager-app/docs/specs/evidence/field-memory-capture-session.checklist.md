@@ -84,3 +84,17 @@ Este checklist describe **criterios de aceptación**, no verificaciones ejecutad
 - [ ] CAP-1 sigue INACTIVE salvo autorización independiente y cumplimiento del resto de la spec.
 
 **No reportar VERIFIED:** tests de herramienta, preflight local/remoto, BitLocker o Railway SUCCESS no equivalen a congelación de bytes y DB ni a recuperación integral.
+
+
+## T-008 OPEN-only producción — enmienda SDD en REVIEW (2026-10-25)
+
+**Todos los puntos siguientes siguen sin aprobación de go-live.** Código propuesto y CI verde no sustituyen una decisión del propietario ni revisión independiente.
+
+- [ ] Aprobación expresa del propietario para ampliar §12.6 de solo staging a producción OPEN-only.
+- [ ] Revisión independiente de seguridad del P1 sobre colisión de scopes entre staging y producción, con dos ambientes y mismo root.
+- [ ] Scope productivo compuesto de RAILWAY_PROJECT_ID + RAILWAY_ENVIRONMENT_ID + SEMSE_STORAGE_ROOT; IDs ausentes o malformados bloquean runtime y control.
+- [ ] Controlar migración de scope de staging sin copiar ACTIVE, epoch o coverage desde filas legacy y sin encender un gate nuevo que ignore operaciones en curso.
+- [ ] Revisión independiente del P1 sobre contradicción del SDD; actualización de contrato marcada REVIEW hasta que el propietario apruebe.
+- [ ] Confirmar en DB efímera que el servicio staging no puede mutar el scope productivo por accidente.
+- [ ] Canary productivo solo después de esa aprobación y operador autenticado; ninguna transición DRAINING/FROZEN/THAW/RECOVER autoriza este slice.
+- [ ] Registrar CI exacto, revisión/merge SHA, deploy/health y activación como evidencias separadas, sin marcar CAP-1 ni fotos restauradas.
