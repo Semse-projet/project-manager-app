@@ -3,25 +3,27 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, Camera, CheckCircle2 } from "lucide-react";
 
-type EvidenceItem = { status: string; label: string; jobId?: string };
-
 /** Fetches missing evidence items across active worker jobs and shows a summary badge. */
 export function WorkerEvidenceSummary() {
-  const [missing, setMissing] = useState<number>(0);
-  const [loaded,  setLoaded]  = useState(false);
+  const [missing,  setMissing]  = useState<number>(0);
+  const [complete, setComplete] = useState(false);
+  const [loaded,   setLoaded]   = useState(false);
 
   const load = useCallback(async () => {
     try {
       const res = await fetch("/api/semse/worker/evidence-summary");
       if (!res.ok) return;
-      const json = await res.json() as { data: { missingCount: number; totalCount: number } };
+      const json = await res.json() as { data?: { missingCount?: number; complete?: boolean } };
       setMissing(json.data?.missingCount ?? 0);
-    } catch { /* silent */ } finally { setLoaded(true); }
+      setComplete(json.data?.complete === true);
+      setLoaded(true);
+    } catch { /* silent */ }
   }, []);
 
   useEffect(() => { void load(); }, [load]);
 
-  if (!loaded) return null;
+  // A failed or partial read must not tell the worker their evidence is up to date.
+  if (!loaded || (missing === 0 && !complete)) return null;
 
   if (missing === 0) {
     return (
