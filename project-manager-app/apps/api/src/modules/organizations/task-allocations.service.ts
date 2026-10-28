@@ -77,11 +77,38 @@ export class TaskAllocationsService {
     return crew;
   }
 
-  private async isActiveWorkerInCrew(tenantId: string, orgId: string, crewId: string, userId: string): Promise<boolean> {
+  /** Re-read the live crew and actor authority in the same Serializable transaction as the write. */
+  private async assertCrewAuthorityInTransaction(
+    tx: Prisma.TransactionClient,
+    actor: AllocationActor,
+    crew: { id: string; orgId: string }
+  ): Promise<void> {
+    const currentCrew = await tx.crew.findFirst({
+      where: { id: crew.id, tenantId: actor.tenantId, orgId: crew.orgId, status: "ACTIVE" }
+    });
+    if (!currentCrew) throw new ConflictException("La cuadrilla cambió; vuelve a intentar");
+    const memberships = await tx.membership.findMany({
+      where: { userId: actor.userId, orgId: crew.orgId, status: "ACTIVE", org: { tenantId: actor.tenantId } },
+      include: { role: true }
+    });
+    const isSupervisor = currentCrew.supervisorUserId === actor.userId &&
+      memberships.some((membership) => membership.role.key === "WORKER");
+    const isManager = hasPermission(memberships.map((membership) => membership.role.key), CREWS_MANAGE);
+    if (!isSupervisor && !isManager) throw new ConflictException("La autoridad cambió; vuelve a intentar");
+  }
+
+  private async isActiveWorkerInCrew(
+    tenantId: string,
+    orgId: string,
+    crewId: string,
+    userId: string,
+    tx?: Prisma.TransactionClient
+  ): Promise<boolean> {
+    const db = tx ?? this.prisma;
     const [crew, member, memberships] = await Promise.all([
-      this.prisma.crew.findFirst({ where: { id: crewId, tenantId, orgId, status: "ACTIVE" } }),
-      this.prisma.crewMember.findFirst({ where: { crewId, userId, status: "ACTIVE" } }),
-      this.prisma.membership.findMany({
+      db.crew.findFirst({ where: { id: crewId, tenantId, orgId, status: "ACTIVE" } }),
+      db.crewMember.findFirst({ where: { crewId, userId, status: "ACTIVE" } }),
+      db.membership.findMany({
         where: { userId, orgId, status: "ACTIVE", org: { tenantId } },
         include: { role: true }
       })
@@ -131,6 +158,7 @@ export class TaskAllocationsService {
     this.assertEnabled();
     const crew = await this.requireCrewScope(actor, crewId);
     return this.prisma.$transaction(async (tx) => {
+      await this.assertCrewAuthorityInTransaction(tx, actor, crew);
       const task = await tx.jobTask.create({
         data: {
           tenantId: actor.tenantId,
@@ -194,22 +222,7 @@ export class TaskAllocationsService {
     // Transaction guarantees that any failed allocation OR audit rolls the entire
     // batch back. This does not yet replace the full authorization/race gates.
     return this.prisma.$transaction(async (tx) => {
-      // Recheck authorization and recipients INSIDE the serializable snapshot.
-      // A membership or crew revocation between preflight and transaction must
-      // not produce a new allocation using stale authority.
-      const liveCrew = await tx.crew.findFirst({
-        where: { id: crew.id, tenantId: actor.tenantId, orgId: crew.orgId, status: "ACTIVE" }
-      });
-      if (!liveCrew) throw new ConflictException("La cuadrilla cambió; vuelve a intentar");
-      const liveActorRoles = await tx.membership.findMany({
-        where: { userId: actor.userId, orgId: crew.orgId, status: "ACTIVE", org: { tenantId: actor.tenantId } },
-        include: { role: true }
-      });
-      const validSupervisor = liveCrew.supervisorUserId === actor.userId &&
-        liveActorRoles.some((membership) => membership.role.key === "WORKER");
-      const validManager = hasPermission(liveActorRoles.map((membership) => membership.role.key), CREWS_MANAGE);
-      if (!validSupervisor && !validManager) throw new ConflictException("La autoridad cambió; vuelve a intentar");
-
+      await this.assertCrewAuthorityInTransaction(tx, actor, crew);
       const liveTask = await tx.jobTask.findFirst({
         where: { id: taskId, tenantId: actor.tenantId, orgId: crew.orgId }
       });
@@ -295,6 +308,7 @@ export class TaskAllocationsService {
     if (!existing) throw new NotFoundException();
     if (existing.status === "RELEASED") throw new ConflictException("La asignación ya fue liberada");
     return this.prisma.$transaction(async (tx) => {
+      await this.assertCrewAuthorityInTransaction(tx, actor, crew);
       const claimed = await tx.taskAllocation.updateMany({
         where: { id: existing.id, tenantId: actor.tenantId, orgId: crew.orgId, crewId: crew.id, taskId, userId, status: existing.status },
         data: { status: "RELEASED", releasedAt: new Date(), releasedByUserId: actor.userId, releaseReason: reason }
@@ -346,6 +360,9 @@ export class TaskAllocationsService {
       throw new UnprocessableEntityException("Indica el motivo del bloqueo");
     }
     return this.prisma.$transaction(async (tx) => {
+      if (!(await this.isActiveWorkerInCrew(user.tenantId, row.orgId, row.crewId, user.userId, tx))) {
+        throw new NotFoundException();
+      }
       const claimed = await tx.taskAllocation.updateMany({
         where: { id: row.id, tenantId: user.tenantId, orgId: row.orgId, crewId: row.crewId, userId: user.userId, status: row.status },
         data: {
