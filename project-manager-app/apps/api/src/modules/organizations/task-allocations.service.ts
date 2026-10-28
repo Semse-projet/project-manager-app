@@ -157,6 +157,11 @@ export class TaskAllocationsService {
     if (!task || task.status === "done" || task.status === "canceled") {
       throw new UnprocessableEntityException("La tarea no existe en esta organización o ya está cerrada");
     }
+    // S0b (propuesto): la tarea interna de una cuadrilla no puede ser asignada
+    // por otra cuadrilla de la misma organización.
+    if (task.entityType === "Crew" && task.entityId !== crew.id) {
+      throw new UnprocessableEntityException("La tarea no está disponible para esta cuadrilla");
+    }
     const unique = [...new Set(userIds)];
     const members = await this.prisma.crewMember.findMany({ where: { crewId: crew.id, status: "ACTIVE" } });
     const memberIds = new Set(members.map((m) => m.userId));
@@ -169,9 +174,21 @@ export class TaskAllocationsService {
     if (workerEligibility.some((eligible) => !eligible)) {
       throw new UnprocessableEntityException("Solo se asigna a trabajadores activos de la organización y la cuadrilla");
     }
+    // S0b (propuesto): abortar antes de la primera escritura si una asignación
+    // ya pertenece a otro equipo. No se transfiere ni se revela esa fila.
+    const prior = await this.prisma.taskAllocation.findMany({
+      where: { taskId, userId: { in: unique } }
+    });
+    if (prior.some((row) => row.tenantId !== actor.tenantId || row.orgId !== crew.orgId || row.crewId !== crew.id)) {
+      throw new ConflictException("La asignación no está disponible; solicita revisión al responsable");
+    }
     const result: AllocationRow[] = [];
     for (const userId of unique) {
       const existing = await this.prisma.taskAllocation.findFirst({ where: { taskId, userId } });
+      // La consulta de prevalidación no sustituye la verificación en cada intento.
+      if (existing && (existing.tenantId !== actor.tenantId || existing.orgId !== crew.orgId || existing.crewId !== crew.id)) {
+        throw new ConflictException("La asignación no está disponible; solicita revisión al responsable");
+      }
       let row: AllocationRow;
       if (!existing) {
         row = await this.prisma.taskAllocation.create({
