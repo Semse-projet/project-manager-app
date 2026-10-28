@@ -70,6 +70,18 @@ export class CrewsService {
     return memberships.some((membership) => membership.role.key === "WORKER");
   }
 
+  /** Return only effective WORKER members from this exact organization and tenant. */
+  private async activeWorkerIds(tenantId: string, orgId: string, userIds: string[]): Promise<Set<string>> {
+    if (userIds.length === 0) return new Set();
+    const memberships = await this.prisma.membership.findMany({
+      where: { userId: { in: userIds }, orgId, status: "ACTIVE", org: { tenantId } },
+      include: { role: true }
+    });
+    return new Set(
+      memberships.filter((membership) => membership.role.key === "WORKER").map((membership) => membership.userId)
+    );
+  }
+
   private async record(
     actor: CrewActor,
     orgId: string,
@@ -229,7 +241,12 @@ export class CrewsService {
     if (!crew) throw new NotFoundException();
     if (!(await this.hasActiveWorkerMembership(crew.tenantId, crew.orgId, user.userId))) throw new NotFoundException();
     const members = await this.prisma.crewMember.findMany({ where: { crewId, status: "ACTIVE" } });
-    return { crewId, members: members.map((m) => ({ userId: m.userId, addedAt: m.addedAt })) };
+    const eligibleIds = await this.activeWorkerIds(crew.tenantId, crew.orgId, members.map((member) => member.userId));
+    return {
+      crewId,
+      members: members.filter((member) => eligibleIds.has(member.userId))
+        .map((member) => ({ userId: member.userId, addedAt: member.addedAt }))
+    };
   }
 
   private crewView(crew: { id: string; orgId: string; name: string; supervisorUserId: string; worksiteId: string | null; status: string }) {
