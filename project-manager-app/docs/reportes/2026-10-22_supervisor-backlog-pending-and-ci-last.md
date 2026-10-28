@@ -36,6 +36,16 @@ ha sido ejecutado por la auditoría estática.
 
 ## 2. Registro priorizado de pendientes (single source para este programa)
 
+**Corrección adicional 2026-10-28:** PR #1054 contiene ahora código para
+acotar `/v1/crews/mine` y `/v1/crews/:crewId/roster` al tenant autenticado,
+y tests escritos `S0A-TENANT-01`, `N03b`, `N04b`.
+Antes el controlador solo transmitía `userId`, con riesgo de
+mezclar cuadrillas de varios tenants de la misma cuenta.
+**El parche está comprometido, sin pruebas ejecutables ni activación**.
+Ver [reconciliación del 28 de octubre](2026-10-28_s0a-s0b-live-pr-reconciliation.md).
+La próxima aceptación S0a exige ejecución real y review sobre HEAD
+`70621f3`, además de consolidar la rama apilada.
+
 **Reconciliación GitHub 2026-10-28:** [informe S0a/S0b sobre PR reales](2026-10-28_s0a-s0b-live-pr-reconciliation.md).
 El [PR #1054](https://github.com/Semse-projet/project-manager-app/pull/1054) ya contiene código y casos N01–N07 para S0a, pero es DRAFT,
 se apila sobre #1027 y **no tiene pruebas ejecutables PASS**. El 2026-10-28
