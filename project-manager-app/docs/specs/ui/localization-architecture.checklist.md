@@ -9,12 +9,12 @@ date: "2026-10-26"
 
 **Estatus:** pendiente de D1–D7; no representa tests ejecutados ni aprobación de publicación.
 
-**Fuente revalidada 2026-10-27:** paridad textual 1,182/1,182 ES/EN sin duplicados detectados; la cookie SSR de idioma y la prueba unitaria ya existen. Evidencia y límites en [analyze](localization-architecture.analyze.md) y [ADR-046](../../architecture/ADR-046-semse-ui-localization-runtime.md). Esto no cierra V01–V06, L01–L12 ni el gate de implementación.
+**Fuente revalidada 2026-10-27:** paridad textual 1,182/1,182 ES/EN sin duplicados detectados; la cookie SSR de idioma y la prueba unitaria ya existen. Evidencia y límites en [analyze](localization-architecture.analyze.md) y [ADR-047](../../architecture/ADR-047-semse-ui-localization-runtime.md). Esto no cierra V01–V06, L01–L12 ni el gate de implementación.
 
 ## Requisitos y decisiones
 - [x] Problema, scope, exclusiones, roles y escenarios P1 documentados.
 - [x] Contratos de UI/API y frontera Prometeo privados distinguidos.
-- [ ] Ratificar D1 runtime y elevar [ADR-046 PROPOSED](../../architecture/ADR-046-semse-ui-localization-runtime.md) a ACCEPTED tras spike comparativo.
+- [ ] Ratificar D1 runtime y elevar [ADR-047 PROPOSED](../../architecture/ADR-047-semse-ui-localization-runtime.md) a ACCEPTED tras spike comparativo.
 - [ ] Ratificar D3 fallback y D4 de cuenta (cookie de navegador con SSR ya existe; verificar alcance multiusuario y decidir si hace falta sincronización entre dispositivos/migración).
 - [ ] Ratificar D2/D5/D6/D7 sin exposición externa implícita.
 
@@ -51,7 +51,7 @@ date: "2026-10-26"
 - [ ] DEC-PLATFORM-001 aplicado al riesgo real de cada PR.
 
 ## Entrega / Analyze gate
-- [ ] Completar análisis final spec↔plan↔tasks y ADR-046 contra constitución y resolver gaps; [análisis histórico/actualizado](localization-architecture.analyze.md).
+- [ ] Completar análisis final spec↔plan↔tasks y ADR-047 contra constitución y resolver gaps; [análisis histórico/actualizado](localization-architecture.analyze.md).
 - [ ] CI del HEAD **final** verde con logs verificables. El fallo documentado del head anterior fue índice de specs desincronizado (206 specs); no afirmar arreglo sin reejecución final.
 - [ ] Smoke autenticado ES/EN por rol (no reemplazable por e2e estático).
 - [ ] Revisión automatizada sin hallazgos bloqueantes y aprobación del propietario con SHA.

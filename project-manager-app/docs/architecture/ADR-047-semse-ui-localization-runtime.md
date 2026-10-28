@@ -1,5 +1,5 @@
 ---
-id: "ADR-046"
+id: "ADR-047"
 title: "Runtime de traducción ES/EN y preferencia de idioma de SEMSE Web"
 status: "PROPOSED"
 date: "2026-10-27"
@@ -7,7 +7,7 @@ owners: ["semse-core"]
 related_spec: "docs/specs/ui/localization-architecture.spec.md"
 ---
 
-# ADR-046 — Runtime y persistencia del idioma de SEMSE Web
+# ADR-047 — Runtime y persistencia del idioma de SEMSE Web
 
 > **PROPUESTA, NO APROBACIÓN.** El SDD `ui.localization-architecture` en el PR #1003 sigue `REVIEW`. Este ADR no autoriza alterar cookies de sesión, Prisma, runtime, catálogos, permisos o Railway. Se aplica DEC-PLATFORM-001 al riesgo de cada cambio.
 

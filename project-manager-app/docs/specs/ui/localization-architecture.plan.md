@@ -23,7 +23,7 @@ date: "2026-10-26"
 ## 2. Constitution check
 - [ ] Especificación APPROVED antes de código (bloqueante).
 - [x] Propuesta de roles/tenant/org/RBAC, invariantes económicos y privacidad documentada.
-- [ ] D1 runtime único decidido y [ADR-046](../../architecture/ADR-046-semse-ui-localization-runtime.md) de PROPOSED a ACCEPTED.
+- [ ] D1 runtime único decidido y [ADR-047](../../architecture/ADR-047-semse-ui-localization-runtime.md) de PROPOSED a ACCEPTED.
 - [ ] D4 fuente de preferencia y migración decidida.
 - [x] API, CI, merge, deploy y activación separadas; sin proveedor externo de MT.
 - [ ] Tests rojos escritos ANTES de implementación; smoke autenticado separado de E2E legacy.

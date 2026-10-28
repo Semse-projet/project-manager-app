@@ -29,7 +29,7 @@ date: "2026-10-26"
 
 ## Fase 2 — Arquitectura y catálogos
 - [ ] T-020 Spike comparativo de runtime en rama separada tras APPROVED.
-- [ ] T-021 Elevar [ADR-046](../../architecture/ADR-046-semse-ui-localization-runtime.md) de PROPOSED a ACCEPTED tras comparación D1/D3/D4; no agregar dos librerías simultáneas.
+- [ ] T-021 Elevar [ADR-047](../../architecture/ADR-047-semse-ui-localization-runtime.md) de PROPOSED a ACCEPTED tras comparación D1/D3/D4; no agregar dos librerías simultáneas.
 - [ ] T-022 Extraer módulos JSON y adaptador de claves, glosario/metadatos con aprobaciones reales.
 - [ ] T-023 Respetar cookie SSR de navegador ya implementada en `main`; sólo si D4-B selecciona persistencia de cuenta, diseñar nuevo contrato autenticado y Prisma expand/contract con pruebas PostgreSQL reales.
 

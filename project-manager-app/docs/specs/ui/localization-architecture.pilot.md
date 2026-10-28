@@ -5,7 +5,7 @@
 **PR documental:** #1003  
 **Estatus:** **PLAN PROPUESTO — NO AUTORIZA IMPLEMENTACIÓN NI DESPLIEGUE**
 
-> **Checkpoint 2026-10-27: cookie SSR ya existente.** En `main` ya están `apps/web/lib/language-preference.ts`, lectura de cookie `semse-language` en el layout, `InitialLanguageProvider` y `tests/unit/language-preference-cookie.test.ts`. Esta sección registra la auditoría histórica anterior, **no** describe su ausencia actual. [ADR-046](../../architecture/ADR-046-semse-ui-localization-runtime.md) sigue PROPOSED; [análisis](localization-architecture.analyze.md) actualizado. La cuenta cross-device y el smoke autenticado del wizard siguen pendientes.
+> **Checkpoint 2026-10-27: cookie SSR ya existente.** En `main` ya están `apps/web/lib/language-preference.ts`, lectura de cookie `semse-language` en el layout, `InitialLanguageProvider` y `tests/unit/language-preference-cookie.test.ts`. Esta sección registra la auditoría histórica anterior, **no** describe su ausencia actual. [ADR-047](../../architecture/ADR-047-semse-ui-localization-runtime.md) sigue PROPOSED; [análisis](localization-architecture.analyze.md) actualizado. La cuenta cross-device y el smoke autenticado del wizard siguen pendientes.
 
 
 

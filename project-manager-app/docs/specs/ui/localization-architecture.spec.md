@@ -31,7 +31,7 @@ related_files:
   - docs/specs/ui/localization-architecture.tasks.md
   - docs/specs/ui/localization-architecture.checklist.md
   - docs/specs/ui/localization-architecture.analyze.md
-  - docs/architecture/ADR-046-semse-ui-localization-runtime.md
+  - docs/architecture/ADR-047-semse-ui-localization-runtime.md
   - apps/web/lib/language-preference.ts
   - apps/web/app/lib/buildops-i18n.ts
   - apps/web/app/contributors/ContributorsShell.tsx
@@ -164,7 +164,7 @@ No se añade herramienta. Sólo se admite locale de presentación donde ya exist
 
 ## 7. Datos y migración
 
-- **Estado de código verificado en `main` (2026-10-27):** `apps/web/lib/language-preference.ts` valida la cookie `semse-language`; el layout raíz resuelve la preferencia en SSR y establece `<html lang>`/`InitialLanguageProvider`. El cliente sincroniza cookie y `localStorage`; existe `tests/unit/language-preference-cookie.test.ts` y [smoke local histórico](../../reportes/2026-10-23_idioma-sin-destello.md). **No es preferencia de cuenta ni prueba de cobertura por rol.** Véase [ADR-046 PROPOSED](../../architecture/ADR-046-semse-ui-localization-runtime.md).
+- **Estado de código verificado en `main` (2026-10-27):** `apps/web/lib/language-preference.ts` valida la cookie `semse-language`; el layout raíz resuelve la preferencia en SSR y establece `<html lang>`/`InitialLanguageProvider`. El cliente sincroniza cookie y `localStorage`; existe `tests/unit/language-preference-cookie.test.ts` y [smoke local histórico](../../reportes/2026-10-23_idioma-sin-destello.md). **No es preferencia de cuenta ni prueba de cobertura por rol.** Véase [ADR-047 PROPOSED](../../architecture/ADR-047-semse-ui-localization-runtime.md).
 - **Auditoría estática del 2026-10-26:** catálogo de `main` con 1,182 claves ES/EN, 0 claves faltantes entre idiomas y 0 duplicadas encontradas por extracción textual; campos de idioma no encontrados en los modelos Prisma `User`/`UserProfile`. Véase [análisis de consistencia y D4](localization-architecture.analyze.md). Paridad no prueba cobertura ni SSR.
 - **D4 pendiente:** la opción A de cookie SSR por navegador **ya está implementada parcialmente**, pero falta verificar sesiones A/B, dispositivos y cobertura real. La opción B —campo Prisma/account preference y ruta autenticada— exigiría migración aditiva, autorización, compatibilidad expand/contract y rollback. **No seleccionar B implícitamente ni duplicar el provider actual.**
 - **Metadata actual:** `migration_status: NOT_APPLICABLE` describe este PR sólo documental; reevaluar antes de APPROVED si D4 implica Prisma, marcando PENDING y endpoints relacionados entonces.
@@ -220,7 +220,7 @@ Tres líneas independientes de investigación primaria para decisiones del dise�
 - [x] Spec indexado y reconciliado a `main` en el PR documental.
 - [x] Contrato propuesto con roles, API/UI, FSM, datos y seguridad descritos.
 - [x] Plan, tareas y checklist escritos **en estado pendiente**, sin implementación.
-- [ ] Ratificar D1–D7 y convertir [ADR-046](../../architecture/ADR-046-semse-ui-localization-runtime.md) de PROPOSED a ACCEPTED antes de cambiar el runtime o sus dependencias.
+- [ ] Ratificar D1–D7 y convertir [ADR-047](../../architecture/ADR-047-semse-ui-localization-runtime.md) de PROPOSED a ACCEPTED antes de cambiar el runtime o sus dependencias.
 - [ ] Resolver gaps y aceptar análisis spec↔plan↔tasks↔checklist (véase [analyze](localization-architecture.analyze.md)).
 - [ ] Revisar D4 y fijar si `migration_status` sigue N/A o pasa a PENDING.
 - [ ] Revisión automatizada sin bloqueantes del último SHA y aprobación explícita del propietario conforme DEC-PLATFORM-001.
