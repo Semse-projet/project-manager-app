@@ -35,7 +35,8 @@ function makeWorld() {
   ];
   let seq = 0;
   let beforeAllocationUpdate: (() => void) | null = null;
-  let transactionSnapshot: { allocations: Row[]; audits: Row[] } | null = null;
+  let transactionSnapshot: { allocations: Row[]; audits: Row[]; tasks: Row[] } | null = null;
+  let failAuditForAction: string | null = null;
   let failAuditForUser: string | null = null;
   const match = (row: Row, where: Row): boolean =>
     Object.entries(where).every(([k, v]) => (v && typeof v === "object" && "in" in (v as Row) ? (v as Row).in.includes(row[k]) : row[k] === v));
@@ -82,13 +83,14 @@ function makeWorld() {
     },
     taskAllocation: table(allocations, () => ({ status: "ASSIGNED", assignedAt: new Date(), acknowledgedAt: null, releasedAt: null, releaseReason: null, statusNote: null, assignReason: null })),
     async $transaction<T>(operation: (tx: any) => Promise<T>): Promise<T> {
-      const snapshot = { allocations: structuredClone(allocations), audits: structuredClone(audits) };
+      const snapshot = { allocations: structuredClone(allocations), audits: structuredClone(audits), tasks: structuredClone(tasks) };
       transactionSnapshot = snapshot;
       try {
         return await operation(prisma);
       } catch (error) {
         allocations.splice(0, allocations.length, ...snapshot.allocations);
         audits.splice(0, audits.length, ...snapshot.audits);
+        tasks.splice(0, tasks.length, ...snapshot.tasks);
         throw error;
       } finally {
         transactionSnapshot = null;
@@ -98,7 +100,8 @@ function makeWorld() {
   const audit: any = {
     async append(entry: Row) { audits.push(entry); },
     async appendInTransaction(entry: Row, _tx: any) {
-      if (failAuditForUser && entry.afterJson?.userId === failAuditForUser) {
+      if ((failAuditForUser && entry.afterJson?.userId === failAuditForUser) ||
+          (failAuditForAction && entry.action === failAuditForAction)) {
         throw new Error("synthetic S0b audit failure");
       }
       audits.push(entry);
@@ -107,7 +110,8 @@ function makeWorld() {
   return {
     service: new TaskAllocationsService(prisma, audit), allocations, audits, tasks, crews, crewMembers, memberships,
     beforeNextAllocationUpdate(callback: () => void) { beforeAllocationUpdate = callback; },
-    failTransactionalAuditFor(userId: string) { failAuditForUser = userId; }
+    failTransactionalAuditFor(userId: string) { failAuditForUser = userId; },
+    failTransactionalAuditForAction(action: string) { failAuditForAction = action; }
   };
 }
 
@@ -139,6 +143,19 @@ test("AC-02 un gestor de cuadrillas de la Org sí puede; un supervisor suspendid
   assert.equal(w.allocations.length, 1);
   const ghost = { tenantId: "t1", userId: "ghost", roles: ["WORKER"] };
   await assert.rejects(w.service.assign(ghost, "c1", "task1", "r", ["ana"]), { status: 404 });
+});
+
+test("S0B-N17: fallo en auditoría de creación no deja tarea huérfana", async () => {
+  const w = makeWorld();
+  w.failTransactionalAuditForAction("crew_task.created");
+  const beforeTasks = w.tasks.length;
+  const beforeAudits = w.audits.length;
+  await assert.rejects(
+    w.service.createCrewTask(sup, "c1", "r1", { title: "Hab. 205 — Reparar pared" }),
+    /synthetic S0b audit failure/
+  );
+  assert.equal(w.tasks.length, beforeTasks);
+  assert.equal(w.audits.length, beforeAudits);
 });
 
 test("S0B-N15: lote de dos trabajadores revierte también la primera asignación si falla la segunda auditoría", async () => {
