@@ -66,6 +66,15 @@ Informe: `docs/reportes/2026-10-28_s0a-s0b-live-pr-reconciliation.md`.
   última #1027, resolver conflictos y CI terminal al final, antes
   de fusionar; no merge/deploy por este documento.
 
+- [x] S0-SEC-ROSTER-05 — código #1054: el roster filtra `CrewMember.ACTIVE`
+  por `Membership WORKER.ACTIVE` del mismo tenant y org mediante batch.
+- [x] S0-SEC-ROSTER-06 — prueba `S0A-ROSTER-01` escrita para
+  WORKER revocado con PRO ACTIVE (historial conservado), **NO EJECUTADA**.
+- [x] S0-SEC-TENANT-07 — prueba de controlador `S0A-TENANT-02`
+  escrita para ignorar headers falsos y transmitir authContext; **NO EJECUTADA**.
+- [ ] S0-SEC-VALIDATION-08 — ejecutar pruebas BO-07/BO-10 y
+  test de controlador tras instalar dependencias; review de seguridad.
+
 ## S0 — Guardas existentes (PR propio)
 - [ ] S0-01 — capturar head SHA, flags reales y tests existentes.
 - [ ] S0-02 — test rojo: WORKER suspendido y PRO activo, supervisorUserId legacy.
