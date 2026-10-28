@@ -379,6 +379,53 @@ dbTest("F1A: private defaults, tenant-bound FK, version immutability keys, and c
       where: { consentId: consent.id },
     }), "Consent tombstones themselves must be immutable");
 
+    // Mixed-isolation replay regression: SERIALIZABLE pins a snapshot before
+    // another READ COMMITTED transaction deletes and reserves a consent ID/key.
+    // F1A must reject the stale writer even after advisory locks are acquired.
+    const mixedVersion = await db.curatedKnowledgeVersion.create({ data: {
+      tenantId: tA, entryId: privateEntry.id, version: 4,
+      createdByUserId: userA, title: "Mixed-isolation synthetic version",
+      sanitizedBody: "Synthetic only", contentSha256: hash,
+    } });
+    const mixedKey = "ck-mixed-isolation-" + suffix;
+    const mixedConsent = await db.curatedPublicationConsent.create({ data: {
+      tenantId: tA, versionId: mixedVersion.id,
+      actorType: "CONTRIBUTOR", actorUserId: userB,
+      scope: "TENANT_CURATED", purpose: "RAG_REFERENCE",
+      versionContentSha256: hash, audiencePolicySha256: policyHash,
+      expiresAt, noticeVersion: "mixed-isolation", idempotencyKey: mixedKey,
+    } });
+    let mixedReady!: () => void;
+    let mixedContinue!: () => void;
+    const mixedSnapshotReady = new Promise<void>(resolve => { mixedReady = resolve; });
+    const mixedCanContinue = new Promise<void>(resolve => { mixedContinue = resolve; });
+    const mixedReplay = db.$transaction(async tx => {
+      // Pins an old SERIALIZABLE snapshot before deletion in the other session.
+      await tx.$queryRawUnsafe('SELECT count(*)::int AS n FROM "CuratedPublicationConsentTombstone"');
+      mixedReady();
+      await mixedCanContinue;
+      return tx.curatedPublicationConsent.create({ data: {
+        id: mixedConsent.id, tenantId: tA, versionId: mixedVersion.id,
+        actorType: "CONTRIBUTOR", actorUserId: userB,
+        scope: "TENANT_CURATED", purpose: "RAG_REFERENCE",
+        versionContentSha256: hash, audiencePolicySha256: policyHash,
+        expiresAt, noticeVersion: "mixed-replayed", idempotencyKey: mixedKey,
+      } });
+    }, { isolationLevel: "Serializable", timeout: 20000 });
+    await mixedSnapshotReady;
+    try {
+      await db.curatedPublicationConsent.delete({ where: { id: mixedConsent.id } });
+    } finally {
+      mixedContinue();
+    }
+    await assert.rejects(mixedReplay,
+      (e: any) => /curated F1A protected write requires READ COMMITTED|25000/.test(String(e.message ?? e)),
+      "An old SERIALIZABLE snapshot cannot replay a consent deleted by READ COMMITTED");
+    assert.equal(await db.curatedPublicationConsent.count({ where: { id: mixedConsent.id } }), 0);
+    assert.equal((await db.curatedPublicationConsentTombstone.findUnique({
+      where: { consentId: mixedConsent.id },
+    }))?.idempotencyKey, mixedKey, "Mixed-isolation replay preserves historical reservation");
+
     // Two-connection regression: the RR snapshot predates the first version
     // created by a separate connection and must NOT permit source repoint.
     const raceEntry = await db.curatedKnowledgeEntry.create({ data: {
