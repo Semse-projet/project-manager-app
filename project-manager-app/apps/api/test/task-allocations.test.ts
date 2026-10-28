@@ -35,6 +35,8 @@ function makeWorld() {
   ];
   let seq = 0;
   let beforeAllocationUpdate: (() => void) | null = null;
+  let transactionSnapshot: { allocations: Row[]; audits: Row[] } | null = null;
+  let failAuditForUser: string | null = null;
   const match = (row: Row, where: Row): boolean =>
     Object.entries(where).every(([k, v]) => (v && typeof v === "object" && "in" in (v as Row) ? (v as Row).in.includes(row[k]) : row[k] === v));
   const table = (rows: Row[], defaults: () => Row) => ({
@@ -53,6 +55,14 @@ function makeWorld() {
         const callback = beforeAllocationUpdate;
         beforeAllocationUpdate = null;
         callback();
+        // A simulated *external* concurrent write is not part of the transaction
+        // and must survive rollback of the current transaction.
+        if (transactionSnapshot) {
+          for (const row of allocations) {
+            const before = transactionSnapshot.allocations.find((prior) => prior.id === row.id);
+            if (before) before.crewId = row.crewId;
+          }
+        }
       }
       const hit = rows.filter((r) => match(r, where));
       hit.forEach((r) => Object.assign(r, data));
@@ -70,12 +80,34 @@ function makeWorld() {
           (where.org ? m.org.tenantId === where.org.tenantId : true));
       }
     },
-    taskAllocation: table(allocations, () => ({ status: "ASSIGNED", assignedAt: new Date(), acknowledgedAt: null, releasedAt: null, releaseReason: null, statusNote: null, assignReason: null }))
+    taskAllocation: table(allocations, () => ({ status: "ASSIGNED", assignedAt: new Date(), acknowledgedAt: null, releasedAt: null, releaseReason: null, statusNote: null, assignReason: null })),
+    async $transaction<T>(operation: (tx: any) => Promise<T>): Promise<T> {
+      const snapshot = { allocations: structuredClone(allocations), audits: structuredClone(audits) };
+      transactionSnapshot = snapshot;
+      try {
+        return await operation(prisma);
+      } catch (error) {
+        allocations.splice(0, allocations.length, ...snapshot.allocations);
+        audits.splice(0, audits.length, ...snapshot.audits);
+        throw error;
+      } finally {
+        transactionSnapshot = null;
+      }
+    }
   };
-  const audit: any = { async append(entry: Row) { audits.push(entry); } };
+  const audit: any = {
+    async append(entry: Row) { audits.push(entry); },
+    async appendInTransaction(entry: Row, _tx: any) {
+      if (failAuditForUser && entry.afterJson?.userId === failAuditForUser) {
+        throw new Error("synthetic S0b audit failure");
+      }
+      audits.push(entry);
+    }
+  };
   return {
     service: new TaskAllocationsService(prisma, audit), allocations, audits, tasks, crews, crewMembers, memberships,
-    beforeNextAllocationUpdate(callback: () => void) { beforeAllocationUpdate = callback; }
+    beforeNextAllocationUpdate(callback: () => void) { beforeAllocationUpdate = callback; },
+    failTransactionalAuditFor(userId: string) { failAuditForUser = userId; }
   };
 }
 
@@ -107,6 +139,22 @@ test("AC-02 un gestor de cuadrillas de la Org sí puede; un supervisor suspendid
   assert.equal(w.allocations.length, 1);
   const ghost = { tenantId: "t1", userId: "ghost", roles: ["WORKER"] };
   await assert.rejects(w.service.assign(ghost, "c1", "task1", "r", ["ana"]), { status: 404 });
+});
+
+test("S0B-N15: lote de dos trabajadores revierte también la primera asignación si falla la segunda auditoría", async () => {
+  const w = makeWorld();
+  w.failTransactionalAuditFor("bob");
+  await assert.rejects(w.service.assign(sup, "c1", "task1", "r1", ["ana", "bob"]), /synthetic S0b audit failure/);
+  assert.equal(w.allocations.length, 0);
+  assert.equal(w.audits.length, 0);
+});
+
+test("S0B-N16: éxito del lote registra asignación y auditoría una sola vez por trabajador", async () => {
+  const w = makeWorld();
+  const rows = await w.service.assign(sup, "c1", "task1", "r1", ["ana", "bob"]);
+  assert.equal(rows.length, 2);
+  assert.deepEqual(w.allocations.map((item) => item.userId), ["ana", "bob"]);
+  assert.deepEqual(w.audits.map((item) => item.action), ["task_allocation.assigned", "task_allocation.assigned"]);
 });
 
 test("S0B-N10: tarea Crew c1 no se puede asignar desde c2 en la misma org", async () => {
