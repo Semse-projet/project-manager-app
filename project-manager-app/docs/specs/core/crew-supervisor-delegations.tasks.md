@@ -22,6 +22,11 @@ date: "2026-10-22"
 - [x] DOC-04b-a — inventariar creación de Org, Membership y las fuentes de autoridad (P-01).
 - [x] DOC-04b-b — documentar candidato de verificación/revocación de autoridad (sin implementar).
 - [ ] DOC-04b-c — ratificar modelo canónico, revisor, pruebas y migración, e implementar guard tras aprobación.
+- [x] DOC-04b-d — comprobar que createCrew() sigue nombrando supervisor inicial
+  con solo `org:crews:manage` (sin owner verificado); brecha legacy documentada.
+- [ ] DOC-04b-e — cerrar autorización de nombramiento en `createCrew`
+  y futuros replace/revoke según autoridad empresarial verificada,
+  sin retirar permisos generales de gestión legítimos.
 - [x] DOC-05a a DOC-09a — recopilar opciones y propuesta técnica de OPEN-SUP-02…06.
 - [ ] DOC-05 — **ratificar** OPEN-SUP-02 elegibilidad/engagement.
 - [ ] DOC-06 — **ratificar** OPEN-SUP-03 suplencia.
@@ -29,6 +34,46 @@ date: "2026-10-22"
 - [ ] DOC-08 — **ratificar** OPEN-SUP-05 safety / no confundir con OSHA competente.
 - [ ] DOC-09 — **ratificar** OPEN-SUP-06 transición legacy segura.
 - [ ] DOC-10 — revisión independiente, `APPROVED`, index, análisis.
+
+## Estado real S0a/S0b en GitHub (2026-10-28)
+
+- [x] Comparación con [#1054](https://github.com/Semse-projet/project-manager-app/pull/1054):
+  código S0a y tests N01–N09 presentes en PR DRAFT tras commit
+  `d5b2520` (2026-10-28), **no ejecutados**.
+- [x] Comparación con [#1053](https://github.com/Semse-projet/project-manager-app/pull/1053):
+  `appendInTransaction` presente y prueba PostgreSQL reportada para **BO-12**.
+- [x] Registrar base de #1054 sobre #1027 y necesidad de refrescarla
+  antes de merge, sin confundir el dif de la rama con test PASS.
+- [x] Escribir tests N08/N09 en #1054: gestor PRO legítimo y denegaciones
+  por Org/tenant aun con claims de sesión (commit `d5b2520`).
+- [ ] Ejecutar N01–N09, revisión de seguridad de S0a y validar en entorno
+  local adecuado; el autor reportó caché offline incompleta, no falla del código.
+- [ ] Reconciliar auditoría S0b con #1053 y prueba de ausencia de
+  `ensureActorContext`/upserts sintéticos en mutaciones de assignments.
+- [ ] Obtener SDD aplicable APPROVED, realizar tests/red-green y CI
+  terminal al final antes de fusionar cualquier PR técnico.
+
+Informe: `docs/reportes/2026-10-28_s0a-s0b-live-pr-reconciliation.md`.
+
+- [x] S0-SEC-TENANT-01 — código #1054: `listMine/roster` de Crew
+  requieren tenant de sesión y filtran consultas; test
+  `S0A-TENANT-01` escrito, **NO EJECUTADO**.
+- [x] S0-SEC-MULTIROLE-02 — tests `N03b` y `N04b` escritos
+  para WORKER suspendido/revocado con PRO ACTIVE; **NO EJECUTADOS**.
+- [ ] S0-SEC-VALIDATION-03 — ejecución dirigida y PostgreSQL,
+  revisión HTTP multi-tenant, no regresión y evidencia SHA #1054.
+- [ ] S0-SEC-MERGE-04 — actualizar rama de #1054 respecto a la
+  última #1027, resolver conflictos y CI terminal al final, antes
+  de fusionar; no merge/deploy por este documento.
+
+- [x] S0-SEC-ROSTER-05 — código #1054: el roster filtra `CrewMember.ACTIVE`
+  por `Membership WORKER.ACTIVE` del mismo tenant y org mediante batch.
+- [x] S0-SEC-ROSTER-06 — prueba `S0A-ROSTER-01` escrita para
+  WORKER revocado con PRO ACTIVE (historial conservado), **NO EJECUTADA**.
+- [x] S0-SEC-TENANT-07 — prueba de controlador `S0A-TENANT-02`
+  escrita para ignorar headers falsos y transmitir authContext; **NO EJECUTADA**.
+- [ ] S0-SEC-VALIDATION-08 — ejecutar pruebas BO-07/BO-10 y
+  test de controlador tras instalar dependencias; review de seguridad.
 
 ## S0 — Guardas existentes (PR propio)
 - [ ] S0-01 — capturar head SHA, flags reales y tests existentes.
@@ -38,6 +83,22 @@ date: "2026-10-22"
 - [ ] S0-05 — tests regresión gestores legítimos sin elevar privilegios.
 - [ ] S0-06 — ejecutar spec:validate:strict, typecheck, lint y CI.
 - [ ] S0-07 — review independiente; sin merge/deploy implícito.
+
+## S0b — integridad de asignaciones (PR propio, después de S0a)
+- [x] S0b-DOC-01 — revisión estática `TaskAllocation`, `JobTask`, índice
+  único, servicio de auditoría y suites, con contrato N10…N18 en
+  `docs/reportes/2026-10-26_s0b-allocation-atomicity-cross-crew-contract.md`.
+- [ ] S0b-DEC-01 — ratificar D-S0B-01…05 en BO-10 (tareas crew, conflicto
+  inter-crew, lote atómico, traslados y unicidad).
+- [x] S0b-DOC-02 — documentar S0-F11 y límite transaccional del audit
+  en `docs/reportes/2026-10-26_s0b-audit-transaction-boundary-review.md`.
+- [ ] S0b-TEST-01 — escribir tests rojos N10…N18 con PostgreSQL.
+- [ ] S0b-TEST-02 — pruebas AUD-01…AUD-08: error de audit, no creación
+  de User/Org/Tenant implícitos, retries y competencia de revocación.
+- [ ] S0b-CODE-01 — implementar solución transaccional y auditoría segura
+  tras SDD APPROVED; proteger idempotencia y fronteras tenant/org/crew.
+- [ ] S0b-VALIDATE-01 — tests locales, regresión y revisión seguridad;
+  CI solo al final de la preparación y antes del merge.
 
 ## S1 — autoridad empresarial (PR propio)
 - [ ] S1-01 — aplicar regla ratificada: solo dueño o representante VERIFICADO;
@@ -96,8 +157,9 @@ date: "2026-10-22"
 - [x] Se documentaron los pendientes y orden P-01…P-22 en
   `docs/reportes/2026-10-22_supervisor-backlog-pending-and-ci-last.md`.
 - [ ] Completar decisiones OPEN-SUP-02…06 y fuente verificable de OPEN-SUP-01.
-- [ ] Cerrar S0-F01…F05, pruebas N01…N12 y review antes de CI. Contrato
-  propuesto S0a N01…N09: `docs/reportes/2026-10-25_s0a-supervisor-negative-test-contract.md`.
+- [ ] Cerrar S0-F01…F11, pruebas N01…N18 + AUD-01…AUD-08 y revisión antes de CI.
+  S0a N01…N09: `docs/reportes/2026-10-25_s0a-supervisor-negative-test-contract.md`;
+  S0b N10…N18: `docs/reportes/2026-10-26_s0b-allocation-atomicity-cross-crew-contract.md`.
 - [ ] Mantener `ci_status` NO_VERIFIED/FAIL según evidencia, nunca PASS asumido.
 
 ## Criterio de done

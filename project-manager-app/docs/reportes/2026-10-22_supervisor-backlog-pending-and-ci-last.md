@@ -36,11 +36,57 @@ ha sido ejecutado por la auditoría estática.
 
 ## 2. Registro priorizado de pendientes (single source para este programa)
 
+**Corrección adicional 2026-10-28:** PR #1054 contiene ahora código para
+acotar `/v1/crews/mine` y `/v1/crews/:crewId/roster` al tenant autenticado,
+y tests escritos `S0A-TENANT-01`, `N03b`, `N04b`.
+Antes el controlador solo transmitía `userId`, con riesgo de
+mezclar cuadrillas de varios tenants de la misma cuenta.
+**El parche está comprometido, sin pruebas ejecutables ni activación**.
+Ver [reconciliación del 28 de octubre](2026-10-28_s0a-s0b-live-pr-reconciliation.md).
+La próxima aceptación S0a exige ejecución real y review sobre HEAD
+`70621f3`, además de consolidar la rama apilada.
+
+**Actualización código #1054 (2026-10-28):** el roster de supervisores
+también descarta de la vista activa a miembros que perdieron
+`Membership WORKER ACTIVE` aun cuando permanezcan `CrewMember ACTIVE`
+y `PRO ACTIVE`. Usa búsqueda de memberships por lote para reducir
+consultas repetidas. Se añadieron las pruebas `S0A-ROSTER-01` y
+`S0A-TENANT-02` (propagación del tenant autenticado al servicio).
+**Commit #1054 `414d15a`**, aún DRAFT, cambios y fixtures sólo
+revisados estáticamente. Pruebas ejecutables y PostgreSQL pendientes.
+No asumir que el contrato de nombramiento OPEN-SUP-01 está implementado.
+
+**Reconciliación GitHub 2026-10-28:** [informe S0a/S0b sobre PR reales](2026-10-28_s0a-s0b-live-pr-reconciliation.md).
+El [PR #1054](https://github.com/Semse-projet/project-manager-app/pull/1054) ya contiene código y casos N01–N07 para S0a, pero es DRAFT,
+se apila sobre #1027 y **no tiene pruebas ejecutables PASS**. El 2026-10-28
+se añadieron N08/N09 en commit `d5b2520`, todavía SIN ejecución.
+El [PR #1053](https://github.com/Semse-projet/project-manager-app/pull/1053) incluye `appendInTransaction` y evidencia PostgreSQL del dominio BO-12,
+**no** del BO-10 ni de asignación de cuadrillas. Ambas dependencias se deben
+consolidar/revisar antes de iniciar código S0b. No duplicar el adaptador de
+auditoría ni declarar S0a cerrada por el diff.
+
+
 **Actualización de análisis (2026-10-22):** P-01 y P-02…P-06 ya tienen
 informes técnicos de propuestas, **no implementaciones ni decisiones ratificadas**:
 
 - [P-01 — investigación de autoridad empresarial](2026-10-22_p01-canonical-org-owner-authority-design.md): `createUserWithOrg()` crea Org + Membership y User no verificado, sin owner empresarial canónico; `OrgAuthorityGrant` es propuesta pendiente de evaluación/ratificación.
 - [P-02 a P-06 — opciones de producto](2026-10-22_p02-p06-supervisor-decision-proposals.md): elegibilidad, suplente, facultades, seguridad y migración con recomendaciones **PENDIENTES** de aprobación.
+
+**Revisión adicional (2026-10-26):** el contrato S0a N01–N09 ya existe
+(`2026-10-25_s0a-supervisor-negative-test-contract.md`). Para P-11
+se añadió el [contrato S0b N10–N18](2026-10-26_s0b-allocation-atomicity-cross-crew-contract.md),
+que documenta colisiones de asignación entre cuadrillas, tareas internas
+`Crew` de otra crew, concurrencia, lotes parciales y auditoría fuera de
+transacción. Decisiones D-S0B-01…05 **no ratificadas**; no hay tests
+ni patch operativo. S0-F06…F10 son hallazgos de revisión estática,
+no fallos comprobados en producción.
+
+**AUDITORÍA 2026-10-26:** se añadió
+[revisión del límite transaccional y de `ActorContextService`](2026-10-26_s0b-audit-transaction-boundary-review.md):
+S0-F11 (posible creación de Tenant/Org/User por `ensureActorContext`
+en ruta de audit) y pruebas pendientes AUD-01…AUD-08.
+No retirar globalmente el helper compartido ni crear una API tx sin
+revisión de impacto en workers y auth.
 
 La fase de inventario y redacción de propuestas está adelantada. P-01…P-06
 solo se cierran cuando se pruebe la fuente canónica/guardas y se ratifiquen
@@ -49,7 +95,7 @@ las decisiones contractuales; no marcar DONE por añadir estos documentos.
 
 | ID | Prioridad | Pendiente verificable | Requisito previo | Cierre observable |
 |---|---|---|---|---|
-| P-01 | P0 diseño | Identificar fuente canónica que prueba dueño/representante de Org; diseñar claim, verificación, revocación y protección de último propietario | DEC-SUP-01 | policy comprobable por `tenantId+orgId+actorId`, sin inferencia por PRO/CLIENT/OPS_ADMIN |
+| P-01 | P0 diseño | Identificar fuente canónica que prueba dueño/representante y cerrar brecha de `createCrew()` que hoy nombra supervisor inicial solo con `org:crews:manage` | DEC-SUP-01; ver análisis 2026-10-28 | policy comprobable por `tenantId+orgId+actorId`; nombramiento no autorizado por PRO/CLIENT/OPS_ADMIN sin prueba empresarial |
 | P-02 | P0 diseño | Resolver OPEN-SUP-02: elegibilidad `WORKER ACTIVE` + `BusinessEngagement ACTIVE` o fuente alternativa de autorización | P-01 y política de ofertas | contrato ratificado que nunca confunda invitación y contratación |
 | P-03 | P1 diseño | Resolver OPEN-SUP-03: supervisor principal y suplente, sustitución, superposición de fechas y concurrencia | P-01 | cardinalidad y FSM definidos |
 | P-04 | P0 diseño | Resolver OPEN-SUP-04: permisos que puede ejecutar vs solicitar (tareas, horas, materiales, mover personal entre crews/obras) | P-01 | matriz de capabilities por recurso y responsabilidad |
@@ -59,11 +105,11 @@ las decisiones contractuales; no marcar DONE por añadir estos documentos.
 | P-08 | P0 security | S0-F02: assign usa `CrewMember.ACTIVE` sin revalidar WORKER ACTIVE del destinatario | P-07 / guard común | prueba N03 y 0 mutaciones ilegítimas |
 | P-09 | P0 security | S0-F03: `TaskAllocationsService.listMine/updateStatus` con acceso anterior tras revocación de membership/crew | P-07 / política de historical read | pruebas N04-N07; conservación de historial |
 | P-10 | P0 security | Separar acceso de gestor org (`org:crews:manage`) del supervisor operativo; no retirar facultades legítimas a PRO dueño | P-01 | pruebas de dueño verificado, PRO ajeno, OPS_ADMIN, cross-org |
-| P-11 | P1 integridad | S0-F05: definir atomicidad all-or-nothing/resultado parcial explícito de asignación masiva, reintentos y revocación concurrente | contrato de lote | pruebas N10-N12, audit consistente |
+| P-11 | P1 integridad | S0-F05…F11: contrato S0b de lote atómico, no reutilizar asignaciones de otra crew, proteger tareas internas, audit transaccional sin crear actor/contexto sintético | D-S0B-01…05 + BO-10 ratificado | N10–N18 y AUD-01…08 en PostgreSQL y auditoría íntegra |
 | P-12 | P0 SDD | Actualizar/armonizar BO-07, BO-10, identidad, Membership y business offers; permisos, respuestas 401/403/404/409/422, eventos y estados | P-01…P-11 | spec coherente `APPROVED`, plan/tasks/checklist y análisis |
 | P-13 | P1 seguridad | Diseñar `CrewSupervisorDelegation` con tenant/org/crew, vigencia, permisos, versión, motivo y revocación | P-01…P-06 | schema, índices, lifecycle, política y rollout revisados |
-| P-14 | P1 implementación | S0a: tests rojos antes del parche mínimo de guardas; PR acotado | P-12 | N01-N09 demostradas FAIL antes / PASS después, sin regresión |
-| P-15 | P1 implementación | S0b: atomicidad de lote/idempotencia bajo fallo tardío | P-11, P-12 | N10-N12 PASS y efecto observable coherente |
+| P-14 | P1 implementación | S0a: código y N01–N09 preparados en #1054 DRAFT; falta ejecución real, review, aprobación SDD y reconciliar base #1027 | P-12 + tests locales y review | N01–N09 probados sin regresión en HEAD exacto |
+| P-15 | P1 implementación | S0b: cross-crew, atomicidad e idempotencia; reutilizar infraestructura audit #1053 solo tras integración segura | P-11/P-12 + decisiones D-S0B-01…05 + dependencia #1053 | N10–N18 + AUD-01…08 PASS PostgreSQL, sin contextos sintéticos |
 | P-16 | P1 implementación | S1: fuente de autoridad del dueño/representante y sus controles | P-01, P-12 | grant/revoke protegido y auditable |
 | P-17 | P1 implementación | S2: migración aditiva, endpoints y policy de supervisión; outbox/auditoría coherentes | P-13, P-16 | tests, version CAS, evento catalogado, checksum y rollback |
 | P-18 | P2 interfaz | S3: panel /client/team, /worker/crew, BuildOps, ES/EN, formularios sin pérdida de datos | P-17 | journeys multi-rol y UI mobile/denied/degraded |
@@ -140,9 +186,10 @@ La fuente de prueba empresarial **sigue por implementar/verificar**.
 
 **Continuar con la ratificación de OPEN-SUP-02…06:** opciones documentadas
 en `2026-10-22_p02-p06-supervisor-decision-proposals.md` (no aprobadas).
-Después definir especificación del guard S0a con negativos N01-N09,
-sin crear nuevo módulo ni cambiar Payment/TimeEntry/Evidence. CI manual
-se reserva como último control antes de merge.
+S0a N01–N09 ya está especificado, no implementado. Continuar con
+ratificación BO-07/BO-10 y matriz S0b N10–N18 (incluida la nueva
+colisión entre cuadrillas), sin modificar Payment/TimeEntry/Evidence.
+CI manual se reserva como último control antes de merge.
 
 **No hacer todavía:** rerun manual del CI; relajar quality-gates;
 fusionar #1027; editar migraciones/flags de Railway; activar con

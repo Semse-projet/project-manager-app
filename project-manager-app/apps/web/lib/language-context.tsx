@@ -1,8 +1,15 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import {
+  DEFAULT_LANGUAGE,
+  LANGUAGE_STORAGE_KEY,
+  languageCookie,
+  parseLanguagePreference,
+  type LanguagePreference,
+} from "./language-preference";
 
-export type LanguagePreference = "es" | "en";
+export type { LanguagePreference } from "./language-preference";
 
 interface LanguageContextValue {
   language: LanguagePreference;
@@ -1272,6 +1279,143 @@ const T: Record<LanguagePreference, Record<string, string>> = {
 
     "pt.recalculateAfterLanguageChange": "El estimado anterior está en otro idioma. Calcula de nuevo para actualizar materiales, riesgos y notas.",
 
+    // PR 973 — translations present in the PR but not yet in main
+    "workerMobile.home": "Inicio",
+    "workerMobile.jobs": "Trabajos",
+    "workerMobile.time": "Tiempo",
+    "workerMobile.evidence": "Evidencia",
+    "workerMobile.offers": "Ofertas",
+    "prom.subtitle": "RAG · Documentos · Activos · Órdenes de trabajo",
+    "prom.indexed": "indexados",
+    "prom.assets": "activos",
+    "prom.ordersShort": "órdenes",
+    "prom.tab.docs": "Ingestar",
+    "prom.tab.library": "Biblioteca",
+    "prom.tab.query": "Consultar IA",
+    "prom.tab.search": "Búsqueda",
+    "prom.tab.assets": "Activos",
+    "prom.tab.workorders": "Órdenes",
+    "prom.ingestDoc": "Ingestar documento",
+    "prom.freeText": "Texto libre",
+    "prom.file": "Archivo (PDF/DOCX/TXT)",
+    "prom.docTitle": "Título del documento",
+    "prom.docType.manual": "Manual técnico",
+    "prom.docType.book": "Libro",
+    "prom.docType.contract": "Contrato",
+    "prom.docType.scope": "Alcance de trabajo",
+    "prom.docType.report": "Reporte",
+    "prom.docType.course": "Curso",
+    "prom.docType.checklist": "Lista de verificación",
+    "prom.docType.evidence": "Evidencia transcrita",
+    "prom.visibility.public_training": "Público/Entrenamiento",
+    "prom.visibility.tenant_private": "Privado organización",
+    "prom.visibility.project_private": "Privado proyecto",
+    "prom.pasteContent": "Pega aquí el contenido del documento...",
+    "prom.processing": "Procesando…",
+    "prom.ingestText": "Ingestar texto",
+    "prom.selectFile": "Seleccionar archivo",
+    "prom.processingFile": "Procesando archivo…",
+    "prom.ingestFile": "Ingestar archivo",
+    "prom.docSent": "Documento enviado — indexando en segundo plano",
+    "prom.indexedDocs": "Documentos indexados",
+    "prom.refresh": "Actualizar",
+    "prom.loading": "Cargando…",
+    "prom.noDocs": "Sin documentos. Ingresa el primero arriba.",
+    "prom.chunks": "fragmentos",
+    "prom.deleteConfirmPrefix": "¿Borrar",
+    "prom.deleteConfirmSuffix": "de la base de conocimiento? Esta acción es permanente.",
+    "prom.library": "Biblioteca por oficio",
+    "prom.loadingLibrary": "Cargando biblioteca…",
+    "prom.indexedDocsLabel": "documentos indexados",
+    "prom.query": "Consultar",
+    "prom.ingestFirst": "Ingestar primero",
+    "prom.askAI": "Consultar con IA",
+    "prom.mode.rag": "📚 Base documental",
+    "prom.mode.guide": "🔧 Guía por oficio",
+    "prom.allTrades": "Todos los oficios",
+    "prom.yourTrade": "tu oficio",
+    "prom.guidePrefix": "Training Agent: responde usando manuales de",
+    "prom.guideSuffix": "indexados en Prometeo.",
+    "prom.ragExplanation": "Prometeo responde usando todos los documentos indexados con fuentes citadas.",
+    "prom.indexFirst": "Primero indexa documentos.",
+    "prom.guidePlaceholder": "¿Qué debo revisar antes de comenzar? ¿Qué herramientas necesito?",
+    "prom.askPlaceholder": "¿Qué quieres saber?",
+    "prom.querying": "Consultando…",
+    "prom.ask": "Preguntar",
+    "prom.insufficientContext": "Contexto insuficiente",
+    "prom.prometeoAnswer": "Respuesta de Prometeo",
+    "prom.nextAction": "Siguiente acción:",
+    "prom.steps": "PASOS",
+    "prom.warnings": "ADVERTENCIAS",
+    "prom.evidenceRequired": "EVIDENCIA SEMSE REQUERIDA",
+    "prom.sources": "Fuentes",
+    "prom.score": "puntuación",
+    "prom.feedback.sending": "Enviando…",
+    "prom.feedback.confirm": "✓ Útil registrado",
+    "prom.feedback.correct": "✓ Corrección registrada",
+    "prom.feedback.flag": "✓ Irrelevante registrado",
+    "prom.feedback.error": "Error al registrar",
+    "prom.feedback.useful": "✓ Útil",
+    "prom.feedback.incorrect": "✎ Incorrecto",
+    "prom.feedback.irrelevant": "✕ Irrelevante",
+    "prom.provider": "Proveedor:",
+    "prom.confidence": "Confianza:",
+    "prom.fallback": "respaldo utilizado",
+    "prom.localProcessing": "privacyCritical — procesado localmente",
+    "prom.semanticSearch": "Búsqueda semántica RAG",
+    "prom.searchPlaceholder": "¿Qué información buscas?",
+    "prom.searching": "Buscando…",
+    "prom.search": "Buscar",
+    "prom.searchNeedsDocs": "Primero ingresa documentos en la pestaña Base RAG.",
+    "prom.searchHint": "Escribe una consulta y presiona Enter.",
+    "prom.registerAsset": "Registrar activo",
+    "prom.assetName": "Nombre del activo",
+    "prom.assetCategory.equipment": "Equipo",
+    "prom.assetCategory.material": "Material",
+    "prom.assetCategory.vehicle": "Vehículo",
+    "prom.assetCategory.tool": "Herramienta",
+    "prom.assetCategory.space": "Espacio",
+    "prom.add": "Agregar",
+    "prom.assetInventory": "Inventario de activos",
+    "prom.noAssets": "Sin activos registrados.",
+    "prom.newOrder": "Nueva orden de trabajo",
+    "prom.orderTitle": "Título de la orden",
+    "prom.priority.low": "Baja",
+    "prom.priority.medium": "Media",
+    "prom.priority.high": "Alta",
+    "prom.priority.urgent": "Urgente",
+    "prom.orderDescription": "Descripción (opcional)",
+    "prom.createOrder": "Crear orden",
+    "prom.activeOrders": "Órdenes activas",
+    "prom.noOrders": "Sin órdenes de trabajo.",
+    "prom.priority": "prioridad:",
+    "prom.loadError": "Error al cargar documentos",
+    "prom.fileError": "Error al incorporar archivo",
+    "prom.ingestError": "Error al incorporar documento",
+    "prom.queryError": "Error en consulta",
+    "prom.status.indexed": "Indexado",
+    "prom.status.processing": "Procesando",
+    "prom.status.pending": "Pendiente",
+    "prom.status.failed": "Fallido",
+    "prom.status.open": "Abierto",
+    "prom.status.in_progress": "En progreso",
+    "prom.status.closed": "Cerrado",
+    "prom.status.available": "Disponible",
+    "prom.status.in_use": "En uso",
+    "prom.trade.general": "General",
+    "prom.trade.electrical": "Electricidad",
+    "prom.trade.plumbing": "Plomería",
+    "prom.trade.drywall": "Paneles de yeso",
+    "prom.trade.painting": "Pintura",
+    "prom.trade.carpentry": "Carpintería",
+    "prom.trade.hvac": "Climatización",
+    "prom.trade.siding": "Revestimiento exterior",
+    "prom.trade.demolition": "Demolición",
+    "prom.trade.cleaning": "Limpieza",
+    "prom.trade.bathroom": "Baños",
+    "prom.trade.kitchen": "Cocinas",
+    "prom.trade.windows_doors": "Ventanas/Puertas",
+
   },
 
   en: {
@@ -2533,30 +2677,198 @@ const T: Record<LanguagePreference, Record<string, string>> = {
 
     "pt.recalculateAfterLanguageChange": "The previous estimate uses another language. Calculate again to update materials, risks and notes.",
 
+    // PR 973 — translations present in the PR but not yet in main
+    "workerMobile.home": "Home",
+    "workerMobile.jobs": "Jobs",
+    "workerMobile.time": "Time",
+    "workerMobile.evidence": "Evidence",
+    "workerMobile.offers": "Offers",
+    "prom.subtitle": "RAG · Documents · Assets · Work orders",
+    "prom.indexed": "indexed",
+    "prom.assets": "assets",
+    "prom.ordersShort": "orders",
+    "prom.tab.docs": "Ingest",
+    "prom.tab.library": "Library",
+    "prom.tab.query": "Ask AI",
+    "prom.tab.search": "Search",
+    "prom.tab.assets": "Assets",
+    "prom.tab.workorders": "Work orders",
+    "prom.ingestDoc": "Ingest document",
+    "prom.freeText": "Free text",
+    "prom.file": "File (PDF/DOCX/TXT)",
+    "prom.docTitle": "Document title",
+    "prom.docType.manual": "Technical manual",
+    "prom.docType.book": "Book",
+    "prom.docType.contract": "Contract",
+    "prom.docType.scope": "Scope of work",
+    "prom.docType.report": "Report",
+    "prom.docType.course": "Course",
+    "prom.docType.checklist": "Checklist",
+    "prom.docType.evidence": "Transcribed evidence",
+    "prom.visibility.public_training": "Public/training",
+    "prom.visibility.tenant_private": "Organization private",
+    "prom.visibility.project_private": "Project private",
+    "prom.pasteContent": "Paste the document content here...",
+    "prom.processing": "Processing…",
+    "prom.ingestText": "Ingest text",
+    "prom.selectFile": "Select file",
+    "prom.processingFile": "Processing file…",
+    "prom.ingestFile": "Ingest file",
+    "prom.docSent": "Document submitted — indexing in background",
+    "prom.indexedDocs": "Indexed documents",
+    "prom.refresh": "Refresh",
+    "prom.loading": "Loading…",
+    "prom.noDocs": "No documents yet. Add your first document above.",
+    "prom.chunks": "chunks",
+    "prom.deleteConfirmPrefix": "Delete",
+    "prom.deleteConfirmSuffix": "from the knowledge base? This action is permanent.",
+    "prom.library": "Trade library",
+    "prom.loadingLibrary": "Loading library…",
+    "prom.indexedDocsLabel": "indexed documents",
+    "prom.query": "Query",
+    "prom.ingestFirst": "Ingest first",
+    "prom.askAI": "Ask AI",
+    "prom.mode.rag": "📚 Document corpus",
+    "prom.mode.guide": "🔧 Trade guide",
+    "prom.allTrades": "All trades",
+    "prom.yourTrade": "your trade",
+    "prom.guidePrefix": "Training Agent: answers using indexed manuals for",
+    "prom.guideSuffix": "in Prometeo.",
+    "prom.ragExplanation": "Prometeo answers using all indexed documents with cited sources.",
+    "prom.indexFirst": "Index documents first.",
+    "prom.guidePlaceholder": "What should I check before starting? What tools do I need?",
+    "prom.askPlaceholder": "What would you like to know?",
+    "prom.querying": "Querying…",
+    "prom.ask": "Ask",
+    "prom.insufficientContext": "Insufficient context",
+    "prom.prometeoAnswer": "Prometeo response",
+    "prom.nextAction": "Next action:",
+    "prom.steps": "STEPS",
+    "prom.warnings": "WARNINGS",
+    "prom.evidenceRequired": "REQUIRED SEMSE EVIDENCE",
+    "prom.sources": "Sources",
+    "prom.score": "score",
+    "prom.feedback.sending": "Sending…",
+    "prom.feedback.confirm": "✓ Helpful recorded",
+    "prom.feedback.correct": "✓ Correction recorded",
+    "prom.feedback.flag": "✓ Irrelevant recorded",
+    "prom.feedback.error": "Could not record feedback",
+    "prom.feedback.useful": "✓ Helpful",
+    "prom.feedback.incorrect": "✎ Incorrect",
+    "prom.feedback.irrelevant": "✕ Irrelevant",
+    "prom.provider": "Provider:",
+    "prom.confidence": "Confidence:",
+    "prom.fallback": "fallback used",
+    "prom.localProcessing": "privacyCritical — processed locally",
+    "prom.semanticSearch": "RAG semantic search",
+    "prom.searchPlaceholder": "What information are you looking for?",
+    "prom.searching": "Searching…",
+    "prom.search": "Search",
+    "prom.searchNeedsDocs": "Add documents in the RAG corpus tab first.",
+    "prom.searchHint": "Enter a query and press Enter.",
+    "prom.registerAsset": "Register asset",
+    "prom.assetName": "Asset name",
+    "prom.assetCategory.equipment": "Equipment",
+    "prom.assetCategory.material": "Material",
+    "prom.assetCategory.vehicle": "Vehicle",
+    "prom.assetCategory.tool": "Tool",
+    "prom.assetCategory.space": "Space",
+    "prom.add": "Add",
+    "prom.assetInventory": "Asset inventory",
+    "prom.noAssets": "No registered assets.",
+    "prom.newOrder": "New work order",
+    "prom.orderTitle": "Order title",
+    "prom.priority.low": "Low",
+    "prom.priority.medium": "Medium",
+    "prom.priority.high": "High",
+    "prom.priority.urgent": "Urgent",
+    "prom.orderDescription": "Description (optional)",
+    "prom.createOrder": "Create order",
+    "prom.activeOrders": "Active orders",
+    "prom.noOrders": "No work orders.",
+    "prom.priority": "priority:",
+    "prom.loadError": "Could not load documents",
+    "prom.fileError": "Could not ingest file",
+    "prom.ingestError": "Could not ingest document",
+    "prom.queryError": "Query error",
+    "prom.status.indexed": "Indexed",
+    "prom.status.processing": "Processing",
+    "prom.status.pending": "Pending",
+    "prom.status.failed": "Failed",
+    "prom.status.open": "Open",
+    "prom.status.in_progress": "In progress",
+    "prom.status.closed": "Closed",
+    "prom.status.available": "Available",
+    "prom.status.in_use": "In use",
+    "prom.trade.general": "General",
+    "prom.trade.electrical": "Electrical",
+    "prom.trade.plumbing": "Plumbing",
+    "prom.trade.drywall": "Drywall",
+    "prom.trade.painting": "Painting",
+    "prom.trade.carpentry": "Carpentry",
+    "prom.trade.hvac": "HVAC",
+    "prom.trade.siding": "Siding",
+    "prom.trade.demolition": "Demolition",
+    "prom.trade.cleaning": "Cleaning",
+    "prom.trade.bathroom": "Bathrooms",
+    "prom.trade.kitchen": "Kitchens",
+    "prom.trade.windows_doors": "Windows/Doors",
+
   },
 };
 
 const LanguageContext = createContext<LanguageContextValue>({
-  language: "es",
+  language: DEFAULT_LANGUAGE,
   setLanguage: () => {},
   t: (key) => key,
 });
 
+// Language the server rendered with, read from the preference cookie in the root
+// layout. Every LanguageProvider starts from it, so the first paint is already in
+// the visitor's language instead of flashing Spanish until an effect runs.
+const InitialLanguageContext = createContext<LanguagePreference>(DEFAULT_LANGUAGE);
+
+export function InitialLanguageProvider({ value, children }: { value: LanguagePreference; children: ReactNode }) {
+  return <InitialLanguageContext.Provider value={value}>{children}</InitialLanguageContext.Provider>;
+}
+
+function persistLanguage(lang: LanguagePreference) {
+  try {
+    window.localStorage.setItem(LANGUAGE_STORAGE_KEY, lang);
+  } catch {
+    // Private mode or blocked storage: the cookie below still carries the choice.
+  }
+  document.cookie = languageCookie(lang, window.location.protocol === "https:");
+  document.documentElement.lang = lang;
+}
+
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [language, setLanguageState] = useState<LanguagePreference>("es");
+  const initialLanguage = useContext(InitialLanguageContext);
+  const [language, setLanguageState] = useState<LanguagePreference>(initialLanguage);
 
   useEffect(() => {
-    const saved = window.localStorage.getItem("semse-language");
-    if (saved === "es" || saved === "en") {
-      setLanguageState(saved);
-      document.documentElement.lang = saved;
+    // Visitors who chose a language before the cookie existed only have it in
+    // localStorage: apply it once and write the cookie so the next load renders
+    // directly in that language.
+    let saved: LanguagePreference | null = null;
+    try {
+      saved = parseLanguagePreference(window.localStorage.getItem(LANGUAGE_STORAGE_KEY));
+    } catch {
+      saved = null;
     }
+    const cookie = parseLanguagePreference(
+      document.cookie.match(new RegExp(`(?:^|; )${LANGUAGE_STORAGE_KEY}=([^;]*)`))?.[1],
+    );
+    const effective = cookie ?? saved ?? initialLanguage;
+    if (effective !== language) setLanguageState(effective);
+    if (cookie !== effective || saved !== effective) persistLanguage(effective);
+    // Only on mount: later changes go through setLanguage.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function setLanguage(lang: LanguagePreference) {
     setLanguageState(lang);
-    window.localStorage.setItem("semse-language", lang);
-    document.documentElement.lang = lang;
+    persistLanguage(lang);
   }
 
   function t(key: string): string {
