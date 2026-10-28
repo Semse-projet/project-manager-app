@@ -208,6 +208,61 @@ dbTest("F1A: private defaults, tenant-bound FK, version immutability keys, and c
       sanitizedBody: "Rewritten", contentSha256: hash,
     }}), "Deleted version number cannot be reused");
 
+    const tombstone = await db.curatedKnowledgeVersionTombstone.findUnique({
+      where: { versionId: deleted.id },
+    });
+    assert.equal(tombstone?.version, 3, "Delete must preserve the version identity");
+    await assert.rejects(db.curatedKnowledgeVersionTombstone.update({
+      where: { versionId: deleted.id }, data: { version: 99 },
+    }), "Version tombstones cannot be modified");
+    await assert.rejects(db.curatedKnowledgeVersionTombstone.delete({
+      where: { versionId: deleted.id },
+    }), "Version tombstones cannot be deleted to bypass provenance");
+
+    const legacyEntry = await db.curatedKnowledgeEntry.create({ data: {
+      tenantId: tA, owningOrgId: orgA, createdByUserId: userA,
+      sourcePrivateRef: "synthetic-private-source-original",
+    } });
+    const legacyVersion = await db.curatedKnowledgeVersion.create({ data: {
+      tenantId: tA, entryId: legacyEntry.id, version: 1,
+      createdByUserId: userA, title: "Synthetic historical version",
+      sanitizedBody: "Historical safe example", contentSha256: hash,
+    } });
+    await db.curatedKnowledgeVersion.delete({ where: { id: legacyVersion.id } });
+    await assert.rejects(db.curatedKnowledgeEntry.update({
+      where: { id: legacyEntry.id },
+      data: { sourcePrivateRef: "silently-reassigned-after-last-version" },
+    }), "Source provenance stays frozen after every version is deleted");
+
+    const holder = await db.curatedPublicationConsent.create({ data: {
+      tenantId: tA, versionId: second.id, actorType: "RIGHTS_HOLDER",
+      actorUserId: userA, rightsHolderOrgId: orgA, scope: "TENANT_CURATED",
+      purpose: "RAG_REFERENCE", versionContentSha256: hash,
+      audiencePolicySha256: policyHash, expiresAt,
+      noticeVersion: "rights-holder-first", idempotencyKey: "ck-rights-first-" + suffix,
+    } });
+    await assert.rejects(db.curatedPublicationConsent.create({ data: {
+      tenantId: tA, versionId: second.id, actorType: "RIGHTS_HOLDER",
+      actorUserId: userB, rightsHolderOrgId: orgA, scope: "TENANT_CURATED",
+      purpose: "RAG_REFERENCE", versionContentSha256: hash,
+      audiencePolicySha256: policyHash, expiresAt,
+      noticeVersion: "rights-holder-second", idempotencyKey: "ck-rights-second-" + suffix,
+    } }), (e: any) => e.code === "P2002",
+      "Two representatives must not leave separate active consent for one rights-holder org");
+    await assert.rejects(db.curatedPublicationConsent.update({
+      where: { id: holder.id },
+      data: { withdrawnAt: new Date(Date.now() + 1_000), withdrawnByUserId: "absent-" + suffix },
+    }), (e: any) => e.code === "P2003",
+      "Withdrawal witness must be a persisted user");
+    await assert.rejects(db.curatedPublicationConsent.create({ data: {
+      tenantId: tA, versionId: second.id, actorType: "RIGHTS_HOLDER",
+      actorUserId: userB, rightsHolderOrgId: orgA, scope: "TENANT_CURATED",
+      purpose: "RAG_REFERENCE", versionContentSha256: hash,
+      audiencePolicySha256: policyHash, expiresAt,
+      noticeVersion: "prewithdrawn-signature", idempotencyKey: "ck-prewithdrawn-" + suffix,
+      withdrawnAt: new Date(Date.now() + 2_000), withdrawnByUserId: userB,
+    } }), "Consent must not be inserted in an already withdrawn state");
+
     const listB = await db.curatedKnowledgeEntry.findMany({ where: { tenantId: tB } });
     assert.equal(listB.length, 0, "New curated artifacts are not copied across tenants");
   } finally {
