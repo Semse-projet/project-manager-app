@@ -5,6 +5,7 @@ import { BookOpen, Database, FileText, Layers, Loader, Plus, Search, Trash2, Upl
 import { HtmlInCanvasPanel } from "@semse/ui";
 import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
 import { useLanguage } from "../../../../lib/language-context";
+import { messageFromError, renderMessage, type UiMessage } from "../../../../lib/ui-message";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -137,9 +138,9 @@ export default function PrometeoPage() {
   const [ingestText, setIngestText] = useState("");
   const [ingestType, setIngestType] = useState("text");
   const [ingesting, setIngesting] = useState(false);
-  const [ingestError, setIngestError] = useState<string | null>(null);
+  const [ingestError, setIngestError] = useState<UiMessage | null>(null);
   const [ingestSuccess, setIngestSuccess] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<UiMessage | null>(null);
 
   // RAG query
   const [ragQuestion, setRagQuestion] = useState("");
@@ -150,7 +151,7 @@ export default function PrometeoPage() {
     insufficientContext?: boolean; provider: string; fallbackUsed: boolean;
   } | null>(null);
   const [ragLoading, setRagLoading] = useState(false);
-  const [ragError, setRagError] = useState<string | null>(null);
+  const [ragError, setRagError] = useState<UiMessage | null>(null);
 
   // Feedback state: Map<chunkId, "sending" | "confirm" | "correct" | "flag">
   const [feedbackState, setFeedbackState] = useState<Record<string, string>>({});
@@ -186,7 +187,7 @@ export default function PrometeoPage() {
     setLoading(true);
     setLoadError(null);
     try { setDocs(await apiGet<PrometeoDoc[]>("/api/semse/prometeo/documents")); }
-    catch (err) { setLoadError(err instanceof Error ? err.message : t("prom.loadError")); }
+    catch (err) { setLoadError(messageFromError(err, "prom.loadError")); }
     finally { setLoading(false); }
   }
 
@@ -213,7 +214,7 @@ export default function PrometeoPage() {
       let attempts = 0;
       const poll = setInterval(() => { attempts++; void loadDocs(); void loadTradeLibrary(); if (attempts >= 5) clearInterval(poll); }, 2000);
     } catch (err) {
-      setIngestError(err instanceof Error ? err.message : t("prom.fileError"));
+      setIngestError(messageFromError(err, "prom.fileError"));
     } finally { setIngesting(false); }
   }
 
@@ -241,7 +242,7 @@ export default function PrometeoPage() {
       let attempts = 0;
       const poll = setInterval(() => { attempts++; void loadDocs(); if (attempts >= 5) clearInterval(poll); }, 2000);
     } catch (err) {
-      setIngestError(err instanceof Error ? err.message : t("prom.ingestError"));
+      setIngestError(messageFromError(err, "prom.ingestError"));
     } finally { setIngesting(false); }
   }
 
@@ -259,7 +260,7 @@ export default function PrometeoPage() {
       });
       setRagResult(result);
     } catch (err) {
-      setRagError(err instanceof Error ? err.message : t("prom.queryError"));
+      setRagError(messageFromError(err, "prom.queryError"));
     } finally { setRagLoading(false); }
   }
 
@@ -408,7 +409,7 @@ export default function PrometeoPage() {
                   </>
                 )}
                 {ingestSuccess && <span style={{ fontSize: 12, color: "#86efac" }}>✅ {t("prom.docSent")}</span>}
-                {ingestError && <span style={{ fontSize: 12, color: "#fca5a5" }}>❌ {ingestError}</span>}
+                {ingestError && <span style={{ fontSize: 12, color: "#fca5a5" }}>❌ {renderMessage(ingestError, t)}</span>}
               </div>
             </div>
 
@@ -420,7 +421,7 @@ export default function PrometeoPage() {
                   {t("prom.refresh")}
                 </button>
               </div>
-              {loadError && <div style={{ fontSize: 12, color: "#fca5a5", marginBottom: 10 }}>⚠ {loadError}</div>}
+              {loadError && <div style={{ fontSize: 12, color: "#fca5a5", marginBottom: 10 }}>⚠ {renderMessage(loadError, t)}</div>}
               {loading ? <div style={{ color: "var(--muted)", fontSize: 13 }}>{t("prom.loading")}</div> : docs.length === 0 ? (
                 <div style={{ color: "var(--muted)", fontSize: 13 }}>{t("prom.noDocs")}</div>
               ) : (
@@ -528,7 +529,7 @@ export default function PrometeoPage() {
                 </button>
               </div>
 
-              {ragError && <div style={{ fontSize: 12, color: "#fca5a5", marginBottom: 10 }}>⚠ {ragError}</div>}
+              {ragError && <div style={{ fontSize: 12, color: "#fca5a5", marginBottom: 10 }}>⚠ {renderMessage(ragError, t)}</div>}
 
               {ragResult && (
                 <div style={{ display: "grid", gap: 12 }}>
