@@ -36,6 +36,15 @@ ha sido ejecutado por la auditoría estática.
 
 ## 2. Registro priorizado de pendientes (single source para este programa)
 
+**Reconciliación GitHub 2026-10-28:** [informe S0a/S0b sobre PR reales](2026-10-28_s0a-s0b-live-pr-reconciliation.md).
+El [PR #1054](https://github.com/Semse-projet/project-manager-app/pull/1054) ya contiene código y casos N01–N07 para S0a, pero es DRAFT,
+se apila sobre #1027 y **no tiene pruebas ejecutables PASS**.
+El [PR #1053](https://github.com/Semse-projet/project-manager-app/pull/1053) incluye `appendInTransaction` y evidencia PostgreSQL del dominio BO-12,
+**no** del BO-10 ni de asignación de cuadrillas. Ambas dependencias se deben
+consolidar/revisar antes de iniciar código S0b. No duplicar el adaptador de
+auditoría ni declarar S0a cerrada por el diff.
+
+
 **Actualización de análisis (2026-10-22):** P-01 y P-02…P-06 ya tienen
 informes técnicos de propuestas, **no implementaciones ni decisiones ratificadas**:
 
@@ -78,8 +87,8 @@ las decisiones contractuales; no marcar DONE por añadir estos documentos.
 | P-11 | P1 integridad | S0-F05…F11: contrato S0b de lote atómico, no reutilizar asignaciones de otra crew, proteger tareas internas, audit transaccional sin crear actor/contexto sintético | D-S0B-01…05 + BO-10 ratificado | N10–N18 y AUD-01…08 en PostgreSQL y auditoría íntegra |
 | P-12 | P0 SDD | Actualizar/armonizar BO-07, BO-10, identidad, Membership y business offers; permisos, respuestas 401/403/404/409/422, eventos y estados | P-01…P-11 | spec coherente `APPROVED`, plan/tasks/checklist y análisis |
 | P-13 | P1 seguridad | Diseñar `CrewSupervisorDelegation` con tenant/org/crew, vigencia, permisos, versión, motivo y revocación | P-01…P-06 | schema, índices, lifecycle, política y rollout revisados |
-| P-14 | P1 implementación | S0a: tests rojos antes del parche mínimo de guardas; PR acotado | P-12 | N01-N09 demostradas FAIL antes / PASS después, sin regresión |
-| P-15 | P1 implementación | S0b: atomicidad de lote/idempotencia bajo fallo tardío | P-11, P-12 | N10-N12 PASS y efecto observable coherente |
+| P-14 | P1 implementación | S0a: código y N01–N07 ya propuestos en #1054 DRAFT; faltan N08/N09, ejecución local, review y aprobación SDD | P-12 y rebase sobre #1027 actual | N01–N09 FAIL antes / PASS después con no regresión, SHA exacto |
+| P-15 | P1 implementación | S0b: cross-crew, atomicidad e idempotencia; reutilizar infraestructura audit #1053 solo tras integración segura | P-11/P-12 + decisiones D-S0B-01…05 + dependencia #1053 | N10–N18 + AUD-01…08 PASS PostgreSQL, sin contextos sintéticos |
 | P-16 | P1 implementación | S1: fuente de autoridad del dueño/representante y sus controles | P-01, P-12 | grant/revoke protegido y auditable |
 | P-17 | P1 implementación | S2: migración aditiva, endpoints y policy de supervisión; outbox/auditoría coherentes | P-13, P-16 | tests, version CAS, evento catalogado, checksum y rollback |
 | P-18 | P2 interfaz | S3: panel /client/team, /worker/crew, BuildOps, ES/EN, formularios sin pérdida de datos | P-17 | journeys multi-rol y UI mobile/denied/degraded |
