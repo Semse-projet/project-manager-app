@@ -77,6 +77,18 @@ CREATE TRIGGER "curated_f1a_protect_entry_history_flag"
  BEFORE UPDATE OF "versionEverCreated" ON "CuratedKnowledgeEntry"
  FOR EACH ROW EXECUTE FUNCTION "curated_f1a_entry_history_guard"();
 
+-- Even when only historical tombstones remain, TRUNCATE on the parent
+-- bypasses DELETE guards and could allow silent replacement of provenance.
+CREATE FUNCTION "curated_f1a_entry_no_truncate"()
+RETURNS trigger AS $entryguard$
+BEGIN
+ RAISE EXCEPTION 'curated historical entries cannot be truncated';
+END;
+$entryguard$ LANGUAGE plpgsql;
+CREATE TRIGGER "curated_f1a_no_entry_truncate"
+ BEFORE TRUNCATE ON "CuratedKnowledgeEntry" FOR EACH STATEMENT
+ EXECUTE FUNCTION "curated_f1a_entry_no_truncate"();
+
 -- 2. TRUNCATE bypasses row-level DELETE triggers and must never bypass
 -- version identity reservation. This also rejects TRUNCATE CASCADE.
 CREATE FUNCTION "curated_f1a_version_no_truncate"()
