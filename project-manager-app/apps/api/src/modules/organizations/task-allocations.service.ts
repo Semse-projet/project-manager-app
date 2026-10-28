@@ -222,7 +222,7 @@ export class TaskAllocationsService {
     if (!existing) throw new NotFoundException();
     if (existing.status === "RELEASED") throw new ConflictException("La asignación ya fue liberada");
     const claimed = await this.prisma.taskAllocation.updateMany({
-      where: { id: existing.id, status: existing.status },
+      where: { id: existing.id, tenantId: actor.tenantId, orgId: crew.orgId, crewId: crew.id, taskId, userId, status: existing.status },
       data: { status: "RELEASED", releasedAt: new Date(), releasedByUserId: actor.userId, releaseReason: reason }
     });
     if (claimed.count !== 1) throw new ConflictException("La asignación cambió; vuelve a intentar");
@@ -271,7 +271,7 @@ export class TaskAllocationsService {
       throw new UnprocessableEntityException("Indica el motivo del bloqueo");
     }
     const claimed = await this.prisma.taskAllocation.updateMany({
-      where: { id: row.id, status: row.status },
+      where: { id: row.id, tenantId: user.tenantId, orgId: row.orgId, crewId: row.crewId, userId: user.userId, status: row.status },
       data: {
         status: next,
         statusNote: note ?? null,
