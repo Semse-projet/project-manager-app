@@ -23,6 +23,8 @@ autorización, esquema de datos ni transiciones operativas.
 
 - Cinco regresiones del mapper: PASS.
 - Validación estricta SDD: 205 specs, 0 errores, 0 warnings.
+- Validación SDD contra `origin/main`: PASS. Índice: 205 specs válidos.
+  Cobertura del plan de auditoría: 173/173 ítems mapeados, 0 errores.
 - Lint de toda la web: PASS, 0 errores y 37 warnings en archivos no modificados.
 - TypeScript de toda la web (`tsc --noEmit --incremental false`): PASS.
 - Build web: compilación PASS, tipos PASS y 424/424 páginas generadas.
@@ -50,7 +52,8 @@ imports preexistentes que no están declarados directamente por sus consumidores
 
 ## Entrega y límites
 
-Preparación local: sin push, PR remoto, merge ni deploy. No se ejecutaron
+Este informe registra el corte de preparación local anterior a la publicación
+del PR en borrador; el estado remoto posterior se consulta en GitHub. No se ejecutaron
 recorridos autenticados de navegador ni se validó producción. Las pruebas
 generales de usabilidad no constituyen una regresión específica del mapper;
 la evidencia focal está en `tests/unit/canonical-project-view.test.ts`.
