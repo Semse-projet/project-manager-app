@@ -153,6 +153,7 @@ retroactiva.
 | [platform.canonical-state-registry](specs/platform/canonical-state-registry.spec.md) | platform | IMPLEMENTED | COMPLETE | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | yes | 2026-08-28 |
 | [platform.event-backbone-f1](specs/platform/event-backbone.spec.md) | platform | APPROVED | legacy | legacy | legacy | legacy | legacy | critical | yes | 2026-07-12 |
 | [platform.finance-resource-scope](specs/platform/finance-resource-scope.spec.md) | platform | IMPLEMENTED | COMPLETE | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-10-05 |
+| [platform.library-hub-override-compatibility](specs/platform/library-hub-override-compatibility.spec.md) | platform | REVIEW | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | yes | NOT_VERIFIED |
 | [platform.product-intelligence](specs/platform/product-intelligence.spec.md) | platform | APPROVED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-08-27 |
 | [platform.production-convergence-f3-f9](specs/platform/production-convergence-program.spec.md) | platform | APPROVED | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | yes | 2026-07-31 |
 | [platform.resource-scope](specs/platform/resource-scope.spec.md) | platform | APPROVED | IN_PROGRESS | PASS | MERGED | DEPLOYED | INACTIVE | high | yes | 2026-10-05 |
