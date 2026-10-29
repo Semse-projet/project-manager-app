@@ -36,3 +36,16 @@ test("rejects malformed project records", () => {
   assert.equal(buildCanonicalProjectView(null, null), null);
   assert.equal(buildCanonicalProjectView({ tenantId: "tenant-1" }, null), null);
 });
+
+test("preserves a zero maximum budget instead of replacing it with the minimum", () => {
+  const view = buildCanonicalProjectView({ id: "project-zero" }, { budgetMax: 0, budgetMin: 100 });
+  assert.equal(view?.budgetEstimate, 0);
+});
+
+test("leaves unavailable job data empty without inventing a budget", () => {
+  const view = buildCanonicalProjectView({ id: "project-no-job", jobId: "job-unavailable" }, null);
+  assert.equal(view?.jobId, "job-unavailable");
+  assert.equal(view?.description, null);
+  assert.equal(view?.budgetEstimate, null);
+  assert.equal(view?.location, "—");
+});
