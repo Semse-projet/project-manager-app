@@ -145,6 +145,22 @@ export class TaskAllocationsService {
   }
 
   /**
+   * Conflicts in a Serializable transaction must not become generic 500s.
+   * Do not replay a mutation automatically: callers must start a fresh request
+   * so membership, crew authority and current task state are read again.
+   */
+  private async serializableMutation<T>(operation: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
+    try {
+      return await this.prisma.$transaction(operation, { isolationLevel: "Serializable" });
+    } catch (error) {
+      if (error !== null && typeof error === "object" && "code" in error && error.code === "P2034") {
+        throw new ConflictException("Conflicto concurrente; consulta el estado y vuelve a intentar");
+      }
+      throw error;
+    }
+  }
+
+  /**
    * Crea una tarea canónica (JobTask) de la Org de la cuadrilla, para poder asignarla.
    * Las tareas del marketplace nacen sin orgId y no son asignables aquí; esta es la vía
    * para tareas internas. Usa las columnas polimórficas (entityType/entityId), sin migración.
@@ -157,7 +173,7 @@ export class TaskAllocationsService {
   ) {
     this.assertEnabled();
     const crew = await this.requireCrewScope(actor, crewId);
-    return this.prisma.$transaction(async (tx) => {
+    return this.serializableMutation(async (tx) => {
       await this.assertCrewAuthorityInTransaction(tx, actor, crew);
       const task = await tx.jobTask.create({
         data: {
@@ -175,7 +191,7 @@ export class TaskAllocationsService {
       });
       await this.record(actor.tenantId, crew.orgId, actor.userId, "crew_task.created", task.id, requestId, { crewId: crew.id }, tx);
       return this.taskView(task);
-    }, { isolationLevel: "Serializable" });
+    });
   }
 
   async listCrewTasks(actor: AllocationActor, crewId: string) {
@@ -221,7 +237,7 @@ export class TaskAllocationsService {
     }
     // Transaction guarantees that any failed allocation OR audit rolls the entire
     // batch back. This does not yet replace the full authorization/race gates.
-    return this.prisma.$transaction(async (tx) => {
+    return this.serializableMutation(async (tx) => {
       await this.assertCrewAuthorityInTransaction(tx, actor, crew);
       const liveTask = await tx.jobTask.findFirst({
         where: { id: taskId, tenantId: actor.tenantId, orgId: crew.orgId }
@@ -298,7 +314,7 @@ export class TaskAllocationsService {
         result.push(row);
       }
       return result.map((row) => this.view(row));
-    }, { isolationLevel: "Serializable" });
+    });
   }
 
   async release(actor: AllocationActor, crewId: string, taskId: string, userId: string, requestId: string, reason: string) {
@@ -307,7 +323,7 @@ export class TaskAllocationsService {
     const existing = await this.prisma.taskAllocation.findFirst({ where: { tenantId: actor.tenantId, orgId: crew.orgId, taskId, userId, crewId: crew.id } });
     if (!existing) throw new NotFoundException();
     if (existing.status === "RELEASED") throw new ConflictException("La asignación ya fue liberada");
-    return this.prisma.$transaction(async (tx) => {
+    return this.serializableMutation(async (tx) => {
       await this.assertCrewAuthorityInTransaction(tx, actor, crew);
       const claimed = await tx.taskAllocation.updateMany({
         where: { id: existing.id, tenantId: actor.tenantId, orgId: crew.orgId, crewId: crew.id, taskId, userId, status: existing.status },
@@ -316,7 +332,7 @@ export class TaskAllocationsService {
       if (claimed.count !== 1) throw new ConflictException("La asignación cambió; vuelve a intentar");
       await this.record(actor.tenantId, crew.orgId, actor.userId, "task_allocation.released", existing.id, requestId, { taskId, userId }, tx);
       return { status: "RELEASED" as const };
-    }, { isolationLevel: "Serializable" });
+    });
   }
 
   async listForTask(actor: AllocationActor, crewId: string, taskId: string) {
@@ -359,7 +375,7 @@ export class TaskAllocationsService {
     if (next === "BLOCKED" && !note) {
       throw new UnprocessableEntityException("Indica el motivo del bloqueo");
     }
-    return this.prisma.$transaction(async (tx) => {
+    return this.serializableMutation(async (tx) => {
       if (!(await this.isActiveWorkerInCrew(user.tenantId, row.orgId, row.crewId, user.userId, tx))) {
         throw new NotFoundException();
       }
@@ -374,7 +390,7 @@ export class TaskAllocationsService {
       if (claimed.count !== 1) throw new ConflictException("La asignación cambió; vuelve a intentar");
       await this.record(user.tenantId, row.orgId, user.userId, "task_allocation.status_changed", row.id, requestId, { from: row.status, to: next }, tx);
       return { status: next };
-    }, { isolationLevel: "Serializable" });
+    });
   }
 
   /** Títulos de las tareas canónicas, para mostrar algo legible (solo lectura, acotado al tenant). */
