@@ -607,6 +607,13 @@ export class AgentsService {
           history,
           userMessage: input.message,
           tools: input.tools,
+          // C85/#1066: remembered project context must not silently fall back
+          // to cloud LLM providers. The orchestrator enforces privacyCritical.
+          context: {
+            requiresTools: true,
+            privacyCritical: typeof input.context?.relevantMemorySummary === "string"
+              && input.context.relevantMemorySummary.length > 0,
+          },
           maxTokens: 1024,
         });
 

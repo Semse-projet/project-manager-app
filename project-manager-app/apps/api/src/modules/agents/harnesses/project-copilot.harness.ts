@@ -308,7 +308,12 @@ export class ProjectCopilotHarness {
         projectId,
         query: message,
         topK: 6,
-      }).catch(() => ""),
+      }).catch(() => {
+        // Fail closed for memory context, but keep chat available. Do not log
+        // exception details: upstream errors may contain sensitive data.
+        this.logger.warn("[memory] project-copilot context retrieval failed; continuing without memory");
+        return "";
+      }),
       this.coordinatorService.collectProjectSnapshot({
         tenantId: actor.tenantId,
         coordinatorId: "project-copilot",
