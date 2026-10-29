@@ -21,6 +21,7 @@ import {
   resolveDemoLoginPassword,
 } from "./auth-demo-mode.js";
 import { AuthRepository } from "./auth.repository.js";
+import { intersectSessionRoles } from "./session-roles.js";
 
 const ACCESS_TOKEN_TTL_SECONDS = 60 * 60;
 const REFRESH_TOKEN_TTL_SECONDS = 60 * 60 * 24 * 30;
@@ -144,9 +145,7 @@ export class AuthService {
       throw new UnauthorizedException("Invalid or revoked auth session");
     }
 
-    const roles = snapshot.activeRoles.filter(
-      (role) => snapshot.session.roles.includes(role) && claims.roles.includes(role)
-    );
+    const roles = intersectSessionRoles(snapshot.activeRoles, snapshot.session.roles, claims.roles);
     if (roles.length === 0) {
       throw new UnauthorizedException("No active organization permission");
     }
