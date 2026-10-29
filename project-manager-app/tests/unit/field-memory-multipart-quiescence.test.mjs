@@ -140,3 +140,49 @@ test("missing environment cannot be interpreted as an empty multipart root",asyn
   assert.equal(r.result,"BLOCKED");
   assert.equal(r.reason,"multipart_outside_originals_root");
 });
+
+
+test("empty write-once .put-staging directory is housekeeping, not an active multipart writer",async t=>{
+  const f=await fixture(t);
+  const staging=path.join(f.multi,".put-staging");
+  await mkdir(staging,{mode:0o700});
+  const r=await f.inspect();
+  assert.equal(r.result,"EMPTY_CANDIDATE");
+  assert.deepEqual(r.counts,{manifests:0,partDirectories:0,partFiles:0,unrecognizedEntries:0});
+  assert.equal(r.backupVerified,false);
+});
+
+test("a private .put-staging part, even zero-length, blocks recovery preflight",async t=>{
+  const f=await fixture(t);
+  const staging=path.join(f.multi,".put-staging");
+  await mkdir(staging,{mode:0o700});
+  const bytes=Buffer.alloc(0);
+  const filename=randomUUID()+".part";
+  await writeFile(path.join(staging,filename),bytes);
+  const r=await f.inspect();
+  assert.equal(r.result,"BLOCKED");
+  assert.equal(r.reason,"multipart_pending_or_unrecognized");
+  assert.equal(r.counts.unrecognizedEntries,1);
+  assert.equal((await readFile(path.join(staging,filename))).length,0);
+  assert.ok(!JSON.stringify(r).includes(filename));
+});
+
+test("unknown contents under .put-staging never become a falsely empty candidate",async t=>{
+  const f=await fixture(t);
+  const staging=path.join(f.multi,".put-staging");
+  await mkdir(path.join(staging,"unexpected-directory"),{recursive:true});
+  const r=await f.inspect();
+  assert.equal(r.result,"BLOCKED");
+  assert.equal(r.counts.unrecognizedEntries,1);
+});
+
+test("a symlinked .put-staging directory is forbidden, even when its target is empty",async t=>{
+  if(process.platform==="win32")return;
+  const f=await fixture(t);
+  const elsewhere=path.join(f.root,"other-staging");
+  await mkdir(elsewhere);
+  await symlink(elsewhere,path.join(f.multi,".put-staging"),"dir");
+  const r=await f.inspect();
+  assert.equal(r.result,"BLOCKED");
+  assert.equal(r.reason,"multipart_unreadable_or_unsafe");
+});
