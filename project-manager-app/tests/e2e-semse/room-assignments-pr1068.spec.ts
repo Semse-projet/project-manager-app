@@ -60,7 +60,7 @@ const respond = (route: Route, data: unknown) =>
 // QA is explicitly opt-in: normal unit/CI test suites cannot accidentally call a remote preview.
 test.skip(!enabled, "Set SEMSE_PR1068_E2E_QA=1 only for approved isolated-preview QA");
 test.use({ trace: "off", screenshot: "off", video: "off" });
-test("supervisor assigns room 205; worker sees and starts exact same task", async ({ browser }: { browser: Browser }) => {
+test("supervisor assigns room 205; worker acknowledges, blocks, submits, and supervisor releases", async ({ browser }: { browser: Browser }) => {
   test.setTimeout(120_000);
   const supervisorContext = await browser.newContext();
   const workerContext = await browser.newContext();
@@ -73,11 +73,14 @@ test("supervisor assigns room 205; worker sees and starts exact same task", asyn
     let titleCreated = "";
     let assignedTo: string[] = [];
     let workerStatus = "ASSIGNED";
+    let workerStatusNote: string | null = null;
+    let workerStatusCalls = 0;
+    let releasedBySupervisor = false;
     const crew = { crewId: CREW, orgId: "qa-org", name: "QA Cuadrilla", supervisorUserId: "qa-supervisor", worksiteId: null, status: "ACTIVE" };
     const task = () => ({ taskId: TASK, title: titleCreated, description: null, dueDate: null, priority: "medium", status: "pending", createdAt: null });
     const allocation = () => ({
       allocationId: ALLOCATION, taskTitle: titleCreated, orgId: "qa-org", taskId: TASK, crewId: CREW,
-      userId: WORKER, status: workerStatus, assignReason: null, statusNote: null,
+      userId: WORKER, status: workerStatus, assignReason: null, statusNote: workerStatusNote,
       assignedAt: "2026-10-28T00:00:00Z", acknowledgedAt: null, releasedAt: null, releaseReason: null
     });
 
@@ -102,6 +105,13 @@ test("supervisor assigns room 205; worker sees and starts exact same task", asyn
       if (pathname === `/api/semse/crews/${CREW}/tasks/${TASK}/allocations` && method === "GET") {
         return respond(route, assignedTo.length ? [allocation()] : []);
       }
+      if (pathname === `/api/semse/crews/${CREW}/tasks/${TASK}/allocations/${WORKER}/release` && method === "POST") {
+        const { reason } = route.request().postDataJSON() as { reason: string };
+        if (reason !== "Reasignación supervisada") throw new Error("Release reason did not match authorized QA action");
+        workerStatus = "RELEASED";
+        releasedBySupervisor = true;
+        return respond(route, { status: workerStatus });
+      }
       throw new Error(`Unexpected intercepted crew call: ${method} ${pathname}`);
     });
 
@@ -112,7 +122,11 @@ test("supervisor assigns room 205; worker sees and starts exact same task", asyn
         return respond(route, assignedTo.includes(WORKER) ? [allocation()] : []);
       }
       if (pathname === `/api/semse/task-allocations/${ALLOCATION}/status` && method === "POST") {
-        workerStatus = (route.request().postDataJSON() as { status: string }).status;
+        const body = route.request().postDataJSON() as { status: string; note?: string };
+        if (body.status === "BLOCKED" && !body.note?.trim()) throw new Error("BLOCKED requires a note");
+        workerStatusCalls++;
+        workerStatus = body.status;
+        workerStatusNote = body.note ?? null;
         return respond(route, { status: workerStatus });
       }
       throw new Error(`Unexpected intercepted allocation call: ${method} ${pathname}`);
@@ -130,9 +144,36 @@ test("supervisor assigns room 205; worker sees and starts exact same task", asyn
 
     await worker.goto("/worker/assignments");
     await expect(worker.getByText(TITLE, { exact: true })).toBeVisible();
+    await worker.getByRole("button", { name: "Enterado", exact: true }).click();
+    await expect.poll(() => workerStatus).toBe("ACKNOWLEDGED");
+    await expect(worker.getByText("Enterado", { exact: true })).toBeVisible();
+
     await worker.getByRole("button", { name: "Empezar", exact: true }).click();
     await expect.poll(() => workerStatus).toBe("IN_PROGRESS");
     await expect(worker.getByText("En curso", { exact: true })).toBeVisible();
+
+    const beforeInvalidBlock = workerStatusCalls;
+    await worker.getByRole("button", { name: "Bloquear", exact: true }).click();
+    expect(workerStatusCalls).toBe(beforeInvalidBlock);
+    expect(workerStatus).toBe("IN_PROGRESS");
+    await worker.getByRole("textbox", { name: "Motivo o nota" }).fill("Falta material");
+    await worker.getByRole("button", { name: "Bloquear", exact: true }).click();
+    await expect.poll(() => workerStatus).toBe("BLOCKED");
+    await expect(worker.getByText("Bloqueada", { exact: true })).toBeVisible();
+    await expect(worker.getByText("Falta material", { exact: true })).toBeVisible();
+
+    await worker.getByRole("button", { name: "Reanudar", exact: true }).click();
+    await expect.poll(() => workerStatus).toBe("IN_PROGRESS");
+    await worker.getByRole("button", { name: "Enviar", exact: true }).click();
+    await expect.poll(() => workerStatus).toBe("SUBMITTED");
+    await expect(worker.getByText("Enviada", { exact: true })).toBeVisible();
+
+    await supervisor.getByRole("button", { name: "Ver asignaciones", exact: true }).click();
+    await expect(supervisor.getByText("Enviada", { exact: true })).toBeVisible();
+    await supervisor.getByRole("textbox", { name: "Motivo para liberar" }).fill("Reasignación supervisada");
+    await supervisor.getByRole("button", { name: "Liberar", exact: true }).click();
+    await expect.poll(() => releasedBySupervisor).toBe(true);
+    await expect.poll(() => workerStatus).toBe("RELEASED");
   } finally {
     await supervisorContext.close();
     await workerContext.close();
