@@ -31,7 +31,7 @@ related_endpoints:
   - POST /v1/labor/free-projects/:id/restore
 related_events: []
 related_agents: []
-last_verified: ""
+last_verified: "NOT_VERIFIED"
 ---
 
 # S1: FreeProjects archivados, restauración y nombres históricos
