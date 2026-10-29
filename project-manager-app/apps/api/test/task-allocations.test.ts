@@ -228,6 +228,50 @@ test("S0B-N22: cambio de tarea antes de la transacción impide asignar una tarea
   assert.equal(w.audits.length, 0);
 });
 
+test("S0B-P2034-01: creación y asignación fallan con 409 sin reintentar ni escribir al conflictivo Serializable", async () => {
+  const w = makeWorld();
+  const conflict = () => { throw Object.assign(new Error("synthetic serialization conflict"), { code: "P2034" }); };
+
+  const initialTasks = w.tasks.length;
+  w.beforeTransaction(conflict);
+  await assert.rejects(
+    w.service.createCrewTask(sup, "c1", "r-serial-1", { title: "Hab. 205 — Reparar pared" }),
+    { status: 409 }
+  );
+  assert.equal(w.tasks.length, initialTasks);
+  assert.equal(w.audits.length, 0);
+
+  w.beforeTransaction(conflict);
+  await assert.rejects(w.service.assign(sup, "c1", "task1", "r-serial-2", ["ana", "bob"]), { status: 409 });
+  assert.equal(w.allocations.length, 0);
+  assert.equal(w.audits.length, 0);
+});
+
+test("S0B-P2034-02: liberación y cambio de estado responden 409 sin mutación ni auditoría adicional", async () => {
+  const w = makeWorld();
+  const conflict = () => { throw Object.assign(new Error("synthetic serialization conflict"), { code: "P2034" }); };
+  const [allocation] = await w.service.assign(sup, "c1", "task1", "r-initial", ["ana"]);
+  const auditsBefore = w.audits.length;
+
+  w.beforeTransaction(conflict);
+  await assert.rejects(
+    w.service.release(sup, "c1", "task1", "ana", "r-serial-3", "reubicación"),
+    { status: 409 }
+  );
+  assert.equal(w.allocations[0].status, "ASSIGNED");
+  assert.equal(w.allocations[0].releasedAt, null);
+  assert.equal(w.audits.length, auditsBefore);
+
+  w.beforeTransaction(conflict);
+  await assert.rejects(
+    w.service.updateStatus(ana, allocation.allocationId, "ACKNOWLEDGED", undefined, "r-serial-4"),
+    { status: 409 }
+  );
+  assert.equal(w.allocations[0].status, "ASSIGNED");
+  assert.equal(w.allocations[0].acknowledgedAt, null);
+  assert.equal(w.audits.length, auditsBefore);
+});
+
 test("S0B-N18: fallo de auditoría al liberar mantiene intacta la asignación", async () => {
   const w = makeWorld();
   const [a] = await w.service.assign(sup, "c1", "task1", "r1", ["ana"]);
