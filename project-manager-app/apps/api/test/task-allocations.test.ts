@@ -30,9 +30,15 @@ function makeWorld() {
     { userId: "sup2", orgId: "orgA", status: "ACTIVE", role: { key: "WORKER" }, org: { tenantId: "t1" } },
     { userId: "boss", orgId: "orgA", status: "ACTIVE", role: { key: "CLIENT" }, org: { tenantId: "t1" } },
     { userId: "ana", orgId: "orgA", status: "ACTIVE", role: { key: "WORKER" }, org: { tenantId: "t1" } },
+    { userId: "bob", orgId: "orgA", status: "ACTIVE", role: { key: "WORKER" }, org: { tenantId: "t1" } },
     { userId: "ghost", orgId: "orgA", status: "SUSPENDED", role: { key: "WORKER" }, org: { tenantId: "t1" } }
   ];
   let seq = 0;
+  let beforeAllocationUpdate: (() => void) | null = null;
+  let beforeNextTransaction: (() => void) | null = null;
+  let transactionSnapshot: { allocations: Row[]; audits: Row[]; tasks: Row[] } | null = null;
+  let failAuditForAction: string | null = null;
+  let failAuditForUser: string | null = null;
   const match = (row: Row, where: Row): boolean =>
     Object.entries(where).every(([k, v]) => (v && typeof v === "object" && "in" in (v as Row) ? (v as Row).in.includes(row[k]) : row[k] === v));
   const table = (rows: Row[], defaults: () => Row) => ({
@@ -47,6 +53,22 @@ function makeWorld() {
       return row;
     },
     async updateMany({ where, data }: any) {
+      if (rows === allocations && beforeAllocationUpdate) {
+        const callback = beforeAllocationUpdate;
+        beforeAllocationUpdate = null;
+        callback();
+        // A simulated *external* concurrent write is not part of the transaction
+        // and must survive rollback of the current transaction.
+        if (transactionSnapshot) {
+          for (const row of allocations) {
+            const before = transactionSnapshot.allocations.find((prior) => prior.id === row.id);
+            if (before) {
+              before.crewId = row.crewId;
+              before.orgId = row.orgId;
+            }
+          }
+        }
+      }
       const hit = rows.filter((r) => match(r, where));
       hit.forEach((r) => Object.assign(r, data));
       return { count: hit.length };
@@ -63,10 +85,44 @@ function makeWorld() {
           (where.org ? m.org.tenantId === where.org.tenantId : true));
       }
     },
-    taskAllocation: table(allocations, () => ({ status: "ASSIGNED", assignedAt: new Date(), acknowledgedAt: null, releasedAt: null, releaseReason: null, statusNote: null, assignReason: null }))
+    taskAllocation: table(allocations, () => ({ status: "ASSIGNED", assignedAt: new Date(), acknowledgedAt: null, releasedAt: null, releaseReason: null, statusNote: null, assignReason: null })),
+    async $transaction<T>(operation: (tx: any) => Promise<T>): Promise<T> {
+      if (beforeNextTransaction) {
+        const hook = beforeNextTransaction;
+        beforeNextTransaction = null;
+        hook();
+      }
+      const snapshot = { allocations: structuredClone(allocations), audits: structuredClone(audits), tasks: structuredClone(tasks) };
+      transactionSnapshot = snapshot;
+      try {
+        return await operation(prisma);
+      } catch (error) {
+        allocations.splice(0, allocations.length, ...snapshot.allocations);
+        audits.splice(0, audits.length, ...snapshot.audits);
+        tasks.splice(0, tasks.length, ...snapshot.tasks);
+        throw error;
+      } finally {
+        transactionSnapshot = null;
+      }
+    }
   };
-  const audit: any = { async append(entry: Row) { audits.push(entry); } };
-  return { service: new TaskAllocationsService(prisma, audit), allocations, audits, tasks };
+  const audit: any = {
+    async append(entry: Row) { audits.push(entry); },
+    async appendInTransaction(entry: Row, _tx: any) {
+      if ((failAuditForUser && entry.afterJson?.userId === failAuditForUser) ||
+          (failAuditForAction && entry.action === failAuditForAction)) {
+        throw new Error("synthetic S0b audit failure");
+      }
+      audits.push(entry);
+    }
+  };
+  return {
+    service: new TaskAllocationsService(prisma, audit), allocations, audits, tasks, crews, crewMembers, memberships,
+    beforeNextAllocationUpdate(callback: () => void) { beforeAllocationUpdate = callback; },
+    beforeTransaction(callback: () => void) { beforeNextTransaction = callback; },
+    failTransactionalAuditFor(userId: string) { failAuditForUser = userId; },
+    failTransactionalAuditForAction(action: string) { failAuditForAction = action; }
+  };
 }
 
 const sup = { tenantId: "t1", userId: "sup", roles: ["WORKER"] };
@@ -99,6 +155,259 @@ test("AC-02 un gestor de cuadrillas de la Org sí puede; un supervisor suspendid
   await assert.rejects(w.service.assign(ghost, "c1", "task1", "r", ["ana"]), { status: 404 });
 });
 
+test("S0B-N23: perder autoridad antes de guardar creación no deja JobTask sin control", async () => {
+  const w = makeWorld();
+  w.beforeTransaction(() => {
+    w.memberships.find((m) => m.userId === "sup" && m.role.key === "WORKER")!.status = "SUSPENDED";
+  });
+  const before = w.tasks.length;
+  await assert.rejects(
+    w.service.createCrewTask(sup, "c1", "r1", { title: "Hab. 205 — Reparar pared" }),
+    { status: 409 }
+  );
+  assert.equal(w.tasks.length, before);
+  assert.equal(w.audits.length, 0);
+});
+
+test("S0B-N24: supervisor revocado al liberar no cambia asignación", async () => {
+  const w = makeWorld();
+  await w.service.assign(sup, "c1", "task1", "r1", ["ana"]);
+  const auditsBefore = w.audits.length;
+  w.beforeTransaction(() => {
+    w.memberships.find((m) => m.userId === "sup" && m.role.key === "WORKER")!.status = "REVOKED";
+  });
+  await assert.rejects(
+    w.service.release(sup, "c1", "task1", "ana", "r2", "cambio"),
+    { status: 409 }
+  );
+  assert.equal(w.allocations[0].status, "ASSIGNED");
+  assert.equal(w.audits.length, auditsBefore);
+});
+
+test("S0B-N25: retirar WORKER antes de actualizar estado impide avance", async () => {
+  const w = makeWorld();
+  const [a] = await w.service.assign(sup, "c1", "task1", "r1", ["ana"]);
+  const auditsBefore = w.audits.length;
+  w.beforeTransaction(() => {
+    w.memberships.find((m) => m.userId === "ana" && m.role.key === "WORKER")!.status = "REVOKED";
+  });
+  await assert.rejects(
+    w.service.updateStatus(ana, a.allocationId, "ACKNOWLEDGED", undefined, "r2"),
+    { status: 404 }
+  );
+  assert.equal(w.allocations[0].status, "ASSIGNED");
+  assert.equal(w.allocations[0].acknowledgedAt, null);
+  assert.equal(w.audits.length, auditsBefore);
+});
+
+test("S0B-N20: suspensión del supervisor justo antes del lote invalida su autoridad", async () => {
+  const w = makeWorld();
+  w.beforeTransaction(() => {
+    w.memberships.find((m) => m.userId === "sup" && m.role.key === "WORKER")!.status = "SUSPENDED";
+  });
+  await assert.rejects(w.service.assign(sup, "c1", "task1", "r", ["ana"]), { status: 409 });
+  assert.equal(w.allocations.length, 0);
+  assert.equal(w.audits.length, 0);
+});
+
+test("S0B-N21: retirada del destinatario entre preflight y transacción aborta lote completo", async () => {
+  const w = makeWorld();
+  w.beforeTransaction(() => {
+    w.crewMembers.find((m) => m.userId === "bob" && m.crewId === "c1")!.status = "REMOVED";
+  });
+  await assert.rejects(w.service.assign(sup, "c1", "task1", "r", ["ana", "bob"]), { status: 409 });
+  assert.equal(w.allocations.length, 0);
+  assert.equal(w.audits.length, 0);
+});
+
+test("S0B-N22: cambio de tarea antes de la transacción impide asignar una tarea cerrada", async () => {
+  const w = makeWorld();
+  w.beforeTransaction(() => { w.tasks.find((t) => t.id === "task1")!.status = "done"; });
+  await assert.rejects(w.service.assign(sup, "c1", "task1", "r", ["ana"]), { status: 409 });
+  assert.equal(w.allocations.length, 0);
+  assert.equal(w.audits.length, 0);
+});
+
+test("S0B-P2034-01: creación y asignación fallan con 409 sin reintentar ni escribir al conflictivo Serializable", async () => {
+  const w = makeWorld();
+  const conflict = () => { throw Object.assign(new Error("synthetic serialization conflict"), { code: "P2034" }); };
+
+  const initialTasks = w.tasks.length;
+  w.beforeTransaction(conflict);
+  await assert.rejects(
+    w.service.createCrewTask(sup, "c1", "r-serial-1", { title: "Hab. 205 — Reparar pared" }),
+    { status: 409 }
+  );
+  assert.equal(w.tasks.length, initialTasks);
+  assert.equal(w.audits.length, 0);
+
+  w.beforeTransaction(conflict);
+  await assert.rejects(w.service.assign(sup, "c1", "task1", "r-serial-2", ["ana", "bob"]), { status: 409 });
+  assert.equal(w.allocations.length, 0);
+  assert.equal(w.audits.length, 0);
+});
+
+test("S0B-P2034-02: liberación y cambio de estado responden 409 sin mutación ni auditoría adicional", async () => {
+  const w = makeWorld();
+  const conflict = () => { throw Object.assign(new Error("synthetic serialization conflict"), { code: "P2034" }); };
+  const [allocation] = await w.service.assign(sup, "c1", "task1", "r-initial", ["ana"]);
+  const auditsBefore = w.audits.length;
+
+  w.beforeTransaction(conflict);
+  await assert.rejects(
+    w.service.release(sup, "c1", "task1", "ana", "r-serial-3", "reubicación"),
+    { status: 409 }
+  );
+  assert.equal(w.allocations[0].status, "ASSIGNED");
+  assert.equal(w.allocations[0].releasedAt, null);
+  assert.equal(w.audits.length, auditsBefore);
+
+  w.beforeTransaction(conflict);
+  await assert.rejects(
+    w.service.updateStatus(ana, allocation.allocationId, "ACKNOWLEDGED", undefined, "r-serial-4"),
+    { status: 409 }
+  );
+  assert.equal(w.allocations[0].status, "ASSIGNED");
+  assert.equal(w.allocations[0].acknowledgedAt, null);
+  assert.equal(w.audits.length, auditsBefore);
+});
+
+test("S0B-N18: fallo de auditoría al liberar mantiene intacta la asignación", async () => {
+  const w = makeWorld();
+  const [a] = await w.service.assign(sup, "c1", "task1", "r1", ["ana"]);
+  const beforeAudits = w.audits.length;
+  w.failTransactionalAuditForAction("task_allocation.released");
+  await assert.rejects(
+    w.service.release(sup, "c1", "task1", "ana", "r2", "cambio de área"),
+    /synthetic S0b audit failure/
+  );
+  assert.equal(w.allocations[0].id, a.allocationId);
+  assert.equal(w.allocations[0].status, "ASSIGNED");
+  assert.equal(w.allocations[0].releasedAt, null);
+  assert.equal(w.audits.length, beforeAudits);
+});
+
+test("S0B-N19: fallo de auditoría al avanzar no cambia estado ni marca recepción", async () => {
+  const w = makeWorld();
+  const [a] = await w.service.assign(sup, "c1", "task1", "r1", ["ana"]);
+  const beforeAudits = w.audits.length;
+  w.failTransactionalAuditForAction("task_allocation.status_changed");
+  await assert.rejects(
+    w.service.updateStatus(ana, a.allocationId, "ACKNOWLEDGED", undefined, "r2"),
+    /synthetic S0b audit failure/
+  );
+  assert.equal(w.allocations[0].status, "ASSIGNED");
+  assert.equal(w.allocations[0].acknowledgedAt, null);
+  assert.equal(w.audits.length, beforeAudits);
+});
+
+test("S0B-N17: fallo en auditoría de creación no deja tarea huérfana", async () => {
+  const w = makeWorld();
+  w.failTransactionalAuditForAction("crew_task.created");
+  const beforeTasks = w.tasks.length;
+  const beforeAudits = w.audits.length;
+  await assert.rejects(
+    w.service.createCrewTask(sup, "c1", "r1", { title: "Hab. 205 — Reparar pared" }),
+    /synthetic S0b audit failure/
+  );
+  assert.equal(w.tasks.length, beforeTasks);
+  assert.equal(w.audits.length, beforeAudits);
+});
+
+test("S0B-N15: lote de dos trabajadores revierte también la primera asignación si falla la segunda auditoría", async () => {
+  const w = makeWorld();
+  w.failTransactionalAuditFor("bob");
+  await assert.rejects(w.service.assign(sup, "c1", "task1", "r1", ["ana", "bob"]), /synthetic S0b audit failure/);
+  assert.equal(w.allocations.length, 0);
+  assert.equal(w.audits.length, 0);
+});
+
+test("S0B-N16: éxito del lote registra asignación y auditoría una sola vez por trabajador", async () => {
+  const w = makeWorld();
+  const rows = await w.service.assign(sup, "c1", "task1", "r1", ["ana", "bob"]);
+  assert.equal(rows.length, 2);
+  assert.deepEqual(w.allocations.map((item) => item.userId), ["ana", "bob"]);
+  assert.deepEqual(w.audits.map((item) => item.action), ["task_allocation.assigned", "task_allocation.assigned"]);
+});
+
+test("S0B-N10: tarea Crew c1 no se puede asignar desde c2 en la misma org", async () => {
+  const w = makeWorld();
+  w.memberships.push({ userId: "eva", orgId: "orgA", status: "ACTIVE", role: { key: "WORKER" }, org: { tenantId: "t1" } });
+  const created = await w.service.createCrewTask(sup, "c1", "r1", { title: "Hab. 205 — Reparar pared" });
+  const initialAuditCount = w.audits.length;
+  await assert.rejects(
+    w.service.assign({ tenantId: "t1", userId: "sup2", roles: ["WORKER"] }, "c2", created.taskId, "r2", ["eva"]),
+    { status: 422 }
+  );
+  assert.equal(w.allocations.length, 0);
+  assert.equal(w.audits.length, initialAuditCount);
+});
+
+test("S0B-N11: asignación existente de c1 nunca se devuelve como idempotente en c2", async () => {
+  const w = makeWorld();
+  w.crewMembers.push({ crewId: "c2", userId: "ana", status: "ACTIVE" });
+  const [original] = await w.service.assign(sup, "c1", "task1", "r1", ["ana"]);
+  const initialAuditCount = w.audits.length;
+  await assert.rejects(
+    w.service.assign({ tenantId: "t1", userId: "sup2", roles: ["WORKER"] }, "c2", "task1", "r2", ["ana"]),
+    { status: 409 }
+  );
+  assert.equal(w.allocations.length, 1);
+  assert.equal(w.allocations[0].id, original.allocationId);
+  assert.equal(w.allocations[0].crewId, "c1");
+  assert.equal(w.allocations[0].status, "ASSIGNED");
+  assert.equal(w.audits.length, initialAuditCount);
+});
+
+test("S0B-N12: asignación RELEASED de otra crew no se transfiere silenciosamente", async () => {
+  const w = makeWorld();
+  w.crewMembers.push({ crewId: "c2", userId: "ana", status: "ACTIVE" });
+  await w.service.assign(sup, "c1", "task1", "r1", ["ana"]);
+  await w.service.release(sup, "c1", "task1", "ana", "r2", "terminó asignación");
+  const initialAuditCount = w.audits.length;
+  await assert.rejects(
+    w.service.assign({ tenantId: "t1", userId: "sup2", roles: ["WORKER"] }, "c2", "task1", "r3", ["ana"]),
+    { status: 409 }
+  );
+  assert.equal(w.allocations[0].status, "RELEASED");
+  assert.equal(w.allocations[0].crewId, "c1");
+  assert.equal(w.audits.length, initialAuditCount);
+});
+
+test("S0B-N14: carrera en reactivación RELEASED no reabre asignación movida a otra crew", async () => {
+  const w = makeWorld();
+  await w.service.assign(sup, "c1", "task1", "r1", ["ana"]);
+  await w.service.release(sup, "c1", "task1", "ana", "r2", "fin del turno");
+  const auditCount = w.audits.length;
+
+  // Simula una mutación concurrente después de leer y validar la asignación,
+  // justo antes del compare-and-swap en la base de datos.
+  w.beforeNextAllocationUpdate(() => {
+    w.allocations[0].crewId = "c2";
+  });
+
+  await assert.rejects(w.service.assign(sup, "c1", "task1", "r3", ["ana"]), { status: 409 });
+  assert.equal(w.allocations[0].status, "RELEASED");
+  assert.equal(w.allocations[0].crewId, "c2");
+  assert.equal(w.audits.length, auditCount);
+});
+
+test("S0B-N13: lote mixto con asignación ajena no crea asignaciones parciales", async () => {
+  const w = makeWorld();
+  w.crewMembers.push({ crewId: "c2", userId: "ana", status: "ACTIVE" });
+  w.memberships.push({ userId: "eva", orgId: "orgA", status: "ACTIVE", role: { key: "WORKER" }, org: { tenantId: "t1" } });
+  await w.service.assign(sup, "c1", "task1", "r1", ["ana"]);
+  const initialAuditCount = w.audits.length;
+  await assert.rejects(
+    w.service.assign({ tenantId: "t1", userId: "sup2", roles: ["WORKER"] }, "c2", "task1", "r2", ["eva", "ana"]),
+    { status: 409 }
+  );
+  assert.equal(w.allocations.length, 1);
+  assert.equal(w.allocations[0].userId, "ana");
+  assert.equal(w.allocations[0].crewId, "c1");
+  assert.equal(w.audits.length, initialAuditCount);
+});
+
 test("AC-03 solo miembros ACTIVOS de la cuadrilla; la tarea debe ser de la Org y no estar cerrada", async () => {
   const w = makeWorld();
   await assert.rejects(w.service.assign(sup, "c1", "task1", "r", ["eva"]), { status: 422 });
@@ -106,6 +415,142 @@ test("AC-03 solo miembros ACTIVOS de la cuadrilla; la tarea debe ser de la Org y
   await assert.rejects(w.service.assign(sup, "c1", "ajena", "r", ["ana"]), { status: 422 });
   await assert.rejects(w.service.assign(sup, "c1", "done1", "r", ["ana"]), { status: 422 });
   assert.equal(w.allocations.length, 0);
+});
+
+test("N02: supervisor sin WORKER ACTIVE ni permiso de gestor no conserva alcance", async () => {
+  const w = makeWorld();
+  w.memberships.find((m) => m.userId === "sup" && m.role.key === "WORKER")!.status = "SUSPENDED";
+  w.memberships.push({ userId: "sup", orgId: "orgA", status: "ACTIVE", role: { key: "VIEWER" }, org: { tenantId: "t1" } });
+
+  await assert.rejects(w.service.assign(sup, "c1", "task1", "r", ["ana"]), { status: 403 });
+  assert.equal(w.allocations.length, 0);
+  assert.equal(w.audits.length, 0);
+});
+
+test("N03: CrewMember ACTIVE sin WORKER ACTIVE no puede recibir asignaciones", async () => {
+  const w = makeWorld();
+  w.memberships.find((m) => m.userId === "ana" && m.role.key === "WORKER")!.status = "SUSPENDED";
+
+  await assert.rejects(w.service.assign(sup, "c1", "task1", "r", ["ana"]), { status: 422 });
+  assert.equal(w.allocations.length, 0);
+  assert.equal(w.audits.length, 0);
+});
+
+test("N08: PRO ACTIVE conserva gestión legítima de crews aunque WORKER de supervisor esté suspendido", async () => {
+  const w = makeWorld();
+  // WORKER y PRO son memberships independientes en una misma organización.
+  w.memberships.find((m) => m.userId === "sup" && m.role.key === "WORKER")!.status = "SUSPENDED";
+  w.memberships.push({ userId: "sup", orgId: "orgA", status: "ACTIVE", role: { key: "PRO" }, org: { tenantId: "t1" } });
+  w.memberships.push({ userId: "eva", orgId: "orgA", status: "ACTIVE", role: { key: "WORKER" }, org: { tenantId: "t1" } });
+
+  // No recibe autoridad por el cargo de supervisor suspendido: accede por
+  // el permiso organizacional org:crews:manage de su PRO vigente.
+  const result = await w.service.assign(sup, "c2", "task1", "r-n08", ["eva"]);
+  assert.equal(result.length, 1);
+  assert.equal(w.allocations[0].crewId, "c2");
+  assert.equal(w.allocations[0].userId, "eva");
+  assert.deepEqual(w.audits.map((a) => a.action), ["task_allocation.assigned"]);
+});
+
+test("N09: claims PRO/WORKER no sustituyen Membership de la Org ni tenant real", async () => {
+  const w = makeWorld();
+  w.crews.push({ id: "c3", tenantId: "t1", orgId: "orgC", supervisorUserId: "someoneElse", status: "ACTIVE" });
+  w.crewMembers.push({ crewId: "c3", userId: "ana", status: "ACTIVE" });
+
+  // El mismo tenant no basta: sin Membership activa en orgC, 404.
+  await assert.rejects(
+    w.service.assign({ tenantId: "t1", userId: "sup", roles: ["WORKER", "PRO"] }, "c3", "task1", "r-n09a", ["ana"]),
+    { status: 404 }
+  );
+  // Aunque tenga WORKER en orgC, no es su supervisor ni un gestor.
+  w.memberships.push({ userId: "sup", orgId: "orgC", status: "ACTIVE", role: { key: "WORKER" }, org: { tenantId: "t1" } });
+  await assert.rejects(
+    w.service.assign({ tenantId: "t1", userId: "sup", roles: ["PRO"] }, "c3", "task1", "r-n09b", ["ana"]),
+    { status: 403 }
+  );
+  // Cambiar roles del JWT y tenant del actor no permite acceder a una crew de otro tenant.
+  await assert.rejects(
+    w.service.assign({ tenantId: "t2", userId: "sup", roles: ["PRO"] }, "c1", "task1", "r-n09c", ["ana"]),
+    { status: 404 }
+  );
+  assert.equal(w.allocations.length, 0);
+  assert.equal(w.audits.length, 0);
+});
+
+test("S0A-SCOPE-01: listado y liberación ignoran asignaciones con org/tenant inconsistente", async () => {
+  const w = makeWorld();
+  // Datos sintéticos corruptos: misma crew y task, pero distintas autoridades.
+  // Sin FK de TaskAllocation a Crew, el servicio debe rechazar también la lectura.
+  const foreign = [
+    { id: "foreign-tenant", tenantId: "t2", orgId: "orgB", crewId: "c1", taskId: "task1", userId: "ana", status: "ASSIGNED", assignedAt: new Date() },
+    { id: "foreign-org", tenantId: "t1", orgId: "orgC", crewId: "c1", taskId: "task1", userId: "bob", status: "ASSIGNED", assignedAt: new Date() }
+  ];
+  w.allocations.push(...foreign);
+
+  assert.deepEqual(await w.service.listForTask(sup, "c1", "task1"), []);
+  await assert.rejects(w.service.release(sup, "c1", "task1", "ana", "r-foreign-tenant", "sin autoridad"), { status: 404 });
+  await assert.rejects(w.service.release(sup, "c1", "task1", "bob", "r-foreign-org", "sin autoridad"), { status: 404 });
+  assert.deepEqual(w.allocations.map((row) => row.status), ["ASSIGNED", "ASSIGNED"]);
+  assert.equal(w.audits.length, 0);
+});
+
+test("S0A-CAS-01: release no modifica allocation si cambia de crew entre lectura y escritura", async () => {
+  const w = makeWorld();
+  await w.service.assign(sup, "c1", "task1", "r-before", ["ana"]);
+  const beforeAuditCount = w.audits.length;
+  w.beforeNextAllocationUpdate(() => {
+    // Emular otra transacción que reemplaza la fila entre findFirst y updateMany.
+    w.allocations[0] = { ...w.allocations[0], crewId: "c2" };
+  });
+  await assert.rejects(
+    w.service.release(sup, "c1", "task1", "ana", "r-race", "se mueve a otro frente"),
+    { status: 409 }
+  );
+  assert.equal(w.allocations[0].crewId, "c2");
+  assert.equal(w.allocations[0].status, "ASSIGNED");
+  assert.equal(w.audits.length, beforeAuditCount, "no success audit on failed compare-and-swap");
+});
+
+test("S0A-CAS-02: worker status no modifica allocation si cambia de Org antes de updateMany", async () => {
+  const w = makeWorld();
+  const [allocation] = await w.service.assign(sup, "c1", "task1", "r-before", ["ana"]);
+  const beforeAuditCount = w.audits.length;
+  w.beforeNextAllocationUpdate(() => {
+    // El objeto devuelto por findFirst es un snapshot; reemplazar la fila
+    // emula una escritura externa sin mutar el snapshot que conserva el servicio.
+    w.allocations[0] = { ...w.allocations[0], orgId: "orgC" };
+  });
+  await assert.rejects(
+    w.service.updateStatus(ana, allocation.allocationId, "IN_PROGRESS", undefined, "r-race"),
+    { status: 409 }
+  );
+  assert.equal(w.allocations[0].orgId, "orgC");
+  assert.equal(w.allocations[0].status, "ASSIGNED");
+  assert.equal(w.audits.length, beforeAuditCount);
+});
+
+test("N03b: lote mixto de WORKER ACTIVE y suspendido no deja escrituras parciales", async () => {
+  const w = makeWorld();
+  w.memberships.find((m) => m.userId === "bob" && m.role.key === "WORKER")!.status = "SUSPENDED";
+  w.memberships.push({ userId: "bob", orgId: "orgA", status: "ACTIVE", role: { key: "PRO" }, org: { tenantId: "t1" } });
+
+  // No comenzar a asignar a ana antes de validar también al segundo destinatario.
+  await assert.rejects(w.service.assign(sup, "c1", "task1", "r-n03b", ["ana", "bob"]), { status: 422 });
+  assert.equal(w.allocations.length, 0);
+  assert.equal(w.audits.length, 0);
+});
+
+test("N04b: asignación propia denegada tras revocar WORKER aunque PRO siga activo", async () => {
+  const w = makeWorld();
+  const [allocation] = await w.service.assign(sup, "c1", "task1", "r-start", ["ana"]);
+  const auditsBefore = w.audits.length;
+  w.memberships.find((m) => m.userId === "ana" && m.role.key === "WORKER")!.status = "REVOKED";
+  w.memberships.push({ userId: "ana", orgId: "orgA", status: "ACTIVE", role: { key: "PRO" }, org: { tenantId: "t1" } });
+
+  await assert.rejects(w.service.updateStatus(ana, allocation.allocationId, "IN_PROGRESS", undefined, "r-n04b"), { status: 404 });
+  assert.equal((await w.service.listMine(ana)).length, 0);
+  assert.equal(w.allocations[0].status, "ASSIGNED");
+  assert.equal(w.audits.length, auditsBefore);
 });
 
 test("AC-04 una tarea compartida = una tarea con varias asignaciones; repetir no duplica", async () => {
@@ -183,6 +628,42 @@ test("AC-08 una asignación liberada no se puede avanzar", async () => {
   const [a] = await w.service.assign(sup, "c1", "task1", "r", ["ana"]);
   await w.service.release(sup, "c1", "task1", "ana", "r2", "ya no aplica");
   await assert.rejects(w.service.updateStatus(ana, a.allocationId, "IN_PROGRESS", undefined, "r"), { status: 422 });
+});
+
+test("N04/N07: revocar WORKER oculta la asignación e impide mutarla", async () => {
+  const w = makeWorld();
+  const [allocation] = await w.service.assign(sup, "c1", "task1", "r", ["ana"]);
+  const auditCount = w.audits.length;
+  w.memberships.find((m) => m.userId === "ana" && m.role.key === "WORKER")!.status = "REVOKED";
+
+  await assert.rejects(w.service.updateStatus(ana, allocation.allocationId, "IN_PROGRESS", undefined, "r2"), { status: 404 });
+  assert.equal((await w.service.listMine(ana)).length, 0);
+  assert.equal(w.allocations[0].status, "ASSIGNED");
+  assert.equal(w.audits.length, auditCount);
+});
+
+test("N05/N07: retirar CrewMember oculta la asignación e impide mutarla", async () => {
+  const w = makeWorld();
+  const [allocation] = await w.service.assign(sup, "c1", "task1", "r", ["ana"]);
+  const auditCount = w.audits.length;
+  w.crewMembers.find((member) => member.crewId === "c1" && member.userId === "ana")!.status = "REMOVED";
+
+  await assert.rejects(w.service.updateStatus(ana, allocation.allocationId, "IN_PROGRESS", undefined, "r2"), { status: 404 });
+  assert.equal((await w.service.listMine(ana)).length, 0);
+  assert.equal(w.allocations[0].status, "ASSIGNED");
+  assert.equal(w.audits.length, auditCount);
+});
+
+test("N06/N07: archivar Crew oculta la asignación e impide mutarla", async () => {
+  const w = makeWorld();
+  const [allocation] = await w.service.assign(sup, "c1", "task1", "r", ["ana"]);
+  const auditCount = w.audits.length;
+  w.crews.find((crew) => crew.id === "c1")!.status = "ARCHIVED";
+
+  await assert.rejects(w.service.updateStatus(ana, allocation.allocationId, "IN_PROGRESS", undefined, "r2"), { status: 404 });
+  assert.equal((await w.service.listMine(ana)).length, 0);
+  assert.equal(w.allocations[0].status, "ASSIGNED");
+  assert.equal(w.audits.length, auditCount);
 });
 
 test("AC-09 una tarea interna se crea en la Org de la cuadrilla y luego se puede asignar", async () => {

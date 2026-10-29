@@ -1,4 +1,5 @@
 import { ConflictException, ForbiddenException, Injectable, NotFoundException, UnprocessableEntityException } from "@nestjs/common";
+import type { Prisma } from "@prisma/client";
 import { hasPermission } from "../../common/rbac.js";
 import { AuditService } from "../../infrastructure/audit/audit.service.js";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
@@ -70,10 +71,49 @@ export class TaskAllocationsService {
       include: { role: true }
     });
     if (live.length === 0) throw new NotFoundException();
-    const isSupervisor = crew.supervisorUserId === actor.userId;
+    const isSupervisor = crew.supervisorUserId === actor.userId && live.some((membership) => membership.role.key === "WORKER");
     const isManager = hasPermission(live.map((m) => m.role.key), CREWS_MANAGE);
     if (!isSupervisor && !isManager) throw new ForbiddenException();
     return crew;
+  }
+
+  /** Re-read the live crew and actor authority in the same Serializable transaction as the write. */
+  private async assertCrewAuthorityInTransaction(
+    tx: Prisma.TransactionClient,
+    actor: AllocationActor,
+    crew: { id: string; orgId: string }
+  ): Promise<void> {
+    const currentCrew = await tx.crew.findFirst({
+      where: { id: crew.id, tenantId: actor.tenantId, orgId: crew.orgId, status: "ACTIVE" }
+    });
+    if (!currentCrew) throw new ConflictException("La cuadrilla cambió; vuelve a intentar");
+    const memberships = await tx.membership.findMany({
+      where: { userId: actor.userId, orgId: crew.orgId, status: "ACTIVE", org: { tenantId: actor.tenantId } },
+      include: { role: true }
+    });
+    const isSupervisor = currentCrew.supervisorUserId === actor.userId &&
+      memberships.some((membership) => membership.role.key === "WORKER");
+    const isManager = hasPermission(memberships.map((membership) => membership.role.key), CREWS_MANAGE);
+    if (!isSupervisor && !isManager) throw new ConflictException("La autoridad cambió; vuelve a intentar");
+  }
+
+  private async isActiveWorkerInCrew(
+    tenantId: string,
+    orgId: string,
+    crewId: string,
+    userId: string,
+    tx?: Prisma.TransactionClient
+  ): Promise<boolean> {
+    const db = tx ?? this.prisma;
+    const [crew, member, memberships] = await Promise.all([
+      db.crew.findFirst({ where: { id: crewId, tenantId, orgId, status: "ACTIVE" } }),
+      db.crewMember.findFirst({ where: { crewId, userId, status: "ACTIVE" } }),
+      db.membership.findMany({
+        where: { userId, orgId, status: "ACTIVE", org: { tenantId } },
+        include: { role: true }
+      })
+    ]);
+    return Boolean(crew && member && memberships.some((membership) => membership.role.key === "WORKER"));
   }
 
   private async record(
@@ -83,9 +123,10 @@ export class TaskAllocationsService {
     action: string,
     entityId: string,
     requestId: string,
-    afterJson: Record<string, unknown>
+    afterJson: Record<string, unknown>,
+    tx?: Prisma.TransactionClient
   ): Promise<void> {
-    await this.audit.append({
+    const entry = {
       tenantId,
       orgId,
       actorUserId,
@@ -95,7 +136,28 @@ export class TaskAllocationsService {
       requestId,
       timestamp: new Date().toISOString(),
       afterJson
-    });
+    };
+    if (tx) {
+      await this.audit.appendInTransaction(entry, tx);
+    } else {
+      await this.audit.append(entry);
+    }
+  }
+
+  /**
+   * Conflicts in a Serializable transaction must not become generic 500s.
+   * Do not replay a mutation automatically: callers must start a fresh request
+   * so membership, crew authority and current task state are read again.
+   */
+  private async serializableMutation<T>(operation: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
+    try {
+      return await this.prisma.$transaction(operation, { isolationLevel: "Serializable" });
+    } catch (error) {
+      if (error !== null && typeof error === "object" && "code" in error && error.code === "P2034") {
+        throw new ConflictException("Conflicto concurrente; consulta el estado y vuelve a intentar");
+      }
+      throw error;
+    }
   }
 
   /**
@@ -111,22 +173,25 @@ export class TaskAllocationsService {
   ) {
     this.assertEnabled();
     const crew = await this.requireCrewScope(actor, crewId);
-    const task = await this.prisma.jobTask.create({
-      data: {
-        tenantId: actor.tenantId,
-        orgId: crew.orgId,
-        title: input.title,
-        description: input.description ?? null,
-        dueDate: input.dueDate ?? null,
-        priority: input.priority ?? "medium",
-        createdBy: actor.userId,
-        sourceTool: "crew",
-        entityType: "Crew",
-        entityId: crew.id
-      }
+    return this.serializableMutation(async (tx) => {
+      await this.assertCrewAuthorityInTransaction(tx, actor, crew);
+      const task = await tx.jobTask.create({
+        data: {
+          tenantId: actor.tenantId,
+          orgId: crew.orgId,
+          title: input.title,
+          description: input.description ?? null,
+          dueDate: input.dueDate ?? null,
+          priority: input.priority ?? "medium",
+          createdBy: actor.userId,
+          sourceTool: "crew",
+          entityType: "Crew",
+          entityId: crew.id
+        }
+      });
+      await this.record(actor.tenantId, crew.orgId, actor.userId, "crew_task.created", task.id, requestId, { crewId: crew.id }, tx);
+      return this.taskView(task);
     });
-    await this.record(actor.tenantId, crew.orgId, actor.userId, "crew_task.created", task.id, requestId, { crewId: crew.id });
-    return this.taskView(task);
   }
 
   async listCrewTasks(actor: AllocationActor, crewId: string) {
@@ -145,77 +210,135 @@ export class TaskAllocationsService {
     if (!task || task.status === "done" || task.status === "canceled") {
       throw new UnprocessableEntityException("La tarea no existe en esta organización o ya está cerrada");
     }
+    // S0b (propuesto): la tarea interna de una cuadrilla no puede ser asignada
+    // por otra cuadrilla de la misma organización.
+    if (task.entityType === "Crew" && task.entityId !== crew.id) {
+      throw new UnprocessableEntityException("La tarea no está disponible para esta cuadrilla");
+    }
     const unique = [...new Set(userIds)];
     const members = await this.prisma.crewMember.findMany({ where: { crewId: crew.id, status: "ACTIVE" } });
     const memberIds = new Set(members.map((m) => m.userId));
     if (unique.some((id) => !memberIds.has(id))) {
       throw new UnprocessableEntityException("Solo se asigna a miembros activos de la cuadrilla");
     }
-    const result: AllocationRow[] = [];
-    for (const userId of unique) {
-      const existing = await this.prisma.taskAllocation.findFirst({ where: { taskId, userId } });
-      let row: AllocationRow;
-      if (!existing) {
-        row = await this.prisma.taskAllocation.create({
-          data: {
-            tenantId: actor.tenantId,
-            orgId: crew.orgId,
-            taskId,
-            crewId: crew.id,
-            userId,
-            assignedByUserId: actor.userId,
-            assignReason: reason ?? null
-          }
-        });
-      } else if (existing.status === "RELEASED") {
-        const reopened = await this.prisma.taskAllocation.updateMany({
-          where: { id: existing.id, status: "RELEASED" },
-          data: {
-            status: "ASSIGNED",
-            crewId: crew.id,
-            assignedByUserId: actor.userId,
-            assignReason: reason ?? null,
-            assignedAt: new Date(),
-            acknowledgedAt: null,
-            releasedAt: null,
-            releasedByUserId: null,
-            releaseReason: null,
-            statusNote: null
-          }
-        });
-        if (reopened.count !== 1) throw new ConflictException("La asignación cambió; vuelve a intentar");
-        row = { ...existing, status: "ASSIGNED", crewId: crew.id, assignReason: reason ?? null, releasedAt: null, releaseReason: null, acknowledgedAt: null, statusNote: null, assignedAt: new Date() };
-      } else {
-        // Ya asignada y vigente: idempotente, no se duplica.
-        row = existing;
-        result.push(row);
-        continue;
-      }
-      await this.record(actor.tenantId, crew.orgId, actor.userId, "task_allocation.assigned", row.id, requestId, { taskId, crewId: crew.id, userId });
-      result.push(row);
+    const workerEligibility = await Promise.all(
+      unique.map((userId) => this.isActiveWorkerInCrew(actor.tenantId, crew.orgId, crew.id, userId))
+    );
+    if (workerEligibility.some((eligible) => !eligible)) {
+      throw new UnprocessableEntityException("Solo se asigna a trabajadores activos de la organización y la cuadrilla");
     }
-    return result.map((row) => this.view(row));
+    // S0b (propuesto): abortar antes de la primera escritura si una asignación
+    // ya pertenece a otro equipo. No se transfiere ni se revela esa fila.
+    const prior = await this.prisma.taskAllocation.findMany({
+      where: { taskId, userId: { in: unique } }
+    });
+    if (prior.some((row) => row.tenantId !== actor.tenantId || row.orgId !== crew.orgId || row.crewId !== crew.id)) {
+      throw new ConflictException("La asignación no está disponible; solicita revisión al responsable");
+    }
+    // Transaction guarantees that any failed allocation OR audit rolls the entire
+    // batch back. This does not yet replace the full authorization/race gates.
+    return this.serializableMutation(async (tx) => {
+      await this.assertCrewAuthorityInTransaction(tx, actor, crew);
+      const liveTask = await tx.jobTask.findFirst({
+        where: { id: taskId, tenantId: actor.tenantId, orgId: crew.orgId }
+      });
+      if (!liveTask || liveTask.status === "done" || liveTask.status === "canceled" ||
+          (liveTask.entityType === "Crew" && liveTask.entityId !== crew.id)) {
+        throw new ConflictException("La tarea cambió; vuelve a intentar");
+      }
+      for (const userId of unique) {
+        const activeMember = await tx.crewMember.findFirst({
+          where: { crewId: crew.id, userId, status: "ACTIVE" }
+        });
+        const liveWorkerRoles = await tx.membership.findMany({
+          where: { userId, orgId: crew.orgId, status: "ACTIVE", org: { tenantId: actor.tenantId } },
+          include: { role: true }
+        });
+        if (!activeMember || !liveWorkerRoles.some((membership) => membership.role.key === "WORKER")) {
+          throw new ConflictException("La membresía cambió; vuelve a intentar");
+        }
+      }
+      const result: AllocationRow[] = [];
+      for (const userId of unique) {
+        const existing = await tx.taskAllocation.findFirst({ where: { taskId, userId } });
+        // La consulta de prevalidación no sustituye la verificación en cada intento.
+        if (existing && (existing.tenantId !== actor.tenantId || existing.orgId !== crew.orgId || existing.crewId !== crew.id)) {
+          throw new ConflictException("La asignación no está disponible; solicita revisión al responsable");
+        }
+        let row: AllocationRow;
+        if (!existing) {
+          row = await tx.taskAllocation.create({
+            data: {
+              tenantId: actor.tenantId,
+              orgId: crew.orgId,
+              taskId,
+              crewId: crew.id,
+              userId,
+              assignedByUserId: actor.userId,
+              assignReason: reason ?? null
+            }
+          });
+        } else if (existing.status === "RELEASED") {
+          const reopened = await tx.taskAllocation.updateMany({
+            where: {
+              id: existing.id,
+              tenantId: actor.tenantId,
+              orgId: crew.orgId,
+              crewId: crew.id,
+              taskId,
+              userId,
+              status: "RELEASED"
+            },
+            data: {
+              status: "ASSIGNED",
+              crewId: crew.id,
+              assignedByUserId: actor.userId,
+              assignReason: reason ?? null,
+              assignedAt: new Date(),
+              acknowledgedAt: null,
+              releasedAt: null,
+              releasedByUserId: null,
+              releaseReason: null,
+              statusNote: null
+            }
+          });
+          if (reopened.count !== 1) throw new ConflictException("La asignación cambió; vuelve a intentar");
+          row = { ...existing, status: "ASSIGNED", crewId: crew.id, assignReason: reason ?? null, releasedAt: null, releaseReason: null, acknowledgedAt: null, statusNote: null, assignedAt: new Date() };
+        } else {
+          // Ya asignada y vigente: idempotente, no se duplica.
+          row = existing;
+          result.push(row);
+          continue;
+        }
+        await this.record(actor.tenantId, crew.orgId, actor.userId, "task_allocation.assigned", row.id, requestId, { taskId, crewId: crew.id, userId }, tx);
+        result.push(row);
+      }
+      return result.map((row) => this.view(row));
+    });
   }
 
   async release(actor: AllocationActor, crewId: string, taskId: string, userId: string, requestId: string, reason: string) {
     this.assertEnabled();
     const crew = await this.requireCrewScope(actor, crewId);
-    const existing = await this.prisma.taskAllocation.findFirst({ where: { taskId, userId, crewId: crew.id } });
+    const existing = await this.prisma.taskAllocation.findFirst({ where: { tenantId: actor.tenantId, orgId: crew.orgId, taskId, userId, crewId: crew.id } });
     if (!existing) throw new NotFoundException();
     if (existing.status === "RELEASED") throw new ConflictException("La asignación ya fue liberada");
-    const claimed = await this.prisma.taskAllocation.updateMany({
-      where: { id: existing.id, status: existing.status },
-      data: { status: "RELEASED", releasedAt: new Date(), releasedByUserId: actor.userId, releaseReason: reason }
+    return this.serializableMutation(async (tx) => {
+      await this.assertCrewAuthorityInTransaction(tx, actor, crew);
+      const claimed = await tx.taskAllocation.updateMany({
+        where: { id: existing.id, tenantId: actor.tenantId, orgId: crew.orgId, crewId: crew.id, taskId, userId, status: existing.status },
+        data: { status: "RELEASED", releasedAt: new Date(), releasedByUserId: actor.userId, releaseReason: reason }
+      });
+      if (claimed.count !== 1) throw new ConflictException("La asignación cambió; vuelve a intentar");
+      await this.record(actor.tenantId, crew.orgId, actor.userId, "task_allocation.released", existing.id, requestId, { taskId, userId }, tx);
+      return { status: "RELEASED" as const };
     });
-    if (claimed.count !== 1) throw new ConflictException("La asignación cambió; vuelve a intentar");
-    await this.record(actor.tenantId, crew.orgId, actor.userId, "task_allocation.released", existing.id, requestId, { taskId, userId });
-    return { status: "RELEASED" as const };
   }
 
   async listForTask(actor: AllocationActor, crewId: string, taskId: string) {
     this.assertEnabled();
     const crew = await this.requireCrewScope(actor, crewId);
-    const rows = await this.prisma.taskAllocation.findMany({ where: { taskId, crewId: crew.id } });
+    const rows = await this.prisma.taskAllocation.findMany({ where: { tenantId: actor.tenantId, orgId: crew.orgId, taskId, crewId: crew.id } });
     const titles = await this.titles(actor.tenantId, rows.map((r) => r.taskId));
     return rows.map((row) => this.view(row, titles.get(row.taskId)));
   }
@@ -223,7 +346,11 @@ export class TaskAllocationsService {
   async listMine(user: { tenantId: string; userId: string }) {
     this.assertEnabled();
     const rows = await this.prisma.taskAllocation.findMany({ where: { tenantId: user.tenantId, userId: user.userId } });
-    const live = rows.filter((row) => row.status !== "RELEASED");
+    const visible = await Promise.all(
+      rows.map(async (row) => row.status !== "RELEASED" &&
+        await this.isActiveWorkerInCrew(user.tenantId, row.orgId, row.crewId, user.userId))
+    );
+    const live = rows.filter((_row, index) => visible[index]);
     const titles = await this.titles(user.tenantId, live.map((r) => r.taskId));
     return live.map((row) => this.view(row, titles.get(row.taskId)));
   }
@@ -238,6 +365,9 @@ export class TaskAllocationsService {
     this.assertEnabled();
     const row = await this.prisma.taskAllocation.findFirst({ where: { id: allocationId, tenantId: user.tenantId, userId: user.userId } });
     if (!row) throw new NotFoundException();
+    if (!(await this.isActiveWorkerInCrew(user.tenantId, row.orgId, row.crewId, user.userId))) {
+      throw new NotFoundException();
+    }
     const allowed = TRANSITIONS[row.status] ?? [];
     if (!allowed.includes(next)) {
       throw new UnprocessableEntityException("Transición de estado no permitida");
@@ -245,17 +375,22 @@ export class TaskAllocationsService {
     if (next === "BLOCKED" && !note) {
       throw new UnprocessableEntityException("Indica el motivo del bloqueo");
     }
-    const claimed = await this.prisma.taskAllocation.updateMany({
-      where: { id: row.id, status: row.status },
-      data: {
-        status: next,
-        statusNote: note ?? null,
-        ...(next === "ACKNOWLEDGED" ? { acknowledgedAt: new Date() } : {})
+    return this.serializableMutation(async (tx) => {
+      if (!(await this.isActiveWorkerInCrew(user.tenantId, row.orgId, row.crewId, user.userId, tx))) {
+        throw new NotFoundException();
       }
+      const claimed = await tx.taskAllocation.updateMany({
+        where: { id: row.id, tenantId: user.tenantId, orgId: row.orgId, crewId: row.crewId, userId: user.userId, status: row.status },
+        data: {
+          status: next,
+          statusNote: note ?? null,
+          ...(next === "ACKNOWLEDGED" ? { acknowledgedAt: new Date() } : {})
+        }
+      });
+      if (claimed.count !== 1) throw new ConflictException("La asignación cambió; vuelve a intentar");
+      await this.record(user.tenantId, row.orgId, user.userId, "task_allocation.status_changed", row.id, requestId, { from: row.status, to: next }, tx);
+      return { status: next };
     });
-    if (claimed.count !== 1) throw new ConflictException("La asignación cambió; vuelve a intentar");
-    await this.record(user.tenantId, row.orgId, user.userId, "task_allocation.status_changed", row.id, requestId, { from: row.status, to: next });
-    return { status: next };
   }
 
   /** Títulos de las tareas canónicas, para mostrar algo legible (solo lectura, acotado al tenant). */

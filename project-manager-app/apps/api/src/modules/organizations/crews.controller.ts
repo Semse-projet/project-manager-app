@@ -102,7 +102,7 @@ export class MyCrewsController {
   @AuthenticatedAccess("La persona lee únicamente las cuadrillas donde es miembro o supervisor, revalidadas contra su Membership ACTIVE")
   async mine(@Req() req: Req_) {
     const actor = resolveRequestContext(req);
-    const data = await this.crews.listMine({ userId: actor.userId });
+    const data = await this.crews.listMine({ tenantId: actor.tenantId, userId: actor.userId });
     return ok(resolveRequestId(req.headers ?? {}), data);
   }
 
@@ -110,7 +110,7 @@ export class MyCrewsController {
   @AuthenticatedAccess("Solo el supervisor vigente de esa cuadrilla lee su lista de miembros")
   async roster(@Req() req: Req_, @Param("crewId") crewId: string) {
     const actor = resolveRequestContext(req);
-    const data = await this.crews.rosterForSupervisor({ userId: actor.userId }, parseWithSchema(idSchema, crewId));
+    const data = await this.crews.rosterForSupervisor({ tenantId: actor.tenantId, userId: actor.userId }, parseWithSchema(idSchema, crewId));
     return ok(resolveRequestId(req.headers ?? {}), data);
   }
 }
