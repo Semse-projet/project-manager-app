@@ -1555,7 +1555,7 @@ export type LLMProviderMetric = {
   avgLatencyMs: number;
   p95LatencyMs: number;
   successRate: number;
-  estimatedCostPer1K: number;
+  estimatedCostPer1K: number | null;
   score: number;
   circuitState: "closed" | "open" | "half-open";
   lastFailureAt?: string;
