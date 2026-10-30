@@ -7,14 +7,19 @@
 -- responsable de datos, seguridad/privacidad y el DBA.
 -- SOLO LECTURA. La salida son CONTEOS AGREGADOS: no incluye identificadores de
 -- personas, organizaciones, trabajos, correos, direcciones ni texto libre.
--- La sintaxis NO se ha validado contra una base de datos real. Primer paso de la
+-- La sintaxis NO se ha validado contra una base de datos real.
+-- Este borrador es POR TENANT, no por Org: ProjectIntake carece de orgId.
+-- Aun con supresión primaria por métrica, NO tiene supresión complementaria.
+-- Ninguna salida debe divulgarse sin revisión de inferencia y aprobación de privacidad.
+-- TimeEntry no se cuenta como costo real: su tarifa no distingue pago/facturación. Primer paso de la
 -- revisión: ejecutar EXPLAIN y la consulta sobre una copia restaurada o una réplica
 -- de solo lectura, nunca sobre el primario.
 --
 -- Uso (psql):
---   psql -v tenant_id='' -v min_cell=5 -f cost-engine.q2-data-audit.sql
---     tenant_id=''        todas las organizaciones (solo agregados; requiere autorización de plataforma)
---     tenant_id='<id>'    una sola organización (recomendado para la primera ejecución)
+--   psql -v tenant_id='<tenant-id>' -v min_cell=5 -v detail_level=summary -f cost-engine.q2-data-audit.sql
+--     tenant_id='<id>'    TENANT explícito obligatorio; NO es una organización
+--     tenant_id=''        PROHIBIDO: no devuelve filas; no permite acceso global
+--     detail_level        summary por defecto; detail solo tras revisión de privacidad
 --     min_cell            tamaño mínimo de celda antes de suprimir el conteo (PROPUESTA 5; la fija privacidad)
 --
 -- Nombres: Prisma sin @@map => tablas y columnas con comillas dobles y camelCase.
@@ -26,6 +31,10 @@
 -- =============================================================================
 
 \set ON_ERROR_STOP on
+\if :{?detail_level}
+\else
+  \set detail_level summary
+\endif
 
 BEGIN TRANSACTION READ ONLY;
 -- Límites operativos PROPUESTOS (los ajusta el DBA):
@@ -45,7 +54,7 @@ CROSS JOIN LATERAL jsonb_object_keys(
   CASE WHEN jsonb_typeof(c."termsJson"::jsonb) = 'object' THEN c."termsJson"::jsonb ELSE '{}'::jsonb END
 ) AS k
 WHERE c."deletedAt" IS NULL
-  AND (NULLIF(:'tenant_id', '') IS NULL OR j."tenantId" = NULLIF(:'tenant_id', ''))
+  AND j."tenantId" = NULLIF(:'tenant_id', '')
 GROUP BY k
 ORDER BY contracts DESC;
 
@@ -55,7 +64,8 @@ ORDER BY contracts DESC;
 WITH
 params AS (
   SELECT NULLIF(:'tenant_id', '')::text AS tenant_id,
-         (:'min_cell')::int            AS min_cell
+         (:'min_cell')::int            AS min_cell,
+         :'detail_level'::text         AS detail_level
 ),
 states(code) AS (
   VALUES ('AL'),('AK'),('AZ'),('AR'),('CA'),('CO'),('CT'),('DE'),('DC'),('FL'),('GA'),('HI'),
@@ -81,7 +91,7 @@ base AS (
      AND (pi."generatedEstimateJson" #>> '{totalRange,currency}') = 'USD')   AS has_estimate
   FROM "ProjectIntake" pi
   CROSS JOIN params p
-  WHERE p.tenant_id IS NULL OR pi."tenantId" = p.tenant_id
+  WHERE pi."tenantId" = p.tenant_id
 ),
 -- 2) Trabajo asociado, precio acordado, pagos liberados y evidencia de costo real.
 facts AS (
@@ -159,8 +169,8 @@ flags AS (
     (f.job_status = 'COMPLETED' OR f.project_status = 'COMPLETED')       AS finished,
     (f.contract_total IS NOT NULL OR f.accepted_bid_amount IS NOT NULL)  AS has_agreed_price,
     (coalesce(f.released_to_pro, 0) > 0)                                 AS has_release,
-    (f.n_expense_usd > 0 OR f.n_time_usd > 0)                            AS cost_loose,
-    (f.n_materials_usd > 0 AND (f.n_labor_usd > 0 OR f.n_time_usd > 0))  AS cost_strict
+    (f.n_expense_usd > 0)                                                    AS cost_loose,
+    (f.n_materials_usd > 0 AND f.n_labor_usd > 0)                        AS cost_strict
   FROM facts f
 ),
 tiers AS (
@@ -191,7 +201,7 @@ agg AS (
     count(*) FILTER (WHERE t_cost_loose)         AS cost_evidence_loose,
     count(*) FILTER (WHERE t_cost_strict)        AS cost_evidence_strict,
     -- Diagnósticos de calidad de datos:
-    count(*) FILTER (WHERE has_estimate_json AND NOT has_estimate)                    AS dq_estimate_json_unusable,
+    count(*) FILTER (WHERE has_estimate_json AND NOT coalesce(has_estimate, false))                    AS dq_estimate_json_unusable,
     count(*) FILTER (WHERE "publishedJobId" IS NOT NULL AND job_id IS NULL)           AS dq_published_job_not_found,
     count(*) FILTER (WHERE has_job AND has_contract AND contract_total IS NULL)       AS dq_contract_without_total,
     count(*) FILTER (WHERE finished AND NOT has_agreed_price)                         AS dq_finished_without_price,
@@ -216,22 +226,26 @@ SELECT
   -- Supresión de celdas pequeñas (protección de datos). OJO: no hay supresión
   -- complementaria; ver nota §7 antes de publicar resultados por categoría y estado.
   CASE WHEN a.intakes BETWEEN 1 AND p.min_cell - 1 THEN NULL ELSE a.intakes END                    AS intakes,
-  CASE WHEN a.intakes BETWEEN 1 AND p.min_cell - 1 THEN NULL ELSE a.estimated END                  AS estimated,
-  CASE WHEN a.intakes BETWEEN 1 AND p.min_cell - 1 THEN NULL ELSE a.published END                  AS published,
-  CASE WHEN a.intakes BETWEEN 1 AND p.min_cell - 1 THEN NULL ELSE a.finished END                   AS finished,
-  CASE WHEN a.intakes BETWEEN 1 AND p.min_cell - 1 THEN NULL ELSE a.finished_with_agreed_price END AS finished_with_agreed_price,
-  CASE WHEN a.intakes BETWEEN 1 AND p.min_cell - 1 THEN NULL ELSE a.payment_evidence_only END      AS payment_evidence_only,
-  CASE WHEN a.intakes BETWEEN 1 AND p.min_cell - 1 THEN NULL ELSE a.cost_evidence_loose END        AS cost_evidence_loose,
-  CASE WHEN a.intakes BETWEEN 1 AND p.min_cell - 1 THEN NULL ELSE a.cost_evidence_strict END       AS cost_evidence_strict,
-  CASE WHEN a.intakes BETWEEN 1 AND p.min_cell - 1 THEN NULL ELSE a.dq_estimate_json_unusable END  AS dq_estimate_json_unusable,
-  CASE WHEN a.intakes BETWEEN 1 AND p.min_cell - 1 THEN NULL ELSE a.dq_published_job_not_found END AS dq_published_job_not_found,
-  CASE WHEN a.intakes BETWEEN 1 AND p.min_cell - 1 THEN NULL ELSE a.dq_contract_without_total END  AS dq_contract_without_total,
-  CASE WHEN a.intakes BETWEEN 1 AND p.min_cell - 1 THEN NULL ELSE a.dq_finished_without_price END  AS dq_finished_without_price,
-  CASE WHEN a.intakes BETWEEN 1 AND p.min_cell - 1 THEN NULL ELSE a.dq_non_usd_cost_records END    AS dq_non_usd_cost_records,
-  CASE WHEN a.intakes BETWEEN 1 AND p.min_cell - 1 THEN NULL ELSE a.dq_region_unresolved END       AS dq_region_unresolved,
+  CASE WHEN (a.intakes BETWEEN 1 AND p.min_cell - 1 OR a.estimated BETWEEN 1 AND p.min_cell - 1) THEN NULL ELSE a.estimated END                  AS estimated,
+  CASE WHEN (a.intakes BETWEEN 1 AND p.min_cell - 1 OR a.published BETWEEN 1 AND p.min_cell - 1) THEN NULL ELSE a.published END                  AS published,
+  CASE WHEN (a.intakes BETWEEN 1 AND p.min_cell - 1 OR a.finished BETWEEN 1 AND p.min_cell - 1) THEN NULL ELSE a.finished END                   AS finished,
+  CASE WHEN (a.intakes BETWEEN 1 AND p.min_cell - 1 OR a.finished_with_agreed_price BETWEEN 1 AND p.min_cell - 1) THEN NULL ELSE a.finished_with_agreed_price END AS finished_with_agreed_price,
+  CASE WHEN (a.intakes BETWEEN 1 AND p.min_cell - 1 OR a.payment_evidence_only BETWEEN 1 AND p.min_cell - 1) THEN NULL ELSE a.payment_evidence_only END      AS payment_evidence_only,
+  CASE WHEN (a.intakes BETWEEN 1 AND p.min_cell - 1 OR a.cost_evidence_loose BETWEEN 1 AND p.min_cell - 1) THEN NULL ELSE a.cost_evidence_loose END        AS cost_evidence_loose,
+  CASE WHEN (a.intakes BETWEEN 1 AND p.min_cell - 1 OR a.cost_evidence_strict BETWEEN 1 AND p.min_cell - 1) THEN NULL ELSE a.cost_evidence_strict END       AS cost_evidence_strict,
+  CASE WHEN (a.intakes BETWEEN 1 AND p.min_cell - 1 OR a.dq_estimate_json_unusable BETWEEN 1 AND p.min_cell - 1) THEN NULL ELSE a.dq_estimate_json_unusable END  AS dq_estimate_json_unusable,
+  CASE WHEN (a.intakes BETWEEN 1 AND p.min_cell - 1 OR a.dq_published_job_not_found BETWEEN 1 AND p.min_cell - 1) THEN NULL ELSE a.dq_published_job_not_found END AS dq_published_job_not_found,
+  CASE WHEN (a.intakes BETWEEN 1 AND p.min_cell - 1 OR a.dq_contract_without_total BETWEEN 1 AND p.min_cell - 1) THEN NULL ELSE a.dq_contract_without_total END  AS dq_contract_without_total,
+  CASE WHEN (a.intakes BETWEEN 1 AND p.min_cell - 1 OR a.dq_finished_without_price BETWEEN 1 AND p.min_cell - 1) THEN NULL ELSE a.dq_finished_without_price END  AS dq_finished_without_price,
+  CASE WHEN (a.intakes BETWEEN 1 AND p.min_cell - 1 OR a.dq_non_usd_cost_records BETWEEN 1 AND p.min_cell - 1) THEN NULL ELSE a.dq_non_usd_cost_records END    AS dq_non_usd_cost_records,
+  CASE WHEN (a.intakes BETWEEN 1 AND p.min_cell - 1 OR a.dq_region_unresolved BETWEEN 1 AND p.min_cell - 1) THEN NULL ELSE a.dq_region_unresolved END       AS dq_region_unresolved,
   (a.intakes BETWEEN 1 AND p.min_cell - 1)                                                          AS cell_suppressed
 FROM agg a
 CROSS JOIN params p
+WHERE p.tenant_id IS NOT NULL
+  AND p.min_cell >= 2
+  AND p.detail_level IN ('summary','detail')
+  AND (p.detail_level = 'detail' OR a.g = 7)
 ORDER BY dimension, a.category NULLS FIRST, a.state NULLS FIRST, a.quarter NULLS FIRST;
 
 COMMIT;
