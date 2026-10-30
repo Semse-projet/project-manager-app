@@ -11,8 +11,8 @@ date: "2026-10-30"
 
 # Plan técnico: Motor de costos unificado
 
-> Prerrequisito: spec `APPROVED`. Hoy está en `DRAFT` con preguntas abiertas (spec §11): este plan **no
-> autoriza código**. Separa implementación, merge, despliegue y activación.
+> Prerrequisito: spec `APPROVED`. Hoy está en `DRAFT` v0.2 con preguntas abiertas (spec §11): este plan **no
+> autoriza código**. Implementa el **ADR-027** (Accepted): `pricing/*` como autoridad determinista. Separa implementación, merge, despliegue y activación.
 
 ## 1. Snapshot de verdad
 
@@ -36,9 +36,12 @@ date: "2026-10-30"
 
 - Fuente de verdad de la fórmula: motores de `packages/tools`. Fuente de los parámetros: `PARAMETER_REGISTRY`
   (defaults) + `CostParameter` (excepciones por capa).
-- Estrategia clave: **recalcular `buildCostSummary` fuera de los motores** con los parámetros efectivos, para no
-  tocar los 24 motores. Debe validarse por motor (T-004). Si algún motor no expone la base antes de márgenes,
-  se corrige solo ese motor.
+- Estrategia clave: **recalcular `buildCostSummary` fuera de los motores** sin tocar los 24, pero **derivando de cada
+  resultado la tasa de overhead y ganancia que el motor usó** (varios tienen márgenes propios y dependientes de la
+  entrada: HVAC 17/22, baño 15/22, limpieza 10/18…) y sobrescribiendo solo lo que una capa define. Debe demostrarse por
+  motor (T-004). Si alguno no admite la reconstrucción, se corrige solo ese motor.
+- Impuestos: `TaxPolicy` versionada reemplaza el 7 % universal; sin política vigente el estimado dice "impuestos no determinados".
+- `quote-engine` y `contractor-estimate` pasan por el servicio (ADR-027); `ContractorRateOverride` es la capa contratista.
 - Servicio único `CostEngineService`; los consumidores no importan motores directamente.
 - Región: se reutiliza `LocationCostService` y la resolución de región de la spec regional.
 - Smart Intake: adaptador respuesta → entradas del motor; el rango sale de ejecutar el motor con escenarios bajo y alto.
@@ -73,8 +76,14 @@ date: "2026-10-30"
 ### Fase 0 — Verdad y red de seguridad (sin código de producto)
 
 - Inventario de consumidores de los motores y de estimados guardados.
-- **Tests de contrato por motor** (golden): resultado actual = `buildCostSummary(materials, labor)` con defaults.
-- Validación externa de datos (plan §9).
+- **Tests de contrato de los 24 motores** (golden): componentes base, resultado actual, reconstrucción con `buildCostSummary` y márgenes propios, unidades, redondeos y escenarios límite.
+- Validación externa de datos (plan §9) y revisión fiscal (Q10).
+
+### Fase 0b — Correcciones P0 que ya afectan a producción
+
+- Metodología PPI: precio de referencia con fecha e índice de esa fecha (hoy `basePrice × índice/100`).
+- Impuesto: dejar de presentar el 7 % como universal; `TaxPolicy` versionada y estado "impuestos no determinados".
+- Cada una con su propia spec/PR si el alcance lo pide; no esperan al servicio completo.
 
 ### Fase 1 — Servicio y registro (sin migración, sin efecto visible)
 
@@ -115,7 +124,11 @@ date: "2026-10-30"
 | Parámetros mal configurados mueven precios | Media | Alto | Límites, motivo, auditoría, reversión y aprobación para fee/tax | Cambio brusco del estimado medio |
 | Mapeo respuesta → cantidades incorrecto | Alta | Alto | Revisión de oficio (Q9), sombra y activación por categoría | Ratio motor/plana fuera de lo aprobado |
 | Latencia del servicio en rutas públicas | Media | Medio | Lectura sin red, caché y fallback a la fórmula plana | Regresión de p95 |
-| Márgenes del contratista expuestos al cliente | Baja | Alto | Modos y recorte de traza; test explícito | Cualquier hallazgo |
+| Márgenes del contratista expuestos al cliente | Baja | Alto | Serializador por modo en el servidor y pruebas negativas sobre el JSON | Cualquier hallazgo |
+| Impuesto mal aplicado (7 % universal o política errónea) | Alta | Alto | `TaxPolicy` versionada con revisión fiscal profesional; "impuestos no determinados" si no hay política | Reclamo fiscal o cobro incorrecto |
+| Conversión PPI errónea sigue activa | Alta | Alto | Fase 0b; marcar precios como no confiables hasta corregir | Desviación frente a precios observados |
+| Dos fórmulas de total (`quote-engine` vs. `buildCostSummary`) | Alta | Alto | Unificar en el servicio y prueba de igualdad | Totales distintos para el mismo caso |
+| Un cambio de parámetro altera importes aceptados | Baja | Alto | Inmutabilidad, vigencia y trazas | Cualquier importe aceptado que cambie |
 
 ## 9. Investigación externa
 
@@ -123,7 +136,11 @@ date: "2026-10-30"
 |---|---|---|
 | Vigencia y metodología de BLS OEWS por estado y oficio | BLS (a consultar) | Pendiente |
 | Índices de costo de construcción por estado | RSMeans o equivalente (a consultar) | Pendiente |
-| Márgenes típicos de overhead y ganancia por oficio, y tasas de impuesto por estado | Fuentes del sector / tributarias (a consultar) | Pendiente |
+| Márgenes típicos de overhead y ganancia por oficio | Fuentes del sector (a consultar) | Pendiente |
+| Tratamiento fiscal de servicios de construcción por jurisdicción y tipo de contrato | Autoridades tributarias + profesional fiscal | Pendiente (Q10) |
+| Metodología PPI y conversión índice → precio con fecha base | BLS PPI | Pendiente de verificar y aplicar (Fase 0b) |
+| Clasificación de estimados y calibración de confianza | AACE International | Pendiente (Q2) |
+| Separación de funciones y doble autorización | NIST AC-5 / AC-3(2), OWASP | Adoptado como criterio de diseño (spec §3) |
 | Rendimientos y precios base de los motores por oficio | Cotizaciones reales, revisión de expertos de oficio | Pendiente |
 
 ## 10. Gates antes de tareas

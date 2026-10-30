@@ -16,19 +16,27 @@ date: "2026-10-30"
 
 ## Fase 0 — SDD y verdad
 
-- [ ] [T-001] Cerrar Q1–Q9 de la spec §11 y pasar a `APPROVED`
+- [ ] [T-001] Cerrar Q2, Q3, Q5, Q7, Q9, Q10 y Q11 (spec §11) y pasar a `APPROVED`; confirmar Q1, Q4, Q6 y Q8
 - [ ] [T-002] Registrar SHA Git/producción, migraciones, mecanismo de flags y estado de `LocationCostIndex` en producción
 - [ ] [T-003] Completar análisis spec↔plan↔constitución y ADR de las decisiones clave
-- [ ] [T-004] Tests de contrato (golden) por motor: `buildCostSummary(costs.materials, costs.labor)` con defaults reproduce el resultado actual
+- [ ] [T-004] Tests de contrato (golden) de los 24 motores: base, resultado actual, reconstrucción preservando los márgenes propios de cada oficio, unidades, redondeos y escenarios límite
 - [ ] [T-005] Investigación externa y validación de datos (plan §9)
+- [ ] [T-006] Documentar #1074 como `SUPERSEDED` enlazando esta spec (**solo con confirmación del owner**; no cerrar sin ella)
+- [ ] [T-007] Alinear con ADR-027: plan de adaptación de `contractor-estimate.service.ts`
+
+## Fase 0b — Correcciones P0
+
+- [ ] [T-008] Corregir metodología PPI (precio de referencia con fecha, índice de esa fecha, unidad y serie compatible)
+- [ ] [T-009] `TaxPolicy` versionada y estado "impuestos no determinados"; revisión fiscal profesional previa a valores
 
 ## Fase 1 — Servicio y registro
 
 - [ ] [T-010] Tests rojos del resolvedor por capas, límites y capas reservadas
 - [ ] [T-011] [P] Schemas Zod de `CostParameter` y `costTrace`
-- [ ] [T-012] `PARAMETER_REGISTRY` y `CostEngineService.compute` con recalculo de márgenes
+- [ ] [T-012] `PARAMETER_REGISTRY` y `CostEngineService.compute` con recalculo que deriva y conserva los márgenes propios del oficio
 - [ ] [T-013] `costTrace` (versión del motor, fecha de precios, parámetros y origen)
 - [ ] [T-014] Pasar tests; confirmar que no cambia ningún resultado con defaults
+- [ ] [T-015] Unificar `quote-engine` en el servicio con prueba de igualdad de totales
 
 ## Fase 2 — Smart Intake en modo sombra
 
@@ -45,7 +53,10 @@ date: "2026-10-30"
 - [ ] [T-032] Servicio de parámetros con límites, versión y reversión
 - [ ] [T-033] Permisos por capa en `rbac.ts` y endpoints `/v1/pricing/cost-parameters`
 - [ ] [T-034] `AuditLog` con before/after y pruebas de aislamiento entre tenants y organizaciones
-- [ ] [T-035] Aprobación reforzada para `platformFeeRate` y `taxRate` (según Q1)
+- [ ] [T-035] Flujo de doble control para `platformFeeRate` y `TaxPolicy`: solicitante distinto del aprobador, reautenticación reciente, aprobación ligada a valores y versión, caducidad
+- [ ] [T-036] Permiso `pricing:org:manage` por `Membership` activa, con pruebas de otra organización y membresía inactiva
+- [ ] [T-037] Serializador por modo y pruebas negativas de privacidad sobre el JSON del cliente
+- [ ] [T-038] Control optimista de versión (`409`)
 
 ## Fase 4 — Pantallas
 
@@ -59,7 +70,7 @@ date: "2026-10-30"
 
 - [ ] [T-050] Activar `COST_ENGINE_SMART_INTAKE` por categoría con smoke en Chrome
 - [ ] [T-051] Migrar ProTools y Prometeo al servicio
-- [ ] [T-052] Migrar cotizaciones y órdenes de cambio al servicio
+- [ ] [T-052] Migrar cotizaciones, órdenes de cambio y `contractor-estimate` al servicio (ADR-027)
 - [ ] [T-053] Retirar la fórmula plana con evidencia
 
 ## Fase 6 — PR, CI, deploy y verificación (por cada fase anterior)

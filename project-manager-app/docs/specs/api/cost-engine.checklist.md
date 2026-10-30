@@ -12,15 +12,18 @@ date: "2026-10-30"
 
 - [x] Cada escenario P1–P5 es verificable
 - [x] Scope y no-objetivos evitan ambigüedad
-- [ ] Preguntas abiertas Q1–Q9 resueltas (bloquea `APPROVED`)
+- [ ] Q2, Q3, Q5, Q7, Q9, Q10 y Q11 resueltas; Q1, Q4, Q6 y Q8 confirmadas (bloquea `APPROVED`)
+- [ ] Alineada con ADR-027
 - [ ] API/UI contracts no se contradicen (revisar tras Q1, Q4 y Q6)
 
 ## Seguridad
 
 - [ ] Permisos por capa se validan en backend
-- [ ] `platformFeeRate` e `taxRate` no se pueden escribir desde capas inferiores
+- [ ] `platformFeeRate` y `TaxPolicy` no se pueden escribir desde capas inferiores
+- [ ] Doble control: solicitante distinto del aprobador, reautenticación reciente, aprobación ligada a valores y versión
+- [ ] `pricing:org:manage` exige `Membership` activa de esa organización
 - [ ] Contratista y organización no leen ni escriben datos de otros tenants u organizaciones
-- [ ] Los márgenes del contratista no se exponen al cliente
+- [ ] Los márgenes del contratista no se exponen al cliente (prueba negativa sobre el JSON)
 - [ ] Límites, motivo ≥ 10 caracteres y auditoría en todo cambio
 - [ ] No hay secretos ni PII en logs/evidencia
 
@@ -35,7 +38,11 @@ date: "2026-10-30"
 
 - [ ] Cambios de comisión e impuesto no alteran contratos, hitos ni escrow existentes
 - [ ] Aprobación reforzada para parámetros con impacto en pagos
-- [ ] El recalculo externo de márgenes reproduce cada motor (tests golden)
+- [ ] El recalculo externo reproduce cada uno de los 24 motores y conserva sus márgenes propios (tests golden)
+- [ ] `quote-engine` y `contractor-estimate` coinciden con el servicio
+- [ ] Sin 7 % universal: política fiscal versionada y revisada
+- [ ] Metodología PPI corregida (índice de la fecha del precio base)
+- [ ] Costo interno, precio de venta y obligación de pago separados; estimados aceptados inmutables
 
 ## Entrega
 
