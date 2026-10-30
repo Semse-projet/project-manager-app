@@ -24,12 +24,14 @@ date: "2026-10-30"
 - [ ] [T-001] Cerrar Q2, Q3, Q5, Q7, Q9, Q10 y Q11 (spec §11) y pasar a `APPROVED`; confirmar Q1, Q4, Q6 y Q8
 - [ ] [T-002] Registrar SHA Git/producción, migraciones, mecanismo de flags y estado de `LocationCostIndex` en producción
 - [ ] [T-003] Completar análisis spec↔plan↔constitución y ADR de las decisiones clave
-- [ ] [T-004] Pruebas diagnósticas de los 24 motores (excepción previa a `APPROVED`, solo pruebas):
+- [~] [T-004] Pruebas diagnósticas de los 24 motores — **ejecutadas** en el PR #1076 (72 escenarios, 76/76 tests); falta revisión y decisión sobre sus conclusiones (excepción previa a `APPROVED`, solo pruebas):
   - al menos **tres escenarios por motor** (normal, complejo y límite): 72 iniciales, más los que los resultados justifiquen;
   - comparar cada salida contra su resultado original: ninguna discrepancia monetaria sin explicar y **sin tolerancias arbitrarias** que oculten diferencias;
   - capturar los argumentos reales que cada motor pasa a `buildCostSummary` (base, tasas efectivas, divisor) y compararlos con la reconstrucción por división de importes redondeados, que puede perder precisión (también `total / perUnit`);
   - si hay diferencias, evaluar que los motores **expongan directamente** tasas efectivas, bases y divisor, compatible con sus respuestas actuales;
   - informe que registre fallos, redondeos y motores incompatibles, con causas y modificaciones necesarias, y que **distinga errores de reconstrucción de errores de precios de mercado** (una prueba golden demuestra estabilidad matemática, no que un presupuesto sea comercialmente correcto)
+- [ ] [T-004b] Que los 24 motores expongan `costs.basis`, `effectiveRates` y `perUnitDivisor` (aditivo y compatible); **posterior a `APPROVED`**, es cambio de lógica de `packages/tools`
+- [ ] [T-004c] Unificar la unidad de `wastePercent` (porcentaje en `concrete`, fracción en `masonry`) o documentarla en el adaptador de Smart Intake
 - [ ] [T-005] Investigación externa y validación de datos (plan §9)
 - [x] [T-006] #1074 cerrado como `SUPERSEDED` con comentario de trazabilidad hacia #1075 (autorizado por el owner el 2026-10-30; rama e historial conservados)
 - [ ] [T-007] Alinear con ADR-027: plan de adaptación de `contractor-estimate.service.ts`

@@ -3,7 +3,7 @@ id: "api-cost-engine"
 title: "Motor de costos unificado"
 domain: "pricing"
 sdd_version: "2.0"
-version: "0.2"
+version: "0.3"
 status: "DRAFT"
 owner: "semse-core"
 risk: "high"
@@ -51,6 +51,10 @@ last_verified: "NOT_VERIFIED"
 > Spec SDD 2.0 **DRAFT v0.2**. No autoriza implementación hasta pasar a `APPROVED`.
 > Riesgo **alto**: los parámetros del motor (comisión SEMSE, impuestos, márgenes) afectan lo que se cotiza,
 > se contrata y se paga en escrow.
+>
+> **Revisión v0.3 (2026-10-30):** incorpora la evidencia de T-004 (PR #1076, informe `docs/reportes/COST_ENGINE_T004_DIAGNOSTICS_2026-10-30.md`):
+> la reconstrucción de tasas por división de importes redondeados **no** es exacta (42/72 escenarios), así que los motores
+> deberán exponer sus tasas efectivas, base y divisor (§5).
 >
 > **Revisión v0.2 (2026-10-30):** incorpora una auditoría externa de la v0.1. Los hallazgos de código se
 > verificaron contra `main` y se marcan *(verificado)*. Los datos externos (impuestos de Florida, cifras BLS,
@@ -321,19 +325,23 @@ CostEngineService.compute(request):
 ### Recalculo preservando los márgenes del oficio
 
 Los motores devuelven `costs.materials` y `costs.labor` (base) y llaman a `buildCostSummary(materials, labor, options)`
-con **márgenes propios** (a veces dependientes de la entrada). Por eso el servicio **no** parte de valores globales:
+con **márgenes propios** (14 de 24 los varían según la entrada: T-004). Por eso el servicio **no** parte de valores globales:
 
-1. Deriva la tasa efectiva que usó el motor a partir de su propio resultado: `overheadRate = overhead / (materials + labor)`
-   y `profitRate = profit / (materials + labor + overhead)`; el divisor de `perUnit` sale de `total / perUnit`.
-2. Solo sobrescribe los parámetros que una capa **define explícitamente**; el resto queda como el motor lo calculó.
+1. **Los motores exponen directamente lo que usaron** (cambio aditivo y compatible con la respuesta actual):
+   `costs.basis = { materials, labor }` sin redondear, `effectiveRates = { overhead, profit, semseFeeRate, taxRate }` y
+   `perUnitDivisor`. Es la única fuente: **no se re-derivan por división** (T-004: solo 42/72 reconstrucciones exactas y
+   57/66 divisores `total / perUnit` distintos del real).
+2. El servicio sobrescribe solo los parámetros que una capa **define explícitamente**; el resto queda como el motor lo calculó.
 3. Vuelve a llamar a `buildCostSummary` con ese conjunto y con el impuesto de la `TaxPolicy` (no `DEFAULT_TAX`).
 
-Este supuesto debe demostrarse **por motor** con pruebas diagnósticas antes de aprobar (T-004, al menos tres
-escenarios por motor: normal, complejo y límite). **Reconstruir tasas dividiendo importes ya redondeados puede perder
-precisión** (lo mismo con `total / perUnit`); es válido solo como primera comprobación. Si aparecen diferencias no se
-ocultan con tolerancias arbitrarias: se evalúa que los motores **expongan directamente** sus tasas efectivas, bases de
-cálculo y divisor originales, manteniendo compatibilidad con sus respuestas actuales. Si algún motor no admite la
-reconstrucción, se ajusta solo ese motor. La composición de `quote-engine` (que agrega
+La derivación por división puede usarse únicamente como comprobación cruzada en pruebas, nunca en producción.
+
+**Evidencia T-004 (PR #1076, 72 escenarios, tolerancia cero):** los 24 motores llaman a `buildCostSummary` una vez y
+`costs` es exactamente esa salida; reejecutarla con los argumentos capturados reproduce el resultado 72/72. En cambio,
+reconstruir por división de importes redondeados da diferencias de ±1 centavo en 30/72 escenarios y recupera mal el
+divisor de `perUnit` en 57/66. Por eso el punto 1 exige que los motores expongan base, tasas y divisor. Esos campos se
+añaden a los 24 motores (cambio de `packages/tools` aditivo, con pruebas de compatibilidad de la respuesta existente).
+Que la reconstrucción sea matemáticamente exacta **no** prueba que ningún precio o margen sea comercialmente correcto. La composición de `quote-engine` (que agrega
 contingencia y otro orden de factores) pasa a ser una variante explícita del servicio, no una fórmula paralela.
 
 ### Registro de parámetros (en código, valores por defecto = propuesta sin aprobar)
@@ -441,7 +449,7 @@ forbidden_behavior: escribir CostParameter/TaxPolicy, saltarse límites o capas,
 
 ## 9. Tests requeridos
 
-- [ ] **Contrato por motor (los 24):** componentes base, resultado actual, reconstrucción con `buildCostSummary`, unidades, redondeos y escenarios límite; verifica también los márgenes propios del oficio.
+- [x] *(T-004, PR #1076)* **Diagnóstico de los 24 motores (72 escenarios):** componentes base, resultado actual, reconstrucción con `buildCostSummary`, unidades, redondeos y escenarios límite; verifica también los márgenes propios del oficio.
 - [ ] Resolución por capas: precedencia, límites, capas reservadas, reversión y conservación del default del oficio.
 - [ ] `TaxPolicy`: vigencia, componentes gravables, jurisdicción sin política (sin 7 % implícito).
 - [ ] Doble control: el solicitante no aprueba, caducidad al editar, reautenticación, vigencia.

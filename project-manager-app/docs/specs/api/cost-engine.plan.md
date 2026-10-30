@@ -36,10 +36,11 @@ date: "2026-10-30"
 
 - Fuente de verdad de la fórmula: motores de `packages/tools`. Fuente de los parámetros: `PARAMETER_REGISTRY`
   (defaults) + `CostParameter` (excepciones por capa).
-- Estrategia clave: **recalcular `buildCostSummary` fuera de los motores** sin tocar los 24, pero **derivando de cada
-  resultado la tasa de overhead y ganancia que el motor usó** (varios tienen márgenes propios y dependientes de la
-  entrada: HVAC 17/22, baño 15/22, limpieza 10/18…) y sobrescribiendo solo lo que una capa define. Debe demostrarse por
-  motor (T-004). Si alguno no admite la reconstrucción, se corrige solo ese motor.
+- Estrategia clave: **recalcular `buildCostSummary` fuera de los motores**, partiendo de lo que cada motor **expone**
+  (`costs.basis`, `effectiveRates`, `perUnitDivisor`) y no de una derivación por división (varios tienen márgenes propios y
+  dependientes de la entrada: HVAC 17/22, baño 15/22, limpieza 10/18…), y sobrescribiendo solo lo que una capa define.
+  **T-004 (PR #1076)** mostró que la derivación solo acierta en 42/72 escenarios; añadir esos campos es un cambio aditivo
+  en los 24 motores (T-004b, posterior a `APPROVED`).
 - Impuestos: `TaxPolicy` versionada reemplaza el 7 % universal; sin política vigente el estimado dice "impuestos no determinados".
 - `quote-engine` y `contractor-estimate` pasan por el servicio (ADR-027); `ContractorRateOverride` es la capa contratista.
 - Servicio único `CostEngineService`; los consumidores no importan motores directamente.
