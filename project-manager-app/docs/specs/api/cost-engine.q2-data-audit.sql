@@ -239,7 +239,20 @@ SELECT
   CASE WHEN (a.intakes BETWEEN 1 AND p.min_cell - 1 OR a.dq_finished_without_price BETWEEN 1 AND p.min_cell - 1) THEN NULL ELSE a.dq_finished_without_price END  AS dq_finished_without_price,
   CASE WHEN (a.intakes BETWEEN 1 AND p.min_cell - 1 OR a.dq_non_usd_cost_records BETWEEN 1 AND p.min_cell - 1) THEN NULL ELSE a.dq_non_usd_cost_records END    AS dq_non_usd_cost_records,
   CASE WHEN (a.intakes BETWEEN 1 AND p.min_cell - 1 OR a.dq_region_unresolved BETWEEN 1 AND p.min_cell - 1) THEN NULL ELSE a.dq_region_unresolved END       AS dq_region_unresolved,
-  (a.intakes BETWEEN 1 AND p.min_cell - 1)                                                          AS cell_suppressed
+  (a.intakes BETWEEN 1 AND p.min_cell - 1
+   OR a.estimated BETWEEN 1 AND p.min_cell - 1
+   OR a.published BETWEEN 1 AND p.min_cell - 1
+   OR a.finished BETWEEN 1 AND p.min_cell - 1
+   OR a.finished_with_agreed_price BETWEEN 1 AND p.min_cell - 1
+   OR a.payment_evidence_only BETWEEN 1 AND p.min_cell - 1
+   OR a.cost_evidence_loose BETWEEN 1 AND p.min_cell - 1
+   OR a.cost_evidence_strict BETWEEN 1 AND p.min_cell - 1
+   OR a.dq_estimate_json_unusable BETWEEN 1 AND p.min_cell - 1
+   OR a.dq_published_job_not_found BETWEEN 1 AND p.min_cell - 1
+   OR a.dq_contract_without_total BETWEEN 1 AND p.min_cell - 1
+   OR a.dq_finished_without_price BETWEEN 1 AND p.min_cell - 1
+   OR a.dq_non_usd_cost_records BETWEEN 1 AND p.min_cell - 1
+   OR a.dq_region_unresolved BETWEEN 1 AND p.min_cell - 1) AS cell_suppressed
 FROM agg a
 CROSS JOIN params p
 WHERE p.tenant_id IS NOT NULL
