@@ -19,7 +19,7 @@ date: "2026-10-30"
 
 ¿Cuántos proyectos de SEMSE tienen datos suficientes para **calibrar** los motores (comparar el estimado original con el costo real)?
 GAO recomienda derivar la incertidumbre de datos históricos y comprobar que son aplicables (verificado en búsqueda web; ver expediente Q2).
-Hoy no se sabe si existe volumen suficiente. Esta auditoría lo mide **sin leer datos personales**.
+Hoy no se sabe si existe volumen suficiente. Esta auditoría **no devuelve datos personales**, pero procesa registros individuales y financieros en origen. Requiere privilegios limitados y revisión de privacidad.
 
 ## 2. Responsables y validación
 
@@ -33,7 +33,7 @@ Hoy no se sabe si existe volumen suficiente. Esta auditoría lo mide **sin leer 
 
 ## 3. Qué distingue la consulta (terminado ≠ datos económicos completos)
 
-Cada intake se clasifica en escalones **acumulativos**. Cada escalón es un subconjunto del anterior:
+Cada intake se clasifica en escalones **acumulativos**. Los escalones de progresión son acumulativos; `payment_evidence_only` es una métrica lateral, no un escalón sucesivo:
 
 | Escalón | Significado | Fuente en el esquema |
 |---|---|---|
@@ -42,13 +42,13 @@ Cada intake se clasifica en escalones **acumulativos**. Cada escalón es un subc
 | `finished` | **Terminado** | `Job.status = 'COMPLETED'` **o** `Project.status = 'COMPLETED'` |
 | `finished_with_agreed_price` | Terminado con precio acordado | `Contract.termsJson.totalAmount` **o** `Bid.amount` con `status = 'ACCEPTED'` |
 | `payment_evidence_only` | **Solo hay pagos liberados**, sin gasto ni horas aprobadas | `PaymentTxn.type = 'RELEASE'` y `status = 'SUCCEEDED'`, y ninguna evidencia de costo |
-| `cost_evidence_loose` | Terminado con precio **y** algún costo real aprobado | `ProjectExpense` aprobada/reembolsada (no duplicada, USD) **o** `TimeEntry` aprobada con tarifa |
-| `cost_evidence_strict` | Terminado con precio **y** evidencia de materiales **y** de mano de obra | gasto de materiales (USD) **y** (gasto de mano de obra **o** horas) |
+| `cost_evidence_loose` | Terminado con precio **y** al menos un gasto aprobado (cobertura parcial, no costo completo) | `ProjectExpense` aprobada/reembolsada (no duplicada, USD); `TimeEntry` es evidencia operativa separada |
+| `cost_evidence_strict` | Terminado con precio **y** gastos registrados de materiales y mano de obra; no acredita la integridad del costo total | `ProjectExpense` aprobada (USD) de materiales **y** mano de obra, sin usar horas como importe pagado |
 
 **Un pago de escrow no es el costo real del trabajo:** es dinero liberado al profesional. Por eso `payment_evidence_only` se cuenta aparte
-y **nunca** cuenta como evidencia de costo. Qué definición de "completo" se usa (`loose` o `strict`) la decide el responsable de datos.
+y **nunca** cuenta como evidencia de costo. Ningún escalón acredita por sí solo costos finales completos. El responsable de datos y costos deberá definir el criterio adicional de integridad y conciliación.
 
-También devuelve, por total, categoría, estado, trimestre y categoría × estado: región resuelta a un código de estado válido (o `UNRESOLVED`),
+Por defecto devuelve **solo totales por tenant**. La opción `detail_level=detail` agrega categoría, estado, trimestre y categoría × estado, pero es exclusivamente para revisión interna restringida y no autoriza publicación. La región se reduce a un código válido (o `UNRESOLVED`),
 trimestre de creación del intake, y **diagnósticos de calidad**: estimados no usables, `publishedJobId` sin trabajo, contratos sin total,
 terminados sin precio, registros de costo en moneda distinta de USD y regiones no resueltas.
 
@@ -72,13 +72,15 @@ Una sonda previa (Q0) lista **solo los nombres de clave** de `Contract.termsJson
 
 1. **Integridad del enlace** intake → trabajo: sin llave foránea, puede haber `publishedJobId` huérfanos (el diagnóstico `dq_published_job_not_found` los cuenta).
    Tampoco se verifica si **dos intakes apuntan al mismo trabajo** (se contaría dos veces): requiere una comprobación adicional de solo conteo.
-2. **Fecha de finalización:** no existe; el informe usa el trimestre de creación del intake como proxy.
+2. **Fecha de finalización:** no existe en estos modelos; la agrupación por trimestre de creación del intake no equivale al trimestre de finalización.
 3. **Estructura de `Contract.termsJson`:** se asume `totalAmount` en el primer nivel; Q0 debe confirmarlo.
-4. **`TimeEntry.currency` tiene por defecto `'MXN'`** y `hourlyRate` no distingue tarifa pagada de tarifa facturada: las horas son evidencia **débil** de costo; los registros no USD se excluyen y se cuentan.
+4. **`TimeEntry.currency` tiene por defecto `'MXN'`** y `hourlyRate` no distingue tarifa pagada de tarifa facturada. Además, la entrada puede ser personal o estar solo `completed` (no necesariamente aprobada). Por eso la consulta las trata como evidencia operativa auxiliar y no como costo real en `loose` ni `strict`.
 5. **`ProjectExpense`:** las categorías son texto con valores sugeridos en un comentario del esquema; un gasto puede pertenecer a un proyecto de varios oficios y no coincidir con el alcance del estimado.
 6. **Cambios de alcance:** `ChangeOrderCandidate` guarda solo rangos estimados, no importes aprobados reales; **no se usa**. No sé dónde se registran las órdenes de cambio aprobadas con su monto final **[PENDIENTE]**.
 7. **Región:** se obtiene de un texto libre con un patrón "…, ST" validado contra los 50 estados y DC; ciudades sin estado quedan `UNRESOLVED`.
 8. **Sintaxis y rendimiento:** no se ha ejecutado `EXPLAIN` ni la consulta en ninguna base.
+9. **Separación organizacional:** `ProjectIntake` no tiene `orgId`; un `tenantId` puede contener varias organizaciones. La consulta mide un tenant, no una empresa. El análisis por organización requiere diseñar una cohorte derivada de Job/Project y no puede incluir sin más los intakes previos a publicación.
+10. **Reconstrucción de celdas:** la supresión primaria por métrica no impide inferencias por resta entre escalones y agregados. Los resultados no están autorizados para publicación.
 
 ## 6. Lo que este informe NO demostrará
 
@@ -98,13 +100,15 @@ complejidad, y la métrica de error, los define un responsable de costos con rev
 - [ ] Transacción `READ ONLY` y un rol con `SELECT` solo sobre las tablas listadas.
 
 ### Aislamiento entre organizaciones
-- [ ] Primera ejecución **por organización** (`tenant_id` explícito). La ejecución global (`tenant_id` vacío) solo con autorización de plataforma.
+- [ ] Primera ejecución **por tenant** (`tenant_id` explícito y no vacío). El SQL no admite lectura global por `tenant_id=''`.
+- [ ] Antes de solicitar desglose por organización: definir `orgId`, perspectiva (cliente/contratista) y vínculo de los intakes no publicados, que no tienen `orgId`; revisar permisos organizacionales y membresías activas.
 - [ ] Toda unión exige el mismo `tenantId`; `Contract`, `PaymentEscrow` y `PaymentTxn` no tienen `tenantId` propio y se alcanzan únicamente a través de `Job`.
-- [ ] Verificar con datos de prueba que ninguna fila de otra organización entra en un conteo.
+- [ ] Verificar con datos sintéticos ausencia de cruces entre tenants; la prueba de aislamiento entre organizaciones requiere un diseño adicional.
 
 ### Protección de datos personales
 - [ ] La salida son **conteos agregados**: sin identificadores, nombres, correos, direcciones, descripciones ni importes individuales.
-- [ ] Supresión de celdas con menos de `min_cell` casos (**propuesta: 5**, fijada por privacidad). **No hay supresión complementaria**: restando totales se podrían deducir celdas suprimidas; revisar antes de compartir tablas por categoría × estado.
+- [ ] Supresión primaria de filas y métricas con menos de `min_cell` casos (**propuesta: 5**, que debe fijar privacidad). **No existe supresión complementaria**: pueden inferirse cifras mediante diferencias entre escalones, totales y subgrupos. Ninguna salida está autorizada para difusión.
+- [ ] Primera ejecución con `detail_level=summary`; `detail_level=detail` requiere autorización específica de seguridad/privacidad, incluso dentro del equipo.
 - [ ] Los resultados no se pegan en chats ni tickets públicos; se guardan con acceso restringido y retención definida.
 - [ ] Se registra quién ejecutó, cuándo y contra qué entorno.
 
@@ -113,7 +117,7 @@ complejidad, y la métrica de error, los define un responsable de costos con rev
 | Riesgo | Mitigación |
 |---|---|
 | Carga sobre producción | Copia/réplica, `EXPLAIN`, timeouts, ventana fuera de hora pico |
-| Fuga entre organizaciones | Ejecución por organización, uniones con `tenantId`, prueba con datos sintéticos |
+| Confusión tenant/organización | Esta versión solo permite ámbito tenant explícito. Para resultados de una Org hace falta una cohorte y autorización específicas |
 | Reidentificación por celdas pequeñas | Supresión mínima y revisión de privacidad antes de compartir |
 | Conclusiones erróneas (p. ej. tratar pagos como costos) | Escalón `payment_evidence_only` separado y definición aprobada de "completo" |
 | Sesgo de selección (solo trabajos publicados y terminados) | Reportarlo; no extrapolar a todo el mercado sin análisis |
@@ -123,7 +127,15 @@ complejidad, y la métrica de error, los define un responsable de costos con rev
 1. Dueño, datos, seguridad/privacidad y DBA aprobaron por escrito la ejecución, el entorno y el tratamiento de resultados.
 2. Se validó la sintaxis y el plan (`EXPLAIN`) en una copia, y Q0 confirmó la estructura de `termsJson`.
 3. Se ejecutó y el informe se entregó al responsable de datos y a costos, con los diagnósticos de calidad.
-4. El responsable de datos fijó la definición de "dato económico completo" (`loose` o `strict`) y costos fijó el tamaño mínimo de muestra y la métrica.
+4. El responsable de datos definió qué evidencia adicional permite certificar el costo final (ningún escalón actual basta por sí solo) y costos fijó el tamaño mínimo de muestra y la métrica.
 5. Se decidió, con ese informe, si hay datos para calibrar o si hay que **empezar a capturar costos reales** (plan de captura) antes de hablar de confianza "calibrada".
 
 **Estado: `OPEN`.** El owner decide cuándo pasa a `DECIDIDA`.
+
+## 10. Observaciones del revisor sobre SQL (30-10-2026)
+
+- **No aprobado para ejecución**: aunque se ha restringido el ámbito a un `tenantId` explícito, este SQL no está probado en PostgreSQL y debe pasar primero por `EXPLAIN` en una copia o réplica autorizada.
+- **Integridad del grano**: dos `ProjectIntake` pueden señalar el mismo `Job`; antes de hablar de cantidad de trabajos únicos, añadir un conteo de duplicados y comprobar enlaces cruzados. Un `Contract.termsJson.totalAmount` plausible tampoco prueba, sin revisar el proceso de firmas, el precio contractual definitivo.
+- **Seguridad de resultados**: el umbral `min_cell` es provisional; falta protección contra inferencia al comparar columnas, trimestres y salidas sucesivas, incluso cuando el propio SQL oculta las celdas pequeñas.
+- **Rendimiento**: el `OR` de `ProjectExpense` debe revisarse con `EXPLAIN` y `EXPLAIN ANALYZE` únicamente en una copia/réplica autorizada y suficientemente representativa; verificar el coste de joins y `LATERAL`.
+- **Sin calibración automática**: el coste pagado y final de la obra no está probado por gastos parciales; separar cobertura de evidencia de costos, conciliación financiera y validación por oficio. El propietario no ha aprobado muestras mínimas, umbrales ni métricas.
