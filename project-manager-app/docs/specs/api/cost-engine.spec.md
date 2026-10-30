@@ -328,9 +328,12 @@ con **márgenes propios** (a veces dependientes de la entrada). Por eso el servi
 2. Solo sobrescribe los parámetros que una capa **define explícitamente**; el resto queda como el motor lo calculó.
 3. Vuelve a llamar a `buildCostSummary` con ese conjunto y con el impuesto de la `TaxPolicy` (no `DEFAULT_TAX`).
 
-Este supuesto debe demostrarse **por motor** con pruebas de contrato antes de aprobar (T-004): para cada uno,
-comparar componentes base, resultado actual, reconstrucción, unidades y redondeos, incluidos escenarios límite. Si
-algún motor no admite la reconstrucción, se ajusta solo ese motor. La composición de `quote-engine` (que agrega
+Este supuesto debe demostrarse **por motor** con pruebas diagnósticas antes de aprobar (T-004, al menos tres
+escenarios por motor: normal, complejo y límite). **Reconstruir tasas dividiendo importes ya redondeados puede perder
+precisión** (lo mismo con `total / perUnit`); es válido solo como primera comprobación. Si aparecen diferencias no se
+ocultan con tolerancias arbitrarias: se evalúa que los motores **expongan directamente** sus tasas efectivas, bases de
+cálculo y divisor originales, manteniendo compatibilidad con sus respuestas actuales. Si algún motor no admite la
+reconstrucción, se ajusta solo ese motor. La composición de `quote-engine` (que agrega
 contingencia y otro orden de factores) pasa a ser una variante explícita del servicio, no una fórmula paralela.
 
 ### Registro de parámetros (en código, valores por defecto = propuesta sin aprobar)
@@ -500,6 +503,18 @@ forbidden_behavior: escribir CostParameter/TaxPolicy, saltarse límites o capas,
 
 - **No verifiqué** que precios base, rendimientos, multiplicadores, márgenes ni salarios reflejen el mercado actual.
   Los multiplicadores estáticos "tipo RSMeans 2023" no pueden presentarse como validados sin referencias y derechos de uso.
+- **Licencia RSMeans** *(citado por el owner, no verificado por mí)*: las condiciones publicadas por Gordian para RSMeans
+  Online restringen integrar sus datos en programas de software y bases de datos salvo autorización contractual. SEMSE
+  no debe incorporar datos propietarios de RSMeans a un motor SaaS sin comprobar que tiene derechos suficientes; puede usar
+  datos de fuentes autorizadas y estimaciones propias, pero no debe asumir que una suscripción de usuario permite
+  redistribución comercial (Q11).
+- **Fiscalidad de Florida** *(citado por el owner)*: la guía vigente del Departamento de Ingresos distingue los contratos de
+  mejora de inmuebles (precio global, costo más honorarios, tiempo y materiales) de los de venta minorista con instalación;
+  en los primeros, en general el contratista paga el impuesto sobre materiales y no lo cobra al propietario como línea
+  aparte. Respalda quitar el 7 % universal, **pero no certifica una `TaxPolicy` lista para producción**: Q10 sigue exigiendo
+  revisión fiscal profesional.
+- **AACE** *(citado por el owner)*: para edificios y construcción general es más aplicable la práctica recomendada
+  **56R-08** que la orientada a plantas de proceso; considera la madurez del alcance y los riesgos al evaluar la exactitud (Q2).
 - Reportado por la auditoría y por contrastar: los datos OEWS más recientes son estadísticos (p. ej. mayo 2025), no
   tarifas facturables; los precios deben guardarse con proveedor, ubicación, unidad, fecha y vigencia; los rendimientos
   deben distinguir cuadrilla, desperdicio, acceso, transporte y preparación; la exactitud debe medirse
