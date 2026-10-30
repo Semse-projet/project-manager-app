@@ -42,3 +42,17 @@ test("buildFallbackChain has no duplicates", () => {
   const unique = new Set(chain);
   assert.equal(unique.size, chain.length);
 });
+
+test("privacy constraints win over preferred external provider", () => {
+  assert.equal(selectProvider({ preferredProvider: "together", privacyCritical: true }), "ollama");
+  assert.equal(selectProvider({ preferredProvider: "together", localOnly: true }), "ollama");
+});
+
+test("Together is excluded from local-only and privacy-critical fallback chains", () => {
+  const ctx = { fallbackOrder: ["together", "ollama", "template"] as const };
+  const restricted = buildFallbackChain("together", { fallbackOrder: [...ctx.fallbackOrder], privacyCritical: true });
+  assert.ok(!restricted.includes("together"));
+  assert.ok(restricted.includes("ollama"));
+  const unrestricted = buildFallbackChain("ollama", { fallbackOrder: ["together"] });
+  assert.ok(unrestricted.includes("together"));
+});
