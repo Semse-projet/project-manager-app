@@ -48,7 +48,7 @@ last_verified: "NOT_VERIFIED"
 
 # Spec: Motor de costos unificado
 
-> Spec SDD 2.0 **DRAFT v0.2**. No autoriza implementación hasta pasar a `APPROVED`.
+> Spec SDD 2.0 **DRAFT v0.3**. No autoriza implementación hasta pasar a `APPROVED`.
 > Riesgo **alto**: los parámetros del motor (comisión SEMSE, impuestos, márgenes) afectan lo que se cotiza,
 > se contrata y se paga en escrow.
 >
@@ -336,7 +336,7 @@ con **márgenes propios** (14 de 24 los varían según la entrada: T-004). Por e
 
 La derivación por división puede usarse únicamente como comprobación cruzada en pruebas, nunca en producción.
 
-**Evidencia T-004 (PR #1076, 72 escenarios, tolerancia cero):** los 24 motores llaman a `buildCostSummary` una vez y
+**Evidencia T-004 (PR #1076, SHA `f70ba20`; CI `quality-gates`, `unit-coverage`, `e2e` y CodeQL en verde al 2026-10-30; el PR sigue sin fusionar; 72 escenarios, tolerancia cero):** los 24 motores llaman a `buildCostSummary` una vez y
 `costs` es exactamente esa salida; reejecutarla con los argumentos capturados reproduce el resultado 72/72. En cambio,
 reconstruir por división de importes redondeados da diferencias de ±1 centavo en 30/72 escenarios y recupera mal el
 divisor de `perUnit` en 57/66. Por eso el punto 1 exige que los motores expongan base, tasas y divisor. Esos campos se
@@ -498,6 +498,9 @@ forbidden_behavior: escribir CostParameter/TaxPolicy, saltarse límites o capas,
 - **Q8** esta spec es la rectora; #1074 pasa a `SUPERSEDED` tras tu confirmación (§2).
 
 ### Pendientes (bloquean `APPROVED`; criterios medibles y validación profesional)
+
+Cada una tiene un expediente de decisión (alternativas, evidencia, criterios, responsable) en
+`docs/specs/api/cost-engine.decisions.md`; ninguno está decidido. Prioridad: Q9 y Q11, luego Q10, y después Q2, Q3, Q5 y Q7.
 
 - **Q2** criterio de calibración de confianza: qué evidencia retrospectiva (estimado vs. costo observado) y por qué oficio/región/complejidad.
 - **Q3** valores por defecto y límites del registro de parámetros.
