@@ -5,6 +5,7 @@ import { AnthropicProvider } from "./providers/anthropic.provider.js";
 import { OllamaProvider } from "./providers/ollama.provider.js";
 import { OpenAIProvider } from "./providers/openai.provider.js";
 import { TemplateProvider } from "./providers/template.provider.js";
+import { TogetherProvider } from "./providers/together.provider.js";
 import { AdaptiveRouter } from "./router/adaptive-router.js";
 import { buildFallbackChain } from "./router/routing-policy.js";
 import type {
@@ -48,6 +49,17 @@ export class LLMOrchestrator {
       this.providers.set("openai", new OpenAIProvider(process.env.OPENAI_API_KEY));
       this.logger.log("Provider registered: openai");
     }
+    // External provider is opt-in: a configured secret never activates billable traffic by itself.
+    if (process.env.SEMSE_TOGETHER_ENABLED === "true") {
+      const key = process.env.TOGETHER_API_KEY;
+      const model = process.env.TOGETHER_MODEL?.trim();
+      if (key && model) {
+        this.providers.set("together", new TogetherProvider(key, model));
+        this.logger.log("Provider registered: together");
+      } else {
+        this.logger.warn("Together AI requested but key or model is missing; provider disabled");
+      }
+    }
     this.providers.set("template", new TemplateProvider((input) =>
       generateAgentResponse({
         agentId: "assistant",
@@ -59,7 +71,7 @@ export class LLMOrchestrator {
   }
 
   get hasLLMProvider(): boolean {
-    return this.providers.has("anthropic") || this.providers.has("openai") || this.providers.has("ollama");
+    return this.providers.has("anthropic") || this.providers.has("openai") || this.providers.has("ollama") || this.providers.has("together");
   }
 
   getRegisteredProviders(): LLMProviderName[] {
@@ -118,13 +130,13 @@ export class LLMOrchestrator {
     // Enforce no-cloud policy for localOnly / privacyCritical
     if (ctx?.localOnly || ctx?.privacyCritical) {
       const cloudInChain = chain.filter(
-        (p) => p === "anthropic" || p === "openai",
+        (p) => p === "anthropic" || p === "openai" || p === "together",
       );
       if (cloudInChain.length > 0) {
         this.logger.warn(
           `[orchestrator] POLICY: removing cloud providers from chain due to ${ctx?.localOnly ? "localOnly" : "privacyCritical"}=true. Removed: ${cloudInChain.join(",")}`,
         );
-        chain.splice(0, chain.length, ...chain.filter((p) => p !== "anthropic" && p !== "openai"));
+        chain.splice(0, chain.length, ...chain.filter((p) => p !== "anthropic" && p !== "openai" && p !== "together"));
       }
     }
 
