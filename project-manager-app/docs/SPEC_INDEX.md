@@ -61,6 +61,7 @@ retroactiva.
 | [api-communications](specs/api/communications.spec.md) | communications | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-06-07 |
 | [api-consciousness-observer](specs/api/consciousness.spec.md) | ops | VERIFIED | legacy | legacy | legacy | legacy | legacy | medium | yes | 2026-06-09 |
 | [api-contract-lifecycle](specs/api/contracts.spec.md) | contracts | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-06-09 |
+| [api-cost-engine](specs/api/cost-engine.spec.md) | pricing | DRAFT | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | yes | NOT_VERIFIED |
 | [api-dispute-lifecycle](specs/api/disputes.spec.md) | disputes | VERIFIED | legacy | legacy | legacy | legacy | legacy | critical | yes | 2026-07-23 |
 | [api-evidence-upload-review](specs/api/evidence.spec.md) | evidence | VERIFIED | legacy | legacy | legacy | legacy | legacy | critical | yes | 2026-07-25 |
 | [api-field-ops](specs/api/field-ops.spec.md) | field-ops | IMPLEMENTED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-25 |
