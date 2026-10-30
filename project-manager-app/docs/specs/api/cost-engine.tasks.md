@@ -32,7 +32,7 @@ date: "2026-10-30"
   - informe que registre fallos, redondeos y motores incompatibles, con causas y modificaciones necesarias, y que **distinga errores de reconstrucción de errores de precios de mercado** (una prueba golden demuestra estabilidad matemática, no que un presupuesto sea comercialmente correcto)
 - [ ] [T-004b] Que los 24 motores expongan `costs.basis`, `effectiveRates` y `perUnitDivisor` (aditivo y compatible); **posterior a `APPROVED`**, es cambio de lógica de `packages/tools`
 - [ ] [T-004c] Unificar la unidad de `wastePercent` (porcentaje en `concrete`, fracción en `masonry`) o documentarla en el adaptador de Smart Intake
-- [ ] [T-005] Investigación externa y validación de datos (plan §9); expedientes de decisión preparados en `docs/specs/api/cost-engine.decisions.md` (Q2, Q3, Q5, Q7, Q9, Q10, Q11), **ninguno decidido**
+- [ ] [T-005] Investigación externa y validación de datos (plan §9); expedientes de decisión preparados en `docs/specs/api/cost-engine.decisions.md` (Q2, Q3, Q5, Q7, Q9, Q10, Q11), **ninguno decidido**; borradores adjuntos sin ejecutar ni enviar: auditoría de datos de Q2 (`cost-engine.q2-data-audit.md`/`.sql`) y nota jurídica de Q11 (`cost-engine.q11-legal-note.md`)
 - [x] [T-006] #1074 cerrado como `SUPERSEDED` con comentario de trazabilidad hacia #1075 (autorizado por el owner el 2026-10-30; rama e historial conservados)
 - [ ] [T-007] Alinear con ADR-027: plan de adaptación de `contractor-estimate.service.ts`
 

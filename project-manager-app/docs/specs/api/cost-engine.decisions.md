@@ -195,7 +195,7 @@ Q3 (valores), Q2 (calibración), T-008 (corrección PPI).
 - `apps/api/src/modules/pricing/{bls-ppi,oews,location-cost}.service.ts` **[REPO]**.
 
 ### 11. Estado
-`ABIERTA`. Siguiente paso: pedir a Legal el dictamen sobre la tabla atribuida a RSMeans **[PENDIENTE]**.
+`ABIERTA`. Borrador de nota para Legal: `docs/specs/api/cost-engine.q11-legal-note.md` (sin enviar). Siguiente paso: que el owner la revise y la envíe **[PENDIENTE]**.
 
 ---
 
@@ -309,7 +309,7 @@ Q9 (cantidades), Q3 (valores), disponibilidad de datos históricos.
 - `smart-intake.logic.ts` **[REPO]**.
 
 ### 11. Estado
-`ABIERTA`. Siguiente paso: consulta de solo lectura, por una persona autorizada, de cuántos intakes publicados tienen contrato terminado **[PENDIENTE]**.
+`ABIERTA`. Borrador de la auditoría de datos (SQL de solo lectura, **sin ejecutar**): `docs/specs/api/cost-engine.q2-data-audit.md` y `.sql`. Siguiente paso: revisión de autorización, rendimiento, aislamiento y privacidad **[PENDIENTE]**.
 
 ---
 
