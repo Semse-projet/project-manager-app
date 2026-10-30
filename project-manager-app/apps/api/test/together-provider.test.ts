@@ -4,8 +4,9 @@ import { TogetherProvider } from "../dist/infrastructure/llm/providers/together.
 import { LLMOrchestrator } from "../dist/infrastructure/llm/orchestrator.js";
 import { ProviderMetricsStore } from "../dist/infrastructure/llm/metrics/provider-metrics.store.js";
 import { AdaptiveRouter } from "../dist/infrastructure/llm/router/adaptive-router.js";
+import type { LLMChatInput } from "../dist/infrastructure/llm/types.js";
 
-const sample = (context = {}, tools = undefined) => ({
+const sample = (context: LLMChatInput["context"] = {}, tools: LLMChatInput["tools"] = undefined): LLMChatInput => ({
   systemPrompt: "You are an assistant.",
   history: [],
   userMessage: "Hello",
