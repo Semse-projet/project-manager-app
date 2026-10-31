@@ -13,7 +13,7 @@ date: "2026-10-30"
 > infracción. No autoriza retirar valores, cambiar precios en producción, modificar impuestos ni fusionar el #1075.
 > **Mientras no exista el dictamen, los valores no deben considerarse comercialmente validados.**
 
-**Para:** Legal / asesor jurídico *[por asignar]* · **De:** *[solicitante, por asignar]* · **Fecha:** 2026-10-30
+**Para:** Legal / asesor jurídico *[nombre por indicar]* (indicar entidad y datos de contacto) · **De:** `@Samuelcastella` (administrador de la organización en GitHub; confirmar nombre completo y cargo antes de enviar) · **Fecha:** 2026-10-30 (actualizar al enviar)
 **Asunto:** ¿Puede SEMSE usar, transformar, almacenar y redistribuir comercialmente en un producto SaaS la tabla de multiplicadores de materiales por estado
 atribuida a "RSMeans 2023", y qué hacer si los derechos son insuficientes?
 
@@ -105,14 +105,16 @@ Lo que **sabemos**: el código afirma, en un comentario, que los valores provien
 
 ## 10. Responsable de validación y criterio para cerrar
 
-- **Responsables:** Legal (dictamen), responsable de datos (hechos de §6), dueño de la decisión (autoriza acciones).
+- **Responsables:**
+  - Dueño de la decisión y solicitante: `@Samuelcastella` (administrador de la organización y del repositorio en GitHub) (autoriza acciones).
+  - Legal (dictamen): *[nombre por indicar]*.
+  - Responsable de datos (hechos de §6): *[nombre por indicar]*.
+  - Solo consta en el repositorio la cuenta del dueño; **los demás nombres no se han supuesto** y deben indicarse antes de enviar.
 - **La decisión se cierra cuando:**
   1. Legal emite un dictamen escrito que responde las preguntas 1–6;
   2. se completó la evidencia de §6 o Legal confirmó que no hace falta;
   3. el owner decidió la acción (mantener con licencia, sustituir o retirar) y la autorizó expresamente;
   4. cada fuente económica del motor tiene registro de procedencia y permiso de uso (criterio de aceptación de Q11 en `cost-engine.decisions.md`).
-
-**Estado: `OPEN`.** El owner decide cuándo pasa a `DECIDIDA`.
 
 ## 11. Aclaraciones del revisor y adjuntos para Legal (30-10-2026)
 
@@ -121,3 +123,22 @@ Lo que **sabemos**: el código afirma, en un comentario, que los valores provien
 3. **Exposición técnica por verificar**: distinguir código versionado, servicio desplegado, ejecución de la ruta de cálculo, datos persistidos y estimados realmente enviados. Estos son cinco hechos distintos y requieren trazas o evidencias independientes.
 4. **Decisión provisional**: Q11 sigue `OPEN`. El área jurídica debe definir tratamiento y posible preservación de evidencias; cualquier sustitución, neutralización o ajuste de valores que cambie cotizaciones requiere autorización productiva adicional. No atribuir de forma pública los índices a RSMeans como fuente verificada.
 5. **Fuente alternativa contratada**: Gordian publica modalidades de integración comercial independientes de las suscripciones ordinarias (https://www.gordian.com/tgg/media/Downloadable-Assets/Data-Reseller-One-Sheet.pdf). Legal debe solicitar autorización específica que incluya API/SaaS, almacenamiento, derivados, exposición al cliente y vigencia, si ese camino se considera.
+
+## 12. Siguientes pasos
+
+> Sin fechas inventadas: las fija el owner. El envío a Legal requiere su revisión final de este borrador.
+> Integra las aclaraciones del revisor (§11): el §2.2 verificado no prueba el origen de los números ni que SEMSE esté sujeto a ese acuerdo.
+
+| # | Acción | Responsable | Requiere antes | Entregable |
+|---|---|---|---|---|
+| 1 | Indicar el nombre y la entidad de Legal y completar los datos del solicitante | Dueño (`@Samuelcastella`) | — | Cabecera de la nota completa |
+| 2 | **Preservar la evidencia** tal como está (commits, hashes, historial, respaldos disponibles) con acceso restringido y retención autorizada por Legal; no borrar ni reescribir | Ingeniería | — | Registro de preservación |
+| 3 | Reunir los **contratos, facturas, licencias, addenda y autorizaciones** de RSMeans/Gordian/Trimble, si existen, y la versión del acuerdo aplicable. **Sin obtener ni descargar datos de RSMeans** | Responsable de datos | 1 | Anexo contractual |
+| 4 | Reconstruir los hechos de §6: autoría y proceso de creación de la tabla y la cadena de origen de los números | Responsable de datos + ingeniería | 1 | Anexo de hechos |
+| 5 | Distinguir, con evidencias independientes, los **cinco hechos de exposición**: código versionado, servicio desplegado, ejecución de la ruta de cálculo, datos persistidos y estimados realmente enviados. Cualquier consulta a producción requiere **autorización aparte** | Ingeniería + datos | 3 y 4 | Informe de exposición |
+| 6 | Revisión final del borrador y envío a Legal con la evidencia | Dueño | 1, 2, 3 y 4 | Nota enviada |
+| 7 | Recibir el dictamen escrito que responda las preguntas 1–6 de §5 | Legal | 6 | Dictamen |
+| 8 | Decidir la acción (mantener con licencia, sustituir o retirar) y **autorizarla expresamente**. Cualquier cambio que altere cotizaciones es otra autorización. Mientras tanto, **no atribuir públicamente los índices a RSMeans como fuente verificada** | Dueño | 7 | Decisión registrada |
+| 9 | Registrar procedencia y permiso de uso de cada fuente económica del motor (criterio de aceptación de Q11) | Datos | 8 | Registro de procedencia |
+
+**Estado: `OPEN`.** El owner decide cuándo pasa a `DECIDIDA`.

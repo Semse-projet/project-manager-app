@@ -25,11 +25,13 @@ Hoy no se sabe si existe volumen suficiente. Esta auditoría **no devuelve datos
 
 | Rol | Responsabilidad | Nombre |
 |---|---|---|
-| Dueño de la decisión | Autoriza ejecutar y acepta el informe | *[por asignar]* |
-| Responsable de datos | Define "dato económico completo" y revisa resultados | *[por asignar]* |
-| Seguridad y privacidad | Aprueba aislamiento, agregación y supresión de celdas | *[por asignar]* |
-| DBA | Revisa el plan (`EXPLAIN`), rol de solo lectura, ventana y entorno | *[por asignar]* |
-| Costos / finanzas | Interpreta las celdas de calibración con un especialista del oficio | *[por asignar]* |
+| Dueño de la decisión y solicitante | Autoriza ejecutar y acepta el informe | `@Samuelcastella` (administrador de la organización y del repositorio en GitHub) |
+| Responsable de datos | Define "dato económico completo" y revisa resultados | *[nombre por indicar]* |
+| Seguridad y privacidad | Aprueba aislamiento, agregación y supresión de celdas | *[nombre por indicar]* |
+| DBA | Revisa el plan (`EXPLAIN`), rol de solo lectura, ventana y entorno | *[nombre por indicar]* |
+| Costos / finanzas | Interpreta las celdas de calibración con un especialista del oficio | *[nombre por indicar]* |
+
+> Solo consta en el repositorio la cuenta del dueño (GitHub: administrador de la organización). **Los demás nombres no aparecen en ningún sistema que yo pueda consultar** y no se han supuesto: el owner debe indicarlos antes de enviar el borrador. Una persona puede cubrir más de un rol, salvo que quien **ejecuta** la consulta no debería ser también quien **aprueba** su aislamiento y privacidad.
 
 ## 3. Qué distingue la consulta (terminado ≠ datos económicos completos)
 
@@ -130,8 +132,6 @@ complejidad, y la métrica de error, los define un responsable de costos con rev
 4. El responsable de datos definió qué evidencia adicional permite certificar el costo final (ningún escalón actual basta por sí solo) y costos fijó el tamaño mínimo de muestra y la métrica.
 5. Se decidió, con ese informe, si hay datos para calibrar o si hay que **empezar a capturar costos reales** (plan de captura) antes de hablar de confianza "calibrada".
 
-**Estado: `OPEN`.** El owner decide cuándo pasa a `DECIDIDA`.
-
 ## 10. Observaciones del revisor sobre SQL (30-10-2026)
 
 - **No aprobado para ejecución**: aunque se ha restringido el ámbito a un `tenantId` explícito, este SQL no está probado en PostgreSQL y debe pasar primero por `EXPLAIN` en una copia o réplica autorizada.
@@ -139,3 +139,24 @@ complejidad, y la métrica de error, los define un responsable de costos con rev
 - **Seguridad de resultados**: el umbral `min_cell` es provisional; falta protección contra inferencia al comparar columnas, trimestres y salidas sucesivas, incluso cuando el propio SQL oculta las celdas pequeñas.
 - **Rendimiento**: el `OR` de `ProjectExpense` debe revisarse con `EXPLAIN` y `EXPLAIN ANALYZE` únicamente en una copia/réplica autorizada y suficientemente representativa; verificar el coste de joins y `LATERAL`.
 - **Sin calibración automática**: el coste pagado y final de la obra no está probado por gastos parciales; separar cobertura de evidencia de costos, conciliación financiera y validación por oficio. El propietario no ha aprobado muestras mínimas, umbrales ni métricas.
+
+## 11. Siguientes pasos
+
+> Sin fechas inventadas: las fija el owner al asignar responsables. Ningún paso se ejecuta sin la aprobación del anterior.
+> Integra las observaciones del revisor (§10): ámbito por tenant, `detail_level`, ningún escalón acredita por sí solo el costo final y ninguna salida está autorizada para difusión.
+
+| # | Acción | Responsable | Requiere antes | Entregable |
+|---|---|---|---|---|
+| 1 | Indicar los nombres de los roles de §2 y la fecha objetivo | Dueño (`@Samuelcastella`) | — | §2 completada |
+| 2 | Definir el **criterio adicional de integridad y conciliación** de costos (ningún escalón actual acredita costo final) y revisar los escalones de §3 | Responsable de datos + costos | 1 | Criterio escrito |
+| 3 | Añadir a la consulta el **conteo de intakes duplicados por `Job`** y la comprobación de enlaces cruzados; si se quiere desglose por organización, diseñar la cohorte derivada de `Job`/`Project` | Ingeniería + datos | 2 | SQL ajustado en un PR aparte |
+| 4 | Preparar una copia restaurada o réplica de solo lectura y un rol con `SELECT` solo en las tablas de la consulta | DBA | 1 | Entorno y rol listos |
+| 5 | Validar sintaxis y plan (`EXPLAIN`, y `EXPLAIN ANALYZE` solo en copia representativa) con **datos sintéticos**; comprobar la ausencia de cruces entre tenants | DBA + ingeniería | 3 y 4 | Informe de validación |
+| 6 | Decidir `min_cell`, la protección frente a inferencia por resta entre escalones y subgrupos, y el destino y retención de los resultados | Seguridad y privacidad | 2 | Política de tratamiento |
+| 7 | Autorizar por escrito la **primera** ejecución: un `tenant_id` explícito, `detail_level=summary`, entorno y fecha. `detail_level=detail` requiere autorización específica de seguridad/privacidad | Dueño | 5 y 6 | Autorización firmada |
+| 8 | Ejecutar la sonda Q0 y confirmar la estructura de `Contract.termsJson`; si hace falta, ajustar el SQL en un PR aparte | DBA + ingeniería | 7 | Estructura confirmada |
+| 9 | Ejecutar la consulta principal y registrar quién, cuándo y dónde. **Los resultados no se difunden** | DBA | 8 | Resultados agregados con acceso restringido |
+| 10 | Revisar resultados y diagnósticos de calidad; fijar tamaño mínimo de muestra y métrica de error | Costos + revisión estadística | 9 | Informe y criterios |
+| 11 | Decidir: calibrar con los datos existentes o **diseñar la captura de costos reales** | Dueño | 10 | Decisión registrada |
+
+**Estado: `OPEN`.** El owner decide cuándo pasa a `DECIDIDA`.

@@ -453,4 +453,10 @@ Spec `api-cost-engine` §4 P5 y §8 **[REPO]**.
 | Q5 | ABIERTA | Producto + contratos | Recomendada | `APPROVED` |
 | Q7 | ABIERTA | Ingeniería + operaciones | No | Activación |
 
+### Asignaciones nominales
+
+- **Dueño de la decisión (todas las preguntas):** `@Samuelcastella` (administrador de la organización y del repositorio en GitHub).
+- **Personas para cada rol listado arriba:** *[por indicar]*. No constan en el repositorio y no se han supuesto. Falta indicar: responsable de datos, seguridad y privacidad, DBA, costos/finanzas, Legal, especialistas de los oficios piloto (Q9), profesional fiscal (Q10) y quien revise la calibración estadística (Q2).
+- Pasos concretos con responsable y requisitos previos para Q2 y Q11: `cost-engine.q2-data-audit.md` §11 y `cost-engine.q11-legal-note.md` §12.
+
 Una decisión pasa a `DECIDIDA` solo cuando el owner lo declara por escrito, con la evidencia y la revisión profesional que exige su sección.
