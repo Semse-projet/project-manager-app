@@ -219,8 +219,7 @@ export class PrometeoController {
   ) {
     const actor = resolveRequestContext(req);
     const rid = resolveRequestId(req.headers ?? {});
-    if (projectId) await this.access.assertProjectFilter(actor, projectId);
-    const scope = await this.access.listScope(actor);
+    const scope = await this.access.listScope(actor, projectId);
     const docs = await this.svc.listDocuments(actor.tenantId, projectId, scope);
     // Client-side filter on metadataJson trade/status
     const filtered = docs.filter((d) => {
@@ -290,8 +289,7 @@ export class PrometeoController {
     const rid = resolveRequestId(req.headers ?? {});
     const b = body as Record<string, unknown>;
     const projectId = typeof b.projectId === "string" ? b.projectId : undefined;
-    if (projectId) await this.access.assertProjectFilter(actor, projectId);
-    const scope = (await this.access.listScope(actor)) ?? null;
+    const scope = (await this.access.listScope(actor, projectId)) ?? null;
     const results = await this.svc.search({
       tenantId: actor.tenantId,
       projectId, scope,
@@ -308,8 +306,7 @@ export class PrometeoController {
     const rid = resolveRequestId(req.headers ?? {});
     const b = body as Record<string, unknown>;
     const projectId = typeof b.projectId === "string" ? b.projectId : undefined;
-    if (projectId) await this.access.assertProjectFilter(actor, projectId);
-    const scope = (await this.access.listScope(actor)) ?? null;
+    const scope = (await this.access.listScope(actor, projectId)) ?? null;
     const ctx = await this.svc.buildRagContext({
       tenantId: actor.tenantId,
       projectId, scope,
@@ -334,8 +331,7 @@ export class PrometeoController {
 
     // Restrict documents before retrieval, citations, or LLM context.
     const projectId = typeof b.projectId === "string" ? b.projectId : undefined;
-    if (projectId) await this.access.assertProjectFilter(actor, projectId);
-    const scope = (await this.access.listScope(actor)) ?? null;
+    const scope = (await this.access.listScope(actor, projectId)) ?? null;
     const ctx = await this.svc.buildRagContext({
       tenantId: actor.tenantId,
       projectId, scope,
@@ -479,8 +475,7 @@ export class PrometeoController {
     }
 
     const projectId = typeof b.projectId === "string" ? b.projectId : undefined;
-    if (projectId) await this.access.assertProjectFilter(actor, projectId);
-    const scope = (await this.access.listScope(actor)) ?? null;
+    const scope = (await this.access.listScope(actor, projectId)) ?? null;
     const result = await this.tradeGuide.guide({
       question, trade, locale,
       tenantId:  actor.tenantId,
