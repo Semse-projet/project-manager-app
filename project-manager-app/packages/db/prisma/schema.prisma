@@ -134,6 +134,7 @@ model Tenant {
   name                          String
   status                        String                            @default("active")
   orgs                          Org[]
+  curatedKnowledgeEntries       CuratedKnowledgeEntry[]
   agroFarms                     AgroFarm[]
   jobs                          Job[]
   projects                      Project[]
@@ -208,6 +209,7 @@ model Tenant {
   // Knowledge Contributor Program
   contributorProfiles           ContributorProfile[]
   contributorConsents           ContributorConsent[]
+
   knowledgeMissions             KnowledgeMission[]
   knowledgeMissionAcceptances   KnowledgeMissionAcceptance[]
   knowledgeSubmissions          KnowledgeSubmission[]
@@ -252,6 +254,8 @@ model Org {
   buildOpsProjects              BuildOpsProject[]
   buildOpsTasks                 BuildOpsTask[]
   invitations                   OrgInvitation[]
+  curatedKnowledgeEntries       CuratedKnowledgeEntry[]
+  curatedRightsConsents         CuratedPublicationConsent[]
   businessOffers                BusinessOffer[]
   worksites                     Worksite[]
   crews                         Crew[]
@@ -259,6 +263,7 @@ model Org {
   createdAt                     DateTime                       @default(now())
   updatedAt                     DateTime                       @updatedAt
 
+  @@unique([id, tenantId]) // tenant-bound private custody FK target
   @@index([tenantId, type])
 }
 
@@ -519,6 +524,8 @@ model User {
   // Knowledge Contributor Program
   contributorProfile                  ContributorProfile?
   contributorConsents                 ContributorConsent[]
+  curatedConsentActors                CuratedPublicationConsent[]   @relation("CuratedConsentActor")
+  curatedConsentWithdrawals           CuratedPublicationConsent[]   @relation("CuratedConsentWithdrawalActor")
   createdKnowledgeMissions            KnowledgeMission[]
   knowledgeMissionAcceptances         KnowledgeMissionAcceptance[]
   knowledgeSubmissions                KnowledgeSubmission[]
@@ -5720,4 +5727,135 @@ model LaborTimeCorrection {
   @@index([tenantId, orgId, status, createdAt])
   @@index([timeEntryId, status])
   @@index([requestedByUserId])
+}
+
+
+// CK-F1A (#992): private custody ONLY. None of these records grant RAG/public access.
+// No endpoint, index or worker should interpret these enums as publication authority.
+enum CuratedKnowledgeStatus {
+  DRAFT
+  REDACTION_REVIEW
+  TECH_REVIEW
+  READY
+  PUBLISHED
+  SUSPENDED
+  WITHDRAWN
+  SUPERSEDED
+}
+
+enum CuratedKnowledgeScope {
+  ORG_PRIVATE
+  TENANT_CURATED
+}
+
+enum CuratedConsentActorType {
+  CONTRIBUTOR
+  RIGHTS_HOLDER
+}
+
+enum CuratedConsentPurpose {
+  RAG_REFERENCE
+}
+
+/// Private source provenance. Original assets remain under their existing owner ACL.
+/// status and scope start private and are not remotely changed in F1A.
+model CuratedKnowledgeEntry {
+  id              String                 @id @default(cuid())
+  tenantId        String
+  owningOrgId     String
+  createdByUserId String
+  sourcePrivateRef String?               @db.Text
+  trade           String?
+  jurisdiction    String?
+  status          CuratedKnowledgeStatus @default(DRAFT)
+  publicationScope CuratedKnowledgeScope @default(ORG_PRIVATE)
+  aggregateRevision Int                 @default(0) // monotonic event revision from F2 onward
+  versionEverCreated Boolean            @default(false) // durable provenance latch; never reset
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+
+  tenant          Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  ownerOrg        Org                    @relation(fields: [owningOrgId, tenantId], references: [id, tenantId], onDelete: Restrict)
+  versions        CuratedKnowledgeVersion[]
+
+  @@unique([id, tenantId])
+  @@index([tenantId, owningOrgId, status])
+}
+
+/// Only a separately derived, sanitized text version may ever become publishable.
+/// No original photo, evidence blob or cross-tenant shared index is created here.
+model CuratedKnowledgeVersion {
+  id                       String                @id @default(cuid())
+  tenantId                 String
+  entryId                  String
+  version                  Int
+  title                    String
+  sanitizedBody            String                @db.Text
+  contentSha256            String
+  referencesJson           Json?
+  redactionReportPrivateJson Json?
+  language                 String                @default("es")
+  technicalRisk            String?
+  expiresAt                DateTime?
+  createdByUserId          String
+  createdAt                DateTime              @default(now())
+
+  entry                    CuratedKnowledgeEntry @relation(fields: [entryId, tenantId], references: [id, tenantId], onDelete: Restrict)
+  consents                 CuratedPublicationConsent[]
+
+  @@unique([id, tenantId])
+  @@unique([tenantId, entryId, version])
+  @@index([tenantId, entryId, createdAt])
+}
+
+/// Permanent version identity reservations survive a version's deletion.
+/// This record never stores the title/body, and deliberately has no cascading FK.
+model CuratedKnowledgeVersionTombstone {
+  versionId String   @id
+  tenantId  String
+  entryId   String
+  version   Int
+  deletedAt DateTime @default(now())
+
+  @@unique([tenantId, entryId, version])
+}
+
+/// Minimal irreversible reservation for consent IDs and request keys after
+/// row deletion. The publication gate remains OFF and this stores no full proof.
+model CuratedPublicationConsentTombstone {
+  consentId      String   @id
+  idempotencyKey String   @unique
+  withdrawnAt    DateTime?
+  deletedAt      DateTime @default(now())
+}
+
+/// Consent records are private evidence, NOT active access grants. F1A has no
+/// publication path. A reviewer must validate actor identity and rights first.
+model CuratedPublicationConsent {
+  id                  String                  @id @default(cuid())
+  tenantId            String
+  versionId           String
+  actorType           CuratedConsentActorType
+  actorUserId         String
+  rightsHolderOrgId   String?
+  scope               CuratedKnowledgeScope
+  purpose             CuratedConsentPurpose
+  versionContentSha256 String
+  audiencePolicySha256 String
+  noticeVersion       String
+  idempotencyKey      String                  @unique
+  expiresAt           DateTime
+  proofPrivateRef     String?
+  legalBasisReviewed  Boolean                 @default(false)
+  grantedAt           DateTime                @default(now())
+  withdrawnAt         DateTime?
+  withdrawnByUserId   String?
+
+  version             CuratedKnowledgeVersion @relation(fields: [versionId, tenantId], references: [id, tenantId], onDelete: Restrict)
+  rightsHolderOrg     Org?                    @relation(fields: [rightsHolderOrgId, tenantId], references: [id, tenantId], onDelete: Restrict)
+  actorUser           User                    @relation("CuratedConsentActor", fields: [actorUserId], references: [id], onDelete: Restrict)
+  withdrawnByUser     User?                   @relation("CuratedConsentWithdrawalActor", fields: [withdrawnByUserId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, versionId, actorType, withdrawnAt])
+  @@index([tenantId, actorUserId, grantedAt])
 }
