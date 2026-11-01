@@ -319,6 +319,25 @@ dbTest("F1A: private defaults, tenant-bound FK, version immutability keys, and c
       data: { id: archivedEntryId },
     }), "Rekeying an unversioned entry onto a tombstone-only historical ID is forbidden");
 
+    // BEFORE INSERT triggers fire even for ON CONFLICT DO NOTHING.
+    // A skipped child must NOT freeze an unrelated unversioned parent.
+    const skipped = await db.$executeRawUnsafe(`
+      INSERT INTO public."CuratedKnowledgeVersion"
+        ("id","tenantId","entryId","version","createdByUserId",
+         "title","sanitizedBody","contentSha256")
+      VALUES ($1,$2,$3,1,$4,'Skipped duplicate','Synthetic only',$5)
+      ON CONFLICT DO NOTHING
+    `, version.id, tA, unversionedEntry.id, userB, hash);
+    assert.equal(skipped, 0, "Duplicate version ID must skip insertion");
+    assert.equal((await db.curatedKnowledgeEntry.findUnique({
+      where: { id: unversionedEntry.id },
+    }))?.versionEverCreated, false, "Skipped INSERT must not set history latch");
+    await db.curatedKnowledgeEntry.update({
+      where: { id: unversionedEntry.id },
+      data: { sourcePrivateRef: "allowed-unversioned-change-" + suffix },
+    });
+    await db.curatedKnowledgeEntry.delete({ where: { id: unversionedEntry.id } });
+
     await assert.rejects(db.curatedKnowledgeEntry.update({
       where: { id: legacyEntry.id },
       data: { versionEverCreated: false },
@@ -425,6 +444,46 @@ dbTest("F1A: private defaults, tenant-bound FK, version immutability keys, and c
     assert.equal((await db.curatedPublicationConsentTombstone.findUnique({
       where: { consentId: mixedConsent.id },
     }))?.idempotencyKey, mixedKey, "Mixed-isolation replay preserves historical reservation");
+
+    // Prove a non-owner with INSERT + TEMP cannot hide historical consent
+    // reservations behind a same-named pg_temp table.
+    const tempRole = "ck_f1a_temp_" + suffix;
+    await db.$executeRawUnsafe('CREATE ROLE "' + tempRole + '" NOLOGIN');
+    try {
+      await db.$executeRawUnsafe('GRANT USAGE ON SCHEMA public TO "' + tempRole + '"');
+      await db.$executeRawUnsafe(
+        'GRANT INSERT ON public."CuratedPublicationConsent" TO "' + tempRole + '"');
+      await db.$executeRawUnsafe(
+        'GRANT SELECT ON public."CuratedPublicationConsentTombstone" TO "' + tempRole + '"');
+      await assert.rejects(db.$transaction(async tx => {
+        await tx.$executeRawUnsafe('SET LOCAL ROLE "' + tempRole + '"');
+        const actor = await tx.$queryRawUnsafe<Array<{ actor: string }>>(
+          'SELECT current_user::text AS actor');
+        assert.equal(actor[0]?.actor, tempRole);
+        await tx.$executeRawUnsafe(`
+          CREATE TEMP TABLE "CuratedPublicationConsentTombstone"
+          ("consentId" TEXT, "idempotencyKey" TEXT)
+          ON COMMIT DROP
+        `);
+        await tx.$executeRawUnsafe(`
+          INSERT INTO public."CuratedPublicationConsent"
+            ("id","tenantId","versionId","actorType","actorUserId",
+             "scope","purpose","versionContentSha256","audiencePolicySha256",
+             "expiresAt","noticeVersion","idempotencyKey")
+          VALUES ($1,$2,$3,'CONTRIBUTOR',$4,'TENANT_CURATED',
+                  'RAG_REFERENCE',$5,$6,$7,'temp-shadow-replay',$8)
+        `, consent.id, tA, version.id, userA, hash, policyHash, expiresAt,
+          "ck-original-1-" + suffix);
+      }), (e: any) =>
+        /historical consent request cannot be replayed/.test(String(e.message ?? e)),
+        "A non-owner's temporary table must never shadow the permanent consent tombstone");
+      assert.equal(await db.curatedPublicationConsent.count({
+        where: { id: consent.id },
+      }), 0, "Attempted pg_temp shadow must not restore deleted consent");
+    } finally {
+      await db.$executeRawUnsafe('DROP OWNED BY "' + tempRole + '"');
+      await db.$executeRawUnsafe('DROP ROLE "' + tempRole + '"');
+    }
 
     // Two-connection regression: the RR snapshot predates the first version
     // created by a separate connection and must NOT permit source repoint.
