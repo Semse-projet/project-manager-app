@@ -81,9 +81,9 @@ test("AC-01 PrometeoModule registra BusinessOsToolsService sin importar su ciclo
   // Importar el modulo completo provoca un ciclo de inicializacion AIModels -> Prometeo
   // durante node:test. Comprobar la declaracion evita ese efecto y protege la DI.
   const source = readFileSync(new URL("../src/modules/prometeo/prometeo.module.ts", import.meta.url), "utf8");
-  assert.match(source, /import\\s*\\{\\s*BusinessOsToolsService\\s*\\}\\s*from/);
-  const providers = source.match(/providers\\s*:\\s*\\[([^\\]]+)\\]/s)?.[1] ?? "";
-  assert.match(providers, /\\bBusinessOsToolsService\\b/,
+  assert.match(source, /import\s*\{\s*BusinessOsToolsService\s*\}\s*from/);
+  const providers = source.match(/providers\s*:\s*\[([^\]]+)\]/s)?.[1] ?? "";
+  assert.match(providers, /\bBusinessOsToolsService\b/,
     "la integracion P0 no debe desconectar los handlers business_os.*");
 });
 
