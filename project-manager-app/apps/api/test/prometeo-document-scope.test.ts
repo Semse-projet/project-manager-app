@@ -169,7 +169,12 @@ test("Prometeo refuses RAG retrieval before touching chunks on invalid project",
   let retrieved = false;
   const svc = { async buildRagContext() { retrieved = true; return { chunks: [] }; } };
   const access = {
-    async assertProjectFilter() { throw new Error("project denied"); },
+    // The controller now resolves the bounded project scope and authorization
+    // in one call, before reaching document chunks or RAG.
+    async listScope(_actor: unknown, projectId?: string) {
+      assert.equal(projectId, "project-B");
+      throw new Error("project denied");
+    },
   };
   const controller = new PrometeoController(svc as never, access as never);
   const req = { headers: {}, authContext: { tenantId: "tenant-A", orgId: "org-A", userId: "actor-A", roles: ["CLIENT"] } };
