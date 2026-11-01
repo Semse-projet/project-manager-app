@@ -3,6 +3,7 @@ import "reflect-metadata";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { BusinessOsToolsService } from "../dist/modules/prometeo/business-os-tools.service.js";
+import { PrometeoModule } from "../dist/modules/prometeo/prometeo.module.js";
 import { PROMETEO_TOOL_REGISTRY, findPrometeoToolDescriptor } from "../dist/modules/prometeo/prometeo-tool-registry.js";
 import { evaluatePrometeoToolPolicy } from "../dist/modules/prometeo/tool-governance/tool-governance.policy.js";
 
@@ -76,6 +77,13 @@ test.beforeEach(() => { process.env.SEMSE_PROMETEO_BUSINESS_OS_ENABLED = "true";
 test.after(() => { delete process.env.SEMSE_PROMETEO_BUSINESS_OS_ENABLED; });
 
 // ---- registro ----
+test("AC-01 PrometeoModule injecta BusinessOsToolsService junto con los grants", () => {
+  const providers = Reflect.getMetadata("providers", PrometeoModule) as unknown[] | undefined;
+  assert.ok(Array.isArray(providers), "Nest debe declarar sus providers");
+  assert.ok(providers.includes(BusinessOsToolsService),
+    "el PR P0 no debe desconectar las herramientas business_os.* al agregar grants");
+});
+
 test("AC-01 las herramientas de lectura no piden aprobación y las acciones están desactivadas", () => {
   const bo = PROMETEO_TOOL_REGISTRY.filter((t) => t.namespace === "business_os");
   const reads = bo.filter((t) => t.mode === "read");
