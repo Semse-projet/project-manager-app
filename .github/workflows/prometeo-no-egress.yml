@@ -18,7 +18,7 @@ permissions:
 
 jobs:
   private-http-with-firewall:
-    if: ${{ github.event_name == 'pull_request' && github.event.pull_request.number == 987 }}
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.number == 987) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     defaults:
