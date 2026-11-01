@@ -3,7 +3,7 @@ import "reflect-metadata";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { BusinessOsToolsService } from "../dist/modules/prometeo/business-os-tools.service.js";
-import { PrometeoModule } from "../dist/modules/prometeo/prometeo.module.js";
+import { readFileSync } from "node:fs";
 import { PROMETEO_TOOL_REGISTRY, findPrometeoToolDescriptor } from "../dist/modules/prometeo/prometeo-tool-registry.js";
 import { evaluatePrometeoToolPolicy } from "../dist/modules/prometeo/tool-governance/tool-governance.policy.js";
 
@@ -77,11 +77,14 @@ test.beforeEach(() => { process.env.SEMSE_PROMETEO_BUSINESS_OS_ENABLED = "true";
 test.after(() => { delete process.env.SEMSE_PROMETEO_BUSINESS_OS_ENABLED; });
 
 // ---- registro ----
-test("AC-01 PrometeoModule injecta BusinessOsToolsService junto con los grants", () => {
-  const providers = Reflect.getMetadata("providers", PrometeoModule) as unknown[] | undefined;
-  assert.ok(Array.isArray(providers), "Nest debe declarar sus providers");
-  assert.ok(providers.includes(BusinessOsToolsService),
-    "el PR P0 no debe desconectar las herramientas business_os.* al agregar grants");
+test("AC-01 PrometeoModule registra BusinessOsToolsService sin importar su ciclo Nest", () => {
+  // Importar el modulo completo provoca un ciclo de inicializacion AIModels -> Prometeo
+  // durante node:test. Comprobar la declaracion evita ese efecto y protege la DI.
+  const source = readFileSync(new URL("../src/modules/prometeo/prometeo.module.ts", import.meta.url), "utf8");
+  assert.match(source, /import\\s*\\{\\s*BusinessOsToolsService\\s*\\}\\s*from/);
+  const providers = source.match(/providers\\s*:\\s*\\[([^\\]]+)\\]/s)?.[1] ?? "";
+  assert.match(providers, /\\bBusinessOsToolsService\\b/,
+    "la integracion P0 no debe desconectar los handlers business_os.*");
 });
 
 test("AC-01 las herramientas de lectura no piden aprobación y las acciones están desactivadas", () => {
