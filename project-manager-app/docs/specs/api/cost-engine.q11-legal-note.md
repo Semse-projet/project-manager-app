@@ -13,7 +13,7 @@ date: "2026-10-30"
 > infracción. No autoriza retirar valores, cambiar precios en producción, modificar impuestos ni fusionar el #1075.
 > **Mientras no exista el dictamen, los valores no deben considerarse comercialmente validados.**
 
-**Para:** Legal / asesor jurídico *[nombre por indicar]* (indicar entidad y datos de contacto) · **De:** `@Samuelcastella` (administrador de la organización en GitHub; confirmar nombre completo y cargo antes de enviar) · **Fecha:** 2026-10-30 (actualizar al enviar)
+**Para:** Legal / asesor jurídico *[nombre por indicar]* (indicar entidad y datos de contacto) · **De:** Yoni Castellanos (cuenta de GitHub `@Samuelcastella`; confirmar cargo y datos de contacto antes de enviar) · **Fecha:** 2026-10-30 (actualizar al enviar)
 **Asunto:** ¿Puede SEMSE usar, transformar, almacenar y redistribuir comercialmente en un producto SaaS la tabla de multiplicadores de materiales por estado
 atribuida a "RSMeans 2023", y qué hacer si los derechos son insuficientes?
 
@@ -106,10 +106,10 @@ Lo que **sabemos**: el código afirma, en un comentario, que los valores provien
 ## 10. Responsable de validación y criterio para cerrar
 
 - **Responsables:**
-  - Dueño de la decisión y solicitante: `@Samuelcastella` (administrador de la organización y del repositorio en GitHub) (autoriza acciones).
-  - Legal (dictamen): *[nombre por indicar]*.
-  - Responsable de datos (hechos de §6): *[nombre por indicar]*.
-  - Solo consta en el repositorio la cuenta del dueño; **los demás nombres no se han supuesto** y deben indicarse antes de enviar.
+  - Dueño de la decisión y solicitante: Yoni Castellanos (cuenta de GitHub `@Samuelcastella`); autoriza acciones.
+  - Legal (dictamen): *[por indicar]*; debe ser un asesor jurídico **externo**.
+  - Responsable de datos (hechos de §6): Yoni Castellanos.
+  - El proyecto lo trabaja una sola persona; por eso la revisión jurídica no puede cubrirse internamente.
 - **La decisión se cierra cuando:**
   1. Legal emite un dictamen escrito que responde las preguntas 1–6;
   2. se completó la evidencia de §6 o Legal confirmó que no hace falta;
@@ -131,7 +131,7 @@ Lo que **sabemos**: el código afirma, en un comentario, que los valores provien
 
 | # | Acción | Responsable | Requiere antes | Entregable |
 |---|---|---|---|---|
-| 1 | Indicar el nombre y la entidad de Legal y completar los datos del solicitante | Dueño (`@Samuelcastella`) | — | Cabecera de la nota completa |
+| 1 | Elegir al asesor jurídico externo (nombre y entidad) y completar los datos del solicitante | Dueño (Yoni Castellanos) | — | Cabecera de la nota completa |
 | 2 | **Preservar la evidencia** tal como está (commits, hashes, historial, respaldos disponibles) con acceso restringido y retención autorizada por Legal; no borrar ni reescribir | Ingeniería | — | Registro de preservación |
 | 3 | Reunir los **contratos, facturas, licencias, addenda y autorizaciones** de RSMeans/Gordian/Trimble, si existen, y la versión del acuerdo aplicable. **Sin obtener ni descargar datos de RSMeans** | Responsable de datos | 1 | Anexo contractual |
 | 4 | Reconstruir los hechos de §6: autoría y proceso de creación de la tabla y la cadena de origen de los números | Responsable de datos + ingeniería | 1 | Anexo de hechos |

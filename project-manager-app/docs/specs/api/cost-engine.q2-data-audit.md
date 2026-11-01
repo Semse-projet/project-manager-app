@@ -25,13 +25,13 @@ Hoy no se sabe si existe volumen suficiente. Esta auditoría **no devuelve datos
 
 | Rol | Responsabilidad | Nombre |
 |---|---|---|
-| Dueño de la decisión y solicitante | Autoriza ejecutar y acepta el informe | `@Samuelcastella` (administrador de la organización y del repositorio en GitHub) |
-| Responsable de datos | Define "dato económico completo" y revisa resultados | *[nombre por indicar]* |
-| Seguridad y privacidad | Aprueba aislamiento, agregación y supresión de celdas | *[nombre por indicar]* |
-| DBA | Revisa el plan (`EXPLAIN`), rol de solo lectura, ventana y entorno | *[nombre por indicar]* |
-| Costos / finanzas | Interpreta las celdas de calibración con un especialista del oficio | *[nombre por indicar]* |
+| Dueño de la decisión y solicitante | Autoriza ejecutar y acepta el informe | Yoni Castellanos (cuenta de GitHub `@Samuelcastella`) |
+| Responsable de datos | Define "dato económico completo" y revisa resultados | Yoni Castellanos |
+| Seguridad y privacidad | Aprueba aislamiento, agregación y supresión de celdas | Yoni Castellanos; **revisión independiente externa recomendada** *[por indicar]* |
+| DBA | Revisa el plan (`EXPLAIN`), rol de solo lectura, ventana y entorno | Yoni Castellanos; **revisión puntual del SQL por un DBA externo recomendada** *[por indicar]* |
+| Costos / finanzas | Interpreta las celdas de calibración con un especialista del oficio | Yoni Castellanos; especialista del oficio y revisión estadística externos *[por indicar]* |
 
-> Solo consta en el repositorio la cuenta del dueño (GitHub: administrador de la organización). **Los demás nombres no aparecen en ningún sistema que yo pueda consultar** y no se han supuesto: el owner debe indicarlos antes de enviar el borrador. Una persona puede cubrir más de un rol, salvo que quien **ejecuta** la consulta no debería ser también quien **aprueba** su aislamiento y privacidad.
+> El proyecto lo trabaja una sola persona (Yoni Castellanos), que cubre los roles internos. Los roles que requieren independencia o conocimiento externo quedan marcados *[por indicar]*. Con un único operador, **ejecutar y aprobar no son independientes**: ver «Restricción de organización: un único operador» en `cost-engine.decisions.md`.
 
 ## 3. Qué distingue la consulta (terminado ≠ datos económicos completos)
 
@@ -143,11 +143,12 @@ complejidad, y la métrica de error, los define un responsable de costos con rev
 ## 11. Siguientes pasos
 
 > Sin fechas inventadas: las fija el owner al asignar responsables. Ningún paso se ejecuta sin la aprobación del anterior.
+> **Un único operador:** quien ejecuta no es independiente de quien aprueba su aislamiento y privacidad. Los pasos 5 a 7 se cubren con una **revisión externa puntual** o con los controles compensatorios de `cost-engine.decisions.md` («Restricción de organización: un único operador»); el operador no puede darse por independiente a sí mismo.
 > Integra las observaciones del revisor (§10): ámbito por tenant, `detail_level`, ningún escalón acredita por sí solo el costo final y ninguna salida está autorizada para difusión.
 
 | # | Acción | Responsable | Requiere antes | Entregable |
 |---|---|---|---|---|
-| 1 | Indicar los nombres de los roles de §2 y la fecha objetivo | Dueño (`@Samuelcastella`) | — | §2 completada |
+| 1 | Decidir qué revisiones externas se contratan (DBA, privacidad, estadística) y la fecha objetivo | Dueño (Yoni Castellanos) | — | §2 completada |
 | 2 | Definir el **criterio adicional de integridad y conciliación** de costos (ningún escalón actual acredita costo final) y revisar los escalones de §3 | Responsable de datos + costos | 1 | Criterio escrito |
 | 3 | Añadir a la consulta el **conteo de intakes duplicados por `Job`** y la comprobación de enlaces cruzados; si se quiere desglose por organización, diseñar la cohorte derivada de `Job`/`Project` | Ingeniería + datos | 2 | SQL ajustado en un PR aparte |
 | 4 | Preparar una copia restaurada o réplica de solo lectura y un rol con `SELECT` solo en las tablas de la consulta | DBA | 1 | Entorno y rol listos |

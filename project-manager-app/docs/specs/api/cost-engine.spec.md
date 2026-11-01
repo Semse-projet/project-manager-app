@@ -173,6 +173,9 @@ operaciones que responde por la calidad y la rentabilidad de los precios.
   la propuesta cambia. Las modificaciones se auditan en un registro que el mismo administrador no pueda alterar.
   La comisión SEMSE es política comercial centralizada; la **fiscalidad es una política jurídica distinta** de los
   márgenes y exige revisión fiscal profesional (la aprobación administrativa no la sustituye).
+  **Restricción actual (2026-11-01):** el proyecto tiene un único operador, así que una segunda cuenta del mismo operador **no** aporta
+  independencia. El segundo control debe ser un tercero con identidad y acceso propios, o un control compensatorio documentado
+  (retraso obligatorio, registro de auditoría fuera del alcance de la misma cuenta); ver `cost-engine.decisions.md`. Esta recomendación queda **pendiente de revisión**.
 - **Tenant boundary:** la configuración de organización y contratista nunca se lee ni escribe entre tenants ni entre
   organizaciones (un usuario con acceso a varias empresas no puede alterar la equivocada). Plataforma y región son globales.
 - **Step-up:** además de lo anterior, cualquier cambio exige motivo ≥ 10 caracteres.
@@ -492,7 +495,7 @@ forbidden_behavior: escribir CostParameter/TaxPolicy, saltarse límites o capas,
 
 ### Decididas (recomendación adoptada para este borrador; no aprueban valores)
 
-- **Q1** doble control + reautenticación para comisión e impuestos; fiscalidad como `TaxPolicy` versionada (§3, P6, P7).
+- **Q1** doble control + reautenticación para comisión e impuestos; fiscalidad como `TaxPolicy` versionada (§3, P6, P7). **Revisada el 2026-11-01:** con un único operador, el segundo control debe ser independiente o compensatorio (ver `cost-engine.decisions.md`); P6 describe el diseño con dos identidades y aplica cuando exista el segundo aprobador.
 - **Q4** permiso `pricing:org:manage` vía `Membership` activa; sin rol `ORG_ADMIN` nuevo (§3).
 - **Q6** márgenes privados, matriz de visibilidad aplicada en el servidor (§3).
 - **Q8** esta spec es la rectora; #1074 pasa a `SUPERSEDED` tras tu confirmación (§2).

@@ -453,10 +453,31 @@ Spec `api-cost-engine` §4 P5 y §8 **[REPO]**.
 | Q5 | ABIERTA | Producto + contratos | Recomendada | `APPROVED` |
 | Q7 | ABIERTA | Ingeniería + operaciones | No | Activación |
 
+### Restricción de organización: un único operador (2026-11-01)
+
+El proyecto lo trabaja **una sola persona** (Yoni Castellanos, cuenta de GitHub `@Samuelcastella`), que es a la vez dueña de la decisión, de datos, de
+ingeniería, de base de datos y de costos. Esto no es un defecto del trabajo: es una **restricción real** que cambia qué controles son posibles. Varias
+recomendaciones de esta spec asumían más de una persona y se ajustan así. **Nada de lo siguiente está decidido; lo decide el operador.**
+
+| Tema | Qué asumía el borrador | Con un único operador | Opciones a decidir |
+|---|---|---|---|
+| **Q1** Comisión SEMSE e impuestos | Dos identidades administrativas distintas (solicitante y aprobador) | Una segunda cuenta de la misma persona **no aporta independencia** | **A.** Tercero independiente como segundo aprobador, con identidad y acceso propios (contador/asesor fiscal, socio o auditor). **B.** Control compensatorio: reautenticación, **retraso obligatorio** entre propuesta y vigencia, registro de auditoría fuera del alcance de la misma cuenta y aviso a un canal externo. **C.** Mixto: B para la comisión (es ingreso propio de SEMSE) y A para `TaxPolicy` (ya exige revisión fiscal profesional externa). |
+| **Q2** Quien ejecuta la consulta no aprueba su aislamiento y privacidad | Roles de datos, DBA y privacidad separados | Una persona ejecuta y aprueba | Autorización escrita **antes** de ejecutar (SQL con su huella, entorno, fecha), ejecución solo sobre copia, **revisión puntual del SQL por un DBA externo**, acceso restringido a los resultados |
+| **Q7** Regla de salida del modo sombra | Ingeniería y operaciones la acuerdan | La misma persona la fija y la evalúa | **Pre-registrar** la regla de salida (por escrito, antes de empezar) para que no se ajuste después de ver los resultados |
+| **Q9, Q10, Q11** | Especialistas, fiscal y Legal | Son necesariamente **externos** | Contratar o consultar por tarea; no se pueden cubrir internamente |
+
+**Continuidad:** con una sola persona hay riesgo de dependencia total (accesos, claves, conocimiento). Conviene documentar accesos de emergencia y
+procedimientos de recuperación, sin ampliar el alcance de este trabajo.
+
+**Camino mínimo sugerido** (para no abrir todo a la vez): (1) enviar la nota de Q11 a un asesor jurídico, porque bloquea el uso legal de datos;
+(2) decidir Q10 con la opción B (mostrar subtotal sin impuestos mientras no haya política revisada); (3) elegir **dos categorías piloto** para Q9 con especialistas externos;
+(4) solo entonces preparar la auditoría de Q2 con revisión puntual externa del SQL.
+
 ### Asignaciones nominales
 
-- **Dueño de la decisión (todas las preguntas):** `@Samuelcastella` (administrador de la organización y del repositorio en GitHub).
-- **Personas para cada rol listado arriba:** *[por indicar]*. No constan en el repositorio y no se han supuesto. Falta indicar: responsable de datos, seguridad y privacidad, DBA, costos/finanzas, Legal, especialistas de los oficios piloto (Q9), profesional fiscal (Q10) y quien revise la calibración estadística (Q2).
+- **Dueño de la decisión (todas las preguntas):** Yoni Castellanos (cuenta de GitHub `@Samuelcastella`). Es la única persona que trabaja en el proyecto y cubre todos los roles internos.
+- **Roles internos** (datos, seguridad y privacidad, DBA, costos/finanzas, ingeniería): Yoni Castellanos.
+- **Roles que deben ser externos** y siguen *[por indicar]*: Legal (Q11), profesional fiscal (Q10), especialistas de los oficios piloto (Q9), revisión estadística de la calibración (Q2) y, recomendado, revisión puntual del SQL por un DBA externo y revisión independiente de privacidad (Q2).
 - Pasos concretos con responsable y requisitos previos para Q2 y Q11: `cost-engine.q2-data-audit.md` §11 y `cost-engine.q11-legal-note.md` §12.
 
 Una decisión pasa a `DECIDIDA` solo cuando el owner lo declara por escrito, con la evidencia y la revisión profesional que exige su sección.
