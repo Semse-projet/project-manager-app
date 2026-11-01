@@ -23,7 +23,7 @@ import { ToolExecutionQueryService } from "./tool-governance/tool-execution-quer
 @Module({
   imports: [ResourceScopeModule, LLMModule, GraphifyModule, FieldOpsModule, AgroModule, VisionModule, PaymentsModule],
   controllers: [PrometeoController],
-  providers: [PrometeoAccessPolicy, PrometeoDocumentGrantService, ChunkerService, DocumentParserService, EmbeddingService, PrometeoRepository, PrometeoService, PrometeoToolExecutionService, TradeGuideService, ToolGovernanceRepository, ToolExecutionQueryService],
+  providers: [PrometeoAccessPolicy, PrometeoDocumentGrantService, ChunkerService, DocumentParserService, EmbeddingService, PrometeoRepository, PrometeoService, PrometeoToolExecutionService, TradeGuideService, ToolGovernanceRepository, ToolExecutionQueryService, BusinessOsToolsService],
   exports: [PrometeoService, EmbeddingService, ChunkerService, DocumentParserService, PrometeoToolExecutionService, TradeGuideService, ToolGovernanceRepository],
 })
 export class PrometeoModule {}
