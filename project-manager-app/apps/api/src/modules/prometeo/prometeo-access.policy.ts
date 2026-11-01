@@ -52,8 +52,18 @@ export class PrometeoAccessPolicy {
     assertScopeAccess(actor, scope, "read", "Actor cannot access this project", "Project not found");
   }
 
-  /** Alcance del listado sin `projectId`: solo filas propias sin asociación + las de proyectos/jobs donde participa. */
-  async listScope(actor: ScopeActor): Promise<PrometeoListScope | undefined> {
+  /**
+   * For explicit projectId, resolve the single authorized project first.
+   * Never enumerate every accessible project/job: that bounded request must
+   * still work for organizations exceeding ResourceScope's 20k ID limit.
+   * No projectId retains the ordinary full listing limits.
+   */
+  async listScope(actor: ScopeActor, projectId?: string): Promise<PrometeoListScope | undefined> {
+    if (projectId) {
+      await this.assertProjectFilter(actor, projectId);
+      if (isOpsAdmin(actor)) return undefined;
+      return { orgId: actor.orgId ?? "", projectIds: actor.orgId ? [projectId] : [], jobIds: [] };
+    }
     if (isOpsAdmin(actor)) return undefined;
     if (!actor.orgId) return { orgId: "", projectIds: [], jobIds: [] };
     const [projectIds, jobIds] = await Promise.all([
