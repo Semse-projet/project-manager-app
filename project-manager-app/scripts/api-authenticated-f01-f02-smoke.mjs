@@ -227,10 +227,10 @@ async function prometeoObjectScopeSmoke() {
       data: {
         tenantId: actor.tenantId, orgId: actor.orgId,
         ...(projectId ? { projectId } : {}),
-        title: marker, sourceType: "text", uploadedById: actor.userId,
+        title: marker, sourceType: "field_observation", uploadedById: actor.userId,
         status: "indexed", chunkCount: 1,
         // Legacy labels have NO effect on authorization.
-        metadataJson: { visibility: "public_training", trade: "electrical" },
+        metadataJson: { visibility: "public_training", promotionStatus: "PROMOTED", trade: "electrical" },
       },
     });
     const chunk = await prisma.documentChunk.create({
@@ -268,6 +268,26 @@ async function prometeoObjectScopeSmoke() {
   assert.ok(!proIds.has(ownerProject.doc.id),
     "Project membership alone cannot share a legacy document owned by another org");
 
+  // Verify the signed HTTP controller's aggregate outputs too, not just IDs.
+  // The three synthetic promoted observations are intentionally private even
+  // though their legacy metadata says public_training/PROMOTED.
+  const electricalCounts = async (actor, target = base) => {
+    const response = await request("GET", "/v1/prometeo/trade-library", {
+      token: actor.token, target,
+    });
+    const row = response.data?.find(entry => entry.trade === "electrical");
+    assert.ok(row, "electrical library row must be returned");
+    return [row.documentsCount, row.indexedCount, row.chunksCount];
+  };
+  assert.deepEqual(await electricalCounts(owner), [2, 2, 2],
+    "owner can count only their private observation and owned project observation");
+  assert.deepEqual(await electricalCounts(otherClient), [1, 1, 1],
+    "other client cannot count promoted owner observations");
+  assert.deepEqual(await electricalCounts(foreignClient), [1, 1, 1],
+    "cross-tenant library counts exclude tenant A observations");
+  assert.deepEqual(await electricalCounts(pro1), [0, 0, 0],
+    "project participation without a grant cannot inflate library counts");
+
   const shares = "/v1/prometeo/documents/" + ownerProject.doc.id + "/shares";
   await request("POST", shares, {
     token: otherClient.token, body: { recipientOrgId: pro1.orgId }, expectedStatus: 403,
@@ -302,6 +322,8 @@ async function prometeoObjectScopeSmoke() {
     "only one durable audit event is allowed for duplicate concurrent grants");
   const grantedIds = await documentIds(pro1);
   assert.ok(grantedIds.has(ownerProject.doc.id), "explicit grant must enable authorized pro read");
+  assert.deepEqual(await electricalCounts(pro1), [1, 1, 1],
+    "only the single granted project observation counts for recipient");
 
   const proSearch = await request("POST", "/v1/prometeo/search", {
     token: pro1.token, body: { query: ownerMarker + "_PROJECT", topK: 20 },
@@ -317,6 +339,8 @@ async function prometeoObjectScopeSmoke() {
   });
   assert.ok(!disabledList.data.some(doc => doc.id === ownerProject.doc.id),
     "sharing OFF must reject otherwise-active grant in signed HTTP listing");
+  assert.deepEqual(await electricalCounts(pro1, sharingOffBase), [0, 0, 0],
+    "OFF suppresses a still-active grant from signed HTTP aggregate counts");
   const disabledCtx = await request("POST", "/v1/prometeo/rag-context", {
     token: pro1.token, target: sharingOffBase,
     body: { query: ownerMarker + "_PROJECT", topK: 20 },
@@ -345,6 +369,8 @@ async function prometeoObjectScopeSmoke() {
   assert.equal(revoked.data?.revoked, true);
   const revokedIds = await documentIds(pro1);
   assert.ok(!revokedIds.has(ownerProject.doc.id), "revoke must immediately remove read access");
+  assert.deepEqual(await electricalCounts(pro1), [0, 0, 0],
+    "revoked project observation must disappear from signed HTTP counts");
   const afterRevoke = await request("POST", "/v1/prometeo/rag-context", {
     token: pro1.token, body: { query: ownerMarker + "_PROJECT", topK: 20 },
   });
