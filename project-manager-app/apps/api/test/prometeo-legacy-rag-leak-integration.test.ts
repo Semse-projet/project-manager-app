@@ -158,6 +158,15 @@ pgTest("legacy PROMOTED/public_training stays private in search, RAG, titles, ci
     assert.equal((await svc.getFeedbackStats(tenantAB, scopeA)).totalFeedback, 1);
 
     // An explicit project grant does not publish the unassociated historical original.
+    // Direct title queries use the same SQL ACL as chunk retrieval, not a
+    // tenant-blind second pass over known or guessed document IDs.
+    const candidateIds = [original, linkedOriginal, linkedActive, ownB, tenantCOriginal];
+    const titlesBeforeGrant = await repo.getDocumentTitles({
+      tenantId: tenantAB, scope: scopeB, docIds: candidateIds,
+    });
+    assert.deepEqual([...titlesBeforeGrant.keys()], [ownB],
+      "known private IDs are not title lookups without permission");
+
     const grant = await prisma.prometeoDocumentGrant.create({ data: {
       tenantId: tenantAB, documentId: linkedOriginal, projectId: project,
       recipientOrgId: orgB, grantedByUserId: "legacy_rag_test_actor",
@@ -171,6 +180,14 @@ pgTest("legacy PROMOTED/public_training stays private in search, RAG, titles, ci
     );
     assert.ok(withGrant.citations.some(row => row.documentId === linkedOriginal));
     assert.ok(!withGrant.citations.some(row => row.documentId === original));
+    const titlesWithGrant = await repo.getDocumentTitles({
+      tenantId: tenantAB, scope: scopeB, docIds: candidateIds,
+    });
+    assert.ok(titlesWithGrant.has(ownB));
+    assert.ok(titlesWithGrant.has(linkedOriginal), "explicit grant authorizes only the linked project title");
+    assert.ok(!titlesWithGrant.has(original), "unassociated legacy original is never grant-visible");
+    assert.ok(!titlesWithGrant.has(linkedActive), "another project document needs its own grant");
+    assert.ok(!titlesWithGrant.has(tenantCOriginal), "foreign tenant title never crosses boundary");
     await prisma.prometeoDocumentGrant.update({
       where: { id: grant.id }, data: { revokedAt: new Date(), revokedByUserId: "legacy_rag_test_actor" },
     });
@@ -178,6 +195,12 @@ pgTest("legacy PROMOTED/public_training stays private in search, RAG, titles, ci
       [original, linkedOriginal, linkedActive, tenantCOriginal],
       [privateTitle, privateToken, foreignTitle, foreignToken]);
     assert.equal(afterRevoke.electrical.documentsCount, 1, "revocation removes the shared document from counts");
+    // Simulate a stale list of chunk IDs held from BEFORE revocation.
+    const titlesAfterRevoke = await repo.getDocumentTitles({
+      tenantId: tenantAB, scope: scopeB, docIds: candidateIds,
+    });
+    assert.deepEqual([...titlesAfterRevoke.keys()], [ownB],
+      "live SQL ACL must not return a title after grant revocation");
 
     // A SECOND, STILL ACTIVE grant is required to prove the kill switch is
     // effective independently of revocation. Owner access must not change.
@@ -203,6 +226,11 @@ pgTest("legacy PROMOTED/public_training stays private in search, RAG, titles, ci
       .some(row => row.documentId === linkedActive), "owner access is retained while sharing is OFF");
     assert.ok(await prisma.prometeoDocumentGrant.findUnique({ where: { id: stillActive.id } }),
       "OFF does not destroy active grants");
+    const titlesOffWithActiveGrant = await repo.getDocumentTitles({
+      tenantId: tenantAB, scope: scopeB, docIds: candidateIds,
+    });
+    assert.deepEqual([...titlesOffWithActiveGrant.keys()], [ownB],
+      "OFF suppresses title access even if the explicit project grant is still active");
     process.env.SEMSE_PROMETEO_DOCUMENT_SHARING_ENABLED = "true";
     assert.ok((await svc.retrieveContext({ tenantId: tenantAB, scope: scopeB, query })).citations
       .some(row => row.documentId === linkedActive), "grant becomes visible if ON again");
