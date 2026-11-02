@@ -87,6 +87,10 @@ export class PrometeoRepository {
         // A revoked/deactivated sharing program cannot expose grants through RAG.
         if (isPrometeoDocumentSharingEnabled()) {
           permitted.push({
+            // Raw field observations are private source material, never a
+            // publication artifact. Historical grants cannot promote them
+            // to another organization's RAG without the curated consent FSM.
+            sourceType: { not: "field_observation" },
             grants: {
               some: {
                 tenantId: input.tenantId,
