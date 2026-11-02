@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 
 import { SystemObserverService } from "../dist/modules/ops/observer.service.js";
 import { RecommendationEngineService } from "../dist/modules/ops/recommendation-engine.service.js";
+import { EvolutionEngineService } from "../dist/modules/ops/evolution-engine.service.js";
 
 const forbiddenInstruction = /OPENAI_API_KEY|(?:POST|Ejecutar)\s+\/v1\/prometeo\/embeddings\/backfill|Agregar.*OpenAI.*Railway/i;
 
@@ -64,4 +65,21 @@ test("L14 trade ingestion status does not instruct operators to set a cloud API 
   assert.doesNotMatch(source, /OPENAI_API_KEY not set or unhealthy/);
   assert.match(source, /FTS fallback local: no habilitar OpenAI para documentos privados/);
   assert.match(source, /backfill L14 bloqueado/);
+});
+
+
+test("L14 evolution warning forbids cloud-key advice for FTS-only private RAG", () => {
+  const engine = Object.create(EvolutionEngineService.prototype) as
+    { generateStrategicWarnings: (...args: unknown[]) => string[] };
+  const snap = {
+    intelligenceHealth: { ollamaAvailable: true, embeddingsMode: "fts_fallback" },
+  };
+  const index = { maturity: { globalScore: 85 } };
+  const warnings = engine.generateStrategicWarnings(snap, index);
+  const ragWarning = warnings.find(x => x.includes("RAG en FTS fallback"));
+  assert.ok(ragWarning);
+  assert.doesNotMatch(ragWarning, forbiddenInstruction);
+  assert.match(ragWarning, /local-only/);
+  assert.match(ragWarning, /no configurar claves cloud/i);
+  assert.match(ragWarning, /rollback/);
 });
