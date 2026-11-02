@@ -287,7 +287,7 @@ export class PrometeoService {
     const uniqueDocIds = [...new Set(top.map((r: ScoredChunk) => r.documentId))];
     const titleMap = await this.repo.getDocumentTitles({
       tenantId: input.tenantId, docIds: uniqueDocIds,
-      projectId: input.projectId, scope: input.scope ?? undefined,
+      projectId: input.projectId, scope: input.scope ?? null,
     });
     // Rechecked titles are the last scope check before returning a response.
     // If a grant was revoked after chunk loading, do not return stale text
