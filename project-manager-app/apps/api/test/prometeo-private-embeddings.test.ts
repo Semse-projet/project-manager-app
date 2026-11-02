@@ -83,6 +83,40 @@ test("private scoped search uses local-only query embeddings and still supports 
   assert.equal(results[0]?.retrievalMode, "fts_fallback");
 });
 
+test("stale previously-scoped RAG chunks are suppressed after title reauthorization denies them", async () => {
+  const tenantId = "synthetic_tenant_A";
+  const scope = { orgId: "synthetic_org_B", projectIds: ["synthetic_project"], jobIds: [] };
+  let scopedTitlesRequested = 0;
+  const repo = {
+    // Pretend the chunk list was fetched immediately before a grant revoke.
+    async loadChunksForSearch() {
+      return [{ id: "stale_chunk", documentId: "revoked_private_doc", chunkIndex: 0,
+        text: "SYNTHETIC_REVOKED_PRIVATE_CONTENT", embeddingJson: [], metadataJson: {} }];
+    },
+    async getFeedbackScores() { return new Map(); },
+    async getDocumentTitles(input: {
+      tenantId: string; docIds: string[]; scope?: typeof scope;
+    }) {
+      scopedTitlesRequested++;
+      assert.equal(input.tenantId, tenantId);
+      assert.deepEqual(input.scope, scope);
+      assert.deepEqual(input.docIds, ["revoked_private_doc"]);
+      // A live ACL query now denies the previously authorized document ID.
+      return new Map<string, string>();
+    },
+  };
+  const embedding = {
+    async embed() { return []; },
+  };
+  const svc = new PrometeoService(repo as never, {} as never, embedding as never, {} as never);
+  const results = await svc.search({ tenantId, query: "SYNTHETIC_REVOKED_PRIVATE_CONTENT", scope });
+  assert.deepEqual(results, [], "never return stale private text with a placeholder title");
+  assert.equal(scopedTitlesRequested, 1);
+  assert.deepEqual(await svc.retrieveContext({
+    tenantId, query: "SYNTHETIC_REVOKED_PRIVATE_CONTENT", scope,
+  }), { available: false, contextBlock: "", citations: [] });
+});
+
 test("private document backfill cannot send chunks to OpenAI even when it reports available", async () => {
   const calls: Array<Record<string, unknown>> = [];
   let persisted = false;
