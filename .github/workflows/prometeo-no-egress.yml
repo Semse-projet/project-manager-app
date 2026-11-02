@@ -18,7 +18,9 @@ permissions:
 
 jobs:
   private-http-with-firewall:
-    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.number == 987) }}
+    # #1008 strengthens the same P0 raw-observation boundary; execute the
+    # real OS-firewall gate on its exact candidate SHA instead of skipping it.
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && (github.event.pull_request.number == 987 || github.event.pull_request.number == 1008)) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     defaults:
