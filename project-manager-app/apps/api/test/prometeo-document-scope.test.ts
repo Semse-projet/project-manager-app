@@ -198,6 +198,40 @@ test("public_training cannot be re-enabled by legacy metadata or implicit defaul
 });
 
 
+test("HTTP ingest refuses forged internal provenance but preserves normal document labels", async () => {
+  const inputs: Array<Record<string, unknown>> = [];
+  const svc = { async ingestText(input: Record<string, unknown>) { inputs.push(input); return { id: "doc-http" }; } };
+  const access = { async assertCanCreate() {} };
+  const controller = new PrometeoController(svc as never, access as never);
+  const req = { headers: {}, authContext: { tenantId: "tenant-A", orgId: "org-A", userId: "actor-A", roles: ["OPS_ADMIN"] } };
+  for (const payload of [
+    { title: "Raw forged", text: "original", sourceType: "field_observation" },
+    { title: "Ref forged", text: "original", sourceType: "text", sourceRef: "observation-123" },
+    { title: "Null ref forged", text: "original", sourceRef: null },
+  ]) {
+    await assert.rejects(
+      () => controller.ingest(req as never, payload),
+      /Original provenance is assigned only by an authorized server workflow/,
+    );
+  }
+  assert.equal(inputs.length, 0, "forged provenance must be denied before persistence");
+  await controller.ingest(req as never, {
+    title: "Manual document", text: "normal project instructions",
+    sourceType: "manual",
+    metadataJson: { sourceAuthority: "verified", lineageVerified: true, visibility: "public_training" },
+  });
+  assert.equal(inputs.length, 1);
+  assert.equal(inputs[0]?.sourceType, "manual", "existing manual/document labels remain supported");
+  assert.equal(inputs[0]?.sourceRef, undefined, "no caller-supplied internal lineage reference");
+  assert.deepEqual(
+    { sourceAuthority: (inputs[0]?.metadataJson as Record<string, unknown>).sourceAuthority,
+      lineageVerified: (inputs[0]?.metadataJson as Record<string, unknown>).lineageVerified,
+      visibility: (inputs[0]?.metadataJson as Record<string, unknown>).visibility },
+    { sourceAuthority: "http_unverified", lineageVerified: false, visibility: "tenant_private" },
+    "client-provided provenance and legacy public_training metadata cannot become trusted",
+  );
+});
+
 test("internal agents cannot retrieve RAG without an explicit resolved scope", async () => {
   let touchedChunks = false;
   let sentEmbedding = false;
