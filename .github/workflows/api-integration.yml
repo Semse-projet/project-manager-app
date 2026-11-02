@@ -216,8 +216,11 @@ jobs:
   # A rollback to pre-P0 main is UNSAFE: legacy Prometeo lists by tenant alone.
   # Exercise a pinned post-P0 security checkpoint binary on the HEAD's expanded
   # schema instead. This is isolated CI evidence, NOT production rollback.
-  # #1008 extends the same P0 privacy checks, so verify the safe checkpoint
-  # against the updated, signed A/B/C smoke instead of silently SKIPPING it.
+  # #1008 introduces a new raw-observation grant denial that the pinned
+  # checkpoint predates. The checkpoint is ONLY a safe rollback with
+  # document sharing OFF on every instance, never with legacy grant mode ON.
+  # The signed A/B/C rollback smoke verifies both OFF instances; current HEAD
+  # separately verifies sharing ON, raw 403, grant/revoke and revocation races.
   rollback-safe-checkpoint:
     if: ${{ github.event_name == 'pull_request' && (github.event.pull_request.number == 987 || github.event.pull_request.number == 1008) }}
     runs-on: ubuntu-24.04
@@ -301,7 +304,8 @@ jobs:
           echo "::add-mask::$AUTH_SECRET"
           echo "SEMSE_ROLLBACK_DRILL_AUTH_SECRET=$AUTH_SECRET" >> "$GITHUB_ENV"
           cd "$GITHUB_WORKSPACE/safe-rollback/project-manager-app"
-          AUTH_SECRET="$AUTH_SECRET" HOST=127.0.0.1 PORT=4001 NODE_ENV=test SEMSE_PROMETEO_DOCUMENT_SHARING_ENABLED=true pnpm start:api > "$RUNNER_TEMP/safe-rollback-api-on.log" 2>&1 &
+          # A pre-quarantine binary MUST NEVER run with sharing ON during rollback.
+          AUTH_SECRET="$AUTH_SECRET" HOST=127.0.0.1 PORT=4001 NODE_ENV=test SEMSE_PROMETEO_DOCUMENT_SHARING_ENABLED=false pnpm start:api > "$RUNNER_TEMP/safe-rollback-api-on.log" 2>&1 &
           echo $! > "$RUNNER_TEMP/safe-rollback-api-on.pid"
           AUTH_SECRET="$AUTH_SECRET" HOST=127.0.0.1 PORT=4002 NODE_ENV=test SEMSE_PROMETEO_DOCUMENT_SHARING_ENABLED=false pnpm start:api > "$RUNNER_TEMP/safe-rollback-api-off.log" 2>&1 &
           echo $! > "$RUNNER_TEMP/safe-rollback-api-off.pid"
@@ -328,6 +332,7 @@ jobs:
           NODE_ENV: test
           SEMSE_API_URL: http://127.0.0.1:4001
           SEMSE_SHARE_OFF_API_URL: http://127.0.0.1:4002
+          SEMSE_ROLLBACK_SHARING_OFF_ONLY: "1"
         run: |
           set -euo pipefail
           cd "$GITHUB_WORKSPACE/current/project-manager-app"
@@ -344,5 +349,6 @@ jobs:
       - name: Report test scope
         if: success()
         run: |
-          echo "PASS: post-P0 safe checkpoint boots with expanded HEAD schema and signed scope smoke"
-          echo "NOT PROVEN: rollback to pre-P0 main, real staging, traffic capture or production cutover"
+          echo "PASS: pinned checkpoint with sharing DISABLED on both instances boots expanded HEAD schema and passes signed A/B/C scope + no-grant smoke"
+          echo "REQUIRED OPERATIONAL GATE: switch SEMSE_PROMETEO_DOCUMENT_SHARING_ENABLED=OFF BEFORE reverting to this older binary; never roll back with sharing ON"
+          echo "NOT PROVEN: sharing-ON rollback to this old checkpoint, production rollback, real staging, traffic capture or production cutover"
