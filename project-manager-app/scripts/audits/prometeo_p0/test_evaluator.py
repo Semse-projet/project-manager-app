@@ -1,7 +1,6 @@
 """Synthetic-only tests for the Prometeo P0 aggregate evaluator; no database."""
 import json
 import sys
-from copy import deepcopy
 
 import pytest
 
