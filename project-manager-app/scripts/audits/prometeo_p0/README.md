@@ -6,7 +6,8 @@ Este paquete **no concede acceso a documentos**, no altera la BD y no activa `SE
 
 - `prometeo_p0_historical_inventory_json_readonly.sql`: consulta única de PostgreSQL que devuelve un objeto JSON de conteos; `REPEATABLE READ`, `READ ONLY`, `statement_timeout=15s`, `lock_timeout=2s`, termina en `ROLLBACK`.
 - `evaluate_inventory.py`: valida **offline** el JSON contra un esquema cerrado, rechaza campos de identidad o contenido, identifica inconsistencias y devuelve siempre `activation_decision=NOT_AUTHORIZED_BY_THIS_AUDIT`.
-- `test_evaluator.py`: pruebas con datos inventados. Estas **no** son pruebas contra PostgreSQL real ni evidencian cumplimiento.
+- `test_evaluator.py` y `test_sql_contract.py`: validación local con datos sintéticos y controles estáticos.
+- `fixture_postgres16_synthetic.sql` y `test_postgres16_synthetic.sh`: prueba adicional contra PostgreSQL 16 **real pero desechable en GitHub Actions**, utilizando un subconjunto sintético del esquema para verificar que el SQL se ejecuta, produce JSON válido y detecta un mismatch entre tenants. No examina datos históricos ni demuestra la compatibilidad integral con todas las migraciones Prisma.
 
 **La invocación sobre una BD de SEMSE requiere acceso autorizado y revisión de operaciones.** Preferir una réplica o snapshot, una cuenta `SELECT` restringida, conexión privada y una carpeta de evidencias privada; los conteos pequeños también pueden ser confidenciales. Nunca abrir un proxy TCP público ni pegar `DATABASE_URL` en GitHub, logs o tickets.
 
@@ -37,6 +38,6 @@ Los resultados individuales `p0_inventory_private.json` se conservan sólo en el
 - Evidencia JSON inválida/incompleta: error, sin conclusión favorable.
 - **Todos los casos:** `NOT_AUTHORIZED_BY_THIS_AUDIT`. SDD `REVIEW`, ADR-046 `Proposed` y los controles de nivel 3 siguen siendo gates independientes.
 
-Para pruebas locales: `python3 -m pytest -q test_evaluator.py` (requiere `pytest` sólo en el entorno de pruebas).
+Para pruebas locales: `python3 -m pytest -q test_evaluator.py test_sql_contract.py` (requiere `pytest`). La prueba `test_postgres16_synthetic.sh` sólo se ejecuta en CI y exige la base efímera y guardas de host/puerto/usuario/nombre de BD.
 
-Este auditor deriva del paquete local SEMSE P0 v6, revisado contra el esquema Prisma incorporado en PR #987. Se versiona para revisión; **no ejecutar automáticamente en CI de PR ni sobre producción**.
+Este auditor deriva del paquete local SEMSE P0 v6, revisado contra el esquema Prisma incorporado en PR #987. **El CI sí ejecuta el inventario contra PostgreSQL 16 sintético desechable**, nunca contra producción ni una réplica de datos reales. La consulta histórica sobre datos de SEMSE necesita autorización separada.
