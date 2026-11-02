@@ -39,6 +39,7 @@ pgTest("legacy PROMOTED/public_training stays private in search, RAG, titles, ci
   const oldSharing = process.env.SEMSE_PROMETEO_DOCUMENT_SHARING_ENABLED;
   // CI/QA fixture only: exercise both grant-on and flag-off paths.
   process.env.SEMSE_PROMETEO_DOCUMENT_SHARING_ENABLED = "true";
+  try {
 
   const { PrismaService } = await import("../dist/infrastructure/prisma/prisma.service.js");
   const { PrometeoRepository } = await import("../dist/modules/prometeo/prometeo.repository.js");
@@ -66,8 +67,10 @@ pgTest("legacy PROMOTED/public_training stays private in search, RAG, titles, ci
   const foreignTitle = id("cross_tenant_title");
   const foreignToken = id("cross_tenant_chunk");
 
-  await prisma.$connect();
+  let databaseConnected = false;
   try {
+    await prisma.$connect();
+    databaseConnected = true;
     for (const [tenantId, label] of [[tenantAB, "AB"], [tenantC, "C"]] as const) {
       await prisma.tenant.create({ data: { id: tenantId, slug: tenantId, name: `Synthetic RAG ${label}` } });
     }
@@ -90,6 +93,7 @@ pgTest("legacy PROMOTED/public_training stays private in search, RAG, titles, ci
     const ownB = await create(tenantAB, orgB, id("reader_b_title"), id("reader_b_chunk"));
     const tenantCOriginal = await create(tenantC, orgC, foreignTitle, foreignToken);
     const linkedOriginal = await create(tenantAB, orgA, id("project_owner_title"), id("project_owner_chunk"), project);
+    const linkedActive = await create(tenantAB, orgA, id("project_active_title"), id("project_active_chunk"), project);
 
     const verify = async (
       tenantId: string,
@@ -112,21 +116,35 @@ pgTest("legacy PROMOTED/public_training stays private in search, RAG, titles, ci
       for (const forbidden of forbiddenStrings) {
         assert.ok(!published.includes(forbidden), "private title/text never appears in any result");
       }
-      return { list, results, rag, retrieved, library, feedback };
+      const electrical = library.find(row => row.trade === "electrical");
+      assert.ok(electrical, "electrical counters must exist");
+      return { list, results, rag, retrieved, library, feedback, electrical };
     };
 
     const beforeB = await verify(
-      tenantAB, scopeB, [original, linkedOriginal, tenantCOriginal],
+      tenantAB, scopeB, [original, linkedOriginal, linkedActive, tenantCOriginal],
       [privateTitle, privateToken, foreignTitle, foreignToken],
+    );
+    assert.deepEqual(
+      [beforeB.electrical.documentsCount, beforeB.electrical.indexedCount, beforeB.electrical.chunksCount],
+      [1, 1, 1], "Org B must not count two private project docs or a private original",
     );
     assert.ok(beforeB.results.some(row => row.documentId === ownB), "owner B retains its own search");
     assert.ok(beforeB.retrieved.citations.some(row => row.documentId === ownB), "owner B retains its own citations");
     assert.ok(!beforeB.rag.contextBlock.includes(privateToken), "private original excluded from RAG prompt");
     const seenByA = await verify(tenantAB, scopeA, [ownB, tenantCOriginal], [foreignTitle, foreignToken]);
+    assert.deepEqual(
+      [seenByA.electrical.documentsCount, seenByA.electrical.indexedCount, seenByA.electrical.chunksCount],
+      [3, 3, 3], "Org A sees its original and both own project documents only",
+    );
     assert.ok(seenByA.results.some(row => row.documentId === original), "owner A retains private original");
     assert.ok(seenByA.retrieved.citations.some(row => row.documentId === original), "owner A cites its own original");
     const seenByC = await verify(tenantC, scopeC, [original, ownB, linkedOriginal], [privateTitle, privateToken]);
     assert.ok(seenByC.results.some(row => row.documentId === tenantCOriginal), "tenant C reads only its own content");
+    assert.deepEqual(
+      [seenByC.electrical.documentsCount, seenByC.electrical.indexedCount, seenByC.electrical.chunksCount],
+      [1, 1, 1], "tenant C must not include any AB document in counts",
+    );
 
     // Feedback metadata must not leak into another organization's count or top documents.
     await repo.saveFeedback({
@@ -143,18 +161,54 @@ pgTest("legacy PROMOTED/public_training stays private in search, RAG, titles, ci
       recipientOrgId: orgB, grantedByUserId: "legacy_rag_test_actor",
     } });
     const withGrant = await svc.retrieveContext({ tenantId: tenantAB, scope: scopeB, query, topK: 20 });
+    assert.deepEqual(
+      [ (await svc.getTradeLibrary(tenantAB, scopeB)).find(row => row.trade === "electrical")?.documentsCount,
+        (await svc.getTradeLibrary(tenantAB, scopeB)).find(row => row.trade === "electrical")?.indexedCount,
+        (await svc.getTradeLibrary(tenantAB, scopeB)).find(row => row.trade === "electrical")?.chunksCount ],
+      [2, 2, 2], "active grant exposes exactly one extra project document, not historical original",
+    );
     assert.ok(withGrant.citations.some(row => row.documentId === linkedOriginal));
     assert.ok(!withGrant.citations.some(row => row.documentId === original));
     await prisma.prometeoDocumentGrant.update({
       where: { id: grant.id }, data: { revokedAt: new Date(), revokedByUserId: "legacy_rag_test_actor" },
     });
-    await verify(tenantAB, scopeB, [original, linkedOriginal, tenantCOriginal],
+    const afterRevoke = await verify(tenantAB, scopeB,
+      [original, linkedOriginal, linkedActive, tenantCOriginal],
       [privateTitle, privateToken, foreignTitle, foreignToken]);
+    assert.equal(afterRevoke.electrical.documentsCount, 1, "revocation removes the shared document from counts");
 
-    // Turning sharing off must not resurrect any old or revoked project grant.
+    // A SECOND, STILL ACTIVE grant is required to prove the kill switch is
+    // effective independently of revocation. Owner access must not change.
+    const stillActive = await prisma.prometeoDocumentGrant.create({ data: {
+      tenantId: tenantAB, documentId: linkedActive, projectId: project,
+      recipientOrgId: orgB, grantedByUserId: "legacy_rag_test_actor",
+    } });
+    const activeResult = await svc.retrieveContext({ tenantId: tenantAB, scope: scopeB, query, topK: 20 });
+    assert.ok(activeResult.citations.some(row => row.documentId === linkedActive),
+      "the second grant is active before toggling OFF");
+    assert.equal((await svc.getTradeLibrary(tenantAB, scopeB))
+      .find(row => row.trade === "electrical")?.documentsCount, 2);
+
     process.env.SEMSE_PROMETEO_DOCUMENT_SHARING_ENABLED = "false";
-    await verify(tenantAB, scopeB, [original, linkedOriginal, tenantCOriginal],
+    const sharingOff = await verify(tenantAB, scopeB,
+      [original, linkedOriginal, linkedActive, tenantCOriginal],
       [privateTitle, privateToken, foreignTitle, foreignToken]);
+    assert.deepEqual(
+      [sharingOff.electrical.documentsCount, sharingOff.electrical.indexedCount, sharingOff.electrical.chunksCount],
+      [1, 1, 1], "OFF hides a still-active grant from all counters",
+    );
+    assert.ok((await svc.retrieveContext({ tenantId: tenantAB, scope: scopeA, query })).citations
+      .some(row => row.documentId === linkedActive), "owner access is retained while sharing is OFF");
+    assert.ok(await prisma.prometeoDocumentGrant.findUnique({ where: { id: stillActive.id } }),
+      "OFF does not destroy active grants");
+    process.env.SEMSE_PROMETEO_DOCUMENT_SHARING_ENABLED = "true";
+    assert.ok((await svc.retrieveContext({ tenantId: tenantAB, scope: scopeB, query })).citations
+      .some(row => row.documentId === linkedActive), "grant becomes visible if ON again");
+    await prisma.prometeoDocumentGrant.update({
+      where: { id: stillActive.id }, data: { revokedAt: new Date() },
+    });
+    assert.ok(!(await svc.retrieveContext({ tenantId: tenantAB, scope: scopeB, query })).citations
+      .some(row => row.documentId === linkedActive), "revoked second grant remains denied with ON");
 
     // An internal agent without a resolved caller scope must fail closed.
     assert.deepEqual(await svc.search({ tenantId: tenantAB, query }), []);
@@ -163,8 +217,17 @@ pgTest("legacy PROMOTED/public_training stays private in search, RAG, titles, ci
     assert.deepEqual(await svc.retrieveContext({ tenantId: tenantAB, query }),
       { available: false, contextBlock: "", citations: [] });
   } finally {
-    await prisma.tenant.deleteMany({ where: { id: { in: [tenantAB, tenantC] } } });
-    await prisma.$disconnect();
+    // Independent teardown stages: even a failed tenant cleanup must not
+    // prevent disconnect; the OUTER finally always restores the flag.
+    try {
+      if (databaseConnected) {
+        await prisma.tenant.deleteMany({ where: { id: { in: [tenantAB, tenantC] } } });
+      }
+    } finally {
+      await prisma.$disconnect();
+    }
+  }
+  } finally {
     if (oldSharing === undefined) delete process.env.SEMSE_PROMETEO_DOCUMENT_SHARING_ENABLED;
     else process.env.SEMSE_PROMETEO_DOCUMENT_SHARING_ENABLED = oldSharing;
   }
