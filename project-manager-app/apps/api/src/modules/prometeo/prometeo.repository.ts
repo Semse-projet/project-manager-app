@@ -197,12 +197,15 @@ export class PrometeoRepository {
    * Keep the same SQL ownership/grant predicate as the original chunk query.
    */
   async getDocumentTitles(input: {
-    tenantId: string; docIds: string[]; projectId?: string; scope?: PrometeoListScopeFilter;
+    tenantId: string; docIds: string[]; projectId?: string;
+    // null is the explicit OPS_ADMIN sentinel; omission is never authorized.
+    scope: PrometeoListScopeFilter | null;
   }): Promise<Map<string, string>> {
+    if (!Object.prototype.hasOwnProperty.call(input, "scope") || input.scope === undefined) return new Map();
     if (!input.docIds.length) return new Map();
     const docs = await this.prisma.prometeoDocument.findMany({
       where: {
-        ...this.documentWhere({ tenantId: input.tenantId, projectId: input.projectId, scope: input.scope }),
+        ...this.documentWhere({ tenantId: input.tenantId, projectId: input.projectId, scope: input.scope ?? undefined }),
         id: { in: input.docIds },
         status: "indexed",
       },
