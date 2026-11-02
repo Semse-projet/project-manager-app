@@ -67,6 +67,24 @@ jobs:
           python-version: "3.11"
       - name: Ensure PostgreSQL client is available
         run: command -v psql || (sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client)
+      - name: Reject alternate libpq destinations before any fixture write
+        working-directory: project-manager-app/scripts/audits/prometeo_p0
+        shell: bash
+        run: |
+          set -euo pipefail
+          for variable in PGHOSTADDR PGSERVICE PGSERVICEFILE PGSYSCONFDIR PGOPTIONS; do
+            if env "${variable}=unsafe" bash test_postgres16_synthetic.sh > /dev/null 2>&1; then
+              echo "FAIL: fixture accepted unexpected ${variable}" >&2
+              exit 1
+            else
+              code=$?
+              if [ "$code" -ne 2 ]; then
+                echo "FAIL: guard returned ${code} for ${variable}" >&2
+                exit 1
+              fi
+            fi
+          done
+          echo "P0_LIBPQ_ALTERNATE_DESTINATIONS_REJECTED_PASS"
       - name: Execute inventory against disposable synthetic PostgreSQL only
         working-directory: project-manager-app/scripts/audits/prometeo_p0
         run: bash test_postgres16_synthetic.sh
