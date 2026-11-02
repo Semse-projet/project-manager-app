@@ -83,3 +83,32 @@ test("L14 evolution warning forbids cloud-key advice for FTS-only private RAG", 
   assert.match(ragWarning, /no configurar claves cloud/i);
   assert.match(ragWarning, /rollback/);
 });
+
+
+test("L14 infrastructure health does not require optional OpenAI credentials", async (t) => {
+  // Exercise the compiled observer's real infrastructure evaluation. Only
+  // synthetic SQL responses and a mocked local Ollama health response are used.
+  // A cloud embedding API key must NOT be required for private RAG readiness.
+  t.mock.method(globalThis, "fetch", async () => ({ ok: true, status: 200 }) as Response);
+
+  const observer = Object.create(SystemObserverService.prototype) as {
+    prisma: { $queryRaw: (...args: unknown[]) => Promise<unknown[]> };
+    observeInfrastructure: () => Promise<{
+      items: Array<{ name: string; healthy: boolean; detail?: string }>;
+      unhealthyCount: number;
+    }>;
+  };
+  observer.prisma = { $queryRaw: async () => [] };
+
+  const oldKey = process.env.OPENAI_API_KEY;
+  try {
+    delete process.env.OPENAI_API_KEY;
+    const health = await observer.observeInfrastructure();
+    assert.equal(health.items.some(item => item.name === "OpenAI Embeddings"), false);
+    assert.ok(health.items.some(item => item.name === "Postgres" && item.healthy));
+    assert.ok(health.items.every(item => !item.detail?.includes("OPENAI_API_KEY")));
+  } finally {
+    if (oldKey === undefined) delete process.env.OPENAI_API_KEY;
+    else process.env.OPENAI_API_KEY = oldKey;
+  }
+});
