@@ -77,10 +77,10 @@ pgTest("legacy PROMOTED/public_training stays private in search, RAG, titles, ci
       await prisma.tenant.create({ data: { id: tenantId, slug: tenantId, name: `Synthetic RAG ${label}` } });
     }
 
-    const create = async (tenantId: string, orgId: string, title: string, token: string, projectId?: string) => {
+    const create = async (tenantId: string, orgId: string, title: string, token: string, projectId?: string, sourceType = "field_observation") => {
       const document = await repo.createDocument({
         tenantId, orgId, projectId, title, uploadedById: "legacy_rag_test_actor",
-        sourceType: "field_observation", sourceRef: id("synthetic_observation"),
+        sourceType, sourceRef: id("synthetic_observation"),
         metadataJson: { visibility: "public_training", promotionStatus: "PROMOTED", trade: "electrical" },
       });
       await repo.saveChunks(document.id, tenantId, [{
@@ -94,8 +94,11 @@ pgTest("legacy PROMOTED/public_training stays private in search, RAG, titles, ci
     const original = await create(tenantAB, orgA, privateTitle, privateToken);
     const ownB = await create(tenantAB, orgB, id("reader_b_title"), id("reader_b_chunk"));
     const tenantCOriginal = await create(tenantC, orgC, foreignTitle, foreignToken);
-    const linkedOriginal = await create(tenantAB, orgA, id("project_owner_title"), id("project_owner_chunk"), project);
-    const linkedActive = await create(tenantAB, orgA, id("project_active_title"), id("project_active_chunk"), project);
+    const linkedOriginal = await create(tenantAB, orgA, id("project_owner_title"), id("project_owner_chunk"), project, "text");
+    const linkedActive = await create(tenantAB, orgA, id("project_active_title"), id("project_active_chunk"), project, "text");
+    // An old indexed field observation with a project ID is STILL a private
+    // original, even if a legacy grant exists and sharing is toggled ON.
+    const rawLinked = await create(tenantAB, orgA, id("raw_project_title"), id("raw_project_chunk"), project);
 
     const verify = async (
       tenantId: string,
@@ -124,7 +127,7 @@ pgTest("legacy PROMOTED/public_training stays private in search, RAG, titles, ci
     };
 
     const beforeB = await verify(
-      tenantAB, scopeB, [original, linkedOriginal, linkedActive, tenantCOriginal],
+      tenantAB, scopeB, [original, linkedOriginal, linkedActive, rawLinked, tenantCOriginal],
       [privateTitle, privateToken, foreignTitle, foreignToken],
     );
     assert.deepEqual(
@@ -137,7 +140,7 @@ pgTest("legacy PROMOTED/public_training stays private in search, RAG, titles, ci
     const seenByA = await verify(tenantAB, scopeA, [ownB, tenantCOriginal], [foreignTitle, foreignToken]);
     assert.deepEqual(
       [seenByA.electrical.documentsCount, seenByA.electrical.indexedCount, seenByA.electrical.chunksCount],
-      [3, 3, 3], "Org A sees its original and both own project documents only",
+      [4, 4, 4], "Org A sees its original and three owner project documents only",
     );
     assert.ok(seenByA.results.some(row => row.documentId === original), "owner A retains private original");
     assert.ok(seenByA.retrieved.citations.some(row => row.documentId === original), "owner A cites its own original");
@@ -160,7 +163,7 @@ pgTest("legacy PROMOTED/public_training stays private in search, RAG, titles, ci
     // An explicit project grant does not publish the unassociated historical original.
     // Direct title queries use the same SQL ACL as chunk retrieval, not a
     // tenant-blind second pass over known or guessed document IDs.
-    const candidateIds = [original, linkedOriginal, linkedActive, ownB, tenantCOriginal];
+    const candidateIds = [original, linkedOriginal, linkedActive, rawLinked, ownB, tenantCOriginal];
     const titlesBeforeGrant = await repo.getDocumentTitles({
       tenantId: tenantAB, scope: scopeB, docIds: candidateIds,
     });
@@ -183,6 +186,11 @@ pgTest("legacy PROMOTED/public_training stays private in search, RAG, titles, ci
       tenantId: tenantAB, documentId: linkedOriginal, projectId: project,
       recipientOrgId: orgB, grantedByUserId: "legacy_rag_test_actor",
     } });
+    const rawGrant = await prisma.prometeoDocumentGrant.create({ data: {
+      tenantId: tenantAB, documentId: rawLinked, projectId: project,
+      recipientOrgId: orgB, grantedByUserId: "legacy_rag_test_actor",
+    } });
+    assert.ok(rawGrant.id, "historical raw grant fixture persisted");
     const withGrant = await svc.retrieveContext({ tenantId: tenantAB, scope: scopeB, query, topK: 20 });
     assert.deepEqual(
       [ (await svc.getTradeLibrary(tenantAB, scopeB)).find(row => row.trade === "electrical")?.documentsCount,
@@ -192,6 +200,8 @@ pgTest("legacy PROMOTED/public_training stays private in search, RAG, titles, ci
     );
     assert.ok(withGrant.citations.some(row => row.documentId === linkedOriginal));
     assert.ok(!withGrant.citations.some(row => row.documentId === original));
+    assert.ok(!withGrant.citations.some(row => row.documentId === rawLinked),
+      "even an active historical grant cannot expose a raw field observation");
     const titlesWithGrant = await repo.getDocumentTitles({
       tenantId: tenantAB, scope: scopeB, docIds: candidateIds,
     });
@@ -199,12 +209,13 @@ pgTest("legacy PROMOTED/public_training stays private in search, RAG, titles, ci
     assert.ok(titlesWithGrant.has(linkedOriginal), "explicit grant authorizes only the linked project title");
     assert.ok(!titlesWithGrant.has(original), "unassociated legacy original is never grant-visible");
     assert.ok(!titlesWithGrant.has(linkedActive), "another project document needs its own grant");
+    assert.ok(!titlesWithGrant.has(rawLinked), "raw observation title stays private despite its active grant");
     assert.ok(!titlesWithGrant.has(tenantCOriginal), "foreign tenant title never crosses boundary");
     await prisma.prometeoDocumentGrant.update({
       where: { id: grant.id }, data: { revokedAt: new Date(), revokedByUserId: "legacy_rag_test_actor" },
     });
     const afterRevoke = await verify(tenantAB, scopeB,
-      [original, linkedOriginal, linkedActive, tenantCOriginal],
+      [original, linkedOriginal, linkedActive, rawLinked, tenantCOriginal],
       [privateTitle, privateToken, foreignTitle, foreignToken]);
     assert.equal(afterRevoke.electrical.documentsCount, 1, "revocation removes the shared document from counts");
     // Simulate a stale list of chunk IDs held from BEFORE revocation.
@@ -228,7 +239,7 @@ pgTest("legacy PROMOTED/public_training stays private in search, RAG, titles, ci
 
     process.env.SEMSE_PROMETEO_DOCUMENT_SHARING_ENABLED = "false";
     const sharingOff = await verify(tenantAB, scopeB,
-      [original, linkedOriginal, linkedActive, tenantCOriginal],
+      [original, linkedOriginal, linkedActive, rawLinked, tenantCOriginal],
       [privateTitle, privateToken, foreignTitle, foreignToken]);
     assert.deepEqual(
       [sharingOff.electrical.documentsCount, sharingOff.electrical.indexedCount, sharingOff.electrical.chunksCount],
@@ -246,6 +257,8 @@ pgTest("legacy PROMOTED/public_training stays private in search, RAG, titles, ci
     process.env.SEMSE_PROMETEO_DOCUMENT_SHARING_ENABLED = "true";
     assert.ok((await svc.retrieveContext({ tenantId: tenantAB, scope: scopeB, query })).citations
       .some(row => row.documentId === linkedActive), "grant becomes visible if ON again");
+    assert.ok(!(await svc.retrieveContext({ tenantId: tenantAB, scope: scopeB, query })).citations
+      .some(row => row.documentId === rawLinked), "ON cannot publish a raw original via historical grant");
     await prisma.prometeoDocumentGrant.update({
       where: { id: stillActive.id }, data: { revokedAt: new Date() },
     });
