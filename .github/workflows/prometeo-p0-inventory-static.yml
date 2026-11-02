@@ -1,4 +1,4 @@
-name: Prometeo P0 Inventory Static Tests
+name: Prometeo P0 Inventory Offline Verification
 
 on:
   pull_request:
@@ -30,5 +30,47 @@ jobs:
         working-directory: project-manager-app/scripts/audits/prometeo_p0
         run: python -m pytest -q test_evaluator.py test_sql_contract.py
 
-# This workflow is deliberately static-only: NO DATABASE_URL, no credentials,
-# no production service access, no SQL execution, no sharing flag changes.
+  postgres16-synthetic-smoke:
+    name: PostgreSQL 16 synthetic SQL smoke (NO production)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: semse
+          POSTGRES_PASSWORD: semse
+          POSTGRES_DB: semse_p0_synthetic
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U semse -d semse_p0_synthetic"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # Explicit guard in the test runner refuses non-ephemeral destinations.
+      SEMSE_P0_SYNTHETIC_DB: "1"
+      PGHOST: "127.0.0.1"
+      PGPORT: "5433"
+      PGDATABASE: "semse_p0_synthetic"
+      PGUSER: "semse"
+      PGPASSWORD: "semse"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Ensure PostgreSQL client is available
+        run: command -v psql || (sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client)
+      - name: Execute inventory against disposable synthetic PostgreSQL only
+        working-directory: project-manager-app/scripts/audits/prometeo_p0
+        run: bash test_postgres16_synthetic.sh
+
+# All DB writes above seed disposable GitHub Actions fixtures. The production
+# inventory SQL itself uses READ ONLY/ROLLBACK. No Railway URL, credentials,
+# secrets, deployment changes or sharing flags are used in either job.
