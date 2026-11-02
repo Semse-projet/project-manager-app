@@ -16,6 +16,8 @@ import { ClientSummaryCardLink } from "../../../components/client/ClientSummaryC
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
 import { CLIENT_ROUTES, clientDisputesHref, clientJobsHref, clientPaymentsHref } from "../../../lib/client-routes";
 import { fetchRatings, type RatingListItem } from "../../../semse-api";
+import { useLanguage, type LanguagePreference } from "../../../../lib/language-context";
+import { messageKey, messageTextOr, renderMessage, type UiMessage } from "../../../../lib/ui-message";
 
 // ─────────────────────────────────────────────────────────────
 // COMPONENTE
@@ -33,8 +35,8 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }
   cancelled:   { label: "Cancelado",   color: "var(--faint)", bg: "rgba(100,116,139,.12)" },
 };
 
-function formatBudget(min?: number, max?: number): string {
-  const fmt = (n: number) => new Intl.NumberFormat("es-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
+function formatBudget(min?: number, max?: number, language: LanguagePreference = "es"): string {
+  const fmt = (n: number) => new Intl.NumberFormat(language === "en" ? "en-US" : "es-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
   if (!min && !max) return "—";
   if (min && max) return `${fmt(min)} – ${fmt(max)}`;
   return fmt(min ?? max ?? 0);
@@ -71,13 +73,14 @@ function clientRepTier(total: number, avg: number): string {
 }
 
 export default function ClientDashboardPage() {
+  const { t, language } = useLanguage();
   const [jobs, setJobs]              = useState<JobRecordView[]>([]);
   const [receivedRatings, setReceivedRatings] = useState<RatingListItem[]>([]);
   const [actorUserId, setActorUserId]         = useState<string | null>(null);
   const [givenJobIds, setGivenJobIds]         = useState<Set<string>>(new Set());
   const [pendingBidCount, setPendingBidCount] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [apiError, setApiError] = useState<string | null>(null);
+  const [apiError, setApiError] = useState<UiMessage | null>(null);
 
   useEffect(() => {
     const jobsPromise = fetch("/api/semse/jobs").then(r => r.json() as Promise<{ data?: JobRecordView[]; error?: unknown }>);
@@ -94,7 +97,7 @@ export default function ClientDashboardPage() {
         setReceivedRatings(received);
 
         // Jobs
-        if (d.error) { setApiError(displayText(d.error, "No se pudieron cargar los trabajos.")); return; }
+        if (d.error) { setApiError(messageTextOr(displayText(d.error), "clientDash.jobsLoadError")); return; }
         const jobList = d.data ?? [];
         setJobs(jobList);
         const published = jobList.filter((j: JobRecordView) => j.status === "published" || j.status === "posted");
@@ -112,9 +115,9 @@ export default function ClientDashboardPage() {
         }, 0);
         setPendingBidCount(total);
       })
-      .catch(() => setApiError("No se pudo conectar con el servidor"))
+      .catch(() => setApiError(messageKey("clientDash.connectionError")))
       .finally(() => setLoading(false));
-  }, []);
+  }, [t]);
 
   const activeJobs    = jobs.filter(j => ["in_progress", "reserved", "accepted", "review"].includes(j.status));
   const pendingJobs   = jobs.filter(j => ["posted", "published", "review"].includes(j.status));
@@ -132,8 +135,8 @@ export default function ClientDashboardPage() {
   return (
     <div style={{ maxWidth: "1100px", margin: "0 auto" }}>
       <ClientPageHeader
-        title="Dashboard"
-        subtitle="Centro de control para tus trabajos, pagos, hitos y navegación operativa."
+        title={t("clientDash.title")}
+        subtitle={t("clientDash.subtitle")}
         breadcrumbs={[]}
         minHeight={92}
         marginBottom={28}
@@ -155,7 +158,7 @@ export default function ClientDashboardPage() {
             }}
           >
             <Plus size={15} />
-            Publicar trabajo
+            {t("clientDash.postJob")}
           </Link>
         }
       />
@@ -168,39 +171,39 @@ export default function ClientDashboardPage() {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "12px", marginBottom: "28px" }}>
         <ClientSummaryCardLink
           href={clientJobsHref("active")}
-          label="Trabajos activos"
+          label={t("clientDash.activeJobs")}
           value={loading ? "—" : activeJobs.length}
           icon={Briefcase}
           color="blue"
           loading={loading}
-          hint="Ver detalle"
+          hint={t("clientDash.viewDetails")}
         />
         <ClientSummaryCardLink
           href={clientJobsHref("pending")}
-          label="Esperando propuestas"
+          label={t("clientDash.pendingBids")}
           value={loading ? "—" : pendingJobs.length}
           icon={AlertTriangle}
           color="amber"
           loading={loading}
-          hint="Ver pendientes"
+          hint={t("clientDash.viewPending")}
         />
         <ClientSummaryCardLink
           href={clientJobsHref("completed")}
-          label="Completados"
+          label={t("clientDash.completed")}
           value={loading ? "—" : completedJobs.length}
           icon={CheckSquare}
           color="green"
           loading={loading}
-          hint="Ver cierres"
+          hint={t("clientDash.viewCompleted")}
         />
         <ClientSummaryCardLink
           href={clientPaymentsHref({ tab: "escrow" })}
-          label="Presupuestos activos"
-          value={loading ? "—" : formatBudget(budgetActiveJobs.reduce((acc, j) => acc + (j.budgetMin ?? 0), 0) || undefined)}
+          label={t("clientDash.activeBudgets")}
+          value={loading ? "—" : formatBudget(budgetActiveJobs.reduce((acc, j) => acc + (j.budgetMin ?? 0), 0) || undefined, undefined, language)}
           icon={DollarSign}
           color="orange"
           loading={loading}
-          hint="Ver escrow"
+          hint={t("clientDash.viewEscrow")}
         />
       </div>
 
@@ -209,7 +212,7 @@ export default function ClientDashboardPage() {
         <HtmlInCanvasPanel as="section" style={{ marginBottom: "20px" }} canvasClassName="rounded-2xl" minHeight={72}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
             <div>
-              <div style={{ fontSize: "11px", color: "#a5b4fc", fontWeight: 800, marginBottom: 4 }}>MI REPUTACIÓN COMO CLIENTE</div>
+              <div style={{ fontSize: "11px", color: "#a5b4fc", fontWeight: 800, marginBottom: 4 }}>{t("clientDash.clientReputation")}</div>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <div style={{ display: "flex", gap: 2 }}>
                   {[1,2,3,4,5].map(i => (
@@ -217,14 +220,14 @@ export default function ClientDashboardPage() {
                   ))}
                 </div>
                 <span style={{ fontSize: 14, fontWeight: 700, color: "var(--ink)" }}>{avgReceived.toFixed(1)}</span>
-                <span style={{ fontSize: 12, color: "var(--muted)" }}>({totalReceived} calificacion{totalReceived !== 1 ? "es" : ""})</span>
+                <span style={{ fontSize: 12, color: "var(--muted)" }}>({totalReceived} {t(totalReceived === 1 ? "clientDash.rating" : "clientDash.ratings")})</span>
                 <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 999, background: `${CLIENT_TIER[tier]?.color ?? "#64748b"}18`, color: CLIENT_TIER[tier]?.color ?? "#64748b" }}>
-                  {CLIENT_TIER[tier]?.label ?? tier}
+                  {t(`clientDash.tier.${tier}`)}
                 </span>
               </div>
             </div>
             <Link href="/client/reviews" style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "9px 12px", borderRadius: 10, border: "1px solid rgba(129,140,248,.24)", background: "rgba(129,140,248,.1)", color: "#a5b4fc", fontSize: 12, fontWeight: 700, textDecoration: "none" }}>
-              Ver historial <ArrowRight size={13} />
+              {t("clientDash.history")} <ArrowRight size={13} />
             </Link>
           </div>
         </HtmlInCanvasPanel>
@@ -233,17 +236,17 @@ export default function ClientDashboardPage() {
       {/* Pending ratings */}
       {!loading && unratedJobs.length > 0 && (
         <HtmlInCanvasPanel as="section" style={{ marginBottom: "20px" }} canvasClassName="rounded-2xl" minHeight={72}>
-          <div style={{ fontSize: "11px", color: "#fbbf24", fontWeight: 800, marginBottom: 10 }}>CALIFICA A TUS PROFESIONALES</div>
+          <div style={{ fontSize: "11px", color: "#fbbf24", fontWeight: 800, marginBottom: 10 }}>{t("clientDash.rateProfessionals")}</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {unratedJobs.map(job => (
               <div key={job.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10 }}>
                 <Star size={15} color="#fbbf24" fill="none" style={{ flexShrink: 0 }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ fontSize: 13, fontWeight: 700, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{displayText((job as Record<string, unknown>).title, "Trabajo")}</p>
-                  <p style={{ fontSize: 11, color: "var(--muted)" }}>Trabajo completado · Sin calificación</p>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{displayText((job as Record<string, unknown>).title, t("clientDash.job"))}</p>
+                  <p style={{ fontSize: 11, color: "var(--muted)" }}>{t("clientDash.unratedJob")}</p>
                 </div>
                 <Link href={`/client/jobs/${job.id}/rate`} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 12px", borderRadius: 8, background: "rgba(251,191,36,.12)", border: "1px solid rgba(251,191,36,.3)", color: "#fbbf24", fontSize: 12, fontWeight: 700, textDecoration: "none", whiteSpace: "nowrap" }}>
-                  Calificar <Star size={12} fill="#fbbf24" color="#fbbf24" />
+                  {t("clientDash.rate")} <Star size={12} fill="#fbbf24" color="#fbbf24" />
                 </Link>
               </div>
             ))}
@@ -255,19 +258,19 @@ export default function ClientDashboardPage() {
         <HtmlInCanvasPanel as="section" style={{ marginBottom: "20px" }} canvasClassName="rounded-2xl" minHeight={76}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
             <div>
-              <div style={{ fontSize: "11px", color: "#a5b4fc", fontWeight: 800, marginBottom: 4 }}>OBJETIVOS DE CONTRATACION</div>
+              <div style={{ fontSize: "11px", color: "#a5b4fc", fontWeight: 800, marginBottom: 4 }}>{t("clientDash.hiringTargets")}</div>
               <div style={{ fontSize: "14px", fontWeight: 700, color: "var(--ink)" }}>
-                {jobsWithPreferred.length} trabajo{jobsWithPreferred.length === 1 ? "" : "s"} con profesional objetivo
+                {jobsWithPreferred.length} {t("clientDash.targetedJobs")}
               </div>
               <div style={{ fontSize: "12px", color: "var(--muted)", marginTop: 2 }}>
-                Ultimo objetivo: {preferredProfessionalLabel(jobsWithPreferred[0])}
+                {t("clientDash.latestTarget")}: {preferredProfessionalLabel(jobsWithPreferred[0])}
               </div>
             </div>
             <Link
               href={`/client/jobs/${jobsWithPreferred[0]?.id ?? ""}`}
               style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "9px 12px", borderRadius: 10, border: "1px solid rgba(129,140,248,.24)", background: "rgba(129,140,248,.1)", color: "#a5b4fc", fontSize: 12, fontWeight: 700, textDecoration: "none" }}
             >
-              Abrir ultimo objetivo <ArrowRight size={13} />
+              {t("clientDash.openLatestTarget")} <ArrowRight size={13} />
             </Link>
           </div>
         </HtmlInCanvasPanel>
@@ -277,13 +280,13 @@ export default function ClientDashboardPage() {
       <HtmlInCanvasPanel as="section" style={{ marginBottom: "28px" }} canvasClassName="rounded-2xl" minHeight={320}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "14px" }}>
           <h2 style={{ fontSize: "15px", fontWeight: 700, color: "var(--ink)" }}>
-            Trabajos recientes
+            {t("clientDash.recentJobs")}
           </h2>
           <Link
             href={CLIENT_ROUTES.jobs}
             style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "12px", color: "var(--brand)", textDecoration: "none", fontWeight: 600 }}
           >
-            Ver todos <ArrowRight size={13} />
+            {t("clientDash.viewAll")} <ArrowRight size={13} />
           </Link>
         </div>
 
@@ -294,14 +297,14 @@ export default function ClientDashboardPage() {
             ))}
           </div>
         ) : apiError ? (
-          <ErrorState message={apiError} action={<span>Configura <code>SEMSE_API_BASE_URL</code> para conectar el backend.</span>} />
+          <ErrorState message={renderMessage(apiError, t) ?? ""} action={<span>{t("clientDash.backendConfig")}</span>} />
         ) : jobs.length === 0 ? (
           <ClientDashboardEmptyJobs />
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
             {jobs.slice(0, 6).map(job => {
               const row = job as Record<string, unknown>;
-              const title = displayText(row.title, "Trabajo");
+              const title = displayText(row.title, t("clientDash.job"));
               const scope = displayText(row.scope);
               const sc = STATUS_CONFIG[job.status] ?? STATUS_CONFIG.posted;
               const preferredLabel = preferredProfessionalLabel(job);
@@ -317,18 +320,18 @@ export default function ClientDashboardPage() {
                     <p style={{ fontSize: "12px", color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{scope}</p>
                     {preferredLabel ? (
                       <div style={{ marginTop: 7, display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 8px", borderRadius: 999, background: "rgba(129,140,248,.12)", border: "1px solid rgba(129,140,248,.22)", fontSize: 11, fontWeight: 700, color: "#a5b4fc" }}>
-                        Objetivo: {preferredLabel}
+                        {t("clientDash.preferredTarget")}: {preferredLabel}
                       </div>
                     ) : null}
                   </div>
                   {(job.budgetMin ?? job.budgetMax) && (
                     <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--ink)", whiteSpace: "nowrap" }}>
                       <DollarSign size={12} style={{ display: "inline", verticalAlign: "middle", color: "var(--accent)", marginRight: "2px" }} />
-                      {formatBudget(job.budgetMin, job.budgetMax)}
+                      {formatBudget(job.budgetMin, job.budgetMax, language)}
                     </span>
                   )}
                   <span style={{ fontSize: "11px", fontWeight: 700, padding: "3px 10px", borderRadius: "999px", background: sc.bg, color: sc.color, whiteSpace: "nowrap" }}>
-                    {sc.label}
+                    {t(`clientDash.status.${STATUS_CONFIG[job.status] ? job.status : "posted"}`)}
                   </span>
                   <ArrowRight size={14} style={{ color: "var(--muted)", flexShrink: 0 }} />
                 </Link>
@@ -341,16 +344,16 @@ export default function ClientDashboardPage() {
       {/* Quick actions */}
       <HtmlInCanvasPanel as="section" canvasClassName="rounded-2xl" minHeight={180}>
         <h2 style={{ fontSize: "15px", fontWeight: 700, color: "var(--ink)", marginBottom: "14px" }}>
-          Acciones rápidas
+          {t("clientDash.quickActions")}
         </h2>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "10px" }}>
           {[
-            { label: "Publicar nuevo trabajo", href: CLIENT_ROUTES.newJob,      icon: Plus,         color: "var(--brand)" },
-            { label: "Proyectos y copiloto",   href: CLIENT_ROUTES.projects,    icon: FolderKanban, color: "var(--violet)" },
-            { label: "Ver milestones",         href: CLIENT_ROUTES.milestones,  icon: CheckSquare,  color: "var(--ok)" },
-            { label: "Historial pagos",        href: CLIENT_ROUTES.payments,    icon: DollarSign,   color: "var(--accent)" },
-            { label: pendingBidCount > 0 ? `Propuestas recibidas (${pendingBidCount})` : "Propuestas recibidas", href: "/client/proposals", icon: Users, color: "#6366f1" },
-            { label: "Disputas abiertas",      href: clientDisputesHref({ status: "open" }), icon: AlertTriangle, color: "var(--error)" },
+            { label: t("clientDash.newJob"), href: CLIENT_ROUTES.newJob,      icon: Plus,         color: "var(--brand)" },
+            { label: t("clientDash.projectsCopilot"),   href: CLIENT_ROUTES.projects,    icon: FolderKanban, color: "var(--violet)" },
+            { label: t("clientDash.milestones"),         href: CLIENT_ROUTES.milestones,  icon: CheckSquare,  color: "var(--ok)" },
+            { label: t("clientDash.paymentHistory"),        href: CLIENT_ROUTES.payments,    icon: DollarSign,   color: "var(--accent)" },
+            { label: pendingBidCount > 0 ? `${t("clientDash.receivedProposals")} (${pendingBidCount})` : t("clientDash.receivedProposals"), href: "/client/proposals", icon: Users, color: "#6366f1" },
+            { label: t("clientDash.openDisputes"),      href: clientDisputesHref({ status: "open" }), icon: AlertTriangle, color: "var(--error)" },
           ].map(action => {
             const Icon = action.icon;
             return (
@@ -387,10 +390,11 @@ export default function ClientDashboardPage() {
 }
 
 function ClientDashboardEmptyJobs() {
+  const { t } = useLanguage();
   return (
     <EmptyState
-      title="Aún no tienes trabajos"
-      description="Publica tu primer trabajo y recibe propuestas de profesionales verificados."
+      title={t("clientDash.noJobs")}
+      description={t("clientDash.noJobsDescription")}
       image="/brand/empty-states/client-jobs.png"
       action={
         <Link
@@ -409,7 +413,7 @@ function ClientDashboardEmptyJobs() {
           }}
         >
           <Plus size={14} />
-          Publicar trabajo
+          {t("clientDash.postJob")}
         </Link>
       }
     />

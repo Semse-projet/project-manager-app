@@ -2,21 +2,57 @@
 
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
+import { LanguageProvider, useLanguage } from "@/lib/language-context";
+import { LanguageSwitch } from "../_auth/LanguageSwitch";
 
-function errorMessage(error: unknown, fallback: string): string {
-  if (typeof error === "string") return error;
-  if (error && typeof error === "object" && "message" in error) {
-    const message = (error as { message?: unknown }).message;
-    if (typeof message === "string" && message.trim()) return message;
-  }
-  return fallback;
-}
+const COPY = {
+  es: {
+    sentTitle: "Correo enviado",
+    sentBefore: "Si existe una cuenta con",
+    sentAfter: ", recibirás un enlace para restablecer tu contraseña en los próximos minutos.",
+    backToLogin: "← Volver al login",
+    title: "Recuperar contraseña",
+    intro: "Ingresa tu email y te enviaremos un enlace para restablecer tu contraseña.",
+    email: "Email",
+    emailPlaceholder: "tu@email.com",
+    submit: "Enviar enlace →",
+    submitting: "Enviando…",
+    sendError: "Error al enviar el correo",
+    networkError: "No se pudo conectar con el servidor",
+  },
+  en: {
+    sentTitle: "Email sent",
+    sentBefore: "If an account exists for",
+    sentAfter: ", you will receive a link to reset your password in the next few minutes.",
+    backToLogin: "← Back to sign in",
+    title: "Reset your password",
+    intro: "Enter your email and we will send you a link to reset your password.",
+    email: "Email",
+    emailPlaceholder: "you@email.com",
+    submit: "Send link →",
+    submitting: "Sending…",
+    sendError: "Could not send the email",
+    networkError: "Could not reach the server",
+  },
+} as const;
+
+type ForgotPasswordErrorKey = "sendError" | "networkError";
 
 export default function ForgotPasswordPage() {
+  return (
+    <LanguageProvider>
+      <ForgotPasswordForm />
+    </LanguageProvider>
+  );
+}
+
+function ForgotPasswordForm() {
+  const { language } = useLanguage();
+  const c = COPY[language];
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ForgotPasswordErrorKey | null>(null);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -29,14 +65,14 @@ export default function ForgotPasswordPage() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ email }),
       });
-      const data = (await res.json()) as { ok?: boolean; error?: unknown };
+      const data = (await res.json().catch(() => ({}))) as { ok?: boolean };
       if (!res.ok && !data.ok) {
-        setError(errorMessage(data.error, "Error al enviar el correo"));
+        setError("sendError");
         return;
       }
       setSent(true);
     } catch {
-      setError("No se pudo conectar con el servidor");
+      setError("networkError");
     } finally {
       setLoading(false);
     }
@@ -54,6 +90,7 @@ export default function ForgotPasswordPage() {
       }}
     >
       <div style={{ width: "100%", maxWidth: "440px" }}>
+        <LanguageSwitch />
         {/* Logo */}
         <div style={{ textAlign: "center", marginBottom: "32px" }}>
           <div style={{ display: "inline-flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
@@ -90,11 +127,11 @@ export default function ForgotPasswordPage() {
             <div style={{ textAlign: "center", padding: "8px 0" }}>
               <div style={{ fontSize: "40px", marginBottom: "12px" }}>📨</div>
               <h2 style={{ fontSize: "18px", fontWeight: 700, color: "var(--ink, #f1f5f9)", marginBottom: "10px" }}>
-                Correo enviado
+                {c.sentTitle}
               </h2>
               <p style={{ fontSize: "14px", color: "var(--muted, #94a3b8)", marginBottom: "20px" }}>
-                Si existe una cuenta con <strong style={{ color: "var(--ink, #f1f5f9)" }}>{email}</strong>, recibirás
-                un enlace para restablecer tu contraseña en los próximos minutos.
+                {c.sentBefore} <strong style={{ color: "var(--ink, #f1f5f9)" }}>{email}</strong>
+                {c.sentAfter}
               </p>
               <Link
                 href="/login"
@@ -109,16 +146,16 @@ export default function ForgotPasswordPage() {
                   textDecoration: "none",
                 }}
               >
-                ← Volver al login
+                {c.backToLogin}
               </Link>
             </div>
           ) : (
             <>
               <h2 style={{ fontSize: "18px", fontWeight: 700, color: "var(--ink, #f1f5f9)", marginBottom: "8px" }}>
-                Recuperar contraseña
+                {c.title}
               </h2>
               <p style={{ fontSize: "13px", color: "var(--muted, #94a3b8)", marginBottom: "20px" }}>
-                Ingresa tu email y te enviaremos un enlace para restablecer tu contraseña.
+                {c.intro}
               </p>
 
               <form onSubmit={handleSubmit}>
@@ -132,14 +169,14 @@ export default function ForgotPasswordPage() {
                       marginBottom: "6px",
                     }}
                   >
-                    Email
+                    {c.email}
                   </label>
                   <input
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
-                    placeholder="tu@email.com"
+                    placeholder={c.emailPlaceholder}
                     style={{
                       width: "100%",
                       padding: "10px 12px",
@@ -166,7 +203,7 @@ export default function ForgotPasswordPage() {
                       marginBottom: "16px",
                     }}
                   >
-                    {error}
+                    {c[error]}
                   </div>
                 )}
 
@@ -186,13 +223,13 @@ export default function ForgotPasswordPage() {
                     opacity: loading ? 0.7 : 1,
                   }}
                 >
-                  {loading ? "Enviando…" : "Enviar enlace →"}
+                  {loading ? c.submitting : c.submit}
                 </button>
               </form>
 
               <p style={{ marginTop: "18px", fontSize: "13px", color: "var(--muted, #94a3b8)", textAlign: "center" }}>
                 <Link href="/login" style={{ color: "#93c5fd", textDecoration: "none", fontWeight: 600 }}>
-                  ← Volver al login
+                  {c.backToLogin}
                 </Link>
               </p>
             </>

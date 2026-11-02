@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import {
-  fetchSemseDataForRequest,
+  fetchSemseDataForAuthenticatedRequest,
   handleServerError,
   isApiBaseConfigured,
   runtimeDisabledResponse,
@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
   }
   try {
     const body = await request.json();
-    const data = await fetchSemseDataForRequest(
+    const data = await fetchSemseDataForAuthenticatedRequest(
       "/v1/ops/mission-control/actions",
       request,
       {

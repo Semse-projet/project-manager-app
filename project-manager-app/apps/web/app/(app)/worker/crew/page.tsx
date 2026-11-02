@@ -10,6 +10,7 @@ import {
   fetchMyCrews,
   fetchTaskAllocations,
   releaseTaskAllocation,
+  reviewAllocationSkill,
   SemseApiError,
   type CrewTaskView,
   type SupervisedCrewView,
@@ -35,6 +36,10 @@ const COPY = {
     load: "Ver asignaciones",
     none: "Esa tarea no tiene asignaciones en esta cuadrilla.",
     release: "Liberar",
+    tradeLabel: "Oficio de la experiencia",
+    confirmWork: "Confirmar trabajo",
+    rejectWork: "Rechazar",
+    reviewed: "Revisión registrada.",
     releaseReason: "Motivo para liberar",
     pickMember: "Elige al menos una persona.",
     done: "Listo.",
@@ -66,6 +71,10 @@ const COPY = {
     load: "View assignments",
     none: "That task has no assignments in this crew.",
     release: "Release",
+    tradeLabel: "Trade of the experience",
+    confirmWork: "Confirm work",
+    rejectWork: "Reject",
+    reviewed: "Review recorded.",
     releaseReason: "Reason to release",
     pickMember: "Pick at least one person.",
     done: "Done.",
@@ -93,6 +102,7 @@ export default function MyCrewPage() {
   const [newTitle, setNewTitle] = useState("");
   const [reason, setReason] = useState("");
   const [releaseReason, setReleaseReason] = useState("");
+  const [trades, setTrades] = useState<Record<string, string>>({});
   const [allocations, setAllocations] = useState<TaskAllocationView[]>([]);
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -275,6 +285,42 @@ export default function MyCrewPage() {
                       >
                         {c.release}
                       </button>
+                    ) : null}
+                    {item.status === "SUBMITTED" ? (
+                      <span style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", flexBasis: "100%" }}>
+                        <input
+                          aria-label={c.tradeLabel}
+                          placeholder={c.tradeLabel}
+                          maxLength={40}
+                          value={trades[item.allocationId] ?? ""}
+                          onChange={(event) => setTrades((current) => ({ ...current, [item.allocationId]: event.target.value }))}
+                          style={{ flex: "1 1 160px", minHeight: 44 }}
+                        />
+                        <button
+                          disabled={busy || (trades[item.allocationId] ?? "").trim().length < 2}
+                          style={{ minHeight: 44 }}
+                          onClick={() =>
+                            void run(async () => {
+                              await reviewAllocationSkill(item.allocationId, { decision: "CONFIRM", trade: (trades[item.allocationId] ?? "").trim() });
+                              setMessage(c.reviewed);
+                            })
+                          }
+                        >
+                          {c.confirmWork}
+                        </button>
+                        <button
+                          disabled={busy}
+                          style={{ minHeight: 44 }}
+                          onClick={() =>
+                            void run(async () => {
+                              await reviewAllocationSkill(item.allocationId, { decision: "REJECT" });
+                              setMessage(c.reviewed);
+                            })
+                          }
+                        >
+                          {c.rejectWork}
+                        </button>
+                      </span>
                     ) : null}
                   </li>
                 ))}
