@@ -318,12 +318,115 @@ async function prometeoObjectScopeSmoke() {
   };
   await assertNoSharedAnswer(pro1);
 
+  // This set of privacy regressions is independent of whether project
+  // sharing is ON. Always run it against HEAD AND the pinned rollback binary:
+  // cross-org/tenant search, RAG context, feedback, signed header spoofing,
+  // and soft-deleted project authorization.
+  async function verifyPrivateScopes({ rollbackSharingOff = false } = {}) {
+    const otherTenantIds = await documentIds(foreignClient);
+    assert.ok(otherTenantIds.has(foreign.doc.id));
+    assert.ok(!otherTenantIds.has(own.doc.id));
+
+    // Authorized project filtering is checked by the API before retrieval.
+    await request("GET", "/v1/prometeo/documents?projectId=" + encodeURIComponent(sharedProject.id), {
+      token: otherClient.token, expectedStatus: 403,
+    });
+    const proProjectView = await request("GET", "/v1/prometeo/documents?projectId=" + encodeURIComponent(sharedProject.id), {
+      token: pro1.token,
+    });
+    assert.ok(!proProjectView.data.some(d => d.id === ownerProject.doc.id));
+
+    const searchAs = async (actor, query) => request("POST", "/v1/prometeo/search", {
+      token: actor.token, body: { query, topK: 20 },
+    });
+    const peerSearch = await searchAs(otherClient, ownerMarker);
+    assert.ok(!peerSearch.data.some(chunk => chunk.documentId === own.doc.id || chunk.documentId === ownerProject.doc.id),
+      "RAG search cannot return another org's chunk even for an exact secret query");
+    const foreignSearch = await searchAs(foreignClient, ownerMarker);
+    assert.ok(!foreignSearch.data.some(chunk => chunk.documentId === own.doc.id));
+
+    const ctx = await request("POST", "/v1/prometeo/rag-context", {
+      token: otherClient.token, body: { query: ownerMarker, topK: 20 },
+    });
+    assert.ok(!JSON.stringify(ctx.data).includes(ownerMarker),
+      "RAG context must not reveal another org's marker, excerpts or citations");
+
+    const denied = await request("POST", "/v1/prometeo/chunks/" + own.chunk.id + "/feedback", {
+      token: otherClient.token, body: { type: "confirm" }, expectedStatus: 403,
+    });
+    assert.equal(denied.status, 403);
+    await request("POST", "/v1/prometeo/chunks/" + own.chunk.id + "/feedback", {
+      token: foreignClient.token, body: { type: "confirm" }, expectedStatus: 404,
+    });
+    const allowed = await request("POST", "/v1/prometeo/chunks/" + own.chunk.id + "/feedback", {
+      token: owner.token, body: { type: "confirm" },
+    });
+    assert.equal(allowed.data?.recorded, true);
+
+    const peerStats = await request("GET", "/v1/prometeo/feedback/stats", { token: otherClient.token });
+    assert.ok(!peerStats.data?.topDocuments?.some(x => x.documentId === own.doc.id));
+
+    // Authorization proof must come from the signed session, not forged headers.
+    await request("GET", "/v1/prometeo/documents", {
+      expectedStatus: 401,
+      spoofedHeaders: { "x-user-id": owner.userId, "x-org-id": owner.orgId, "x-tenant-id": tenantA, "x-roles": "OPS_ADMIN" },
+    });
+    // Soft-deleted jobs must immediately remove project/RAG authorization.
+    // Restore synthetic job state so subsequent F01/F02 cases are unaffected.
+    const jobBeforeDeletion = await prisma.job.findUniqueOrThrow({
+      where: { id: sharedProject.jobId }, select: { deletedAt: true },
+    });
+    await prisma.job.update({
+      where: { id: sharedProject.jobId }, data: { deletedAt: new Date() },
+    });
+    try {
+      const afterJobDeletion = await documentIds(owner);
+      assert.ok(!afterJobDeletion.has(ownerProject.doc.id),
+        "project document must disappear when its job is deleted");
+      assert.ok(afterJobDeletion.has(own.doc.id),
+        "an unrelated owner-private document must remain accessible");
+      await request("GET", "/v1/prometeo/documents?projectId=" + encodeURIComponent(sharedProject.id), {
+        token: owner.token, expectedStatus: 404,
+      });
+      const revokedSearch = await searchAs(owner, ownerMarker + "_PROJECT");
+      assert.ok(!revokedSearch.data.some(chunk => chunk.documentId === ownerProject.doc.id),
+        "RAG must exclude a deleted-job project even for its owning organization");
+      await request("POST", "/v1/prometeo/documents/" + ownerProject.doc.id + "/shares", {
+        token: owner.token, body: { recipientOrgId: pro1.orgId },
+        expectedStatus: rollbackSharingOff ? 503 : 404,
+      });
+    } finally {
+      await prisma.job.update({
+        where: { id: sharedProject.jobId },
+        data: { deletedAt: jobBeforeDeletion.deletedAt },
+      });
+    }
+    console.log("[PROMETEO P0] deleted job blocks project documents, RAG and regrant PASS");
+
+    console.log("[PROMETEO P0] signed-session multi-org + RAG + feedback isolation PASS", {
+      ownerDocumentCount: ownerIds.size, crossTenantBlocked: true, realUserPilot: false,
+    });
+  }
+
   // A security-checkpoint rollback cannot run the CURRENT raw-grant
   // acceptance contract against a PRE-QUARANTINE binary with sharing=ON.
   // This mode is exclusive to the rollback job, where BOTH old API
   // instances must have sharing=OFF. Check signed private scope and deny
   // all grant mutations instead of pretending the old binary has P1.
   if (process.env.SEMSE_ROLLBACK_SHARING_OFF_ONLY === "1") {
+    // The old binary may retain ACTIVE grants from the newer release. A
+    // rollback is only safe if OFF hides those historical grants immediately.
+    // Keep one ordinary document grant and one raw-observation grant active.
+    const oldRaw = await documentFor(owner, ownerMarker + "_HISTORICAL_RAW", sharedProject.id);
+    const existingGrants = await prisma.prometeoDocumentGrant.createMany({ data: [
+      { tenantId: tenantA, documentId: ownerProject.doc.id,
+        projectId: sharedProject.id, recipientOrgId: pro1.orgId,
+        grantedByUserId: owner.userId },
+      { tenantId: tenantA, documentId: oldRaw.doc.id,
+        projectId: sharedProject.id, recipientOrgId: pro1.orgId,
+        grantedByUserId: owner.userId },
+    ] });
+    assert.equal(existingGrants.count, 2, "rollback fixture requires two active historical grants");
     const oldShares = "/v1/prometeo/documents/" + ownerProject.doc.id + "/shares";
     for (const target of [base, sharingOffBase]) {
       const noShare = await request("POST", oldShares, {
@@ -334,17 +437,20 @@ async function prometeoObjectScopeSmoke() {
       const hidden = await request("GET", "/v1/prometeo/documents", {
         token: pro1.token, target,
       });
-      assert.ok(!hidden.data.some(doc => doc.id === ownerProject.doc.id),
-        "rollback sharing-OFF must deny another organization's project document");
+      assert.ok(!hidden.data.some(doc => [ownerProject.doc.id, oldRaw.doc.id].includes(doc.id)),
+        "rollback OFF must hide BOTH active historical project text and raw grants");
       const hiddenCounts = await electricalCounts(pro1, target);
       assert.deepEqual(hiddenCounts, [0, 0, 0],
         "rollback sharing-OFF must not count another organization's documents");
       await assertNoSharedAnswer(pro1, target);
     }
     assert.equal(await prisma.prometeoDocumentGrant.count({
-      where: { tenantId: tenantA, documentId: ownerProject.doc.id },
-    }), 0, "rollback with sharing OFF must not persist project grants");
-    console.log("[PROMETEO ROLLBACK] pinned old binary sharing OFF on both ports, signed scope/counters/RAG and grants fail closed PASS");
+      where: { tenantId: tenantA, documentId: { in: [ownerProject.doc.id, oldRaw.doc.id] }, revokedAt: null },
+    }), 2, "rollback with OFF must retain exactly two historical grants but permit no new grant");
+    // The common private scope suite also checks signed direct search,
+    // rag-context, per-chunk feedback and soft-deleted job behavior.
+    await verifyPrivateScopes({ rollbackSharingOff: true });
+    console.log("[PROMETEO ROLLBACK] two historical grants (text/raw) hidden by OFF on both instances; signed F01/F02, cross-tenant RAG/feedback/job scope PASS");
     return;
   }
 
@@ -576,88 +682,7 @@ async function prometeoObjectScopeSmoke() {
 
   console.log("[PROMETEO SHARE] owner grant -> pro read -> revoke -> deny + audit PASS");
 
-  const otherTenantIds = await documentIds(foreignClient);
-  assert.ok(otherTenantIds.has(foreign.doc.id));
-  assert.ok(!otherTenantIds.has(own.doc.id));
-
-  // Authorized project filtering is checked by the API before retrieval.
-  await request("GET", "/v1/prometeo/documents?projectId=" + encodeURIComponent(sharedProject.id), {
-    token: otherClient.token, expectedStatus: 403,
-  });
-  const proProjectView = await request("GET", "/v1/prometeo/documents?projectId=" + encodeURIComponent(sharedProject.id), {
-    token: pro1.token,
-  });
-  assert.ok(!proProjectView.data.some(d => d.id === ownerProject.doc.id));
-
-  const searchAs = async (actor, query) => request("POST", "/v1/prometeo/search", {
-    token: actor.token, body: { query, topK: 20 },
-  });
-  const peerSearch = await searchAs(otherClient, ownerMarker);
-  assert.ok(!peerSearch.data.some(chunk => chunk.documentId === own.doc.id || chunk.documentId === ownerProject.doc.id),
-    "RAG search cannot return another org's chunk even for an exact secret query");
-  const foreignSearch = await searchAs(foreignClient, ownerMarker);
-  assert.ok(!foreignSearch.data.some(chunk => chunk.documentId === own.doc.id));
-
-  const ctx = await request("POST", "/v1/prometeo/rag-context", {
-    token: otherClient.token, body: { query: ownerMarker, topK: 20 },
-  });
-  assert.ok(!JSON.stringify(ctx.data).includes(ownerMarker),
-    "RAG context must not reveal another org's marker, excerpts or citations");
-
-  const denied = await request("POST", "/v1/prometeo/chunks/" + own.chunk.id + "/feedback", {
-    token: otherClient.token, body: { type: "confirm" }, expectedStatus: 403,
-  });
-  assert.equal(denied.status, 403);
-  await request("POST", "/v1/prometeo/chunks/" + own.chunk.id + "/feedback", {
-    token: foreignClient.token, body: { type: "confirm" }, expectedStatus: 404,
-  });
-  const allowed = await request("POST", "/v1/prometeo/chunks/" + own.chunk.id + "/feedback", {
-    token: owner.token, body: { type: "confirm" },
-  });
-  assert.equal(allowed.data?.recorded, true);
-
-  const peerStats = await request("GET", "/v1/prometeo/feedback/stats", { token: otherClient.token });
-  assert.ok(!peerStats.data?.topDocuments?.some(x => x.documentId === own.doc.id));
-
-  // Authorization proof must come from the signed session, not forged headers.
-  await request("GET", "/v1/prometeo/documents", {
-    expectedStatus: 401,
-    spoofedHeaders: { "x-user-id": owner.userId, "x-org-id": owner.orgId, "x-tenant-id": tenantA, "x-roles": "OPS_ADMIN" },
-  });
-  // Soft-deleted jobs must immediately remove project/RAG authorization.
-  // Restore synthetic job state so subsequent F01/F02 cases are unaffected.
-  const jobBeforeDeletion = await prisma.job.findUniqueOrThrow({
-    where: { id: sharedProject.jobId }, select: { deletedAt: true },
-  });
-  await prisma.job.update({
-    where: { id: sharedProject.jobId }, data: { deletedAt: new Date() },
-  });
-  try {
-    const afterJobDeletion = await documentIds(owner);
-    assert.ok(!afterJobDeletion.has(ownerProject.doc.id),
-      "project document must disappear when its job is deleted");
-    assert.ok(afterJobDeletion.has(own.doc.id),
-      "an unrelated owner-private document must remain accessible");
-    await request("GET", "/v1/prometeo/documents?projectId=" + encodeURIComponent(sharedProject.id), {
-      token: owner.token, expectedStatus: 404,
-    });
-    const revokedSearch = await searchAs(owner, ownerMarker + "_PROJECT");
-    assert.ok(!revokedSearch.data.some(chunk => chunk.documentId === ownerProject.doc.id),
-      "RAG must exclude a deleted-job project even for its owning organization");
-    await request("POST", "/v1/prometeo/documents/" + ownerProject.doc.id + "/shares", {
-      token: owner.token, body: { recipientOrgId: pro1.orgId }, expectedStatus: 404,
-    });
-  } finally {
-    await prisma.job.update({
-      where: { id: sharedProject.jobId },
-      data: { deletedAt: jobBeforeDeletion.deletedAt },
-    });
-  }
-  console.log("[PROMETEO P0] deleted job blocks project documents, RAG and regrant PASS");
-
-  console.log("[PROMETEO P0] signed-session multi-org + RAG + feedback isolation PASS", {
-    ownerDocumentCount: ownerIds.size, crossTenantBlocked: true, realUserPilot: false,
-  });
+  await verifyPrivateScopes();
 }
 
 async function revocation() {
