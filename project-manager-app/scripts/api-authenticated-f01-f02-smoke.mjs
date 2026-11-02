@@ -451,6 +451,74 @@ async function prometeoObjectScopeSmoke() {
   }
   console.log("[PROMETEO SHARE] failed audit rolls back regrant and keeps access denied PASS");
 
+  // L12: a grant is not sufficient after the recipient loses current membership
+  // or project participation. Keep using the SAME signed session; no relogin.
+  // This test runs only with synthetic organizations on disposable PostgreSQL.
+  const recoveredGrant = await request("POST", shares, {
+    token: owner.token, body: { recipientOrgId: pro1.orgId },
+  });
+  assert.equal(recoveredGrant.data?.active, true);
+  assert.ok((await documentIds(pro1)).has(ownerProject.doc.id),
+    "restored authorized membership and project grant must allow read");
+
+  const suspendedMembership = await prisma.membership.updateMany({
+    where: { userId: pro1.userId, orgId: pro1.orgId, status: "ACTIVE" },
+    data: { status: "SUSPENDED" },
+  });
+  assert.equal(suspendedMembership.count, 1);
+  try {
+    await request("GET", "/v1/auth/me", { token: pro1.token, expectedStatus: 401 });
+    await request("GET", "/v1/prometeo/documents", { token: pro1.token, expectedStatus: 401 });
+    await request("GET", "/v1/prometeo/trade-library", { token: pro1.token, expectedStatus: 401 });
+    await request("POST", "/v1/prometeo/search", {
+      token: pro1.token, body: { query: ownerMarker, topK: 10 }, expectedStatus: 401,
+    });
+    await request("POST", "/v1/prometeo/rag-query", {
+      token: pro1.token, body: { question: ownerMarker, locale: "en" }, expectedStatus: 401,
+    });
+    await request("POST", "/v1/prometeo/trade-guide", {
+      token: pro1.token, body: { question: ownerMarker, trade: "electrical" }, expectedStatus: 401,
+    });
+  } finally {
+    await prisma.membership.updateMany({
+      where: { userId: pro1.userId, orgId: pro1.orgId, status: "SUSPENDED" },
+      data: { status: "ACTIVE" },
+    });
+  }
+  assert.ok((await documentIds(pro1)).has(ownerProject.doc.id),
+    "recovered active membership restores access only while grant remains valid");
+
+  // Reassignment removes project participation even while an audited grant is
+  // still active. This must not leak chunks, aggregate counters or project
+  // documents via an authenticated but no-longer-participating PRO token.
+  const reassigned = await prisma.project.update({
+    where: { id: sharedProject.id }, data: { assignedProOrgId: persons[3].orgId },
+    select: { assignedProOrgId: true },
+  });
+  assert.equal(reassigned.assignedProOrgId, persons[3].orgId);
+  try {
+    assert.ok(!(await documentIds(pro1)).has(ownerProject.doc.id),
+      "live project reassignment must immediately block an existing grant");
+    assert.deepEqual(await electricalCounts(pro1), [0, 0, 0],
+      "reassignment must not leak legacy observation aggregate counts");
+    await assertNoSharedAnswer(pro1);
+    assert.ok(!(await documentIds(persons[3])).has(ownerProject.doc.id),
+      "the newly assigned PRO cannot read without their own explicit grant");
+  } finally {
+    await prisma.project.update({
+      where: { id: sharedProject.id }, data: { assignedProOrgId: pro1.orgId },
+    });
+  }
+  assert.ok((await documentIds(pro1)).has(ownerProject.doc.id),
+    "restored project assignment plus surviving grant must restore authorized access");
+  const revokedAfterScopeTest = await request("DELETE", shares + "/" + pro1.orgId, {
+    token: owner.token,
+  });
+  assert.equal(revokedAfterScopeTest.data?.revoked, true);
+  assert.ok(!(await documentIds(pro1)).has(ownerProject.doc.id),
+    "revoked grant stays denied after membership and project scope are restored");
+  console.log("[PROMETEO P0 L12] signed membership suspension and project reassignment fail closed PASS");
+
   console.log("[PROMETEO SHARE] owner grant -> pro read -> revoke -> deny + audit PASS");
 
   const otherTenantIds = await documentIds(foreignClient);
