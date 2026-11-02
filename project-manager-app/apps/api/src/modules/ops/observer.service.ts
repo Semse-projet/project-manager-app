@@ -415,9 +415,9 @@ export class SystemObserverService {
 
     // RAG mode
     if (intel.embeddingsMode === "fts_fallback") {
-      alerts.push({ level: "medium", area: "Prometeo RAG", message: "RAG en modo FTS fallback — sin embeddings semánticos reales", recommendation: "Verificar OPENAI_API_KEY y ejecutar backfill si hay documentos" });
+      alerts.push({ level: "medium", area: "Prometeo RAG", message: "RAG en modo FTS fallback — sin embeddings semánticos reales", recommendation: "Mantener FTS local; evaluar embeddings local-only y autorizaciones por documento antes de cualquier backfill" });
     } else if (intel.ragMissingEmbeddings > 10) {
-      alerts.push({ level: "medium", area: "Prometeo RAG", message: `${intel.ragMissingEmbeddings} chunks sin embeddings reales`, recommendation: "POST /v1/prometeo/embeddings/backfill" });
+      alerts.push({ level: "medium", area: "Prometeo RAG", message: `${intel.ragMissingEmbeddings} chunks sin embeddings reales`, recommendation: "No ejecutar backfill heredado: requiere reemplazo local-only aprobado, autorización por documento y auditoría" });
     }
 
     // Pattern alerts
