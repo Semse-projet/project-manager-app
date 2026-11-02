@@ -149,6 +149,12 @@ export class PrometeoController {
     const rid = resolveRequestId(req.headers ?? {});
     const b = body as Record<string, unknown>;
     const projectId = this.ingestProjectId(b);
+    // The HTTP caller may classify a document (manual/book/report/etc.)
+    // but cannot claim provenance reserved for SEMSE's internal
+    // contributor/curation pipelines. Copying text is still unverified.
+    if (b.sourceType === "field_observation" || b.sourceRef !== undefined) {
+      throw new BadRequestException("Original provenance is assigned only by an authorized server workflow");
+    }
     await this.access.assertCanCreate(actor, { projectId });
     const trade = typeof b.trade === "string" ? b.trade : "general";
     const visibility = this.documentVisibility(b, projectId);
@@ -158,8 +164,11 @@ export class PrometeoController {
       title: typeof b.title === "string" ? b.title : "Documento sin título",
       text: typeof b.text === "string" ? b.text : "",
       sourceType: typeof b.sourceType === "string" ? b.sourceType : "text",
-      sourceRef: typeof b.sourceRef === "string" ? b.sourceRef : undefined,
-      metadataJson: { ...(typeof b.metadataJson === "object" && b.metadataJson !== null ? b.metadataJson as Record<string, unknown> : {}), trade, visibility },
+      // HTTP uploads cannot assert an internal sourceRef or verified lineage.
+      metadataJson: {
+        ...(typeof b.metadataJson === "object" && b.metadataJson !== null ? b.metadataJson as Record<string, unknown> : {}),
+        trade, visibility, sourceAuthority: "http_unverified", lineageVerified: false,
+      },
     });
     return ok(rid, doc);
   }
