@@ -287,6 +287,33 @@ async function prometeoObjectScopeSmoke() {
     "cross-tenant library counts exclude tenant A observations");
   assert.deepEqual(await electricalCounts(pro1), [0, 0, 0],
     "project participation without a grant cannot inflate library counts");
+  // No-context answer paths are exercised over a SIGNED HTTP session.
+  // The PRO is a legitimate project participant but owns no indexed docs:
+  // legacy PROMOTED/public_training must never populate his LLM context.
+  const assertNoSharedAnswer = async (actor, target = base) => {
+    for (const locale of ["es", "en"]) {
+      const qa = await request("POST", "/v1/prometeo/rag-query", {
+        token: actor.token, target,
+        body: { question: ownerMarker + "_PROJECT", trade: "electrical", locale },
+      });
+      assert.equal(qa.data?.insufficientContext, true,
+        "rag-query must fail closed without an authorized document (" + locale + ")");
+      assert.deepEqual(qa.data?.citations, [], "rag-query cannot cite a private observation");
+      assert.ok(!JSON.stringify(qa.data).includes(ownerMarker),
+        "rag-query must not echo any private legacy marker");
+
+      const guide = await request("POST", "/v1/prometeo/trade-guide", {
+        token: actor.token, target,
+        body: { question: ownerMarker + "_PROJECT", trade: "electrical", locale },
+      });
+      assert.equal(guide.data?.insufficientContext, true,
+        "trade-guide must fail closed without an authorized document (" + locale + ")");
+      assert.deepEqual(guide.data?.citations, [], "trade-guide cannot cite a private observation");
+      assert.ok(!JSON.stringify(guide.data).includes(ownerMarker),
+        "trade-guide must not echo any private legacy marker");
+    }
+  };
+  await assertNoSharedAnswer(pro1);
 
   const shares = "/v1/prometeo/documents/" + ownerProject.doc.id + "/shares";
   await request("POST", shares, {
@@ -341,6 +368,7 @@ async function prometeoObjectScopeSmoke() {
     "sharing OFF must reject otherwise-active grant in signed HTTP listing");
   assert.deepEqual(await electricalCounts(pro1, sharingOffBase), [0, 0, 0],
     "OFF suppresses a still-active grant from signed HTTP aggregate counts");
+  await assertNoSharedAnswer(pro1, sharingOffBase);
   const disabledCtx = await request("POST", "/v1/prometeo/rag-context", {
     token: pro1.token, target: sharingOffBase,
     body: { query: ownerMarker + "_PROJECT", topK: 20 },
@@ -371,6 +399,7 @@ async function prometeoObjectScopeSmoke() {
   assert.ok(!revokedIds.has(ownerProject.doc.id), "revoke must immediately remove read access");
   assert.deepEqual(await electricalCounts(pro1), [0, 0, 0],
     "revoked project observation must disappear from signed HTTP counts");
+  await assertNoSharedAnswer(pro1);
   const afterRevoke = await request("POST", "/v1/prometeo/rag-context", {
     token: pro1.token, body: { query: ownerMarker + "_PROJECT", topK: 20 },
   });
