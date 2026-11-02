@@ -184,6 +184,8 @@ export type ChatThread = {
   tenantId: string;
   userId: string;
   agentId: string;
+  /** Project-scoped Copilot histories cannot be resumed in another project. */
+  projectId?: string;
   messages: ChatMessage[];
   createdAt: string;
   updatedAt: string;
