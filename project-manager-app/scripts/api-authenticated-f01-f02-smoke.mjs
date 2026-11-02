@@ -222,12 +222,12 @@ async function prometeoObjectScopeSmoke() {
   });
   assert.ok(sharedProject?.id && sharedProject.jobId, "F01 should create a project with an authorized client and pro");
 
-  async function documentFor(actor, marker, projectId) {
+  async function documentFor(actor, marker, projectId, sourceType = "field_observation") {
     const doc = await prisma.prometeoDocument.create({
       data: {
         tenantId: actor.tenantId, orgId: actor.orgId,
         ...(projectId ? { projectId } : {}),
-        title: marker, sourceType: "field_observation", uploadedById: actor.userId,
+        title: marker, sourceType, uploadedById: actor.userId,
         status: "indexed", chunkCount: 1,
         // Legacy labels have NO effect on authorization.
         metadataJson: { visibility: "public_training", promotionStatus: "PROMOTED", trade: "electrical" },
@@ -244,7 +244,9 @@ async function prometeoObjectScopeSmoke() {
   }
 
   const own = await documentFor(owner, ownerMarker);
-  const ownerProject = await documentFor(owner, ownerMarker + "_PROJECT", sharedProject.id);
+  // A normal project document may be shared by explicit, audited grant.
+  // Raw field observations below are private originals, not shareable drafts.
+  const ownerProject = await documentFor(owner, ownerMarker + "_PROJECT", sharedProject.id, "text");
   const unrelated = await documentFor(otherClient, otherMarker);
   const foreign = await documentFor(foreignClient, foreignMarker);
 
@@ -266,11 +268,12 @@ async function prometeoObjectScopeSmoke() {
 
   const proIds = await documentIds(pro1);
   assert.ok(!proIds.has(ownerProject.doc.id),
-    "Project membership alone cannot share a legacy document owned by another org");
+    "Project membership alone cannot share a project document owned by another org");
 
   // Verify the signed HTTP controller's aggregate outputs too, not just IDs.
-  // The three synthetic promoted observations are intentionally private even
-  // though their legacy metadata says public_training/PROMOTED.
+  // The synthetic raw observations are intentionally private despite
+  // legacy public_training/PROMOTED metadata; the project text document
+  // requires a separate, explicit authorized grant.
   const electricalCounts = async (actor, target = base) => {
     const response = await request("GET", "/v1/prometeo/trade-library", {
       token: actor.token, target,
@@ -280,7 +283,7 @@ async function prometeoObjectScopeSmoke() {
     return [row.documentsCount, row.indexedCount, row.chunksCount];
   };
   assert.deepEqual(await electricalCounts(owner), [2, 2, 2],
-    "owner can count only their private observation and owned project observation");
+    "owner can count only their private original and owned project text document");
   assert.deepEqual(await electricalCounts(otherClient), [1, 1, 1],
     "other client cannot count promoted owner observations");
   assert.deepEqual(await electricalCounts(foreignClient), [1, 1, 1],
