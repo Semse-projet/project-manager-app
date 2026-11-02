@@ -90,7 +90,7 @@ last_verified: "2026-11-01"
 
 # Prometeo Document Sharing Grants — P0/C51 S1
 
-Status: REVIEW — owner/security approval of the contract and level-3 activation remain pending. The code was merged and deployed with sharing disabled; delivery evidence is recorded below.
+Status: REVIEW — formal documentary approval of this exact SDD version is pending under DEC-PLATFORM-001 level 1; level-3 human security review and activation authorization are separate pending gates. Code was merged and deployed with sharing OFF; delivery evidence is recorded below.
 Depends on: PR #977 (S0 owner-only server-side RAG/document scope). Tracks issue #974.
 
 ## Invariants
@@ -128,7 +128,7 @@ No production schema migration or deployment is authorized by this document.
 
 ## Amendment — bounded authorization SQL for large project memberships (Codex P2)
 
-Design pending independent approval (this spec stays in `REVIEW`):
+Design pending formal documentary approval under DEC-PLATFORM-001 level 1 (this spec stays in `REVIEW`; level-3 independent human review is separately mandatory before activation):
 - A document grant must reference the exact `(documentId, tenantId, projectId)` of its parent document. Add a unique composite parent key and a composite foreign key from the grant. Deleting the parent remains CASCADE **only through the audited document deletion transaction**; updating tenant/project association with an existing grant is restricted, not automatically cascaded to a new project.
 - Use a single `grants.some({ tenantId, recipientOrgId, projectId: { in: accessibleProjectIds }, revokedAt: null })` branch, instead of one nested `OR` per accessible project. The composite FK guarantees the grant and document refer to the same project/tenant.
 - Legacy `projectId` is not a sharing grant; historical visibility flags do not override authorization.
@@ -136,9 +136,13 @@ Design pending independent approval (this spec stays in `REVIEW`):
 - Tests: Prisma filters with many project IDs keep constant OR cardinality; PostgreSQL refuses cross-project and cross-tenant grant insertion and rejects silent reassociation while a grant exists; authorized grant/revoke and audit-delete flows still pass.
 - This design must be signed off with the spec and release plan before merging into production.
 
+## DEC-PLATFORM-001 clarification (2026-11-02, documentary only)
+
+[DEC-PLATFORM-001](../../architecture/DEC-PLATFORM-001-solo-maintainer-review.md) is ACCEPTED and governs the sole-maintainer case. Documentary `REVIEW → APPROVED` may be decided at level 1 with final-SHA CI, linked automated review and the owner's formal comment; it is not blocked by a missing second maintainer. Separate level-2 controls apply to new sensitive-code changes while flags remain OFF. Level-3 activation/exposure to another organization **still requires a real external human reviewer**, allowlist canary, proven rollback and operational approval. Historical contributor documents remain private until their independent contributor/rightsholder consent and curated-knowledge gates are satisfied. This clarification is **not** an approval receipt and changes no production configuration.
+
 ## SDD governance and scope traceability (2026-10-18)
 
-This document is **REVIEW**, not authorization to merge or activate the implementation. The code on draft PR #987 is provisional and ahead of approval. Human owner/security sign-off must explicitly cover this design and the composite-key amendment before status may change. The author of this update cannot self-approve it.
+This document remains **REVIEW**, even though PR #987 was merged and deployed with sharing OFF under an explicitly recorded exception. Formal acceptance of this exact SDD and its composite-key amendment requires DEC-PLATFORM-001 **level 1**: green CI on the final documentary PR SHA, linked automated review without blocking findings, and an authenticated owner approval comment stating SHA, date and scope. The sole maintainer does not need a second human reviewer for this documentary decision. This does **not** retrospectively satisfy missing gates of #987, approve ADR-046, authorize another code release, or permit level-3 sharing activation.
 
 - Plan: [document-sharing-grants.plan.md](document-sharing-grants.plan.md); tasks: [document-sharing-grants.tasks.md](document-sharing-grants.tasks.md); checklist: [document-sharing-grants.checklist.md](document-sharing-grants.checklist.md).
 - Architecture decision proposed (not accepted): [ADR-046](../../architecture/ADR-046-prometeo-document-grants-private-model-routing.md), including add-on read grants to ResourceScope, mandatory local-only private inference, and no-cloud embeddings/FTS degradation.
@@ -152,7 +156,7 @@ This document is **REVIEW**, not authorization to merge or activate the implemen
 
 The `localOnly`/ `privacyCritical` flags are **hard endpoint constraints**, not merely provider-name selection. `OllamaProvider.isLocalEndpoint()` must validate a parsed, exact loopback hostname; VPS, Docker-network service names, lookalike DNS names, and public URLs are not permitted for private prompts. `LLMOrchestrator` filters out untrusted Ollama even with static fallback routing, and the provider independently refuses a private call on an untrusted URL. Private POST redirects are disabled. When no local inference is available, fail closed to the local template/rules fallback, never to another external provider.
 
-These source changes do not authorize activation; staging outbound-traffic tests and independent review sign-off remain required. The SDD stays `REVIEW`.
+These source changes do not authorize activation; staging outbound-traffic tests and a **real independent human security review at level 3** remain mandatory before external exposure. The SDD stays `REVIEW`.
 
 ## Registro factual posterior al merge #987 — 2026-11-01
 
