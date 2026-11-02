@@ -7,15 +7,25 @@ version: "1.1"
 status: "REVIEW"
 owner: "semse-core"
 risk: "critical"
-code_status: "IN_PROGRESS"
-ci_status: "NOT_RUN"
-merge_status: "UNMERGED"
-deploy_status: "NOT_DEPLOYED"
+code_status: "COMPLETE"
+ci_status: "PASS"
+merge_status: "MERGED"
+deploy_status: "DEPLOYED"
 activation_status: "INACTIVE"
-migration_status: "PENDING"
+migration_status: "APPLIED"
 feature_flags:
   - SEMSE_PROMETEO_DOCUMENT_SHARING_ENABLED
-production_evidence: []
+production_evidence:
+  - github:pr:987:head:4c2d9415896e5b4fb3636ad57c5b10df29eb056d:checks-passed
+  - github:actions:41356995428:quality-gates-unit-coverage-e2e-success
+  - github:pr:987:merge:4f06fb2422f0b39822177bb1730e95cc85ee25ab
+  - railway:api:deployment:ee92284f-6f07-46ad-a25c-cf09343fb1b4:success
+  - railway:web:deployment:46cce7b1-075d-4b90-8360-a012b76b6e78:success
+  - railway:worker:deployment:02838719-edbc-44cf-8cef-cf914a8e1bd0:success
+  - railway:vision:deployment:70b6743a-6f96-4595-9432-051f23f91fda:success
+  - railway:postgres:migration:20261017213000_prometeo_document_grants:applied
+  - railway:api:flag:SEMSE_PROMETEO_DOCUMENT_SHARING_ENABLED:absent-off
+  - railway:staging:off-revoke-audited:8d8b22fa-42e3-4277-b849-26c76434ccb9:success
 # Explicit SEMSE cross-domain declarations: REVIEW only, not approval.
 privacyCritical: true
 auditLog: true
@@ -75,12 +85,12 @@ related_events:
   - prometeo.document_share_revoked_by_delete
   - prometeo.document_deleted
 related_agents: ["prometeo"]
-last_verified: "2026-10-18"
+last_verified: "2026-11-01"
 ---
 
 # Prometeo Document Sharing Grants — P0/C51 S1
 
-Status: REVIEW — requires owner/security approval of contract, current-HEAD CI, authenticated staging and independent sign-off; must not deploy standalone.
+Status: REVIEW — owner/security approval of the contract and level-3 activation remain pending. The code was merged and deployed with sharing disabled; delivery evidence is recorded below.
 Depends on: PR #977 (S0 owner-only server-side RAG/document scope). Tracks issue #974.
 
 ## Invariants
@@ -143,3 +153,17 @@ This document is **REVIEW**, not authorization to merge or activate the implemen
 The `localOnly`/ `privacyCritical` flags are **hard endpoint constraints**, not merely provider-name selection. `OllamaProvider.isLocalEndpoint()` must validate a parsed, exact loopback hostname; VPS, Docker-network service names, lookalike DNS names, and public URLs are not permitted for private prompts. `LLMOrchestrator` filters out untrusted Ollama even with static fallback routing, and the provider independently refuses a private call on an untrusted URL. Private POST redirects are disabled. When no local inference is available, fail closed to the local template/rules fallback, never to another external provider.
 
 These source changes do not authorize activation; staging outbound-traffic tests and independent review sign-off remain required. The SDD stays `REVIEW`.
+
+## Registro factual posterior al merge #987 — 2026-11-01
+
+Este registro reconcilia **hechos de entrega**, no la autorización de compartir documentos. El propietario solicitó fusionar el PR #987 por excepción documentada antes de cumplir la pausa de 24 horas, la autorrevisión posterior y la aprobación formal del contrato; dichos gates **no** se marcan retroactivamente como cumplidos.
+
+- HEAD revisado: `4c2d9415896e5b4fb3636ad57c5b10df29eb056d`; squash merge a `main`: `4f06fb2422f0b39822177bb1730e95cc85ee25ab`.
+- CI sobre el HEAD revisado: 7/7 workflows SUCCESS, incluidos `quality-gates`, `unit-coverage` y `e2e` (run `41356995428`). Codex y Copilot informaron que no encontraron hallazgos bloqueantes; no constituyen revisión humana independiente.
+- Railway producción: API `ee92284f`, web `46cce7b1`, worker `02838719` y vision `70b6743a` terminaron SUCCESS; se aplicó la migración aditiva `20261017213000_prometeo_document_grants`.
+- `SEMSE_PROMETEO_DOCUMENT_SHARING_ENABLED` no estaba configurada en la API de producción al verificarse; la implementación sólo activa compartir con el literal `true`. `activation_status: INACTIVE` permanece vigente.
+- Staging sintético: se comprobó aislamiento cross-org/cross-tenant y revocación del propietario mientras compartir estaba OFF, con auditoría. No se ha ejecutado el inventario agregado de documentos históricos sobre PostgreSQL de producción.
+
+**Gates aún pendientes:** SDD `status: REVIEW`, ADR-046 `Proposed`, decisión documentada del propietario sobre seguridad y consentimientos, inventario histórico, revisión humana externa y canario/rollback antes de activar sharing (nivel 3). #974 permanece abierto. Los estados `COMPLETE/PASS/MERGED/DEPLOYED/APPLIED` describen entrega de código, no aprobación del acceso entre organizaciones.
+
+Evidencias: [excepción del propietario](https://github.com/Semse-projet/project-manager-app/pull/987#issuecomment-6565038261), [despliegue y migración](https://github.com/Semse-projet/project-manager-app/pull/987#issuecomment-6565123258), [revocación con flag OFF](https://github.com/Semse-projet/project-manager-app/pull/987#issuecomment-6565167452).

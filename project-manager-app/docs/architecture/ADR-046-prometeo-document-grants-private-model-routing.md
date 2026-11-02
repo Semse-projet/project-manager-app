@@ -1,16 +1,16 @@
 # ADR-046 — Prometeo explicit document grants and private-model boundary
 
 - **Date:** 2026-10-18
-- **Status:** Proposed — **NOT ACCEPTED**. Requires owner/security architecture review; code in PR #987 is provisional.
+- **Status:** Proposed — **NOT ACCEPTED**. Requires owner/security architecture review; PR #987 was merged and deployed under a documented exception, but sharing remains OFF.
 - **Owners:** semse-core; decision authority pending named approval
-- **Context:** Security issue #974, draft PR #987, SDD `prometeo.document-sharing-grants` (REVIEW), issue #992.
+- **Context:** Security issue #974, merged PR #987, SDD `prometeo.document-sharing-grants` (REVIEW), issue #992.
 - **Relations:** ADR-040 (organization and membership), ADR-036 (Prometeo orchestrator), ADR-038 (copilot), `platform.resource-scope`, `prometeo.model-gateway-unification`.
 
 ## Problem
 
 Membership and `rbac.ts` are necessary but do not alone authorize access to a particular document. A tenant can contain multiple organizations, and legacy `public_training` flags or a bare `projectId` have no verified consent. A new cross-org capability must not bypass actor authentication, resource scope, auditing or private model routing.
 
-The current SDD governance disallows merge under a REVIEW spec; this ADR is a proposed choice, **not** permission to deploy.
+SDD governance ordinarily prohibits merging under a REVIEW spec. PR #987 was merged under an explicitly documented owner-directed exception, which **does not accept this ADR, satisfy uncompleted gates, or authorize activation**.
 
 ## Decision proposed (subject to sign-off)
 
@@ -43,3 +43,11 @@ The current SDD governance disallows merge under a REVIEW spec; this ADR is a pr
 - Trade-offs: when local model/embeddings unavailable, no cloud semantic fallback; project reassociation blocked by FK until separately governed; historical promoted content may not be visible.
 - Verification: PostgreSQL FK negative tests, 20k project predicate bound, idempotent regrant concurrent tests, deletion/audit rollback, actor/org cross-tenant signed sessions, no-cloud network capture, Ollama local tools integration, and isolated staging rollback.
 - **Status remains Proposed** until reviewed and approved independently; do not mistake an automated Codex approval for governance sign-off.
+
+## Nota posterior al merge #987 — 2026-11-01
+
+El código de PR #987 fue fusionado a `main` (squash `4f06fb2422f0b39822177bb1730e95cc85ee25ab`) y desplegado con el flag `SEMSE_PROMETEO_DOCUMENT_SHARING_ENABLED` desactivado por defecto. La migración aditiva `20261017213000_prometeo_document_grants` se aplicó en producción.
+
+Este es un **registro de hechos de entrega**, no la aceptación de ADR-046. El merge anticipado por petición del propietario y su excepción de gobernanza se documentaron en [PR #987](https://github.com/Semse-projet/project-manager-app/pull/987#issuecomment-6565038261). Permanecen pendientes la aprobación del contrato de seguridad, el inventario histórico y consentimientos, la revisión externa de nivel 3, el canario allowlist y un rollback autorizado antes de cualquier compartición real entre organizaciones.
+
+El estado **Proposed / NOT ACCEPTED** no cambia y no debe inferirse aprobación de CI, migración o Railway SUCCESS.
