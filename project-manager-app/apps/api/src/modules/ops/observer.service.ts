@@ -221,9 +221,11 @@ export class SystemObserverService {
       items.push({ name: "LLM Orchestrator", healthy: false, detail: "Not registered in this context" });
     }
 
-    // OpenAI Embeddings
-    const hasOpenAI = typeof process.env.OPENAI_API_KEY === "string" && process.env.OPENAI_API_KEY.length > 10;
-    items.push({ name: "OpenAI Embeddings", healthy: hasOpenAI, detail: hasOpenAI ? "API key configurada" : "OPENAI_API_KEY no configurada" });
+    // Cloud embedding credentials are optional, not an infrastructure health
+    // requirement. Private Prometeo reads use local-only/FTS fallback; the RAG
+    // retrieval mode and actual indexed-chunk metrics are tracked separately
+    // in observeIntelligence(). Do not generate unhealthy alerts for missing
+    // OPENAI_API_KEY or imply operators should configure cloud embeddings.
 
     // Ollama
     const ollamaUrl = process.env.OLLAMA_BASE_URL ?? "http://localhost:11434";
