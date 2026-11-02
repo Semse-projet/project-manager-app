@@ -1,7 +1,7 @@
 # ADR-046 — Prometeo explicit document grants and private-model boundary
 
 - **Date:** 2026-10-18
-- **Status:** Proposed — **NOT ACCEPTED**. Requires owner/security architecture review; PR #987 was merged and deployed under a documented exception, but sharing remains OFF.
+- **Status:** Proposed — **NOT ACCEPTED**. Formal documentary acceptance follows `DEC-PLATFORM-001` level 1 for the sole maintainer; activating cross-organization access separately requires level 3. PR #987 was merged and deployed under a documented exception with sharing OFF.
 - **Owners:** semse-core; decision authority pending named approval
 - **Context:** Security issue #974, merged PR #987, SDD `prometeo.document-sharing-grants` (REVIEW), issue #992.
 - **Relations:** ADR-040 (organization and membership), ADR-036 (Prometeo orchestrator), ADR-038 (copilot), `platform.resource-scope`, `prometeo.model-gateway-unification`.
@@ -11,6 +11,17 @@
 Membership and `rbac.ts` are necessary but do not alone authorize access to a particular document. A tenant can contain multiple organizations, and legacy `public_training` flags or a bare `projectId` have no verified consent. A new cross-org capability must not bypass actor authentication, resource scope, auditing or private model routing.
 
 SDD governance ordinarily prohibits merging under a REVIEW spec. PR #987 was merged under an explicitly documented owner-directed exception, which **does not accept this ADR, satisfy uncompleted gates, or authorize activation**.
+
+## Solo-maintainer governance clarification (2026-11-02)
+
+The accepted [DEC-PLATFORM-001](DEC-PLATFORM-001-solo-maintainer-review.md) is the controlling exception while SEMSE has one maintainer with review permissions. It distinguishes these **separate acts**:
+
+1. **Documentary decision (level 1):** this ADR and the `prometeo.document-sharing-grants` SDD may receive formal acceptance after green CI on the exact documentary PR SHA, at least one linked automated review without open blocking findings, and the owner's authenticated PR comment stating SHA, date and precise scope. No second maintainer or external human reviewer is required **for this documentary act**. Existing product/functional consent is not a substitute for this version-specific sign-off.
+2. **Sensitive implementation with sharing OFF (level 2):** new PRs affecting authorization, privacy, tenant/org isolation or consent must satisfy level 1 plus two distinct automated reviews, negative PostgreSQL tests, a minimum 24-hour pause after the final commit and the owner's post-pause self-review. The documented exception for the already-merged #987 is historical; no missed gate is retroactively marked passed.
+3. **Cross-organization production activation (level 3):** enabling `SEMSE_PROMETEO_DOCUMENT_SHARING_ENABLED` or exposing private content to third parties additionally requires a **real external human security review**, allowlisted canary, proven rollback and separate operational authorization. An accepted ADR does not authorize activation.
+4. **Historical sources:** a project-scoped grant does not confer permission to reuse contributor-owned material. Each required contributor and legitimate rightsholder must authorize the specific sanitized version, audience and purpose through the separately governed #992/F1B–F3 flow. A legacy `public_training` or `PROMOTED` label never serves as consent.
+
+This clarification is documentary only: it does not change `Proposed`, the SDD's `REVIEW` status, grants, code, migrations, historical records or Railway flags.
 
 ## Decision proposed (subject to sign-off)
 
@@ -33,16 +44,16 @@ SDD governance ordinarily prohibits merging under a REVIEW spec. PR #987 was mer
 
 - This grant is **additional**, not a substitute for `Membership` → RBAC or `ResourceScope` (clarifies ADR-040's single capability path: RBAC remains the only way to attain a role, while resource grants narrow the visibility of individual documents).
 - SQL migration introduces `UNIQUE(id,tenantId,projectId)` on `PrometeoDocument` and `ON UPDATE RESTRICT` for linked grants. Old app versions may continue reading/writing unrelated documents; they **must not** silently change associations with active grants. Verify old-version interactions on isolated DB before rollout.
-- Feature activation is prohibited until spec APPROVED, ADR accepted, exact SHA CI PASS, full signed-session staging acceptance, legacy inventory/consent decision, independent review and rehearsed app rollback.
+- Feature activation is prohibited until spec APPROVED, ADR accepted, exact SHA CI PASS, full signed-session staging acceptance, legacy inventory/consent decision, **level-3 independent human security review** and rehearsed app rollback. Documentary approval alone never activates the flag.
 - Rollback retains DB constraints/grants/audit; downgrade image/application only with compatibility proof. No destructive down-migration is authorized by this ADR.
-- Ledger of independent review must explicitly name document/grant/agent model privacy threats and all accepted trade-offs.
+- The level-3 independent review ledger must explicitly name document/grant/agent model privacy threats and all accepted trade-offs.
 
 ## Consequences and verification
 
 - Positives: explicit auditable cross-org read and immediate revoke; no automatic cross-tenant/cross-project grant, bounded SQL query, fail-closed egress.
 - Trade-offs: when local model/embeddings unavailable, no cloud semantic fallback; project reassociation blocked by FK until separately governed; historical promoted content may not be visible.
 - Verification: PostgreSQL FK negative tests, 20k project predicate bound, idempotent regrant concurrent tests, deletion/audit rollback, actor/org cross-tenant signed sessions, no-cloud network capture, Ollama local tools integration, and isolated staging rollback.
-- **Status remains Proposed** until reviewed and approved independently; do not mistake an automated Codex approval for governance sign-off.
+- **Status remains Proposed** until documentary approval is registered under `DEC-PLATFORM-001` level 1 with final SHA, CI, an automated review without blocking findings and an authenticated owner comment with date and scope. Automated review alone is not an owner approval; it is not an independent human audit.
 
 ## Nota posterior al merge #987 — 2026-11-01
 
