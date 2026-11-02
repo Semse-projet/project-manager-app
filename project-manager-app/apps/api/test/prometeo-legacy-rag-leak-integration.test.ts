@@ -68,6 +68,8 @@ pgTest("legacy PROMOTED/public_training stays private in search, RAG, titles, ci
   const foreignToken = id("cross_tenant_chunk");
 
   let databaseConnected = false;
+  let primaryFailure: unknown;
+  let hasPrimaryFailure = false;
   try {
     await prisma.$connect();
     databaseConnected = true;
@@ -216,18 +218,34 @@ pgTest("legacy PROMOTED/public_training stays private in search, RAG, titles, ci
       { chunks: [], contextBlock: "", tokenEstimate: 0 });
     assert.deepEqual(await svc.retrieveContext({ tenantId: tenantAB, query }),
       { available: false, contextBlock: "", citations: [] });
+  } catch (error) {
+    // Preserve the primary assertion/setup exception even if teardown fails.
+    hasPrimaryFailure = true;
+    primaryFailure = error;
   } finally {
-    // Independent teardown stages: even a failed tenant cleanup must not
-    // prevent disconnect; the OUTER finally always restores the flag.
-    try {
-      if (databaseConnected) {
+    const teardownFailures: unknown[] = [];
+    if (databaseConnected) {
+      try {
         await prisma.tenant.deleteMany({ where: { id: { in: [tenantAB, tenantC] } } });
+      } catch (error) {
+        teardownFailures.push(error);
       }
-    } finally {
+    }
+    try {
       await prisma.$disconnect();
+    } catch (error) {
+      teardownFailures.push(error);
+    }
+    if (teardownFailures.length) {
+      throw new AggregateError(
+        hasPrimaryFailure ? [primaryFailure, ...teardownFailures] : teardownFailures,
+        "Prometeo test or isolated database teardown failed",
+      );
     }
   }
+  if (hasPrimaryFailure) throw primaryFailure;
   } finally {
+    // Also covers failed imports, constructor calls and connection attempts.
     if (oldSharing === undefined) delete process.env.SEMSE_PROMETEO_DOCUMENT_SHARING_ENABLED;
     else process.env.SEMSE_PROMETEO_DOCUMENT_SHARING_ENABLED = oldSharing;
   }
