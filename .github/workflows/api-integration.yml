@@ -216,8 +216,10 @@ jobs:
   # A rollback to pre-P0 main is UNSAFE: legacy Prometeo lists by tenant alone.
   # Exercise a pinned post-P0 security checkpoint binary on the HEAD's expanded
   # schema instead. This is isolated CI evidence, NOT production rollback.
+  # #1008 extends the same P0 privacy checks, so verify the safe checkpoint
+  # against the updated, signed A/B/C smoke instead of silently SKIPPING it.
   rollback-safe-checkpoint:
-    if: ${{ github.event_name == 'pull_request' && github.event.pull_request.number == 987 }}
+    if: ${{ github.event_name == 'pull_request' && (github.event.pull_request.number == 987 || github.event.pull_request.number == 1008) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     permissions:
