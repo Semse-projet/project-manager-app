@@ -318,6 +318,28 @@ async function prometeoObjectScopeSmoke() {
   };
   await assertNoSharedAnswer(pro1);
 
+  // A project-linked raw field observation must be rejected even when the
+  // owner has a valid signed session, is a project participant and sharing is
+  // ON. This is a real HTTP denial, not just a service-unit assertion.
+  const rawProject = await prisma.prometeoDocument.create({ data: {
+    tenantId: owner.tenantId, orgId: owner.orgId, projectId: sharedProject.id,
+    title: ownerMarker + "_RAW_PRIVATE", sourceType: "field_observation",
+    uploadedById: owner.userId, status: "indexed", chunkCount: 0,
+    metadataJson: { visibility: "public_training", promotionStatus: "PROMOTED" },
+  } });
+  const rawShares = "/v1/prometeo/documents/" + rawProject.id + "/shares";
+  await request("POST", rawShares, {
+    token: owner.token, body: { recipientOrgId: pro1.orgId }, expectedStatus: 403,
+  });
+  await request("POST", rawShares, {
+    token: foreignClient.token, body: { recipientOrgId: pro1.orgId }, expectedStatus: 404,
+  });
+  assert.equal(await prisma.prometeoDocumentGrant.count({ where: { documentId: rawProject.id } }), 0,
+    "signed HTTP denial must not persist a raw-original sharing grant");
+  assert.ok(!(await documentIds(pro1)).has(rawProject.id),
+    "denied raw original must remain invisible to the project participant");
+  console.log("[PROMETEO P0] signed HTTP raw original grant denied 403, foreign tenant 404 PASS");
+
   const shares = "/v1/prometeo/documents/" + ownerProject.doc.id + "/shares";
   await request("POST", shares, {
     token: otherClient.token, body: { recipientOrgId: pro1.orgId }, expectedStatus: 403,
