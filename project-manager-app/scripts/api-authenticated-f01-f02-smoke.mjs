@@ -318,6 +318,36 @@ async function prometeoObjectScopeSmoke() {
   };
   await assertNoSharedAnswer(pro1);
 
+  // A security-checkpoint rollback cannot run the CURRENT raw-grant
+  // acceptance contract against a PRE-QUARANTINE binary with sharing=ON.
+  // This mode is exclusive to the rollback job, where BOTH old API
+  // instances must have sharing=OFF. Check signed private scope and deny
+  // all grant mutations instead of pretending the old binary has P1.
+  if (process.env.SEMSE_ROLLBACK_SHARING_OFF_ONLY === "1") {
+    const oldShares = "/v1/prometeo/documents/" + ownerProject.doc.id + "/shares";
+    for (const target of [base, sharingOffBase]) {
+      const noShare = await request("POST", oldShares, {
+        token: owner.token, body: { recipientOrgId: pro1.orgId },
+        expectedStatus: 503, target,
+      });
+      assert.ok(noShare.status === 503);
+      const hidden = await request("GET", "/v1/prometeo/documents", {
+        token: pro1.token, target,
+      });
+      assert.ok(!hidden.data.some(doc => doc.id === ownerProject.doc.id),
+        "rollback sharing-OFF must deny another organization's project document");
+      const hiddenCounts = await electricalCounts(pro1, target);
+      assert.deepEqual(hiddenCounts, [0, 0, 0],
+        "rollback sharing-OFF must not count another organization's documents");
+      await assertNoSharedAnswer(pro1, target);
+    }
+    assert.equal(await prisma.prometeoDocumentGrant.count({
+      where: { tenantId: tenantA, documentId: ownerProject.doc.id },
+    }), 0, "rollback with sharing OFF must not persist project grants");
+    console.log("[PROMETEO ROLLBACK] pinned old binary sharing OFF on both ports, signed scope/counters/RAG and grants fail closed PASS");
+    return;
+  }
+
   // A project-linked raw field observation must be rejected even when the
   // owner has a valid signed session, is a project participant and sharing is
   // ON. This is a real HTTP denial, not just a service-unit assertion.
