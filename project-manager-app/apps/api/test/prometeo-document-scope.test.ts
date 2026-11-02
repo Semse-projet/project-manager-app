@@ -25,7 +25,7 @@ test("document listing constrains organization and authorized projects before ta
   assert.deepEqual(where?.OR, [
     { projectId: null, orgId: "org-A" },
     { projectId: { in: ["project-A"] }, orgId: "org-A" },
-    { grants: { some: { tenantId: "tenant-A", recipientOrgId: "org-A", projectId: { in: ["project-A"] }, revokedAt: null } } },
+    { sourceType: { not: "field_observation" }, grants: { some: { tenantId: "tenant-A", recipientOrgId: "org-A", projectId: { in: ["project-A"] }, revokedAt: null } } },
   ]);
   assert.equal(take, 10, "filter is in database query, not applied after pagination");
 });
@@ -57,6 +57,7 @@ test("chunk SQL rechecks document ownership and active grants at content-read ti
         { projectId: null, orgId: "org-A" },
         { projectId: { in: ["project-A"] }, orgId: "org-A" },
         {
+          sourceType: { not: "field_observation" },
           grants: {
             some: {
               tenantId: "tenant-A",
@@ -98,6 +99,7 @@ test("feedback stats recheck document grants at query time without a stale ID pr
               { projectId: null, orgId: "org-A" },
               { projectId: { in: ["project-A"] }, orgId: "org-A" },
               {
+                sourceType: { not: "field_observation" },
                 grants: {
                   some: {
                     tenantId: "tenant-A",
@@ -357,6 +359,8 @@ test("grant SQL predicate size remains constant even with thousands of authorize
   assert.equal(grant.tenantId, "tenant-A");
   assert.equal(grant.recipientOrgId, "org-A");
   assert.equal(grant.revokedAt, null);
+  assert.deepEqual(branches[2].sourceType, { not: "field_observation" },
+    "project grants never publish raw observation originals");
   // Schema and migration enforce the missing equality at the DB level:
   // grant.(documentId,tenantId,projectId) references document.(id,tenantId,projectId).
 });
