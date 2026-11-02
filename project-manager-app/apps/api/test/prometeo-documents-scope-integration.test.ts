@@ -257,11 +257,14 @@ dbTest("P0: legacy public_training remains private and sharing OFF hides expande
   try {
     await prisma.tenant.create({ data: { id: tenantId, slug: tenantId, name: "Ephemeral legacy P0 fixture" } });
     process.env.SEMSE_PROMETEO_DOCUMENT_SHARING_ENABLED = "true";
-    const createLegacy = async (orgId: string, association?: string) => {
+    const createLegacy = async (orgId: string, association?: string, sourceType = "text") => {
       const doc = await repo.createDocument({
         tenantId, orgId, projectId: association, title: id("legacy_doc"),
-        sourceType: "text", uploadedById: "legacy_fixture_actor",
-        metadataJson: { visibility: "public_training", provenance: "synthetic_pregrant" },
+        sourceType, sourceRef: sourceType === "field_observation" ? id("synthetic_observation") : undefined,
+        uploadedById: "legacy_fixture_actor",
+        metadataJson: { visibility: "public_training", provenance: "synthetic_pregrant",
+          ...(sourceType === "field_observation" ? { promotionStatus: "PROMOTED" } : {}),
+        },
       });
       await repo.saveChunks(doc.id, tenantId, [{
         index: 0, text: "private historical content " + doc.id, tokenCount: 5,
@@ -272,16 +275,25 @@ dbTest("P0: legacy public_training remains private and sharing OFF hides expande
     };
     const unassociated = await createLegacy(ownerOrg);
     const linked = await createLegacy(ownerOrg, projectId);
+    // A historical editorial PROMOTED observation is still org-private;
+    // field_observation and public_training are descriptive labels, not consent.
+    const promotedFieldObservation = await createLegacy(ownerOrg, undefined, "field_observation");
     const own = await createLegacy(recipientOrg);
     const scope = { orgId: recipientOrg, projectIds: [projectId], jobIds: [] };
     assert.equal(await prisma.prometeoDocumentGrant.count({
-      where: { tenantId, documentId: { in: [unassociated, linked] } },
+      where: { tenantId, documentId: { in: [unassociated, linked, promotedFieldObservation] } },
     }), 0, "legacy visibility labels must not generate inferred grants");
     const listed = await repo.listDocuments({ tenantId, scope });
     assert.ok(listed.some(row => row.id === own));
-    assert.ok(!listed.some(row => row.id === unassociated || row.id === linked));
+    assert.ok(!listed.some(row => [unassociated, linked, promotedFieldObservation].includes(row.id)),
+      "legacy PROMOTED field observation must not appear in another organization\u0027s list");
     const chunks = await repo.loadChunksForSearch({ tenantId, scope });
-    assert.ok(!chunks.some(row => row.documentId === unassociated || row.documentId === linked));
+    assert.ok(!chunks.some(row => [unassociated, linked, promotedFieldObservation].includes(row.documentId)),
+      "legacy field observation text must not cross organization boundaries");
+    const ownerScope = { orgId: ownerOrg, projectIds: [], jobIds: [] };
+    const ownerChunks = await repo.loadChunksForSearch({ tenantId, scope: ownerScope });
+    assert.ok(ownerChunks.some(row => row.documentId === promotedFieldObservation),
+      "owner access remains possible without implying a share consent");
 
     const before = await prisma.prometeoDocument.findUniqueOrThrow({
       where: { id: linked }, select: { metadataJson: true },
