@@ -8,6 +8,7 @@ Este paquete **no concede acceso a documentos**, no altera la BD y no activa `SE
 - `evaluate_inventory.py`: valida **offline** el JSON contra un esquema cerrado, rechaza campos de identidad o contenido, identifica inconsistencias y devuelve siempre `activation_decision=NOT_AUTHORIZED_BY_THIS_AUDIT`.
 - `test_evaluator.py` y `test_sql_contract.py`: validación local con datos sintéticos y controles estáticos.
 - `fixture_postgres16_synthetic.sql` y `test_postgres16_synthetic.sh`: prueba adicional contra PostgreSQL 16 **real pero desechable en GitHub Actions**, utilizando un subconjunto sintético del esquema para verificar que el SQL se ejecuta, produce JSON válido y detecta un mismatch entre tenants. No examina datos históricos ni demuestra la compatibilidad integral con todas las migraciones Prisma.
+- `.github/workflows/prometeo-p0-inventory-static.yml` incluye además `postgres16-full-prisma-schema`: ejecuta las migraciones reales de Prisma del repositorio sobre otra base PostgreSQL 16 **nueva y vacía**, y ejecuta el SQL de inventario de solo lectura. Confirma compatibilidad del SQL con el esquema migrado completo, pero **no** valida datos históricos ni detecta desviaciones específicas de producción.
 
 **La invocación sobre una BD de SEMSE requiere acceso autorizado y revisión de operaciones.** Preferir una réplica o snapshot, una cuenta `SELECT` restringida, conexión privada y una carpeta de evidencias privada; los conteos pequeños también pueden ser confidenciales. Nunca abrir un proxy TCP público ni pegar `DATABASE_URL` en GitHub, logs o tickets.
 
