@@ -191,9 +191,23 @@ export class PrometeoRepository {
     }) as Promise<PrometeoChunkSearchRow[]>;
   }
 
-  async getDocumentTitles(docIds: string[]): Promise<Map<string, string>> {
-    if (!docIds.length) return new Map();
-    const docs = await this.prisma.prometeoDocument.findMany({ where: { id: { in: docIds } }, select: { id: true, title: true } });
+  /**
+   * Re-authorize document titles at read time. A chunk list acquired before
+   * revoke/flag-OFF must not authorize a subsequent unscoped title lookup.
+   * Keep the same SQL ownership/grant predicate as the original chunk query.
+   */
+  async getDocumentTitles(input: {
+    tenantId: string; docIds: string[]; projectId?: string; scope?: PrometeoListScopeFilter;
+  }): Promise<Map<string, string>> {
+    if (!input.docIds.length) return new Map();
+    const docs = await this.prisma.prometeoDocument.findMany({
+      where: {
+        ...this.documentWhere({ tenantId: input.tenantId, projectId: input.projectId, scope: input.scope }),
+        id: { in: input.docIds },
+        status: "indexed",
+      },
+      select: { id: true, title: true },
+    });
     return new Map(docs.map((d: { id: string; title: string }) => [d.id, d.title]));
   }
 
