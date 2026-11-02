@@ -166,6 +166,18 @@ pgTest("legacy PROMOTED/public_training stays private in search, RAG, titles, ci
     });
     assert.deepEqual([...titlesBeforeGrant.keys()], [ownB],
       "known private IDs are not title lookups without permission");
+    const missingScopeTitles = await repo.getDocumentTitles({
+      tenantId: tenantAB, docIds: candidateIds,
+    } as never);
+    assert.equal(missingScopeTitles.size, 0,
+      "legacy internal title caller without scope must fail closed");
+    const opsTitles = await repo.getDocumentTitles({
+      tenantId: tenantAB, scope: null, docIds: candidateIds,
+    });
+    assert.ok(opsTitles.has(original), "explicit OPS_ADMIN scope sentinel may access same-tenant titles");
+    assert.ok(opsTitles.has(ownB));
+    assert.equal(opsTitles.has(tenantCOriginal), false,
+      "even explicit OPS_ADMIN scope must not cross tenants");
 
     const grant = await prisma.prometeoDocumentGrant.create({ data: {
       tenantId: tenantAB, documentId: linkedOriginal, projectId: project,
