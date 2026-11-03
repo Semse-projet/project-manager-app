@@ -97,13 +97,27 @@ No duplicar `JobTask`, `TaskAllocation`, `TimeEntry` ni Evidence.
 
 ### Compatibilidad
 
-En esta propuesta, el campo legacy `Crew.supervisorUserId` **no puede
-conceder por sí solo** permisos nuevos de delegación tras activar la
-función. El plan exige migración gradual y proyección temporal para
-evitar pérdida repentina de permisos legítimos. Con flag OFF se preserva
-comportamiento existente, pero las vulnerabilidades conocidas de guard
-deben evaluarse en un parche independiente antes de cualquier activación
-de BO-07/BO-10. **No se propone abrir acceso permisivo como fallback.**
+En esta propuesta, el campo legacy `Crew.supervisorUserId` **no
+concede autoridad por sí solo**, ni con el flag de delegación S1 OFF
+ni con ON. La corrección de guardas S0 es una dependencia de seguridad
+obligatoria, independiente del flag de S1: las rutas legacy BO-07/BO-10
+deben revalidar WORKER ACTIVE, tenant, organización, cuadrilla y
+revocación/suspensión en cada petición. Con OFF **no se restauran**
+permisos legacy más amplios ni se revierten los guardas S0.
+Las nuevas rutas/acciones S1 se deniegan con OFF; con ON requieren
+además grant explícito, vigente y acotado por acción, org y crew.
+La migración gradual debe conservar tareas, horas y evidencia, **no**
+reconstruir autorizaciones antiguas implícitas.
+
+Un grant S1 que figure `ACTIVE` en almacenamiento mientras el flag
+está OFF **no concede ningún permiso efectivo**. Apagar S1 no borra
+ni revoca por sí solo el registro histórico, pero cualquier reactivación
+requiere verificar nuevamente elegibilidad, emisor, alcance, vigencia,
+revocación y autorización explícita de reanudación; **no** se
+reconocen grants anteriores automáticamente solo por volver a ON.
+La política exacta de reemisión/invalidación se ratifica en
+OPEN-SUP-06 antes de implementación. Nunca se hace rollback a un
+binario que omita S0: se debe preferir forward-fix seguro.
 
 ## 3. Actores, permisos y límites
 
