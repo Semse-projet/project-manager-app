@@ -255,6 +255,32 @@ test("finding: wastePercent has different units in concrete (percent points) and
   assert.equal(masonry({ ...m, wastePercent: 0.1 }).isValid, true, "masonry accepts 0.1 as ten percent");
 });
 
+// Boundary regression for #1085: confirm current unit split; normalisation is a separate change.
+test("finding: wastePercent boundary values retain their current distinct units", () => {
+  const concrete = instrumentedTools.runConcreteEngine as (i: Record<string, unknown>) => { isValid: boolean };
+  const masonry = instrumentedTools.calculateMasonry as (i: Record<string, unknown>) => { isValid: boolean };
+  const c = SCENARIOS.find((x) => x.trade === "concrete" && x.kind === "normal")!.input;
+  const m = SCENARIOS.find((x) => x.trade === "masonry" && x.kind === "normal")!.input;
+
+  for (const v of [0, 10, 30]) {
+    assert.equal(concrete({ ...c, wastePercent: v }).isValid, true, `concrete expects 0-30 percentage points, got ${v}`);
+  }
+  for (const v of [0, 0.1, 0.35]) {
+    assert.equal(masonry({ ...m, wastePercent: v }).isValid, true, `masonry expects 0-0.35 fraction, got ${v}`);
+  }
+  assert.equal(masonry({ ...m, wastePercent: 10 }).isValid, false);
+});
+
+// Boundary regression for #1086: record the current 1-20 cap without treating it as appropriate for large projects.
+test("finding: project-manager crewSize accepts 1 and 20 but rejects 0 and 21", () => {
+  const fn = instrumentedTools.calculateProjectManager as (i: Record<string, unknown>) => { isValid: boolean };
+  const basis = SCENARIOS.find((x) => x.trade === "project-manager" && x.kind === "complex")!.input;
+  assert.equal(fn({ ...basis, crewSize: 1 }).isValid, true);
+  assert.equal(fn({ ...basis, crewSize: 20 }).isValid, true);
+  assert.equal(fn({ ...basis, crewSize: 0 }).isValid, false);
+  assert.equal(fn({ ...basis, crewSize: 21 }).isValid, false);
+});
+
 test("report: engine-specific margins, rounding and reconstruction precision", () => {
   assert.equal(rows.length, 72, "the per-scenario tests must run before the report");
 
