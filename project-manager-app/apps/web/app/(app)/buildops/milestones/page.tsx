@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useLanguage } from "../../../../lib/language-context";
+import { messageFromError, renderMessage, type UiMessage } from "../../../../lib/ui-message";
 import { useCallback, useEffect, useState } from "react";
 import { ArrowRight, ClipboardList, Clock3, FolderKanban } from "lucide-react";
 import { Badge, Card } from "@/components/ui";
@@ -26,7 +27,7 @@ export default function BuildOpsMilestonesPage() {
   const { t } = useLanguage();
   const [milestones, setMilestones] = useState<BuildOpsMilestone[]>(fallbackMilestones);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<UiMessage | null>(null);
   const [govKeys, setGovKeys] = useState<Record<string, number>>({});
   const refreshGov = useCallback((mid: string) => setGovKeys((k) => ({ ...k, [mid]: (k[mid] ?? 0) + 1 })), []);
 
@@ -49,7 +50,7 @@ export default function BuildOpsMilestonesPage() {
         setMilestones(data);
       } catch (err) {
         if (!alive) return;
-        setError(err instanceof Error ? err.message : t("common.serverError"));
+        setError(messageFromError(err, "common.serverError"));
       } finally {
         if (alive) setLoading(false);
       }
@@ -90,7 +91,7 @@ export default function BuildOpsMilestonesPage() {
                 {t("buildops.paid")} {paidCount}
               </span>
             </div>
-            {error ? <p className="text-sm text-red-400">{error}</p> : null}
+            {error ? <p className="text-sm text-red-400">{renderMessage(error, t)}</p> : null}
             {loading ? <p className="text-sm text-muted">{t("buildops.loadingMilestones")}</p> : null}
           </div>
           <Link href="/buildops/projects" className="inline-flex items-center gap-2 rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-[#0a0a14] transition-all hover:bg-brand-bright">

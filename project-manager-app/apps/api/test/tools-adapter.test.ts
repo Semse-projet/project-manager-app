@@ -50,3 +50,35 @@ test("parsePromptToolCall returns null for malformed JSON", () => {
   const call = parsePromptToolCall('{"tool":}');
   assert.equal(call, null);
 });
+
+test("parsePromptToolCall preserves unmatched literal braces in valid tool JSON strings", () => {
+  const payload = {
+    tool: "edit_file",
+    input: {
+      path: "notes.md",
+      content: 'This JSON string contains an opening brace { and a closing brace } at other positions',
+      comment: 'A literal { brace with no balancing pair',
+    },
+  };
+  const call = parsePromptToolCall(JSON.stringify(payload));
+  assert.ok(call);
+  assert.equal(call.toolName, "edit_file");
+  assert.deepEqual(call.input, payload.input);
+});
+
+test("parsePromptToolCall respects JSON escaped quotation marks and backslashes", () => {
+  const payload = {
+    tool: "run_command",
+    input: {
+      command: 'printf "unbalanced } text \\{ and an escaped quote \\" in shell argument"',
+      text: 'quoted "}" then unmatched {',
+    },
+  };
+  const call = parsePromptToolCall(`Tool call:\n${JSON.stringify(payload)}\nProceeding.`);
+  assert.ok(call);
+  assert.deepEqual(call.input, payload.input);
+});
+
+test("parsePromptToolCall still rejects incomplete structured JSON after quoted braces", () => {
+  assert.equal(parsePromptToolCall('{"tool":"edit_file","input":{"content":"} and {"'), null);
+});
