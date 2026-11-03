@@ -16,6 +16,22 @@ date: "2026-10-30"
 - [ ] Alineada con ADR-027
 - [ ] API/UI contracts no se contradicen (revisar tras Q1, Q4 y Q6)
 
+## Contrato de reproducibilidad (evidencia #1076)
+
+- [x] T-004 documenta 72/72 cálculos reproducibles con argumentos instrumentados, y diferencia la aritmética de la corrección comercial
+- [x] La spec prohíbe inferir tasas y `perUnitDivisor` de importes redondeados (42/72 exactos por ese método, 57/66 divisores distintos)
+- [ ] El contrato interno define `costs.basis`, `effectiveRates`, `perUnitDivisor`, unidad, precisión, redondeo, ausencia de `perUnit` y filtrado de privacidad
+- [ ] Existe un plan de golden tests independientes para 24 motores × 3 escenarios, con valores esperados revisados por separado del ejecutor
+- [ ] La implementación aditiva reproduce 72/72 sin instrumentación, con 0 centavos de diferencia, y preserva 66/66 divisores reales y el JSON antiguo (**gate posterior a aprobación de spec**)
+- [ ] Casos de sobreescritura por capas, invalidación, extremos, fallo y cotización/contrato/escrow inmutable definidos y probados según su fase
+- [ ] Los defectos de unidad [#1085](https://github.com/Semse-projet/project-manager-app/issues/1085) y de cuadrillas [#1086](https://github.com/Semse-projet/project-manager-app/issues/1086) tienen pruebas independientes y no bloquean el diagnóstico T-004 (sí la activación de los flujos afectados)
+
+## Validación comercial independiente
+
+- [ ] T-005 respalda materiales, mano de obra facturable, rendimientos, multiplicadores, márgenes y vigencia de fuentes con validación por oficio/región
+- [ ] Q9 revisada por especialistas, Q10 revisada por profesional fiscal y Q11 acredita procedencia, fecha y derechos de uso de precios
+- [ ] La aceptación matemática no se usa para certificar precios ni legalidad fiscal; aprobación de spec, implementación y activación tienen gates distintos
+
 ## Seguridad
 
 - [ ] Permisos por capa se validan en backend
