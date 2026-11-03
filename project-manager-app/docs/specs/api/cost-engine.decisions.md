@@ -247,7 +247,7 @@ Cobros o presupuestos fiscalmente incorrectos; exposición ante el cliente y las
 Q1 (doble control para políticas), cambio en el intake para capturar contrato y condado, Q5 (cambio de política vuelve obsoleto un borrador).
 
 ### 10. Fuentes
-- [Florida DOR — GT-800007, Sales and Use Tax on Building Contractors](https://www.floridarevenue.com/Forms_library/current/gt800007.pdf) **[WEB]**.
+- [Florida DOR — GT-800007, Sales and Use Tax on Building Contractors](https://floridarevenue.com/Forms_library/gt800007.pdf) **[WEB]**.
 - [Florida DOR — TIP 03A01-21](https://floridarevenue.com:443/taxes/tips/documents/TIP_03A01-21.pdf) (condado de entrega) **[WEB]**.
 - [Florida DOR — TAA 15A-019](https://floridarevenue.com/TaxLaw/Documents/15A-019.pdf) **[WEB]**.
 - Varias firmas contables y blogs resumen estas reglas; son fuentes secundarias y **no** deben usarse como base de una política.
@@ -481,3 +481,21 @@ procedimientos de recuperación, sin ampliar el alcance de este trabajo.
 - Pasos concretos con responsable y requisitos previos para Q2 y Q11: `cost-engine.q2-data-audit.md` §11 y `cost-engine.q11-legal-note.md` §12.
 
 Una decisión pasa a `DECIDIDA` solo cuando el owner lo declara por escrito, con la evidencia y la revisión profesional que exige su sección.
+
+
+---
+
+## Verificación T-005 parcial (2026-11-03) — metodología, fiscalidad y licencias
+
+**Alcance:** evidencia documental externa e inspección puntual del código, sin acceso a precios de proveedores históricos fechados, costos observados de obras, validación de técnicos por oficio ni asesor fiscal. Esto **no cierra T-005 ni Q9/Q10/Q11** y no acredita precios comercialmente correctos. La reproducción exacta de T-004 es otro gate.
+
+| Eje | Resultado contrastado | Evidencia | Pendiente para aceptación |
+|---|---|---|---|
+| **PPI — método** | **DEFECTO DE CÓDIGO CONFIRMADO:** `bls-ppi.service.ts` (lectura de rama de la spec) usa `pricePerUnit = round2(basePrice * currentIndex / 100)` y declara referencias genéricas de 2024, sin índice de esa fecha. PPI mide variación relativa, no es precio unitario por sí mismo. | [BLS PPI FAQ](https://www.bls.gov/ppi/faqs/questions-and-answers.htm), §5; `apps/api/src/modules/pricing/bls-ppi.service.ts` líneas 21–35 y 118–122. | T-008: referencia fechada por material, índices de igual serie y fechas compatibles, unidad y licencia verificables; casos sintéticos y de regresión. |
+| **PPI — caso de control** | **SINTÉTICO:** referencia USD 100 con índice histórico 120 e índice nuevo 126 debe dar USD 105 (100 × 126/120); la fórmula actual daría USD 126 (100 × 126/100). Una comprobación independiente con Node y aserciones pasó; **no son índices/precios reales**. | Cálculo independiente, 2026-11-03. | Prueba automatizada de regresión del servicio real con datos e índices controlados. |
+| **OEWS — alcance** | Confirmado que la medición OEWS comprende salarios brutos regulares y **excluye** beneficios costeados por empleador y trabajadores por cuenta propia; no permite llamar a esa media `laborRatePerHour` facturable sin construir una estructura de costos. | [BLS OEWS conceptos](https://www.bls.gov/opub/hom/oews/concepts.htm) y [FAQ BLS OEWS](https://www.bls.gov/oes/oes_ques.htm). | Tarifas de cuadrilla: cargas patronales, seguros, desplazamiento, gastos generales, margen y validación local por oficio. |
+| **Florida — tipo de contrato** | La guía oficial GT-800007 (edición **03/2015**) distingue precio global/costo más honorarios/T&M de venta minorista + instalación; los primeros, en general, no cobran *sales tax* sobre el importe total al propietario por esa regla. Esto contradice tratar el 7 % universal sobre todos los rubros como fiscalmente validado. | [Florida DOR GT-800007](https://floridarevenue.com/Forms_library/gt800007.pdf), pp. 1–2; [Florida Rule 12A-1.051](https://www.law.cornell.edu/regulations/florida/Fla-Admin-Code-r-12A-1-051). | Revisar vigencia normativa actual y excepciones, condado, clasificación de contratos y un dictamen fiscal antes de implementar `TaxPolicy` inicial. El documento oficial identificado es de 2015, no certificación fiscal vigente para 2026. |
+| **RSMeans/Gordian — derechos de uso** | Los términos SaaS publicados por Gordian restringen combinar datos con otros programas/servicios SaaS sin permiso expreso o términos adicionales; esto es **alerta de licencia**, no verificación de contrato particular de SEMSE. | [Gordian SaaS Terms](https://ppd.rsmeansonline.com/Content/RSMeansOnlineUserAgreement.pdf), §§4.2–4.3. | Inventario de qué dato se atribuye a RSMeans, su procedencia, contrato aplicable y autorización escrita de integración, o sustitución por fuentes permitidas; revisión legal. |
+
+**Criterio de gate:** registrar evidencia por precio (material, unidad, proveedor, ubicación, fecha, serie/índice de la fecha base, vigencia y derechos) y por oficio (rendimientos reales y márgenes observados). Mientras no exista esa evidencia más revisión de oficio/fiscal/legal, **Q9/Q10/Q11 y T-005 permanecen OPEN**. No propagar el 7 % genérico a cotizaciones ni usar datos atribuibles a RSMeans en el servicio sin derecho verificado.
+
