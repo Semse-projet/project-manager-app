@@ -50,10 +50,10 @@ test("rank: requiresTools → anthropic or openai first, not ollama", () => {
   assert.ok(!withoutTemplate.slice(0, 2).includes("ollama"));
 });
 
-test("rank: preferredProvider overrides everything", () => {
+test("rank: privacy constraints override preferredProvider", () => {
   const { router } = makeRouter();
   const chain = router.rank(ALL, { preferredProvider: "openai", privacyCritical: true }, "chat");
-  assert.equal(chain[0], "openai");
+  assert.equal(chain[0], "ollama");
 });
 
 test("rank: always ends with template", () => {
