@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { OpsController } from "../dist/modules/ops/ops.controller.js";
 
 /**
  * SEMSE Internal Observer v1 — Tests
@@ -286,6 +287,63 @@ test("O.HI2: resumen del historial incluye campos clave por snapshot", () => {
   historySummaryFields.forEach((f) => {
     assert.ok(f.length > 0, `campo de resumen ${f} debe ser válido`);
   });
+});
+
+test("O.HI3: real OpsController history scopes count and last 10 by authenticated tenant", async () => {
+  const history: Array<{
+    tenantId: string; observedAt: string; healthScore: number; alerts: unknown[];
+    operationalHealth: { criticalSignals: number };
+    intelligenceHealth: { embeddingsMode: string };
+  }> = [];
+  for (let i = 0; i < 12; i++) {
+    history.push({
+      tenantId: "tenant-A", observedAt: `A-${i}`, healthScore: 80, alerts: [],
+      operationalHealth: { criticalSignals: 0 },
+      intelligenceHealth: { embeddingsMode: "fts_fallback" },
+    });
+    if (i % 3 === 0) history.push({
+      tenantId: "tenant-B", observedAt: `B-${i}`, healthScore: 20,
+      alerts: [{ area: "secret-B" }],
+      operationalHealth: { criticalSignals: 999 },
+      intelligenceHealth: { embeddingsMode: "private-B" },
+    });
+  }
+  const controller = Object.create(OpsController.prototype) as {
+    observer: { getHistory: () => typeof history };
+    observerHistory: (req: Record<string, unknown>) => Promise<{
+      data: { count: number; snapshots: Array<{
+        observedAt: string; healthScore: number; alerts: number;
+        criticalSignals: number; ragMode: string;
+      }> };
+    }>;
+  };
+  controller.observer = { getHistory: () => history };
+  const read = (tenantId: string, spoofedHeaderTenant: string) =>
+    controller.observerHistory({
+      authContext: { tenantId, orgId: "org-ops", userId: "user-ops", roles: ["OPS_ADMIN"] },
+      headers: { "x-tenant-id": spoofedHeaderTenant },
+    });
+
+  const a = (await read("tenant-A", "tenant-B")).data;
+  assert.equal(a.count, 12, "count is computed after tenant filter, not over global history");
+  assert.deepEqual(a.snapshots.map(s => s.observedAt),
+    Array.from({ length: 10 }, (_, i) => `A-${i + 2}`),
+    "last ten must be the tenant's own snapshots even when other tenants interleave");
+  assert.ok(a.snapshots.every(s => s.ragMode === "fts_fallback" && s.criticalSignals === 0));
+
+  const b = (await read("tenant-B", "tenant-A")).data;
+  assert.equal(b.count, 4);
+  assert.deepEqual(b.snapshots.map(s => s.observedAt), ["B-0", "B-3", "B-6", "B-9"]);
+  assert.ok(b.snapshots.every(s => s.ragMode === "private-B" && s.criticalSignals === 999));
+
+  const absent = (await read("tenant-C", "tenant-A")).data;
+  assert.equal(absent.count, 0);
+  assert.deepEqual(absent.snapshots, []);
+  await assert.rejects(
+    () => controller.observerHistory({ headers: {} }),
+    (error: any) => error.getStatus?.() === 401,
+    "missing authentication must never fall back to global observer history",
+  );
 });
 
 // ── Intelligence health tests ─────────────────────────────────────────────────
