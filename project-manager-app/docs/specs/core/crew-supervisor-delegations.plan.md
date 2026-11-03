@@ -77,15 +77,24 @@ date: "2026-10-22"
 - Sin backfill genérico: el `supervisorUserId` legacy no prueba
   autoridad vigente ni consentimiento de contrato.
 - Dual-read/guard (propuesta S0 + S1, **OPEN-SUP-06 pendiente**):
-  - **Flag OFF:** desactiva únicamente las rutas/capacidades NUEVAS de
-    delegación S1; no vuelve a habilitar permisos que ya deniegan los guardas
-    S0. Las rutas legacy BO-07/BO-10 siguen disponibles solo bajo esos
-    guardas endurecidos: WORKER ACTIVE para el supervisor, recurso dentro de
-    tenant/org/crew y revocación/suspensión comprobadas en cada petición.
-    `Crew.supervisorUserId` por sí solo **nunca** autoriza un 2xx.
+  - **Flag OFF:** desactiva las rutas/capacidades NUEVAS de delegación S1
+    y niega toda autorización derivada de grants S1, aunque el registro
+    persistido conserve estado `ACTIVE`. El apagado no borra ni revoca
+    automáticamente registros históricos; su estado persistido no equivale
+    a autoridad efectiva. Las rutas legacy BO-07/BO-10 siguen disponibles
+    solo bajo guardas S0 endurecidos: WORKER ACTIVE para el supervisor,
+    recurso dentro de tenant/org/crew y revocación/suspensión revalidadas
+    en cada petición. `Crew.supervisorUserId` por sí solo **nunca**
+    autoriza un 2xx.
   - **Flag ON:** además de S0, las rutas S1 exigen un grant explícito,
-    ACTIVE, vigente y con permiso granular para esa crew y acción. Si no
-    existe grant o su fuente de autoridad no se puede verificar: denegar.
+    ACTIVE, vigente y con permiso granular para esa crew y acción. Un
+    registro que estaba ACTIVE al apagar S1 **no se reactiva de modo
+    automático** al volver a ON. Su retorno exige nueva comprobación
+    de identidad, WORKER ACTIVE, delegante verificado, revocación,
+    alcance y autorización explícita de reanudación (o reemisión
+    auditable); hasta entonces **denegar por defecto**. La decisión
+    precisa sobre reemisión y transición operativa sigue pendiente
+    de ratificación OPEN-SUP-06.
   - **Rollback a versión anterior:** solo se permite un binario que incluya
     los guardas S0. Si el binario de retorno no los tiene, **no desplegar**
     esa reversión; pausar canary, mantener flag OFF, cerrar mutaciones nuevas
@@ -94,8 +103,12 @@ date: "2026-10-22"
   - **Pruebas exigidas antes de activar:** OFF/ON × sesión antigua ×
     WORKER SUSPENDED/REVOKED con PRO ACTIVE × otra org/crew ×
     `supervisorUserId` sin grant; todas las autorizaciones indebidas deben
-    ser 403/404, nunca 2xx. Probar también binario de retorno S0+ sobre
-    base expandida, sin perder historial de TimeEntry/Evidence.
+    ser 403/404, nunca 2xx. Agregar grant S1 ACTIVE previo a OFF:
+    OFF debe denegar su ejercicio sin borrar la historia; volver a ON
+    **sin reautorización** debe continuar denegando; reemisión autorizada
+    y auditada solo después de validar actor, scope y vigencia.
+    Probar también binario de retorno S0+ sobre base expandida,
+    sin perder historial de TimeEntry/Evidence.
 - Predeploy: `prisma migrate deploy`, checksum de SQL versionado;
   `db push` prohibido en prod.
 - Rollback de feature (propuesta, OPEN-SUP-06 aún pendiente): poner flag OFF
