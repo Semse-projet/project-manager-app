@@ -552,7 +552,11 @@ export class OpsController {
   @RequirePermissions("ops:dashboard:read")
   async observerHistory(@Req() req: { headers?: Record<string, unknown> }) {
     const requestId = resolveRequestId(req.headers ?? {});
-    const history = this.observer.getHistory();
+    // The observer stores the last 50 snapshots across ALL tenants in one
+    // process. Permission ops:dashboard:read is tenant-scoped, not a grant
+    // to read other tenants' health/RAG metadata. Scope BEFORE count/slice.
+    const { tenantId } = resolveRequestContext(req);
+    const history = this.observer.getHistory().filter((s) => s.tenantId === tenantId);
     return ok(requestId, {
       count: history.length,
       snapshots: history.slice(-10).map((s) => ({
