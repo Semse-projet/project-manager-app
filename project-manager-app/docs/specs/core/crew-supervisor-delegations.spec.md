@@ -317,13 +317,24 @@ forbidden_behavior:
 - Backfill: **no atribuir grants retroactivos automáticamente** a todos
   los `Crew.supervisorUserId`; migrar solo designaciones validadas por
   autoridad real en canary.
-- Compatibilidad: flag OFF mantiene UI/servicio existente; flag ON exige
-  grant, sin fallback por campo legacy; abortar canary ante negaciones
-  inesperadas o aumento de acceso.
+- Compatibilidad (propuesta S0/S1, pendiente OPEN-SUP-06): flag OFF
+  deshabilita solo las rutas/delegaciones NUEVAS S1; las rutas y la UI
+  legacy permanecen disponibles únicamente bajo los guardas S0
+  endurecidos, con WORKER ACTIVE, tenant/org/crew y revocación
+  revalidados por solicitud. `Crew.supervisorUserId` aislado nunca
+  autoriza. Con ON se suman grants S1 explícitos, granulares y vigentes;
+  sin fallback por el campo legacy. Un grant persistido como ACTIVE no
+  concede autoridad con OFF ni se reanuda automáticamente al volver a ON.
+  Abortar canary ante accesos indebidos, pérdida de audit o cambios
+  inesperados en denegaciones; preservar historial de tareas y horas.
 - Pre-deploy: `prisma migrate deploy`, nunca `db push` en producción.
-- Rollback: desactivar flag y volver al código anterior tras analizar
-  riesgo de fallos de autorización; conservar datos/auditoría. Forward-fix
-  migratorio, no borrado destructivo.
+- Rollback: poner S1 OFF manteniendo S0 y todas sus denegaciones.
+  Solo retornar a un binario anterior que **también** implemente S0;
+  si el binario anterior permitiría accesos legacy indebidos,
+  **no desplegar ese rollback**: aislar nuevas mutaciones y aplicar un
+  forward-fix seguro. Conservar grants, datos y auditoría sin borrar
+  el esquema de forma destructiva. Reactivar S1 únicamente después de
+  revalidación/reauthorización explícita y canary documentado.
 
 ## 8. Observabilidad y activación
 
