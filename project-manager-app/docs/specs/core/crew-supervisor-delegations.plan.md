@@ -80,8 +80,17 @@ date: "2026-10-22"
   con flag ON solo grants explícitos validados.
 - Predeploy: `prisma migrate deploy`, checksum de SQL versionado;
   `db push` prohibido en prod.
-- Rollback de feature: flag OFF + restauración de conducta legítima
-  previo análisis de seguridad, no una política más permisiva.
+- Rollback de feature (propuesta, OPEN-SUP-06 aún pendiente): poner flag OFF
+  para cortar nuevas delegaciones, conservar historial/audit y mantener
+  las correcciones de guardas S0; flag OFF no permite restaurar acceso
+  legacy ampliado o ignorar suspensiones y revocaciones.
+- Condición de parada del canary: cualquier 2xx indebido cross-tenant,
+  cross-org o cross-crew, grant revocado aún efectivo, auditoría faltante
+  o autorrevisión concedida. Pausar, denegar nuevas mutaciones y
+  diagnosticar sin exponer datos privados.
+- Reentrada/forward-fix: exigir autorización nuevamente comprobada,
+  evidencia de PostgreSQL y smoke firmado en 2 tenants/2 orgs/2 crews,
+  antes de reactivar el flag. No revertir destructivamente la tabla.
 - Prueba de integridad del historial: asignaciones, horas y Evidence intactos.
 
 ## 5. Seguridad y policy

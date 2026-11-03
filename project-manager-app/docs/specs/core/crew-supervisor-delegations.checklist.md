@@ -104,6 +104,8 @@ date: "2026-10-22"
 ## Revisión documental de esta rama
 - [x] Nuevo spec y archivos plan/tasks/checklist se mantienen separados.
 - [x] No cambia API, schema, roles, flags ni entorno productivo.
-- [ ] Validación automática de specs y CI ejecutados sobre este PR.
+- [x] CI del PR documental sobre HEAD `abe8e32b40666b7e0cb8cf543991e7f0bdba0bc2`: [Actions #40719993365](https://github.com/Semse-projet/project-manager-app/actions/runs/40719993365), jobs `quality-gates`, `unit-coverage` y `e2e` SUCCESS (evidencia del HEAD anterior a esta aclaración).
+- [ ] Verificar sobre el HEAD definitivo `pnpm spec:validate:strict` y `pnpm spec:index:check` con salida explícita, además del nuevo CI terminal, sin confundir preflight de Actions con ejecución manual.
+- [ ] No considerar CI documental como validación de código S0/S0b/S1-S4, que sigue sin implementarse en este PR.
 - [x] Aprobación específica del principio OPEN-SUP-01 por el dueño del producto.
 - [ ] Aprobación global de la spec y decisiones restantes OPEN-SUP-02…06.
