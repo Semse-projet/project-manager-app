@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import { buildFallbackChain, selectProvider } from "../dist/infrastructure/llm/router/routing-policy.js";
 import { ProviderMetricsStore } from "../dist/infrastructure/llm/metrics/provider-metrics.store.js";
 import { AdaptiveRouter } from "../dist/infrastructure/llm/router/adaptive-router.js";
+import { LLMOrchestrator } from "../dist/infrastructure/llm/orchestrator.js";
+import type { LLMProvider, LLMProviderName } from "../dist/infrastructure/llm/types.js";
 
 test("selects anthropic for high-risk context", () => {
   assert.equal(selectProvider({ riskLevel: "high" }), "anthropic");
@@ -103,3 +105,52 @@ test("static high-risk fallback chains exclude Together and other unsafe provide
   assert.ok(!chain.includes("ollama"));
   assert.ok(chain.every((provider) => ["anthropic", "openai", "template"].includes(provider)));
 });
+
+test("private requests fall back to the local template without invoking cloud providers", async () => {
+  const metrics = new ProviderMetricsStore();
+  const orchestrator = new LLMOrchestrator(metrics, new AdaptiveRouter(metrics));
+  const providers = (orchestrator as unknown as {
+    providers: Map<LLMProviderName, LLMProvider>;
+  }).providers;
+  const calls: LLMProviderName[] = [];
+
+  const fakeProvider = (name: LLMProviderName, shouldFail = false): LLMProvider => ({
+    name,
+    supportsTools: name === "anthropic" || name === "openai",
+    supportsStreaming: false,
+    isAvailable: () => true,
+    chat: async () => {
+      calls.push(name);
+      if (shouldFail) throw new Error("synthetic local provider outage");
+      return {
+        text: "synthetic local template response",
+        provider: name,
+        toolCalls: [],
+        metadata: {
+          latencyMs: 1,
+          fallbackUsed: name === "template",
+          mode: name === "template" ? "fallback" : "local",
+        },
+      };
+    },
+  });
+
+  providers.clear();
+  providers.set("together", fakeProvider("together"));
+  providers.set("anthropic", fakeProvider("anthropic"));
+  providers.set("openai", fakeProvider("openai"));
+  providers.set("ollama", fakeProvider("ollama", true));
+  providers.set("template", fakeProvider("template"));
+
+  const response = await orchestrator.chat({
+    systemPrompt: "Synthetic test only",
+    history: [],
+    userMessage: "Synthetic private input",
+    context: { preferredProvider: "together", privacyCritical: true },
+  });
+
+  assert.equal(response.provider, "template");
+  assert.equal(response.metadata.fallbackUsed, true);
+  assert.deepEqual(calls, ["ollama", "template"]);
+});
+
