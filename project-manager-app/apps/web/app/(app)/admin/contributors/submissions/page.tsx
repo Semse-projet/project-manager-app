@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ClipboardList } from "lucide-react";
 import { AdminPageHeader } from "../../../../components/admin/AdminPageHeader";
 import { useLanguage } from "../../../../../lib/language-context";
+import { messageKey, messageText, renderMessage, type UiMessage } from "../../../../../lib/ui-message";
 import { Badge, Button, Card, ErrorState, Spinner, Textarea, statusVariant } from "../../../../../components/ui";
 import {
   fetchAdminContributorAppeals,
@@ -64,11 +65,11 @@ function ObservationCorrectionForm({
   });
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<UiMessage | null>(null);
 
   async function submit() {
     if (!reason.trim()) {
-      setError(t("contributors.admin.reasonRequired"));
+      setError(messageKey("contributors.admin.reasonRequired"));
       return;
     }
     const correctedFields: Record<string, string> = {};
@@ -80,7 +81,7 @@ function ObservationCorrectionForm({
       }
     }
     if (Object.keys(correctedFields).length === 0) {
-      setError(t("contributors.admin.reasonRequired"));
+      setError(messageKey("contributors.admin.reasonRequired"));
       return;
     }
     setBusy(true);
@@ -89,7 +90,7 @@ function ObservationCorrectionForm({
       await correctAdminContributorObservation(observation.id, { correctedFields, reason: reason.trim() });
       onDone();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "error");
+      setError(messageText(err instanceof Error ? err.message : "error"));
     } finally {
       setBusy(false);
     }
@@ -114,7 +115,7 @@ function ObservationCorrectionForm({
         onChange={(event) => setReason(event.target.value)}
         rows={2}
       />
-      {error ? <p className="mt-1 text-xs text-red-400">{error}</p> : null}
+      {error ? <p className="mt-1 text-xs text-red-400">{renderMessage(error, t)}</p> : null}
       <div className="mt-2 flex gap-2">
         <Button size="sm" loading={busy} onClick={submit}>
           {t("contributors.admin.extractions.correctionSubmit")}
@@ -145,11 +146,11 @@ function PromotionReasonPrompt({
   const { t } = useLanguage();
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<UiMessage | null>(null);
 
   async function submit() {
     if (!reason.trim()) {
-      setError(t("contributors.admin.reasonRequired"));
+      setError(messageKey("contributors.admin.reasonRequired"));
       return;
     }
     setBusy(true);
@@ -157,7 +158,7 @@ function PromotionReasonPrompt({
     try {
       await onSubmit(reason.trim());
     } catch (err) {
-      setError(err instanceof Error ? err.message : "error");
+      setError(messageText(err instanceof Error ? err.message : "error"));
       setBusy(false);
     }
   }
@@ -170,7 +171,7 @@ function PromotionReasonPrompt({
         onChange={(event) => setReason(event.target.value)}
         rows={2}
       />
-      {error ? <p className="mt-1 text-xs text-red-400">{error}</p> : null}
+      {error ? <p className="mt-1 text-xs text-red-400">{renderMessage(error, t)}</p> : null}
       <div className="mt-2 flex gap-2">
         <Button size="sm" loading={busy} onClick={submit}>
           {t("contributors.admin.extractions.correctionSubmit")}
@@ -370,11 +371,11 @@ function AppealPanel({ appeal, onDone }: { appeal: ContributorAppealView; onDone
   const { t } = useLanguage();
   const [busy, setBusy] = useState<string | null>(null);
   const [reason, setReason] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<UiMessage | null>(null);
 
   async function resolve(status: "UPHELD" | "OVERTURNED") {
     if (!reason.trim()) {
-      setError(t("contributors.admin.reasonRequired"));
+      setError(messageKey("contributors.admin.reasonRequired"));
       return;
     }
     setBusy(status);
@@ -383,7 +384,7 @@ function AppealPanel({ appeal, onDone }: { appeal: ContributorAppealView; onDone
       await resolveAdminContributorAppeal(appeal.id, { status, resolutionReason: reason.trim() });
       onDone();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "error");
+      setError(messageText(err instanceof Error ? err.message : "error"));
     } finally {
       setBusy(null);
     }
@@ -400,7 +401,7 @@ function AppealPanel({ appeal, onDone }: { appeal: ContributorAppealView; onDone
         onChange={(event) => setReason(event.target.value)}
         rows={2}
       />
-      {error ? <p className="mt-1 text-xs text-red-400">{error}</p> : null}
+      {error ? <p className="mt-1 text-xs text-red-400">{renderMessage(error, t)}</p> : null}
       <div className="mt-3 flex gap-2">
         <Button size="sm" loading={busy === "OVERTURNED"} onClick={() => resolve("OVERTURNED")}>
           {t("contributors.admin.appealOverturn")}
@@ -417,11 +418,11 @@ function ReviewPanel({ submission, onDone }: { submission: KnowledgeSubmissionVi
   const { t } = useLanguage();
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<UiMessage | null>(null);
 
   async function decide(decision: "APPROVED" | "REJECTED" | "CHANGES_REQUESTED") {
     if (!reason.trim()) {
-      setError(t("contributors.admin.reasonRequired"));
+      setError(messageKey("contributors.admin.reasonRequired"));
       return;
     }
     setBusy(decision);
@@ -430,7 +431,7 @@ function ReviewPanel({ submission, onDone }: { submission: KnowledgeSubmissionVi
       await reviewAdminContributorSubmission(submission.id, { decision, reason: reason.trim() });
       onDone();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "error");
+      setError(messageText(err instanceof Error ? err.message : "error"));
     } finally {
       setBusy(null);
     }
@@ -482,7 +483,7 @@ function ReviewPanel({ submission, onDone }: { submission: KnowledgeSubmissionVi
         onChange={(event) => setReason(event.target.value)}
         rows={2}
       />
-      {error ? <p className="mt-1 text-xs text-red-400">{error}</p> : null}
+      {error ? <p className="mt-1 text-xs text-red-400">{renderMessage(error, t)}</p> : null}
 
       <div className="mt-3 flex flex-wrap gap-2">
         <Button size="sm" loading={busy === "APPROVED"} onClick={() => decide("APPROVED")}>
