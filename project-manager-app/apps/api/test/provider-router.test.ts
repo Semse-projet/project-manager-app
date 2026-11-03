@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { buildFallbackChain, selectProvider } from "../dist/infrastructure/llm/router/routing-policy.js";
+import { ProviderMetricsStore } from "../dist/infrastructure/llm/metrics/provider-metrics.store.js";
+import { AdaptiveRouter } from "../dist/infrastructure/llm/router/adaptive-router.js";
 
 test("selects anthropic for high-risk context", () => {
   assert.equal(selectProvider({ riskLevel: "high" }), "anthropic");
@@ -18,6 +20,11 @@ test("selects anthropic when tools required", () => {
 
 test("respects preferredProvider override", () => {
   assert.equal(selectProvider({ riskLevel: "high", preferredProvider: "openai" }), "openai");
+});
+
+test("hard safety constraints take precedence over an unsafe preferred provider", () => {
+  assert.equal(selectProvider({ riskLevel: "high", preferredProvider: "together" }), "anthropic");
+  assert.equal(selectProvider({ requiresTools: true, preferredProvider: "together" }), "anthropic");
 });
 
 test("selects ollama for lowCost context", () => {
@@ -55,4 +62,44 @@ test("Together is excluded from local-only and privacy-critical fallback chains"
   assert.ok(restricted.includes("ollama"));
   const unrestricted = buildFallbackChain("ollama", { fallbackOrder: ["together"] });
   assert.ok(unrestricted.includes("together"));
+});
+
+
+test("preferred providers cannot bypass adaptive hard constraints", () => {
+  const router = new AdaptiveRouter(new ProviderMetricsStore());
+  const available = ["together", "anthropic", "openai", "ollama", "template"] as const;
+
+  const highRisk = router.rank(
+    [...available],
+    { preferredProvider: "together", riskLevel: "high" },
+    "high_risk_action",
+  );
+  assert.ok(!highRisk.includes("together"));
+  assert.ok(highRisk.every((provider) => ["anthropic", "openai", "template"].includes(provider)));
+
+  const privateOnly = router.rank(
+    [...available],
+    { preferredProvider: "together", privacyCritical: true },
+    "chat",
+  );
+  assert.ok(!privateOnly.includes("together"));
+  assert.ok(privateOnly.every((provider) => ["ollama", "template"].includes(provider)));
+
+  const toolOnly = router.rank(
+    [...available],
+    { preferredProvider: "together", requiresTools: true },
+    "tool_use",
+  );
+  assert.ok(!toolOnly.includes("together"));
+  assert.ok(toolOnly.every((provider) => ["anthropic", "openai", "template"].includes(provider)));
+});
+
+test("static high-risk fallback chains exclude Together and other unsafe providers", () => {
+  const chain = buildFallbackChain("together", {
+    fallbackOrder: ["together", "ollama", "openai", "template"],
+    riskLevel: "high",
+  });
+  assert.ok(!chain.includes("together"));
+  assert.ok(!chain.includes("ollama"));
+  assert.ok(chain.every((provider) => ["anthropic", "openai", "template"].includes(provider)));
 });

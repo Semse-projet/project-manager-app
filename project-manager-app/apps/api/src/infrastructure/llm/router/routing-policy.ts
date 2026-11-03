@@ -1,12 +1,23 @@
 import type { CopilotRoutingContext, LLMProviderName } from "../types.js";
 
+const TOOL_CAPABLE: ReadonlySet<LLMProviderName> = new Set(["anthropic", "openai"]);
+const RISK_SAFE: ReadonlySet<LLMProviderName> = new Set(["anthropic", "openai"]);
+
 export function selectProvider(ctx: CopilotRoutingContext | undefined): LLMProviderName {
   if (!ctx) return resolveDefault();
   if (ctx.localOnly) return "ollama";
   if (ctx.privacyCritical) return "ollama";
+  if (ctx.riskLevel === "high") {
+    return ctx.preferredProvider && RISK_SAFE.has(ctx.preferredProvider)
+      ? ctx.preferredProvider
+      : "anthropic";
+  }
+  if (ctx.requiresTools) {
+    return ctx.preferredProvider && TOOL_CAPABLE.has(ctx.preferredProvider)
+      ? ctx.preferredProvider
+      : "anthropic";
+  }
   if (ctx.preferredProvider) return ctx.preferredProvider;
-  if (ctx.riskLevel === "high") return "anthropic";
-  if (ctx.requiresTools) return "anthropic";
   if (ctx.lowCost) return "ollama";
   return resolveDefault();
 }
@@ -40,6 +51,14 @@ export function buildFallbackChain(
   // localOnly / privacyCritical: strip cloud providers — never fallback silently to cloud
   if (ctx?.localOnly || ctx?.privacyCritical) {
     ordered = ordered.filter((p) => !CLOUD_PROVIDERS.has(p));
+  }
+
+  // Apply tool and high-risk policies to every attempt, including fallbacks.
+  if (ctx?.requiresTools) {
+    ordered = ordered.filter((p) => TOOL_CAPABLE.has(p) || p === "template");
+  }
+  if (ctx?.riskLevel === "high") {
+    ordered = ordered.filter((p) => RISK_SAFE.has(p) || p === "template");
   }
 
   return ordered;
