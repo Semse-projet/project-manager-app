@@ -347,6 +347,21 @@ añaden a los 24 motores (cambio de `packages/tools` aditivo, con pruebas de com
 Que la reconstrucción sea matemáticamente exacta **no** prueba que ningún precio o margen sea comercialmente correcto. La composición de `quote-engine` (que agrega
 contingencia y otro orden de factores) pasa a ser una variante explícita del servicio, no una fórmula paralela.
 
+### Contrato verificable de precisión y compatibilidad (T-004 / T-004b)
+
+**Estado de evidencia:** #1076 valida el cálculo *actual* mediante instrumentación temporal: 72/72 reproducciones exactas con los argumentos interceptados; **no** prueba que los campos públicos adicionales ya existan. Las condiciones siguientes son requisitos de diseño de esta spec DRAFT; su ejecución es un gate de implementación **posterior** a `APPROVED`, previo a cualquier activación.
+
+- **Fuente única interna:** cada uno de los 24 motores entregará, de forma aditiva, `costs.basis: { materials, labor }` (USD, importes usados en la llamada original, antes de redondear), `effectiveRates: { overhead, profit, semseFeeRate, taxRate }` (tasas decimales, p. ej. `0.15` para 15 %) y `perUnitDivisor: number | null` (cantidad y unidad de referencia documentadas; positivo si hay `perUnit`, `null` si no aplica). Se fijarán serialización y precisión numérica; no se deducirán tasas ni divisor de totales redondeados.
+- **Alcance de privacidad:** estos metadatos son contrato *interno* motor↔servicio, no permiso para exponer márgenes en `mode: client`; se aplican los filtros de respuesta definidos en §3.
+- **Orden determinista:** el servicio resolverá tasas por capa, conservará las no sobrescritas y aplicará la composición de `buildCostSummary` con una política explícita de redondeo de cada componente y de `perUnit`. El cálculo comercial de impuestos solo usará la `TaxPolicy` validada (§4 P7), no el 7 % histórico.
+- **Golden independiente:** 24 motores × escenarios normal, complejo y límite como mínimo; fixtures y expectativas congeladas a partir de salidas existentes revisadas, además de oráculos aritméticos independientes. No basta una prueba que reejecute la misma función instrumentada contra sí misma.
+- **Reproducibilidad sin parches:** con `basis`, `effectiveRates` y divisor expuestos por el propio motor (sin monkey-patching de `dist/`), 72/72 escenarios deben reproducir exactamente todos los campos monetarios en centavos, incluidos los 66 casos actuales con `perUnit`; diferencias esperadas = **0 centavos**, sin tolerancia `±0.01` genérica. Añadir casos sin `perUnit`, tasas anuladas, límites, valores inválidos y operaciones multi-oficio.
+- **Compatibilidad y consumidores:** pruebas de forma/valores del JSON anterior, adaptación de `quote-engine` y `contractor-estimate` conforme a ADR-027, lectura de estimados aceptados inmutable y `costTrace` reproducible. Las divergencias de fórmulas previas deben declararse y aprobarse, no encubrirse con un test de igualdad forzada.
+
+**Defectos independientes:** `wastePercent` mezcla puntos porcentuales en `concrete` con fracción en `masonry` ([#1085](https://github.com/Semse-projet/project-manager-app/issues/1085)); `project-manager.crewSize` limita 1–20 y no modela bien equipos multi-oficio grandes ([#1086](https://github.com/Semse-projet/project-manager-app/issues/1086)). Tienen pruebas y cierre propios; no deben camuflarse como errores de reconstrucción. Su compatibilidad/mapeo por categoría es gate de activación de los flujos afectados.
+
+**Dos gates no intercambiables:** para aprobar la **spec** deben quedar contratos, criterios de prueba, Q2/Q3/Q5/Q7/Q9/Q10/Q11, revisiones Q1/Q4/Q6/Q8 y fuentes/criterios de validación comercial resueltos (§11). Para declarar **implementación validada/activable** deben pasar los tests anteriores, integración, seguridad, modo sombra, revisión fiscal y contraste comercial de T-005. La aritmética exacta no acredita precios, rendimientos ni márgenes de mercado.
+
 ### Registro de parámetros (en código, valores por defecto = propuesta sin aprobar)
 
 ```yaml
