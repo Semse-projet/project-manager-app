@@ -76,8 +76,26 @@ date: "2026-10-22"
 - Esquema, índices e integridad de grants temporales a revisar con DB.
 - Sin backfill genérico: el `supervisorUserId` legacy no prueba
   autoridad vigente ni consentimiento de contrato.
-- Dual-read/guard: con flag OFF no cambiar BO-07/BO-10 existente;
-  con flag ON solo grants explícitos validados.
+- Dual-read/guard (propuesta S0 + S1, **OPEN-SUP-06 pendiente**):
+  - **Flag OFF:** desactiva únicamente las rutas/capacidades NUEVAS de
+    delegación S1; no vuelve a habilitar permisos que ya deniegan los guardas
+    S0. Las rutas legacy BO-07/BO-10 siguen disponibles solo bajo esos
+    guardas endurecidos: WORKER ACTIVE para el supervisor, recurso dentro de
+    tenant/org/crew y revocación/suspensión comprobadas en cada petición.
+    `Crew.supervisorUserId` por sí solo **nunca** autoriza un 2xx.
+  - **Flag ON:** además de S0, las rutas S1 exigen un grant explícito,
+    ACTIVE, vigente y con permiso granular para esa crew y acción. Si no
+    existe grant o su fuente de autoridad no se puede verificar: denegar.
+  - **Rollback a versión anterior:** solo se permite un binario que incluya
+    los guardas S0. Si el binario de retorno no los tiene, **no desplegar**
+    esa reversión; pausar canary, mantener flag OFF, cerrar mutaciones nuevas
+    y ejecutar un forward-fix seguro. No usar el cambio de flag para
+    restaurar semántica legacy permisiva.
+  - **Pruebas exigidas antes de activar:** OFF/ON × sesión antigua ×
+    WORKER SUSPENDED/REVOKED con PRO ACTIVE × otra org/crew ×
+    `supervisorUserId` sin grant; todas las autorizaciones indebidas deben
+    ser 403/404, nunca 2xx. Probar también binario de retorno S0+ sobre
+    base expandida, sin perder historial de TimeEntry/Evidence.
 - Predeploy: `prisma migrate deploy`, checksum de SQL versionado;
   `db push` prohibido en prod.
 - Rollback de feature (propuesta, OPEN-SUP-06 aún pendiente): poner flag OFF
