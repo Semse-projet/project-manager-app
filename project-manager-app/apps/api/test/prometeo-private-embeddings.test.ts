@@ -1,0 +1,197 @@
+import "reflect-metadata";
+import test from "node:test";
+import assert from "node:assert/strict";
+import { EmbeddingService, isZeroVector } from "../dist/modules/prometeo/embedding.service.js";
+import { PrometeoService } from "../dist/modules/prometeo/prometeo.service.js";
+
+test("private embedding and private query never call OpenAI even with a valid cloud key", async () => {
+  const priorKey = process.env.OPENAI_API_KEY;
+  const previousFetch = globalThis.fetch;
+  let outgoingCalls = 0;
+  try {
+    process.env.OPENAI_API_KEY = "sk-test-this-key-is-not-a-real-credential";
+    globalThis.fetch = async () => {
+      outgoingCalls++;
+      throw new Error("PRIVATE EMBEDDING LEAK DETECTED");
+    };
+    const embeddings = new EmbeddingService();
+    assert.equal(embeddings.isAvailable, true, "test simulates cloud credentials being configured");
+    const vectors = await embeddings.embedBatch(["PRIVATE DOCUMENT SECRET", "PRIVATE CUSTOMER EVIDENCE"], { localOnly: true });
+    assert.equal(vectors.length, 2);
+    assert.ok(vectors.every(isZeroVector), "local FTS fallback must be a zero vector");
+    const queryVec = await embeddings.embed("PRIVATE OWNER QUESTION", { localOnly: true });
+    assert.ok(isZeroVector(queryVec));
+    assert.ok(isZeroVector(await embeddings.embed("UNSPECIFIED-PRIVACY INPUT")),
+      "unspecified privacy must fail closed to local keyword search");
+    assert.ok((await embeddings.embedBatch(["UNSPECIFIED DOCUMENT"])).every(isZeroVector));
+    assert.equal(outgoingCalls, 0, "no private content should reach the external HTTP transport");
+  } finally {
+    globalThis.fetch = previousFetch;
+    if (priorKey === undefined) delete process.env.OPENAI_API_KEY;
+    else process.env.OPENAI_API_KEY = priorKey;
+  }
+});
+
+test("Prometeo ingestion requires local-only embeddings even for private file chunks", async () => {
+  const calls: Array<{ texts: string[]; options: Record<string, unknown> }> = [];
+  let release!: () => void;
+  const completed = new Promise<void>((resolve) => { release = resolve; });
+  const repo = {
+    async createDocument() { return { id: "doc-A", status: "parsing" }; },
+    async saveChunks() {},
+    async markIndexed() { release(); },
+    async markFailed(_id: string, msg: string) { throw new Error(msg); },
+  };
+  const chunker = { chunk() { return [{ index: 0, text: "PRIVATE FILE CONTENT", tokenCount: 3, metadata: {} }]; } };
+  const embeddings = {
+    isAvailable: true,
+    async embedBatch(texts: string[], options: Record<string, unknown>) {
+      calls.push({ texts, options });
+      return texts.map(() => new Array(1536).fill(0));
+    },
+  };
+  const svc = new PrometeoService(repo as never, chunker as never, embeddings as never, {} as never);
+  await svc.ingestText({ tenantId: "tenant-A", orgId: "org-A", userId: "user-A", title: "private", text: "PRIVATE FILE CONTENT" });
+  await completed;
+  assert.equal(calls.length, 1);
+  assert.deepEqual(calls[0].options, { localOnly: true });
+  assert.equal(calls[0].texts[0], "PRIVATE FILE CONTENT");
+});
+
+test("private scoped search uses local-only query embeddings and still supports local text ranking", async () => {
+  const calls: Array<Record<string, unknown>> = [];
+  const repo = {
+    async loadChunksForSearch() {
+      return [{ id: "chunk-A", tenantId: "tenant-A", documentId: "doc-A", chunkIndex: 0,
+        text: "electrical breaker inspection", embeddingJson: [], metadataJson: { trade: "electrical" } }];
+    },
+    async getFeedbackScores() { return new Map(); },
+    async getDocumentTitles() { return new Map([["doc-A", "Private manual"]]); },
+  };
+  const embeddings = {
+    async embed(query: string, options: Record<string, unknown>) {
+      calls.push({ query, options }); return new Array(1536).fill(0);
+    },
+  };
+  const svc = new PrometeoService(repo as never, {} as never, embeddings as never, {} as never);
+  const results = await svc.search({
+    tenantId: "tenant-A", query: "electrical breaker", scope: { orgId: "org-A", projectIds: [], jobIds: [] },
+  });
+  assert.equal(calls.length, 1);
+  assert.deepEqual(calls[0].options, { localOnly: true });
+  assert.equal(results[0]?.documentId, "doc-A");
+  assert.equal(results[0]?.retrievalMode, "fts_fallback");
+});
+
+test("private document backfill cannot send chunks to OpenAI even when it reports available", async () => {
+  const calls: Array<Record<string, unknown>> = [];
+  let persisted = false;
+  const repo = {
+    async listDocuments() { return [{ id: "doc-A", status: "indexed" }]; },
+    async loadChunksForSearch() {
+      return [{ id: "chunk-A", documentId: "doc-A", chunkIndex: 0, text: "PRIVATE DATA", embeddingJson: [] }];
+    },
+    async updateChunkEmbedding() { persisted = true; },
+  };
+  const embeddings = {
+    getStats() { return { available: true, provider: "openai" }; },
+    async embedBatch(texts: string[], options: Record<string, unknown>) {
+      calls.push({ texts, options }); return texts.map(() => new Array(1536).fill(0));
+    },
+  };
+  const svc = new PrometeoService(repo as never, {} as never, embeddings as never, {} as never);
+  const result = await svc.backfillEmbeddings({ tenantId: "tenant-A", dryRun: false });
+  assert.equal(calls.length, 1);
+  assert.deepEqual(calls[0].options, { localOnly: true });
+  assert.equal(result.embedded, 0);
+  assert.equal(result.failed, 1);
+  assert.equal(result.provider, "local_fts");
+  assert.equal(persisted, false);
+});
+
+test("ordinary organization RAG never includes unscoped repository-wide Graphify context", async () => {
+  let graphCalls = 0;
+  const graphify = {
+    async buildStructuralContext() {
+      graphCalls++;
+      return "INTERNAL_CODE_GRAPH_DATA";
+    },
+  };
+  const repo = {
+    async loadChunksForSearch() { return []; },
+  };
+  const embedding = {
+    async embed(_query: string, opts: Record<string, unknown>) {
+      assert.equal(opts.localOnly, true);
+      return new Array(1536).fill(0);
+    },
+  };
+  const svc = new PrometeoService(repo as never, {} as never, embedding as never, {} as never, graphify as never);
+  const scoped = await svc.buildRagContext({
+    tenantId: "tenant-A", query: "private source code", scope: { orgId: "org-A", projectIds: [], jobIds: [] },
+  });
+  assert.deepEqual(scoped, { chunks: [], contextBlock: "", tokenEstimate: 0 });
+  assert.equal(graphCalls, 0);
+  const admin = await svc.buildRagContext({ tenantId: "tenant-A", query: "code structure", scope: null });
+  assert.equal(graphCalls, 1, "only an explicit privileged scope may include a global code graph");
+  assert.ok(admin.contextBlock.includes("INTERNAL_CODE_GRAPH_DATA"));
+});
+
+
+test("internal file ingestion defaults to private visibility and rejects legacy public labels", async () => {
+  const created: Array<Record<string, unknown>> = [];
+  const repo = {
+    async createDocument(input: Record<string, unknown>) {
+      created.push(input);
+      return { id: `doc-${created.length}`, status: "parsing" };
+    },
+    async markFailed() {},
+  };
+  // Complete the fire-and-forget file parser without writing chunks.
+  const parser = {
+    async parseBuffer() {
+      return { text: "", charCount: 0, warnings: ["empty file"] };
+    },
+  };
+  const service = new PrometeoService(repo as never, {} as never, {} as never, parser as never);
+  const input = {
+    tenantId: "tenant-A",
+    orgId: "org-A",
+    userId: "actor-A",
+    title: "private file",
+    fileBuffer: Buffer.from("private"),
+    mimeType: "text/plain",
+    fileName: "private.txt",
+  };
+
+  await service.ingestFile(input);
+  await service.ingestFile({ ...input, projectId: "project-A" });
+  assert.deepEqual(
+    created.map(({ projectId, metadataJson }) => ({
+      projectId,
+      visibility: (metadataJson as Record<string, unknown>).visibility,
+    })),
+    [
+      { projectId: undefined, visibility: "tenant_private" },
+      { projectId: "project-A", visibility: "project_private" },
+    ],
+  );
+
+  await assert.rejects(
+    () => service.ingestFile({ ...input, visibility: "public_training" }),
+    /Public sharing requires approved explicit consent/,
+  );
+  await assert.rejects(
+    () => service.ingestFile({ ...input, projectId: "project-A", visibility: "public_training" }),
+    /Public sharing requires approved explicit consent/,
+  );
+  await assert.rejects(
+    () => service.ingestFile({ ...input, projectId: "project-A", visibility: "tenant_private" }),
+    /Document visibility must match its project association/,
+  );
+  await assert.rejects(
+    () => service.ingestFile({ ...input, visibility: "project_private" }),
+    /Document visibility must match its project association/,
+  );
+  assert.equal(created.length, 2, "invalid visibility must fail before document persistence");
+});

@@ -1,6 +1,8 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
+import type { Prisma } from "@prisma/client";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import type { EmbeddingVector } from "./embedding.service.js";
+import { isPrometeoDocumentSharingEnabled } from "./prometeo-document-sharing.flag.js";
 
 export type PrometeoDocumentRecord = {
   id: string; tenantId: string; orgId: string; projectId: string | null;
@@ -68,9 +70,45 @@ export class PrometeoRepository {
     });
   }
 
-  async listDocuments(input: { tenantId: string; projectId?: string; limit?: number }): Promise<PrometeoDocumentRecord[]> {
+  /** Always constrain ownership/project participation in SQL before take/pagination. */
+  private documentWhere(input: { tenantId: string; projectId?: string; scope?: PrometeoListScopeFilter }): Prisma.PrometeoDocumentWhereInput {
+    // No legacy projectId by itself can grant another organization access.
+    // The historical ingestion route accepted unverified project associations.
+    // S0 is owner-org-only, even within an otherwise accessible project, until
+    // a server-verified project sharing grant is persisted and checked.
+    const permitted: Prisma.PrometeoDocumentWhereInput[] = [];
+    if (input.scope?.orgId) {
+      permitted.push({ projectId: null, orgId: input.scope.orgId });
+      if (input.scope.projectIds.length) {
+        permitted.push({ projectId: { in: input.scope.projectIds }, orgId: input.scope.orgId });
+        // A composite foreign key enforces grant.projectId === document.projectId
+        // AND matching tenantId. One relation predicate works for up to the full
+        // allowed project list; never construct a nested OR per project.
+        // A revoked/deactivated sharing program cannot expose grants through RAG.
+        if (isPrometeoDocumentSharingEnabled()) {
+          permitted.push({
+            grants: {
+              some: {
+                tenantId: input.tenantId,
+                recipientOrgId: input.scope.orgId,
+                projectId: { in: input.scope.projectIds },
+                revokedAt: null,
+              },
+            },
+          });
+        }
+      }
+    }
+    return {
+      tenantId: input.tenantId,
+      ...(input.projectId ? { projectId: input.projectId } : {}),
+      ...(input.scope ? { OR: permitted.length ? permitted : [{ id: "__no_authorized_documents__" }] } : {}),
+    };
+  }
+
+  async listDocuments(input: { tenantId: string; projectId?: string; limit?: number; scope?: PrometeoListScopeFilter }): Promise<PrometeoDocumentRecord[]> {
     return this.prisma.prometeoDocument.findMany({
-      where: { tenantId: input.tenantId, ...(input.projectId ? { projectId: input.projectId } : {}) },
+      where: this.documentWhere(input),
       orderBy: { createdAt: "desc" }, take: input.limit ?? 50,
     }) as Promise<PrometeoDocumentRecord[]>;
   }
@@ -79,26 +117,75 @@ export class PrometeoRepository {
     return this.prisma.prometeoDocument.findUnique({ where: { id } }) as Promise<PrometeoDocumentRecord | null>;
   }
 
-  async deleteDocument(input: { tenantId: string; id: string }): Promise<void> {
-    const result = await this.prisma.prometeoDocument.deleteMany({
-      where: {
-        id: input.id,
-        tenantId: input.tenantId,
-      },
-    });
-    if (result.count !== 1) {
-      throw new NotFoundException(`Prometeo document '${input.id}' not found`);
+  /** Deletion and grant-revocation evidence commit atomically; never rely on unaudited FK cascade. */
+  async deleteDocument(input: { tenantId: string; id: string; orgId?: string; actorUserId?: string; requestId?: string }): Promise<void> {
+    const where = {
+      id: input.id,
+      tenantId: input.tenantId,
+      ...(input.orgId !== undefined ? { orgId: input.orgId } : {}),
+    };
+    // Retry serialization conflicts as whole transactions so the document
+    // mutation and every grant-revocation audit remain exactly atomic.
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        await this.prisma.$transaction(async (tx) => {
+      const doc = await tx.prometeoDocument.findFirst({
+        where,
+        select: {
+          orgId: true, projectId: true,
+          grants: { select: { id: true, projectId: true, recipientOrgId: true, revokedAt: true } },
+        },
+      });
+      if (!doc) throw new NotFoundException(`Prometeo document '${input.id}' not found`);
+      const result = await tx.prometeoDocument.deleteMany({ where });
+      if (result.count !== 1) throw new NotFoundException(`Prometeo document '${input.id}' not found`);
+
+      const activeGrants = doc.grants.filter((grant) => grant.revokedAt === null);
+      if (activeGrants.length) {
+        await tx.auditLog.createMany({
+          data: activeGrants.map((grant) => ({
+            tenantId: input.tenantId,
+            actorUserId: input.actorUserId ?? null,
+            entityType: "PrometeoDocumentGrant",
+            entityId: grant.id,
+            action: "prometeo.document_share_revoked_by_delete",
+            beforeJson: { documentId: input.id, projectId: grant.projectId, recipientOrgId: grant.recipientOrgId, revokedAt: null },
+            afterJson: { documentDeleted: true, requestId: input.requestId ?? null },
+          })),
+        });
+      }
+      await tx.auditLog.create({
+        data: {
+          tenantId: input.tenantId,
+          actorUserId: input.actorUserId ?? null,
+          entityType: "PrometeoDocument",
+          entityId: input.id,
+          action: "prometeo.document_deleted",
+          beforeJson: { orgId: doc.orgId, projectId: doc.projectId, activeGrantIds: activeGrants.map((grant) => grant.id) },
+          afterJson: { deleted: true, requestId: input.requestId ?? null },
+        },
+      });
+        }, { isolationLevel: "Serializable" });
+        return;
+      } catch (err) {
+        const code = err && typeof err === "object" && "code" in err
+          ? (err as { code?: unknown }).code : undefined;
+        if (code === "P2034" && attempt < 2) continue;
+        throw err;
+      }
     }
+    throw new Error("Document deletion retry limit exceeded");
   }
 
-  async loadChunksForSearch(input: { tenantId: string; projectId?: string; limit?: number }): Promise<PrometeoChunkSearchRow[]> {
-    const docs = await this.prisma.prometeoDocument.findMany({
-      where: { tenantId: input.tenantId, status: "indexed", ...(input.projectId ? { projectId: input.projectId } : {}) },
-      select: { id: true },
-    });
-    if (docs.length === 0) return [];
+  async loadChunksForSearch(input: { tenantId: string; projectId?: string; limit?: number; scope?: PrometeoListScopeFilter }): Promise<PrometeoChunkSearchRow[]> {
+    // Authorize the parent document in the SAME SQL statement that reads its
+    // chunks. A revoked grant must not survive through a prior, cached list of
+    // authorized document IDs between the two database queries.
     return this.prisma.documentChunk.findMany({
-      where: { tenantId: input.tenantId, documentId: { in: docs.map((d: { id: string }) => d.id) } },
+      where: {
+        tenantId: input.tenantId,
+        document: { is: { ...this.documentWhere(input), status: "indexed" } },
+      },
       take: input.limit ?? 2000,
       select: { id: true, documentId: true, chunkIndex: true, text: true, embeddingJson: true, metadataJson: true },
     }) as Promise<PrometeoChunkSearchRow[]>;
@@ -174,9 +261,22 @@ export class PrometeoRepository {
     return result;
   }
 
-  async getFeedbackStats(tenantId: string) {
+  async getFeedbackStats(tenantId: string, scope?: PrometeoListScopeFilter) {
+    // Scope the feedback count through its chunk and document in the SAME
+    // database statement. Preselecting document IDs would allow a revoked
+    // grant to survive through stale IDs between the two queries.
     const rows = await this.prisma.prometeoChunkFeedback.findMany({
-      where: { tenantId },
+      where: {
+        tenantId,
+        ...(scope ? {
+          chunk: {
+            is: {
+              tenantId,
+              document: { is: this.documentWhere({ tenantId, scope }) },
+            },
+          },
+        } : {}),
+      },
       select: { chunkId: true, documentId: true, type: true, createdAt: true },
       orderBy: { createdAt: "desc" },
       take: 1000,
