@@ -21,7 +21,7 @@ export class PrometeoDocumentGrantService {
   private async verifyOwner(actor: ScopeActor, documentId: string) {
     const doc = await this.prisma.prometeoDocument.findFirst({
       where: { id: documentId, tenantId: actor.tenantId },
-      select: { id: true, tenantId: true, orgId: true, projectId: true },
+      select: { id: true, tenantId: true, orgId: true, projectId: true, sourceType: true },
     });
     if (!doc) throw new NotFoundException("Prometeo document not found");
     if (!isOpsAdmin(actor) && !sameOrg(actor.orgId, doc.orgId)) {
@@ -32,6 +32,11 @@ export class PrometeoDocumentGrantService {
 
   private async verify(actor: ScopeActor, documentId: string, recipientOrgId: string) {
     const doc = await this.verifyOwner(actor, documentId);
+    // PR-9 editorial promotion cannot serve as consent to share a raw original.
+    // Revoke remains possible via verifyOwner, even for legacy raw grants.
+    if (doc.sourceType === "field_observation") {
+      throw new ForbiddenException("Raw field observations require curated consent before sharing");
+    }
     if (!doc.projectId) throw new BadRequestException("Sharing requires a verified project");
 
     const project = await this.resolver.resolveProjectScope(actor.tenantId, doc.projectId, true);
@@ -57,7 +62,8 @@ export class PrometeoDocumentGrantService {
       try {
         return await this.prisma.$transaction(async (tx) => {
       const stillExists = await tx.prometeoDocument.findFirst({
-        where: { id: doc.id, tenantId: actor.tenantId, orgId: doc.orgId, projectId },
+        where: { id: doc.id, tenantId: actor.tenantId, orgId: doc.orgId, projectId,
+          sourceType: { not: "field_observation" } },
         select: { id: true },
       });
       if (!stillExists) throw new NotFoundException("Prometeo document not found");

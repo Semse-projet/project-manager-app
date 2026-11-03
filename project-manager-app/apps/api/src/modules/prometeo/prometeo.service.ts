@@ -285,8 +285,16 @@ export class PrometeoService {
     const top = sorted.slice(0, topK);
 
     const uniqueDocIds = [...new Set(top.map((r: ScoredChunk) => r.documentId))];
-    const titleMap = await this.repo.getDocumentTitles(uniqueDocIds);
-    return top.map((r: ScoredChunk) => ({ ...r, documentTitle: titleMap.get(r.documentId) ?? "—" }));
+    const titleMap = await this.repo.getDocumentTitles({
+      tenantId: input.tenantId, docIds: uniqueDocIds,
+      projectId: input.projectId, scope: input.scope ?? null,
+    });
+    // Rechecked titles are the last scope check before returning a response.
+    // If a grant was revoked after chunk loading, do not return stale text
+    // with a placeholder title; suppress the entire now-unauthorized chunk.
+    return top
+      .filter((r: ScoredChunk) => titleMap.has(r.documentId))
+      .map((r: ScoredChunk) => ({ ...r, documentTitle: titleMap.get(r.documentId)! }));
   }
 
   // ── Human Feedback ────────────────────────────────────────────────────────

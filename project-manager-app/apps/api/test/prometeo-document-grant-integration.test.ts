@@ -83,6 +83,31 @@ integrationTest("P0: real DB grant/revoke is idempotent, auditable and scoped to
     assert.equal(await prisma.prometeoDocumentGrant.count({ where: { documentId } }), 0);
     assert.equal(await prisma.auditLog.count({ where: { tenantId, entityType: "PrometeoDocumentGrant" } }), 0);
 
+    // PR #1008 P1: An editorially promoted field observation is a raw
+    // original, not a distributable curated derivative. Deny new grants
+    // even with sharing ON; allow explicit revocation of legacy grants.
+    const rawId = fixtureId("raw_observation");
+    await prisma.prometeoDocument.create({ data: {
+      id: rawId, tenantId, orgId: ownerOrgId, projectId,
+      title: "Synthetic raw observation", sourceType: "field_observation",
+      status: "indexed", uploadedById: userId,
+      metadataJson: { visibility: "public_training", promotionStatus: "PROMOTED" },
+    } });
+    await assert.rejects(
+      () => service.grant(owner as never, rawId, recipientOrgId, "raw-share-denied"),
+      (error: any) => error.getStatus?.() === 403,
+      "a new project grant must not publish a raw field observation",
+    );
+    assert.equal(await prisma.prometeoDocumentGrant.count({ where: { documentId: rawId } }), 0);
+    const legacyRawGrant = await prisma.prometeoDocumentGrant.create({ data: {
+      tenantId, documentId: rawId, projectId, recipientOrgId,
+      grantedByUserId: userId,
+    } });
+    await service.revoke(owner as never, rawId, recipientOrgId, "legacy-raw-revoke");
+    assert.ok((await prisma.prometeoDocumentGrant.findUniqueOrThrow({
+      where: { id: legacyRawGrant.id },
+    })).revokedAt, "revoking a historical raw grant must remain possible");
+
     // An untrusted/nonexistent actorId cannot leave an unaudited grant committed.
     const forged = { ...owner, userId: fixtureId("no_user") };
     await assert.rejects(
