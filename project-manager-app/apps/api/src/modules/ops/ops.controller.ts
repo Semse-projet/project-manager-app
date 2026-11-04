@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Get, NotFoundException, Param, Post, Query, Req } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Get, NotFoundException, Param, Post, Query, Req, ServiceUnavailableException } from "@nestjs/common";
 import {
   alertIdParamSchema,
   agentApprovalDecisionSchema,
@@ -540,7 +540,16 @@ export class OpsController {
     const ctx = resolveRequestContext(req);
     const latest = this.observer.getLatest(ctx.tenantId);
     if (!latest || latest.tenantId !== ctx.tenantId) {
-      // No cached snapshot — trigger one
+      // An unadmitted tenant cannot retain the result. Do not repeatedly
+      // execute expensive Prisma/LLM observations on every latest request.
+      // Existing tenants retain access, and the cache may recover after TTL.
+      if (!this.observer.canRetainHistory(ctx.tenantId)) {
+        throw new ServiceUnavailableException({
+          code: "OBSERVER_HISTORY_CAPACITY_EXHAUSTED",
+          message: "Observer snapshot cache is temporarily at capacity",
+        });
+      }
+      // No cached snapshot and history capacity is available.
       const snapshot = await this.observer.observe(ctx.tenantId);
       return ok(requestId, { ...snapshot, fromCache: false });
     }
