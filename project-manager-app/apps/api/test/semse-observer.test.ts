@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { OpsController } from "../dist/modules/ops/ops.controller.js";
+import { TenantObservationHistory } from "../dist/modules/ops/observer.service.js";
 
 /**
  * SEMSE Internal Observer v1 — Tests
@@ -344,6 +345,92 @@ test("O.HI3: real OpsController history scopes count and last 10 by authenticate
     (error: any) => error.getStatus?.() === 401,
     "missing authentication must never fall back to global observer history",
   );
+});
+
+test("O.HI6: tenant-local retention preserves A after B produces >50 snapshots", () => {
+  type Item = { tenantId: string; observedAt: string };
+  const store = new TenantObservationHistory<Item>();
+  for (let i = 0; i < 60; i++) {
+    assert.equal(store.append({ tenantId: "A", observedAt: "A-" + i }), true);
+  }
+  for (let i = 0; i < 150; i++) {
+    assert.equal(store.append({ tenantId: "B", observedAt: "B-" + i }), true);
+  }
+  const a = store.getHistory("A");
+  const b = store.getHistory("B");
+  assert.equal(a.length, 50);
+  assert.equal(b.length, 50);
+  assert.equal(a[0]?.observedAt, "A-10");
+  assert.equal(a[49]?.observedAt, "A-59");
+  assert.equal(b[0]?.observedAt, "B-100");
+  assert.equal(store.getLatest("A")?.observedAt, "A-59");
+  assert.equal(store.getLatest("B")?.observedAt, "B-149");
+  assert.deepEqual(store.getHistory("C"), []);
+  assert.equal(store.getLatest("C"), null);
+  a.pop();
+  assert.equal(store.getHistory("A").length, 50, "caller cannot mutate bucket membership");
+});
+
+test("O.HI7: global tenant cap never evicts another active tenant", () => {
+  let timestamp = 0;
+  const store = new TenantObservationHistory<{ tenantId: string; observedAt: string }>({
+    maxTenants: 2, maxSnapshotsPerTenant: 2, idleTtlMs: 1000, now: () => timestamp,
+  });
+  assert.equal(store.append({ tenantId: "A", observedAt: "A-0" }), true);
+  assert.equal(store.append({ tenantId: "B", observedAt: "B-0" }), true);
+  timestamp = 100;
+  assert.equal(store.append({ tenantId: "C", observedAt: "C-0" }), false,
+    "new tenant must be rejected when capacity is full, not evict A");
+  assert.equal(store.getLatest("A")?.observedAt, "A-0");
+  assert.equal(store.getLatest("B")?.observedAt, "B-0");
+  assert.equal(store.getLatest("C"), null);
+  timestamp = 900;
+  assert.equal(store.getHistory("A").length, 1, "tenant A refreshes its own idle TTL");
+  timestamp = 1001;
+  assert.equal(store.append({ tenantId: "C", observedAt: "C-1" }), true,
+    "idle B bucket expires and admits C");
+  assert.equal(store.getLatest("A")?.observedAt, "A-0");
+  assert.equal(store.getLatest("B"), null);
+  assert.equal(store.getLatest("C")?.observedAt, "C-1");
+  assert.throws(() => store.getHistory(""), /explicit tenantId/);
+  assert.throws(() => store.append({ tenantId: "", observedAt: "invalid" }), /explicit tenantId/);
+});
+
+test("O.HI8: tenant-scoped controller history and latest ignore other tenants", async () => {
+  type Item = { tenantId: string; observedAt: string; healthScore: number; alerts: unknown[];
+    operationalHealth: { criticalSignals: number };
+    intelligenceHealth: { embeddingsMode: string } };
+  const store = new TenantObservationHistory<Item>();
+  const item = (tenantId: string, observedAt: string, healthScore: number): Item => ({
+    tenantId, observedAt, healthScore, alerts: [],
+    operationalHealth: { criticalSignals: healthScore },
+    intelligenceHealth: { embeddingsMode: "fts_fallback" },
+  });
+  store.append(item("A", "A-1", 90));
+  store.append(item("B", "B-1", 10));
+  store.append(item("A", "A-2", 91));
+  const controller = Object.create(OpsController.prototype) as {
+    observer: { getHistory: (id: string) => Item[]; getLatest: (id: string) => Item | null;
+      observe: (id: string) => Promise<Item> };
+    observerHistory: (req: Record<string, unknown>) => Promise<{ data: { count: number; snapshots: Item[] } }>;
+    observerLatest: (req: Record<string, unknown>) => Promise<{ data: Item & { fromCache: boolean } }>;
+  };
+  controller.observer = {
+    getHistory: (id) => store.getHistory(id),
+    getLatest: (id) => store.getLatest(id),
+    observe: async () => { throw new Error("unexpected fresh observation"); },
+  };
+  const req = (id: string, spoof: string) => ({
+    authContext: { tenantId: id, orgId: "org", userId: "user", roles: ["OPS_ADMIN"] },
+    headers: { "x-tenant-id": spoof },
+  });
+  const a = (await controller.observerHistory(req("A", "B"))).data;
+  assert.deepEqual(a.snapshots.map(s => s.observedAt), ["A-1", "A-2"]);
+  assert.equal(a.count, 2);
+  assert.equal((await controller.observerLatest(req("A", "B"))).data.observedAt, "A-2");
+  assert.equal((await controller.observerLatest(req("A", "B"))).data.fromCache, true);
+  assert.equal((await controller.observerLatest(req("B", "A"))).data.observedAt, "B-1");
+  assert.equal((await controller.observerHistory(req("C", "A"))).data.count, 0);
 });
 
 // ── Intelligence health tests ─────────────────────────────────────────────────
