@@ -7,6 +7,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { PrismaClient } from "@prisma/client";
+import { TenantObservationHistory } from "../dist/modules/ops/observer.service.js";
 
 const dbTest = process.env.DATABASE_URL ? test : test.skip;
 
@@ -82,11 +83,22 @@ dbTest("O.HI5: PostgreSQL session and membership enforce tenant-only observer HT
       { tenantId: tenants[0].id, observedAt: "A-2", healthScore: 92, alerts: [],
         operationalHealth: { criticalSignals: 2 }, intelligenceHealth: { embeddingsMode: "A-private" } },
     ];
+    // Real tenant-local retention coupled to real PostgreSQL-backed AuthRepository.
+    const store = new TenantObservationHistory<(typeof history)[number]>();
+    for (const snapshot of history) assert.equal(store.append(snapshot), true);
     const params = Reflect.getMetadata("design:paramtypes", OpsController) as any[];
     assert.ok(Array.isArray(params) && params.length >= 5);
     const mocks = [...new Set(params.filter(Boolean))].map((token) => ({
       provide: token,
-      useValue: token.name === "SystemObserverService" ? { getHistory: () => history } : {},
+      useValue: token.name === "SystemObserverService"
+        ? {
+            getHistory: (tenantId: string) => store.getHistory(tenantId),
+            getLatest: (tenantId: string) => store.getLatest(tenantId),
+            observe: async (tenantId: string) => ({
+              ...history[0]!, tenantId, observedAt: tenantId + "-fresh",
+            }),
+          }
+        : {},
     }));
     assert.ok(mocks.some((x) => x.provide.name === "SystemObserverService"));
 
@@ -107,9 +119,9 @@ dbTest("O.HI5: PostgreSQL session and membership enforce tenant-only observer HT
       userId: actor.userId, tenantId: actor.tenantId, orgId: actor.orgId,
       roles: [actor.role], sid: actor.sid, typ: "access",
     }, secret, 120);
-    const call = async (token?: string, forgedTenant?: string) => {
+    const call = async (token?: string, forgedTenant?: string, endpoint = "history") => {
       const res = await fastify.inject({
-        method: "GET", url: "/v1/ops/observer/history",
+        method: "GET", url: "/v1/ops/observer/" + endpoint,
         headers: {
           ...(token ? { authorization: "Bearer " + token } : {}),
           ...(forgedTenant ? { "x-tenant-id": forgedTenant } : {}),
@@ -134,6 +146,26 @@ dbTest("O.HI5: PostgreSQL session and membership enforce tenant-only observer HT
     assert.equal(c.body.data.count, 0);
     assert.deepEqual(c.body.data.snapshots, []);
 
+    const latestA = await call(tokenOf(actors[0]), tenants[1].id, "latest");
+    assert.equal(latestA.status, 200, JSON.stringify(latestA.body));
+    assert.equal(latestA.body.data.observedAt, "A-2");
+    assert.equal(latestA.body.data.tenantId, tenants[0].id);
+    assert.equal(latestA.body.data.fromCache, true);
+
+    const latestB = await call(tokenOf(actors[1]), tenants[0].id, "latest");
+    assert.equal(latestB.status, 200, JSON.stringify(latestB.body));
+    assert.equal(latestB.body.data.observedAt, "B-1");
+    assert.equal(latestB.body.data.fromCache, true);
+
+    const latestC = await call(tokenOf(actors[2]), tenants[0].id, "latest");
+    assert.equal(latestC.status, 200, JSON.stringify(latestC.body));
+    assert.equal(latestC.body.data.tenantId, tenants[2].id);
+    assert.equal(latestC.body.data.fromCache, false);
+
+    assert.equal((await call(undefined, tenants[0].id, "latest")).status, 401,
+      "latest must reject an unauthenticated tenant header");
+    assert.equal((await call(tokenOf(actors[3]), tenants[0].id, "latest")).status, 403,
+      "latest must enforce ops:dashboard:read");
     assert.equal((await call()).status, 401, "No bearer must deny caller-supplied tenant");
     assert.equal((await call(tokenOf(actors[3]))).status, 403, "WORKER cannot read ops history");
     assert.equal((await call(tokenOf(actors[0]) + "tampered")).status, 401);
