@@ -3,11 +3,11 @@ id: "core.header-identity-fail-closed"
 title: "Identidad por cabeceras sólo con opt-in explícito (fail-closed fuera de producción)"
 domain: "core"
 sdd_version: "2.0"
-version: "0.1"
-status: "DRAFT"
+version: "0.2"
+status: "IMPLEMENTED"
 owner: "semse-core"
 risk: "high"
-code_status: "NOT_STARTED"
+code_status: "COMPLETE"
 ci_status: "NOT_RUN"
 merge_status: "UNMERGED"
 deploy_status: "NOT_DEPLOYED"
@@ -19,12 +19,17 @@ related_files:
   - "apps/api/src/modules/auth/auth.service.ts"
   - "apps/api/src/common/request-context.ts"
   - "apps/api/src/modules/operational-intelligence/operational-intelligence.controller.ts"
+  - "apps/api/src/main.ts"
+  - "apps/api/scripts/run-tests.mjs"
   - "apps/worker/src/main.mjs"
   - "apps/web/app/api/semse/_server.ts"
   - "docs/auth.md"
 related_tests:
-  - "apps/api/test/observer-history-http-auth.test.ts"
+  - "apps/api/test/header-identity-policy.test.ts"
+  - "apps/api/test/operational-intelligence-http-tenant.test.ts"
   - "apps/api/test/operational-intelligence.controller.test.ts"
+  - "apps/api/test/observer-history-http-auth.test.ts"
+  - "apps/api/test/business-access-foundation.test.ts"
 related_endpoints:
   - "GET /v1/ops/observer/history"
   - "GET /v1/operational-intelligence/signals"
@@ -33,6 +38,7 @@ related_endpoints:
   - "PATCH /v1/operational-intelligence/signals/:id/dismiss"
   - "GET /v1/operational-intelligence/runs"
   - "POST /v1/operational-intelligence/seed-test"
+  - "GET /v1/operational-intelligence/brief"
 related_events: []
 related_agents: []
 last_verified: "2026-11-04"
@@ -40,9 +46,13 @@ last_verified: "2026-11-04"
 
 # Spec: Identidad por cabeceras sólo con opt-in explícito
 
-> Contrato ejecutable SDD 2.0. Estado `DRAFT`: **no autoriza implementación**
-> hasta que el owner cierre la decisión abierta (§13) y cambie `status` a
-> `APPROVED`. Código, CI, merge, deploy y activación se registran por separado.
+> Contrato ejecutable SDD 2.0. Código, CI, merge, deploy y activación se
+> registran por separado.
+
+**Autorización del owner (2026-11-04):** `@Samuelcastella` eligió la opción A
+de §13 y autorizó implementar. La aprobación cubre una rama de trabajo y un
+PR en borrador. **No autoriza merge, cambios de configuración en Railway ni
+deploy**; esos pasos requieren su aprobación por separado.
 
 **Origen:** revisión independiente de los tests de #1083 (O.HI4/O.HI5) y PR
 #1091. Hallazgos verificados leyendo código en `main` `be748bb`; nada de este
@@ -65,17 +75,17 @@ compartido, una réplica levantada a mano).
 1. **Fail-open por omisión.** `AuthService.authenticateRequest`
    (`auth.service.ts:157-162`) y `resolveRequestContext`
    (`request-context.ts`, rama final) aceptan las cabeceras
-   `x-semse-user-id`, `x-semse-tenant-id`, `x-semse-org-id` y `x-semse-roles`
+   `x-user-id`, `x-tenant-id`, `x-org-id` y `x-roles` (`SEMSE_IDENTITY_HEADER_NAMES`)
    como identidad cuando falta `AUTH_SECRET` y `NODE_ENV !== "production"`.
    Cualquiera que alcance la API puede declararse `OPS_ADMIN` de cualquier
    tenant. La condición se dispara sola con un error de configuración: basta
    con olvidar `AUTH_SECRET` en un entorno cuyo `NODE_ENV` sea `staging`,
    `preview`, `test`, o no esté definido.
 2. **Identidad leída del objeto equivocado.** `OperationalIntelligenceController`
-   llama a `parseHeaderRequestContext(req)` en sus 6 handlers, pasando el
+   llama a `parseHeaderRequestContext(req)` en sus 7 handlers, pasando el
    request completo en lugar de sus cabeceras y sin pasar por el contexto
    verificado (`req.authContext`). Por código, en HTTP real
-   `req["x-semse-tenant-id"]` es `undefined`, así que esos endpoints responden
+   `req["x-tenant-id"]` es `undefined`, así que esos endpoints responden
    401 siempre. Hoy eso es un fallo funcional, no una fuga. Pero el arreglo
    "obvio" (`parseHeaderRequestContext(req.headers)`) convertiría el endpoint en
    un IDOR: tomaría el tenant de una cabecera controlada por el cliente aunque
@@ -111,7 +121,7 @@ despliegue que no use esas imágenes. Riesgo `high`, no `critical`.
 - Fail-closed (503) cuando falta `AUTH_SECRET` y no hay opt-in.
 - Log estructurado de advertencia al arranque y en la primera petición
   cuando el modo por cabeceras está activo (sin datos de identidad).
-- `OperationalIntelligenceController`: reemplazar los 6 usos de
+- `OperationalIntelligenceController`: reemplazar los 7 usos de
   `parseHeaderRequestContext(req)` por `resolveRequestContext(req)`.
 - Corregir `operational-intelligence.controller.test.ts` para que ejercite el
   camino real (contexto verificado), más un test HTTP de aislamiento por tenant.
@@ -135,7 +145,7 @@ despliegue que no use esas imágenes. Riesgo `high`, no `critical`.
 
 | Actor | Permiso backend | Alcance tenant/org/recurso | Puede | No puede |
 |---|---|---|---|---|
-| Cliente HTTP anónimo | ninguno | ninguno | recibir 401/503 | autenticarse con cabeceras `x-semse-*` sin opt-in |
+| Cliente HTTP anónimo | ninguno | ninguno | recibir 401/503 | autenticarse con cabeceras de identidad (`x-tenant-id`, `x-roles`…) sin opt-in |
 | Usuario con bearer válido | según sesión | tenant/org del token **y** de la sesión | operar en su tenant | cambiar de tenant con `x-tenant-id` / `x-semse-tenant-id` |
 | `OPS_ADMIN` | `ops:dashboard:read/write` | tenant de su contexto verificado | leer/gestionar señales de su tenant | leer señales de otro tenant |
 | Desarrollador local | n/a | máquina local | usar identidad por cabeceras con opt-in | activar el opt-in en `production` (el opt-in se ignora ahí) |
@@ -161,7 +171,7 @@ despliegue que no use esas imágenes. Riesgo `high`, no `critical`.
 DADO que AUTH_SECRET no está definido
 Y NODE_ENV es "staging" (o "preview", "test", "development" o no está definido)
 Y no hay opt-in de identidad por cabeceras
-CUANDO un cliente llama a cualquier endpoint protegido con x-semse-tenant-id y x-semse-roles: OPS_ADMIN
+CUANDO un cliente llama a cualquier endpoint protegido con x-tenant-id y x-roles: OPS_ADMIN
 ENTONCES la respuesta es 503 "Authentication authority unavailable"
 Y no se ejecuta el handler
 ```
@@ -179,7 +189,7 @@ Y no se ejecuta el handler
 ```gherkin
 DADO que AUTH_SECRET no está definido
 Y el opt-in local está activo según la regla decidida en §13
-CUANDO el Worker o el BFF local llaman con cabeceras x-semse-*
+CUANDO el Worker o el BFF local llaman con cabeceras de identidad (x-user-id, x-tenant-id, x-org-id, x-roles)
 ENTONCES la API construye el contexto desde las cabeceras como hoy
 Y al arrancar se registra una advertencia "header identity mode enabled" con NODE_ENV, sin identidades
 ```
@@ -193,12 +203,12 @@ Y al arrancar se registra una advertencia "header identity mode enabled" con NOD
 
 ```gherkin
 DADO un OPS_ADMIN con bearer válido del tenant A
-CUANDO llama a GET /v1/operational-intelligence/signals con x-semse-tenant-id: tenant-B
+CUANDO llama a GET /v1/operational-intelligence/signals con x-tenant-id: tenant-B
 ENTONCES la respuesta es 200 con señales sólo del tenant A
 Y el servicio recibe tenantId = tenant A
 ```
 
-- **AC-HI-06:** los 6 handlers de `OperationalIntelligenceController` obtienen
+- **AC-HI-06:** los 7 handlers de `OperationalIntelligenceController` obtienen
   el contexto con `resolveRequestContext(req)` y ninguno llama a
   `parseHeaderRequestContext`.
 - **AC-HI-07:** `GET /signals` y `GET /runs` responden 200 con bearer válido,
@@ -222,9 +232,9 @@ Casos borde:
   se normaliza antes de comparar; ante la duda, falla cerrado.
 - [ ] Opt-in con valor inválido (`"yes"`, `"1 "`): sólo se acepta el valor
   exacto definido en §13; cualquier otro equivale a desactivado.
-- [ ] Cabecera `x-tenant-id` legada y `x-semse-tenant-id` nueva: ninguna
+- [ ] Cabeceras de identidad (`x-tenant-id`) y de proxy web (`x-semse-tenant-id`): ninguna
   sobreescribe el contexto verificado.
-- [ ] Aislamiento cross-tenant en los 6 endpoints de OI (lectura y escritura).
+- [ ] Aislamiento cross-tenant en los 7 endpoints de OI (lectura y escritura).
 
 ## 5. Contratos
 
@@ -264,7 +274,7 @@ effects:
 
 ```yaml
 AUTH_SECRET: sin cambios (requerido en production)
-opt_in_variable: ver decisión §13
+opt_in_variable: SEMSE_ALLOW_HEADER_IDENTITY="true" + NODE_ENV in {development, test} (§13)
 default: desactivado (fail-closed)
 ignored_when: NODE_ENV=production o AUTH_SECRET presente
 ```
@@ -321,7 +331,7 @@ No aplica. El BFF web no cambia en producción (ya usa bearer).
   documentado en #1091.
 - [ ] HTTP: con opt-in local, petición con cabeceras → 200 (contrato de dev).
 - [ ] HTTP `operational-intelligence`: bearer del tenant A con
-  `x-semse-tenant-id: tenant-B` → sólo señales de A; PATCH sobre señal de B no
+  `x-tenant-id: tenant-B` → sólo señales de A; PATCH sobre señal de B no
   la modifica.
 - [ ] `operational-intelligence.controller.test.ts` reescrito para usar
   `req.authContext` y cabeceras reales, no propiedades de primer nivel.
@@ -339,7 +349,7 @@ No aplica. El BFF web no cambia en producción (ya usa bearer).
 - `apps/api/src/modules/auth/auth.service.ts`: usar la misma regla en
   `authenticateRequest`.
 - `apps/api/src/modules/operational-intelligence/operational-intelligence.controller.ts`:
-  `resolveRequestContext(req)` en los 6 handlers.
+  `resolveRequestContext(req)` en los 7 handlers.
 - `apps/api/src/main.ts` (o el bootstrap equivalente): log de advertencia al
   arranque.
 
@@ -357,6 +367,27 @@ No aplica. El BFF web no cambia en producción (ya usa bearer).
 - `apps/api/test/operational-intelligence-http-tenant.test.ts` (nuevo, HTTP real
   con AuthGuard + RbacGuard como O.HI4).
 
+### Notas de implementación (2026-11-04)
+
+- **Runner unitario:** 30 tests unitarios de 10 archivos (`ai-models.controller`,
+  `chat-actions-service`, `chat-evidence-*`, `escrow-release-service-replay`,
+  `jev-agent-router`, `knowledge.controller`, `reservations.contract`,
+  `semse-observer`, `signed-file-access`) ejercitaban controladores por el
+  contrato local de cabeceras sin declararlo. Su `NODE_ENV` estaba sin
+  definir. `apps/api/scripts/run-tests.mjs` declara ahora, sólo en modo unit y
+  sólo como valor por defecto, `NODE_ENV=test` y
+  `SEMSE_ALLOW_HEADER_IDENTITY=true`. Un valor explícito en el entorno siempre
+  gana, y los tests de política fijan su propio entorno, así que la mutación
+  de cada condición sigue haciéndolos fallar.
+- **Integración:** 4 suites de Agro (`agro-evidence-upload`, `agro-jobtask-mirror`,
+  `agro-membership-operations`, `agro-workforce-incidents`) autentican por
+  cabeceras a propósito. Declaran el opt-in en su propio `buildApp()`. El
+  runner no lo hace en modo integración.
+- **Worker:** sólo cambió el texto de un log de advertencia; no hay cambio de
+  lógica.
+- **`GET /v1/operational-intelligence/brief`:** es el séptimo handler, que no
+  estaba en la versión 0.1 del spec. También usa el contexto verificado.
+
 ## 11. Investigación externa
 
 - OWASP ASVS v4.0.3 V1.4 / V4.1: decisiones de control de acceso aplicadas en
@@ -372,7 +403,7 @@ No aplica. El BFF web no cambia en producción (ya usa bearer).
 
 ## 12. Gates de cierre
 
-- [ ] Decisión §13 cerrada por el owner y `status: APPROVED`
+- [x] Decisión §13 cerrada por el owner y `status: APPROVED`
 - [ ] Spec enlazado por `pnpm spec:index`
 - [ ] Plan, tasks, analyze y checklist coherentes con este spec
 - [ ] Tests de §9 escritos antes del código y verdes
@@ -383,9 +414,20 @@ No aplica. El BFF web no cambia en producción (ya usa bearer).
 - [ ] `production_evidence` y `last_verified` actualizados
 - [ ] Sólo entonces `status: VERIFIED`
 
-## 13. Decisión abierta (clarify) — requiere al owner
+## 13. Decisión (clarify) — cerrada
 
-**Cómo se activa el opt-in local de identidad por cabeceras:**
+**Resolución (owner, 2026-11-04): opción A.** El modo por cabeceras se permite
+sólo si se cumplen las tres condiciones:
+
+1. `AUTH_SECRET` no está definido (o está vacío).
+2. `SEMSE_ALLOW_HEADER_IDENTITY` vale exactamente `"true"`, tras quitar
+   espacios. Cualquier otro valor equivale a desactivado.
+3. `NODE_ENV`, normalizado (`trim` + minúsculas), es `development` o `test`.
+
+Con `NODE_ENV=production` el modo nunca se permite. Si las tres condiciones no
+se cumplen y falta `AUTH_SECRET`, la respuesta es 503.
+
+**Opciones evaluadas** (se conserva el registro):
 
 | Opción | Regla | A favor | En contra |
 |---|---|---|---|
@@ -393,5 +435,5 @@ No aplica. El BFF web no cambia en producción (ya usa bearer).
 | B | Sólo `NODE_ENV` ∈ {`development`, `test`}, sin variable nueva | Cero fricción para dev actual. | Sigue abierto si alguien despliega con `NODE_ENV=development` o `test` (por ejemplo, un preview mal configurado). |
 | C | Sólo la variable explícita, sin mirar `NODE_ENV` (salvo `production`) | Simple de explicar. | `staging` con la variable puesta por error vuelve a abrir el hueco. |
 
-Mientras esta decisión no esté cerrada, el spec permanece en `DRAFT` y no se
-implementa.
+El owner eligió A por la doble condición: un error en una sola variable no
+abre el modo.
