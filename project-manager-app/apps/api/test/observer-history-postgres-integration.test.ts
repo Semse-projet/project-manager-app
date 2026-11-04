@@ -86,6 +86,7 @@ dbTest("O.HI5: PostgreSQL session and membership enforce tenant-only observer HT
     // Real tenant-local retention coupled to real PostgreSQL-backed AuthRepository.
     const store = new TenantObservationHistory<(typeof history)[number]>();
     for (const snapshot of history) assert.equal(store.append(snapshot), true);
+    let observationCalls = 0;
     const params = Reflect.getMetadata("design:paramtypes", OpsController) as any[];
     assert.ok(Array.isArray(params) && params.length >= 5);
     const mocks = [...new Set(params.filter(Boolean))].map((token) => ({
@@ -94,9 +95,11 @@ dbTest("O.HI5: PostgreSQL session and membership enforce tenant-only observer HT
         ? {
             getHistory: (tenantId: string) => store.getHistory(tenantId),
             getLatest: (tenantId: string) => store.getLatest(tenantId),
-            observe: async (tenantId: string) => ({
-              ...history[0]!, tenantId, observedAt: tenantId + "-fresh",
-            }),
+            canRetainHistory: (tenantId: string) => store.canRetain(tenantId),
+            observe: async (tenantId: string) => {
+              observationCalls++;
+              return { ...history[0]!, tenantId, observedAt: tenantId + "-fresh" };
+            },
           }
         : {},
     }));
@@ -162,6 +165,17 @@ dbTest("O.HI5: PostgreSQL session and membership enforce tenant-only observer HT
     assert.equal(latestC.body.data.tenantId, tenants[2].id);
     assert.equal(latestC.body.data.fromCache, false);
 
+    // Cap exhaustion must be fail-closed even with a valid PostgreSQL session.
+    // It cannot kick A/B out of their cached histories.
+    for (let i = 0; i < 126; i++) {
+      assert.equal(store.append({ ...history[0]!, tenantId: id("overflow_" + i) }), true);
+    }
+    const before = observationCalls;
+    const overflow = await call(tokenOf(actors[2]), tenants[0].id, "latest");
+    assert.equal(overflow.status, 503, JSON.stringify(overflow.body));
+    assert.equal(overflow.body.code, "OBSERVER_HISTORY_CAPACITY_EXHAUSTED");
+    assert.equal(observationCalls, before);
+    assert.equal((await call(tokenOf(actors[0]), tenants[1].id, "latest")).status, 200);
     assert.equal((await call(undefined, tenants[0].id, "latest")).status, 401,
       "latest must reject an unauthenticated tenant header");
     assert.equal((await call(tokenOf(actors[3]), tenants[0].id, "latest")).status, 403,
