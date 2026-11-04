@@ -538,7 +538,7 @@ export class OpsController {
   async observerLatest(@Req() req: { headers?: Record<string, unknown> }) {
     const requestId = resolveRequestId(req.headers ?? {});
     const ctx = resolveRequestContext(req);
-    const latest = this.observer.getLatest();
+    const latest = this.observer.getLatest(ctx.tenantId);
     if (!latest || latest.tenantId !== ctx.tenantId) {
       // No cached snapshot — trigger one
       const snapshot = await this.observer.observe(ctx.tenantId);
@@ -547,16 +547,14 @@ export class OpsController {
     return ok(requestId, { ...latest, fromCache: true });
   }
 
-  /** Historial de snapshots en memoria (últimos 50). */
+  /** Historial en memoria (últimos 50 por tenant). */
   @Get("observer/history")
   @RequirePermissions("ops:dashboard:read")
   async observerHistory(@Req() req: { headers?: Record<string, unknown> }) {
     const requestId = resolveRequestId(req.headers ?? {});
-    // The observer stores the last 50 snapshots across ALL tenants in one
-    // process. Permission ops:dashboard:read is tenant-scoped, not a grant
-    // to read other tenants' health/RAG metadata. Scope BEFORE count/slice.
+    // Store retention is tenant-local. Keep a final tenant filter as defense in depth.
     const { tenantId } = resolveRequestContext(req);
-    const history = this.observer.getHistory().filter((s) => s.tenantId === tenantId);
+    const history = this.observer.getHistory(tenantId).filter((s) => s.tenantId === tenantId);
     return ok(requestId, {
       count: history.length,
       snapshots: history.slice(-10).map((s) => ({
