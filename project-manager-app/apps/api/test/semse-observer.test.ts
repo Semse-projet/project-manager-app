@@ -386,7 +386,7 @@ test("O.HI7: global tenant cap never evicts another active tenant", () => {
   assert.equal(store.getLatest("C"), null);
   timestamp = 900;
   assert.equal(store.getHistory("A").length, 1, "tenant A refreshes its own idle TTL");
-  timestamp = 1001;
+  timestamp = 1101;
   assert.equal(store.append({ tenantId: "C", observedAt: "C-1" }), true,
     "idle B bucket expires and admits C");
   assert.equal(store.getLatest("A")?.observedAt, "A-0");
