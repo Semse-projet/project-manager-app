@@ -12,7 +12,12 @@ import { EmailService } from "../../infrastructure/email/email.service.js";
 import { SemseLoggerService } from "../../infrastructure/observability/semse-logger.service.js";
 import { generateOpaqueToken, hashPassword, sha256, verifyPassword } from "../../common/auth-password.js";
 import { signToken, verifyToken } from "../../common/auth-token.js";
-import { type RequestContext, parseHeaderRequestContext } from "../../common/request-context.js";
+import {
+  type RequestContext,
+  authorityUnavailable,
+  headerIdentityAllowed,
+  parseHeaderRequestContext,
+} from "../../common/request-context.js";
 import {
   demoPasswordMatches,
   isDisabledDemoIdentity,
@@ -155,8 +160,11 @@ export class AuthService {
 
   async authenticateRequest(req: RequestLike): Promise<RequestContext> {
     if (!process.env.AUTH_SECRET) {
-      if (process.env.NODE_ENV === "production") {
-        throw new ServiceUnavailableException("Authentication authority unavailable");
+      // Same single policy as resolveRequestContext: header identity only for
+      // explicit local opt-in (core.header-identity-fail-closed). Fail closed
+      // everywhere else, including staging/preview and an unset NODE_ENV.
+      if (!headerIdentityAllowed()) {
+        throw authorityUnavailable();
       }
       return parseHeaderRequestContext(req.headers ?? {});
     }
