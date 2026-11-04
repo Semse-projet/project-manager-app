@@ -77,7 +77,8 @@ test("O.HI4: signed HTTP observer history enforces RBAC and tenant scope", async
         ? {
             getHistory: (tenantId: string) => store.getHistory(tenantId),
             getLatest: (tenantId: string) => store.getLatest(tenantId),
-            canRetainHistory: (tenantId: string) => store.canRetain(tenantId),
+            tryReserveHistory: (tenantId: string) => store.tryReserve(tenantId),
+            releaseHistoryReservation: (tenantId: string) => store.releaseReservation(tenantId),
             observe: async (tenantId: string) => {
               observationCalls++;
               return { ...history[0]!, tenantId, observedAt: tenantId + "-fresh" };
