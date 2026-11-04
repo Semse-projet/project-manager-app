@@ -99,6 +99,7 @@ export class TenantObservationHistory<T extends { tenantId: string }> {
     lastUsedAt: number;
   }>();
   private nextSequence = 0;
+  private readonly activeReservations = new Map<string, number>();
   private readonly maxSnapshotsPerTenant: number;
   private readonly maxTenants: number;
   private readonly idleTtlMs: number;
@@ -168,6 +169,39 @@ export class TenantObservationHistory<T extends { tenantId: string }> {
     return this.buckets.has(tenantId) || this.buckets.size < this.maxTenants;
   }
 
+  /**
+   * Atomically reserve one tenant slot BEFORE starting expensive async work.
+   * The empty bucket is temporary and released on failure.
+   * Reservations also prevent TTL eviction while a read is in progress.
+   */
+  tryReserve(tenantId: string): boolean {
+    this.assertTenant(tenantId);
+    const timestamp = this.now();
+    this.pruneIdle(timestamp);
+    let bucket = this.buckets.get(tenantId);
+    if (!bucket) {
+      if (this.buckets.size >= this.maxTenants) return false;
+      bucket = { snapshots: [], lastUsedAt: timestamp };
+      this.buckets.set(tenantId, bucket);
+    }
+    bucket.lastUsedAt = timestamp;
+    this.activeReservations.set(tenantId, (this.activeReservations.get(tenantId) ?? 0) + 1);
+    return true;
+  }
+
+  releaseReservation(tenantId: string): void {
+    this.assertTenant(tenantId);
+    const count = this.activeReservations.get(tenantId);
+    if (!count) throw new Error("Observer history reservation missing");
+    if (count > 1) this.activeReservations.set(tenantId, count - 1);
+    else {
+      this.activeReservations.delete(tenantId);
+      // Failed observations must not leave a permanently occupied empty slot.
+      const bucket = this.buckets.get(tenantId);
+      if (bucket && bucket.snapshots.length === 0) this.buckets.delete(tenantId);
+    }
+  }
+
   getHistory(tenantId: string): T[] {
     this.assertTenant(tenantId);
     const timestamp = this.now();
@@ -185,7 +219,8 @@ export class TenantObservationHistory<T extends { tenantId: string }> {
 
   private pruneIdle(timestamp: number): void {
     for (const [tenantId, bucket] of this.buckets) {
-      if (timestamp - bucket.lastUsedAt >= this.idleTtlMs) {
+      if (timestamp - bucket.lastUsedAt >= this.idleTtlMs &&
+          !this.activeReservations.has(tenantId)) {
         this.buckets.delete(tenantId);
       }
     }
@@ -301,8 +336,12 @@ export class SystemObserverService {
     };
   }
 
-  canRetainHistory(tenantId: string): boolean {
-    return this.history.canRetain(tenantId);
+  tryReserveHistory(tenantId: string): boolean {
+    return this.history.tryReserve(tenantId);
+  }
+
+  releaseHistoryReservation(tenantId: string): void {
+    this.history.releaseReservation(tenantId);
   }
 
   getHistory(tenantId: string): ObservationSnapshot[] {
