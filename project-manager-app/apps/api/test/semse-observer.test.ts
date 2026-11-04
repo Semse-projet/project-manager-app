@@ -463,6 +463,58 @@ test("O.HI9: asynchronous observations keep start order despite reverse completi
   assert.equal(store.getLatest("A")?.observedAt, "A-latest");
 });
 
+test("O.HI10: concurrent latest requests reserve the sole tenant slot atomically", async () => {
+  const store = new TenantObservationHistory<{ tenantId: string; observedAt: string;
+    healthScore: number; alerts: unknown[] }>({ maxTenants: 1 });
+  let releaseSlow!: () => void;
+  const gate = new Promise<void>((resolve) => { releaseSlow = resolve; });
+  let expensiveCalls = 0;
+  const controller = Object.create(OpsController.prototype) as {
+    observer: { getLatest: (id: string) => unknown; tryReserveHistory: (id: string) => boolean;
+      releaseHistoryReservation: (id: string) => void; observe: (id: string) => Promise<unknown> };
+    observerLatest: (req: Record<string, unknown>) => Promise<{ data: { tenantId: string; fromCache: boolean } }>;
+  };
+  controller.observer = {
+    getLatest: (id) => store.getLatest(id),
+    tryReserveHistory: (id) => store.tryReserve(id),
+    releaseHistoryReservation: (id) => store.releaseReservation(id),
+    observe: async (id) => {
+      expensiveCalls++;
+      if (id === "A") await gate;
+      const snapshot = { tenantId: id, observedAt: id + "-1", healthScore: 100, alerts: [] };
+      assert.equal(store.append(snapshot), true);
+      return snapshot;
+    },
+  };
+  const req = (id: string) => ({
+    authContext: { tenantId: id, orgId: "org", userId: "user", roles: ["OPS_ADMIN"] },
+    headers: { "x-tenant-id": id === "A" ? "B" : "A" },
+  });
+
+  const first = controller.observerLatest(req("A"));
+  assert.equal(store.canRetain("B"), false, "A must occupy capacity before async work");
+  await assert.rejects(controller.observerLatest(req("B")), (error: any) =>
+    error?.getStatus?.() === 503 &&
+    error?.getResponse?.()?.code === "OBSERVER_HISTORY_CAPACITY_EXHAUSTED");
+  assert.equal(expensiveCalls, 1, "B cannot start expensive work during A's reservation");
+
+  releaseSlow();
+  const result = await first;
+  assert.equal(result.data.tenantId, "A");
+  assert.equal(result.data.fromCache, false);
+  assert.equal(store.getLatest("A")?.observedAt, "A-1");
+  assert.equal(store.canRetain("B"), false, "successful A history must not be evicted for B");
+
+  // A failed in-flight observation must free an empty bucket for another tenant.
+  const retryStore = new TenantObservationHistory<{ tenantId: string }>({ maxTenants: 1 });
+  assert.equal(retryStore.tryReserve("failed-A"), true);
+  assert.equal(retryStore.tryReserve("B"), false);
+  retryStore.releaseReservation("failed-A");
+  assert.equal(retryStore.tryReserve("B"), true);
+  retryStore.releaseReservation("B");
+  assert.equal(retryStore.canRetain("A"), true);
+});
+
 // ── Intelligence health tests ─────────────────────────────────────────────────
 
 test("O.I1: fallbackRate es 0 cuando no hay llamadas LLM", () => {
