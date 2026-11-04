@@ -94,7 +94,11 @@ const SIGNAL_INTERPRETATIONS: Record<string, string> = {
  * Idle buckets expire after the configured TTL, releasing capacity.
  */
 export class TenantObservationHistory<T extends { tenantId: string }> {
-  private readonly buckets = new Map<string, { snapshots: T[]; lastUsedAt: number }>();
+  private readonly buckets = new Map<string, {
+    snapshots: Array<{ snapshot: T; sequence: number }>;
+    lastUsedAt: number;
+  }>();
+  private nextSequence = 0;
   private readonly maxSnapshotsPerTenant: number;
   private readonly maxTenants: number;
   private readonly idleTtlMs: number;
@@ -117,9 +121,21 @@ export class TenantObservationHistory<T extends { tenantId: string }> {
     }
   }
 
+  /** Reserve order BEFORE asynchronous observation starts. */
+  reserveSequence(): number {
+    if (this.nextSequence >= Number.MAX_SAFE_INTEGER) {
+      throw new Error("Observer observation sequence exhausted");
+    }
+    return ++this.nextSequence;
+  }
+
   /** False means no capacity for a NEW tenant, not eviction of another tenant. */
-  append(snapshot: T): boolean {
+  append(snapshot: T, sequence: number = this.reserveSequence()): boolean {
     this.assertTenant(snapshot.tenantId);
+    if (!Number.isSafeInteger(sequence) || sequence < 1) {
+      throw new Error("Observer sequence must be a positive safe integer");
+    }
+    this.nextSequence = Math.max(this.nextSequence, sequence);
     const timestamp = this.now();
     this.pruneIdle(timestamp);
     let bucket = this.buckets.get(snapshot.tenantId);
@@ -128,7 +144,12 @@ export class TenantObservationHistory<T extends { tenantId: string }> {
       bucket = { snapshots: [], lastUsedAt: timestamp };
       this.buckets.set(snapshot.tenantId, bucket);
     }
-    bucket.snapshots.push(snapshot);
+    // Complete late results in original START order, so an older slow
+    // observation cannot replace a newer one in getLatest() or last-ten history.
+    const position = bucket.snapshots.findIndex((item) => item.sequence > sequence);
+    const entry = { snapshot, sequence };
+    if (position < 0) bucket.snapshots.push(entry);
+    else bucket.snapshots.splice(position, 0, entry);
     if (bucket.snapshots.length > this.maxSnapshotsPerTenant) {
       bucket.snapshots.splice(0, bucket.snapshots.length - this.maxSnapshotsPerTenant);
     }
@@ -143,7 +164,7 @@ export class TenantObservationHistory<T extends { tenantId: string }> {
     const bucket = this.buckets.get(tenantId);
     if (!bucket) return [];
     bucket.lastUsedAt = timestamp;
-    return [...bucket.snapshots];
+    return bucket.snapshots.map((entry) => entry.snapshot);
   }
 
   getLatest(tenantId: string): T | null {
@@ -186,6 +207,7 @@ export class SystemObserverService {
 
   async observe(tenantId: string): Promise<ObservationSnapshot> {
     const observedAt = new Date().toISOString();
+    const observationSequence = this.history.reserveSequence();
 
     const [infra, operational, intelligence, behavioralHealth, experienceHealth] = await Promise.all([
       this.observeInfrastructure(),
@@ -224,7 +246,7 @@ export class SystemObserverService {
 
     // Store without cross-tenant eviction. The current snapshot still returns
     // to the caller if the bounded in-memory retention budget is exhausted.
-    if (!this.history.append(snapshot) && Date.now() - this.lastHistoryCapacityWarningAt >= 60_000) {
+    if (!this.history.append(snapshot, observationSequence) && Date.now() - this.lastHistoryCapacityWarningAt >= 60_000) {
       this.lastHistoryCapacityWarningAt = Date.now();
       this.logger.warn("[Observer] tenant history capacity exhausted; new tenant snapshot not retained");
     }
