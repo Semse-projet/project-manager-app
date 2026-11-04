@@ -86,14 +86,96 @@ const SIGNAL_INTERPRETATIONS: Record<string, string> = {
   EXPERIENCE_FRICTION:     "Fricción de usuario detectada por Product Intelligence — revisar la vista afectada",
 };
 
+/**
+ * Process-local, bounded observer retention.
+ * A noisy tenant cannot evict a different active tenant's snapshots.
+ * When the tenant budget is full, a new tenant is explicitly not retained;
+ * existing tenant buckets are never evicted to make room for its traffic.
+ * Idle buckets expire after the configured TTL, releasing capacity.
+ */
+export class TenantObservationHistory<T extends { tenantId: string }> {
+  private readonly buckets = new Map<string, { snapshots: T[]; lastUsedAt: number }>();
+  private readonly maxSnapshotsPerTenant: number;
+  private readonly maxTenants: number;
+  private readonly idleTtlMs: number;
+  private readonly now: () => number;
+
+  constructor(policy: {
+    maxSnapshotsPerTenant?: number;
+    maxTenants?: number;
+    idleTtlMs?: number;
+    now?: () => number;
+  } = {}) {
+    this.maxSnapshotsPerTenant = policy.maxSnapshotsPerTenant ?? 50;
+    this.maxTenants = policy.maxTenants ?? 128;
+    this.idleTtlMs = policy.idleTtlMs ?? 24 * 60 * 60 * 1000;
+    this.now = policy.now ?? Date.now;
+    for (const value of [this.maxSnapshotsPerTenant, this.maxTenants, this.idleTtlMs]) {
+      if (!Number.isSafeInteger(value) || value < 1) {
+        throw new Error("Observer retention limits must be positive safe integers");
+      }
+    }
+  }
+
+  /** False means no capacity for a NEW tenant, not eviction of another tenant. */
+  append(snapshot: T): boolean {
+    this.assertTenant(snapshot.tenantId);
+    const timestamp = this.now();
+    this.pruneIdle(timestamp);
+    let bucket = this.buckets.get(snapshot.tenantId);
+    if (!bucket) {
+      if (this.buckets.size >= this.maxTenants) return false;
+      bucket = { snapshots: [], lastUsedAt: timestamp };
+      this.buckets.set(snapshot.tenantId, bucket);
+    }
+    bucket.snapshots.push(snapshot);
+    if (bucket.snapshots.length > this.maxSnapshotsPerTenant) {
+      bucket.snapshots.splice(0, bucket.snapshots.length - this.maxSnapshotsPerTenant);
+    }
+    bucket.lastUsedAt = timestamp;
+    return true;
+  }
+
+  getHistory(tenantId: string): T[] {
+    this.assertTenant(tenantId);
+    const timestamp = this.now();
+    this.pruneIdle(timestamp);
+    const bucket = this.buckets.get(tenantId);
+    if (!bucket) return [];
+    bucket.lastUsedAt = timestamp;
+    return [...bucket.snapshots];
+  }
+
+  getLatest(tenantId: string): T | null {
+    const snapshots = this.getHistory(tenantId);
+    return snapshots.length ? snapshots[snapshots.length - 1]! : null;
+  }
+
+  private pruneIdle(timestamp: number): void {
+    for (const [tenantId, bucket] of this.buckets) {
+      if (timestamp - bucket.lastUsedAt >= this.idleTtlMs) {
+        this.buckets.delete(tenantId);
+      }
+    }
+  }
+
+  private assertTenant(tenantId: string): void {
+    if (typeof tenantId !== "string" || !tenantId.trim()) {
+      throw new Error("Observer history requires an explicit tenantId");
+    }
+  }
+}
+
 // ── Service ───────────────────────────────────────────────────────────────────
 
 @Injectable()
 export class SystemObserverService {
   private readonly logger = new Logger(SystemObserverService.name);
 
-  // In-memory observation history (last 50 snapshots — no DB to keep it lean)
-  private readonly history: ObservationSnapshot[] = [];
+  // 50 snapshots per tenant, up to 128 active tenants, 24h idle expiry.
+  // No global FIFO: one tenant must never displace another tenant's history.
+  private readonly history = new TenantObservationHistory<ObservationSnapshot>();
+  private lastHistoryCapacityWarningAt = 0;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -140,9 +222,12 @@ export class SystemObserverService {
       });
     }
 
-    // Keep last 50 in memory
-    this.history.push(snapshot);
-    if (this.history.length > 50) this.history.shift();
+    // Store without cross-tenant eviction. The current snapshot still returns
+    // to the caller if the bounded in-memory retention budget is exhausted.
+    if (!this.history.append(snapshot) && Date.now() - this.lastHistoryCapacityWarningAt >= 60_000) {
+      this.lastHistoryCapacityWarningAt = Date.now();
+      this.logger.warn("[Observer] tenant history capacity exhausted; new tenant snapshot not retained");
+    }
 
     // SSE: emit to AI Mission Control channel when there are critical/high alerts
     if (alerts.some((a) => a.level === "critical" || a.level === "high")) {
@@ -183,12 +268,12 @@ export class SystemObserverService {
     };
   }
 
-  getHistory(): ObservationSnapshot[] {
-    return [...this.history];
+  getHistory(tenantId: string): ObservationSnapshot[] {
+    return this.history.getHistory(tenantId);
   }
 
-  getLatest(): ObservationSnapshot | null {
-    return this.history.length > 0 ? this.history[this.history.length - 1]! : null;
+  getLatest(tenantId: string): ObservationSnapshot | null {
+    return this.history.getLatest(tenantId);
   }
 
   // ── Infrastructure observation ────────────────────────────────────────────
