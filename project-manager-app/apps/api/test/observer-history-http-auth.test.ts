@@ -45,6 +45,7 @@ test("O.HI4: signed HTTP observer history enforces RBAC and tenant scope", async
     // Exercise the real per-tenant retention implementation, not a global array.
     const store = new TenantObservationHistory<(typeof history)[number]>();
     for (const snapshot of history) assert.equal(store.append(snapshot), true);
+    let observationCalls = 0;
 
     type Session = { userId: string; tenantId: string; orgId: string; roles: string[] };
     const sessions = new Map<string, Session>();
@@ -76,9 +77,11 @@ test("O.HI4: signed HTTP observer history enforces RBAC and tenant scope", async
         ? {
             getHistory: (tenantId: string) => store.getHistory(tenantId),
             getLatest: (tenantId: string) => store.getLatest(tenantId),
-            observe: async (tenantId: string) => ({
-              ...history[0]!, tenantId, observedAt: tenantId + "-fresh",
-            }),
+            canRetainHistory: (tenantId: string) => store.canRetain(tenantId),
+            observe: async (tenantId: string) => {
+              observationCalls++;
+              return { ...history[0]!, tenantId, observedAt: tenantId + "-fresh" };
+            },
           }
         : {},
     }));
@@ -152,6 +155,19 @@ test("O.HI4: signed HTTP observer history enforces RBAC and tenant scope", async
     assert.equal(latestC.data.data.fromCache, false,
       "tenant with no cached snapshot must not receive another tenant's latest");
 
+    // Saturated retention MUST fail before triggering expensive observations.
+    // A and B still retain their histories; a new tenant is not allowed to
+    // consume CPU/LLM on every cache miss while admission is impossible.
+    for (let i = 0; i < 126; i++) {
+      assert.equal(store.append({ ...history[0]!, tenantId: "overflow-fill-" + i }), true);
+    }
+    assert.equal(store.canRetain("new-tenant"), false);
+    const before = observationCalls;
+    const overflow = await request(signed("new-tenant"), "tenant-A", "latest");
+    assert.equal(overflow.status, 503, JSON.stringify(overflow.data));
+    assert.equal(overflow.data.code, "OBSERVER_HISTORY_CAPACITY_EXHAUSTED");
+    assert.equal(observationCalls, before, "saturated cache miss must not observe");
+    assert.equal((await request(signed("tenant-A"), "tenant-B", "latest")).status, 200);
     assert.equal((await request(signed("tenant-A", ["WORKER"]), "tenant-B", "latest")).status, 403);
     assert.equal((await request(undefined, "tenant-A", "latest")).status, 401);
 
