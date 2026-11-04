@@ -221,9 +221,11 @@ export class SystemObserverService {
       items.push({ name: "LLM Orchestrator", healthy: false, detail: "Not registered in this context" });
     }
 
-    // OpenAI Embeddings
-    const hasOpenAI = typeof process.env.OPENAI_API_KEY === "string" && process.env.OPENAI_API_KEY.length > 10;
-    items.push({ name: "OpenAI Embeddings", healthy: hasOpenAI, detail: hasOpenAI ? "API key configurada" : "OPENAI_API_KEY no configurada" });
+    // Cloud embedding credentials are optional, not an infrastructure health
+    // requirement. Private Prometeo reads use local-only/FTS fallback; the RAG
+    // retrieval mode and actual indexed-chunk metrics are tracked separately
+    // in observeIntelligence(). Do not generate unhealthy alerts for missing
+    // OPENAI_API_KEY or imply operators should configure cloud embeddings.
 
     // Ollama
     const ollamaUrl = process.env.OLLAMA_BASE_URL ?? "http://localhost:11434";
@@ -415,9 +417,9 @@ export class SystemObserverService {
 
     // RAG mode
     if (intel.embeddingsMode === "fts_fallback") {
-      alerts.push({ level: "medium", area: "Prometeo RAG", message: "RAG en modo FTS fallback — sin embeddings semánticos reales", recommendation: "Verificar OPENAI_API_KEY y ejecutar backfill si hay documentos" });
+      alerts.push({ level: "medium", area: "Prometeo RAG", message: "RAG en modo FTS fallback — sin embeddings semánticos reales", recommendation: "Mantener FTS local; evaluar embeddings local-only y autorizaciones por documento antes de cualquier backfill" });
     } else if (intel.ragMissingEmbeddings > 10) {
-      alerts.push({ level: "medium", area: "Prometeo RAG", message: `${intel.ragMissingEmbeddings} chunks sin embeddings reales`, recommendation: "POST /v1/prometeo/embeddings/backfill" });
+      alerts.push({ level: "medium", area: "Prometeo RAG", message: `${intel.ragMissingEmbeddings} chunks sin embeddings reales`, recommendation: "No ejecutar backfill heredado: requiere reemplazo local-only aprobado, autorización por documento y auditoría" });
     }
 
     // Pattern alerts

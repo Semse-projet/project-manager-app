@@ -25,7 +25,7 @@ test("document listing constrains organization and authorized projects before ta
   assert.deepEqual(where?.OR, [
     { projectId: null, orgId: "org-A" },
     { projectId: { in: ["project-A"] }, orgId: "org-A" },
-    { grants: { some: { tenantId: "tenant-A", recipientOrgId: "org-A", projectId: { in: ["project-A"] }, revokedAt: null } } },
+    { sourceType: { not: "field_observation" }, grants: { some: { tenantId: "tenant-A", recipientOrgId: "org-A", projectId: { in: ["project-A"] }, revokedAt: null } } },
   ]);
   assert.equal(take, 10, "filter is in database query, not applied after pagination");
 });
@@ -57,6 +57,7 @@ test("chunk SQL rechecks document ownership and active grants at content-read ti
         { projectId: null, orgId: "org-A" },
         { projectId: { in: ["project-A"] }, orgId: "org-A" },
         {
+          sourceType: { not: "field_observation" },
           grants: {
             some: {
               tenantId: "tenant-A",
@@ -98,6 +99,7 @@ test("feedback stats recheck document grants at query time without a stale ID pr
               { projectId: null, orgId: "org-A" },
               { projectId: { in: ["project-A"] }, orgId: "org-A" },
               {
+                sourceType: { not: "field_observation" },
                 grants: {
                   some: {
                     tenantId: "tenant-A",
@@ -195,6 +197,40 @@ test("public_training cannot be re-enabled by legacy metadata or implicit defaul
   assert.equal(wrote, false);
 });
 
+
+test("HTTP ingest refuses forged internal provenance but preserves normal document labels", async () => {
+  const inputs: Array<Record<string, unknown>> = [];
+  const svc = { async ingestText(input: Record<string, unknown>) { inputs.push(input); return { id: "doc-http" }; } };
+  const access = { async assertCanCreate() {} };
+  const controller = new PrometeoController(svc as never, access as never);
+  const req = { headers: {}, authContext: { tenantId: "tenant-A", orgId: "org-A", userId: "actor-A", roles: ["OPS_ADMIN"] } };
+  for (const payload of [
+    { title: "Raw forged", text: "original", sourceType: "field_observation" },
+    { title: "Ref forged", text: "original", sourceType: "text", sourceRef: "observation-123" },
+    { title: "Null ref forged", text: "original", sourceRef: null },
+  ]) {
+    await assert.rejects(
+      () => controller.ingest(req as never, payload),
+      /Original provenance is assigned only by an authorized server workflow/,
+    );
+  }
+  assert.equal(inputs.length, 0, "forged provenance must be denied before persistence");
+  await controller.ingest(req as never, {
+    title: "Manual document", text: "normal project instructions",
+    sourceType: "manual",
+    metadataJson: { sourceAuthority: "verified", lineageVerified: true, visibility: "public_training" },
+  });
+  assert.equal(inputs.length, 1);
+  assert.equal(inputs[0]?.sourceType, "manual", "existing manual/document labels remain supported");
+  assert.equal(inputs[0]?.sourceRef, undefined, "no caller-supplied internal lineage reference");
+  assert.deepEqual(
+    { sourceAuthority: (inputs[0]?.metadataJson as Record<string, unknown>).sourceAuthority,
+      lineageVerified: (inputs[0]?.metadataJson as Record<string, unknown>).lineageVerified,
+      visibility: (inputs[0]?.metadataJson as Record<string, unknown>).visibility },
+    { sourceAuthority: "http_unverified", lineageVerified: false, visibility: "tenant_private" },
+    "client-provided provenance and legacy public_training metadata cannot become trusted",
+  );
+});
 
 test("internal agents cannot retrieve RAG without an explicit resolved scope", async () => {
   let touchedChunks = false;
@@ -357,6 +393,8 @@ test("grant SQL predicate size remains constant even with thousands of authorize
   assert.equal(grant.tenantId, "tenant-A");
   assert.equal(grant.recipientOrgId, "org-A");
   assert.equal(grant.revokedAt, null);
+  assert.deepEqual(branches[2].sourceType, { not: "field_observation" },
+    "project grants never publish raw observation originals");
   // Schema and migration enforce the missing equality at the DB level:
   // grant.(documentId,tenantId,projectId) references document.(id,tenantId,projectId).
 });

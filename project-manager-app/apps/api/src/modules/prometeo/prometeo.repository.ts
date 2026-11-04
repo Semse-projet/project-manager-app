@@ -87,6 +87,10 @@ export class PrometeoRepository {
         // A revoked/deactivated sharing program cannot expose grants through RAG.
         if (isPrometeoDocumentSharingEnabled()) {
           permitted.push({
+            // Raw field observations are private source material, never a
+            // publication artifact. Historical grants cannot promote them
+            // to another organization's RAG without the curated consent FSM.
+            sourceType: { not: "field_observation" },
             grants: {
               some: {
                 tenantId: input.tenantId,
@@ -191,9 +195,26 @@ export class PrometeoRepository {
     }) as Promise<PrometeoChunkSearchRow[]>;
   }
 
-  async getDocumentTitles(docIds: string[]): Promise<Map<string, string>> {
-    if (!docIds.length) return new Map();
-    const docs = await this.prisma.prometeoDocument.findMany({ where: { id: { in: docIds } }, select: { id: true, title: true } });
+  /**
+   * Re-authorize document titles at read time. A chunk list acquired before
+   * revoke/flag-OFF must not authorize a subsequent unscoped title lookup.
+   * Keep the same SQL ownership/grant predicate as the original chunk query.
+   */
+  async getDocumentTitles(input: {
+    tenantId: string; docIds: string[]; projectId?: string;
+    // null is the explicit OPS_ADMIN sentinel; omission is never authorized.
+    scope: PrometeoListScopeFilter | null;
+  }): Promise<Map<string, string>> {
+    if (!Object.prototype.hasOwnProperty.call(input, "scope") || input.scope === undefined) return new Map();
+    if (!input.docIds.length) return new Map();
+    const docs = await this.prisma.prometeoDocument.findMany({
+      where: {
+        ...this.documentWhere({ tenantId: input.tenantId, projectId: input.projectId, scope: input.scope ?? undefined }),
+        id: { in: input.docIds },
+        status: "indexed",
+      },
+      select: { id: true, title: true },
+    });
     return new Map(docs.map((d: { id: string; title: string }) => [d.id, d.title]));
   }
 
