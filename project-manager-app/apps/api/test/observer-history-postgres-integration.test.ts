@@ -8,12 +8,18 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { PrismaClient } from "@prisma/client";
 
-const dbTest = process.env.DATABASE_URL ? test : test.skip;
+// Runs only in isolated CI. In CI a missing DATABASE_URL is a hard failure,
+// never a silent skip, so the regression cannot quietly stop running.
+const inCi = process.env.CI === "true";
+const dbTest = inCi
+  ? test
+  : (name: string, fn: (t: any) => Promise<void>) =>
+    test(name, { skip: "O.HI5 runs only in isolated CI (CI=true + local Postgres :5433)" }, fn);
 
-dbTest("O.HI5: PostgreSQL session and membership enforce tenant-only observer HTTP history", async () => {
+dbTest("O.HI5: PostgreSQL session and membership enforce tenant-only observer HTTP history", async (t) => {
   // A DB URL is not sufficient authorization to run this against external data.
-  assert.equal(process.env.CI, "true", "O.HI5 is restricted to isolated CI");
-  const dbUrl = new URL(process.env.DATABASE_URL!);
+  assert.ok(process.env.DATABASE_URL, "O.HI5 requires DATABASE_URL in CI; refusing to skip silently");
+  const dbUrl = new URL(process.env.DATABASE_URL);
   assert.equal(dbUrl.hostname, "127.0.0.1");
   assert.equal(dbUrl.port, "5433");
   assert.equal(dbUrl.pathname, "/semse");
@@ -118,34 +124,70 @@ dbTest("O.HI5: PostgreSQL session and membership enforce tenant-only observer HT
       return { status: res.statusCode, body: JSON.parse(res.body) };
     };
 
-    const a = await call(tokenOf(actors[0]), tenants[1].id);
-    assert.equal(a.status, 200, JSON.stringify(a.body));
-    assert.equal(a.body.data.count, 2);
-    assert.deepEqual(a.body.data.snapshots.map((s: any) => s.observedAt), ["A-1", "A-2"]);
-    assert.ok(!JSON.stringify(a.body).includes("B-private"), "B metadata cannot reach A");
-
-    const b = await call(tokenOf(actors[1]), tenants[0].id);
-    assert.equal(b.status, 200, JSON.stringify(b.body));
-    assert.equal(b.body.data.count, 1);
-    assert.deepEqual(b.body.data.snapshots.map((s: any) => s.observedAt), ["B-1"]);
-
-    const c = await call(tokenOf(actors[2]), tenants[0].id);
-    assert.equal(c.status, 200, JSON.stringify(c.body));
-    assert.equal(c.body.data.count, 0);
-    assert.deepEqual(c.body.data.snapshots, []);
-
-    assert.equal((await call()).status, 401, "No bearer must deny caller-supplied tenant");
-    assert.equal((await call(tokenOf(actors[3]))).status, 403, "WORKER cannot read ops history");
-    assert.equal((await call(tokenOf(actors[0]) + "tampered")).status, 401);
-
-    await prisma.authSession.update({ where: { id: actors[0].sid }, data: { status: "REVOKED", revokedAt: new Date() } });
-    assert.equal((await call(tokenOf(actors[0]))).status, 401, "Revoked session must fail next request");
-
-    await prisma.membership.update({
-      where: { userId_orgId_roleId: { userId: actors[1].userId, orgId: actors[1].orgId, roleId: roles.OPS_ADMIN! } },
-      data: { status: "SUSPENDED" },
+    // Read-only cases first; the state-mutating cases at the end are ordered
+    // on purpose and each mutates a different actor's rows.
+    await t.test("tenant A sees only its snapshots despite a forged tenant header", async () => {
+      const a = await call(tokenOf(actors[0]), tenants[1].id);
+      assert.equal(a.status, 200, JSON.stringify(a.body));
+      assert.equal(a.body.data.count, 2);
+      assert.deepEqual(a.body.data.snapshots.map((s: any) => s.observedAt), ["A-1", "A-2"]);
+      const raw = JSON.stringify(a.body);
+      for (const leaked of ["B-1", "B-private", "B-only", "888"]) {
+        assert.ok(!raw.includes(leaked), "B metadata reached A: " + leaked);
+      }
     });
-    assert.equal((await call(tokenOf(actors[1]))).status, 401, "Suspended membership must fail next request");
+
+    await t.test("tenant B sees only its snapshot", async () => {
+      const b = await call(tokenOf(actors[1]), tenants[0].id);
+      assert.equal(b.status, 200, JSON.stringify(b.body));
+      assert.equal(b.body.data.count, 1);
+      assert.deepEqual(b.body.data.snapshots.map((s: any) => s.observedAt), ["B-1"]);
+    });
+
+    await t.test("tenant C with no history gets an empty list", async () => {
+      const c = await call(tokenOf(actors[2]), tenants[0].id);
+      assert.equal(c.status, 200, JSON.stringify(c.body));
+      assert.equal(c.body.data.count, 0);
+      assert.deepEqual(c.body.data.snapshots, []);
+    });
+
+    await t.test("no bearer denies a caller-supplied tenant (401)", async () => {
+      assert.equal((await call(undefined, tenants[0].id)).status, 401);
+    });
+
+    await t.test("WORKER cannot read ops history (403)", async () => {
+      assert.equal((await call(tokenOf(actors[3]))).status, 403);
+    });
+
+    await t.test("tampered signature is rejected (401)", async () => {
+      assert.equal((await call(tokenOf(actors[0]) + "tampered")).status, 401);
+    });
+
+    await t.test("token for tenant B bound to tenant A's stored session is rejected (401)", async () => {
+      const crossTenant = signToken({
+        userId: actors[0].userId, tenantId: tenants[1].id, orgId: actors[0].orgId,
+        roles: ["OPS_ADMIN"], sid: actors[0].sid, typ: "access",
+      }, secret, 120);
+      assert.equal((await call(crossTenant)).status, 401);
+    });
+
+    await t.test("expired access window in PostgreSQL fails the next request (401)", async () => {
+      await prisma.authSession.update({ where: { id: actors[2].sid }, data: { accessExpiresAt: new Date(Date.now() - 1_000) } });
+      assert.equal((await call(tokenOf(actors[2]))).status, 401);
+    });
+
+    await t.test("revoked session in PostgreSQL fails the next request (401)", async () => {
+      await prisma.authSession.update({ where: { id: actors[0].sid }, data: { status: "REVOKED", revokedAt: new Date() } });
+      assert.equal((await call(tokenOf(actors[0]))).status, 401);
+    });
+
+    await t.test("suspended membership in PostgreSQL fails the next request (401)", async () => {
+      await prisma.membership.update({
+        where: { userId_orgId_roleId: { userId: actors[1].userId, orgId: actors[1].orgId, roleId: roles.OPS_ADMIN! } },
+        data: { status: "SUSPENDED" },
+      });
+      assert.equal((await call(tokenOf(actors[1]))).status, 401);
+    });
   } finally {
     if (app) await app.close();
     try {
