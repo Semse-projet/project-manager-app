@@ -95,7 +95,8 @@ dbTest("O.HI5: PostgreSQL session and membership enforce tenant-only observer HT
         ? {
             getHistory: (tenantId: string) => store.getHistory(tenantId),
             getLatest: (tenantId: string) => store.getLatest(tenantId),
-            canRetainHistory: (tenantId: string) => store.canRetain(tenantId),
+            tryReserveHistory: (tenantId: string) => store.tryReserve(tenantId),
+            releaseHistoryReservation: (tenantId: string) => store.releaseReservation(tenantId),
             observe: async (tenantId: string) => {
               observationCalls++;
               return { ...history[0]!, tenantId, observedAt: tenantId + "-fresh" };
