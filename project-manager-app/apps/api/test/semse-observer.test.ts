@@ -515,6 +515,61 @@ test("O.HI10: concurrent latest requests reserve the sole tenant slot atomically
   assert.equal(retryStore.canRetain("A"), true);
 });
 
+test("O.HI11: failed latest observation releases its reserved slot after TTL elapses", async () => {
+  type Item = { tenantId: string; observedAt: string; healthScore: number; alerts: unknown[] };
+  let now = 0;
+  const store = new TenantObservationHistory<Item>({
+    maxTenants: 1, idleTtlMs: 100, now: () => now,
+  });
+  let releaseFailure!: () => void;
+  const failureGate = new Promise<void>((resolve) => { releaseFailure = resolve; });
+  let expensiveCalls = 0;
+  const controller = Object.create(OpsController.prototype) as {
+    observer: { getLatest: (id: string) => Item | null; tryReserveHistory: (id: string) => boolean;
+      releaseHistoryReservation: (id: string) => void; observe: (id: string) => Promise<Item> };
+    observerLatest: (req: Record<string, unknown>) => Promise<{ data: Item & { fromCache: boolean } }>;
+  };
+  controller.observer = {
+    getLatest: (id) => store.getLatest(id),
+    tryReserveHistory: (id) => store.tryReserve(id),
+    releaseHistoryReservation: (id) => store.releaseReservation(id),
+    observe: async (id) => {
+      expensiveCalls++;
+      if (id === "A") {
+        await failureGate;
+        throw new Error("synthetic observation failure");
+      }
+      const snapshot = { tenantId: id, observedAt: id + "-1", healthScore: 100, alerts: [] };
+      assert.equal(store.append(snapshot), true);
+      return snapshot;
+    },
+  };
+  const req = (id: string) => ({
+    authContext: { tenantId: id, orgId: "org", userId: "user", roles: ["OPS_ADMIN"] },
+    headers: { "x-tenant-id": id === "A" ? "B" : "A" },
+  });
+
+  const first = controller.observerLatest(req("A"));
+  now = 150; // Past idle TTL: the in-flight A reservation must not expire.
+  assert.deepEqual(store.getHistory("B"), [], "pruning must retain A while A is in-flight");
+  await assert.rejects(controller.observerLatest(req("B")), (error: any) =>
+    error?.getStatus?.() === 503 &&
+    error?.getResponse?.()?.code === "OBSERVER_HISTORY_CAPACITY_EXHAUSTED");
+  assert.equal(expensiveCalls, 1, "B cannot start expensive work before A finishes");
+
+  releaseFailure();
+  await assert.rejects(first, /synthetic observation failure/,
+    "the controller must propagate A's observation failure");
+  assert.deepEqual(store.getHistory("A"), [], "finally must release A's empty reservation");
+  assert.equal(store.canRetain("B"), true, "a failed observation must free capacity");
+  const recovered = await controller.observerLatest(req("B"));
+  assert.equal(recovered.data.tenantId, "B");
+  assert.equal(recovered.data.fromCache, false);
+  assert.equal(expensiveCalls, 2);
+  assert.equal(store.getLatest("B")?.observedAt, "B-1");
+  assert.equal(store.canRetain("A"), false, "B's retained snapshot now occupies the only slot");
+});
+
 // ── Intelligence health tests ─────────────────────────────────────────────────
 
 test("O.I1: fallbackRate es 0 cuando no hay llamadas LLM", () => {
