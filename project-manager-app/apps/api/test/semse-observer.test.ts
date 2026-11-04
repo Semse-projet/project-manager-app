@@ -433,6 +433,36 @@ test("O.HI8: tenant-scoped controller history and latest ignore other tenants", 
   assert.equal((await controller.observerHistory(req("C", "A"))).data.count, 0);
 });
 
+test("O.HI9: asynchronous observations keep start order despite reverse completion", async () => {
+  type Item = { tenantId: string; observedAt: string };
+  const store = new TenantObservationHistory<Item>({ maxSnapshotsPerTenant: 2 });
+  let releaseSlow!: () => void;
+  const slowGate = new Promise<void>((resolve) => { releaseSlow = resolve; });
+
+  // A-older starts first but finishes after A-newer and B.
+  const slowSequence = store.reserveSequence();
+  const slowTask = (async () => {
+    await slowGate;
+    return store.append({ tenantId: "A", observedAt: "A-older" }, slowSequence);
+  })();
+  const freshSequence = store.reserveSequence();
+  assert.equal(store.append({ tenantId: "B", observedAt: "B-only" }), true);
+  assert.equal(store.append({ tenantId: "A", observedAt: "A-newer" }, freshSequence), true);
+  assert.equal(store.getLatest("A")?.observedAt, "A-newer");
+
+  releaseSlow();
+  assert.equal(await slowTask, true);
+  assert.deepEqual(store.getHistory("A").map((item) => item.observedAt), ["A-older", "A-newer"]);
+  assert.equal(store.getLatest("A")?.observedAt, "A-newer",
+    "late completion cannot replace the newest started observation");
+  assert.deepEqual(store.getHistory("B").map((item) => item.observedAt), ["B-only"]);
+
+  // Retention evicts the oldest started observation, not the newest one.
+  assert.equal(store.append({ tenantId: "A", observedAt: "A-latest" }), true);
+  assert.deepEqual(store.getHistory("A").map((item) => item.observedAt), ["A-newer", "A-latest"]);
+  assert.equal(store.getLatest("A")?.observedAt, "A-latest");
+});
+
 // ── Intelligence health tests ─────────────────────────────────────────────────
 
 test("O.I1: fallbackRate es 0 cuando no hay llamadas LLM", () => {
