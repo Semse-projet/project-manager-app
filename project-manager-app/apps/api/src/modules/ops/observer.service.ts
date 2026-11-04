@@ -157,6 +157,17 @@ export class TenantObservationHistory<T extends { tenantId: string }> {
     return true;
   }
 
+  /**
+   * Capacity check for an uncached tenant: fail before expensive observation
+   * rather than repeatedly computing a snapshot that cannot be retained.
+   * The same idle-bucket pruning policy applies to append().
+   */
+  canRetain(tenantId: string): boolean {
+    this.assertTenant(tenantId);
+    this.pruneIdle(this.now());
+    return this.buckets.has(tenantId) || this.buckets.size < this.maxTenants;
+  }
+
   getHistory(tenantId: string): T[] {
     this.assertTenant(tenantId);
     const timestamp = this.now();
@@ -288,6 +299,10 @@ export class SystemObserverService {
       highFriction24h: high24h,
       topFrictionRoute: top?.route ?? null,
     };
+  }
+
+  canRetainHistory(tenantId: string): boolean {
+    return this.history.canRetain(tenantId);
   }
 
   getHistory(tenantId: string): ObservationSnapshot[] {
