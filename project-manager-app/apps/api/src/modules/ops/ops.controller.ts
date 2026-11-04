@@ -543,15 +543,20 @@ export class OpsController {
       // An unadmitted tenant cannot retain the result. Do not repeatedly
       // execute expensive Prisma/LLM observations on every latest request.
       // Existing tenants retain access, and the cache may recover after TTL.
-      if (!this.observer.canRetainHistory(ctx.tenantId)) {
+      if (!this.observer.tryReserveHistory(ctx.tenantId)) {
         throw new ServiceUnavailableException({
           code: "OBSERVER_HISTORY_CAPACITY_EXHAUSTED",
           message: "Observer snapshot cache is temporarily at capacity",
         });
       }
-      // No cached snapshot and history capacity is available.
-      const snapshot = await this.observer.observe(ctx.tenantId);
-      return ok(requestId, { ...snapshot, fromCache: false });
+      // The bucket slot is reserved synchronously before any async work.
+      // Always release it, including after a failed observation.
+      try {
+        const snapshot = await this.observer.observe(ctx.tenantId);
+        return ok(requestId, { ...snapshot, fromCache: false });
+      } finally {
+        this.observer.releaseHistoryReservation(ctx.tenantId);
+      }
     }
     return ok(requestId, { ...latest, fromCache: true });
   }
