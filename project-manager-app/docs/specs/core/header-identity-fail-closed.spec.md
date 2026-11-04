@@ -385,6 +385,13 @@ No aplica. El BFF web no cambia en producción (ya usa bearer).
   runner no lo hace en modo integración.
 - **Worker:** sólo cambió el texto de un log de advertencia; no hay cambio de
   lógica.
+- **CI (autorizado por el owner el 2026-11-04):** `api-integration.yml` y
+  `api-smoke.yml` arrancan una API de prueba sin `AUTH_SECRET` cuyos smoke
+  tests autentican por cabeceras. Fallaban con 503 en el job `integration`. Ese
+  `pnpm start:api` declara ahora `NODE_ENV=test SEMSE_ALLOW_HEADER_IDENTITY=true`.
+  No cambia ningún otro paso, secreto ni Railway. Reproducido en local:
+  `api-integration.mjs` falla con 503 sin el opt-in, y tanto él como
+  `api-f01-bids-integration.mjs` pasan con el opt-in.
 - **`GET /v1/operational-intelligence/brief`:** es el séptimo handler, que no
   estaba en la versión 0.1 del spec. También usa el contexto verificado.
 

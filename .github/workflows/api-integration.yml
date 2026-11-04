@@ -100,7 +100,9 @@ jobs:
 
       - name: Start API
         run: |
-          pnpm start:api > /tmp/semse-api-integration.log 2>&1 &
+          # Header-identity test API (no AUTH_SECRET): explicit local opt-in per
+          # core.header-identity-fail-closed. Ephemeral runner only, never Railway.
+          NODE_ENV=test SEMSE_ALLOW_HEADER_IDENTITY=true pnpm start:api > /tmp/semse-api-integration.log 2>&1 &
           echo $! > /tmp/semse-api-integration.pid
 
       - name: Wait for healthcheck
