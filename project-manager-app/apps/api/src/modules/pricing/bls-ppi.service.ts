@@ -84,16 +84,26 @@ export class BlsPpiService {
         return result;
       }
 
+      // Do not assume API ordering or accept annual, malformed, future or
+      // stale periods as a current observation. An old positive PPI must not
+      // refresh the TTL of a price snapshot.
+      const now = new Date();
+      const currentMonth = now.getUTCFullYear() * 12 + now.getUTCMonth();
+      const requested = new Set(unique);
       for (const series of data.Results.series) {
-        // BLS returns data in reverse chronological order; skip the annual-average pseudo-period.
-        const monthly = series.data.filter(d => d.period !== "M13");
+        if (!requested.has(series.seriesID) || !Array.isArray(series.data)) continue;
+        const monthly = series.data
+          .filter(d => /^M(0[1-9]|1[0-2])$/.test(d.period) && /^\d{4}$/.test(d.year))
+          .map(d => ({
+            ...d,
+            month: Number(d.year) * 12 + Number(d.period.slice(1)) - 1,
+          }))
+          .filter(d => d.month <= currentMonth && d.month >= currentMonth - 18)
+          .sort((a, b) => b.month - a.month);
         const latest = monthly[0];
         if (!latest) continue;
 
-        const yearAgo = monthly.find(
-          d => d.period === latest.period && d.year === String(Number(latest.year) - 1)
-        );
-
+        const yearAgo = monthly.find(d => d.month === latest.month - 12);
         result.set(series.seriesID, {
           // Number() rejects trailing junk that parseFloat() would silently
           // accept (e.g. "126invalid"). Non-finite values fail closed later.
