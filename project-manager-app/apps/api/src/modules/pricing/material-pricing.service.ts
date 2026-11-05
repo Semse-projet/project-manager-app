@@ -53,6 +53,20 @@ export class MaterialPricingService {
       const validUntil = new Date(Date.now() + CACHE_TTL_MS);
 
       for (const r of results) {
+        // T-008b: never label an unavailable or invalid BLS observation as
+        // a refreshed BLS_PPI snapshot. This checks INDEX provenance only:
+        // the old pricePerUnit = basePrice * index / 100 formula remains
+        // commercially unverified and is handled separately in T-008.
+        if (
+          r.indexOrigin !== "BLS_OBSERVED" ||
+          !Number.isFinite(r.indexValue) || r.indexValue <= 0 ||
+          !Number.isFinite(r.pricePerUnit) || r.pricePerUnit <= 0
+        ) {
+          failed++;
+          this.logger.warn(`Skipping unverified BLS index for ${r.materialKey}; preserving existing snapshot`);
+          continue;
+        }
+
         try {
           await this.prisma.materialPriceSnapshot.upsert({
             where: { materialKey: r.materialKey },
