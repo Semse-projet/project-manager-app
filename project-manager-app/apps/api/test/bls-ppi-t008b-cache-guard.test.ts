@@ -213,3 +213,30 @@ test("T-008b: annual, malformed, future and stale BLS periods cannot refresh cac
     assert.equal(writes.length, 0);
   });
 });
+
+for (const prior of ["bad-index", "Infinity", "0", "-20", "0.000000000001"]) {
+  test(`T-008b: invalid year-ago BLS reading ${prior} yields null YoY without poisoning valid observed index`, async () => {
+    const now = new Date();
+    const month = `M${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
+    const observed = BLS_SERIES.filter(x => x.seriesId === "WPU081");
+    const { prisma, writes } = prismaCapture();
+    await withFetch((async () => mockBls([{
+      seriesID: "WPU081",
+      data: [
+        { year: String(now.getUTCFullYear()), period: month, value: "126" },
+        { year: String(now.getUTCFullYear() - 1), period: month, value: prior },
+      ],
+    }])) as typeof fetch, async () => {
+      const values = await new BlsPpiService().fetchAllMaterialPrices();
+      const target = values.find(x => x.materialKey === "lumber-framing");
+      assert.equal(target?.indexOrigin, "BLS_OBSERVED");
+      assert.equal(target?.changeYoY, null);
+      const refreshed = await new MaterialPricingService(prisma, new BlsPpiService()).refreshPrices();
+      assert.deepEqual(refreshed, {
+        updated: observed.length,
+        failed: BLS_SERIES.length - observed.length,
+      });
+      assert.ok(writes.every(w => Number.isFinite(w.create.indexValue)));
+    });
+  });
+}
