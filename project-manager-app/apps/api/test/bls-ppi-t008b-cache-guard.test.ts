@@ -1,10 +1,12 @@
 // T-008b hardening tests: BLS index provenance before writing material-price snapshots.
 // The index may be observed while the legacy index/100 unit price is NOT commercially validated.
 // This PR must remain a draft; no market price, tax, migration or deployment approval.
+import "reflect-metadata";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { BlsPpiService, BLS_SERIES } from "../dist/modules/pricing/bls-ppi.service.js";
 import { MaterialPricingService } from "../dist/modules/pricing/material-pricing.service.js";
+import { PricingController } from "../dist/modules/pricing/pricing.controller.js";
 
 type Write = { where: { materialKey: string }; create: { materialKey: string; source: string; pricePerUnit: number; indexValue: number; validUntil: Date }; update: { pricePerUnit: number; indexValue: number; validUntil: Date } };
 
@@ -105,4 +107,68 @@ test("T-008b: positive index is tagged as observed; fallback is not certified", 
     assert.equal(results.find(r => r.materialKey === "lumber-framing")?.indexOrigin, "BLS_OBSERVED");
     assert.equal(results.find(r => r.materialKey === "steel-rebar")?.indexOrigin, "UNVERIFIED_FALLBACK");
   });
+});
+
+test("T-008b: empty cache reports hardcoded values as UNVERIFIED, not BLS PPI", async () => {
+  const prisma = {
+    materialPriceSnapshot: { findMany: async () => [] },
+  } as unknown as ConstructorParameters<typeof MaterialPricingService>[0];
+  const service = new MaterialPricingService(prisma, new BlsPpiService());
+  const details = await service.getCurrentPricesWithProvenance();
+  assert.equal(details.source, "HARDCODED_FALLBACK_UNVERIFIED");
+  assert.equal(Object.keys(details.prices).length, BLS_SERIES.length);
+  assert.equal(details.prices["lumber-framing"], 0.65);
+  assert.equal(details.provenance["lumber-framing"]?.origin, "HARDCODED_FALLBACK");
+  assert.equal(details.provenance["lumber-framing"]?.verification, "UNVERIFIED");
+  assert.equal(details.provenance["lumber-framing"]?.recordedSource, null);
+
+  const controller = new PricingController(service, {} as ConstructorParameters<typeof PricingController>[1]);
+  const response = await controller.getMaterialPrices({ headers: {} });
+  assert.equal(response.data.source, "HARDCODED_FALLBACK_UNVERIFIED");
+  assert.deepEqual(response.data.prices, details.prices);
+});
+
+test("T-008b: legacy BLS cache row remains UNVERIFIED even with valid TTL", async () => {
+  const fetchedAt = new Date("2026-10-31T12:00:00Z");
+  const validUntil = new Date(Date.now() + 60_000);
+  const prisma = {
+    materialPriceSnapshot: {
+      findMany: async () => [{
+        materialKey: "lumber-framing",
+        pricePerUnit: 1.11,
+        source: "BLS_PPI",
+        fetchedAt, validUntil,
+      }],
+    },
+  } as unknown as ConstructorParameters<typeof MaterialPricingService>[0];
+  const service = new MaterialPricingService(prisma, new BlsPpiService());
+  const details = await service.getCurrentPricesWithProvenance();
+  assert.equal(details.source, "LEGACY_CACHE_UNVERIFIED");
+  assert.equal(details.prices["lumber-framing"], 1.11);
+  assert.equal(details.provenance["lumber-framing"]?.recordedSource, "BLS_PPI");
+  assert.equal(details.provenance["lumber-framing"]?.verification, "UNVERIFIED");
+  assert.equal(details.provenance["lumber-framing"]?.origin, "LEGACY_CACHE");
+  assert.equal(details.provenance["lumber-framing"]?.fetchedAt, fetchedAt.toISOString());
+  assert.equal(details.provenance["lumber-framing"]?.validUntil, validUntil.toISOString());
+  assert.deepEqual(await service.getCurrentPrices(), details.prices);
+});
+
+test("T-008b: partial cache does not fabricate cached observations for missing materials", async () => {
+  const prisma = {
+    materialPriceSnapshot: {
+      findMany: async () => [{
+        materialKey: "steel-rebar",
+        pricePerUnit: 90,
+        source: "MANUAL",
+        fetchedAt: new Date("2026-10-31T00:00:00Z"),
+        validUntil: new Date(Date.now() + 60_000),
+      }],
+    },
+  } as unknown as ConstructorParameters<typeof MaterialPricingService>[0];
+  const details = await new MaterialPricingService(prisma, new BlsPpiService()).getCurrentPricesWithProvenance();
+  assert.equal(details.prices["steel-rebar"], 90);
+  assert.equal(details.prices["lumber-framing"], undefined);
+  assert.equal(details.provenance["steel-rebar"]?.recordedSource, "MANUAL");
+  assert.equal(details.provenance["steel-rebar"]?.verification, "UNVERIFIED");
+  assert.equal(details.provenance["lumber-framing"], undefined);
 });
