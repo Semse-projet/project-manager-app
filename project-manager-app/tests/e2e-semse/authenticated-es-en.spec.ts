@@ -69,19 +69,30 @@ function credentials(role: Role) {
   };
 }
 
+// The only prerequisite we skip for: the API behind the BFF is not running. The
+// BFF answers 401 for any login error, API down included, so it is probed directly.
+const API_BASE = (process.env.SEMSE_API_BASE_URL ?? "http://127.0.0.1:4000").replace(/\/+$/, "");
+let apiUp: boolean | undefined;
+async function apiReachable(page: Page): Promise<boolean> {
+  if (apiUp === undefined) {
+    apiUp = await page.request.get(`${API_BASE}/v1/health`, { timeout: 5_000 }).then((res) => res.ok(), () => false);
+  }
+  return apiUp;
+}
+
 // Logs in through the real form (works whether or not the demo presets are shown).
-async function login(page: Page, role: Role): Promise<boolean> {
+// With the API up, a login that does not leave /login is a failure, not a skip.
+async function login(page: Page, role: Role, label: string) {
+  test.skip(!(await apiReachable(page)), `API no disponible en ${API_BASE}/v1/health: levanta el stack local (docs/semse-kit/local-stack.md)`);
   const { email, password } = credentials(role);
   await page.goto("/login");
   await page.locator("#login-email").fill(email);
   await page.locator("#login-password").fill(password);
+  const answer = page.waitForResponse((res) => res.url().includes("/api/semse/auth/token"), { timeout: 30_000 });
   await page.locator('form button[type="submit"]').click();
-  try {
-    await page.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 30_000 });
-    return true;
-  } catch {
-    return false;
-  }
+  const status = (await answer).status();
+  expect(status, `login de ${label}: ¿semilla aplicada o SEMSE_E2E_${role.toUpperCase()}_* correctas?`).toBe(200);
+  await page.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 30_000 });
 }
 
 // Already-reported defects: reported as annotations instead of failing the
@@ -128,8 +139,7 @@ async function expectLanguage(page: Page, lang: Lang, where: string) {
 for (const { role, label, extraRoute } of ROLES) {
   test(`${label}: ES y EN coherentes en el panel y en ${extraRoute}`, async ({ page }) => {
     const bff = watchBff(page);
-    const ok = await login(page, role);
-    test.skip(!ok, `login de ${label} no disponible: ¿API en :4000, semilla aplicada o SEMSE_E2E_${role.toUpperCase()}_* definidas?`);
+    await login(page, role, label);
 
     await page.evaluate(() => window.localStorage.setItem("semse-language", "es"));
     for (const route of [page.url(), extraRoute]) {
