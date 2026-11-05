@@ -52,3 +52,7 @@ El cambio mínimo que cumple AA, sin salir de la misma gama:
 1. **Botones con estilos en línea.** Hay botones que no usan `.btn-primary`: por ejemplo, el degradado `linear-gradient(135deg, var(--brand), var(--violet))` con texto blanco del login. Siguen por debajo de 4.5:1 en el tema oscuro. Cambiarlos uno a uno es un barrido aparte.
 2. **Fallbacks antiguos.** Hay unos 34 `var(--faint, #4b6280)` y similares con el valor viejo como fallback. Sólo se usan si la variable no existe, así que no se ven; se pueden actualizar en un barrido.
 3. **Herramienta del kit.** Cuando se fusionen #1020 y este PR, conviene que `PAIRS` de `semse-tokens.mjs` mida los botones sobre `brandFill`/`accentFill`, y regenerar `contrast-baseline.md`.
+
+## Actualización (2026-11-05): kit de calidad alineado
+
+Con el kit ya en `main` (#1020, #1022), la herramienta de contraste comprueba que `colors.ts` y `globals.css` coinciden (sin diferencias en esta rama) y ahora mide el texto blanco de los botones sobre `brandFill`/`accentFill`, donde realmente se pinta. Resultado: 20/20 pares AA en los dos temas. `docs/semse-kit/contrast-baseline.md` pasa a 0 fallos y conserva la medición anterior como historial; desde aquí el gate bloquea cualquier par por debajo de AA.
