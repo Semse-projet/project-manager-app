@@ -63,6 +63,19 @@ test("T-008 diagnostic: material metadata lacks price date and base-period index
   // This is evidence of missing provenance, not evidence that 0.65 USD is a market price.
 });
 
+test("T-008 diagnostic: negative BLS index is not rejected and yields a negative material price", async () => {
+  // Invalid external data must become an error/degraded state in the eventual implementation.
+  // This deliberately confirms the current unsafe path without approving its behavior.
+  await withSyntheticBlsIndex(-12, async () => {
+    const service = new BlsPpiService();
+    const prices = await service.fetchAllMaterialPrices();
+    const actual = prices.find((s) => s.materialKey === material.materialKey);
+    assert.ok(actual);
+    assert.equal(actual.indexValue, -12);
+    assert.equal(actual.pricePerUnit, -0.08);
+  });
+});
+
 test("T-008 diagnostic: unavailable BLS series silently returns unverified hardcoded base price", async () => {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (async () => { throw new TypeError("synthetic network failure"); }) as typeof fetch;
