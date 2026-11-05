@@ -544,10 +544,9 @@ El replay jamás recalcula usando `getCurrentPrices()` o mapeos vigentes: recons
 - **Q6** márgenes privados, matriz de visibilidad aplicada en el servidor (§3).
 - **Q8** esta spec es la rectora; #1074 pasa a `SUPERSEDED` tras tu confirmación (§2).
 
-### Pendientes (bloquean `APPROVED`; criterios medibles y validación profesional)
+### Diseño seleccionado, validación comercial/fiscal pendiente (bloquea `APPROVED`)
 
-Cada una tiene un expediente de decisión (alternativas, evidencia, criterios, responsable) en
-`docs/specs/api/cost-engine.decisions.md`; ninguno está decidido. Prioridad: Q9 y Q11, luego Q10, y después Q2, Q3, Q5 y Q7.
+Las **alternativas de diseño** Q9/Q11/Q10/Q2/Q3/Q5/Q7 ya se seleccionaron, con escenarios y fuentes oficiales, en [política comercial y fiscal 2026-11-05](./cost-engine.commercial-fiscal-policy-2026-11-05.md). El estado de **aceptación profesional** de esos expedientes sigue pendiente en `cost-engine.decisions.md`; no se aprobó ninguna nueva tasa, margen, uso de datos propietarios, jurisdicción ni estimado contractual. Prioridad: Q9 y Q11, luego Q10, y después Q2, Q3, Q5 y Q7.
 
 - **Q2** criterio de calibración de confianza: qué evidencia retrospectiva (estimado vs. costo observado) y por qué oficio/región/complejidad.
 - **Q3** valores por defecto y límites del registro de parámetros.
@@ -566,7 +565,7 @@ Cada una tiene un expediente de decisión (alternativas, evidencia, criterios, r
   no debe incorporar datos propietarios de RSMeans a un motor SaaS sin comprobar que tiene derechos suficientes; puede usar
   datos de fuentes autorizadas y estimaciones propias, pero no debe asumir que una suscripción de usuario permite
   redistribución comercial (Q11).
-- **Fiscalidad de Florida** *(citado por el owner)*: la guía vigente del Departamento de Ingresos distingue los contratos de
+- **Fiscalidad de Florida** *(revisado en la fuente oficial GT-800007 R.08/22; [política comercial y fiscal 2026-11-05](./cost-engine.commercial-fiscal-policy-2026-11-05.md))*: la guía del Departamento de Ingresos distingue los contratos de
   mejora de inmuebles (precio global, costo más honorarios, tiempo y materiales) de los de venta minorista con instalación;
   en los primeros, en general el contratista paga el impuesto sobre materiales y no lo cobra al propietario como línea
   aparte. Respalda quitar el 7 % universal, **pero no certifica una `TaxPolicy` lista para producción**: Q10 sigue exigiendo
@@ -578,7 +577,17 @@ Cada una tiene un expediente de decisión (alternativas, evidencia, criterios, r
   deben distinguir cuadrilla, desperdicio, acceso, transporte y preparación; la exactitud debe medirse
   retrospectivamente. Fuentes a consultar: BLS OEWS y PPI, RSMeans, AACE International (clasificación de estimados),
   NIST AC-5/AC-3(2) y OWASP para la separación de funciones.
-- Aplicado ahora: nada. Backlog: migrar ProTools, Prometeo, cotizaciones y órdenes de cambio. Descartado: reescribir los motores.
+- **Decisiones aplicadas a documentación de diseño:** [política comercial y fiscal 2026-11-05](./cost-engine.commercial-fiscal-policy-2026-11-05.md). **Cambios aplicados al cálculo, impuestos, importes o clientes: ninguno.** Backlog: migrar ProTools, Prometeo, cotizaciones y órdenes de cambio. Descartado: reescribir los motores.
+
+
+### Contrato comercial/fiscal seleccionado (para fases futuras, NO disponible en producción)
+
+- **Composición de costo vs. impuesto a cliente**: el impuesto sobre compra/uso de materiales que corresponde al contratista (incluido en factura o devengado y documentado) es un **componente de costo interno**; un eventual `customerSalesTax` se calcula **separadamente** según clasificación de contrato y política revisada. Prohibido sumar al total al cliente un porcentaje general sobre materiales + labor + márgenes + fee y a la vez cargar el mismo impuesto de materiales por segunda vez.
+- **Modo preliminar**: sin clasificación de propiedad, tipo de contrato, lugar/condado, impuestos previos y `TaxPolicy` vigente revisada, exponer `taxStatus: UNDETERMINED`, `customerTaxAmount: null` y subtotal con aviso de impuestos por determinar. `null` **no** significa `0`; un total contractual `tax included` está prohibido sin política aplicable.
+- **Pilotos fiscales**: Florida y Georgia **para revisión por profesional fiscal**, sin habilitar reglas de cotización automática. La guía FL distingue mejora de inmueble de retail sale plus installation; GA considera contratistas consumidores de materiales para trabajos sobre inmuebles. No extrapolar al país entero ni confundir retención de 1099, impuesto sobre ingresos, sales/use tax y comisión del marketplace.
+- **Fuentes**: precios observados por SKU/unidad/condado/fecha/permiso; BLS PPI únicamente como índice de variación, OEWS solo referencia de salarios (sin beneficios ni tarifas comerciales); multiplicadores atribuidos a RSMeans restringidos hasta revisión de licencia y procedencia. Precio sin fuente o licencia `UNVERIFIED`: no promoverlo a comercial.
+- **Pilotos comerciales Q9**: pintura interior y drywall solo con mapeos revisados por especialistas y conjuntos de casos con mediciones reales; otros oficios permanecen preliminares y transparentan campos desconocidos.
+- **Prohibiciones de activación**: sin Q9/Q10/Q11/T-005 documentados y firmados, sin revisión financiera de Q3, sin calibración Q2 y sin pruebas de Q5/Q7 no se habilita cita automática, precio final, impuestos o pagos por IA. El CI exitoso no sustituye estos requisitos.
 
 ## 12. Gates de cierre
 
