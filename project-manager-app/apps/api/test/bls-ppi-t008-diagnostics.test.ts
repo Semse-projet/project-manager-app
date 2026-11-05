@@ -113,6 +113,62 @@ test("T-008 diagnostic: a BLS outage is persisted as a fresh BLS_PPI snapshot", 
   }
 });
 
+test("T-008 diagnostic: partial BLS response marks absent series as successful cache updates", async () => {
+  const writes: Record<string, unknown>[] = [];
+  const prisma = {
+    materialPriceSnapshot: {
+      upsert: async (payload: Record<string, unknown>) => {
+        writes.push(payload);
+        return payload;
+      },
+    },
+  } as unknown as ConstructorParameters<typeof MaterialPricingService>[0];
+
+  // Only WPU081 is returned; other material series were not observed.
+  await withSyntheticBlsIndex(126, async () => {
+    const service = new MaterialPricingService(prisma, new BlsPpiService());
+    const outcome = await service.refreshPrices();
+    assert.deepEqual(outcome, { updated: BLS_SERIES.length, failed: 0 });
+    assert.equal(writes.length, BLS_SERIES.length);
+
+    const steel = writes.find((write) => (write.create as { materialKey: string }).materialKey === "steel-rebar");
+    assert.ok(steel);
+    const created = steel.create as { source: string; indexValue: number; pricePerUnit: number; validUntil: Date };
+    assert.equal(created.source, "BLS_PPI");
+    assert.equal(created.indexValue, 100); // manufactured for a series ABSENT from this response
+    assert.equal(created.pricePerUnit, BLS_SERIES.find((x) => x.materialKey === "steel-rebar")!.basePrice);
+    assert.ok(created.validUntil > new Date()); // fallback receives a fresh TTL
+  });
+});
+
+test("T-008 diagnostic: failed BLS fetch overwrites existing snapshot fields with invented fallback", async () => {
+  const writes: Record<string, unknown>[] = [];
+  const prisma = {
+    materialPriceSnapshot: {
+      upsert: async (payload: Record<string, unknown>) => {
+        writes.push(payload);
+        return payload;
+      },
+    },
+  } as unknown as ConstructorParameters<typeof MaterialPricingService>[0];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async () => { throw new TypeError("synthetic total outage"); }) as typeof fetch;
+  try {
+    const service = new MaterialPricingService(prisma, new BlsPpiService());
+    await service.refreshPrices();
+    const row = writes.find((p) => (p.where as { materialKey: string }).materialKey === "lumber-framing");
+    assert.ok(row);
+    const updated = row.update as { pricePerUnit: number; indexValue: number; validUntil: Date };
+    assert.equal(updated.indexValue, 100);
+    assert.equal(updated.pricePerUnit, material.basePrice);
+    assert.ok(updated.validUntil > new Date());
+    // A real DB row's historical verified fields would be replaced by the update clause.
+    // No real DB was contacted; this test inspects the Prisma upsert payload only.
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("T-008 diagnostic: unavailable BLS series silently returns unverified hardcoded base price", async () => {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (async () => { throw new TypeError("synthetic network failure"); }) as typeof fetch;
