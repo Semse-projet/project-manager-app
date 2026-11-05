@@ -45,6 +45,8 @@ date: "2026-10-30"
 
 - [ ] [T-008b] **Integridad del snapshot PPI [#1100](https://github.com/Semse-projet/project-manager-app/issues/1100):** fallos de BLS y fallback hardcoded no crean ni renuevan observaciones con `source=BLS_PPI` verificada; índices ausentes/no válidos no producen precios ni expiraciones aparentes. Diagnóstico de persistencia sin DB real incluido en [#1099](https://github.com/Semse-projet/project-manager-app/pull/1099); implementación solo tras `APPROVED`, con smoke de consumidores y rollback.
 
+- [ ] [T-008c] **Auditoría de caché PPI actual (solo lectura; PENDIENTE):** ejecutar con rol PostgreSQL de solo lectura el [SQL agregado](../../reportes/COST_ENGINE_T008_SNAPSHOT_READONLY_AUDIT.sql) siguiendo el [protocolo](../../reportes/COST_ENGINE_T008_SNAPSHOT_READONLY_AUDIT.md). Distinguir indicios de fallback de evidencia de corrupción; no inferir historial por `MaterialPriceSnapshot` actual, ni cambiar datos/servicios. Q11 y revisión de datos siguen OPEN.
+
 ## Fase 1 — Servicio y registro
 
 - [ ] [T-010] Tests rojos del resolvedor por capas, límites y capas reservadas
