@@ -13,6 +13,7 @@ import type { JobRecordView } from "@semse/schemas";
 import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
 import { useLanguage } from "../../../../lib/language-context";
+import { messageKey, messageTextOr, renderMessage, type UiMessage } from "../../../../lib/ui-message";
 import { normalizeErrorMessage } from "../../../semse-api";
 
 type AlertSeverity = "error" | "warning" | "info";
@@ -40,7 +41,7 @@ export default function AdminDashboardPage() {
   const { t, language } = useLanguage();
   const [jobs, setJobs]           = useState<JobRecordView[]>([]);
   const [loading, setLoading]     = useState(true);
-  const [apiError, setApiError]   = useState<string | null>(null);
+  const [apiError, setApiError]   = useState<UiMessage | null>(null);
   const [lastRefresh, setLastRefresh] = useState(new Date());
   const explicitDemoMode = process.env.NEXT_PUBLIC_SEMSE_DEMO_LOGIN_ENABLED === "true";
 
@@ -51,11 +52,11 @@ export default function AdminDashboardPage() {
     fetch("/api/semse/jobs")
       .then(r => r.json())
       .then((d: { data?: JobRecordView[]; error?: { message: string } }) => {
-        if (d.error) { setApiError(d.error.message); return; }
+        if (d.error) { setApiError(messageTextOr(d.error.message, "clientDash.jobsLoadError")); return; }
         setJobs(d.data ?? []);
         setApiError(null);
       })
-      .catch(() => setApiError(t("clientDash.connectionError")))
+      .catch(() => setApiError(messageKey("clientDash.connectionError")))
       .finally(() => { setLoading(false); setLastRefresh(new Date()); });
   }
 
@@ -69,7 +70,7 @@ export default function AdminDashboardPage() {
           return;
         }
         if (payload.error) {
-          setApiError(normalizeErrorMessage(payload.error) ?? t("clientDash.jobsLoadError"));
+          setApiError(messageTextOr(normalizeErrorMessage(payload.error), "clientDash.jobsLoadError"));
           return;
         }
         setJobs(payload.data ?? []);
@@ -77,7 +78,7 @@ export default function AdminDashboardPage() {
       })
       .catch(() => {
         if (!cancelled) {
-          setApiError(t("clientDash.connectionError"));
+          setApiError(messageKey("clientDash.connectionError"));
         }
       })
       .finally(() => {
@@ -238,7 +239,7 @@ export default function AdminDashboardPage() {
               </div>
             ))}
             {!loading && !apiError && disputeJobs.length === 0 && <p className="text-sm text-muted">{t("adminDash.noAlerts")}</p>}
-            {!loading && apiError && !explicitDemoMode && <p className="text-sm text-muted">{apiError}</p>}
+            {!loading && apiError && !explicitDemoMode && <p className="text-sm text-muted">{renderMessage(apiError, t)}</p>}
           </div>
         </div>
       </HtmlInCanvasPanel>

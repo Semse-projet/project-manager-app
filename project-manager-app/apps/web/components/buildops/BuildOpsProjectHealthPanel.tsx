@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { Activity, AlertTriangle, CheckCircle, RefreshCw, ShieldAlert } from "lucide-react";
 import { useLanguage } from "../../lib/language-context";
+import { messageFromError, messageTextOr, renderMessage, UiMessageError, type UiMessage } from "../../lib/ui-message";
 
 type ProjectHealth = {
   projectId:           string;
@@ -36,7 +37,7 @@ export function BuildOpsProjectHealthPanel({ projectId }: Props) {
   const { t } = useLanguage();
   const [data, setData] = useState<ProjectHealth | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<UiMessage | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -44,14 +45,14 @@ export function BuildOpsProjectHealthPanel({ projectId }: Props) {
     try {
       const res = await fetch(`/api/semse/buildops/projects/${projectId}/health`);
       const json = await res.json() as { data?: ProjectHealth; error?: { message?: string } };
-      if (!res.ok) throw new Error(json?.error?.message ?? t("health.error.load"));
+      if (!res.ok) throw new UiMessageError(messageTextOr(json?.error?.message, "health.error.load"));
       setData(json.data ?? null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("health.error.fallback"));
+      setError(messageFromError(err, "health.error.fallback"));
     } finally {
       setLoading(false);
     }
-  }, [projectId, t]);
+  }, [projectId]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -62,7 +63,7 @@ export function BuildOpsProjectHealthPanel({ projectId }: Props) {
   if (error || !data) {
     return (
       <div style={{ padding: 12, borderRadius: 12, background: "rgba(239,68,68,.06)", border: "1px solid rgba(239,68,68,.2)", color: "#fca5a5", fontSize: 12 }}>
-        {error ?? t("health.empty")}
+        {renderMessage(error, t) ?? t("health.empty")}
       </div>
     );
   }

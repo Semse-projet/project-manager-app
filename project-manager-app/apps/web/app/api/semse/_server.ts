@@ -392,6 +392,28 @@ export function handleServerError(error: unknown): NextResponse {
   );
 }
 
+/**
+ * Relays a non-OK API response with its real status (401/403/404/429/5xx).
+ * Handlers that build their own `fetch` (streams, PDF passthrough) must use
+ * this instead of `runtimeDisabledResponse()`, which reported every upstream
+ * failure as "runtime not configured" and hid auth/permission errors.
+ */
+export async function upstreamErrorResponse(response: Response, path: string): Promise<NextResponse> {
+  const text = await response.text().catch(() => "");
+  return handleServerError(
+    new SemseProxyError(response.status, path, normalizeErrorMessage(path, response.status, text), extractErrorCode(text))
+  );
+}
+
+/**
+ * Catch-all for custom-fetch handlers: only a missing runtime is a 503; a
+ * missing session stays 401 and anything else is a 502.
+ */
+export function routeErrorResponse(error: unknown): NextResponse {
+  if (error instanceof Error && error.message.includes("not configured")) return runtimeDisabledResponse();
+  return handleServerError(error);
+}
+
 export async function getServerConfig(req: NextRequest): Promise<RuntimeConfig> {
   const cfg = await resolveRuntimeConfigForRequest(req);
   if (!cfg) throw new Error("SEMSE server runtime is not configured");
