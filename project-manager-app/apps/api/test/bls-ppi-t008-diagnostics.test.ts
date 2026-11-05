@@ -2,6 +2,7 @@
 // Does not establish market prices, tax policy or permission to ship a replacement formula.
 // Deliberately observes the old algorithm; replace the mismatch assertions with correct
 // invariant tests when T-008 implementation is approved. Issue #1087 / spec PR #1075.
+import "reflect-metadata";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { BlsPpiService, BLS_SERIES } from "../dist/modules/pricing/bls-ppi.service.js";
