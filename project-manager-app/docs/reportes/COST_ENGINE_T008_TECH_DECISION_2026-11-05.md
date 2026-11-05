@@ -2,7 +2,7 @@
 
 **Fecha:** 2026-11-05  
 **Estado:** DIRECCIÓN TÉCNICA SELECCIONADA PARA DISEÑO Y PRUEBAS; **NO** es aprobación de la spec ni autorización de merge/producción.  
-**Relaciones:** [spec #1075](https://github.com/Semse-projet/project-manager-app/pull/1075), [diagnóstico #1099](https://github.com/Semse-projet/project-manager-app/pull/1099), [error de PPI #1087](https://github.com/Semse-projet/project-manager-app/issues/1087), [contaminación de caché #1100](https://github.com/Semse-projet/project-manager-app/issues/1100).
+**Relaciones:** [spec #1075](https://github.com/Semse-projet/project-manager-app/pull/1075), [diagnóstico #1099 (cerrado sin fusionar)](https://github.com/Semse-projet/project-manager-app/pull/1099), [implementación T-008b #1101 (DRAFT)](https://github.com/Semse-projet/project-manager-app/pull/1101), [error de PPI #1087](https://github.com/Semse-projet/project-manager-app/issues/1087), [integridad de caché #1100](https://github.com/Semse-projet/project-manager-app/issues/1100).
 
 ## Decisión y motivo
 
@@ -24,16 +24,16 @@ Para una respuesta parcial de BLS, procesar cada material de manera independient
 
 ## Secuencia ejecutable
 
-- **P0a (tests y diagnóstico, autorizado antes de APPROVED):** terminar CI de [#1099](https://github.com/Semse-projet/project-manager-app/pull/1099). Los tests que reproducen el comportamiento heredado **tienen éxito cuando detectan el defecto**; deben conservarse como evidencia y sustituirse por aserciones positivas antes de cerrar T-008b/T-008.
+- **P0a (diagnóstico):** [#1099](https://github.com/Semse-projet/project-manager-app/pull/1099) concluyó CI y se **cerró sin merge**; sus tests que afirman defectos siguen recuperables como evidencia histórica, no entran en `main`. Sus 24 escenarios sintéticos del contrato objetivo se copiaron íntegramente al PR existente [#1101](https://github.com/Semse-projet/project-manager-app/pull/1101).
 - **P0b (datos, investigación):** ejecutar únicamente con acceso autorizado la auditoría `COST_ENGINE_T008_SNAPSHOT_READONLY_AUDIT.sql` descrita en #1075. No se ha ejecutado. Un `indexValue=100` coincidente es indicio, NO prueba histórica.
-- **P1 (implementación posterior a APPROVED):** PR separado para T-008b con pruebas rojas→verdes de caída total, timeout, respuesta parcial, índice negativo/cero/no finito, upsert anterior y compatibilidad del endpoint; sin combinar con nueva fórmula ni tax.
+- **P1 (implementación propuesta, aún bloqueada para fusionar):** el **PR ya existente #1101**, en `DRAFT`, incluye protección del upsert ante fallbacks y metadatos `UNVERIFIED` para caché histórico/valores hardcoded, con pruebas de caída total, respuesta parcial, índices inválidos y consumidores. Es código propuesto no desplegado; falta revisión formal, aprobación de la spec y validación de compatibilidad. No crear otro PR para esta fase.
 - **P2:** PR T-008 con observación base fechada y misma serie, goldens independientes de subida/igualdad/bajada y rechazo de referencias no verificables.
 - **P3 (activación separada):** revisión Q11 legal, Q9 oficio, Q10 fiscal, T-005 datos reales y Q2/Q3/Q5/Q7, pruebas de consumidores/contratos y canary autorizado. Ningún gate de aritmética certifica precios o condiciones fiscales.
 
 ## Evidencia y estado de esta decisión
 
-- #1076: T-004 (24×3) aprobado matemáticamente, pero no comercialmente.
-- #1099: diagnóstico sin alteraciones productivas; un CI anterior fue bloqueado por sintaxis TypeScript en un test de ProTools, corregida en commit `aa4f4647`; el resultado del CI del nuevo HEAD se verificará por separado.
+- #1076: T-004 (24×3) **fusionado a `main`** (squash `645ce3b80a8e2de6c39d3c57215222b0180de567`); aprobado matemáticamente, pero no comercialmente.
+- #1099: diagnóstico sin alteraciones productivas, **CI terminal verde**, **cerrado sin merge**. Pruebas antiguas deliberadamente asertivas del defecto no son criterios correctos de regresión. Los 24 escenarios objetivo fueron conservados en #1101; la conclusión de pruebas independientes no demuestra que T-008 esté implementado.
 - `MaterialPriceSnapshot` actual no tiene `observedAt` ni índice del periodo base. No atribuir legalmente a BLS precios hardcoded ni derivar historial de una fila sobrescrita.
 - **Decisiones todavía abiertas:** Q2, Q3, Q5, Q7, Q9, Q10, Q11. La spec #1075 permanece `DRAFT` aun cuando su CI pase.
 
