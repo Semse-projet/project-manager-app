@@ -118,6 +118,26 @@ async function disableSyntheticAccounts(prisma, actors) {
   assert.equal(await prisma.user.count({
     where: { id: { in: ids }, status: "active" },
   }), 0, "Active synthetic users must be zero after cleanup");
+  // Do not claim cleanup success without a durable, tenant-local record.
+  // System operator identity is not available from this non-interactive
+  // console, so actorUserId is intentionally null (never forge an actor).
+  for (const a of actors) {
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: a.tenantId }, select: { id: true },
+    });
+    if (!tenant) continue; // Failed seed may have rolled back fully.
+    await prisma.auditLog.create({
+      data: {
+        id: "aud_observer_disabled_" + randomUUID().replaceAll("-", ""),
+        tenantId: a.tenantId, actorUserId: null,
+        entityType: "User", entityId: a.userId,
+        action: "observer.synthetic_account.disabled",
+        afterJson: { purpose: "PR1089_AB_SMOKE", accountKey: a.key,
+          sessionStatus: "REVOKED", userStatus: "suspended",
+          membershipStatus: "SUSPENDED" },
+      },
+    });
+  }
 }
 
 async function seed(prisma, actors) {
@@ -145,6 +165,16 @@ async function seed(prisma, actors) {
       } });
       await tx.membership.create({ data: {
         userId: a.userId, orgId: a.orgId, roleId: role.id, status: "ACTIVE",
+      } });
+      // Same transaction as the privileged synthetic identity creation.
+      // Do not invent a human actorUserId; mark as operator-run tooling.
+      await tx.auditLog.create({ data: {
+        id: "aud_observer_created_" + randomUUID().replaceAll("-", ""),
+        tenantId: a.tenantId, actorUserId: null,
+        entityType: "User", entityId: a.userId,
+        action: "observer.synthetic_account.provisioned",
+        afterJson: { purpose: "PR1089_AB_SMOKE", accountKey: a.key,
+          role: "OPS_ADMIN", orgId: a.orgId, ephemeral: true },
       } });
     }
   });
