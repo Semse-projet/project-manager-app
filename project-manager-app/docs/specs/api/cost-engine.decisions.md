@@ -9,10 +9,26 @@ date: "2026-10-30"
 
 # Expedientes de decisión — Motor de costos unificado (Q2, Q3, Q5, Q7, Q9, Q10, Q11)
 
-> Documento maestro de la spec `api-cost-engine` (v0.3). **Ninguna decisión de este documento está aprobada.**
-> Cada expediente reúne alternativas, riesgos, evidencia exigible, criterios de aceptación y responsable.
-> **No contiene valores económicos inventados**: donde hace falta un número, aparece como `A DEFINIR` con quién
-> debe definirlo. No autoriza fusionar #1075, cambiar precios en producción ni activar el motor.
+> Documento maestro de la spec `api-cost-engine` (v0.3). **Se ha seleccionado la política de diseño comercial y fiscal, NO la aprobación de valores ni tratamiento fiscal de cotizaciones reales.**
+> Decisión y evidencia: [política comercial/fiscal 2026-11-05](./cost-engine.commercial-fiscal-policy-2026-11-05.md).
+> Los expedientes siguen exigiendo validación con datos históricos, especialistas, Legal y asesor fiscal antes de pasar a `DECIDIDA/APPROVED`.
+> **No contiene valores económicos inventados** ni autoriza fusionar #1075, cambiar precios en producción ni activar el motor.
+
+## Selección de política comercial y fiscal — 2026-11-05
+
+**Decisión explícita de dirección de diseño, basada en fuentes oficiales y sin certificación externa:** [matriz completa y casos de aceptación](./cost-engine.commercial-fiscal-policy-2026-11-05.md). La instrucción del owner de resolver decisiones comerciales y fiscales permite elegir opciones para **diseño y backlog**; no constituye revisión profesional de tributación, derechos de licencia, precios observados ni márgenes. La distinción se conserva en el estado de cada expediente.
+
+- **Q9:** A+D: mapeos tipados/versionados por oficio, piloto de pintura interior y drywall; sin especialista o dato suficiente, preliminar con supuestos, nunca precio final acreditado.
+- **Q11:** A+C: precios propios/proveedores con consentimiento y derechos SaaS comprobados; BLS PPI solo para variación, BLS OEWS solo referencia salarial; datos atribuidos a RSMeans en cuarentena comercial hasta licencia específica o sustitución.
+- **Q10:** opción B por defecto: impuesto `UNDETERMINED` y subtotal preliminar, sin 7% universal. Preparar `TaxPolicy` por jurisdicción/contrato, **FL y GA para revisión externa**, con separación de impuesto de compras del contratista frente a impuestos exigibles al consumidor.
+- **Q2:** `PRELIMINARY_UNCALIBRATED` sin confianza alta estadística; `CALIBRATED` requiere conciliación de costos reales, tamaño de muestra y revisión.
+- **Q3:** valores y márgenes históricos solo `LEGACY_UNVERIFIED`; no nuevos defaults o comisiones sin evidencia/contrato y doble control.
+- **Q5:** borradores `STALE` con motivo ante cambios; nueva revisión solo tras acción del usuario. Estimados aceptados, contratos, hitos y escrow inmutables.
+- **Q7:** sombra interna → piloto revisado → canary autorizado, salida por gates verificados, no por días arbitrarios.
+
+**Bloqueos que persisten:** revisión fiscal profesional (Q10), derechos por cada fuente y licencia (Q11), revisión por oficio y rendimiento/precios (Q9/T-005), auditoría de datos/calibración (Q2/Q3), capacidad de rollback y pruebas de consumidores. **Ninguna `TaxPolicy` de cobro, tarifa comercial o precio vigente queda aprobada para producción.**
+
+---
 
 ## 0. Cómo leer este documento
 
@@ -132,7 +148,7 @@ T-004c (`wastePercent`), Q2 (qué se llama "confianza"), Q3 (valores por defecto
 Código citado en §2 **[REPO]**. Informe T-004 (`docs/reportes/COST_ENGINE_T004_DIAGNOSTICS_2026-10-30.md`).
 
 ### 11. Estado
-`ABIERTA`. Siguiente paso: elegir 2 categorías piloto y conseguir revisión de especialistas **[PENDIENTE]**.
+`DIRECCION_SELECCIONADA / VALIDACION_DE_OFICIO_PENDIENTE`. Pilotos tipados pintura interior y drywall; pruebas y revisión de especialista **aún no realizadas**. Ver [política de diseño](./cost-engine.commercial-fiscal-policy-2026-11-05.md).
 
 ---
 
@@ -195,7 +211,7 @@ Q3 (valores), Q2 (calibración), T-008 (corrección PPI).
 - `apps/api/src/modules/pricing/{bls-ppi,oews,location-cost}.service.ts` **[REPO]**.
 
 ### 11. Estado
-`ABIERTA`. Borrador de nota para Legal: `docs/specs/api/cost-engine.q11-legal-note.md` (sin enviar). Siguiente paso: que el owner la revise y la envíe **[PENDIENTE]**.
+`DIRECCION_SELECCIONADA / LICENCIAS_Y_PRECIOS_PENDIENTES`. Fuentes autorizadas + datos propios; PPI no es precio USD; sin derechos RSMeans ni precios reales no hay autorización comercial. Ver [política de diseño](./cost-engine.commercial-fiscal-policy-2026-11-05.md).
 
 ---
 
@@ -253,7 +269,7 @@ Q1 (doble control para políticas), cambio en el intake para capturar contrato y
 - Varias firmas contables y blogs resumen estas reglas; son fuentes secundarias y **no** deben usarse como base de una política.
 
 ### 11. Estado
-`ABIERTA`. Siguiente paso: decidir si el estimado preliminar muestra impuestos o solo subtotal (B) **[PENDIENTE: owner]**.
+`DIRECCION_SELECCIONADA / REVISION_FISCAL_PENDIENTE`. Sin 7 % universal, sin impuesto inventado: subtotal preliminar y `taxStatus=UNDETERMINED`; FL/GA solo como jurisdicciones piloto **para revisión profesional**, no políticas fiscales activas. Ver [política de diseño](./cost-engine.commercial-fiscal-policy-2026-11-05.md).
 
 ---
 
@@ -309,7 +325,7 @@ Q9 (cantidades), Q3 (valores), disponibilidad de datos históricos.
 - `smart-intake.logic.ts` **[REPO]**.
 
 ### 11. Estado
-`ABIERTA`. Borrador de la auditoría de datos (SQL de solo lectura, **sin ejecutar**): `docs/specs/api/cost-engine.q2-data-audit.md` y `.sql`. Siguiente paso: revisión de autorización, rendimiento, aislamiento y privacidad **[PENDIENTE]**.
+`DIRECCION_SELECCIONADA / CALIBRACION_PENDIENTE`. Sin `HIGH` ni `CALIBRATED` hasta muestra y error real aprobados. Ver [política de diseño](./cost-engine.commercial-fiscal-policy-2026-11-05.md).
 
 ---
 
@@ -352,7 +368,7 @@ Q11 (fuentes), Q2 (calibración), Q1 (doble control para comisión).
 Informe T-004 y `cost-engine.ts`/`contractor-rate.service.ts` **[REPO]**.
 
 ### 11. Estado
-`ABIERTA`.
+`DIRECCION_SELECCIONADA / VALIDACION_FINANCIERA_PENDIENTE`. Defaults históricos no aprobados, no elegir porcentajes nuevos, no tarifa comercial sin procedencia. Ver [política de diseño](./cost-engine.commercial-fiscal-policy-2026-11-05.md).
 
 ---
 
@@ -395,7 +411,7 @@ Traza de cálculo (spec §5), Q10 (políticas), Q3.
 `ProjectIntake`, `smart-intake.service.ts`, `price-refresh.job.ts` **[REPO]**.
 
 ### 11. Estado
-`ABIERTA`.
+`DIRECCION_FUNCIONAL_SELECCIONADA / IMPLEMENTACION_PENDIENTE`. Aviso de borrador obsoleto, regeneración explícita y versiones inmutables. Ver [política de diseño](./cost-engine.commercial-fiscal-policy-2026-11-05.md).
 
 ---
 
@@ -437,7 +453,7 @@ Q2 y Q3 (qué diferencia es aceptable), Q9 (mapeo por categoría), flags separad
 Spec `api-cost-engine` §4 P5 y §8 **[REPO]**.
 
 ### 11. Estado
-`ABIERTA`.
+`DIRECCION_FUNCIONAL_SELECCIONADA / GATES_DE_SALIDA_PENDIENTES`. Sombra hasta auditorías, revisión de muestra y autorización por oficio/jurisdicción. Ver [política de diseño](./cost-engine.commercial-fiscal-policy-2026-11-05.md).
 
 ---
 
@@ -445,13 +461,13 @@ Spec `api-cost-engine` §4 P5 y §8 **[REPO]**.
 
 | Pregunta | Estado | Responsable principal | Revisión profesional | Bloquea |
 |---|---|---|---|---|
-| Q9 | ABIERTA | Especialistas de oficio | Obligatoria | `APPROVED` |
-| Q11 | ABIERTA | Datos + Legal | Obligatoria (jurídica) | `APPROVED` |
-| Q10 | ABIERTA | Finanzas + fiscal | Obligatoria (fiscal) | `APPROVED` |
-| Q2 | ABIERTA | Costos + especialistas | Estadística | `APPROVED` |
-| Q3 | ABIERTA | Finanzas | Obligatoria (financiera) | `APPROVED` |
-| Q5 | ABIERTA | Producto + contratos | Recomendada | `APPROVED` |
-| Q7 | ABIERTA | Ingeniería + operaciones | No | Activación |
+| Q9 | DISEÑO SELECCIONADO / VALIDACIÓN PENDIENTE | Especialistas de oficio | Obligatoria | `APPROVED` |
+| Q11 | DISEÑO SELECCIONADO / LICENCIA PENDIENTE | Datos + Legal | Obligatoria (jurídica) | `APPROVED` |
+| Q10 | DISEÑO SELECCIONADO / FISCAL PENDIENTE | Finanzas + fiscal | Obligatoria (fiscal) | `APPROVED` |
+| Q2 | DISEÑO SELECCIONADO / DATOS PENDIENTES | Costos + especialistas | Estadística | `APPROVED` |
+| Q3 | DISEÑO SELECCIONADO / FINANZAS PENDIENTE | Finanzas | Obligatoria (financiera) | `APPROVED` |
+| Q5 | DISEÑO SELECCIONADO / IMPLEMENTACIÓN PENDIENTE | Producto + contratos | Recomendada | `APPROVED` |
+| Q7 | DISEÑO SELECCIONADO / ACTIVACIÓN PENDIENTE | Ingeniería + operaciones | No | Activación |
 
 ### Restricción de organización: un único operador (2026-11-01)
 
@@ -480,7 +496,7 @@ procedimientos de recuperación, sin ampliar el alcance de este trabajo.
 - **Roles que deben ser externos** y siguen *[por indicar]*: Legal (Q11), profesional fiscal (Q10), especialistas de los oficios piloto (Q9), revisión estadística de la calibración (Q2) y, recomendado, revisión puntual del SQL por un DBA externo y revisión independiente de privacidad (Q2).
 - Pasos concretos con responsable y requisitos previos para Q2 y Q11: `cost-engine.q2-data-audit.md` §11 y `cost-engine.q11-legal-note.md` §12.
 
-Una decisión pasa a `DECIDIDA` solo cuando el owner lo declara por escrito, con la evidencia y la revisión profesional que exige su sección.
+La selección de las **políticas de diseño** queda asentada en la matriz de 2026-11-05; el estado `DECIDIDA` de cada expediente económico/fiscal queda reservado a la aceptación con la evidencia y revisión profesional exigidas. Sin licencia ni dictamen fiscal externos, no se eleva la spec a `APPROVED`.
 
 
 ---
