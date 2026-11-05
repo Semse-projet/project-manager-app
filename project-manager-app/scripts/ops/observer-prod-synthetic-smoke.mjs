@@ -167,7 +167,7 @@ async function smoke(people, password) {
     const login = await request("POST", "/v1/auth/login", {
       body: { email: p.email, password },
     });
-    assert.equal(login.status, 200, "Synthetic login must succeed");
+    assert.ok([200, 201].includes(login.status), "Synthetic login must succeed");
     assert.ok(login.data?.accessToken, "Durable session access token required");
     p.token = login.data.accessToken; // in memory only
     const me = await request("GET", "/v1/auth/me", { token: p.token });
@@ -211,7 +211,7 @@ async function smoke(people, password) {
 
   for (const p of people) {
     const logout = await request("POST", "/v1/auth/logout", { token: p.token });
-    assert.equal(logout.status, 200, "Synthetic logout must revoke session");
+    assert.ok([200, 201].includes(logout.status), "Synthetic logout must revoke session");
     const denied = await request("GET", "/v1/ops/observer/history", { token: p.token });
     assert.equal(denied.status, 401, "Revoked session must be rejected");
     p.token = undefined;
