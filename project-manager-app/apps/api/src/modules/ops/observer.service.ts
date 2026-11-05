@@ -86,14 +86,163 @@ const SIGNAL_INTERPRETATIONS: Record<string, string> = {
   EXPERIENCE_FRICTION:     "Fricción de usuario detectada por Product Intelligence — revisar la vista afectada",
 };
 
+/**
+ * Process-local, bounded observer retention.
+ * A noisy tenant cannot evict a different active tenant's snapshots.
+ * When the tenant budget is full, a new tenant is explicitly not retained;
+ * existing tenant buckets are never evicted to make room for its traffic.
+ * Idle buckets expire after the configured TTL, releasing capacity.
+ */
+export class TenantObservationHistory<T extends { tenantId: string }> {
+  private readonly buckets = new Map<string, {
+    snapshots: Array<{ snapshot: T; sequence: number }>;
+    lastUsedAt: number;
+  }>();
+  private nextSequence = 0;
+  private readonly activeReservations = new Map<string, number>();
+  private readonly maxSnapshotsPerTenant: number;
+  private readonly maxTenants: number;
+  private readonly idleTtlMs: number;
+  private readonly now: () => number;
+
+  constructor(policy: {
+    maxSnapshotsPerTenant?: number;
+    maxTenants?: number;
+    idleTtlMs?: number;
+    now?: () => number;
+  } = {}) {
+    this.maxSnapshotsPerTenant = policy.maxSnapshotsPerTenant ?? 50;
+    this.maxTenants = policy.maxTenants ?? 128;
+    this.idleTtlMs = policy.idleTtlMs ?? 24 * 60 * 60 * 1000;
+    this.now = policy.now ?? Date.now;
+    for (const value of [this.maxSnapshotsPerTenant, this.maxTenants, this.idleTtlMs]) {
+      if (!Number.isSafeInteger(value) || value < 1) {
+        throw new Error("Observer retention limits must be positive safe integers");
+      }
+    }
+  }
+
+  /** Reserve order BEFORE asynchronous observation starts. */
+  reserveSequence(): number {
+    if (this.nextSequence >= Number.MAX_SAFE_INTEGER) {
+      throw new Error("Observer observation sequence exhausted");
+    }
+    return ++this.nextSequence;
+  }
+
+  /** False means no capacity for a NEW tenant, not eviction of another tenant. */
+  append(snapshot: T, sequence: number = this.reserveSequence()): boolean {
+    this.assertTenant(snapshot.tenantId);
+    if (!Number.isSafeInteger(sequence) || sequence < 1) {
+      throw new Error("Observer sequence must be a positive safe integer");
+    }
+    this.nextSequence = Math.max(this.nextSequence, sequence);
+    const timestamp = this.now();
+    this.pruneIdle(timestamp);
+    let bucket = this.buckets.get(snapshot.tenantId);
+    if (!bucket) {
+      if (this.buckets.size >= this.maxTenants) return false;
+      bucket = { snapshots: [], lastUsedAt: timestamp };
+      this.buckets.set(snapshot.tenantId, bucket);
+    }
+    // Complete late results in original START order, so an older slow
+    // observation cannot replace a newer one in getLatest() or last-ten history.
+    const position = bucket.snapshots.findIndex((item) => item.sequence > sequence);
+    const entry = { snapshot, sequence };
+    if (position < 0) bucket.snapshots.push(entry);
+    else bucket.snapshots.splice(position, 0, entry);
+    if (bucket.snapshots.length > this.maxSnapshotsPerTenant) {
+      bucket.snapshots.splice(0, bucket.snapshots.length - this.maxSnapshotsPerTenant);
+    }
+    bucket.lastUsedAt = timestamp;
+    return true;
+  }
+
+  /**
+   * Capacity check for an uncached tenant: fail before expensive observation
+   * rather than repeatedly computing a snapshot that cannot be retained.
+   * The same idle-bucket pruning policy applies to append().
+   */
+  canRetain(tenantId: string): boolean {
+    this.assertTenant(tenantId);
+    this.pruneIdle(this.now());
+    return this.buckets.has(tenantId) || this.buckets.size < this.maxTenants;
+  }
+
+  /**
+   * Atomically reserve one tenant slot BEFORE starting expensive async work.
+   * The empty bucket is temporary and released on failure.
+   * Reservations also prevent TTL eviction while a read is in progress.
+   */
+  tryReserve(tenantId: string): boolean {
+    this.assertTenant(tenantId);
+    const timestamp = this.now();
+    this.pruneIdle(timestamp);
+    let bucket = this.buckets.get(tenantId);
+    if (!bucket) {
+      if (this.buckets.size >= this.maxTenants) return false;
+      bucket = { snapshots: [], lastUsedAt: timestamp };
+      this.buckets.set(tenantId, bucket);
+    }
+    bucket.lastUsedAt = timestamp;
+    this.activeReservations.set(tenantId, (this.activeReservations.get(tenantId) ?? 0) + 1);
+    return true;
+  }
+
+  releaseReservation(tenantId: string): void {
+    this.assertTenant(tenantId);
+    const count = this.activeReservations.get(tenantId);
+    if (!count) throw new Error("Observer history reservation missing");
+    if (count > 1) this.activeReservations.set(tenantId, count - 1);
+    else {
+      this.activeReservations.delete(tenantId);
+      // Failed observations must not leave a permanently occupied empty slot.
+      const bucket = this.buckets.get(tenantId);
+      if (bucket && bucket.snapshots.length === 0) this.buckets.delete(tenantId);
+    }
+  }
+
+  getHistory(tenantId: string): T[] {
+    this.assertTenant(tenantId);
+    const timestamp = this.now();
+    this.pruneIdle(timestamp);
+    const bucket = this.buckets.get(tenantId);
+    if (!bucket) return [];
+    bucket.lastUsedAt = timestamp;
+    return bucket.snapshots.map((entry) => entry.snapshot);
+  }
+
+  getLatest(tenantId: string): T | null {
+    const snapshots = this.getHistory(tenantId);
+    return snapshots.length ? snapshots[snapshots.length - 1]! : null;
+  }
+
+  private pruneIdle(timestamp: number): void {
+    for (const [tenantId, bucket] of this.buckets) {
+      if (timestamp - bucket.lastUsedAt >= this.idleTtlMs &&
+          !this.activeReservations.has(tenantId)) {
+        this.buckets.delete(tenantId);
+      }
+    }
+  }
+
+  private assertTenant(tenantId: string): void {
+    if (typeof tenantId !== "string" || !tenantId.trim()) {
+      throw new Error("Observer history requires an explicit tenantId");
+    }
+  }
+}
+
 // ── Service ───────────────────────────────────────────────────────────────────
 
 @Injectable()
 export class SystemObserverService {
   private readonly logger = new Logger(SystemObserverService.name);
 
-  // In-memory observation history (last 50 snapshots — no DB to keep it lean)
-  private readonly history: ObservationSnapshot[] = [];
+  // 50 snapshots per tenant, up to 128 active tenants, 24h idle expiry.
+  // No global FIFO: one tenant must never displace another tenant's history.
+  private readonly history = new TenantObservationHistory<ObservationSnapshot>();
+  private lastHistoryCapacityWarningAt = 0;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -104,6 +253,7 @@ export class SystemObserverService {
 
   async observe(tenantId: string): Promise<ObservationSnapshot> {
     const observedAt = new Date().toISOString();
+    const observationSequence = this.history.reserveSequence();
 
     const [infra, operational, intelligence, behavioralHealth, experienceHealth] = await Promise.all([
       this.observeInfrastructure(),
@@ -140,9 +290,12 @@ export class SystemObserverService {
       });
     }
 
-    // Keep last 50 in memory
-    this.history.push(snapshot);
-    if (this.history.length > 50) this.history.shift();
+    // Store without cross-tenant eviction. The current snapshot still returns
+    // to the caller if the bounded in-memory retention budget is exhausted.
+    if (!this.history.append(snapshot, observationSequence) && Date.now() - this.lastHistoryCapacityWarningAt >= 60_000) {
+      this.lastHistoryCapacityWarningAt = Date.now();
+      this.logger.warn("[Observer] tenant history capacity exhausted; new tenant snapshot not retained");
+    }
 
     // SSE: emit to AI Mission Control channel when there are critical/high alerts
     if (alerts.some((a) => a.level === "critical" || a.level === "high")) {
@@ -183,12 +336,20 @@ export class SystemObserverService {
     };
   }
 
-  getHistory(): ObservationSnapshot[] {
-    return [...this.history];
+  tryReserveHistory(tenantId: string): boolean {
+    return this.history.tryReserve(tenantId);
   }
 
-  getLatest(): ObservationSnapshot | null {
-    return this.history.length > 0 ? this.history[this.history.length - 1]! : null;
+  releaseHistoryReservation(tenantId: string): void {
+    this.history.releaseReservation(tenantId);
+  }
+
+  getHistory(tenantId: string): ObservationSnapshot[] {
+    return this.history.getHistory(tenantId);
+  }
+
+  getLatest(tenantId: string): ObservationSnapshot | null {
+    return this.history.getLatest(tenantId);
   }
 
   // ── Infrastructure observation ────────────────────────────────────────────
