@@ -111,14 +111,23 @@ async function disableSyntheticAccounts(prisma, actors) {
     where: { userId: { in: ids }, status: "ACTIVE" },
   });
   assert.equal(active, 0, "Active synthetic sessions must be zero after cleanup");
+  assert.equal(await prisma.membership.count({
+    where: { userId: { in: ids }, status: "ACTIVE" },
+  }), 0, "Active synthetic memberships must be zero after cleanup");
+  assert.equal(await prisma.user.count({
+    where: { id: { in: ids }, status: "active" },
+  }), 0, "Active synthetic users must be zero after cleanup");
 }
 
-async function seed(prisma, actors, password) {
+async function seed(prisma, actors) {
   const role = await prisma.role.findUnique({ where: { key: "OPS_ADMIN" } });
   assert.ok(role, "OPS_ADMIN role not configured; do not create an elevated role");
-  const salt = randomBytes(16);
-  const passwordHash = "s1$" + salt.toString("base64url") + "$" +
-    scryptSync(password, salt, 64).toString("base64url");
+  for (const a of actors) {
+    a.password = randomBytes(32).toString("base64url");
+    const salt = randomBytes(16);
+    a.passwordHash = "s1$" + salt.toString("base64url") + "$" +
+      scryptSync(a.password, salt, 64).toString("base64url");
+  }
   await prisma.$transaction(async tx => {
     for (const a of actors) {
       await tx.tenant.create({ data: {
@@ -130,7 +139,7 @@ async function seed(prisma, actors, password) {
         name: "SEMSE Observer synthetic org " + a.key.toUpperCase(),
       } });
       await tx.user.create({ data: {
-        id: a.userId, email: a.email, passwordHash, status: "active",
+        id: a.userId, email: a.email, passwordHash: a.passwordHash, status: "active",
         verificationStatus: "unverified",
       } });
       await tx.membership.create({ data: {
@@ -140,12 +149,12 @@ async function seed(prisma, actors, password) {
   });
 }
 
-async function verify(prisma, actors, password) {
+async function verify(prisma, actors) {
   const tokens = [];
   try {
     for (const a of actors) {
       const login = await jsonRequest("/v1/auth/login", {
-        method: "POST", body: { email: a.email, password },
+        method: "POST", body: { email: a.email, password: a.password },
       });
       assert.ok(login?.accessToken, "Login did not issue a signed session");
       tokens.push(login.accessToken);
@@ -222,13 +231,12 @@ try {
   } else {
     console.log(JSON.stringify({ result: "BEGIN", runId, accounts: 2, tenants: 2 }));
     let created = false;
+    let outcome;
     try {
       await assertRelease();
-      const password = randomBytes(32).toString("base64url");
-      await seed(prisma, actors, password);
+      await seed(prisma, actors);
       created = true;
-      const result = await verify(prisma, actors, password);
-      console.log(JSON.stringify({ result: "PASS", runId, ...result }));
+      outcome = await verify(prisma, actors);
     } finally {
       // This is not a demo seed. Leave NO active admin credentials behind;
       // synthetic AuditLog entries remain for auditability.
@@ -240,7 +248,13 @@ try {
         // and names generated here, validated by disableSyntheticAccounts().
         await disableSyntheticAccounts(prisma, actors);
       }
+      for (const a of actors) {
+        a.password = undefined;
+        a.passwordHash = undefined;
+      }
     }
+    // Mark the full smoke PASS only AFTER revocation and suspension succeed.
+    console.log(JSON.stringify({ result: "PASS", runId, ...outcome }));
   }
 } finally {
   await prisma.$disconnect();
