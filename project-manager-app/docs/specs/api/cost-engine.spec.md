@@ -423,6 +423,8 @@ errors: { 400, 401, 403, 404, 409: versión en conflicto, 428: precondición aus
 effects: { audit_log: true, domain_event: false, sse: false, payment_governance: true }
 ```
 
+**Concurrencia optimista:** el `PUT` requiere `expectedVersion` entero en el body (valor `0` para crear si no existe); `DELETE` requiere `If-Match: "<expectedVersion>"` para la fila vigente. El backend compara **atómicamente** `scope+scopeId+key+version`, incrementa la versión en `PUT` y solo revierte la capa con versión coincidente en `DELETE`. Si la versión ya cambió devuelve `409` sin escribir ni borrar; si falta la precondición responde `428`; nunca hay last-write-wins silencioso. Pruebas: dos administradores modificando la misma versión, doble DELETE, DELETE tras PUT concurrente y reintento idempotente con una decisión explícita de `409`/resultado registrado. Esto es contrato propuesto, no endpoint implementado.
+
 ### UI
 
 ```yaml
@@ -469,8 +471,11 @@ forbidden_behavior: escribir CostParameter/TaxPolicy, saltarse límites o capas,
 - `TaxPolicy` (`id`, `jurisdiction`, `contractType`, `rulesJson`, `version`, `effectiveFrom`, `effectiveTo?`,
   `reviewedBy`, `reviewedAt`, `status`): versionada e inmutable una vez activa; una corrección crea una versión nueva.
 - `MaterialPriceObservation` (§5): se difiere a la fase de datos de mercado; hasta entonces el PPI queda marcado como no confiable.
-- Los estimados guardados siguen usando `ProjectIntake.generatedEstimateJson`; `costTrace` y `regionalAdjustment`
-  viven ahí sin migración.
+- **Replay histórico persistido (requerido antes de activar):** además de `costTrace`, cada revisión guardada incluirá un `costReplay` **inmutable y versionado** dentro de `ProjectIntake.generatedEstimateJson` (o en almacenamiento histórico aditivo y enlazado por ID si la estructura actual no puede preservar versiones). `costReplay` contiene: `schemaVersion`, `revisionId`, identificador y versión reproducible del motor, **entradas normalizadas completas del motor** (después del mapeo de intake, sin texto libre ni PII), versiones de adaptadores/reglas, `basis`, tasas efectivas exactas, `perUnitDivisor` y unidad, multiplicadores regionales y fuentes, **operandos de precio por línea** (materialKey, cantidad, unidad, precio unitario aplicado, fecha de observación, fuente, estado y referencia inmutable o snapshot de la observación), política fiscal efectiva con base/importe imponible por componente, fecha/versión, reglas de precisión y redondeo, importes por componente y huella del payload. `pricesAsOf` aislado NO basta para reproducirlo.
+
+El replay jamás recalcula usando `getCurrentPrices()` o mapeos vigentes: reconstruye desde esos operandos originales, vuelve a calcular de forma determinista sin red externa y compara cada subtotal, impuesto, `perUnit`, banda e hito con el resultado guardado al centavo. Si falta un operando o la versión exacta de una regla, emite `REPLAY_INPUT_MISSING`/`REPLAY_VERSION_UNAVAILABLE` y **no reemplaza** el resultado histórico. `costReplay` es interno/autorizado, no va al modo `client`; se audita su acceso y se aplica minimización de datos. Una revisión aceptada no se sobrescribe: se crea una nueva revisión y `AuditLog` conserva el vínculo. Si el almacenamiento elegido no garantiza esa inmutabilidad, se bloquea la activación hasta definirlo.
+
+**Prueba de aceptación obligatoria:** guardar una revisión sintética, cambiar el precio actual de los materiales, la traducción de intake a inputs, los márgenes y la `TaxPolicy`, y demostrar que (a) la lectura conserva el JSON histórico y (b) el replay reproduce **todos** los campos económicos anteriores exactamente. Probar también ausencia de una observación histórica y denegación del payload interno al cliente; ninguna de estas pruebas se considera ejecutada por T-004.
 - Migración: aditiva, tablas nuevas sin FK a las existentes (los `scopeId` son texto validado en servicio).
 - Estrategia expand/contract: solo expand. Backfill: ninguno. Drift: `prisma migrate diff` (`semse-prisma-workflow`).
 - Compatibilidad hacia atrás: la fórmula plana de Smart Intake y `quote-engine` se mantienen hasta migrarlos con evidencia.
