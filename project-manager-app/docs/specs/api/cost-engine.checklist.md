@@ -32,6 +32,15 @@ date: "2026-10-30"
 
 ## Validación comercial independiente
 
+- [x] **Alternativas de DISEÑO seleccionadas:** [política comercial y fiscal 2026-11-05](./cost-engine.commercial-fiscal-policy-2026-11-05.md) (Q9/Q10/Q11 + Q2/Q3/Q5/Q7). Esta casilla no certifica precios ni impuestos.
+- [ ] **Q9** pilotos pintura interior/drywall: rangos/medidas tipadas, `UNKNOWN` honesto y tablas aprobadas por especialista (sin dar total definitivo con entradas faltantes).
+- [ ] **Q11** ninguna fuente `LEGACY_UNVERIFIED`/`RESTRICTED_LICENSE` pasa a cotización comercial; auditar multiplicadores atribuidos a RSMeans, permiso SaaS, SKU/precio observado y fecha; PPI es índice, OEWS es salario, ninguno precio unitario facturable.
+- [ ] **Q10 clasificación obligatoria:** propertyTreatment, contractPricing, lugar/condado, dueño de materiales, título/riesgo, tax-paid y `TaxPolicy` fechada; no usar 7 % general, nunca cobrar al cliente impuestos de materiales ya incluidos en costo.
+- [ ] **Q10 fail-closed:** sin política revisada, `taxStatus=UNDETERMINED`, `customerTaxAmount=null` (no cero), subtotal preliminar con advertencia; no total `tax included`.
+- [ ] **Q10 casos fiscales profesionales:** 10 escenarios FL/GA firmados por CPA/asesor competente, incluyendo real property vs retail + instalación, use-tax, condados/surtax/redondeo, con bases e importes esperados.
+- [ ] **Q2/Q3:** ninguna confianza `HIGH` por completar preguntas; defaults de márgenes/comisión `LEGACY_UNVERIFIED` sin evidencia de mercado, muestras o aprobación financiera.
+- [ ] **Q5/Q7:** borradores `STALE` con motivo y regeneración explícita; modo sombra → pilotos → canary por gates evidenciados, sin recálculo de aceptados.
+
 - [ ] T-005 respalda materiales, mano de obra facturable, rendimientos, multiplicadores, márgenes y vigencia de fuentes con validación por oficio/región
 - [ ] Q9 revisada por especialistas, Q10 revisada por profesional fiscal y Q11 acredita procedencia, fecha y derechos de uso de precios
 - [ ] La aceptación matemática no se usa para certificar precios ni legalidad fiscal; aprobación de spec, implementación y activación tienen gates distintos
