@@ -24,7 +24,7 @@ date: "2026-10-30"
 - [ ] [T-001] Cerrar Q2, Q3, Q5, Q7, Q9, Q10 y Q11 (spec §11) y pasar a `APPROVED`; confirmar Q1, Q4, Q6 y Q8
 - [ ] [T-002] Registrar SHA Git/producción, migraciones, mecanismo de flags y estado de `LocationCostIndex` en producción
 - [ ] [T-003] Completar análisis spec↔plan↔constitución y ADR de las decisiones clave
-- [x] [T-004] Pruebas diagnósticas de los 24 motores — **ejecutadas** como evidencia diagnóstica en el PR #1076 (SHA `f70ba20`, 72 escenarios, 76/76 tests, CI en verde; PR sin fusionar) (excepción previa a `APPROVED`, solo pruebas):
+- [x] [T-004] Pruebas diagnósticas de los 24 motores — **ejecutadas** como evidencia diagnóstica en el PR #1076 (72 escenarios, 76/76 tests, CI en verde; PR #1076 **fusionado en main** como `645ce3b8`) (excepción previa a `APPROVED`, solo pruebas):
   - al menos **tres escenarios por motor** (normal, complejo y límite): 72 iniciales, más los que los resultados justifiquen;
   - comparar cada salida contra su resultado original: ninguna discrepancia monetaria sin explicar y **sin tolerancias arbitrarias** que oculten diferencias;
   - capturar los argumentos reales que cada motor pasa a `buildCostSummary` (base, tasas efectivas, divisor) y compararlos con la reconstrucción por división de importes redondeados, que puede perder precisión (también `total / perUnit`);
@@ -40,14 +40,14 @@ date: "2026-10-30"
 
 ## Fase 0b — Correcciones P0
 
-**Decisión técnica de orden (sin aprobación de spec):** [T-008b primero, T-008 después; consumidores y activación por gates](../../reportes/COST_ENGINE_T008_TECH_DECISION_2026-11-05.md). El diagnóstico #1099 no autoriza reemplazar precios ni fusionar código productivo.
+**Decisión técnica de orden (sin aprobación de spec):** [T-008b primero, T-008 después; consumidores y activación por gates](../../reportes/COST_ENGINE_T008_TECH_DECISION_2026-11-05.md). El diagnóstico #1099 **cerró sin fusionar** tras trasladar su oráculo sintético al PR existente #1101; ni esos tests ni el CI autorizan reemplazar precios o fusionar código productivo.
 
 
 
-- [ ] [T-008] **Corregir metodología PPI — posterior a `APPROVED`:** precio observado con fecha/mes, unidad, fuente, derechos y serie compatible; dividir índice actual entre índice de **esa fecha** (no `/100`). Gate de estado tipado si índice ≤ 0, no finito, ausente, sin vigencia, incompatible o sin base verificable. No usar índice ficticio 100 ni publicar `basePrice` hardcoded como precio confirmado. Tests sintéticos subida/igualdad/bajada y fallback, más revisión de Q11. **Diagnóstico reproducible, no corrección:** PR [#1099](https://github.com/Semse-projet/project-manager-app/pull/1099) e issue [#1087](https://github.com/Semse-projet/project-manager-app/issues/1087).
+- [ ] [T-008] **Corregir metodología PPI — posterior a `APPROVED`:** precio observado con fecha/mes, unidad, fuente, derechos y serie compatible; dividir índice actual entre índice de **esa fecha** (no `/100`). Gate de estado tipado si índice ≤ 0, no finito, ausente, sin vigencia, incompatible o sin base verificable. No usar índice ficticio 100 ni publicar `basePrice` hardcoded como precio confirmado. Tests sintéticos subida/igualdad/bajada y fallback, más revisión de Q11. **Diagnóstico reproducible, no corrección:** PR [#1099 cerrado sin merge](https://github.com/Semse-projet/project-manager-app/pull/1099), oráculo sintético ahora en [#1101](https://github.com/Semse-projet/project-manager-app/pull/1101) e issue [#1087](https://github.com/Semse-projet/project-manager-app/issues/1087).
 - [ ] [T-009] `TaxPolicy` versionada y estado "impuestos no determinados"; revisión fiscal profesional previa a valores
 
-- [ ] [T-008b] **Integridad del snapshot PPI [#1100](https://github.com/Semse-projet/project-manager-app/issues/1100):** fallos de BLS y fallback hardcoded no crean ni renuevan observaciones con `source=BLS_PPI` verificada; índices ausentes/no válidos no producen precios ni expiraciones aparentes. Diagnóstico de persistencia sin DB real incluido en [#1099](https://github.com/Semse-projet/project-manager-app/pull/1099); implementación solo tras `APPROVED`, con smoke de consumidores y rollback.
+- [ ] [T-008b] **Integridad del snapshot PPI [#1100](https://github.com/Semse-projet/project-manager-app/issues/1100):** fallos de BLS y fallback hardcoded no crean ni renuevan observaciones con `source=BLS_PPI` verificada; índices ausentes/no válidos no producen precios ni expiraciones aparentes. **Implementación propuesta en [#1101 DRAFT](https://github.com/Semse-projet/project-manager-app/pull/1101)**: bloqueo de upserts de fallback, índices inválidos, procedencia `UNVERIFIED` para consumidores y tests con Prisma simulado; no corrige fórmula T-008. Merge/activación solo tras `APPROVED`, revisión independiente, compatibilidad de API, prueba DB aislada, smoke de consumidores y rollback.
 
 - [ ] [T-008c] **Auditoría de caché PPI actual (solo lectura; PENDIENTE):** ejecutar con rol PostgreSQL de solo lectura el [SQL agregado](../../reportes/COST_ENGINE_T008_SNAPSHOT_READONLY_AUDIT.sql) siguiendo el [protocolo](../../reportes/COST_ENGINE_T008_SNAPSHOT_READONLY_AUDIT.md). Distinguir indicios de fallback de evidencia de corrupción; no inferir historial por `MaterialPriceSnapshot` actual, ni cambiar datos/servicios. Q11 y revisión de datos siguen OPEN.
 
