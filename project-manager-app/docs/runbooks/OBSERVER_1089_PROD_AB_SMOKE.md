@@ -48,9 +48,12 @@ SEMSE_OBSERVER_SMOKE_ACK=YES_OBSERVER_1089_SYNTHETIC_WRITE_AND_CLEANUP \
   node scripts/ops/observer-prod-synthetic-smoke.mjs --apply
 ```
 
-El nombre de servicio/ambiente/proyecto se comprueba automáticamente con
-`RAILWAY_SERVICE_ID`, `RAILWAY_ENVIRONMENT_NAME`,
-`RAILWAY_PROJECT_ID` y `NODE_ENV`. No ejecutar con un usuario personal
+El servicio, ambiente y proyecto se comprueban por IDs exactos mediante
+`RAILWAY_SERVICE_ID`, `RAILWAY_ENVIRONMENT_ID`,
+`RAILWAY_ENVIRONMENT_NAME`, `RAILWAY_PROJECT_ID` y `NODE_ENV`.
+`DATABASE_URL` debe usar el PostgreSQL privado `*.railway.internal`;
+se rechaza cualquier endpoint público o externo. La vinculación real del
+servicio API a esa base debe verificarse operativamente antes del smoke. No ejecutar con un usuario personal
 ni cambiar `AUTH_SECRET`, `SEMSE_DEFAULT_TENANT_ID` o políticas RBAC.
 
 ## Aserciones
