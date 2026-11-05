@@ -4,8 +4,8 @@
 
 ## Objetivo
 
-Probar de extremo a extremo el commit desplegado
-`f6e3408550577999ee26645c81fe5e221c5721c0`, usando dos
+Probar de extremo a extremo el **commit productivo actualmente desplegado**, identificado por el SHA exacto que el operador proporciona mediante
+`SEMSE_OBSERVER_SMOKE_EXPECTED_SHA` y que debe coincidir con `/v1/health`, usando dos
 tenants realmente distintos (A y B), cada uno con usuario `OPS_ADMIN`,
 org propia, membresía `ACTIVE` y sesión emitida por `POST /v1/auth/login`.
 No copiar/consultar datos de clientes ni fabricar tokens JWT.
@@ -22,7 +22,8 @@ No modifica roles globales, permisos, flags, servicios de Railway ni migraciones
    `production`, servicio `2bd1bd3f-9aa1-4fc3-a714-4cf90c52c770`.
 2. El proceso debe disponer de `DATABASE_URL` privado y Node.js 22
    con `@prisma/client`; el script no imprime la URL ni secretos.
-3. `/v1/health` debe ser HTTP 200, producción, SHA exacto citado;
+3. `/v1/health` debe ser HTTP 200, producción, SHA exacto de la variable
+   `SEMSE_OBSERVER_SMOKE_EXPECTED_SHA` (40 caracteres hexadecimales);
    `/v1/ready` debe ser HTTP 200 con `status=ready`.
    Si no, abortar **antes** de escribir.
 4. Un operador autorizado debe introducir el opt-in efímero
@@ -40,6 +41,7 @@ No modifica roles globales, permisos, flags, servicios de Railway ni migraciones
 node scripts/ops/observer-prod-synthetic-smoke.mjs
 
 # Ejecutar UNA vez, y solo con permiso sobre el entorno existente:
+SEMSE_OBSERVER_SMOKE_EXPECTED_SHA=SHA_PRODUCTIVO_CONFIRMADO \
 SEMSE_OBSERVER_SMOKE_ACK=YES_OBSERVER_1089_SYNTHETIC_WRITE_AND_CLEANUP \
   node scripts/ops/observer-prod-synthetic-smoke.mjs --apply
 ```
