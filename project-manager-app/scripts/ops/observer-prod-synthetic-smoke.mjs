@@ -72,7 +72,7 @@ async function request(method, path, opts = {}) {
       headers: {
         ...(opts.body ? { "content-type": "application/json" } : {}),
         ...(opts.token ? { authorization: "Bearer " + opts.token } : {}),
-        ...(opts.spoof ? { "x-tenant-id": opts.spoof, "x-org-id": "foreign-org" } : {}),
+        ...(opts.spoof ? { "x-tenant-id": opts.spoof } : {}),
       },
       ...(opts.body ? { body: JSON.stringify(opts.body) } : {}),
     });
