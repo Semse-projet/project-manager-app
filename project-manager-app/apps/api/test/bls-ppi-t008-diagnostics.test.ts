@@ -192,8 +192,9 @@ test("T-008b diagnostic: pricing API reports hardcoded fallback with BLS_PPI_CAC
 test("T-008b diagnostic: ProTools forwards fallback values to tool call, not to returned total", async () => {
   // Confirm the exact integration boundary, without claiming a real quote's total changed.
   const prisma = { materialPriceSnapshot: { findMany: async () => [] } }
-    as unknown as ConstructorParameters<typeof MaterialPricingService>[0];
-  const pricing = new MaterialPricingService(prisma, new BlsPpiService());
+    satisfies Record<string, unknown>;
+  const prismaStub = prisma as unknown as ConstructorParameters<typeof MaterialPricingService>[0];
+  const pricing = new MaterialPricingService(prismaStub, new BlsPpiService());
   const bus = { register: () => {} } as unknown as ConstructorParameters<typeof ProToolsAgent>[0];
   const receivedCalls: Array<Record<string, unknown>> = [];
   const tools = {
