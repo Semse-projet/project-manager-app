@@ -37,6 +37,7 @@ assert.equal(apiUrl.password, "", "Embedded API credentials forbidden");
 
 const { PrismaClient } = await import("@prisma/client");
 const prisma = new PrismaClient({ log: ["error"] });
+const EXPECTED_API_SHA = "f6e3408550577999ee26645c81fe5e221c5721c0";
 
 function ids(runId) {
   assert.match(runId, /^[a-f0-9]{16}$/, "Invalid exact run identifier");
@@ -76,6 +77,19 @@ async function request(method, path, opts = {}) {
   } finally {
     clearTimeout(timer);
   }
+}
+
+async function preflight() {
+  // Fail before any database write if traffic is not routed to the intended
+  // production build, or if required dependencies are not ready.
+  const health = await request("GET", "/v1/health");
+  assert.equal(health.status, 200, "API health must pass");
+  assert.equal(health.data?.gitSha, EXPECTED_API_SHA, "Wrong production API build");
+  assert.equal(health.data?.environment, "production", "Not the production API");
+  const ready = await request("GET", "/v1/ready");
+  assert.equal(ready.status, 200, "API readiness must pass");
+  assert.equal(ready.data?.status, "ready", "API dependencies are not ready");
+  console.log("PREFLIGHT PASS: health/ready 200, exact API SHA and production environment.");
 }
 
 async function prepare(runId, people) {
@@ -212,6 +226,7 @@ try {
   if (cleanupArgument) {
     await cleanup(runId);
   } else {
+    await preflight();
     const password = await prepare(runId, people);
     console.log("FIXTURES CREATED: two synthetic tenants with separate OPS_ADMIN accounts");
     await smoke(people, password);
