@@ -12,6 +12,7 @@ import { randomBytes, scryptSync } from "node:crypto";
 
 const EXPECTED_PROJECT = "95ad1b14-d1d9-467d-82d8-5354619ba873";
 const EXPECTED_API_SERVICE = "2bd1bd3f-9aa1-4fc3-a714-4cf90c52c770";
+const EXPECTED_ENVIRONMENT = "d682210a-956a-4508-9c5b-4ca5959278f9";
 const API = "https://api.semseproject.com";
 const FLAG = "YES_OBSERVER_1089_SYNTHETIC_WRITE_AND_CLEANUP";
 const CLEANUP_PREFIX = "--cleanup=";
@@ -26,10 +27,15 @@ if (!apply) {
 
 assert.equal(process.env.RAILWAY_PROJECT_ID, EXPECTED_PROJECT, "Wrong Railway project");
 assert.equal(process.env.RAILWAY_ENVIRONMENT_NAME, "production", "Only designated production environment");
+assert.equal(process.env.RAILWAY_ENVIRONMENT_ID, EXPECTED_ENVIRONMENT, "Wrong Railway environment ID");
 assert.equal(process.env.RAILWAY_SERVICE_ID, EXPECTED_API_SERVICE, "Only the existing semse-API service may run this");
 assert.equal(process.env.NODE_ENV, "production", "Production runtime required");
 assert.equal(process.env.SEMSE_OBSERVER_SMOKE_ACK, FLAG, "Explicit one-shot write acknowledgement required");
 assert.ok(process.env.DATABASE_URL, "Private DATABASE_URL must exist in the runtime");
+const databaseUrl = new URL(process.env.DATABASE_URL);
+assert.ok(["postgresql:", "postgres:"].includes(databaseUrl.protocol), "Unexpected database URL protocol");
+assert.ok(databaseUrl.hostname.endsWith(".railway.internal"),
+  "Production smoke requires private Railway PostgreSQL, not a public or external host");
 assert.ok(!process.env.SEMSE_OBSERVER_SMOKE_EMAIL, "Do not reuse external accounts");
 const apiUrl = new URL(API);
 assert.equal(apiUrl.origin, API, "Unexpected API origin");
