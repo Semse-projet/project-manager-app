@@ -16,6 +16,7 @@
  */
 import assert from "node:assert/strict";
 import { randomUUID, randomBytes, scryptSync } from "node:crypto";
+import { createRequire } from "node:module";
 
 const PROJECT = "95ad1b14-d1d9-467d-82d8-5354619ba873";
 const ENV = "d682210a-956a-4508-9c5b-4ca5959278f9";
@@ -252,7 +253,10 @@ if (arg === "--plan") {
 }
 assert.ok(arg === "--run" || arg === "--revoke", "Unknown mode");
 requireProductionAuthority();
-const { PrismaClient } = await import("@prisma/client");
+// pnpm production uses isolated workspace dependencies: @prisma/client is
+// linked beneath packages/db, not necessarily at /app/node_modules.
+const requireFromDb = createRequire(new URL("../../packages/db/package.json", import.meta.url));
+const { PrismaClient } = requireFromDb("@prisma/client");
 const prisma = new PrismaClient();
 const actors = identities(runId);
 try {
