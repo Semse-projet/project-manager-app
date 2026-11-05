@@ -20,7 +20,7 @@ import { randomUUID, randomBytes, scryptSync } from "node:crypto";
 const PROJECT = "95ad1b14-d1d9-467d-82d8-5354619ba873";
 const ENV = "d682210a-956a-4508-9c5b-4ca5959278f9";
 const SERVICE = "2bd1bd3f-9aa1-4fc3-a714-4cf90c52c770";
-const RELEASE_SHA = "f6e3408550577999ee26645c81fe5e221c5721c0";
+const EXPECTED_RELEASE_SHA = process.env.RAILWAY_GIT_COMMIT_SHA?.trim();
 const API = "https://api.semseproject.com";
 const PREFIX = "test_observer_ab_";
 const arg = process.argv[2] ?? "--plan";
@@ -72,7 +72,8 @@ async function jsonRequest(path, { token, forgedTenant, expected = 200, method =
 async function assertRelease() {
   const health = await jsonRequest("/v1/health");
   assert.equal(health.status, "ok");
-  assert.equal(health.gitSha, RELEASE_SHA, "Wrong production release; abort before seeding");
+  assert.match(EXPECTED_RELEASE_SHA ?? "", /^[a-f0-9]{40}$/, "Railway deployment SHA required");
+  assert.equal(health.gitSha, EXPECTED_RELEASE_SHA, "Wrong production release; abort before seeding");
   assert.equal(health.environment, "production");
 }
 
@@ -203,7 +204,7 @@ async function verify(prisma, actors) {
     await jsonRequest("/v1/ops/observer/history", { token: tokenA, expected: 401 });
     await jsonRequest("/v1/ops/observer/history", { token: tokenB });
     return {
-      release: RELEASE_SHA.slice(0, 12), checked: [
+      release: EXPECTED_RELEASE_SHA.slice(0, 12), checked: [
         "signed-login-A-B", "tenant-A-B-distinct", "anonymous-401",
         "latest-A-B", "history-A-B", "forged-tenant-header", "revoked-session-401",
       ],
