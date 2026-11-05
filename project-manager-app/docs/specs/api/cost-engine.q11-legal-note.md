@@ -78,7 +78,7 @@ Lo que **sabemos**: el código afirma, en un comentario, que los valores provien
   - el primer despliegue que incluyó el código, si existen entradas reales en `LocationCostIndex` de producción y qué estimados pudieron usarlas (solo con investigación autorizada);
   - cómo se conserva la evidencia sin borrar el historial.
 
-## 7. Alternativas a evaluar si los derechos son insuficientes (ninguna decidida)
+## 7. Alternativas evaluadas; dirección de diseño seleccionada, derechos sin validar
 
 | Alternativa | Idea | Qué verificar |
 |---|---|---|
@@ -86,6 +86,12 @@ Lo que **sabemos**: el código afirma, en un comentario, que los valores provien
 | Precios observados propios | Cotizaciones y gastos reales de la red SEMSE con proveedor, unidad, ubicación y fecha | Calidad, sesgo, volumen, privacidad |
 | Licencia comercial con derechos de integración | Acuerdo con el proveedor que permita almacenar y redistribuir en SaaS | Costo, alcance, vigencia, auditoría |
 | Neutralizar el ajuste regional de material (factor 1.0) hasta resolver | Dejar de aplicar la tabla | Impacto en los estimados; requiere **autorización de cambio de precios** aparte |
+
+### Selección de diseño 2026-11-05 (no constituye dictamen)
+
+Se seleccionaron las alternativas **datos públicos oficiales + precios observados propios/de proveedores con permiso SaaS verificable**. Una **licencia comercial de integración** podrá incorporarse únicamente si el contrato de SEMSE autoriza explícitamente el uso, almacenamiento, derivados y exposición a clientes. La tabla de multiplicadores atribuida a RSMeans se clasifica **`RESTRICTED_LICENSE / UNVERIFIED_SOURCE` para nuevas cotizaciones comerciales**, sin afirmar todavía copia, infracción ni exposición histórica. La tabla actual no se retira ni neutraliza automáticamente con esta nota porque ambas acciones podrían cambiar importes: requieren análisis del impacto, autorización separada y plan de migración. La política fuente completa está en [decisiones comerciales y fiscales](./cost-engine.commercial-fiscal-policy-2026-11-05.md).
+
+**Advertencia jurídica:** los términos públicos de Gordian/RSMeans Online y el addendum de Trimble pueden variar por contrato/producto. No se presume que SEMSE tenga aceptados esos términos, ni que la ausencia de licencia encontrada equivalga a inexistencia de una licencia fuera del repositorio. Legal debe verificar la cadena de origen y los derechos contractuales concretos.
 
 ## 8. Medidas provisionales propuestas (NO ejecutadas; requieren autorización del owner)
 
