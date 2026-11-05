@@ -150,32 +150,76 @@ async function disableSyntheticAccounts(prisma, actors) {
       }
     }, { timeout: 20000 });
   } catch (err) {
-    // Fail CLOSED even if transactional audit persistence failed. Never
-    // attempt emergency mutation if synthetic ownership was not validated.
-    if (ownershipVerified) {
-      try {
-        await prisma.authSession.updateMany({
-          where: { userId: { in: userIds }, status: "ACTIVE" },
-          data: { status: "REVOKED", revokedAt: disabledAt },
-        });
-        await prisma.membership.updateMany({
-          where: { userId: { in: userIds } },
-          data: { status: "SUSPENDED" },
-        });
-        await prisma.user.updateMany({
-          where: { id: { in: userIds } },
-          data: { status: "suspended" },
-        });
-        await prisma.tenant.updateMany({
-          where: { id: { in: tenantIds } },
-          data: { status: "suspended" },
-        });
-      } catch {
-        // Keep the original transaction failure visible to the operator.
-        // Recovery with --revoke must be attempted if this path is reached.
-      }
-    }
-    throw err;
+    // The normal path is fully atomic. If it fails after IDs are validated,
+    // security takes precedence: revoke accounts even if AuditLog is offline.
+    // Never report a successful smoke on this emergency path.
+    if (!ownershipVerified) throw err;
+    const failures = [];
+    const attempt = async (stage, fn) => {
+      try { await fn(); } catch { failures.push(stage); }
+    };
+    await attempt("sessions", () => prisma.authSession.updateMany({
+      where: { userId: { in: userIds }, status: "ACTIVE" },
+      data: { status: "REVOKED", revokedAt: disabledAt },
+    }));
+    await attempt("memberships", () => prisma.membership.updateMany({
+      where: { userId: { in: userIds } },
+      data: { status: "SUSPENDED" },
+    }));
+    await attempt("users", () => prisma.user.updateMany({
+      where: { id: { in: userIds } },
+      data: { status: "suspended" },
+    }));
+    await attempt("tenants", () => prisma.tenant.updateMany({
+      where: { id: { in: tenantIds } },
+      data: { status: "suspended" },
+    }));
+    let activeRemaining = null;
+    await attempt("verify-active", async () => {
+      const counts = await Promise.all([
+        prisma.authSession.count({ where: { userId: { in: userIds }, status: "ACTIVE" } }),
+        prisma.membership.count({ where: { userId: { in: userIds }, status: "ACTIVE" } }),
+        prisma.user.count({ where: { id: { in: userIds }, status: "active" } }),
+      ]);
+      activeRemaining = counts.reduce((total, count) => total + count, 0);
+      if (activeRemaining > 0) failures.push("active-identities-remain");
+    });
+
+    // Distinct incident event: this does NOT claim an atomic teardown.
+    // If AuditLog is temporarily unavailable, the operator still gets a
+    // critical Railway log and MUST rerun --revoke RUN_ID after repair.
+    let recoveryAudit = "unavailable";
+    await attempt("recovery-audit", async () => {
+      await prisma.$transaction(async tx => {
+        for (const a of actors) {
+          const tenant = await tx.tenant.findUnique({
+            where: { id: a.tenantId }, select: { id: true },
+          });
+          if (!tenant) continue;
+          await tx.auditLog.create({
+            data: {
+              id: "aud_observer_fallback_" + randomUUID().replaceAll("-", ""),
+              tenantId: a.tenantId, actorUserId: null,
+              entityType: "Tenant", entityId: a.tenantId,
+              action: "observer.synthetic_cleanup.emergency_fallback",
+              afterJson: {
+                purpose: "PR1089_AB_SMOKE", accountKey: a.key,
+                originalAtomicTeardownFailed: true,
+                activeRemaining, failedStages: failures,
+                requiresOperatorRecovery: true,
+              },
+            },
+          });
+        }
+      }, { timeout: 20000 });
+      recoveryAudit = "recorded";
+    });
+    console.error("CRITICAL OBSERVER_SYNTHETIC_CLEANUP_RECOVERY", JSON.stringify({
+      runId, activeRemaining, failedStages: failures, recoveryAudit,
+      operatorAction: "rerun --revoke RUN_ID; never mark this smoke PASS",
+    }));
+    throw new Error("Atomic synthetic cleanup failed; emergency revoke attempted. " +
+      "Inspect Railway security log and rerun --revoke " + runId, { cause: err });
   }
 
   // Assert the post-commit state, not merely a transactional intention.
