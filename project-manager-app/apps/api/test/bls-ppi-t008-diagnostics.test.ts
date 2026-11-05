@@ -6,6 +6,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { BlsPpiService, BLS_SERIES } from "../dist/modules/pricing/bls-ppi.service.js";
 import { MaterialPricingService } from "../dist/modules/pricing/material-pricing.service.js";
+import { PricingController } from "../dist/modules/pricing/pricing.controller.js";
 
 const material = BLS_SERIES.find((s) => s.materialKey === "lumber-framing");
 assert.ok(material, "known fixture mapping must exist");
@@ -167,6 +168,23 @@ test("T-008 diagnostic: failed BLS fetch overwrites existing snapshot fields wit
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+test("T-008b diagnostic: pricing API reports hardcoded fallback with BLS_PPI_CACHE source", async () => {
+  // This reproduces the actual consumer-facing metadata, not a fabricated endpoint.
+  // No network, DB, or HTTP listener is involved.
+  const prisma = {
+    materialPriceSnapshot: { findMany: async () => [] },
+  } as unknown as ConstructorParameters<typeof MaterialPricingService>[0];
+  const pricing = new MaterialPricingService(prisma, new BlsPpiService());
+  const controller = new PricingController(
+    pricing,
+    {} as ConstructorParameters<typeof PricingController>[1],
+  );
+  const result = await controller.getMaterialPrices({ headers: { "x-request-id": "t008-fallback" } });
+  assert.equal(result.data.source, "BLS_PPI_CACHE"); // misleading: no BLS snapshot exists
+  assert.equal(result.data.prices["lumber-framing"], material.basePrice);
+  assert.equal(Object.keys(result.data.prices).length, BLS_SERIES.length);
 });
 
 test("T-008 diagnostic: unavailable BLS series silently returns unverified hardcoded base price", async () => {
