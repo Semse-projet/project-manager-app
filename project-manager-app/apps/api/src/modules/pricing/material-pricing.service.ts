@@ -67,8 +67,8 @@ export class MaterialPricingService {
 
     // Same numeric fallback as before, but never advertised as BLS data.
     this.logger.debug("Material price cache empty or expired — returning unverified base prices");
+    Object.assign(prices, this.getBasePrices());
     for (const series of BLS_SERIES) {
-      prices[series.materialKey] = series.basePrice;
       provenance[series.materialKey] = {
         verification: "UNVERIFIED",
         origin: "HARDCODED_FALLBACK",
