@@ -104,6 +104,15 @@ async function preflight() {
 }
 
 async function prepare(runId, people) {
+  // Each run creates at most two in-memory Observer cache slots until the
+  // 24-hour idle TTL. Block repeats while those slots could still be retained.
+  const recentRuns = await prisma.tenant.count({
+    where: {
+      id: { startsWith: "test_ohi14_t_" },
+      createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+    },
+  });
+  assert.equal(recentRuns, 0, "Observer smoke already executed in the last 24 hours; refuse additional cache slots");
   const role = await prisma.role.findUnique({ where: { key: "OPS_ADMIN" }, select: { id: true } });
   assert.ok(role?.id, "Existing OPS_ADMIN role is required; do not seed global roles");
   const password = randomBytes(32).toString("base64url");
