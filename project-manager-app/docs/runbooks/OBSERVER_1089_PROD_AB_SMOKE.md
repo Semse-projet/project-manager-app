@@ -12,7 +12,9 @@ No copiar/consultar datos de clientes ni fabricar tokens JWT.
 
 El script `scripts/ops/observer-prod-synthetic-smoke.mjs` crea registros
 únicos prefijados `test_ohi14_*`, prueba solamente rutas GET de Observer,
-revoca sesiones y elimina **solo** los registros exactos que creó.
+revoca sesiones y elimina **usuarios, orgs, perfiles, membresías y sesiones**
+exactos. **Conserva dos tenants sintéticos archivados para retener AuditLog**;
+no ejecuta un borrado físico del tenant que destruiría la auditoría por cascada.
 No modifica roles globales, permisos, flags, servicios de Railway ni migraciones.
 
 ## Control previo (obligatorio)
@@ -71,8 +73,10 @@ ni cambiar `AUTH_SECRET`, `SEMSE_DEFAULT_TENANT_ID` o políticas RBAC.
 
 ## Limpieza, trazabilidad y falla inesperada
 
-El script elimina en `finally` solamente identidades prefijadas con el
-**run ID** generado. El ID se imprime, pero nunca contraseñas, tokens,
+El script elimina en `finally` las identidades ejecutables (usuarios,
+organizaciones, sesiones, perfiles y membresías) prefijadas con el
+**run ID** generado; **deja los tenants con `status=archived` para preservar
+los eventos de auditoría `auth.session.issued/revoked`**. El ID se imprime, pero nunca contraseñas, tokens,
 secretos, datos de clientes ni cuerpos JSON. Verifica nombres, emails,
 tenantIds y orgIds antes de borrar. `AuthSession` queda eliminada.
 Si el proceso se interrumpe violentamente, reintentar la limpieza
@@ -87,6 +91,9 @@ Registrar en GitHub únicamente: SHA/deployment, run ID sintético,
 cantidad de aserciones PASS/FAIL, existencia o no de cuentas temporales
 tras la limpieza y estados agregados. Si queda una cuenta huérfana,
 **no** marcar el smoke PASS; revisar cleanup exacto antes de repetir.
+Los tenants archivados no tienen usuarios ni membresías activas: se mantienen
+solamente como custodios de auditoría. Cualquier purga física futura requiere
+una política de retención aprobada por separado.
 
 **No usar** el registro público `/v1/auth/register`: asigna
 `tenant_default` y solo CLIENT/PRO. Tampoco usar los seeds
