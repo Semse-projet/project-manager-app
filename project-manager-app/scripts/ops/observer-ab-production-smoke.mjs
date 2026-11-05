@@ -79,66 +79,115 @@ async function assertRelease() {
 }
 
 async function disableSyntheticAccounts(prisma, actors) {
-  // Verify ownership before changing any identity. Never use a broad tenant
-  // cleanup or delete audit logs (which are intentionally retained).
-  for (const a of actors) {
-    const user = await prisma.user.findUnique({
-      where: { id: a.userId }, select: { email: true },
-    });
-    if (user) assert.equal(user.email, a.email, "Unexpected user ID collision");
-    const tenant = await prisma.tenant.findUnique({
-      where: { id: a.tenantId }, select: { name: true },
-    });
-    if (tenant) assert.equal(tenant.name, "SEMSE Observer synthetic " + a.key.toUpperCase(),
-      "Unexpected tenant ID collision");
+  // This is a privileged production operation. Validate the exact synthetic
+  // fixture identities before mutating any row, including its org/tenant bind.
+  let ownershipVerified = false;
+  const userIds = actors.map(a => a.userId);
+  const tenantIds = actors.map(a => a.tenantId);
+  const disabledAt = new Date();
+  try {
+    await prisma.$transaction(async tx => {
+      for (const a of actors) {
+        const [user, tenant, org] = await Promise.all([
+          tx.user.findUnique({ where: { id: a.userId }, select: { email: true } }),
+          tx.tenant.findUnique({ where: { id: a.tenantId }, select: { name: true } }),
+          tx.org.findUnique({ where: { id: a.orgId }, select: { tenantId: true, name: true } }),
+        ]);
+        if (user) assert.equal(user.email, a.email, "Unexpected synthetic user collision");
+        if (tenant) assert.equal(tenant.name, "SEMSE Observer synthetic " + a.key.toUpperCase(),
+          "Unexpected synthetic tenant collision");
+        if (org) {
+          assert.equal(org.tenantId, a.tenantId, "Unexpected synthetic org ownership");
+          assert.equal(org.name, "SEMSE Observer synthetic org " + a.key.toUpperCase(),
+            "Unexpected synthetic org collision");
+        }
+      }
+      ownershipVerified = true;
+      await tx.authSession.updateMany({
+        where: { userId: { in: userIds }, status: "ACTIVE" },
+        data: { status: "REVOKED", revokedAt: disabledAt },
+      });
+      await tx.membership.updateMany({
+        where: { userId: { in: userIds } },
+        data: { status: "SUSPENDED" },
+      });
+      await tx.user.updateMany({
+        where: { id: { in: userIds } },
+        data: { status: "suspended" },
+      });
+      await tx.tenant.updateMany({
+        where: { id: { in: tenantIds } },
+        data: { status: "suspended" },
+      });
+
+      // Provisioning and deactivation both produce durable audit evidence.
+      // Write the User AND Tenant events in the SAME transaction as the
+      // corresponding privileged state mutations.
+      for (const a of actors) {
+        const tenant = await tx.tenant.findUnique({
+          where: { id: a.tenantId }, select: { id: true },
+        });
+        if (!tenant) continue; // seed transaction rolled back; no fixture exists.
+        await tx.auditLog.createMany({ data: [
+          {
+            id: "aud_observer_disabled_" + randomUUID().replaceAll("-", ""),
+            tenantId: a.tenantId, actorUserId: null,
+            entityType: "User", entityId: a.userId,
+            action: "observer.synthetic_account.disabled",
+            afterJson: { purpose: "PR1089_AB_SMOKE", accountKey: a.key,
+              sessionStatus: "REVOKED", userStatus: "suspended",
+              membershipStatus: "SUSPENDED" },
+          },
+          {
+            id: "aud_observer_tenant_disabled_" + randomUUID().replaceAll("-", ""),
+            tenantId: a.tenantId, actorUserId: null,
+            entityType: "Tenant", entityId: a.tenantId,
+            action: "observer.synthetic_tenant.disabled",
+            afterJson: { purpose: "PR1089_AB_SMOKE", accountKey: a.key,
+              tenantStatus: "suspended" },
+          },
+        ] });
+      }
+    }, { timeout: 20000 });
+  } catch (err) {
+    // Fail CLOSED even if transactional audit persistence failed. Never
+    // attempt emergency mutation if synthetic ownership was not validated.
+    if (ownershipVerified) {
+      try {
+        await prisma.authSession.updateMany({
+          where: { userId: { in: userIds }, status: "ACTIVE" },
+          data: { status: "REVOKED", revokedAt: disabledAt },
+        });
+        await prisma.membership.updateMany({
+          where: { userId: { in: userIds } },
+          data: { status: "SUSPENDED" },
+        });
+        await prisma.user.updateMany({
+          where: { id: { in: userIds } },
+          data: { status: "suspended" },
+        });
+        await prisma.tenant.updateMany({
+          where: { id: { in: tenantIds } },
+          data: { status: "suspended" },
+        });
+      } catch {
+        // Keep the original transaction failure visible to the operator.
+        // Recovery with --revoke must be attempted if this path is reached.
+      }
+    }
+    throw err;
   }
-  const ids = actors.map(a => a.userId);
-  await prisma.authSession.updateMany({
-    where: { userId: { in: ids }, status: "ACTIVE" },
-    data: { status: "REVOKED", revokedAt: new Date() },
-  });
-  await prisma.membership.updateMany({
-    where: { userId: { in: ids } },
-    data: { status: "SUSPENDED" },
-  });
-  await prisma.user.updateMany({
-    where: { id: { in: ids } },
-    data: { status: "suspended" },
-  });
-  await prisma.tenant.updateMany({
-    where: { id: { in: actors.map(a => a.tenantId) } },
-    data: { status: "suspended" },
-  });
-  const active = await prisma.authSession.count({
-    where: { userId: { in: ids }, status: "ACTIVE" },
-  });
-  assert.equal(active, 0, "Active synthetic sessions must be zero after cleanup");
+
+  // Assert the post-commit state, not merely a transactional intention.
+  assert.equal(await prisma.authSession.count({
+    where: { userId: { in: userIds }, status: "ACTIVE" },
+  }), 0, "Active synthetic sessions must be zero after cleanup");
   assert.equal(await prisma.membership.count({
-    where: { userId: { in: ids }, status: "ACTIVE" },
+    where: { userId: { in: userIds }, status: "ACTIVE" },
   }), 0, "Active synthetic memberships must be zero after cleanup");
   assert.equal(await prisma.user.count({
-    where: { id: { in: ids }, status: "active" },
+    where: { id: { in: userIds }, status: "active" },
   }), 0, "Active synthetic users must be zero after cleanup");
-  // Do not claim cleanup success without a durable, tenant-local record.
-  // System operator identity is not available from this non-interactive
-  // console, so actorUserId is intentionally null (never forge an actor).
-  for (const a of actors) {
-    const tenant = await prisma.tenant.findUnique({
-      where: { id: a.tenantId }, select: { id: true },
-    });
-    if (!tenant) continue; // Failed seed may have rolled back fully.
-    await prisma.auditLog.create({
-      data: {
-        id: "aud_observer_disabled_" + randomUUID().replaceAll("-", ""),
-        tenantId: a.tenantId, actorUserId: null,
-        entityType: "User", entityId: a.userId,
-        action: "observer.synthetic_account.disabled",
-        afterJson: { purpose: "PR1089_AB_SMOKE", accountKey: a.key,
-          sessionStatus: "REVOKED", userStatus: "suspended",
-          membershipStatus: "SUSPENDED" },
-      },
-    });
-  }
 }
 
 async function seed(prisma, actors) {
