@@ -117,7 +117,7 @@ export class BlsPpiService {
       const reading = indexMap.get(series.seriesId);
       const currentIndex = reading?.latest;
 
-      if (Number.isFinite(currentIndex) && currentIndex! > 0) {
+      if (currentIndex !== undefined && Number.isFinite(currentIndex) && currentIndex > 0) {
         // Convert PPI index (base 2012=100) to approximate USD price
         // Adjustment factor: current_index / 100 applied to base price
         const adjustmentFactor = currentIndex / 100;
