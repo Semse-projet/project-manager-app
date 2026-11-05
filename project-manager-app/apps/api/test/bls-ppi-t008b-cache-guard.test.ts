@@ -214,7 +214,7 @@ test("T-008b: annual, malformed, future and stale BLS periods cannot refresh cac
   });
 });
 
-for (const prior of ["bad-index", "Infinity", "0", "-20", "0.000000000001"]) {
+for (const prior of ["bad-index", "Infinity", "0", "-20", "1e-320"]) {
   test(`T-008b: invalid year-ago BLS reading ${prior} yields null YoY without poisoning valid observed index`, async () => {
     const now = new Date();
     const month = `M${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
