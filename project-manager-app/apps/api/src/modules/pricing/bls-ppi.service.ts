@@ -95,8 +95,10 @@ export class BlsPpiService {
         );
 
         result.set(series.seriesID, {
-          latest: parseFloat(latest.value),
-          yearAgo: yearAgo ? parseFloat(yearAgo.value) : undefined,
+          // Number() rejects trailing junk that parseFloat() would silently
+          // accept (e.g. "126invalid"). Non-finite values fail closed later.
+          latest: Number(latest.value),
+          yearAgo: yearAgo ? Number(yearAgo.value) : undefined,
         });
       }
     } catch (err) {
