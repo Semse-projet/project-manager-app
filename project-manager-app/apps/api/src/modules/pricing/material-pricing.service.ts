@@ -4,6 +4,19 @@ import { BlsPpiService, BLS_SERIES } from "./bls-ppi.service.js";
 
 export type MaterialPriceMap = Record<string, number>; // materialKey → pricePerUnit USD
 
+export type MaterialPriceDetails = {
+  prices: MaterialPriceMap;
+  source: "LEGACY_CACHE_UNVERIFIED" | "HARDCODED_FALLBACK_UNVERIFIED";
+  provenance: Record<string, {
+    verification: "UNVERIFIED";
+    origin: "LEGACY_CACHE" | "HARDCODED_FALLBACK";
+    recordedSource: string | null;
+    fetchedAt: string | null;
+    validUntil: string | null;
+    reason: "HISTORICAL_INDEX_AND_PRICE_PROVENANCE_NOT_PROVEN" | "MISSING_OR_EXPIRED_CACHE";
+  }>;
+};
+
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 @Injectable()
@@ -16,27 +29,56 @@ export class MaterialPricingService {
   ) {}
 
   /**
-   * Returns current material prices from DB cache.
-   * Falls back to hardcoded base prices if cache is empty or all expired.
+   * Legacy numeric map for existing calculators. It intentionally retains
+   * its shape; callers MUST NOT infer BLS verification from these numbers.
    */
   async getCurrentPrices(): Promise<MaterialPriceMap> {
-    const now = new Date();
+    return (await this.getCurrentPricesWithProvenance()).prices;
+  }
 
+  /**
+   * Read-only view of the existing cache: no change to money or DB rows.
+   * Historical snapshots do not retain true BLS observation provenance,
+   * so even an unexpired BLS_PPI row is NEVER represented as verified.
+   */
+  async getCurrentPricesWithProvenance(): Promise<MaterialPriceDetails> {
+    const now = new Date();
     const snapshots = await this.prisma.materialPriceSnapshot.findMany({
       where: { validUntil: { gt: now } },
     });
 
+    const prices: MaterialPriceMap = {};
+    const provenance: MaterialPriceDetails["provenance"] = {};
+
     if (snapshots.length > 0) {
-      const map: MaterialPriceMap = {};
-      for (const s of snapshots) {
-        map[s.materialKey] = Number(s.pricePerUnit);
+      for (const snapshot of snapshots) {
+        prices[snapshot.materialKey] = Number(snapshot.pricePerUnit);
+        provenance[snapshot.materialKey] = {
+          verification: "UNVERIFIED",
+          origin: "LEGACY_CACHE",
+          recordedSource: snapshot.source,
+          fetchedAt: snapshot.fetchedAt.toISOString(),
+          validUntil: snapshot.validUntil.toISOString(),
+          reason: "HISTORICAL_INDEX_AND_PRICE_PROVENANCE_NOT_PROVEN",
+        };
       }
-      return map;
+      return { prices, source: "LEGACY_CACHE_UNVERIFIED", provenance };
     }
 
-    // Cache miss: return base prices (worker will refresh in background)
-    this.logger.debug("Material price cache empty or expired — returning base prices");
-    return this.getBasePrices();
+    // Same numeric fallback as before, but never advertised as BLS data.
+    this.logger.debug("Material price cache empty or expired — returning unverified base prices");
+    for (const series of BLS_SERIES) {
+      prices[series.materialKey] = series.basePrice;
+      provenance[series.materialKey] = {
+        verification: "UNVERIFIED",
+        origin: "HARDCODED_FALLBACK",
+        recordedSource: null,
+        fetchedAt: null,
+        validUntil: null,
+        reason: "MISSING_OR_EXPIRED_CACHE",
+      };
+    }
+    return { prices, source: "HARDCODED_FALLBACK_UNVERIFIED", provenance };
   }
 
   /**
