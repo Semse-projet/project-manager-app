@@ -43,6 +43,8 @@ date: "2026-10-30"
 - [ ] [T-008] **Corregir metodología PPI — posterior a `APPROVED`:** precio observado con fecha/mes, unidad, fuente, derechos y serie compatible; dividir índice actual entre índice de **esa fecha** (no `/100`). Gate de estado tipado si índice ≤ 0, no finito, ausente, sin vigencia, incompatible o sin base verificable. No usar índice ficticio 100 ni publicar `basePrice` hardcoded como precio confirmado. Tests sintéticos subida/igualdad/bajada y fallback, más revisión de Q11. **Diagnóstico reproducible, no corrección:** PR [#1099](https://github.com/Semse-projet/project-manager-app/pull/1099) e issue [#1087](https://github.com/Semse-projet/project-manager-app/issues/1087).
 - [ ] [T-009] `TaxPolicy` versionada y estado "impuestos no determinados"; revisión fiscal profesional previa a valores
 
+- [ ] [T-008b] **Integridad del snapshot PPI [#1100](https://github.com/Semse-projet/project-manager-app/issues/1100):** fallos de BLS y fallback hardcoded no crean ni renuevan observaciones con `source=BLS_PPI` verificada; índices ausentes/no válidos no producen precios ni expiraciones aparentes. Diagnóstico de persistencia sin DB real incluido en [#1099](https://github.com/Semse-projet/project-manager-app/pull/1099); implementación solo tras `APPROVED`, con smoke de consumidores y rollback.
+
 ## Fase 1 — Servicio y registro
 
 - [ ] [T-010] Tests rojos del resolvedor por capas, límites y capas reservadas
