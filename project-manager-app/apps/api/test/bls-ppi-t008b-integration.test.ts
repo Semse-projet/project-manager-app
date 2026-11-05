@@ -133,7 +133,7 @@ test("T-008b isolated PostgreSQL: partial BLS data updates observed series only"
       const observed = BLS_SERIES.filter(s => s.seriesId === "WPU081");
       await withFetch(async () => responseFor([{
         seriesID: "WPU081",
-        data: [{ year: "2026", period: "M06", value: "126" }],
+        data: [{ year: String(new Date().getUTCFullYear()), period: `M${String(new Date().getUTCMonth() + 1).padStart(2, "0")}`, value: "126" }],
       }]), async () => {
         const result = await new MaterialPricingService(tx, new BlsPpiService()).refreshPrices();
         assert.deepEqual(result, {
