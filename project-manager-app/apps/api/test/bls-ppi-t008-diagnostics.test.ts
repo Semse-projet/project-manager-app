@@ -8,6 +8,7 @@ import test from "node:test";
 import { BlsPpiService, BLS_SERIES } from "../dist/modules/pricing/bls-ppi.service.js";
 import { MaterialPricingService } from "../dist/modules/pricing/material-pricing.service.js";
 import { PricingController } from "../dist/modules/pricing/pricing.controller.js";
+import { ProToolsAgent } from "../dist/modules/semse-agents/protools.agent.js";
 
 const material = BLS_SERIES.find((s) => s.materialKey === "lumber-framing");
 assert.ok(material, "known fixture mapping must exist");
@@ -186,6 +187,32 @@ test("T-008b diagnostic: pricing API reports hardcoded fallback with BLS_PPI_CAC
   assert.equal(result.data.source, "BLS_PPI_CACHE"); // misleading: no BLS snapshot exists
   assert.equal(result.data.prices["lumber-framing"], material.basePrice);
   assert.equal(Object.keys(result.data.prices).length, BLS_SERIES.length);
+});
+
+test("T-008b diagnostic: ProTools forwards fallback values to tool call, not to returned total", async () => {
+  // Confirm the exact integration boundary, without claiming a real quote's total changed.
+  const prisma = { materialPriceSnapshot: { findMany: async () => [] } }
+    as unknown as ConstructorParameters<typeof MaterialPricingService>[0];
+  const pricing = new MaterialPricingService(prisma, new BlsPpiService());
+  const bus = { register: () => {} } as unknown as ConstructorParameters<typeof ProToolsAgent>[0];
+  let received: Record<string, unknown> | null = null;
+  const tools = {
+    calculate: (args: Record<string, unknown>) => {
+      received = args;
+      return { riskFlags: [] };
+    },
+  } as unknown as NonNullable<ConstructorParameters<typeof ProToolsAgent>[1]>;
+  const input = { trade: "painting", description: "synthetic test", area: 100, rooms: 1 };
+  const agent = new ProToolsAgent(bus, tools, pricing);
+  const result = await agent.estimate(input);
+  assert.ok(received);
+  assert.equal((received.prices as Record<string, number>)["lumber-framing"], material.basePrice);
+  const noPricing = new ProToolsAgent(bus, tools);
+  const baseline = await noPricing.estimate(input);
+  assert.equal(result.totalMaterials, baseline.totalMaterials);
+  assert.equal(result.totalCost, baseline.totalCost);
+  // The flow forwarded an unverified price to ToolsService.calculate, but this
+  // ProToolsAgent return path currently uses estimateMaterials/estimateLabor.
 });
 
 test("T-008 diagnostic: unavailable BLS series silently returns unverified hardcoded base price", async () => {
