@@ -20,7 +20,7 @@ const apply = process.argv.includes("--apply");
 
 if (!apply) {
   console.log("PLAN ONLY: two disposable tenants, two OPS_ADMIN users, login, signed HTTP A/B smoke, exact-ID cleanup.");
-  console.log("Requires Railway production API runtime, --apply and SEMSE_OBSERVER_SMOKE_ACK opt-in.");
+  console.log("Requires Railway production API runtime, --apply, SEMSE_OBSERVER_SMOKE_EXPECTED_SHA and SEMSE_OBSERVER_SMOKE_ACK.");
   process.exit(0);
 }
 
@@ -39,7 +39,8 @@ assert.equal(apiUrl.password, "", "Embedded API credentials forbidden");
 
 const { PrismaClient } = await import("@prisma/client");
 const prisma = new PrismaClient({ log: ["error"] });
-const EXPECTED_API_SHA = "f6e3408550577999ee26645c81fe5e221c5721c0";
+const EXPECTED_API_SHA = process.env.SEMSE_OBSERVER_SMOKE_EXPECTED_SHA;
+assert.match(EXPECTED_API_SHA ?? "", /^[a-f0-9]{40}$/, "Expected current production git SHA required");
 
 function ids(runId) {
   assert.match(runId, /^[a-f0-9]{16}$/, "Invalid exact run identifier");
