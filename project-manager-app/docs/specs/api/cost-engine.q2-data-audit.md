@@ -54,7 +54,7 @@ Por defecto devuelve **solo totales por tenant**. La opción `detail_level=detai
 trimestre de creación del intake, y **diagnósticos de calidad**: estimados no usables, `publishedJobId` sin trabajo, contratos sin total,
 terminados sin precio, registros de costo en moneda distinta de USD y regiones no resueltas.
 
-Una sonda previa (Q0) lista **solo los nombres de clave** de `Contract.termsJson` y su frecuencia, para confirmar dónde vive el precio acordado antes de fiarse de los resultados.
+Una sonda previa (Q0) lista **solo nombres de clave** de `Contract.termsJson` con frecuencia **al menos `min_cell`**, para confirmar dónde vive el precio acordado antes de fiarse de los resultados. Las claves con 1…`min_cell-1` contratos **no se emiten**; `min_cell` debe ser un entero ≥ 2. Esta supresión primaria también se aplica a Q0, pero **no es supresión complementaria**: ningún resultado puede difundirse sin revisión de inferencia.
 
 ## 4. Evidencia disponible (esquema real, `packages/db/prisma/schema.prisma`)
 
