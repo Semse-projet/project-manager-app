@@ -174,18 +174,18 @@ test("T-008b: partial cache does not fabricate cached observations for missing m
 });
 
 test("T-008b: BLS monthly observations are ordered by period, not response order", async () => {
-  const year = String(new Date().getUTCFullYear());
-  const currentMonth = new Date().getUTCMonth() + 1;
-  const older = "M01";
-  const newer = `M${String(Math.min(currentMonth, 6)).padStart(2, "0")}`;
-  if (newer === older) return; // January has no earlier same-year month.
+  const now = new Date();
+  const newest = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+  const previous = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
+  const newer = `M${String(newest.getUTCMonth() + 1).padStart(2, "0")}`;
+  const older = `M${String(previous.getUTCMonth() + 1).padStart(2, "0")}`;
   const { prisma, writes } = prismaCapture();
   await withFetch((async () => mockBls([{
     seriesID: "WPU081",
     data: [
-      { year, period: older, value: "99" },
-      { year, period: "M13", value: "987" },
-      { year, period: newer, value: "126" },
+      { year: String(previous.getUTCFullYear()), period: older, value: "99" },
+      { year: String(newest.getUTCFullYear()), period: "M13", value: "987" },
+      { year: String(newest.getUTCFullYear()), period: newer, value: "126" },
     ],
   }])) as typeof fetch, async () => {
     const result = await new MaterialPricingService(prisma, new BlsPpiService()).refreshPrices();
