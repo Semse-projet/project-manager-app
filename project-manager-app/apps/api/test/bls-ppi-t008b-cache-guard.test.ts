@@ -48,7 +48,7 @@ test("T-008b: total BLS outage causes zero writes and all entries fail to refres
 test("T-008b: partial BLS response refreshes ONLY observed material series", async () => {
   const { prisma, writes } = prismaCapture();
   await withFetch((async () => mockBls([
-    { seriesID: "WPU081", data: [{ year: "2026", period: "M06", value: "126" }] },
+    { seriesID: "WPU081", data: [{ year: String(new Date().getUTCFullYear()), period: "M06", value: "126" }] },
   ])) as typeof fetch, async () => {
     const result = await new MaterialPricingService(prisma, new BlsPpiService()).refreshPrices();
     const observed = BLS_SERIES.filter(s => s.seriesId === "WPU081");
@@ -63,7 +63,7 @@ for (const input of ["-12", "0", "NaN", "Infinity", "126invalid", ".", ""]) {
   test(`T-008b: invalid BLS index ${input} never triggers an upsert`, async () => {
     const { prisma, writes } = prismaCapture();
     await withFetch((async () => mockBls([
-      { seriesID: "WPU081", data: [{ year: "2026", period: "M06", value: input }] },
+      { seriesID: "WPU081", data: [{ year: String(new Date().getUTCFullYear()), period: "M06", value: input }] },
     ])) as typeof fetch, async () => {
       const service = new BlsPpiService();
       const rows = await service.fetchAllMaterialPrices();
@@ -80,7 +80,7 @@ for (const input of ["-12", "0", "NaN", "Infinity", "126invalid", ".", ""]) {
 test("T-008b: observed index whose rounded legacy price is zero is not stored", async () => {
   const { prisma, writes } = prismaCapture();
   await withFetch((async () => mockBls([
-    { seriesID: "WPU081", data: [{ year: "2026", period: "M06", value: "0.0001" }] },
+    { seriesID: "WPU081", data: [{ year: String(new Date().getUTCFullYear()), period: "M06", value: "0.0001" }] },
   ])) as typeof fetch, async () => {
     const result = await new MaterialPricingService(prisma, new BlsPpiService()).refreshPrices();
     assert.deepEqual(result, { updated: 0, failed: BLS_SERIES.length });
@@ -91,7 +91,7 @@ test("T-008b: observed index whose rounded legacy price is zero is not stored", 
 test("T-008b: failure writing one observed material is reflected in counts", async () => {
   const { prisma, writes } = prismaCapture("lumber-framing");
   await withFetch((async () => mockBls([
-    { seriesID: "WPU081", data: [{ year: "2026", period: "M06", value: "126" }] },
+    { seriesID: "WPU081", data: [{ year: String(new Date().getUTCFullYear()), period: "M06", value: "126" }] },
   ])) as typeof fetch, async () => {
     const result = await new MaterialPricingService(prisma, new BlsPpiService()).refreshPrices();
     assert.deepEqual(result, { updated: 1, failed: BLS_SERIES.length - 1 });
@@ -101,7 +101,7 @@ test("T-008b: failure writing one observed material is reflected in counts", asy
 
 test("T-008b: positive index is tagged as observed; fallback is not certified", async () => {
   await withFetch((async () => mockBls([
-    { seriesID: "WPU081", data: [{ year: "2026", period: "M06", value: "126" }] },
+    { seriesID: "WPU081", data: [{ year: String(new Date().getUTCFullYear()), period: "M06", value: "126" }] },
   ])) as typeof fetch, async () => {
     const results = await new BlsPpiService().fetchAllMaterialPrices();
     assert.equal(results.find(r => r.materialKey === "lumber-framing")?.indexOrigin, "BLS_OBSERVED");
@@ -171,4 +171,45 @@ test("T-008b: partial cache does not fabricate cached observations for missing m
   assert.equal(details.provenance["steel-rebar"]?.recordedSource, "MANUAL");
   assert.equal(details.provenance["steel-rebar"]?.verification, "UNVERIFIED");
   assert.equal(details.provenance["lumber-framing"], undefined);
+});
+
+test("T-008b: BLS monthly observations are ordered by period, not response order", async () => {
+  const year = String(new Date().getUTCFullYear());
+  const currentMonth = new Date().getUTCMonth() + 1;
+  const older = "M01";
+  const newer = `M${String(Math.min(currentMonth, 6)).padStart(2, "0")}`;
+  if (newer === older) return; // January has no earlier same-year month.
+  const { prisma, writes } = prismaCapture();
+  await withFetch((async () => mockBls([{
+    seriesID: "WPU081",
+    data: [
+      { year, period: older, value: "99" },
+      { year, period: "M13", value: "987" },
+      { year, period: newer, value: "126" },
+    ],
+  }])) as typeof fetch, async () => {
+    const result = await new MaterialPricingService(prisma, new BlsPpiService()).refreshPrices();
+    assert.equal(result.updated, BLS_SERIES.filter(s => s.seriesId === "WPU081").length);
+    assert.ok(writes.every(row => row.create.indexValue === 126));
+  });
+});
+
+test("T-008b: annual, malformed, future and stale BLS periods cannot refresh cache", async () => {
+  const now = new Date();
+  const next = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
+  const malformed = [
+    { year: String(now.getUTCFullYear()), period: "M13", value: "126" },
+    { year: String(now.getUTCFullYear()), period: "M00", value: "126" },
+    { year: String(now.getUTCFullYear()), period: "M99", value: "126" },
+    { year: String(next.getUTCFullYear()), period: `M${String(next.getUTCMonth() + 1).padStart(2, "0")}`, value: "126" },
+    { year: String(now.getUTCFullYear() - 3), period: "M06", value: "126" },
+  ];
+  const { prisma, writes } = prismaCapture();
+  await withFetch((async () => mockBls([{ seriesID: "WPU081", data: malformed }])) as typeof fetch, async () => {
+    const rows = await new BlsPpiService().fetchAllMaterialPrices();
+    assert.equal(rows.find(row => row.materialKey === "lumber-framing")?.indexOrigin, "UNVERIFIED_FALLBACK");
+    const refreshed = await new MaterialPricingService(prisma, new BlsPpiService()).refreshPrices();
+    assert.deepEqual(refreshed, { updated: 0, failed: BLS_SERIES.length });
+    assert.equal(writes.length, 0);
+  });
 });
