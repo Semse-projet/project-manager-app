@@ -18,8 +18,10 @@ export class PricingController {
   @RequirePermissions("projects:read")
   async getMaterialPrices(@Req() req: { headers?: Record<string, unknown> }) {
     const rid = resolveRequestId(req.headers ?? {});
-    const prices = await this.pricing.getCurrentPrices();
-    return ok(rid, { prices, source: "BLS_PPI_CACHE" });
+    const details = await this.pricing.getCurrentPricesWithProvenance();
+    // Preserve the existing prices map; explicitly disclose legacy/unverified
+    // provenance instead of falsely claiming all values came from live BLS.
+    return ok(rid, details);
   }
 
   /** Pricing cache status */
