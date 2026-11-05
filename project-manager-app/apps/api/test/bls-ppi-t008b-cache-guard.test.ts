@@ -14,6 +14,7 @@ function prismaCapture(failMaterialKey?: string) {
   const writes: Write[] = [];
   const prisma = {
     materialPriceSnapshot: {
+      findUnique: async () => null,
       upsert: async (payload: Write) => {
         if (payload.where.materialKey === failMaterialKey) throw new Error("synthetic DB write failure");
         writes.push(payload);
