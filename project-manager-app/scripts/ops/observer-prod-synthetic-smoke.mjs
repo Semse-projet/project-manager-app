@@ -130,38 +130,49 @@ async function prepare(runId, people) {
 async function cleanup(runId) {
   const people = ids(runId);
   await prisma.$transaction(async (tx) => {
-    // Exact IDs + names/emails are verified before deleting ANY rows.
+    // Check exact synthetic IDs and markers before touching ANY record.
+    // A partially completed cleanup may lack users/orgs but retain tenant
+    // shells with their durable audit events. That is an allowed retry state.
     for (const p of people) {
       const [t, o, u] = await Promise.all([
         tx.tenant.findUnique({ where: { id: p.tenantId }, select: { name: true } }),
         tx.org.findUnique({ where: { id: p.orgId }, select: { tenantId: true, name: true } }),
         tx.user.findUnique({ where: { id: p.userId }, select: { email: true } }),
       ]);
-      if (!t && !o && !u) continue; // already clean, safe retry
-      assert.equal(t?.name, p.name, "Tenant marker mismatch; cleanup stopped");
-      assert.equal(o?.tenantId, p.tenantId, "Org/tenant mismatch; cleanup stopped");
-      assert.equal(o?.name, p.name, "Org name mismatch; cleanup stopped");
-      assert.equal(u?.email, p.email, "User marker mismatch; cleanup stopped");
+      if (!t) {
+        assert.ok(!o && !u, "Orphan synthetic record; manual cleanup required");
+        continue;
+      }
+      assert.equal(t.name, p.name, "Tenant marker mismatch; cleanup stopped");
+      if (o) {
+        assert.equal(o.tenantId, p.tenantId, "Org/tenant mismatch; cleanup stopped");
+        assert.equal(o.name, p.name, "Org name mismatch; cleanup stopped");
+      }
+      if (u) assert.equal(u.email, p.email, "User marker mismatch; cleanup stopped");
     }
-    const userIds = people.map((p) => p.userId);
     for (const p of people) {
-      const count = await tx.user.count({ where: { id: p.userId, email: p.email } });
-      if (count === 0) continue;
       await tx.authSession.deleteMany({ where: { userId: p.userId, tenantId: p.tenantId } });
       await tx.membership.deleteMany({ where: { userId: p.userId, orgId: p.orgId } });
       await tx.userProfile.deleteMany({ where: { userId: p.userId } });
-      await tx.user.delete({ where: { id: p.userId } });
+      await tx.user.deleteMany({ where: { id: p.userId, email: p.email } });
+      await tx.org.deleteMany({ where: { id: p.orgId, tenantId: p.tenantId, name: p.name } });
+      // Do NOT delete Tenant: its AuditLog relation has ON DELETE CASCADE.
+      // Keep the audit trail in an archived, memberless synthetic tenant.
+      await tx.tenant.updateMany({
+        where: { id: p.tenantId, name: p.name },
+        data: { status: "archived" },
+      });
     }
     for (const p of people) {
-      await tx.org.deleteMany({ where: { id: p.orgId, tenantId: p.tenantId, name: p.name } });
-      // Cascades only within the exact synthetic tenant, including its audit log.
-      await tx.tenant.deleteMany({ where: { id: p.tenantId, name: p.name } });
+      assert.equal(await tx.user.count({ where: { id: p.userId } }), 0);
+      assert.equal(await tx.org.count({ where: { id: p.orgId } }), 0);
+      assert.equal(await tx.authSession.count({ where: { userId: p.userId, tenantId: p.tenantId } }), 0);
+      const tenant = await tx.tenant.findUnique({ where: { id: p.tenantId }, select: { status: true } });
+      if (tenant) assert.equal(tenant.status, "archived");
     }
-    assert.equal(userIds.length, 2);
   });
-  console.log("CLEANUP PASS: exact synthetic tenant/org/user rows deleted for run " + runId);
+  console.log("CLEANUP PASS: temporary users, orgs and sessions removed; audit-only tenant shells archived for run " + runId);
 }
-
 async function smoke(people, password) {
   for (const p of people) {
     const login = await request("POST", "/v1/auth/login", {
