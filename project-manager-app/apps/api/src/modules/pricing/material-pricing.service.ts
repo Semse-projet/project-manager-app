@@ -110,6 +110,18 @@ export class MaterialPricingService {
         }
 
         try {
+          // A manual or alternate-provider override owns its row. Skip before
+          // writing; the conditional unique filter on upsert additionally
+          // prevents a race from replacing it after this read.
+          const existing = await this.prisma.materialPriceSnapshot.findUnique({
+            where: { materialKey: r.materialKey },
+            select: { source: true },
+          });
+          if (existing && existing.source !== "BLS_PPI") {
+            failed++;
+            this.logger.warn(`Skipping BLS refresh for ${r.materialKey}: existing ${existing.source} source owns the snapshot`);
+            continue;
+          }
           await this.prisma.materialPriceSnapshot.upsert({
             // Prisma's extended unique filter makes BLS refresh conditional
             // on the persisted row still being BLS-owned. A MANUAL/FRED row
