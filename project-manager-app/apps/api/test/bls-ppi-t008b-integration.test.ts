@@ -153,3 +153,56 @@ test("T-008b isolated PostgreSQL: partial BLS data updates observed series only"
     await db.$disconnect();
   }
 });
+
+test("T-008b isolated PostgreSQL: BLS cannot overwrite a MANUAL price and its origin", async () => {
+  requireDisposableCiDb();
+  const db = new PrismaClient();
+  await db.$connect();
+  try {
+    await inRolledBackTransaction(db, async tx => {
+      const manualKey = "lumber-framing";
+      const record = BLS_SERIES.find(s => s.materialKey === manualKey);
+      assert.ok(record);
+      const original = await tx.materialPriceSnapshot.upsert({
+        where: { materialKey: manualKey },
+        create: {
+          materialKey: manualKey, blsSeriesId: null,
+          source: "MANUAL", unit: record.unit,
+          pricePerUnit: "2.34", indexValue: null, basePrice: null,
+          fetchedAt: new Date("2026-10-01T00:00:00.000Z"),
+          validUntil: new Date("2026-12-01T00:00:00.000Z"),
+        },
+        update: {
+          source: "MANUAL", blsSeriesId: null, pricePerUnit: "2.34",
+          indexValue: null, basePrice: null,
+          fetchedAt: new Date("2026-10-01T00:00:00.000Z"),
+          validUntil: new Date("2026-12-01T00:00:00.000Z"),
+        },
+      });
+      const prior = normalize(original);
+      const now = new Date();
+      await withFetch(async () => responseFor([{
+        seriesID: "WPU081",
+        data: [{
+          year: String(now.getUTCFullYear()),
+          period: `M${String(now.getUTCMonth() + 1).padStart(2, "0")}`,
+          value: "126",
+        }],
+      }]), async () => {
+        const result = await new MaterialPricingService(tx, new BlsPpiService()).refreshPrices();
+        // WPU081 drives two materials; only the non-MANUAL row may refresh.
+        assert.deepEqual(result, {
+          updated: BLS_SERIES.filter(s => s.seriesId === "WPU081").length - 1,
+          failed: BLS_SERIES.length - (BLS_SERIES.filter(s => s.seriesId === "WPU081").length - 1),
+        });
+      });
+      const after = await tx.materialPriceSnapshot.findUniqueOrThrow({ where: { materialKey: manualKey } });
+      assert.deepEqual(normalize(after), prior);
+      const other = await tx.materialPriceSnapshot.findUniqueOrThrow({ where: { materialKey: "lumber-plywood" } });
+      assert.equal(other.source, "BLS_PPI");
+      assert.equal(String(other.indexValue), "126");
+    });
+  } finally {
+    await db.$disconnect();
+  }
+});
