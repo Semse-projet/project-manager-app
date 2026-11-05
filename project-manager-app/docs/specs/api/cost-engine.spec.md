@@ -385,6 +385,17 @@ priceNow: unitPrice * (ppiIndex(now, series) / ppiIndex(observedAt, series))
 rules: la serie debe ser compatible con el material y la unidad; sin observación verificable, no se presenta como precio unitario confirmado
 ```
 
+### Gate de aceptación T-008 — PPI (diagnóstico #1099, defecto #1087)
+
+La fórmula anterior representa una **propuesta de implementación**, no un precio certificado. El PPI mide variación relativa; no es una cotización de mercado ni su índice 100 identifica automáticamente el mes del precio base. La metodología se apoya en la [guía BLS de ajuste de precios](https://www.bls.gov/ppi/publications/price-adjustment-guide-for-contracting-parties.htm). Pruebas diagnósticas en [#1099](https://github.com/Semse-projet/project-manager-app/pull/1099) documentan el comportamiento legado, sin corregirlo ni autorizar su uso comercial.
+
+- El origen de un precio debe contener `materialKey`, `unit`, `unitPrice`, fecha/mes de observación, ubicación y proveedor/fuente, vigencia y derechos de uso verificables; `costTrace` registra `seriesId`, período base, período de ajuste, versiones/fechas de índices y decisión de redondeo.
+- `ppiIndex(observedAt, series)` y `ppiIndex(now, series)` deben pertenecer a la misma serie comparable y referencia de índice. No se presume `baseIndex = 100` ni base universal `2012=100`; rebases/revisiones requieren comparabilidad explícita.
+- Un índice faltante, cero, negativo, no finito, serie incompatibile, precio sin fecha/propiedad de uso o índice desactualizado fuera de política devuelve estado tipado `UNVERIFIED_PRICE`/`PPI_UNAVAILABLE`, con motivo y fecha. Nunca emite un precio **confirmado** como resultado de una referencia `basePrice` hardcoded o de índice sintético 100.
+- Tests sintéticos de control (sin implicar precios reales): USD 100, índice base 120 y actual 126 → USD 105; sin cambio 120 → USD 100; descenso a 96 → USD 80. Probar además índices inválidos, meses/series incompatibles, ausencia de referencia, caídas BLS, precisiones y estado de salida.
+- El módulo actual de `changeYoY` debe permanecer independiente de la conversión a `pricePerUnit`: una prueba interanual verde no acredita el precio ajustado.
+- **Gates separados:** estos tests solo validan mecánica; Q11 valida procedencia/licencias y T-005/Q9 valida precios, rendimientos y márgenes reales. T-008 es implementación posterior a `APPROVED`, no autorizada por el PR diagnóstico.
+
 ### API — `/v1/pricing/cost-parameters` y `/v1/pricing/tax-policies` (nuevos)
 
 ```yaml
