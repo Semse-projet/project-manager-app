@@ -240,6 +240,8 @@ CUANDO un admin cambia un parámetro o una TaxPolicy después
 ENTONCES el estimado guardado no cambia al leerse
 Y un estimado aceptado, un contrato, un hito o un escrow nunca se recalculan en silencio
 Y regenerar produce un estimado nuevo con su propia traza
+Y reproducir una revisión histórica usa sus entradas normalizadas, versiones y precios congelados sin consultar el caché actual
+Y devuelve exactamente sus componentes monetarios en centavos, o un error tipado si falta algún operando de reproducción
 ```
 
 ### P5 — Modo sombra
@@ -271,6 +273,8 @@ CUANDO se calcula un costo en esa jurisdicción
 ENTONCES los impuestos se calculan sobre los componentes que la política declara gravables
 Y costTrace registra la política, su versión y su fecha efectiva
 Y sin política vigente para esa jurisdicción el estimado se marca "impuestos no determinados" y no usa un 7 % por defecto
+Y una política que grava solo materiales no grava mano de obra, overhead, ganancia ni comisión si no figuran expresamente como gravables
+Y la base imponible y los impuestos se trazan por componente y nunca se sustituyen por taxRate sobre todo el subtotal
 ```
 
 ### P8 — Tres autoridades separadas
@@ -322,6 +326,8 @@ CostEngineService.compute(request):
       parameters: [ { key, value, source: contractor|org|region|platform|engine_default, version } ]
       region: { stateCode, laborMultiplier, materialMultiplier, source }
       taxPolicy: { id, version, effectiveFrom, jurisdiction } | null
+      taxCalculation: { taxableBaseByComponent, appliedRules, taxesByComponent, totalTax, roundingPolicy } | null
+      replayReceipt: { schemaVersion, revisionId, payloadHash }   # solo modo interno/autorizado
     errors: tipados (INVALID_INPUT, ENGINE_FAILURE, UNKNOWN_TRADE, TAX_POLICY_MISSING)
 ```
 
@@ -335,11 +341,15 @@ con **márgenes propios** (14 de 24 los varían según la entrada: T-004). Por e
    `perUnitDivisor`. Es la única fuente: **no se re-derivan por división** (T-004: solo 42/72 reconstrucciones exactas y
    57/66 divisores `total / perUnit` distintos del real).
 2. El servicio sobrescribe solo los parámetros que una capa **define explícitamente**; el resto queda como el motor lo calculó.
-3. Vuelve a llamar a `buildCostSummary` con ese conjunto y con el impuesto de la `TaxPolicy` (no `DEFAULT_TAX`).
+3. Primero recalcula componentes **antes de impuestos** con las tasas efectivas del motor y de las capas, usando `taxRate: 0` en `buildCostSummary` mientras esa función solo soporte un escalar. Luego un **compositor fiscal separado**, versionado, calcula `taxableBaseByComponent` y `taxesByComponent` aplicando las reglas explícitas de la `TaxPolicy` sobre componentes redondeados de modo trazable; `total = subtotalSinImpuestos + totalTax`. Finalmente recalcula `perUnit` desde ese mismo total y el divisor real. **Está prohibido pasar el porcentaje de una política que grava solo materiales como el `taxRate` global del motor**; sin compositor validado se emite `TAX_POLICY_UNSUPPORTED`/`TAX_POLICY_MISSING` y no se publica precio definitivo. Ni un fallback histórico del 7 % ni un cálculo de IVA general pueden sustituir la revisión fiscal Q10.
+
+**Dependencias monetarias tras overrides (gate de integridad):** cuando cambian tasas o bases, no basta con actualizar `costs`. El adaptador de cada oficio debe regenerar atómicamente, a partir del nuevo costo canónico y la misma versión de entradas, `priceBands`, totales explicados, materiales resumidos, importes de hitos, porcentajes y programación de financiación, incluyendo `milestone-builder` si interviene. Ninguna salida monetaria puede conservar valores del cálculo previo mientras otra usa el actualizado. Si un oficio no tiene adaptador probado para sus salidas dependientes, el override se rechaza con `UNSUPPORTED_ENGINE_OVERRIDE` sin mostrar ni almacenar un presupuesto inconsistente. Pruebas **con tasas no predeterminadas** y cambios de `TaxPolicy` compararán todos los campos, la suma de los hitos y el total contractual en centavos; nunca se reajustan contratos ya aceptados.
+
+**Ejemplo fiscal sintético (solo contrato aritmético):** materiales USD 100, mano de obra 50, overhead 20, ganancia 10, comisión 5 → subtotal USD 185. Si una política hipotética del 6 % grava **solo** materiales, impuestos USD 6 y total USD 191; aplicar el 6 % al subtotal produciría incorrectamente USD 196.10. El caso no define una tasa real para ningún estado.
 
 La derivación por división puede usarse únicamente como comprobación cruzada en pruebas, nunca en producción.
 
-**Evidencia T-004 (PR #1076, SHA `f70ba20`; CI `quality-gates`, `unit-coverage`, `e2e` y CodeQL en verde al 2026-10-30; el PR sigue sin fusionar; 72 escenarios, tolerancia cero):** los 24 motores llaman a `buildCostSummary` una vez y
+**Evidencia T-004 (PR #1076, **fusionado a `main`** en `645ce3b80a8e2de6c39d3c57215222b0180de567`; CI diagnóstico y general aprobados; 72 escenarios, tolerancia cero):** los 24 motores llaman a `buildCostSummary` una vez y
 `costs` es exactamente esa salida; reejecutarla con los argumentos capturados reproduce el resultado 72/72. En cambio,
 reconstruir por división de importes redondeados da diferencias de ±1 centavo en 30/72 escenarios y recupera mal el
 divisor de `perUnit` en 57/66. Por eso el punto 1 exige que los motores expongan base, tasas y divisor. Esos campos se
@@ -404,12 +414,12 @@ La fórmula anterior representa una **propuesta de implementación**, no un prec
 ```yaml
 GET    /v1/pricing/cost-parameters?scope=platform|region|org|contractor&scopeId=
 PUT    /v1/pricing/cost-parameters/:scope/:scopeId/:key     # body: { value, reason, expectedVersion }
-DELETE /v1/pricing/cost-parameters/:scope/:scopeId/:key     # revierte a la capa siguiente
+DELETE /v1/pricing/cost-parameters/:scope/:scopeId/:key     # requiere If-Match: "<expectedVersion>"; revierte a capa siguiente
 POST   /v1/pricing/cost-parameter-changes                   # propuesta con doble control (fee, tax)
 POST   /v1/pricing/cost-parameter-changes/:id/approve       # aprobador distinto + reautenticación reciente
 auth: required
 permissions: plataforma/región → OPS_ADMIN; organización → pricing:org:manage; contratista → propia fila
-errors: { 400, 401, 403, 404, 409: versión en conflicto }
+errors: { 400, 401, 403, 404, 409: versión en conflicto, 428: precondición ausente }
 effects: { audit_log: true, domain_event: false, sse: false, payment_governance: true }
 ```
 
