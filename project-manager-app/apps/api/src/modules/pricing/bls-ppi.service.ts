@@ -8,6 +8,8 @@ export interface BlsPpiSeries {
 }
 
 export interface BlsPpiResult {
+  // Index origin only; no certification of real-world unit prices.
+  indexOrigin: "BLS_OBSERVED" | "UNVERIFIED_FALLBACK";
   seriesId: string;
   materialKey: string;
   indexValue: number;
@@ -115,7 +117,7 @@ export class BlsPpiService {
       const reading = indexMap.get(series.seriesId);
       const currentIndex = reading?.latest;
 
-      if (currentIndex) {
+      if (Number.isFinite(currentIndex) && currentIndex! > 0) {
         // Convert PPI index (base 2012=100) to approximate USD price
         // Adjustment factor: current_index / 100 applied to base price
         const adjustmentFactor = currentIndex / 100;
@@ -124,6 +126,7 @@ export class BlsPpiService {
         const changeYoY = this.computeChangeYoY(currentIndex, reading?.yearAgo);
 
         results.push({
+          indexOrigin: "BLS_OBSERVED",
           seriesId: series.seriesId,
           materialKey: series.materialKey,
           indexValue: currentIndex,
@@ -136,6 +139,7 @@ export class BlsPpiService {
       } else {
         // Fallback to base price when API unavailable
         results.push({
+          indexOrigin: "UNVERIFIED_FALLBACK",
           seriesId: series.seriesId,
           materialKey: series.materialKey,
           indexValue: 100,
