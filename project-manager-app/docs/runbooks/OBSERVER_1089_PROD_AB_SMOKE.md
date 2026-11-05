@@ -74,6 +74,18 @@ ni cambiar `AUTH_SECRET`, `SEMSE_DEFAULT_TENANT_ID` o políticas RBAC.
 - Si el buffer de 128 tenants está lleno y `/latest` devuelve 503,
   el smoke falla **sin expulsar historial de otro tenant**.
 
+## Efecto temporal sobre la caché
+
+Una prueba de `observer/latest` puede ocupar **un bucket en memoria
+por tenant sintético**. La eliminación del usuario y la organización
+NO invalida esa caché del proceso API, que expirará automáticamente
+después de **24 horas sin lecturas** según la política aprobada del #1089.
+Por esta razón, el script **rechaza crear un nuevo par de tenants cuando
+existen registros de ejecuciones sintéticas de las últimas 24 horas** en
+PostgreSQL. Esto limita la huella a como máximo **dos buckets por 24 h**.
+No repetir el smoke bajo un SHA distinto para sortear esta barrera.
+No se agrega un endpoint nuevo de invalidación o privilegio de caché.
+
 ## Limpieza, trazabilidad y falla inesperada
 
 El script elimina en `finally` las identidades ejecutables (usuarios,
