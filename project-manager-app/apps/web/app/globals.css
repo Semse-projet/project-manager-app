@@ -1,4 +1,7 @@
 @import "tailwindcss";
+/* Tailwind v4 only scans this app; shared components (AppShell, cards…) live in
+   packages/ui and their classes were silently left out of the build. */
+@source "../../../packages/ui/src";
 
 /* ── Design tokens exposed as Tailwind utilities ── */
 @theme {
