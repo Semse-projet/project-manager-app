@@ -42,7 +42,7 @@ if (!cleanupArgument) {
   assert.match(EXPECTED_API_SHA ?? "", /^[a-f0-9]{40}$/, "Expected current production git SHA required");
 }
 const { PrismaClient } = await import("@prisma/client");
-const prisma = new PrismaClient({ log: ["error"] });
+const prisma = new PrismaClient(); // do not log potentially identifying Prisma query details
 
 function ids(runId) {
   assert.match(runId, /^[a-f0-9]{16}$/, "Invalid exact run identifier");
