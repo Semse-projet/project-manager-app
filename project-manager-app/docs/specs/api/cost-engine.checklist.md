@@ -26,11 +26,17 @@ date: "2026-10-30"
 - [ ] Casos de sobreescritura por capas, invalidación, extremos, fallo y cotización/contrato/escrow inmutable definidos y probados según su fase
 - [ ] Los defectos de unidad [#1085](https://github.com/Semse-projet/project-manager-app/issues/1085) y de cuadrillas [#1086](https://github.com/Semse-projet/project-manager-app/issues/1086) tienen pruebas independientes y no bloquean el diagnóstico T-004 (sí la activación de los flujos afectados)
 
+- [ ] Overrides no predeterminados regeneran `priceBands`, explicaciones, programación de hitos y financiación desde el costo recalculado; un adaptador incompleto rechaza el override, sin totales divergentes
+- [ ] El `costReplay` histórico persiste inputs normalizados, versiones, operandos/precios congelados, regla fiscal, redondeo y revisión inmutable; replay después de cambiar precios/mapeos reproduce todos los importes al centavo
+- [ ] Casos de modificación concurrente `PUT`/`DELETE` validan `expectedVersion`/`If-Match` con 409 y precondición faltante con 428
+
 ## Validación comercial independiente
 
 - [ ] T-005 respalda materiales, mano de obra facturable, rendimientos, multiplicadores, márgenes y vigencia de fuentes con validación por oficio/región
 - [ ] Q9 revisada por especialistas, Q10 revisada por profesional fiscal y Q11 acredita procedencia, fecha y derechos de uso de precios
 - [ ] La aceptación matemática no se usa para certificar precios ni legalidad fiscal; aprobación de spec, implementación y activación tienen gates distintos
+
+- [ ] Una política fiscal que grava solo materiales aplica tasa y base por componente, excluye labor, overhead, ganancia y comisión cuando así lo dispone; comprobar fixture sintético USD 191 vs aplicación global indebida USD 196.10
 
 ## Seguridad
 
@@ -42,6 +48,8 @@ date: "2026-10-30"
 - [ ] Los márgenes del contratista no se exponen al cliente (prueba negativa sobre el JSON)
 - [ ] Límites, motivo ≥ 10 caracteres y auditoría en todo cambio
 - [ ] No hay secretos ni PII en logs/evidencia
+
+- [ ] Auditoría Q2/Q0: con `min_cell=5`, claves de contrato con 1–4 casos no se emiten; valores inválidos del umbral no devuelven datos; SQL y EXPLAIN validados en DB aislada, sin divulgar resultados
 
 ## Datos y eventos
 
