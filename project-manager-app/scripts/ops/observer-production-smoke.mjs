@@ -27,7 +27,11 @@ assert.equal(process.env.SEMSE_OBSERVER_SMOKE_ACK, "PR1089_SYNTHETIC_ONLY", "Mis
 assert.equal(new URL(process.env.DATABASE_URL || "postgresql://none/none").hostname,
   "postgres.railway.internal", "Must use the private Railway database, not a public proxy");
 
-const { PrismaClient } = await import("@prisma/client");
+// Production Dockerfile installs @prisma/client as a workspace dependency of
+// packages/db, not necessarily as a root-level package for scripts/ops.
+import { createRequire } from "node:module";
+const dbRequire = createRequire(new URL("../../packages/db/package.json", import.meta.url));
+const { PrismaClient } = dbRequire("@prisma/client");
 const db = new PrismaClient();
 const run = randomUUID().replaceAll("-", "").slice(0, 20);
 const ns = "test_ob1089_" + run;
