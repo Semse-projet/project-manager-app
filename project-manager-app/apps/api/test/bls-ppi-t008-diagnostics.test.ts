@@ -5,6 +5,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { BlsPpiService, BLS_SERIES } from "../dist/modules/pricing/bls-ppi.service.js";
+import { MaterialPricingService } from "../dist/modules/pricing/material-pricing.service.js";
 
 const material = BLS_SERIES.find((s) => s.materialKey === "lumber-framing");
 assert.ok(material, "known fixture mapping must exist");
@@ -74,6 +75,42 @@ test("T-008 diagnostic: negative BLS index is not rejected and yields a negative
     assert.equal(actual.indexValue, -12);
     assert.equal(actual.pricePerUnit, -0.08);
   });
+});
+
+test("T-008 diagnostic: a BLS outage is persisted as a fresh BLS_PPI snapshot", async () => {
+  const writes: Record<string, unknown>[] = [];
+  const prisma = {
+    materialPriceSnapshot: {
+      upsert: async (payload: Record<string, unknown>) => {
+        writes.push(payload);
+        return payload;
+      },
+    },
+  } as unknown as ConstructorParameters<typeof MaterialPricingService>[0];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async () => { throw new TypeError("simulated BLS outage"); }) as typeof fetch;
+  try {
+    const service = new MaterialPricingService(prisma, new BlsPpiService());
+    const counts = await service.refreshPrices();
+    assert.deepEqual(counts, { updated: BLS_SERIES.length, failed: 0 });
+    assert.equal(writes.length, BLS_SERIES.length);
+    const lumberWrite = writes.find((p) => (p.create as { materialKey: string }).materialKey === "lumber-framing");
+    assert.ok(lumberWrite);
+    const create = lumberWrite.create as {
+      source: string;
+      pricePerUnit: number;
+      indexValue: number;
+      basePrice: number;
+      validUntil: Date;
+      fetchedAt: Date;
+    };
+    assert.equal(create.source, "BLS_PPI"); // false attribution to live BLS data
+    assert.equal(create.pricePerUnit, material.basePrice); // hardcoded price
+    assert.equal(create.indexValue, 100); // synthetic fallback, not a BLS reading
+    assert.ok(create.validUntil > create.fetchedAt); // newly refreshed TTL
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test("T-008 diagnostic: unavailable BLS series silently returns unverified hardcoded base price", async () => {
