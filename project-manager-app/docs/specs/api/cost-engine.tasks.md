@@ -40,7 +40,7 @@ date: "2026-10-30"
 
 ## Fase 0b — Correcciones P0
 
-- [ ] [T-008] Corregir metodología PPI (precio de referencia con fecha, índice de esa fecha, unidad y serie compatible)
+- [ ] [T-008] **Corregir metodología PPI — posterior a `APPROVED`:** precio observado con fecha/mes, unidad, fuente, derechos y serie compatible; dividir índice actual entre índice de **esa fecha** (no `/100`). Gate de estado tipado si índice ≤ 0, no finito, ausente, sin vigencia, incompatible o sin base verificable. No usar índice ficticio 100 ni publicar `basePrice` hardcoded como precio confirmado. Tests sintéticos subida/igualdad/bajada y fallback, más revisión de Q11. **Diagnóstico reproducible, no corrección:** PR [#1099](https://github.com/Semse-projet/project-manager-app/pull/1099) e issue [#1087](https://github.com/Semse-projet/project-manager-app/issues/1087).
 - [ ] [T-009] `TaxPolicy` versionada y estado "impuestos no determinados"; revisión fiscal profesional previa a valores
 
 ## Fase 1 — Servicio y registro
