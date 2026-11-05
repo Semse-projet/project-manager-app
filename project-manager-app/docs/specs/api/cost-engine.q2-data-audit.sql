@@ -46,16 +46,27 @@ SET LOCAL idle_in_transaction_session_timeout = '120s';
 -- Q0 — Sonda de estructura: claves de primer nivel de Contract."termsJson".
 -- Solo nombres de clave y conteos; NO lee valores. Sirve para confirmar si el
 -- precio acordado vive en "totalAmount" antes de fiarse de la consulta principal.
+-- La misma supresión primaria min_cell se aplica ANTES de revelar un conteo:
+-- claves con 1..(min_cell-1) contratos NO aparecen en la respuesta.
+-- El conjunto de claves aún requiere revisión de inferencia/complementary suppression.
 -- -----------------------------------------------------------------------------
+WITH q0_params AS (
+  SELECT NULLIF(:'tenant_id', '')::text AS tenant_id,
+         (:'min_cell')::int AS min_cell
+)
 SELECT k AS terms_key, count(*) AS contracts
 FROM "Contract" c
 JOIN "Job" j ON j.id = c."jobId" AND j."deletedAt" IS NULL
+CROSS JOIN q0_params p
 CROSS JOIN LATERAL jsonb_object_keys(
   CASE WHEN jsonb_typeof(c."termsJson"::jsonb) = 'object' THEN c."termsJson"::jsonb ELSE '{}'::jsonb END
 ) AS k
 WHERE c."deletedAt" IS NULL
-  AND j."tenantId" = NULLIF(:'tenant_id', '')
-GROUP BY k
+  AND p.tenant_id IS NOT NULL
+  AND p.min_cell >= 2
+  AND j."tenantId" = p.tenant_id
+GROUP BY k, p.min_cell
+HAVING count(*) >= p.min_cell
 ORDER BY contracts DESC;
 
 -- -----------------------------------------------------------------------------
