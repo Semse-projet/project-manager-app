@@ -59,7 +59,7 @@ test("T-008b: partial BLS response refreshes ONLY observed material series", asy
   });
 });
 
-for (const input of ["-12", "0", "NaN", "Infinity"]) {
+for (const input of ["-12", "0", "NaN", "Infinity", "126invalid", ".", ""]) {
   test(`T-008b: invalid BLS index ${input} never triggers an upsert`, async () => {
     const { prisma, writes } = prismaCapture();
     await withFetch((async () => mockBls([
