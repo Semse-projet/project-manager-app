@@ -195,16 +195,17 @@ test("T-008b diagnostic: ProTools forwards fallback values to tool call, not to 
     as unknown as ConstructorParameters<typeof MaterialPricingService>[0];
   const pricing = new MaterialPricingService(prisma, new BlsPpiService());
   const bus = { register: () => {} } as unknown as ConstructorParameters<typeof ProToolsAgent>[0];
-  let received: Record<string, unknown> | null = null;
+  const receivedCalls: Array<Record<string, unknown>> = [];
   const tools = {
     calculate: (args: Record<string, unknown>) => {
-      received = args;
+      receivedCalls.push(args);
       return { riskFlags: [] };
     },
   } as unknown as NonNullable<ConstructorParameters<typeof ProToolsAgent>[1]>;
   const input = { trade: "painting", description: "synthetic test", area: 100, rooms: 1 };
   const agent = new ProToolsAgent(bus, tools, pricing);
   const result = await agent.estimate(input);
+  const received = receivedCalls[0];
   assert.ok(received);
   assert.equal((received.prices as Record<string, number>)["lumber-framing"], material.basePrice);
   const noPricing = new ProToolsAgent(bus, tools);
