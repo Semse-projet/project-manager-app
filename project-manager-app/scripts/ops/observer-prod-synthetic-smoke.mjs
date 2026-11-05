@@ -37,10 +37,12 @@ assert.equal(apiUrl.pathname, "/", "Only API root is permitted");
 assert.equal(apiUrl.username, "", "Embedded API credentials forbidden");
 assert.equal(apiUrl.password, "", "Embedded API credentials forbidden");
 
+const EXPECTED_API_SHA = process.env.SEMSE_OBSERVER_SMOKE_EXPECTED_SHA;
+if (!cleanupArgument) {
+  assert.match(EXPECTED_API_SHA ?? "", /^[a-f0-9]{40}$/, "Expected current production git SHA required");
+}
 const { PrismaClient } = await import("@prisma/client");
 const prisma = new PrismaClient({ log: ["error"] });
-const EXPECTED_API_SHA = process.env.SEMSE_OBSERVER_SMOKE_EXPECTED_SHA;
-assert.match(EXPECTED_API_SHA ?? "", /^[a-f0-9]{40}$/, "Expected current production git SHA required");
 
 function ids(runId) {
   assert.match(runId, /^[a-f0-9]{16}$/, "Invalid exact run identifier");
