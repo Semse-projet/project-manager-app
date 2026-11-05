@@ -111,7 +111,12 @@ export class MaterialPricingService {
 
         try {
           await this.prisma.materialPriceSnapshot.upsert({
-            where: { materialKey: r.materialKey },
+            // Prisma's extended unique filter makes BLS refresh conditional
+            // on the persisted row still being BLS-owned. A MANUAL/FRED row
+            // must never receive a BLS-derived number while retaining its
+            // original source label; concurrent inserts fail closed on the
+            // materialKey unique constraint instead of overwriting overrides.
+            where: { materialKey: r.materialKey, source: "BLS_PPI" },
             create: {
               materialKey: r.materialKey,
               blsSeriesId: r.seriesId,
