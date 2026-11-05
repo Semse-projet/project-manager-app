@@ -11,6 +11,7 @@ import assert from "node:assert/strict";
 import { randomBytes, scryptSync } from "node:crypto";
 
 const EXPECTED_PROJECT = "95ad1b14-d1d9-467d-82d8-5354619ba873";
+const EXPECTED_API_SERVICE = "2bd1bd3f-9aa1-4fc3-a714-4cf90c52c770";
 const API = "https://api.semseproject.com";
 const FLAG = "YES_OBSERVER_1089_SYNTHETIC_WRITE_AND_CLEANUP";
 const CLEANUP_PREFIX = "--cleanup=";
@@ -25,11 +26,12 @@ if (!apply) {
 
 assert.equal(process.env.RAILWAY_PROJECT_ID, EXPECTED_PROJECT, "Wrong Railway project");
 assert.equal(process.env.RAILWAY_ENVIRONMENT_NAME, "production", "Only designated production environment");
+assert.equal(process.env.RAILWAY_SERVICE_ID, EXPECTED_API_SERVICE, "Only the existing semse-API service may run this");
 assert.equal(process.env.NODE_ENV, "production", "Production runtime required");
 assert.equal(process.env.SEMSE_OBSERVER_SMOKE_ACK, FLAG, "Explicit one-shot write acknowledgement required");
 assert.ok(process.env.DATABASE_URL, "Private DATABASE_URL must exist in the runtime");
 assert.ok(!process.env.SEMSE_OBSERVER_SMOKE_EMAIL, "Do not reuse external accounts");
-const apiUrl = new URL(process.env.SEMSE_API_URL ?? API);
+const apiUrl = new URL(API);
 assert.equal(apiUrl.origin, API, "Unexpected API origin");
 assert.equal(apiUrl.pathname, "/", "Only API root is permitted");
 assert.equal(apiUrl.username, "", "Embedded API credentials forbidden");
@@ -158,7 +160,6 @@ async function cleanup(runId) {
 }
 
 async function smoke(people, password) {
-  const sessions = [];
   for (const p of people) {
     const login = await request("POST", "/v1/auth/login", {
       body: { email: p.email, password },
@@ -166,7 +167,6 @@ async function smoke(people, password) {
     assert.equal(login.status, 200, "Synthetic login must succeed");
     assert.ok(login.data?.accessToken, "Durable session access token required");
     p.token = login.data.accessToken; // in memory only
-    sessions.push(p);
     const me = await request("GET", "/v1/auth/me", { token: p.token });
     assert.equal(me.status, 200, "Signed auth/me required");
     assert.equal(me.data?.tenantId, p.tenantId);
