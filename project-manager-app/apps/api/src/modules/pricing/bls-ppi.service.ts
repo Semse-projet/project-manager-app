@@ -175,9 +175,13 @@ export class BlsPpiService {
    * commodity indices can genuinely swing past ±100% in volatile years.
    */
   private computeChangeYoY(current: number, yearAgo: number | undefined): number | null {
-    if (!yearAgo || yearAgo <= 0) return null;
+    if (!Number.isFinite(current) || current <= 0 ||
+        yearAgo === undefined || !Number.isFinite(yearAgo) || yearAgo <= 0) {
+      return null;
+    }
 
     const rawChange = ((current - yearAgo) / yearAgo) * 100;
+    if (!Number.isFinite(rawChange)) return null;
     const rounded = Math.round(rawChange * 100) / 100;
     return Math.max(-CHANGE_YOY_LIMIT, Math.min(CHANGE_YOY_LIMIT, rounded));
   }
