@@ -620,8 +620,8 @@ export class JobsService {
 
     assertTransitionAuthorized(input.targetStatus, input.orgId, input.roles, ownership);
 
-    if (input.targetStatus === "completed") {
-      await this.assertCompletionClosure(input.tenantId, input.jobId);
+    if (input.targetStatus === "completed" || input.targetStatus === "cancelled") {
+      await this.assertClosure(input.targetStatus, input.tenantId, input.jobId);
     }
 
     const updated = await this.jobsRepository.updateStatus({
@@ -676,21 +676,25 @@ export class JobsService {
 
   /**
    * DOMAIN_INVARIANTS.md: a Job must not reach COMPLETED while its operational
-   * and financial closure is open (STATE_MACHINES.md: milestones resolved and
-   * no funds held in escrow). Applies to every manual completion, whoever asks.
+   * and financial closure is open, nor CANCELLED with escrow it has no closing
+   * policy for; an open dispute blocks the final close. Applies to every manual
+   * transition, whoever asks (systemCompleteJob does not come through here).
    */
-  private async assertCompletionClosure(tenantId: string, jobId: string): Promise<void> {
-    const [milestones, escrows] = await Promise.all([
-      this.prisma.milestone.findMany({
-        where: { deletedAt: null, project: { jobId, tenantId } },
-        select: { status: true },
-      }),
+  private async assertClosure(target: "completed" | "cancelled", tenantId: string, jobId: string): Promise<void> {
+    const scope = { deletedAt: null, project: { jobId, tenantId } };
+    const [milestones, escrows, activeDisputes] = await Promise.all([
+      target === "completed"
+        ? this.prisma.milestone.findMany({ where: scope, select: { status: true } })
+        : Promise.resolve([] as Array<{ status: unknown }>),
       this.prisma.paymentEscrow.findMany({
-        where: { deletedAt: null, project: { jobId, tenantId } },
+        where: scope,
         select: { transactions: { select: { type: true, status: true, amount: true } } },
       }),
+      this.prisma.dispute.count({
+        where: { ...scope, tenantId, status: { in: [...ACTIVE_DISPUTE_STATUSES] } },
+      }),
     ]);
-    const blockers = jobCompletionBlockers({
+    const blockers = jobClosureBlockers(target, {
       milestoneStatuses: milestones.map((milestone) => String(milestone.status)),
       escrowTransactions: escrows.flatMap((escrow) =>
         escrow.transactions.map((transaction) => ({
@@ -699,9 +703,10 @@ export class JobsService {
           amount: Number(transaction.amount),
         }))
       ),
+      activeDisputes,
     });
     if (blockers.length > 0) {
-      throw new ConflictException(`job cannot be completed: ${blockers.join("; ")}`);
+      throw new ConflictException(`job cannot be ${target}: ${blockers.join("; ")}`);
     }
   }
 
@@ -874,15 +879,22 @@ const CLIENT_ONLY_TRANSITIONS: JobStatus[] = ["completed", "cancelled"];
 const PRO_ONLY_TRANSITIONS: JobStatus[] = ["review", "dispute"];
 
 const RESOLVED_MILESTONE_STATUSES = new Set(["APPROVED", "PAID"]);
+const ACTIVE_DISPUTE_STATUSES = ["OPEN", "ASSIGNED", "UNDER_REVIEW"] as const;
 
-/** Why a job cannot be completed yet; empty when its closure is resolved. */
-export function jobCompletionBlockers(input: {
-  milestoneStatuses: string[];
-  escrowTransactions: Array<{ type: string; status: string; amount: number }>;
-}): string[] {
+/** Why a job cannot reach a terminal status yet; empty when its closure allows it. */
+export function jobClosureBlockers(
+  target: "completed" | "cancelled",
+  input: {
+    milestoneStatuses: string[];
+    escrowTransactions: Array<{ type: string; status: string; amount: number }>;
+    activeDisputes: number;
+  }
+): string[] {
   const blockers: string[] = [];
-  const open = input.milestoneStatuses.filter((status) => !RESOLVED_MILESTONE_STATUSES.has(status.toUpperCase()));
-  if (open.length > 0) blockers.push(`${open.length} milestone(s) not approved`);
+  if (target === "completed") {
+    const open = input.milestoneStatuses.filter((status) => !RESOLVED_MILESTONE_STATUSES.has(status.toUpperCase()));
+    if (open.length > 0) blockers.push(`${open.length} milestone(s) not approved`);
+  }
 
   const settled = (type: string) =>
     input.escrowTransactions
@@ -890,6 +902,8 @@ export function jobCompletionBlockers(input: {
       .reduce((sum, transaction) => sum + transaction.amount, 0);
   const held = settled("DEPOSIT") - settled("RELEASE") - settled("REFUND");
   if (held > 0.000001) blockers.push(`escrow still holds ${held}`);
+
+  if (input.activeDisputes > 0) blockers.push(`${input.activeDisputes} dispute(s) still open`);
   return blockers;
 }
 

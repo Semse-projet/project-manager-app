@@ -69,3 +69,18 @@ Codex señaló, con razón, que el permiso dejaba al cliente completar un trabaj
 | `apps/api/test/job-completion-closure.test.ts` (nuevo) | 7/7: hitos pendientes, fondos retenidos, transacciones no `SUCCEEDED`, `OPS_ADMIN`, caso permitido, consultas limitadas al trabajo y al tenant, sin consulta en otras transiciones |
 | En vivo: recorrido completo con todo liberado | sigue pasando de principio a fin |
 | En vivo: completar con 200 retenidos | **409** (antes, 201) |
+
+## Segunda corrección (revisión de Codex): disputas activas y cancelación
+
+- **Disputa abierta:** la comprobación de cierre cuenta las disputas activas (`OPEN`, `ASSIGNED`, `UNDER_REVIEW`) de los proyectos del trabajo en el tenant. Con alguna abierta no se completa (`DOMAIN_INVARIANTS.md`: «disputa abierta bloquea cierre final»).
+- **Cancelación:** `cancelled` pasa también por la comprobación («`Job` no debe llegar a `CANCELLED` si existe ejecución/escrow incompatible sin política de cierre»): responde 409 con fondos retenidos o una disputa activa. No exige hitos aprobados.
+- La regla pasa a llamarse `jobClosureBlockers(target, …)`.
+
+| Prueba | Resultado |
+|---|---|
+| `job-completion-closure.test.ts` | 9/9 (14/14 junto con los tests del servicio y el controlador de jobs) |
+| En vivo: cancelar con 400 retenidos | 409 |
+| En vivo: completar con hito aprobado, escrow liberado y una disputa abierta | 409 (antes, 201) |
+| En vivo: recorrido completo y spec de #1112 | sin cambios (todo 2xx; 4/4) |
+
+**Hallazgo aparte, sin cambio:** `disputes:create` sólo lo tienen `CLIENT` y `OPS_ADMIN`, así que el profesional no puede abrir una disputa desde `POST /v1/disputes`. `STATE_MACHINES.md` reserva al profesional la transición del trabajo a `DISPUTE`, que es otra cosa. Hay que confirmar si el profesional debe poder abrir la disputa como entidad.
