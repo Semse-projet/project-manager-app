@@ -331,6 +331,31 @@ Ambos se emiten vía `DomainEventBus` (audit + routing canónico). La detección
 contexto, el chat y las quick-actions read-only del Copilot, y la navegación del
 Workspace, son estado de UI y **no** producen eventos (regla anti-ruido).
 
+### Prometeo — Document Sharing Governance (P0 #974)
+
+Eventos de **auditoría transaccional**, no eventos publicados en el bus F1.
+El productor es `PrometeoDocumentGrantService` o el borrado documental en
+`PrometeoRepository`; los registros se escriben en `AuditLog` dentro de la
+misma transacción que modifica el acceso. Convención `aggregate.action`:
+
+- `prometeo.document_share_granted` — `entityType: PrometeoDocumentGrant`,
+  `entityId: grant.id`. `afterJson` incluye IDs de documento, proyecto,
+  organización destinataria y requestId; no contiene el texto del documento.
+- `prometeo.document_share_revoked` — revocación explícita por el propietario
+  u OPS_ADMIN, con IDs y actor autenticado.
+- `prometeo.document_share_revoked_by_delete` — la eliminación del documento
+  invalida todos los grants activos. Se audita cada permiso afectado antes
+  de la cascada SQL.
+- `prometeo.document_deleted` — la eliminación propietaria en la misma
+  transacción, con IDs de permisos revocados y metadatos mínimos.
+
+**Estado:** reservado e implementado únicamente en PR #987, sin despliegue.
+Sin consumidor/outbox: auditoría-only. No equivale a envío a workers.
+No backfill automático de permisos `public_training`; quedan privados hasta
+consentimiento explícito validado. Contrato: 
+[`document-sharing-grants.spec.md`](../specs/prometeo/document-sharing-grants.spec.md).
+El spec permanece en revisión; fusionar requiere aprobación SDD independiente.
+
 ### Prometeo — Live Sessions
 
 Reservado por [`../specs/prometeo/live-sessions.spec.md`](../specs/prometeo/live-sessions.spec.md)
@@ -490,10 +515,6 @@ Crear eventos por cambios de dominio o de consecuencia operativa real.
 - `crew.member_added`
 - `crew.member_removed`
 - `crew.archived`
-
-## Business OS — preferencia de ubicación (BO-09)
-
-- `location_preference.changed`
 
 ## Business OS — experiencia y atestaciones (BO-12)
 
