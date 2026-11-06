@@ -120,3 +120,25 @@ date: "2026-10-30"
 - [ ] Ejecución propia, subcontratada y mixta sin doble contabilidad; decisiones comerciales, contratación, escrow y precios aceptados protegidos por aprobación y replay.
 - [ ] Aprendizaje solo con costos reales reconciliados, segregación temporal, evaluación independiente, auditoría y propuesta reversible; sin cambios autónomos a márgenes/fees/TaxPolicy.
 - [ ] Piloto con oficio/área/proveedores consentidos, pruebas offline + staging + sombra, rollback y autorizaciones fiscal/legal/comercial antes de activación.
+
+## Límite de alcance de #1075 ahora — fase documental DRAFT (6-nov-2026)
+
+**Sí comprende en este PR (documentación, no software operando):**
+- [x] Definir contratos de cálculo, `costTrace`, reproducción de tasas efectivas y divisores, cobertura nacional y estatus `PRELIMINARY`.
+- [x] Registrar investigación y matrices de evidencia para precios por SKU, salarios, licencias y clasificación fiscal (sin certificarlos).
+- [x] Documentar [H1–H5](./cost-engine.hybrid-market-execution-design-2026-11-06.md): mercado híbrido, comparador, evaluación dual, escenarios propia/subcontrata/mixta y aprendizaje supervisado.
+- [x] Anotar pruebas **propuestas** (incluidas H-01 a H-14), responsables, dependencias, fases posteriores y gates de aprobación.
+
+**No comprende ni autoriza ahora:**
+- [x] Ningún cambio de código de producto, endpoint, esquema Prisma, migración, secretos, datos de producción, servicio nuevo, Railway, feature flag activado ni merge por CI documental.
+- [x] Ninguna conexión real a proveedores, scraping/crawling, compra de bases de datos, RFQ enviado, reutilización SaaS/multitenant de catálogos o datos de otro tenant sin contratos y consentimiento.
+- [x] Ningún cambio automático de materiales, salarios, márgenes, fee SEMSE, impuestos, importes de ofertas aceptadas, contratos, hitos, escrow o pagos.
+- [x] No se atribuye a #1075 el código de protección PPI de [#1101](https://github.com/Semse-projet/project-manager-app/pull/1101), ni sus resultados CI; son PR independientes.
+
+**Pendiente para aprobar la spec y activar fases posteriores:**
+- [ ] Evidencia de cotizaciones y costos reales autorizados; revisión técnica de cantidad, rendimientos, unidades y datos por oficio/área.
+- [ ] Dictamen jurídico de licencias y tratamiento de datos; derechos comerciales explícitos por fuente, privacidad, seguridad y consentimiento para cotizar a terceros.
+- [ ] Revisión fiscal profesional y `TaxPolicy` versionada por jurisdicción/clase de trabajo/contrato; no sustituir `UNDETERMINED` por 0 % o 7 % fijo.
+- [ ] Aprobación comercial de componentes y márgenes, evaluación estadística de ponderaciones, pruebas independientes de aceptación, revisión de seguridad y autorización separada de implementación/despliegue.
+
+**Regla de gobernanza:** spec aprobada ≠ código implementado ≠ PR fusionado ≠ producción activa ≠ precios y fiscalidad certificados. Los 24 motores y los 51 territorios son objetivo arquitectónico, no cobertura comercial validada. Mantener `status: DRAFT`, `code_status: NOT_STARTED` y `activation_status: INACTIVE` hasta evidencia y aprobaciones pertinentes.
