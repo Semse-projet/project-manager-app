@@ -3,6 +3,7 @@ import { type DisputeRecord } from "../../common/domain-store.js";
 import { ActorContextService } from "../../infrastructure/persistence/actor-context.service.js";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { findProjectLinkByJobIdOrThrow } from "../projects/project-link.repository.js";
+import { lockOpenJob } from "../../common/job-lock.js";
 import {
   assertDisputeAssignable,
   assertDisputeCreatable,
@@ -106,29 +107,35 @@ export class DisputesRepository {
 
     assertDisputeCreatable(this.toActor(input), this.toOwnership(project));
 
-    const existing = await this.prisma.dispute.findFirst({
-      where: {
-        tenantId: input.tenantId,
-        projectId: resolvedProjectId,
-        deletedAt: null,
-        status: {
-          in: ["OPEN", "ASSIGNED", "UNDER_REVIEW"]
+    // Same job row lock as a completion or cancellation (common/job-lock.ts): a
+    // dispute cannot be opened on a closed job, nor slip in while one is closing.
+    const dispute = (await this.prisma.$transaction(async (tx) => {
+      if (project.job?.id) await lockOpenJob(tx, project.job.id, "open a dispute");
+
+      const existing = await tx.dispute.findFirst({
+        where: {
+          tenantId: input.tenantId,
+          projectId: resolvedProjectId,
+          deletedAt: null,
+          status: {
+            in: ["OPEN", "ASSIGNED", "UNDER_REVIEW"]
+          }
         }
-      }
-    });
+      });
 
-    if (existing) {
-      throw new ConflictException("an open dispute already exists for this project");
-    }
-
-    const dispute = (await this.prisma.dispute.create({
-      data: {
-        tenantId: input.tenantId,
-        projectId: resolvedProjectId,
-        raisedById: input.userId,
-        reason: input.reason,
-        status: "OPEN"
+      if (existing) {
+        throw new ConflictException("an open dispute already exists for this project");
       }
+
+      return tx.dispute.create({
+        data: {
+          tenantId: input.tenantId,
+          projectId: resolvedProjectId,
+          raisedById: input.userId,
+          reason: input.reason,
+          status: "OPEN"
+        }
+      });
     })) as StoredDispute;
 
     return this.toRecord(dispute);

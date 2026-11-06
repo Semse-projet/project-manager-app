@@ -148,3 +148,16 @@ Ahora cualquier transacción `PENDING` del escrow (depósito, liberación o reem
 | Tests de jobs y reservas | 34/34 |
 | Tests unitarios de la API (runner completo) | 3809 pasan. Fallan 8 `SAT-007`, que necesitan DNS real. |
 | En vivo: recorrido completo, casos de rechazo y spec de #1112 | sin cambios |
+
+## Octava corrección (revisión de Codex): abrir una disputa mientras se cierra el trabajo
+
+`DisputesRepository.create` comprobaba e insertaba sin tomar el bloqueo del trabajo. Una disputa abierta a la vez que la finalización podía confirmarse después de que la comprobación de cierre la diera por inexistente.
+
+Ahora la comprobación de disputa existente y el alta van en una transacción que toma el bloqueo de fila. Si el trabajo ya está `COMPLETED` o `CANCELLED`, responde 409. `common/job-lock.ts` expone `lockOpenJob(tx, jobId, acción)`, que también usan los depósitos.
+
+| Prueba | Resultado |
+|---|---|
+| Test de integración (Postgres real) | 6/6. El caso nuevo es una disputa durante la finalización y otra después; sin el bloqueo, falla. |
+| Tests de disputas (política, servicio, controlador y ámbito de recursos) | 14/14 |
+| Tests unitarios de la API (runner completo) | 3809 pasan. Fallan 8 `SAT-007`, que necesitan DNS real. |
+| En vivo: recorrido completo, disputa y spec de #1112 | sin cambios |

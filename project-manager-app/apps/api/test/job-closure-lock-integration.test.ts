@@ -22,6 +22,7 @@ import { OutboxRepository } from "../dist/modules/domain-events/outbox.repositor
 import { PaymentsRepository } from "../dist/modules/payments/payments.repository.js";
 import { lockJobRow } from "../dist/common/job-lock.js";
 import { ReservationsRepository } from "../dist/modules/reservations/reservations.repository.js";
+import { DisputesRepository } from "../dist/modules/disputes/disputes.repository.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 loadEnv({ path: path.resolve(__dirname, "..", "..", "..", "packages/db/.env") });
@@ -187,6 +188,41 @@ dbTest("a reservation that starts while the job is being cancelled cannot reopen
   } finally {
     await prisma.membership.deleteMany({ where: { org: { tenantId: ids.tenantId } } }).catch(() => undefined);
     await prisma.user.deleteMany({ where: { email: `e2e-${ids.tenantId}@example.test` } }).catch(() => undefined);
+    await cleanup(prisma, ids.tenantId);
+    await prisma.$disconnect();
+  }
+});
+
+dbTest("a dispute cannot be opened on a closed job, nor slip in while it is being completed", async () => {
+  const prisma = new PrismaClient();
+  const ids = await seed(prisma, "REVIEW");
+  try {
+    const disputes = new DisputesRepository(prisma as never, noActor as never);
+    const open = () => disputes.create({
+      tenantId: ids.tenantId, orgId: ids.orgId, userId: "usr_client", roles: ["CLIENT"], projectId: ids.projectId, reason: "Disputa sintética de prueba",
+    }).then(() => "opened", (error: Error) => error.message);
+
+    const jobs = new JobsRepository(prisma as never, noActor as never, new OutboxRepository(prisma as never));
+    let releaseCompletion!: () => void;
+    const completionHolding = new Promise<void>((resolve) => { releaseCompletion = resolve; });
+    // Completion takes the lock, sees no active dispute, then stalls before writing.
+    const completion = jobs.updateStatus({
+      tenantId: ids.tenantId, jobId: ids.jobId, status: "completed", orgId: ids.orgId, actorType: "user", actorId: "usr_client",
+      expectedFrom: "review",
+      beforeWrite: async (tx) => {
+        assert.equal(await tx.dispute.count({ where: { projectId: ids.projectId, status: { in: ["OPEN", "ASSIGNED", "UNDER_REVIEW"] } } }), 0);
+        await completionHolding;
+      },
+    });
+    await sleep(200);
+    const racingDispute = open();
+    await sleep(300);
+    releaseCompletion();
+    await completion;
+    assert.match(await racingDispute, /cannot open a dispute: job is completed/);
+    assert.match(await open(), /cannot open a dispute: job is completed/);
+    assert.equal(await prisma.dispute.count({ where: { projectId: ids.projectId } }), 0);
+  } finally {
     await cleanup(prisma, ids.tenantId);
     await prisma.$disconnect();
   }
