@@ -2,7 +2,7 @@
 // LLM Orchestration — core types
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type LLMProviderName = "anthropic" | "openai" | "ollama" | "template";
+export type LLMProviderName = "anthropic" | "openai" | "ollama" | "together" | "template";
 
 export type TaskType =
   | "chat"
