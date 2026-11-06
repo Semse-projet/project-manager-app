@@ -917,6 +917,10 @@ export function jobClosureBlockers(
       .reduce((sum, transaction) => sum + transaction.amount, 0);
   const held = settled("DEPOSIT") - settled("RELEASE") - settled("REFUND");
   if (held > 0.000001) blockers.push(`escrow still holds ${held}`);
+  // A deposit awaiting card/3DS confirmation, or a release or refund in flight, can
+  // still move money after the job is closed: it blocks until it settles or fails.
+  const pending = input.escrowTransactions.filter((transaction) => transaction.status.toUpperCase() === "PENDING").length;
+  if (pending > 0) blockers.push(`${pending} payment(s) still pending`);
 
   if (input.activeDisputes > 0) blockers.push(`${input.activeDisputes} dispute(s) still open`);
   return blockers;

@@ -66,8 +66,14 @@ test("jobClosureBlockers: open milestones, held funds and open disputes are repo
     jobClosureBlockers("completed", { milestoneStatuses: ["APPROVED", "SUBMITTED", "DRAFT"], escrowTransactions: [deposit(500), release(100)], activeDisputes: 1 }),
     ["2 milestone(s) not approved", "escrow still holds 400", "1 dispute(s) still open"],
   );
-  // Pending or failed transactions are not settled money.
-  assert.deepEqual(jobClosureBlockers("completed", { ...clear, escrowTransactions: [deposit(500), { type: "RELEASE", status: "PENDING", amount: 500 }] }), ["escrow still holds 500"]);
+  // Pending transactions are not settled money, and they block on their own until they settle or fail.
+  assert.deepEqual(
+    jobClosureBlockers("completed", { ...clear, escrowTransactions: [deposit(500), { type: "RELEASE", status: "PENDING", amount: 500 }] }),
+    ["escrow still holds 500", "1 payment(s) still pending"],
+  );
+  for (const target of ["completed", "cancelled"] as const) {
+    assert.deepEqual(jobClosureBlockers(target, { ...clear, escrowTransactions: [{ type: "DEPOSIT", status: "PENDING", amount: 300 }] }), ["1 payment(s) still pending"]);
+  }
   assert.deepEqual(jobClosureBlockers("completed", { ...clear, escrowTransactions: [{ type: "DEPOSIT", status: "FAILED", amount: 500 }] }), []);
   // Cancelling does not require approved milestones, only no held funds and no open dispute.
   assert.deepEqual(jobClosureBlockers("cancelled", { milestoneStatuses: ["DRAFT"], escrowTransactions: [deposit(300)], activeDisputes: 2 }), ["escrow still holds 300", "2 dispute(s) still open"]);
@@ -94,6 +100,12 @@ test("a client cannot complete a job while its project has an open dispute", asy
 test("a client cannot cancel an accepted job while escrow still holds funds", async () => {
   const { transition, updates } = service({ from: "accepted", transactions: [deposit(400)] });
   await assert.rejects(transition("cancelled"), /job cannot be cancelled: escrow still holds 400/);
+  assert.equal(updates.length, 0);
+});
+
+test("a client cannot cancel while a deposit is still awaiting confirmation", async () => {
+  const { transition, updates } = service({ from: "accepted", transactions: [{ type: "DEPOSIT", status: "PENDING", amount: 300 }] });
+  await assert.rejects(transition("cancelled"), /payment\(s\) still pending/);
   assert.equal(updates.length, 0);
 });
 

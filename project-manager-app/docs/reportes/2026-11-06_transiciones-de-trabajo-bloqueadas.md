@@ -96,3 +96,14 @@ Codex señaló, con razón, que el permiso dejaba al cliente completar un trabaj
 | En vivo: el profesional acepta su propia reserva | 422 |
 | En vivo: empezar con la reserva aceptada y sin contrato | 409 |
 | En vivo: recorrido completo y spec de #1112 | sin cambios (todo 2xx; 4/4) |
+
+## Cuarta corrección (revisión de Codex): pagos en curso
+
+Un depósito `PENDING` (a la espera de tarjeta o 3DS) no contaba como fondos retenidos, y `reconcileTransactionStatus` lo marca `SUCCEEDED` después sin mirar el estado del trabajo. Un cliente podía cancelar con el pago en curso y que el dinero entrara después en el escrow de un trabajo cancelado.
+
+Ahora cualquier transacción `PENDING` del escrow (depósito, liberación o reembolso) bloquea `completed` y `cancelled` con 409 «payment(s) still pending». El bloqueo dura hasta que pase a `SUCCEEDED`, `FAILED` o `REVERSED`.
+
+| Prueba | Resultado |
+|---|---|
+| Tests de jobs (cierre, requisitos, servicio y controlador) | 19/19 |
+| En vivo: recorrido completo y spec de #1112 | sin cambios (todo 2xx; 4/4). Con el proveedor `mock`, los movimientos quedan `SUCCEEDED`. |
