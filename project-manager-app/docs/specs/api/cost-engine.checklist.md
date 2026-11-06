@@ -182,3 +182,12 @@ date: "2026-10-30"
 - [ ] Cotizaciones reales por SKU/fecha/ubicación con derecho de uso acreditado, validación de unidad, cantidad, alcance, flete, tax de compra y vigencia.
 - [ ] Términos escritos de SaaS, caching, derivados, exposición multitenant, retención/revocación, incluidos proveedores heredados y nueva fuente OEM; dictamen Legal.
 - [ ] Validación independiente y pruebas negativas; cobertura por oficio y región demostrada antes de autorización comercial/fiscal.
+
+## Datos salariales metropolitanos verificables — 6-nov-2026
+
+- [x] Seis benchmarks de salario medio **del grupo amplio** construcción/extracción OEWS May-2025 (Dallas, Miami, Atlanta, Los Ángeles, Chicago, Seattle), con cifras, fuentes BLS y segunda columna de instalación/mantenimiento/reparación, guardados en [sección 10 del modelo nacional](./cost-engine.national-labor-geo-tax-operating-model-2026-11-06.md). Son **referencias**, no cotizaciones ni tarifas de oficio.
+- [x] Rutas BLS May-2025 de ZIP state/metro identificadas y ligadas al release exacto; no se confía en alias mutable `CURRENT`.
+- [ ] Descargar de verdad ZIP state/metro, calcular checksum, validar layout, celdas suprimidas y columnas; desglosar SOC del oficio y generar estadística de cobertura por estado/CBSA. No afirmar importación terminada por identificar URLs.
+- [ ] Convertir pruebas `WAGE-NAT-01..08` en casos ejecutables con fixtures BLS y revisión humana.
+- [ ] Contrastar salarios detallados SOC y tiempos reales autorizados contra costos empresariales reconciliados. No usar cociente Seattle/Dallas de grupos agregados como multiplicador comercial.
+
