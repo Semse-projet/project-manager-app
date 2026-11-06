@@ -145,3 +145,10 @@ date: "2026-10-30"
 - [ ] [T-005q] Completar el conjunto de todas las partidas económicas de 24 motores y seleccionar SKU/unit/área para obtención de evidencia real; conservar `UNKNOWN` sin sustitución.
 - [ ] [T-005r] Obtener en proceso autorizado cotizaciones privadas comparables y/o licencias OEM/SaaS efectivas, documento de derechos, precio por región/fecha, Legal y aprobación comercial; nunca inferir autorización de páginas públicas.
 - [ ] [T-005s] Ejecutar oráculos independientes de precio, equivalencia, revocación, privacidad entre tenants y cobertura por oficio/mercado, sin alterar Q10 ni Q11 hasta sus firmas.
+
+## T-005 — modelo operativo nacional y salarios por ocupación (2026-11-06)
+
+- [x] [T-005t] **Diseño documental nacional:** [crosswalk de 24 motores a SOC, contexto de condados/CBSA, reglas de costeo y NAT-01..NAT-18](./cost-engine.national-labor-geo-tax-operating-model-2026-11-06.md). Solo hipótesis de crosswalk, pruebas propuestas y datos oficiales de contexto, **sin política comercial aprobada**.
+- [ ] [T-005u] **Importación real de salarios:** obtener ficheros oficiales OEWS May-2025 de estado y metro, validar release/checksum, parsear por SOC/geografía/percentil, conservar celdas suprimidas como NULL y publicar informe de cobertura. No se descargaron datos por localidad en esta revisión.
+- [ ] [T-005v] **Labor burden y obligaciones especiales:** revisar costos cargados W-2/1099 solo con libros de empresa y clasificación adecuada; Davis-Bacon contract-specific para obra cubierta; no hacer multiplicador universal de ECEC ni usar salario de empleado para autónomo.
+- [ ] [T-005w] **Oráculos nacionales:** implementar y ejecutar NAT-01 a NAT-18 con QA independiente en la fase autorizada, sin cambiar rangos ni impuestos del sistema heredado. Todos los casos actualmente documentales.
