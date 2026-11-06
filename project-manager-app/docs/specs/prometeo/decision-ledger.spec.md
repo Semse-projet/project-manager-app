@@ -276,6 +276,22 @@ Este slice no depende de documentación externa de grafos. Referencias de contex
 | Q-8 | ¿Se añade `correlationId` a la auditoría de H05? | Es migración aditiva de H05; decidirlo en el spec de H05, no aquí |
 | Q-9 | `shadow` sin escritura de filas | Aceptar: evita filas permanentes sin efecto de negocio |
 
+### 14.1 Resoluciones del owner (2026-11-06)
+
+El owner respondió «aplica todo» al plan de respuestas del coordinador. Se registran tal como se recomendaron. Esto **no aprueba el spec**: pasa a `APPROVED` cuando el ADR-044 esté aceptado con fecha, el acta aprobada y los slices previos aprobados (sección de gates).
+
+| ID | Resolución |
+|---|---|
+| Q-1 | Mismo módulo `operational-lineage` del slice 1; prefijo de rutas propio, sin rutas `@Public` |
+| Q-2 | **Primer productor:** la aprobación humana de una `PrometeoProposedAction`. Los specs m1.4 quedan como consumidores futuros. Tenant del canary: por designar |
+| Q-3 | Catálogos mínimos para ese productor, sin tipos financieros en V1; «crítica» = la decisión que cambia el estado de otros módulos. Los valores de los catálogos se fijan al aprobar el spec |
+| Q-4 | `lineage:decisions:read` y un permiso de anulación aparte, `lineage:decisions:void`. `OPS_ADMIN` sin cruce entre organizaciones |
+| Q-5 | Topes, tamaño de página, SLO y métricas: se miden y se proponen; el owner aprueba. **Pendiente de dato** |
+| Q-6 | `onDelete: Restrict` hacia `Tenant` y un procedimiento explícito de baja; la retención del texto libre la define Legal/Compliance. **Pendiente de esa definición** |
+| Q-7 | Si el registro falla dentro de la transacción del productor, la acción de negocio **se aborta** (fail-closed) |
+| Q-8 | `correlationId` en H05 se decide en el spec de H05, no aquí; mientras tanto la unión es por `executionId` |
+| Q-9 | `shadow` no escribe filas |
+
 ## 15. Archivos y endpoints planificados (aún inexistentes)
 
 Se mantienen fuera del frontmatter porque `spec:validate:strict` exige que `related_files` y `related_endpoints` existan. Pasan al frontmatter cuando el slice los cree.

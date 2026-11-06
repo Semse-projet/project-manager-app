@@ -13,7 +13,7 @@ date: "2026-11-06"
 
 ## Fase 0 — Gobierno
 - [ ] [DL-001] Owner acepta ADR-044 con fecha y aprueba el acta
-- [ ] [DL-002] Owner resuelve Q-1 a Q-9 del spec
+- [x] [DL-002] Owner resuelve Q-1 a Q-9 del spec (2026-11-06; topes, SLO, retención y tenant del canary pendientes)
 - [ ] [DL-003] Owner aprueba el spec (`REVIEW` → `APPROVED`)
 - [ ] [DL-004] Registrar la FSM en `docs/foundation/STATE_MACHINES.md`
 - [ ] [DL-005] Registrar los eventos en `docs/foundation/EVENT_CATALOG.md`
