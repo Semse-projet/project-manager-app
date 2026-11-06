@@ -251,6 +251,21 @@ La investigación de este slice depende de la plataforma consumidora, que no es 
 | Q-7 | Nombre y relación con Mission Control, Digital Twin, Field Memory 4D, visor 3D y BIM (O-10, O-11) | Proyección independiente, sin reemplazar ni duplicar esas superficies; nombre que no choque con ellas |
 | Q-8 | ¿Se divide el slice (identidad de servicio frente a instantánea)? | Sí, si Q-1 exige un mecanismo de identidad nuevo: la identidad es un riesgo de seguridad por sí misma |
 
+### 14.1 Resoluciones del owner (2026-11-06)
+
+El owner respondió «aplica todo» al plan de respuestas del coordinador. Se registran tal como se recomendaron. Esto **no aprueba el spec**: pasa a `APPROVED` cuando el ADR-044 esté aceptado con fecha, el acta aprobada y los slices previos aprobados (sección de gates).
+
+| ID | Resolución |
+|---|---|
+| Q-1 | Identidad de servicio propia, **sin sesión de usuario**, con consentimiento por organización y revocación inmediata. No `OPS_ADMIN`. El mecanismo concreto sigue ligado a ADR-042 y ADR-045, que continúan `PROPOSED` |
+| Q-2 | Permiso propio mínimo `lineage:snapshot:read` para el consumidor; el permiso de gestión de la identidad se nombra al diseñar Q-1. Techo de sensibilidad `internal`. Claves de nodo opacas por solicitud |
+| Q-3 | Retención máxima y purga al revocar, como cláusula de las condiciones externas. SEMSE no puede retirar datos ya entregados. **Plazos pendientes** |
+| Q-4 | Topes, cuota, SLO y métricas: se miden y se proponen; el owner aprueba. **Pendiente de dato** |
+| Q-5 | `graphSourceSha` y `freshness` valen `null` cuando se desconocen |
+| Q-6 | El registro de acceso reutiliza `AuditLog` con acciones nuevas catalogadas. El owner acredita las condiciones externas del consumidor |
+| Q-7 | Proyección independiente; no reemplaza Mission Control, Digital Twin, Field Memory 4D, el visor 3D ni BIM |
+| Q-8 | Se divide la identidad de servicio de la instantánea si Q-1 exige un mecanismo de identidad nuevo |
+
 ## 15. Archivos y endpoints planificados (aún inexistentes)
 
 Se mantienen fuera del frontmatter porque `spec:validate:strict` exige que `related_files` y `related_endpoints` existan. Pasan al frontmatter cuando el slice los cree.

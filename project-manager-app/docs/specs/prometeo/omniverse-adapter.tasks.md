@@ -14,7 +14,7 @@ date: "2026-11-06"
 ## Fase 0 — Gobierno
 - [ ] [OMN-001] Owner acepta ADR-044 con fecha y aprueba el acta
 - [ ] [OMN-002] Slices 1 a 3 aprobados y fusionados
-- [ ] [OMN-003] Owner resuelve Q-1 a Q-8 del spec
+- [x] [OMN-003] Owner resuelve Q-1 a Q-8 del spec (2026-11-06; plazos, topes y SLO pendientes de dato)
 - [ ] [OMN-004] Owner aprueba el spec (`REVIEW` → `APPROVED`)
 - [ ] [OMN-005] Refrescar `main` y reconciliar `related_files`
 
