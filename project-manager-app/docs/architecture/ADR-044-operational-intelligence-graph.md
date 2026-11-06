@@ -192,9 +192,9 @@ Each slice has its own SDD 2.0 artifacts and independent closure gates.
 
 ## Decisiones del owner (2026-10-25)
 
-El owner aceptó en bloque las recomendaciones del acta de reconciliación (D-01 a D-16; ver el registro de progresión). Las que condicionan este ADR:
+El owner aceptó en bloque las recomendaciones del acta de reconciliación (D-01 a D-16). La decisión, fechada el 2026-10-25, se registra en el registro de progresión mediante #1042, **pendiente de merge**: hasta entonces ese registro en `main` aún las muestra sin resolver. Esta aceptación no acepta este ADR ni desbloquea etapas. Las que condicionan este ADR:
 
-- **D-02 (H05):** el Decision Ledger y el provider `runtime` **referencian** H05 y no copian nada. `approvalRef` apunta a `AgentApproval` o `PrometeoProposedAction`; cada ejecución es un `DecisionEffectRef` con `targetId = executionId`; el estado se lee en vivo con `ToolExecutionQueryService`. No se guardan los resúmenes de H05, que se purgan a los 90 días.
+- **D-02 (H05):** el Decision Ledger y el provider `runtime` **referencian** H05 y no copian nada. `approvalRef` apunta a `AgentApproval` o `PrometeoProposedAction`; cada ejecución es un `DecisionEffectRef` con `targetId = executionId`; el estado se lee en vivo con `ToolExecutionQueryService`. No se guardan los resúmenes de H05, cuya retención es configurable (`PROMETEO_TOOL_AUDIT_RETENTION_DAYS`; el plazo predeterminado es de 90 días) y cuya purga efectiva requiere que se ejecute el mantenimiento (`AuditMaintenanceService`, con temporizador apagado por defecto).
 - **D-10 (MCP):** la tool del grafo es solo para Prometeo interno y no se expone por MCP hasta que exista un spec hijo.
 - **D-16 (orden):** se mantiene 1 → 2 → 3 → 4.
 
@@ -229,7 +229,7 @@ Aceptarlo no aprueba ningún slice: cada spec hijo se aprueba por separado, en e
 
 ## Consecuencias
 
-- Aparece un módulo nuevo y una tabla de solo-agregar (slice 2); los demás slices no migran.
+- Aparece un módulo nuevo y un ledger de solo-agregar con tres entidades —`DecisionRecord`, `DecisionSourceRef` y `DecisionEffectRef`— (slice 2); los demás slices no migran.
 - Los productores de decisiones deben aportar autoridad, política y aprobación para las decisiones críticas.
 - Toda lectura del grafo exige permisos nuevos de solo lectura (D-04) y queda auditada sin contenido (D-09).
 
