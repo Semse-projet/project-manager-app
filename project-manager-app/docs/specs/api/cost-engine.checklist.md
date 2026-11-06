@@ -167,6 +167,14 @@ date: "2026-10-30"
 - [ ] Ejecutar NAT-01..NAT-18 en implementación autorizada con oráculos independientes y revisión competente; comparar contra snapshots aceptados y costos reales.
 - [ ] Sin fuente de material, licencia, revisión de obra o política fiscal por localidad, salida `PRELIMINARY_ONLY` con `taxAmount=null`, sin afirmación de cobertura aprobada 51/51.
 
+## Ampliación fiscal y de calidad de datos — 6-nov-2026
+
+- [x] [NAT-EDGE](./cost-engine.national-tax-edgecases-2026-11-06.md): 13 escenarios fiscales adversariales adicionales (NC, NJ, OH, WI, MN, VA, SC, MA, NH, DC y WA) con fuente oficial y campos obligatorios; **ningún oráculo CPA está firmado**.
+- [x] Catálogo documental de fuentes BLS OEWS/QCEW, SAM.gov, Census BPS y DOT con esquema de trazabilidad, supresiones y diferencias entre salario, precio de material y precio de obra instalada.
+- [x] Detectado conflicto de enlace BLS: el alias CURRENT de página estatal puede presentar May-2024 aunque la página de tablas publique May-2025. Exigir año/release del archivo real antes de importarlo, sin confiar en alias.
+- [ ] Convertir TAX-NAT-19..31 en pruebas de aceptación con valores esperados por CPA independiente y comprobar cambios fiscales por fecha/localidad.
+- [ ] Convertir DAT-NAT-01..10 en pruebas ejecutables y producir manifiestos de archivos BLS/SAM con checksum, datos suprimidos y cobertura real; **no se han descargado esos datasets en esta tarea**.
+
 ## Plan nacional de obtención de cotizaciones y licencias
 
 - [x] [T-005p](./cost-engine.t005-vendor-quotes-rights-acquisition-2026-11-06.md): canales oficiales Home Depot Pro, Lowe's Pro, 84 Lumber, ABC Supply, Sherwin-Williams PRO+ y potencial proveedor OEM Craftsman **identificados**; no contactados ni contratados.
