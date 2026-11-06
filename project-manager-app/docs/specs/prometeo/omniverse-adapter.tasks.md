@@ -3,50 +3,53 @@ type: tasks
 feature: "Omniverse Read-Only Projection Adapter"
 domain: "prometeo"
 plan: "docs/specs/prometeo/omniverse-adapter.plan.md"
-version: "2.0"
+version: "2.1"
 status: "PENDING"
 branch: "feat/omniverse-adapter"
-date: "2026-10-04"
+date: "2026-11-06"
 ---
 
 # Tasks: Omniverse Read-Only Projection Adapter
 
-## Phase 0 — Governance
-- [ ] [OMNIVERSE_ADAPTER-001] Refresh main/Railway
-- [ ] [OMNIVERSE_ADAPTER-002] Approve spec
-- [ ] [OMNIVERSE_ADAPTER-003] Reconcile related files
-- [ ] [OMNIVERSE_ADAPTER-004] Write failing acceptance/security tests
+## Fase 0 — Gobierno
+- [ ] [OMN-001] Owner acepta ADR-044 con fecha y aprueba el acta
+- [ ] [OMN-002] Slices 1 a 3 aprobados y fusionados
+- [ ] [OMN-003] Owner resuelve Q-1 a Q-8 del spec
+- [ ] [OMN-004] Owner aprueba el spec (`REVIEW` → `APPROVED`)
+- [ ] [OMN-005] Refrescar `main` y reconciliar `related_files`
 
-## Phase 1 — Contract/data
-- [ ] [OMNIVERSE_ADAPTER-010] Implement shared types/schemas
-- [ ] [OMNIVERSE_ADAPTER-011] Implement migration if applicable
-- [ ] [OMNIVERSE_ADAPTER-012] Verify backward compatibility
-- [ ] [OMNIVERSE_ADAPTER-013] Verify idempotency/concurrency where applicable
+## Fase 1 — Pruebas en rojo
+- [ ] [OMN-010] Instantánea saneada: allowlist, techo de sensibilidad y metadatos
+- [ ] [OMN-011] Cero escrituras con identidad sin sesión previa
+- [ ] [OMN-012] Matriz 2 × 2 con la identidad del consumidor (404/403)
+- [ ] [OMN-013] Falta de `projectId` → 400 sin consultar proveedores
+- [ ] [OMN-014] Sin datos personales, ubicaciones ni nombres de secretos
+- [ ] [OMN-015] Determinismo y topes del servidor
+- [ ] [OMN-016] Flag `off` → 404; identidad revocada → 401
+- [ ] [OMN-017] Registro de exportación y de denegación sin contenido
 
-## Phase 2 — Domain/provider
-- [ ] [OMNIVERSE_ADAPTER-020] Implement service/provider/repository
-- [ ] [OMNIVERSE_ADAPTER-021] Enforce source authorization
-- [ ] [OMNIVERSE_ADAPTER-022] Implement degraded/fail-closed behavior
-- [ ] [OMNIVERSE_ADAPTER-023] Pass unit/integration tests
+## Fase 2 — Identidad
+- [ ] [OMN-020] Identidad de servicio del consumidor según Q-1
+- [ ] [OMN-021] Permisos mínimos en `rbac.ts`
+- [ ] [OMN-022] Revocación inmediata
 
-## Phase 3 — API/tool
-- [ ] [OMNIVERSE_ADAPTER-030] Implement endpoint/tool if declared
-- [ ] [OMNIVERSE_ADAPTER-031] Add contract tests
-- [ ] [OMNIVERSE_ADAPTER-032] Update API docs
+## Fase 3 — Proyección y API
+- [ ] [OMN-030] Contratos Zod en `packages/schemas/src`
+- [ ] [OMN-031] Servicio de proyección sobre el servicio de consulta del slice 3
+- [ ] [OMN-032] Endpoint `POST <prefijo>/omniverse/snapshot` y catálogo de errores
+- [ ] [OMN-033] Registro de acceso sin contenido
+- [ ] [OMN-034] Actualizar `SEMSE_API_SURFACE_V1.md`
 
-## Phase 4 — Verification
-- [ ] [OMNIVERSE_ADAPTER-040] directed tests
-- [ ] [OMNIVERSE_ADAPTER-041] regression
-- [ ] [OMNIVERSE_ADAPTER-042] build/typecheck/lint
-- [ ] [OMNIVERSE_ADAPTER-043] pnpm spec:validate:strict
-- [ ] [OMNIVERSE_ADAPTER-044] pnpm spec:coverage
-- [ ] [OMNIVERSE_ADAPTER-045] pnpm spec:index
+## Fase 4 — Verificación
+- [ ] [OMN-040] Pruebas dirigidas y regresión
+- [ ] [OMN-041] build, typecheck y lint
+- [ ] [OMN-042] `pnpm spec:validate:strict`, `spec:coverage` y `spec:index`
 
-## Phase 5 — Delivery
-- [ ] [OMNIVERSE_ADAPTER-050] PR review
-- [ ] [OMNIVERSE_ADAPTER-051] CI PASS
-- [ ] [OMNIVERSE_ADAPTER-052] merge SHA
-- [ ] [OMNIVERSE_ADAPTER-053] deployment terminal if runtime changed
-- [ ] [OMNIVERSE_ADAPTER-054] shadow/canary
-- [ ] [OMNIVERSE_ADAPTER-055] authenticated smoke
-- [ ] [OMNIVERSE_ADAPTER-056] production evidence/state update
+## Fase 5 — Entrega
+- [ ] [OMN-050] Revisión del PR y CI en verde
+- [ ] [OMN-051] SHA de merge registrado
+- [ ] [OMN-052] Despliegue terminal verificado
+- [ ] [OMN-053] `shadow` sin entregar nada al consumidor
+- [ ] [OMN-054] Owner adjunta evidencia de las condiciones externas del consumidor
+- [ ] [OMN-055] Canary con una identidad, un proyecto y una organización
+- [ ] [OMN-056] Metadatos SDD y evidencia de producción sin inventar estados

@@ -177,7 +177,7 @@ retroactiva.
 | [prometeo.jev-human-review-queue](specs/prometeo/jev-human-review-queue.spec.md) | prometeo | APPROVED | COMPLETE | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | yes | 2026-09-26 |
 | [prometeo.live-sessions](specs/prometeo/live-sessions.spec.md) | prometeo | APPROVED | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | no | 2026-09-07 |
 | [prometeo.model-gateway-unification](specs/prometeo/model-gateway-unification.spec.md) | prometeo | REVIEW | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | yes | 2026-08-27 |
-| [prometeo.omniverse-adapter](specs/prometeo/omniverse-adapter.spec.md) | prometeo | REVIEW | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | no | 2026-10-04 |
+| [prometeo.omniverse-adapter](specs/prometeo/omniverse-adapter.spec.md) | prometeo | REVIEW | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | no | 2026-11-06 |
 | [prometeo.operational-intelligence-program](specs/prometeo/operational-intelligence-program.spec.md) | prometeo | REVIEW | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | no | 2026-10-06 |
 | [prometeo.tool-call-audit-lineage](specs/prometeo/tool-call-audit-lineage.spec.md) | prometeo | APPROVED | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-10-05 |
 | [prometeo.tool-registry-governance-f2](specs/prometeo/tool-registry-governance.spec.md) | prometeo | APPROVED | legacy | legacy | legacy | legacy | legacy | critical | no | 2026-07-20 |
