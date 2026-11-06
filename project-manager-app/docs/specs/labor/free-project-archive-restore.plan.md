@@ -29,7 +29,7 @@ date: "2026-10-25"
 ## 3. Arquitectura
 - Authority: LaborEngineRepository en Prisma FreeProject.
 - Proyección: owner-only include archived y GET/:id. El backend selecciona tenantId+createdBy, no toma esos valores del cliente.
-- CAS archived -> estado de D1 con AuditLog misma transacción, reutilizar patrón S0.
+- CAS archived -> estado de D1 con AuditLog misma transacción. El CAS de S0 sólo compara `status`, lo que no basta: tras el ciclo `archived → active → converted → archived`, un restore con lectura obsoleta escribiría `active` conservando `convertedJobId` y violaría S1-D1. El restore compara también el `convertedJobId` leído (incluido `null`) o calcula el destino bajo bloqueo de fila; ese ciclo se cubre en A8 y en la integración PostgreSQL.
 - Servicio/controller con validación de status enum y rutas declaradas en SEMSE_API_SURFACE_V1.
 - Web: tab Proyectos, detalles y Restore; Registros/Resumen/Reportes toman una lista owner-only que incluye archivados; Timer selector conserva lista activa.
 - Mobile: contrato común y pruebas, no presumir habilitado sin validación.

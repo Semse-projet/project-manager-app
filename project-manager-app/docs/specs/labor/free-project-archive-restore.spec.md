@@ -48,6 +48,7 @@ El listado actual en labor-engine.repository.ts excluye status archived. Proyect
 - GET /v1/labor/free-projects/:id, incluido archivado, sólo owner; 404 para ajeno/inexistente.
 - POST /v1/labor/free-projects/:id/restore, dueño únicamente con field-ops:write, guarda estado mediante CAS y AuditLog en la misma transacción. Sin PATCH de status, prohibido desde S0.
 - Proyectos muestra filtros, ficha completa, detalle/historial y acción Restaurar; traducciones ES/EN. Archived no da acceso para editar/convertir/fichar.
+- El backend lo impone, no sólo la UI: `PATCH /v1/labor/free-projects/:id`, iniciar timer y crear entrada manual sobre un FreeProject archivado devuelven 409 con un código de error propio (nombre a fijar en el plan). Un replay offline idempotente de una entrada ya persistida antes de archivar se acepta sin duplicarla; sólo se rechazan escrituras nuevas.
 - Registros/Resumen/Reportes/CSV muestran nombre/color de proyectos archivados visibles por propiedad, sin duplicar nombres en TimeEntry.
 
 **Fuera de alcance:** exportación íntegra y paginación TimeEntry (PR #1036), helper CSV/inyección fórmulas y offline sync origin (PR #1039), continuidad fuera de tenant (PR #1037), mapa/geocoding (issue #931), permisos del patrón/crew (issue #934), fotos/Evidence/backups, finanzas, reatribución de horas.
@@ -81,11 +82,13 @@ P1 Aislamiento: B en el mismo tenant conoce ID de A; B no puede listar, GET deta
 | A5: GET/restore recurso ajeno mismo tenant | 404 sin datos ni mutación |
 | A6: otro tenant/anon/sin permiso | 404/401/403 según permiso |
 | A7: dos restore concurrentes | Sólo un CAS y audit |
-| A8: carrera archivar/convertir/restaurar | Estado legal y consistente |
+| A8: carrera archivar/convertir/restaurar, incluido el ciclo archived → active → converted → archived con lectura obsoleta | Estado legal y consistente; nunca `active` con `convertedJobId` (S1-D1) |
 | A9: comparar TimeEntry antes/después | Id, fechas, duración, owner, Job y descansos idénticos |
 | A10: resolver nombre en 4 vistas y CSV | Igual etiqueta, sin fugas |
 | A11: >500 TimeEntry | No afirmar total íntegro; coordinación F1A |
 | A12: falla red/reintento/offline | No éxito falso ni doble escritura |
+| A13: PATCH, iniciar timer o entrada manual sobre archived | 409 sin mutación ni TimeEntry nuevo |
+| A14: replay offline de entrada persistida antes de archivar | Idempotente: misma entrada, sin duplicado ni 409 |
 
 ## 5. Contratos
 

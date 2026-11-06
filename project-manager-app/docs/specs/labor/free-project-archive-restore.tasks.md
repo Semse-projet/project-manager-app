@@ -27,12 +27,15 @@ date: "2026-10-25"
 - [ ] T-014 TimeEntry pre/post idéntico sin Job/escrow/multimedia mutado.
 - [ ] T-015 Resolver nombres archived en UI y CSV sin expandir export de #1036.
 - [ ] T-016 Registrar rojo en main con fixtures sintéticos.
+- [ ] T-017 Casos negativos A13/A14: escrituras sobre archived (PATCH, timer, manual) rechazadas y replay offline idempotente aceptado.
 
 ## Fase 2 — Backend
 - [ ] T-020 Repository owner-only status filter, GET by id, CAS restore.
 - [ ] T-021 Service guards state/owner, idempotencia y audit.
 - [ ] T-022 Controller GET /:id, list status, POST restore; errores claros.
 - [ ] T-023 Actualizar EVENT_CATALOG y SEMSE_API_SURFACE_V1.
+- [ ] T-024 Guards backend de estado en `updateOwnedFreeProject`, `startTimer` y `createManualEntry` (hoy sólo comprueban ownership), distinguiendo escrituras nuevas de replays persistidos.
+- [ ] T-025 Tras aprobar S1, actualizar `docs/foundation/DOMAIN_INVARIANTS.md` (FreeProject: `status` sólo cambia por archivar, convertir o restaurar vía `POST …/restore`), conservando ownership, la prohibición de PATCH de estado y la AuditLog transaccional.
 
 ## Fase 3 — UI
 - [ ] T-030 Cliente/BFF que conserva legacy default de Timer.
