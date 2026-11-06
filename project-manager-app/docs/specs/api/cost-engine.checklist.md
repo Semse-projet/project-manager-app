@@ -156,6 +156,16 @@ date: "2026-10-30"
 - [ ] Obtener permisos específicos de reutilización SaaS/derivados/caché/visibilidad y precios de proveedor con SKU/unidad/fecha/ubicación antes de marcar filas comerciales como aprobadas.
 - [ ] Realizar T-008c en modo solo lectura cuando se autorice; #1101 no debe sustituir la comprobación del snapshot actual.
 
+## Modelo operativo nacional SOC/geo (6-nov-2026)
+
+- [x] [Crosswalk de 24 motores hacia códigos SOC y modelo nacional de geografía](./cost-engine.national-labor-geo-tax-operating-model-2026-11-06.md) documentados; hipótesis por tarea y jurisdicción, **no valores salariales comerciales aprobados**.
+- [x] Fuentes públicas clasificadas: BLS OEWS (SOC/state/CBSA), QCEW (NAICS/county), ECEC (beneficios industriales), Davis-Bacon (mínimos de obra cubierta por contrato), FHWA (ítems de trabajo instalado), Census Geocoder (condado); ninguna usada como sustituto de cotización con licencia SaaS.
+- [x] 18 criterios de aceptación **especificados** (NAT-01..NAT-18) para privacidad, salarios, fiscalidad local, licencias, materiales, subcontratas, concurrencia de worker-hours, replay e impuestos; **no marcados como pruebas ejecutadas**.
+- [ ] Descargar OEWS May 2025 por estado/área y comprobar checksum, cobertura real, percentiles, celdas suprimidas y mapeos de los 24 motores; `null` donde falte dato.
+- [ ] Validar horas/trabajo/productividad por especialidad y condiciones laborales (W-2 vs autónomos, prevailing wage y seguros) con registros propios reconciliados; no convertir estadísticas nacionales en tarifa.
+- [ ] Ejecutar NAT-01..NAT-18 en implementación autorizada con oráculos independientes y revisión competente; comparar contra snapshots aceptados y costos reales.
+- [ ] Sin fuente de material, licencia, revisión de obra o política fiscal por localidad, salida `PRELIMINARY_ONLY` con `taxAmount=null`, sin afirmación de cobertura aprobada 51/51.
+
 ## Plan nacional de obtención de cotizaciones y licencias
 
 - [x] [T-005p](./cost-engine.t005-vendor-quotes-rights-acquisition-2026-11-06.md): canales oficiales Home Depot Pro, Lowe's Pro, 84 Lumber, ABC Supply, Sherwin-Williams PRO+ y potencial proveedor OEM Craftsman **identificados**; no contactados ni contratados.
