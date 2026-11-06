@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { BadRequestException, Inject, Injectable, Logger, Optional, UnprocessableEntityException } from "@nestjs/common";
+import { BadRequestException, ConflictException, Inject, Injectable, Logger, Optional, UnprocessableEntityException } from "@nestjs/common";
 import {
   JOB_COMPLETED_V1_SCHEMA_REF,
   RATING_REQUESTED_V1_SCHEMA_REF,
@@ -620,6 +620,10 @@ export class JobsService {
 
     assertTransitionAuthorized(input.targetStatus, input.orgId, input.roles, ownership);
 
+    if (input.targetStatus === "completed") {
+      await this.assertCompletionClosure(input.tenantId, input.jobId);
+    }
+
     const updated = await this.jobsRepository.updateStatus({
       tenantId: input.tenantId,
       jobId: input.jobId,
@@ -668,6 +672,37 @@ export class JobsService {
       tenantId: input.tenantId,
       job: updated,
     });
+  }
+
+  /**
+   * DOMAIN_INVARIANTS.md: a Job must not reach COMPLETED while its operational
+   * and financial closure is open (STATE_MACHINES.md: milestones resolved and
+   * no funds held in escrow). Applies to every manual completion, whoever asks.
+   */
+  private async assertCompletionClosure(tenantId: string, jobId: string): Promise<void> {
+    const [milestones, escrows] = await Promise.all([
+      this.prisma.milestone.findMany({
+        where: { deletedAt: null, project: { jobId, tenantId } },
+        select: { status: true },
+      }),
+      this.prisma.paymentEscrow.findMany({
+        where: { deletedAt: null, project: { jobId, tenantId } },
+        select: { transactions: { select: { type: true, status: true, amount: true } } },
+      }),
+    ]);
+    const blockers = jobCompletionBlockers({
+      milestoneStatuses: milestones.map((milestone) => String(milestone.status)),
+      escrowTransactions: escrows.flatMap((escrow) =>
+        escrow.transactions.map((transaction) => ({
+          type: String(transaction.type),
+          status: String(transaction.status),
+          amount: Number(transaction.amount),
+        }))
+      ),
+    });
+    if (blockers.length > 0) {
+      throw new ConflictException(`job cannot be completed: ${blockers.join("; ")}`);
+    }
   }
 
   async agentSignals(input: { tenantId: string; jobId: string }) {
@@ -837,6 +872,26 @@ const JOB_TRANSITIONS: Record<JobStatus, JobStatus[]> = {
 // Transitions that require specific org role — key is targetStatus
 const CLIENT_ONLY_TRANSITIONS: JobStatus[] = ["completed", "cancelled"];
 const PRO_ONLY_TRANSITIONS: JobStatus[] = ["review", "dispute"];
+
+const RESOLVED_MILESTONE_STATUSES = new Set(["APPROVED", "PAID"]);
+
+/** Why a job cannot be completed yet; empty when its closure is resolved. */
+export function jobCompletionBlockers(input: {
+  milestoneStatuses: string[];
+  escrowTransactions: Array<{ type: string; status: string; amount: number }>;
+}): string[] {
+  const blockers: string[] = [];
+  const open = input.milestoneStatuses.filter((status) => !RESOLVED_MILESTONE_STATUSES.has(status.toUpperCase()));
+  if (open.length > 0) blockers.push(`${open.length} milestone(s) not approved`);
+
+  const settled = (type: string) =>
+    input.escrowTransactions
+      .filter((transaction) => transaction.type.toUpperCase() === type && transaction.status.toUpperCase() === "SUCCEEDED")
+      .reduce((sum, transaction) => sum + transaction.amount, 0);
+  const held = settled("DEPOSIT") - settled("RELEASE") - settled("REFUND");
+  if (held > 0.000001) blockers.push(`escrow still holds ${held}`);
+  return blockers;
+}
 
 export function assertTransitionAuthorized(
   targetStatus: JobStatus,

@@ -53,3 +53,19 @@ Las dos cosas necesitan su propio cambio.
 | En vivo (API local con identidad por cabeceras, datos demo, junto con #1110): trabajo → reserva → aceptar → contrato → dos firmas → escrow (`mock`) → hito → evidencia → enviar → aprobar → liberar → `in_progress` (PRO) → `review` (PRO) → `completed` (cliente) → dos valoraciones → resumen y reputación | todo 2xx. Antes, las transiciones daban **403** y luego **500**. Con el trabajo completado, la reputación del profesional pasa de `emerging` a `established`. |
 
 Depende de #1110 sólo para el recorrido completo: sin él no se puede crear el contrato. Los dos cambios son independientes y se pueden fusionar en cualquier orden.
+
+## Corrección posterior (revisión de Codex en #1111): cierre antes de completar
+
+Codex señaló, con razón, que el permiso dejaba al cliente completar un trabajo en revisión con hitos pendientes o fondos todavía en el escrow. Eso choca con `DOMAIN_INVARIANTS.md` («`Job` no debe llegar a `COMPLETED` si el cierre operativo y financiero no está resuelto») y desbloqueaba las valoraciones antes de tiempo. Hasta ahora no se podía llegar a ese caso porque nadie tenía permiso para la ruta.
+
+- `JobsService.transitionJob` comprueba el cierre antes de escribir cualquier transición manual a `completed` (desde `review` o `dispute`), para cualquier rol, `OPS_ADMIN` incluido:
+  - todos los hitos de los proyectos del trabajo están en `APPROVED` o `PAID`;
+  - el escrow no retiene fondos: depósitos − liberaciones − reembolsos, contando sólo transacciones `SUCCEEDED`, da 0.
+- Si no, responde **409** con el motivo. La regla es una función pura exportada, `jobCompletionBlockers`.
+- El cierre automático (`systemCompleteJob`, tras aprobar todos los hitos) no pasa por aquí y no cambia.
+
+| Prueba | Resultado |
+|---|---|
+| `apps/api/test/job-completion-closure.test.ts` (nuevo) | 7/7: hitos pendientes, fondos retenidos, transacciones no `SUCCEEDED`, `OPS_ADMIN`, caso permitido, consultas limitadas al trabajo y al tenant, sin consulta en otras transiciones |
+| En vivo: recorrido completo con todo liberado | sigue pasando de principio a fin |
+| En vivo: completar con 200 retenidos | **409** (antes, 201) |
