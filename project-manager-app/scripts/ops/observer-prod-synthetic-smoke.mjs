@@ -46,9 +46,9 @@ assert.equal(apiUrl.username, "", "Embedded API credentials forbidden");
 assert.equal(apiUrl.password, "", "Embedded API credentials forbidden");
 
 const EXPECTED_API_SHA = process.env.SEMSE_OBSERVER_SMOKE_EXPECTED_SHA;
-if (!cleanupArgument) {
-  assert.match(EXPECTED_API_SHA ?? "", /^[a-f0-9]{40}$/, "Expected current production git SHA required");
-}
+// Both normal execution and emergency cleanup mutate production data.
+// Neither path is authorized without attesting the current API build.
+assert.match(EXPECTED_API_SHA ?? "", /^[a-f0-9]{40}$/, "Expected current production git SHA required");
 // pnpm production installs isolate workspace dependencies: @prisma/client is
 // linked beneath packages/db, not necessarily at the app root.
 let PrismaClient;
@@ -99,34 +99,50 @@ async function request(method, path, opts = {}) {
   }
 }
 
-async function preflight() {
+async function preflight({ cleanupOnly = false } = {}) {
   // Fail before any database write if traffic is not routed to the intended
   // production build, or if required dependencies are not ready.
   const health = await request("GET", "/v1/health");
   assert.equal(health.status, 200, "API health must pass");
   assert.equal(health.data?.gitSha, EXPECTED_API_SHA, "Wrong production API build");
   assert.equal(health.data?.environment, "production", "Not the production API");
-  const ready = await request("GET", "/v1/ready");
-  assert.equal(ready.status, 200, "API readiness must pass");
-  assert.equal(ready.data?.status, "ready", "API dependencies are not ready");
-  console.log("PREFLIGHT PASS: health/ready 200, exact API SHA and production environment.");
+  if (!cleanupOnly) {
+    const ready = await request("GET", "/v1/ready");
+    assert.equal(ready.status, 200, "API readiness must pass");
+    assert.equal(ready.data?.status, "ready", "API dependencies are not ready");
+  }
+  // Recovery must still function during degraded readiness (e.g., Redis down).
+  // A live health endpoint with the exact production SHA remains mandatory.
+  console.log(cleanupOnly
+    ? "RECOVERY PREFLIGHT PASS: exact API SHA and production environment."
+    : "PREFLIGHT PASS: health/ready 200, exact API SHA and production environment.");
 }
 
 async function prepare(runId, people) {
-  // Each run creates at most two in-memory Observer cache slots until the
-  // 24-hour idle TTL. Block repeats while those slots could still be retained.
-  const recentRuns = await prisma.tenant.count({
-    where: {
-      id: { startsWith: "test_ohi14_t_" },
-      createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
-    },
-  });
-  assert.equal(recentRuns, 0, "Observer smoke already executed in the last 24 hours; refuse additional cache slots");
-  const role = await prisma.role.findUnique({ where: { key: "OPS_ADMIN" }, select: { id: true } });
-  assert.ok(role?.id, "Existing OPS_ADMIN role is required; do not seed global roles");
+  // The lock protects the capacity check AND both inserts across all API
+  // workers / operators sharing the production database. A plain count then
+  // transaction permits two simultaneous invocations to both see zero.
   const password = randomBytes(32).toString("base64url");
   const hash = passwordHash(password);
   await prisma.$transaction(async (tx) => {
+    const lock = await tx.$queryRaw`SELECT pg_try_advisory_xact_lock(48110891401::bigint) AS acquired`;
+    assert.equal(lock[0]?.acquired, true, "Another synthetic Observer smoke is already preparing fixtures");
+    // 48h from last tenant mutation is conservative relative to 24h idle TTL,
+    // including cleanup time. Still not a proof of eviction if an unrelated
+    // operator is manually reading the synthetic tenant from another session.
+    const recentRuns = await tx.tenant.count({
+      where: {
+        id: { startsWith: "test_ohi14_t_" },
+        OR: [
+          { status: { not: "archived" } },
+          { updatedAt: { gte: new Date(Date.now() - 48 * 60 * 60 * 1000) } },
+        ],
+      },
+    });
+    assert.equal(recentRuns, 0,
+      "Another synthetic smoke is active or its 48-hour cache cooldown has not elapsed");
+    const role = await tx.role.findUnique({ where: { key: "OPS_ADMIN" }, select: { id: true } });
+    assert.ok(role?.id, "Existing OPS_ADMIN role is required; do not seed global roles");
     for (const p of people) {
       await tx.tenant.create({
         data: { id: p.tenantId, slug: p.tenantId, name: p.name, status: "active" },
@@ -340,6 +356,7 @@ console.log("Observer smoke run " + runId + " (no secrets will be printed)");
 let success = false;
 try {
   if (cleanupArgument) {
+    await preflight({ cleanupOnly: true });
     await cleanup(runId);
   } else {
     await preflight();
