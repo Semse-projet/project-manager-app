@@ -103,7 +103,7 @@ Tabla BLS **OEWS May 2025**, publicada **15-may-2026**. Valores USD por hora pub
 | HVAC mechanics/installers | 31.14 | 29.33 | hvac |
 | Construction laborers | 25.02 | 22.66 | general/labor |
 
-En [BLS ECEC construcción junio de 2026](https://www.bls.gov/charts/employer-costs-for-employee-compensation/costs-by-industry.htm) las medias agregadas son **salario $36.13/h + beneficios $15.84/h = compensación $51.97/h**; la relación beneficios/salario es 43.8 %. **No** multiplicar automáticamente cada salario OEWS por 1.438: provienen de poblaciones/definiciones diferentes y todavía faltan seguro de obra, productividad real, tiempo no cobrable, transporte, herramienta, overhead, ingresos y riesgo.
+En [BLS ECEC construcción junio de 2026](https://www.bls.gov/charts/employer-costs-for-employee-compensation/costs-by-industry.htm) el **total agregado oficial es $51.96/h**, mientras los componentes publicados son salario $36.13/h y beneficios $15.84/h (**su suma aritmética de componentes redondeados da $51.97/h**). La diferencia de $0.01 es efecto de redondeo; conservar el **total publicado y la precisión de origen**, no reconstruir el total de dos componentes ya redondeados. El cociente aproximado beneficios/salario es 43.8 %, pero **no** es un multiplicador obligatorio para cada SOC. **No** multiplicar automáticamente cada salario OEWS por 1.438: provienen de poblaciones/definiciones diferentes y todavía faltan seguro de obra, productividad real, tiempo no cobrable, transporte, herramienta, overhead, ingresos y riesgo.
 
 Próxima adquisición pública verificable: tabla BLS [OEWS por estado/área](https://www.bls.gov/oes/CURRENT/oessrcst.htm) + mapeo `SOC × trade × state × CBSA × release`; **no hay en este documento 51×24 tarifas cobrables**.
 
