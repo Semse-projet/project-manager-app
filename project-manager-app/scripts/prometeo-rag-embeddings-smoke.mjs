@@ -74,12 +74,12 @@ async function run() {
 
     if (health.retrievalMode === "hybrid") ok("retrievalMode=hybrid (embeddings reales activos)");
     else if (health.retrievalMode === "fts_fallback") {
-      console.log("     ⚠️  fts_fallback activo — OPENAI_API_KEY puede no estar configurada en Railway");
+      console.log("     ℹ️  fts_fallback activo: recuperación local privada; no habilitar embeddings cloud para documentos privados");
       ok("retrievalMode reportado correctamente (fts_fallback)");
     }
 
     if (health.chunksMissingEmbeddings > 0) {
-      console.log(`     ⚠️  ${health.chunksMissingEmbeddings} chunks sin embeddings — ejecuta: node scripts/prometeo-backfill-embeddings.mjs`);
+      console.log(`     ℹ️  ${health.chunksMissingEmbeddings} chunks sin embeddings: backfill legacy deshabilitado por cuarentena L14; no enviar texto a OpenAI`);
     } else if (health.totalChunks > 0) {
       ok("Todos los chunks tienen embeddings");
     }
@@ -193,8 +193,8 @@ async function run() {
   console.log(`\n=== Resultado: ${passed}/${passed + failed} PASSED ===`);
   if (failed > 0) {
     console.log(`⚠️  ${failed} checks fallaron — revisar Railway env vars:`);
-    console.log("   OPENAI_API_KEY — para embeddings reales");
-    console.log("   Ejecutar backfill: node scripts/prometeo-backfill-embeddings.mjs");
+    console.log("   No habilitar API externas para embeddings privados sin aprobación de seguridad");
+    console.log("   Backfill cloud histórico BLOQUEADO (PROMETEO_L14_BACKFILL_DISABLED); revisar flujo local autorizado");
   } else {
     console.log("✨ Prometeo RAG Phase 4.5 — Embeddings funcionando correctamente");
   }
