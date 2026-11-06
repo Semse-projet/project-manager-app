@@ -121,6 +121,10 @@ export class EvidenceReviewService {
     evidenceItemId: string;
     tenantId:       string;
     reviewedById:   string;
+    /** Resolved by the authenticated, milestone-authorized HTTP controller. */
+    reviewedByOrgId?: string;
+    /** Set only from the authenticated controller\u0027s verified OPS_ADMIN role. */
+    reviewedByOpsAdmin?: boolean;
     locale?:        "es" | "en";
     forceRulesOnly?: boolean;
   }): Promise<EvidenceReviewResult> {
@@ -135,7 +139,7 @@ export class EvidenceReviewService {
     // Verify tenant via milestone → project
     const milestoneBase = await this.prisma.milestone.findFirst({
       where: { id: item.milestoneId, project: { tenantId: input.tenantId } },
-      select: { id: true, title: true },
+      select: { id: true, title: true, projectId: true },
     });
     if (!milestoneBase) throw new Error("Forbidden");
 
@@ -163,18 +167,53 @@ export class EvidenceReviewService {
     if (!input.forceRulesOnly && this.llm) {
       // Enrich prompt with RAG context if available (trade-specific docs)
       let ragContextBlock = "";
-      if (this.rag) {
-        const ragCtx = await this.rag.retrieveContext({
-          query:    `${item.label} ${item.kind} evidence review`,
-          tenantId: input.tenantId,
-          trade:    (milestoneBase as Record<string, unknown> & { title?: string }).title?.toLowerCase().includes("elect") ? "electrical" : "general",
-          topK:     3,
-        });
-        if (ragCtx.available) {
-          ragContextBlock = ragCtx.contextBlock;
-          ragCitations = ragCtx.citations;
-          ragSources = ragCtx.citations.map((c) => c.documentTitle);
-          ragUsed = true;
+      if (this.rag && input.reviewedById && (input.reviewedByOrgId || input.reviewedByOpsAdmin)) {
+        // The reviewer comes from the signed session, but recheck ACTIVE membership
+        // and participation in this precise project at retrieval time. Never send
+        // just a tenantId to RAG, and do not trust historical document.projectId
+        // as permission to read another organization's private documentation.
+        const authorized = input.reviewedByOpsAdmin
+          // The signed controller already confirmed OPS_ADMIN. Even admins
+          // are limited to a live project within the actor's own tenant.
+          ? await this.prisma.project.findFirst({
+              where: { id: milestoneBase.projectId, tenantId: input.tenantId, job: { deletedAt: null } },
+              select: { id: true },
+            }).then(Boolean).catch(() => false)
+          : await Promise.all([
+              this.prisma.membership.findFirst({
+                where: {
+                  userId: input.reviewedById, orgId: input.reviewedByOrgId, status: "ACTIVE",
+                  org: { tenantId: input.tenantId },
+                },
+                select: { orgId: true },
+              }),
+              this.prisma.project.findFirst({
+                where: {
+                  id: milestoneBase.projectId, tenantId: input.tenantId,
+                  job: { deletedAt: null },
+                  OR: [
+                    { assignedProOrgId: input.reviewedByOrgId },
+                    { job: { clientOrgId: input.reviewedByOrgId, deletedAt: null } },
+                  ],
+                },
+                select: { id: true },
+              }),
+            ]).then(([membership, project]) => Boolean(membership && project)).catch(() => false);
+        if (authorized) {
+          const ragCtx = await this.rag.retrieveContext({
+            query: `${item.label} ${item.kind} evidence review`,
+            tenantId: input.tenantId,
+            projectId: milestoneBase.projectId,
+            scope: input.reviewedByOpsAdmin ? null : { orgId: input.reviewedByOrgId!, projectIds: [milestoneBase.projectId], jobIds: [] },
+            trade: milestoneBase.title?.toLowerCase().includes("elect") ? "electrical" : "general",
+            topK: 3,
+          }).catch(() => null);
+          if (ragCtx?.available) {
+            ragContextBlock = ragCtx.contextBlock;
+            ragCitations = ragCtx.citations;
+            ragSources = ragCtx.citations.map((c) => c.documentTitle);
+            ragUsed = true;
+          }
         }
       }
 
@@ -196,6 +235,7 @@ export class EvidenceReviewService {
           userMessage: prompt,
           context: {
             ...getAgentProfile("evidence-analyzer"),
+              localOnly: true, // Private evidence and RAG excerpts must stay on local inference.
             agentName: "evidence-review",
             source: "evidence-review-agent",
           },
@@ -220,6 +260,7 @@ export class EvidenceReviewService {
             userMessage: simplePrompt,
             context: {
               ...getAgentProfile("evidence-analyzer"),
+              localOnly: true, // Private evidence and RAG excerpts must stay on local inference.
               agentName: "evidence-review:retry",
               source: "evidence-review-agent",
             },

@@ -1,6 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import type { SemseAgentMessage } from "./semse-agents.service.js";
 import { SemseAgentsService } from "./semse-agents.service.js";
+import { localizeAgentTemplate, type AgentTemplateLocale } from "./agent-template-i18n.js";
 
 export type ProjectPlan = {
   phases: Array<{
@@ -58,15 +59,30 @@ export class BuildOpsAgent {
     }
   }
 
-  createPlan(trade: string, estimatedHours: number): ProjectPlan {
+  createPlan(trade: string, estimatedHours: number, locale: AgentTemplateLocale = "es"): ProjectPlan {
     const hasTemplate = trade in TRADE_PHASES;
     const phases = TRADE_PHASES[trade] ?? [
       { name: "Ejecución", durationDays: Math.ceil(estimatedHours / 8), tasks: ["Ejecutar trabajo"], milestoneTitle: "Trabajo completado", evidenceRequired: ["Foto antes", "Foto durante", "Foto después"] },
     ];
-    const totalDays = phases.reduce((s, p) => s + p.durationDays, 0);
-    const criticalPath = phases.map((p) => p.name);
+    // Localize human-facing labels only; preserve stable codes, counts and duration.
+    const localizedPhases = phases.map((phase) => ({
+      ...phase,
+      name: localizeAgentTemplate(phase.name, locale),
+      tasks: phase.tasks.map((task) => localizeAgentTemplate(task, locale)),
+      milestoneTitle: localizeAgentTemplate(phase.milestoneTitle, locale),
+      evidenceRequired: phase.evidenceRequired.map((item) => localizeAgentTemplate(item, locale)),
+    }));
+    const totalDays = localizedPhases.reduce((s, p) => s + p.durationDays, 0);
+    const criticalPath = localizedPhases.map((p) => p.name);
 
-    const reasoningSteps: string[] = [
+    const reasoningSteps: string[] = locale === "en" ? [
+      hasTemplate
+        ? `Trade "${trade}" uses a predefined template (${localizedPhases.length} phases: ${criticalPath.join(", ")}).`
+        : `Trade "${trade}" has no predefined template; one phase of ${Math.ceil(estimatedHours / 8)} day(s) is generated from ${estimatedHours} estimated hours.`,
+      `Total duration: ${totalDays} day(s), summed across phases.`,
+      `Critical path: ${criticalPath.join(" → ")} (phases are sequential; parallel work is not modeled).`,
+      "Required evidence is defined by phase for the Evidence checklist.",
+    ] : [
       hasTemplate
         ? `Trade "${trade}" tiene plantilla de fases predefinida (${phases.length} fases: ${phases.map((p) => p.name).join(", ")}).`
         : `Trade "${trade}" no tiene plantilla predefinida → genero una fase única de ${Math.ceil(estimatedHours / 8)} día(s) a partir de ${estimatedHours}h estimadas.`,
@@ -75,6 +91,6 @@ export class BuildOpsAgent {
       `Evidencia requerida por fase queda definida en el plan para que Evidence genere el checklist correspondiente.`,
     ];
 
-    return { phases, totalDays, criticalPath, reasoningSteps };
+    return { phases: localizedPhases, totalDays, criticalPath, reasoningSteps };
   }
 }

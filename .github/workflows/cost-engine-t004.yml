@@ -1,0 +1,50 @@
+name: Cost Engine T-004 diagnostics
+
+on:
+  pull_request:
+    paths:
+      - "project-manager-app/packages/tools/**"
+      - "project-manager-app/docs/reportes/COST_ENGINE_T004_DIAGNOSTICS_2026-10-30.md"
+      - ".github/workflows/cost-engine-t004.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cost-engine-t004-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: project-manager-app
+
+jobs:
+  t004-diagnostics:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6.1.0
+        with:
+          version: 10.33.0
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: project-manager-app/pnpm-lock.yaml
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Compile packages (no production or staging deployment)
+        run: pnpm build:packages
+      - name: Run explicit T-004 diagnostic tests
+        env:
+          T004_REPORT: ${{ runner.temp }}/cost-engine-t004-report.md
+        run: |
+          pnpm --filter @semse/tools exec node --experimental-strip-types --test test/cost-engine-t004-diagnostics.test.ts
+          diff -u docs/reportes/COST_ENGINE_T004_DIAGNOSTICS_2026-10-30.md "$T004_REPORT"
+      - name: Run standard tools regression suite
+        run: pnpm --filter @semse/tools test

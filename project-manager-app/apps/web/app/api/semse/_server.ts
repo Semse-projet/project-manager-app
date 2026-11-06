@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import {
   SEMSE_BOOTSTRAP_HEADER_NAME,
+  SEMSE_CLIENT_IP_HEADER_NAME,
   buildIdentityHeaders,
   parseRoleList,
   SEMSE_PROXY_HEADER_NAMES,
@@ -9,6 +10,7 @@ import {
 } from "@semse/shared";
 import { decodeSession, SESSION_COOKIE } from "../../../lib/auth";
 import { AccessTokenBootstrapper } from "./_access-token-bootstrap";
+import { clientIpFromHeaders } from "./_client-ip";
 
 type ApiEnvelope<T> = {
   requestId: string;
@@ -150,6 +152,22 @@ function buildBootstrapHeaders(): Record<string, string> {
 
   return {
     [SEMSE_BOOTSTRAP_HEADER_NAME]: bootstrapToken
+  };
+}
+
+/**
+ * Headers for BFF→API calls made on behalf of an anonymous visitor (login,
+ * register, password reset, demo). The API rate-limits by the forwarded client
+ * IP only when the bootstrap token proves the call comes from this server;
+ * without them every visitor shares the BFF's own IP bucket (KIT-F3-04).
+ */
+export function trustedClientHeaders(req: NextRequest): Record<string, string> {
+  const bootstrapToken = trimToUndefined(process.env.SEMSE_BOOTSTRAP_TOKEN);
+  const clientIp = clientIpFromHeaders(req.headers);
+  if (!bootstrapToken || !clientIp) return {};
+  return {
+    [SEMSE_BOOTSTRAP_HEADER_NAME]: bootstrapToken,
+    [SEMSE_CLIENT_IP_HEADER_NAME]: clientIp
   };
 }
 
@@ -354,7 +372,8 @@ export function isSemseRuntimeEnabled(): boolean {
  * local-dev fallback. Use this as the gate in API route handlers.
  */
 export function isApiBaseConfigured(): boolean {
-  return resolveRuntimeConfig() !== null;
+  // API connectivity is independent of the actor. Middleware/cookie supplies session identity.
+  return Boolean(trimToUndefined(process.env.SEMSE_API_BASE_URL)) || process.env.NODE_ENV !== "production";
 }
 
 export function handleServerError(error: unknown): NextResponse {
@@ -373,9 +392,40 @@ export function handleServerError(error: unknown): NextResponse {
   );
 }
 
+/**
+ * Relays a non-OK API response with its real status (401/403/404/429/5xx).
+ * Handlers that build their own `fetch` (streams, PDF passthrough) must use
+ * this instead of `runtimeDisabledResponse()`, which reported every upstream
+ * failure as "runtime not configured" and hid auth/permission errors.
+ */
+export async function upstreamErrorResponse(response: Response, path: string): Promise<NextResponse> {
+  const text = await response.text().catch(() => "");
+  return handleServerError(
+    new SemseProxyError(response.status, path, normalizeErrorMessage(path, response.status, text), extractErrorCode(text))
+  );
+}
+
+/**
+ * Catch-all for custom-fetch handlers: only a missing runtime is a 503; a
+ * missing session stays 401 and anything else is a 502.
+ */
+export function routeErrorResponse(error: unknown): NextResponse {
+  if (error instanceof Error && error.message.includes("not configured")) return runtimeDisabledResponse();
+  return handleServerError(error);
+}
+
 export async function getServerConfig(req: NextRequest): Promise<RuntimeConfig> {
   const cfg = await resolveRuntimeConfigForRequest(req);
   if (!cfg) throw new Error("SEMSE server runtime is not configured");
+  return cfg;
+}
+
+/** Resolve only the signed-in actor; never fall back to static server credentials. */
+export async function getAuthenticatedServerConfig(req: NextRequest): Promise<RuntimeConfig> {
+  const cfg = resolveConfigFromRequest(req) ?? await resolveConfigFromCookie(req);
+  if (!cfg) {
+    throw new SemseProxyError(401, req.nextUrl.pathname, "Authenticated SEMSE session required");
+  }
   return cfg;
 }
 
