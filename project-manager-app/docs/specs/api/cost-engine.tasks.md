@@ -122,3 +122,13 @@ date: "2026-10-30"
 - [ ] Migración `VERIFIED`
 - [ ] Evidencia de producción enlazada
 - [ ] Índice, matriz y roadmap actualizados
+
+## Fase H — Extensión híbrida (solo diseño, posterior a aprobación)
+
+**Fuente:** [anexo H1–H5](./cost-engine.hybrid-market-execution-design-2026-11-06.md). Estas tareas son de investigación/contratos, **no** habilitan implementación, nuevas APIs, compras de datos ni consultas web de producción. No sustituyen T-005a–g, Q2/Q3/Q9/Q10/Q11 ni las fases 1–6.
+
+- [x] [T-005h] Documentar propuesta de cinco capacidades, límites de autoridad, contratos lógicos y matriz inicial de 14 pruebas sintéticas (`DRAFT / DESIGN_ONLY`; sin validación técnica de implementación).
+- [ ] [T-005i] Revisar legalmente el catálogo de proveedores/APIs y permisos de SaaS, retención, reutilización y revocación; diseñar consentimiento explícito para RFQ y reglas de red segura.
+- [ ] [T-005j] Definir normalización comercial por `SKU/UOM/alcance`, tax/entrega/garantía y scores **separados** de confianza y adecuación; calibrar pesos con datos reales, sin aprobar los ilustrativos 35/30/20/15.
+- [ ] [T-005k] Diseñar escenarios por paquetes disjuntos `SELF_PERFORM / SUBCONTRACT / HYBRID` con pruebas anti-doble-conteo, revisión fiscal, licencias y reproducción de costTrace.
+- [ ] [T-005l] Preparar dataset consentido de costos reales reconciliados, evaluación temporal fuera de muestra, revisión humana y plan de sombra/rollback por oficio y región.
