@@ -6,6 +6,8 @@ on:
       - ".github/workflows/assistant-portal-compat.yml"
       - "project-manager-app/package.json"
       - "project-manager-app/pnpm-lock.yaml"
+      - "project-manager-app/pnpm-workspace.yaml"
+      - "project-manager-app/.npmrc"
       - "project-manager-app/apps/api/package.json"
       - "project-manager-app/apps/assistant-portal/**"
       - "project-manager-app/docs/specs/platform/library-hub-override-compatibility.spec.md"
