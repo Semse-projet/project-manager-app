@@ -25,30 +25,41 @@ export class AuditService {
     private readonly actorContextService: ActorContextService
   ) {}
 
-  async append(entry: AuditEntry): Promise<void> {
+  /** Prepare FK actor records BEFORE opening the domain write transaction. */
+  async prepareActorContext(entry: Pick<AuditEntry, "tenantId" | "orgId" | "actorUserId">): Promise<void> {
     await this.actorContextService.ensureActorContext({
       tenantId: entry.tenantId,
       orgId: entry.orgId,
       userId: entry.actorUserId
     });
+  }
 
-    await this.prisma.auditLog.create({
-      data: {
-        id: `aud_${crypto.randomUUID()}`,
-        tenantId: entry.tenantId,
-        actorUserId: entry.actorUserId,
-        entityType: entry.entityType,
-        entityId: entry.entityId,
-        action: entry.action,
-        beforeJson: toPrismaJson(entry.beforeJson),
-        afterJson: toPrismaJson({
-          ...entry.afterJson,
-          requestId: entry.requestId,
-          timestamp: entry.timestamp
-        }),
-        occurredAt: new Date(entry.timestamp)
-      }
-    });
+  private auditData(entry: AuditEntry) {
+    return {
+      id: `aud_${crypto.randomUUID()}`,
+      tenantId: entry.tenantId,
+      actorUserId: entry.actorUserId,
+      entityType: entry.entityType,
+      entityId: entry.entityId,
+      action: entry.action,
+      beforeJson: toPrismaJson(entry.beforeJson),
+      afterJson: toPrismaJson({
+        ...entry.afterJson,
+        requestId: entry.requestId,
+        timestamp: entry.timestamp
+      }),
+      occurredAt: new Date(entry.timestamp)
+    };
+  }
+
+  /** Uses the SAME Prisma transaction as the domain mutation. Never opens another connection. */
+  async appendInTransaction(entry: AuditEntry, tx: Prisma.TransactionClient): Promise<void> {
+    await tx.auditLog.create({ data: this.auditData(entry) });
+  }
+
+  async append(entry: AuditEntry): Promise<void> {
+    await this.prepareActorContext(entry);
+    await this.prisma.auditLog.create({ data: this.auditData(entry) });
   }
 }
 
