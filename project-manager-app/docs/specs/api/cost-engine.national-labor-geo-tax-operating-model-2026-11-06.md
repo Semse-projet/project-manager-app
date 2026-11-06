@@ -166,3 +166,43 @@ La cantidad de enlaces oficiales de estados **no mide** número de políticas ap
 **Pilotos propuestos:** pintura + drywall en FL/GA para observaciones y conciliación; contraste jurídico separado en TX/CA/NY/WA/AZ, y después mercados/regiones adicionales. La cobertura de uso informativo puede abarcar 51/51 mucho antes de que exista autorización contractual fiscal por estado.
 
 **Pendiente real:** obtener datos OEWS estatales y metro, cotizaciones de proveedor con derechos SaaS, registros conciliados, revisión fiscal por jurisdicción y dictamen de licencias. #1101 preserva snapshots BLS, pero no valida precios base PPI ni tasas comerciales. #1075 sigue `DRAFT`.
+
+
+## 10. Benchmarks metropolitanos OEWS contrastados — investigación 2026-11-06
+
+**Corte de fuente:** estimaciones OEWS **May 2025**, publicados en comunicados regionales BLS de 2026. La tabla muestra **salario medio horario del grupo amplio SOC 47-0000, Construction and extraction**, NO salarios detallados por oficio, NO costos patronales completos, NO tarifas de subcontratación ni precio de SEMSE.
+
+| Área metropolitana | Grupo construcción/extracción USD/h media | Grupo instalación/mantenimiento/reparación USD/h media | Comunicado BLS de 2026 |
+|---|---:|---:|---|
+| Dallas–Fort Worth–Arlington, TX | 27.03 | 29.86 | [BLS Southwest, May 2025](https://www.bls.gov/regions/southwest/news-release/occupationalemploymentandwages_dallasfortworth.htm) |
+| Miami–Fort Lauderdale–West Palm Beach, FL | 27.95 | 28.83 | [BLS Southeast, May 2025](https://www.bls.gov/regions/southeast/news-release/occupationalemploymentandwages_miami.htm) |
+| Atlanta–Sandy Springs–Roswell, GA | 28.26 | 30.44 | [BLS Southeast, Jul-07-2026](https://www.bls.gov/regions/southeast/news-release/2026/occupationalemploymentandwages_atlanta_20260707.htm) |
+| Los Ángeles–Long Beach–Anaheim, CA | 37.07 | 33.96 | [BLS West, Jul-09-2026](https://www.bls.gov/regions/west/news-release/2026/occupationalemploymentandwages_losangeles_20260709.htm) |
+| Chicago–Naperville–Elgin, IL–IN | 40.87 | 31.89 | [BLS Midwest, May 2025](https://www.bls.gov/regions/midwest/news-release/occupationalemploymentandwages_chicago.htm) |
+| Seattle–Tacoma–Bellevue, WA | 42.11 | 37.80 | [BLS West, Jun-30-2026](https://www.bls.gov/regions/west/news-release/occupationalemploymentandwages_seattle.htm) |
+| **Estados Unidos (grupo SOC 47)** | **31.42** | **30.44** | BLS, tabla A repetida en los seis comunicados |
+
+**Observación, no factor autorizado:** la diferencia Chicago vs Dallas o Seattle vs Atlanta puede reflejar composición del trabajo, acuerdos colectivos, tamaño de obra, diferencias de muestreo y mercados. Seattle/Dallas = 42.11/27.03 = 1.558 (= 55.8 % más), **pero no es un multiplicador de precio**. Tampoco se debe mezclar el grupo amplio de construcción con HVAC si el motor corresponde a otra familia SOC. CBSA de Chicago contiene IL e IN: la misma media no es política salarial o fiscal única de ambos estados.
+
+### Archivos exactos identificados para el importador (NO descargados ni validados)
+
+La [página oficial de tablas BLS](https://www.bls.gov/oes/tables.htm) indica **May 2025**, con enlaces a los siguientes ZIP; son **referencias de adquisición**, no prueba de que un importador ya funciona:
+- **State XLSX:** [oesm25st.zip](https://www.bls.gov/oes/special-requests/oesm25st.zip).
+- **Metropolitan/nonmetropolitan XLSX:** [oesm25ma.zip](https://www.bls.gov/oes/special-requests/oesm25ma.zip).
+- **All data:** enlace XLSX/TXT desde la página BLS de May 2025. Evitar inventar la ruta sin comprobarla.
+- **QCEW CSV:** [QCEW data slices](https://www.bls.gov/cew/additional-resources/open-data/csv-data-slices.htm), cuya clave es `area_fips × NAICS × year/quarter`, no `SOC`.
+- **Meta de geografía:** [May 2025 state page fechada](https://www.bls.gov/oes/2025/may/oessrcst.htm). El alias `CURRENT` es mutable y no debe usarse como identidad de versión. El 2026-11-06, la página fechada y el alias `CURRENT` mostraban ambos May 2025 en su cabecera; una comprobación previa encontró una edición distinta. Por eso se valida el archivo, no se acepta la etiqueta de la URL como prueba.
+
+**Regla de QA para ETL:** comprobar contenido XLSX después de descomprimir, SHA-256 del ZIP fuente, nombres de columnas y valores del release; mapear `AREA`/código ocupacional `OCC_CODE` y medidas `H_MEAN, H_MEDIAN, H_PCT25, H_PCT75` solamente si existen realmente en el archivo; celdas publicadas como `*`/`#`/not available deben quedar NULL. Preservar `AREA_TYPE, PRIM_STATE, NAICS` cuando corresponda y validar su significado frente al layout real. No dar 51/51 de cobertura para todos los SOC porque todos los estados estén presentes en un ZIP.
+
+**Nueva batería propuesta (NO ejecutada):**
+- `WAGE-NAT-01`: descargar ZIP mediante dominio y certificado esperados, registrar checksum y fecha, asegurar release May-2025.
+- `WAGE-NAT-02`: parsear columnas efectivas y detectar schema drift, rechazar conversión silenciosa de `*` a cero.
+- `WAGE-NAT-03`: comparar al menos seis grupos regionales de muestra con los comunicados anteriores; comparar solo la misma unidad, año y categoría.
+- `WAGE-NAT-04`: exigir salario por SOC detallado específico del oficio antes de valorar trabajo; no usar automáticamente 47-0000 para pintor/electricista/HVAC.
+- `WAGE-NAT-05`: un CBSA que cruza estado no determina jurisdicción fiscal ni reglas de workers' compensation.
+- `WAGE-NAT-06`: fuente laboral insuficiente → `REFERENCE_ONLY`, nunca `COMMERCIAL_RATE_APPROVED`.
+- `WAGE-NAT-07`: congelar release histórico y no recalcular un estimate aceptado con datos nuevos.
+- `WAGE-NAT-08`: validar costos reales de la organización (horas y cargas) antes de calibrar el margen; estadísticas BLS no sustituyen contabilidad.
+
+**Orden ejecutable recomendado:** primero descargar y validar un release estadual + uno metro, cruzarlos con los SOC ya enumerados de los 24 motores y medir `valid(state,trade,metro,period)` contra un denominador explícito; después comparar datos salariales por oficio/área con costos reales consentidos y correctamente clasificados. **No** promediar estos seis mercados, ni simular cobertura nacional de tarifas si todavía faltan datasets o contratos.
