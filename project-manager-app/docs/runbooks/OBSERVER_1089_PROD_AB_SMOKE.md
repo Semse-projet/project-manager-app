@@ -80,10 +80,16 @@ Una prueba de `observer/latest` puede ocupar **un bucket en memoria
 por tenant sintético**. La eliminación del usuario y la organización
 NO invalida esa caché del proceso API, que expirará automáticamente
 después de **24 horas sin lecturas** según la política aprobada del #1089.
-Por esta razón, el script **rechaza crear un nuevo par de tenants cuando
-existen registros de ejecuciones sintéticas de las últimas 24 horas** en
-PostgreSQL. Esto limita la huella a como máximo **dos buckets por 24 h**.
-No repetir el smoke bajo un SHA distinto para sortear esta barrera.
+Para evitar invocaciones concurrentes, el script adquiere un **bloqueo
+asesor de PostgreSQL dentro de la misma transacción** que comprueba el cupo
+y crea los fixtures. Rechaza ejecuciones si existe una prueba sintética
+sin archivar o si algún tenant sintético fue actualizado en las últimas
+**48 horas** (margen conservador frente al TTL de inactividad de 24 h).
+
+Esta política limita la *frecuencia de nuevas ejecuciones*. **No garantiza
+que solo haya dos buckets en RAM** si un lector externo renueva el TTL de
+un tenant anterior. Por ello se monitoreará el 503 por saturación.
+No repetir el smoke con otro SHA para eludir la barrera.
 No se agrega un endpoint nuevo de invalidación o privilegio de caché.
 
 ## Limpieza, trazabilidad y falla inesperada
@@ -95,18 +101,26 @@ los eventos de auditoría `auth.session.issued/revoked`**. El ID se imprime, per
 secretos, datos de clientes ni cuerpos JSON. Verifica nombres, emails,
 tenantIds y orgIds antes de borrar. `AuthSession` queda eliminada.
 Si el proceso se interrumpe violentamente, reintentar la limpieza
-con el **run ID exacto**, desde el mismo entorno autorizado:
+con el **run ID exacto**, desde el mismo entorno autorizado.
+**También la limpieza exige** un SHA actual verificado por `/v1/health`
+antes de borrar; en recuperación se permite omitir readiness, nunca
+la identidad del proyecto, servicio o API:
 
 ```sh
+SEMSE_OBSERVER_SMOKE_EXPECTED_SHA=SHA_PRODUCTIVO_ACTUAL_CONFIRMADO \
 SEMSE_OBSERVER_SMOKE_ACK=YES_OBSERVER_1089_SYNTHETIC_WRITE_AND_CLEANUP \
   node scripts/ops/observer-prod-synthetic-smoke.mjs --apply --cleanup=RUN_ID
 ```
 
 **Auditoría del ciclo de vida** (catálogo: `EVENT_CATALOG.md`, «Ops — smoke
 sintético de Observer»): el alta escribe `observer.synthetic_account.provisioned`
-y la limpieza `observer.synthetic_account.removed`, cada una en la misma
-transacción que su mutación. Tras el commit, el script comprueba el estado
-real (cero sesiones, usuarios y membresías activas) antes de dar `CLEANUP PASS`.
+y la limpieza `observer.synthetic_account.removed` en la transacción respectiva.
+Antes de declarar el smoke exitoso verifica que `auth.session.issued`
+(asíncrona, con lecturas reintentadas) y `auth.session.revoked`
+estén registradas para **ambos tenants**. Si falta alguna, el smoke
+falla y aun así se limpia. No se declara cleanup completo si el tenant
+archivado no existe. Tras el commit verifica cero usuarios, sesiones
+y membresías activas.
 
 **Ruta de emergencia:** si la limpieza atómica falla después de validar los
 marcadores, el script corta el acceso de forma no atómica (borra sesiones y
