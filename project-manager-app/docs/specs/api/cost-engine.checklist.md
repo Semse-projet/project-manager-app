@@ -147,3 +147,11 @@ date: "2026-10-30"
 
 - [x] [Conciliación de investigación, fuentes y bloqueos P-01–P-07](./cost-engine.t005-repaso-verificacion-2026-11-06.md) documentada: índice PPI ≠ precio SKU; OEWS ≠ tarifa facturable; proveedor de datos con API ≠ licencia otorgada; alcance fiscal nacional ≠ 51 políticas firmadas.
 - [ ] Adjuntar precios reales comparables, derechos SaaS, validación de horas/cargas/márgenes, CPA/Legal y resultados de pruebas piloto antes de cerrar los gates; la conciliación documental no los marca completados.
+
+## Auditoría inicial de fuentes existentes — 6-nov-2026
+
+- [x] [Registro de fuentes S01–S12 y 12 valores P01–P12](./cost-engine.t005-source-rights-inventory-2026-11-06.md) revisado contra los servicios de pricing, ProTools, el contrato económico central y el inventario previo de 24 motores. **No implica derechos comerciales aprobados ni precios reales verificados.**
+- [x] Se clasificaron por separado: BLS público sujeto a términos, base de precios BLS no verificada, RSMeans de procedencia sin probar/restringido si procede, multiplicadores estáticos, tarifas privadas del contratista, constantes por oficio y futuros proveedores con licencia todavía no contratada.
+- [ ] Acreditar la procedencia de multiplicadores RSMeans/valores de código y completar linaje **por cada partida** económica de los 24 motores.
+- [ ] Obtener permisos específicos de reutilización SaaS/derivados/caché/visibilidad y precios de proveedor con SKU/unidad/fecha/ubicación antes de marcar filas comerciales como aprobadas.
+- [ ] Realizar T-008c en modo solo lectura cuando se autorice; #1101 no debe sustituir la comprobación del snapshot actual.
