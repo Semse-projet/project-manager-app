@@ -87,7 +87,11 @@ date: "2026-10-22"
     en cada petición. `Crew.supervisorUserId` por sí solo **nunca**
     autoriza un 2xx.
   - **Flag ON:** además de S0, las rutas S1 exigen un grant explícito,
-    ACTIVE, vigente y con permiso granular para esa crew y acción. Un
+    ACTIVE, vigente y con permiso granular para esa crew y acción. Lo
+    mismo vale para las rutas legacy BO-07/BO-10 cuando se ejercen por la
+    vía supervisor: sin grant vigente y permiso por acción no hay 2xx, sin
+    fallback a `Crew.supervisorUserId`. La vía legítima de gestión
+    (owner/representante autorizado) sigue separada y no requiere grant. Un
     registro que estaba ACTIVE al apagar S1 **no se reactiva de modo
     automático** al volver a ON. Su retorno exige nueva comprobación
     de identidad, WORKER ACTIVE, delegante verificado, revocación,
@@ -129,7 +133,7 @@ date: "2026-10-22"
 | Acción | Condición positiva | Rechazo obligatorio |
 |---|---|---|
 | designar supervisor | owner/representante autorizado, misma org y crew | PRO/CLIENT no verificados |
-| consultar mi autoridad | actor = subject, WORKER ACTIVE, grant vigente | tenant/org/crew ajena |
+| consultar mi autoridad | actor = subject, WORKER ACTIVE y pertenencia vigente; no exige grant vigente: con grant vencido o revocado devuelve su estado (`expired`/`revoked`) y cero permisos efectivos | tenant/org/crew ajena |
 | asignar tarea | supervisor grant con `crew:tasks:assign`, persona de crew, tarea propia de org | grant vencido, task otra org |
 | liberar asignación | `crew:tasks:release`, motivo auditable | liberar de otra crew |
 | revisar trabajo | reviewer distinto del autor y permiso específico | autor = reviewer |

@@ -12,7 +12,7 @@ ci_status: "NOT_RUN"
 merge_status: "UNMERGED"
 deploy_status: "NOT_DEPLOYED"
 activation_status: "INACTIVE"
-migration_status: "NOT_APPLICABLE"
+migration_status: "PENDING"
 feature_flags: []
 production_evidence: []
 related_files: []
@@ -234,7 +234,7 @@ input:
   permissions: [approved-crew-permissions]
   reason: string
   idempotencyKey: string
-output: { id, status, orgId, crewId, subjectUserId, startsAt, endsAt, permissions }
+output: { id, status, version, orgId, crewId, subjectUserId, startsAt, endsAt, permissions }
 errors:
   400: "input/fechas inválidos"
   401: "no autenticado"
@@ -256,7 +256,8 @@ routes:
   - POST /v1/organizations/:orgId/crews/:crewId/supervisor-delegations/:id/revoke
   - GET /v1/crews/:crewId/me/authority
 revoke_input: { reason: string, expectedVersion: integer }
-revoke_output: { id, status: "REVOKED", revokedAt }
+list_output: "[{ id, status, version, subjectUserId, startsAt, endsAt, permissions }]"
+revoke_output: { id, status: "REVOKED", version, revokedAt }
 errors: { 401: unauthenticated, 403: forbidden, 404: not_found, 409: stale_version }
 effects: "revalidar en backend cada lectura/escritura; auditar cambios"
 ```
