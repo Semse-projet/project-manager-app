@@ -22,7 +22,7 @@ Designados por el owner el 2026-10-15.
 
 | Etapa | Estado | Revisión del repo | Seguridad | Usabilidad | Aprobación | Bloquea el siguiente paso |
 |---|---|---|---|---|---|---|
-| 1. Reconciliar PR 0 | **EN CURSO, BLOQUEADA** | Revisado `6eae43c`; base de la rama `6efcd5e` (sin cambios en los documentos revisados) | Hallazgos registrados, sin disposición | Hallazgos registrados, sin disposición | D-01 a D-16 aceptadas en bloque el 2026-10-25; el acta aún no está aprobada | Sí: faltan aplicar los cambios de documentación de la sección 6 del acta, el paquete completo (B-01), la evidencia de H05 en Railway (B-03) y la prueba técnica de Graphify (B-05) |
+| 1. Reconciliar PR 0 | **EN CURSO, BLOQUEADA** | Revisado `6eae43c`; base de la rama `6efcd5e` (sin cambios en los documentos revisados) | Hallazgos registrados, sin disposición | Hallazgos registrados, sin disposición | D-01 a D-16 aceptadas en bloque el 2026-10-25; aprobación del acta autorizada el 2026-11-06, con efecto tras fusionar los PR de A1 | Sí: faltan aplicar los cambios de documentación de la sección 6 del acta, el paquete completo (B-01), la evidencia de H05 en Railway (B-03) y la prueba técnica de Graphify (B-05) |
 | 2. Preparar slice 1 — Unified Operational Graph Contract | NO INICIADA | — | — | — | — | Requiere la etapa 1 aprobada |
 | 3–5. Slice 1: implementar, validar, aprobar | NO INICIADA | — | — | — | — | — |
 | Slice 2 — Decision Ledger | NO INICIADA | — | — | — | — | Requiere el slice 1 aprobado (orden del paquete) |
@@ -43,6 +43,8 @@ Designados por el owner el 2026-10-15.
   - Falta el paquete completo.
   - ~~Decisiones D-01 a D-16 del acta, sin resolver.~~ Resueltas el 2026-10-25: el owner aceptó las recomendaciones del acta en bloque (ver Historial). Falta aplicarlas en documentos (sección 6 del acta).
   - B-03: confirmar con evidencia de Railway el estado real de H05 (migración y flag).
+  - B-05 (prueba técnica de Graphify): resuelto en #1105, pendiente de merge.
+  - Decisiones de cada slice: resueltas el 2026-11-06 y registradas en la sección 14.1 de los specs (#1106 a #1109, pendientes de merge). Siguen **pendientes de dato**: valores numéricos y SLO, plazos de retención, tenant del canary y la versión de `graphifyy` en producción.
 - **Escalamiento:** todo al owner, que ocupa los roles de arquitectura, seguridad, usabilidad y aprobación.
 - **Cambios aplicados:** solo este registro y el acta. No se modificó ningún spec, ADR ni código.
 
@@ -54,3 +56,4 @@ Designados por el owner el 2026-10-15.
 | 2026-10-15 | Owner indica que enviará el paquete completo (el ZIP recibido solo trae el índice) | `6eae43c` | Coordinador |
 | 2026-10-15 | Revisión de solo lectura de los 21 documentos de PR 0 contra el repo; acta creada en estado EN CURSO | `6eae43c` | Coordinador |
 | 2026-10-25 | Owner acepta en bloque las recomendaciones del acta para D-01 a D-16, sin modificar ninguna. Consecuencias registradas: ADR-044 se completa y se acepta con fecha antes de aprobar cualquier slice (D-01); el Decision Ledger y el provider runtime referencian H05 sin copiarlo (D-02); la tool del grafo no se expone por MCP hasta que exista un spec hijo (D-10); el orden de slices se mantiene 1 → 2 → 3 → 4 (D-16). Esto no aprueba el acta, no acepta aún ADR-044 ni aprueba ningún slice | `06dfd7b` (acta: blob `d91fe22`, sin cambios en `origin/main` al 2026-11-06) | Coordinador |
+| 2026-11-06 | Owner responde «aplica todo» al plan de respuestas del coordinador. **A1** orden de fusión recomendado: #1042 → #1043 → #1105 → #1044 → #1106 a #1109. **A2** aceptar ADR-044 con fecha cuando #1043 y #1105 estén fusionados: el coordinador prepara el cambio de estado en un PR aparte; **el ADR sigue `PROPOSED` hasta entonces**. **A3** aprobar el acta tras A1: se registra con SHA en un PR posterior. **A4** (lectura de Railway del flag de H05) queda a cargo del owner. Decisiones S1 a S4 (módulo `operational-lineage`, permisos `lineage:*`, solo Graphify en el slice 1, primer productor del ledger, división del slice 3, identidad de servicio del consumidor, etc.) registradas en la sección 14.1 de cada spec. Fijar la versión de `graphifyy` queda decidido pero sin PR hasta confirmar la versión en producción. Ninguna decisión de esta fila aprueba un slice | `origin/main` al 2026-11-06 | Coordinador |
