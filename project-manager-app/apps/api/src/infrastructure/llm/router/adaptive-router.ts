@@ -2,8 +2,9 @@ import { Injectable, Logger } from "@nestjs/common";
 import { ProviderMetricsStore } from "../metrics/provider-metrics.store.js";
 import type { CopilotRoutingContext, LLMProviderName, TaskType } from "../types.js";
 
-// Providers that support tool calling natively
-const TOOL_CAPABLE: ReadonlySet<LLMProviderName> = new Set(["anthropic", "openai"]);
+// Includes Ollama prompt-adapted JSON tool calls (parsePromptToolCall), not only
+// native tool APIs. This is essential for private local-only Copilot actions.
+const TOOL_CAPABLE: ReadonlySet<LLMProviderName> = new Set(["anthropic", "openai", "ollama"]);
 // Providers that can handle sensitive/high-risk tasks
 const RISK_SAFE: ReadonlySet<LLMProviderName> = new Set(["anthropic", "openai"]);
 // Providers for private/local inference
@@ -24,19 +25,15 @@ export class AdaptiveRouter {
     ctx: CopilotRoutingContext | undefined,
     taskType: TaskType,
   ): LLMProviderName[] {
+    // Preferences must NEVER override privacy, local-only or tool constraints.
     const candidates = this.applyHardConstraints(available, ctx);
+    const scored = this.rankByScore(candidates.filter((p) => p !== "template"), taskType);
     const preferred = ctx?.preferredProvider;
-    const scored = this.rankByScore(
-      candidates.filter((p) => p !== "template" && p !== preferred),
-      taskType,
-    );
-    const ordered = preferred && candidates.includes(preferred)
-      ? [preferred, ...scored]
-      : scored;
-
-    // Keep the deterministic fallback last, and only if it survived constraints.
-    if (candidates.includes("template")) ordered.push("template");
-    return ordered.filter((p) => available.includes(p));
+    if (preferred && preferred !== "template" && scored.includes(preferred)) {
+      scored.splice(scored.indexOf(preferred), 1);
+      scored.unshift(preferred);
+    }
+    return [...scored, ...(candidates.includes("template") ? ["template" as LLMProviderName] : [])];
   }
 
   inferTaskType(ctx: CopilotRoutingContext | undefined): TaskType {
@@ -55,13 +52,9 @@ export class AdaptiveRouter {
   ): LLMProviderName[] {
     let candidates = [...providers];
 
-    // Local-only: never leave the machine
-    if (ctx?.localOnly) {
-      candidates = candidates.filter((p) => PRIVATE.has(p));
-    }
-
-    // Privacy: only local providers
-    if (ctx?.privacyCritical) {
+    // A hard privacy constraint must fail closed. Never restore a cloud
+    // provider when the local set is empty, even with preferredProvider set.
+    if (ctx?.localOnly || ctx?.privacyCritical) {
       candidates = candidates.filter((p) => PRIVATE.has(p));
     }
 

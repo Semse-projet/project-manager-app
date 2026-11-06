@@ -93,7 +93,8 @@ test("preferred providers cannot bypass adaptive hard constraints", () => {
     "tool_use",
   );
   assert.ok(!toolOnly.includes("together"));
-  assert.ok(toolOnly.every((provider) => ["anthropic", "openai", "template"].includes(provider)));
+  // Local Ollama is tool-capable through prompt-adapted tool calls (#987).
+  assert.ok(toolOnly.every((provider) => ["anthropic", "openai", "ollama", "template"].includes(provider)));
 });
 
 test("static high-risk fallback chains exclude Together and other unsafe providers", () => {
@@ -139,7 +140,8 @@ test("private requests fall back to the local template without invoking cloud pr
   providers.set("together", fakeProvider("together"));
   providers.set("anthropic", fakeProvider("anthropic"));
   providers.set("openai", fakeProvider("openai"));
-  providers.set("ollama", fakeProvider("ollama", true));
+  // The orchestrator only treats Ollama as private when its endpoint is local.
+  providers.set("ollama", Object.assign(fakeProvider("ollama", true), { isLocalEndpoint: () => true }));
   providers.set("template", fakeProvider("template"));
 
   const response = await orchestrator.chat({
