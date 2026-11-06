@@ -33,9 +33,9 @@ export class PricingController {
     return ok(rid, status);
   }
 
-  /** Manually trigger a price refresh (admin only) */
+  /** Manually trigger a price refresh (admin write permission required) */
   @Post("refresh")
-  @RequirePermissions("ops:dashboard:read")
+  @RequirePermissions("ops:dashboard:write")
   async refreshPrices(@Req() req: { headers?: Record<string, unknown> }) {
     const rid = resolveRequestId(req.headers ?? {});
     const result = await this.pricing.refreshPrices();
