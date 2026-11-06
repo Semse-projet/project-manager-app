@@ -121,3 +121,18 @@ Ahora cualquier transacción `PENDING` del escrow (depósito, liberación o reem
 | Tests unitarios de la API (runner completo) | 3806 pasan. Fallan 8 `SAT-007`, que necesitan DNS real. |
 | Tests de escrow verificado y de pagos | siguen pasando |
 | En vivo: recorrido completo, disputa, aceptación propia, inicio sin contrato y spec de #1112 | sin cambios |
+
+## Sexta corrección (revisión de Codex): transiciones simultáneas y disputa formal
+
+- **Estado de origen atómico.** `transitionJob` pasa a `updateStatus` el estado del que validó la transición (`expectedFrom`). El repositorio bloquea la fila y rechaza la escritura (409) si el trabajo cambió entretanto. Así dos transiciones validadas desde el mismo estado no pueden aplicarse las dos: por ejemplo, una vuelta a `in_progress` rezagada ya no reabre un trabajo `COMPLETED`.
+- **`-> dispute` exige una disputa real.** Sólo se entra en `dispute` con una disputa activa (`OPEN`, `ASSIGNED` o `UNDER_REVIEW`) en el proyecto del trabajo. El estado por sí solo no activaba nada, porque los pagos buscan el registro `Dispute`.
+
+| Prueba | Resultado |
+|---|---|
+| Test de integración (Postgres real) | 4/4. El caso nuevo es completar frente a una vuelta a `in_progress` rezagada; sin la comparación de estado falla. |
+| Tests de jobs (requisitos, cierre, servicio y controlador) | 23/23 |
+| Tests unitarios de la API (runner completo) | 3808 pasan. Fallan 8 `SAT-007`, que necesitan DNS real. |
+| En vivo: `dispute` sin disputa / con disputa | 409 / 201 |
+| En vivo: recorrido completo, casos de rechazo y spec de #1112 | sin cambios |
+
+**Pendiente de decisión (sin cambio):** como `disputes:create` sólo lo tienen `CLIENT` y `OPS_ADMIN`, el profesional no puede abrir la disputa que ahora exige `-> dispute`.

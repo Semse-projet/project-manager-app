@@ -10,7 +10,7 @@ import assert from "node:assert/strict";
 import { ConflictException, UnprocessableEntityException } from "@nestjs/common";
 import { JobsService, assertNotReservationFlowTransition } from "../dist/modules/jobs/jobs.service.js";
 
-function service(from: string, contract: { signedClientAt: Date | null; signedProAt: Date | null } | null) {
+function service(from: string, contract: { signedClientAt: Date | null; signedProAt: Date | null } | null, activeDisputes = 0) {
   const updates: string[] = [];
   const job = (status: string) => ({ id: "job_1", tenantId: "tenant_1", status, title: "Trabajo", scope: "Alcance", category: "general" });
   const repository = {
@@ -20,6 +20,7 @@ function service(from: string, contract: { signedClientAt: Date | null; signedPr
   };
   const prisma = {
     contract: { async findFirst() { return contract; } },
+    dispute: { async count() { return activeDisputes; } },
     workspaceMemoryEntry: { async findMany() { return []; } },
   };
   const noop = { async append() { return undefined; }, async emit() { return undefined; } };
@@ -64,4 +65,30 @@ test("work starts once both parties signed, and rework from review needs no new 
   assert.equal((await started.transition("in_progress", ["PRO"], "org_pro_1")).status, "in_progress");
   const rework = service("review", null);
   assert.equal((await rework.transition("in_progress", ["CLIENT"], "org_client_1")).status, "in_progress");
+});
+
+test("a job moves to dispute only when an active dispute exists for it", async () => {
+  // STATE_MACHINES.md: * -> DISPUTE needs a formal cause; payments look for the Dispute record.
+  const bare = service("in_progress", signed, 0);
+  await assert.rejects(bare.transition("dispute", ["PRO"], "org_pro_1"), /without an active dispute/);
+  assert.deepEqual(bare.updates, []);
+  await assert.rejects(service("in_progress", signed, 0).transition("dispute", ["OPS_ADMIN"], "org_ops_1"), ConflictException);
+
+  const formal = service("in_progress", signed, 1);
+  assert.equal((await formal.transition("dispute", ["PRO"], "org_pro_1")).status, "dispute");
+});
+
+test("the service passes the validated source status so the repository can refuse a stale write", async () => {
+  const calls: Array<{ status: string; expectedFrom?: string }> = [];
+  const job = (status: string) => ({ id: "job_1", tenantId: "tenant_1", status, title: "Trabajo", scope: "Alcance", category: "general" });
+  const repository = {
+    async findById() { return job("review"); },
+    async getTransitionAccess() { return { clientOrgId: "org_client_1", professionalOrgId: "org_pro_1" }; },
+    async updateStatus(input: { status: string; expectedFrom?: string }) { calls.push(input); return job(input.status); },
+  };
+  const prisma = { workspaceMemoryEntry: { async findMany() { return []; } } };
+  const noop = { async append() { return undefined; }, async emit() { return undefined; } };
+  const svc = new JobsService(repository as never, noop as never, noop as never, noop as never, prisma as never, undefined);
+  await svc.transitionJob({ tenantId: "tenant_1", orgId: "org_client_1", userId: "usr_1", roles: ["CLIENT"], jobId: "job_1", targetStatus: "in_progress" as never, requestId: "req_1" });
+  assert.equal(calls[0]?.expectedFrom, "review");
 });

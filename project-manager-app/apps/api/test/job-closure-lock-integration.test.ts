@@ -29,7 +29,7 @@ const dbTest = process.env.DATABASE_URL ? test : test.skip;
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const noActor = { async ensureActorContext() { return undefined; } };
 
-async function seed(prisma: PrismaClient, status: "ACCEPTED" | "CANCELLED") {
+async function seed(prisma: PrismaClient, status: "ACCEPTED" | "CANCELLED" | "REVIEW") {
   const id = randomUUID().slice(0, 8);
   const tenantId = `tenant_lock_${id}`;
   await prisma.tenant.create({ data: { id: tenantId, slug: tenantId, name: `TEST_${id}` } });
@@ -123,6 +123,35 @@ dbTest("a cancellation that starts while a deposit is being reserved waits for i
     await reserving;
     assert.match(await racingCancel, /payment\(s\) still pending/);
     assert.equal((await prisma.job.findUnique({ where: { id: ids.jobId } }))?.status, "ACCEPTED");
+  } finally {
+    await cleanup(prisma, ids.tenantId);
+    await prisma.$disconnect();
+  }
+});
+
+dbTest("two transitions validated from the same status cannot both apply: a stale rework cannot reopen a completed job", async () => {
+  const prisma = new PrismaClient();
+  const ids = await seed(prisma, "REVIEW");
+  try {
+    const jobs = new JobsRepository(prisma as never, noActor as never, new OutboxRepository(prisma as never));
+    let releaseCompletion!: () => void;
+    const completionHolding = new Promise<void>((resolve) => { releaseCompletion = resolve; });
+    // Completion validated from review takes the lock and stalls before writing.
+    const completion = jobs.updateStatus({
+      tenantId: ids.tenantId, jobId: ids.jobId, status: "completed", orgId: ids.orgId, actorType: "user", actorId: "usr_client",
+      expectedFrom: "review", beforeWrite: async () => { await completionHolding; },
+    });
+    await sleep(200);
+    // Rework was also validated from review; it must not overwrite the completion.
+    const rework = jobs.updateStatus({
+      tenantId: ids.tenantId, jobId: ids.jobId, status: "in_progress", orgId: ids.orgId, actorType: "user", actorId: "usr_client",
+      expectedFrom: "review",
+    }).then(() => "applied", (error: Error) => error.message);
+    await sleep(300);
+    releaseCompletion();
+    await completion;
+    assert.match(await rework, /changed from 'review' to 'completed'/);
+    assert.equal((await prisma.job.findUnique({ where: { id: ids.jobId } }))?.status, "COMPLETED");
   } finally {
     await cleanup(prisma, ids.tenantId);
     await prisma.$disconnect();

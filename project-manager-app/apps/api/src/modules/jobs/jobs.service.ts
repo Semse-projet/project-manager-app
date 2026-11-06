@@ -624,6 +624,9 @@ export class JobsService {
     if (input.targetStatus === "in_progress" && (job.status === "accepted" || job.status === "awarded")) {
       await this.assertSignedContract(input.tenantId, input.jobId);
     }
+    if (input.targetStatus === "dispute") {
+      await this.assertActiveDispute(input.tenantId, input.jobId);
+    }
     const terminal = input.targetStatus === "completed" || input.targetStatus === "cancelled" ? input.targetStatus : null;
 
     const updated = await this.jobsRepository.updateStatus({
@@ -634,8 +637,11 @@ export class JobsService {
       actorType: "user",
       actorId: input.userId,
       requestId: input.requestId,
-      // Checked under the job row lock, in the same transaction as the write, so a
-      // concurrent deposit cannot slip in between (common/job-lock.ts).
+      // The status validated above must still be the job's status under the row
+      // lock: two concurrent transitions cannot both apply (common/job-lock.ts).
+      expectedFrom: job.status,
+      // Checked under the same lock, in the same transaction as the write, so a
+      // concurrent deposit cannot slip in between.
       beforeWrite: terminal ? (tx) => this.assertClosure(terminal, input.tenantId, input.jobId, tx) : undefined
     });
 
@@ -677,6 +683,21 @@ export class JobsService {
       tenantId: input.tenantId,
       job: updated,
     });
+  }
+
+  /**
+   * STATE_MACHINES.md: "* -> DISPUTE requires a formal cause and traceability". The
+   * job status alone protects nothing (payments look for a Dispute record), so the
+   * transition needs an active dispute on the job's project, opened through the
+   * dispute flow first.
+   */
+  private async assertActiveDispute(tenantId: string, jobId: string): Promise<void> {
+    const active = await this.prisma.dispute.count({
+      where: { tenantId, deletedAt: null, project: { jobId, tenantId }, status: { in: [...ACTIVE_DISPUTE_STATUSES] } },
+    });
+    if (active === 0) {
+      throw new ConflictException("job cannot move to dispute without an active dispute opened through the dispute flow");
+    }
   }
 
   /** STATE_MACHINES.md: ACCEPTED -> IN_PROGRESS requires an active contractual basis. */
