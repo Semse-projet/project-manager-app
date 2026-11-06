@@ -706,6 +706,48 @@ model AuthSession {
   @@index([tenantId, orgId, status])
 }
 
+// S1/D7 — consentimiento OAuth delegado de un cliente MCP sobre UNA org.
+// Spec: docs/specs/platform/semse-mcp-delegated-consent.spec.md; FSM en
+// docs/foundation/STATE_MACHINES.md §McpDelegatedConsent
+// (PENDING | ACTIVE | REVOKED | EXPIRED). Sin FK a AuthSession/User/Org (Q3,
+// Q6-X1): la coherencia se verifica al leer. userId/sessionId/grantBindingDigest
+// solo son nulos en filas anonimizadas (anonymizedAt != null); la verificación
+// deniega cualquier grant sin userId. No hay ruta que lo use todavía (fase B).
+model McpDelegatedConsent {
+  id                   String    @id @default(uuid())
+  tenantId             String
+  orgId                String
+  userId               String?
+  sessionId            String?
+  oauthIssuer          String
+  oauthClientId        String
+  resourceUri          String
+  scopeSet             String[]
+  grantBindingDigest   String?
+  status               String    @default("PENDING")
+  authorizedAt         DateTime?
+  expiresAt            DateTime
+  revokedAt            DateTime?
+  revokedByUserId      String?
+  revocationReasonCode String?
+  policyVersion        String
+  consentVersion       String
+  idempotencyKeyDigest String?
+  // Huella del payload aceptado: un reintento con la misma idempotencyKey solo
+  // devuelve el grant si la huella coincide (plazo y versiones incluidos).
+  requestFingerprint   String?
+  anonymizedAt         DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  @@unique([tenantId, grantBindingDigest])
+  @@unique([tenantId, idempotencyKeyDigest])
+  @@index([tenantId, orgId, userId, status, expiresAt])
+  @@index([tenantId, sessionId, status])
+  @@index([tenantId, oauthClientId, status])
+  @@index([anonymizedAt, expiresAt])
+}
+
 model PasswordResetToken {
   id         String    @id @default(cuid())
   userId     String

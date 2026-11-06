@@ -3,21 +3,29 @@ id: "platform.semse-mcp-delegated-consent"
 title: "S1/D7 — Consentimiento OAuth delegado persistente y revocable para SEMSE MCP"
 domain: "platform"
 sdd_version: "2.0"
-version: "0.2"
-status: "REVIEW"
+version: "0.4"
+status: "APPROVED"
 owner: "semse-core"
 risk: "critical"
-code_status: "NOT_STARTED"
+code_status: "IN_PROGRESS"
 ci_status: "NOT_RUN"
 merge_status: "UNMERGED"
 deploy_status: "NOT_DEPLOYED"
 activation_status: "INACTIVE"
-migration_status: "NOT_APPLICABLE"
+migration_status: "PENDING"
 feature_flags: []
 production_evidence: []
 related_files:
   - packages/db/prisma/schema.prisma
+  - packages/db/prisma/migrations/20261026022437_mcp_delegated_consent/migration.sql
+  - packages/schemas/src/mcp-delegated-consent.schema.ts
   - packages/auth/src/rbac.ts
+  - apps/api/src/modules/auth/session-roles.ts
+  - apps/api/src/modules/mcp-consent/mcp-consent.policy.ts
+  - apps/api/src/modules/mcp-consent/mcp-consent.repository.ts
+  - apps/api/src/modules/mcp-consent/mcp-consent.service.ts
+  - docs/specs/platform/semse-mcp-delegated-consent.plan.md
+  - docs/specs/platform/semse-mcp-delegated-consent.tasks.md
   - apps/api/src/modules/auth/auth.repository.ts
   - apps/api/src/modules/auth/auth.service.ts
   - apps/api/src/common/auth.guard.ts
@@ -28,7 +36,9 @@ related_files:
   - docs/specs/platform/semse-mcp-project-read.oauth-bridge.md
   - docs/specs/platform/semse-mcp-project-read.d2-evaluation.md
   - docs/reportes/2026-10-17_mcp-hydra-postgres-linked-poc.md
-related_tests: []
+related_tests:
+  - apps/api/test/mcp-d7-consent-policy.test.ts
+  - apps/api/test/mcp-d7-delegated-consent-integration.test.ts
 related_endpoints: []
 related_events: []
 related_agents:
@@ -39,11 +49,12 @@ last_verified: "NOT_VERIFIED"
 # Spec: S1/D7 — Consentimiento OAuth delegado persistente y revocable
 
 > Spec hijo de [`platform.semse-mcp-project-read`](semse-mcp-project-read.spec.md)
-> (S1, `REVIEW`). Contrato SDD 2.0 en **REVIEW** (decisiones del propietario
-> Q1–Q6 cerradas el 2026-10-26; `APPROVED` según los controles de nivel 1 de
-> [DEC-PLATFORM-001](../../architecture/DEC-PLATFORM-001-solo-maintainer-review.md)):
-> no autoriza schema Prisma,
-> migración, endpoint, flag, despliegue ni activación MCP. D7 está aprobado
+> (S1, `REVIEW`). Contrato SDD 2.0 **APPROVED** el 2026-10-28 por el
+> propietario ([aprobación en #1049](https://github.com/Semse-projet/project-manager-app/pull/1049#issuecomment-6458315027), SHA `9bdaea4`), según los controles de
+> nivel 1 de [DEC-PLATFORM-001](../../architecture/DEC-PLATFORM-001-solo-maintainer-review.md).
+> Alcance aprobado: Q1–Q6, FSM y fases A y B (persistencia apagada). La
+> aprobación **no** autoriza endpoint, flag, despliegue productivo, activación
+> MCP ni las fases C y D; fusionar la fase B sigue sujeto al nivel 2. D7 está aprobado
 > por el propietario **a nivel de solución** (2026-10-15, ver
 > [`decisions`](semse-mcp-project-read.decisions.md)); **D2 (Authorization
 > Server/issuer) sigue PENDING** y bloquea las fases C y D. Código, CI, merge,
@@ -98,7 +109,7 @@ bloquea la **siguiente** `tools/call`, sin escribir nada en la vía de lectura.
 
 | Actor | Permiso backend | Alcance tenant/org/recurso | Puede | No puede |
 |---|---|---|---|---|
-| Usuario con Membership `ACTIVE` | rol con `projects:read` (`CLIENT`, `PRO`, `OPS_ADMIN` en `packages/auth/src/rbac.ts`) | su `tenantId` + **una** `orgId` = la de su `AuthSession` | conceder grant `projects:read` a un cliente registrado; revocar sus grants | conceder scopes que sus roles no tienen; conceder sobre otra org; reactivar un grant `REVOKED`/`EXPIRED` |
+| Usuario con Membership `ACTIVE` | rol de lectura org elegible para MCP (`CLIENT` o `PRO`; no `OPS_ADMIN` por sí solo) | su `tenantId` + **una** `orgId` = la de su `AuthSession` | conceder grant `projects:read` a un cliente registrado; revocar sus grants | conceder scopes que sus roles no tienen; conceder sobre otra org; reactivar un grant `REVOKED`/`EXPIRED` |
 | Administrador de la org (**v1.1**, Q5) | `mcp:consents:revoke:org` (permiso y rol nuevos en v1.1; hoy no existe rol admin de org en `rbac.ts`) | grants con `orgId` de su org | revocar grants de su org, uno a uno o por cliente | conceder en nombre de otro usuario; revocar fuera de su org |
 | `OPS_ADMIN` (**v1**, Q5) | `mcp:consents:revoke:tenant` (permiso nuevo en v1, asignado a `OPS_ADMIN`) | grants de su `tenantId` | **v1:** revocar grants del tenant **uno a uno**, con motivo obligatorio. **v1.1:** además revocación masiva por `oauthClientId` | en v1, revocar en bloque por cliente; conceder; leer contenido de negocio vía grant; actuar fuera de su tenant |
 | Cliente MCP (host) | ninguno propio | solo el grant `ACTIVE` vinculado a su token | leer `projectId,status` vía S1 | elegir org/tenant/usuario por argumento; elevar scopes |
@@ -118,9 +129,11 @@ bloquea la **siguiente** `tools/call`, sin escribir nada en la vía de lectura.
   `OPS_ADMIN`** (ni otro rol con override operativo), aunque el usuario lo
   tenga; y (b) además se exige explícitamente
   `sameOrg(grant.orgId, scope.clientOrgId) || sameOrg(grant.orgId, scope.assignedProOrgId)`
-  sobre el proyecto leído. Un `OPS_ADMIN` puede conceder un grant, pero ese
-  grant solo lee proyectos de **su** org (D7-05b). Nunca se reutiliza
-  `hasScopeAccess` con el rol operativo en esta vía.
+  sobre el proyecto leído. En v1, `OPS_ADMIN` por sí solo no puede conceder
+  ni utilizar grants MCP de lectura; conserva el permiso separado de revocación
+  dentro de su tenant. Con `CLIENT` o `PRO` activo en Membership y sesión,
+  solo el rol no operativo autoriza la lectura en su org (D7-05b/D7-05c).
+  Nunca se reutiliza `hasScopeAccess` con un rol operativo en esta vía.
 - **Intersección de permisos (Q2, DECIDIDO 2026-10-26):** la vía web calcula
   `activeRoles ∩ session.roles ∩ claims.roles` en `authorizedRoles`
   (`auth.service.ts`). En MCP no existe JWT SEMSE; la regla es
@@ -306,7 +319,8 @@ forbidden_behavior:
 ## 7. Datos y migración
 
 - **Modelo Prisma (candidato, no agregado):** `McpDelegatedConsent` con los
-  campos del plan D7: `id`, `tenantId`, `orgId`, `userId`, `sessionId`,
+  campos del plan D7: `id` (UUID v4 aleatorio, sin marca de tiempo, para que no
+  revele la creación tras anonimizar), `tenantId`, `orgId`, `userId`, `sessionId`,
   `oauthIssuer`, `oauthClientId`, `resourceUri`, `scopeSet`,
   `grantBindingDigest`, `status`, `createdAt`, `authorizedAt`, `expiresAt`,
   `revokedAt`, `updatedAt`, `policyVersion`, `consentVersion`,
@@ -395,7 +409,9 @@ forbidden_behavior:
      `AuthSession ACTIVE` y `User active`; como el paso 1 actualiza esas
      mismas filas, PostgreSQL serializa ambas operaciones: o la aceptación
      termina antes (y su grant cae en el barrido del paso 2) o ve la puerta
-     cerrada y falla;
+     cerrada y falla. Orden de bloqueo canónico `User` → `AuthSession`, el
+     mismo de los flujos de cambio y reseteo de contraseña; el borrado del
+     paso 1 debe seguirlo para no provocar deadlocks (D7-23b);
   5. un barrido final tras el paso 3 revoca cualquier grant de ese `userId`
      que siga `ACTIVE` (defensa en profundidad), y la verificación por llamada
      ya deniega grants sin User (punto 4 anterior).
@@ -419,7 +435,9 @@ forbidden_behavior:
 ## 8. Observabilidad, despliegue y activación
 
 - **Métricas/SLO:** latencia p95/p99 de la verificación completa (introspección
-  + grant + sesión/Membership) frente al deadline de 1000 ms del auth actual;
+  + grant + sesión/Membership). D7 usa un presupuesto monotónico compartido
+  de 1000 ms entre sus consultas; D2 deberá propagar el mismo deadline desde
+  antes de la introspección, sin reiniciarlo;
   conteo de denegaciones por código de motivo.
 - **Logs/traces/correlation:** `correlationId` en aceptación, revocación y
   denegación; sin tokens ni PII.
@@ -449,12 +467,15 @@ el mismo tenant, además de unitarios. Los casos con host MCP real solo tras D2.
 | D7-03 | Misma idempotencyKey con otro scope/org/cliente | 409 sin modificar el grant |
 | D7-04 | Token de usuario/cliente/scope idénticos vinculado a **otra sesión** | Rechazo antes de consultar Project |
 | D7-05 | Grant de Org A pidiendo Project de Org B, mismo tenant | Rechazo no enumerativo |
-| **D7-05b** | Igual que D7-05, con el usuario que concedió el grant teniendo `OPS_ADMIN` activo en Org A | Rechazo: el override operativo de `hasScopeAccess` no aplica en la vía MCP |
+| **D7-05b** | Igual que D7-05, con usuario `CLIENT` + `OPS_ADMIN` en Org A | Rechazo: el override operativo de `hasScopeAccess` no aplica en MCP |
+| **D7-05c** | Usuario solo `OPS_ADMIN` (sin `CLIENT`/`PRO`) intenta consentir una lectura MCP | Aceptación rechazada sin convertir la potestad de revocar en lectura org |
 | D7-06 | Org o Project de otro tenant | Rechazo y cero fuga |
 | D7-07 | Revocar grant con bearer aún `active` en el AS | Siguiente llamada rechazada |
 | D7-08 | Revocar AuthSession o Membership con grant aún `ACTIVE` | Siguiente llamada rechazada |
 | D7-09 | `expiresAt <= now` o `policyVersion` incompatible | Rechazo sin escribir en la lectura |
 | D7-10 | Introspección o PostgreSQL caídos / timeout | 503 fail-closed, sin fallback a claims |
+| **D7-10b** | Dos lecturas de autoridad de 600 ms cada una | Se rechaza con 503 al superar el presupuesto conjunto de 1000 ms |
+| **D7-10c** | Dos lecturas de autoridad de 350 ms cada una | Se autoriza si las restantes comprobaciones pasan dentro del mismo presupuesto |
 | D7-11 | Sin grant, cliente/scope/audience distinto, replay de grant revocado | Rechazo sin lookups indebidos |
 | D7-12 | `tools/list` y revocación antes de `tools/call` | `tools/call` rechazada |
 | D7-13 | Lectura instrumentada | Conteos Tenant/Org/User/Membership/Project/Job/Grant idénticos; no-SELECT bloqueadas |
@@ -525,14 +546,21 @@ Checklist de plantilla:
 
 ## 12. Gates de cierre
 
+> Aprobación de nivel 1 registrada en [#1049](https://github.com/Semse-projet/project-manager-app/pull/1049#issuecomment-6458315027) (2026-10-28, SHA `9bdaea4`).
+> La viñeta de mantenedor único de `.claude/skills/semseproject/SKILL.md` §12
+> está en el PR #1065 (sin fusionar); debe fusionarse antes que la fase B (#1051).
+> Una revisión automatizada no se presenta como aprobación humana independiente.
+
+
 - [x] Q1–Q4 decididas por el propietario (2026-10-26, §13)
 - [x] Q5, Q6 y valor de `MCP_GRANT_MAX_TTL` decididos (2026-10-26, §13)
 - [x] Fila del grant añadida a la matriz de retención M-06 (`.claude/skills/semseproject/references/operations.md`)
 - [x] FSM registrada en `STATE_MACHINES.md` como reservada
-- [ ] Este spec (documento): controles de **nivel 1** de
+- [x] Este spec (documento): controles de **nivel 1** de
   [DEC-PLATFORM-001](../../architecture/DEC-PLATFORM-001-solo-maintainer-review.md):
-  CI verde, revisión automatizada sin bloqueantes y registro de aprobación del
-  propietario en el PR
+  CI verde y Codex sin hallazgos sobre `9bdaea4` (#1049), y
+  [aprobación del propietario](https://github.com/Semse-projet/project-manager-app/pull/1049#issuecomment-6458315027) con SHA, fecha y alcance (2026-10-28)
+- [ ] Excepción de mantenedor único en `semseproject/SKILL.md` §12 fusionada (PR #1065)
 - [ ] Fases B y C (código con flag OFF): controles de **nivel 2** de
   DEC-PLATFORM-001 (dos revisiones automatizadas, pruebas D7 contra PostgreSQL
   real, pausa de 24 h, autorrevisión con checklist)
@@ -552,6 +580,14 @@ Checklist de plantilla:
 - [ ] Sólo entonces `status: VERIFIED`
 
 ## 13. Decisiones del propietario
+
+**Aprobación de nivel 1 (2026-10-28; DEC-PLATFORM-001):** CI verde y
+revisión Codex sin hallazgos sobre `9bdaea4` (PR #1049, merge `c6d4d32`), más el
+[comentario formal del propietario](https://github.com/Semse-projet/project-manager-app/pull/1049#issuecomment-6458315027) con SHA, fecha y alcance: Q1–Q6, FSM
+y fases A y B; excluye D2, las fases C y D y cualquier activación. El spec pasa a
+`APPROVED`. La excepción de §12 del skill está en el PR #1065 (sin fusionar). Fusionar
+la fase B (#1051) aplica la migración en producción vía `pre-migrate.mjs` y
+exige además el nivel 2 y #1065 fusionado; no autoriza activación MCP.
 
 **Registro de decisión (2026-10-26):** el propietario aceptó en conversación
 de trabajo las recomendaciones de Q1–Q4 y, después, el diseño integrado de
