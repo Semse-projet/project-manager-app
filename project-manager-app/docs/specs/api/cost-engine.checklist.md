@@ -32,7 +32,7 @@ date: "2026-10-30"
 
 ## Expedientes de aceptación T-005 (datos, licencias y fiscalidad)
 
-- [x] **Inventario inicial de precios**: 12 claves de `BLS_SERIES` y familias de precios/multiplicadores heredados identificados como `UNVERIFIED`. [Registro de adquisiciones](./cost-engine.t005-pricing-evidence-register.md).
+- [x] **Inventario técnico inicial**: 12 claves de `BLS_SERIES` más 24/24 motores por oficio auditados por modo de fuente y componentes fiscales. 22 declaran 7 %/5 % y 2 los heredan del módulo central; 9 usan `priceOf` con respaldo. Todos los importes siguen `UNVERIFIED`. [Registro de adquisiciones](./cost-engine.t005-pricing-evidence-register.md).
 - [x] **Matriz de licencias**: BLS para índice/estadística, RSMeans/Gordian `RESTRICTED_PENDING_LEGAL`, cotizaciones privadas `RIGHTS_UNKNOWN` hasta contrato. [Expediente Q11](./cost-engine.q11-license-clearance.md).
 - [x] **Paquete fiscal de revisión**: matrices FL/GA con casos específicos, fuentes DOR y `UNDETERMINED` mientras no exista dictamen. [Expediente Q10](./cost-engine.q10-fiscal-professional-review.md).
 - [x] **Correcciones de referencias**: PDF público RSMeans Online verificado visualmente como March 16, 2026 (la atribución a mayo 2025 era errónea); PDF accesible FL GT-800007 R.03/15 y guía actual de DOR (no declarar R.08/22 comprobada).
