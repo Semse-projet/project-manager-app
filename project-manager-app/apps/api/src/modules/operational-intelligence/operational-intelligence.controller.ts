@@ -1,7 +1,7 @@
 import { Controller, ForbiddenException, Get, Patch, Post, Param, Query, Req } from "@nestjs/common";
 import { RequirePermissions } from "../../common/permissions.decorator.js";
 import { resolveRequestId } from "../../common/request-id.js";
-import { parseHeaderRequestContext } from "../../common/request-context.js";
+import { resolveRequestContext } from "../../common/request-context.js";
 import { ok } from "../../common/api-response.js";
 import { OperationalSignalsService } from "./operational-signals.service.js";
 import { IntelligenceRunsService } from "./intelligence-runs.service.js";
@@ -29,7 +29,7 @@ export class OperationalIntelligenceController {
     @Query("limit") limit?: string,
   ) {
     const requestId = resolveRequestId(req.headers ?? {});
-    const ctx = parseHeaderRequestContext(req);
+    const ctx = resolveRequestContext(req);
     const results = await this.signals.list({
       tenantId: ctx.tenantId,
       status,
@@ -50,7 +50,7 @@ export class OperationalIntelligenceController {
     @Param("id") id: string,
   ) {
     const requestId = resolveRequestId(req.headers ?? {});
-    const ctx = parseHeaderRequestContext(req);
+    const ctx = resolveRequestContext(req);
     await this.signals.acknowledge(id, ctx.tenantId);
     return ok(requestId, { acknowledged: true });
   }
@@ -62,7 +62,7 @@ export class OperationalIntelligenceController {
     @Param("id") id: string,
   ) {
     const requestId = resolveRequestId(req.headers ?? {});
-    const ctx = parseHeaderRequestContext(req);
+    const ctx = resolveRequestContext(req);
     await this.signals.resolve(id, ctx.tenantId);
     return ok(requestId, { resolved: true });
   }
@@ -74,7 +74,7 @@ export class OperationalIntelligenceController {
     @Param("id") id: string,
   ) {
     const requestId = resolveRequestId(req.headers ?? {});
-    const ctx = parseHeaderRequestContext(req);
+    const ctx = resolveRequestContext(req);
     await this.signals.dismiss(id, ctx.tenantId);
     return ok(requestId, { dismissed: true });
   }
@@ -86,7 +86,7 @@ export class OperationalIntelligenceController {
     @Query("limit") limit?: string,
   ) {
     const requestId = resolveRequestId(req.headers ?? {});
-    const ctx = parseHeaderRequestContext(req);
+    const ctx = resolveRequestContext(req);
     const results = await this.runs.listRecent(
       ctx.tenantId,
       parsePositiveInt(limit, 20),
@@ -105,7 +105,7 @@ export class OperationalIntelligenceController {
       throw new ForbiddenException("seed-test signals are disabled in production");
     }
     const requestId = resolveRequestId(req.headers ?? {});
-    const ctx = parseHeaderRequestContext(req);
+    const ctx = resolveRequestContext(req);
 
     const testSignals = [
       {
@@ -164,7 +164,7 @@ export class OperationalIntelligenceController {
     @Query("buildOpsProjectId") buildOpsProjectId?: string,
   ) {
     const requestId = resolveRequestId(req.headers ?? {});
-    const ctx = parseHeaderRequestContext(req);
+    const ctx = resolveRequestContext(req);
     const result = await this.brief.generateBrief(ctx.tenantId, buildOpsProjectId);
     return ok(requestId, result);
   }

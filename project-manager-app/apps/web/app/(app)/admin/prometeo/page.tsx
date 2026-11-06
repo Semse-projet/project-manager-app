@@ -65,24 +65,24 @@ async function apiDelete(path: string) {
   if (!res.ok) { const d = await res.json() as { error?: { message?: string } }; throw new Error(d?.error?.message ?? `Error ${res.status}`); }
 }
 
-// Avoid the argument-count overflow caused by String.fromCharCode(...fileBytes).
+// Base64 encode without String.fromCharCode(...bytes) argument-count overflow.
 function readFileAsBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onerror = () => reject(reader.error ?? new Error("File read failed"));
     reader.onabort = () => reject(new Error("File read cancelled"));
     reader.onload = () => {
-      const value = reader.result;
-      if (typeof value !== "string" || !value.startsWith("data:")) {
+      const data = reader.result;
+      if (typeof data !== "string" || !data.startsWith("data:")) {
         reject(new Error("Invalid file data"));
         return;
       }
-      const separator = value.indexOf(",");
+      const separator = data.indexOf(",");
       if (separator < 0) {
         reject(new Error("Invalid file data"));
         return;
       }
-      resolve(value.slice(separator + 1));
+      resolve(data.slice(separator + 1));
     };
     reader.readAsDataURL(file);
   });
@@ -201,7 +201,7 @@ export default function PrometeoPage() {
     setIngestError(null);
     setIngestSuccess(false);
     try {
-      // FileReader encodes the file without spreading every byte into a JS call.
+      // FileReader avoids passing every file byte as a JS function argument.
       const fileBase64 = await readFileAsBase64(ingestFile);
       await apiPost("/api/semse/prometeo/ingest-file", {
         fileBase64, mimeType: ingestFile.type, fileName: ingestFile.name,
@@ -379,6 +379,9 @@ export default function PrometeoPage() {
                     <option value="project_private" disabled>{t("prom.visibility.project_private")}</option>
                   </select>
                 </div>
+                <p style={{ color: "var(--muted)", fontSize: 11, marginTop: 4 }}>
+                  {t("prom.visibility.sharingDisabledHint")}
+                </p>
 
                 {ingestMode === "text" ? (
                   <>
