@@ -9,6 +9,9 @@ export const SEMSE_AGENT_RUN_QUEUE = "semse-agent-runs";
 export const SEMSE_DEVELOPER_RUNTIME_QUEUE = "semse-developer-runtime";
 export const SEMSE_DOMAIN_EVENT_QUEUE = "semse-domain-events";
 export const SEMSE_BOOTSTRAP_HEADER_NAME = "x-semse-bootstrap-token";
+// Real client IP the web BFF forwards on server→API calls. The API only trusts it
+// for rate limiting, and only alongside a valid bootstrap token.
+export const SEMSE_CLIENT_IP_HEADER_NAME = "x-semse-client-ip";
 export const SEMSE_TRACE_HEADER_NAME = "x-trace-id";
 
 export * from "./developer-runtime.js";
