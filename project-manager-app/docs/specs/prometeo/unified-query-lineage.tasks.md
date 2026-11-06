@@ -14,7 +14,7 @@ date: "2026-11-06"
 ## Fase 0 — Gobierno
 - [ ] [UQL-001] Owner acepta ADR-044 con fecha y aprueba el acta
 - [ ] [UQL-002] Slices 1 y 2 aprobados y fusionados
-- [ ] [UQL-003] Owner resuelve Q-1 a Q-8 del spec
+- [x] [UQL-003] Owner resuelve Q-1 a Q-8 del spec (2026-11-06; topes y SLO pendientes de dato)
 - [ ] [UQL-004] Owner aprueba el spec (`REVIEW` → `APPROVED`)
 - [ ] [UQL-005] Inventariar las superficies de consulta existentes y registrar la fachada en `docs/SOURCE_OF_TRUTH.md`
 - [ ] [UQL-006] Refrescar `main` y reconciliar `related_files`

@@ -261,6 +261,21 @@ Rutas definitivas por confirmar al aprobar (sección 15):
 | Q-7 | Alineación de `sourceRef`, `auditRef` y `decisionId` con MCP S1, que aún no acepta sus decisiones D1–D7 | Mantener la herramienta fuera de MCP hasta que S1 las cierre |
 | Q-8 | Respuesta con el flag en `off` | 404 en el endpoint y herramienta no listada, para no revelar la capacidad |
 
+### 14.1 Resoluciones del owner (2026-11-06)
+
+El owner respondió «aplica todo» al plan de respuestas del coordinador. Se registran tal como se recomendaron. Esto **no aprueba el spec**: pasa a `APPROVED` cuando el ADR-044 esté aceptado con fecha, el acta aprobada y los slices previos aprobados (sección de gates).
+
+| ID | Resolución |
+|---|---|
+| Q-1 | **Se divide:** 3a proveedores y endpoint; 3b herramienta de Prometeo |
+| Q-2 | Autoritativos: Ledger y ejecuciones. Si cae uno y la consulta empieza en él, 503; si no, resultado parcial con `complete: false` |
+| Q-3 | Nodo de inicio no visible = 404 idéntico al de un nodo inexistente |
+| Q-4 | Permisos `lineage:graph:read` y `lineage:decisions:read`. El registro de acceso reutiliza `AuditLog` con acciones nuevas catalogadas, sin tabla nueva. `OPS_ADMIN` sin cruce entre organizaciones |
+| Q-5 | **Runtime que consume la herramienta (inventario, 2026-11-06):** las herramientas de lectura de Prometeo se ejecutan por `PrometeoToolExecutionService.invokeReadTool`, que busca el descriptor en el registro, evalúa `evaluatePrometeoToolPolicy` con los permisos del descriptor y despacha con un `switch` por `namespace.name` en `executeReadTool`. Entradas conocidas: `POST /v1/prometeo/tools/invoke` (exige `agents:run:create`) y el chat del gateway de modelos en `ai-models.controller.ts`, que ejecuta una herramienta de lectura cuando la petición trae `requestedAction`. El arnés del copiloto de proyecto no usa esta ruta. Consecuencias para 3b: añadir un descriptor y un `case` nuevo, comprobar el permiso propio de la herramienta además de `agents:run:create`, y tratar `requestedAction` como entrada controlada por el usuario |
+| Q-6 | Topes, cuota por actor, SLO y métricas: se miden y se proponen; el owner aprueba. **Pendiente de dato** |
+| Q-7 | La herramienta queda fuera de MCP hasta que MCP S1 cierre sus decisiones |
+| Q-8 | Con el flag en `off`: endpoint 404 y herramienta no listada |
+
 ## 15. Archivos y endpoints planificados (aún inexistentes)
 
 Se mantienen fuera del frontmatter porque `spec:validate:strict` exige que `related_files` y `related_endpoints` existan. Pasan al frontmatter cuando el slice los cree.
