@@ -1,6 +1,6 @@
 # T-005 nacional v1 — contraste inter-estatal de precios y fiscalidad (NO aprobación)
 
-**Fecha de consulta:** 2026-11-05. **Alcance:** 50 estados de EE. UU. + Washington DC, 24 motores de SEMSE; referencias federales y una primera muestra de normas fiscales estatales. **Estado:** `RESEARCH_ONLY / INCOMPLETE_51_STATE_VERIFICATION / DRAFT`. Ningún proveedor de precios autorizó extracción ni hubo revisión de CPA, Legal, o firma comercial.
+**Fecha inicial de consulta:** 2026-11-05 · **Ampliación:** 2026-11-06. **Alcance:** 50 estados de EE. UU. + Washington DC, 24 motores de SEMSE; referencias federales y una primera muestra de normas fiscales estatales. **Estado:** `RESEARCH_ONLY / INCOMPLETE_51_STATE_VERIFICATION / DRAFT`. Ningún proveedor de precios autorizó extracción ni hubo revisión de CPA, Legal, o firma comercial.
 
 Este documento amplía [el expediente inicial de precios](./cost-engine.t005-pricing-evidence-register.md), [el expediente Q10 FL/GA](./cost-engine.q10-fiscal-professional-review.md) y [la matriz Q11 de derechos](./cost-engine.q11-license-clearance.md). No sustituye `cost-engine.spec.md`. **No cambia importes del Cost Engine, ni variables, clientes, contratos ni producción.**
 
@@ -24,6 +24,14 @@ Este documento amplía [el expediente inicial de precios](./cost-engine.t005-pri
 | Nuevo México | `Gross Receipts Tax` sobre actividad/servicios y deducciones `NTTC` condicionadas; no convertirlo en impuesto tradicional universal al material. | [NM Taxation & Revenue NTTC](https://www.tax.newmexico.gov/businesses/non-taxable-transaction-certificates-nttc/) |
 | Pennsylvania | Contratistas y estructuras inmobiliarias; hay exención especial Building Machinery and Equipment para determinados proyectos/entidades elegibles, sin generalizar. | [PA Revenue BME](https://www.pa.gov/agencies/revenue/resources/tax-types-and-information/sales-use-and-hotel-occupancy-tax/building-machinery-and-equipment) |
 | Hawaii | El impuesto general de actividad es GET, no idéntico al sales tax. El portal GET fue revisado, pero NO se autorizó ninguna fórmula por contratista. | [HI DTax GET](https://tax.hawaii.gov/get/) |
+| Massachusetts | El contratista en mejoras de inmueble generalmente paga impuesto al comprar materiales; venta/instalación de una unidad estándar de propiedad personal puede seguir otro régimen. Guía oficial DOR actualizada **7-may-2026**. | [Massachusetts DOR](https://www.mass.gov/guides/sales-and-use-tax) |
+| Minnesota | Consumidor de materiales en contratos de mejora inmobiliaria; impuesto pagado al comprar o use tax, distinto de ventas retail. La retención/surety del contratista no residente se revisa por separado. | [Minnesota DOR](https://www.revenue.state.mn.us/guide/general-contractors-and-subcontractors-applies-all-contractor-types) |
+| Carolina del Norte | Contratos de `capital improvement` exigen evidencia `E-589CI` y del impuesto pagado `E-589P`; compra de materiales gravada al contratista, frente a repair/maintenance/installation sujeto a otra clasificación. | [NCDOR contratos inmobiliarios](https://www.ncdor.gov/taxes-forms/sales-and-use-tax/real-property-contracts) |
+| Nueva Jersey | Reemplazo/obra de capital y pintura inicial pueden ser `capital improvement` exento con formulario `ST-8`; **repintado y limpieza a presión** pueden ser servicios gravables. | [NJ DOR FAQ con casos](https://www.nj.gov/treasury/taxation/sales_use_tax_FAQ.shtml) |
+| Wisconsin | Contratista como consumidor en instalación de inmueble paga impuesto de compra; cuando actúa como retailer de propiedad personal o servicio gravable se aplican reglas distintas. | [Wisconsin DOR](https://www.revenue.wi.gov/Pages/FAQS/pcs-topics.aspx) |
+| Virginia | El art. 58.1-610 caracteriza al contratista de real estate como consumidor de materiales; el boletín `24-3` aclara un *safe harbor* acotado para impuesto indebidamente cobrado, NO una licencia para cobrarlo al cliente. | [Virginia Tax 24-3 (2024)](https://www.tax.virginia.gov/laws-rules-decisions/tax-bulletins/24-3) |
+| Maryland | La guía DOR diferencia materiales incorporados, instalación de propiedad personal, alfombra de pared a pared y labor de fabricación. **Fuente informativa de fecha/version vigente por comprobar** antes de policy activa. | [Comptroller Business Tax Tip #18 (PDF)](https://www.marylandtaxes.gov/forms/Business_Tax_Tips/bustip18.pdf) |
+| Kentucky | `103 KAR 26:070` distingue real property de equipo que queda personal property; sus materiales suelen gravarse a la compra del contratista aun en contratos distintos. **Confirmar texto normativo vigente** frente al PDF de archivo antes de cálculo fiscal. | [KY DOR regulación (PDF)](https://revenue.ky.gov/DOR%20Training%20Materials/103%20KAR%2026.070.%20Construction%20contractors.pdf) |
 
 **Advertencia metodológica:** una fuente pública puede ser antigua o no cubrir todas las excepciones vigentes. El estado `PRIMERA_FUENTE_REVISADA` indica **solo** que se leyó una guía específica, **NO** que se revisó el estatuto completo, la tasa local, el tratamiento de marketplace ni que se aprobó usarla en producción. El resto de estados quedan sin fuente fiscal específica verificada en este trabajo. El [cuadro Tax Foundation, 1-jul-2026](https://taxfoundation.org/data/all/state/2026-sales-tax-rates-midyear/) sirve para control general de *tasas estatales y promedios locales*, nunca como oráculo de taxable base de una obra.
 
@@ -49,23 +57,23 @@ Este documento amplía [el expediente inicial de precios](./cost-engine.t005-pri
 | IN | PENDIENTE_DOR_ESTATAL | SIN FUENTE ESPECÍFICA DE CONSTRUCCIÓN REVISADA | **UNDETERMINED** |
 | IA | PENDIENTE_DOR_ESTATAL | SIN FUENTE ESPECÍFICA DE CONSTRUCCIÓN REVISADA | **UNDETERMINED** |
 | KS | PENDIENTE_DOR_ESTATAL | SIN FUENTE ESPECÍFICA DE CONSTRUCCIÓN REVISADA | **UNDETERMINED** |
-| KY | PENDIENTE_DOR_ESTATAL | SIN FUENTE ESPECÍFICA DE CONSTRUCCIÓN REVISADA | **UNDETERMINED** |
+| KY | PARCIAL_FUENTE_HISTORICA | [fuente oficial](https://revenue.ky.gov/DOR%20Training%20Materials/103%20KAR%2026.070.%20Construction%20contractors.pdf) | **UNDETERMINED** |
 | LA | PENDIENTE_DOR_ESTATAL | SIN FUENTE ESPECÍFICA DE CONSTRUCCIÓN REVISADA | **UNDETERMINED** |
 | ME | PENDIENTE_DOR_ESTATAL | SIN FUENTE ESPECÍFICA DE CONSTRUCCIÓN REVISADA | **UNDETERMINED** |
-| MD | PENDIENTE_DOR_ESTATAL | SIN FUENTE ESPECÍFICA DE CONSTRUCCIÓN REVISADA | **UNDETERMINED** |
-| MA | PENDIENTE_DOR_ESTATAL | SIN FUENTE ESPECÍFICA DE CONSTRUCCIÓN REVISADA | **UNDETERMINED** |
+| MD | PARCIAL_FUENTE_HISTORICA | [fuente oficial](https://www.marylandtaxes.gov/forms/Business_Tax_Tips/bustip18.pdf) | **UNDETERMINED** |
+| MA | PRIMERA_FUENTE_REVISADA | [fuente oficial](https://www.mass.gov/guides/sales-and-use-tax) | **UNDETERMINED** |
 | MI | PENDIENTE_DOR_ESTATAL | SIN FUENTE ESPECÍFICA DE CONSTRUCCIÓN REVISADA | **UNDETERMINED** |
-| MN | PENDIENTE_DOR_ESTATAL | SIN FUENTE ESPECÍFICA DE CONSTRUCCIÓN REVISADA | **UNDETERMINED** |
+| MN | PRIMERA_FUENTE_REVISADA | [fuente oficial](https://www.revenue.state.mn.us/guide/general-contractors-and-subcontractors-applies-all-contractor-types) | **UNDETERMINED** |
 | MS | PENDIENTE_DOR_ESTATAL | SIN FUENTE ESPECÍFICA DE CONSTRUCCIÓN REVISADA | **UNDETERMINED** |
 | MO | PENDIENTE_DOR_ESTATAL | SIN FUENTE ESPECÍFICA DE CONSTRUCCIÓN REVISADA | **UNDETERMINED** |
 | MT | PENDIENTE_DOR_ESTATAL | SIN FUENTE ESPECÍFICA DE CONSTRUCCIÓN REVISADA | **UNDETERMINED** |
 | NE | PRIMERA_FUENTE_REVISADA | [fuente oficial](https://revenue.nebraska.gov/about/frequently-asked-questions/nebraska-construction-contractors-faqs) | **UNDETERMINED** |
 | NV | PENDIENTE_DOR_ESTATAL | SIN FUENTE ESPECÍFICA DE CONSTRUCCIÓN REVISADA | **UNDETERMINED** |
 | NH | PENDIENTE_DOR_ESTATAL | SIN FUENTE ESPECÍFICA DE CONSTRUCCIÓN REVISADA | **UNDETERMINED** |
-| NJ | PENDIENTE_DOR_ESTATAL | SIN FUENTE ESPECÍFICA DE CONSTRUCCIÓN REVISADA | **UNDETERMINED** |
+| NJ | PRIMERA_FUENTE_REVISADA | [fuente oficial](https://www.nj.gov/treasury/taxation/sales_use_tax_FAQ.shtml) | **UNDETERMINED** |
 | NM | PARCIAL_GRT_NTTC | [fuente oficial](https://www.tax.newmexico.gov/businesses/non-taxable-transaction-certificates-nttc/) | **UNDETERMINED** |
 | NY | PRIMERA_FUENTE_REVISADA | [fuente oficial](https://www.tax.ny.gov/pubs_and_bulls/publications/sales/contractors.htm) | **UNDETERMINED** |
-| NC | PENDIENTE_DOR_ESTATAL | SIN FUENTE ESPECÍFICA DE CONSTRUCCIÓN REVISADA | **UNDETERMINED** |
+| NC | PRIMERA_FUENTE_REVISADA | [fuente oficial](https://www.ncdor.gov/taxes-forms/sales-and-use-tax/real-property-contracts) | **UNDETERMINED** |
 | ND | PENDIENTE_DOR_ESTATAL | SIN FUENTE ESPECÍFICA DE CONSTRUCCIÓN REVISADA | **UNDETERMINED** |
 | OH | PENDIENTE_DOR_ESTATAL | SIN FUENTE ESPECÍFICA DE CONSTRUCCIÓN REVISADA | **UNDETERMINED** |
 | OK | PENDIENTE_DOR_ESTATAL | SIN FUENTE ESPECÍFICA DE CONSTRUCCIÓN REVISADA | **UNDETERMINED** |
@@ -78,14 +86,14 @@ Este documento amplía [el expediente inicial de precios](./cost-engine.t005-pri
 | TX | PRIMERA_FUENTE_REVISADA | [fuente oficial](https://comptroller.texas.gov/taxes/publications/94-116.php) | **UNDETERMINED** |
 | UT | PENDIENTE_DOR_ESTATAL | SIN FUENTE ESPECÍFICA DE CONSTRUCCIÓN REVISADA | **UNDETERMINED** |
 | VT | PENDIENTE_DOR_ESTATAL | SIN FUENTE ESPECÍFICA DE CONSTRUCCIÓN REVISADA | **UNDETERMINED** |
-| VA | PENDIENTE_DOR_ESTATAL | SIN FUENTE ESPECÍFICA DE CONSTRUCCIÓN REVISADA | **UNDETERMINED** |
+| VA | PRIMERA_FUENTE_REVISADA | [fuente oficial](https://www.tax.virginia.gov/laws-rules-decisions/tax-bulletins/24-3) | **UNDETERMINED** |
 | WA | PRIMERA_FUENTE_REVISADA | [fuente oficial](https://dor.wa.gov/education/industry-guides/construction/construction-tax-matrix) | **UNDETERMINED** |
 | WV | PENDIENTE_DOR_ESTATAL | SIN FUENTE ESPECÍFICA DE CONSTRUCCIÓN REVISADA | **UNDETERMINED** |
-| WI | PENDIENTE_DOR_ESTATAL | SIN FUENTE ESPECÍFICA DE CONSTRUCCIÓN REVISADA | **UNDETERMINED** |
+| WI | PRIMERA_FUENTE_REVISADA | [fuente oficial](https://www.revenue.wi.gov/Pages/FAQS/pcs-topics.aspx) | **UNDETERMINED** |
 | WY | PENDIENTE_DOR_ESTATAL | SIN FUENTE ESPECÍFICA DE CONSTRUCCIÓN REVISADA | **UNDETERMINED** |
 | DC | PENDIENTE_DOR_ESTATAL | SIN FUENTE ESPECÍFICA DE CONSTRUCCIÓN REVISADA | **UNDETERMINED** |
 
-**Conteo verificado por este registro:** 14/51 jurisdicciones con alguna fuente oficial identificada; 37/51 **sin** revisión específica de norma de construcción; **0/51 con sign-off fiscal real**. Las 14 fuentes encontradas no equivalen a 14 políticas completas.
+**Conteo verificado por este registro:** 22/51 jurisdicciones con alguna fuente oficial identificada; 29/51 **sin** revisión específica de norma de construcción; **0/51 con sign-off fiscal real**. Las 22 fuentes identificadas no equivalen a 14 políticas completas.
 
 ## 3. Línea base salarial nacional verificable (NO tarifa de contratista)
 
@@ -151,4 +159,4 @@ type UsTaxAndPriceEvidence = {
 - **Precios reales de proveedores:** no se recibieron facturas/quotes autorizadas ni derechos de catálogo retail nacional. No se obtuvieron ni se recrearon 51×24 precios por fórmula.
 - **Contabilidad real de SEMSE:** no se consultaron cuentas personales/Finances, ni libros y costos reales reconciliados de SEMSE; márgenes comerciales no calibrados.
 - **Firma legal/fiscal:** ningún profesional validó Q10/Q11; no cambiar `DRAFT → APPROVED` por disponer de guías oficiales.
-- **Cobertura tributaria nacional exhaustiva:** solo primer contacto documental de 14 estados; faltan 37, y reglas locales/efectividad/contratos faltan aun en los 14.
+- **Cobertura tributaria nacional exhaustiva:** solo primer contacto documental de 22 estados; faltan 29, y reglas locales/efectividad/contratos faltan aun en los 14.
