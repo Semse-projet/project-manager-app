@@ -619,7 +619,11 @@ export class JobsService {
     }
 
     assertTransitionAuthorized(input.targetStatus, input.orgId, input.roles, ownership);
+    assertNotReservationFlowTransition(job.status, input.targetStatus, input.roles);
 
+    if (input.targetStatus === "in_progress" && (job.status === "accepted" || job.status === "awarded")) {
+      await this.assertSignedContract(input.tenantId, input.jobId);
+    }
     if (input.targetStatus === "completed" || input.targetStatus === "cancelled") {
       await this.assertClosure(input.targetStatus, input.tenantId, input.jobId);
     }
@@ -672,6 +676,17 @@ export class JobsService {
       tenantId: input.tenantId,
       job: updated,
     });
+  }
+
+  /** STATE_MACHINES.md: ACCEPTED -> IN_PROGRESS requires an active contractual basis. */
+  private async assertSignedContract(tenantId: string, jobId: string): Promise<void> {
+    const contract = await this.prisma.contract.findFirst({
+      where: { jobId, deletedAt: null, job: { tenantId } },
+      select: { signedClientAt: true, signedProAt: true },
+    });
+    if (!contract?.signedClientAt || !contract.signedProAt) {
+      throw new ConflictException("job cannot start without a contract signed by both parties");
+    }
   }
 
   /**
@@ -905,6 +920,23 @@ export function jobClosureBlockers(
 
   if (input.activeDisputes > 0) blockers.push(`${input.activeDisputes} dispute(s) still open`);
   return blockers;
+}
+
+/**
+ * Reserving, accepting and releasing a reservation belong to the reservation
+ * flow (ReservationsRepository: client approval, expiry, project creation).
+ * Through the generic transition route they would move the job without the
+ * reservation, so only ops (an audited override) may use it for them.
+ */
+export function assertNotReservationFlowTransition(fromStatus: JobStatus, targetStatus: JobStatus, roles: string[]): void {
+  if (roles.includes("OPS_ADMIN") || roles.includes("SYSTEM")) return;
+  const reservationStep =
+    targetStatus === "reserved" || targetStatus === "accepted" || (fromStatus === "reserved" && targetStatus === "posted");
+  if (reservationStep) {
+    throw new UnprocessableEntityException(
+      `'${fromStatus}' -> '${targetStatus}' goes through the reservation flow, not the job transition route`
+    );
+  }
 }
 
 export function assertTransitionAuthorized(

@@ -84,3 +84,15 @@ Codex señaló, con razón, que el permiso dejaba al cliente completar un trabaj
 | En vivo: recorrido completo y spec de #1112 | sin cambios (todo 2xx; 4/4) |
 
 **Hallazgo aparte, sin cambio:** `disputes:create` sólo lo tienen `CLIENT` y `OPS_ADMIN`, así que el profesional no puede abrir una disputa desde `POST /v1/disputes`. `STATE_MACHINES.md` reserva al profesional la transición del trabajo a `DISPUTE`, que es otra cosa. Hay que confirmar si el profesional debe poder abrir la disputa como entidad.
+
+## Tercera corrección (revisión de Codex): contrato para empezar y pasos de reserva
+
+- **Empezar exige contrato firmado.** `in_progress` desde `accepted` o `awarded` requiere un contrato del trabajo firmado por las dos partes (`signedClientAt` y `signedProAt`). Lo pide `STATE_MACHINES.md`: «requiere base contractual mínima activa». Si no, responde 409. Vale para cualquier rol; volver de `review` a `in_progress` no cambia.
+- **Los pasos de reserva no pasan por la ruta genérica.** Reservar, aceptar y soltar una reserva (`-> reserved`, `-> accepted`, `reserved -> posted`) se rechazan con 422 salvo para `OPS_ADMIN`. Si no, el profesional podía aceptar su propia reserva sin el cliente y sin comprobar la caducidad, y la reserva quedaba `ACTIVE` sin proyecto. Publicar un borrador sigue permitido.
+
+| Prueba | Resultado |
+|---|---|
+| `job-transition-prerequisites.test.ts` (nuevo) | 4/4 (18/18 junto con los de cierre y los del servicio y el controlador de jobs) |
+| En vivo: el profesional acepta su propia reserva | 422 |
+| En vivo: empezar con la reserva aceptada y sin contrato | 409 |
+| En vivo: recorrido completo y spec de #1112 | sin cambios (todo 2xx; 4/4) |
