@@ -60,3 +60,21 @@ PLAYWRIGHT_BASE_URL=http://localhost:3000 pnpm test:e2e:semse:es-en
 ```
 
 Si la versión de Playwright del repo pide un Chromium que no está instalado y no se puede descargar, se usa una config local **no versionada** que extienda `playwright.semse.config.ts` con `use.launchOptions.executablePath` apuntando al Chromium disponible. Nunca hay que modificar la config del repo para eso.
+
+## 6. Specs de API con identidad por cabeceras (contratación)
+
+`tests/e2e-semse/job-lifecycle-rating.spec.ts` recorre la contratación hablando directamente con la API:
+
+- recorrido feliz: trabajo → reserva → contrato → firmas → escrow `mock` → hito → evidencia → liberación → `completed` → valoraciones y reputación;
+- casos negativos de cada paso.
+
+Usa la identidad por cabeceras (`x-tenant-id`, `x-org-id`, `x-user-id`, `x-roles`) y las organizaciones y usuarios demo de la semilla. Necesita una **segunda API, sólo local**, en `:4122`:
+
+```bash
+(cd apps/api && env -u AUTH_SECRET SEMSE_ALLOW_HEADER_IDENTITY=true NODE_ENV=test PORT=4122 node dist/main.js)
+SEMSE_API_URL=http://127.0.0.1:4122 pnpm exec playwright test -c playwright.semse.config.ts tests/e2e-semse/job-lifecycle-rating.spec.ts
+```
+
+La API sólo acepta cabeceras con las tres condiciones: sin `AUTH_SECRET`, con `SEMSE_ALLOW_HEADER_IDENTITY=true` y con `NODE_ENV` en `development` o `test` (`headerIdentityAllowed`). Si la API no responde o no acepta cabeceras, el spec se salta.
+
+`dispute-resolution.spec.ts` y `edge-cases-payment-rating.spec.ts` siguen desfasados respecto a la API actual (rutas como `POST /v1/escrow/fund` o `PATCH /v1/disputes/:id` ya no existen) y fallan.
