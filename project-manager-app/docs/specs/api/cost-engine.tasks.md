@@ -132,3 +132,9 @@ date: "2026-10-30"
 - [ ] [T-005j] Definir normalización comercial por `SKU/UOM/alcance`, tax/entrega/garantía y scores **separados** de confianza y adecuación; calibrar pesos con datos reales, sin aprobar los ilustrativos 35/30/20/15.
 - [ ] [T-005k] Diseñar escenarios por paquetes disjuntos `SELF_PERFORM / SUBCONTRACT / HYBRID` con pruebas anti-doble-conteo, revisión fiscal, licencias y reproducción de costTrace.
 - [ ] [T-005l] Preparar dataset consentido de costos reales reconciliados, evaluación temporal fuera de muestra, revisión humana y plan de sombra/rollback por oficio y región.
+
+## T-005 — trazabilidad de fuentes preexistentes (fase documental)
+
+- [x] [T-005m] [Inventario S01–S12, con 12 claves BLS y estatus de permisos](./cost-engine.t005-source-rights-inventory-2026-11-06.md) completado **como auditoría de fuentes del código**, no como aprobación comercial.
+- [ ] [T-005n] Ampliar el inventario de familias a todas las partidas económicas y productividades de 24 motores, ProTools y rutas alternas de presupuestación, con origen, permiso y costo verificado por SKU y región.
+- [ ] [T-005o] Conciliar estado real del caché con T-008c autorizado (solo lectura) y resultados de #1101; obtener dictamen legal de fuentes restringidas y contrato de datos SaaS por proveedor antes de habilitar integración.
