@@ -43,6 +43,27 @@ Este documento amplía [el expediente inicial de precios](./cost-engine.t005-pri
 | Oregon | Sin sales/use tax transaccional general; el CAT de negocios no es sales tax sobre materiales; solo fuente general. | [fuente oficial](https://www.oregon.gov/dor/programs/businesses/Pages/Sales-Tax.aspx) |
 | Utah | Publication 42 (rev. julio 2026) clasifica fixtures/materiales que pasan a real property vs venta e instalación de tangible personal property. | [fuente oficial](https://tax.utah.gov/forms-pubs/pub-42/) |
 
+| Arkansas | 26 CAR §30-1003: contratista consumidor de materiales; distinguir servicios no gravables de mecánicos y ventas de mercancía; comprobar código estatal y local. | [fuente estatal oficial](https://codeofarrules.arkansas.gov/Rules/Rule?chapterID=33&levelType=section&partID=971&sectionID=63002&subChapterID=241&subPartID=9368&titleID=26) |
+| Connecticut | DRS exige Sales/Use Tax Permit a contratistas incluso si su servicio no grava; remite a guía 2018(2), que debe contrastarse con reglas actuales. | [fuente estatal oficial](https://portal.ct.gov/DRS/Sales-Tax/Tax-Information) |
+| Idaho | Contratista que incorpora material a inmueble paga impuesto, incluso en contratos gubernamentales; materiales proporcionados sin impuesto pueden generar use tax. | [fuente estatal oficial](https://tax.idaho.gov/taxes/sales-use/stguides-for-certain-groups-2/sales-tax-governments/contractors/) |
+| Iowa | Guía distingue remodel/new construction (generalmente contratista paga compra) de reparaciones/instalaciones gravables al cliente; posible crédito por impuesto pagado al proveedor. | [fuente estatal oficial](https://revenue.iowa.gov/taxes/tax-guidance/sales-use-excise-tax/iowa-contractors-guide) |
+| Kansas | Pub KS-1525 diferencia remodelación comercial: mano de obra potencialmente gravada frente a residencial y construcción original exenta de labor; material e impuestos locales siguen reglas. | [fuente estatal oficial](https://www.ksrevenue.gov/pub1525.html) |
+| Louisiana | Boletín 25-023 (2025, aclaración de mayo 2026): exención de compras específicas de materiales/alquileres en ciertos proyectos públicos desde julio-2025 exige certificación R-85012/R-85014; **no** prueba general de obra privada. | [fuente estatal oficial](https://dam.ldr.la.gov/lawspolicies/RIB%2025-023%20Exemption%20for%20Contractors%20and%20Subcontractors%20of%20Public%20Projects.pdf) |
+| Maine | Boletín 4 revisado dic-2025: contractor consumidor de materiales en mejora inmueble; transferencia de título antes de instalación/retailer puede cambiar obligación de sales tax. | [fuente estatal oficial](https://www.maine.gov/revenue/sites/maine.gov.revenue/files/inline-files/IB04%20FINAL%20Contractors%20and%20Subcontractors_2025_12_22.pdf) |
+| Mississippi | Obra no residencial de más de $10k sujeta a contractor's tax 3.5% sobre monto contrato, con MPC y pre-pago/bond según umbrales; viviendas y oficios tienen reglas diferentes. | [fuente estatal oficial](https://www.dor.ms.gov/business/sales-use-tax/guide-construction-contractors) |
+| Missouri | Carta ruling 24-nov-2025: en adición inmobiliaria lump sum, contratista paga tax materiales y no debe repercutirlo como sales tax sobre contrato; **vinculante solo al contribuyente destinatario**, no norma universal. | [fuente estatal oficial](https://dor.mo.gov/rulings/show/8374) |
+| Nevada | Contratista consumidor de materiales; se considera impuesto de compra o use tax, créditos por impuesto de otro estado y supuestos de venta retail/fabricación. | [fuente estatal oficial](https://tax.nv.gov/education/construction/) |
+| North Dakota | Consumidor de materiales incorporados a real property, impuestos locales y créditos por compras interestatales; costos pueden transferirse como materiales pero no itemizarse como sales tax al cliente. | [fuente estatal oficial](https://www.tax.nd.gov/tax-responsibilities-contractors) |
+| Ohio | El contratista consume material incorporado; alfombras instaladas y landscaping pueden ser venta de tangible personal property gravada en lugar de construcción. | [fuente estatal oficial](https://tax.ohio.gov/business/sales-and-use-tax/taxability) |
+| Oklahoma | Contratista consume material; obra de mejora inmueble no grava factura de mano de obra/contrato; no residentes exigen registro propio y posibles bonds. | [fuente estatal oficial](https://oklahoma.gov/tax/helpcenter/businesses.html) |
+| Rhode Island | Reglamento 280-RICR-20-70-54: contratista consumidor de material en contrato general, T&M con tope, cost-plus; excepciones al vender material por precio pactado o operar retailer. | [fuente estatal oficial](https://rules.sos.ri.gov/regulations/part/280-20-70-54) |
+| South Carolina | Manual DOR septiembre 2025 (cubre legislatura hasta 2024): contratista consumidor de materiales; compra interestatal y crédito estatal/local, distinguir venta retail e instalación. | [fuente estatal oficial](https://dor.sc.gov/sites/dor/files/Documents/Policy%20Manuals/SC%20Sales%20Tax%20Manual.pdf) |
+| Tennessee | SUT-21: contratista de mejoras inmobiliarias normalmente consumidor de materiales y servicios imponibles adquiridos; distinguir impuesto de compra de impuesto al cliente. | [fuente estatal oficial](https://revenue.support.tn.gov/hc/en-us/articles/360058171112-SUT-21-Sales-and-Use-Tax-for-Contractors-Overview) |
+| Vermont | Contratista paga impuesto de compra de materiales incorporados y no normalmente factura sales tax; hay elección especial para retailer/manufacturer ocasional y tributos locales. | [fuente estatal oficial](https://tax.vermont.gov/business/industry/contractors) |
+| West Virginia | TSD 310 rev julio-2024: capital improvement no grava trabajo al cliente; repair/maintenance que no califica puede gravar labor y material; **nueva exención escolar julio-2026** debe contrastarse. | [fuente estatal oficial](https://tax.wv.gov/Documents/TSD/tsd310.pdf) |
+| Wyoming | En general contratista consumidor de materiales incorporados; no suele requerir permiso retail, pero el no residente o subs de fuera tienen obligaciones específicas. | [fuente estatal oficial](https://excise-tax-div.wyo.gov/general-administrative/excise-tax-faqs) |
+| Washington DC | Fuente general DC sobre sales/use tax e importes; **no establece tratamiento de construcción**; requiere regla específica de obra y contratista antes de habilitar. | [fuente estatal oficial](https://cfo.dc.gov/page/tax-rates-and-revenues-sales-and-use-taxes-alcoholic-beverage-taxes-and-tobacco-taxes) |
+
 **Advertencia metodológica:** una fuente pública puede ser antigua o no cubrir todas las excepciones vigentes. El estado `PRIMERA_FUENTE_REVISADA` indica **solo** que se leyó una guía específica, **NO** que se revisó el estatuto completo, la tasa local, el tratamiento de marketplace ni que se aprobó usarla en producción. El resto de estados quedan sin fuente fiscal específica verificada en este trabajo. El [cuadro Tax Foundation, 1-jul-2026](https://taxfoundation.org/data/all/state/2026-sales-tax-rates-midyear/) sirve para control general de *tasas estatales y promedios locales*, nunca como oráculo de taxable base de una obra.
 
 ## 2. Registro de cobertura de las 51 jurisdicciones (NO implica certificación)
@@ -54,56 +75,56 @@ Este documento amplía [el expediente inicial de precios](./cost-engine.t005-pri
 | AL | PRIMERA_FUENTE_REVISADA | [fuente oficial](https://www.revenue.alabama.gov/faqs/who-is-a-contractor/) | **UNDETERMINED** |
 | AK | PARCIAL_GENERAL_LOCAL | [fuente oficial](https://www.commerce.alaska.gov/web/dcra/localgovernmentresourcedesk/taxationassessment/salestax.aspx) | **UNDETERMINED** |
 | AZ | PRIMERA_FUENTE_REVISADA | [fuente oficial](https://azdor.gov/transaction-privilege-tax/contracting-guidelines) | **UNDETERMINED** |
-| AR | PENDIENTE_DOR_ESTATAL | SIN FUENTE ESPECÍFICA DE CONSTRUCCIÓN REVISADA | **UNDETERMINED** |
+| AR | PRIMERA_FUENTE_NORMATIVA | [fuente oficial](https://codeofarrules.arkansas.gov/Rules/Rule?chapterID=33&levelType=section&partID=971&sectionID=63002&subChapterID=241&subPartID=9368&titleID=26) | **UNDETERMINED** |
 | CA | PRIMERA_FUENTE_REVISADA | [fuente oficial](https://cdtfa.ca.gov/industry/construction-contractors/industry-topics.htm) | **UNDETERMINED** |
 | CO | PARCIAL_LOCAL | [fuente oficial](https://tax.colorado.gov/sales-tax-guide) | **UNDETERMINED** |
-| CT | PENDIENTE_DOR_ESTATAL | SIN FUENTE ESPECÍFICA DE CONSTRUCCIÓN REVISADA | **UNDETERMINED** |
+| CT | PARCIAL_REGISTRO | [fuente oficial](https://portal.ct.gov/DRS/Sales-Tax/Tax-Information) | **UNDETERMINED** |
 | DE | PARCIAL_GENERAL | [fuente oficial](https://revenue.delaware.gov/business-tax-forms/doing-business-in-delaware/step-4-gross-receipts-taxes/) | **UNDETERMINED** |
 | FL | PRIMERA_FUENTE_REVISADA | [fuente oficial](https://floridarevenue.com/Forms_library/gt800007.pdf) | **UNDETERMINED** |
 | GA | PRIMERA_FUENTE_REVISADA | [fuente oficial](https://dor.georgia.gov/contractor-faqs) | **UNDETERMINED** |
 | HI | PARCIAL_GENERAL | [fuente oficial](https://tax.hawaii.gov/get/) | **UNDETERMINED** |
-| ID | PENDIENTE_DOR_ESTATAL | SIN FUENTE ESPECÍFICA DE CONSTRUCCIÓN REVISADA | **UNDETERMINED** |
+| ID | PRIMERA_FUENTE_REVISADA | [fuente oficial](https://tax.idaho.gov/taxes/sales-use/stguides-for-certain-groups-2/sales-tax-governments/contractors/) | **UNDETERMINED** |
 | IL | PARCIAL_CONSTRUCTOR | [fuente oficial](https://tax.illinois.gov/research/taxinformation/sales/rot/pio-101.html) | **UNDETERMINED** |
 | IN | PRIMERA_FUENTE_REVISADA | [fuente oficial](https://www.in.gov/dor/files/sib60.pdf) | **UNDETERMINED** |
-| IA | PENDIENTE_DOR_ESTATAL | SIN FUENTE ESPECÍFICA DE CONSTRUCCIÓN REVISADA | **UNDETERMINED** |
-| KS | PENDIENTE_DOR_ESTATAL | SIN FUENTE ESPECÍFICA DE CONSTRUCCIÓN REVISADA | **UNDETERMINED** |
+| IA | PRIMERA_FUENTE_REVISADA | [fuente oficial](https://revenue.iowa.gov/taxes/tax-guidance/sales-use-excise-tax/iowa-contractors-guide) | **UNDETERMINED** |
+| KS | PRIMERA_FUENTE_REVISADA | [fuente oficial](https://www.ksrevenue.gov/pub1525.html) | **UNDETERMINED** |
 | KY | PARCIAL_FUENTE_HISTORICA | [fuente oficial](https://revenue.ky.gov/DOR%20Training%20Materials/103%20KAR%2026.070.%20Construction%20contractors.pdf) | **UNDETERMINED** |
-| LA | PENDIENTE_DOR_ESTATAL | SIN FUENTE ESPECÍFICA DE CONSTRUCCIÓN REVISADA | **UNDETERMINED** |
-| ME | PENDIENTE_DOR_ESTATAL | SIN FUENTE ESPECÍFICA DE CONSTRUCCIÓN REVISADA | **UNDETERMINED** |
+| LA | PARCIAL_PROYECTO_PUBLICO | [fuente oficial](https://dam.ldr.la.gov/lawspolicies/RIB%2025-023%20Exemption%20for%20Contractors%20and%20Subcontractors%20of%20Public%20Projects.pdf) | **UNDETERMINED** |
+| ME | PRIMERA_FUENTE_REVISADA | [fuente oficial](https://www.maine.gov/revenue/sites/maine.gov.revenue/files/inline-files/IB04%20FINAL%20Contractors%20and%20Subcontractors_2025_12_22.pdf) | **UNDETERMINED** |
 | MD | PARCIAL_FUENTE_HISTORICA | [fuente oficial](https://www.marylandtaxes.gov/forms/Business_Tax_Tips/bustip18.pdf) | **UNDETERMINED** |
 | MA | PRIMERA_FUENTE_REVISADA | [fuente oficial](https://www.mass.gov/guides/sales-and-use-tax) | **UNDETERMINED** |
 | MI | PRIMERA_FUENTE_REVISADA | [fuente oficial](https://www.michigan.gov/taxes/rep-legal/rab/2025-revenue-administrative-bulletins/revenue-administrative-bulletin-2025-18) | **UNDETERMINED** |
 | MN | PRIMERA_FUENTE_REVISADA | [fuente oficial](https://www.revenue.state.mn.us/guide/general-contractors-and-subcontractors-applies-all-contractor-types) | **UNDETERMINED** |
-| MS | PENDIENTE_DOR_ESTATAL | SIN FUENTE ESPECÍFICA DE CONSTRUCCIÓN REVISADA | **UNDETERMINED** |
-| MO | PENDIENTE_DOR_ESTATAL | SIN FUENTE ESPECÍFICA DE CONSTRUCCIÓN REVISADA | **UNDETERMINED** |
+| MS | PRIMERA_FUENTE_REVISADA | [fuente oficial](https://www.dor.ms.gov/business/sales-use-tax/guide-construction-contractors) | **UNDETERMINED** |
+| MO | PARCIAL_CARTA_CONTRIBUYENTE | [fuente oficial](https://dor.mo.gov/rulings/show/8374) | **UNDETERMINED** |
 | MT | PARCIAL_GENERAL | [fuente oficial](https://revenue.mt.gov/taxes/general-sales-tax) | **UNDETERMINED** |
 | NE | PRIMERA_FUENTE_REVISADA | [fuente oficial](https://revenue.nebraska.gov/about/frequently-asked-questions/nebraska-construction-contractors-faqs) | **UNDETERMINED** |
-| NV | PENDIENTE_DOR_ESTATAL | SIN FUENTE ESPECÍFICA DE CONSTRUCCIÓN REVISADA | **UNDETERMINED** |
+| NV | PRIMERA_FUENTE_REVISADA | [fuente oficial](https://tax.nv.gov/education/construction/) | **UNDETERMINED** |
 | NH | PARCIAL_GENERAL | [fuente oficial](https://www.revenue.nh.gov/faq/does-new-hampshire-have-sales-tax) | **UNDETERMINED** |
 | NJ | PRIMERA_FUENTE_REVISADA | [fuente oficial](https://www.nj.gov/treasury/taxation/sales_use_tax_FAQ.shtml) | **UNDETERMINED** |
 | NM | PARCIAL_GRT_NTTC | [fuente oficial](https://www.tax.newmexico.gov/businesses/non-taxable-transaction-certificates-nttc/) | **UNDETERMINED** |
 | NY | PRIMERA_FUENTE_REVISADA | [fuente oficial](https://www.tax.ny.gov/pubs_and_bulls/publications/sales/contractors.htm) | **UNDETERMINED** |
 | NC | PRIMERA_FUENTE_REVISADA | [fuente oficial](https://www.ncdor.gov/taxes-forms/sales-and-use-tax/real-property-contracts) | **UNDETERMINED** |
-| ND | PENDIENTE_DOR_ESTATAL | SIN FUENTE ESPECÍFICA DE CONSTRUCCIÓN REVISADA | **UNDETERMINED** |
-| OH | PENDIENTE_DOR_ESTATAL | SIN FUENTE ESPECÍFICA DE CONSTRUCCIÓN REVISADA | **UNDETERMINED** |
-| OK | PENDIENTE_DOR_ESTATAL | SIN FUENTE ESPECÍFICA DE CONSTRUCCIÓN REVISADA | **UNDETERMINED** |
+| ND | PRIMERA_FUENTE_REVISADA | [fuente oficial](https://www.tax.nd.gov/tax-responsibilities-contractors) | **UNDETERMINED** |
+| OH | PRIMERA_FUENTE_REVISADA | [fuente oficial](https://tax.ohio.gov/business/sales-and-use-tax/taxability) | **UNDETERMINED** |
+| OK | PRIMERA_FUENTE_REVISADA | [fuente oficial](https://oklahoma.gov/tax/helpcenter/businesses.html) | **UNDETERMINED** |
 | OR | PARCIAL_GENERAL | [fuente oficial](https://www.oregon.gov/dor/programs/businesses/Pages/Sales-Tax.aspx) | **UNDETERMINED** |
 | PA | PARCIAL_CONSTRUCTOR | [fuente oficial](https://www.pa.gov/agencies/revenue/resources/tax-types-and-information/sales-use-and-hotel-occupancy-tax/building-machinery-and-equipment) | **UNDETERMINED** |
-| RI | PENDIENTE_DOR_ESTATAL | SIN FUENTE ESPECÍFICA DE CONSTRUCCIÓN REVISADA | **UNDETERMINED** |
-| SC | PENDIENTE_DOR_ESTATAL | SIN FUENTE ESPECÍFICA DE CONSTRUCCIÓN REVISADA | **UNDETERMINED** |
+| RI | PRIMERA_FUENTE_NORMATIVA | [fuente oficial](https://rules.sos.ri.gov/regulations/part/280-20-70-54) | **UNDETERMINED** |
+| SC | PRIMERA_FUENTE_MANUAL_2025 | [fuente oficial](https://dor.sc.gov/sites/dor/files/Documents/Policy%20Manuals/SC%20Sales%20Tax%20Manual.pdf) | **UNDETERMINED** |
 | SD | PRIMERA_FUENTE_REVISADA | [fuente oficial](https://dor.sd.gov/businesses/taxes/contractors-excise-tax/) | **UNDETERMINED** |
-| TN | PENDIENTE_DOR_ESTATAL | SIN FUENTE ESPECÍFICA DE CONSTRUCCIÓN REVISADA | **UNDETERMINED** |
+| TN | PRIMERA_FUENTE_REVISADA | [fuente oficial](https://revenue.support.tn.gov/hc/en-us/articles/360058171112-SUT-21-Sales-and-Use-Tax-for-Contractors-Overview) | **UNDETERMINED** |
 | TX | PRIMERA_FUENTE_REVISADA | [fuente oficial](https://comptroller.texas.gov/taxes/publications/94-116.php) | **UNDETERMINED** |
 | UT | PRIMERA_FUENTE_REVISADA | [fuente oficial](https://tax.utah.gov/forms-pubs/pub-42/) | **UNDETERMINED** |
-| VT | PENDIENTE_DOR_ESTATAL | SIN FUENTE ESPECÍFICA DE CONSTRUCCIÓN REVISADA | **UNDETERMINED** |
+| VT | PRIMERA_FUENTE_REVISADA | [fuente oficial](https://tax.vermont.gov/business/industry/contractors) | **UNDETERMINED** |
 | VA | PRIMERA_FUENTE_REVISADA | [fuente oficial](https://www.tax.virginia.gov/laws-rules-decisions/tax-bulletins/24-3) | **UNDETERMINED** |
 | WA | PRIMERA_FUENTE_REVISADA | [fuente oficial](https://dor.wa.gov/education/industry-guides/construction/construction-tax-matrix) | **UNDETERMINED** |
-| WV | PENDIENTE_DOR_ESTATAL | SIN FUENTE ESPECÍFICA DE CONSTRUCCIÓN REVISADA | **UNDETERMINED** |
+| WV | PRIMERA_FUENTE_REV_2024 | [fuente oficial](https://tax.wv.gov/Documents/TSD/tsd310.pdf) | **UNDETERMINED** |
 | WI | PRIMERA_FUENTE_REVISADA | [fuente oficial](https://www.revenue.wi.gov/Pages/FAQS/pcs-topics.aspx) | **UNDETERMINED** |
-| WY | PENDIENTE_DOR_ESTATAL | SIN FUENTE ESPECÍFICA DE CONSTRUCCIÓN REVISADA | **UNDETERMINED** |
-| DC | PENDIENTE_DOR_ESTATAL | SIN FUENTE ESPECÍFICA DE CONSTRUCCIÓN REVISADA | **UNDETERMINED** |
+| WY | PRIMERA_FUENTE_REVISADA | [fuente oficial](https://excise-tax-div.wyo.gov/general-administrative/excise-tax-faqs) | **UNDETERMINED** |
+| DC | PARCIAL_GENERAL | [fuente oficial](https://cfo.dc.gov/page/tax-rates-and-revenues-sales-and-use-taxes-alcoholic-beverage-taxes-and-tobacco-taxes) | **UNDETERMINED** |
 
-**Conteo verificado por este registro:** 31/51 jurisdicciones con al menos una fuente oficial tributaria inicial (incluye referencias generales); 20/51 **sin fuente estatal fiscal inicial en este registro**; **0/51 con aprobación fiscal firmada**. Alaska, Delaware, Montana, New Hampshire y Oregon tienen aquí **solo fuentes generales, no doctrina específica completa de construcción**. Las 31 fichas no constituyen 31 políticas completas.
+**Cobertura inicial de fuentes estatales: 51/51 jurisdicciones (50 estados y DC) con al menos una referencia oficial, NO 51 políticas fiscales verificadas.** 0/51 tiene revisión firmada ni reglas tributarias plenamente certificadas para SEMSE. Algunas fichas son **solo fuentes generales o parciales**: AK, DE, MT, NH, OR, DC, CT, LA y MO, entre otras. El material de Missouri se refiere a una carta para un contribuyente, y el de Louisiana a ciertas exenciones de obra pública, no normas completas de obra privada. Aun en estados con guías específicas, faltan condados/distritos locales, fecha vigente, clase de contrato, rol prime/sub, marketplace, excepciones, tasas y oráculos de CPA. **Una fuente oficial enlazada no habilita el cobro ni constituye dictamen.**
 
 ## 3. Línea base salarial nacional verificable (NO tarifa de contratista)
 
@@ -169,4 +190,4 @@ type UsTaxAndPriceEvidence = {
 - **Precios reales de proveedores:** no se recibieron facturas/quotes autorizadas ni derechos de catálogo retail nacional. No se obtuvieron ni se recrearon 51×24 precios por fórmula.
 - **Contabilidad real de SEMSE:** no se consultaron cuentas personales/Finances, ni libros y costos reales reconciliados de SEMSE; márgenes comerciales no calibrados.
 - **Firma legal/fiscal:** ningún profesional validó Q10/Q11; no cambiar `DRAFT → APPROVED` por disponer de guías oficiales.
-- **Cobertura tributaria nacional exhaustiva:** fuente fiscal oficial inicial para 31 jurisdicciones, faltan 20 y siguen sin validarse de forma exhaustiva reglas locales, vigencia, tipo de contrato, clasificación, marketplace y excepciones en las 31; 0 políticas firmadas.
+- **Cobertura tributaria nacional exhaustiva:** 51/51 con una primera fuente estatal oficial identificada; siguen sin verificarse exhaustivamente los aspectos fiscales relevantes por oficio, localidad, tipo de contrato, rol, marketplace, exenciones y vigencia en **51/51**; 0 políticas firmadas o activables. Estados con solo fuentes generales siguen en investigación.
