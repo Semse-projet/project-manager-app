@@ -191,10 +191,7 @@ async function cleanup(runId) {
           tx.org.findUnique({ where: { id: p.orgId }, select: { tenantId: true, name: true } }),
           tx.user.findUnique({ where: { id: p.userId }, select: { email: true } }),
         ]);
-        if (!t) {
-          assert.ok(!o && !u, "Orphan synthetic record; manual cleanup required");
-          continue;
-        }
+        assert.ok(t, "Audit-retaining tenant shell is missing; cleanup cannot be certified");
         assert.equal(t.name, p.name, "Tenant marker mismatch; cleanup stopped");
         if (o) {
           assert.equal(o.tenantId, p.tenantId, "Org/tenant mismatch; cleanup stopped");
@@ -286,6 +283,28 @@ async function cleanup(runId) {
   }
   console.log("CLEANUP PASS: temporary users, orgs and sessions removed; audit-only tenant shells archived for run " + runId);
 }
+async function verifyAuthAudit(people) {
+  // Session issuance records its audit event fire-and-forget; it may arrive
+  // after login has returned. Bounded polling protects the claim that the
+  // archived audit-only tenant actually retains both auth events.
+  for (const p of people) {
+    let witnessed = new Set();
+    for (let attempt = 0; attempt < 8; attempt++) {
+      const rows = await prisma.auditLog.findMany({
+        where: { tenantId: p.tenantId,
+          action: { in: ["auth.session.issued", "auth.session.revoked"] } },
+        select: { action: true },
+      });
+      witnessed = new Set(rows.map((row) => row.action));
+      if (witnessed.has("auth.session.issued") && witnessed.has("auth.session.revoked")) break;
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+    assert.ok(witnessed.has("auth.session.issued") && witnessed.has("auth.session.revoked"),
+      "Synthetic auth audit events missing; abort PASS and retain archived audit shell");
+  }
+  console.log("AUDIT PASS: issued/revoked auth events durable for both synthetic tenants.");
+}
+
 async function smoke(people, password) {
   for (const p of people) {
     const login = await request("POST", "/v1/auth/login", {
@@ -354,6 +373,7 @@ const runId = cleanupArgument
 const people = ids(runId);
 console.log("Observer smoke run " + runId + " (no secrets will be printed)");
 let success = false;
+let fixturesCreated = false;
 try {
   if (cleanupArgument) {
     await preflight({ cleanupOnly: true });
@@ -361,15 +381,17 @@ try {
   } else {
     await preflight();
     const password = await prepare(runId, people);
+    fixturesCreated = true;
     console.log("FIXTURES CREATED: two synthetic tenants with separate OPS_ADMIN accounts");
     await smoke(people, password);
+    await verifyAuthAudit(people);
     success = true;
   }
 } catch (error) {
   process.exitCode = 1;
   console.error("Observer smoke FAILED for run " + runId + " (details intentionally redacted)");
 } finally {
-  if (!cleanupArgument) {
+  if (!cleanupArgument && fixturesCreated) {
     try {
       await cleanup(runId);
     } catch {
