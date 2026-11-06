@@ -799,15 +799,27 @@ export class JobsService {
     if (!job) return;
     if (job.status === "COMPLETED" || job.status === "CANCELLED") return;
 
-    await this.jobsRepository.updateStatus({
-      tenantId: input.tenantId,
-      jobId: input.jobId,
-      status: "completed",
-      orgId: job.clientOrgId,
-      actorType: "system",
-      actorId: "SYSTEM",
-      requestId: input.requestId,
-    });
+    // Same closure rule as a manual completion, under the same job row lock: an
+    // auto-completion must not close a job whose escrow is short, still pending
+    // or disputed, or that job could no longer be funded or protected.
+    try {
+      await this.jobsRepository.updateStatus({
+        tenantId: input.tenantId,
+        jobId: input.jobId,
+        status: "completed",
+        orgId: job.clientOrgId,
+        actorType: "system",
+        actorId: "SYSTEM",
+        requestId: input.requestId,
+        beforeWrite: (tx) => this.assertClosure("completed", input.tenantId, input.jobId, tx),
+      });
+    } catch (error) {
+      if (error instanceof ConflictException) {
+        this.logger.warn(`[Jobs] systemCompleteJob: job ${input.jobId} left open: ${error.message}`);
+        return;
+      }
+      throw error;
+    }
 
     const membership = await this.prisma.membership.findFirst({
       where: { orgId: job.clientOrgId },

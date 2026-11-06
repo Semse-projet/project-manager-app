@@ -47,12 +47,15 @@ function service(state: { from: string; milestones?: string[]; transactions?: Tx
       },
     },
     workspaceMemoryEntry: { async findMany() { return []; } },
+    job: { async findFirst() { return { id: "job_1", status: state.from.toUpperCase(), clientOrgId: "org_client_1", reservations: [] }; } },
+    membership: { async findFirst() { return null; } },
   };
   const noop = { async append() { return undefined; }, async emit() { return undefined; } };
   const svc = new JobsService(repository as never, noop as never, noop as never, noop as never, prisma as never, undefined);
   const transition = (targetStatus: string, roles = ["CLIENT"], orgId = "org_client_1") =>
     svc.transitionJob({ tenantId: "tenant_1", orgId, userId: "usr_1", roles, jobId: "job_1", targetStatus: targetStatus as never, requestId: "req_1" });
-  return { transition, updates, seen };
+  const autoComplete = () => svc.systemCompleteJob({ tenantId: "tenant_1", jobId: "job_1", requestId: "req_auto" });
+  return { transition, autoComplete, updates, seen };
 }
 
 const deposit = (amount: number): Txn => ({ type: "DEPOSIT", status: "SUCCEEDED", amount });
@@ -148,4 +151,17 @@ test("other transitions do not run the closure check", async () => {
   const { transition, seen } = service({ from: "in_progress", milestones: ["DRAFT"], transactions: [deposit(500)], activeDisputes: 1 });
   await transition("review", ["PRO"], "org_pro_1");
   assert.equal(seen.length, 0);
+});
+
+test("auto-completion follows the same closure rule and leaves an unsettled job open", async () => {
+  // MilestonesService.approve fires auto-release and auto-completion independently:
+  // completing an underfunded or unreleased job would leave it unpayable (deposits
+  // into closed jobs are refused).
+  const short = service({ from: "review", milestones: ["APPROVED"], transactions: [deposit(200)] });
+  await short.autoComplete();
+  assert.deepEqual(short.updates, []);
+
+  const settled = service({ from: "review", milestones: ["APPROVED"], transactions: [deposit(200), release(200)] });
+  await settled.autoComplete();
+  assert.deepEqual(settled.updates.map((u) => u.status), ["completed"]);
 });

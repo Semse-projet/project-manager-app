@@ -161,3 +161,18 @@ Ahora la comprobación de disputa existente y el alta van en una transacción qu
 | Tests de disputas (política, servicio, controlador y ámbito de recursos) | 14/14 |
 | Tests unitarios de la API (runner completo) | 3809 pasan. Fallan 8 `SAT-007`, que necesitan DNS real. |
 | En vivo: recorrido completo, disputa y spec de #1112 | sin cambios |
+
+## Novena corrección (revisión de Codex): el cierre automático respeta el cierre financiero
+
+Es una regresión de este mismo PR. Desde la quinta corrección, los depósitos rechazan los trabajos cerrados, pero `systemCompleteJob` (que se lanza al aprobar el último hito) escribía `COMPLETED` sin comprobar nada. Un trabajo completado de forma automática con el escrow aún corto ya no se podría financiar.
+
+`systemCompleteJob` usa ahora la misma comprobación (`assertClosure("completed", …)`) bajo el mismo bloqueo de fila. Si queda algo pendiente, deja el trabajo abierto, lo registra en el log y no emite eventos ni notificaciones de finalización.
+
+**Consecuencia:** el cierre automático corre al aprobar, en paralelo con la liberación automática, así que sólo completa si el escrow ya está liberado en ese momento. No se reintenta tras la liberación; en ese caso completa el cliente (`-> completed`). Un reintento al terminar la liberación sería un cambio aparte.
+
+| Prueba | Resultado |
+|---|---|
+| `job-completion-closure.test.ts`: cierre automático con escrow sin liberar / liberado | no completa / completa |
+| Tests unitarios de la API (runner completo) | 3810 pasan. Fallan 8 `SAT-007`, que necesitan DNS real. |
+| Test de integración (Postgres real) | 6/6 |
+| En vivo: recorrido completo y spec de #1112 | sin cambios |
