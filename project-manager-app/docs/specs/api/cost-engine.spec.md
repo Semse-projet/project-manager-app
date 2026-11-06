@@ -602,3 +602,7 @@ Las **alternativas de diseño** Q9/Q11/Q10/Q2/Q3/Q5/Q7 ya se seleccionaron, con 
 - [ ] Activación/canary verificada por separado
 - [ ] `production_evidence` y `last_verified` actualizados
 - [ ] Sólo entonces `status: VERIFIED`
+
+## Anexo H — Inteligencia de mercado y ejecución híbridas (propuesta futura)
+
+La [especificación de diseño H1–H5](./cost-engine.hybrid-market-execution-design-2026-11-06.md) define fuentes internas/externas/humanas, comparación normalizada de proveedores y contratistas, evaluación dual de evidencia/aplicabilidad, ejecución propia/subcontratada/mixta y aprendizaje con costos reales. **Es extensión documental DRAFT y no altera el alcance de implementación vigente:** proveedores en vivo siguen fuera de alcance hasta nuevos gates de licencia, fiscalidad, seguridad, consentimiento, pruebas y aprobación. El motor económico sigue siendo el único autorizado por ADR-027 y #1101 permanece independiente.
