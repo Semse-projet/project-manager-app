@@ -152,3 +152,7 @@ date: "2026-10-30"
 - [ ] Canary y flags definidos (mecanismo por verificar en T-002)
 - [ ] Evidencia requerida para cada estado de entrega
 - [x] Scope cabe en PR reversibles (una PR por fase)
+
+## 11. H1–H5 — extensión documental y límites
+
+El [anexo híbrido H1–H5](./cost-engine.hybrid-market-execution-design-2026-11-06.md) registra opciones futuras de inteligencia de mercado y ejecución mixta. **No forma parte de las fases de implementación aprobadas**; cada conector, fuente de datos, modalidad de ejecución y aprendizaje requerirá contrato, pruebas y autorización aparte. El [checklist de alcance actual](./cost-engine.checklist.md#límite-de-alcance-de-1075-ahora--fase-documental-draft-6-nov-2026) es el gate de esta fase. Ninguna acción productiva se autoriza al actualizar los documentos.
