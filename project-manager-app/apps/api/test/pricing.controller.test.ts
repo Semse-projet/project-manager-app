@@ -29,7 +29,7 @@ test("pricing controller declares correct @RequirePermissions", () => {
   const expectations: Array<[string, string]> = [
     ["getMaterialPrices", "projects:read"],
     ["getPricingStatus",  "ops:dashboard:read"],
-    ["refreshPrices",     "ops:dashboard:read"],
+    ["refreshPrices",     "ops:dashboard:write"],
     ["getMyRates",        "projects:read"],
     ["upsertMyRates",     "projects:read"],
     ["deleteMyRates",     "projects:read"],
