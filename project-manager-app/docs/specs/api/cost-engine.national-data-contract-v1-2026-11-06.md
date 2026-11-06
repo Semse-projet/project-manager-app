@@ -22,6 +22,12 @@
 
 **Pinning obligatorio:** guardar `publisherReleaseDate`, `sourceObservationPeriod`, `retrievedAt`, `sourceEdition`, `contentHash`, `licenseGrantVersion`. No pedir datos de BLS usando enlaces `CURRENT` para un `costReplay` histórico. Usar rutas versionadas `/oes/2025/may/` o ficheros con edición congelada y SHA. La página de destino `/oes/CURRENT` puede apuntar a otra edición y la web muestra resultados inconsistentes al resolver páginas no versionadas. [Términos oficiales API BLS](https://www.bls.gov/developers/termsOfService.htm): guardar fecha de recuperación, aviso de que BLS no avala derivados y no usar logotipo como si patrocinara SEMSE.
 
+### Comprobación ECEC independiente: no sumar importes publicados ya redondeados
+
+BLS reporta para **construcción privada en junio de 2026** un **total de compensación patronal de USD 51.96/h** en la tabla completa [BLS ECEC, NAICS 23](https://www.bls.gov/iag/tgs/iag23.htm); publica por separado **salarios USD 36.13/h** y **beneficios USD 15.84/h**. Los dos componentes visualmente redondeados suman **USD 51.97**, por lo que difieren **USD 0.01 del total oficial**. Esto es un caso real, externo y reproducible de que redondear los operandos y reconstruir después **no** conserva la identidad del total publicado, lo mismo que diagnosticó T-004/#1076.
+
+**Regla de ingesta y replay:** persistir `reportedTotal`, `reportedComponents`, `sourcePrecision`, `roundingPolicy` y fecha en campos diferentes. Dar autoridad al total **reportado por la fuente** para descripción del agregado (sin afirmar que es nuestro costo real); nunca sustituirlo silenciosamente por suma de dos importes ya redondeados. Calibrar costo real con nómina y costes del contratista; no usar `51.96` ni `51.97` como tarifa comercial de un trabajador.
+
 ## 2. Arquitectura de datos: separar estimación, mercado, obligación laboral y tributación
 
 ```text
