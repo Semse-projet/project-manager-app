@@ -110,3 +110,13 @@ date: "2026-10-30"
 - [ ] API surface actualizada con `/v1/pricing/cost-parameters`
 - [ ] ADR de las decisiones clave
 - [ ] Investigación externa y decisiones registradas
+
+## Extensión híbrida H1–H5 — requisitos de diseño sin activar
+
+- [x] [Anexo H1–H5](./cost-engine.hybrid-market-execution-design-2026-11-06.md) documentado con propuesta de contratos, fases y 14 casos de aceptación; **no se han ejecutado las pruebas**.
+- [ ] Licencia efectiva, derechos SaaS, consentimiento RFQ, control de conectores, revocación y aislamiento entre organizaciones validados antes de consultar/comercializar fuentes.
+- [ ] La comparación distingue material, servicio, salario, costo interno y oferta; unidades, alcance, entrega, impuestos y exclusiones normalizados con abstención si no son comparables.
+- [ ] `evidenceTrustScore` y `projectFitScore` por separado; gates legales/fiscales/seguridad no reemplazables por una puntuación, pesos sin calibrar no aprobados.
+- [ ] Ejecución propia, subcontratada y mixta sin doble contabilidad; decisiones comerciales, contratación, escrow y precios aceptados protegidos por aprobación y replay.
+- [ ] Aprendizaje solo con costos reales reconciliados, segregación temporal, evaluación independiente, auditoría y propuesta reversible; sin cambios autónomos a márgenes/fees/TaxPolicy.
+- [ ] Piloto con oficio/área/proveedores consentidos, pruebas offline + staging + sombra, rollback y autorizaciones fiscal/legal/comercial antes de activación.
