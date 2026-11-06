@@ -176,3 +176,16 @@ Es una regresión de este mismo PR. Desde la quinta corrección, los depósitos 
 | Tests unitarios de la API (runner completo) | 3810 pasan. Fallan 8 `SAT-007`, que necesitan DNS real. |
 | Test de integración (Postgres real) | 6/6 |
 | En vivo: recorrido completo y spec de #1112 | sin cambios |
+
+## Décima corrección (revisión de Codex): cambios de hito mientras se cierra el trabajo
+
+`MilestonesRepository.transitionStatus` (enviar, aprobar, rechazar y pedir cambios) sólo comparaba el estado del hito. Un envío simultáneo a la cancelación podía dejar el hito en `SUBMITTED` después de que la comprobación de cierre lo viera en `DRAFT`.
+
+Ahora el cambio va en una transacción que toma el bloqueo de fila del trabajo. Si el trabajo ya está `COMPLETED` o `CANCELLED`, responde 409.
+
+| Prueba | Resultado |
+|---|---|
+| Test de integración (Postgres real) | 7/7. El caso nuevo es un envío de hito durante la cancelación; sin el bloqueo, falla. |
+| `milestone-transition-atomicity.test.ts` | 7/7, con el mock adaptado a la transacción |
+| Tests unitarios de la API (runner completo) | 3810 pasan. Fallan 8 `SAT-007`, que necesitan DNS real. |
+| En vivo: recorrido completo y spec de #1112 | sin cambios |

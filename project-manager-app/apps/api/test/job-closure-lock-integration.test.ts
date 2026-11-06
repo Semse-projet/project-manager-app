@@ -23,6 +23,7 @@ import { PaymentsRepository } from "../dist/modules/payments/payments.repository
 import { lockJobRow } from "../dist/common/job-lock.js";
 import { ReservationsRepository } from "../dist/modules/reservations/reservations.repository.js";
 import { DisputesRepository } from "../dist/modules/disputes/disputes.repository.js";
+import { MilestonesRepository } from "../dist/modules/milestones/milestones.repository.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 loadEnv({ path: path.resolve(__dirname, "..", "..", "..", "packages/db/.env") });
@@ -222,6 +223,42 @@ dbTest("a dispute cannot be opened on a closed job, nor slip in while it is bein
     assert.match(await racingDispute, /cannot open a dispute: job is completed/);
     assert.match(await open(), /cannot open a dispute: job is completed/);
     assert.equal(await prisma.dispute.count({ where: { projectId: ids.projectId } }), 0);
+  } finally {
+    await cleanup(prisma, ids.tenantId);
+    await prisma.$disconnect();
+  }
+});
+
+dbTest("a milestone submitted while the job is being cancelled cannot move once it is cancelled", async () => {
+  const prisma = new PrismaClient();
+  const ids = await seed(prisma, "ACCEPTED");
+  try {
+    const milestone = await prisma.milestone.create({ data: { projectId: ids.projectId, title: "Hito sintético", amount: 100, sequence: 1 } });
+    const jobs = new JobsRepository(prisma as never, noActor as never, new OutboxRepository(prisma as never));
+    let releaseCancel!: () => void;
+    const cancelHolding = new Promise<void>((resolve) => { releaseCancel = resolve; });
+    // Cancellation takes the lock, sees only DRAFT milestones, then stalls before writing.
+    const cancel = jobs.updateStatus({
+      tenantId: ids.tenantId, jobId: ids.jobId, status: "cancelled", orgId: ids.orgId, actorType: "user", actorId: "usr_client",
+      expectedFrom: "accepted",
+      beforeWrite: async (tx) => {
+        assert.equal(await tx.milestone.count({ where: { projectId: ids.projectId, status: { notIn: ["DRAFT", "REJECTED"] } } }), 0);
+        await cancelHolding;
+      },
+    });
+    await sleep(200);
+    // Same step MilestonesRepository.submit ends with (a guarded DRAFT -> SUBMITTED write).
+    const milestones = new MilestonesRepository(prisma as never, noActor as never) as unknown as {
+      transitionStatus(snapshot: { milestoneId: string; currentStatus: string }, to: string): Promise<unknown>;
+    };
+    const submitting = milestones.transitionStatus({ milestoneId: milestone.id, currentStatus: "draft" }, "SUBMITTED")
+      .then(() => "submitted", (error: Error) => error.message);
+    await sleep(300);
+    releaseCancel();
+    await cancel;
+    assert.match(await submitting, /cannot change a milestone: job is cancelled/);
+    assert.equal((await prisma.milestone.findUnique({ where: { id: milestone.id } }))?.status, "DRAFT");
+    assert.equal((await prisma.job.findUnique({ where: { id: ids.jobId } }))?.status, "CANCELLED");
   } finally {
     await cleanup(prisma, ids.tenantId);
     await prisma.$disconnect();
