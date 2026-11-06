@@ -19,7 +19,12 @@ function service(state: { from: string; milestones?: string[]; transactions?: Tx
   const repository = {
     async findById() { return job(state.from); },
     async getTransitionAccess() { return { clientOrgId: "org_client_1", professionalOrgId: "org_pro_1" }; },
-    async updateStatus(input: { status: string }) { updates.push(input); return job(input.status); },
+    async updateStatus(input: { status: string; beforeWrite?: (tx: unknown) => Promise<void> }) {
+      // The real repository runs this inside its transaction, under the job row lock.
+      if (input.beforeWrite) await input.beforeWrite(prisma);
+      updates.push(input);
+      return job(input.status);
+    },
   };
   const prisma = {
     milestone: {

@@ -18,6 +18,7 @@ import {
   type JobsBidsProjectionSnapshot,
 } from "./jobs-bids-projection.js";
 import { sameOrg } from "../../common/resource-scope.js";
+import { lockJobRow } from "../../common/job-lock.js";
 import { buildJobVisibilityWhere } from "./jobs-visibility.js";
 
 const jobStatusMap = {
@@ -386,6 +387,8 @@ export class JobsRepository {
     actorType: "user" | "system" | "agent" | "webhook";
     actorId: string;
     requestId?: string;
+    /** Runs inside the write transaction, after the job row is locked (common/job-lock.ts). */
+    beforeWrite?: (tx: Prisma.TransactionClient) => Promise<void>;
   }): Promise<JobRecord> {
     const dbStatus = jobStatusMap[input.status];
     if (!dbStatus) {
@@ -404,6 +407,10 @@ export class JobsRepository {
 
       if (!existing) {
         throw new NotFoundException(`Job '${input.jobId}' not found`);
+      }
+      if (input.beforeWrite) {
+        await lockJobRow(tx, existing.id);
+        await input.beforeWrite(tx);
       }
 
       const updated = await tx.job.update({

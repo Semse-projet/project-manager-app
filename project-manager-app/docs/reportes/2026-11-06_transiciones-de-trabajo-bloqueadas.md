@@ -107,3 +107,17 @@ Ahora cualquier transacción `PENDING` del escrow (depósito, liberación o reem
 |---|---|
 | Tests de jobs (cierre, requisitos, servicio y controlador) | 19/19 |
 | En vivo: recorrido completo y spec de #1112 | sin cambios (todo 2xx; 4/4). Con el proveedor `mock`, los movimientos quedan `SUCCEEDED`. |
+
+## Quinta corrección (revisión de Codex; decisión del responsable: arreglarlo en este PR): depósitos y cierre en paralelo
+
+- **Problema:** la comprobación de cierre se hacía fuera de la transacción que escribe el estado. Un depósito concurrente podía reservar un pago `PENDING` entre la comprobación y la escritura de `cancelled`. Además, el depósito no miraba el estado del trabajo, así que se podía depositar en uno ya cancelado o completado.
+- **Bloqueo compartido** (`apps/api/src/common/job-lock.ts`): `SELECT … FROM "Job" … FOR UPDATE` sobre la fila del trabajo.
+  - `JobsRepository.updateStatus` acepta `beforeWrite`: bloquea la fila y lo ejecuta en la misma transacción que la escritura. `transitionJob` pasa ahí la comprobación de cierre de `completed` y `cancelled`, que lee con esa transacción.
+  - `PaymentsRepository.depositFunds` bloquea la fila del trabajo del proyecto justo después de `assertVerifiedEscrowReservation`, que sigue siendo lo primero, y antes de reservar dinero. Si el trabajo está `COMPLETED` o `CANCELLED`, responde 409.
+
+| Prueba | Resultado |
+|---|---|
+| `apps/api/test/job-closure-lock-integration.test.ts` (nuevo, Postgres real) | 3/3: depósito en trabajo cancelado, depósito durante la cancelación, cancelación durante la reserva de un depósito. Sin los bloqueos fallan los 3. |
+| Tests unitarios de la API (runner completo) | 3806 pasan. Fallan 8 `SAT-007`, que necesitan DNS real. |
+| Tests de escrow verificado y de pagos | siguen pasando |
+| En vivo: recorrido completo, disputa, aceptación propia, inicio sin contrato y spec de #1112 | sin cambios |

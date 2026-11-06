@@ -624,9 +624,7 @@ export class JobsService {
     if (input.targetStatus === "in_progress" && (job.status === "accepted" || job.status === "awarded")) {
       await this.assertSignedContract(input.tenantId, input.jobId);
     }
-    if (input.targetStatus === "completed" || input.targetStatus === "cancelled") {
-      await this.assertClosure(input.targetStatus, input.tenantId, input.jobId);
-    }
+    const terminal = input.targetStatus === "completed" || input.targetStatus === "cancelled" ? input.targetStatus : null;
 
     const updated = await this.jobsRepository.updateStatus({
       tenantId: input.tenantId,
@@ -635,7 +633,10 @@ export class JobsService {
       orgId: input.orgId,
       actorType: "user",
       actorId: input.userId,
-      requestId: input.requestId
+      requestId: input.requestId,
+      // Checked under the job row lock, in the same transaction as the write, so a
+      // concurrent deposit cannot slip in between (common/job-lock.ts).
+      beforeWrite: terminal ? (tx) => this.assertClosure(terminal, input.tenantId, input.jobId, tx) : undefined
     });
 
     await this.auditService.append({
@@ -695,17 +696,22 @@ export class JobsService {
    * policy for; an open dispute blocks the final close. Applies to every manual
    * transition, whoever asks (systemCompleteJob does not come through here).
    */
-  private async assertClosure(target: "completed" | "cancelled", tenantId: string, jobId: string): Promise<void> {
+  private async assertClosure(
+    target: "completed" | "cancelled",
+    tenantId: string,
+    jobId: string,
+    db: Pick<PrismaService, "milestone" | "paymentEscrow" | "dispute"> = this.prisma
+  ): Promise<void> {
     const scope = { deletedAt: null, project: { jobId, tenantId } };
     const [milestones, escrows, activeDisputes] = await Promise.all([
       target === "completed"
-        ? this.prisma.milestone.findMany({ where: scope, select: { status: true } })
+        ? db.milestone.findMany({ where: scope, select: { status: true } })
         : Promise.resolve([] as Array<{ status: unknown }>),
-      this.prisma.paymentEscrow.findMany({
+      db.paymentEscrow.findMany({
         where: scope,
         select: { transactions: { select: { type: true, status: true, amount: true } } },
       }),
-      this.prisma.dispute.count({
+      db.dispute.count({
         where: { ...scope, tenantId, status: { in: [...ACTIVE_DISPUTE_STATUSES] } },
       }),
     ]);
