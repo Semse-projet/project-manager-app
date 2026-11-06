@@ -77,4 +77,15 @@ SEMSE_API_URL=http://127.0.0.1:4122 pnpm exec playwright test -c playwright.sems
 
 La API sólo acepta cabeceras con las tres condiciones: sin `AUTH_SECRET`, con `SEMSE_ALLOW_HEADER_IDENTITY=true` y con `NODE_ENV` en `development` o `test` (`headerIdentityAllowed`). Si la API no responde o no acepta cabeceras, el spec se salta.
 
+**Ojo con los `.env`:** `env -u AUTH_SECRET` sólo quita la variable del proceso. Al arrancar, `apps/api/src/main.ts` (dotenv) y `ConfigModule` vuelven a cargar `apps/api/.env` y `packages/db/.env` sin sobrescribir lo ya definido. Si alguno de los dos define `AUTH_SECRET`, la variable vuelve, la API exige Bearer y el spec se salta entero.
+
+- Para esta API, ninguno de esos archivos puede definir `AUTH_SECRET`.
+- Tampoco vale dejarla vacía (`AUTH_SECRET=`): la validación del entorno exige al menos 32 caracteres y la API no arranca.
+
+Comprobado el 2026-11-06:
+
+- sin `.env`, 200;
+- con un `.env` que define `AUTH_SECRET`, 401;
+- con `AUTH_SECRET=`, la API no arranca.
+
 `dispute-resolution.spec.ts` y `edge-cases-payment-rating.spec.ts` siguen desfasados respecto a la API actual (rutas como `POST /v1/escrow/fund` o `PATCH /v1/disputes/:id` ya no existen) y fallan.

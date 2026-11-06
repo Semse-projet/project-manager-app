@@ -6,7 +6,8 @@
  * Plus the guards the API enforces at each step (negative cases).
  *
  * Talks to the API directly with header identity, which only a local API
- * accepts: SEMSE_ALLOW_HEADER_IDENTITY=true, NODE_ENV=test and no AUTH_SECRET
+ * accepts: SEMSE_ALLOW_HEADER_IDENTITY=true, NODE_ENV=test and no AUTH_SECRET, also
+ * not in apps/api/.env or packages/db/.env, which the API reloads on start
  * (see docs/semse-kit/local-stack.md). Default target http://127.0.0.1:4122,
  * override with SEMSE_API_URL. Uses the seeded demo orgs and users.
  *
@@ -59,7 +60,7 @@ test.beforeAll(async () => {
   const health = await fetch(`${API_BASE}/v1/health`).then((r) => r.status, () => 0);
   test.skip(health !== 200, `API not reachable at ${API_BASE}/v1/health (see docs/semse-kit/local-stack.md)`);
   const probe = await api(ACTORS.client, "GET", "/v1/jobs");
-  test.skip(probe.status === 401 || probe.status === 503, `API at ${API_BASE} does not accept header identity (SEMSE_ALLOW_HEADER_IDENTITY=true, NODE_ENV=test, no AUTH_SECRET)`);
+  test.skip(probe.status === 401 || probe.status === 503, `API at ${API_BASE} does not accept header identity (SEMSE_ALLOW_HEADER_IDENTITY=true, NODE_ENV=test, no AUTH_SECRET, and none in apps/api/.env or packages/db/.env)`);
 });
 
 const run = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
