@@ -147,6 +147,7 @@ retroactiva.
 | [labor.engine-remediation](specs/labor/labor-engine-remediation.spec.md) | labor | APPROVED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-25 |
 | [labor.personal-record-export](specs/labor/personal-record-export.spec.md) | labor | DRAFT | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | no | 2026-10-24 |
 | [labor.time-tracking-consolidation](specs/labor/time-tracking-consolidation.spec.md) | labor | IMPLEMENTED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-19 |
+| [labor.worker-independence-growth-program](specs/labor/worker-independence-growth-program.spec.md) | labor | DRAFT | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | no | 2026-10-24 |
 | [operations.jobs-bids-event-projection](specs/operations/jobs-bids-event-projection.spec.md) | operations | IMPLEMENTED | COMPLETE | PASS | MERGED | DEPLOYED | CANARY | high | yes | 2026-08-26 |
 | [operations.mission-control-2](specs/operations/mission-control-2.spec.md) | operations | IMPLEMENTED | COMPLETE | PASS | MERGED | DEPLOYED | INACTIVE | critical | yes | 2026-08-12 |
 | [operations.project-lifecycle-projection](specs/operations/project-lifecycle-projection.spec.md) | operations | VERIFIED | COMPLETE | PASS | MERGED | DEPLOYED | CANARY | critical | yes | 2026-07-31 |
