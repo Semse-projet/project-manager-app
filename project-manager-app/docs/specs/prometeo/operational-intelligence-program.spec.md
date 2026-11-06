@@ -165,7 +165,7 @@ Use the four child specs.
 
 ## 13. Decisiones del owner aplicadas (2026-10-25)
 
-El owner aceptó en bloque las recomendaciones D-01 a D-16 del [acta de reconciliación](operational-intelligence-program.reconciliation.md). Este spec padre solo fija lo transversal; el detalle y los valores numéricos viven en cada spec hijo.
+El owner aceptó en bloque las recomendaciones D-01 a D-16 del [acta de reconciliación](operational-intelligence-program.reconciliation.md). La decisión (2026-10-25) se registra en el [registro de progresión](operational-intelligence-program.progression-log.md) mediante #1042, **pendiente de merge**: hasta entonces el registro en `main` aún las muestra sin resolver. La aceptación no aprueba el acta, no acepta ADR-044 ni aprueba ningún slice. Este spec padre solo fija lo transversal; el detalle y los valores numéricos viven en cada spec hijo.
 
 **Valores que NO se inventan aquí** y que cada spec hijo debe proponer y el owner aprobar antes de pasar a `APPROVED`: techo de sensibilidad por rol, allowlist de atributos por proveedor, topes numéricos (`maxDepth`, `maxNodes`, tiempo total, cuota por actor), SLO y umbrales de alerta.
 

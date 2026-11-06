@@ -26,7 +26,7 @@ Sin contradicciones abiertas entre spec padre, plan y tasks para lo transversal.
 
 ## Dependencias externas
 
-- H05 (`prometeo.tool-call-audit-lineage`): metadatos reconciliados en #1043; B-03 (estado actual del flag en Railway) sigue abierto.
+- H05 (`prometeo.tool-call-audit-lineage`): reconciliación de metadatos **propuesta en #1043 (borrador, pendiente de merge)**: hasta que se fusione, el spec de H05 en `main` sigue con `merge_status: UNMERGED`, `migration_status: PENDING` y sin `production_evidence`. B-03 (estado actual del flag en Railway) sigue abierto.
 - `platform.semse-mcp-project-read` y ADR-045: la frontera se fija en spec §15.
 - ADR-042 (Universal Connector): relación con la identidad del consumidor de Omniverse por decidir (D-13).
 
