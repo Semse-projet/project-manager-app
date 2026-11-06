@@ -20,8 +20,11 @@ en tres PRs fusionados:
 
 **Regla (opción A, decidida por el owner):** la identidad por cabeceras solo se
 acepta si se cumplen a la vez tres condiciones: `AUTH_SECRET` ausente,
-`SEMSE_ALLOW_HEADER_IDENTITY=true` y `NODE_ENV` en {`development`, `test`}. En
-cualquier otro caso la API responde 503.
+`SEMSE_ALLOW_HEADER_IDENTITY=true` y `NODE_ENV` en {`development`, `test`}. Si
+falta `AUTH_SECRET` y no se cumplen las otras dos condiciones, la API responde
+503 en vez de confiar en las cabeceras. Con `AUTH_SECRET` definido, que es la
+configuración normal de producción, el opt-in no tiene efecto: la API exige
+bearer firmado y sesión, y una petición sin bearer recibe 401.
 
 **Operational Intelligence:** los 7 handlers tomaban la identidad del objeto
 `req` en vez de sus cabeceras. Por código respondían siempre 401, y el arreglo
@@ -48,6 +51,14 @@ cualquier otro caso la API responde 503.
 - Fallo de CI reproducido en local: `scripts/api-integration.mjs` recibía 503 en
   `POST /v1/jobs` sin el opt-in. Con el opt-in pasan `api-integration.mjs` y
   `api-f01-bids-integration.mjs`.
+- CI de `main` sobre el squash `7a66a96` (evento push): `CI` (41897034776),
+  `API Integration` (41897034611), `API Smoke` (41897034587),
+  `Autonomy Staged API` (41897034631) y `Operacion Asistida API` (41897034613).
+  Los cinco terminaron en success.
+- Procedencia: Railway reporta para el deployment `83f11346` de `semse-API`
+  `commitHash` `7a66a9657df07590ef8b360dac4ba12df8ed6915` en `main`, el mismo
+  commit fusionado en #1092. El deployment activo al 2026-11-06 es `ce1cc4ad`
+  (`645ce3b`), que contiene `7a66a96` (verificado con `git merge-base --is-ancestor`).
 - Producción, deployment `83f11346` de `semse-API`:
   - `api_bootstrap_complete` a las 19:34:16Z;
   - no aparece `auth_secret_missing_fail_closed` ni `auth_header_identity_mode_enabled`, así que `AUTH_SECRET` está presente;
@@ -78,9 +89,12 @@ cualquier otro caso la API responde 503.
    malformed Authorization header".
 2. **Smoke OPS_ADMIN en producción:**
    - iniciar sesión como OPS_ADMIN en la web;
-   - abrir la vista que consume las señales de OI (por ejemplo
-     `/admin/mission-control`), o llamar a `GET /v1/operational-intelligence/signals`
-     a través del BFF;
+   - con esa sesión, llamar a `GET /api/semse/operational-signals`. Es el BFF
+     que llega a `GET /v1/operational-intelligence/signals`, el handler
+     corregido. **No usar `/admin/mission-control`**: esa vista consume
+     `/api/semse/ops/mission-control/*`, no Operational Intelligence, y puede
+     funcionar aunque OI siga fallando. La vista web que sí consume OI es
+     `/admin/intelligence-rooms/[id]`;
    - esperado: 200 solo con señales del propio tenant (antes, siempre 401).
    - Después, registrar la evidencia, poner `activation_status: ACTIVE` y,
      cerrados los gates, `status: VERIFIED`.
