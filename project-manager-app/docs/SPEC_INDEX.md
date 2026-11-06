@@ -98,7 +98,7 @@ retroactiva.
 | [core.crews-worksites](specs/core/crews-worksites.spec.md) | core | DRAFT | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-10-18 |
 | [core.daily-reports](specs/core/daily-reports.spec.md) | core | DRAFT | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-10-18 |
 | [core.geofence-policy](specs/core/geofence-policy.spec.md) | core | DRAFT | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | yes | 2026-10-20 |
-| [core.header-identity-fail-closed](specs/core/header-identity-fail-closed.spec.md) | core | IMPLEMENTED | COMPLETE | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-11-04 |
+| [core.header-identity-fail-closed](specs/core/header-identity-fail-closed.spec.md) | core | IMPLEMENTED | COMPLETE | PASS | MERGED | DEPLOYED | INACTIVE | high | yes | 2026-11-05 |
 | [core.identity-attestation](specs/core/identity-attestation.spec.md) | core | IMPLEMENTED | COMPLETE | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-08-29 |
 | [core.knowledge-contributor-asr-openai-whisper](specs/core/knowledge-contributor-asr-openai-whisper.spec.md) | core | APPROVED | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-09-24 |
 | [core.knowledge-contributor-curated-library](specs/core/knowledge-contributor-curated-library.spec.md) | core | DRAFT | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | no | 2026-10-18 |
@@ -146,7 +146,9 @@ retroactiva.
 | [knowledge.agent-memory-governance](specs/knowledge/agent-memory-governance.spec.md) | knowledge | IMPLEMENTED | COMPLETE | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | yes | 2026-09-26 |
 | [labor.free-project-mutation-guard](specs/labor/free-project-mutation-guard.spec.md) | labor | IMPLEMENTED | COMPLETE | PASS | MERGED | DEPLOYED | ACTIVE | high | yes | 2026-10-15 |
 | [labor.engine-remediation](specs/labor/labor-engine-remediation.spec.md) | labor | APPROVED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-25 |
+| [labor.personal-record-export](specs/labor/personal-record-export.spec.md) | labor | DRAFT | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | no | 2026-10-24 |
 | [labor.time-tracking-consolidation](specs/labor/time-tracking-consolidation.spec.md) | labor | IMPLEMENTED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-19 |
+| [labor.worker-independence-growth-program](specs/labor/worker-independence-growth-program.spec.md) | labor | DRAFT | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | no | 2026-10-24 |
 | [operations.jobs-bids-event-projection](specs/operations/jobs-bids-event-projection.spec.md) | operations | IMPLEMENTED | COMPLETE | PASS | MERGED | DEPLOYED | CANARY | high | yes | 2026-08-26 |
 | [operations.mission-control-2](specs/operations/mission-control-2.spec.md) | operations | IMPLEMENTED | COMPLETE | PASS | MERGED | DEPLOYED | INACTIVE | critical | yes | 2026-08-12 |
 | [operations.project-lifecycle-projection](specs/operations/project-lifecycle-projection.spec.md) | operations | VERIFIED | COMPLETE | PASS | MERGED | DEPLOYED | CANARY | critical | yes | 2026-07-31 |
