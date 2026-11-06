@@ -1,6 +1,6 @@
 # T-005 nacional — fuentes, geografía y contrato de adquisición para 24 oficios
 
-**Fecha de investigación:** 2026-11-06 · **PR:** #1075 · **Estado:** \`SOURCE_CONTRACT_PROPOSED / NO_COMMERCIAL_CALIBRATION / NO_TAX_SIGNOFF\`.  
+**Fecha de investigación:** 2026-11-06 · **PR:** #1075 · **Estado:** `SOURCE_CONTRACT_PROPOSED / NO_COMMERCIAL_CALIBRATION / NO_TAX_SIGNOFF`.  
 **Objetivo:** preparar el Cost Engine para operar en 50 estados + DC **sin inventar tarifas, derechos de datos ni impuestos**. Documento de investigación y diseño, no implementación de endpoints, autorización fiscal ni edición de precios.
 
 ## 1. Tres clases de dato que no se deben confundir
@@ -9,14 +9,14 @@
 |---|---|---|---|
 | [BLS OEWS May 2025](https://www.bls.gov/oes/tables.htm) | ¿Qué salario pagaron empleadores a cierta ocupación en un estado/área estadística? | Referencia de salarios y dispersión por SOC/área; released 2026-05-15 | Ser tarifa facturable, costo W-2/1099 o precio al cliente; no extrapolar para una ciudad con dato suprimido |
 | [BLS ECEC June 2026](https://www.bls.gov/news.release/ecec.t04.htm) | ¿Cuál fue el costo medio de compensación patronal en construcción? | Contraste agregado del peso de beneficios y salario | Aplicar a cada ocupación la razón de beneficios como si fuera el costo exacto de una cuadrilla |
-| [SAM.gov / DOL Davis-Bacon](https://sam.gov/wage-determinations) | ¿Qué salarios y fringes aplican a **determinadas obras federales** según condado, tipo de construcción, clasificación y modificación? | Compliance \`prevailingWage\` de proyectos cubiertos tras revisar contrato; [DOL FAQ](https://www.dol.gov/agencies/whd/government-contracts/construction/faq) | Fijar salarios privados universales; presumir que todos los proyectos están cubiertos |
+| [SAM.gov / DOL Davis-Bacon](https://sam.gov/wage-determinations) | ¿Qué salarios y fringes aplican a **determinadas obras federales** según condado, tipo de construcción, clasificación y modificación? | Compliance `prevailingWage` de proyectos cubiertos tras revisar contrato; [DOL FAQ](https://www.dol.gov/agencies/whd/government-contracts/construction/faq) | Fijar salarios privados universales; presumir que todos los proyectos están cubiertos |
 | [BLS PPI](https://www.bls.gov/ppi/publications/price-adjustment-guide-for-contracting-parties.htm) | ¿Cómo varió un índice relativo desde un mes base? | Ajustar un precio **observado y autorizado** si serie, unidades, base/mes, versión y contrato coinciden | Crear un precio USD desde PPI/100; el BLS **no publica precios unitarios** en PPI |
 | [FHWA NHCCI](https://www.fhwa.dot.gov/policy/otps/nhcci/methodology.cfm) y [WSDOT Unit Bid Analysis](https://apps.wsdot.wa.gov/engineering-standards/design-topics/engineering-applications/unit-bid-analysis) | ¿Cuánto se licitó por partidas de obra pública y cómo cambian los costos de producción? | Benchmark **solo** si la partida/condiciones se homologan, con fuente y alcance explícitos | Precios al por menor de pintura, drywall o tableros: una partida puede incluir labor/equipo/overhead/ganancia |
 | [Census NAICS y CBP](https://www.census.gov/data/developers/data-sets/cbp-zbp/cbp-api.html) | ¿Qué estructura de especialidades, empleo y nómina tiene la zona? | Comparador de condiciones de mercado/representatividad y riesgo de pequeña muestra | Tarifas por oficio o precio comercial por SKU; CBP exige API key, no inferir acceso concedido |
 | Cotizaciones y facturas con derechos | ¿Cuánto pagó **este** proveedor/contratista por **este** SKU y zona en una fecha? | Primera fuente para precio transaccional normalizado y calibración después de revisar permisos | Republicar automáticamente catálogos o datos personales de compras |
-| Datos fiscales DOR estatales/locales | ¿Qué es gravable, a cargo de quién, dónde y cuándo? | \`TaxPolicy\` por transacción solo después de revisión profesional y fuente vigente | Universal \`taxRate=0.07\` o trasladar impuestos de compra directamente al cliente |
+| Datos fiscales DOR estatales/locales | ¿Qué es gravable, a cargo de quién, dónde y cuándo? | `TaxPolicy` por transacción solo después de revisión profesional y fuente vigente | Universal `taxRate=0.07` o trasladar impuestos de compra directamente al cliente |
 
-**Precisión BLS ECEC importante:** la tabla oficial ECEC June 2026, construcción, informa **total compensation $51.96/h**, \`wages $36.13/h\`, \`benefits $15.84/h\`. La suma de componentes presentados/redondeados es $51.97; **no** sustituir el total oficial por la suma, porque sus agregados se calcularon antes del redondeo. La fuente detallada es [BLS tabla 4](https://www.bls.gov/news.release/ecec.t04.htm).
+**Precisión BLS ECEC importante:** la tabla oficial ECEC June 2026, construcción, informa **total compensation $51.96/h**, `wages $36.13/h`, `benefits $15.84/h`. La suma de componentes presentados/redondeados es $51.97; **no** sustituir el total oficial por la suma, porque sus agregados se calcularon antes del redondeo. La fuente detallada es [BLS tabla 4](https://www.bls.gov/news.release/ecec.t04.htm).
 
 **Control nacional de contexto:** [BLS OEWS tabla 1](https://www.bls.gov/news.release/ocwage.t01.htm) May 2025: pintores construcción $26.64/h media, $23.75/h mediana; drywall instaladores $30.58/$28.33; **tapers especializados** $34.96/$32.82; electricistas $34.37/$30.38. Estas son **mediciones salariales nacionales**, no valores de materiales ni tarifas de SEMSE. No se han importado 51 × 24 fichas; la base de carga será [OEWS May 2025 all data](https://www.bls.gov/oes/tables.htm), validando cada fila por SOC/área/edición y las celdas suprimidas.
 
@@ -51,13 +51,13 @@ No todos los motores son un único oficio. Las listas de SOC siguientes son **ca
 | `tile` | `47-2044, 47-2022` | Tile y piedra según material |
 | `windows-doors` | `47-2031, 47-2121` | Carpintería y vidriería |
 
-**Propuesta de selección de salarios:** \`trade + task + seniority + state + CBSA/nonmetro + referenceYear + SOC\`. Si el contratista tiene una cuadrilla de especialistas, usar \`hours[i] * burdenedCost[i]\` por ocupación y revisar sustitución real. No confundir perfil de cliente "professional" de la app con el personal real que ejecuta el trabajo. No imputar \`SOC 47-2061\` para actividades sujetas a licencias de plomería, electricidad, HVAC, etc.
+**Propuesta de selección de salarios:** `trade + task + seniority + state + CBSA/nonmetro + referenceYear + SOC`. Si el contratista tiene una cuadrilla de especialistas, usar `hours[i] * burdenedCost[i]` por ocupación y revisar sustitución real. No confundir perfil de cliente "professional" de la app con el personal real que ejecuta el trabajo. No imputar `SOC 47-2061` para actividades sujetas a licencias de plomería, electricidad, HVAC, etc.
 
 ## 3. Tres escalas geográficas distintas que deben coexistir
 
 1. **Lugar de ejecución:** dirección comprobada → lat/long → FIPS estado/condado y, cuando corresponda, municipio o distrito fiscal. El [Census Geocoding API](https://geocoding.geo.census.gov/geocoder/Geocoding_Services_API.html) permite localizar geográficamente direcciones estructuradas; no certifica por sí mismo la jurisdicción tributaria ni el lugar legal de suministro. ZIP y prefijos postales **no** sustituyen FIPS o jurisdicción.
-2. **Mercado laboral estadístico:** \`OEWS area\` estatal, CBSA metro/no metro o \`UNKNOWN\`; el área laboral puede abarcar varios condados/estados y no determina impuestos.
-3. **Jurisdicción fiscal de transacción:** \`taxJurisdictionId\` de la autoridad competente, tipo de transacción/destino y \`effectiveDate\`. Confirmar con lookup oficial o proveedor de cálculo tributario **legalmente contratado y revisado**.
+2. **Mercado laboral estadístico:** `OEWS area` estatal, CBSA metro/no metro o `UNKNOWN`; el área laboral puede abarcar varios condados/estados y no determina impuestos.
+3. **Jurisdicción fiscal de transacción:** `taxJurisdictionId` de la autoridad competente, tipo de transacción/destino y `effectiveDate`. Confirmar con lookup oficial o proveedor de cálculo tributario **legalmente contratado y revisado**.
 
 Pruebas de necesidad de resolver **reglas locales**:
 - [Colorado DOR Local Government Sales Tax](https://tax.colorado.gov/local-government-sales-tax): varias ciudades de autonomía local (**self-collected home-rule**) pueden definir y recaudar reglas diferentes; el estado no cubre la totalidad del tratamiento en esas ciudades.
@@ -66,11 +66,11 @@ Pruebas de necesidad de resolver **reglas locales**:
 - [New York Department of Taxation Lookup](https://www.tax.ny.gov/bus/st/rates.htm): jurisdicción, código y tasa por dirección, además de clasificación de obra capital vs reparación.
 - [Census API guía 2026](https://www.census.gov/data/developers/guidance/api-user-guide.html): códigos geográficos y vintage; usar referencias estables y versionadas.
 
-**TaxStatus \`UNDETERMINED\` si**: solo hay estado, ZIP ambiguo, localidad autoadministrada sin regla, direcciones discrepantes, obra transfronteriza, falta tipo de contrato/property/fixture, compra por otro actor o cambio normativo posterior a fecha base. Mostrar subtotal preliminar y motivo, nunca \`customerTaxAmount=0\` por falta de dato.
+**TaxStatus `UNDETERMINED` si**: solo hay estado, ZIP ambiguo, localidad autoadministrada sin regla, direcciones discrepantes, obra transfronteriza, falta tipo de contrato/property/fixture, compra por otro actor o cambio normativo posterior a fecha base. Mostrar subtotal preliminar y motivo, nunca `customerTaxAmount=0` por falta de dato.
 
 ## 4. Contrato fuente → snapshot de precio → cotización
 
-\`\`\`typescript
+```typescript
 type EvidenceStatus =
   | "OBSERVED_AUTHORIZED" | "PUBLIC_STATISTICAL_REFERENCE"
   | "PUBLIC_INDEX_ONLY" | "PRELIMINARY_UNVERIFIED"
@@ -112,15 +112,15 @@ type CostQuoteAudit = {
   taxPolicyVersion: string|null; humanReviewerId: string|null;
   contractCurrency: "USD"; output: "PRELIMINARY"|"REVIEWED";
 };
-\`\`\`
+```
 
-**Fuente comercial no certificada:** \`rightsIncludeSaaS=false\` o \`rightsEvidenceRef=null\` ⇒ solo referencia diagnóstica privada, nunca nueva propuesta comercial automática. Un precio con fuente protegida no se convierte en libre por calcular un promedio entre varios proveedores. No mostrar ni exportar identificadores de factura a otros tenants; separar acceso documental de los operandos autorizados.
+**Fuente comercial no certificada:** `rightsIncludeSaaS=false` o `rightsEvidenceRef=null` ⇒ solo referencia diagnóstica privada, nunca nueva propuesta comercial automática. Un precio con fuente protegida no se convierte en libre por calcular un promedio entre varios proveedores. No mostrar ni exportar identificadores de factura a otros tenants; separar acceso documental de los operandos autorizados.
 
 **Descomposición de costo propuesta** (no fórmula de venta aprobada):
 - Material neto observado + flete/entrega + waste realmente justificado + **sales/use tax de compra a cargo del contratista** registrado una sola vez.
 - Mano de obra **por tarea**: horas pagadas, salarios reales, cargas y beneficios correspondientes, overtime aplicable, supervisión, preparación, carga/descarga, viajes y trabajo no facturable; costos de subcontrata contratados se registran como categoría separada para evitar doble conteo.
 - Equipo/herramientas, renta, permits, disposal, pólizas, bonding y overhead documentados y asignados por driver consistente.
-- Contingencia por riesgo validado, beneficio \`profitMargin\` vs \`markup\` explícito, comisión SEMSE conforme a quien la paga y su contrato, **impuesto al cliente por componente clasificado por CPA**.
+- Contingencia por riesgo validado, beneficio `profitMargin` vs `markup` explícito, comisión SEMSE conforme a quien la paga y su contrato, **impuesto al cliente por componente clasificado por CPA**.
 - Cálculo con decimales y reglas de redondeo/versionado; guardar importes base y tasas efectivas pre-redondeo. **Inmutabilidad** tras aceptar contrato y aprobación humana para cambio de orden.
 
 ## 5. Estrategia nacional de adquisición sin licencias inventadas
@@ -132,20 +132,20 @@ type CostQuoteAudit = {
 | A2 | Ingestar solo citas/quotes facturas originales de **proveedores autorizados** en pilotos painting/drywall | SKU, fecha, unidad, municipio/condado, rango, impuestos compra, flete y grant SaaS firmados |
 | A3 | Importar wage determinations de SAM.gov **solo para proyecto cubierto** | Determinación vigente, número/modificación, tipo de construcción, condado, clasificación, fringes y aceptación jurídico-laboral |
 | A4 | Comparar estimado *shadow* vs facturas + horas + gastos reales, en 2 oficios y varias localidades contrastantes | Errores de materiales, labor y total calculados contra costos reconciliados; umbrales definidos **antes** de validar |
-| A5 | Comprobar 51 jurisdicciones + localidades conforme a prioridad de demanda | Cada \`TaxPolicy\` tiene fuente, firma fiscal, test y caducidad; **0/51 activas hasta sign-off** |
+| A5 | Comprobar 51 jurisdicciones + localidades conforme a prioridad de demanda | Cada `TaxPolicy` tiene fuente, firma fiscal, test y caducidad; **0/51 activas hasta sign-off** |
 | A6 | Extender de 2 a los 24 motores sin reutilizar defaults comerciales no auditados | Comparación por oficio, región, tipo de proyecto, tipo de contrato y rol; rollback, alertas y gobierno por versión |
 
 **Estrategia de señales:** [Census County Business Patterns](https://www.census.gov/data/developers/data-sets/cbp-zbp/cbp-api.html) puede aportar peso contextual de empleadores y mercado (requiere API key). [FHWA NHCCI](https://www.fhwa.dot.gov/policy/otps/nhcci/methodology.cfm) puede informar volatilidad **de obra pública de carreteras**; no transportar su escala a precios de remodelación residencial. El costo real final se reconcilia contra recibos y horas; una oferta comercial publicada no acredita margen real.
 
 ## 6. Pruebas negativas obligatorias antes de subir a APPROVED
 
-1. \`ZIP_5_ONLY\` en Colorado home-rule o Washington ZIP compartido ⇒ \`taxStatus=UNDETERMINED\` y sin cobro automático.
-2. Alaska sin sales tax estatal pero con impuesto municipal potencial ⇒ no establecer \`customerTax=0\` por estado.
+1. `ZIP_5_ONLY` en Colorado home-rule o Washington ZIP compartido ⇒ `taxStatus=UNDETERMINED` y sin cobro automático.
+2. Alaska sin sales tax estatal pero con impuesto municipal potencial ⇒ no establecer `customerTax=0` por estado.
 3. Un salario OEWS con percentil suprimido o sin dato CBSA ⇒ no rellenar con valor inventado; queda nulo o rango explícitamente no representativo.
-4. Davis-Bacon sin \`contractCovered\` + \`county\` + \`type\` + \`determinationVersion\` ⇒ no imponer a obra privada una tabla pública ni ignorar el mínimo en obra cubierta.
-5. Documento de proveedor sin permiso SaaS ⇒ \`LICENSE_RESTRICTED\`, aunque sea público y el usuario haya comprado materiales.
-6. \`PPI\` con basePrice sin observación o índices de base/inicio incompatibles ⇒ no generar precio USD certificado.
-7. BLS ECEC \`$51.96\` vs \`$36.13+$15.84\` ⇒ preservar el total oficial publicado y las series atómicas con sus valores originales, no reclamar exactitud centesimal del informe agregado redondeado.
+4. Davis-Bacon sin `contractCovered` + `county` + `type` + `determinationVersion` ⇒ no imponer a obra privada una tabla pública ni ignorar el mínimo en obra cubierta.
+5. Documento de proveedor sin permiso SaaS ⇒ `LICENSE_RESTRICTED`, aunque sea público y el usuario haya comprado materiales.
+6. `PPI` con basePrice sin observación o índices de base/inicio incompatibles ⇒ no generar precio USD certificado.
+7. BLS ECEC `$51.96` vs `$36.13+$15.84` ⇒ preservar el total oficial publicado y las series atómicas con sus valores originales, no reclamar exactitud centesimal del informe agregado redondeado.
 8. Material con impuesto de compra ya incluido ⇒ no volver a cobrarlo como impuesto al cliente; componente clasificado por CPA.
 9. Cotización aceptada con revisión de índices/fuentes ⇒ replay del snapshot de aceptación sin modificar contratos ni escrow.
 10. Ofertas a terceros: no exponer identificación de proveedores/clientes o datos de otro tenant.
@@ -153,7 +153,7 @@ type CostQuoteAudit = {
 ## 7. Dependencias y condiciones sin cumplir
 
 - Ningún precio por SKU y contrato de datos nacional ha sido adquirido; no crear 51×24 precios a partir de PPI/OEWS.
-- No existen \`TaxPolicy\` firmadas para los 50 estados + DC, ni para todas las ciudades/condados/casos de contrato.
+- No existen `TaxPolicy` firmadas para los 50 estados + DC, ni para todas las ciudades/condados/casos de contrato.
 - La disponibilidad de un dataset público no certifica que sea representativo de cada trabajo, ni que se puedan revender datos de terceros.
 - No hay reconciliación de costos reales suficiente para certificar margen, seguros, waste, labor burden, overhead o rentabilidad por oficio.
 - No se altera #1101 (corrección técnica de integridad BLS con CI verde) ni el motor en producción. Este documento pertenece solo a la fase preparatoria T-005 de #1075.
