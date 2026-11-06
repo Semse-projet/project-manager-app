@@ -60,7 +60,7 @@ El listado actual en labor-engine.repository.ts excluye status archived. Proyect
 | WORKER/PRO con field-ops:read y write según acción | Sí | Sí, con status válido | No, 404 |
 | Otra persona de la misma Org y tenant | Sólo los propios | Sólo los propios | No, 404 |
 | Otra Org/tenant | Sólo propios en ámbito autorizado | Sólo propios | No |
-| OPS_ADMIN | Sin override de personal ajeno (S0 D5/D10) | No | No por defecto |
+| OPS_ADMIN | Sus propios proyectos (tiene field-ops:read/write); sin override de personal ajeno (S0 D5/D10) | Sólo los propios, con status válido | No, 404 |
 | Anónimo/rol sin permiso | 401/403 | 401/403 | No |
 
 TenantId acota, createdBy autoriza. La asociación a un Job convertido es dato histórico, **nunca** un grant actual. Sin exposición de nombre/dirección/coordenadas en logs o AuditLog. Cambiar membership no permite lectura cross-tenant.
