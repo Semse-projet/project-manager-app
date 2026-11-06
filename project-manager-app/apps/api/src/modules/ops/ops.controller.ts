@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Get, NotFoundException, Param, Post, Query, Req } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Get, NotFoundException, Param, Post, Query, Req, ServiceUnavailableException } from "@nestjs/common";
 import {
   alertIdParamSchema,
   agentApprovalDecisionSchema,
@@ -538,25 +538,37 @@ export class OpsController {
   async observerLatest(@Req() req: { headers?: Record<string, unknown> }) {
     const requestId = resolveRequestId(req.headers ?? {});
     const ctx = resolveRequestContext(req);
-    const latest = this.observer.getLatest();
+    const latest = this.observer.getLatest(ctx.tenantId);
     if (!latest || latest.tenantId !== ctx.tenantId) {
-      // No cached snapshot — trigger one
-      const snapshot = await this.observer.observe(ctx.tenantId);
-      return ok(requestId, { ...snapshot, fromCache: false });
+      // An unadmitted tenant cannot retain the result. Do not repeatedly
+      // execute expensive Prisma/LLM observations on every latest request.
+      // Existing tenants retain access, and the cache may recover after TTL.
+      if (!this.observer.tryReserveHistory(ctx.tenantId)) {
+        throw new ServiceUnavailableException({
+          code: "OBSERVER_HISTORY_CAPACITY_EXHAUSTED",
+          message: "Observer snapshot cache is temporarily at capacity",
+        });
+      }
+      // The bucket slot is reserved synchronously before any async work.
+      // Always release it, including after a failed observation.
+      try {
+        const snapshot = await this.observer.observe(ctx.tenantId);
+        return ok(requestId, { ...snapshot, fromCache: false });
+      } finally {
+        this.observer.releaseHistoryReservation(ctx.tenantId);
+      }
     }
     return ok(requestId, { ...latest, fromCache: true });
   }
 
-  /** Historial de snapshots en memoria (últimos 50). */
+  /** Historial en memoria (últimos 50 por tenant). */
   @Get("observer/history")
   @RequirePermissions("ops:dashboard:read")
   async observerHistory(@Req() req: { headers?: Record<string, unknown> }) {
     const requestId = resolveRequestId(req.headers ?? {});
-    // The observer stores the last 50 snapshots across ALL tenants in one
-    // process. Permission ops:dashboard:read is tenant-scoped, not a grant
-    // to read other tenants' health/RAG metadata. Scope BEFORE count/slice.
+    // Store retention is tenant-local. Keep a final tenant filter as defense in depth.
     const { tenantId } = resolveRequestContext(req);
-    const history = this.observer.getHistory().filter((s) => s.tenantId === tenantId);
+    const history = this.observer.getHistory(tenantId).filter((s) => s.tenantId === tenantId);
     return ok(requestId, {
       count: history.length,
       snapshots: history.slice(-10).map((s) => ({

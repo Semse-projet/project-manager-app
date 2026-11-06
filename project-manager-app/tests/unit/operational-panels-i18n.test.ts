@@ -38,6 +38,7 @@ test("all static operational panel translation keys exist in both languages", ()
     "apps/web/components/buildops/BuildOpsProjectHealthPanel.tsx",
     "apps/web/components/change-orders/ChangeOrderImpactCard.tsx",
     "apps/web/components/semse/CrowdDecisionBadge.tsx",
+    "apps/web/components/semse/WorkerEvidenceSummary.tsx",
     "apps/web/app/(app)/client/dashboard/page.tsx",
     "apps/web/app/(app)/worker/dashboard/page.tsx",
     "apps/web/app/(app)/admin/dashboard/page.tsx",
