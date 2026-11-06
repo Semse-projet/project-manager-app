@@ -27,6 +27,7 @@ date: "2026-10-24"
 ## 2. Constitución y dependencia de decisiones
 
 - [ ] Aprobación ADR-WPI-002 (`Proposed`) por owner, Identity/Auth, Security, Privacy/Legal.
+- [ ] Gate G-VII: reconciliar la proyección por `ownerUserId` con el Artículo VII de la constitución (`tenantId` y filtros de tenant): ámbito personal compatible o enmienda/excepción ratificada. Bloquea la aprobación del diseño.
 - [ ] Aprobación de F1B `labor.personal-continuity.spec.md`; desglosar en pequeñas slices, no un cambio global de login.
 - [ ] Determinar reglas concretas por `recordClass` y derecho de conservación.
 - [ ] Auditar `AuthGuard`, BFF, mobile auth, Refresh/Logout, Worker, SSE, WebSocket, Prometeo y `@RequirePermissions` antes de agregar tipo de principal.

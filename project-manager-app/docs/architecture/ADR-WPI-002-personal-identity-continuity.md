@@ -87,6 +87,7 @@ Aceptar el ADR aprueba el **contrato y el plan de pruebas**; la **verificación 
 - **G2:** Legal/Privacy/Records determina categorías elegibles y derecho de conservación, retención, revocación, borrado y derechos de terceros.
 - **G3:** Architecture/DB determina custodia realmente independiente de `Tenant`, consistencia/outbox, integridad, cifrado, almacenamiento y migración, sin crear otro motor de horas.
 - **G4:** Data/Operations presenta plan de exportación/recovery ante eliminación del tenant, fallos, RPO/RTO y restore drill sintético.
+- **G-VII (constitución):** el Artículo VII de `.specify/memory/constitution.md` exige `tenantId` en todo modelo y filtros de tenant en backend, y la excepción de `FreeProject` conserva ese límite. Una proyección accedida por `ownerUserId` con el tenant de origen sólo como procedencia no encaja tal cual. Antes de aprobar el diseño hay que elegir y ratificar una de dos vías: (a) un ámbito personal que cumpla el Artículo VII sin depender del tenant de origen (por ejemplo, un tenant personal propio del usuario), o (b) una enmienda o excepción formal a la constitución. Este ADR no elige ninguna.
 - **G5:** Aprobación humana explícita de spec F1B, pruebas/implementación por slices reversibles; CI **al final**, luego merge, deploy y activación autorizados por separado.
 
 ## Referencias

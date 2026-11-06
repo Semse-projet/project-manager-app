@@ -205,7 +205,7 @@ effects:
 ## 9. Secuencia de gates
 
 1. F0 programa y ADR-WPI-001 se revisan; F1A/#1036 continúa en su propio alcance.
-2. ADR-WPI-002 y F1B se ratifican como arquitectura/contrato, con decisión explícita de owner y responsables.
+2. ADR-WPI-002 y F1B se ratifican como arquitectura/contrato, con decisión explícita de owner y responsables, **después** de resolver el gate G-VII (compatibilidad con el Artículo VII de la constitución: ámbito personal con `tenantId` propio o enmienda/excepción formal).
 3. Tests negativos de autenticación PERSONAL vs ORG, BOLA/IDOR, tenant deletion sintética, retención y correcciones.
 4. Implementación en slices: Auth personal fail-closed → datos personales derivados bajo policy → API export personal → UX ES/EN.
 5. Staging sintético, review independiente Security/Privacy, rollback y restauración.
