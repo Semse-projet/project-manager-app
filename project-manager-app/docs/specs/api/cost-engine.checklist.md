@@ -30,6 +30,18 @@ date: "2026-10-30"
 - [ ] El `costReplay` histórico persiste inputs normalizados, versiones, operandos/precios congelados, regla fiscal, redondeo y revisión inmutable; replay después de cambiar precios/mapeos reproduce todos los importes al centavo
 - [ ] Casos de modificación concurrente `PUT`/`DELETE` validan `expectedVersion`/`If-Match` con 409 y precondición faltante con 428
 
+## Expedientes de aceptación T-005 (datos, licencias y fiscalidad)
+
+- [x] **Inventario inicial de precios**: 12 claves de `BLS_SERIES` y familias de precios/multiplicadores heredados identificados como `UNVERIFIED`. [Registro de adquisiciones](./cost-engine.t005-pricing-evidence-register.md).
+- [x] **Matriz de licencias**: BLS para índice/estadística, RSMeans/Gordian `RESTRICTED_PENDING_LEGAL`, cotizaciones privadas `RIGHTS_UNKNOWN` hasta contrato. [Expediente Q11](./cost-engine.q11-license-clearance.md).
+- [x] **Paquete fiscal de revisión**: matrices FL/GA con casos específicos, fuentes DOR y `UNDETERMINED` mientras no exista dictamen. [Expediente Q10](./cost-engine.q10-fiscal-professional-review.md).
+- [x] **Correcciones de referencias**: PDF público RSMeans Online verificado como May 1, 2025 (no atribuirle marzo 2026); PDF accesible FL GT-800007 R.03/15 y guía actual de DOR (no declarar R.08/22 comprobada).
+- [ ] **Datos comerciales verdaderos**: permisos, facturas/cotizaciones fechadas y comparables de proveedores para pilotos pintura y drywall; origen, SKU, unidad, condado, precio sin impuesto, flete, tax-paid, vigencia y responsable que revisó.
+- [ ] **Dictamen de licencias**: asesor jurídico externo valida derechos efectivos de proveedor y origen de la tabla de multiplicadores atribuida a RSMeans; certifica o rechaza uso multi-tenant/SaaS por fuente y el tratamiento del histórico.
+- [ ] **Dictamen fiscal**: profesional cualificado en FL/GA revisa versión normativa, clasificación de tipos de contrato, redondeo, surtax, sales/use tax, tratamiento de comisiones e impuestos de compras pagados; firma los casos y oráculos numéricos independientes.
+- [ ] **Aprobación comercial**: margen, overhead, labor burden, tarifas y comisión por oficio/región y contrato sustentados por costos reales conciliados y finanzas.
+- [ ] **Puerta de seguridad**: cualquier nueva cotización con precio `UNKNOWN`, `RESTRICTED` o sin clasificación fiscal vigente queda `PRELIMINARY_ONLY`; pruebas negativas y replay en staging, sin reescribir contratos/escrow.
+
 ## Validación comercial independiente
 
 - [x] **Alternativas de DISEÑO seleccionadas:** [política comercial y fiscal 2026-11-05](./cost-engine.commercial-fiscal-policy-2026-11-05.md) (Q9/Q10/Q11 + Q2/Q3/Q5/Q7). Esta casilla no certifica precios ni impuestos.
