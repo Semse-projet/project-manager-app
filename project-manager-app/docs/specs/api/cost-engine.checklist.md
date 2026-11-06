@@ -142,3 +142,8 @@ date: "2026-10-30"
 - [ ] Aprobación comercial de componentes y márgenes, evaluación estadística de ponderaciones, pruebas independientes de aceptación, revisión de seguridad y autorización separada de implementación/despliegue.
 
 **Regla de gobernanza:** spec aprobada ≠ código implementado ≠ PR fusionado ≠ producción activa ≠ precios y fiscalidad certificados. Los 24 motores y los 51 territorios son objetivo arquitectónico, no cobertura comercial validada. Mantener `status: DRAFT`, `code_status: NOT_STARTED` y `activation_status: INACTIVE` hasta evidencia y aprobaciones pertinentes.
+
+## Repaso de evidencia T-005 — 6-nov-2026
+
+- [x] [Conciliación de investigación, fuentes y bloqueos P-01–P-07](./cost-engine.t005-repaso-verificacion-2026-11-06.md) documentada: índice PPI ≠ precio SKU; OEWS ≠ tarifa facturable; proveedor de datos con API ≠ licencia otorgada; alcance fiscal nacional ≠ 51 políticas firmadas.
+- [ ] Adjuntar precios reales comparables, derechos SaaS, validación de horas/cargas/márgenes, CPA/Legal y resultados de pruebas piloto antes de cerrar los gates; la conciliación documental no los marca completados.
