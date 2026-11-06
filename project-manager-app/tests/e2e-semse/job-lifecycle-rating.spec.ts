@@ -150,9 +150,10 @@ test("guards: a milestone needs evidence to be submitted and approval to be rele
   await expectRefused(ACTORS.client, "POST", `/v1/milestones/${milestone.id}/escrow/release`, {}, 409, /must be approved/);
 });
 
-test("guards: job transitions follow the role rules, and ratings need a completed job and a 1-5 score", async () => {
+test("guards: job transitions follow the role rules, completion needs closure, and ratings need a completed job and a 1-5 score", async () => {
   const id = run();
-  const { job } = await fundedJob(id, 200);
+  const { job, projectId } = await fundedJob(id, 200);
+  const milestone = await ok(ACTORS.ops, "POST", `/v1/projects/${projectId}/milestones`, { title: `Hito ${id}`, amount: 200, sequence: 1 });
 
   await expectRefused(ACTORS.client, "POST", "/v1/ratings", { jobId: job.id, toUserId: ACTORS.pro.userId, score: 5 }, 400, /completed jobs/);
 
@@ -165,6 +166,15 @@ test("guards: job transitions follow the role rules, and ratings need a complete
   expect([403, 404, 422], `other client org completing ${job.id}: ${intruder.status}`).toContain(intruder.status);
   // Field workers have no transition permission at all.
   await expectRefused({ ...ACTORS.pro, roles: ["WORKER"] }, "POST", `/v1/jobs/${job.id}/transition`, { targetStatus: "completed" }, 403);
+
+  // DOMAIN_INVARIANTS.md: no completion while a milestone is open or escrow holds funds, not even for ops.
+  await expectRefused(ACTORS.client, "POST", `/v1/jobs/${job.id}/transition`, { targetStatus: "completed" }, 409, /not approved.*escrow still holds 200/);
+  await expectRefused(ACTORS.ops, "POST", `/v1/jobs/${job.id}/transition`, { targetStatus: "completed" }, 409, /cannot be completed/);
+  await ok(ACTORS.pro, "POST", "/v1/evidence", { projectId, milestoneId: milestone.id, key: `tenants/${TENANT}/evidence/e2e/${id}.jpg`, kind: "PHOTO" });
+  await ok(ACTORS.pro, "POST", `/v1/milestones/${milestone.id}/submit`, {});
+  await ok(ACTORS.client, "POST", `/v1/milestones/${milestone.id}/approve`, {});
+  await expectRefused(ACTORS.client, "POST", `/v1/jobs/${job.id}/transition`, { targetStatus: "completed" }, 409, /escrow still holds 200/);
+  await ok(ACTORS.client, "POST", `/v1/milestones/${milestone.id}/escrow/release`, {});
 
   await ok(ACTORS.client, "POST", `/v1/jobs/${job.id}/transition`, { targetStatus: "completed" });
   for (const score of [0, 6, 4.5]) {
