@@ -794,7 +794,12 @@ export class ContributorProgramService {
       });
       ragDocumentId = doc.id;
     } else if (status === "REJECTED" && observation.ragDocumentId) {
-      await this.prometeo.deleteDocument({ tenantId: ctx.tenantId, id: observation.ragDocumentId });
+      await this.prometeo.deleteDocument({
+        tenantId: ctx.tenantId,
+        id: observation.ragDocumentId,
+        actorUserId: ctx.userId,
+        requestId: ctx.requestId,
+      });
       ragDocumentId = null;
     }
 
