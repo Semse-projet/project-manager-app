@@ -51,9 +51,9 @@ date: "2026-11-04"
 ## Fase 4 — PR y CI (este PR en borrador)
 
 - [x] [T-040] Revisar diff y secretos
-- [ ] [T-041] Actualizar PR #1092 con evidencia
-- [ ] [T-042] CI terminal y `ci_status`
-- [~] [T-043] Merge: requiere aprobación del owner
+- [x] [T-041] Actualizar PR #1092 con evidencia
+- [x] [T-042] CI terminal y `ci_status`
+- [x] [T-043] Merge aprobado por el owner; squash 7a66a96 (2026-11-04)
 
 ## Fase 5 — Deploy y activación
 

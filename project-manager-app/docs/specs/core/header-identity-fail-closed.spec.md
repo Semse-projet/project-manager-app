@@ -3,18 +3,23 @@ id: "core.header-identity-fail-closed"
 title: "Identidad por cabeceras sólo con opt-in explícito (fail-closed fuera de producción)"
 domain: "core"
 sdd_version: "2.0"
-version: "0.2"
+version: "0.3"
 status: "IMPLEMENTED"
 owner: "semse-core"
 risk: "high"
 code_status: "COMPLETE"
-ci_status: "NOT_RUN"
-merge_status: "UNMERGED"
-deploy_status: "NOT_DEPLOYED"
+ci_status: "PASS"
+merge_status: "MERGED"
+deploy_status: "DEPLOYED"
 activation_status: "INACTIVE"
 migration_status: "NOT_APPLICABLE"
 feature_flags: []
-production_evidence: []
+production_evidence:
+  - "https://github.com/Semse-projet/project-manager-app/pull/1092 (squash 7a66a96, CI 13/13 terminal sin fallos, Codex sin hallazgos)"
+  - "CI de main sobre 7a66a96 (push): CI 41897034776, API Integration 41897034611, API Smoke 41897034587, Autonomy Staged API 41897034631, Operacion Asistida API 41897034613, todos success"
+  - "Procedencia: Railway reporta commitHash 7a66a9657df07590ef8b360dac4ba12df8ed6915 (main) para el deployment 83f11346 de semse-API; el activo al 2026-11-06 (ce1cc4ad, 645ce3b) contiene 7a66a96 (git merge-base --is-ancestor)"
+  - "2026-11-04 Railway SEMSEproject/production: semse-API deployment 83f11346 SUCCESS; api_bootstrap_complete 19:34:16Z; sin auth_secret_missing_fail_closed ni auth_header_identity_mode_enabled (AUTH_SECRET presente)"
+  - "2026-11-04 tráfico HTTP post-deploy: llamadas firmadas del Worker 201, ningún 503. Smoke autenticado OPS_ADMIN PENDIENTE (requiere credencial real): GET /api/semse/operational-signals (BFF de /v1/operational-intelligence/signals); /admin/mission-control no sirve, no consume OI"
 related_files:
   - "apps/api/src/modules/auth/auth.service.ts"
   - "apps/api/src/common/request-context.ts"
@@ -41,7 +46,7 @@ related_endpoints:
   - "GET /v1/operational-intelligence/brief"
 related_events: []
 related_agents: []
-last_verified: "2026-11-04"
+last_verified: "2026-11-05"
 ---
 
 # Spec: Identidad por cabeceras sólo con opt-in explícito

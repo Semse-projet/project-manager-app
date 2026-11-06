@@ -80,8 +80,10 @@ Permite trabajo sin patrón que use SEMSE mediante la Org que crea `register`, p
 
 ## Gates para aceptar ADR y diseñar código
 
-- **G0:** Identity/Auth confirma sesión personal discriminada, vigencia, recuperación sin Org y política de revocación, con pruebas para todos los guards.
-- **G1:** Security verifica que ningún endpoint corporativo ni worker/agent interprete token personal como `OrgActor`; pruebas A/B mismo tenant y cross-tenant.
+Aceptar el ADR aprueba el **contrato y el plan de pruebas**; la **verificación ejecutada** llega después, porque las pruebas sólo pueden escribirse tras APPROVED (F1B-021, F1B-027). La verificación sigue siendo obligatoria antes de habilitar la sesión PERSONAL.
+
+- **G0:** Identity/Auth aprueba el contrato de sesión personal discriminada, vigencia, recuperación sin Org y política de revocación, y el plan de pruebas para todos los guards. *Antes de habilitar PERSONAL:* esas pruebas ejecutadas y en verde.
+- **G1:** Security aprueba el contrato por el que ningún endpoint corporativo ni worker/agent interpreta un token personal como `OrgActor`, y el plan de pruebas A/B mismo tenant y cross-tenant. *Antes de habilitar PERSONAL:* esas pruebas ejecutadas y en verde.
 - **G2:** Legal/Privacy/Records determina categorías elegibles y derecho de conservación, retención, revocación, borrado y derechos de terceros.
 - **G3:** Architecture/DB determina custodia realmente independiente de `Tenant`, consistencia/outbox, integridad, cifrado, almacenamiento y migración, sin crear otro motor de horas.
 - **G4:** Data/Operations presenta plan de exportación/recovery ante eliminación del tenant, fallos, RPO/RTO y restore drill sintético.

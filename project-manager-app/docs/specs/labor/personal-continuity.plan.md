@@ -48,7 +48,7 @@ date: "2026-10-24"
 ### F1B-B — Custodia de registros mínimos (segundo)
 
 - Definir esquema/versiones de *recibos personales derivados* con `ownerUserId`, origen, hash, `retentionClass`, `recordClass`, estado y claves administradas con aislamiento.
-- Elegibilidad personal estricta: registros propios de tiempo y notas no confidenciales; excluir por defecto Job, fotos, GPS, clientes, datos de compañeros y salarios de organización.
+- Elegibilidad personal estricta: registros propios de tiempo; excluir por defecto notas (texto libre, según G0-R §12 del spec), Job, fotos, GPS, clientes, datos de compañeros y salarios de organización. Incluir notas exige una decisión explícita de Legal/Privacy.
 - `TimeEntry` permanece canónico y editable sólo por su FSM; copia derivada sólo lectura con versionado explícito.
 - Para nuevas entradas personales elegibles, outbox atómico ligado a fuente, proyector idempotente; no bloquear reloj por retraso en copia. Marcar falla de proyección y reintentos.
 - Backfill histórico sólo tras firma de política de privacidad/retención y autorización de archivos de empresa. No barrer tenants por ID de autor con acceso global.
