@@ -35,6 +35,41 @@ La tabla `BLS_SERIES` en `apps/api/src/modules/pricing/bls-ppi.service.ts` mezcl
 | Precios estáticos por oficio | `packages/tools/src/trades/*.engine.ts`, `protools.agent.ts` y `cost-engine.ts` | `LEGACY_UNVERIFIED`: valor fijo en repositorio no equivale a factura o negociación aprobada |
 | Impuesto genérico 7 % | `buildCostSummary` | `FISCAL_UNVERIFIED`; prohibido generalizar a nuevas políticas; Q10 define `UNDETERMINED` |
 
+### Auditoría adicional — los 24 motores y propagación de impuestos/fee
+
+**Método:** inspección de `main`, rutas `packages/tools/src/trades/**/*.engine.ts` (24 archivos), `packages/tools/src/core/cost-engine.ts`; corte 2026-11-05. No se ejecutaron los motores ni se validaron importes comercialmente. `priceOf` significa *usa el helper con un valor de respaldo*, no que el precio externo sea auténtico o aceptado.
+
+| Motor | Helper `priceOf` | Impuesto 7 % / comisión 5 % |
+|---|---|---|
+| bathroom | no | explícitos |
+| carpentry | sí | explícitos |
+| cleaning | no | explícitos |
+| concrete | sí | **heredados** del `buildCostSummary` central |
+| deck | sí | explícitos |
+| demolition | no | explícitos |
+| drywall | sí | explícitos |
+| electrical | sí | **heredados** del `buildCostSummary` central |
+| fencing | sí | explícitos |
+| flooring | no | explícitos |
+| hvac | no | explícitos |
+| insulation | no | explícitos |
+| kitchen | no | explícitos |
+| labor | no | explícitos |
+| landscaping | no | explícitos |
+| masonry | sí | explícitos |
+| painting | no | explícitos |
+| plumbing | sí | explícitos |
+| project-manager | no | explícitos |
+| roofing | sí | explícitos |
+| siding | no | explícitos |
+| solar | no | explícitos |
+| tile | no | explícitos |
+| windows-doors | no | explícitos |
+
+**Resultado comprobado:** 24/24 llaman `buildCostSummary`; 22/24 fijan `taxRate: 0.07` y `semseFeeRate: 0.05` directamente; concreto y electricidad omiten esos parámetros y heredan `DEFAULT_TAX=0.07` y `SEMSE_FEE_RATE=0.05`. 9/24 usan `priceOf`, que en el motor central devuelve `map?.[key] ?? defaultPrice`: un precio de caché BLS o un respaldo numérico **no acreditan** origen, fecha, licencia ni impuesto. Los 24 construyen elementos mediante `material(...)`, por lo que requieren mapeo de insumos y unidades; **no** se concluye por un patrón de búsqueda que todos tengan exactamente los mismos riesgos ni que sea imposible otro mecanismo de precio.
+
+**Bloqueo de aceptación ampliado T-005:** la revisión de solo 12 entradas `BLS_SERIES` es insuficiente. Cada motor debe tener una matriz de *línea de material → SKU/unidad, cotización autorizada o estado MISSING, fecha, localidad, impuestos de compra, política de desperdicio y permiso*, y *línea de mano de obra → tarea, horas, costo de carga y tarifa facturable*. Una futura `TaxPolicy` no puede heredar en silencio el 7 % de los motores; una futura `CommissionPolicy` no puede aprobar el 5 % por aparecer en el código. Mantener importes heredados para compatibilidad diagnóstica, no para cotizaciones finales nuevas.
+
 ## 2. Pilotos de adquisición de precios reales (pintura interior y drywall)
 
 Los códigos P01–P12 no cubren por sí solos materiales de pintura y drywall: ProTools declara también **pintura, primer, rodillos, tornillos y compuesto de juntas**. La adquisición piloto necesita SKU, unidad comercial y rendimiento específico, no una conversión arbitraria desde PPI.
