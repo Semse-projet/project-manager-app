@@ -155,3 +155,11 @@ date: "2026-10-30"
 - [ ] Acreditar la procedencia de multiplicadores RSMeans/valores de código y completar linaje **por cada partida** económica de los 24 motores.
 - [ ] Obtener permisos específicos de reutilización SaaS/derivados/caché/visibilidad y precios de proveedor con SKU/unidad/fecha/ubicación antes de marcar filas comerciales como aprobadas.
 - [ ] Realizar T-008c en modo solo lectura cuando se autorice; #1101 no debe sustituir la comprobación del snapshot actual.
+
+## Plan nacional de obtención de cotizaciones y licencias
+
+- [x] [T-005p](./cost-engine.t005-vendor-quotes-rights-acquisition-2026-11-06.md): canales oficiales Home Depot Pro, Lowe's Pro, 84 Lumber, ABC Supply, Sherwin-Williams PRO+ y potencial proveedor OEM Craftsman **identificados**; no contactados ni contratados.
+- [x] Plantillas de `VendorCandidate`, `QuoteEvidence` y `LicenseReview` preparadas como diseño, sin migración ni registros de precios nuevos.
+- [ ] Cotizaciones reales por SKU/fecha/ubicación con derecho de uso acreditado, validación de unidad, cantidad, alcance, flete, tax de compra y vigencia.
+- [ ] Términos escritos de SaaS, caching, derivados, exposición multitenant, retención/revocación, incluidos proveedores heredados y nueva fuente OEM; dictamen Legal.
+- [ ] Validación independiente y pruebas negativas; cobertura por oficio y región demostrada antes de autorización comercial/fiscal.
