@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { ErrorState } from "@semse/ui";
 import { useLanguage, type LanguagePreference } from "../../../../lib/language-context";
+import { messageFromError, messageKey, messageTextOr, renderMessage, type UiMessage } from "../../../../lib/ui-message";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -38,7 +39,7 @@ type BidForm = {
   availableFrom: string;
 };
 
-type BidResult = { success: boolean; message: string };
+type BidResult = { success: boolean; message: UiMessage };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -106,7 +107,7 @@ function BidModal({ form, onClose, onRetry, onSubmit, submitting, result }: {
               <>
                 <CheckCircle2 size={40} color="#86efac" style={{ marginBottom: 12 }} />
                 <div style={{ fontSize: 16, fontWeight: 800, color: "#86efac", marginBottom: 8 }}>{t("mp.sent")}</div>
-                <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 20 }}>{result.message}</div>
+                <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 20 }}>{renderMessage(result.message, t)}</div>
                 <button onClick={onClose} style={{ padding: "10px 24px", borderRadius: 10, background: "rgba(134,239,172,.15)", border: "1px solid rgba(134,239,172,.3)", color: "#86efac", fontWeight: 700, cursor: "pointer" }}>
                   {t("mp.close")}
                 </button>
@@ -114,7 +115,7 @@ function BidModal({ form, onClose, onRetry, onSubmit, submitting, result }: {
             ) : (
               <>
                 <div style={{ fontSize: 14, fontWeight: 700, color: "#fca5a5", marginBottom: 8 }}>{t("mp.sendError")}</div>
-                <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 16 }}>{result.message}</div>
+                <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 16 }}>{renderMessage(result.message, t)}</div>
                 <button type="button" onClick={onRetry} style={{ padding: "8px 20px", borderRadius: 10, background: "rgba(239,68,68,.1)", border: "1px solid rgba(239,68,68,.3)", color: "#fca5a5", cursor: "pointer" }}>
                   {t("mp.retry")}
                 </button>
@@ -267,13 +268,13 @@ export default function ClientMarketplacePage() {
       });
       const json = await resp.json() as { data?: unknown; error?: { message?: string } };
       if (resp.ok && json.data) {
-        setBidResult({ success: true, message: t("mp.bidSuccess") });
+        setBidResult({ success: true, message: messageKey("mp.bidSuccess") });
         void load(); // refresh bids count
       } else {
-        setBidResult({ success: false, message: (json.error?.message as string) ?? t("mp.bidFailure") });
+        setBidResult({ success: false, message: messageTextOr(json.error?.message, "mp.bidFailure") });
       }
     } catch (e) {
-      setBidResult({ success: false, message: e instanceof Error ? e.message : t("mp.networkError") });
+      setBidResult({ success: false, message: messageFromError(e, "mp.networkError") });
     } finally {
       setBidSubmitting(false);
     }

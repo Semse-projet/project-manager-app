@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { fetchSemseDataForRequest, handleServerError } from "../../_server";
+import { fetchSemseDataForRequest, handleServerError, trustedClientHeaders } from "../../_server";
 
 // Mobile-app-facing login BFF. Proxies to POST /v1/auth/login and returns
 // the token in the response body (not as a cookie) so native/mobile clients
@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
       roles?: string[];
     }>("/v1/auth/login", request, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { ...trustedClientHeaders(request), "content-type": "application/json" },
       body: JSON.stringify(body),
     });
     return NextResponse.json({ data });

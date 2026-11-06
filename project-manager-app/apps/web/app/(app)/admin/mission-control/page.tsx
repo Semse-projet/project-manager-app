@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
 import { useLanguage } from "../../../../lib/language-context";
+import { messageFromError, messageKey, messageText, messageTextOr, renderMessage, UiMessageError, type UiMessage } from "../../../../lib/ui-message";
 
 type MissionControlAction =
   | "ACKNOWLEDGE"
@@ -156,7 +157,7 @@ export default function MissionControlPage() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [accessState, setAccessState] = useState<"ready" | "forbidden" | "inactive" | "error">("ready");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<UiMessage | null>(null);
   const [liveState, setLiveState] = useState<"connecting" | "connected" | "degraded">("connecting");
   const [source, setSource] = useState("");
   const [severity, setSeverity] = useState("");
@@ -164,7 +165,7 @@ export default function MissionControlPage() {
   const [draft, setDraft] = useState<ActionDraft | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [receipt, setReceipt] = useState<Receipt | null>(null);
-  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<UiMessage | null>(null);
 
   const buildQuery = useCallback((cursor?: string | null) => {
     const query = new URLSearchParams({ limit: "50" });
@@ -199,13 +200,13 @@ export default function MissionControlPage() {
       }
       if (!exceptionsResponse.ok || !runbooksResponse.ok) {
         const body = await exceptionsResponse.json().catch(() => null);
-        throw new Error(errorMessage(body, t("mc.error.unavailable")));
+        throw new UiMessageError(messageTextOr(errorMessage(body, ""), "mc.error.unavailable"));
       }
       const exceptionsBody = await exceptionsResponse.json() as { data?: ExceptionsPayload };
       const runbooksBody = await runbooksResponse.json() as {
         data?: { runbooks?: MissionControlRunbook[] };
       };
-      if (!exceptionsBody.data) throw new Error(t("mc.error.load"));
+      if (!exceptionsBody.data) throw new UiMessageError(messageKey("mc.error.load"));
       if (!exceptionsBody.data.enabled) {
         setPayload(null);
         setRunbooks([]);
@@ -217,11 +218,11 @@ export default function MissionControlPage() {
       setAccessState("ready");
     } catch (caught) {
       setAccessState("error");
-      setError(caught instanceof Error ? caught.message : t("mc.error.load"));
+      setError(messageFromError(caught, "mc.error.load"));
     } finally {
       setLoading(false);
     }
-  }, [buildQuery, t]);
+  }, [buildQuery]);
 
   useEffect(() => {
     void fetchData();
@@ -292,16 +293,17 @@ export default function MissionControlPage() {
         data?: { receipt?: Receipt };
       } | null;
       if (!response.ok || !body?.data?.receipt) {
-        throw new Error(errorMessage(body, `${t("mc.error.actionHttp")} ${response.status}.`));
+        const serverText = errorMessage(body, "");
+        throw new UiMessageError(serverText ? messageText(serverText) : messageKey("mc.error.actionHttp", ` ${response.status}.`));
       }
       setReceipt(body.data.receipt);
       await fetchData();
     } catch (caught) {
-      setActionError(caught instanceof Error ? caught.message : t("mc.error.action"));
+      setActionError(messageFromError(caught, "mc.error.action"));
     } finally {
       setSubmitting(false);
     }
-  }, [draft, fetchData, t]);
+  }, [draft, fetchData]);
 
   const loadMore = useCallback(async () => {
     if (!payload?.nextCursor) return;
@@ -311,7 +313,7 @@ export default function MissionControlPage() {
         `/api/semse/ops/mission-control/exceptions?${buildQuery(payload.nextCursor)}`,
         { credentials: "include", cache: "no-store" },
       );
-      if (!response.ok) throw new Error(t("mc.error.nextPage"));
+      if (!response.ok) throw new UiMessageError(messageKey("mc.error.nextPage"));
       const body = await response.json() as { data?: ExceptionsPayload };
       if (!body.data) return;
       setPayload((current) => current ? {
@@ -319,11 +321,11 @@ export default function MissionControlPage() {
         items: [...current.items, ...body.data!.items],
       } : body.data!);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : t("mc.error.nextPage"));
+      setError(messageFromError(caught, "mc.error.nextPage"));
     } finally {
       setLoadingMore(false);
     }
-  }, [buildQuery, payload?.nextCursor, t]);
+  }, [buildQuery, payload?.nextCursor]);
 
   const selectedRunbook = useMemo(
     () => runbooks.find((runbook) => runbook.id === draft?.runbookId) ?? null,
@@ -355,7 +357,7 @@ export default function MissionControlPage() {
     return <StatePanel title={t("mc.access.inactive")} detail={t("mc.access.inactiveDetail")} />;
   }
   if (!loading && accessState === "error") {
-    return <StatePanel title={t("mc.access.unavailable")} detail={error ?? t("mc.access.unavailableDetail")} retry={fetchData} />;
+    return <StatePanel title={t("mc.access.unavailable")} detail={renderMessage(error, t) ?? t("mc.access.unavailableDetail")} retry={fetchData} />;
   }
 
   return (
@@ -412,7 +414,7 @@ export default function MissionControlPage() {
       ) : null}
 
       {error ? (
-        <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">{error}</div>
+        <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">{renderMessage(error, t)}</div>
       ) : null}
 
       <div className="mb-4 flex flex-wrap gap-2 rounded-xl border border-slate-800 bg-slate-950/40 p-3">
@@ -532,7 +534,7 @@ export default function MissionControlPage() {
             </div>
 
             {actionError ? (
-              <div className="mt-3 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-200">{actionError}</div>
+              <div className="mt-3 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-200">{renderMessage(actionError, t)}</div>
             ) : null}
             {receipt ? (
               <div className={`mt-3 rounded-lg border p-3 text-xs ${

@@ -835,7 +835,7 @@ async function ensureAuthSession() {
       cause: networkErr?.cause?.code ?? null,
       apiBaseUrl: config.apiBaseUrl,
       timestamp: new Date().toISOString(),
-      note: "Worker will start without JWT auth. API calls use identity headers only.",
+      note: "Worker will start without JWT auth. Identity-header calls are only accepted by the API in local dev (SEMSE_ALLOW_HEADER_IDENTITY=true, NODE_ENV development/test, no AUTH_SECRET).",
     }));
     return;
   }

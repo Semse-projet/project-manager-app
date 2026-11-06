@@ -15,6 +15,7 @@ export function createThread(params: {
   tenantId: string;
   userId: string;
   agentId: string;
+  projectId?: string;
 }): ChatThread {
   const now = new Date().toISOString();
   const thread: ChatThread = {
@@ -22,6 +23,7 @@ export function createThread(params: {
     tenantId: params.tenantId,
     userId: params.userId,
     agentId: params.agentId,
+    projectId: params.projectId,
     messages: [],
     createdAt: now,
     updatedAt: now,
