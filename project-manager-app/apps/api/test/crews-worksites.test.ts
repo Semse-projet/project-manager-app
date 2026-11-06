@@ -4,7 +4,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { REQUIRED_PERMISSIONS_KEY } from "../src/common/permissions.decorator.ts";
 import { CrewsService } from "../dist/modules/organizations/crews.service.js";
-import { OrgCrewsController } from "../dist/modules/organizations/crews.controller.js";
+import { MyCrewsController, OrgCrewsController } from "../dist/modules/organizations/crews.controller.js";
 
 type Row = Record<string, any>;
 
@@ -44,7 +44,7 @@ function makeWorld() {
     crewMember: table(crewMembers, () => ({ status: "ACTIVE", addedAt: new Date() })),
     membership: {
       async findMany({ where }: any) {
-        return memberships.filter((m) => m.userId === where.userId && m.orgId === where.orgId &&
+        return memberships.filter((m) => (typeof where.userId === "string" ? m.userId === where.userId : where.userId?.in?.includes(m.userId)) && m.orgId === where.orgId &&
           (where.status ? m.status === where.status : true) &&
           (where.org ? m.org.tenantId === where.org.tenantId : true));
       }
@@ -63,7 +63,7 @@ test("flag apagado -> 404 sin efectos", async () => {
   process.env.SEMSE_CREWS_ENABLED = "false";
   const w = makeWorld();
   await assert.rejects(w.service.createWorksite(owner, "orgA", "r", { name: "Obra 1" }), { status: 404 });
-  await assert.rejects(w.service.listMine({ userId: "ana" }), { status: 404 });
+  await assert.rejects(w.service.listMine({ tenantId: "t1", userId: "ana" }), { status: 404 });
   assert.equal(w.worksites.length, 0);
 });
 
@@ -113,34 +113,115 @@ test("roster: solo el supervisor de ESA cuadrilla (cross-crew -> 404)", async ()
   const c1 = await w.service.createCrew(owner, "orgA", "r", { name: "C1", supervisorUserId: "sup" });
   const c2 = await w.service.createCrew(owner, "orgA", "r", { name: "C2", supervisorUserId: "bob" });
   await w.service.addMember(owner, "orgA", c1.crewId, "ana", "r");
-  const roster = await w.service.rosterForSupervisor({ userId: "sup" }, c1.crewId);
+  const roster = await w.service.rosterForSupervisor({ tenantId: "t1", userId: "sup" }, c1.crewId);
   assert.deepEqual(roster.members.map((m: any) => m.userId), ["ana"]);
-  await assert.rejects(w.service.rosterForSupervisor({ userId: "sup" }, c2.crewId), { status: 404 });
-  await assert.rejects(w.service.rosterForSupervisor({ userId: "ana" }, c1.crewId), { status: 404 });
+  await assert.rejects(w.service.rosterForSupervisor({ tenantId: "t1", userId: "sup" }, c2.crewId), { status: 404 });
+  await assert.rejects(w.service.rosterForSupervisor({ tenantId: "t1", userId: "ana" }, c1.crewId), { status: 404 });
 });
 
 test("sesión obsoleta: si la Membership del supervisor ya no está ACTIVE, deja de ver el roster y sus cuadrillas", async () => {
   const w = makeWorld();
   const c1 = await w.service.createCrew(owner, "orgA", "r", { name: "C1", supervisorUserId: "sup" });
   await w.service.addMember(owner, "orgA", c1.crewId, "ana", "r");
-  assert.equal((await w.service.listMine({ userId: "sup" })).length, 1);
+  assert.equal((await w.service.listMine({ tenantId: "t1", userId: "sup" })).length, 1);
   w.memberships.find((m) => m.userId === "sup")!.status = "SUSPENDED";
-  await assert.rejects(w.service.rosterForSupervisor({ userId: "sup" }, c1.crewId), { status: 404 });
-  assert.equal((await w.service.listMine({ userId: "sup" })).length, 0);
+  await assert.rejects(w.service.rosterForSupervisor({ tenantId: "t1", userId: "sup" }, c1.crewId), { status: 404 });
+  assert.equal((await w.service.listMine({ tenantId: "t1", userId: "sup" })).length, 0);
   w.memberships.find((m) => m.userId === "ana" && m.orgId === "orgA")!.status = "REVOKED";
-  assert.equal((await w.service.listMine({ userId: "ana" })).length, 0);
+  assert.equal((await w.service.listMine({ tenantId: "t1", userId: "ana" })).length, 0);
+});
+
+test("N01: PRO ACTIVE no conserva autoridad de supervisor si WORKER queda suspendido", async () => {
+  const w = makeWorld();
+  const c1 = await w.service.createCrew(owner, "orgA", "r", { name: "C1", supervisorUserId: "sup" });
+  w.memberships.push({ userId: "sup", orgId: "orgA", status: "ACTIVE", role: { key: "PRO" }, org: { tenantId: "t1" } });
+  w.memberships.find((m) => m.userId === "sup" && m.role.key === "WORKER")!.status = "SUSPENDED";
+
+  await assert.rejects(w.service.rosterForSupervisor({ tenantId: "t1", userId: "sup" }, c1.crewId), { status: 404 });
+  assert.equal((await w.service.listMine({ tenantId: "t1", userId: "sup" })).length, 0);
 });
 
 test("mis cuadrillas: el miembro ve la suya con rol MEMBER; archivar una vez", async () => {
   const w = makeWorld();
   const c1 = await w.service.createCrew(owner, "orgA", "r", { name: "C1", supervisorUserId: "sup" });
   await w.service.addMember(owner, "orgA", c1.crewId, "ana", "r");
-  const mine = await w.service.listMine({ userId: "ana" });
+  const mine = await w.service.listMine({ tenantId: "t1", userId: "ana" });
   assert.equal(mine.length, 1);
   assert.equal(mine[0].myRole, "MEMBER");
   await w.service.archiveCrew(owner, "orgA", c1.crewId, "r");
   await assert.rejects(w.service.archiveCrew(owner, "orgA", c1.crewId, "r"), { status: 409 });
-  assert.equal((await w.service.listMine({ userId: "ana" })).length, 0);
+  assert.equal((await w.service.listMine({ tenantId: "t1", userId: "ana" })).length, 0);
+});
+
+test("S0A-ROSTER-01: no listar miembro WORKER revocado aunque su CrewMember y PRO sigan activos", async () => {
+  const w = makeWorld();
+  const crew = await w.service.createCrew(owner, "orgA", "r-roster", { name: "C1", supervisorUserId: "sup" });
+  await w.service.addMember(owner, "orgA", crew.crewId, "ana", "r1");
+  await w.service.addMember(owner, "orgA", crew.crewId, "bob", "r2");
+  const initial = await w.service.rosterForSupervisor({ tenantId: "t1", userId: "sup" }, crew.crewId);
+  assert.deepEqual(initial.members.map((m: Row) => m.userId), ["ana", "bob"]);
+  const previousAuditCount = w.audits.length;
+
+  w.memberships.find((m) => m.userId === "ana" && m.orgId === "orgA" && m.role.key === "WORKER")!.status = "REVOKED";
+  w.memberships.push({ userId: "ana", orgId: "orgA", status: "ACTIVE", role: { key: "PRO" }, org: { tenantId: "t1" } });
+  // Una identidad todavía WORKER en otro tenant no restituye pertenencia a orgA.
+  const roster = await w.service.rosterForSupervisor({ tenantId: "t1", userId: "sup" }, crew.crewId);
+  assert.deepEqual(roster.members.map((m: Row) => m.userId), ["bob"]);
+  assert.equal(w.crewMembers.filter((m) => m.crewId === crew.crewId && m.userId === "ana").length, 1, "keep historical CrewMember");
+  assert.equal(w.audits.length, previousAuditCount, "roster read must not change audit history");
+});
+
+test("S0A-TENANT-01: un mismo usuario en dos tenants no puede mezclar crews ni rosters entre sesiones", async () => {
+  const w = makeWorld();
+  const tenantA = await w.service.createCrew(owner, "orgA", "r-tenanta", { name: "Crew tenant A", supervisorUserId: "ana" });
+  const ownerB = { tenantId: "t2", orgId: "orgB", userId: "owner_b", roles: ["PRO"] };
+  const tenantB = await w.service.createCrew(ownerB, "orgB", "r-tenantb", { name: "Crew tenant B", supervisorUserId: "ana" });
+
+  const visibleA = await w.service.listMine({ tenantId: "t1", userId: "ana" });
+  const visibleB = await w.service.listMine({ tenantId: "t2", userId: "ana" });
+  assert.deepEqual(visibleA.map((c) => c.crewId), [tenantA.crewId]);
+  assert.deepEqual(visibleB.map((c) => c.crewId), [tenantB.crewId]);
+  assert.equal(visibleA[0].myRole, "SUPERVISOR");
+  assert.equal(visibleB[0].myRole, "SUPERVISOR");
+
+  const rosterA = await w.service.rosterForSupervisor({ tenantId: "t1", userId: "ana" }, tenantA.crewId);
+  const rosterB = await w.service.rosterForSupervisor({ tenantId: "t2", userId: "ana" }, tenantB.crewId);
+  assert.equal(rosterA.crewId, tenantA.crewId);
+  assert.equal(rosterB.crewId, tenantB.crewId);
+
+  await assert.rejects(
+    w.service.rosterForSupervisor({ tenantId: "t1", userId: "ana" }, tenantB.crewId),
+    { status: 404 }
+  );
+  await assert.rejects(
+    w.service.rosterForSupervisor({ tenantId: "t2", userId: "ana" }, tenantA.crewId),
+    { status: 404 }
+  );
+});
+
+test("S0A-TENANT-02: controller uses authenticated tenant for mine and roster, not request headers", async () => {
+  const received: Row[] = [];
+  const service: any = {
+    async listMine(actor: Row) {
+      received.push({ action: "mine", ...actor });
+      return [];
+    },
+    async rosterForSupervisor(actor: Row, crewId: string) {
+      received.push({ action: "roster", ...actor, crewId });
+      return { crewId, members: [] };
+    }
+  };
+  const controller = new MyCrewsController(service);
+  const request: any = {
+    authContext: { tenantId: "t1", orgId: "orgA", userId: "ana", roles: ["WORKER"] },
+    headers: { "x-tenant-id": "t2", "x-user-id": "other" }
+  };
+  await controller.mine(request);
+  await controller.roster(request, "crewA");
+  assert.deepEqual(received, [
+    { action: "mine", tenantId: "t1", userId: "ana" },
+    { action: "roster", tenantId: "t1", userId: "ana", crewId: "crewA" }
+  ]);
 });
 
 test("controller declara permisos RBAC", () => {
