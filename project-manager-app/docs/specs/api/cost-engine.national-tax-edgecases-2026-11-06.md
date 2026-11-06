@@ -39,13 +39,15 @@ El crosswalk SOC por motor está documentado en cost-engine.national-labor-geo-t
 | Dataset | Claves mínimas y uso | Lo que NO debe representar |
 |---|---|---|
 | [BLS OEWS May 2025](https://www.bls.gov/oes/tables.htm) | release, estado/CBSA, SOC, hourly mean/median/percentiles, estado de supresión | tarifa facturable, costo total de cuadrilla |
-| [BLS county↔metro](https://www.bls.gov/OES/current/county_links.htm) | release, county y CBSA; reconocer CBSA multiestado | autoridad fiscal local precisa |
+| [BLS county↔metro](https://www.bls.gov/oes/tables.htm) | release, county y CBSA; reconocer CBSA multiestado | autoridad fiscal local precisa |
 | [BLS QCEW](https://www.bls.gov/cew/overview.htm) | NAICS, county, trimestre, empleo y salarios agregados | salario individual por SOC |
 | [SAM.gov wage determinations](https://sam.gov/wage-determinations) | WD ID, modificación, county, construcción, clasificación, base wage y fringe | mínimo aplicable a cualquier trabajo privado |
 | [Census BPS](https://www.census.gov/construction/bps/index.html) | estado/condado/CBSA, fecha, permisos de vivienda | precio retail, costo unitario, margen |
 | [DOT bid tabs / FHWA](https://www.ecfr.gov/current/title-23/section-635.115) | contrato, fecha, localización, alcance y precio de trabajo instalado | precio de un saco de cemento, madera o una placa |
 
 **Manifest obligatorio por lote:** provider, sourceOriginalUrl, releaseVersion, downloadedAtUTC, rawSha256, schemaVersion, rowCount, validCount, suppressedCount, rejectedCountByReason, geoCoverage, socCoverage, notice/rightsRef, qualityReviewer y status RESEARCH_ONLY/IMPORTED_NOT_APPROVED/APPROVED_REFERENCE.
+
+**Advertencia de versión verificada el 2026-11-06:** el enlace genérico BLS /oes/CURRENT/oessrcst.htm respondió con una página titulada May 2024, aunque /oes/tables.htm anuncia May 2025. No resolver esta discrepancia suponiendo que CURRENT significa 2025: para ingestión utilizar el enlace exacto del release indicado en /oes/tables.htm, inspeccionar la cabecera interna del archivo y rechazar cualquier divergencia de año, schema o release. No se extrajeron archivos estatales en este trabajo.
 
 **Validaciones técnicas exigibles (no implementadas):**
 - Preservar supresiones BLS como NULL, nunca transformarlas a 0; distinguir missing vs not applicable vs not released.
