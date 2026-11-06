@@ -26,6 +26,7 @@ import {
   updateAnswerSet,
 } from "./smart-intake.logic.js";
 import { CATEGORY_REGISTRY } from "./config/category-registry.js";
+import { reconcileIntakeEvidenceResults } from "./smart-intake-evidence-results.js";
 import { getScoringProfile } from "./config/scoring-profiles.js";
 import type {
   IntakeAnswer,
@@ -537,7 +538,7 @@ export class SmartIntakeService {
         jobId: intake.publishedJobId,
         status: "published",
         jobUrl: `/client/jobs/${intake.publishedJobId}`,
-        attachedEvidenceCount: intake.uploadedImages.length,
+        attachedEvidenceCount: intake.uploadedImages.filter((image) => image.evidenceStatus === "attached_to_job").length,
       };
     }
 
@@ -588,8 +589,8 @@ export class SmartIntakeService {
         }),
       ),
     );
-    const attachedEvidenceCount = evidenceResults.filter((r) => r.status === "fulfilled").length;
-    const failedEvidence = evidenceResults.filter((r) => r.status === "rejected").length;
+    const reconciledEvidence = reconcileIntakeEvidenceResults(intake.uploadedImages, evidenceResults);
+    const { attachedEvidenceCount, failedEvidence } = reconciledEvidence;
     if (failedEvidence > 0) {
       this.logger.warn(`[intake.publish] ${failedEvidence}/${intake.uploadedImages.length} evidence registrations failed for jobId=${job.id}`);
     }
@@ -607,7 +608,7 @@ export class SmartIntakeService {
       urgency: (urgency as ProjectIntakeRecord["urgency"] | undefined) ?? null,
       generatedEstimate: estimate,
       generatedMilestones: intake.generatedMilestones.length > 0 ? intake.generatedMilestones : generateMilestones(intake),
-      uploadedImages: intake.uploadedImages.map((image) => ({ ...image, evidenceStatus: "attached_to_job" })),
+      uploadedImages: reconciledEvidence.images,
       publishedJobId: job.id,
       publishedAt: new Date().toISOString(),
       status: "published",
