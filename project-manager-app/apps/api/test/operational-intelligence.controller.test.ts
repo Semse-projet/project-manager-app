@@ -6,15 +6,18 @@ import { REQUIRED_PERMISSIONS_KEY } from "../src/common/permissions.decorator.ts
 import { OperationalIntelligenceController } from "../dist/modules/operational-intelligence/operational-intelligence.controller.js";
 
 function makeReq(overrides: Record<string, unknown> = {}) {
-  // parseHeaderRequestContext(req) in this controller passes the whole req
-  // so identity headers must be top-level on the req object
+  // Identity comes from the verified auth context that AuthGuard sets on the
+  // request (core.header-identity-fail-closed AC-HI-06). Forged identity
+  // headers are present on purpose and must be ignored.
   return {
-    headers: { "x-request-id": "req_oi_1" },
-    "x-request-id": "req_oi_1",
-    "x-tenant-id": "tenant_1",
-    "x-org-id": "org_1",
-    "x-user-id": "usr_admin_1",
-    "x-roles": "OPS_ADMIN",
+    headers: {
+      "x-request-id": "req_oi_1",
+      "x-tenant-id": "tenant_forged",
+      "x-org-id": "org_forged",
+      "x-user-id": "usr_forged",
+      "x-roles": "OPS_ADMIN",
+    },
+    authContext: { userId: "usr_admin_1", tenantId: "tenant_1", orgId: "org_1", roles: ["OPS_ADMIN"] },
     ...overrides,
   };
 }
@@ -90,6 +93,7 @@ test("operational-intelligence controller: listSignals routes with filters", asy
   assert.equal(calls[0]?.type, "EVIDENCE_GAP");
   assert.equal(calls[0]?.jobId, "job_1");
   assert.equal(calls[0]?.limit, 20);
+  assert.equal(calls[0]?.tenantId, "tenant_1", "tenant must come from authContext, not forged headers");
 });
 
 test("operational-intelligence controller: listSignals uses default limit 50 when not provided", async () => {
@@ -280,4 +284,6 @@ test("operational-intelligence controller: seedTestSignals creates 3 test signal
   assert.equal(result.data.total, 3);
   assert.equal(result.data.seeded, 3);
   assert.equal(created.length, 3);
+  assert.ok(created.every((signal) => (signal as { tenantId?: string }).tenantId === "tenant_1"),
+    "seeded signals must use the verified tenant");
 });

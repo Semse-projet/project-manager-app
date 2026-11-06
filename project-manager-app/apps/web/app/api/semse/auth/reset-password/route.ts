@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
+import { trustedClientHeaders } from "../../_server";
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   let body: { token?: string; newPassword?: string };
@@ -25,7 +26,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const response = await fetch(`${apiBaseUrl}/v1/auth/password-reset/confirm`, {
       method: "POST",
       cache: "no-store",
-      headers: { "content-type": "application/json" },
+      headers: { ...trustedClientHeaders(req), "content-type": "application/json" },
       body: JSON.stringify({ token, newPassword }),
     });
 
