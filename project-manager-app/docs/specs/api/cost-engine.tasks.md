@@ -138,3 +138,10 @@ date: "2026-10-30"
 - [x] [T-005m] [Inventario S01–S12, con 12 claves BLS y estatus de permisos](./cost-engine.t005-source-rights-inventory-2026-11-06.md) completado **como auditoría de fuentes del código**, no como aprobación comercial.
 - [ ] [T-005n] Ampliar el inventario de familias a todas las partidas económicas y productividades de 24 motores, ProTools y rutas alternas de presupuestación, con origen, permiso y costo verificado por SKU y región.
 - [ ] [T-005o] Conciliar estado real del caché con T-008c autorizado (solo lectura) y resultados de #1101; obtener dictamen legal de fuentes restringidas y contrato de datos SaaS por proveedor antes de habilitar integración.
+
+## T-005 — adquisición de cotizaciones y derechos SaaS
+
+- [x] [T-005p] [Plan de canales de cotización y licenciamiento, con matrices de evidencia](./cost-engine.t005-vendor-quotes-rights-acquisition-2026-11-06.md) redactado como documentación. VND-01–06 son **candidatos sin contacto, quotes, contrato ni integración**.
+- [ ] [T-005q] Completar el conjunto de todas las partidas económicas de 24 motores y seleccionar SKU/unit/área para obtención de evidencia real; conservar `UNKNOWN` sin sustitución.
+- [ ] [T-005r] Obtener en proceso autorizado cotizaciones privadas comparables y/o licencias OEM/SaaS efectivas, documento de derechos, precio por región/fecha, Legal y aprobación comercial; nunca inferir autorización de páginas públicas.
+- [ ] [T-005s] Ejecutar oráculos independientes de precio, equivalencia, revocación, privacidad entre tenants y cobertura por oficio/mercado, sin alterar Q10 ni Q11 hasta sus firmas.
