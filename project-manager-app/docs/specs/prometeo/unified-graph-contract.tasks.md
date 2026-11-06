@@ -13,7 +13,7 @@ date: "2026-11-06"
 
 ## Fase 0 — Gobierno
 - [ ] [UGC-001] Owner acepta ADR-044 con fecha y aprueba el acta
-- [ ] [UGC-002] Owner resuelve Q-1 a Q-5 del spec
+- [x] [UGC-002] Owner resuelve Q-1 a Q-5 del spec (2026-11-06; valores numéricos y versión de `graphifyy` pendientes de dato)
 - [ ] [UGC-003] Owner aprueba el spec (`REVIEW` → `APPROVED`)
 - [ ] [UGC-004] Medir tamaño y tiempo de carga del `graph.json` de producción (condición de la prueba de Graphify)
 - [ ] [UGC-005] Refrescar `main` y reconciliar `related_files` con rutas reales

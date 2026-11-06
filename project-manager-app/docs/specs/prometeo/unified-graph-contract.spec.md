@@ -229,6 +229,18 @@ Rutas definitivas **por confirmar** al aprobar el spec (ver la sección 14):
 | Q-4 | Nombres de los permisos nuevos de solo lectura (D-04) y la regla exacta para `OPS_ADMIN` entre organizaciones | Un permiso por capacidad, definido en `rbac.ts`; sin cruce entre organizaciones salvo regla explícita |
 | Q-5 | ¿Se fija la versión de `graphifyy` en `Dockerfile.api`? | Sí, en un PR de infraestructura aparte y con tu autorización (`AGENTS.md`: no tocar CI/despliegue sin permiso) |
 
+### 14.1 Resoluciones del owner (2026-11-06)
+
+El owner respondió «aplica todo» al plan de respuestas del coordinador. Se registran tal como se recomendaron. Esto **no aprueba el spec**: pasa a `APPROVED` cuando el ADR-044 esté aceptado con fecha, el acta aprobada y los slices previos aprobados (sección de gates).
+
+| ID | Resolución |
+|---|---|
+| Q-1 | **Solo Graphify** en este slice. Los proveedores de memoria y de conversaciones serán specs hijos propios, aún no creados |
+| Q-2 | Módulo `operational-lineage`. Comprobado el 2026-11-06: en `main` no existe un módulo, un permiso ni un prefijo de ruta con ese nombre |
+| Q-3 | Sin valores numéricos hoy. El implementador mide el grafo de producción y propone; el owner aprueba. **Pendiente de dato** |
+| Q-4 | Permisos `lineage:graph:read` y `lineage:snapshot:read`, con el formato `namespace:recurso:acción` de `packages/auth/src/rbac.ts`. El prefijo `lineage:` no existe todavía |
+| Q-5 | Se fija la versión de `graphifyy` en `Dockerfile.api` mediante un PR de infraestructura aparte. **Aún no creado:** falta confirmar la versión que corre en producción; fijar una distinta de la actual cambiaría el comportamiento del grafo en producción |
+
 ## 14. Archivos y endpoints planificados (aún inexistentes)
 
 Se mantienen fuera del frontmatter porque `spec:validate:strict` exige que `related_files` existan. Se mueven al frontmatter cuando el slice los cree.
