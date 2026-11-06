@@ -255,6 +255,7 @@ o añade una fila nueva antes de almacenarse, no después:
 | Logs técnicos/traces (Observability) | interno, redactado de secretos | Debugging, SRE | 30–90 días según volumen (ver dependencia Observability Platform, `SKILL.md` §11) | No es evidencia legal; no extiende el AuditEvent |
 | Credenciales/secretos | credencial/secreto | Operación del sistema | nunca en logs/transcripts (ver "Secretos en logs" arriba); en vault, según su propia política de rotación | N/A — no aplica retención "de negocio" |
 | Datos financieros (pagos, cuentas) | financiero | Payments, compliance | según obligación fiscal/PCI-DSS de la jurisdicción | Nunca purgable por debajo del mínimo fiscal/legal |
+| Consentimiento OAuth delegado MCP (`McpDelegatedConsent`, S1/D7, spec en REVIEW) | personal/seguridad | Autorización de clientes MCP, investigación de incidentes | `ACTIVE` mientras esté vigente; terminal: completo 90 días desde `coalesce(revokedAt, expiresAt)`, luego anonimizado (sin `userId`/`sessionId`/`grantBindingDigest`, fechas al día); supresión de User/Org: revocar y anonimizar de inmediato | Legal hold la extiende; el tenant puede alargar, no acortar; su `AuditEvent` sigue la fila de auditoría |
 
 **MUST**: cuando se ejecute un borrado legal (derecho de supresión), propagarlo a derivados
 (caches, índices, backups, exports) cuando sea legal y técnicamente posible, dejando solo el

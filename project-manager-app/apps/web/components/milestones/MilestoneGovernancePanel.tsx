@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { AlertTriangle, CheckCircle, Clock, ShieldAlert, XCircle } from "lucide-react";
 import { CrowdDecisionBadge } from "@/components/semse/CrowdDecisionBadge";
 import { useLanguage } from "../../lib/language-context";
+import { messageFromError, messageTextOr, renderMessage, UiMessageError, type UiMessage } from "../../lib/ui-message";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -83,7 +84,7 @@ export function MilestoneGovernancePanel({ milestoneId, onReleaseReady }: Props)
   const { t, language } = useLanguage();
   const [data, setData] = useState<GovernanceResult | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<UiMessage | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -91,15 +92,15 @@ export function MilestoneGovernancePanel({ milestoneId, onReleaseReady }: Props)
     try {
       const res = await fetch(`/api/semse/milestones/${milestoneId}/payment-governance`);
       const json = await res.json() as { data?: GovernanceResult; error?: { message?: string } };
-      if (!res.ok) throw new Error(json?.error?.message ?? t("governance.error.load"));
+      if (!res.ok) throw new UiMessageError(messageTextOr(json?.error?.message, "governance.error.load"));
       setData(json.data ?? null);
       if (json.data?.canRelease) onReleaseReady?.();
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("governance.error.fallback"));
+      setError(messageFromError(err, "governance.error.fallback"));
     } finally {
       setLoading(false);
     }
-  }, [milestoneId, onReleaseReady, t]);
+  }, [milestoneId, onReleaseReady]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -114,7 +115,7 @@ export function MilestoneGovernancePanel({ milestoneId, onReleaseReady }: Props)
   if (error || !data) {
     return (
       <div style={{ padding: 18, borderRadius: 14, background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.2)", color: "#fca5a5", fontSize: 13 }}>
-        {error ?? t("governance.empty")}
+        {renderMessage(error, t) ?? t("governance.empty")}
       </div>
     );
   }
