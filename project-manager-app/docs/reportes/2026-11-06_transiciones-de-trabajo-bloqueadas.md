@@ -136,3 +136,15 @@ Ahora cualquier transacción `PENDING` del escrow (depósito, liberación o reem
 | En vivo: recorrido completo, casos de rechazo y spec de #1112 | sin cambios |
 
 **Pendiente de decisión (sin cambio):** como `disputes:create` sólo lo tienen `CLIENT` y `OPS_ADMIN`, el profesional no puede abrir la disputa que ahora exige `-> dispute`.
+
+## Séptima corrección (revisión de Codex): cancelar tras ejecutar y reserva frente a cancelación
+
+- **Cancelar exige que no haya habido ejecución.** Se aplica la regla del proyecto (`assertProjectLifecycleTransition`): no se cancela si algún hito ya está en ejecución (cualquier estado salvo `DRAFT` o `REJECTED`) o si el escrow liberó fondos alguna vez. Hasta ahora bastaba con que el saldo quedara a cero.
+- **La reserva respeta la cancelación.** `ReservationsRepository.create` toma el bloqueo de fila dentro de su transacción y vuelve a comprobar que el trabajo sigue reservable antes de escribir `RESERVED`. Sin esto, una reserva que corriera a la vez que la cancelación podía reabrir el trabajo.
+
+| Prueba | Resultado |
+|---|---|
+| Test de integración (Postgres real) | 5/5. El caso nuevo es una reserva durante la cancelación; sin el bloqueo, la reserva salía adelante. |
+| Tests de jobs y reservas | 34/34 |
+| Tests unitarios de la API (runner completo) | 3809 pasan. Fallan 8 `SAT-007`, que necesitan DNS real. |
+| En vivo: recorrido completo, casos de rechazo y spec de #1112 | sin cambios |

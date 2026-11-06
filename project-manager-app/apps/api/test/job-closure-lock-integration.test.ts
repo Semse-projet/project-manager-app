@@ -21,6 +21,7 @@ import { JobsRepository } from "../dist/modules/jobs/jobs.repository.js";
 import { OutboxRepository } from "../dist/modules/domain-events/outbox.repository.js";
 import { PaymentsRepository } from "../dist/modules/payments/payments.repository.js";
 import { lockJobRow } from "../dist/common/job-lock.js";
+import { ReservationsRepository } from "../dist/modules/reservations/reservations.repository.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 loadEnv({ path: path.resolve(__dirname, "..", "..", "..", "packages/db/.env") });
@@ -29,7 +30,7 @@ const dbTest = process.env.DATABASE_URL ? test : test.skip;
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const noActor = { async ensureActorContext() { return undefined; } };
 
-async function seed(prisma: PrismaClient, status: "ACCEPTED" | "CANCELLED" | "REVIEW") {
+async function seed(prisma: PrismaClient, status: "ACCEPTED" | "CANCELLED" | "REVIEW" | "POSTED") {
   const id = randomUUID().slice(0, 8);
   const tenantId = `tenant_lock_${id}`;
   await prisma.tenant.create({ data: { id: tenantId, slug: tenantId, name: `TEST_${id}` } });
@@ -153,6 +154,39 @@ dbTest("two transitions validated from the same status cannot both apply: a stal
     assert.match(await rework, /changed from 'review' to 'completed'/);
     assert.equal((await prisma.job.findUnique({ where: { id: ids.jobId } }))?.status, "COMPLETED");
   } finally {
+    await cleanup(prisma, ids.tenantId);
+    await prisma.$disconnect();
+  }
+});
+
+dbTest("a reservation that starts while the job is being cancelled cannot reopen it", async () => {
+  const prisma = new PrismaClient();
+  const ids = await seed(prisma, "POSTED");
+  try {
+    const proOrg = await prisma.org.create({ data: { tenantId: ids.tenantId, type: "PRO", name: `TEST_pro_${ids.tenantId}` } });
+    const pro = await prisma.user.create({ data: { email: `e2e-${ids.tenantId}@example.test` } });
+    const jobs = new JobsRepository(prisma as never, noActor as never, new OutboxRepository(prisma as never));
+    let releaseCancel!: () => void;
+    const cancelHolding = new Promise<void>((resolve) => { releaseCancel = resolve; });
+    // The owner's cancellation (posted -> cancelled) takes the row lock and stalls.
+    const cancel = jobs.updateStatus({
+      tenantId: ids.tenantId, jobId: ids.jobId, status: "cancelled", orgId: ids.orgId, actorType: "user", actorId: "usr_client",
+      expectedFrom: "posted", beforeWrite: async () => { await cancelHolding; },
+    });
+    await sleep(200);
+    const reservations = new ReservationsRepository(prisma as never, noActor as never);
+    const reserving = reservations.create({
+      tenantId: ids.tenantId, orgId: proOrg.id, userId: pro.id, roles: ["PRO"], jobId: ids.jobId, expiresInMinutes: 30,
+    }).then(() => "reserved", (error: Error) => error.message);
+    await sleep(300);
+    releaseCancel();
+    await cancel;
+    assert.match(await reserving, /not eligible for reservation/);
+    assert.equal((await prisma.job.findUnique({ where: { id: ids.jobId } }))?.status, "CANCELLED");
+    assert.equal(await prisma.jobReservation.count({ where: { jobId: ids.jobId } }), 0);
+  } finally {
+    await prisma.membership.deleteMany({ where: { org: { tenantId: ids.tenantId } } }).catch(() => undefined);
+    await prisma.user.deleteMany({ where: { email: `e2e-${ids.tenantId}@example.test` } }).catch(() => undefined);
     await cleanup(prisma, ids.tenantId);
     await prisma.$disconnect();
   }

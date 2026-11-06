@@ -713,8 +713,8 @@ export class JobsService {
 
   /**
    * DOMAIN_INVARIANTS.md: a Job must not reach COMPLETED while its operational
-   * and financial closure is open, nor CANCELLED with escrow it has no closing
-   * policy for; an open dispute blocks the final close. Applies to every manual
+   * and financial closure is open, nor CANCELLED after execution or with escrow it
+   * has no closing policy for; an open dispute blocks the final close. Applies to every manual
    * transition, whoever asks (systemCompleteJob does not come through here).
    */
   private async assertClosure(
@@ -725,9 +725,7 @@ export class JobsService {
   ): Promise<void> {
     const scope = { deletedAt: null, project: { jobId, tenantId } };
     const [milestones, escrows, activeDisputes] = await Promise.all([
-      target === "completed"
-        ? db.milestone.findMany({ where: scope, select: { status: true } })
-        : Promise.resolve([] as Array<{ status: unknown }>),
+      db.milestone.findMany({ where: scope, select: { status: true } }),
       db.paymentEscrow.findMany({
         where: scope,
         select: { transactions: { select: { type: true, status: true, amount: true } } },
@@ -921,6 +919,7 @@ const CLIENT_ONLY_TRANSITIONS: JobStatus[] = ["completed", "cancelled"];
 const PRO_ONLY_TRANSITIONS: JobStatus[] = ["review", "dispute"];
 
 const RESOLVED_MILESTONE_STATUSES = new Set(["APPROVED", "PAID"]);
+const UNEXECUTED_MILESTONE_STATUSES = new Set(["DRAFT", "REJECTED"]);
 const ACTIVE_DISPUTE_STATUSES = ["OPEN", "ASSIGNED", "UNDER_REVIEW"] as const;
 
 /** Why a job cannot reach a terminal status yet; empty when its closure allows it. */
@@ -950,6 +949,14 @@ export function jobClosureBlockers(
   if (pending > 0) blockers.push(`${pending} payment(s) still pending`);
 
   if (input.activeDisputes > 0) blockers.push(`${input.activeDisputes} dispute(s) still open`);
+
+  if (target === "cancelled") {
+    // Same rule as a project's cancellation (projects.policy.ts): once work was
+    // submitted or money released, cancelling needs an explicit closing policy.
+    const executed = input.milestoneStatuses.filter((status) => !UNEXECUTED_MILESTONE_STATUSES.has(status.toUpperCase())).length;
+    if (executed > 0) blockers.push(`${executed} milestone(s) already in execution`);
+    if (settled("RELEASE") > 0.000001) blockers.push("escrow already released funds");
+  }
   return blockers;
 }
 

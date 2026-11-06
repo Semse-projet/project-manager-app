@@ -114,6 +114,19 @@ test("a client cannot cancel while a deposit is still awaiting confirmation", as
   assert.equal(updates.length, 0);
 });
 
+test("a job cannot be cancelled once work was executed or money released", async () => {
+  // Same rule as a project's cancellation (projects.policy.ts).
+  assert.deepEqual(jobClosureBlockers("cancelled", { ...clear, milestoneStatuses: ["SUBMITTED"] }), ["1 milestone(s) already in execution"]);
+  assert.deepEqual(
+    jobClosureBlockers("cancelled", { ...clear, milestoneStatuses: ["PAID", "DRAFT"], escrowTransactions: [deposit(500), release(500)] }),
+    ["1 milestone(s) already in execution", "escrow already released funds"],
+  );
+  assert.deepEqual(jobClosureBlockers("cancelled", { ...clear, milestoneStatuses: ["DRAFT", "REJECTED"] }), []);
+  const { transition, updates } = service({ from: "accepted", milestones: ["APPROVED"], transactions: [deposit(300), release(300)] });
+  await assert.rejects(transition("cancelled"), /already in execution; escrow already released funds/);
+  assert.equal(updates.length, 0);
+});
+
 test("ops admins are held to the same closure rules", async () => {
   await assert.rejects(service({ from: "dispute", milestones: ["REJECTED"] }).transition("completed", ["OPS_ADMIN"], "org_ops_1"), ConflictException);
   await assert.rejects(service({ from: "dispute", activeDisputes: 1 }).transition("cancelled", ["OPS_ADMIN"], "org_ops_1"), ConflictException);
@@ -129,7 +142,6 @@ test("completion and cancellation go through once the closure allows them", asyn
 
   const cancelled = service({ from: "accepted", milestones: ["DRAFT"], transactions: [deposit(400), refund(400)] });
   assert.equal((await cancelled.transition("cancelled")).status, "cancelled");
-  assert.equal(cancelled.seen.some((s) => s.model === "milestone"), false);
 });
 
 test("other transitions do not run the closure check", async () => {
