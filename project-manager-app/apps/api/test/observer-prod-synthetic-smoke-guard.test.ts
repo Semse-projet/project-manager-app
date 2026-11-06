@@ -50,3 +50,23 @@ test("O.HI14: --apply refuses the right project but incorrect API service", () =
   assert.notEqual(run.status, 0);
   assert.match(run.stderr, /Only the existing semse-API service/);
 });
+
+test("O.HI14: --apply refuses to run in CI even in the designated service", () => {
+  const run = spawnSync(process.execPath, [executable, "--apply"], {
+    env: {
+      ...process.env,
+      CI: "true",
+      RAILWAY_PROJECT_ID: "95ad1b14-d1d9-467d-82d8-5354619ba873",
+      RAILWAY_ENVIRONMENT_NAME: "production",
+      RAILWAY_ENVIRONMENT_ID: "d682210a-956a-4508-9c5b-4ca5959278f9",
+      RAILWAY_SERVICE_ID: "2bd1bd3f-9aa1-4fc3-a714-4cf90c52c770",
+      SEMSE_OBSERVER_SMOKE_ACK: "YES_OBSERVER_1089_SYNTHETIC_WRITE_AND_CLEANUP",
+      DATABASE_URL: "postgresql://dummy:dummy@postgres.railway.internal/semse",
+      NODE_ENV: "production",
+    },
+    encoding: "utf8", timeout: 15000,
+  });
+  assert.notEqual(run.status, 0);
+  assert.match(run.stderr, /Forbidden in CI/);
+  assert.doesNotMatch(run.stdout + run.stderr, /FIXTURES CREATED|SMOKE PASS|accessToken/);
+});

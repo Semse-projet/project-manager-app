@@ -8,7 +8,8 @@
  * No credentials/tokens/payloads are logged or stored on disk.
  */
 import assert from "node:assert/strict";
-import { randomBytes, scryptSync } from "node:crypto";
+import { randomBytes, randomUUID, scryptSync } from "node:crypto";
+import { createRequire } from "node:module";
 
 const EXPECTED_PROJECT = "95ad1b14-d1d9-467d-82d8-5354619ba873";
 const EXPECTED_API_SERVICE = "2bd1bd3f-9aa1-4fc3-a714-4cf90c52c770";
@@ -29,6 +30,7 @@ assert.equal(process.env.RAILWAY_PROJECT_ID, EXPECTED_PROJECT, "Wrong Railway pr
 assert.equal(process.env.RAILWAY_ENVIRONMENT_NAME, "production", "Only designated production environment");
 assert.equal(process.env.RAILWAY_ENVIRONMENT_ID, EXPECTED_ENVIRONMENT, "Wrong Railway environment ID");
 assert.equal(process.env.RAILWAY_SERVICE_ID, EXPECTED_API_SERVICE, "Only the existing semse-API service may run this");
+assert.notEqual(process.env.CI, "true", "Forbidden in CI: production smoke runs only from the Railway API console");
 assert.equal(process.env.NODE_ENV, "production", "Production runtime required");
 assert.equal(process.env.SEMSE_OBSERVER_SMOKE_ACK, FLAG, "Explicit one-shot write acknowledgement required");
 assert.ok(process.env.DATABASE_URL, "Private DATABASE_URL must exist in the runtime");
@@ -47,7 +49,14 @@ const EXPECTED_API_SHA = process.env.SEMSE_OBSERVER_SMOKE_EXPECTED_SHA;
 if (!cleanupArgument) {
   assert.match(EXPECTED_API_SHA ?? "", /^[a-f0-9]{40}$/, "Expected current production git SHA required");
 }
-const { PrismaClient } = await import("@prisma/client");
+// pnpm production installs isolate workspace dependencies: @prisma/client is
+// linked beneath packages/db, not necessarily at the app root.
+let PrismaClient;
+try {
+  ({ PrismaClient } = createRequire(new URL("../../packages/db/package.json", import.meta.url))("@prisma/client"));
+} catch {
+  ({ PrismaClient } = await import("@prisma/client"));
+}
 const prisma = new PrismaClient(); // do not log potentially identifying Prisma query details
 
 function ids(runId) {
@@ -137,6 +146,16 @@ async function prepare(runId, people) {
       await tx.membership.create({
         data: { userId: p.userId, orgId: p.orgId, roleId: role.id, status: "ACTIVE" },
       });
+      // Operator tooling, no human actor: do not invent an actorUserId.
+      await tx.auditLog.create({
+        data: {
+          id: "aud_observer_provisioned_" + randomUUID().replaceAll("-", ""),
+          tenantId: p.tenantId, actorUserId: null,
+          entityType: "User", entityId: p.userId,
+          action: "observer.synthetic_account.provisioned",
+          afterJson: { purpose: "PR1089_AB_SMOKE", accountKey: p.key, role: "OPS_ADMIN", orgId: p.orgId },
+        },
+      });
     }
   });
   return password;
@@ -144,48 +163,111 @@ async function prepare(runId, people) {
 
 async function cleanup(runId) {
   const people = ids(runId);
-  await prisma.$transaction(async (tx) => {
-    // Check exact synthetic IDs and markers before touching ANY record.
-    // A partially completed cleanup may lack users/orgs but retain tenant
-    // shells with their durable audit events. That is an allowed retry state.
-    for (const p of people) {
-      const [t, o, u] = await Promise.all([
-        tx.tenant.findUnique({ where: { id: p.tenantId }, select: { name: true } }),
-        tx.org.findUnique({ where: { id: p.orgId }, select: { tenantId: true, name: true } }),
-        tx.user.findUnique({ where: { id: p.userId }, select: { email: true } }),
-      ]);
-      if (!t) {
-        assert.ok(!o && !u, "Orphan synthetic record; manual cleanup required");
-        continue;
+  let markersVerified = false;
+  try {
+    await prisma.$transaction(async (tx) => {
+      // Check exact synthetic IDs and markers before touching ANY record.
+      // A partially completed cleanup may lack users/orgs but retain tenant
+      // shells with their durable audit events. That is an allowed retry state.
+      for (const p of people) {
+        const [t, o, u] = await Promise.all([
+          tx.tenant.findUnique({ where: { id: p.tenantId }, select: { name: true } }),
+          tx.org.findUnique({ where: { id: p.orgId }, select: { tenantId: true, name: true } }),
+          tx.user.findUnique({ where: { id: p.userId }, select: { email: true } }),
+        ]);
+        if (!t) {
+          assert.ok(!o && !u, "Orphan synthetic record; manual cleanup required");
+          continue;
+        }
+        assert.equal(t.name, p.name, "Tenant marker mismatch; cleanup stopped");
+        if (o) {
+          assert.equal(o.tenantId, p.tenantId, "Org/tenant mismatch; cleanup stopped");
+          assert.equal(o.name, p.name, "Org name mismatch; cleanup stopped");
+        }
+        if (u) assert.equal(u.email, p.email, "User marker mismatch; cleanup stopped");
       }
-      assert.equal(t.name, p.name, "Tenant marker mismatch; cleanup stopped");
-      if (o) {
-        assert.equal(o.tenantId, p.tenantId, "Org/tenant mismatch; cleanup stopped");
-        assert.equal(o.name, p.name, "Org name mismatch; cleanup stopped");
+      markersVerified = true;
+      for (const p of people) {
+        // Same transaction as the teardown; the archived tenant keeps it.
+        const tenant = await tx.tenant.findUnique({ where: { id: p.tenantId }, select: { status: true } });
+        if (tenant && tenant.status !== "archived") {
+          await tx.auditLog.create({
+            data: {
+              id: "aud_observer_removed_" + randomUUID().replaceAll("-", ""),
+              tenantId: p.tenantId, actorUserId: null,
+              entityType: "Tenant", entityId: p.tenantId,
+              action: "observer.synthetic_account.removed",
+              afterJson: { purpose: "PR1089_AB_SMOKE", accountKey: p.key, userId: p.userId,
+                sessions: "deleted", tenantStatus: "archived" },
+            },
+          });
+        }
       }
-      if (u) assert.equal(u.email, p.email, "User marker mismatch; cleanup stopped");
-    }
-    for (const p of people) {
-      await tx.authSession.deleteMany({ where: { userId: p.userId, tenantId: p.tenantId } });
-      await tx.membership.deleteMany({ where: { userId: p.userId, orgId: p.orgId } });
-      await tx.userProfile.deleteMany({ where: { userId: p.userId } });
-      await tx.user.deleteMany({ where: { id: p.userId, email: p.email } });
-      await tx.org.deleteMany({ where: { id: p.orgId, tenantId: p.tenantId, name: p.name } });
-      // Do NOT delete Tenant: its AuditLog relation has ON DELETE CASCADE.
-      // Keep the audit trail in an archived, memberless synthetic tenant.
-      await tx.tenant.updateMany({
-        where: { id: p.tenantId, name: p.name },
-        data: { status: "archived" },
-      });
-    }
-    for (const p of people) {
-      assert.equal(await tx.user.count({ where: { id: p.userId } }), 0);
-      assert.equal(await tx.org.count({ where: { id: p.orgId } }), 0);
-      assert.equal(await tx.authSession.count({ where: { userId: p.userId, tenantId: p.tenantId } }), 0);
-      const tenant = await tx.tenant.findUnique({ where: { id: p.tenantId }, select: { status: true } });
-      if (tenant) assert.equal(tenant.status, "archived");
-    }
-  });
+      for (const p of people) {
+        await tx.authSession.deleteMany({ where: { userId: p.userId, tenantId: p.tenantId } });
+        await tx.membership.deleteMany({ where: { userId: p.userId, orgId: p.orgId } });
+        await tx.userProfile.deleteMany({ where: { userId: p.userId } });
+        await tx.user.deleteMany({ where: { id: p.userId, email: p.email } });
+        await tx.org.deleteMany({ where: { id: p.orgId, tenantId: p.tenantId, name: p.name } });
+        // Do NOT delete Tenant: its AuditLog relation has ON DELETE CASCADE.
+        // Keep the audit trail in an archived, memberless synthetic tenant.
+        await tx.tenant.updateMany({
+          where: { id: p.tenantId, name: p.name },
+          data: { status: "archived" },
+        });
+      }
+      for (const p of people) {
+        assert.equal(await tx.user.count({ where: { id: p.userId } }), 0);
+        assert.equal(await tx.org.count({ where: { id: p.orgId } }), 0);
+        assert.equal(await tx.authSession.count({ where: { userId: p.userId, tenantId: p.tenantId } }), 0);
+        const tenant = await tx.tenant.findUnique({ where: { id: p.tenantId }, select: { status: true } });
+        if (tenant) assert.equal(tenant.status, "archived");
+      }
+    });
+  } catch (error) {
+    // Markers not verified: nothing here is provably ours, so touch nothing.
+    if (!markersVerified) throw error;
+    // The atomic teardown failed after the fixture was identified. Security
+    // first: cut access even without the audit row, then record an incident
+    // event if AuditLog is reachable. This path never reports PASS.
+    const failed = [];
+    const attempt = async (stage, fn) => { try { await fn(); } catch { failed.push(stage); } };
+    const userIds = people.map((p) => p.userId);
+    await attempt("sessions", () => prisma.authSession.deleteMany({ where: { userId: { in: userIds } } }));
+    await attempt("memberships", () => prisma.membership.updateMany({
+      where: { userId: { in: userIds } }, data: { status: "SUSPENDED" },
+    }));
+    await attempt("users", () => prisma.user.updateMany({
+      where: { id: { in: userIds } }, data: { status: "suspended" },
+    }));
+    await attempt("incident-audit", () => prisma.$transaction(async (tx) => {
+      for (const p of people) {
+        if (!(await tx.tenant.findUnique({ where: { id: p.tenantId }, select: { id: true } }))) continue;
+        await tx.auditLog.create({
+          data: {
+            id: "aud_observer_fallback_" + randomUUID().replaceAll("-", ""),
+            tenantId: p.tenantId, actorUserId: null,
+            entityType: "Tenant", entityId: p.tenantId,
+            action: "observer.synthetic_cleanup.emergency_fallback",
+            afterJson: { purpose: "PR1089_AB_SMOKE", accountKey: p.key, failedStages: failed,
+              requiresOperatorRecovery: true },
+          },
+        });
+      }
+    }));
+    console.error("CRITICAL OBSERVER_SYNTHETIC_CLEANUP_FALLBACK run " + runId +
+      " failed stages: " + (failed.join(",") || "none") + "; rerun --apply --cleanup=" + runId);
+    throw new Error("Atomic synthetic cleanup failed; emergency revocation attempted", { cause: error });
+  }
+  // Assert the committed state, not just the transaction's intent.
+  for (const p of people) {
+    assert.equal(await prisma.authSession.count({ where: { userId: p.userId } }), 0,
+      "Synthetic sessions must be gone after cleanup");
+    assert.equal(await prisma.user.count({ where: { id: p.userId } }), 0,
+      "Synthetic users must be gone after cleanup");
+    assert.equal(await prisma.membership.count({ where: { userId: p.userId, status: "ACTIVE" } }), 0,
+      "No active synthetic membership may remain");
+  }
   console.log("CLEANUP PASS: temporary users, orgs and sessions removed; audit-only tenant shells archived for run " + runId);
 }
 async function smoke(people, password) {
@@ -241,6 +323,11 @@ async function smoke(people, password) {
     const denied = await request("GET", "/v1/ops/observer/history", { token: p.token });
     assert.equal(denied.status, 401, "Revoked session must be rejected");
     p.token = undefined;
+    const other = people.find((x) => x.key !== p.key);
+    if (other.token) {
+      const still = await request("GET", "/v1/ops/observer/history", { token: other.token });
+      assert.equal(still.status, 200, "Revoking one tenant's session must not affect the other");
+    }
   }
   console.log("SMOKE PASS: two signed OPS_ADMIN tenants isolated; spoofed headers ignored; latest cached; revoked sessions rejected.");
 }
@@ -269,6 +356,7 @@ try {
     try {
       await cleanup(runId);
     } catch {
+      success = false;
       process.exitCode = 1;
       console.error("CLEANUP FAILED: run --apply --cleanup=" + runId + " from the authorized Railway environment.");
     }

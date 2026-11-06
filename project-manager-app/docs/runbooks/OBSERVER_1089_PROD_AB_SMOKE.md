@@ -102,6 +102,20 @@ SEMSE_OBSERVER_SMOKE_ACK=YES_OBSERVER_1089_SYNTHETIC_WRITE_AND_CLEANUP \
   node scripts/ops/observer-prod-synthetic-smoke.mjs --apply --cleanup=RUN_ID
 ```
 
+**Auditoría del ciclo de vida** (catálogo: `EVENT_CATALOG.md`, «Ops — smoke
+sintético de Observer»): el alta escribe `observer.synthetic_account.provisioned`
+y la limpieza `observer.synthetic_account.removed`, cada una en la misma
+transacción que su mutación. Tras el commit, el script comprueba el estado
+real (cero sesiones, usuarios y membresías activas) antes de dar `CLEANUP PASS`.
+
+**Ruta de emergencia:** si la limpieza atómica falla después de validar los
+marcadores, el script corta el acceso de forma no atómica (borra sesiones y
+suspende membresías y usuarios), intenta registrar
+`observer.synthetic_cleanup.emergency_fallback`, imprime
+`CRITICAL OBSERVER_SYNTHETIC_CLEANUP_FALLBACK` y termina con error. Nunca da
+PASS por esa ruta: el operador corrige la causa y reejecuta `--cleanup=RUN_ID`.
+El script también se niega a ejecutarse con `CI=true`.
+
 Registrar en GitHub únicamente: SHA/deployment, run ID sintético,
 cantidad de aserciones PASS/FAIL, existencia o no de cuentas temporales
 tras la limpieza y estados agregados. Si queda una cuenta huérfana,
