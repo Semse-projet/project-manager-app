@@ -22,6 +22,9 @@
 
 ## 2. Crosswalk de **24 motores** a ocupaciones SOC (propuesta a validar)
 
+> **Aviso T-005 (7-nov-2026):** esta tabla de candidatos **no** es canónica ni sustituye la revisión de los oficios. Se identificaron **14/24 diferencias** respecto del modelo operativo y del script de cobertura OEWS; ver [conciliación de SOC](./cost-engine.t005-soc-crosswalk-reconciliation-2026-11-07.md). Ningún código debe fusionar ambos listados por unión/intersección, ni derivar tarifas sin revisar las tareas concretas.
+
+
 No todos los motores son un único oficio. Las listas de SOC siguientes son **candidatos de asociación funcional** derivados de las definiciones de tareas, no comprobación de cobertura de datos o cálculo autorizado de una tarifa. Antes de ejecutar, contrastar con el [catálogo ocupacional BLS](https://www.bls.gov/oes/tables.htm) y el alcance real de cada tarea. Los oficios multiocupación exigen una **composición de horas observadas**, no promedios de salarios de códigos.
 
 | Motor del repositorio | SOC candidato (O*NET/BLS) | Riesgo de clasificación |
