@@ -20,6 +20,9 @@ Complementa [matriz 51 estados/DC](./cost-engine.national-research-2026-11-05.md
 
 ## 2. Crosswalk de 24 motores a SOC: candidatos, NO tarifas aprobadas
 
+> **Aviso T-005 (7-nov-2026):** esta tabla es un borrador histórico, **no** una lista canónica de SOC para generar tarifas. Se detectaron **14/24 diferencias** con el otro contrato de ingestión; ver la [matriz de conciliación por motor](./cost-engine.t005-soc-crosswalk-reconciliation-2026-11-07.md). La coincidencia del script de investigación con esta tabla no acredita validación laboral, cobertura OEWS ni permiso de cotización.
+
+
 Los oficios de SEMSE son **categorías de servicios/proyectos**, y los SOC son **ocupaciones de empleados**. Una obra combinada necesita cantidades de trabajo por ocupación y subcontratas; varias filas comparten SOC y **no se deben sumar dos veces**. Este mapeo es hipótesis de trabajo para revisión de especialistas, no cobertura salarial validada de las 51 jurisdicciones.
 
 | Motor | SOC candidato | Distinción técnica |
