@@ -84,9 +84,10 @@ def records(path):
     elif path.suffix.lower() == '.zip':
         with zipfile.ZipFile(path) as z:
             members = [n for n in z.namelist() if n.lower().endswith('.xlsx') and not n.startswith('__MACOSX/')]
-            if not members: raise ValueError('Expected an XLSX file inside the official OEWS ZIP')
-            # For official state/metro archives, use the first XLSX; identify member in manifest.
-            yield from xlsx_rows(z.read(sorted(members)[0]))
+            if not members: raise ValueError('Expected an XLSX file inside the OEWS ZIP')
+            # One unambiguous workbook only; do not silently select a random source.
+            if len(members) != 1: raise ValueError(f'Ambiguous OEWS ZIP: {len(members)} XLSX workbooks')
+            yield from xlsx_rows(z.read(members[0]))
     else: raise ValueError('Input must be ZIP, XLSX or CSV')
 
 def read_oews(path, kind):
@@ -148,13 +149,28 @@ def save_csv(path, rows):
 
 def run(state,metro,out):
     out=Path(out);out.mkdir(parents=True,exist_ok=True)
-    manifest={'release_claim':'May 2025','classification':'RESEARCH_ONLY_NOT_APPROVED','notes':'Wages are employee reference, never billable rates or commercial certification','input':{}}
+    manifest={'release_claim':'May 2025','release_verified':False,
+              'source_authentication':'NOT_VERIFIED_OFFLINE',
+              'classification':'RESEARCH_ONLY_NOT_APPROVED',
+              'notes':'Input filename and checksum alone do not prove the BLS release. Wages are employee reference, never billable rates or commercial certification',
+              'input':{}}
     for kind,path in [('state',state),('metro',metro)]:
         records_by_key, stats=read_oews(path,kind)
         rows=list(coverage(records_by_key,kind))
         save_csv(out/f'{kind}_trade_coverage.csv',rows)
         counts=Counter(r[-1] for r in rows)
-        manifest['input'][kind]={'filename':Path(path).name,'sha256':hashlib.sha256(Path(path).read_bytes()).hexdigest(),'stats':stats,'trade_area_rows':len(rows),'reference_status_counts':dict(counts)}
+        observed_areas = sorted({area for area, _ in records_by_key})
+        manifest['input'][kind]={
+            'filename':Path(path).name,
+            'sha256':hashlib.sha256(Path(path).read_bytes()).hexdigest(),
+            'stats':stats,
+            'trade_area_grid_rows':len(rows),
+            'trade_area_rows':len(rows),  # compatibility; includes unknown/suppressed cells
+            'area_count_observed':len(observed_areas),
+            'area_count_expected':51 if kind == 'state' else None,
+            'reference_status_counts':dict(counts),
+            'coverage_not_commercial_approval':True,
+        }
     (out/'manifest.json').write_text(json.dumps(manifest,indent=2,ensure_ascii=False)+'\n',encoding='utf-8')
     return manifest
 
