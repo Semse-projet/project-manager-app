@@ -185,6 +185,7 @@ Sin migración del núcleo. Sin base espejo en el consumidor en V1. Si el regist
 
 - Flag `SEMSE_OMNIVERSE_ADAPTER_MODE`: ausente o desconocido = `off` (D-14).
 - `off`: endpoint 404. `shadow`: se calcula la instantánea y se registran métricas, **sin entregar nada** al consumidor. `canary`: una identidad, un proyecto y una organización. `live`: solo tras evidencia del canary y de las condiciones externas.
+- **Nombres candidatos de métricas** (versión 2 del paquete, adoptados como candidatos por el owner el 2026-11-07, B01-1): latencia de la instantánea; bytes serializados; número de nodos y aristas; campos rechazados o saneados; fuentes degradadas. Son nombres, no valores; los valores y los SLO siguen pendientes de medición.
 - **Kill switch:** poner el flag en `off` y/o revocar la identidad del consumidor; cualquiera de los dos corta el acceso sin desplegar.
 - Throttling: el limitador global actual tiene un valor fijo (hallazgo O-18); el límite propio del adaptador y las cuotas se fijan en Q-4. **Este slice no modifica `CORS_ORIGINS` ni otras variables de producción**: el consumidor llama de servidor a servidor.
 - Métricas por modo y código de resultado: latencia, denegaciones, degradados, truncados. Nombres, SLO, alertas y responsable: por aprobar (Q-4).
