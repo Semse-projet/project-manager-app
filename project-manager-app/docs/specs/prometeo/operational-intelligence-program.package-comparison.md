@@ -72,11 +72,13 @@ Desde PR 0, el padre, los cuatro slices y el ADR se reescribieron siguiendo el a
 - **V2 es una revisión posterior y más detallada** del mismo paquete. No obliga a deshacer trabajo: lo que contradice el estado actual (#1, #2, #3) lo resolvió después el owner con decisiones registradas.
 - **Cuatro aportes de V2 podrían incorporarse** (#4 a #7). Ninguno se ha aplicado: requieren decisión del owner.
 
-## 6. Decisiones que requiere el owner
+## 6. Decisiones del owner (2026-11-07)
 
-| ID | Decisión | Recomendación |
+El owner respondió «aplica B01-1 a B01-4».
+
+| ID | Decisión | Aplicado |
 |---|---|---|
-| B01-1 | ¿Se adoptan los nombres de métricas de V2 como candidatos en los specs? | Sí, como candidatos; los valores siguen pendientes de medición |
-| B01-2 | ¿Se adopta `semse.graph.query` como nombre de la herramienta del slice 3b? | Comprobar primero la convención del registro de herramientas |
-| B01-3 | ¿Se registra el *backlog* de V2 en el spec padre como trabajo futuro? | Sí, fuera del alcance de V1 |
-| B01-4 | ¿Se añaden los `related_files` de V2 al spec padre? | Sí, los que existan en `main` |
+| B01-1 | Nombres de métricas de V2 como candidatos | Sección 8 de cada slice (#1106 a #1109) y sección 19 del padre. Solo nombres; valores pendientes |
+| B01-2 | Nombre de la herramienta del slice 3b | **Adaptado:** `lineage.query_graph`, no `semse.graph.query`. El chat del gateway separa `requestedAction` con `split(".")` y solo usa dos segmentos, así que el nombre de V2 perdería `query`; además el registro usa namespaces de dominio en snake_case |
+| B01-3 | Backlog de V2 como trabajo futuro | Sección 19 del padre, fuera de V1 |
+| B01-4 | `related_files` de V2 en el padre | Los 7 que existen en `main` |
