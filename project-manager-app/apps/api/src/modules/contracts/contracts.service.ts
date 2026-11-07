@@ -1,5 +1,6 @@
-import { Injectable, Logger, Optional } from "@nestjs/common";
+import { ForbiddenException, Injectable, Logger, Optional } from "@nestjs/common";
 import { type ContractRecord } from "../../common/domain-store.js";
+import { sameOrg } from "../../common/resource-scope.js";
 import { AuditService } from "../../infrastructure/audit/audit.service.js";
 import { ContractsRepository } from "./contracts.repository.js";
 import { ContractTemplateService, type ContractParties } from "./contract-template.service.js";
@@ -96,6 +97,12 @@ export class ContractsService {
       roles: input.roles,
       contractId: input.contractId,
     });
+
+    // C51: pedir firmas fija los firmantes (correos del cuerpo) y sobrescribe las URLs de firma del contrato, así
+    // que exige lo mismo que crearlo: org cliente dueña u OPS_ADMIN del tenant (leerlo no basta).
+    if (!input.roles.includes("OPS_ADMIN") && !sameOrg(contract.clientOrgId, input.orgId)) {
+      throw new ForbiddenException("actor cannot request signatures for this contract");
+    }
 
     // Build plain text document from termsJson
     const terms = contract.termsJson as Record<string, unknown>;
