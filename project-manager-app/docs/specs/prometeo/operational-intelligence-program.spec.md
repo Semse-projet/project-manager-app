@@ -21,6 +21,13 @@ feature_flags:
 production_evidence: []
 related_files:
   - "docs/architecture/ADR-044-operational-intelligence-graph.md"
+  - "docs/specs/prometeo/conversation-intelligence-foundation.spec.md"
+  - "docs/specs/knowledge/agent-memory-governance.spec.md"
+  - "apps/api/src/modules/graphify/graphify.service.ts"
+  - "apps/api/src/modules/prometeo/prometeo.service.ts"
+  - "apps/api/src/modules/knowledge/workspace-memory.repository.ts"
+  - "apps/api/src/modules/knowledge/agent-memory.repository.ts"
+  - "packages/db/prisma/schema.prisma"
 related_tests: []
 related_endpoints: []
 related_events: []
@@ -218,3 +225,28 @@ La cohorte del `canary`, la matriz de dependencias entre flags de distintos slic
 ## 18. Análisis de consistencia (`analyze`)
 
 Ver [`operational-intelligence-program.analyze.md`](operational-intelligence-program.analyze.md).
+
+## 19. Aportes de la versión 2 del paquete (2026-11-07)
+
+Adoptados por el owner tras la [comparación del paquete](operational-intelligence-program.package-comparison.md) (B01-1 a B01-4).
+
+### Métricas candidatas del programa (B01-1)
+
+Nombres, no valores: p50/p95 de consulta; nodos y aristas devueltos; proveedores degradados; truncamientos del recorrido; éxito y fallo del registro de decisiones; deduplicaciones por idempotencia; alcance denegado; tamaño y latencia de la instantánea de Omniverse. Cada slice recoge las suyas en su sección 8. Valores, SLO y responsable siguen pendientes de medición.
+
+### Nombre de la herramienta de Prometeo (B01-2)
+
+`lineage.query_graph`, en lugar del `semse.graph.query` de la versión 2. Detalle en el [slice 3](unified-query-lineage.spec.md), sección 5.
+
+### Backlog fuera de V1 (B01-3)
+
+No forma parte de ningún slice y requiere spec propio:
+
+- caché materializada del grafo, solo después de tener métricas reales;
+- diferencias temporales del grafo («viaje en el tiempo»);
+- visualización 3D avanzada;
+- refresco incremental de Graphify (hoy el grafo se construye en el *build* de la imagen).
+
+### Trazabilidad (B01-4)
+
+Se añadieron a `related_files` los archivos que la versión 2 citaba y que existen en `main`: el spec de Conversation Intelligence, el de gobierno de memoria de agentes, `GraphifyService`, `PrometeoService` y los repositorios de memoria. Esto **no** amplía el alcance: memoria y conversaciones siguen fuera del slice 1 (S1-Q1).
