@@ -12,10 +12,8 @@ date: "2026-10-04"
 # Plan técnico: Operational Intelligence Program
 
 ## Truth snapshot
-Prepared against main and Railway production at:
-`370578ad81298ac53078eeef79db7e4110ce7a2a`
-
-Refresh before implementation.
+Preparado contra `main` y producción de Railway en `370578ad81298ac53078eeef79db7e4110ce7a2a` (2026-10-04).
+Refrescado contra `main` el 2026-10-25 (solo documentación). El estado de Railway no se verificó: refrescarlo antes de implementar cada slice.
 
 ## Delivery order
 1. Unified Graph Contract
