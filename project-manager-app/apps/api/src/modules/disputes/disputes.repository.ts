@@ -2,10 +2,13 @@ import { ConflictException, Injectable, NotFoundException } from "@nestjs/common
 import { type DisputeRecord } from "../../common/domain-store.js";
 import { ActorContextService } from "../../infrastructure/persistence/actor-context.service.js";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
+import type { ProjectScope } from "../../common/resource-scope.js";
+import { ResourceScopeResolver } from "../../common/resource-scope.resolver.js";
 import { findProjectLinkByJobIdOrThrow } from "../projects/project-link.repository.js";
 import {
   assertDisputeAssignable,
   assertDisputeCreatable,
+  assertDisputeReadable,
   assertDisputeResolvable,
   type DisputeActor,
   type DisputeOwnership
@@ -38,7 +41,8 @@ type StoredDispute = {
 export class DisputesRepository {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly actorContextService: ActorContextService
+    private readonly actorContextService: ActorContextService,
+    private readonly scopeResolver: ResourceScopeResolver
   ) {}
 
   async list(input: { tenantId: string; orgId: string; userId: string; roles: string[] }): Promise<DisputeRecord[]> {
@@ -85,26 +89,14 @@ export class DisputesRepository {
           jobId: input.jobId!
         })).id;
 
-    const project = await this.prisma.project.findFirst({
-      where: {
-        id: resolvedProjectId,
-        tenantId: input.tenantId
-      },
-      include: {
-        job: {
-          select: {
-            id: true,
-            clientOrgId: true
-          }
-        }
-      }
-    });
+    // C51: alcance del proyecto con el resolver canónico (otro tenant o inexistente ⇒ 404).
+    const scope = await this.scopeResolver.resolveProjectScope(input.tenantId, resolvedProjectId);
 
-    if (!project) {
+    if (!scope) {
       throw new NotFoundException(`Project '${resolvedProjectId}' not found`);
     }
 
-    assertDisputeCreatable(this.toActor(input), this.toOwnership(project));
+    assertDisputeCreatable(this.toActor(input), this.toOwnership(scope));
 
     const existing = await this.prisma.dispute.findFirst({
       where: {
@@ -309,6 +301,11 @@ export class DisputesRepository {
       return {};
     }
 
+    // Org vacía nunca concede acceso (mismo criterio que `sameOrg`).
+    if (!input.orgId) {
+      return { id: { in: [] as string[] } };
+    }
+
     return {
       OR: [{ project: { job: { clientOrgId: input.orgId } } }, { project: { assignedProOrgId: input.orgId } }]
     };
@@ -323,11 +320,18 @@ export class DisputesRepository {
     };
   }
 
-  private toOwnership(project: { assignedProOrgId: string; job: { clientOrgId: string } }): DisputeOwnership {
+  private toOwnership(scope: ProjectScope): DisputeOwnership {
     return {
-      clientOrgId: project.job.clientOrgId,
-      assignedProOrgId: project.assignedProOrgId
+      clientOrgId: scope.clientOrgId ?? "",
+      assignedProOrgId: scope.assignedProOrgId ?? ""
     };
+  }
+
+  /** Alcance del proyecto de la disputa (resolver canónico); 404 si no existe en el tenant. */
+  private async requireDisputeScope(tenantId: string, disputeId: string): Promise<ProjectScope> {
+    const scope = await this.scopeResolver.resolveDisputeScope(tenantId, disputeId);
+    if (!scope) throw new NotFoundException(`Dispute '${disputeId}' not found`);
+    return scope;
   }
 
   async submitEvidence(input: {
@@ -346,6 +350,8 @@ export class DisputesRepository {
     })) as StoredDispute | null;
 
     if (!existing) throw new NotFoundException(`Dispute '${input.disputeId}' not found`);
+    // C51: solo participantes del proyecto (org cliente o profesional asignada) u OPS_ADMIN del tenant.
+    assertDisputeReadable(this.toActor(input), this.toOwnership(await this.requireDisputeScope(input.tenantId, existing.id)));
     if (existing.status === "RESOLVED" || existing.status === "REJECTED") {
       throw new ConflictException("cannot attach evidence to a terminal dispute");
     }
@@ -409,7 +415,7 @@ export class DisputesRepository {
 
     assertDisputeResolvable(
       this.toActor(input),
-      this.toOwnership(existing.project!),
+      this.toOwnership(await this.requireDisputeScope(input.tenantId, existing.id)),
       existing.status,
       input.resolutionType,
     );
