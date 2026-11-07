@@ -14,6 +14,10 @@ date: "2026-10-30"
 > Prerrequisito: spec `APPROVED`. Hoy está en `DRAFT` v0.2 con preguntas abiertas (spec §11): este plan **no
 > autoriza código**. Implementa el **ADR-027** (Accepted): `pricing/*` como autoridad determinista. Separa implementación, merge, despliegue y activación.
 
+## 0. Programa integral y dependencias (16 fases)
+
+El [programa completo F01–F16](./cost-engine.programa-integral-16-fases-2026-11-07.md) consolida **cuatro bloques**: (A) contratos/riesgos heredados, (B) materiales/licitación de fuentes, trabajo real y calibración Q2, (C) fiscalidad Q10, decisiones Q3/Q5/Q7, ingesta y agente residente, y (D) motor único, consumidores, seguridad, pruebas y despliegue gradual. Este plan técnico conserva su secuencia original de implementación 0–6; **las 16 fases son el mapa de programa completo**, no una declaración de fases ya implementadas o autorización para código/producción. Se exige evidencia por mercado/oficio/fuente, no supuesta cobertura nacional.
+
 ## 1. Snapshot de verdad
 
 - `origin/main` SHA: registrar al iniciar cada fase.
