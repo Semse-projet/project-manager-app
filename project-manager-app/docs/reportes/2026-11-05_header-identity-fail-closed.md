@@ -39,8 +39,8 @@ bearer firmado y sesión, y una petición sin bearer recibe 401.
 - ✅ CI de #1092: 13 checks terminados sin fallos; revisión de Codex sin hallazgos.
 - ✅ Cambio en `api-integration.yml` y `api-smoke.yml`, autorizado por el owner: declaran el opt-in para la API de prueba sin `AUTH_SECRET`.
 - ✅ Deploy de producción (`SEMSEproject`): 4 servicios en SUCCESS.
-- ❌ Smoke autenticado de `/v1/operational-intelligence/*` con OPS_ADMIN real: pendiente.
-- ❌ `SEMSE T008 Staging` sigue expuesto (ver Riesgos abiertos).
+- ✅ Smoke autenticado OPS_ADMIN en producción (2026-11-07): `GET /api/semse/operational-signals` → 200 (antes del fix, siempre 401).
+- ✅ `SEMSE T008 Staging` cerrado (2026-11-07): sin dominios públicos.
 
 ## Evidencia
 
@@ -64,39 +64,32 @@ bearer firmado y sesión, y una petición sin bearer recibe 401.
   - no aparece `auth_secret_missing_fail_closed` ni `auth_header_identity_mode_enabled`, así que `AUTH_SECRET` está presente;
   - el tráfico firmado del Worker responde 201 y no hay ningún 503.
 
+- Smoke OPS_ADMIN (2026-11-07, sesión real del owner desde iPhone). Logs HTTP de Railway:
+  - web `app.semseproject.com/api/semse/operational-signals` y API
+    `api.semseproject.com/v1/operational-intelligence/signals`: 403 a las
+    03:48:17Z (antes de entrar con la cuenta OPS_ADMIN; es permiso denegado,
+    no fallo de autenticación);
+  - después, 200 a las 03:50:08Z, 04:03:59Z, 04:06:16Z y 04:07:53Z.
+  - El owner vio el cuerpo como `null`. Por código, una respuesta 200 lleva
+    `{"data":[...]}`. El contenido en vivo no se inspeccionó: el aislamiento
+    por tenant del contenido lo cubren `operational-intelligence-http-tenant.test.ts`
+    y la mutación correspondiente.
+- T008 (2026-11-07): `semse-api-t008-a` y `-b` sin `serviceDomains` ni
+  `customDomains` en Railway; los dos hostnames responden 404
+  "Application not found".
+
 ## Riesgos abiertos
 
-1. **`SEMSE T008 Staging` acepta identidad por cabeceras desde internet.**
-   - Los servicios `semse-api-t008-a` y `semse-api-t008-b` no tienen
-     `AUTH_SECRET` y corren el código anterior (deploy del 2026-10-18).
-   - Un GET sin credenciales a `/v1/ops/observer/history` responde 401
-     "Missing required header 'x-user-id'". Es decir, cualquiera puede actuar
-     como OPS_ADMIN de cualquier tenant de esa base.
-   - Los nombres de los volúmenes sugieren datos sintéticos; no está verificado.
-   - El owner eligió "añadir `AUTH_SECRET` y redesplegar". Generar el secreto
-     dentro de la sesión del agente fue bloqueado a propósito para no
-     materializar credenciales allí. Hay que fijarlo desde el panel de Railway.
-   - `semse-api-pr987` sí tiene `AUTH_SECRET`.
-2. **Smoke de OI pendiente.** `activation_status` se queda en `INACTIVE`
-   hasta ejecutarlo.
+1. **Cerrado — `SEMSE T008 Staging`.** Sus dos APIs aceptaban identidad por
+   cabeceras desde internet (sin `AUTH_SECRET`, código del 2026-10-18). El
+   owner quitó los dominios públicos el 2026-11-07. Los servicios siguen
+   corriendo sin `AUTH_SECRET`: si vuelven a tener dominio público, hay que
+   definir antes `AUTH_SECRET`.
+2. **Cerrado — smoke de OI.** Ver Evidencia (2026-11-07).
 
 ## Siguientes pasos
 
-1. **T008:** en Railway → `SEMSE T008 Staging` → `semse-api-t008-a` y `-b` →
-   Variables, crear `AUTH_SECRET` con un valor aleatorio de al menos 32
-   caracteres, sin pegarlo en ningún chat. Railway redespliega solo.
-   Verificación: el mismo GET sin credenciales debe responder 401 "Missing or
-   malformed Authorization header".
-2. **Smoke OPS_ADMIN en producción:**
-   - iniciar sesión como OPS_ADMIN en la web;
-   - con esa sesión, llamar a `GET /api/semse/operational-signals`. Es el BFF
-     que llega a `GET /v1/operational-intelligence/signals`, el handler
-     corregido. **No usar `/admin/mission-control`**: esa vista consume
-     `/api/semse/ops/mission-control/*`, no Operational Intelligence, y puede
-     funcionar aunque OI siga fallando. La vista web que sí consume OI es
-     `/admin/intelligence-rooms/[id]`;
-   - esperado: 200 solo con señales del propio tenant (antes, siempre 401).
-   - Después, registrar la evidencia, poner `activation_status: ACTIVE` y,
-     cerrados los gates, `status: VERIFIED`.
+1. Ninguno pendiente de este spec.
+2. Si T008 recupera dominio público, definir antes `AUTH_SECRET` en sus dos APIs.
 3. **Fuera de alcance de este spec:** validación de `AUTH_SECRET` al arranque
    del proceso (hoy es por request) y la frontera SSE `@Public()` (ADR-040).
