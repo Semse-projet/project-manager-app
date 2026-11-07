@@ -144,3 +144,25 @@ test("O.HI14: smoke interleaves cross-tenant checks after each latest observatio
   assert.match(source.slice(branch, branch + 300),
     /assertEmptyObserverHistory\(otherHistory\)/);
 });
+
+test("O.HI14: production A/B rejects missing single-replica attestation", () => {
+  const run = spawnSync(process.execPath, [executable, "--apply"], {
+    env: {
+      ...process.env,
+      CI: "false",
+      NODE_ENV: "production",
+      RAILWAY_PROJECT_ID: "95ad1b14-d1d9-467d-82d8-5354619ba873",
+      RAILWAY_ENVIRONMENT_NAME: "production",
+      RAILWAY_ENVIRONMENT_ID: "d682210a-956a-4508-9c5b-4ca5959278f9",
+      RAILWAY_SERVICE_ID: "2bd1bd3f-9aa1-4fc3-a714-4cf90c52c770",
+      SEMSE_OBSERVER_SMOKE_ACK: "YES_OBSERVER_1089_SYNTHETIC_WRITE_AND_CLEANUP",
+      SEMSE_OBSERVER_SMOKE_EXPECTED_SHA: "8219caa4e9999dc578a5010b939380a25c298a87",
+      SEMSE_OBSERVER_SMOKE_ATTESTED_API_REPLICAS: "",
+      DATABASE_URL: "postgresql://dummy:dummy@postgres.railway.internal/semse",
+    },
+    encoding: "utf8", timeout: 15000,
+  });
+  assert.notEqual(run.status, 0, "unattested multi-replica topology cannot pass");
+  assert.match(run.stderr, /Operator must verify exactly 1\/1 Railway API replica/);
+  assert.doesNotMatch(run.stdout + run.stderr, /FIXTURES CREATED|SMOKE PASS|CLEANUP PASS|accessToken/);
+});
