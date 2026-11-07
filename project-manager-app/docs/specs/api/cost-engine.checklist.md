@@ -159,6 +159,10 @@ date: "2026-10-30"
 
 ## Modelo operativo nacional SOC/geo (6-nov-2026)
 
+- [x] **Brecha SOC detectada y documentada**: [conciliación de los dos crosswalks y script OEWS](./cost-engine.t005-soc-crosswalk-reconciliation-2026-11-07.md): 14/24 discrepancias, 10/24 coincidencias de borradores, 0/24 oficios aprobados; no se ha elegido arbitrariamente una clasificación final.
+- [ ] **T-005x — cerrar mapeo con revisor de oficio**: clasificación detallada y roles, fuente BLS versionada, horas por tarea sin doble conteo y casos negativos. La documentación no equivale a aprobación de salarios, rentabilidad o activación.
+
+
 - [x] [Crosswalk de 24 motores hacia códigos SOC y modelo nacional de geografía](./cost-engine.national-labor-geo-tax-operating-model-2026-11-06.md) documentados; hipótesis por tarea y jurisdicción, **no valores salariales comerciales aprobados**.
 - [x] Fuentes públicas clasificadas: BLS OEWS (SOC/state/CBSA), QCEW (NAICS/county), ECEC (beneficios industriales), Davis-Bacon (mínimos de obra cubierta por contrato), FHWA (ítems de trabajo instalado), Census Geocoder (condado); ninguna usada como sustituto de cotización con licencia SaaS.
 - [x] 18 criterios de aceptación **especificados** (NAT-01..NAT-18) para privacidad, salarios, fiscalidad local, licencias, materiales, subcontratas, concurrencia de worker-hours, replay e impuestos; **no marcados como pruebas ejecutadas**.
