@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
+import { PROFESSIONAL_ORG_TYPE_FILTER } from "../../common/org-type.js";
 import { ActorContextService } from "../../infrastructure/persistence/actor-context.service.js";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { findProjectLinkByProjectIdOrThrow } from "../projects/project-link.repository.js";
@@ -546,7 +547,7 @@ export class TrustRepository {
         userId: professionalUserId,
         org: {
           tenantId,
-          type: "pro"
+          type: PROFESSIONAL_ORG_TYPE_FILTER
         }
       },
       select: {

@@ -4,7 +4,7 @@ feature: "Identidad por cabeceras sólo con opt-in explícito"
 domain: "core"
 plan: "docs/specs/core/header-identity-fail-closed.plan.md"
 version: "2.0"
-status: "IN_PROGRESS"
+status: "DONE"
 branch: "docs/core-header-identity-fail-closed"
 date: "2026-11-04"
 ---
@@ -51,16 +51,16 @@ date: "2026-11-04"
 ## Fase 4 — PR y CI (este PR en borrador)
 
 - [x] [T-040] Revisar diff y secretos
-- [ ] [T-041] Actualizar PR #1092 con evidencia
-- [ ] [T-042] CI terminal y `ci_status`
-- [~] [T-043] Merge: requiere aprobación del owner
+- [x] [T-041] Actualizar PR #1092 con evidencia
+- [x] [T-042] CI terminal y `ci_status`
+- [x] [T-043] Merge aprobado por el owner; squash 7a66a96 (2026-11-04)
 
 ## Fase 5 — Deploy y activación
 
-- [~] [T-050] Deploy y smoke autenticado de OI: fuera de esta autorización
+- [x] [T-050] Deploy (83f11346 → 7a66a96) y smoke autenticado OPS_ADMIN de OI: 200 en producción (2026-11-07)
 
 ## Criterio de Done (de esta autorización)
 
-- [ ] Código completo y tests verdes
-- [ ] CI `PASS` en el PR en borrador
-- [ ] Merge, deploy y activación: pendientes de aprobación del owner
+- [x] Código completo y tests verdes
+- [x] CI `PASS` en el PR en borrador
+- [x] Merge, deploy y activación aprobados por el owner y verificados (2026-11-07)
