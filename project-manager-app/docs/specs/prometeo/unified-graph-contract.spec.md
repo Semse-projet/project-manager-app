@@ -177,6 +177,7 @@ Sin migración Prisma. Sin tablas genéricas de nodos o aristas en V1. Sin `db p
 - Flag: `SEMSE_OPERATIONAL_GRAPH_MODE`. Un valor ausente o desconocido se trata como `off` (D-14). Semántica de `off/shadow/canary/live` en el [spec padre §17](operational-intelligence-program.spec.md).
 - Como librería sin consumidor, el flag lo evalúa el consumidor (slice 3). El **canary autenticado de este slice se difiere al slice 3** (D-16).
 - Métricas por proveedor: latencia, éxito/fallo por `ProviderErrorCode`, nodos/aristas descartados por relación sin mapear, truncados. Nombres, SLO, alertas y responsable: **por definir en el spec aprobado** (ver Q-3).
+- **Nombres candidatos de métricas** (versión 2 del paquete, adoptados como candidatos por el owner el 2026-11-07, B01-1): latencia por proveedor; fallos por proveedor; número de nodos y aristas; consultas truncadas; alcance denegado. Son nombres, no valores; los valores y los SLO siguen pendientes de medición.
 - Logs: sin cuerpos de fuentes ni atributos; solo `correlationId`, proveedor, conteos y códigos.
 - `correlationId`: lo genera el consumidor (slice 3) si el cliente no lo envía y se propaga tal cual; este slice nunca lo inventa.
 
