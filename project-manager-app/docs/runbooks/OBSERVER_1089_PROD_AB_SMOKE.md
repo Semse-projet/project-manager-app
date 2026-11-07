@@ -65,8 +65,16 @@ ni cambiar `AUTH_SECRET`, `SEMSE_DEFAULT_TENANT_ID` o políticas RBAC.
 - Con `x-tenant-id`/ `x-org-id` deliberadamente falsos, `/history`
   empieza vacío; `/latest` devuelve el **tenant verdadero del token**,
   nunca el falsificado.
-- Segundo `/latest` usa `fromCache=true` de ese tenant; `/history`
-  permanece limitado (<=50 guardados; <=10 retornados).
+- Segundo `/latest` usa `fromCache=true` de ese tenant. Para estos
+  tenants nuevos, `/history` debe devolver **exactamente una** observación,
+  con `observedAt` igual al del `/latest` autenticado; no basta con contar
+  una o más observaciones. Tras crear la observación A, se vuelve a consultar
+  B y **debe seguir vacío**; tras crear B, A **debe conservar exactamente
+  su propio registro**. La proyección `history` no incluye tenantId, por
+  lo que estas comprobaciones cruzadas y de procedencia son obligatorias.
+  Las pruebas O.HI14 de la función de validación deben rechazar registros
+  compartidos, sustituidos o mezclados. Los límites generales siguen siendo
+  50 snapshots retenidos y 10 retornados por consulta.
 - `/v1/auth/logout` revoca cada sesión y el acceso posterior devuelve 401.
   El 403 con un rol sin permiso sigue acreditado en CI O.HI12/O.HI13;
   esta ejecución usa únicamente dos administradores y no afirma probar 403
