@@ -146,6 +146,7 @@ retroactiva.
 | [labor.free-project-archive-restore](specs/labor/free-project-archive-restore.spec.md) | labor | DRAFT | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | no | NOT_VERIFIED |
 | [labor.free-project-mutation-guard](specs/labor/free-project-mutation-guard.spec.md) | labor | IMPLEMENTED | COMPLETE | PASS | MERGED | DEPLOYED | ACTIVE | high | yes | 2026-10-15 |
 | [labor.engine-remediation](specs/labor/labor-engine-remediation.spec.md) | labor | APPROVED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-25 |
+| [labor.personal-continuity](specs/labor/personal-continuity.spec.md) | labor | DRAFT | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | no | 2026-10-24 |
 | [labor.personal-record-export](specs/labor/personal-record-export.spec.md) | labor | DRAFT | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | no | 2026-10-24 |
 | [labor.time-tracking-consolidation](specs/labor/time-tracking-consolidation.spec.md) | labor | IMPLEMENTED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-19 |
 | [labor.worker-independence-growth-program](specs/labor/worker-independence-growth-program.spec.md) | labor | DRAFT | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | no | 2026-10-24 |
