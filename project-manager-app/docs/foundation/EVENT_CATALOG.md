@@ -379,6 +379,27 @@ evento no deja al cliente inconsistente. Si aparece un consumidor durable
 propio incremento. Cada transición deja además `AuditLog`
 (`live_session.<action>`).
 
+### Prometeo — Decision Ledger (propuesto)
+
+**Propuestos, no implementados.** Los reserva
+[`../specs/prometeo/decision-ledger.spec.md`](../specs/prometeo/decision-ledger.spec.md)
+(`REVIEW`). No hay productor ni consumidor en `main`. Se registran para cumplir
+la sección 6 del acta de Operational Intelligence y para que la implementación
+no invente otros nombres; **no autorizan emitirlos** hasta que el spec esté
+`APPROVED`. Si el spec cambia los nombres, esta sección cambia con él.
+
+- `decision.recorded.v1` — una decisión ya autorizada queda registrada.
+  `aggregateType: DecisionRecord`.
+- `decision.superseded.v1` — una corrección sustituye a una decisión
+  (`supersedesDecisionId`).
+- `decision.voided.v1` — una decisión se anula, con motivo.
+
+Payload: el mínimo del catálogo más `decisionKind`, `subjectType`,
+`subjectId`, `entryKind` y `supersedesDecisionId` cuando aplique. **Sin**
+`rationale` ni `decisionValueJson`. Entrega prevista por el outbox F1 cuando el
+productor no comparta transacción; cada operación deja además `AuditLog`. V1
+excluye decisiones financieras.
+
 ## Notifications
 
 - `notification.queued`
