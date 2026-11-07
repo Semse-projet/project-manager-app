@@ -1,7 +1,7 @@
 ---
 id: "ADR-044"
 title: "Operational Intelligence Graph, Decision Ledger and Omniverse Projection"
-status: "PROPOSED"
+status: "ACCEPTED"
 date: "2026-10-04"
 owners: ["semse-core", "knowledge", "prometeo"]
 ---
@@ -197,6 +197,17 @@ El owner aceptó en bloque las recomendaciones del acta de reconciliación (D-01
 - **D-02 (H05):** el Decision Ledger y el provider `runtime` **referencian** H05 y no copian nada. `approvalRef` apunta a `AgentApproval` o `PrometeoProposedAction`; cada ejecución es un `DecisionEffectRef` con `targetId = executionId`; el estado se lee en vivo con `ToolExecutionQueryService`. No se guardan los resúmenes de H05, cuya retención es configurable (`PROMETEO_TOOL_AUDIT_RETENTION_DAYS`; el plazo predeterminado es de 90 días) y cuya purga efectiva requiere que se ejecute el mantenimiento (`AuditMaintenanceService`, con temporizador apagado por defecto).
 - **D-10 (MCP):** la tool del grafo es solo para Prometeo interno y no se expone por MCP hasta que exista un spec hijo.
 - **D-16 (orden):** se mantiene 1 → 2 → 3 → 4.
+
+## Aceptación (2026-11-07)
+
+**ACCEPTED** por el owner (@Samuelcastella) el 2026-11-07, al pedir al coordinador que respondiera y avanzara según sus recomendaciones (A2 del plan del 2026-11-06). La aceptación es efectiva cuando se fusiona el PR que contiene este texto, que debe fusionarse **después** de #1105, #1106, #1107, #1108, #1109, #1115, #1116 y #1117.
+
+Las tres condiciones de la sección siguiente quedan cumplidas en ese momento:
+1. La aceptación queda registrada con fecha en el registro de progresión.
+2. La sección 6 del acta queda aplicada por #1042, #1043, #1044, #1106 a #1109, #1115, #1116 y #1117.
+3. La prueba técnica de Graphify (B-05) queda registrada en #1105.
+
+Aceptar este ADR **no** aprueba ningún slice: cada spec hijo pasa a `APPROVED` por separado.
 
 ## Criterio de aceptación
 
