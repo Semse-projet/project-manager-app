@@ -641,6 +641,23 @@ export class PaymentsService {
     };
   }
 
+  /**
+   * AUDIT_REMEDIATION_PLAN 0.48 — proposal-time scope for agent-proposed
+   * releases (Prometeo `payments.propose_release`). The release itself runs
+   * later as the approving OPS_ADMIN, so its own checks never looked at the
+   * PROPOSER: anyone with finance:write could queue a release on a project
+   * they take no part in. Read-only; moves no money and changes no state.
+   */
+  async assertCanProposeRelease(input: {
+    tenantId: string;
+    orgId: string;
+    userId: string;
+    roles: string[];
+    milestoneId: string;
+  }): Promise<void> {
+    await this.paymentsRepository.assertMilestoneProjectParticipant(input);
+  }
+
   async release(input: {
     tenantId: string;
     orgId: string;
