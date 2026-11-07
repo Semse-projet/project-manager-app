@@ -210,6 +210,7 @@ Más el *trigger* de inmutabilidad y `onDelete: Restrict`.
 - **`shadow` no escribe filas.** Las filas de un ledger de solo-agregar son permanentes, así que en `shadow` se calcula y se compara la decisión pero **solo se registra telemetría y conteos**. Escribir filas empieza en `canary`, con una lista de tenants (L-14). Esta es una recomendación sujeta a Q-9.
 - `canary`: un tenant permitido y un único productor (Q-2). `live`: todos los tenants, solo tras evidencia del canary.
 - Métricas (nombres, SLO y responsable a aprobar, Q-5): registros, reintentos idempotentes, conflictos 409, rechazos por autoridad inválida, fallos de escritura, latencia.
+- **Nombres candidatos de métricas** (versión 2 del paquete, adoptados como candidatos por el owner el 2026-11-07, B01-1): éxito y fallo del registro; reintentos deduplicados por idempotencia; rechazos por falta de procedencia; latencia de lectura; alcance denegado. Son nombres, no valores; los valores y los SLO siguen pendientes de medición.
 - Logs sin `rationale` ni `decisionValueJson`; solo identificadores, `correlationId` y códigos.
 - Auditoría de lecturas: registro de acceso y de denegación sin contenido (D-09).
 
