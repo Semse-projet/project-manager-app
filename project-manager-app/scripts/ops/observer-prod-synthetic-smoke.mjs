@@ -50,6 +50,17 @@ const EXPECTED_API_SHA = process.env.SEMSE_OBSERVER_SMOKE_EXPECTED_SHA;
 // Both normal execution and emergency cleanup mutate production data.
 // Neither path is authorized without attesting the current API build.
 assert.match(EXPECTED_API_SHA ?? "", /^[a-f0-9]{40}$/, "Expected current production git SHA required");
+if (!cleanupArgument) {
+  // Observer history is PROCESS-LOCAL. Do not certify A/B isolation from
+  // load-balanced requests unless an operator has verified exactly one
+  // live API replica on Railway immediately before running this smoke,
+  // with no staged/deploying replacement. This is an operator attestation,
+  // NOT an independent Railway topology query.
+  assert.equal(process.env.SEMSE_OBSERVER_SMOKE_ATTESTED_API_REPLICAS, "1",
+    "Operator must verify exactly 1/1 Railway API replica and no rollout in progress before A/B smoke");
+}
+// Emergency account/session cleanup remains available even if topology changed.
+
 // pnpm production installs isolate workspace dependencies: @prisma/client is
 // linked beneath packages/db, not necessarily at the app root.
 let PrismaClient;
