@@ -3,6 +3,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { ForbiddenException, NotFoundException } from "@nestjs/common";
 import { LienAccessService, assertLienAccess } from "../dist/modules/liens/lien-access.service.js";
+import { ResourceScopeResolver } from "../dist/common/resource-scope.resolver.js";
 import { WaiverController } from "../dist/modules/liens/waiver.controller.js";
 import { NoticeController } from "../dist/modules/liens/notice.controller.js";
 import { LiensController } from "../dist/modules/liens/liens.controller.js";
@@ -43,7 +44,7 @@ function buildService() {
     project: {
       async findFirst({ where }: any) {
         return where.id === "proj_1" && where.tenantId === "t1"
-          ? { assignedProOrgId: PRO, job: { clientOrgId: CLIENT } }
+          ? { tenantId: "t1", assignedProOrgId: PRO, job: { clientOrgId: CLIENT } }
           : null;
       },
     },
@@ -51,7 +52,8 @@ function buildService() {
     lienWaiver: { async findFirst({ where }: any) { return where.id === "w_1" && where.lienCalendar.projectId === "proj_1" ? { id: "w_1" } : null; } },
     lienNotice: { async findFirst({ where }: any) { return where.id === "n_1" && where.lienCalendar.projectId === "proj_1" ? { id: "n_1" } : null; } },
   };
-  return new LienAccessService(prisma as never);
+  // C51: el proyecto se resuelve con el resolver canónico real sobre el mismo stub de prisma.
+  return new LienAccessService(prisma as never, new ResourceScopeResolver(prisma as never));
 }
 
 test("service: other tenant gets 404, other org same tenant gets 403", async () => {
@@ -115,4 +117,19 @@ test("updateCalendarStatus is OPS_ADMIN only", async () => {
   assert.equal(updated, 0);
   await controller.updateCalendarStatus(req({ tenantId: "t1", orgId: "org_ops", userId: "u", roles: ["OPS_ADMIN"] }), "proj_1", "cal_1", { newStatus: "ALERTED_30D" });
   assert.equal(updated, 1);
+});
+
+test("service (C51): el proyecto se resuelve con ResourceScopeResolver y siempre con el tenant del actor", async () => {
+  const calls: string[] = [];
+  const resolver = {
+    async resolveProjectScope(tenantId: string, projectId: string) {
+      calls.push(`${tenantId}:${projectId}`);
+      return tenantId === "t1" && projectId === "proj_1" ? { tenantId, clientOrgId: CLIENT, assignedProOrgId: PRO } : null;
+    },
+  };
+  const s = new LienAccessService({} as never, resolver as never);
+  await s.assertProject(actor(), "proj_1", "read");
+  await assert.rejects(s.assertProject(actor({ tenantId: "t2" }), "proj_1", "read"), NotFoundException);
+  await assert.rejects(s.assertProject(actor({ orgId: "" }), "proj_1", "read"), ForbiddenException);
+  assert.deepEqual(calls, ["t1:proj_1", "t2:proj_1", "t1:proj_1"]);
 });
