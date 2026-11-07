@@ -101,3 +101,68 @@ test("O.HI14: concurrent-provisioning check is inside the DB write transaction",
   assert.match(source, /await preflight\(\{ cleanupOnly: true \}\);\s*await cleanup\(runId\)/);
   assert.match(source, /await verifyAuthAudit\(people\)/);
 });
+
+test("O.HI14: rejects a foreign snapshot in a fresh tenant", async () => {
+  const { assertEmptyObserverHistory } = await import(
+    new URL("../../../scripts/ops/observer-smoke-history-assertions.mjs", import.meta.url).href
+  );
+  const empty = { status: 200, data: { count: 0, snapshots: [] } };
+  assert.doesNotThrow(() => assertEmptyObserverHistory(empty));
+  // A has observed; B's history must be empty even with x-tenant-id spoofed.
+  const leaked = { status: 200, data: { count: 1,
+    snapshots: [{ observedAt: "2026-11-06T10:00:00.000Z" }] } };
+  assert.throws(() => assertEmptyObserverHistory(leaked), /Foreign observation leaked/);
+});
+
+test("O.HI14: rejects mixed or substituted history after both tenants observe", async () => {
+  const { assertOwnObserverHistory } = await import(
+    new URL("../../../scripts/ops/observer-smoke-history-assertions.mjs", import.meta.url).href
+  );
+  const a = "2026-11-06T10:00:00.000Z";
+  const b = "2026-11-06T10:00:01.000Z";
+  const ownA = { status: 200, data: { count: 1, snapshots: [{ observedAt: a }] } };
+  const ownB = { status: 200, data: { count: 1, snapshots: [{ observedAt: b }] } };
+  assert.doesNotThrow(() => assertOwnObserverHistory(ownA, a));
+  assert.doesNotThrow(() => assertOwnObserverHistory(ownB, b));
+  assert.throws(() => assertOwnObserverHistory(ownA, b), /History entry does not match/);
+  const mixed = { status: 200, data: { count: 2,
+    snapshots: [{ observedAt: a }, { observedAt: b }] } };
+  assert.throws(() => assertOwnObserverHistory(mixed, a), /exactly its own observation/);
+});
+
+test("O.HI14: smoke interleaves cross-tenant checks after each latest observation", async () => {
+  const { readFileSync } = await import("node:fs");
+  const source = readFileSync(executable, "utf8");
+  const i = source.indexOf("const observedAtByTenant = new Map()");
+  const latest = source.indexOf('"/v1/ops/observer/latest"', i);
+  const otherHistory = source.indexOf("const otherHistory = await request", latest);
+  const branch = source.indexOf("if (observedAtByTenant.has(other.key))", otherHistory);
+  assert.ok(i > 0 && latest > i && otherHistory > latest && branch > otherHistory,
+    "Each observed tenant must trigger an immediate read of the other tenant");
+  assert.match(source.slice(branch, branch + 260),
+    /assertOwnObserverHistory\(otherHistory, observedAtByTenant\.get\(other\.key\)\)/);
+  assert.match(source.slice(branch, branch + 300),
+    /assertEmptyObserverHistory\(otherHistory\)/);
+});
+
+test("O.HI14: production A/B rejects missing single-replica attestation", () => {
+  const run = spawnSync(process.execPath, [executable, "--apply"], {
+    env: {
+      ...process.env,
+      CI: "false",
+      NODE_ENV: "production",
+      RAILWAY_PROJECT_ID: "95ad1b14-d1d9-467d-82d8-5354619ba873",
+      RAILWAY_ENVIRONMENT_NAME: "production",
+      RAILWAY_ENVIRONMENT_ID: "d682210a-956a-4508-9c5b-4ca5959278f9",
+      RAILWAY_SERVICE_ID: "2bd1bd3f-9aa1-4fc3-a714-4cf90c52c770",
+      SEMSE_OBSERVER_SMOKE_ACK: "YES_OBSERVER_1089_SYNTHETIC_WRITE_AND_CLEANUP",
+      SEMSE_OBSERVER_SMOKE_EXPECTED_SHA: "8219caa4e9999dc578a5010b939380a25c298a87",
+      SEMSE_OBSERVER_SMOKE_ATTESTED_API_REPLICAS: "",
+      DATABASE_URL: "postgresql://dummy:dummy@postgres.railway.internal/semse",
+    },
+    encoding: "utf8", timeout: 15000,
+  });
+  assert.notEqual(run.status, 0, "unattested multi-replica topology cannot pass");
+  assert.match(run.stderr, /Operator must verify exactly 1\/1 Railway API replica/);
+  assert.doesNotMatch(run.stdout + run.stderr, /FIXTURES CREATED|SMOKE PASS|CLEANUP PASS|accessToken/);
+});

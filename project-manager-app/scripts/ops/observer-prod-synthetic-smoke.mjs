@@ -10,6 +10,7 @@
 import assert from "node:assert/strict";
 import { randomBytes, randomUUID, scryptSync } from "node:crypto";
 import { createRequire } from "node:module";
+import { assertEmptyObserverHistory, assertOwnObserverHistory } from "./observer-smoke-history-assertions.mjs";
 
 const EXPECTED_PROJECT = "95ad1b14-d1d9-467d-82d8-5354619ba873";
 const EXPECTED_API_SERVICE = "2bd1bd3f-9aa1-4fc3-a714-4cf90c52c770";
@@ -49,6 +50,17 @@ const EXPECTED_API_SHA = process.env.SEMSE_OBSERVER_SMOKE_EXPECTED_SHA;
 // Both normal execution and emergency cleanup mutate production data.
 // Neither path is authorized without attesting the current API build.
 assert.match(EXPECTED_API_SHA ?? "", /^[a-f0-9]{40}$/, "Expected current production git SHA required");
+if (!cleanupArgument) {
+  // Observer history is PROCESS-LOCAL. Do not certify A/B isolation from
+  // load-balanced requests unless an operator has verified exactly one
+  // live API replica on Railway immediately before running this smoke,
+  // with no staged/deploying replacement. This is an operator attestation,
+  // NOT an independent Railway topology query.
+  assert.equal(process.env.SEMSE_OBSERVER_SMOKE_ATTESTED_API_REPLICAS, "1",
+    "Operator must verify exactly 1/1 Railway API replica and no rollout in progress before A/B smoke");
+}
+// Emergency account/session cleanup remains available even if topology changed.
+
 // pnpm production installs isolate workspace dependencies: @prisma/client is
 // linked beneath packages/db, not necessarily at the app root.
 let PrismaClient;
@@ -325,11 +337,13 @@ async function smoke(people, password) {
     const initial = await request("GET", "/v1/ops/observer/history", {
       token: p.token, spoof: other.tenantId,
     });
-    assert.equal(initial.status, 200, "Auth history with spoofed header must pass");
-    assert.equal(initial.data?.count, 0, "New synthetic tenant must have empty history");
-    assert.deepEqual(initial.data?.snapshots, []);
+    assertEmptyObserverHistory(initial);
   }
 
+  // Interleave A/B reads: B must remain empty immediately after A creates a
+  // snapshot; after B observes, A must still contain only A's snapshot.
+  // Checking cardinality at the end alone misses cross-tenant history leaks.
+  const observedAtByTenant = new Map();
   for (const p of people) {
     const other = people.find((x) => x.key !== p.key);
     const latest = await request("GET", "/v1/ops/observer/latest", {
@@ -337,6 +351,9 @@ async function smoke(people, password) {
     });
     assert.equal(latest.status, 200, "Latest must succeed, not cross-tenant or 503");
     assert.equal(latest.data?.tenantId, p.tenantId, "Cross-tenant latest exposure");
+    assert.ok(typeof latest.data?.observedAt === "string",
+      "Latest observation must carry an immutable timestamp");
+    observedAtByTenant.set(p.key, latest.data.observedAt);
     const cached = await request("GET", "/v1/ops/observer/latest", {
       token: p.token, spoof: other.tenantId,
     });
@@ -346,10 +363,15 @@ async function smoke(people, password) {
     const history = await request("GET", "/v1/ops/observer/history", {
       token: p.token, spoof: other.tenantId,
     });
-    assert.equal(history.status, 200);
-    assert.ok(history.data?.count >= 1, "Own history must include latest");
-    assert.ok(history.data?.count <= 50, "Retention cap must hold");
-    assert.ok(history.data?.snapshots?.length <= 10, "HTTP pagination cap must hold");
+    assertOwnObserverHistory(history, observedAtByTenant.get(p.key));
+    const otherHistory = await request("GET", "/v1/ops/observer/history", {
+      token: other.token, spoof: p.tenantId,
+    });
+    if (observedAtByTenant.has(other.key)) {
+      assertOwnObserverHistory(otherHistory, observedAtByTenant.get(other.key));
+    } else {
+      assertEmptyObserverHistory(otherHistory);
+    }
   }
 
   for (const p of people) {

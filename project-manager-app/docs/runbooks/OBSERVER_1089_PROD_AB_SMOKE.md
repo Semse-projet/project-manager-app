@@ -28,13 +28,24 @@ No modifica roles globales, permisos, flags, servicios de Railway ni migraciones
    `SEMSE_OBSERVER_SMOKE_EXPECTED_SHA` (40 caracteres hexadecimales);
    `/v1/ready` debe ser HTTP 200 con `status=ready`.
    Si no, abortar **antes** de escribir.
-4. Un operador autorizado debe introducir el opt-in efímero
+4. **Verificar topología en Railway inmediatamente antes de ejecutar:**
+   servicio API en **1/1 réplica viva**, sin despliegues `BUILDING`,
+   `DEPLOYING` ni cambios staged/rolling pendientes. `observer/history`
+   reside en **memoria del proceso**, no en PostgreSQL: si hay dos o más
+   réplicas, las peticiones balanceadas pueden aparentar aislamiento sin
+   comprobarlo. **NO ejecutar** el smoke ni certificar PASS A/B con
+   múltiples réplicas; primero se necesita afinidad verificable o pruebas
+   por réplica en un flujo distinto. El script exige la confirmación
+   efímera `SEMSE_OBSERVER_SMOKE_ATTESTED_API_REPLICAS=1`. Es una
+   **atestación del operador**, no una consulta independiente de Railway:
+   el operador debe verificarla y registrar evidencia del estado 1/1.
+   La limpieza de emergencia `--cleanup=RUN_ID` no exige esta atestación.
+5. Un operador autorizado debe introducir el opt-in efímero
    `SEMSE_OBSERVER_SMOKE_ACK=YES_OBSERVER_1089_SYNTHETIC_WRITE_AND_CLEANUP`.
    **No** establecerlo como variable persistente de Railway.
-5. El script debe encontrarse en el contenedor de API existente.
-   Esta rama **no está fusionada ni desplegada**. La conexión ChatGPT
-   de Railway actual no ofrece shell/SQL ni Cloud Agent, por lo que esta
-   preparación **no provisiona todavía cuentas reales**.
+6. El script debe encontrarse en el contenedor de API existente.
+   La conexión ChatGPT de Railway disponible no ofrece shell/SQL: la
+   existencia del script en el repositorio no provisiona cuentas por sí sola.
 
 ## Uso desde un shell autorizado del API
 
@@ -44,6 +55,7 @@ node scripts/ops/observer-prod-synthetic-smoke.mjs
 
 # Ejecutar UNA vez, y solo con permiso sobre el entorno existente:
 SEMSE_OBSERVER_SMOKE_EXPECTED_SHA=SHA_PRODUCTIVO_CONFIRMADO \
+SEMSE_OBSERVER_SMOKE_ATTESTED_API_REPLICAS=1 \
 SEMSE_OBSERVER_SMOKE_ACK=YES_OBSERVER_1089_SYNTHETIC_WRITE_AND_CLEANUP \
   node scripts/ops/observer-prod-synthetic-smoke.mjs --apply
 ```
@@ -65,8 +77,16 @@ ni cambiar `AUTH_SECRET`, `SEMSE_DEFAULT_TENANT_ID` o políticas RBAC.
 - Con `x-tenant-id`/ `x-org-id` deliberadamente falsos, `/history`
   empieza vacío; `/latest` devuelve el **tenant verdadero del token**,
   nunca el falsificado.
-- Segundo `/latest` usa `fromCache=true` de ese tenant; `/history`
-  permanece limitado (<=50 guardados; <=10 retornados).
+- Segundo `/latest` usa `fromCache=true` de ese tenant. Para estos
+  tenants nuevos, `/history` debe devolver **exactamente una** observación,
+  con `observedAt` igual al del `/latest` autenticado; no basta con contar
+  una o más observaciones. Tras crear la observación A, se vuelve a consultar
+  B y **debe seguir vacío**; tras crear B, A **debe conservar exactamente
+  su propio registro**. La proyección `history` no incluye tenantId, por
+  lo que estas comprobaciones cruzadas y de procedencia son obligatorias.
+  Las pruebas O.HI14 de la función de validación deben rechazar registros
+  compartidos, sustituidos o mezclados. Los límites generales siguen siendo
+  50 snapshots retenidos y 10 retornados por consulta.
 - `/v1/auth/logout` revoca cada sesión y el acceso posterior devuelve 401.
   El 403 con un rol sin permiso sigue acreditado en CI O.HI12/O.HI13;
   esta ejecución usa únicamente dos administradores y no afirma probar 403
@@ -146,6 +166,8 @@ están limitados explícitamente a PostgreSQL desechable en CI.
 ## Gates separados
 
 - No sustituye la revisión retrospectiva del PR #1089.
+- Exige 1/1 réplica real al ejecutarse: no acredita aislamiento en
+  múltiples instancias ni prueba afinidad detrás del balanceador.
 - No prueba continuidad de memoria tras reinicio/multirréplica ni fuerza
   la saturación del cap 128 creando masivamente tenants.
 - No crea nuevos servicios Railway.
