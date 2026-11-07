@@ -100,7 +100,7 @@ export class ContractsService {
 
     // C51: pedir firmas fija los firmantes (correos del cuerpo) y sobrescribe las URLs de firma del contrato, así
     // que exige lo mismo que crearlo: org cliente dueña u OPS_ADMIN del tenant (leerlo no basta).
-    if (!input.roles.includes("OPS_ADMIN") && !sameOrg(contract.clientOrgId, input.orgId)) {
+    if (!(input.roles ?? []).includes("OPS_ADMIN") && !sameOrg(contract.clientOrgId, input.orgId)) {
       throw new ForbiddenException("actor cannot request signatures for this contract");
     }
 

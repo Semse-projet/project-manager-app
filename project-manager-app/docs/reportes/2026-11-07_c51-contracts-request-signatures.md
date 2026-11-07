@@ -17,6 +17,7 @@ OPS_ADMIN del tenant; si no, 403 sin enviar nada ni tocar el contrato.
 ## Pruebas
 - Nueva `apps/api/test/contracts-request-signatures-scope.test.ts` (3).
 - Mutación: sin la comprobación falla la prueba de la org profesional; restaurado, 3/3.
+- `tests/unit/contracts.service.test.ts` llamaba a `requestSignatures` sin `roles` (que el tipo exige y el controlador siempre envía) y con un contrato sin `clientOrgId`; se actualizó a la forma real del actor (cliente dueño). La comprobación falla cerrada (403) si faltan los roles. Suite raíz `pnpm test:unit`: 1641 pass, 0 fail.
 - Contracts 128/128. Suite `@semse/api test:unit`: 3849 pass, 0 fail, 2 skipped (Postgres local). ESLint limpio.
 
 ## Pendiente / límites
