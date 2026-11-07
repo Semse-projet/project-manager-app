@@ -192,3 +192,11 @@ date: "2026-10-30"
 - [ ] Convertir pruebas `WAGE-NAT-01..08` en casos ejecutables con fixtures BLS y revisión humana.
 - [ ] Contrastar salarios detallados SOC y tiempos reales autorizados contra costos empresariales reconciliados. No usar cociente Seattle/Dallas de grupos agregados como multiplicador comercial.
 
+## Continuidad de agente interno de vigilancia de mercado (7-nov-2026)
+
+- [x] [Diseño residente en SEMSE](./cost-engine.market-watch-agent-design-2026-11-07.md) registrado y [matriz MW-01..MW-24](./cost-engine.market-watch-acceptance-matrix-2026-11-07.md) preparada **solo como documentación**: no se creó agente, scheduler ni precio nuevo.
+- [ ] Contrato worker/BullMQ, cadencias/locks/idempotencia, egress allowlist, secretos, límites, kill switch OFF y gastos operativos revisados/aceptados.
+- [ ] T-008/T-008b/#1101 y auditoría T-008c prueban que BLS PPI no genera precios USD de la nada ni revalida fallbacks, y consumidores reciben estado de procedencia.
+- [ ] Fuente con SKU/unidad/fecha/geo, licencia SaaS/consentimiento, revisión de oficio y aprobación humana verificable; datos sin derechos o vencidos nunca alteran tarifas comerciales.
+- [ ] Seguridad tenant/org, privacyCritical, revocación, pruebas negativas MW-01..24 y `costReplay` aceptados; los importes existentes quedan inmutables.
+- [ ] Activación por categoría con Q2/Q3/Q5/Q7/Q9/Q10/Q11, CPA/Legal/finanzas y canary separados; **#1075 sigue DRAFT** hasta gates de spec.
