@@ -176,7 +176,7 @@ retroactiva.
 | [prometeo.chat-actions](specs/prometeo/chat-actions.spec.md) | prometeo | APPROVED | IN_PROGRESS | PASS | MERGED | DEPLOYED | INACTIVE | high | no | 2026-10-07 |
 | [prometeo.chat-evidence](specs/prometeo/chat-evidence.spec.md) | prometeo | APPROVED | IN_PROGRESS | PASS | MERGED | DEPLOYED | ACTIVE | high | yes | 2026-10-10 |
 | [prometeo.conversation-intelligence](specs/prometeo/conversation-intelligence-foundation.spec.md) | prometeo | APPROVED | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-10-06 |
-| [prometeo.decision-ledger](specs/prometeo/decision-ledger.spec.md) | prometeo | REVIEW | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | no | 2026-10-04 |
+| [prometeo.decision-ledger](specs/prometeo/decision-ledger.spec.md) | prometeo | REVIEW | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | no | 2026-11-06 |
 | [prometeo.document-sharing-grants](specs/prometeo/document-sharing-grants.spec.md) | prometeo | REVIEW | COMPLETE | PASS | MERGED | DEPLOYED | INACTIVE | critical | yes | 2026-11-01 |
 | [prometeo.jev-decision-layer](specs/prometeo/jev-decision-layer.spec.md) | prometeo | APPROVED | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | yes | 2026-09-24 |
 | [prometeo.jev-human-review-queue](specs/prometeo/jev-human-review-queue.spec.md) | prometeo | APPROVED | COMPLETE | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | yes | 2026-09-26 |
@@ -187,7 +187,7 @@ retroactiva.
 | [prometeo.tool-call-audit-lineage](specs/prometeo/tool-call-audit-lineage.spec.md) | prometeo | APPROVED | IN_PROGRESS | NOT_RUN | MERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-10-25 |
 | [prometeo.tool-registry-governance-f2](specs/prometeo/tool-registry-governance.spec.md) | prometeo | APPROVED | legacy | legacy | legacy | legacy | legacy | critical | no | 2026-07-20 |
 | [prometeo.tool-result-multimodal](specs/prometeo/tool-result-multimodal.spec.md) | prometeo | IMPLEMENTED | COMPLETE | PASS | MERGED | NOT_DEPLOYED | INACTIVE | medium | yes | 2026-08-27 |
-| [prometeo.unified-graph-contract](specs/prometeo/unified-graph-contract.spec.md) | prometeo | REVIEW | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | no | 2026-10-04 |
+| [prometeo.unified-graph-contract](specs/prometeo/unified-graph-contract.spec.md) | prometeo | REVIEW | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | no | 2026-11-06 |
 | [prometeo.unified-query-lineage](specs/prometeo/unified-query-lineage.spec.md) | prometeo | REVIEW | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | no | 2026-10-04 |
 | [satellites.sdd-harness](specs/satellites/SAT-000-sdd-harness.spec.md) | agents | APPROVED | legacy | legacy | legacy | legacy | legacy | high | no | 2026-07-12 |
 | [satellites.semse-sdk](specs/satellites/SAT-001-semse-sdk.spec.md) | api | APPROVED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-08-27 |
