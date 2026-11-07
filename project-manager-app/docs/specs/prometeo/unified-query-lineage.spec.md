@@ -175,6 +175,7 @@ POST <prefijo>/graph/query          (prefijo propio, sin rutas @Public; ver Q-1 
 - **Proveedor de decisiones:** lee solo el Decision Ledger. **No incluye `AgentDecision`**, que no tiene `tenantId` y rompería el aislamiento (Q-03).
 - **Proveedor de ejecuciones (D-02):** consulta H05 con `ToolExecutionQueryService`, valida `executionId` junto con `tenantId` y no guarda resúmenes, que H05 purga según su retención configurable.
 - **Unión decisión → acción:** por `executionId` guardado en `DecisionEffectRef`. No se une por `correlationId`, porque H05 no lo tiene (Q-24).
+- **Nombre de la herramienta (B01-2, 2026-11-07):** `lineage.query_graph` (namespace `lineage`, nombre `query_graph`). La versión 2 del paquete proponía `semse.graph.query`, pero el chat del gateway separa `requestedAction` con `split(".")` y solo usa los dos primeros segmentos, así que un nombre de tres partes perdería `query`. Además, el registro usa namespaces de dominio en snake_case (`time_tracker`, `agro`, `business_os`).
 - **Herramienta de Prometeo:** descriptor de solo lectura en `prometeo-tool-registry.ts`, con sus permisos y `outputKind`. El registro actual es estático y compartido con MCP S1 y **no tiene campo de exposición**: antes de registrar la herramienta hay que añadir un campo que la excluya de MCP (cambio de código, tarea propia; Q-06).
 - **Qué runtime de Prometeo la consume:** sin determinar (Q-19); se fija en Q-5.
 
@@ -190,6 +191,7 @@ Sin migración Prisma. Sin caché persistente de grafo. Los topes del servidor s
 
 - Flag `SEMSE_UNIFIED_QUERY_MODE`: ausente o desconocido = `off` (D-14). Semántica en el [spec padre §17](operational-intelligence-program.spec.md).
 - `off`: endpoint 404 y herramienta ausente. `shadow`: se ejecuta la consulta y se registran métricas y conteos, pero el resultado **no se entrega** a ningún usuario. `canary`: solo tenants de una lista. `live`: todos.
+- **Nombres candidatos de métricas** (versión 2 del paquete, adoptados como candidatos por el owner el 2026-11-07, B01-1): latencia de consulta por modo; tamaño del grafo devuelto; truncamientos; proveedores degradados; proveedores denegados; éxito y fallo de la herramienta de Prometeo. Son nombres, no valores; los valores y los SLO siguen pendientes de medición.
 - **Este slice cubre el canary autenticado del slice 1** (D-16): un tenant y un actor reales, consultando decisiones y ejecuciones.
 - Dimensiones de métricas: modo, proveedor y código de resultado; latencia, truncados y degradados. Nombres, SLO, alertas y responsable: por aprobar (Q-6).
 - `correlationId`: lo acepta del cliente o lo genera el endpoint, y lo propaga a los proveedores; el consumidor Prometeo reenvía el suyo.
