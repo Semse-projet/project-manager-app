@@ -156,3 +156,7 @@ date: "2026-10-30"
 ## 11. H1–H5 — extensión documental y límites
 
 El [anexo híbrido H1–H5](./cost-engine.hybrid-market-execution-design-2026-11-06.md) registra opciones futuras de inteligencia de mercado y ejecución mixta. **No forma parte de las fases de implementación aprobadas**; cada conector, fuente de datos, modalidad de ejecución y aprendizaje requerirá contrato, pruebas y autorización aparte. El [checklist de alcance actual](./cost-engine.checklist.md#límite-de-alcance-de-1075-ahora--fase-documental-draft-6-nov-2026) es el gate de esta fase. Ninguna acción productiva se autoriza al actualizar los documentos.
+
+## 12. Etapa M — Vigilancia periódica de mercado dentro de SEMSE (diseño)
+
+**Origen:** [anexo de agente residente](./cost-engine.market-watch-agent-design-2026-11-07.md) y [matriz MW-01..MW-24](./cost-engine.market-watch-acceptance-matrix-2026-11-07.md). La ejecución futura vive en `apps/worker` con BullMQ, un flag apagado por defecto, aprobaciones humanas y observaciones versionadas; `pricing/*` conserva la única autoridad económica según ADR-027. La etapa inicial no cambia `PriceRefreshJob`, snapshots, tarifas, pagos ni producción. Antes de escribir código, aprobar contrato, roles/aislamiento, seguridad de egress, derechos de fuente, pruebas y PR separado; respetar #1101 y las decisiones T-008/Q10/Q11.
