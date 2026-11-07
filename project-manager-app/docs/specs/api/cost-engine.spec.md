@@ -606,3 +606,7 @@ Las **alternativas de diseño** Q9/Q11/Q10/Q2/Q3/Q5/Q7 ya se seleccionaron, con 
 ## Anexo H — Inteligencia de mercado y ejecución híbridas (propuesta futura)
 
 La [especificación de diseño H1–H5](./cost-engine.hybrid-market-execution-design-2026-11-06.md) define fuentes internas/externas/humanas, comparación normalizada de proveedores y contratistas, evaluación dual de evidencia/aplicabilidad, ejecución propia/subcontratada/mixta y aprendizaje con costos reales. **Es extensión documental DRAFT y no altera el alcance de implementación vigente:** proveedores en vivo siguen fuera de alcance hasta nuevos gates de licencia, fiscalidad, seguridad, consentimiento, pruebas y aprobación. El motor económico sigue siendo el único autorizado por ADR-027 y #1101 permanece independiente.
+
+## Anexo M — Agente residente de vigilancia de mercado (diseño, NO activado)
+
+La [arquitectura propuesta del observador de precios](./cost-engine.market-watch-agent-design-2026-11-07.md) y su [matriz de 24 pruebas de aceptación](./cost-engine.market-watch-acceptance-matrix-2026-11-07.md) responden al requisito de monitoreo periódico **dentro de SEMSE** (worker/BullMQ, no tarea de ChatGPT). El diseño distingue índices BLS, benchmarks salariales, cotizaciones privadas y feeds con licencia; exige validación humana, permisos/privacidad y preservación de `costReplay`. La corrección de `PriceRefreshJob`/PPI se coordina con T-008/T-008b y el PR #1101, sin atribuirle una certificación de precios. **Anexo DRAFT, sin código, activación, precio comercial ni fiscal aprobado.**
