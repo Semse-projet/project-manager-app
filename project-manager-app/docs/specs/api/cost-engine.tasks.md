@@ -152,3 +152,15 @@ date: "2026-10-30"
 - [ ] [T-005u] **Importación real de salarios:** obtener ficheros oficiales OEWS May-2025 de estado y metro, validar release/checksum, parsear por SOC/geografía/percentil, conservar celdas suprimidas como NULL y publicar informe de cobertura. No se descargaron datos por localidad en esta revisión.
 - [ ] [T-005v] **Labor burden y obligaciones especiales:** revisar costos cargados W-2/1099 solo con libros de empresa y clasificación adecuada; Davis-Bacon contract-specific para obra cubierta; no hacer multiplicador universal de ECEC ni usar salario de empleado para autónomo.
 - [ ] [T-005w] **Oráculos nacionales:** implementar y ejecutar NAT-01 a NAT-18 con QA independiente en la fase autorizada, sin cambiar rangos ni impuestos del sistema heredado. Todos los casos actualmente documentales.
+
+## Fase M — Agente residente de vigilancia de precios (DRAFT, no implementación)
+
+**Documento de continuidad:** [diseño dentro de SEMSE](./cost-engine.market-watch-agent-design-2026-11-07.md) · [MW-01..MW-24](./cost-engine.market-watch-acceptance-matrix-2026-11-07.md). **No autoriza** endpoints, scraping, scheduler, bases nuevas, licencias ni cambios productivos; etapas posteriores requieren SDD aprobado y PR(s) propios.
+
+- [x] [M-000] Registrar diseño de arquitectura worker/BullMQ, flujos de fuentes y seguridad, auditoría de `PriceRefreshJob`, matriz MW-01..24 y relación con #1101 (solo documentación).
+- [ ] [M-001] Resolver contrato fuente/rights/UOM/SKU/fecha/geo, permisos, observaciones/revocación, costes de egress y revisión de privacidad/Legal. No tratar precio público como licencia SaaS.
+- [ ] [M-002] Separar PPI `INDEX_ONLY` de precio comercial; verificar T-008/T-008b/#1101 con tests de fallos BLS y auditoría T-008c de solo lectura, sin atribuir datos verificados a fallback.
+- [ ] [M-003] Aprobar spec propia y construir por PR autorizado scheduler en worker, lock, idempotencia, límite de tasa, colas de rechazo, métricas y flag OFF; sin escribir a tarifas productivas.
+- [ ] [M-004] Diseñar y aceptar almacenamiento aditivo/versionado y bandeja de revisión humana con scopes tenant/org, derechos de uso y aislamiento; pruebas PostgreSQL y seguridad.
+- [ ] [M-005] Pilotar pintura/drywall con precios y licencias observados, especialista del oficio, finanzas, Q2/Q3/Q9/Q10/Q11, modo sombra y replay; verificar MW-01..24 antes de aprobar cotizaciones comerciales nuevas.
+- [ ] [M-006] Evidenciar por separado CI, revisiones, merge, despliegue, canary, procedencia Railway y rollback/kill switch. Prohibido alterar cotizaciones aceptadas, contratos, hitos o escrow.
