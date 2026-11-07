@@ -61,6 +61,13 @@ class OEWSTests(unittest.TestCase):
             output = root / "output"
             result = run(state_path, metro_path, output)
             self.assertEqual(result["classification"], "RESEARCH_ONLY_NOT_APPROVED")
+            self.assertFalse(result["release_verified"])
+            self.assertEqual(result["source_authentication"], "NOT_VERIFIED_OFFLINE")
+            self.assertEqual(result["input"]["state"]["area_count_observed"], 2)
+            self.assertEqual(result["input"]["state"]["area_count_expected"], 51)
+            self.assertEqual(result["input"]["metro"]["area_count_observed"], 1)
+            self.assertIsNone(result["input"]["metro"]["area_count_expected"])
+            self.assertTrue(result["input"]["state"]["coverage_not_commercial_approval"])
             self.assertEqual(result["input"]["state"]["trade_area_rows"], 51 * 24)
             self.assertEqual(result["input"]["metro"]["trade_area_rows"], 24)
             self.assertEqual(result["input"]["state"]["stats"]["missing_or_suppressed_median"], 1)
@@ -71,6 +78,25 @@ class OEWSTests(unittest.TestCase):
             self.assertEqual(fl["reference_status"], "ALL_REFERENCE_WAGES_PRESENT")
             self.assertEqual(ga["reference_status"], "NO_REFERENCE_WAGES")
             self.assertEqual(json.loads((output / "manifest.json").read_text())["release_claim"], "May 2025")
+
+    def test_ambiguous_zip_fails_closed_instead_of_picking_first_workbook(self):
+        from oews_coverage import records
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "oesm25st.zip"
+            with zipfile.ZipFile(path, "w") as archive:
+                archive.writestr("first.xlsx", b"not relevant")
+                archive.writestr("second.xlsx", b"not relevant")
+            with self.assertRaisesRegex(ValueError, "Ambiguous OEWS ZIP"):
+                list(records(path))
+
+    def test_empty_zip_cannot_silently_create_research_coverage(self):
+        from oews_coverage import records
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "oesm25ma.zip"
+            with zipfile.ZipFile(path, "w") as archive:
+                archive.writestr("README.txt", "synthetic-only")
+            with self.assertRaisesRegex(ValueError, "Expected an XLSX"):
+                list(records(path))
 
     def test_duplicate_area_soc_fails_closed(self):
         with tempfile.TemporaryDirectory() as directory:
