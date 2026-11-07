@@ -6,7 +6,7 @@
 
 Se compararon las 24 filas de dos borradores T-005 y el diccionario SOC del script de investigación `scripts/research/oews_coverage.py`. Hay **14/24 discrepancias** entre los documentos. El script coincide con el primer borrador, pero esto **no valida** los SOC ante especialistas ni su cobertura en las tablas oficiales May 2025.
 
-**Fuentes dentro del mismo PR:** [modelo operativo](./cost-engine.national-labor-geo-tax-operating-model-2026-11-06.md) · [contrato de ingestión](./cost-engine.us-data-ingestion-and-24-trade-crosswalk-2026-11-06.md) · [script de investigación](../../scripts/research/oews_coverage.py). La ruta del script es `project-manager-app/scripts/research/oews_coverage.py`; el enlace debe interpretarse desde la raíz del repositorio si el enlace relativo no resuelve.
+**Fuentes dentro del mismo PR:** [modelo operativo](./cost-engine.national-labor-geo-tax-operating-model-2026-11-06.md) · [contrato de ingestión](./cost-engine.us-data-ingestion-and-24-trade-crosswalk-2026-11-06.md) · [script de investigación](../../../scripts/research/oews_coverage.py).
 
 **Decisión provisional:** los dos listados son propuestas descriptivas, no fuentes canónicas para cálculos. Ningún agente debe resolver diferencias por unión, intersección, elección de la lista más larga ni coincidencia con el script. El catálogo de referencia por tarea se definirá y se firmará después de revisar alcance laboral real, roles auxiliares, supervisores, condiciones reguladas y tipo de geografía. El script actual permanece solo para auditoría de cobertura referencial, jamás como tarifa aprobada.
 
