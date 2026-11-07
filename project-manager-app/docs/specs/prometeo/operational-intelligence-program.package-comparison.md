@@ -5,14 +5,14 @@
 
 ## 1. Hallazgo principal: existen dos versiones del paquete con el mismo nombre
 
-Las dos se llaman `semse_operational_intelligence_package_2026-10-04.zip`, pero su contenido es distinto.
+Las dos se llaman `semse_operational_intelligence_package_2026-10-04.zip`, pero su contenido es distinto. El owner aportó ambas el 2026-11-07 para esta comparación.
 
 | | Versión 1 (V1) | Versión 2 (V2) |
 |---|---|---|
-| Recibida | 2026-10-04, al inicio de la sesión que abrió PR 0 | 2026-11-07, para esta comparación |
-| Uso | **Es la que se aplicó en PR 0** (#800, `05af598d`) | No se aplicó en el repositorio |
-| Evidencia conservada | Solo tamaños anotados al recibirla; el ZIP y su `MANIFEST.json` no se conservaron, por eso **no se puede verificar por hash** | ZIP SHA-256 `f14725d8b39a713cdf204c7344506bdbbafccfb00d1f93bb33c3e88cbb636c97`; `MANIFEST.json` SHA-256 `0329b2d20685292dd66f9848f743955e1d3c91cad19dd236c7444686d3a14b54` |
-| Integridad | No verificable | **Completa:** los 26 archivos que lista su `MANIFEST.json` están presentes, sin extras, y coinciden en tamaño y SHA-256 |
+| Uso | **Es la que se aplicó en PR 0** (#800, `05af598d`); recibida por primera vez el 2026-10-04 | No se aplicó en el repositorio |
+| ZIP SHA-256 | `c9552cfb61de28314ebdfa5d5f404873b45e68f94462e07637246cbcbdd49911` | `f14725d8b39a713cdf204c7344506bdbbafccfb00d1f93bb33c3e88cbb636c97` |
+| `MANIFEST.json` SHA-256 | `48a9a33e2ebde5226705351fe75ea536412e14d290b5626b7800d6f03c443882` | `0329b2d20685292dd66f9848f743955e1d3c91cad19dd236c7444686d3a14b54` |
+| Integridad | **Completa:** los 26 archivos del manifiesto, sin extras, con tamaño y SHA-256 correctos | **Completa:** ídem |
 
 Tamaños de V1 frente a V2 (bytes):
 
@@ -27,11 +27,21 @@ Tamaños de V1 frente a V2 (bytes):
 | ADR del grafo | 4 105 | 5 599 |
 | Spec padre | 3 575 | 6 489 |
 
-El acta registró el 2026-10-15 que «el ZIP recibido solo contiene un índice de 619 bytes»: ese tamaño coincide con el `README.md` de V1. Ese ZIP no era solo un índice: V1 traía los 21 documentos que entraron en PR 0.
+Los tamaños de V1 coinciden con los anotados al recibirla el 2026-10-04. El acta registró el 2026-10-15 que «el ZIP recibido solo contiene un índice de 619 bytes»: es el tamaño del `README.md` de V1, pero V1 traía los 21 documentos completos.
 
-## 2. V1 frente a PR 0
+## 2. V1 frente a PR 0 (verificado)
 
-PR 0 contiene los 21 documentos de V1 más los ajustes registrados en su descripción y en el ADR: renumeración del ADR (035 → 042, luego 044 en #940) y paso de las rutas aún inexistentes del frontmatter al cuerpo de cada spec, para que pasara `spec:validate:strict`. Sin el ZIP de V1 no se puede demostrar por hash que no hubo otra diferencia.
+Comparación archivo por archivo de los 21 documentos de `repo_overlay/` de V1 contra `git show 05af598d`:
+
+- **14 documentos idénticos:** todos los planes, tasks y checklists de los cuatro slices, y el plan y el checklist del padre.
+- **7 documentos con diferencias, todas registradas en PR 0:**
+  - ADR: `ADR-035` → `ADR-042` (identificador y título) y una sección «Reconciliación PR 0» añadida.
+  - Tasks del padre: `OI-002` cambia `ADR-035` por `ADR-042`.
+  - Spec padre: campos canónicos `related_*` añadidos y `last_verified` de 2026-10-04 a 2026-10-06.
+  - Specs de los cuatro slices: rutas y endpoints aún inexistentes movidos del frontmatter a una sección del cuerpo, para cumplir `spec:validate:strict`.
+- **Nada se perdió:** cada ruta de archivo y cada endpoint que V1 declaraba en el frontmatter de los cuatro slices aparece en PR 0.
+
+**Resultado:** PR 0 = V1 + los ajustes documentados. No hubo otros cambios.
 
 ## 3. V2 frente a PR 0
 
@@ -58,9 +68,8 @@ Desde PR 0, el padre, los cuatro slices y el ADR se reescribieron siguiendo el a
 
 ## 5. Conclusión
 
-- **B-01 queda comparado** con la versión que existe hoy (V2), íntegra según su manifiesto.
-- **PR 0 se construyó con V1**, una versión anterior y más breve. Su contenido exacto no se puede verificar por hash.
-- **No hay requisito de V2 que obligue a deshacer trabajo:** lo que contradice el estado actual (#1, #2, #3) lo resolvió después el owner, con decisiones registradas.
+- **B-01 queda cerrado:** el paquete aplicado (V1) está íntegro según su manifiesto y PR 0 lo contiene completo, con solo los ajustes documentados.
+- **V2 es una revisión posterior y más detallada** del mismo paquete. No obliga a deshacer trabajo: lo que contradice el estado actual (#1, #2, #3) lo resolvió después el owner con decisiones registradas.
 - **Cuatro aportes de V2 podrían incorporarse** (#4 a #7). Ninguno se ha aplicado: requieren decisión del owner.
 
 ## 6. Decisiones que requiere el owner
