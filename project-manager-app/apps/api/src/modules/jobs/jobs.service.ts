@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { BadRequestException, Inject, Injectable, Logger, Optional, UnprocessableEntityException } from "@nestjs/common";
+import { BadRequestException, ConflictException, Inject, Injectable, Logger, Optional, UnprocessableEntityException } from "@nestjs/common";
 import {
   JOB_COMPLETED_V1_SCHEMA_REF,
   RATING_REQUESTED_V1_SCHEMA_REF,
@@ -619,6 +619,15 @@ export class JobsService {
     }
 
     assertTransitionAuthorized(input.targetStatus, input.orgId, input.roles, ownership);
+    assertNotReservationFlowTransition(job.status, input.targetStatus, input.roles);
+
+    if (input.targetStatus === "in_progress" && (job.status === "accepted" || job.status === "awarded")) {
+      await this.assertSignedContract(input.tenantId, input.jobId);
+    }
+    if (input.targetStatus === "dispute") {
+      await this.assertActiveDispute(input.tenantId, input.jobId);
+    }
+    const terminal = input.targetStatus === "completed" || input.targetStatus === "cancelled" ? input.targetStatus : null;
 
     const updated = await this.jobsRepository.updateStatus({
       tenantId: input.tenantId,
@@ -627,7 +636,13 @@ export class JobsService {
       orgId: input.orgId,
       actorType: "user",
       actorId: input.userId,
-      requestId: input.requestId
+      requestId: input.requestId,
+      // The status validated above must still be the job's status under the row
+      // lock: two concurrent transitions cannot both apply (common/job-lock.ts).
+      expectedFrom: job.status,
+      // Checked under the same lock, in the same transaction as the write, so a
+      // concurrent deposit cannot slip in between.
+      beforeWrite: terminal ? (tx) => this.assertClosure(terminal, input.tenantId, input.jobId, tx) : undefined
     });
 
     await this.auditService.append({
@@ -668,6 +683,71 @@ export class JobsService {
       tenantId: input.tenantId,
       job: updated,
     });
+  }
+
+  /**
+   * STATE_MACHINES.md: "* -> DISPUTE requires a formal cause and traceability". The
+   * job status alone protects nothing (payments look for a Dispute record), so the
+   * transition needs an active dispute on the job's project, opened through the
+   * dispute flow first.
+   */
+  private async assertActiveDispute(tenantId: string, jobId: string): Promise<void> {
+    const active = await this.prisma.dispute.count({
+      where: { tenantId, deletedAt: null, project: { jobId, tenantId }, status: { in: [...ACTIVE_DISPUTE_STATUSES] } },
+    });
+    if (active === 0) {
+      throw new ConflictException("job cannot move to dispute without an active dispute opened through the dispute flow");
+    }
+  }
+
+  /** STATE_MACHINES.md: ACCEPTED -> IN_PROGRESS requires an active contractual basis. */
+  private async assertSignedContract(tenantId: string, jobId: string): Promise<void> {
+    const contract = await this.prisma.contract.findFirst({
+      where: { jobId, deletedAt: null, job: { tenantId } },
+      select: { signedClientAt: true, signedProAt: true },
+    });
+    if (!contract?.signedClientAt || !contract.signedProAt) {
+      throw new ConflictException("job cannot start without a contract signed by both parties");
+    }
+  }
+
+  /**
+   * DOMAIN_INVARIANTS.md: a Job must not reach COMPLETED while its operational
+   * and financial closure is open, nor CANCELLED after execution or with escrow it
+   * has no closing policy for; an open dispute blocks the final close. Applies to every manual
+   * transition, whoever asks (systemCompleteJob does not come through here).
+   */
+  private async assertClosure(
+    target: "completed" | "cancelled",
+    tenantId: string,
+    jobId: string,
+    db: Pick<PrismaService, "milestone" | "paymentEscrow" | "dispute"> = this.prisma
+  ): Promise<void> {
+    const scope = { deletedAt: null, project: { jobId, tenantId } };
+    const [milestones, escrows, activeDisputes] = await Promise.all([
+      db.milestone.findMany({ where: scope, select: { status: true } }),
+      db.paymentEscrow.findMany({
+        where: scope,
+        select: { transactions: { select: { type: true, status: true, amount: true } } },
+      }),
+      db.dispute.count({
+        where: { ...scope, tenantId, status: { in: [...ACTIVE_DISPUTE_STATUSES] } },
+      }),
+    ]);
+    const blockers = jobClosureBlockers(target, {
+      milestoneStatuses: milestones.map((milestone) => String(milestone.status)),
+      escrowTransactions: escrows.flatMap((escrow) =>
+        escrow.transactions.map((transaction) => ({
+          type: String(transaction.type),
+          status: String(transaction.status),
+          amount: Number(transaction.amount),
+        }))
+      ),
+      activeDisputes,
+    });
+    if (blockers.length > 0) {
+      throw new ConflictException(`job cannot be ${target}: ${blockers.join("; ")}`);
+    }
   }
 
   async agentSignals(input: { tenantId: string; jobId: string }) {
@@ -719,15 +799,27 @@ export class JobsService {
     if (!job) return;
     if (job.status === "COMPLETED" || job.status === "CANCELLED") return;
 
-    await this.jobsRepository.updateStatus({
-      tenantId: input.tenantId,
-      jobId: input.jobId,
-      status: "completed",
-      orgId: job.clientOrgId,
-      actorType: "system",
-      actorId: "SYSTEM",
-      requestId: input.requestId,
-    });
+    // Same closure rule as a manual completion, under the same job row lock: an
+    // auto-completion must not close a job whose escrow is short, still pending
+    // or disputed, or that job could no longer be funded or protected.
+    try {
+      await this.jobsRepository.updateStatus({
+        tenantId: input.tenantId,
+        jobId: input.jobId,
+        status: "completed",
+        orgId: job.clientOrgId,
+        actorType: "system",
+        actorId: "SYSTEM",
+        requestId: input.requestId,
+        beforeWrite: (tx) => this.assertClosure("completed", input.tenantId, input.jobId, tx),
+      });
+    } catch (error) {
+      if (error instanceof ConflictException) {
+        this.logger.warn(`[Jobs] systemCompleteJob: job ${input.jobId} left open: ${error.message}`);
+        return;
+      }
+      throw error;
+    }
 
     const membership = await this.prisma.membership.findFirst({
       where: { orgId: job.clientOrgId },
@@ -837,6 +929,65 @@ const JOB_TRANSITIONS: Record<JobStatus, JobStatus[]> = {
 // Transitions that require specific org role — key is targetStatus
 const CLIENT_ONLY_TRANSITIONS: JobStatus[] = ["completed", "cancelled"];
 const PRO_ONLY_TRANSITIONS: JobStatus[] = ["review", "dispute"];
+
+const RESOLVED_MILESTONE_STATUSES = new Set(["APPROVED", "PAID"]);
+const UNEXECUTED_MILESTONE_STATUSES = new Set(["DRAFT", "REJECTED"]);
+const ACTIVE_DISPUTE_STATUSES = ["OPEN", "ASSIGNED", "UNDER_REVIEW"] as const;
+
+/** Why a job cannot reach a terminal status yet; empty when its closure allows it. */
+export function jobClosureBlockers(
+  target: "completed" | "cancelled",
+  input: {
+    milestoneStatuses: string[];
+    escrowTransactions: Array<{ type: string; status: string; amount: number }>;
+    activeDisputes: number;
+  }
+): string[] {
+  const blockers: string[] = [];
+  if (target === "completed") {
+    const open = input.milestoneStatuses.filter((status) => !RESOLVED_MILESTONE_STATUSES.has(status.toUpperCase()));
+    if (open.length > 0) blockers.push(`${open.length} milestone(s) not approved`);
+  }
+
+  const settled = (type: string) =>
+    input.escrowTransactions
+      .filter((transaction) => transaction.type.toUpperCase() === type && transaction.status.toUpperCase() === "SUCCEEDED")
+      .reduce((sum, transaction) => sum + transaction.amount, 0);
+  const held = settled("DEPOSIT") - settled("RELEASE") - settled("REFUND");
+  if (held > 0.000001) blockers.push(`escrow still holds ${held}`);
+  // A deposit awaiting card/3DS confirmation, or a release or refund in flight, can
+  // still move money after the job is closed: it blocks until it settles or fails.
+  const pending = input.escrowTransactions.filter((transaction) => transaction.status.toUpperCase() === "PENDING").length;
+  if (pending > 0) blockers.push(`${pending} payment(s) still pending`);
+
+  if (input.activeDisputes > 0) blockers.push(`${input.activeDisputes} dispute(s) still open`);
+
+  if (target === "cancelled") {
+    // Same rule as a project's cancellation (projects.policy.ts): once work was
+    // submitted or money released, cancelling needs an explicit closing policy.
+    const executed = input.milestoneStatuses.filter((status) => !UNEXECUTED_MILESTONE_STATUSES.has(status.toUpperCase())).length;
+    if (executed > 0) blockers.push(`${executed} milestone(s) already in execution`);
+    if (settled("RELEASE") > 0.000001) blockers.push("escrow already released funds");
+  }
+  return blockers;
+}
+
+/**
+ * Reserving, accepting and releasing a reservation belong to the reservation
+ * flow (ReservationsRepository: client approval, expiry, project creation).
+ * Through the generic transition route they would move the job without the
+ * reservation, so only ops (an audited override) may use it for them.
+ */
+export function assertNotReservationFlowTransition(fromStatus: JobStatus, targetStatus: JobStatus, roles: string[]): void {
+  if (roles.includes("OPS_ADMIN") || roles.includes("SYSTEM")) return;
+  const reservationStep =
+    targetStatus === "reserved" || targetStatus === "accepted" || (fromStatus === "reserved" && targetStatus === "posted");
+  if (reservationStep) {
+    throw new UnprocessableEntityException(
+      `'${fromStatus}' -> '${targetStatus}' goes through the reservation flow, not the job transition route`
+    );
+  }
+}
 
 export function assertTransitionAuthorized(
   targetStatus: JobStatus,

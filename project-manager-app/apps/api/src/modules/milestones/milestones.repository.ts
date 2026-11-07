@@ -4,6 +4,7 @@ import { ActorContextService } from "../../infrastructure/persistence/actor-cont
 import { evaluateRequiredEvidence, resolveEvidenceRevalidationMode } from "./evidence-readiness.js";
 import { databaseEnabled } from "../../infrastructure/persistence/persistence-mode.js";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
+import { lockOpenJob } from "../../common/job-lock.js";
 import { findProjectLinkByJobIdOrThrow, findProjectLinkByProjectIdOrThrow } from "../projects/project-link.repository.js";
 import { ProjectLifecycleProjectionEventProducer } from "../domain-events/project-lifecycle-projection-event-producer.service.js";
 import {
@@ -464,14 +465,24 @@ export class MilestonesRepository {
     to: (typeof milestoneStatusMap)[keyof typeof milestoneStatusMap],
   ): Promise<StoredMilestone> {
     const from = milestoneStatusMap[snapshot.currentStatus];
-    const result = await this.prisma.milestone.updateMany({
-      where: { id: snapshot.milestoneId, status: from },
-      data: { status: to }
-    });
-    if (result.count === 0) {
-      throw new ConflictException("milestone status changed concurrently; reload and retry");
-    }
-    return (await this.prisma.milestone.findUniqueOrThrow({ where: { id: snapshot.milestoneId } })) as StoredMilestone;
+    // Same job row lock as a job's completion or cancellation (common/job-lock.ts):
+    // a milestone cannot move once its job is closed, nor while it is closing.
+    return (await this.prisma.$transaction(async (tx) => {
+      const owner = await tx.milestone.findUnique({
+        where: { id: snapshot.milestoneId },
+        select: { project: { select: { jobId: true } } }
+      });
+      if (owner?.project?.jobId) await lockOpenJob(tx, owner.project.jobId, "change a milestone");
+
+      const result = await tx.milestone.updateMany({
+        where: { id: snapshot.milestoneId, status: from },
+        data: { status: to }
+      });
+      if (result.count === 0) {
+        throw new ConflictException("milestone status changed concurrently; reload and retry");
+      }
+      return tx.milestone.findUniqueOrThrow({ where: { id: snapshot.milestoneId } });
+    })) as StoredMilestone;
   }
 
   private async getLifecycleSnapshot(input: {
