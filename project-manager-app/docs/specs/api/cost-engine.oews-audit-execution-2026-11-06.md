@@ -7,7 +7,7 @@ Esta tarea NO modifica el Cost Engine, las variables de Railway, precios, impues
 ## Entrega técnica en la misma rama
 
 - [Validador Python](../../../scripts/research/oews_coverage.py) — lee CSV/XLSX y ZIP que contiene XLSX; procesa fuentes descargadas localmente sin red, cuenta referencias salariales por los 51 estados/DC y 24 motores. No estima tarifas facturables.
-- [Tres pruebas sintéticas](../../../scripts/research/test_oews_coverage.py) — casos de supresión de valores, ZIP/XLSX, conteos por estado/metro y detección de duplicados. Las pruebas sintéticas han pasado en el entorno de análisis, pero NO se han ejecutado sobre los ZIP oficiales de 2025.
+- [Cinco pruebas sintéticas](../../../scripts/research/test_oews_coverage.py) — casos de supresión, ZIP/XLSX, conteos por estado/metro, duplicados, ZIP de varios XLSX y ausencia de XLSX. La verificación de este HEAD exige CI nuevo; NO se han ejecutado contra los ZIP oficiales de 2025.
 
 ## Ejecución sobre datos oficiales cuando exista acceso
 
@@ -16,12 +16,20 @@ Fuente: [BLS OEWS May 2025 tables](https://www.bls.gov/oes/tables.htm). Los enla
 ~~~bash
 curl -fL --retry 3 -o oesm25st.zip https://www.bls.gov/oes/special-requests/oesm25st.zip
 curl -fL --retry 3 -o oesm25ma.zip https://www.bls.gov/oes/special-requests/oesm25ma.zip
-python3 scripts/research/test_oews_coverage.py
+python3 -m unittest discover -s scripts/research -p test_oews_coverage.py -v
 python3 scripts/research/oews_coverage.py \
   --state oesm25st.zip --metro oesm25ma.zip --out reports/oews-may2025
 ~~~
 
 **Limitación actual:** las descargas ZIP oficiales no se completaron desde el entorno de análisis: el navegador rechazó el formato ZIP y el contenedor careció de conectividad. La alternativa secundaria WageDex tampoco se pudo descargar. Por tanto, aún NO existe importación oficial nacional ejecutada ni métricas reales de cobertura por los 24 oficios.
+
+## Control adicional integrado en el CI existente (7-nov-2026)
+
+- `tests/unit/oews-research-contract.test.mjs` incluye las cinco pruebas Python sintéticas en `pnpm test:unit` **sin crear un workflow ni conectar BLS**. El test falla, no hace skip, cuando Python no está disponible o la suite no termina `OK`.
+- `manifest.json` diferencia `release_claim` de `release_verified=false` y `source_authentication=NOT_VERIFIED_OFFLINE`; el hash SHA-256 identifica bytes **no autentica** por sí mismo su origen o fecha.
+- `area_count_observed` permite separar el conteo de estados/metrópolis representados por filas reales del grid completo de 51×24 combinaciones.
+- Los ZIP que contengan múltiples XLSX diferentes ahora fallan con `Ambiguous OEWS ZIP` en vez de seleccionar el primero silenciosamente. Si BLS distribuye varios ficheros legítimos, antes se debe acordar selección explícita del XLSX pertinente y comprobar su esquema; no debilitar este rechazo automáticamente.
+- **CI del HEAD nuevo pendiente de comprobación**, sin uso comercial; el último PASS de una versión anterior no se reutiliza.
 
 ## Contrato de salida
 
