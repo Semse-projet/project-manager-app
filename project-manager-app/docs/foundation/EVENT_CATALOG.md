@@ -392,6 +392,20 @@ propio incremento. Cada transición deja además `AuditLog`
 - `ops.alert_raised`
 - `ops.alert_resolved`
 
+### Ops — smoke sintético de Observer (audit-only, #1089)
+
+Runbook: [`../runbooks/OBSERVER_1089_PROD_AB_SMOKE.md`](../runbooks/OBSERVER_1089_PROD_AB_SMOKE.md).
+Acciones de `AuditLog` escritas por el script de operador
+`scripts/ops/observer-prod-synthetic-smoke.mjs`, en la misma transacción que
+la mutación privilegiada, sin bus, outbox ni consumidores. `actorUserId` es
+`null` (herramienta de operador, sin actor humano). Payload sólo con ids,
+clave A/B y estados; nunca credenciales, tokens ni datos de Observer. Quedan
+en el tenant sintético archivado, que no se borra para conservarlas.
+
+- `observer.synthetic_account.provisioned` — `entityType: User`; alta del OPS_ADMIN sintético
+- `observer.synthetic_account.removed` — `entityType: Tenant`; borrado de usuario, org y sesiones y archivo del tenant
+- `observer.synthetic_cleanup.emergency_fallback` — `entityType: Tenant`; falló la limpieza atómica y se revocó el acceso de forma no atómica; exige `--cleanup` del operador
+
 ## Labor — FreeProject (audit-only)
 
 Spec: [`../specs/labor/free-project-mutation-guard.spec.md`](../specs/labor/free-project-mutation-guard.spec.md) (S0, D4).

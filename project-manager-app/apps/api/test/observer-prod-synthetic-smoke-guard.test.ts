@@ -1,0 +1,103 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
+
+const executable = fileURLToPath(new URL("../../../scripts/ops/observer-prod-synthetic-smoke.mjs", import.meta.url));
+
+test("O.HI14: synthetic observer smoke is read-only by default", () => {
+  const run = spawnSync(process.execPath, [executable], {
+    env: { ...process.env, DATABASE_URL: "", SEMSE_OBSERVER_SMOKE_ACK: "" },
+    encoding: "utf8", timeout: 15000,
+  });
+  assert.equal(run.status, 0, "default plan should not need database access");
+  assert.match(run.stdout, /PLAN ONLY/);
+  assert.doesNotMatch(run.stdout + run.stderr, /password|accessToken|refreshToken/i);
+});
+
+test("O.HI14: --apply refuses an unapproved environment before DB connection", () => {
+  const run = spawnSync(process.execPath, [executable, "--apply"], {
+    env: {
+      ...process.env,
+      RAILWAY_PROJECT_ID: "wrong-project",
+      RAILWAY_ENVIRONMENT_NAME: "production",
+      RAILWAY_SERVICE_ID: "wrong-service",
+      SEMSE_OBSERVER_SMOKE_ACK: "",
+      DATABASE_URL: "",
+      NODE_ENV: "production",
+    },
+    encoding: "utf8", timeout: 15000,
+  });
+  assert.notEqual(run.status, 0);
+  assert.match(run.stderr, /Wrong Railway project/);
+  assert.doesNotMatch(run.stdout + run.stderr, /passwordHash|accessToken|BEGIN/);
+});
+
+test("O.HI14: --apply refuses the right project but incorrect API service", () => {
+  const run = spawnSync(process.execPath, [executable, "--apply"], {
+    env: {
+      ...process.env,
+      RAILWAY_PROJECT_ID: "95ad1b14-d1d9-467d-82d8-5354619ba873",
+      RAILWAY_ENVIRONMENT_NAME: "production",
+      RAILWAY_ENVIRONMENT_ID: "d682210a-956a-4508-9c5b-4ca5959278f9",
+      RAILWAY_SERVICE_ID: "wrong-service",
+      SEMSE_OBSERVER_SMOKE_ACK: "YES_OBSERVER_1089_SYNTHETIC_WRITE_AND_CLEANUP",
+      DATABASE_URL: "",
+      NODE_ENV: "production",
+    },
+    encoding: "utf8", timeout: 15000,
+  });
+  assert.notEqual(run.status, 0);
+  assert.match(run.stderr, /Only the existing semse-API service/);
+});
+
+test("O.HI14: --apply refuses to run in CI even in the designated service", () => {
+  const run = spawnSync(process.execPath, [executable, "--apply"], {
+    env: {
+      ...process.env,
+      CI: "true",
+      RAILWAY_PROJECT_ID: "95ad1b14-d1d9-467d-82d8-5354619ba873",
+      RAILWAY_ENVIRONMENT_NAME: "production",
+      RAILWAY_ENVIRONMENT_ID: "d682210a-956a-4508-9c5b-4ca5959278f9",
+      RAILWAY_SERVICE_ID: "2bd1bd3f-9aa1-4fc3-a714-4cf90c52c770",
+      SEMSE_OBSERVER_SMOKE_ACK: "YES_OBSERVER_1089_SYNTHETIC_WRITE_AND_CLEANUP",
+      DATABASE_URL: "postgresql://dummy:dummy@postgres.railway.internal/semse",
+      NODE_ENV: "production",
+    },
+    encoding: "utf8", timeout: 15000,
+  });
+  assert.notEqual(run.status, 0);
+  assert.match(run.stderr, /Forbidden in CI/);
+  assert.doesNotMatch(run.stdout + run.stderr, /FIXTURES CREATED|SMOKE PASS|accessToken/);
+});
+
+test("O.HI14: recovery cleanup refuses to write without current production SHA", () => {
+  const run = spawnSync(process.execPath, [executable, "--apply", "--cleanup=0123456789abcdef"], {
+    env: {
+      ...process.env,
+      CI: "false",
+      RAILWAY_PROJECT_ID: "95ad1b14-d1d9-467d-82d8-5354619ba873",
+      RAILWAY_ENVIRONMENT_NAME: "production",
+      RAILWAY_ENVIRONMENT_ID: "d682210a-956a-4508-9c5b-4ca5959278f9",
+      RAILWAY_SERVICE_ID: "2bd1bd3f-9aa1-4fc3-a714-4cf90c52c770",
+      SEMSE_OBSERVER_SMOKE_ACK: "YES_OBSERVER_1089_SYNTHETIC_WRITE_AND_CLEANUP",
+      SEMSE_OBSERVER_SMOKE_EXPECTED_SHA: "",
+      DATABASE_URL: "postgresql://dummy:dummy@postgres.railway.internal/semse",
+      NODE_ENV: "production",
+    },
+    encoding: "utf8", timeout: 15000,
+  });
+  assert.notEqual(run.status, 0, "emergency cleanup must fail before Prisma/database writes");
+  assert.match(run.stderr, /Expected current production git SHA required/);
+  assert.doesNotMatch(run.stdout + run.stderr, /CLEANUP PASS|passwordHash|accessToken/);
+});
+
+test("O.HI14: concurrent-provisioning check is inside the DB write transaction", async () => {
+  // Static safety-contract check; does NOT simulate a PostgreSQL execution.
+  const { readFileSync } = await import("node:fs");
+  const source = readFileSync(executable, "utf8");
+  assert.match(source, /await prisma\.\$transaction\(async \(tx\) => \{\s*const lock = await tx\.\$queryRaw`SELECT pg_try_advisory_xact_lock\(48110891401::bigint\) AS acquired`/);
+  assert.match(source, /const recentRuns = await tx\.tenant\.count/);
+  assert.match(source, /await preflight\(\{ cleanupOnly: true \}\);\s*await cleanup\(runId\)/);
+  assert.match(source, /await verifyAuthAudit\(people\)/);
+});
