@@ -189,6 +189,10 @@ date: "2026-10-30"
 
 ## Datos salariales metropolitanos verificables — 6-nov-2026
 
+- [x] **Tests T-005 del parser integrados en suite existente**: cinco pruebas sintéticas en `test_oews_coverage.py` invocadas por `tests/unit/oews-research-contract.test.mjs` desde `pnpm test:unit`, sin workflow nuevo ni fuentes privadas. Controlan ZIP ambiguos, archivo XLSX ausente, supresión y referencia sin fecha comprobada; **la aprobación del CI para el HEAD es una evidencia aparte**.
+- [ ] **Validación de archivos oficiales**: obtener state/metro May 2025 desde BLS, verificar contenido/edición externa y hash, comprobar cantidad real de áreas y salarios por SOC y documentar celdas sin datos; hasta entonces `release_verified=false` y **sin cobertura nacional acreditada**.
+
+
 - [x] Seis benchmarks de salario medio **del grupo amplio** construcción/extracción OEWS May-2025 (Dallas, Miami, Atlanta, Los Ángeles, Chicago, Seattle), con cifras, fuentes BLS y segunda columna de instalación/mantenimiento/reparación, guardados en [sección 10 del modelo nacional](./cost-engine.national-labor-geo-tax-operating-model-2026-11-06.md). Son **referencias**, no cotizaciones ni tarifas de oficio.
 - [x] Rutas BLS May-2025 de ZIP state/metro identificadas y ligadas al release exacto; no se confía en alias mutable `CURRENT`.
 - [x] **Validador de investigación OEWS preparado y probado con fixtures sintéticos (3/3):** [script offline](../../../scripts/research/oews_coverage.py), [tests](../../../scripts/research/test_oews_coverage.py) y [runbook](./cost-engine.oews-audit-execution-2026-11-06.md). Genera manifiesto y cobertura 51×24/metro; **NO se han descargado los ZIP oficiales ni calculado cobertura real de OEWS**.
