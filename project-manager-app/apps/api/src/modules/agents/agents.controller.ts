@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { BadRequestException, Body, ConflictException, Controller, Get, Logger, Param, Post, Query, Req, Patch } from "@nestjs/common";
+import { BadRequestException, Body, ConflictException, Controller, ForbiddenException, Get, Logger, Param, Post, Query, Req, Patch } from "@nestjs/common";
 import { SkipThrottle } from "@nestjs/throttler";
 import { agentCatalog } from "@semse/agents";
 import {
@@ -72,6 +72,25 @@ const failRunSchema = z.object({
   workerId: z.string().min(1).optional(),
   expectedAttempts: z.number().int().nonnegative().optional()
 });
+
+/**
+ * A worker token is a paired workerId + attempt generation. Unfenced manual
+ * operations are reserved to administrators, never to ordinary WORKER roles.
+ * The authenticated request context supplies roles; not the caller's JSON.
+ */
+export function assertAgentRunMutationAccess(
+  roles: readonly string[],
+  input: { workerId?: string; expectedAttempts?: number },
+): void {
+  const owner = typeof input.workerId === "string" && input.workerId.length > 0;
+  const generation = Number.isInteger(input.expectedAttempts) && input.expectedAttempts! >= 0;
+  if (owner !== generation) {
+    throw new BadRequestException("workerId and expectedAttempts must be provided together");
+  }
+  if (!owner && !roles.some(role => ["OPS_ADMIN", "ADMIN", "SUPER_ADMIN"].includes(role.toUpperCase()))) {
+    throw new ForbiddenException("unfenced agent operations require an administrator");
+  }
+}
 
 const copilotInputSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("chat"),    projectId: z.string(), message: z.string().min(1), threadId: z.string().optional() }),
@@ -438,6 +457,7 @@ export class AgentsController {
   async start(@Req() req: { headers?: Record<string, unknown> }, @Param("runId") runId: string, @Body() body: unknown) {
     const parsed = parseWithSchema(startRunSchema, body ?? {});
     const actor = resolveRequestContext(req);
+    assertAgentRunMutationAccess(actor.roles, parsed);
     const requestId = resolveRequestId(req.headers ?? {});
     this.logger.warn(
       `[agent.run.start] ${JSON.stringify({
@@ -477,6 +497,9 @@ export class AgentsController {
       throw new BadRequestException(parsed.error.flatten());
     }
     const actor = resolveRequestContext(req);
+    if (parsed.data.expectedAttempts === undefined && !actor.roles.some(role => ["OPS_ADMIN", "ADMIN", "SUPER_ADMIN"].includes(role.toUpperCase()))) {
+      throw new ForbiddenException("unfenced manual heartbeat requires an administrator");
+    }
     const requestId = resolveRequestId(req.headers ?? {});
     const run = await this.agentsService.heartbeat({
       tenantId: actor.tenantId,
@@ -500,6 +523,7 @@ export class AgentsController {
   ) {
     const parsed = parseWithSchema(completeRunSchema, body);
     const actor = resolveRequestContext(req);
+    assertAgentRunMutationAccess(actor.roles, parsed);
     const requestId = resolveRequestId(req.headers ?? {});
     const run = await this.agentsService.complete({
       tenantId: actor.tenantId,
@@ -524,6 +548,7 @@ export class AgentsController {
   ) {
     const parsed = parseWithSchema(failRunSchema, body);
     const actor = resolveRequestContext(req);
+    assertAgentRunMutationAccess(actor.roles, parsed);
     const requestId = resolveRequestId(req.headers ?? {});
     const run = await this.agentsService.fail({
       tenantId: actor.tenantId,

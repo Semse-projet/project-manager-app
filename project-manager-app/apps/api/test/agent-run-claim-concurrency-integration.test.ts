@@ -135,11 +135,20 @@ dbTest("PostgreSQL fencing: stale worker heartbeat, completion and failure canno
     assert.equal(first.attempts, 1);
     assert.equal(first.workerId, "worker_A");
 
-    // Reclaim is only simulated here; reclaimStale is independently tested.
+    // Use real transactional reclaim, not a synthetic direct status UPDATE.
+    // The old heartbeat makes only this test run stale.
+    const staleAt = new Date(Date.now() - 120_000);
     await prisma.agentRun.update({
       where: { id: f.run.id },
-      data: { status: "QUEUED", workerId: null, heartbeatAt: null },
+      data: { heartbeatAt: staleAt, startedAt: staleAt },
     });
+    const reclaimed = await repository.reclaimStale({
+      tenantId: f.tenantId, orgId: "org_test", userId: "user_test",
+      staleAfterMs: 30_000, maxItems: 1,
+    });
+    assert.equal(reclaimed.length, 1, "real reclaim must requeue one run");
+    assert.equal(reclaimed[0]?.id, f.run.id);
+    assert.equal(reclaimed[0]?.status, "queued");
     const current = await repository.start({ ...base, workerId: "worker_A", expectedAttempts: 1 });
     assert.equal(current.attempts, 2, "reclaimed attempt has a different generation");
 

@@ -7,6 +7,13 @@ import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 
 const { Prisma } = prismaClientPackage as typeof import("@prisma/client");
 
+// Replay status is local, non-serializable metadata; do not expose it through
+// HTTP responses or persist it with an AgentRun row.
+const replayedAgentRuns = new WeakSet<object>();
+export function isAgentRunReplay(run: AgentRunRecord): boolean {
+  return replayedAgentRuns.has(run);
+}
+
 type StoredAgentRun = {
   id: string;
   tenantId: string;
@@ -330,7 +337,7 @@ export class AgentsRepository {
       } else if (input.workerId) {
         throw new ConflictException("run already started by another actor");
       }
-      return this.toRecord(run);
+      return this.toReplayRecord(run);
     }
     if (run.deadLettered || run.attempts >= run.maxAttempts) {
       throw new ConflictException("run reached max attempts and cannot be started");
@@ -369,8 +376,8 @@ export class AgentsRepository {
       if (input.workerId !== run.workerId || input.expectedAttempts !== run.attempts) {
         throw new ConflictException("stale worker attempt cannot heartbeat");
       }
-    } else if (input.expectedAttempts !== undefined && input.expectedAttempts !== run.attempts) {
-      throw new ConflictException("stale attempt cannot heartbeat");
+    } else if (input.expectedAttempts !== undefined) {
+      throw new ConflictException("worker cannot heartbeat an unowned manual run");
     }
     const applied = await this.prisma.agentRun.updateMany({
       where: {
@@ -394,8 +401,8 @@ export class AgentsRepository {
       if (input.workerId !== run.workerId || input.expectedAttempts !== run.attempts) {
         throw new ConflictException("stale worker attempt cannot finalize an owned run");
       }
-    } else if (input.expectedAttempts !== undefined && input.expectedAttempts !== run.attempts) {
-      throw new ConflictException("stale attempt cannot finalize a run");
+    } else if (input.workerId !== undefined || input.expectedAttempts !== undefined) {
+      throw new ConflictException("worker cannot finalize an unowned manual run");
     }
   }
 
@@ -406,7 +413,7 @@ export class AgentsRepository {
     await this.actorContextService.ensureActorContext(input);
     const run = await this.requireRun(input);
     this.assertCurrentRunAttempt(run, input);
-    if (run.status === "COMPLETED") return this.toRecord(run);
+    if (run.status === "COMPLETED") return this.toReplayRecord(run);
     if (run.status !== "RUNNING") {
       throw new ConflictException("cannot complete run in status '" + run.status.toLowerCase() + "'");
     }
@@ -442,7 +449,7 @@ export class AgentsRepository {
     await this.actorContextService.ensureActorContext(input);
     const run = await this.requireRun(input);
     this.assertCurrentRunAttempt(run, input);
-    if (run.status === "FAILED") return this.toRecord(run);
+    if (run.status === "FAILED") return this.toReplayRecord(run);
     if (run.status !== "RUNNING") {
       throw new ConflictException("cannot fail run in status '" + run.status.toLowerCase() + "'");
     }
@@ -545,6 +552,12 @@ export class AgentsRepository {
     );
 
     return run;
+  }
+
+  private toReplayRecord(run: StoredAgentRun): AgentRunRecord {
+    const record = this.toRecord(run);
+    replayedAgentRuns.add(record);
+    return record;
   }
 
   private toRecord(run: StoredAgentRun): AgentRunRecord {

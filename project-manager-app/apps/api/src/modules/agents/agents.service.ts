@@ -27,7 +27,7 @@ import type { OperationalContextService } from "../ai-models/context/operational
 import { OPERATIONAL_CONTEXT_SERVICE } from "../ai-models/context/operational-context.token.js";
 import { WorkspaceMemoryRepository } from "../knowledge/workspace-memory.repository.js";
 import { AgentApprovalService } from "./agent-approval.service.js";
-import { AgentsRepository } from "./agents.repository.js";
+import { AgentsRepository, isAgentRunReplay } from "./agents.repository.js";
 import { AgentDelegationRepository } from "./agent-delegation.repository.js";
 
 // ── Assistant preference helpers ──────────────────────────────────────────────
@@ -430,6 +430,7 @@ export class AgentsService {
 
   async start(input: { tenantId: string; orgId: string; userId: string; runId: string; requestId: string; workerId?: string; expectedAttempts?: number }) {
     const run = await this.agentsRepository.start(input);
+    if (isAgentRunReplay(run)) return run;
 
     await this.auditService.append({
       tenantId: input.tenantId,
@@ -481,6 +482,8 @@ export class AgentsService {
     requestId: string;
   }) {
     const run = await this.agentsRepository.complete(input);
+    // A replay must not create another approval, summary, event or audit row.
+    if (isAgentRunReplay(run)) return run;
 
     const approvals = Array.isArray(input.output?.approvals)
       ? await this.agentApprovalService.register({
@@ -539,6 +542,7 @@ export class AgentsService {
     requestId: string;
   }) {
     const run = await this.agentsRepository.fail(input);
+    if (isAgentRunReplay(run)) return run;
 
     await this.auditService.append({
       tenantId: input.tenantId,
