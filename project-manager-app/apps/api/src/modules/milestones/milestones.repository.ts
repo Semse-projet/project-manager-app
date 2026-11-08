@@ -138,14 +138,29 @@ export class MilestonesRepository {
       throw new ConflictException(`milestone sequence '${input.sequence}' already exists`);
     }
 
-    const milestone = (await this.prisma.milestone.create({
-      data: {
-        projectId: input.projectId,
-        title: input.title,
-        amount: input.amount,
-        sequence: input.sequence,
-        status: "DRAFT"
+    // Serialize new milestones with job completion/cancellation. Checking the
+    // project before the transaction is not enough: it may close meanwhile.
+    const milestone = (await this.prisma.$transaction(async (tx) => {
+      if (project.jobId) {
+        await lockOpenJob(tx, project.jobId, "create a milestone");
       }
+      // Recheck the unique sequence inside the locked write transaction.
+      const existing = await tx.milestone.findFirst({
+        where: { projectId: input.projectId, deletedAt: null, sequence: input.sequence },
+        select: { id: true }
+      });
+      if (existing) {
+        throw new ConflictException(`milestone sequence '${input.sequence}' already exists`);
+      }
+      return tx.milestone.create({
+        data: {
+          projectId: input.projectId,
+          title: input.title,
+          amount: input.amount,
+          sequence: input.sequence,
+          status: "DRAFT"
+        }
+      });
     })) as StoredMilestone;
 
     return toMilestoneRecord(milestone, input.tenantId);
