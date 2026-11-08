@@ -43,12 +43,16 @@ const actor = (tenantId: string, workerId: string) => ({
 });
 async function fixture() {
   const tenantId = uid("ten_claim");
-  await prisma.tenant.create({ data: { id: tenantId, slug: tenantId, name: "Disposable Claim Test" } });
-  const run = await prisma.agentRun.create({
-    data: {
-      tenantId, agentType: "pricing", triggerType: "manual", inputJson: {},
-      correlationId: uid("corr"), status: "QUEUED", maxAttempts: 3,
-    },
+  // Tenant and run must either both exist or neither; a failure midway
+  // through setup must not leave a synthetic tenant behind.
+  const run = await prisma.$transaction(async (tx) => {
+    await tx.tenant.create({ data: { id: tenantId, slug: tenantId, name: "Disposable Claim Test" } });
+    return tx.agentRun.create({
+      data: {
+        tenantId, agentType: "pricing", triggerType: "manual", inputJson: {},
+        correlationId: uid("corr"), status: "QUEUED", maxAttempts: 3,
+      },
+    });
   });
   return {
     tenantId, run,
@@ -78,18 +82,28 @@ dbTest("PostgreSQL CAS: two workers racing to claim one QUEUED run yield one own
   }
 });
 
-dbTest("PostgreSQL CAS: claiming a tenant cannot claim another tenant's QUEUED run", async () => {
-  const a = await fixture();
+dbTest("PostgreSQL CAS: older foreign QUEUED run cannot starve or be claimed by tenant A", async () => {
+  // Foreign tenant B must have the OLDEST queued run; removing tenantId from
+  // findFirst would select B and leave A's own queued run unclaimed.
   const b = await fixture();
+  let a: Awaited<ReturnType<typeof fixture>> | undefined;
   try {
+    a = await fixture();
     const owned = await repository.claimNext(actor(a.tenantId, "worker_A"));
-    assert.equal(owned?.id, a.run.id);
+    assert.equal(owned?.id, a.run.id, "tenant-local oldest job must win regardless of foreign queue age");
     const other = await prisma.agentRun.findUniqueOrThrow({ where: { id: b.run.id } });
     assert.equal(other.status, "QUEUED");
     assert.equal(other.attempts, 0);
     assert.equal(other.workerId, null);
+
+    // A now has no QUEUED runs. Claiming again must never take B's run.
+    const absent = await repository.claimNext(actor(a.tenantId, "worker_A2"));
+    assert.equal(absent, null);
+    const foreign = await prisma.agentRun.findUniqueOrThrow({ where: { id: b.run.id } });
+    assert.equal(foreign.status, "QUEUED");
+    assert.equal(foreign.workerId, null);
   } finally {
-    await a.cleanup();
+    if (a) await a.cleanup();
     await b.cleanup();
   }
 });
