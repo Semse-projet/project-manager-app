@@ -97,6 +97,11 @@ def read_oews(path, kind):
     for values in records(path):
         candidate = [normalized(v) for v in values]
         if {'OCC_CODE', 'AREA', 'H_MEDIAN'}.issubset(candidate):
+            # Duplicate normalized headings overwrite earlier values in dict(zip).
+            # Reject ambiguous columns instead of silently selecting a wage.
+            if len(set(candidate)) != len(candidate):
+                repeated = sorted(k for k in set(candidate) if candidate.count(k) > 1)
+                raise ValueError(f'Duplicate OEWS header fields: {repeated}')
             header = candidate
             meta['headers_detected'] += 1
             scope_fields = {'AREA_TYPE', 'NAICS', 'I_GROUP', 'OWN_CODE', 'O_GROUP'}
@@ -168,11 +173,15 @@ def read_oews(path, kind):
 
 def coverage(data, kind):
     areas = STATE_LIST if kind=='state' else sorted({a for a, _ in data})
+    # BLS suppressions/omissions can exclude the first candidate SOC for a
+    # trade. An area title must come from any matching area record, not from
+    # a particular occupation, otherwise metro rows lose their area label.
+    titles = {area: row['area_title'] for (area, _), row in data.items()}
     for area in areas:
         for trade, codes in SOC.items():
             present = [soc for soc in codes if (area, soc) in data and data[(area,soc)]['median'] is not None]
             status = 'ALL_REFERENCE_WAGES_PRESENT' if len(present)==len(codes) else 'SOME_REFERENCE_WAGES_PRESENT' if present else 'NO_REFERENCE_WAGES'
-            yield [kind,area, data.get((area,codes[0]),{}).get('area_title', STATE_NAMES.get(area,'')),trade,len(codes),len(present),len(codes)-len(present),status]
+            yield [kind,area,titles.get(area, STATE_NAMES.get(area,'')),trade,len(codes),len(present),len(codes)-len(present),status]
 
 def save_csv(path, rows):
     with open(path,'w',newline='',encoding='utf-8') as f:
