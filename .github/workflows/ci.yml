@@ -212,6 +212,8 @@ jobs:
     permissions: {}
     steps:
       - name: Require all critical CI jobs to succeed
+        # Job has no checkout, so the repo-local default workdir does not exist.
+        working-directory: ${{ github.workspace }}
         env:
           QUALITY_RESULT: ${{ needs['quality-gates'].result }}
           COVERAGE_RESULT: ${{ needs['unit-coverage'].result }}

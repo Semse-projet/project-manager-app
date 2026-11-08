@@ -184,6 +184,8 @@ class RailwayCIProvenanceTests(unittest.TestCase):
         self.assertIn("needs: [quality-gates, unit-coverage, e2e]", block)
         self.assertIn("if: " + "$" + "{{ always() }}", block)
         self.assertIn("permissions: {}", block)
+        self.assertIn("working-directory: " + "$" + "{{ github.workspace }}", block)
+        self.assertNotIn("actions/checkout@", block)
         self.assertNotIn("RAILWAY_TOKEN", block)
 
     def test_merge_gate_shell_denies_failures_skips_and_cancellations(self):
