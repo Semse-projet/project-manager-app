@@ -166,7 +166,7 @@ test("PlanMode rejects an invalid replacement DAG before archiving an active pla
   let memories = 0;
   const workPlans = {
     async archiveActivePlan() { archives++; throw new Error("must not archive the previous plan"); },
-    async create() { creates++; throw new Error("must not insert an invalid plan"); },
+    async createReplacingActivePlan() { creates++; throw new Error("must not insert an invalid plan"); },
   };
   const planMode = new PlanModeService(
     workPlans as never,
@@ -206,4 +206,53 @@ test("creation preflight applies the same default IDs and dependencies as persis
     { id: "step_2", dependsOnStepIds: ["step_1"] },
     { id: "publish", dependsOnStepIds: ["step_2"] },
   ]);
+});
+
+test("replacement insert failure rolls back cancellation and does not emit archive memory", async () => {
+  let persistentStatus = "active";
+  let memoryEvents = 0;
+  let cancellationAttempted = 0;
+  const old = { ...planRow([fullStep("original")]), status: "active" };
+  const prisma = {
+    async $transaction(fn: (db: any) => Promise<unknown>) {
+      // Simulate the transactional snapshot: changes only commit if the
+      // callback succeeds. Real PostgreSQL rollback remains a separate gate.
+      let provisionalStatus = persistentStatus;
+      const tx = {
+        agentWorkPlan: {
+          async findFirst() { return { ...old, status: provisionalStatus }; },
+          async update() {
+            cancellationAttempted++;
+            provisionalStatus = "cancelled";
+            return { ...old, status: provisionalStatus };
+          },
+          async create() { throw new Error("simulated PostgreSQL insert failure"); },
+        },
+      };
+      const outcome = await fn(tx);
+      persistentStatus = provisionalStatus;
+      return outcome;
+    },
+  };
+  const plans = new AgentWorkPlanService(prisma as never);
+  const mode = new PlanModeService(
+    plans,
+    {} as never,
+    { async createMemory() { memoryEvents++; } } as never,
+  );
+  const draft = {
+    title: "Valid replacement", goal: "Replace", rationale: "",
+    description: "", risks: [], requiredEvidence: [], successCriteria: [],
+    steps: [fullStep("inspect"), fullStep("finish", ["inspect"])],
+  };
+  await assert.rejects(
+    mode.createPlan({
+      tenantId: "tenant_a", orgId: "org_a", projectId: "project_a",
+      createdBy: "user_a", agentId: "prometeo", plan: draft,
+    } as never),
+    /simulated PostgreSQL insert failure/,
+  );
+  assert.equal(cancellationAttempted, 1, "archive was attempted inside the transaction");
+  assert.equal(persistentStatus, "active", "archival must roll back if draft insertion fails");
+  assert.equal(memoryEvents, 0, "no false archive memory when the transaction fails");
 });

@@ -406,7 +406,7 @@ export class AgentWorkPlanService {
     threadId?: string;
     contextSnapshot?: Record<string, unknown>;
     meta?: PlanMeta;
-  }): Promise<WorkPlanRecord> {
+  }, db: Pick<Prisma.TransactionClient, "agentWorkPlan"> = this.prisma): Promise<WorkPlanRecord> {
     const creationGraph = validatePlanCreationGraph(input.steps);
     const normalizedSteps = input.steps.map((step, idx) =>
       normalizePlanStep({
@@ -420,7 +420,7 @@ export class AgentWorkPlanService {
 
     assertValidPlanDependencies(normalizedSteps);
 
-    const created = await this.prisma.agentWorkPlan.create({
+    const created = await db.agentWorkPlan.create({
       data: {
         tenantId: input.tenantId,
         orgId: input.orgId,
@@ -437,8 +437,52 @@ export class AgentWorkPlanService {
       },
     });
 
-    this.logger.log(`[plan] created id=${created.id} project=${input.projectId ?? "none"} steps=${normalizedSteps.length}`);
+    if (db === this.prisma) {
+      this.logger.log(`[plan] created id=${created.id} project=${input.projectId ?? "none"} steps=${normalizedSteps.length}`);
+    }
     return toRecord(created as StoredPlan);
+  }
+
+  /**
+   * Supersede an existing plan atomically. Both the cancellation and the new
+   * draft insert commit together, so storage failures cannot destroy the
+   * previous valid plan. Memory/audit side effects belong after commit.
+   */
+  async createReplacingActivePlan(
+    input: Parameters<AgentWorkPlanService["create"]>[0] & { projectId: string },
+  ): Promise<{ created: WorkPlanRecord; archived: WorkPlanRecord | null }> {
+    validatePlanCreationGraph(input.steps);
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      const active = await tx.agentWorkPlan.findFirst({
+        where: {
+          tenantId: input.tenantId,
+          projectId: input.projectId,
+          status: { in: ["draft", "active", "executing"] },
+        },
+        orderBy: { updatedAt: "desc" },
+      });
+      const previous = active
+        ? await tx.agentWorkPlan.update({
+            where: { id: active.id, tenantId: input.tenantId },
+            data: {
+              status: "cancelled",
+              cancelledAt: new Date(),
+              cancelledBy: input.createdBy,
+            },
+          })
+        : null;
+
+      // Same transaction: any insert failure reverts the archive.
+      const created = await this.create(input, tx);
+      return { created, archived: previous ? toRecord(previous as StoredPlan) : null };
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+
+    if (result.archived) {
+      this.logger.log(`[plan] archived active plan id=${result.archived.id} for project=${input.projectId} reason=superseded`);
+    }
+    this.logger.log(`[plan] created id=${result.created.id} project=${input.projectId} steps=${input.steps.length}`);
+    return result;
   }
 
   async findById(tenantId: string, planId: string): Promise<WorkPlanRecord> {
