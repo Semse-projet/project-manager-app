@@ -39,7 +39,7 @@ bearer firmado y sesión, y una petición sin bearer recibe 401.
 - ✅ CI de #1092: 13 checks terminados sin fallos; revisión de Codex sin hallazgos.
 - ✅ Cambio en `api-integration.yml` y `api-smoke.yml`, autorizado por el owner: declaran el opt-in para la API de prueba sin `AUTH_SECRET`.
 - ✅ Deploy de producción (`SEMSEproject`): 4 servicios en SUCCESS.
-- ✅ Smoke autenticado OPS_ADMIN en producción: 200 el 2026-11-07, y el 2026-11-08 con contenido observado (1 señal, solo `tenant_default`, el tenant del owner). Antes del fix, siempre 401.
+- ✅ Smoke autenticado OPS_ADMIN en producción: 200 el 2026-11-07, y el 2026-11-08 con contenido observado (1 señal, solo `tenant_default`, el tenant del owner). En la verificación documentada de los 7 handlers de Operational Intelligence anteriores al fix, la identidad se leía de `req` y las solicitudes fallaban con 401; esto no describe todas las rutas, usuarios ni sesiones.
 - ✅ `SEMSE T008 Staging` cerrado (2026-11-07): sin dominios públicos.
 
 ## Evidencia
