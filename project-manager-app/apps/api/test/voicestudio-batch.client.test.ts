@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { Readable } from "node:stream";
 import {
   VoiceStudioBatchClient,
   VoiceStudioGatewayError,
@@ -80,7 +81,8 @@ test("ASR batch rejects invalid buffer or mismatch BEFORE network egress", async
 test("ASR provider uses storage key, not arbitrary URL; no original file key leaves the process", async () => {
   let requestedKey: string | undefined;
   const provider = new VoiceStudioTranscriptionProvider({
-    async readBuffer(key: string) { requestedKey = key; return wav; },
+    async readBuffer() { throw new Error("unbounded read not permitted"); },
+    createReadStream(key: string) { requestedKey = key; return Readable.from([wav]); },
   }, {
     ...base,
     fetchImpl: (async (_url: string | URL, init?: RequestInit) => {
@@ -198,4 +200,51 @@ test("direct client construction cannot bypass the production gate", () => {
     if (previous === undefined) delete process.env.NODE_ENV;
     else process.env.NODE_ENV = previous;
   }
+});
+
+
+test("VoiceStudio requires a bounded stream and never falls back to full readFile", async () => {
+  let reads = 0;
+  const provider = new VoiceStudioTranscriptionProvider({
+    async readBuffer() { reads++; return wav; },
+  }, { ...base, fetchImpl: (async () => { throw new Error("unexpected egress"); }) as typeof fetch });
+  await assert.rejects(() => provider.transcribe({ storageKey: "tenants/test/audio.wav", mimeType: "audio/wav" }),
+    (e: unknown) => errorCode(e, "VOICE_BOUNDED_STORAGE_REQUIRED"));
+  assert.equal(reads, 0);
+});
+
+test("bounded storage rejects files above 15 MiB before any network egress or unbounded buffering", async () => {
+  let reads = 0;
+  let egress = 0;
+  const provider = new VoiceStudioTranscriptionProvider({
+    async readBuffer() { reads++; return wav; },
+    createReadStream() {
+      return Readable.from((function* () {
+        yield wav;
+        for (let i = 0; i < 16; i++) yield Buffer.alloc(1024 * 1024);
+      })());
+    },
+  }, {
+    ...base, fetchImpl: (async () => { egress++; throw new Error("unexpected outbound"); }) as typeof fetch,
+  });
+  await assert.rejects(() => provider.transcribe({ storageKey: "tenants/test/huge.wav", mimeType: "audio/wav" }),
+    (e: unknown) => errorCode(e, "VOICE_AUDIO_TOO_LARGE"));
+  assert.equal(reads, 0);
+  assert.equal(egress, 0);
+});
+
+test("bounded storage rejects damaged streams without network egress", async () => {
+  let egress = 0;
+  const provider = new VoiceStudioTranscriptionProvider({
+    async readBuffer() { throw new Error("unbounded read"); },
+    createReadStream() {
+      return Readable.from((async function* () {
+        yield wav;
+        throw new Error("local path and sensitive details");
+      })());
+    },
+  }, { ...base, fetchImpl: (async () => { egress++; throw new Error("unexpected"); }) as typeof fetch });
+  await assert.rejects(() => provider.transcribe({ storageKey: "tenants/test/corrupt.wav", mimeType: "audio/wav" }),
+    (e: unknown) => errorCode(e, "VOICE_STORAGE_READ_FAILED"));
+  assert.equal(egress, 0);
 });

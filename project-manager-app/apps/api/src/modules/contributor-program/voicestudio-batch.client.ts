@@ -294,6 +294,43 @@ export function resolveVoiceStudioDevConfiguration(env: NodeJS.ProcessEnv = proc
   return config;
 }
 
+
+/** Read with a hard cap before allocating/copying bytes. A pre-read stat
+ * cannot enforce memory bounds due to TOCTOU; count each streamed chunk.
+ * No file URL or unverified HTTP read is accepted.
+ */
+async function readBoundedAudio(storage: TranscriptionStorageReader, key: string): Promise<Buffer> {
+  if (!storage.createReadStream) {
+    throw new VoiceStudioGatewayError("VOICE_BOUNDED_STORAGE_REQUIRED");
+  }
+  let stream: ReturnType<NonNullable<TranscriptionStorageReader["createReadStream"]>>;
+  try {
+    stream = storage.createReadStream(key);
+  } catch {
+    throw new VoiceStudioGatewayError("VOICE_STORAGE_READ_FAILED");
+  }
+  const chunks: Buffer[] = [];
+  let total = 0;
+  try {
+    for await (const chunk of stream) {
+      if (!(chunk instanceof Uint8Array)) {
+        throw new VoiceStudioGatewayError("VOICE_STORAGE_INVALID_CHUNK");
+      }
+      if (total + chunk.byteLength > MAX_INPUT_BYTES) {
+        throw new VoiceStudioGatewayError("VOICE_AUDIO_TOO_LARGE");
+      }
+      chunks.push(Buffer.from(chunk));
+      total += chunk.byteLength;
+    }
+  } catch (error) {
+    stream.destroy();
+    if (error instanceof VoiceStudioGatewayError) throw error;
+    throw new VoiceStudioGatewayError("VOICE_STORAGE_READ_FAILED");
+  }
+  if (total === 0) throw new VoiceStudioGatewayError("VOICE_AUDIO_EMPTY");
+  return Buffer.concat(chunks, total);
+}
+
 export class VoiceStudioTranscriptionProvider implements TranscriptionProvider {
   private readonly client: VoiceStudioBatchClient;
   constructor(private readonly storage: TranscriptionStorageReader, config: VoiceStudioConfiguration) {
@@ -305,7 +342,7 @@ export class VoiceStudioTranscriptionProvider implements TranscriptionProvider {
     // A key is never supplied by a browser to this class. Its caller is
     // responsible for authorization and an immutable storage asset receipt.
     if (!input.storageKey || /^[a-z]+:\/\//i.test(input.storageKey)) throw new VoiceStudioGatewayError("VOICE_STORAGE_KEY_INVALID");
-    const bytes = await this.storage.readBuffer(input.storageKey);
+    const bytes = await readBoundedAudio(this.storage, input.storageKey);
     return this.client.transcribe(bytes, input.mimeType);
   }
 }
