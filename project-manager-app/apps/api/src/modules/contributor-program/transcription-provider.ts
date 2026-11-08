@@ -19,7 +19,7 @@ import { VoiceStudioTranscriptionProvider, resolveVoiceStudioDevConfiguration } 
 export type TranscriptionSegment = { startMs: number; endMs: number; text: string; confidence?: number };
 
 export interface TranscriptionProvider {
-  transcribe(input: { storageKey: string; mimeType: string | null }): Promise<TranscriptionSegment[]>;
+  transcribe(input: { storageKey: string; mimeType: string | null; language?: "es" | "en" }): Promise<TranscriptionSegment[]>;
 }
 
 export interface TranscriptionStorageReader {

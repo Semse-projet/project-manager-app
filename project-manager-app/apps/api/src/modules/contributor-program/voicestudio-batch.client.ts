@@ -204,7 +204,12 @@ export class VoiceStudioBatchClient {
     }
   }
 
-  async transcribe(bytes: Buffer, declaredMimeType?: string | null): Promise<TranscriptionSegment[]> {
+  async transcribe(bytes: Buffer, declaredMimeType?: string | null, language?: "es" | "en"): Promise<TranscriptionSegment[]> {
+    // Explicit user/session locale is preferable to relying on upstream language detection.
+    // Treat unsupported locales as invalid input BEFORE any network request.
+    if (language !== undefined && language !== "es" && language !== "en") {
+      throw new VoiceStudioGatewayError("VOICE_ASR_LANGUAGE_UNSUPPORTED");
+    }
     const model = modelName(this.config.asrModel);
     const audio = sniffAudio(bytes);
     const declared = declaredMimeType?.split(";", 1)[0].trim().toLowerCase();
@@ -218,6 +223,7 @@ export class VoiceStudioBatchClient {
     const form = new FormData();
     form.append("model", model);
     form.append("response_format", "verbose_json");
+    if (language !== undefined) form.append("language", language);
     form.append("file", new Blob([Uint8Array.from(bytes)], { type: audio.mimeType }), audio.filename);
     const response = await this.post("/v1/audio/transcriptions", form);
     if (!response.headers.get("content-type")?.toLowerCase().includes("application/json")) {
@@ -338,11 +344,11 @@ export class VoiceStudioTranscriptionProvider implements TranscriptionProvider {
     modelName(config.asrModel);
   }
 
-  async transcribe(input: { storageKey: string; mimeType: string | null }): Promise<TranscriptionSegment[]> {
+  async transcribe(input: { storageKey: string; mimeType: string | null; language?: "es" | "en" }): Promise<TranscriptionSegment[]> {
     // A key is never supplied by a browser to this class. Its caller is
     // responsible for authorization and an immutable storage asset receipt.
     if (!input.storageKey || /^[a-z]+:\/\//i.test(input.storageKey)) throw new VoiceStudioGatewayError("VOICE_STORAGE_KEY_INVALID");
     const bytes = await readBoundedAudio(this.storage, input.storageKey);
-    return this.client.transcribe(bytes, input.mimeType);
+    return this.client.transcribe(bytes, input.mimeType, input.language);
   }
 }

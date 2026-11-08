@@ -40,6 +40,7 @@ test("ASR batch posts authorized bytes as multipart without a user supplied upst
     const body = init?.body as FormData;
     assert.equal(body.get("model"), "faster-whisper");
     assert.equal(body.get("response_format"), "verbose_json");
+    assert.equal(body.get("language"), "es");
     const attachment = body.get("file") as Blob;
     assert.equal(attachment.type, "audio/wav");
     assert.deepEqual(Buffer.from(await attachment.arrayBuffer()), wav);
@@ -49,10 +50,27 @@ test("ASR batch posts authorized bytes as multipart without a user supplied upst
     });
   };
   const client = new VoiceStudioBatchClient({ ...base, fetchImpl: fetchImpl as typeof fetch });
-  assert.deepEqual(await client.transcribe(wav, "audio/x-wav"), [{
+  assert.deepEqual(await client.transcribe(wav, "audio/x-wav", "es"), [{
     startMs: 250, endMs: 1750, text: "Buenos días",
   }]);
   assert.equal(calls, 1);
+});
+
+test("ASR locale es/en is forwarded, omitted when absent, and rejects unsupported values before egress", async () => {
+  const languages: Array<string | null> = [];
+  const client = new VoiceStudioBatchClient({
+    ...base,
+    fetchImpl: (async (_url: string | URL, init?: RequestInit) => {
+      const form = init?.body as FormData;
+      languages.push(form.get("language") as string | null);
+      return verbose({ text: "hello", segments: [{ start: 0, end: 1, text: "hello" }] });
+    }) as typeof fetch,
+  });
+  await client.transcribe(wav, "audio/wav", "en");
+  await client.transcribe(wav);
+  await assert.rejects(() => client.transcribe(wav, "audio/wav", "fr" as "en"),
+    (e: unknown) => errorCode(e, "VOICE_ASR_LANGUAGE_UNSUPPORTED"));
+  assert.deepEqual(languages, ["en", null], "invalid locale never reaches the upstream");
 });
 
 test("ASR batch treats silence as empty, but refuses text without timestamp segments", async () => {
