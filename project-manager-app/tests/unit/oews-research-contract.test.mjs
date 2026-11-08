@@ -33,7 +33,7 @@ test('OEWS May 2025 offline parser rejects ambiguous sources and preserves unkno
     result.status, 0,
     `OEWS research suite failed via ${executable} (exit ${result.status})\n${result.stdout}\n${result.stderr}`,
   );
-  assert.match(result.stderr, /Ran 10 tests?\b/, 'Must execute all 10 offline Python tests');
+  assert.match(result.stderr, /Ran 12 tests?\b/, 'Must execute all 12 offline Python tests');
   assert.match(result.stderr, /^OK\s*$/m, 'The Python unittest suite must finish successfully');
 });
 
