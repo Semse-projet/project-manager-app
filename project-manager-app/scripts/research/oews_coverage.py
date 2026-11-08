@@ -99,10 +99,16 @@ def read_oews(path, kind):
         if {'OCC_CODE', 'AREA', 'H_MEDIAN'}.issubset(candidate):
             header = candidate
             meta['headers_detected'] += 1
-            # Legacy/synthetic fixtures may lack these fields; that does not certify
-            # scope or origin. Official May 2025 imports must record their presence.
-            meta['scope_fields_present'] = sum(k in candidate for k in
-              ('AREA_TYPE', 'NAICS', 'I_GROUP', 'OWN_CODE', 'O_GROUP'))
+            scope_fields = {'AREA_TYPE', 'NAICS', 'I_GROUP', 'OWN_CODE', 'O_GROUP'}
+            present = scope_fields.intersection(candidate)
+            meta['scope_fields_present'] = len(present)
+            # Reject missing grain dimensions from XLSX/ZIP, not just from the
+            # data rows: otherwise an incomplete workbook silently inflates
+            # cross-industry/state/SOC coverage. CSV without scope is limited
+            # to synthetic research fixtures and is never source-authenticated.
+            if Path(path).suffix.lower() in ('.zip', '.xlsx') and present != scope_fields:
+                missing = ', '.join(sorted(scope_fields - present))
+                raise ValueError(f'OEWS XLSX/ZIP required scope fields missing: {missing}')
             continue
         if header is None: continue
         item = dict(zip(header, values))
