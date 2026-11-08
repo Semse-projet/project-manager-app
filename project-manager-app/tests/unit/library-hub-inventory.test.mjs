@@ -315,3 +315,20 @@ for(const field of ["specifier","version"]) {
     assert.throws(()=>inventoryRepository(root),new RegExp("Duplicate lockfile "+field));
   }));
 }
+
+
+test("global override cannot certify incompatible locked version", () => makeFixture(({root,write}) => {
+  base(write);
+  let lock=readFileSync(path.join(root,"pnpm-lock.yaml"),"utf8")
+    .replace("importers:","overrides:\n  zod: 4.1.12\nimporters:")
+    .replace("specifier: ^3\n        version: 3.25.3(peer@1)",
+      "specifier: 4.1.12\n        version: 2.0.0");
+  write("pnpm-lock.yaml",lock);
+  let dep=inventoryRepository(root).dependencies.find(x=>x.manifest==="apps/web/package.json"&&x.name==="zod");
+  assert.equal(dep.resolutionStatus,"STALE_LOCKFILE");
+  assert.equal(dep.resolvedVersion,null);
+  write("pnpm-lock.yaml",lock.replace("version: 2.0.0","version: 4.1.12"));
+  dep=inventoryRepository(root).dependencies.find(x=>x.manifest==="apps/web/package.json"&&x.name==="zod");
+  assert.equal(dep.resolutionStatus,"OVERRIDE_APPLIED");
+  assert.equal(dep.resolvedVersion,"4.1.12");
+}));

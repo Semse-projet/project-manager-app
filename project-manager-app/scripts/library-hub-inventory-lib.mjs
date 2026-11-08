@@ -158,11 +158,12 @@ function resolution(lock,importer,group,name,range) {
   if(ref.startsWith("link:")||ref.startsWith("workspace:"))return {...unknown,lockSpecifier:safeSpecifier(x.specifier),resolvedReference:ref,resolutionStatus:"LOCAL_LINK"};
   if(!/^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?(?:\(.+\))?$/.test(ref))return {...unknown,lockSpecifier:safeSpecifier(x.specifier),resolvedReference:ref};
   const resolvedVersion=ref.split("(")[0];
-  if(!overrideApplied) {
-    const compatible=simpleSemverCompatible(range,resolvedVersion);
-    if(compatible===false)return {...unknown,lockSpecifier:safeSpecifier(x.specifier),resolutionStatus:"STALE_LOCKFILE"};
-    if(compatible===null)return {...unknown,lockSpecifier:safeSpecifier(x.specifier),resolvedReference:ref};
-  }
+  // With a global override, validate against the *effective* requested
+  // specifier, not the manifest range that the override intentionally replaces.
+  const effectiveRange=overrideApplied ? x.specifier : range;
+  const compatible=simpleSemverCompatible(effectiveRange,resolvedVersion);
+  if(compatible===false)return {...unknown,lockSpecifier:safeSpecifier(x.specifier),resolutionStatus:"STALE_LOCKFILE"};
+  if(compatible===null)return {...unknown,lockSpecifier:safeSpecifier(x.specifier),resolvedReference:ref};
   return {lockSpecifier:safeSpecifier(x.specifier),resolvedReference:ref,resolvedVersion,resolutionStatus:overrideApplied?"OVERRIDE_APPLIED":"RESOLVED"};
 }
 function scanPython(root,patterns,diagnostics) {
