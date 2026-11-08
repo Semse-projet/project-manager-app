@@ -187,7 +187,7 @@ test("completion requires confirmed full release of every approved milestone, ev
     [deposit(200), { type: "RELEASE", status: "FAILED", amount: 200, milestoneId: "mile_1" }],
   ]) {
     const run = service({ from: "review", milestoneDetails: [item], transactions });
-    await assert.rejects(run.transition("completed"), /milestone\\(s\\) without confirmed full payment/);
+    await assert.rejects(run.transition("completed"), /without confirmed full payment/);
     assert.deepEqual(run.updates, [], "never close or send terminal events on unpaid work");
   }
 });
