@@ -3,6 +3,7 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException, 
 import { AuditService } from "../../infrastructure/audit/audit.service.js";
 import { SseEventBusService } from "../../infrastructure/sse/sse-event-bus.service.js";
 import { StorageService } from "../../infrastructure/storage/storage.service.js";
+import { isTenantScopedStorageKey } from "../../infrastructure/storage/storage-key.js";
 import { AiModelGatewayService } from "../ai-models/gateway/ai-model-gateway.service.js";
 import { StripeConnectService } from "../payments/stripe-connect.service.js";
 import { PrometeoService } from "../prometeo/prometeo.service.js";
@@ -886,6 +887,38 @@ export class ContributorProgramService {
       const claimed = await this.repository.claimNextPendingTranscriptionExtraction(options?.tenantId);
       if (!claimed) break;
       processed += 1;
+
+      // VoiceStudio is a new, optional egress provider. Before constructing
+      // its network client, reject extraction rows whose joined asset is
+      // outside the same tenant/submission or uses a foreign storage domain.
+      // This is defense-in-depth, NOT proof of asset ownership or consent:
+      // a server-attested upload receipt and per-resource policy are still
+      // required before exposing VoiceStudio to end users.
+      if (process.env.SEMSE_ASR_PROVIDER === "voicestudio") {
+        const asset = claimed.asset;
+        let sourceMatches = Boolean(
+          asset && claimed.assetId === asset.id &&
+          asset.tenantId === claimed.tenantId &&
+          asset.submissionId === claimed.submissionId &&
+          asset.storageKey
+        );
+        if (sourceMatches) {
+          try {
+            sourceMatches = isTenantScopedStorageKey({
+              key: asset!.storageKey!,
+              tenantId: claimed.tenantId,
+              domain: "knowledge_contribution",
+            });
+          } catch {
+            sourceMatches = false;
+          }
+        }
+        if (!sourceMatches) {
+          await this.failClaimedExtraction(ctx, claimed, "VOICE_ASSET_SCOPE_NOT_VERIFIED");
+          failed += 1;
+          continue;
+        }
+      }
 
       let provider;
       try {

@@ -48,3 +48,9 @@ CI run: [42434718652](https://github.com/Semse-projet/project-manager-app/action
 - Despliegue: **NOT_DEPLOYED**.
 - Activación: **INACTIVE**.
 - Funcionalidad de voz de Prometeo: **NO IMPLEMENTADA**.
+
+## Complemento: tests negativos de alcance multi-tenant (commit posterior)
+
+El proveedor `voicestudio` aplica ahora una barrera adicional en `ContributorProgramService.processPendingExtractions` **antes de construir cualquier cliente ASR**. Exige coincidencia entre el tenant y submission de la extracción y el asset unido, además de formato `tenants/{tenantId}/knowledge_contribution/...` normalizado. Dos nuevas pruebas PostgreSQL dentro de `contributor-program-extraction.test.ts` introducen (a) un `assetId` procedente de otro tenant, y (b) una key fuera del tenant, y exigen estado FAILED, código `VOICE_ASSET_SCOPE_NOT_VERIFIED` y cero segmentos. No modifica la ruta `openai-whisper` existente.
+
+**Límite de evidencia:** confirmar tenant/submission y prefijo no sustituye un receipt de subida ni prueba organización, actor, autorización al momento de leer, consentimiento o derechos sobre el audio. D5 permanece abierto. Los tests PostgreSQL y CI de este cambio requieren ejecución en el HEAD nuevo; no se reclaman resultados hasta observarlos.

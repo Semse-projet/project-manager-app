@@ -22,6 +22,7 @@ related_files:
 related_tests:
   - "apps/api/test/contributor-program-transcription-provider.test.ts"
   - "apps/api/test/voicestudio-batch.client.test.ts"
+  - "apps/api/test/contributor-program-extraction.test.ts"
 related_endpoints: []
 related_events: []
 related_agents: ["prometeo"]

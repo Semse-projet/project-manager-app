@@ -688,3 +688,62 @@ dbTest("synthesizeObservations throws (never fabricates) when the AI gateway fai
     await cleanupFixture(fixture);
   }
 });
+
+
+// Negative PostgreSQL checks for the new ASR provider. The existing fixture
+// uses a deliberately non-tenant-scoped storage key, which is appropriate for
+// historical tests but must be blocked before VoiceStudio can see its bytes.
+dbTest("VoiceStudio rejects a foreign-tenant asset reference before resolving the provider", async () => {
+  const source = await createFixture();
+  const other = await createFixture();
+  const prior = process.env.SEMSE_ASR_PROVIDER;
+  process.env.SEMSE_ASR_PROVIDER = "voicestudio";
+  try {
+    const { service, repository } = makeService();
+    const extraction = await repository.createExtraction({
+      tenantId: source.tenantId,
+      submissionId: source.submission.id,
+      assetId: other.asset.id,
+      kind: "TRANSCRIPTION",
+      status: "PENDING",
+      modelOrProcess: "prometeo-intake-pipeline",
+    });
+    const result = await service.processPendingExtractions(adminCtx(source), 1, { tenantId: source.tenantId });
+    assert.deepEqual(result, { processed: 1, completed: 0, failed: 1 });
+    const final = await prisma.knowledgeExtraction.findUnique({ where: { id: extraction.id } });
+    assert.equal(final?.status, "FAILED");
+    assert.equal((final?.dataJson as { failureReason?: string } | null)?.failureReason, "VOICE_ASSET_SCOPE_NOT_VERIFIED");
+    assert.equal(await prisma.transcriptSegment.count({ where: { tenantId: source.tenantId } }), 0);
+  } finally {
+    if (prior === undefined) delete process.env.SEMSE_ASR_PROVIDER;
+    else process.env.SEMSE_ASR_PROVIDER = prior;
+    await cleanupFixture(source);
+    await cleanupFixture(other);
+  }
+});
+
+dbTest("VoiceStudio rejects a same-tenant asset with a non-tenant storage key", async () => {
+  const fixture = await createFixture(); // key: tenants/x/... intentionally wrong
+  const prior = process.env.SEMSE_ASR_PROVIDER;
+  process.env.SEMSE_ASR_PROVIDER = "voicestudio";
+  try {
+    const { service, repository } = makeService();
+    const extraction = await repository.createExtraction({
+      tenantId: fixture.tenantId,
+      submissionId: fixture.submission.id,
+      assetId: fixture.asset.id,
+      kind: "TRANSCRIPTION",
+      status: "PENDING",
+      modelOrProcess: "prometeo-intake-pipeline",
+    });
+    const result = await service.processPendingExtractions(adminCtx(fixture), 1, { tenantId: fixture.tenantId });
+    assert.deepEqual(result, { processed: 1, completed: 0, failed: 1 });
+    const final = await prisma.knowledgeExtraction.findUnique({ where: { id: extraction.id } });
+    assert.equal((final?.dataJson as { failureReason?: string } | null)?.failureReason, "VOICE_ASSET_SCOPE_NOT_VERIFIED");
+    assert.equal(await prisma.transcriptSegment.count({ where: { tenantId: fixture.tenantId } }), 0);
+  } finally {
+    if (prior === undefined) delete process.env.SEMSE_ASR_PROVIDER;
+    else process.env.SEMSE_ASR_PROVIDER = prior;
+    await cleanupFixture(fixture);
+  }
+});
