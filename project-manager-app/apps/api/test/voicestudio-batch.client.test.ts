@@ -8,6 +8,21 @@ import {
   resolveVoiceStudioDevConfiguration,
 } from "../dist/modules/contributor-program/voicestudio-batch.client.js";
 
+// Isolate the VoiceStudio test fixture from production defaults. The tests
+// below deliberately remove these flags to assert fail-closed behavior.
+const priorVoiceEnabled = process.env.SEMSE_VOICE_ENABLED;
+const priorVoiceStudioDevEnabled = process.env.SEMSE_VOICESTUDIO_DEV_ENABLED;
+test.before(() => {
+  process.env.SEMSE_VOICE_ENABLED = "true";
+  process.env.SEMSE_VOICESTUDIO_DEV_ENABLED = "true";
+});
+test.after(() => {
+  if (priorVoiceEnabled === undefined) delete process.env.SEMSE_VOICE_ENABLED;
+  else process.env.SEMSE_VOICE_ENABLED = priorVoiceEnabled;
+  if (priorVoiceStudioDevEnabled === undefined) delete process.env.SEMSE_VOICESTUDIO_DEV_ENABLED;
+  else process.env.SEMSE_VOICESTUDIO_DEV_ENABLED = priorVoiceStudioDevEnabled;
+});
+
 const wav = Buffer.concat([Buffer.from("RIFF"), Buffer.alloc(4), Buffer.from("WAVE"), Buffer.alloc(36)]);
 
 const base = {
@@ -250,6 +265,54 @@ test("direct client construction cannot bypass the production gate", () => {
   }
 });
 
+
+test("direct VoiceStudio construction in Railway staging requires BOTH feature flags", () => {
+  const keys = [
+    "NODE_ENV", "SEMSE_ENVIRONMENT", "RAILWAY_ENVIRONMENT",
+    "RAILWAY_ENVIRONMENT_NAME", "SEMSE_VOICESTUDIO_STAGING_NODE_ENV_OK",
+    "SEMSE_VOICE_ENABLED", "SEMSE_VOICESTUDIO_DEV_ENABLED",
+  ] as const;
+  const previous = keys.map((key) => [key, process.env[key]] as const);
+  try {
+    for (const key of keys) delete process.env[key];
+    process.env.NODE_ENV = "production";
+    process.env.RAILWAY_ENVIRONMENT_NAME = "staging";
+    process.env.SEMSE_VOICESTUDIO_STAGING_NODE_ENV_OK = "true";
+    assert.throws(() => new VoiceStudioBatchClient(base),
+      (e: unknown) => errorCode(e, "VOICE_FEATURE_DISABLED"));
+    process.env.SEMSE_VOICE_ENABLED = "true";
+    assert.throws(() => new VoiceStudioBatchClient(base),
+      (e: unknown) => errorCode(e, "VOICE_FEATURE_DISABLED"));
+    process.env.SEMSE_VOICESTUDIO_DEV_ENABLED = "true";
+    assert.doesNotThrow(() => new VoiceStudioBatchClient(base));
+    process.env.SEMSE_ENVIRONMENT = "production";
+    assert.throws(() => new VoiceStudioBatchClient(base),
+      (e: unknown) => errorCode(e, "VOICE_PRODUCTION_ACTIVATION_BLOCKED"));
+  } finally {
+    for (const [key, value] of previous) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+});
+
+test("turning off voice after client creation prevents all network egress", async () => {
+  let egress = 0;
+  const client = new VoiceStudioBatchClient({
+    ...base,
+    fetchImpl: (async () => { egress++; throw new Error("unexpected network request"); }) as typeof fetch,
+  });
+  const previous = process.env.SEMSE_VOICESTUDIO_DEV_ENABLED;
+  try {
+    delete process.env.SEMSE_VOICESTUDIO_DEV_ENABLED;
+    await assert.rejects(() => client.transcribe(wav),
+      (e: unknown) => errorCode(e, "VOICE_FEATURE_DISABLED"));
+    assert.equal(egress, 0);
+  } finally {
+    if (previous === undefined) delete process.env.SEMSE_VOICESTUDIO_DEV_ENABLED;
+    else process.env.SEMSE_VOICESTUDIO_DEV_ENABLED = previous;
+  }
+});
 
 test("VoiceStudio requires a bounded stream and never falls back to full readFile", async () => {
   let reads = 0;
