@@ -10,9 +10,9 @@ import assert from "node:assert/strict";
 import { ConflictException } from "@nestjs/common";
 import { JobsService, jobClosureBlockers } from "../dist/modules/jobs/jobs.service.js";
 
-type Txn = { type: string; status: string; amount: number };
+type Txn = { type: string; status: string; amount: number; milestoneId?: string | null };
 
-function service(state: { from: string; milestones?: string[]; transactions?: Txn[]; activeDisputes?: number }) {
+function service(state: { from: string; milestones?: string[]; milestoneDetails?: Array<{ id: string; status: string; amount: number }>; transactions?: Txn[]; activeDisputes?: number }) {
   const updates: Array<{ status: string }> = [];
   const seen: Array<{ model: string; where: Record<string, unknown> }> = [];
   const job = (status: string) => ({ id: "job_1", tenantId: "tenant_1", status, title: "Trabajo", scope: "Alcance", category: "general" });
@@ -30,7 +30,7 @@ function service(state: { from: string; milestones?: string[]; transactions?: Tx
     milestone: {
       async findMany(args: { where: Record<string, unknown> }) {
         seen.push({ model: "milestone", where: args.where });
-        return (state.milestones ?? []).map((status) => ({ status }));
+        return state.milestoneDetails ?? (state.milestones ?? []).map((status) => ({ status }));
       },
     },
     paymentEscrow: {
@@ -175,4 +175,34 @@ test("ADMIN alias follows OPS_ADMIN transition policy for a reservation override
   const regular = service({ from: "reserved" });
   await assert.rejects(regular.transition("accepted", ["CLIENT"], "org_client_1"), /reservation flow/);
   assert.equal(regular.updates.length, 0);
+});
+
+
+test("completion requires confirmed full release of every approved milestone, even when escrow holds zero", async () => {
+  const item = { id: "mile_1", status: "APPROVED", amount: 200 };
+  for (const transactions of [
+    [] as Txn[],
+    [deposit(200), refund(200)],
+    [deposit(200), { ...release(200), milestoneId: "other_milestone" }],
+    [deposit(200), { type: "RELEASE", status: "FAILED", amount: 200, milestoneId: "mile_1" }],
+  ]) {
+    const run = service({ from: "review", milestoneDetails: [item], transactions });
+    await assert.rejects(run.transition("completed"), /milestone\\(s\\) without confirmed full payment/);
+    assert.deepEqual(run.updates, [], "never close or send terminal events on unpaid work");
+  }
+});
+
+test("completion succeeds only after this milestone's own full succeeded release", async () => {
+  const item = { id: "mile_1", status: "APPROVED", amount: 200 };
+  const partiallyPaid = service({
+    from: "review", milestoneDetails: [item],
+    transactions: [deposit(200), { ...release(100), milestoneId: "mile_1" }, refund(100)],
+  });
+  await assert.rejects(partiallyPaid.transition("completed"), /without confirmed full payment/);
+  const fullyPaid = service({
+    from: "review", milestoneDetails: [item],
+    transactions: [deposit(200), { ...release(200), milestoneId: "mile_1" }],
+  });
+  assert.equal((await fullyPaid.transition("completed")).status, "completed");
+  assert.deepEqual(fullyPaid.updates.map((entry) => entry.status), ["completed"]);
 });
