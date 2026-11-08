@@ -13,6 +13,7 @@
 // own kill switch (CONTRIBUTOR_EXTRACTION_SWEEP_ENABLED, apps/worker/src/
 // main.mjs) is a second, independent gate.
 import OpenAI, { toFile } from "openai";
+import { VoiceStudioTranscriptionProvider, resolveVoiceStudioDevConfiguration } from "./voicestudio-batch.client.js";
 
 export type TranscriptionSegment = { startMs: number; endMs: number; text: string; confidence?: number };
 
@@ -82,6 +83,10 @@ export function resolveTranscriptionProvider(storage: TranscriptionStorageReader
     // fabricated transcript. This is the correct default even though
     // OPENAI_API_KEY may already be set for unrelated purposes.
     return null;
+  }
+
+  if (selected === "voicestudio") {
+    return new VoiceStudioTranscriptionProvider(storage, resolveVoiceStudioDevConfiguration());
   }
 
   if (selected === "openai-whisper") {
