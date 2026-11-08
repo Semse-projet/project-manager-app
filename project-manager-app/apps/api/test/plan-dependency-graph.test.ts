@@ -4,7 +4,9 @@ import assert from "node:assert/strict";
 import {
   AgentWorkPlanService,
   assertValidPlanDependencies,
+  validatePlanCreationGraph,
 } from "../dist/modules/agents/agent-work-plan.service.js";
+import { PlanModeService } from "../dist/modules/agents/plan-mode.service.js";
 
 // Regression for the existing Plan Mode contract. The dependency graph must be
 // a DAG: otherwise two steps can each wait forever for the other to complete.
@@ -156,4 +158,52 @@ test("progress-only updates of legacy plans are not blocked by the new validatio
   const result = await service.saveGraph({ tenantId: "tenant_a", planId: row.id, steps: legacy.steps });
   assert.equal(result.id, row.id);
   assert.equal(writes, 1);
+});
+
+test("PlanMode rejects an invalid replacement DAG before archiving an active plan or writing memory", async () => {
+  let archives = 0;
+  let creates = 0;
+  let memories = 0;
+  const workPlans = {
+    async archiveActivePlan() { archives++; throw new Error("must not archive the previous plan"); },
+    async create() { creates++; throw new Error("must not insert an invalid plan"); },
+  };
+  const planMode = new PlanModeService(
+    workPlans as never,
+    {} as never,
+    { async createMemory() { memories++; } } as never,
+  );
+  const draft = {
+    title: "Cyclic replacement",
+    goal: "Test",
+    rationale: "",
+    description: "",
+    risks: [],
+    requiredEvidence: [],
+    successCriteria: [],
+    steps: [fullStep("a", ["b"]), fullStep("b", ["a"])],
+  };
+  await assert.rejects(
+    planMode.createPlan({
+      tenantId: "tenant_a", orgId: "org_a", projectId: "project_a",
+      createdBy: "user_a", agentId: "prometeo", plan: draft,
+    } as never),
+    /circulares/,
+  );
+  assert.equal(archives, 0, "no previous-plan state transition on invalid creation");
+  assert.equal(creates, 0, "no invalid replacement insert");
+  assert.equal(memories, 0, "no false archive memory emitted");
+});
+
+test("creation preflight applies the same default IDs and dependencies as persistence", () => {
+  const normalized = validatePlanCreationGraph([
+    { title: "inspect" } as never,
+    { title: "review" } as never,
+    { id: "publish", dependsOnStepIds: ["step_2"] },
+  ]);
+  assert.deepEqual(normalized, [
+    { id: "step_1", dependsOnStepIds: [] },
+    { id: "step_2", dependsOnStepIds: ["step_1"] },
+    { id: "publish", dependsOnStepIds: ["step_2"] },
+  ]);
 });

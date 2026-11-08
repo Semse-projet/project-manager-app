@@ -295,6 +295,29 @@ export function assertValidPlanDependencies(
 }
 
 /**
+ * Preflight for all creation callers; must run before archive/memory side
+ * effects when superseding an active plan.
+ * Mirrors the ID/default-edge rules used by AgentWorkPlanService.create().
+ */
+export function validatePlanCreationGraph(
+  steps: ReadonlyArray<{ id?: string; dependsOnStepIds?: readonly string[] }>,
+): Array<{ id: string; dependsOnStepIds: string[] }> {
+  const stepIds = steps.map((step, idx) =>
+    typeof step.id === "string" && step.id.trim().length > 0 ? step.id.trim() : `step_${idx + 1}`,
+  );
+  const graph = steps.map((step, idx) => ({
+    id: stepIds[idx]!,
+    dependsOnStepIds: step.dependsOnStepIds?.length
+      ? [...step.dependsOnStepIds]
+      : idx > 0
+        ? [stepIds[idx - 1]!]
+        : [],
+  }));
+  assertValidPlanDependencies(graph);
+  return graph;
+}
+
+/**
  * Fingerprint of what an approval actually covers: which tools each step may
  * use and under which gates. Execution progress (status, timestamps, evidence)
  * is deliberately excluded, so completing a step never changes it.
@@ -384,20 +407,14 @@ export class AgentWorkPlanService {
     contextSnapshot?: Record<string, unknown>;
     meta?: PlanMeta;
   }): Promise<WorkPlanRecord> {
-    const stepIds = input.steps.map((step, idx) =>
-      typeof step.id === "string" && step.id.trim().length > 0 ? step.id.trim() : `step_${idx + 1}`,
-    );
+    const creationGraph = validatePlanCreationGraph(input.steps);
     const normalizedSteps = input.steps.map((step, idx) =>
       normalizePlanStep({
         ...step,
-        id: stepIds[idx],
+        id: creationGraph[idx]!.id,
         order: idx + 1,
         status: "pending",
-        dependsOnStepIds: step.dependsOnStepIds?.length
-          ? step.dependsOnStepIds
-          : idx > 0
-          ? [stepIds[idx - 1]!]
-          : [],
+        dependsOnStepIds: creationGraph[idx]!.dependsOnStepIds,
       }, idx),
     );
 

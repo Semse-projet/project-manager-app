@@ -1,5 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { AgentWorkPlanService, type PlanStep, type WorkPlanRecord } from "./agent-work-plan.service.js";
+import { AgentWorkPlanService, validatePlanCreationGraph, type PlanStep, type WorkPlanRecord } from "./agent-work-plan.service.js";
 import { PlanExecutionService } from "./plan-execution.service.js";
 import { defaultRequiresApprovedPlan, inferPlanStepCapability, inferToolsAllowed } from "./plan-tool-policy.service.js";
 import { AgentMemoryService } from "../knowledge/agent-memory.service.js";
@@ -130,27 +130,6 @@ export class PlanModeService {
     contextSnapshot?: Record<string, unknown>;
     plan: CopilotPlanDraft;
   }): Promise<CopilotProposedPlan> {
-    // Archive any existing active plan before creating a new one (prevents zombie plans)
-    const archived = await this.workPlans.archiveActivePlan({
-      tenantId: input.tenantId,
-      projectId: input.projectId,
-      cancelledBy: input.createdBy,
-      reason: "Superseded by new plan",
-    });
-    if (archived) {
-      this.logger.log(`[plan_mode] archived previous plan id=${archived.id} to make room for new plan`);
-      void this.agentMemory.createMemory({
-        tenantId: input.tenantId,
-        orgId: input.orgId,
-        agentId: input.agentId,
-        projectId: input.projectId,
-        type: "event",
-        content: `Plan anterior '${archived.title}' archivado automáticamente al crear nuevo plan.`,
-        summary: `Plan archivado: ${archived.title}`,
-        importanceScore: 2,
-        tags: ["plan", "archived", `plan:${archived.id}`],
-      }).catch(() => undefined);
-    }
     const normalizedSteps = input.plan.steps.map((step) => {
       const capability = inferPlanStepCapability({
         capability: step.capability,
@@ -176,6 +155,31 @@ export class PlanModeService {
       };
     });
 
+    // Reject invalid DAGs *before* archiving the previous active plan or
+    // recording its cancellation in memory. create() rechecks this invariant.
+    validatePlanCreationGraph(normalizedSteps);
+
+    // Archive any existing active plan before creating a new one (prevents zombie plans)
+    const archived = await this.workPlans.archiveActivePlan({
+      tenantId: input.tenantId,
+      projectId: input.projectId,
+      cancelledBy: input.createdBy,
+      reason: "Superseded by new plan",
+    });
+    if (archived) {
+      this.logger.log(`[plan_mode] archived previous plan id=${archived.id} to make room for new plan`);
+      void this.agentMemory.createMemory({
+        tenantId: input.tenantId,
+        orgId: input.orgId,
+        agentId: input.agentId,
+        projectId: input.projectId,
+        type: "event",
+        content: `Plan anterior '${archived.title}' archivado automáticamente al crear nuevo plan.`,
+        summary: `Plan archivado: ${archived.title}`,
+        importanceScore: 2,
+        tags: ["plan", "archived", `plan:${archived.id}`],
+      }).catch(() => undefined);
+    }
     const created = await this.workPlans.create({
       tenantId: input.tenantId,
       orgId: input.orgId,
