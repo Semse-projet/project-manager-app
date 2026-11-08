@@ -189,7 +189,7 @@ date: "2026-10-30"
 
 ## Datos salariales metropolitanos verificables — 6-nov-2026
 
-- [x] **Tests T-005 del parser integrados en suite existente**: ocho pruebas sintéticas en `test_oews_coverage.py` invocadas por `tests/unit/oews-research-contract.test.mjs` desde `pnpm test:unit`, sin workflow nuevo ni fuentes privadas. Controlan ZIP ambiguos, archivo XLSX ausente, supresión y referencia sin fecha comprobada; **la aprobación del CI para el HEAD es una evidencia aparte**.
+- [x] **Tests T-005 del parser integrados en suite existente**: nueve pruebas sintéticas en `test_oews_coverage.py` invocadas por `tests/unit/oews-research-contract.test.mjs` desde `pnpm test:unit`, sin workflow nuevo ni fuentes privadas. Controlan ZIP ambiguos, archivo XLSX ausente, supresión y referencia sin fecha comprobada; **la aprobación del CI para el HEAD es una evidencia aparte**.
 - [x] **Aislamiento de dimensiones en parser de investigación**: filtros por `AREA_TYPE` estatal (2), metro/no metro (4/6), `NAICS=000000`, `I_GROUP=cross-industry`, `OWN_CODE=1235`, `O_GROUP=detailed` cuando los campos están presentes. Ocho tests sintéticos cubren rechazos; código/CI y datos oficiales son evidencias distintas.
 - [ ] **Asegurar esquema oficial completo**: verificar los cinco campos de scope en los ZIP XLSX May 2025 y que `scope_fields_present=5`, además de edición, ruta interna, supresiones y cobertura real. Un CSV sintético sin scope no equivale a verificación del release.
 - [ ] **Validación de archivos oficiales**: obtener state/metro May 2025 desde BLS, verificar contenido/edición externa y hash, comprobar cantidad real de áreas y salarios por SOC y documentar celdas sin datos; hasta entonces `release_verified=false` y **sin cobertura nacional acreditada**.
