@@ -110,13 +110,40 @@ function readLock(root,diagnostics) {
       continue;
     }
     m=line.match(/^ {8}(specifier|version):\s*(.*?)\s*$/);
-    if(m&&group&&dep&&output.has(importer))output.get(importer).get(group+"\u0000"+dep)[m[1]]=unquote(m[2]);
+    if(m&&group&&dep&&output.has(importer)) {
+      const entry=output.get(importer).get(group+"\u0000"+dep);
+      if(Object.hasOwn(entry,m[1])) fail("Duplicate lockfile "+m[1]+": "+importer+"/"+group+"/"+dep);
+      entry[m[1]]=unquote(m[2]);
+    }
   }
   if(!active)fail("Missing pnpm lockfile importers");
   return {importers:output,overrides};
 }
 function safeSpecifier(value) {
   return typeof value === "string" && (value.includes("://") || /(?:git@|\S+:[^@\s]+@)/i.test(value)) ? "[REDACTED]" : value;
+}
+
+// F1 deliberately supports only simple deterministic SemVer constraints.
+// Unsupported/complex syntax is UNVERIFIED, never assumed compatible.
+// This is not a replacement for a full npm semver resolver.
+function simpleSemverCompatible(range,version) {
+  const m=/^(\^|~)?(\d+)(?:\.(\d+))?(?:\.(\d+))?$/.exec(range);
+  const v=/^(\d+)\.(\d+)\.(\d+)$/.exec(version);
+  if(!m||!v)return null;
+  const target=[Number(v[1]),Number(v[2]),Number(v[3])];
+  const major=Number(m[2]), minor=Number(m[3]??0), patch=Number(m[4]??0);
+  if(![...target,major,minor,patch].every(Number.isSafeInteger))return null;
+  const low=[major,minor,patch];
+  const upper=m[1]==="^"
+    ? (major>0 ? [major+1,0,0]
+      : m[3]===undefined ? [1,0,0]
+      : minor>0 ? [0,minor+1,0]
+      : m[4]===undefined ? [0,1,0]
+      : [0,0,patch+1])
+    : m[3]===undefined ? [major+1,0,0] : [major,minor+1,0];
+  const compare=(a,b)=>a[0]-b[0]||a[1]-b[1]||a[2]-b[2];
+  if(!m[1]&&m[4]!==undefined)return compare(target,low)===0;
+  return compare(target,low)>=0 && compare(target,upper)<0;
 }
 function resolution(lock,importer,group,name,range) {
   const unknown={lockSpecifier:null,resolvedReference:null,resolvedVersion:null,resolutionStatus:"UNVERIFIED"};
@@ -130,7 +157,13 @@ function resolution(lock,importer,group,name,range) {
   if(safeSpecifier(ref)==="[REDACTED]") return {...unknown,lockSpecifier:safeSpecifier(x.specifier),resolvedReference:"[REDACTED]"};
   if(ref.startsWith("link:")||ref.startsWith("workspace:"))return {...unknown,lockSpecifier:safeSpecifier(x.specifier),resolvedReference:ref,resolutionStatus:"LOCAL_LINK"};
   if(!/^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?(?:\(.+\))?$/.test(ref))return {...unknown,lockSpecifier:safeSpecifier(x.specifier),resolvedReference:ref};
-  return {lockSpecifier:safeSpecifier(x.specifier),resolvedReference:ref,resolvedVersion:ref.split("(")[0],resolutionStatus:overrideApplied?"OVERRIDE_APPLIED":"RESOLVED"};
+  const resolvedVersion=ref.split("(")[0];
+  if(!overrideApplied) {
+    const compatible=simpleSemverCompatible(range,resolvedVersion);
+    if(compatible===false)return {...unknown,lockSpecifier:safeSpecifier(x.specifier),resolutionStatus:"STALE_LOCKFILE"};
+    if(compatible===null)return {...unknown,lockSpecifier:safeSpecifier(x.specifier),resolvedReference:ref};
+  }
+  return {lockSpecifier:safeSpecifier(x.specifier),resolvedReference:ref,resolvedVersion,resolutionStatus:overrideApplied?"OVERRIDE_APPLIED":"RESOLVED"};
 }
 function scanPython(root,patterns,diagnostics) {
   const pythonRequirements=[], sources=[];

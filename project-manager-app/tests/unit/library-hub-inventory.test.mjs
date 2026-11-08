@@ -250,3 +250,68 @@ test("pnpm scoped override is parsed without treating peer declarations as insta
   assert.equal(dep.resolutionStatus,"OVERRIDE_APPLIED");
   assert.equal(dep.resolvedVersion,"4.17.21");
 }));
+
+
+test("matching lock specifier never marks an incompatible resolved semver as RESOLVED", () => makeFixture(({root,write}) => {
+  base(write);
+  const file=path.join(root,"apps/web/package.json");
+  const manifest=JSON.parse(readFileSync(file,"utf8"));
+  manifest.dependencies.zod="^1.2.3";
+  write("apps/web/package.json",JSON.stringify(manifest));
+  let lock=readFileSync(path.join(root,"pnpm-lock.yaml"),"utf8")
+    .replace("specifier: ^3","specifier: ^1.2.3")
+    .replace("version: 3.25.3(peer@1)","version: 2.0.0");
+  write("pnpm-lock.yaml",lock);
+  let dep=inventoryRepository(root).dependencies.find(x=>x.manifest==="apps/web/package.json"&&x.name==="zod");
+  assert.equal(dep.resolutionStatus,"STALE_LOCKFILE");
+  assert.equal(dep.resolvedVersion,null);
+  assert.equal(dep.lockSpecifier,"^1.2.3");
+  write("pnpm-lock.yaml",lock.replace("version: 2.0.0","version: 1.9.2"));
+  dep=inventoryRepository(root).dependencies.find(x=>x.manifest==="apps/web/package.json"&&x.name==="zod");
+  assert.equal(dep.resolutionStatus,"RESOLVED");
+  assert.equal(dep.resolvedVersion,"1.9.2");
+}));
+
+test("simple zero-major caret bounds are checked conservatively", () => makeFixture(({root,write}) => {
+  base(write);
+  const file=path.join(root,"apps/web/package.json");
+  const manifest=JSON.parse(readFileSync(file,"utf8"));
+  manifest.dependencies.zod="^0.2.3";
+  write("apps/web/package.json",JSON.stringify(manifest));
+  let lock=readFileSync(path.join(root,"pnpm-lock.yaml"),"utf8")
+    .replace("specifier: ^3","specifier: ^0.2.3")
+    .replace("version: 3.25.3(peer@1)","version: 0.3.0");
+  write("pnpm-lock.yaml",lock);
+  let dep=inventoryRepository(root).dependencies.find(x=>x.manifest==="apps/web/package.json"&&x.name==="zod");
+  assert.equal(dep.resolutionStatus,"STALE_LOCKFILE");
+  write("pnpm-lock.yaml",lock.replace("version: 0.3.0","version: 0.2.9"));
+  dep=inventoryRepository(root).dependencies.find(x=>x.manifest==="apps/web/package.json"&&x.name==="zod");
+  assert.equal(dep.resolutionStatus,"RESOLVED");
+}));
+
+test("unsupported compound semver ranges remain UNVERIFIED, not RESOLVED", () => makeFixture(({root,write}) => {
+  base(write);
+  const file=path.join(root,"apps/web/package.json");
+  const manifest=JSON.parse(readFileSync(file,"utf8"));
+  manifest.dependencies.zod="^1.2.3 || ^2.0.0";
+  write("apps/web/package.json",JSON.stringify(manifest));
+  let lock=readFileSync(path.join(root,"pnpm-lock.yaml"),"utf8")
+    .replace("specifier: ^3","specifier: ^1.2.3 || ^2.0.0")
+    .replace("version: 3.25.3(peer@1)","version: 2.2.0");
+  write("pnpm-lock.yaml",lock);
+  const dep=inventoryRepository(root).dependencies.find(x=>x.manifest==="apps/web/package.json"&&x.name==="zod");
+  assert.equal(dep.resolutionStatus,"UNVERIFIED");
+  assert.equal(dep.resolvedVersion,null);
+  assert.equal(dep.resolvedReference,"2.2.0");
+}));
+
+for(const field of ["specifier","version"]) {
+  test("duplicate pnpm lockfile "+field+" field is rejected instead of overwriting data", () => makeFixture(({root,write}) => {
+    base(write);
+    const lock=readFileSync(path.join(root,"pnpm-lock.yaml"),"utf8");
+    const anchor=field==="specifier" ? "specifier: ^3" : "version: 3.25.3(peer@1)";
+    const duplicate=field==="specifier" ? "specifier: ^4" : "version: 4.0.0";
+    write("pnpm-lock.yaml",lock.replace(anchor,anchor+"\n        "+duplicate));
+    assert.throws(()=>inventoryRepository(root),new RegExp("Duplicate lockfile "+field));
+  }));
+}
