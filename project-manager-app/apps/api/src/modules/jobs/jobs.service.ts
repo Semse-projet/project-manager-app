@@ -24,6 +24,7 @@ import { JobsRepository } from "./jobs.repository.js";
 import type { SemseAgentsService } from "../semse-agents/semse-agents.service.js";
 import type { NotificationsService } from "../notifications/notifications.service.js";
 import { sameOrg } from "../../common/resource-scope.js";
+import { normalizeRoles } from "../../common/rbac.js";
 
 @Injectable()
 export class JobsService {
@@ -991,7 +992,7 @@ export function jobClosureBlockers(
  * reservation, so only ops (an audited override) may use it for them.
  */
 export function assertNotReservationFlowTransition(fromStatus: JobStatus, targetStatus: JobStatus, roles: string[]): void {
-  if (roles.includes("OPS_ADMIN") || roles.includes("SYSTEM")) return;
+  if (normalizeRoles(roles).some((role) => role === "OPS_ADMIN" || role === "SYSTEM")) return;
   const reservationStep =
     targetStatus === "reserved" || targetStatus === "accepted" || (fromStatus === "reserved" && targetStatus === "posted");
   if (reservationStep) {
@@ -1007,7 +1008,7 @@ export function assertTransitionAuthorized(
   roles: string[],
   ownership: { clientOrgId: string; professionalOrgId: string | null }
 ): void {
-  if (roles.includes("OPS_ADMIN") || roles.includes("SYSTEM")) return;
+  if (normalizeRoles(roles).some((role) => role === "OPS_ADMIN" || role === "SYSTEM")) return;
 
   if (CLIENT_ONLY_TRANSITIONS.includes(targetStatus)) {
     if (!sameOrg(actorOrgId, ownership.clientOrgId)) {
