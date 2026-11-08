@@ -40,7 +40,7 @@ Los oficios de SEMSE son **categorías de servicios/proyectos**, y los SOC son *
 | `hvac` | 49-9021 / 47-2211 / 47-2111 | HVAC, ductería, electricidad |
 | `insulation` | 47-2131 / 47-2132 | arquitectónica vs mecánica |
 | `kitchen` | 47-2031 / 47-2152 / 47-2111 / 47-2044 | proyecto multi-oficio |
-| `labor` | 47-2061 / 47-3010 (grupo) | ayudante vs oficial y horas productivas |
+| `labor` | 47-2061 | obrero de construcción; `47-3010` es grupo SOC amplio y queda fuera de cobertura detallada |
 | `landscaping` | 37-3011 / 37-3013 | mantenimiento y árboles |
 | `masonry` | 47-2021 / 47-2022 | bloque/ladrillo y piedra |
 | `painting` | 47-2141 | sustrato, preparación, manos, altura |

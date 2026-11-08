@@ -207,6 +207,22 @@ class OEWSTests(unittest.TestCase):
                 run(source, source, out)
             self.assertFalse(out.exists())
 
+
+    def test_broad_construction_helpers_soc_is_not_detailed_labor_coverage(self):
+        # BLS 2018 SOC classifies 47-3010 as BROAD, not detailed.
+        # A detailed labor reference must not demand an impossible broad row.
+        from oews_coverage import SOC, coverage
+        self.assertEqual(SOC['labor'], ['47-2061'])
+        area_rows = {('FL', '47-2061'): {
+            'area_title': 'Florida', 'mean': '27', 'median': '25',
+            'p25': '20', 'p75': '30',
+        }}
+        labor = next(row for row in coverage(area_rows, 'state')
+                     if row[1] == 'FL' and row[3] == 'labor')
+        self.assertEqual(labor[4], 1)
+        self.assertEqual(labor[5], 1)
+        self.assertEqual(labor[7], 'ALL_REFERENCE_WAGES_PRESENT')
+
     def test_duplicate_header_fields_fail_before_wage_selection(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "state.csv"

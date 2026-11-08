@@ -159,6 +159,9 @@ date: "2026-10-30"
 
 ## Modelo operativo nacional SOC/geo (6-nov-2026)
 
+- [x] **Grupo `47-3010` excluido de OEWS detallado**: el [SOC 2018 oficial](https://www.bls.gov/soc/2018/major_groups.htm) clasifica `47-3010` como **broad**. Se quitó del candidato `labor` usado en cobertura referencial y quedó registrado en la [matriz de conciliación](./cost-engine.t005-soc-crosswalk-reconciliation-2026-11-07.md); no se aprobaron ayudantes por oficio ni nuevas tarifas. Test sintético asociado, pendiente de CI del HEAD.
+
+
 - [x] **Brecha SOC detectada y documentada**: [conciliación de los dos crosswalks y script OEWS](./cost-engine.t005-soc-crosswalk-reconciliation-2026-11-07.md): 14/24 discrepancias, 10/24 coincidencias de borradores, 0/24 oficios aprobados; no se ha elegido arbitrariamente una clasificación final.
 - [ ] **T-005x — cerrar mapeo con revisor de oficio**: clasificación detallada y roles, fuente BLS versionada, horas por tarea sin doble conteo y casos negativos. La documentación no equivale a aprobación de salarios, rentabilidad o activación.
 
@@ -189,7 +192,7 @@ date: "2026-10-30"
 
 ## Datos salariales metropolitanos verificables — 6-nov-2026
 
-- [x] **Tests T-005 del parser integrados en suite existente**: catorce pruebas sintéticas en `test_oews_coverage.py` invocadas por `tests/unit/oews-research-contract.test.mjs` desde `pnpm test:unit`, sin workflow nuevo ni fuentes privadas. Controlan ZIP ambiguos, archivo XLSX ausente, supresión y referencia sin fecha comprobada; **la aprobación del CI para el HEAD es una evidencia aparte**.
+- [x] **Tests T-005 del parser integrados en suite existente**: quince pruebas sintéticas en `test_oews_coverage.py` invocadas por `tests/unit/oews-research-contract.test.mjs` desde `pnpm test:unit`, sin workflow nuevo ni fuentes privadas. Controlan ZIP ambiguos, archivo XLSX ausente, supresión y referencia sin fecha comprobada; **la aprobación del CI para el HEAD es una evidencia aparte**.
 - [x] **Aislamiento de dimensiones en parser de investigación**: filtros por `AREA_TYPE` estatal (2), metro/no metro (4/6), `NAICS=000000`, `I_GROUP=cross-industry`, `OWN_CODE=1235`, `O_GROUP=detailed` cuando los campos están presentes. Ocho tests sintéticos cubren rechazos; código/CI y datos oficiales son evidencias distintas.
 - [ ] **Asegurar esquema oficial completo**: verificar los cinco campos de scope en los ZIP XLSX May 2025 y que `scope_fields_present=5`, además de edición, ruta interna, supresiones y cobertura real. Un CSV sintético sin scope no equivale a verificación del release.
 - [ ] **Validación de archivos oficiales**: obtener state/metro May 2025 desde BLS, verificar contenido/edición externa y hash, comprobar cantidad real de áreas y salarios por SOC y documentar celdas sin datos; hasta entonces `release_verified=false` y **sin cobertura nacional acreditada**.

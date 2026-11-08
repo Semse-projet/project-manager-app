@@ -27,7 +27,7 @@ Se compararon las 24 filas de dos borradores T-005 y el diccionario SOC del scri
 | `hvac` | `47-2111`, `47-2211`, `49-9021` | `47-2211`, `49-9021` | CONFLICTO | Electricista adicional según interconexión |
 | `insulation` | `47-2131`, `47-2132` | `47-2131`, `47-2132` | COINCIDENCIA DE BORRADORES | Aprobar clasificación por actividad; sin tarifa automática |
 | `kitchen` | `47-2031`, `47-2044`, `47-2111`, `47-2152` | `47-2031`, `47-2044`, `47-2111`, `47-2152` | COINCIDENCIA DE BORRADORES | Aprobar clasificación por actividad; sin tarifa automática |
-| `labor` | `47-2061`, `47-3010` | `47-1011`, `47-2061` | CONFLICTO | Grupo SOC 47-3010 frente a supervisión 47-1011; evitar equivalencia de detalle |
+| `labor` | `47-2061` | `47-1011`, `47-2061` | CONFLICTO | `47-3010` (grupo amplio) excluido del parser detallado conforme SOC 2018; `47-1011` supervisor sigue pendiente de revisión por tarea |
 | `landscaping` | `37-3011`, `37-3013` | `37-1012`, `37-3011` | CONFLICTO | Poda arbórea especializada frente a supervisión |
 | `masonry` | `47-2021`, `47-2022` | `47-2021`, `47-2022` | COINCIDENCIA DE BORRADORES | Aprobar clasificación por actividad; sin tarifa automática |
 | `painting` | `47-2141` | `47-2141`, `47-3014` | CONFLICTO | Pintor frente a ayudante de pintura |
