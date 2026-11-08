@@ -11,6 +11,7 @@ from xml.sax.saxutils import escape
 from oews_coverage import read_oews, run, parse_wage
 
 HEADER = ["AREA", "AREA_TITLE", "OCC_CODE", "H_MEAN", "H_MEDIAN", "H_PCT25", "H_PCT75"]
+SCOPED_HEADER = HEADER + ["AREA_TYPE", "NAICS", "I_GROUP", "OWN_CODE", "O_GROUP"]
 
 
 def write_csv(path, rows):
@@ -97,6 +98,66 @@ class OEWSTests(unittest.TestCase):
                 archive.writestr("README.txt", "synthetic-only")
             with self.assertRaisesRegex(ValueError, "Expected an XLSX"):
                 list(records(path))
+
+    def test_state_scope_filters_other_area_industries_ownership_and_group(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "oesm25st.csv"
+            baseline = ["12", "Florida", "47-2141", "29", "25", "20", "31",
+                        "2", "000000", "cross-industry", "1235", "detailed"]
+            samples = [
+                baseline,
+                baseline[:7] + ["4", "000000", "cross-industry", "1235", "detailed"],
+                baseline[:7] + ["2", "238000", "3-digit", "5", "detailed"],
+                baseline[:7] + ["2", "000000", "sector", "1235", "detailed"],
+                baseline[:7] + ["2", "000000", "cross-industry", "5", "detailed"],
+                baseline[:7] + ["2", "000000", "cross-industry", "1235", "major"],
+                ["13", "Georgia", "47-2141", "27", "24", "20", "31",
+                 "2", "000000", "cross-industry", "1235", "detailed"],
+            ]
+            with path.open("w", newline="", encoding="utf-8") as f:
+                writer = csv.writer(f)
+                writer.writerow(SCOPED_HEADER)
+                writer.writerows(samples)
+            records, meta = read_oews(path, "state")
+            self.assertEqual(len(records), 2)
+            self.assertEqual(records[("FL", "47-2141")]["median"], "25")
+            self.assertEqual(records[("GA", "47-2141")]["median"], "24")
+            self.assertEqual(meta["scope_fields_present"], 5)
+            self.assertEqual(meta["skipped_wrong_geography"], 1)
+            self.assertEqual(meta["skipped_non_cross_industry"], 2)
+            self.assertEqual(meta["skipped_ownership_scope"], 1)
+            self.assertEqual(meta["skipped_non_detailed_occupation"], 1)
+
+    def test_metro_accepts_types_four_and_six_not_state_or_national(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "oesm25ma.csv"
+            with path.open("w", newline="", encoding="utf-8") as f:
+                writer = csv.writer(f)
+                writer.writerow(SCOPED_HEADER)
+                writer.writerows([
+                    ["33100", "Miami-Fort Lauderdale-West Palm Beach, FL", "47-2141",
+                     "30", "27", "22", "36", "4", "000000", "cross-industry", "1235", "detailed"],
+                    ["1200004", "North Florida nonmetropolitan area", "47-2141",
+                     "26", "23", "18", "31", "6", "000000", "cross-industry", "1235", "detailed"],
+                    ["33100", "Miami-Fort Lauderdale-West Palm Beach, FL", "47-2141",
+                     "30", "99", "22", "36", "2", "000000", "cross-industry", "1235", "detailed"],
+                ])
+            records, meta = read_oews(path, "metro")
+            self.assertEqual(len(records), 2)
+            self.assertEqual(records[("33100", "47-2141")]["median"], "27")
+            self.assertEqual(records[("1200004", "47-2141")]["median"], "23")
+            self.assertEqual(meta["skipped_wrong_geography"], 1)
+
+    def test_wrong_only_geography_fails_closed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "oesm25st.csv"
+            with path.open("w", newline="", encoding="utf-8") as f:
+                writer = csv.writer(f)
+                writer.writerow(SCOPED_HEADER)
+                writer.writerow(["12", "Florida", "47-2141", "29", "25", "20", "31",
+                                 "4", "000000", "cross-industry", "1235", "detailed"])
+            with self.assertRaisesRegex(ValueError, "No valid state rows"):
+                read_oews(path, "state")
 
     def test_duplicate_area_soc_fails_closed(self):
         with tempfile.TemporaryDirectory() as directory:
