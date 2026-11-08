@@ -170,7 +170,7 @@ export class VoiceStudioBatchClient {
   constructor(private readonly config: VoiceStudioConfiguration) {
     // Defense in depth: direct construction must not bypass the resolver. D4/D5
     // require a separately approved production implementation and policy.
-    if (productionEnvironment(process.env)) throw new VoiceStudioGatewayError("VOICE_PRODUCTION_ACTIVATION_BLOCKED");
+    assertVoiceStudioRuntimeEnabled(process.env);
     this.origin = fixedOrigin(config);
     this.apiKey = nonempty(config.apiKey, "VOICE_API_KEY_NOT_CONFIGURED");
     this.transport = config.fetchImpl ?? fetch;
@@ -178,6 +178,8 @@ export class VoiceStudioBatchClient {
   }
 
   private async post(path: "/v1/audio/transcriptions" | "/v1/audio/speech", body: BodyInit, contentType?: string): Promise<Response> {
+    // Keep the kill switch authoritative even if flags change after construction.
+    assertVoiceStudioRuntimeEnabled(process.env);
     // A signal with its own lifetime also protects slow streaming bodies:
     // clearing a timer immediately after fetch headers would leave reads open.
     const signal = AbortSignal.timeout(this.duration);
@@ -290,11 +292,18 @@ function productionEnvironment(env: NodeJS.ProcessEnv): boolean {
     env.SEMSE_VOICESTUDIO_STAGING_NODE_ENV_OK === "true");
 }
 
-export function resolveVoiceStudioDevConfiguration(env: NodeJS.ProcessEnv = process.env): VoiceStudioConfiguration {
+/** Shared runtime gate: the resolver, direct constructors and outbound calls all
+ * require explicit enablement. A staging marker cannot bypass either flag.
+ */
+function assertVoiceStudioRuntimeEnabled(env: NodeJS.ProcessEnv): void {
   if (productionEnvironment(env)) throw new VoiceStudioGatewayError("VOICE_PRODUCTION_ACTIVATION_BLOCKED");
   if (env.SEMSE_VOICE_ENABLED !== "true" || env.SEMSE_VOICESTUDIO_DEV_ENABLED !== "true") {
     throw new VoiceStudioGatewayError("VOICE_FEATURE_DISABLED");
   }
+}
+
+export function resolveVoiceStudioDevConfiguration(env: NodeJS.ProcessEnv = process.env): VoiceStudioConfiguration {
+  assertVoiceStudioRuntimeEnabled(env);
   const baseUrl = nonempty(env.SEMSE_VOICESTUDIO_BASE_URL, "VOICE_CONFIG_NOT_CONFIGURED");
   const apiKey = nonempty(env.SEMSE_VOICESTUDIO_API_KEY, "VOICE_API_KEY_NOT_CONFIGURED");
   const config: VoiceStudioConfiguration = {
