@@ -336,6 +336,53 @@ export class AgentsRepository {
       throw new ConflictException("run reached max attempts and is dead-lettered");
     }
 
+    // In durable mode, serialise with the effects consumer on AgentRun.
+    // A retry before the old generation's receipt is COMMITTED would cause
+    // the consumer to observe the wrong status and lose terminal effects.
+    if (isAgentRunFinalizationOutboxEnabled()) {
+      return this.prisma.$transaction(async tx => {
+        await tx.$queryRaw(Prisma.sql`
+          SELECT "id" FROM "AgentRun"
+          WHERE "id"=${run.id} AND "tenantId"=${input.tenantId} FOR UPDATE
+        `);
+        const current = await tx.agentRun.findFirst({
+          where: { id: run.id, tenantId: input.tenantId }
+        });
+        if (!current || current.status === "RUNNING") {
+          throw new ConflictException("run changed during retry");
+        }
+        if (current.deadLettered || current.attempts >= current.maxAttempts) {
+          throw new ConflictException("run reached max attempts");
+        }
+        const pending = await tx.domainOutboxEvent.findFirst({
+          where: {
+            tenantId: input.tenantId, entityType: "AgentRun", entityId: run.id,
+            eventType: "agent.run.finalized.v1",
+            consumptions: { none: {
+              consumerName: "agent-run-effects.v1", status: "COMPLETED"
+            } },
+          },
+          select: { eventId: true },
+        });
+        if (pending) throw new ConflictException("prior terminal effects not yet recovered");
+        const updated = await tx.agentRun.updateMany({
+          where: {
+            id: run.id, tenantId: input.tenantId, status: current.status,
+            attempts: current.attempts,
+          },
+          data: {
+            status: "QUEUED", workerId: null, error: null,
+            startedAt: null, endedAt: null, heartbeatAt: null,
+          },
+        });
+        if (updated.count !== 1) throw new ConflictException("run changed during retry");
+        const saved = await tx.agentRun.findFirst({
+          where: { id: run.id, tenantId: input.tenantId },
+        });
+        if (!saved) throw new ConflictException("run unavailable after retry");
+        return this.toRecord(saved as StoredAgentRun);
+      });
+    }
     const updated = (await this.prisma.agentRun.update({
       where: { id: run.id },
       data: {

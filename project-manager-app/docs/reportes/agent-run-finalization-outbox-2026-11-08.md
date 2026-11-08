@@ -25,11 +25,14 @@ service principal, type+consumer allowlists and dispatcher/worker kill switches:
   SEMSE_EVENT_TYPE_ALLOWLIST must include agent.run.finalized.v1
   SEMSE_EVENT_CONSUMER_ALLOWLIST must include agent-run-effects.v1
 
-**Open questions:** an AgentRun can be re-queued before a previous event is
-consumed; the consumer intentionally rejects mismatched attempt/status rather
-than apply effects to a wrong generation. This race MUST be closed before
-activation. SSE broadcasts remain best effort. External tool effects are not
-covered by database transaction and are not exactly-once.
+**Retry ordering:** while opt-in mode is active, retry obtains an AgentRun row
+lock and rejects a retry if a terminal outbox event lacks a COMPLETED consumer
+receipt. The consumer also locks the AgentRun row before applying effects.
+Both sides must be validated with real concurrent PostgreSQL transactions.
+If the flag is reverted with outstanding events, draining/quarantining events
+and preventing replays must be included in the operational rollback. SSE
+broadcasts remain best effort. External tool effects are not covered by the
+database transaction and are not exactly-once.
 
 **Decision:** keep flag OFF, PR DRAFT. Do not merge or deploy without
 independent review, tests and DEC-PLATFORM-001 level 2 gates.

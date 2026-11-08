@@ -97,6 +97,11 @@ export class AgentRunFinalizationConsumer {
       if (!receipt) throw new Error("No agent effects receipt");
       if (receipt.status === "COMPLETED") return { ...(receipt.resultJson as Result), duplicate: true };
       if (receipt.status === "DEAD_LETTER") throw new Error("Agent effects receipt dead-lettered");
+      // Lock the source generation to serialise against AgentRun.retry.
+      await tx.$queryRaw(PrismaRuntime.sql`
+        SELECT "id" FROM "AgentRun"
+        WHERE "id"=${event.payload.runId} AND "tenantId"=${event.tenantId} FOR UPDATE
+      `);
       const run = await tx.agentRun.findFirst({where:{id:event.payload.runId,tenantId:event.tenantId}});
       if (!run || run.status !== event.payload.terminalStatus ||
           run.attempts !== event.payload.attempts || run.correlationId !== event.correlationId) {
