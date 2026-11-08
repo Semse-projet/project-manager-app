@@ -12,6 +12,7 @@ import { DomainEventsRepository } from "./domain-events.repository.js";
 import { DomainEventsService } from "./domain-events.service.js";
 import { DomainEventBus } from "./domain-event-bus.service.js";
 import { OutboxRepository } from "./outbox.repository.js";
+import { AgentRunFinalizationConsumer } from "./agent-run-finalization.consumer.js";
 import { OutboxDispatcherService } from "./outbox-dispatcher.service.js";
 import { OutboxOpsService } from "./outbox-ops.service.js";
 import { ProjectLifecycleProjectionEventProducer } from "./project-lifecycle-projection-event-producer.service.js";
@@ -37,6 +38,7 @@ import { SatelliteWebhooksService } from "../satellites/satellite-webhooks.servi
     DomainEventBus,
     AgentTriggerRouter,
     OutboxRepository,
+    AgentRunFinalizationConsumer,
     OutboxDispatcherService,
     OutboxOpsService,
     ProjectLifecycleProjectionEventProducer,
