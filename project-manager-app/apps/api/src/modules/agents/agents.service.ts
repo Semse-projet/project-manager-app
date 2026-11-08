@@ -375,6 +375,10 @@ export class AgentsService {
     return run;
   }
 
+  // Recovery cursor is an optimization only. On restart scanning begins at
+  // the first run; queue delivery is always idempotent by (tenantId, runId).
+  private readonly queuedDeliveryCursor = new Map<string, string>();
+
   async reclaimStale(input: {
     tenantId: string;
     orgId: string;
@@ -384,6 +388,39 @@ export class AgentsService {
     requestId: string;
   }) {
     const reclaimed = await this.agentsRepository.reclaimStale(input);
+
+    // A reclaimed run can be persisted as QUEUED even if this process loses
+    // the response or crashes before enqueueing it. Every scheduled sweep
+    // therefore reconciles a different bounded page of QUEUED runs, not
+    // merely those changed by this particular reclaim call.
+    const maxItems = Math.max(1, Math.min(input.maxItems ?? 20, 20));
+    const cursor = this.queuedDeliveryCursor.get(input.tenantId);
+    let queued = await this.agentsRepository.listQueuedForDelivery({
+      ...input, afterRunId: cursor, maxItems,
+    });
+    if (queued.length === 0 && cursor) {
+      this.queuedDeliveryCursor.delete(input.tenantId);
+      queued = await this.agentsRepository.listQueuedForDelivery({ ...input, maxItems });
+    }
+    if (queued.length > 0) {
+      this.queuedDeliveryCursor.set(input.tenantId, queued[queued.length - 1]!.id);
+    }
+    let queueReconciled = 0;
+    let queueBlocked = 0;
+    for (const run of queued) {
+      if (run.attempts >= run.maxAttempts) continue;
+      try {
+        const receipt = await this.agentQueueService.enqueueRun({
+          runId: run.id, tenantId: run.tenantId,
+          agentType: run.agentType, correlationId: run.correlationId,
+        }, { mode: "retry" });
+        if (receipt.enqueued) queueReconciled++;
+        else queueBlocked++;
+      } catch {
+        // Keep the DB source of truth QUEUED and retry on a later sweep.
+        queueBlocked++;
+      }
+    }
 
     if (reclaimed.length > 0) {
       await this.auditService.append({
@@ -401,6 +438,9 @@ export class AgentsService {
     return {
       reclaimedCount: reclaimed.length,
       deadLetteredCount: reclaimed.filter((entry) => entry.deadLettered).length,
+      queuedDeliveryScanned: queued.length,
+      queuedDeliveryReconciled: queueReconciled,
+      queuedDeliveryBlocked: queueBlocked,
       runs: reclaimed
     };
   }

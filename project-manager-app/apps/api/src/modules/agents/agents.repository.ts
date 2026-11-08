@@ -221,6 +221,30 @@ export class AgentsRepository {
     });
   }
 
+  /**
+   * Bounded, tenant-scoped projection used to reconcile QUEUED persistence
+   * against BullMQ on every recovery sweep, including after a process crash
+   * between a successful DB transaction and queue delivery.
+   * Lexical cursor allows fair traversal without an unbounded response.
+   */
+  async listQueuedForDelivery(input: {
+    tenantId: string; orgId: string; userId: string;
+    afterRunId?: string; maxItems: number;
+  }): Promise<AgentRunRecord[]> {
+    await this.actorContextService.ensureActorContext(input);
+    const rows = (await this.prisma.agentRun.findMany({
+      where: {
+        tenantId: input.tenantId,
+        status: "QUEUED",
+        deadLettered: false,
+        ...(input.afterRunId ? { id: { gt: input.afterRunId } } : {}),
+      },
+      orderBy: { id: "asc" },
+      take: Math.max(1, Math.min(20, input.maxItems)),
+    })) as StoredAgentRun[];
+    return rows.map((run) => this.toRecord(run));
+  }
+
   async reclaimStale(input: {
     tenantId: string;
     orgId: string;
