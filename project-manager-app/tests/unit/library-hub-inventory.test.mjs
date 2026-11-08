@@ -332,3 +332,34 @@ test("global override cannot certify incompatible locked version", () => makeFix
   assert.equal(dep.resolutionStatus,"OVERRIDE_APPLIED");
   assert.equal(dep.resolvedVersion,"4.1.12");
 }));
+
+
+test("leading-zero semver range is UNVERIFIED instead of falsely RESOLVED", () => makeFixture(({root,write}) => {
+  base(write);
+  const manifestPath=path.join(root,"apps/web/package.json");
+  const manifest=JSON.parse(readFileSync(manifestPath,"utf8"));
+  manifest.dependencies.zod="^01.2.3";
+  write("apps/web/package.json",JSON.stringify(manifest));
+  const lock=readFileSync(path.join(root,"pnpm-lock.yaml"),"utf8")
+    .replace("specifier: ^3","specifier: ^01.2.3")
+    .replace("version: 3.25.3(peer@1)","version: 1.2.3");
+  write("pnpm-lock.yaml",lock);
+  const dep=inventoryRepository(root).dependencies.find(x=>x.name==="zod"&&x.manifest==="apps/web/package.json");
+  assert.equal(dep.resolutionStatus,"UNVERIFIED");
+  assert.equal(dep.resolvedVersion,null);
+}));
+
+test("leading-zero resolved semver is UNVERIFIED even with valid requested range", () => makeFixture(({root,write}) => {
+  base(write);
+  const manifestPath=path.join(root,"apps/web/package.json");
+  const manifest=JSON.parse(readFileSync(manifestPath,"utf8"));
+  manifest.dependencies.zod="^1.2.3";
+  write("apps/web/package.json",JSON.stringify(manifest));
+  const lock=readFileSync(path.join(root,"pnpm-lock.yaml"),"utf8")
+    .replace("specifier: ^3","specifier: ^1.2.3")
+    .replace("version: 3.25.3(peer@1)","version: 01.2.3");
+  write("pnpm-lock.yaml",lock);
+  const dep=inventoryRepository(root).dependencies.find(x=>x.name==="zod"&&x.manifest==="apps/web/package.json");
+  assert.equal(dep.resolutionStatus,"UNVERIFIED");
+  assert.equal(dep.resolvedVersion,null);
+}));

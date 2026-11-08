@@ -127,8 +127,9 @@ function safeSpecifier(value) {
 // Unsupported/complex syntax is UNVERIFIED, never assumed compatible.
 // This is not a replacement for a full npm semver resolver.
 function simpleSemverCompatible(range,version) {
-  const m=/^(\^|~)?(\d+)(?:\.(\d+))?(?:\.(\d+))?$/.exec(range);
-  const v=/^(\d+)\.(\d+)\.(\d+)$/.exec(version);
+  // SemVer forbids leading zeros in each numeric identifier (01.2.3 is invalid).
+  const m=/^(\^|~)?(0|[1-9]\d*)(?:\.(0|[1-9]\d*))?(?:\.(0|[1-9]\d*))?$/.exec(range);
+  const v=/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.exec(version);
   if(!m||!v)return null;
   const target=[Number(v[1]),Number(v[2]),Number(v[3])];
   const major=Number(m[2]), minor=Number(m[3]??0), patch=Number(m[4]??0);
