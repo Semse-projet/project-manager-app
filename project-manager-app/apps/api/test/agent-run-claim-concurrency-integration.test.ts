@@ -111,4 +111,91 @@ dbTest("PostgreSQL CAS: an exhausted attempt budget is never re-claimed", async 
   }
 });
 
+
+dbTest("PostgreSQL fencing: stale worker heartbeat, completion and failure cannot close a reclaimed attempt", async () => {
+  const f = await fixture();
+  const base = { tenantId: f.tenantId, orgId: "org_test", userId: "user_test", runId: f.run.id };
+  try {
+    const first = await repository.start({ ...base, workerId: "worker_A", expectedAttempts: 0 });
+    assert.equal(first.status, "running");
+    assert.equal(first.attempts, 1);
+    assert.equal(first.workerId, "worker_A");
+
+    // Reclaim is only simulated here; reclaimStale is independently tested.
+    await prisma.agentRun.update({
+      where: { id: f.run.id },
+      data: { status: "QUEUED", workerId: null, heartbeatAt: null },
+    });
+    const current = await repository.start({ ...base, workerId: "worker_A", expectedAttempts: 1 });
+    assert.equal(current.attempts, 2, "reclaimed attempt has a different generation");
+
+    await assert.rejects(
+      repository.heartbeat({ ...base, workerId: "worker_A", expectedAttempts: 1 }),
+      (error: unknown) => (error as any)?.getStatus?.() === 409,
+    );
+    await assert.rejects(
+      repository.complete({ ...base, workerId: "worker_A", expectedAttempts: 1, output: { summary: "stale" } }),
+      (error: unknown) => (error as any)?.getStatus?.() === 409,
+    );
+    await assert.rejects(
+      repository.fail({ ...base, workerId: "worker_A", expectedAttempts: 1, error: "stale worker failed" }),
+      (error: unknown) => (error as any)?.getStatus?.() === 409,
+    );
+
+    const unchanged = await prisma.agentRun.findUniqueOrThrow({ where: { id: f.run.id } });
+    assert.equal(unchanged.status, "RUNNING");
+    assert.equal(unchanged.attempts, 2);
+    assert.equal(unchanged.error, null);
+    assert.equal(unchanged.outputJson, null);
+
+    await repository.heartbeat({ ...base, workerId: "worker_A", expectedAttempts: 2 });
+    const finished = await repository.complete({
+      ...base, workerId: "worker_A", expectedAttempts: 2, output: { summary: "valid" },
+    });
+    assert.equal(finished.status, "completed");
+    await assert.rejects(
+      repository.complete({ ...base, workerId: "worker_A", expectedAttempts: 1, output: { summary: "obsolete" } }),
+      (error: unknown) => (error as any)?.getStatus?.() === 409,
+    );
+  } finally {
+    await f.cleanup();
+  }
+});
+
+dbTest("PostgreSQL fencing: two direct starts on the same queued run cannot both succeed", async () => {
+  const f = await fixture();
+  const input = { tenantId: f.tenantId, orgId: "org_test", userId: "user_test", runId: f.run.id };
+  try {
+    const results = await Promise.allSettled([
+      repository.start({ ...input, workerId: "worker_A", expectedAttempts: 0 }),
+      repository.start({ ...input, workerId: "worker_B", expectedAttempts: 0 }),
+    ]);
+    assert.equal(results.filter((r) => r.status === "fulfilled").length, 1);
+    for (const r of results) {
+      if (r.status === "rejected") assert.equal(r.reason?.getStatus?.(), 409);
+    }
+    const saved = await prisma.agentRun.findUniqueOrThrow({ where: { id: f.run.id } });
+    assert.equal(saved.status, "RUNNING");
+    assert.equal(saved.attempts, 1);
+    assert.ok(["worker_A", "worker_B"].includes(saved.workerId ?? ""));
+  } finally {
+    await f.cleanup();
+  }
+});
+
+dbTest("PostgreSQL fencing: legacy manual start and completion remain supported for unowned runs", async () => {
+  const f = await fixture();
+  const input = { tenantId: f.tenantId, orgId: "org_test", userId: "user_test", runId: f.run.id };
+  try {
+    const started = await repository.start(input);
+    assert.equal(started.status, "running");
+    assert.equal(started.workerId, undefined);
+    const finished = await repository.complete({ ...input, output: { summary: "manual authorized action" } });
+    assert.equal(finished.status, "completed");
+    assert.equal(finished.attempts, 1);
+  } finally {
+    await f.cleanup();
+  }
+});
+
 test.after(async () => { await prisma.$disconnect(); });
