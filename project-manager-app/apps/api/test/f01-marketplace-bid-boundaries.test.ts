@@ -192,6 +192,7 @@ test("F01-A03 accept winner rejects competitors and assigns project in one repos
     async $transaction(callback: (tx: Record<string, any>) => Promise<unknown>) {
       txCount += 1;
       const tx = {
+        $queryRaw: async () => [{ status: jobStatus }],
         jobReservation: {
           async findFirst() { return null; },
           async create({ data }: { data: Record<string, any> }) {
