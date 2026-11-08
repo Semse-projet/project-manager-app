@@ -184,6 +184,29 @@ class OEWSTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "No valid state rows"):
                 read_oews(path, "state")
 
+    def test_output_directory_must_be_new_and_preserves_prior_files(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            state, metro, out = root / "state.csv", root / "metro.csv", root / "result"
+            write_csv(state, [["12", "Florida", "47-2141", "29", "25", "20", "31"]])
+            write_csv(metro, [["33100", "Miami, FL", "47-2141", "29", "25", "20", "31"]])
+            out.mkdir()
+            sentinel = out / "manifest.json"
+            sentinel.write_text('{"previous_run": true}', encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "output directory must be empty"):
+                run(state, metro, out)
+            self.assertEqual(sentinel.read_text(encoding="utf-8"), '{"previous_run": true}')
+
+    def test_state_and_metro_paths_must_be_distinct(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "ambiguous.csv"
+            write_csv(source, [["12", "Florida", "47-2141", "29", "25", "20", "31"]])
+            out = root / "report"
+            with self.assertRaisesRegex(ValueError, "input paths must be distinct"):
+                run(source, source, out)
+            self.assertFalse(out.exists())
+
     def test_duplicate_header_fields_fail_before_wage_selection(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "state.csv"
