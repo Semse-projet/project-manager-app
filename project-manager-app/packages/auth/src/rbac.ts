@@ -117,6 +117,7 @@ export const rolePermissions: Record<string, string[]> = {
     "projects:financials:read",
     "agents:run:worker",
     "agents:run:manage",
+    "agents:run:execute",
     "agents:run:create",
     "matching:read",
     "governance:read",
@@ -146,6 +147,7 @@ export const rolePermissions: Record<string, string[]> = {
     "contributor-program:participate",
     "agents:run:worker",
     "agents:run:manage",
+    "agents:run:execute",
     "agents:run:create",
     "travel:manage",
     "bids:read",
@@ -180,7 +182,9 @@ export const rolePermissions: Record<string, string[]> = {
   // Separate machine-authority grant. Human WORKER and OPS_ADMIN roles must
   // never obtain an AgentRun claim capability from general management rights.
   AGENT_RUNNER: [
-    "agents:run:claim"
+    "agents:run:claim",
+    // Only the fenced AgentRun lifecycle endpoints, not global worker/management privileges.
+    "agents:run:execute"
   ],
   OPS_ADMIN: [
     "contributor-program:participate",
@@ -265,6 +269,7 @@ export const rolePermissions: Record<string, string[]> = {
     "agents:run:create",
     "agents:run:retry",
     "agents:run:manage",
+    "agents:run:execute",
     "agents:run:worker",
     "notifications:read",
     "finance:read",

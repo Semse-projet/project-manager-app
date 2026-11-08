@@ -493,7 +493,7 @@ export class AgentsController {
 
   @Post("runs/:runId/start")
   @SkipThrottle()
-  @RequirePermissions("agents:run:manage")
+  @RequirePermissions("agents:run:execute")
   async start(@Req() req: { headers?: Record<string, unknown> }, @Param("runId") runId: string, @Body() body: unknown) {
     const parsed = parseWithSchema(startRunSchema, body ?? {});
     const actor = resolveRequestContext(req);
@@ -526,7 +526,7 @@ export class AgentsController {
 
   @Post("runs/:runId/heartbeat")
   @SkipThrottle()
-  @RequirePermissions("agents:run:worker")
+  @RequirePermissions("agents:run:execute")
   async heartbeat(
     @Req() req: { headers?: Record<string, unknown> },
     @Param("runId") runId: string,
@@ -553,7 +553,7 @@ export class AgentsController {
 
   @Post("runs/:runId/complete")
   @SkipThrottle()
-  @RequirePermissions("agents:run:manage")
+  @RequirePermissions("agents:run:execute")
   async complete(
     @Req() req: { headers?: Record<string, unknown> },
     @Param("runId") runId: string,
@@ -578,7 +578,7 @@ export class AgentsController {
 
   @Post("runs/:runId/fail")
   @SkipThrottle()
-  @RequirePermissions("agents:run:manage")
+  @RequirePermissions("agents:run:execute")
   async fail(
     @Req() req: { headers?: Record<string, unknown> },
     @Param("runId") runId: string,
