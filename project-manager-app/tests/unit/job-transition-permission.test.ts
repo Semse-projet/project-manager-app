@@ -27,11 +27,12 @@ test("field workers, event consumers and the agro demo role cannot transition jo
   }
 });
 
-test("no role holds jobs:update while PATCH /v1/jobs/:jobId has no ownership check", () => {
-  // jobs.repository updateFields only filters by tenant: granting jobs:update to a
-  // client would let it edit other organizations' jobs in the same tenant.
+test("jobs:update stays ungranted here: the transition route no longer depends on it", () => {
+  // Editing a job (PATCH /v1/jobs/:jobId) and task status still use jobs:update.
+  // Granting it is a separate decision: JobsService.update gained an owner check in
+  // #1122, but nothing in this change grants or needs it.
   const holders = Object.entries(rolePermissions).filter(([, perms]) => perms.includes("jobs:update")).map(([role]) => role);
-  assert.deepEqual(holders, [], "add an ownership check to job updates before granting jobs:update");
+  assert.deepEqual(holders, [], "granting jobs:update is a separate, reviewed change");
 });
 
 test("the transition route is gated by jobs:transition, not jobs:update", () => {

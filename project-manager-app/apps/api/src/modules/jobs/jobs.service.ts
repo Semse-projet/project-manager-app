@@ -721,8 +721,8 @@ export class JobsService {
   /**
    * DOMAIN_INVARIANTS.md: a Job must not reach COMPLETED while its operational
    * and financial closure is open, nor CANCELLED after execution or with escrow it
-   * has no closing policy for; an open dispute blocks the final close. Applies to every manual
-   * transition, whoever asks (systemCompleteJob does not come through here).
+   * has no closing policy for; an open dispute blocks the final close. Applies to every
+   * transition, whoever asks, and to systemCompleteJob (always under the job row lock).
    */
   private async assertClosure(
     target: "completed" | "cancelled",
