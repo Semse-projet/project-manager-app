@@ -165,3 +165,14 @@ test("auto-completion follows the same closure rule and leaves an unsettled job 
   await settled.autoComplete();
   assert.deepEqual(settled.updates.map((u) => u.status), ["completed"]);
 });
+
+test("ADMIN alias follows OPS_ADMIN transition policy for a reservation override", async () => {
+  const ops = service({ from: "reserved" });
+  const result = await ops.transition("accepted", ["ADMIN"], "org_ops_1");
+  assert.equal(result.status, "accepted");
+  assert.deepEqual(ops.updates.map((change) => change.status), ["accepted"]);
+
+  const regular = service({ from: "reserved" });
+  await assert.rejects(regular.transition("accepted", ["CLIENT"], "org_client_1"), /reservation flow/);
+  assert.equal(regular.updates.length, 0);
+});
