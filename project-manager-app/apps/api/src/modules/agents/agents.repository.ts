@@ -4,6 +4,7 @@ import type { Prisma as PrismaTypes } from "@prisma/client";
 import { type AgentRunRecord } from "../../common/domain-store.js";
 import { ActorContextService } from "../../infrastructure/persistence/actor-context.service.js";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
+import { createAgentRunFinalizationEvent, isAgentRunFinalizationOutboxEnabled } from "./agent-run-finalization.policy.js";
 
 const { Prisma } = prismaClientPackage as typeof import("@prisma/client");
 
@@ -443,9 +444,51 @@ export class AgentsRepository {
     }
   }
 
+  /**
+   * In opt-in mode the state CAS and post-commit work receipt must share a
+   * PostgreSQL transaction. Without a consumer rollout flag stays OFF.
+   */
+  private async transitionToTerminal(
+    input: { tenantId: string; orgId: string; userId: string; requestId?: string },
+    run: StoredAgentRun,
+    status: "COMPLETED" | "FAILED",
+    mutation: PrismaTypes.AgentRunUpdateManyMutationInput,
+  ): Promise<void> {
+    const enabled = isAgentRunFinalizationOutboxEnabled();
+    const persist = async (db: AgentRunTx) => {
+      const changed = await db.agentRun.updateMany({
+        where: {
+          id: run.id, tenantId: input.tenantId,
+          status: "RUNNING", attempts: run.attempts, workerId: run.workerId,
+        },
+        data: mutation,
+      });
+      if (changed.count !== 1) throw new ConflictException("run ownership changed before terminal state");
+      if (!enabled) return;
+      const event = createAgentRunFinalizationEvent({
+        ...input, runId: run.id, attempts: run.attempts,
+        correlationId: run.correlationId, status,
+      });
+      await db.domainOutboxEvent.create({
+        data: {
+          eventId: event.eventId, eventType: event.eventType,
+          version: event.version, envelopeVersion: event.envelopeVersion,
+          tenantId: event.tenantId, orgId: event.orgId,
+          module: event.module, entityType: event.entityType, entityId: event.entityId,
+          actorType: event.actor.type, actorId: event.actor.id,
+          correlationId: event.correlationId, idempotencyKey: event.idempotencyKey,
+          schemaRef: event.schemaRef, payloadJson: event.payload,
+          occurredAt: new Date(event.occurredAt), recordedAt: new Date(event.recordedAt),
+        },
+      });
+    };
+    if (enabled) await this.prisma.$transaction(async tx => persist(tx as AgentRunTx));
+    else await persist(this.prisma as AgentRunTx);
+  }
+
   async complete(input: {
     tenantId: string; orgId: string; userId: string; runId: string;
-    output?: Record<string, unknown>; workerId?: string; expectedAttempts?: number;
+    output?: Record<string, unknown>; workerId?: string; expectedAttempts?: number; requestId?: string;
   }): Promise<AgentRunRecord> {
     await this.actorContextService.ensureActorContext(input);
     const run = await this.requireRun(input);
@@ -457,12 +500,7 @@ export class AgentsRepository {
     const now = new Date();
     const durationMs = run.startedAt ? now.getTime() - run.startedAt.getTime() : null;
     const toolCallCount = typeof input.output?.toolCallCount === "number" ? input.output.toolCallCount : 0;
-    const changed = await this.prisma.agentRun.updateMany({
-      where: {
-        id: run.id, tenantId: input.tenantId, status: "RUNNING",
-        attempts: run.attempts, workerId: run.workerId,
-      },
-      data: {
+    await this.transitionToTerminal(input, run, "COMPLETED", {
         status: "COMPLETED",
         outputJson: (input.output as PrismaTypes.InputJsonValue | undefined) ?? Prisma.JsonNull,
         outputSummary: typeof input.output?.summary === "string"
@@ -473,15 +511,13 @@ export class AgentsRepository {
         requiresHumanReview: typeof input.output?.requiresHumanReview === "boolean"
           ? input.output.requiresHumanReview : false,
         error: null, endedAt: now, durationMs, toolCallCount,
-      },
     });
-    if (changed.count !== 1) throw new ConflictException("run ownership changed before completion");
     return this.toRecord(await this.requireRun(input));
   }
 
   async fail(input: {
     tenantId: string; orgId: string; userId: string; runId: string;
-    error: string; workerId?: string; expectedAttempts?: number;
+    error: string; workerId?: string; expectedAttempts?: number; requestId?: string;
   }): Promise<AgentRunRecord> {
     await this.actorContextService.ensureActorContext(input);
     const run = await this.requireRun(input);
@@ -492,18 +528,11 @@ export class AgentsRepository {
     }
     const now = new Date();
     const durationMs = run.startedAt ? now.getTime() - run.startedAt.getTime() : null;
-    const changed = await this.prisma.agentRun.updateMany({
-      where: {
-        id: run.id, tenantId: input.tenantId, status: "RUNNING",
-        attempts: run.attempts, workerId: run.workerId,
-      },
-      data: {
+    await this.transitionToTerminal(input, run, "FAILED", {
         status: "FAILED", error: input.error,
         deadLettered: run.attempts >= run.maxAttempts,
         endedAt: now, durationMs,
-      },
     });
-    if (changed.count !== 1) throw new ConflictException("run ownership changed before failure");
     return this.toRecord(await this.requireRun(input));
   }
 

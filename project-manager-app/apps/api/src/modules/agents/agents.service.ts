@@ -29,6 +29,7 @@ import { WorkspaceMemoryRepository } from "../knowledge/workspace-memory.reposit
 import { AgentApprovalService } from "./agent-approval.service.js";
 import { AgentsRepository, isAgentRunReplay } from "./agents.repository.js";
 import { AgentDelegationRepository } from "./agent-delegation.repository.js";
+import { isAgentRunFinalizationOutboxEnabled } from "./agent-run-finalization.policy.js";
 
 // ── Assistant preference helpers ──────────────────────────────────────────────
 
@@ -523,8 +524,8 @@ export class AgentsService {
     requestId: string;
   }) {
     const run = await this.agentsRepository.complete(input);
-    // A replay must not create another approval, summary, event or audit row.
-    if (isAgentRunReplay(run)) return run;
+    // Effects are delivered by the transactional outbox in opt-in mode.
+    if (isAgentRunReplay(run) || isAgentRunFinalizationOutboxEnabled()) return run;
 
     const approvals = Array.isArray(input.output?.approvals)
       ? await this.agentApprovalService.register({
@@ -583,7 +584,7 @@ export class AgentsService {
     requestId: string;
   }) {
     const run = await this.agentsRepository.fail(input);
-    if (isAgentRunReplay(run)) return run;
+    if (isAgentRunReplay(run) || isAgentRunFinalizationOutboxEnabled()) return run;
 
     await this.auditService.append({
       tenantId: input.tenantId,
