@@ -4,6 +4,8 @@ The real guard is extracted from the deployed workflow definition, not
 duplicated as a mock. All GitHub responses in these tests are simulated.
 """
 from __future__ import annotations
+import os
+import subprocess
 import unittest
 from pathlib import Path
 
@@ -11,7 +13,7 @@ WORKFLOW = Path(__file__).resolve().parents[2] / ".github/workflows/railway-depl
 SHA = "a" * 40
 REPO = "Semse-projet/project-manager-app"
 RUN_ID = 123
-REQUIRED = ("quality-gates", "unit-coverage", "e2e")
+REQUIRED = ("quality-gates", "unit-coverage", "e2e", "merge-gate")
 
 
 def extract_guard():
@@ -47,7 +49,7 @@ def fixture(mutator=None, missing_history=False, incomplete_history=False):
     data = {
         "branches/main": {"commit": {"sha": SHA}},
         "actions/runs/123": run,
-        "actions/runs/123/jobs?per_page=100": {"total_count": 3, "jobs": jobs},
+        "actions/runs/123/jobs?per_page=100": {"total_count": 4, "jobs": jobs},
     }
     if mutator:
         mutator(data, run, jobs)
@@ -137,9 +139,18 @@ class RailwayCIProvenanceTests(unittest.TestCase):
 
     def test_missing_e2e_job_rejected(self):
         def mutate(data, run, jobs):
-            jobs.pop()
-            data["actions/runs/123/jobs?per_page=100"]["total_count"] = 2
+            jobs[:] = [j for j in jobs if j['name'] != 'e2e']
+            data["actions/runs/123/jobs?per_page=100"]["total_count"] = 3
         self.deny("e2e", mutate)
+
+    def test_missing_merge_gate_rejected(self):
+        def mutate(data, run, jobs):
+            jobs.pop()
+            data["actions/runs/123/jobs?per_page=100"]["total_count"] = 3
+        self.deny("merge-gate", mutate)
+
+    def test_skipped_merge_gate_rejected(self):
+        self.deny("merge-gate", lambda d, r, j: j[-1].update(conclusion="skipped"))
 
     def test_skipped_e2e_rejected(self):
         self.deny("e2e", lambda d, r, j: j[-1].update(conclusion="skipped"))
@@ -150,7 +161,7 @@ class RailwayCIProvenanceTests(unittest.TestCase):
     def test_duplicate_successful_job_rejected(self):
         def mutate(data, run, jobs):
             jobs.append(dict(jobs[0]))
-            data["actions/runs/123/jobs?per_page=100"]["total_count"] = 4
+            data["actions/runs/123/jobs?per_page=100"]["total_count"] = 5
         self.deny("quality-gates", mutate)
 
     def test_incomplete_job_page_rejected(self):
@@ -165,6 +176,34 @@ class RailwayCIProvenanceTests(unittest.TestCase):
     def test_manual_incomplete_ci_run_page_rejected(self):
         self.deny("incomplete CI run history", env=self.env("workflow_dispatch"),
                   incomplete_history=True)
+
+    def test_merge_gate_is_unskippable_and_unprivileged(self):
+        ci = (WORKFLOW.parent / "ci.yml").read_text(encoding="utf-8")
+        self.assertEqual(ci.count("\n  merge-gate:\n"), 1)
+        block = ci.split("\n  merge-gate:\n", 1)[1].split("\n  # PR #973 only:", 1)[0]
+        self.assertIn("needs: [quality-gates, unit-coverage, e2e]", block)
+        self.assertIn("if: " + "$" + "{{ always() }}", block)
+        self.assertIn("permissions: {}", block)
+        self.assertNotIn("RAILWAY_TOKEN", block)
+
+    def test_merge_gate_shell_denies_failures_skips_and_cancellations(self):
+        ci = (WORKFLOW.parent / "ci.yml").read_text(encoding="utf-8")
+        block = ci.split("\n  merge-gate:\n", 1)[1].split("\n  # PR #973 only:", 1)[0]
+        shell = block.split("        run: |\n", 1)[1]
+        script = "\n".join(line[10:] if line.startswith("          ") else line
+                           for line in shell.splitlines()).strip()
+        env = dict(os.environ, QUALITY_RESULT="success", COVERAGE_RESULT="success",
+                   E2E_RESULT="success")
+        def trial(values):
+            return subprocess.run(["bash", "-c", script], env=dict(env, **values),
+                                  capture_output=True, text=True, timeout=5)
+        self.assertEqual(trial({}).returncode, 0)
+        for variable in ("QUALITY_RESULT", "COVERAGE_RESULT", "E2E_RESULT"):
+            for value in ("failure", "skipped", "cancelled", ""):
+                with self.subTest(variable=variable, value=value):
+                    result = trial({variable: value})
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn(variable, result.stdout)
 
     def test_workflow_order_and_scope(self):
         verify_marker = "      - name: Verify exact-main CI provenance (fail closed)"

@@ -202,6 +202,30 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
+  # Aggregate required results: skipped is not equivalent to executed successfully.
+  merge-gate:
+    needs: [quality-gates, unit-coverage, e2e]
+    if: ${{ always() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Require all critical CI jobs to succeed
+        env:
+          QUALITY_RESULT: ${{ needs['quality-gates'].result }}
+          COVERAGE_RESULT: ${{ needs['unit-coverage'].result }}
+          E2E_RESULT: ${{ needs.e2e.result }}
+        run: |
+          set -euo pipefail
+          for name in QUALITY_RESULT COVERAGE_RESULT E2E_RESULT; do
+            value="${!name}"
+            if [ "$value" != "success" ]; then
+              echo "::error title=SEMSE CI gate::$name=$value; required value is success"
+              exit 1
+            fi
+          done
+          echo 'SEMSE merge-gate: all three critical jobs completed successfully'
+
   # PR #973 only: real signed login against an ephemeral Postgres/Redis/Next/Nest stack.
   # Nothing reaches Railway or production; credentials are randomly generated per run.
   pr973-authenticated-qa:

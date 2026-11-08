@@ -82,7 +82,7 @@ jobs:
           from urllib.parse import urlencode
           from urllib.request import Request, urlopen
 
-          REQUIRED = frozenset(("quality-gates", "unit-coverage", "e2e"))
+          REQUIRED = frozenset(("quality-gates", "unit-coverage", "e2e", "merge-gate"))
 
           def fail(reason):
               raise RuntimeError("DENY Railway deployment: " + reason)

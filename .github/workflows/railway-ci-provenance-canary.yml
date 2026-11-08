@@ -4,6 +4,7 @@ on:
     branches: [security/railway-ci-provenance-p0]
     paths:
       - .github/workflows/railway-deploy.yml
+      - .github/workflows/ci.yml
       - .github/workflows/railway-ci-provenance-canary.yml
       - scripts/security/test_railway_ci_provenance.py
 permissions:
