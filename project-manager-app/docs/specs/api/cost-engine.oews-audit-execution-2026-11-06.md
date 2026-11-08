@@ -7,7 +7,7 @@ Esta tarea NO modifica el Cost Engine, las variables de Railway, precios, impues
 ## Entrega técnica en la misma rama
 
 - [Validador Python](../../../scripts/research/oews_coverage.py) — lee CSV/XLSX y ZIP que contiene XLSX; procesa fuentes descargadas localmente sin red, cuenta referencias salariales por los 51 estados/DC y 24 motores. No estima tarifas facturables.
-- [Nueve pruebas sintéticas](../../../scripts/research/test_oews_coverage.py) — casos de supresión, ZIP/XLSX, conteos por estado/metro, duplicados, ZIP de varios XLSX y ausencia de XLSX. La verificación de este HEAD exige CI nuevo; NO se han ejecutado contra los ZIP oficiales de 2025.
+- [Diez pruebas sintéticas](../../../scripts/research/test_oews_coverage.py) — casos de supresión, ZIP/XLSX, conteos por estado/metro, duplicados, ZIP de varios XLSX y ausencia de XLSX. La verificación de este HEAD exige CI nuevo; NO se han ejecutado contra los ZIP oficiales de 2025.
 
 ## Ejecución sobre datos oficiales cuando exista acceso
 
@@ -25,7 +25,7 @@ python3 scripts/research/oews_coverage.py \
 
 ## Control adicional integrado en el CI existente (7-nov-2026)
 
-- `tests/unit/oews-research-contract.test.mjs` incluye las nueve pruebas Python sintéticas en `pnpm test:unit` **sin crear un workflow ni conectar BLS**. El test falla, no hace skip, cuando Python no está disponible o la suite no termina `OK`.
+- `tests/unit/oews-research-contract.test.mjs` incluye las diez pruebas Python sintéticas en `pnpm test:unit` **sin crear un workflow ni conectar BLS**. El test falla, no hace skip, cuando Python no está disponible o la suite no termina `OK`.
 - `manifest.json` diferencia `release_claim` de `release_verified=false` y `source_authentication=NOT_VERIFIED_OFFLINE`; el hash SHA-256 identifica bytes **no autentica** por sí mismo su origen o fecha.
 - `area_count_observed` permite separar el conteo de estados/metrópolis representados por filas reales del grid completo de 51×24 combinaciones.
 - Los ZIP que contengan múltiples XLSX diferentes ahora fallan con `Ambiguous OEWS ZIP` en vez de seleccionar el primero silenciosamente. Si BLS distribuye varios ficheros legítimos, antes se debe acordar selección explícita del XLSX pertinente y comprobar su esquema; no debilitar este rechazo automáticamente.
@@ -36,8 +36,10 @@ python3 scripts/research/oews_coverage.py \
 - Para archivos que incluyan los campos de dimensión, el lector ahora acepta exclusivamente `AREA_TYPE=2` en el dataset estatal y `AREA_TYPE=4/6` en el metropolitano/no metropolitano. `3` (territorios) y `1` (nacional) no se usan para afirmar cobertura de 50 estados + DC.
 - En el alcance de referencia se comprueban `NAICS=000000`, `I_GROUP=cross-industry`, `OWN_CODE=1235` y `O_GROUP=detailed` cuando figuran en la fuente. Las filas de otros sectores, propiedad o agregaciones ocupacionales quedan fuera; no se suman como observaciones equivalentes.
 - El manifiesto de investigación incluye `scope_fields_present` y contadores `skipped_wrong_geography`, `skipped_non_cross_industry`, `skipped_ownership_scope`, `skipped_non_detailed_occupation` cuando aplica. Un ZIP/XLSX sin estas cinco columnas se rechaza; la ausencia de una dimensión en CSV de prueba no certifica el alcance: `release_verified=false` permanece.
-- Los nueve casos Python sintéticos comprueban los filtros, mezclas y ausencia de filas válidas, además de supresión, duplicados, fuentes ambiguas y reproducibilidad; se ejecutan desde la suite Node existente. **El HEAD modificado requiere CI terminal exitoso; se registrará por separado.**
+- Los diez casos Python sintéticos comprueban los filtros, mezclas y ausencia de filas válidas, además de supresión, duplicados, fuentes ambiguas y reproducibilidad; se ejecutan desde la suite Node existente. **El HEAD modificado requiere CI terminal exitoso; se registrará por separado.**
 - Fuentes oficiales: [BLS May 2025 tables](https://www.bls.gov/oes/tables.htm) y [documentación OEWS](https://www.bls.gov/oes/oes_doc.htm). La nomenclatura se contrastará con el Excel y sus Field Descriptions originales antes de validar importación.
+
+**Integridad de generación:** ahora se validan primero los dos insumos (estatal y metro) antes de escribir los archivos de cobertura. Una falla en el segundo archivo no deja un CSV estatal nuevo a medio producir. Esta mitigación no equivale a un commit transaccional del directorio; utilizar un directorio de salida nuevo por ejecución y no interpretar artefactos antiguos como vigentes.
 
 ## Contrato de salida
 
