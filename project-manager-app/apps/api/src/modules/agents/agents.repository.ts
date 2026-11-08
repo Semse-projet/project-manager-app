@@ -168,8 +168,18 @@ export class AgentsRepository {
       }
 
       const now = new Date();
-      const claimed = (await db.agentRun.update({
-        where: { id: next.id },
+      // A transaction alone does not make findFirst + unconditional update
+      // a single claim: two workers can select the same QUEUED run.
+      // Compare-and-set the lifecycle and attempt budget atomically.
+      const claim = await db.agentRun.updateMany({
+        where: {
+          id: next.id,
+          tenantId: input.tenantId,
+          status: "QUEUED",
+          deadLettered: false,
+          attempts: { lt: next.maxAttempts },
+          ...(input.agentType ? { agentType: input.agentType } : {})
+        },
         data: {
           status: "RUNNING",
           workerId: input.workerId,
@@ -177,9 +187,23 @@ export class AgentsRepository {
           startedAt: now,
           heartbeatAt: now
         }
-      })) as StoredAgentRun;
+      });
+      if (claim.count !== 1) {
+        // Another worker already claimed, cancelled or exhausted this run.
+        return null;
+      }
 
-      return this.toRecord(claimed);
+      const claimed = (await db.agentRun.findFirst({
+        where: {
+          id: next.id,
+          tenantId: input.tenantId,
+          status: "RUNNING",
+          workerId: input.workerId
+        }
+      })) as StoredAgentRun | null;
+      // A concurrent terminal transition after our claim must never be
+      // represented as a fresh RUNNING claim.
+      return claimed ? this.toRecord(claimed) : null;
     });
   }
 
