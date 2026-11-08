@@ -7,7 +7,7 @@ version: "0.3"
 status: "APPROVED"
 owner: "semse-core"
 risk: "high"
-code_status: "NOT_STARTED"
+code_status: "IN_PROGRESS"
 ci_status: "NOT_RUN"
 merge_status: "UNMERGED"
 deploy_status: "NOT_DEPLOYED"
@@ -19,7 +19,9 @@ related_files:
   - "apps/api/src/modules/contributor-program/transcription-provider.ts"
   - "apps/api/src/modules/agro/agro-asr.ts"
   - "apps/web/components/ai/prometeo-attachments.ts"
-related_tests: []
+related_tests:
+  - "apps/api/test/contributor-program-transcription-provider.test.ts"
+  - "apps/api/test/voicestudio-batch.client.test.ts"
 related_endpoints: []
 related_events: []
 related_agents: ["prometeo"]

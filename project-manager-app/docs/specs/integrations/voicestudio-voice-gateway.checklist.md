@@ -1,7 +1,7 @@
 # Checklist de aceptación — VoiceStudio × SEMSE (DRAFT)
 
 ## Especificación y licencias
-- [ ] SDD APPROVED con D1–D3 firmadas; D4–D5 cerradas antes de producción.
+- [x] SDD APPROVED para desarrollo ASR/TTS interno con D1–D3 autorizadas el 2026-11-07; D4–D5 pendientes y bloquean producción.
 - [ ] Modelo ASR/TTS y voz identificados por versión/digest/pesos/asset y autorización comercial documentada.
 - [ ] AGPL-3.0 aplicación, model weights, tokenizer, output, FFmpeg/redistribución revisados por separado.
 - [ ] SEMSE_ASR_PROVIDER unset sigue apagado; openai-whisper no cambia; voicestudio solo opt-in.

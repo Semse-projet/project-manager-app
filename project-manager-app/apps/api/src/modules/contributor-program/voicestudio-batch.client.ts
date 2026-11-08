@@ -84,7 +84,7 @@ function sniffAudio(bytes: Buffer): { mimeType: string; filename: string } {
   if (!bytes.length || bytes.length > MAX_INPUT_BYTES) {
     throw new VoiceStudioGatewayError(bytes.length ? "VOICE_AUDIO_TOO_LARGE" : "VOICE_AUDIO_EMPTY");
   }
-  if (bytes.length >= 12 && bytes.toString("ascii", 0, 4) === "RIFF" && bytes.toString("ascii", 8, 12) === "WAVE")
+  if (bytes.length >= 44 && bytes.toString("ascii", 0, 4) === "RIFF" && bytes.toString("ascii", 8, 12) === "WAVE")
     return { mimeType: "audio/wav", filename: "recording.wav" };
   if (bytes.length >= 4 && bytes.toString("ascii", 0, 4) === "OggS")
     return { mimeType: "audio/ogg", filename: "recording.ogg" };
@@ -173,8 +173,9 @@ export class VoiceStudioBatchClient {
   }
 
   private async post(path: "/v1/audio/transcriptions" | "/v1/audio/speech", body: BodyInit, contentType?: string): Promise<Response> {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), this.duration);
+    // A signal with its own lifetime also protects slow streaming bodies:
+    // clearing a timer immediately after fetch headers would leave reads open.
+    const signal = AbortSignal.timeout(this.duration);
     try {
       const response = await this.transport(this.origin + path, {
         method: "POST",
@@ -183,7 +184,7 @@ export class VoiceStudioBatchClient {
           ...(contentType ? { "Content-Type": contentType } : {}),
         },
         body,
-        signal: controller.signal,
+        signal,
         redirect: "error",
         cache: "no-store",
       });
@@ -191,19 +192,24 @@ export class VoiceStudioBatchClient {
         await response.body?.cancel().catch(() => undefined);
         throw new VoiceStudioGatewayError("VOICE_UPSTREAM_HTTP_" + response.status, response.status);
       }
-      // Caller must consume the response before the configured timeout.
       return response;
     } catch (error) {
       if (error instanceof VoiceStudioGatewayError) throw error;
-      throw new VoiceStudioGatewayError(controller.signal.aborted ? "VOICE_UPSTREAM_TIMEOUT" : "VOICE_UPSTREAM_UNAVAILABLE");
-    } finally {
-      clearTimeout(timer);
+      throw new VoiceStudioGatewayError(signal.aborted ? "VOICE_UPSTREAM_TIMEOUT" : "VOICE_UPSTREAM_UNAVAILABLE");
     }
   }
 
-  async transcribe(bytes: Buffer): Promise<TranscriptionSegment[]> {
+  async transcribe(bytes: Buffer, declaredMimeType?: string | null): Promise<TranscriptionSegment[]> {
     const model = modelName(this.config.asrModel);
     const audio = sniffAudio(bytes);
+    const declared = declaredMimeType?.split(";", 1)[0].trim().toLowerCase();
+    const aliases: Record<string, string> = {
+      "audio/x-wav": "audio/wav", "audio/wave": "audio/wav",
+      "audio/mp3": "audio/mpeg", "audio/x-m4a": "audio/mp4",
+    };
+    if (declared && declared !== "application/octet-stream" && (aliases[declared] ?? declared) !== audio.mimeType) {
+      throw new VoiceStudioGatewayError("VOICE_AUDIO_MIME_MISMATCH");
+    }
     const form = new FormData();
     form.append("model", model);
     form.append("response_format", "verbose_json");
@@ -213,7 +219,13 @@ export class VoiceStudioBatchClient {
       await response.body?.cancel().catch(() => undefined);
       throw new VoiceStudioGatewayError("VOICE_UPSTREAM_INVALID_CONTENT_TYPE");
     }
-    const raw = await readLimited(response, MAX_JSON_BYTES);
+    let raw: Buffer;
+    try {
+      raw = await readLimited(response, MAX_JSON_BYTES);
+    } catch (error) {
+      if (error instanceof VoiceStudioGatewayError) throw error;
+      throw new VoiceStudioGatewayError("VOICE_UPSTREAM_INTERRUPTED");
+    }
     try {
       return normalizeSegments(JSON.parse(raw.toString("utf8")));
     } catch (error) {
@@ -239,8 +251,14 @@ export class VoiceStudioBatchClient {
       await response.body?.cancel().catch(() => undefined);
       throw new VoiceStudioGatewayError("VOICE_UPSTREAM_INVALID_CONTENT_TYPE");
     }
-    const audio = await readLimited(response, MAX_OUTPUT_BYTES);
-    if (audio.length < 12 || audio.toString("ascii", 0, 4) !== "RIFF" || audio.toString("ascii", 8, 12) !== "WAVE") {
+    let audio: Buffer;
+    try {
+      audio = await readLimited(response, MAX_OUTPUT_BYTES);
+    } catch (error) {
+      if (error instanceof VoiceStudioGatewayError) throw error;
+      throw new VoiceStudioGatewayError("VOICE_UPSTREAM_INTERRUPTED");
+    }
+    if (audio.length < 44 || audio.toString("ascii", 0, 4) !== "RIFF" || audio.toString("ascii", 8, 12) !== "WAVE") {
       throw new VoiceStudioGatewayError("VOICE_UPSTREAM_INVALID_AUDIO");
     }
     return { audio, mimeType: "audio/wav" };
@@ -283,6 +301,6 @@ export class VoiceStudioTranscriptionProvider implements TranscriptionProvider {
     // responsible for authorization and an immutable storage asset receipt.
     if (!input.storageKey || /^[a-z]+:\/\//i.test(input.storageKey)) throw new VoiceStudioGatewayError("VOICE_STORAGE_KEY_INVALID");
     const bytes = await this.storage.readBuffer(input.storageKey);
-    return this.client.transcribe(bytes);
+    return this.client.transcribe(bytes, input.mimeType);
   }
 }
