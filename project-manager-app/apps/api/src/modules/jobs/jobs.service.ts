@@ -820,6 +820,9 @@ export class JobsService {
         actorType: "system",
         actorId: "SYSTEM",
         requestId: input.requestId,
+        // An overlapping completion may already have committed after our
+        // initial read; reject the stale write under the job row lock.
+        expectedFrom: job.status.toLowerCase() as JobRecord["status"],
         beforeWrite: (tx) => this.assertClosure("completed", input.tenantId, input.jobId, tx),
       });
     } catch (error) {
