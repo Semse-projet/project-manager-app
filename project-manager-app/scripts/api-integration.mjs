@@ -54,6 +54,7 @@ async function main() {
   const run = await createAgentRun();
   const claimedRun = await claimSpecificRun(run.id, config.workerId);
   await heartbeat(claimedRun);
+  await assertStaleCompletionRejected(claimedRun);
   await completeRun(claimedRun);
   await assertRunCompleted(run.id);
 
@@ -242,6 +243,19 @@ async function heartbeat(run) {
   const { json } = await request(actors.ops, "POST", `/v1/agents/runs/${run.id}/heartbeat`, {
     workerId: run.workerId, expectedAttempts: run.attempts
   });
+  assertCanonicalValue(json.data.status, "running");
+}
+
+async function assertStaleCompletionRejected(run) {
+  assertFencedClaim(run);
+  const { status } = await request(actors.ops, "POST", `/v1/agents/runs/${run.id}/complete`, {
+    workerId: run.workerId,
+    expectedAttempts: run.attempts - 1,
+    output: { summary: "obsolete worker result must not be committed" }
+  }, { expectedStatus: 409 });
+  assert.equal(status, 409, "outdated attempt must be fenced by the HTTP API");
+
+  const { json } = await request(actors.ops, "GET", `/v1/agents/runs/${run.id}`);
   assertCanonicalValue(json.data.status, "running");
 }
 
