@@ -11,7 +11,32 @@ import { randomUUID } from "node:crypto";
 import { PrismaClient } from "@prisma/client";
 import { AgentWorkPlanService } from "../dist/modules/agents/agent-work-plan.service.js";
 
-const dbTest = process.env.DATABASE_URL ? test : test.skip;
+// Strictly limit fixture writes to a throwaway loopback PostgreSQL instance.
+// CI uses the repository's isolated postgres:16 service (:5433, db=semse).
+// Local manual execution requires explicit opt-in AND a distinctly named test DB.
+function mayWriteDisposableDb(): boolean {
+  if (!process.env.DATABASE_URL) return false;
+  let url: URL;
+  try { url = new URL(process.env.DATABASE_URL); }
+  catch { return false; }
+  const hostIsLoopback = ["127.0.0.1", "localhost", "[::1]"].includes(url.hostname);
+  const isPostgres = ["postgresql:", "postgres:"].includes(url.protocol);
+  const safePort = url.port === "5433";
+  if (!hostIsLoopback || !isPostgres || !safePort) return false;
+  const database = decodeURIComponent(url.pathname.slice(1));
+  if (process.env.GITHUB_ACTIONS === "true") {
+    return process.env.CI === "true" && url.hostname === "127.0.0.1"
+      && url.username === "semse" && database === "semse";
+  }
+  return process.env.SEMSE_ALLOW_DISPOSABLE_AGENT_PLAN_DB === "1"
+    && /^semse_(test|e2e)(?:_|$)/.test(database);
+}
+const dbAllowed = mayWriteDisposableDb();
+if ((process.env.GITHUB_ACTIONS === "true" && !dbAllowed)
+  || (process.env.SEMSE_ALLOW_DISPOSABLE_AGENT_PLAN_DB === "1" && !dbAllowed)) {
+  throw new Error("Agent plan integration requires isolated loopback PostgreSQL :5433 and an explicitly disposable database");
+}
+const dbTest = dbAllowed ? test : test.skip;
 const prisma = new PrismaClient();
 const plans = new AgentWorkPlanService(prisma as never);
 const id = (prefix: string) => prefix + "_" + randomUUID().replaceAll("-", "");
