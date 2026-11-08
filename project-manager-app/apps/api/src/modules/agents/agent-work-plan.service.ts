@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { ForbiddenException, Injectable, Logger, NotFoundException, Optional } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException, Optional } from "@nestjs/common";
 import { getActionPolicy } from "@semse/agents";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
@@ -235,6 +235,66 @@ function normalizePlanStep(raw: unknown, idx: number): PlanStep {
 }
 
 /**
+ * Reject invalid dependency graphs before persisting or approving a work plan.
+ * Independent SEMSE implementation of the DAG invariant used by Conway
+ * Automaton's task graph; no external runtime or source is imported.
+ *
+ * Iterative topological traversal avoids recursion limits for large plans.
+ */
+export function assertValidPlanDependencies(
+  steps: ReadonlyArray<Pick<PlanStep, "id" | "dependsOnStepIds">>,
+): void {
+  const inDegree = new Map<string, number>();
+  const dependents = new Map<string, string[]>();
+
+  for (const step of steps) {
+    if (!step.id.trim()) {
+      throw new BadRequestException("El plan contiene un paso sin identificador.");
+    }
+    if (inDegree.has(step.id)) {
+      throw new BadRequestException(`El plan contiene un ID de paso duplicado: '${step.id}'.`);
+    }
+    inDegree.set(step.id, 0);
+    dependents.set(step.id, []);
+  }
+
+  for (const step of steps) {
+    const dependencies = new Set(step.dependsOnStepIds ?? []);
+    for (const dependencyId of dependencies) {
+      if (!inDegree.has(dependencyId)) {
+        throw new BadRequestException(
+          `El paso '${step.id}' depende de un paso inexistente: '${dependencyId}'.`,
+        );
+      }
+      if (dependencyId === step.id) {
+        throw new BadRequestException(`El paso '${step.id}' no puede depender de sí mismo.`);
+      }
+      inDegree.set(step.id, inDegree.get(step.id)! + 1);
+      dependents.get(dependencyId)!.push(step.id);
+    }
+  }
+
+  const ready = [...inDegree.entries()]
+    .filter(([, degree]) => degree === 0)
+    .map(([id]) => id);
+  let visited = 0;
+
+  while (ready.length > 0) {
+    const id = ready.pop()!;
+    visited++;
+    for (const dependentId of dependents.get(id) ?? []) {
+      const remaining = inDegree.get(dependentId)! - 1;
+      inDegree.set(dependentId, remaining);
+      if (remaining === 0) ready.push(dependentId);
+    }
+  }
+
+  if (visited !== steps.length) {
+    throw new BadRequestException("El plan contiene dependencias circulares y no puede ejecutarse.");
+  }
+}
+
+/**
  * Fingerprint of what an approval actually covers: which tools each step may
  * use and under which gates. Execution progress (status, timestamps, evidence)
  * is deliberately excluded, so completing a step never changes it.
@@ -341,6 +401,8 @@ export class AgentWorkPlanService {
       }, idx),
     );
 
+    assertValidPlanDependencies(normalizedSteps);
+
     const created = await this.prisma.agentWorkPlan.create({
       data: {
         tenantId: input.tenantId,
@@ -395,6 +457,7 @@ export class AgentWorkPlanService {
       throw new ForbiddenException(`Plan '${input.planId}' is not in draft status (current: ${plan.status})`);
     }
 
+    assertValidPlanDependencies(plan.steps);
     const approvedDefinitionHash = planDefinitionFingerprint(plan.steps);
     const updated = await this.prisma.agentWorkPlan.update({
       where: { id: input.planId },
@@ -519,6 +582,9 @@ export class AgentWorkPlanService {
     // plain execution progress (status/timestamps/evidence) keeps the version.
     const definitionChanged =
       planDefinitionFingerprint(current.steps) !== planDefinitionFingerprint(input.steps);
+    // Preserve progress updates for legacy plans, but reject any invalid new
+    // dependency definition before it reaches persistence or approval.
+    if (definitionChanged) assertValidPlanDependencies(input.steps);
     const updated = await this.prisma.agentWorkPlan.update({
       where: { id: input.planId },
       data: {
