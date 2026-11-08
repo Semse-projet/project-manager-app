@@ -39,7 +39,7 @@ bearer firmado y sesión, y una petición sin bearer recibe 401.
 - ✅ CI de #1092: 13 checks terminados sin fallos; revisión de Codex sin hallazgos.
 - ✅ Cambio en `api-integration.yml` y `api-smoke.yml`, autorizado por el owner: declaran el opt-in para la API de prueba sin `AUTH_SECRET`.
 - ✅ Deploy de producción (`SEMSEproject`): 4 servicios en SUCCESS.
-- ✅ Smoke autenticado OPS_ADMIN en producción (2026-11-07): `GET /api/semse/operational-signals` → 200 (antes del fix, siempre 401).
+- ✅ Smoke autenticado OPS_ADMIN en producción: 200 el 2026-11-07, y el 2026-11-08 con contenido observado (1 señal, solo `tenant_default`, el tenant del owner). Antes del fix, siempre 401.
 - ✅ `SEMSE T008 Staging` cerrado (2026-11-07): sin dominios públicos.
 
 ## Evidencia
@@ -70,10 +70,22 @@ bearer firmado y sesión, y una petición sin bearer recibe 401.
     03:48:17Z (antes de entrar con la cuenta OPS_ADMIN; es permiso denegado,
     no fallo de autenticación);
   - después, 200 a las 03:50:08Z, 04:03:59Z, 04:06:16Z y 04:07:53Z.
-  - El owner vio el cuerpo como `null`. Por código, una respuesta 200 lleva
-    `{"data":[...]}`. El contenido en vivo no se inspeccionó: el aislamiento
-    por tenant del contenido lo cubren `operational-intelligence-http-tenant.test.ts`
-    y la mutación correspondiente.
+  - El contenido no se inspeccionó ese día. Codex lo señaló en #1114 y se
+    completó el 2026-11-08 (siguiente punto).
+- Smoke OPS_ADMIN con contenido observado (2026-11-08):
+  - 23:54:40Z y 23:55:15Z: web y API 403, sesión con una cuenta sin
+    `ops:dashboard:read`;
+  - 23:59:42Z: 401 del BFF ("Authentication required for SEMSE API route"),
+    sin sesión, sin llegar a la API;
+  - 00:02:05Z: web y API **200** con la sesión OPS_ADMIN del owner.
+  - Cuerpo: `{"data":[ ... ]}` con **1 señal** (`type`
+    `EXPERIENCE_FRICTION`, `tenantId` `tenant_default`) y ningún otro
+    `tenantId`. El owner confirma que su cuenta OPS_ADMIN pertenece a
+    `tenant_default`. El `null` que vio el 2026-11-07 era el último campo de
+    la señal (`resolvedAt`), no el cuerpo.
+  - Hallazgo aparte, no relacionado con este spec: el texto de la señal se
+    muestra con mojibake (`FricciÃ³n` en vez de `Fricción`), un problema de
+    codificación UTF-8 al guardar o mostrar el mensaje.
 - T008 (2026-11-07): `semse-api-t008-a` y `-b` sin `serviceDomains` ni
   `customDomains` en Railway; los dos hostnames responden 404
   "Application not found".
