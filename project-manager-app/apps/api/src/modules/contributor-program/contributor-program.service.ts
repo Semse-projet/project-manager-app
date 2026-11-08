@@ -904,11 +904,17 @@ export class ContributorProgramService {
         );
         if (sourceMatches) {
           try {
+            const storageKey = asset!.storageKey!;
+            const requiredPrefix = `tenants/${claimed.tenantId}/knowledge_contribution/`;
+            // isTenantScopedStorageKey validates the complete path but tests
+            // the domain with "includes"; require its exact root position too.
+            // A key under evidence/.../knowledge_contribution/ is not an
+            // attested contributor upload.
             sourceMatches = isTenantScopedStorageKey({
-              key: asset!.storageKey!,
+              key: storageKey,
               tenantId: claimed.tenantId,
               domain: "knowledge_contribution",
-            });
+            }) && storageKey.startsWith(requiredPrefix) && storageKey.length > requiredPrefix.length;
           } catch {
             sourceMatches = false;
           }

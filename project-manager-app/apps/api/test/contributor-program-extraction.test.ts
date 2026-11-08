@@ -747,3 +747,71 @@ dbTest("VoiceStudio rejects a same-tenant asset with a non-tenant storage key", 
     await cleanupFixture(fixture);
   }
 });
+
+dbTest("VoiceStudio rejects foreign-domain storage key that hides knowledge_contribution in a subdirectory", async () => {
+  const fixture = await createFixture();
+  const prior = process.env.SEMSE_ASR_PROVIDER;
+  process.env.SEMSE_ASR_PROVIDER = "voicestudio";
+  try {
+    // This key passes the older helper's "domain occurs anywhere" check.
+    const disguisedKey = `tenants/${fixture.tenantId}/evidence/knowledge_contribution/disguised.wav`;
+    await prisma.knowledgeAsset.update({
+      where: { id: fixture.asset.id },
+      data: { storageKey: disguisedKey },
+    });
+    const { service, repository } = makeService();
+    const extraction = await repository.createExtraction({
+      tenantId: fixture.tenantId,
+      submissionId: fixture.submission.id,
+      assetId: fixture.asset.id,
+      kind: "TRANSCRIPTION",
+      status: "PENDING",
+      modelOrProcess: "prometeo-intake-pipeline",
+    });
+    const result = await service.processPendingExtractions(adminCtx(fixture), 1, { tenantId: fixture.tenantId });
+    assert.deepEqual(result, { processed: 1, completed: 0, failed: 1 });
+    const final = await prisma.knowledgeExtraction.findUnique({ where: { id: extraction.id } });
+    assert.equal(final?.status, "FAILED");
+    assert.equal((final?.dataJson as { failureReason?: string } | null)?.failureReason, "VOICE_ASSET_SCOPE_NOT_VERIFIED");
+    assert.equal(await prisma.transcriptSegment.count({ where: { tenantId: fixture.tenantId } }), 0);
+  } finally {
+    if (prior === undefined) delete process.env.SEMSE_ASR_PROVIDER;
+    else process.env.SEMSE_ASR_PROVIDER = prior;
+    await cleanupFixture(fixture);
+  }
+});
+
+dbTest("VoiceStudio accepts a well-formed contributor key through scope validation but still blocks disabled provider", async () => {
+  const fixture = await createFixture();
+  const beforeProvider = process.env.SEMSE_ASR_PROVIDER;
+  const beforeFlag = process.env.SEMSE_VOICE_ENABLED;
+  process.env.SEMSE_ASR_PROVIDER = "voicestudio";
+  delete process.env.SEMSE_VOICE_ENABLED;
+  try {
+    const scopedKey = `tenants/${fixture.tenantId}/knowledge_contribution/recording.wav`;
+    await prisma.knowledgeAsset.update({
+      where: { id: fixture.asset.id },
+      data: { storageKey: scopedKey, mimeType: "audio/wav", kind: "AUDIO" },
+    });
+    const { service, repository } = makeService();
+    const extraction = await repository.createExtraction({
+      tenantId: fixture.tenantId,
+      submissionId: fixture.submission.id,
+      assetId: fixture.asset.id,
+      kind: "TRANSCRIPTION",
+      status: "PENDING",
+      modelOrProcess: "prometeo-intake-pipeline",
+    });
+    const result = await service.processPendingExtractions(adminCtx(fixture), 1, { tenantId: fixture.tenantId });
+    assert.deepEqual(result, { processed: 1, completed: 0, failed: 1 });
+    const final = await prisma.knowledgeExtraction.findUnique({ where: { id: extraction.id } });
+    assert.equal((final?.dataJson as { failureReason?: string } | null)?.failureReason, "VOICE_FEATURE_DISABLED");
+    assert.equal(await prisma.transcriptSegment.count({ where: { tenantId: fixture.tenantId } }), 0);
+  } finally {
+    if (beforeProvider === undefined) delete process.env.SEMSE_ASR_PROVIDER;
+    else process.env.SEMSE_ASR_PROVIDER = beforeProvider;
+    if (beforeFlag === undefined) delete process.env.SEMSE_VOICE_ENABLED;
+    else process.env.SEMSE_VOICE_ENABLED = beforeFlag;
+    await cleanupFixture(fixture);
+  }
+});
