@@ -354,3 +354,104 @@ jobs:
           echo "PASS: pinned checkpoint with sharing DISABLED on both instances boots expanded HEAD schema and passes signed A/B/C scope + no-grant smoke"
           echo "REQUIRED OPERATIONAL GATE: switch SEMSE_PROMETEO_DOCUMENT_SHARING_ENABLED=OFF BEFORE reverting to this older binary; never roll back with sharing ON"
           echo "NOT PROVEN: sharing-ON rollback to this old checkpoint, production rollback, real staging, traffic capture or production cutover"
+
+
+  # PR #1112: prove hiring with an isolated PostgreSQL database and local API.
+  # Missing header identity or unreachable API is a failure, never a skip.
+  hiring-e2e-qualification:
+    if: ${{ github.event_name == 'pull_request' && github.event.pull_request.number == 1112 }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: semse
+          POSTGRES_PASSWORD: semse
+          POSTGRES_DB: semse
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U semse -d semse"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:8.2
+        ports:
+          - 6379:6379
+    env:
+      DATABASE_URL: postgresql://semse:semse@127.0.0.1:5433/semse?schema=public
+      REDIS_URL: redis://127.0.0.1:6379
+      NODE_ENV: test
+      SEMSE_ALLOW_HEADER_IDENTITY: "true"
+      SEMSE_REQUIRE_HIRING_E2E: "1"
+      SEMSE_API_URL: http://127.0.0.1:4122
+      PAYMENT_PROVIDER: mock
+      SEMSE_EVENT_CONSUMERS_ENABLED: "false"
+      SEMSE_EVENT_OUTBOX_DISPATCH_ENABLED: "false"
+      SEMSE_CURATED_KNOWLEDGE_ENABLED: "false"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6.1.0
+        with:
+          version: 10.33.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: project-manager-app/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build local API
+        run: pnpm build:api
+
+      - name: Migrate and seed disposable Postgres only
+        run: |
+          set -euo pipefail
+          pnpm db:migrate
+          pnpm db:seed
+
+      - name: Start loopback test API
+        run: |
+          set -euo pipefail
+          PORT=4122 HOST=127.0.0.1 node apps/api/dist/main.js > "$RUNNER_TEMP/semse-hiring-e2e-api.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/semse-hiring-e2e-api.pid"
+          ready=0
+          for attempt in $(seq 1 90); do
+            if curl -fsS -o /dev/null http://127.0.0.1:4122/v1/health; then ready=1; break; fi
+            sleep 2
+          done
+          if [ "$ready" != 1 ]; then
+            echo "Isolated hiring test API failed readiness"
+            tail -n 100 "$RUNNER_TEMP/semse-hiring-e2e-api.log" || true
+            exit 1
+          fi
+
+      - name: Run all four hiring scenarios with skip forbidden
+        run: pnpm exec playwright test -c playwright.semse.config.ts tests/e2e-semse/job-lifecycle-rating.spec.ts --reporter=list
+
+      - name: Stop isolated API
+        if: always()
+        run: |
+          if [ -f "$RUNNER_TEMP/semse-hiring-e2e-api.pid" ]; then
+            kill "$(cat "$RUNNER_TEMP/semse-hiring-e2e-api.pid")" 2>/dev/null || true
+          fi
+
+      - name: Upload isolated API log on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: hiring-e2e-api-log
+          path: ${{ runner.temp }}/semse-hiring-e2e-api.log
+          if-no-files-found: ignore
+          retention-days: 7
