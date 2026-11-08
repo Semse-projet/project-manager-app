@@ -237,12 +237,13 @@ function assertFencedClaim(run) {
   assert.equal(run.workerId, config.workerId, "smoke claimed unexpected worker owner");
   assert.ok(Number.isInteger(run.attempts) && run.attempts > 0,
     "claimed AgentRun must expose a positive attempt generation");
+  assert.match(run.claimToken ?? "", /^[A-Za-z0-9_-]{43}$/, "claim must return a private signed token");
 }
 
 async function heartbeat(run) {
   assertFencedClaim(run);
   const { json } = await request(actors.ops, "POST", `/v1/agents/runs/${run.id}/heartbeat`, {
-    workerId: run.workerId, expectedAttempts: run.attempts
+    workerId: run.workerId, expectedAttempts: run.attempts, claimToken: run.claimToken
   });
   assertCanonicalValue(json.data.status, "running");
 }
@@ -252,9 +253,10 @@ async function assertStaleCompletionRejected(run) {
   const { status } = await request(actors.ops, "POST", `/v1/agents/runs/${run.id}/complete`, {
     workerId: run.workerId,
     expectedAttempts: run.attempts - 1,
+    claimToken: run.claimToken,
     output: { summary: "obsolete worker result must not be committed" }
-  }, { expectedStatus: 409 });
-  assert.equal(status, 409, "outdated attempt must be fenced by the HTTP API");
+  }, { expectedStatus: 403 });
+  assert.equal(status, 403, "wrong generation must invalidate the signed claim token");
 
   const { json } = await request(actors.ops, "GET", `/v1/agents/runs/${run.id}`);
   assertCanonicalValue(json.data.status, "running");
@@ -276,6 +278,12 @@ async function assertUnfencedWorkerMutationDenied(run) {
     assert.match(JSON.stringify(json), /unfenced agent operations require an administrator/,
       "403 must come from the fencing role gate, not an unrelated permission check");
   }
+  const differentWorker = { ...actors.ops, userId: "usr_it_different_worker", roles: "WORKER" };
+  const denied = await request(differentWorker, "POST", `/v1/agents/runs/${run.id}/complete`, {
+    workerId: run.workerId, expectedAttempts: run.attempts,
+    claimToken: run.claimToken, output: { summary: "cross-principal spoof" },
+  }, { expectedStatus: 403 });
+  assert.equal(denied.status, 403, "claim capability must bind to authenticated principal");
   const { json } = await request(actors.ops, "GET", `/v1/agents/runs/${run.id}`);
   assertCanonicalValue(json.data.status, "running");
 }
@@ -283,7 +291,7 @@ async function assertUnfencedWorkerMutationDenied(run) {
 async function completeRun(run) {
   assertFencedClaim(run);
   const { json } = await request(actors.ops, "POST", `/v1/agents/runs/${run.id}/complete`, {
-    workerId: run.workerId, expectedAttempts: run.attempts,
+    workerId: run.workerId, expectedAttempts: run.attempts, claimToken: run.claimToken,
     output: { status: "ok", source: "api-integration" }
   });
   assertCanonicalValue(json.data.status, "completed");

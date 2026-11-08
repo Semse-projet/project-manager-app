@@ -67,8 +67,8 @@ dbTest("PostgreSQL CAS: two workers racing to claim one QUEUED run yield one own
   const f = await fixture();
   try {
     const claims = await Promise.all([
-      repository.claimNext(actor(f.tenantId, "worker_A")),
-      repository.claimNext(actor(f.tenantId, "worker_B")),
+      repository.claimNext({ ...actor(f.tenantId, "worker_A"), runId: f.run.id }),
+      repository.claimNext({ ...actor(f.tenantId, "worker_B"), runId: f.run.id }),
     ]);
     const winners = claims.filter((c) => c !== null);
     assert.equal(winners.length, 1, "one and only one claim must be granted");
@@ -136,8 +136,9 @@ dbTest("PostgreSQL fencing: stale worker heartbeat, completion and failure canno
       tenantId: f.tenantId, orgId: "org_test", userId: "user_test",
       workerId: "worker_A", agentType: "pricing",
     });
-    assert.equal(first?.id, f.run.id);
-    assert.equal(first?.status, "running");
+    assert.ok(first, "claimNext must grant the first worker ownership");
+    assert.equal(first.id, f.run.id);
+    assert.equal(first.status, "running");
     assert.equal(first.attempts, 1);
     assert.equal(first.workerId, "worker_A");
 

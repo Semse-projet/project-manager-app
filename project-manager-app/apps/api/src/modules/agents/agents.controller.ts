@@ -14,6 +14,7 @@ import { ok } from "../../common/api-response.js";
 import { parseWithSchema } from "../../common/zod-validation.js";
 import { RequirePermissions } from "../../common/permissions.decorator.js";
 import { resolveRequestContext } from "../../common/request-context.js";
+import { signAgentRunClaimToken, verifyAgentRunClaimToken } from "./agent-run-claim-token.js";
 import { resolveRequestId } from "../../common/request-id.js";
 import { AgentsService } from "./agents.service.js";
 import { CoordinatorService } from "./coordinator.service.js";
@@ -43,16 +44,19 @@ const createAgentRunSchema = z.object({
 
 const claimAgentRunSchema = z.object({
   workerId: z.string().min(1),
-  agentType: z.enum(agentCatalog).optional()
+  agentType: z.enum(agentCatalog).optional(),
+  runId: z.string().min(1).optional()
 });
 
 const heartbeatSchema = z.object({
   workerId: z.string().min(1),
-  expectedAttempts: z.number().int().nonnegative().optional()
+  expectedAttempts: z.number().int().nonnegative().optional(),
+  claimToken: z.string().optional()
 });
 const startRunSchema = z.object({
   workerId: z.string().min(1).optional(),
-  expectedAttempts: z.number().int().nonnegative().optional()
+  expectedAttempts: z.number().int().nonnegative().optional(),
+  claimToken: z.string().optional()
 });
 
 const reclaimSchema = z.object({
@@ -63,14 +67,16 @@ const reclaimSchema = z.object({
 const completeRunSchema = z.object({
   output: z.record(z.unknown()).optional(),
   workerId: z.string().min(1).optional(),
-  expectedAttempts: z.number().int().nonnegative().optional()
+  expectedAttempts: z.number().int().nonnegative().optional(),
+  claimToken: z.string().optional()
 });
 
 const failRunSchema = z.object({
   error: z.string().min(1, "error message is required"),
   details: z.record(z.unknown()).optional(),
   workerId: z.string().min(1).optional(),
-  expectedAttempts: z.number().int().nonnegative().optional()
+  expectedAttempts: z.number().int().nonnegative().optional(),
+  claimToken: z.string().optional()
 });
 
 /**
@@ -89,6 +95,22 @@ export function assertAgentRunMutationAccess(
   }
   if (!owner && !roles.some(role => ["OPS_ADMIN", "ADMIN", "SUPER_ADMIN"].includes(role.toUpperCase()))) {
     throw new ForbiddenException("unfenced agent operations require an administrator");
+  }
+}
+
+function verifyWorkerMutation(
+  actor: { tenantId: string; orgId: string; userId: string; roles: string[] },
+  runId: string,
+  input: { workerId?: string; expectedAttempts?: number; claimToken?: string },
+): void {
+  assertAgentRunMutationAccess(actor.roles, input);
+  if (input.workerId) {
+    verifyAgentRunClaimToken({
+      tenantId: actor.tenantId, orgId: actor.orgId, userId: actor.userId,
+      runId, workerId: input.workerId, attempts: input.expectedAttempts!,
+    }, input.claimToken);
+  } else if (input.claimToken) {
+    throw new BadRequestException("manual run mutation cannot include a worker claim token");
   }
 }
 
@@ -383,10 +405,16 @@ export class AgentsController {
       userId: actor.userId,
       workerId: parsed.data.workerId,
       agentType: parsed.data.agentType,
+      runId: parsed.data.runId,
       requestId
     });
-
-    return ok(requestId, run);
+    if (!run) return ok(requestId, null);
+    const claimToken = signAgentRunClaimToken({
+      tenantId: actor.tenantId, orgId: actor.orgId, userId: actor.userId,
+      runId: run.id, workerId: run.workerId!, attempts: run.attempts,
+    });
+    // Claim secret is returned only to the successful claimant, never by GET.
+    return ok(requestId, { ...run, claimToken });
   }
 
   @Post("runs/reclaim-stale")
@@ -457,7 +485,7 @@ export class AgentsController {
   async start(@Req() req: { headers?: Record<string, unknown> }, @Param("runId") runId: string, @Body() body: unknown) {
     const parsed = parseWithSchema(startRunSchema, body ?? {});
     const actor = resolveRequestContext(req);
-    assertAgentRunMutationAccess(actor.roles, parsed);
+    verifyWorkerMutation(actor, runId, parsed);
     const requestId = resolveRequestId(req.headers ?? {});
     this.logger.warn(
       `[agent.run.start] ${JSON.stringify({
@@ -497,9 +525,7 @@ export class AgentsController {
       throw new BadRequestException(parsed.error.flatten());
     }
     const actor = resolveRequestContext(req);
-    if (parsed.data.expectedAttempts === undefined && !actor.roles.some(role => ["OPS_ADMIN", "ADMIN", "SUPER_ADMIN"].includes(role.toUpperCase()))) {
-      throw new ForbiddenException("unfenced manual heartbeat requires an administrator");
-    }
+    verifyWorkerMutation(actor, runId, parsed.data);
     const requestId = resolveRequestId(req.headers ?? {});
     const run = await this.agentsService.heartbeat({
       tenantId: actor.tenantId,
@@ -523,7 +549,7 @@ export class AgentsController {
   ) {
     const parsed = parseWithSchema(completeRunSchema, body);
     const actor = resolveRequestContext(req);
-    assertAgentRunMutationAccess(actor.roles, parsed);
+    verifyWorkerMutation(actor, runId, parsed);
     const requestId = resolveRequestId(req.headers ?? {});
     const run = await this.agentsService.complete({
       tenantId: actor.tenantId,
@@ -548,7 +574,7 @@ export class AgentsController {
   ) {
     const parsed = parseWithSchema(failRunSchema, body);
     const actor = resolveRequestContext(req);
-    assertAgentRunMutationAccess(actor.roles, parsed);
+    verifyWorkerMutation(actor, runId, parsed);
     const requestId = resolveRequestId(req.headers ?? {});
     const run = await this.agentsService.fail({
       tenantId: actor.tenantId,

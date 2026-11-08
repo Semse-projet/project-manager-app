@@ -443,10 +443,15 @@ async function processDeveloperRuntimeQueueJob(queueRun) {
 }
 
 async function processQueuedRun(queueRun) {
-  const run = await getRunForWorker(queueRun);
-  if (!run) {
-    logger.warn({ runId: queueRun.runId, tenantId: queueRun.tenantId }, "queue item references missing agent run");
-    return { missing: true };
+  const claimed = await claimRunForQueueItem(queueRun);
+  if (!claimed) {
+    logger.info({ runId: queueRun.runId, tenantId: queueRun.tenantId }, "queue item was not claimable");
+    return { skipped: true };
+  }
+  // The capability token must not be forwarded into agents, tools, LLMs or logs.
+  const { claimToken, ...run } = claimed;
+  if (typeof claimToken !== "string" || claimToken.length < 32) {
+    throw new Error("claim response did not contain a worker capability token");
   }
 
   logger.info({
@@ -457,7 +462,7 @@ async function processQueuedRun(queueRun) {
   }, "processing queue job");
 
   await sleep(START_STABILIZATION_DELAY_MS);
-  const started = await startRunWithRetry(run, queueRun);
+  const started = await startRunWithRetry(run, queueRun, claimToken);
   const expectedAttempts = started?.attempts;
   if (!Number.isInteger(expectedAttempts) || started?.workerId !== config.workerId) {
     throw new Error("agent run start did not grant a fenced worker attempt");
@@ -466,7 +471,7 @@ async function processQueuedRun(queueRun) {
   let heartbeatTimer;
   try {
     heartbeatTimer = setInterval(() => {
-      void heartbeatRun(run.id, run.tenantId ?? queueRun.tenantId, expectedAttempts).catch((error) => {
+      void heartbeatRun(run.id, run.tenantId ?? queueRun.tenantId, expectedAttempts, claimToken).catch((error) => {
         if (isNonFatalHeartbeatError(error)) {
           logger.debug({ runId: run.id }, "ignoring late heartbeat after terminal run state");
           return;
@@ -477,7 +482,7 @@ async function processQueuedRun(queueRun) {
     }, config.heartbeatIntervalMs);
 
     if (shouldFail()) {
-      await failRun(run.id, "simulated worker failure", run.tenantId ?? queueRun.tenantId, expectedAttempts);
+      await failRun(run.id, "simulated worker failure", run.tenantId ?? queueRun.tenantId, expectedAttempts, claimToken);
       return { failed: true };
     }
 
@@ -506,7 +511,7 @@ async function processQueuedRun(queueRun) {
       ...(typeof result.requiresHumanReview === "boolean" ? { requiresHumanReview: result.requiresHumanReview } : {}),
       processedAt: new Date().toISOString(),
       workerId: config.workerId
-    }, run.tenantId ?? queueRun.tenantId, expectedAttempts);
+    }, run.tenantId ?? queueRun.tenantId, expectedAttempts, claimToken);
 
     return result;
   } catch (error) {
@@ -518,7 +523,7 @@ async function processQueuedRun(queueRun) {
       runTenantId: run.tenantId ?? null,
       error: message
     }, "queue job execution failed before terminal update");
-    await failRun(run.id, message, run.tenantId ?? queueRun.tenantId, expectedAttempts);
+    await failRun(run.id, message, run.tenantId ?? queueRun.tenantId, expectedAttempts, claimToken);
     throw error;
   } finally {
     if (heartbeatTimer) {
@@ -658,68 +663,51 @@ async function reclaimStaleRuns() {
   }
 }
 
-async function getRunForWorker(queueRun) {
-  const payload = await requestJson(`/v1/agents/runs/${queueRun.runId}/worker`, {
-    method: "GET"
-  }, { allow404: true, tenantId: queueRun.tenantId });
-
-  if (payload === null) {
-    return null;
-  }
-
-  return payload.data;
+async function claimRunForQueueItem(queueRun) {
+  const response = await postJson("/v1/agents/runs/claim", {
+    runId: queueRun.runId,
+    agentType: queueRun.agentType,
+    workerId: config.workerId
+  }, { tenantId: queueRun.tenantId });
+  return response?.data ?? null;
 }
 
-async function startRunWithRetry(run, queueRun) {
+async function startRunWithRetry(run, queueRun, claimToken) {
   const tenantId = run.tenantId ?? queueRun.tenantId;
-
   for (let attempt = 0; attempt <= START_RUN_RETRY_DELAYS_MS.length; attempt += 1) {
     try {
-      return await startRun(run.id, tenantId, run.attempts);
+      return await startRun(run.id, tenantId, run.attempts, claimToken);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       const isRetryableNotFound = message.includes("/start") && message.includes("HTTP 404");
-      if (!isRetryableNotFound || attempt === START_RUN_RETRY_DELAYS_MS.length) {
-        throw error;
-      }
-
+      if (!isRetryableNotFound || attempt === START_RUN_RETRY_DELAYS_MS.length) throw error;
       const delayMs = START_RUN_RETRY_DELAYS_MS[attempt];
-      logger.warn({
-        runId: run.id,
-        agentType: run.agentType,
-        tenantId,
-        attempt: attempt + 1,
-        delayMs
-      }, "run start returned 404, retrying after refresh");
+      logger.warn({ runId: run.id, tenantId, attempt: attempt + 1, delayMs }, "run start returned 404");
       await sleep(delayMs);
-      const refreshed = await getRunForWorker(queueRun);
-      if (!refreshed) {
-        throw error;
-      }
-      run = refreshed;
+      // Never refresh the private claim using GET /worker.
     }
   }
 }
 
-async function startRun(runId, tenantId, expectedAttempts) {
+async function startRun(runId, tenantId, expectedAttempts, claimToken) {
   const response = await postJson("/v1/agents/runs/" + runId + "/start", {
-    workerId: config.workerId, expectedAttempts
+    workerId: config.workerId, expectedAttempts, claimToken
   }, { tenantId });
   return response?.data;
 }
-async function heartbeatRun(runId, tenantId, expectedAttempts) {
+async function heartbeatRun(runId, tenantId, expectedAttempts, claimToken) {
   await postJson("/v1/agents/runs/" + runId + "/heartbeat", {
-    workerId: config.workerId, expectedAttempts
+    workerId: config.workerId, expectedAttempts, claimToken
   }, { tenantId });
 }
-async function completeRun(runId, output, tenantId, expectedAttempts) {
+async function completeRun(runId, output, tenantId, expectedAttempts, claimToken) {
   await postJson("/v1/agents/runs/" + runId + "/complete", {
-    output, workerId: config.workerId, expectedAttempts
+    output, workerId: config.workerId, expectedAttempts, claimToken
   }, { tenantId });
 }
-async function failRun(runId, errorMessage, tenantId, expectedAttempts) {
+async function failRun(runId, errorMessage, tenantId, expectedAttempts, claimToken) {
   await postJson("/v1/agents/runs/" + runId + "/fail", {
-    error: errorMessage, workerId: config.workerId, expectedAttempts
+    error: errorMessage, workerId: config.workerId, expectedAttempts, claimToken
   }, { tenantId });
 }
 

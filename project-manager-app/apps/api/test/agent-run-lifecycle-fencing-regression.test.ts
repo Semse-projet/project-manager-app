@@ -5,6 +5,7 @@ import { BadRequestException, ForbiddenException } from "@nestjs/common";
 import { assertAgentRunMutationAccess } from "../dist/modules/agents/agents.controller.js";
 import { AgentsRepository } from "../dist/modules/agents/agents.repository.js";
 import { AgentsService } from "../dist/modules/agents/agents.service.js";
+import { signAgentRunClaimToken, verifyAgentRunClaimToken } from "../dist/modules/agents/agent-run-claim-token.js";
 
 test("WORKER cannot start, complete or fail without a paired worker attempt", () => {
   for (const value of [{}, { workerId: "w1" }, { expectedAttempts: 1 }]) {
@@ -78,4 +79,24 @@ test("worker token cannot finalize an unowned manual run", async () => {
   const actor = { tenantId:"tenant_a", orgId:"org_a", userId:"user_a", runId:"manual" };
   await assert.rejects(repository.complete({...actor, workerId:"forged", expectedAttempts:1}), 
     (error: unknown) => (error as {getStatus?:()=>number})?.getStatus?.() === 409);
+});
+
+
+test("signed worker claim is bound to principal, tenant, run, worker and generation", () => {
+  const binding = {
+    tenantId: "tenant_a", orgId: "org_a", userId: "user_a",
+    runId: "run_1", workerId: "worker_1", attempts: 1,
+  };
+  const token = signAgentRunClaimToken(binding);
+  assert.match(token, /^[A-Za-z0-9_-]{43}$/);
+  assert.doesNotThrow(() => verifyAgentRunClaimToken(binding, token));
+  for (const mutation of [
+    { userId: "user_b" }, { tenantId: "tenant_b" }, {orgId:"org_b"},
+    {runId: "run_2"}, {workerId:"worker_2"}, {attempts: 2},
+  ]) {
+    assert.throws(() => verifyAgentRunClaimToken({ ...binding, ...mutation }, token),
+      (error: unknown) => (error as { getStatus?:()=>number }).getStatus?.() === 403);
+  }
+  assert.throws(() => verifyAgentRunClaimToken(binding, undefined),
+    (error: unknown) => (error as { getStatus?:()=>number }).getStatus?.() === 403);
 });

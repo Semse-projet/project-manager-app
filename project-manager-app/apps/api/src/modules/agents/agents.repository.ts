@@ -155,6 +155,7 @@ export class AgentsRepository {
     userId: string;
     workerId: string;
     agentType?: AgentRunRecord["agentType"];
+    runId?: string;
   }): Promise<AgentRunRecord | null> {
     await this.actorContextService.ensureActorContext(input);
 
@@ -165,6 +166,7 @@ export class AgentsRepository {
           tenantId: input.tenantId,
           status: "QUEUED",
           deadLettered: false,
+          ...(input.runId ? { id: input.runId } : {}),
           ...(input.agentType ? { agentType: input.agentType } : {})
         },
         orderBy: { createdAt: "asc" }

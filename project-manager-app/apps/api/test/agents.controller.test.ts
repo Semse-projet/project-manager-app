@@ -63,7 +63,7 @@ function createController() {
     },
     claim(input: Record<string, unknown>) {
       calls.push({ method: "claim", input });
-      return { id: "run_3", claimed: true };
+      return { id: "run_3", tenantId: String(input.tenantId), workerId: String(input.workerId), attempts: 1, claimed: true };
     },
     reclaimStale(input: Record<string, unknown>) {
       calls.push({ method: "reclaimStale", input });

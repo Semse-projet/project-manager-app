@@ -354,6 +354,7 @@ export class AgentsService {
     userId: string;
     workerId: string;
     agentType?: AgentRunRecord["agentType"];
+    runId?: string;
     requestId: string;
   }) {
     const run = await this.agentsRepository.claimNext(input);
