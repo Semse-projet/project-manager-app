@@ -23,7 +23,7 @@ Observaciones ejemplares: Alaska $43.00/h; California $36.62/h; Florida $27.52/h
 
 ## Separación de gates
 
-1. Esta muestra es adicional al [CSV previo con 38 series](./cost-engine.t005-bls-api-median-sample-2026-11-08.csv): sus observaciones de Alabama, DC y Florida ya constaban allí. No sumar 15 como 15 observaciones nuevas sin deduplicar por `series_id`.
+1. Esta muestra es adicional al [CSV previo con 38 series](./cost-engine.t005-bls-api-median-sample-2026-11-08.csv): sus observaciones de Alabama, DC y Florida ya constaban allí. No sumar 15 como 15 observaciones nuevas sin deduplicar por `series_id`. El cotejo entre los dos CSV congelados confirmó **3 series compartidas y concordantes** (Florida, Alabama y DC), **12 observaciones nuevas distintas** en la segunda matriz, y **50 series salariales con dato distintas** en el conjunto (38 + 15 - 3 = 50). Las 36 respuestas de cuota no suman salarios. La prueba de invariantes del snapshot se incorpora al CI como validación estructural, sin consultas externas.
 2. La cuota diaria BLS es un bloqueo de ejecución **verificado**, no un defecto de los códigos SOC ni una prueba de que OEWS omita estados. Reanudar la adquisición cuando se restablezca la cuota o importar los ZIP originales desde un entorno con acceso autorizado; no eludir la cuota mediante credenciales o vías alternativas sin autorización.
 3. La muestra no valida `O_GROUP`, `NAICS` ni `OWN_CODE` del Excel bruto, ni su integridad SHA-256. Mantener el manifiesto offline `release_verified=false`.
 4. Continúan pendientes los **14 conflictos de clasificación por oficio**, Q2/Q10/Q11, costos reales de cuadrillas, impuestos, derechos de datos y autorización humana. **No pasar el PR #1075 de DRAFT ni activar precios.**

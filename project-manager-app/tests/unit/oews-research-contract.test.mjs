@@ -100,3 +100,97 @@ test('T-005 crosswalk reconciliation stays synchronized with both drafts and the
   assert.match(evidence, /\*\*SOC comerciales aprobados:\*\* 0\/24/,
     'No source candidate may silently become an approved commercial wage map');
 });
+
+
+test('T-005 frozen BLS API snapshots preserve distinct series, wage values and quota states', () => {
+  const prefix = 'docs/specs/api/';
+  const parseSnapshot = (name) => {
+    const [heading, ...lines] = readFileSync(prefix + name, 'utf8').trimEnd().split(/\r?\n/);
+    const columns = heading.split(',');
+    return lines.map((line) => {
+      const values = line.split(',');
+      assert.equal(values.length, columns.length, 'Malformed frozen BLS CSV row');
+      return Object.fromEntries(columns.map((column, i) => [column, values[i]]));
+    });
+  };
+
+  const initial = parseSnapshot('cost-engine.t005-bls-api-median-sample-2026-11-08.csv');
+  const states = parseSnapshot('cost-engine.t005-bls-api-electricians-51-jurisdictions-2026-11-08.csv');
+  assert.equal(initial.length, 38, 'Initial BLS sample must remain frozen');
+  assert.equal(states.length, 51, 'The state/DC snapshot must cover 51 jurisdictions');
+
+  const values = new Map();
+  const code = /^OEU([SM])(\d{7})000000(\d{6})08$/;
+  const validateSeries = (row, type, area, soc, value, link) => {
+    const match = code.exec(row.series_id);
+    assert.ok(match, 'Malformed detailed BLS OEWS median series ID');
+    assert.equal(match[1], type);
+    assert.equal(match[2], area);
+    assert.equal(match[3], soc.replace('-', ''));
+    assert.equal(link, 'https://api.bls.gov/publicAPI/v2/timeseries/data/' + row.series_id);
+    assert.match(value, /^\d+\.\d{2}$/, 'Observed hourly wage must be a positive decimal, not null/zero');
+    assert.ok(Number(value) > 0);
+    assert.equal(row.year, '2025');
+    assert.equal(row.period, 'A01');
+    assert.equal(row.datatype_code, '08');
+  };
+
+  for (const row of initial) {
+    assert.equal(row.origin, 'BLS_PUBLIC_API_V2');
+    validateSeries(row, row.geography_type, row.area_code, row.soc_code,
+      row.hourly_median_usd, row.source_url);
+    assert.ok(!values.has(row.series_id), 'Duplicate series in the 38-row sample');
+    values.set(row.series_id, row.hourly_median_usd);
+  }
+  assert.equal(initial.filter((row) =>
+    row.geography_type === 'S' && row.area_code === '1200000').length, 32,
+  'The Florida snapshot requires one observation per detailed candidate SOC');
+
+  let observed = 0;
+  let blocked = 0;
+  let overlap = 0;
+  const stateFips = new Set();
+  const stateSeries = new Set();
+  for (const row of states) {
+    assert.match(row.area_code, /^\d{7}$/);
+    assert.equal(row.area_code.slice(0, 2), row.jurisdiction_fips);
+    assert.equal(row.area_code.slice(2), '00000');
+    assert.equal(row.soc, '47-2111');
+    assert.equal(row.series_id, 'OEUS' + row.area_code + '00000047211108');
+    assert.equal(row.official_api_url,
+      'https://api.bls.gov/publicAPI/v2/timeseries/data/' + row.series_id);
+    assert.ok(!stateFips.has(row.jurisdiction_fips), 'Repeated state/DC jurisdiction');
+    assert.ok(!stateSeries.has(row.series_id), 'Repeated state/DC series');
+    assert.ok(!['66', '72', '78'].includes(row.jurisdiction_fips),
+      'Territories are outside the 50 states + DC scope');
+    stateFips.add(row.jurisdiction_fips);
+    stateSeries.add(row.series_id);
+    assert.equal(row.year, '2025');
+    assert.equal(row.period, 'A01');
+    assert.equal(row.datatype_code, '08');
+
+    if (row.api_status === 'REQUEST_SUCCEEDED') {
+      validateSeries(row, 'S', row.area_code, row.soc,
+        row.hourly_median_usd, row.official_api_url);
+      observed++;
+      if (values.has(row.series_id)) {
+        overlap++;
+        assert.equal(values.get(row.series_id), row.hourly_median_usd,
+          'Conflicting official wage observations for the same year/period/series');
+      } else {
+        values.set(row.series_id, row.hourly_median_usd);
+      }
+    } else {
+      assert.equal(row.api_status, 'REQUEST_NOT_PROCESSED_DAILY_QUOTA',
+        'Unrecognized BLS response status must not be interpreted as missing wage');
+      assert.equal(row.hourly_median_usd, '',
+        'Daily quota failures cannot become zero wages or imputed values');
+      blocked++;
+    }
+  }
+
+  assert.equal(observed, 15);
+  assert.equal(blocked, 36);
+  assert.equal(overlap, 3, 'Cross-snapshot duplicate series must be deduplicated');
+  assert.equal(values.size, 50, 'Exactly 50 distinct observed BLS series are evidenced');
+});
