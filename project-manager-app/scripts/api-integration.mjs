@@ -52,9 +52,9 @@ async function main() {
   await assertDuplicateDisputeRejected(project.id);
 
   const run = await createAgentRun();
-  await claimSpecificRun(run.id, config.workerId);
-  await heartbeat(run.id);
-  await completeRun(run.id);
+  const claimedRun = await claimSpecificRun(run.id, config.workerId);
+  await heartbeat(claimedRun);
+  await completeRun(claimedRun);
   await assertRunCompleted(run.id);
 
   const staleRun = await createAgentRun();
@@ -223,21 +223,32 @@ async function claimSpecificRun(runId, workerId) {
       return claimed;
     }
 
-    await completeRun(claimed.id);
+    await completeRun(claimed);
   }
 
   assert.fail(`expected to claim run ${runId}`);
 }
 
-async function heartbeat(runId) {
-  const { json } = await request(actors.ops, "POST", `/v1/agents/runs/${runId}/heartbeat`, {
-    workerId: config.workerId
+// An owned AgentRun can only be mutated by the exact worker generation
+// returned from claimNext; the smoke must exercise that HTTP contract.
+function assertFencedClaim(run) {
+  assert.equal(run.workerId, config.workerId, "smoke claimed unexpected worker owner");
+  assert.ok(Number.isInteger(run.attempts) && run.attempts > 0,
+    "claimed AgentRun must expose a positive attempt generation");
+}
+
+async function heartbeat(run) {
+  assertFencedClaim(run);
+  const { json } = await request(actors.ops, "POST", `/v1/agents/runs/${run.id}/heartbeat`, {
+    workerId: run.workerId, expectedAttempts: run.attempts
   });
   assertCanonicalValue(json.data.status, "running");
 }
 
-async function completeRun(runId) {
-  const { json } = await request(actors.ops, "POST", `/v1/agents/runs/${runId}/complete`, {
+async function completeRun(run) {
+  assertFencedClaim(run);
+  const { json } = await request(actors.ops, "POST", `/v1/agents/runs/${run.id}/complete`, {
+    workerId: run.workerId, expectedAttempts: run.attempts,
     output: { status: "ok", source: "api-integration" }
   });
   assertCanonicalValue(json.data.status, "completed");
