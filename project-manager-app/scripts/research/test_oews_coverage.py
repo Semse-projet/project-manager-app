@@ -83,6 +83,18 @@ class OEWSTests(unittest.TestCase):
             self.assertEqual(ga["reference_status"], "NO_REFERENCE_WAGES")
             self.assertEqual(json.loads((output / "manifest.json").read_text())["release_claim"], "May 2025")
 
+    def test_invalid_second_source_leaves_no_partial_coverage_outputs(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            state, metro, out = root / "state.csv", root / "metro.csv", root / "result"
+            write_csv(state, [["12", "Florida", "47-2141", "29", "25", "20", "31"]])
+            with metro.open("w", newline="", encoding="utf-8") as source:
+                source.write("invalid,header\\n")
+            with self.assertRaisesRegex(ValueError, "required headers"):
+                run(state, metro, out)
+            self.assertEqual(list(out.glob("*")), [],
+                             "No state-only report should survive failed metro validation")
+
     def test_zip_with_missing_scope_columns_fails_closed(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "oesm25ma.zip"
