@@ -153,7 +153,7 @@ class RailwayCIProvenanceTests(unittest.TestCase):
         self.deny("merge-gate", lambda d, r, j: j[-1].update(conclusion="skipped"))
 
     def test_skipped_e2e_rejected(self):
-        self.deny("e2e", lambda d, r, j: j[-1].update(conclusion="skipped"))
+        self.deny("e2e", lambda d, r, j: next(x for x in j if x["name"] == "e2e").update(conclusion="skipped"))
 
     def test_failed_quality_gates_rejected(self):
         self.deny("quality-gates", lambda d, r, j: j[0].update(conclusion="failure"))
