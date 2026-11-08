@@ -8,7 +8,7 @@ import zipfile
 from pathlib import Path
 from xml.sax.saxutils import escape
 
-from oews_coverage import read_oews, run, parse_wage
+from oews_coverage import read_oews, run, parse_wage, coverage
 
 HEADER = ["AREA", "AREA_TITLE", "OCC_CODE", "H_MEAN", "H_MEDIAN", "H_PCT25", "H_PCT75"]
 SCOPED_HEADER = HEADER + ["AREA_TYPE", "NAICS", "I_GROUP", "OWN_CODE", "O_GROUP"]
@@ -183,6 +183,30 @@ class OEWSTests(unittest.TestCase):
                                  "4", "000000", "cross-industry", "1235", "detailed"])
             with self.assertRaisesRegex(ValueError, "No valid state rows"):
                 read_oews(path, "state")
+
+    def test_duplicate_header_fields_fail_before_wage_selection(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "state.csv"
+            with path.open("w", newline="", encoding="utf-8") as source:
+                writer = csv.writer(source)
+                writer.writerow(HEADER + ["H_MEDIAN"])
+                writer.writerow(["12", "Florida", "47-2141", "27", "25", "21", "32", "999"])
+            with self.assertRaisesRegex(ValueError, "Duplicate OEWS header fields"):
+                read_oews(path, "state")
+
+    def test_metro_area_title_survives_missing_first_candidate_soc(self):
+        # The first bathroom SOC candidate is absent, but an electrical
+        # trade in the same area can still identify the official area title.
+        rows = {
+            ("33100", "47-2111"): {
+                "area_title": "Miami-Fort Lauderdale-West Palm Beach, FL",
+                "median": "31", "mean": "34", "p25": "25", "p75": "42",
+            }
+        }
+        result = list(coverage(rows, "metro"))
+        bathroom = next(row for row in result if row[3] == "bathroom")
+        self.assertEqual(bathroom[2], "Miami-Fort Lauderdale-West Palm Beach, FL")
+        self.assertEqual(bathroom[7], "SOME_REFERENCE_WAGES_PRESENT")
 
     def test_duplicate_area_soc_fails_closed(self):
         with tempfile.TemporaryDirectory() as directory:
