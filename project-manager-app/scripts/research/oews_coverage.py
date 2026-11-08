@@ -187,10 +187,13 @@ def run(state,metro,out):
               'classification':'RESEARCH_ONLY_NOT_APPROVED',
               'notes':'Input filename and checksum alone do not prove the BLS release. Wages are employee reference, never billable rates or commercial certification',
               'input':{}}
+    validated_rows = {}
+    # Validate BOTH sources before emitting any new report files. If the
+    # second input fails, do not leave a fresh state CSV that looks complete.
     for kind,path in [('state',state),('metro',metro)]:
         records_by_key, stats=read_oews(path,kind)
         rows=list(coverage(records_by_key,kind))
-        save_csv(out/f'{kind}_trade_coverage.csv',rows)
+        validated_rows[kind] = rows
         counts=Counter(r[-1] for r in rows)
         observed_areas = sorted({area for area, _ in records_by_key})
         manifest['input'][kind]={
@@ -204,6 +207,8 @@ def run(state,metro,out):
             'reference_status_counts':dict(counts),
             'coverage_not_commercial_approval':True,
         }
+    for kind, rows in validated_rows.items():
+        save_csv(out/f'{kind}_trade_coverage.csv',rows)
     (out/'manifest.json').write_text(json.dumps(manifest,indent=2,ensure_ascii=False)+'\n',encoding='utf-8')
     return manifest
 
