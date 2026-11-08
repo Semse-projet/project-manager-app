@@ -215,8 +215,8 @@ test("agents controller declares permissions and wraps representative payloads",
     ["detail", "agents:run:create"],
     ["workerDetail", "agents:run:worker"],
     ["createRun", "agents:run:create"],
-    ["claim", "agents:run:worker"],
-    ["reclaimStale", "agents:run:worker"],
+    ["claim", "agents:run:claim"],
+    ["reclaimStale", "agents:run:claim"],
     ["retry", "agents:run:retry"],
     ["start", "agents:run:manage"],
     ["heartbeat", "agents:run:worker"],
@@ -264,7 +264,13 @@ test("agents controller declares permissions and wraps representative payloads",
     inputSummary: "summary",
   });
   const worker = await controller.workerDetail(actor as never, "run_1");
-  const claimed = await controller.claim(actor as never, { workerId: "worker_1" });
+  const runnerActor = {
+    ...actor, authContext: {
+      ...actor.authContext,
+      roles: ["OPS_ADMIN", "AGENT_RUNNER"],
+    },
+  };
+  const claimed = await controller.claim(runnerActor as never, { workerId: "worker_1" });
   const retried = await controller.retry(actor as never, "run_1");
   const planTemplates = await controller.listPlanTemplates(actor as never, "field");
 

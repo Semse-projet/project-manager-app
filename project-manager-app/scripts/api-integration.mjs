@@ -21,7 +21,7 @@ const actors = {
   ops: {
     userId: process.env.SEMSE_USER_ID ?? "usr_it_ops",
     orgId: process.env.SEMSE_ORG_ID ?? "org_it_ops",
-    roles: process.env.SEMSE_ROLES ?? "OPS_ADMIN,WORKER"
+    roles: process.env.SEMSE_ROLES ?? "OPS_ADMIN,WORKER,AGENT_RUNNER"
   }
 };
 
@@ -52,6 +52,7 @@ async function main() {
   await assertDuplicateDisputeRejected(project.id);
 
   const run = await createAgentRun();
+  await assertUnprivilegedClaimDenied(run.id);
   const claimedRun = await claimSpecificRun(run.id, config.workerId);
   await heartbeat(claimedRun);
   await assertStaleCompletionRejected(claimedRun);
@@ -207,28 +208,32 @@ async function createAgentRun() {
   return json.data;
 }
 
-async function claimRun(workerId) {
-  const { json } = await request(actors.ops, "POST", "/v1/agents/runs/claim", { workerId });
+async function claimRun(workerId, runId) {
+  const { json } = await request(actors.ops, "POST", "/v1/agents/runs/claim", { workerId, runId });
   return json.data;
 }
 
 async function claimSpecificRun(runId, workerId) {
+  // Never claim/complete unrelated queued runs as test cleanup.
   for (let attempt = 0; attempt < 10; attempt++) {
-    const claimed = await claimRun(workerId);
-    if (!claimed) {
-      await sleep(50);
-      continue;
-    }
-
-    if (claimed.id === runId) {
+    const claimed = await claimRun(workerId, runId);
+    if (claimed) {
+      assert.equal(claimed.id, runId, "targeted claim must not take another queued run");
       assertCanonicalValue(claimed.status, "running");
       return claimed;
     }
-
-    await completeRun(claimed);
+    await sleep(50);
   }
-
   assert.fail(`expected to claim run ${runId}`);
+}
+
+async function assertUnprivilegedClaimDenied(runId) {
+  for (const roles of ["WORKER", "OPS_ADMIN,WORKER"]) {
+    const actor = { ...actors.ops, roles };
+    const denied = await request(actor, "POST", "/v1/agents/runs/claim",
+      { workerId: config.workerId, runId }, { expectedStatus: 403 });
+    assert.equal(denied.status, 403, "human role must not mint a worker claim capability");
+  }
 }
 
 // An owned AgentRun can only be mutated by the exact worker generation

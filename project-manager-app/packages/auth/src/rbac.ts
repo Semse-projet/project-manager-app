@@ -177,6 +177,11 @@ export const rolePermissions: Record<string, string[]> = {
   EVENT_CONSUMER: [
     "domain-events:consume"
   ],
+  // Separate machine-authority grant. Human WORKER and OPS_ADMIN roles must
+  // never obtain an AgentRun claim capability from general management rights.
+  AGENT_RUNNER: [
+    "agents:run:claim"
+  ],
   OPS_ADMIN: [
     "contributor-program:participate",
     "contributor-program:manage",

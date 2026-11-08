@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { BadRequestException, ForbiddenException } from "@nestjs/common";
 
-import { assertAgentRunMutationAccess } from "../dist/modules/agents/agents.controller.js";
+import { assertAgentRunMutationAccess, assertAgentRunClaimAuthority } from "../dist/modules/agents/agents.controller.js";
 import { AgentsRepository } from "../dist/modules/agents/agents.repository.js";
 import { AgentsService } from "../dist/modules/agents/agents.service.js";
 import { signAgentRunClaimToken, verifyAgentRunClaimToken } from "../dist/modules/agents/agent-run-claim-token.js";
@@ -99,4 +99,11 @@ test("signed worker claim is bound to principal, tenant, run, worker and generat
   }
   assert.throws(() => verifyAgentRunClaimToken(binding, undefined),
     (error: unknown) => (error as { getStatus?:()=>number }).getStatus?.() === 403);
+});
+
+test("only a specifically provisioned AGENT_RUNNER can acquire or reclaim jobs", () => {
+  for (const roles of [["WORKER"], ["OPS_ADMIN"], ["OPS_ADMIN", "WORKER"], ["EVENT_CONSUMER"], []]) {
+    assert.throws(() => assertAgentRunClaimAuthority(roles), ForbiddenException);
+  }
+  assert.doesNotThrow(() => assertAgentRunClaimAuthority(["OPS_ADMIN", "AGENT_RUNNER"]));
 });

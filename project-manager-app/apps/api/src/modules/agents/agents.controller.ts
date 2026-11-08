@@ -114,6 +114,16 @@ function verifyWorkerMutation(
   }
 }
 
+/**
+ * Only a specifically provisioned agent runner may acquire or reclaim
+ * jobs. The signed claim token proves who claimed it, not who may claim.
+ */
+export function assertAgentRunClaimAuthority(roles: readonly string[]): void {
+  if (!roles.some(role => role.toUpperCase() === "AGENT_RUNNER")) {
+    throw new ForbiddenException("agent run claiming requires AGENT_RUNNER service role");
+  }
+}
+
 const copilotInputSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("chat"),    projectId: z.string(), message: z.string().min(1), threadId: z.string().optional() }),
   z.object({ kind: z.literal("search"),  projectId: z.string(), query: z.string().min(1), topK: z.number().int().positive().max(50).optional() }),
@@ -390,7 +400,7 @@ export class AgentsController {
 
   @Post("runs/claim")
   @SkipThrottle()
-  @RequirePermissions("agents:run:worker")
+  @RequirePermissions("agents:run:claim")
   async claim(@Req() req: { headers?: Record<string, unknown> }, @Body() body: Record<string, unknown>) {
     const parsed = claimAgentRunSchema.safeParse(body);
     if (!parsed.success) {
@@ -398,6 +408,7 @@ export class AgentsController {
     }
 
     const actor = resolveRequestContext(req);
+    assertAgentRunClaimAuthority(actor.roles);
     const requestId = resolveRequestId(req.headers ?? {});
     const run = await this.agentsService.claim({
       tenantId: actor.tenantId,
@@ -419,7 +430,7 @@ export class AgentsController {
 
   @Post("runs/reclaim-stale")
   @SkipThrottle()
-  @RequirePermissions("agents:run:worker")
+  @RequirePermissions("agents:run:claim")
   async reclaimStale(@Req() req: { headers?: Record<string, unknown> }, @Body() body: Record<string, unknown>) {
     const parsed = reclaimSchema.safeParse(body);
     if (!parsed.success) {
@@ -427,6 +438,7 @@ export class AgentsController {
     }
 
     const actor = resolveRequestContext(req);
+    assertAgentRunClaimAuthority(actor.roles);
     const requestId = resolveRequestId(req.headers ?? {});
     const reclaimed = await this.agentsService.reclaimStale({
       tenantId: actor.tenantId,
