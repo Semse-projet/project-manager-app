@@ -16,7 +16,19 @@
 import { test, expect } from "@playwright/test";
 
 const API_BASE = (process.env.SEMSE_API_URL ?? "http://127.0.0.1:4122").replace(/\/+$/, "");
+// Explicit qualification runs must FAIL rather than count four skipped tests as green.
+// This spec mutates hiring, escrow (mock), and ratings data: never target production.
+const REQUIRE_HIRING_E2E = process.env.SEMSE_REQUIRE_HIRING_E2E === "1";
+const apiTarget = new URL(API_BASE);
+if (!["localhost", "127.0.0.1", "[::1]"].includes(apiTarget.hostname)) {
+  throw new Error("Hiring E2E requires a loopback-only test API, never a remote or production URL");
+}
 const TENANT = "tenant_default";
+
+function skipOrFail(reason: string): void {
+  if (REQUIRE_HIRING_E2E) throw new Error(`Hiring E2E preflight failed: ${reason}`);
+  test.skip(true, reason);
+}
 
 type Actor = { orgId: string; userId: string; roles: string[] };
 const ACTORS = {
@@ -58,9 +70,14 @@ async function expectRefused(actor: Actor, method: string, path: string, body: u
 
 test.beforeAll(async () => {
   const health = await fetch(`${API_BASE}/v1/health`).then((r) => r.status, () => 0);
-  test.skip(health !== 200, `API not reachable at ${API_BASE}/v1/health (see docs/semse-kit/local-stack.md)`);
+  if (health !== 200) {
+    skipOrFail(`API not reachable at ${API_BASE}/v1/health (see docs/semse-kit/local-stack.md)`);
+    return;
+  }
   const probe = await api(ACTORS.client, "GET", "/v1/jobs");
-  test.skip(probe.status === 401 || probe.status === 503, `API at ${API_BASE} does not accept header identity (SEMSE_ALLOW_HEADER_IDENTITY=true, NODE_ENV=test, no AUTH_SECRET, and none in apps/api/.env or packages/db/.env)`);
+  if (probe.status === 401 || probe.status === 503) {
+    skipOrFail(`API at ${API_BASE} does not accept header identity (SEMSE_ALLOW_HEADER_IDENTITY=true, NODE_ENV=test, no AUTH_SECRET, and none in apps/api/.env or packages/db/.env)`);
+  }
 });
 
 const run = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
