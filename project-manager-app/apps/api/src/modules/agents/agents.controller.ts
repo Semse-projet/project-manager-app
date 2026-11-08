@@ -47,7 +47,12 @@ const claimAgentRunSchema = z.object({
 });
 
 const heartbeatSchema = z.object({
-  workerId: z.string().min(1)
+  workerId: z.string().min(1),
+  expectedAttempts: z.number().int().nonnegative().optional()
+});
+const startRunSchema = z.object({
+  workerId: z.string().min(1).optional(),
+  expectedAttempts: z.number().int().nonnegative().optional()
 });
 
 const reclaimSchema = z.object({
@@ -56,12 +61,16 @@ const reclaimSchema = z.object({
 });
 
 const completeRunSchema = z.object({
-  output: z.record(z.unknown()).optional()
+  output: z.record(z.unknown()).optional(),
+  workerId: z.string().min(1).optional(),
+  expectedAttempts: z.number().int().nonnegative().optional()
 });
 
 const failRunSchema = z.object({
   error: z.string().min(1, "error message is required"),
-  details: z.record(z.unknown()).optional()
+  details: z.record(z.unknown()).optional(),
+  workerId: z.string().min(1).optional(),
+  expectedAttempts: z.number().int().nonnegative().optional()
 });
 
 const copilotInputSchema = z.discriminatedUnion("kind", [
@@ -426,7 +435,8 @@ export class AgentsController {
   @Post("runs/:runId/start")
   @SkipThrottle()
   @RequirePermissions("agents:run:manage")
-  async start(@Req() req: { headers?: Record<string, unknown> }, @Param("runId") runId: string) {
+  async start(@Req() req: { headers?: Record<string, unknown> }, @Param("runId") runId: string, @Body() body: unknown) {
+    const parsed = parseWithSchema(startRunSchema, body ?? {});
     const actor = resolveRequestContext(req);
     const requestId = resolveRequestId(req.headers ?? {});
     this.logger.warn(
@@ -447,6 +457,8 @@ export class AgentsController {
       orgId: actor.orgId,
       userId: actor.userId,
       runId,
+      workerId: parsed.workerId,
+      expectedAttempts: parsed.expectedAttempts,
       requestId
     });
     return ok(requestId, run);
@@ -472,6 +484,7 @@ export class AgentsController {
       userId: actor.userId,
       runId,
       workerId: parsed.data.workerId,
+      expectedAttempts: parsed.data.expectedAttempts,
       requestId
     });
     return ok(requestId, run);
@@ -494,6 +507,8 @@ export class AgentsController {
       orgId: actor.orgId,
       userId: actor.userId,
       output: parsed.output,
+      workerId: parsed.workerId,
+      expectedAttempts: parsed.expectedAttempts,
       requestId
     });
     return ok(requestId, run);
@@ -516,6 +531,8 @@ export class AgentsController {
       orgId: actor.orgId,
       userId: actor.userId,
       error: parsed.error,
+      workerId: parsed.workerId,
+      expectedAttempts: parsed.expectedAttempts,
       requestId
     });
     return ok(requestId, run);

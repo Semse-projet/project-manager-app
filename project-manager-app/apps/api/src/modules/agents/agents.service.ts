@@ -428,7 +428,7 @@ export class AgentsService {
     return run;
   }
 
-  async start(input: { tenantId: string; orgId: string; userId: string; runId: string; requestId: string }) {
+  async start(input: { tenantId: string; orgId: string; userId: string; runId: string; requestId: string; workerId?: string; expectedAttempts?: number }) {
     const run = await this.agentsRepository.start(input);
 
     await this.auditService.append({
@@ -451,6 +451,7 @@ export class AgentsService {
     userId: string;
     runId: string;
     workerId: string;
+    expectedAttempts?: number;
     requestId: string;
   }) {
     const run = await this.agentsRepository.heartbeat(input);
@@ -475,6 +476,8 @@ export class AgentsService {
     userId: string;
     runId: string;
     output?: Record<string, unknown>;
+    workerId?: string;
+    expectedAttempts?: number;
     requestId: string;
   }) {
     const run = await this.agentsRepository.complete(input);
@@ -531,6 +534,8 @@ export class AgentsService {
     userId: string;
     runId: string;
     error: string;
+    workerId?: string;
+    expectedAttempts?: number;
     requestId: string;
   }) {
     const run = await this.agentsRepository.fail(input);

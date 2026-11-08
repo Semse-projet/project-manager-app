@@ -457,12 +457,16 @@ async function processQueuedRun(queueRun) {
   }, "processing queue job");
 
   await sleep(START_STABILIZATION_DELAY_MS);
-  await startRunWithRetry(run, queueRun);
+  const started = await startRunWithRetry(run, queueRun);
+  const expectedAttempts = started?.attempts;
+  if (!Number.isInteger(expectedAttempts) || started?.workerId !== config.workerId) {
+    throw new Error("agent run start did not grant a fenced worker attempt");
+  }
 
   let heartbeatTimer;
   try {
     heartbeatTimer = setInterval(() => {
-      void heartbeatRun(run.id, run.tenantId ?? queueRun.tenantId).catch((error) => {
+      void heartbeatRun(run.id, run.tenantId ?? queueRun.tenantId, expectedAttempts).catch((error) => {
         if (isNonFatalHeartbeatError(error)) {
           logger.debug({ runId: run.id }, "ignoring late heartbeat after terminal run state");
           return;
@@ -473,7 +477,7 @@ async function processQueuedRun(queueRun) {
     }, config.heartbeatIntervalMs);
 
     if (shouldFail()) {
-      await failRun(run.id, "simulated worker failure", run.tenantId ?? queueRun.tenantId);
+      await failRun(run.id, "simulated worker failure", run.tenantId ?? queueRun.tenantId, expectedAttempts);
       return { failed: true };
     }
 
@@ -502,7 +506,7 @@ async function processQueuedRun(queueRun) {
       ...(typeof result.requiresHumanReview === "boolean" ? { requiresHumanReview: result.requiresHumanReview } : {}),
       processedAt: new Date().toISOString(),
       workerId: config.workerId
-    }, run.tenantId ?? queueRun.tenantId);
+    }, run.tenantId ?? queueRun.tenantId, expectedAttempts);
 
     return result;
   } catch (error) {
@@ -514,7 +518,7 @@ async function processQueuedRun(queueRun) {
       runTenantId: run.tenantId ?? null,
       error: message
     }, "queue job execution failed before terminal update");
-    await failRun(run.id, message, run.tenantId ?? queueRun.tenantId);
+    await failRun(run.id, message, run.tenantId ?? queueRun.tenantId, expectedAttempts);
     throw error;
   } finally {
     if (heartbeatTimer) {
@@ -671,8 +675,7 @@ async function startRunWithRetry(run, queueRun) {
 
   for (let attempt = 0; attempt <= START_RUN_RETRY_DELAYS_MS.length; attempt += 1) {
     try {
-      await startRun(run.id, tenantId);
-      return;
+      return await startRun(run.id, tenantId, run.attempts);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       const isRetryableNotFound = message.includes("/start") && message.includes("HTTP 404");
@@ -698,22 +701,26 @@ async function startRunWithRetry(run, queueRun) {
   }
 }
 
-async function startRun(runId, tenantId) {
-  await postJson(`/v1/agents/runs/${runId}/start`, {}, { tenantId });
+async function startRun(runId, tenantId, expectedAttempts) {
+  const response = await postJson("/v1/agents/runs/" + runId + "/start", {
+    workerId: config.workerId, expectedAttempts
+  }, { tenantId });
+  return response?.data;
 }
-
-async function heartbeatRun(runId, tenantId) {
-  await postJson(`/v1/agents/runs/${runId}/heartbeat`, {
-    workerId: config.workerId
+async function heartbeatRun(runId, tenantId, expectedAttempts) {
+  await postJson("/v1/agents/runs/" + runId + "/heartbeat", {
+    workerId: config.workerId, expectedAttempts
   }, { tenantId });
 }
-
-async function completeRun(runId, output, tenantId) {
-  await postJson(`/v1/agents/runs/${runId}/complete`, { output }, { tenantId });
+async function completeRun(runId, output, tenantId, expectedAttempts) {
+  await postJson("/v1/agents/runs/" + runId + "/complete", {
+    output, workerId: config.workerId, expectedAttempts
+  }, { tenantId });
 }
-
-async function failRun(runId, errorMessage, tenantId) {
-  await postJson(`/v1/agents/runs/${runId}/fail`, { error: errorMessage }, { tenantId });
+async function failRun(runId, errorMessage, tenantId, expectedAttempts) {
+  await postJson("/v1/agents/runs/" + runId + "/fail", {
+    error: errorMessage, workerId: config.workerId, expectedAttempts
+  }, { tenantId });
 }
 
 function buildHeaders() {
