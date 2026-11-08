@@ -21,15 +21,18 @@ def write_csv(path, rows):
         writer.writerows(rows)
 
 
-def write_synthetic_xlsx_zip(path, rows):
+def write_synthetic_xlsx_zip(path, rows, include_scope=True):
     def cell(index, value):
         col = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"[index]
         return f'<c r="{col}" t="inlineStr"><is><t>{escape(str(value))}</t></is></c>'
+    contents = ([SCOPED_HEADER] + [list(row) + [
+        "4", "000000", "cross-industry", "1235", "detailed"] for row in rows]
+        if include_scope else [HEADER, *rows])
     xml_rows = "".join(
         f'<row r="{number}">' +
         "".join(cell(i, value) for i, value in enumerate(row)) +
         "</row>"
-        for number, row in enumerate([HEADER, *rows], 1)
+        for number, row in enumerate(contents, 1)
     )
     xml = ('<?xml version="1.0" encoding="UTF-8"?>' +
            '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
@@ -79,6 +82,16 @@ class OEWSTests(unittest.TestCase):
             self.assertEqual(fl["reference_status"], "ALL_REFERENCE_WAGES_PRESENT")
             self.assertEqual(ga["reference_status"], "NO_REFERENCE_WAGES")
             self.assertEqual(json.loads((output / "manifest.json").read_text())["release_claim"], "May 2025")
+
+    def test_zip_with_missing_scope_columns_fails_closed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "oesm25ma.zip"
+            write_synthetic_xlsx_zip(path, [
+                ["33100", "Miami-Fort Lauderdale-West Palm Beach, FL",
+                 "47-2141", "30", "27", "22", "36"]
+            ], include_scope=False)
+            with self.assertRaisesRegex(ValueError, "required scope fields missing"):
+                read_oews(path, "metro")
 
     def test_ambiguous_zip_fails_closed_instead_of_picking_first_workbook(self):
         from oews_coverage import records
