@@ -192,7 +192,12 @@ export class AgentsRepository {
           workerId: input.workerId,
           attempts: { increment: 1 },
           startedAt: now,
-          heartbeatAt: now
+          heartbeatAt: now,
+          // A new claim must not inherit the previous generation's terminal
+          // error or completion timestamps after stale recovery.
+          error: null,
+          endedAt: null,
+          durationMs: null
         }
       });
       if (claim.count !== 1) {
