@@ -55,6 +55,7 @@ async function main() {
   const claimedRun = await claimSpecificRun(run.id, config.workerId);
   await heartbeat(claimedRun);
   await assertStaleCompletionRejected(claimedRun);
+  await assertUnfencedWorkerMutationDenied(claimedRun);
   await completeRun(claimedRun);
   await assertRunCompleted(run.id);
 
@@ -255,6 +256,26 @@ async function assertStaleCompletionRejected(run) {
   }, { expectedStatus: 409 });
   assert.equal(status, 409, "outdated attempt must be fenced by the HTTP API");
 
+  const { json } = await request(actors.ops, "GET", `/v1/agents/runs/${run.id}`);
+  assertCanonicalValue(json.data.status, "running");
+}
+
+async function assertUnfencedWorkerMutationDenied(run) {
+  assertFencedClaim(run);
+  const workerActor = { ...actors.ops, roles: "WORKER" };
+  for (const [operation, body] of [
+    ["start", {}],
+    ["complete", { output: { summary: "unfenced worker bypass" } }],
+    ["fail", { error: "unfenced worker bypass" }]
+  ]) {
+    const { status, json } = await request(
+      workerActor, "POST", `/v1/agents/runs/${run.id}/${operation}`,
+      body, { expectedStatus: 403 }
+    );
+    assert.equal(status, 403);
+    assert.match(JSON.stringify(json), /unfenced agent operations require an administrator/,
+      "403 must come from the fencing role gate, not an unrelated permission check");
+  }
   const { json } = await request(actors.ops, "GET", `/v1/agents/runs/${run.id}`);
   assertCanonicalValue(json.data.status, "running");
 }

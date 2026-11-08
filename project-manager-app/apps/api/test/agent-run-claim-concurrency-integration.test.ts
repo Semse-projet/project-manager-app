@@ -149,8 +149,17 @@ dbTest("PostgreSQL fencing: stale worker heartbeat, completion and failure canno
     assert.equal(reclaimed.length, 1, "real reclaim must requeue one run");
     assert.equal(reclaimed[0]?.id, f.run.id);
     assert.equal(reclaimed[0]?.status, "queued");
-    const current = await repository.start({ ...base, workerId: "worker_A", expectedAttempts: 1 });
-    assert.equal(current.attempts, 2, "reclaimed attempt has a different generation");
+    await assert.rejects(
+      repository.start({ ...base, workerId: "worker_A", expectedAttempts: 1 }),
+      (error: unknown) => (error as any)?.getStatus?.() === 409,
+      "the old worker may not restart a requeued run with its former generation",
+    );
+    const current = await repository.claimNext({
+      ...base, workerId: "worker_A", agentType: "pricing",
+    });
+    assert.equal(current?.id, f.run.id);
+    assert.equal(current?.attempts, 2, "only a new claim may grant the next generation");
+    assert.equal(current?.workerId, "worker_A");
 
     await assert.rejects(
       repository.heartbeat({ ...base, workerId: "worker_A", expectedAttempts: 1 }),
@@ -185,7 +194,7 @@ dbTest("PostgreSQL fencing: stale worker heartbeat, completion and failure canno
   }
 });
 
-dbTest("PostgreSQL fencing: two direct starts on the same queued run cannot both succeed", async () => {
+dbTest("PostgreSQL fencing: direct worker starts cannot acquire a QUEUED run", async () => {
   const f = await fixture();
   const input = { tenantId: f.tenantId, orgId: "org_test", userId: "user_test", runId: f.run.id };
   try {
@@ -193,14 +202,14 @@ dbTest("PostgreSQL fencing: two direct starts on the same queued run cannot both
       repository.start({ ...input, workerId: "worker_A", expectedAttempts: 0 }),
       repository.start({ ...input, workerId: "worker_B", expectedAttempts: 0 }),
     ]);
-    assert.equal(results.filter((r) => r.status === "fulfilled").length, 1);
+    assert.equal(results.filter((r) => r.status === "fulfilled").length, 0);
     for (const r of results) {
       if (r.status === "rejected") assert.equal(r.reason?.getStatus?.(), 409);
     }
     const saved = await prisma.agentRun.findUniqueOrThrow({ where: { id: f.run.id } });
-    assert.equal(saved.status, "RUNNING");
-    assert.equal(saved.attempts, 1);
-    assert.ok(["worker_A", "worker_B"].includes(saved.workerId ?? ""));
+    assert.equal(saved.status, "QUEUED");
+    assert.equal(saved.attempts, 0);
+    assert.equal(saved.workerId, null, "workers cannot acquire a run by calling start");
   } finally {
     await f.cleanup();
   }

@@ -345,8 +345,14 @@ export class AgentsRepository {
     if (run.status !== "QUEUED") {
       throw new ConflictException("cannot start run in status '" + run.status.toLowerCase() + "'");
     }
-    if (input.expectedAttempts !== undefined && input.expectedAttempts !== run.attempts) {
-      throw new ConflictException("stale attempt cannot start a requeued run");
+    if (input.workerId) {
+      // Workers must use claimNext() to atomically acquire a queued run.
+      // In particular, an old worker may not reuse its previous attempt token
+      // to revive a run which was reclaimed and requeued.
+      throw new ConflictException("queued worker run must be acquired via claim, not start");
+    }
+    if (input.expectedAttempts !== undefined) {
+      throw new ConflictException("manual start cannot use a worker attempt token");
     }
     const now = new Date();
     const applied = await this.prisma.agentRun.updateMany({
