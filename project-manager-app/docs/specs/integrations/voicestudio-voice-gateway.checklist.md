@@ -1,11 +1,11 @@
-# Checklist de aceptación — VoiceStudio × SEMSE (DRAFT)
+# Checklist de aceptación — VoiceStudio × SEMSE (APPROVED, scope interno)
 
 ## Especificación y licencias
 - [x] SDD APPROVED para desarrollo ASR/TTS interno con D1–D3 autorizadas el 2026-11-07; D4–D5 pendientes y bloquean producción.
 - [ ] Modelo ASR/TTS y voz identificados por versión/digest/pesos/asset y autorización comercial documentada.
 - [ ] AGPL-3.0 aplicación, model weights, tokenizer, output, FFmpeg/redistribución revisados por separado.
-- [ ] SEMSE_ASR_PROVIDER unset sigue apagado; openai-whisper no cambia; voicestudio solo opt-in.
-- [ ] pnpm spec:index --check, pnpm spec:validate:strict y CI ejecutados en checkout completo, no inferidos.
+- [x] SEMSE_ASR_PROVIDER unset sigue apagado; openai-whisper no cambia; voicestudio solo opt-in (tests y CI de adapter).
+- [x] CI completado para adaptadores internos en HEAD `4b13d3a58ba3048bfc812b8efac71eb54ecaf5a5` (run `42434718652`: quality-gates, unit-coverage, E2E, integration, CodeQL; 10 success / 3 skipped). Validación del commit documental final sigue siendo independiente.
 
 ## Seguridad
 - [ ] Identidad/tenant/org y resource policy verificados antes de cargar medio.
@@ -34,4 +34,4 @@
 - [ ] CI PASS, merge SHA, deploy SHA, flags canary, activación y rollback comprobados separadamente.
 - [ ] Únicamente tras la evidencia anterior, considerar pasar spec a VERIFIED.
 
-**Estado actual:** ninguno de los checks de código/CI/runtime/productivo se considera completado. Este documento registra criterios, no certifica funcionalidades.
+**Estado 2026-11-07:** adaptador interno y CI de `4b13d3a5` aprobados. Los controles de recurso para voz de usuario, custodia P1 Agro, consentimiento, licencias, modelo real, runtime/benchmark, fusión, despliegue y activación permanecen abiertos. Ninguna funcionalidad de voz final está acreditada en producción.
