@@ -19,11 +19,7 @@ const actor = {
 function makeService(enqueueResult: { enqueued: boolean; reason?: "JOB_ACTIVE" | "QUEUE_UNAVAILABLE" | "QUEUE_ERROR" }) {
   const queueCalls: Array<{ input: Record<string, unknown>; options?: { mode?: string } }> = [];
   const auditCalls: Array<Record<string, unknown>> = [];
-  const svc = Object.create(AgentsService.prototype) as AgentsService & {
-    agentsRepository: unknown;
-    agentQueueService: unknown;
-    auditService: unknown;
-  };
+  const svc = Object.create(AgentsService.prototype) as Record<string, unknown>;
   svc.agentsRepository = {
     async retry(input: Record<string, unknown>) {
       assert.equal(input.tenantId, actor.tenantId);
@@ -37,7 +33,7 @@ function makeService(enqueueResult: { enqueued: boolean; reason?: "JOB_ACTIVE" |
       return enqueueResult;
     },
   };
-  return { svc, queueCalls, auditCalls };
+  return { svc: svc as unknown as AgentsService, queueCalls, auditCalls };
 }
 
 test("direct retry uses durable queue retry mode and tenant-scoped run id", async () => {
