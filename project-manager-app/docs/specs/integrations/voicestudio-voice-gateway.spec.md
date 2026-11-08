@@ -13,7 +13,7 @@ merge_status: "UNMERGED"
 deploy_status: "NOT_DEPLOYED"
 activation_status: "INACTIVE"
 migration_status: "NOT_APPLICABLE"
-feature_flags: ["SEMSE_ASR_PROVIDER", "SEMSE_VOICE_ENABLED", "SEMSE_TTS_PROVIDER"]
+feature_flags: ["SEMSE_ASR_PROVIDER", "SEMSE_VOICE_ENABLED", "SEMSE_TTS_PROVIDER", "SEMSE_VOICESTUDIO_STAGING_NODE_ENV_OK"]
 production_evidence: []
 related_files:
   - "apps/api/src/modules/contributor-program/transcription-provider.ts"
@@ -91,6 +91,8 @@ Reusar StorageService y contratos de uploads existentes. No se autoriza migraci�
 ## 8. Observabilidad, despliegue y activación
 
 Flags propuestos `SEMSE_VOICE_ENABLED=false`, `SEMSE_TTS_PROVIDER=off`, `SEMSE_ASR_PROVIDER` existente; URL, API key y voz fija secretas, sin añadirlas a navegador. Servicio VoiceStudio privado por HTTPS/red aislada; sin ingress externo a `/mcp/`, `/system/*` o `/api/settings/*`. Contenedor `linux/amd64` fijado por digest, volumen persistente, backup/restore probado y benchmark CPU/GPU antes de decidir Railway o host dedicado.
+
+**Gate técnico de staging (2026-11-08):** `Dockerfile.api` define `NODE_ENV=production` incluso cuando el entorno real de Railway se denomina `staging`. Para ejecutar únicamente el adaptador interno en staging, se exige `RAILWAY_ENVIRONMENT_NAME=staging` **y** `SEMSE_VOICESTUDIO_STAGING_NODE_ENV_OK=true` **y** las banderas de voz y desarrollo existentes (`SEMSE_VOICE_ENABLED=true` y `SEMSE_VOICESTUDIO_DEV_ENABLED=true`). Cualquier marcador `production`/`prod` en `SEMSE_ENVIRONMENT`, `RAILWAY_ENVIRONMENT_NAME` o `RAILWAY_ENVIRONMENT` siempre bloquea. Sin esa excepción el valor de `NODE_ENV=production` bloquea, y el valor por defecto continúa siendo OFF. La excepción **no autoriza** rutas públicas, datos de usuarios ni producción; solamente ensayos internos revisados.
 
 **Gate legal real:** VoiceStudio software AGPL-3.0; su inventario de modelos declara **cero** modelos `commercial_use:true` completamente revisados, y el modelo OmniVoice predeterminado menciona pesos CC-BY-NC. No usar modelos/outputs comercialmente antes de verificar licencia de pesos, tokenizador, voz y dependencias exactas.
 

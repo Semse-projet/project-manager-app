@@ -208,6 +208,36 @@ test("dev resolver never permits production; dev OFF is inert", () => {
 });
 
 
+test("Railway staging with Docker NODE_ENV=production requires a separate explicit opt-in", () => {
+  const fixture: NodeJS.ProcessEnv = {
+    NODE_ENV: "production",
+    RAILWAY_ENVIRONMENT_NAME: "staging",
+    SEMSE_VOICE_ENABLED: "true",
+    SEMSE_VOICESTUDIO_DEV_ENABLED: "true",
+    SEMSE_VOICESTUDIO_BASE_URL: "http://voice.railway.internal:3900",
+    SEMSE_VOICESTUDIO_PRIVATE_HTTP_OK: "true",
+    SEMSE_VOICESTUDIO_API_KEY: "staging-test-key",
+    SEMSE_VOICESTUDIO_ASR_MODEL: "faster-whisper",
+    SEMSE_VOICESTUDIO_STAGING_NODE_ENV_OK: "true",
+  };
+  assert.doesNotThrow(() => resolveVoiceStudioDevConfiguration(fixture));
+  assert.throws(() => resolveVoiceStudioDevConfiguration({
+    ...fixture, SEMSE_VOICESTUDIO_STAGING_NODE_ENV_OK: undefined,
+  }), (e: unknown) => errorCode(e, "VOICE_PRODUCTION_ACTIVATION_BLOCKED"));
+  for (const marker of [
+    { RAILWAY_ENVIRONMENT_NAME: "production" },
+    { RAILWAY_ENVIRONMENT: "prod" },
+    { SEMSE_ENVIRONMENT: "production" },
+    { RAILWAY_ENVIRONMENT_NAME: undefined },
+  ]) {
+    assert.throws(() => resolveVoiceStudioDevConfiguration({ ...fixture, ...marker }),
+      (e: unknown) => errorCode(e, "VOICE_PRODUCTION_ACTIVATION_BLOCKED"));
+  }
+  assert.throws(() => resolveVoiceStudioDevConfiguration({
+    ...fixture, SEMSE_VOICESTUDIO_DEV_ENABLED: undefined,
+  }), (e: unknown) => errorCode(e, "VOICE_FEATURE_DISABLED"));
+});
+
 test("direct client construction cannot bypass the production gate", () => {
   const previous = process.env.NODE_ENV;
   try {

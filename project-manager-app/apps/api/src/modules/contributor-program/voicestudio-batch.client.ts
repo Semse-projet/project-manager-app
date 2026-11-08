@@ -277,8 +277,17 @@ export class VoiceStudioBatchClient {
 }
 
 function productionEnvironment(env: NodeJS.ProcessEnv): boolean {
-  return [env.NODE_ENV, env.SEMSE_ENVIRONMENT, env.RAILWAY_ENVIRONMENT_NAME, env.RAILWAY_ENVIRONMENT]
-    .some((value) => typeof value === "string" && (value.toLowerCase() === "production" || value.toLowerCase() === "prod"));
+  const normalized = (value: string | undefined) => value?.trim().toLowerCase();
+  const isProduction = (value: string | undefined) => ["production", "prod"].includes(normalized(value) ?? "");
+  // Railway's deployment identity outranks a Dockerfile NODE_ENV=production
+  // only for an EXPLICITLY opted-in, isolated staging runtime. An actual
+  // production marker always blocks, even with a staging override.
+  if ([env.SEMSE_ENVIRONMENT, env.RAILWAY_ENVIRONMENT_NAME, env.RAILWAY_ENVIRONMENT].some(isProduction)) {
+    return true;
+  }
+  if (!isProduction(env.NODE_ENV)) return false;
+  return !(normalized(env.RAILWAY_ENVIRONMENT_NAME) === "staging" &&
+    env.SEMSE_VOICESTUDIO_STAGING_NODE_ENV_OK === "true");
 }
 
 export function resolveVoiceStudioDevConfiguration(env: NodeJS.ProcessEnv = process.env): VoiceStudioConfiguration {
