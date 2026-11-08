@@ -744,7 +744,7 @@ export class JobsService {
     ]);
     const blockers = jobClosureBlockers(target, {
       milestoneStatuses: milestones.map((milestone) => String(milestone.status)),
-      milestones: milestones.map((milestone) => ({
+      milestones: milestones.filter((milestone) => milestone.id && milestone.amount != null).map((milestone) => ({
         id: milestone.id, status: String(milestone.status), amount: Number(milestone.amount),
       })),
       escrowTransactions: escrows.flatMap((escrow) =>
