@@ -733,10 +733,10 @@ export class JobsService {
   ): Promise<void> {
     const scope = { deletedAt: null, project: { jobId, tenantId } };
     const [milestones, escrows, activeDisputes] = await Promise.all([
-      db.milestone.findMany({ where: scope, select: { status: true } }),
+      db.milestone.findMany({ where: scope, select: { id: true, status: true, amount: true } }),
       db.paymentEscrow.findMany({
         where: scope,
-        select: { transactions: { select: { type: true, status: true, amount: true } } },
+        select: { transactions: { select: { type: true, status: true, amount: true, milestoneId: true } } },
       }),
       db.dispute.count({
         where: { ...scope, tenantId, status: { in: [...ACTIVE_DISPUTE_STATUSES] } },
@@ -744,11 +744,15 @@ export class JobsService {
     ]);
     const blockers = jobClosureBlockers(target, {
       milestoneStatuses: milestones.map((milestone) => String(milestone.status)),
+      milestones: milestones.map((milestone) => ({
+        id: milestone.id, status: String(milestone.status), amount: Number(milestone.amount),
+      })),
       escrowTransactions: escrows.flatMap((escrow) =>
         escrow.transactions.map((transaction) => ({
           type: String(transaction.type),
           status: String(transaction.status),
           amount: Number(transaction.amount),
+          milestoneId: transaction.milestoneId,
         }))
       ),
       activeDisputes,
@@ -952,7 +956,9 @@ export function jobClosureBlockers(
   target: "completed" | "cancelled",
   input: {
     milestoneStatuses: string[];
-    escrowTransactions: Array<{ type: string; status: string; amount: number }>;
+    /** Exact database obligations, when available; legacy pure-test callers may omit. */
+    milestones?: Array<{ id: string; status: string; amount: number }>;
+    escrowTransactions: Array<{ type: string; status: string; amount: number; milestoneId?: string | null }>;
     activeDisputes: number;
   }
 ): string[] {
@@ -960,6 +966,20 @@ export function jobClosureBlockers(
   if (target === "completed") {
     const open = input.milestoneStatuses.filter((status) => !RESOLVED_MILESTONE_STATUSES.has(status.toUpperCase()));
     if (open.length > 0) blockers.push(`${open.length} milestone(s) not approved`);
+    // APPROVED is not PAID. A job cannot close just because the escrow balance
+    // is zero: no deposit, or deposit then refund, also yields zero held funds.
+    // Require a confirmed RELEASE for each individual milestone obligation.
+    const unpaid = (input.milestones ?? []).filter((milestone) => {
+      if (!RESOLVED_MILESTONE_STATUSES.has(milestone.status.toUpperCase())) return false;
+      if (!Number.isFinite(milestone.amount) || milestone.amount <= 0) return true;
+      const released = input.escrowTransactions
+        .filter((transaction) => transaction.type.toUpperCase() === "RELEASE"
+          && transaction.status.toUpperCase() === "SUCCEEDED"
+          && transaction.milestoneId === milestone.id)
+        .reduce((sum, transaction) => sum + transaction.amount, 0);
+      return released + 0.000001 < milestone.amount;
+    });
+    if (unpaid.length > 0) blockers.push(`${unpaid.length} milestone(s) without confirmed full payment`);
   }
 
   const settled = (type: string) =>
