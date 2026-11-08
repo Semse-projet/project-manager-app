@@ -179,19 +179,19 @@ export class PlanModeService {
       },
     });
 
-    // The archive memory is emitted only after the new plan commits.
-    if (archived) {
-      this.logger.log(`[plan_mode] archived previous plan id=${archived.id} after replacement commit`);
+    // Every archived plan gets one post-commit event, and only on success.
+    for (const oldPlan of archived) {
+      this.logger.log(`[plan_mode] archived previous plan id=${oldPlan.id} after replacement commit`);
       void this.agentMemory.createMemory({
         tenantId: input.tenantId,
         orgId: input.orgId,
         agentId: input.agentId,
         projectId: input.projectId,
         type: "event",
-        content: `Plan anterior '${archived.title}' archivado automáticamente al crear nuevo plan.`,
-        summary: `Plan archivado: ${archived.title}`,
+        content: `Plan anterior '${oldPlan.title}' archivado automáticamente al crear nuevo plan.`,
+        summary: `Plan archivado: ${oldPlan.title}`,
         importanceScore: 2,
-        tags: ["plan", "archived", `plan:${archived.id}`],
+        tags: ["plan", "archived", `plan:${oldPlan.id}`],
       }).catch(() => undefined);
     }
 

@@ -220,11 +220,11 @@ test("replacement insert failure rolls back cancellation and does not emit archi
       let provisionalStatus = persistentStatus;
       const tx = {
         agentWorkPlan: {
-          async findFirst() { return { ...old, status: provisionalStatus }; },
-          async update() {
+          async findMany() { return [{ ...old, status: provisionalStatus }]; },
+          async updateMany() {
             cancellationAttempted++;
             provisionalStatus = "cancelled";
-            return { ...old, status: provisionalStatus };
+            return { count: 1 };
           },
           async create() { throw new Error("simulated PostgreSQL insert failure"); },
         },
@@ -255,4 +255,62 @@ test("replacement insert failure rolls back cancellation and does not emit archi
   assert.equal(cancellationAttempted, 1, "archive was attempted inside the transaction");
   assert.equal(persistentStatus, "active", "archival must roll back if draft insertion fails");
   assert.equal(memoryEvents, 0, "no false archive memory when the transaction fails");
+});
+
+test("multi-plan replacement archives every previous active row in one transaction", async () => {
+  const now = new Date();
+  const previous = [
+    { ...planRow([fullStep("a")]), id: "old_1", status: "active", updatedAt: now },
+    { ...planRow([fullStep("b")]), id: "old_2", status: "draft", updatedAt: now },
+  ];
+  const archivedRows: string[] = [];
+  const prisma = {
+    async $transaction(callback: (tx: unknown) => Promise<unknown>) {
+      return callback({
+        agentWorkPlan: {
+          async findMany() { return previous; },
+          async updateMany({ where, data }: { where: any; data: any }) {
+            assert.equal(where.tenantId, "tenant_a");
+            assert.equal(where.projectId, "project_a");
+            assert.deepEqual(where.status.in, ["draft", "active", "executing"]);
+            assert.equal(data.status, "cancelled");
+            archivedRows.push(...previous.map(x => x.id));
+            return { count: 2 };
+          },
+          async create({ data }: { data: Record<string, unknown> }) {
+            return { ...planRow([fullStep("new")]), id: "new_1", status: "draft", ...data };
+          },
+        },
+      });
+    },
+  };
+  const service = new AgentWorkPlanService(prisma as never);
+  const result = await service.createReplacingActivePlan({
+    tenantId: "tenant_a", orgId: "org_a", projectId: "project_a",
+    createdBy: "user_a", agentId: "prometeo", title: "Replacement", steps: [fullStep("new")],
+  } as never);
+  assert.deepEqual(archivedRows, ["old_1", "old_2"]);
+  assert.deepEqual(result.archived.map(p => p.id), ["old_1", "old_2"]);
+  assert.ok(result.archived.every(p => p.status === "cancelled"));
+  assert.equal(result.created.id, "new_1");
+});
+
+test("serialization conflicts retry twice then yield a safe 409 without endless loops", async () => {
+  let attempts = 0;
+  const service = new AgentWorkPlanService({
+    async $transaction() {
+      attempts++;
+      throw Object.assign(new Error("serialization aborted"), { code: "P2034" });
+    },
+  } as never);
+  await assert.rejects(
+    service.createReplacingActivePlan({
+      tenantId: "tenant_a", orgId: "org_a", projectId: "project_a",
+      createdBy: "user_a", agentId: "prometeo", title: "Retry", steps: [fullStep("new")],
+    } as never),
+    (error: unknown) => typeof (error as any)?.getStatus === "function"
+      && (error as any).getStatus() === 409
+      && /concurrent/.test((error as Error).message),
+  );
+  assert.equal(attempts, 3);
 });

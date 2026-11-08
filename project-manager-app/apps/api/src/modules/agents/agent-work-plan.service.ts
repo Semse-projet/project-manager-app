@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException, Optional } from "@nestjs/common";
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException, Optional } from "@nestjs/common";
 import { getActionPolicy } from "@semse/agents";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
@@ -448,41 +448,66 @@ export class AgentWorkPlanService {
    * draft insert commit together, so storage failures cannot destroy the
    * previous valid plan. Memory/audit side effects belong after commit.
    */
+  /**
+   * Atomically supersede every existing active plan, including historical
+   * duplicates. Only after commit may callers emit archival memory.
+   * Serializable conflicts are retried a bounded number of times.
+   */
   async createReplacingActivePlan(
     input: Parameters<AgentWorkPlanService["create"]>[0] & { projectId: string },
-  ): Promise<{ created: WorkPlanRecord; archived: WorkPlanRecord | null }> {
+  ): Promise<{ created: WorkPlanRecord; archived: WorkPlanRecord[] }> {
     validatePlanCreationGraph(input.steps);
+    const scope = {
+      tenantId: input.tenantId,
+      projectId: input.projectId,
+      status: { in: ["draft", "active", "executing"] },
+    } as const;
 
-    const result = await this.prisma.$transaction(async (tx) => {
-      const active = await tx.agentWorkPlan.findFirst({
-        where: {
-          tenantId: input.tenantId,
-          projectId: input.projectId,
-          status: { in: ["draft", "active", "executing"] },
-        },
-        orderBy: { updatedAt: "desc" },
-      });
-      const previous = active
-        ? await tx.agentWorkPlan.update({
-            where: { id: active.id, tenantId: input.tenantId },
-            data: {
-              status: "cancelled",
-              cancelledAt: new Date(),
-              cancelledBy: input.createdBy,
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const result = await this.prisma.$transaction(async (tx) => {
+          const previous = await tx.agentWorkPlan.findMany({
+            where: {
+              tenantId: scope.tenantId,
+              projectId: scope.projectId,
+              status: { in: [...scope.status.in] },
             },
-          })
-        : null;
+            orderBy: { updatedAt: "desc" },
+          });
+          const cancelledAt = new Date();
+          if (previous.length) {
+            await tx.agentWorkPlan.updateMany({
+              where: {
+                tenantId: scope.tenantId,
+                projectId: scope.projectId,
+                status: { in: [...scope.status.in] },
+              },
+              data: { status: "cancelled", cancelledAt, cancelledBy: input.createdBy },
+            });
+          }
 
-      // Same transaction: any insert failure reverts the archive.
-      const created = await this.create(input, tx);
-      return { created, archived: previous ? toRecord(previous as StoredPlan) : null };
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+          // The insertion and cancellation commit or roll back together.
+          const created = await this.create(input, tx);
+          const archived = previous.map((row) => toRecord({
+            ...row,
+            status: "cancelled",
+            cancelledAt,
+            cancelledBy: input.createdBy,
+          } as StoredPlan));
+          return { created, archived };
+        }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 
-    if (result.archived) {
-      this.logger.log(`[plan] archived active plan id=${result.archived.id} for project=${input.projectId} reason=superseded`);
+        this.logger.log(`[plan] archived ${result.archived.length} plan(s) for project=${input.projectId}`);
+        this.logger.log(`[plan] created id=${result.created.id} project=${input.projectId} steps=${input.steps.length}`);
+        return result;
+      } catch (error) {
+        if ((error as { code?: unknown } | null)?.code !== "P2034") throw error;
+        if (attempt === 2) {
+          throw new ConflictException("plan replacement conflicted with concurrent changes; retry safely");
+        }
+      }
     }
-    this.logger.log(`[plan] created id=${result.created.id} project=${input.projectId} steps=${input.steps.length}`);
-    return result;
+    throw new ConflictException("plan replacement could not commit");
   }
 
   async findById(tenantId: string, planId: string): Promise<WorkPlanRecord> {
