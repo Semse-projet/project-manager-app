@@ -91,17 +91,44 @@ def records(path):
     else: raise ValueError('Input must be ZIP, XLSX or CSV')
 
 def read_oews(path, kind):
+    if kind not in ('state', 'metro'): raise ValueError('OEWS kind must be state or metro')
     data, meta = {}, Counter()
     header = None
     for values in records(path):
         candidate = [normalized(v) for v in values]
         if {'OCC_CODE', 'AREA', 'H_MEDIAN'}.issubset(candidate):
-            header = candidate; meta['headers_detected'] += 1; continue
+            header = candidate
+            meta['headers_detected'] += 1
+            # Legacy/synthetic fixtures may lack these fields; that does not certify
+            # scope or origin. Official May 2025 imports must record their presence.
+            meta['scope_fields_present'] = sum(k in candidate for k in
+              ('AREA_TYPE', 'NAICS', 'I_GROUP', 'OWN_CODE', 'O_GROUP'))
+            continue
         if header is None: continue
         item = dict(zip(header, values))
         soc = str(item.get('OCC_CODE','')).strip()
         if not re.fullmatch(r'\d{2}-\d{4}', soc): continue
         meta['soc_rows_seen'] += 1
+
+        # The OEWS area and industry dimensions are not interchangeable.
+        # A cross-industry reference is not an industry-specific wage, and a
+        # major/broad occupation is not a detailed SOC wage observation.
+        expected_area_types = ('2',) if kind == 'state' else ('4', '6')
+        if 'AREA_TYPE' in header and str(item.get('AREA_TYPE','')).strip() not in expected_area_types:
+            meta['skipped_wrong_geography'] += 1
+            continue
+        if 'NAICS' in header and str(item.get('NAICS','')).strip().zfill(6) != '000000':
+            meta['skipped_non_cross_industry'] += 1
+            continue
+        if 'I_GROUP' in header and normalized(item.get('I_GROUP')) != 'CROSS_INDUSTRY':
+            meta['skipped_non_cross_industry'] += 1
+            continue
+        if 'OWN_CODE' in header and str(item.get('OWN_CODE','')).strip() != '1235':
+            meta['skipped_ownership_scope'] += 1
+            continue
+        if 'O_GROUP' in header and normalized(item.get('O_GROUP')) != 'DETAILED':
+            meta['skipped_non_detailed_occupation'] += 1
+            continue
         if kind == 'state':
             label = str(item.get('AREA_TITLE','')).strip().upper()
             location = STATE_BY_NAME.get(label)
