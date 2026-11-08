@@ -265,3 +265,34 @@ test("F01-A03 accept winner rejects competitors and assigns project in one repos
   assert.deepEqual(events.map(e => e.entityId), ["bid_A1", "bid_A2"]);
   assert.ok(events.every(e => e.tenantId === "tenant_A"));
 });
+
+test("F01: cancelled job cannot be reopened by accepting a previously submitted bid", async () => {
+  let lockCount = 0;
+  let downstreamWrites = 0;
+  const prisma = {
+    bid: { async findFirst() { return bidFixture("SUBMITTED"); } },
+    contract: { async findFirst() { return null; } },
+    async $transaction(callback: (tx: Record<string, unknown>) => Promise<unknown>) {
+      return callback({
+        // Initial read saw POSTED; after cancellation acquired the job row lock,
+        // the current status is CANCELLED. Acceptance must fail before any write.
+        async $queryRaw() {
+          lockCount++;
+          return [{ status: "CANCELLED" }];
+        },
+        jobReservation: { async findFirst() { downstreamWrites++; return null; } },
+        bid: { async update() { downstreamWrites++; throw new Error("must not update bid"); } },
+        job: { async update() { downstreamWrites++; throw new Error("must not reopen job"); } },
+      });
+    },
+  };
+  const repository = new BidsRepository(
+    prisma as never,
+    { async ensureActorContext() { return undefined; } } as never,
+    new OutboxRepository(),
+  );
+  await assert.rejects(() => repository.accept(CLIENT), (error: unknown) =>
+    error instanceof ConflictException && /published or posted/.test(error.message));
+  assert.equal(lockCount, 1, "must read the status under the job row lock");
+  assert.equal(downstreamWrites, 0, "no reservation, bid mutation or job reopening");
+});
