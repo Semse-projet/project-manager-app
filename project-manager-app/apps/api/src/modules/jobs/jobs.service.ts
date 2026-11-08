@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { BadRequestException, ConflictException, Inject, Injectable, Logger, Optional, UnprocessableEntityException } from "@nestjs/common";
+import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, Logger, Optional, UnprocessableEntityException } from "@nestjs/common";
 import {
   JOB_COMPLETED_V1_SCHEMA_REF,
   RATING_REQUESTED_V1_SCHEMA_REF,
@@ -215,6 +215,13 @@ export class JobsService {
       input.patch.budgetMin > input.patch.budgetMax
     ) {
       throw new BadRequestException("budgetMin cannot be greater than budgetMax");
+    }
+
+    // C51: solo la org cliente dueña u OPS_ADMIN del tenant editan el job (mismo criterio que archivar/restaurar).
+    // Fuera del tenant ⇒ 404; no visible ⇒ 403 (vía `findVisibleById`).
+    const visible = await this.jobsRepository.findVisibleById(input);
+    if (!input.roles.includes("OPS_ADMIN") && !sameOrg(visible.clientOrgId, input.orgId)) {
+      throw new ForbiddenException("actor cannot update this job");
     }
 
     const storedLocation = input.patch.locationType || input.patch.city
@@ -750,7 +757,9 @@ export class JobsService {
     }
   }
 
-  async agentSignals(input: { tenantId: string; jobId: string }) {
+  async agentSignals(input: { tenantId: string; orgId: string; userId: string; roles: string[]; jobId: string }) {
+    // C51: las señales de agentes de un job solo las ve quien puede ver el job (misma regla que el detalle).
+    await this.jobsRepository.findVisibleById(input);
     const correlationPrefix = `job:${input.jobId}:`;
     const runs = await this.prisma.agentRun.findMany({
       where: {

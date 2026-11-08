@@ -23,6 +23,7 @@ import { PaymentsRepository } from "../dist/modules/payments/payments.repository
 import { lockJobRow } from "../dist/common/job-lock.js";
 import { ReservationsRepository } from "../dist/modules/reservations/reservations.repository.js";
 import { DisputesRepository } from "../dist/modules/disputes/disputes.repository.js";
+import { ResourceScopeResolver } from "../dist/common/resource-scope.resolver.js";
 import { MilestonesRepository } from "../dist/modules/milestones/milestones.repository.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -198,7 +199,7 @@ dbTest("a dispute cannot be opened on a closed job, nor slip in while it is bein
   const prisma = new PrismaClient();
   const ids = await seed(prisma, "REVIEW");
   try {
-    const disputes = new DisputesRepository(prisma as never, noActor as never);
+    const disputes = new DisputesRepository(prisma as never, noActor as never, new ResourceScopeResolver(prisma as never));
     const open = () => disputes.create({
       tenantId: ids.tenantId, orgId: ids.orgId, userId: "usr_client", roles: ["CLIENT"], projectId: ids.projectId, reason: "Disputa sintética de prueba",
     }).then(() => "opened", (error: Error) => error.message);

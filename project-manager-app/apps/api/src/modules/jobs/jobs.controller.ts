@@ -55,6 +55,9 @@ export class JobsController {
     const actor = resolveRequestContext(req);
     const signals = await this.jobsService.agentSignals({
       tenantId: actor.tenantId,
+      orgId: actor.orgId,
+      userId: actor.userId,
+      roles: actor.roles,
       jobId
     });
     return ok(resolveRequestId(req.headers ?? {}), { signals });
