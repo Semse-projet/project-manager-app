@@ -130,8 +130,14 @@ dbTest("PostgreSQL fencing: stale worker heartbeat, completion and failure canno
   const f = await fixture();
   const base = { tenantId: f.tenantId, orgId: "org_test", userId: "user_test", runId: f.run.id };
   try {
-    const first = await repository.start({ ...base, workerId: "worker_A", expectedAttempts: 0 });
-    assert.equal(first.status, "running");
+    // A worker receives ownership only through the atomic claim path;
+    // direct /start on QUEUED is intentionally denied.
+    const first = await repository.claimNext({
+      tenantId: f.tenantId, orgId: "org_test", userId: "user_test",
+      workerId: "worker_A", agentType: "pricing",
+    });
+    assert.equal(first?.id, f.run.id);
+    assert.equal(first?.status, "running");
     assert.equal(first.attempts, 1);
     assert.equal(first.workerId, "worker_A");
 
