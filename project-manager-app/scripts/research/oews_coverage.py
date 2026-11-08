@@ -190,7 +190,15 @@ def save_csv(path, rows):
         writer.writerows(rows)
 
 def run(state,metro,out):
-    out=Path(out);out.mkdir(parents=True,exist_ok=True)
+    state, metro, out = Path(state), Path(metro), Path(out)
+    # Every audit must use distinct inputs and a fresh output destination.
+    # Otherwise stale CSVs/manifests from a previous run may be mistaken
+    # for results of the current source pair.
+    if state.resolve() == metro.resolve():
+        raise ValueError('State and metro input paths must be distinct')
+    if out.exists() and any(out.iterdir()):
+        raise ValueError('OEWS output directory must be empty for every audit')
+    out.mkdir(parents=True,exist_ok=True)
     manifest={'release_claim':'May 2025','release_verified':False,
               'source_authentication':'NOT_VERIFIED_OFFLINE',
               'classification':'RESEARCH_ONLY_NOT_APPROVED',
