@@ -292,7 +292,12 @@ export class PaymentsRepository {
     amount: number;
     providerRef: string;
   }) {
-    return this.prisma.$transaction(async (tx) => {
+    // Serializable may abort when a cancellation commits while funding waits
+    // for the Job row lock. Retry only the DB reservation, before any external
+    // payment-provider call; a subsequent attempt observes the closed job.
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        return await this.prisma.$transaction(async (tx) => {
       const db = tx as PaymentTx;
       // Required transactional proof check BEFORE any escrow reservation.
       // Shadow until a separately reviewed staging canary enables enforce.
@@ -351,7 +356,15 @@ export class PaymentsRepository {
         escrow,
         transaction: this.toRecord(transaction)
       };
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+        }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+      } catch (error) {
+        if ((error as { code?: unknown } | null)?.code !== "P2034") throw error;
+        if (attempt === 2) {
+          throw new ConflictException("escrow funding conflicted with a concurrent transition; retry safely");
+        }
+      }
+    }
+    throw new ConflictException("escrow funding reservation could not be completed");
   }
 
   /**
