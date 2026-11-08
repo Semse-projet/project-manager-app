@@ -152,7 +152,8 @@ test("progress-only updates of legacy plans are not blocked by the new validatio
     },
   };
   const service = new AgentWorkPlanService(prisma as never);
-  const result = await service.saveGraph({ tenantId: "tenant_a", planId: row.id, steps: row.stepsJson });
+  const legacy = await service.findById("tenant_a", row.id);
+  const result = await service.saveGraph({ tenantId: "tenant_a", planId: row.id, steps: legacy.steps });
   assert.equal(result.id, row.id);
   assert.equal(writes, 1);
 });
