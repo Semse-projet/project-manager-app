@@ -72,10 +72,10 @@ Usa la identidad por cabeceras (`x-tenant-id`, `x-org-id`, `x-user-id`, `x-roles
 
 ```bash
 (cd apps/api && env -u AUTH_SECRET SEMSE_ALLOW_HEADER_IDENTITY=true NODE_ENV=test PORT=4122 node dist/main.js)
-SEMSE_API_URL=http://127.0.0.1:4122 pnpm exec playwright test -c playwright.semse.config.ts tests/e2e-semse/job-lifecycle-rating.spec.ts
+SEMSE_REQUIRE_HIRING_E2E=1 SEMSE_API_URL=http://127.0.0.1:4122 pnpm exec playwright test -c playwright.semse.config.ts tests/e2e-semse/job-lifecycle-rating.spec.ts
 ```
 
-La API sólo acepta cabeceras con las tres condiciones: sin `AUTH_SECRET`, con `SEMSE_ALLOW_HEADER_IDENTITY=true` y con `NODE_ENV` en `development` o `test` (`headerIdentityAllowed`). Si la API no responde o no acepta cabeceras, el spec se salta.
+La API sólo acepta cabeceras con las tres condiciones: sin `AUTH_SECRET`, con `SEMSE_ALLOW_HEADER_IDENTITY=true` y con `NODE_ENV` en `development` o `test` (`headerIdentityAllowed`). Con `SEMSE_REQUIRE_HIRING_E2E=1` (modo de calificación), si la API no responde o no acepta la identidad por cabeceras, el spec **falla**: nunca se permite confundir cuatro pruebas omitidas con cuatro pruebas aprobadas. Sin esa variable conserva la omisión voluntaria para desarrollo local. El spec rechaza cualquier URL que no sea loopback (`localhost`, `127.0.0.1` o `[::1]`) porque crea Jobs, reservas, pagos simulados y valoraciones. **El CI general no ejecuta este spec**; un CI verde no demuestra esta prueba salvo evidencia de la invocación estricta.
 
 **Ojo con los `.env`:** `env -u AUTH_SECRET` sólo quita la variable del proceso. Al arrancar, `apps/api/src/main.ts` (dotenv) y `ConfigModule` vuelven a cargar `apps/api/.env` y `packages/db/.env` sin sobrescribir lo ya definido. Si alguno de los dos define `AUTH_SECRET`, la variable vuelve, la API exige Bearer y el spec se salta entero.
 
