@@ -6,6 +6,7 @@
  * The development resolver refuses production regardless of environment flags.
  * A separate reviewed change is required for commercial activation.
  */
+import { isIP } from "node:net";
 import type {
   TranscriptionProvider,
   TranscriptionSegment,
@@ -50,7 +51,8 @@ function fixedOrigin(config: VoiceStudioConfiguration): string {
   if (parsed.protocol !== "https:" && !(parsed.protocol === "http:" && privateRailway && config.allowPrivateHttp === true)) {
     throw new VoiceStudioGatewayError("VOICE_CONFIG_UNSAFE_ORIGIN");
   }
-  if (parsed.protocol === "https:" && (hostname === "localhost" || hostname.endsWith(".local"))) {
+  if (parsed.protocol === "https:" && (hostname === "localhost" || hostname.endsWith(".local") ||
+      hostname.startsWith("[") || isIP(hostname) !== 0)) {
     throw new VoiceStudioGatewayError("VOICE_CONFIG_UNSAFE_ORIGIN");
   }
   return parsed.origin;
@@ -166,6 +168,9 @@ export class VoiceStudioBatchClient {
   private readonly duration: number;
 
   constructor(private readonly config: VoiceStudioConfiguration) {
+    // Defense in depth: direct construction must not bypass the resolver. D4/D5
+    // require a separately approved production implementation and policy.
+    if (productionEnvironment(process.env)) throw new VoiceStudioGatewayError("VOICE_PRODUCTION_ACTIVATION_BLOCKED");
     this.origin = fixedOrigin(config);
     this.apiKey = nonempty(config.apiKey, "VOICE_API_KEY_NOT_CONFIGURED");
     this.transport = config.fetchImpl ?? fetch;

@@ -102,6 +102,7 @@ test("batch transport refuses unsafe origins and admin paths", () => {
     "http://169.254.169.254/", "http://127.0.0.1:3900/",
     "https://user:pass@speech.example.com/", "https://speech.example.com/system/info",
     "https://speech.example.com/?target=http://internal",
+    "https://127.0.0.1/", "https://169.254.169.254/", "https://[::1]/",
   ]) {
     assert.throws(() => new VoiceStudioBatchClient({ ...base, baseUrl: origin }), VoiceStudioGatewayError);
   }
@@ -184,4 +185,17 @@ test("dev resolver never permits production; dev OFF is inert", () => {
     (e: unknown) => errorCode(e, "VOICE_FEATURE_DISABLED"));
   assert.throws(() => resolveVoiceStudioDevConfiguration({ ...config, SEMSE_VOICE_ENABLED: undefined }),
     (e: unknown) => errorCode(e, "VOICE_FEATURE_DISABLED"));
+});
+
+
+test("direct client construction cannot bypass the production gate", () => {
+  const previous = process.env.NODE_ENV;
+  try {
+    process.env.NODE_ENV = "production";
+    assert.throws(() => new VoiceStudioBatchClient(base),
+      (e: unknown) => errorCode(e, "VOICE_PRODUCTION_ACTIVATION_BLOCKED"));
+  } finally {
+    if (previous === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = previous;
+  }
 });
