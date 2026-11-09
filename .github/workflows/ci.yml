@@ -2,8 +2,7 @@ name: CI
 
 on:
   push:
-    # Temporary P0 integration test trigger. Remove before any merge to main.
-    branches: ["main", "security/railway-ci-provenance-p0"]
+    branches: ["main"]
   pull_request:
   workflow_dispatch:
 
