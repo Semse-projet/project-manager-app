@@ -186,6 +186,8 @@ class RailwayCIProvenanceTests(unittest.TestCase):
         self.assertIn("permissions: {}", block)
         self.assertIn("working-directory: " + "$" + "{{ github.workspace }}", block)
         self.assertNotIn("actions/checkout@", block)
+        self.assertIn("Verify Railway CI provenance guard (offline, no secrets)", ci)
+        self.assertIn("working-directory: " + "$" + "{{ github.workspace }}", ci)
         self.assertNotIn("RAILWAY_TOKEN", block)
 
     def test_merge_gate_shell_denies_failures_skips_and_cancellations(self):

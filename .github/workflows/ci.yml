@@ -89,6 +89,10 @@ jobs:
       - name: Spec preflight
         run: pnpm spec:preflight
 
+      - name: Verify Railway CI provenance guard (offline, no secrets)
+        working-directory: ${{ github.workspace }}
+        run: python3 -m unittest discover -s scripts/security -p test_railway_ci_provenance.py -v
+
       - name: Unit tests (monorepo root — auth, shared, logic)
         run: pnpm test:unit
 
