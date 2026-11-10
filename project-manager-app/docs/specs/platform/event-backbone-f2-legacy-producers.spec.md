@@ -3,8 +3,8 @@ id: "platform.event-backbone-f2-legacy-producers"
 title: "Event backbone F2 — migrar los productores que siguen en el bus legacy"
 domain: "platform"
 sdd_version: "2.0"
-version: "0.1"
-status: "DRAFT"
+version: "1.0"
+status: "APPROVED"
 owner: "semse-core"
 risk: "high"
 date: "2026-11-10"
@@ -49,7 +49,8 @@ last_verified: "2026-11-10"
 
 # Spec: Event backbone F2 — productores que siguen en el bus legacy
 
-> **DRAFT — no autoriza implementación.** Continúa `platform.event-backbone-f1` (APPROVED), cuya decisión 7 fija el
+> **APPROVED por el dueño el 2026-11-10** (decisiones D1–D4 de §5, todas con la opción propuesta). Cada slice se
+> implementa con su propio plan/tasks y PR. Continúa `platform.event-backbone-f1` (APPROVED), cuya decisión 7 fija el
 > rollout "por productor/consumidor; el bus v1 permanece compatible mientras se migra cada dominio". Origen:
 > AUDIT_REMEDIATION_PLAN 0.49e. Inventario verificado por lectura de código sobre `main` (`db92934`, 2026-11-10).
 
@@ -117,9 +118,11 @@ ciclo de vida de proyecto y el consumidor `agent-run-finalization`.
 Cada slice repite el patrón F1: productor transaccional → consumidor idempotente → tests de atomicidad, duplicado, DLQ
 y replay → activación por flag de tenant → retiro del `emit()` legacy.
 
-## 5. Decisiones abiertas (requieren al dueño)
+## 5. Decisiones del dueño (2026-11-10)
 
-| ID | Decisión | Propuesta |
+Las cuatro se aceptaron con la propuesta de la tabla.
+
+| ID | Decisión | Propuesta (aceptada) |
 |---|---|---|
 | D1 | Cambio por slice: ¿flag por tenant con periodo de observación (como `project-lifecycle`), o cambio directo? | Flag por tenant, en `shadow` primero: el consumidor v2 registra sin notificar y se compara con lo que envía el legacy. |
 | D2 | Orden de los slices | §4 (disputas primero, porque es lo más sensible para el usuario). |
