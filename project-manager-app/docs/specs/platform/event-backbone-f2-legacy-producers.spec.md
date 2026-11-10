@@ -18,6 +18,8 @@ migration_status: "NOT_APPLICABLE"
 feature_flags:
   - "SEMSE_DISPUTE_EVENTS_V2_MODE"
   - "SEMSE_DISPUTE_EVENTS_V2_TENANT_IDS"
+  - "SEMSE_MILESTONE_EVENTS_V2_MODE"
+  - "SEMSE_MILESTONE_EVENTS_V2_TENANT_IDS"
 production_evidence: []
 spec_index: "docs/SPEC_INDEX.md"
 related_files:
@@ -32,6 +34,9 @@ related_files:
   - "apps/api/src/modules/disputes/dispute-events-v2.ts"
   - "apps/api/src/modules/domain-events/dispute-effects.consumer.ts"
   - "apps/api/src/modules/domain-events/domain-event-fanout.ts"
+  - "apps/api/src/modules/milestones/milestone-events-v2.ts"
+  - "apps/api/src/modules/milestones/milestones.repository.ts"
+  - "apps/api/src/modules/domain-events/milestone-effects.consumer.ts"
   - "apps/api/src/modules/milestones/milestones.service.ts"
   - "apps/api/src/modules/jobs/jobs.service.ts"
   - "apps/api/src/modules/users/users.service.ts"
@@ -39,6 +44,7 @@ related_files:
 related_tests:
   - "apps/api/test/dispute-events-v2.test.ts"
   - "apps/api/test/domain-event-fanout.test.ts"
+  - "apps/api/test/milestone-events-v2.test.ts"
 related_endpoints: []
 related_events:
   - "dispute.opened"
@@ -60,7 +66,8 @@ last_verified: "2026-11-10"
 > **Slice 1 (disputas) en curso:** [plan](event-backbone-f2-legacy-producers.plan.md) ·
 > [tasks](event-backbone-f2-legacy-producers.tasks.md). Se despliega con el modo en `off`; la activación es del dueño.
 > **Slice 2 (milestones):** [plan](event-backbone-f2-milestones.plan.md) · [tasks](event-backbone-f2-milestones.tasks.md) —
-> 2a (fan-out del registro) en curso; 2b con D5 resuelta (instrucciones de `revision_requested` en el payload).
+> 2a (fan-out del registro) y 2b (productor + `milestone-effects.v1`, D5: instrucciones en el payload) en PRs
+> apilados; despliegue con el modo en `off`.
 >
 > **APPROVED por el dueño el 2026-11-10** (decisiones D1–D4 de §5, todas con la opción propuesta). Cada slice se
 > implementa con su propio plan/tasks y PR. Continúa `platform.event-backbone-f1` (APPROVED), cuya decisión 7 fija el
