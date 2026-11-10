@@ -6,6 +6,7 @@ import { ReleaseAlreadyActiveError } from "./escrow-release.command.js";
 import { assertVerifiedEscrowReservation } from "./verified-escrow-reservation.gate.js";
 import { evaluateRequiredEvidence, resolveEvidenceRevalidationMode } from "../milestones/evidence-readiness.js";
 import { ActorContextService } from "../../infrastructure/persistence/actor-context.service.js";
+import { lockOpenJobForFunding } from "../../common/job-lock.js";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { findProjectLinkByJobIdOrThrow, findProjectLinkByProjectIdOrThrow } from "../projects/project-link.repository.js";
 import { assertProjectFinancialsReadable, assertProjectReadable, type ProjectActor, type ProjectOwnership } from "../projects/projects.policy.js";
@@ -320,11 +321,20 @@ export class PaymentsRepository {
     amount: number;
     providerRef: string;
   }) {
-    return this.prisma.$transaction(async (tx) => {
+    // Serializable may abort when a cancellation commits while funding waits
+    // for the Job row lock. Retry only the DB reservation, before any external
+    // payment-provider call; a subsequent attempt observes the closed job.
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        return await this.prisma.$transaction(async (tx) => {
       const db = tx as PaymentTx;
       // Required transactional proof check BEFORE any escrow reservation.
       // Shadow until a separately reviewed staging canary enables enforce.
       await assertVerifiedEscrowReservation(tx, input.projectId, "deposit");
+      // Same row lock as a job's terminal transition: no deposit after (or while)
+      // the job is completed or cancelled. See common/job-lock.ts.
+      const fundedJob = await tx.project.findFirst({ where: { id: input.projectId }, select: { jobId: true } });
+      if (fundedJob?.jobId) await lockOpenJobForFunding(tx, fundedJob.jobId);
       const existing = await db.paymentEscrow.findFirst({
         where: {
           projectId: input.projectId,
@@ -375,7 +385,15 @@ export class PaymentsRepository {
         escrow,
         transaction: this.toRecord(transaction)
       };
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+        }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+      } catch (error) {
+        if ((error as { code?: unknown } | null)?.code !== "P2034") throw error;
+        if (attempt === 2) {
+          throw new ConflictException("escrow funding conflicted with a concurrent transition; retry safely");
+        }
+      }
+    }
+    throw new ConflictException("escrow funding reservation could not be completed");
   }
 
   /**
