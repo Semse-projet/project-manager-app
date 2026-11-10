@@ -38,7 +38,7 @@ Flujo típico: `semse-recon` → `semse-parity-audit` → spec (`semse-spec-kit-
 |---|---|---|
 | 1 | Auditar replica-skill y fijar versión | **hecho** (este PR) |
 | 2 | Crear las cuatro skills con responsabilidades, límites, entradas, salidas y criterios | **hecho** (este PR) |
-| 3 | Validadores: `scripts/quality/validate-critical-i18n.ts` (catálogos ES/EN, claves, variables, plurales, mensajes críticos) y `tests/e2e-semse/authenticated-es-en.spec.ts` (OPS_ADMIN, cliente, profesional, aislamiento entre organizaciones) | **pendiente**, PR separado |
+| 3 | Validadores: `scripts/quality/validate-critical-i18n.ts` (catálogos ES/EN, claves, variables, plurales, mensajes críticos) y `tests/e2e-semse/authenticated-es-en.spec.ts` (OPS_ADMIN, cliente, profesional, aislamiento entre organizaciones) | **hecho en rama** `claude/semse-kit-fase3-validadores` (PR apilado sobre el de las fases 1–2); hallazgos en `test-matrix.md` |
 | 4 | GitHub Actions: `.github/workflows/semse-kit-validation.yml` en la raíz exterior | **pendiente**, requiere autorización expresa (regla NUNCA de `AGENTS.md` sobre CI/CD) y revisión de costos con `semse-github-operations-cost-guard` |
 | 5 | Prueba en un preview de Railway con cuentas y datos de prueba, más revisión independiente | **pendiente**, requiere autorización y `semse-railway-release-verification` |
 
@@ -49,6 +49,7 @@ Este PR no añade dependencias, workflows, rutas, modelos ni cambios de runtime.
 - `security-rules.md`: reglas que ninguna skill del kit puede saltarse.
 - `test-matrix.md`: matriz roles × idioma × organización para `semse-functional-test`.
 - `contrast-baseline.md`: fallos WCAG actuales de la paleta, que sirven de referencia para `semse-release-gate`.
+- `local-stack.md`: cómo levantar PostgreSQL, Redis, API y web en modo producción con cuentas sintéticas para el spec ES/EN, sin GitHub ni Railway.
 - `recon/` y `parity/` se crean al usar las skills (ver cada `SKILL.md`).
 
 ## Comprobar el kit
@@ -58,4 +59,6 @@ cd project-manager-app
 node --test tests/unit/semse-kit-contract.test.mjs tests/unit/semse-codex-skill-parity.test.mjs
 pnpm skill:route -- "analizar funcionalidades de una plataforma de referencia para BuildOps"
 for s in semse-recon semse-parity-audit semse-release-gate; do (cd .claude/skills/$s && python3 -I -m unittest discover -s scripts/tests); done
+pnpm quality:i18n                                   # fase 3: catálogos ES/EN
+PLAYWRIGHT_BASE_URL=http://localhost:3000 pnpm test:e2e:semse:es-en   # fase 3: requiere el stack de local-stack.md
 ```

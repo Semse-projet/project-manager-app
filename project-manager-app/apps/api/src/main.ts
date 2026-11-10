@@ -22,6 +22,7 @@ import { MetricsService } from "./infrastructure/observability/metrics.service.j
 import { runWithObservabilityContext } from "./infrastructure/observability/request-context.store.js";
 import { SemseLoggerService } from "./infrastructure/observability/semse-logger.service.js";
 import { resolveRequestId, resolveTraceId } from "./common/request-id.js";
+import { HEADER_IDENTITY_OPT_IN_ENV, headerIdentityAllowed } from "./common/request-context.js";
 
 type ObservableRequest = FastifyRequest & {
   requestId?: string;
@@ -39,6 +40,15 @@ async function bootstrap(): Promise<void> {
 
   const logger = app.get(SemseLoggerService);
   const metricsService = app.get(MetricsService);
+  if (!process.env.AUTH_SECRET) {
+    // core.header-identity-fail-closed: make the auth mode visible at boot.
+    // Never log identities, tokens or secrets here.
+    if (headerIdentityAllowed()) {
+      logger.warn("auth_header_identity_mode_enabled", { nodeEnv: process.env.NODE_ENV, optIn: HEADER_IDENTITY_OPT_IN_ENV });
+    } else {
+      logger.warn("auth_secret_missing_fail_closed", { nodeEnv: process.env.NODE_ENV, optIn: HEADER_IDENTITY_OPT_IN_ENV });
+    }
+  }
   const port = Number(process.env.PORT ?? 4000);
   const host = process.env.HOST ?? "0.0.0.0";
   const corsOrigins = (process.env.CORS_ORIGINS ?? "")
