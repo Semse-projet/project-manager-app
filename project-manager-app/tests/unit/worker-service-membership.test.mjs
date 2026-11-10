@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   ALLOWED_ROLES,
+  DEFAULT_ROLES,
   SERVICE_USER_ID,
   applyPlan,
   planServiceMembership,
@@ -11,7 +12,7 @@ const base = {
   userId: SERVICE_USER_ID,
   tenantId: "tenant_default",
   orgId: "org_admin_001",
-  roles: ALLOWED_ROLES,
+  roles: DEFAULT_ROLES,
 };
 const okState = (over = {}) => ({
   user: { status: "active" },
@@ -24,15 +25,35 @@ const okState = (over = {}) => ({
 test("crea las tres membresías que faltan", () => {
   const plan = planServiceMembership({ ...base, state: okState() });
   assert.equal(plan.ok, true);
-  assert.deepEqual(plan.createMemberships, ALLOWED_ROLES);
+  assert.deepEqual(plan.createMemberships, DEFAULT_ROLES);
   assert.deepEqual(plan.createRoles, []);
 });
 
+test("AGENT_RUNNER solo es permitido con una solicitud explícita para la identidad de servicio", () => {
+  assert.ok(!DEFAULT_ROLES.includes("AGENT_RUNNER"));
+  assert.ok(ALLOWED_ROLES.includes("AGENT_RUNNER"));
+  const requested = planServiceMembership({
+    ...base, roles: [...DEFAULT_ROLES, "AGENT_RUNNER"], state: okState(),
+  });
+  assert.equal(requested.ok, true);
+  assert.deepEqual(requested.createMemberships, [...DEFAULT_ROLES, "AGENT_RUNNER"]);
+  const denied = planServiceMembership({
+    ...base, userId: "usr_human", roles: ["AGENT_RUNNER"], state: okState(),
+  });
+  assert.equal(denied.ok, false);
+  const suspended = planServiceMembership({
+    ...base, roles: ["AGENT_RUNNER"],
+    state: okState({ memberships: [{roleKey:"AGENT_RUNNER",status:"REVOKED"}] }),
+  });
+  assert.deepEqual(suspended.skippedNonActive, ["AGENT_RUNNER"]);
+  assert.deepEqual(suspended.createMemberships, []);
+});
+
 test("es idempotente: lo ya ACTIVE no se vuelve a crear", () => {
-  const memberships = ALLOWED_ROLES.map((roleKey) => ({ roleKey, status: "ACTIVE" }));
+  const memberships = DEFAULT_ROLES.map((roleKey) => ({ roleKey, status: "ACTIVE" }));
   const plan = planServiceMembership({ ...base, state: okState({ memberships }) });
   assert.deepEqual(plan.createMemberships, []);
-  assert.deepEqual(plan.alreadyActive, ALLOWED_ROLES);
+  assert.deepEqual(plan.alreadyActive, DEFAULT_ROLES);
 });
 
 test("no reactiva una membresía suspendida o revocada", () => {

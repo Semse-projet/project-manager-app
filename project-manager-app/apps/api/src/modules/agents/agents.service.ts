@@ -27,8 +27,9 @@ import type { OperationalContextService } from "../ai-models/context/operational
 import { OPERATIONAL_CONTEXT_SERVICE } from "../ai-models/context/operational-context.token.js";
 import { WorkspaceMemoryRepository } from "../knowledge/workspace-memory.repository.js";
 import { AgentApprovalService } from "./agent-approval.service.js";
-import { AgentsRepository } from "./agents.repository.js";
+import { AgentsRepository, isAgentRunReplay } from "./agents.repository.js";
 import { AgentDelegationRepository } from "./agent-delegation.repository.js";
+import { isAgentRunFinalizationOutboxEnabled } from "./agent-run-finalization.policy.js";
 
 // ── Assistant preference helpers ──────────────────────────────────────────────
 
@@ -354,6 +355,7 @@ export class AgentsService {
     userId: string;
     workerId: string;
     agentType?: AgentRunRecord["agentType"];
+    runId?: string;
     requestId: string;
   }) {
     const run = await this.agentsRepository.claimNext(input);
@@ -374,6 +376,10 @@ export class AgentsService {
     return run;
   }
 
+  // Recovery cursor is an optimization only. On restart scanning begins at
+  // the first run; queue delivery is always idempotent by (tenantId, runId).
+  private readonly queuedDeliveryCursor = new Map<string, string>();
+
   async reclaimStale(input: {
     tenantId: string;
     orgId: string;
@@ -383,6 +389,39 @@ export class AgentsService {
     requestId: string;
   }) {
     const reclaimed = await this.agentsRepository.reclaimStale(input);
+
+    // A reclaimed run can be persisted as QUEUED even if this process loses
+    // the response or crashes before enqueueing it. Every scheduled sweep
+    // therefore reconciles a different bounded page of QUEUED runs, not
+    // merely those changed by this particular reclaim call.
+    const maxItems = Math.max(1, Math.min(input.maxItems ?? 20, 20));
+    const cursor = this.queuedDeliveryCursor.get(input.tenantId);
+    let queued = await this.agentsRepository.listQueuedForDelivery({
+      ...input, afterRunId: cursor, maxItems,
+    });
+    if (queued.length === 0 && cursor) {
+      this.queuedDeliveryCursor.delete(input.tenantId);
+      queued = await this.agentsRepository.listQueuedForDelivery({ ...input, maxItems });
+    }
+    if (queued.length > 0) {
+      this.queuedDeliveryCursor.set(input.tenantId, queued[queued.length - 1]!.id);
+    }
+    let queueReconciled = 0;
+    let queueBlocked = 0;
+    for (const run of queued) {
+      if (run.attempts >= run.maxAttempts) continue;
+      try {
+        const receipt = await this.agentQueueService.enqueueRun({
+          runId: run.id, tenantId: run.tenantId,
+          agentType: run.agentType, correlationId: run.correlationId,
+        }, { mode: "retry" });
+        if (receipt.enqueued) queueReconciled++;
+        else queueBlocked++;
+      } catch {
+        // Keep the DB source of truth QUEUED and retry on a later sweep.
+        queueBlocked++;
+      }
+    }
 
     if (reclaimed.length > 0) {
       await this.auditService.append({
@@ -400,6 +439,9 @@ export class AgentsService {
     return {
       reclaimedCount: reclaimed.length,
       deadLetteredCount: reclaimed.filter((entry) => entry.deadLettered).length,
+      queuedDeliveryScanned: queued.length,
+      queuedDeliveryReconciled: queueReconciled,
+      queuedDeliveryBlocked: queueBlocked,
       runs: reclaimed
     };
   }
@@ -431,8 +473,9 @@ export class AgentsService {
     return { ...run, enqueued: enqueue.enqueued, ...(enqueue.reason ? { reason: enqueue.reason } : {}) };
   }
 
-  async start(input: { tenantId: string; orgId: string; userId: string; runId: string; requestId: string }) {
+  async start(input: { tenantId: string; orgId: string; userId: string; runId: string; requestId: string; workerId?: string; expectedAttempts?: number }) {
     const run = await this.agentsRepository.start(input);
+    if (isAgentRunReplay(run)) return run;
 
     await this.auditService.append({
       tenantId: input.tenantId,
@@ -454,6 +497,7 @@ export class AgentsService {
     userId: string;
     runId: string;
     workerId: string;
+    expectedAttempts?: number;
     requestId: string;
   }) {
     const run = await this.agentsRepository.heartbeat(input);
@@ -478,9 +522,13 @@ export class AgentsService {
     userId: string;
     runId: string;
     output?: Record<string, unknown>;
+    workerId?: string;
+    expectedAttempts?: number;
     requestId: string;
   }) {
     const run = await this.agentsRepository.complete(input);
+    // Effects are delivered by the transactional outbox in opt-in mode.
+    if (isAgentRunReplay(run) || isAgentRunFinalizationOutboxEnabled()) return run;
 
     const approvals = Array.isArray(input.output?.approvals)
       ? await this.agentApprovalService.register({
@@ -534,9 +582,12 @@ export class AgentsService {
     userId: string;
     runId: string;
     error: string;
+    workerId?: string;
+    expectedAttempts?: number;
     requestId: string;
   }) {
     const run = await this.agentsRepository.fail(input);
+    if (isAgentRunReplay(run) || isAgentRunFinalizationOutboxEnabled()) return run;
 
     await this.auditService.append({
       tenantId: input.tenantId,

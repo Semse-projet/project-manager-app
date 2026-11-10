@@ -688,6 +688,26 @@ export type ProjectOriginatorValidatedV1Event = z.infer<
   typeof projectOriginatorValidatedV1EventSchema
 >;
 
+export const AGENT_RUN_FINALIZED_V1_SCHEMA_REF =
+  "semse://schemas/events/agent.run.finalized.v1" as const;
+export const agentRunFinalizedV1PayloadSchema = z.object({
+  runId: nonEmptyId, terminalStatus: z.enum(["COMPLETED","FAILED"]),
+  attempts: z.number().int().nonnegative(), requestId: nonEmptyId,
+}).strict();
+export const agentRunFinalizedV1EventSchema =
+  semseDomainEventV2ObjectSchema.extend({
+    eventType: z.literal("agent.run.finalized.v1"),
+    version: z.literal(1), envelopeVersion: z.literal(2),
+    module: z.literal("agents"), entityType: z.literal("AgentRun"),
+    schemaRef: z.literal(AGENT_RUN_FINALIZED_V1_SCHEMA_REF),
+    payload: agentRunFinalizedV1PayloadSchema,
+  }).superRefine((event, ctx) => {
+    validateEnvelopeV2(event, ctx);
+    if (event.entityId !== event.payload.runId)
+      ctx.addIssue({code:z.ZodIssueCode.custom,path:["entityId"],message:"run mismatch"});
+  });
+export type AgentRunFinalizedV1Event = z.infer<typeof agentRunFinalizedV1EventSchema>;
+
 export function toLegacySemseEventV1(event: EvidenceUploadedV1Event) {
   if (event.actor.type === "webhook") {
     throw new Error("Webhook actors cannot be projected to SemseEvent v1");

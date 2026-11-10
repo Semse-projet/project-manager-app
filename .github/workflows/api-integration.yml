@@ -121,7 +121,7 @@ jobs:
       - name: Run API integration script
         env:
           SEMSE_API_URL: http://localhost:4000
-          SEMSE_ROLES: OPS_ADMIN,WORKER
+          SEMSE_ROLES: OPS_ADMIN,WORKER,AGENT_RUNNER
           SEMSE_WORKER_ID: gh-worker-integration
         run: node ./scripts/api-integration.mjs
 

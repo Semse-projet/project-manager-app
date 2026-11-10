@@ -21,7 +21,7 @@ const actors = {
   ops: {
     userId: process.env.SEMSE_USER_ID ?? "usr_it_ops",
     orgId: process.env.SEMSE_ORG_ID ?? "org_it_ops",
-    roles: process.env.SEMSE_ROLES ?? "OPS_ADMIN,WORKER"
+    roles: process.env.SEMSE_ROLES ?? "OPS_ADMIN,WORKER,AGENT_RUNNER"
   }
 };
 
@@ -52,9 +52,12 @@ async function main() {
   await assertDuplicateDisputeRejected(project.id);
 
   const run = await createAgentRun();
-  await claimSpecificRun(run.id, config.workerId);
-  await heartbeat(run.id);
-  await completeRun(run.id);
+  await assertUnprivilegedClaimDenied(run.id);
+  const claimedRun = await claimSpecificRun(run.id, config.workerId);
+  await heartbeat(claimedRun);
+  await assertStaleCompletionRejected(claimedRun);
+  await assertUnfencedWorkerMutationDenied(claimedRun);
+  await completeRun(claimedRun);
   await assertRunCompleted(run.id);
 
   const staleRun = await createAgentRun();
@@ -205,39 +208,95 @@ async function createAgentRun() {
   return json.data;
 }
 
-async function claimRun(workerId) {
-  const { json } = await request(actors.ops, "POST", "/v1/agents/runs/claim", { workerId });
+async function claimRun(workerId, runId) {
+  const { json } = await request(actors.ops, "POST", "/v1/agents/runs/claim", { workerId, runId });
   return json.data;
 }
 
 async function claimSpecificRun(runId, workerId) {
+  // Never claim/complete unrelated queued runs as test cleanup.
   for (let attempt = 0; attempt < 10; attempt++) {
-    const claimed = await claimRun(workerId);
-    if (!claimed) {
-      await sleep(50);
-      continue;
-    }
-
-    if (claimed.id === runId) {
+    const claimed = await claimRun(workerId, runId);
+    if (claimed) {
+      assert.equal(claimed.id, runId, "targeted claim must not take another queued run");
       assertCanonicalValue(claimed.status, "running");
       return claimed;
     }
-
-    await completeRun(claimed.id);
+    await sleep(50);
   }
-
   assert.fail(`expected to claim run ${runId}`);
 }
 
-async function heartbeat(runId) {
-  const { json } = await request(actors.ops, "POST", `/v1/agents/runs/${runId}/heartbeat`, {
-    workerId: config.workerId
+async function assertUnprivilegedClaimDenied(runId) {
+  for (const roles of ["WORKER", "OPS_ADMIN,WORKER"]) {
+    const actor = { ...actors.ops, roles };
+    const denied = await request(actor, "POST", "/v1/agents/runs/claim",
+      { workerId: config.workerId, runId }, { expectedStatus: 403 });
+    assert.equal(denied.status, 403, "human role must not mint a worker claim capability");
+  }
+}
+
+// An owned AgentRun can only be mutated by the exact worker generation
+// returned from claimNext; the smoke must exercise that HTTP contract.
+function assertFencedClaim(run) {
+  assert.equal(run.workerId, config.workerId, "smoke claimed unexpected worker owner");
+  assert.ok(Number.isInteger(run.attempts) && run.attempts > 0,
+    "claimed AgentRun must expose a positive attempt generation");
+  assert.match(run.claimToken ?? "", /^[A-Za-z0-9_-]{43}$/, "claim must return a private signed token");
+}
+
+async function heartbeat(run) {
+  assertFencedClaim(run);
+  const { json } = await request(actors.ops, "POST", `/v1/agents/runs/${run.id}/heartbeat`, {
+    workerId: run.workerId, expectedAttempts: run.attempts, claimToken: run.claimToken
   });
   assertCanonicalValue(json.data.status, "running");
 }
 
-async function completeRun(runId) {
-  const { json } = await request(actors.ops, "POST", `/v1/agents/runs/${runId}/complete`, {
+async function assertStaleCompletionRejected(run) {
+  assertFencedClaim(run);
+  const { status } = await request(actors.ops, "POST", `/v1/agents/runs/${run.id}/complete`, {
+    workerId: run.workerId,
+    expectedAttempts: run.attempts - 1,
+    claimToken: run.claimToken,
+    output: { summary: "obsolete worker result must not be committed" }
+  }, { expectedStatus: 403 });
+  assert.equal(status, 403, "wrong generation must invalidate the signed claim token");
+
+  const { json } = await request(actors.ops, "GET", `/v1/agents/runs/${run.id}`);
+  assertCanonicalValue(json.data.status, "running");
+}
+
+async function assertUnfencedWorkerMutationDenied(run) {
+  assertFencedClaim(run);
+  const workerActor = { ...actors.ops, roles: "WORKER" };
+  for (const [operation, body] of [
+    ["start", {}],
+    ["complete", { output: { summary: "unfenced worker bypass" } }],
+    ["fail", { error: "unfenced worker bypass" }]
+  ]) {
+    const { status, json } = await request(
+      workerActor, "POST", `/v1/agents/runs/${run.id}/${operation}`,
+      body, { expectedStatus: 403 }
+    );
+    assert.equal(status, 403);
+    assert.match(JSON.stringify(json), /unfenced agent operations require an administrator/,
+      "403 must come from the fencing role gate, not an unrelated permission check");
+  }
+  const differentWorker = { ...actors.ops, userId: "usr_it_different_worker", roles: "WORKER" };
+  const denied = await request(differentWorker, "POST", `/v1/agents/runs/${run.id}/complete`, {
+    workerId: run.workerId, expectedAttempts: run.attempts,
+    claimToken: run.claimToken, output: { summary: "cross-principal spoof" },
+  }, { expectedStatus: 403 });
+  assert.equal(denied.status, 403, "claim capability must bind to authenticated principal");
+  const { json } = await request(actors.ops, "GET", `/v1/agents/runs/${run.id}`);
+  assertCanonicalValue(json.data.status, "running");
+}
+
+async function completeRun(run) {
+  assertFencedClaim(run);
+  const { json } = await request(actors.ops, "POST", `/v1/agents/runs/${run.id}/complete`, {
+    workerId: run.workerId, expectedAttempts: run.attempts, claimToken: run.claimToken,
     output: { status: "ok", source: "api-integration" }
   });
   assertCanonicalValue(json.data.status, "completed");
