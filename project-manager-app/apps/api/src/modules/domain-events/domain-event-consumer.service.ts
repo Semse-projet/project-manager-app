@@ -34,6 +34,11 @@ import {
   DisputeEffectsTerminalError,
 } from "./dispute-effects.consumer.js";
 import { DISPUTE_V2_EVENT_TYPE_LIST } from "../disputes/dispute-events-v2.js";
+import {
+  dispatchToConsumers,
+  groupDescriptorsByEventType,
+  type FanOutDescriptor,
+} from "./domain-event-fanout.js";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { JobsRepository } from "../jobs/jobs.repository.js";
 import { ProjectsRepository } from "../projects/projects.repository.js";
@@ -124,6 +129,8 @@ type ConsumerResult = {
   legacyEventType?: string;
   notifications?: Array<{ userId: string; type: string }>;
   triggers?: string[];
+  /** Fan-out (several consumers for one event type): each consumer's own result. */
+  consumers?: ConsumerResult[];
 };
 
 type ProcessingIdentity = {
@@ -138,21 +145,14 @@ type ProcessingIdentity = {
  * `process()` — see `jobs-bids-event-projection.spec.md` §2 (F1-F) for the
  * domain this unblocked.
  */
-type EventHandlerDescriptor = {
-  eventType: string;
-  consumerName: string;
-  handle: (
-    storedEvent: DomainOutboxEvent,
-    processingIdentity: ProcessingIdentity,
-  ) => Promise<ConsumerResult>;
-};
+type EventHandlerDescriptor = FanOutDescriptor<DomainOutboxEvent, ProcessingIdentity, ConsumerResult>;
 
 class TerminalConsumerError extends Error {}
 class AlreadyDeadLetteredError extends Error {}
 
 @Injectable()
 export class DomainEventConsumerService {
-  private readonly handlersByEventType: ReadonlyMap<string, EventHandlerDescriptor>;
+  private readonly handlersByEventType: ReadonlyMap<string, readonly EventHandlerDescriptor[]>;
   /** Swappable only by tests (plain instance property, not DI) — production
    * always uses the real `deliverSatelliteWebhook`, which enforces SSRF
    * validation and cannot itself be pointed at a private/loopback address. */
@@ -170,7 +170,7 @@ export class DomainEventConsumerService {
     this.handlersByEventType = this.buildHandlerRegistry();
   }
 
-  private buildHandlerRegistry(): ReadonlyMap<string, EventHandlerDescriptor> {
+  private buildHandlerRegistry(): ReadonlyMap<string, readonly EventHandlerDescriptor[]> {
     const descriptors: EventHandlerDescriptor[] = [
       { eventType:"agent.run.finalized.v1",consumerName:AGENT_RUN_EFFECTS_CONSUMER,
         handle:(event)=>this.processAgentRunFinalizationEvent(event) },
@@ -192,8 +192,7 @@ export class DomainEventConsumerService {
         handle: (storedEvent: DomainOutboxEvent, processingIdentity: ProcessingIdentity) =>
           this.processJobsBidsProjectionEvent(storedEvent, processingIdentity),
       })),
-      // Event backbone F2, slice 1. No other consumer owns these types; the registry is still 1:1 (fan-out is a
-      // prerequisite of slice 2, see event-backbone-f2-legacy-producers.plan.md §3).
+      // Event backbone F2, slice 1.
       ...DISPUTE_V2_EVENT_TYPE_LIST.map((eventType) => ({
         eventType,
         consumerName: DISPUTE_EFFECTS_CONSUMER,
@@ -207,7 +206,9 @@ export class DomainEventConsumerService {
       })),
     ];
 
-    return new Map(descriptors.map((descriptor) => [descriptor.eventType, descriptor]));
+    // Several consumers may share an event type (fan-out, see domain-event-fanout.ts); a duplicate
+    // (eventType, consumerName) pair is a programming error and fails at construction.
+    return groupDescriptorsByEventType(descriptors);
   }
 
   async process(
@@ -234,8 +235,8 @@ export class DomainEventConsumerService {
       });
     }
 
-    const descriptor = this.handlersByEventType.get(storedEvent.eventType);
-    if (!descriptor) {
+    const descriptors = this.handlersByEventType.get(storedEvent.eventType);
+    if (!descriptors?.length) {
       throw new UnprocessableEntityException({
         message: "No consumer handler is registered for this domain event type",
         eventId,
@@ -243,26 +244,18 @@ export class DomainEventConsumerService {
       });
     }
 
-    this.assertConsumerAllowlisted(descriptor.consumerName);
-    return descriptor.handle(storedEvent, processingIdentity);
+    return dispatchToConsumers({
+      event: storedEvent,
+      identity: processingIdentity,
+      descriptors,
+      consumerAllowlist: parseEventConsumerAllowlist(process.env.SEMSE_EVENT_CONSUMER_ALLOWLIST),
+    }) as Promise<ConsumerResult>;
   }
 
   private assertConsumersEnabled(): void {
     if (!isDomainEventConsumersEnabled()) {
       throw new ServiceUnavailableException({
         message: "Domain event consumers are disabled by kill switch",
-      });
-    }
-  }
-
-  private assertConsumerAllowlisted(consumerName: string): void {
-    const consumers = parseEventConsumerAllowlist(
-      process.env.SEMSE_EVENT_CONSUMER_ALLOWLIST,
-    );
-    if (!consumers.has(consumerName)) {
-      throw new ServiceUnavailableException({
-        message: "Domain event consumer is not allowlisted",
-        consumer: consumerName,
       });
     }
   }
