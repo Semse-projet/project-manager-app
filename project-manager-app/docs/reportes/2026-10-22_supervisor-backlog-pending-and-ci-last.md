@@ -106,7 +106,7 @@ las decisiones contractuales; no marcar DONE por añadir estos documentos.
 | P-09 | P0 security | S0-F03: `TaskAllocationsService.listMine/updateStatus` con acceso anterior tras revocación de membership/crew | P-07 / política de historical read | pruebas N04-N07; conservación de historial |
 | P-10 | P0 security | Separar acceso de gestor org (`org:crews:manage`) del supervisor operativo; no retirar facultades legítimas a PRO dueño | P-01 | pruebas de dueño verificado, PRO ajeno, OPS_ADMIN, cross-org |
 | P-11 | P1 integridad | S0-F05…F11: contrato S0b de lote atómico, no reutilizar asignaciones de otra crew, proteger tareas internas, audit transaccional sin crear actor/contexto sintético | D-S0B-01…05 + BO-10 ratificado | N10–N18 y AUD-01…08 en PostgreSQL y auditoría íntegra |
-| P-12 | P0 SDD | Actualizar/armonizar BO-07, BO-10, identidad, Membership y business offers; permisos, respuestas 401/403/404/409/422, eventos y estados | P-01…P-11 | spec coherente `APPROVED`, plan/tasks/checklist y análisis |
+| P-12 | P0 SDD | Actualizar/armonizar BO-07, BO-10, identidad, Membership y business offers; permisos, respuestas 401/403/404/409/422, eventos y estados | P-01…P-06 + **contratos** de P-07…P-11 acordados (no su ejecución) | spec coherente `APPROVED`, plan/tasks/checklist y análisis |
 | P-13 | P1 seguridad | Diseñar `CrewSupervisorDelegation` con tenant/org/crew, vigencia, permisos, versión, motivo y revocación | P-01…P-06 | schema, índices, lifecycle, política y rollout revisados |
 | P-14 | P1 implementación | S0a: código y N01–N09 preparados en #1054 DRAFT; falta ejecución real, review, aprobación SDD y reconciliar base #1027 | P-12 + tests locales y review | N01–N09 probados sin regresión en HEAD exacto |
 | P-15 | P1 implementación | S0b: cross-crew, atomicidad e idempotencia; reutilizar infraestructura audit #1053 solo tras integración segura | P-11/P-12 + decisiones D-S0B-01…05 + dependencia #1053 | N10–N18 + AUD-01…08 PASS PostgreSQL, sin contextos sintéticos |
@@ -117,6 +117,8 @@ las decisiones contractuales; no marcar DONE por añadir estos documentos.
 | P-20 | P0 calidad local | Tests unitarios, API integración, negative auth, concurrencia; lint/typecheck/build; `spec:validate:strict` local y review independiente | P-14…P-19 | evidencia local y aprobación de revisión sobre HEAD estable |
 | P-21 | P0 CI último | **Al terminar lo demás**, diagnosticar y corregir fallos de CI sin alterar gates, ejecutar/verificar check completo sobre HEAD final | P-20 | PASS terminal, cobertura/quality/e2e exigibles, SHA exacto |
 | P-22 | P0 entrega | Merge explícitamente autorizado, migración versionada, staging, smoke autenticado ES/EN, canary y rollback; separar estados | P-21 | pruebas/evidencia por etapa, nunca producción desde DRAFT |
+
+> **Orden diseño → ejecución:** P-12 aprueba el SDD con los contratos de P-07…P-11 acordados. Las guardas implementadas y las pruebas PASS de P-07…P-11 se exigen en los PR técnicos (P-14, P-15), no para aprobar P-12; así no hay dependencia circular.
 
 Prioridad P0 indica **bloqueo de seguridad/diseño**, no autorización
 para ejecutar acciones sensibles. Las fases S0–S4 requieren PRs separados.
@@ -186,7 +188,7 @@ La fuente de prueba empresarial **sigue por implementar/verificar**.
 
 **Continuar con la ratificación de OPEN-SUP-02…06:** opciones documentadas
 en `2026-10-22_p02-p06-supervisor-decision-proposals.md` (no aprobadas).
-S0a N01–N09 ya está especificado, no implementado. Continuar con
+S0a: el código y las pruebas N01–N09 ya están escritos en #1054 (DRAFT), sin ejecución real verificada; el siguiente paso es validar esa rama, no reescribir el parche. Continuar con
 ratificación BO-07/BO-10 y matriz S0b N10–N18 (incluida la nueva
 colisión entre cuadrillas), sin modificar Payment/TimeEntry/Evidence.
 CI manual se reserva como último control antes de merge.

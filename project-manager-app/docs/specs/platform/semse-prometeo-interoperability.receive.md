@@ -49,7 +49,7 @@ No cerrar slice si: falta owner o spec hija APPROVED; falta evidencia SHA; no se
 - Constitución: `.specify/memory/constitution.md`
 - Regla SDD: `docs/SDD_GOVERNANCE.md`
 - ADR-025 MCP aplazado (11-10-2026)
-- ADR-042 Universal Connector Trust / ADR-042 Operational Intelligence Graph (ID collision)
+- ADR-042 Universal Connector Trust / ADR-044 Operational Intelligence Graph (antes ADR-042: colisión de identificador reparada en #940; ver `docs/architecture/ADR_ID_RECONCILIATION_2026-10-15.md`)
 - Contrato: `docs/specs/platform/universal-connector-trust.spec.md`
 - Frontend reutilizable: `docs/program/semse-4d-field-memory/WORKSPACE_REUSE_AND_CONNECTORS.md`
 - PR #797 y #859 (evidencia GitHub; no runtime)

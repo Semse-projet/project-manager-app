@@ -160,7 +160,7 @@ Informe: `docs/reportes/2026-10-28_s0a-s0b-live-pr-reconciliation.md`.
 - [ ] Cerrar S0-F01…F11, pruebas N01…N18 + AUD-01…AUD-08 y revisión antes de CI.
   S0a N01…N09: `docs/reportes/2026-10-25_s0a-supervisor-negative-test-contract.md`;
   S0b N10…N18: `docs/reportes/2026-10-26_s0b-allocation-atomicity-cross-crew-contract.md`.
-- [ ] Mantener `ci_status` NO_VERIFIED/FAIL según evidencia, nunca PASS asumido.
+- [ ] Mantener `ci_status` en un valor canónico (`NOT_RUN`, `PASS`, `FAIL`; nunca PASS asumido) y registrar aparte la falta de verificación o la causa desconocida.
 
 ## Criterio de done
 

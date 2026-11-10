@@ -12,7 +12,7 @@ ci_status: "NOT_RUN"
 merge_status: "UNMERGED"
 deploy_status: "NOT_DEPLOYED"
 activation_status: "INACTIVE"
-migration_status: "NOT_APPLICABLE"
+migration_status: "PENDING"
 feature_flags: []
 production_evidence: []
 related_files: []
@@ -97,13 +97,27 @@ No duplicar `JobTask`, `TaskAllocation`, `TimeEntry` ni Evidence.
 
 ### Compatibilidad
 
-En esta propuesta, el campo legacy `Crew.supervisorUserId` **no puede
-conceder por sí solo** permisos nuevos de delegación tras activar la
-función. El plan exige migración gradual y proyección temporal para
-evitar pérdida repentina de permisos legítimos. Con flag OFF se preserva
-comportamiento existente, pero las vulnerabilidades conocidas de guard
-deben evaluarse en un parche independiente antes de cualquier activación
-de BO-07/BO-10. **No se propone abrir acceso permisivo como fallback.**
+En esta propuesta, el campo legacy `Crew.supervisorUserId` **no
+concede autoridad por sí solo**, ni con el flag de delegación S1 OFF
+ni con ON. La corrección de guardas S0 es una dependencia de seguridad
+obligatoria, independiente del flag de S1: las rutas legacy BO-07/BO-10
+deben revalidar WORKER ACTIVE, tenant, organización, cuadrilla y
+revocación/suspensión en cada petición. Con OFF **no se restauran**
+permisos legacy más amplios ni se revierten los guardas S0.
+Las nuevas rutas/acciones S1 se deniegan con OFF; con ON requieren
+además grant explícito, vigente y acotado por acción, org y crew.
+La migración gradual debe conservar tareas, horas y evidencia, **no**
+reconstruir autorizaciones antiguas implícitas.
+
+Un grant S1 que figure `ACTIVE` en almacenamiento mientras el flag
+está OFF **no concede ningún permiso efectivo**. Apagar S1 no borra
+ni revoca por sí solo el registro histórico, pero cualquier reactivación
+requiere verificar nuevamente elegibilidad, emisor, alcance, vigencia,
+revocación y autorización explícita de reanudación; **no** se
+reconocen grants anteriores automáticamente solo por volver a ON.
+La política exacta de reemisión/invalidación se ratifica en
+OPEN-SUP-06 antes de implementación. Nunca se hace rollback a un
+binario que omita S0: se debe preferir forward-fix seguro.
 
 ## 3. Actores, permisos y límites
 
@@ -220,7 +234,7 @@ input:
   permissions: [approved-crew-permissions]
   reason: string
   idempotencyKey: string
-output: { id, status, orgId, crewId, subjectUserId, startsAt, endsAt, permissions }
+output: { id, status, version, orgId, crewId, subjectUserId, startsAt, endsAt, permissions }
 errors:
   400: "input/fechas inválidos"
   401: "no autenticado"
@@ -242,7 +256,8 @@ routes:
   - POST /v1/organizations/:orgId/crews/:crewId/supervisor-delegations/:id/revoke
   - GET /v1/crews/:crewId/me/authority
 revoke_input: { reason: string, expectedVersion: integer }
-revoke_output: { id, status: "REVOKED", revokedAt }
+list_output: "[{ id, status, version, subjectUserId, startsAt, endsAt, permissions }]"
+revoke_output: { id, status: "REVOKED", version, revokedAt }
 errors: { 401: unauthenticated, 403: forbidden, 404: not_found, 409: stale_version }
 effects: "revalidar en backend cada lectura/escritura; auditar cambios"
 ```
@@ -303,13 +318,24 @@ forbidden_behavior:
 - Backfill: **no atribuir grants retroactivos automáticamente** a todos
   los `Crew.supervisorUserId`; migrar solo designaciones validadas por
   autoridad real en canary.
-- Compatibilidad: flag OFF mantiene UI/servicio existente; flag ON exige
-  grant, sin fallback por campo legacy; abortar canary ante negaciones
-  inesperadas o aumento de acceso.
+- Compatibilidad (propuesta S0/S1, pendiente OPEN-SUP-06): flag OFF
+  deshabilita solo las rutas/delegaciones NUEVAS S1; las rutas y la UI
+  legacy permanecen disponibles únicamente bajo los guardas S0
+  endurecidos, con WORKER ACTIVE, tenant/org/crew y revocación
+  revalidados por solicitud. `Crew.supervisorUserId` aislado nunca
+  autoriza. Con ON se suman grants S1 explícitos, granulares y vigentes;
+  sin fallback por el campo legacy. Un grant persistido como ACTIVE no
+  concede autoridad con OFF ni se reanuda automáticamente al volver a ON.
+  Abortar canary ante accesos indebidos, pérdida de audit o cambios
+  inesperados en denegaciones; preservar historial de tareas y horas.
 - Pre-deploy: `prisma migrate deploy`, nunca `db push` en producción.
-- Rollback: desactivar flag y volver al código anterior tras analizar
-  riesgo de fallos de autorización; conservar datos/auditoría. Forward-fix
-  migratorio, no borrado destructivo.
+- Rollback: poner S1 OFF manteniendo S0 y todas sus denegaciones.
+  Solo retornar a un binario anterior que **también** implemente S0;
+  si el binario anterior permitiría accesos legacy indebidos,
+  **no desplegar ese rollback**: aislar nuevas mutaciones y aplicar un
+  forward-fix seguro. Conservar grants, datos y auditoría sin borrar
+  el esquema de forma destructiva. Reactivar S1 únicamente después de
+  revalidación/reauthorización explícita y canary documentado.
 
 ## 8. Observabilidad y activación
 

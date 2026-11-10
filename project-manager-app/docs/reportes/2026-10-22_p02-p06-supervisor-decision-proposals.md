@@ -13,7 +13,11 @@ P-01 owner authority y guía de jornada/evidencia de SEMSE.
 **Problema:** `Membership WORKER ACTIVE` demuestra acceso a la Org, pero
 no documenta por sí sola la forma de contratación legal ni autorización
 para realizar tareas en una obra. `BusinessEngagement` es relación
-comercial separada; su función BO-05 está documentada como DRAFT.
+comercial separada. Tras fusionar la documentación #1017, BO-05 figura
+`status: APPROVED` en su SDD, pero `code_status: IN_PROGRESS` y
+`activation_status: INACTIVE`; sus controles de implementación aún
+no se han acreditado. Esta aprobación documental no vuelve obligatorio
+`BusinessEngagement ACTIVE` ni cierra OPEN-SUP-02.
 
 **Opción A (recomendada para MVP):** WORKER ACTIVE + designación
 de supervisor por owner/representante verificado + vinculación efectiva
@@ -115,8 +119,16 @@ PR #1027 no activa flags BO-07 o BO-10.
 4. Canary solo organizaciones sintéticas autorizadas:
    grant explícito obligatorio para las rutas nuevas; no
    confiar en un `supervisorUserId` desactualizado.
-5. En caso de error, pausar feature conservando datos;
-   rollback sin abrir acceso más permisivo que antes.
+5. En caso de error, pausar la feature conservando datos y auditoría.
+   No restaurar por el mero flag OFF una autorización legacy más amplia;
+   mantener los guardas S0 correctivos y denegar por defecto cuando no
+   pueda demostrarse que el acceso anterior sigue autorizado.
+   Antes de un canary, definir umbrales verificables: cualquier lectura
+   cross-tenant/cross-org/cross-crew, permiso revocado todavía efectivo,
+   asignación no autorizada, autoaprobación o auditoría incompleta
+   obliga a detener activación y revisar trazas sin PII.
+   La reversión segura debe probarse con dos tenants, dos orgs,
+   dos crews y sesiones antiguas; no borrar delegaciones en rollback.
 6. Actualizar `STATE_MACHINES.md` y `EVENT_CATALOG.md`
    antes de nuevos eventos; smoke autenticado y evidencia
    por SHA desplegado, nunca solo HEALTH.

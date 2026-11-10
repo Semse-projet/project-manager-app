@@ -76,12 +76,56 @@ date: "2026-10-22"
 - Esquema, índices e integridad de grants temporales a revisar con DB.
 - Sin backfill genérico: el `supervisorUserId` legacy no prueba
   autoridad vigente ni consentimiento de contrato.
-- Dual-read/guard: con flag OFF no cambiar BO-07/BO-10 existente;
-  con flag ON solo grants explícitos validados.
+- Dual-read/guard (propuesta S0 + S1, **OPEN-SUP-06 pendiente**):
+  - **Flag OFF:** desactiva las rutas/capacidades NUEVAS de delegación S1
+    y niega toda autorización derivada de grants S1, aunque el registro
+    persistido conserve estado `ACTIVE`. El apagado no borra ni revoca
+    automáticamente registros históricos; su estado persistido no equivale
+    a autoridad efectiva. Las rutas legacy BO-07/BO-10 siguen disponibles
+    solo bajo guardas S0 endurecidos: WORKER ACTIVE para el supervisor,
+    recurso dentro de tenant/org/crew y revocación/suspensión revalidadas
+    en cada petición. `Crew.supervisorUserId` por sí solo **nunca**
+    autoriza un 2xx.
+  - **Flag ON:** además de S0, las rutas S1 exigen un grant explícito,
+    ACTIVE, vigente y con permiso granular para esa crew y acción. Lo
+    mismo vale para las rutas legacy BO-07/BO-10 cuando se ejercen por la
+    vía supervisor: sin grant vigente y permiso por acción no hay 2xx, sin
+    fallback a `Crew.supervisorUserId`. La vía legítima de gestión
+    (owner/representante autorizado) sigue separada y no requiere grant. Un
+    registro que estaba ACTIVE al apagar S1 **no se reactiva de modo
+    automático** al volver a ON. Su retorno exige nueva comprobación
+    de identidad, WORKER ACTIVE, delegante verificado, revocación,
+    alcance y autorización explícita de reanudación (o reemisión
+    auditable); hasta entonces **denegar por defecto**. La decisión
+    precisa sobre reemisión y transición operativa sigue pendiente
+    de ratificación OPEN-SUP-06.
+  - **Rollback a versión anterior:** solo se permite un binario que incluya
+    los guardas S0. Si el binario de retorno no los tiene, **no desplegar**
+    esa reversión; pausar canary, mantener flag OFF, cerrar mutaciones nuevas
+    y ejecutar un forward-fix seguro. No usar el cambio de flag para
+    restaurar semántica legacy permisiva.
+  - **Pruebas exigidas antes de activar:** OFF/ON × sesión antigua ×
+    WORKER SUSPENDED/REVOKED con PRO ACTIVE × otra org/crew ×
+    `supervisorUserId` sin grant; todas las autorizaciones indebidas deben
+    ser 403/404, nunca 2xx. Agregar grant S1 ACTIVE previo a OFF:
+    OFF debe denegar su ejercicio sin borrar la historia; volver a ON
+    **sin reautorización** debe continuar denegando; reemisión autorizada
+    y auditada solo después de validar actor, scope y vigencia.
+    Probar también binario de retorno S0+ sobre base expandida,
+    sin perder historial de TimeEntry/Evidence.
 - Predeploy: `prisma migrate deploy`, checksum de SQL versionado;
   `db push` prohibido en prod.
-- Rollback de feature: flag OFF + restauración de conducta legítima
-  previo análisis de seguridad, no una política más permisiva.
+- Rollback de feature (propuesta, OPEN-SUP-06 aún pendiente): poner flag OFF
+  para cortar nuevas delegaciones, conservar historial/audit y mantener
+  las correcciones de guardas S0; flag OFF no permite restaurar acceso
+  legacy ampliado o ignorar suspensiones y revocaciones.
+- Condición de parada del canary: cualquier 2xx indebido cross-tenant,
+  cross-org o cross-crew, grant revocado aún efectivo, auditoría faltante
+  o autorrevisión concedida. Pausar, denegar nuevas mutaciones y
+  diagnosticar sin exponer datos privados.
+- Reentrada/forward-fix: exigir autorización nuevamente comprobada,
+  evidencia de PostgreSQL y smoke firmado en 2 tenants/2 orgs/2 crews,
+  antes de reactivar el flag. No revertir destructivamente la tabla.
 - Prueba de integridad del historial: asignaciones, horas y Evidence intactos.
 
 ## 5. Seguridad y policy
@@ -89,7 +133,7 @@ date: "2026-10-22"
 | Acción | Condición positiva | Rechazo obligatorio |
 |---|---|---|
 | designar supervisor | owner/representante autorizado, misma org y crew | PRO/CLIENT no verificados |
-| consultar mi autoridad | actor = subject, WORKER ACTIVE, grant vigente | tenant/org/crew ajena |
+| consultar mi autoridad | actor = subject, WORKER ACTIVE y pertenencia vigente; no exige grant vigente: con grant vencido o revocado devuelve su estado (`expired`/`revoked`) y cero permisos efectivos | tenant/org/crew ajena |
 | asignar tarea | supervisor grant con `crew:tasks:assign`, persona de crew, tarea propia de org | grant vencido, task otra org |
 | liberar asignación | `crew:tasks:release`, motivo auditable | liberar de otra crew |
 | revisar trabajo | reviewer distinto del autor y permiso específico | autor = reviewer |
