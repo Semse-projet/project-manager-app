@@ -56,6 +56,8 @@ en `DRAFT`.
 | PD-05 | `2.28`, `0.9` | Identidad/verificación | KYC/DID, evidencia, retención y cola | **Parcial.** El flujo de solicitud y la cola de revisión existen (`2.28` corregido, ver `api.worker-verification-remediation`); siguen abiertos proveedor KYC/DID, evidencia mínima y retención. |
 | PD-06 | `2.40` | Tarifas del profesional | qué estimados afecta y quién selecciona al PRO | **Resuelta 2026-07-27** (PR #455): la tarifa ajusta el estimado del detalle del trabajo del cliente una vez que hay un profesional asignado. |
 | PD-07 | `2.44` | Riel de cobro | Connect/Elements/Financial Connections/Plaid | **Resuelta 2026-07-27** (PR #458): solo Stripe, sin Plaid (ver `api.payout-method-tokenization`). |
+| PD-08 | `0.49a` | Salida de inventario agro por encima del stock | rechazar (409) vs. permitir y alertar vs. solo `inventory.manage` | **Resuelta 2026-11-10** (dueño): permitir y alertar. La salida se registra igual, se marca como sobregiro y se avisa al supervisor. Descartadas: rechazar (bloquea consumos reales en campo) y solo supervisores. Sin migración prevista; implementación pendiente. |
+| PD-09 | `0.49b` | Presupuesto de la votación cuadrática | presupuesto por propuesta vs. créditos de gobernanza; reposición | **Resuelta 2026-11-10** (dueño): votar `k` unidades gasta `k²` de los créditos de gobernanza que ya se ganan participando, y lo gastado **no se repone** (solo se vuelve a ganar participando; el decaimiento existente evita que el saldo crezca sin límite). Descartadas: presupuesto por propuesta, devolución al cerrar y presupuesto por periodo. Implementación pendiente. |
 
 Cada decisión resuelta quedó registrada en la entrada correspondiente de
 `docs/AUDIT_REMEDIATION_PLAN.md`; la fecha y el PR de esta tabla salen de ahí y
