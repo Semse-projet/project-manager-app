@@ -98,7 +98,7 @@ retroactiva.
 | [core.crews-worksites](specs/core/crews-worksites.spec.md) | core | DRAFT | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-10-18 |
 | [core.daily-reports](specs/core/daily-reports.spec.md) | core | DRAFT | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-10-18 |
 | [core.geofence-policy](specs/core/geofence-policy.spec.md) | core | DRAFT | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | yes | 2026-10-20 |
-| [core.header-identity-fail-closed](specs/core/header-identity-fail-closed.spec.md) | core | VERIFIED | COMPLETE | PASS | MERGED | DEPLOYED | ACTIVE | high | yes | 2026-11-07 |
+| [core.header-identity-fail-closed](specs/core/header-identity-fail-closed.spec.md) | core | VERIFIED | COMPLETE | PASS | MERGED | DEPLOYED | ACTIVE | high | yes | 2026-11-08 |
 | [core.identity-attestation](specs/core/identity-attestation.spec.md) | core | IMPLEMENTED | COMPLETE | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-08-29 |
 | [core.knowledge-contributor-asr-openai-whisper](specs/core/knowledge-contributor-asr-openai-whisper.spec.md) | core | APPROVED | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-09-24 |
 | [core.knowledge-contributor-curated-library](specs/core/knowledge-contributor-curated-library.spec.md) | core | DRAFT | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | no | 2026-10-18 |
@@ -142,7 +142,7 @@ retroactiva.
 | [fsm-milestone-lifecycle](specs/fsm/milestone-lifecycle.spec.md) | milestones | VERIFIED | legacy | legacy | legacy | legacy | legacy | critical | yes | 2026-07-17 |
 | [fsm-reservation-lifecycle](specs/fsm/reservation-lifecycle.spec.md) | reservations | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-23 |
 | [governance.audit-remediation-program](specs/governance/audit-remediation-program.spec.md) | governance | APPROVED | COMPLETE | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | yes | 2026-10-04 |
-| [integrations.voicestudio-voice-gateway](specs/integrations/voicestudio-voice-gateway.spec.md) | integrations | DRAFT | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | no | 2026-10-13 |
+| [integrations.voicestudio-voice-gateway](specs/integrations/voicestudio-voice-gateway.spec.md) | integrations | APPROVED | IN_PROGRESS | PASS | UNMERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-11-07 |
 | [knowledge.agent-memory-governance](specs/knowledge/agent-memory-governance.spec.md) | knowledge | IMPLEMENTED | COMPLETE | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | yes | 2026-09-26 |
 | [labor.free-project-archive-restore](specs/labor/free-project-archive-restore.spec.md) | labor | DRAFT | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | no | NOT_VERIFIED |
 | [labor.free-project-mutation-guard](specs/labor/free-project-mutation-guard.spec.md) | labor | IMPLEMENTED | COMPLETE | PASS | MERGED | DEPLOYED | ACTIVE | high | yes | 2026-10-15 |
@@ -164,6 +164,7 @@ retroactiva.
 | [platform.product-intelligence](specs/platform/product-intelligence.spec.md) | platform | APPROVED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-08-27 |
 | [platform.production-convergence-f3-f9](specs/platform/production-convergence-program.spec.md) | platform | APPROVED | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | yes | 2026-07-31 |
 | [platform.resource-scope](specs/platform/resource-scope.spec.md) | platform | APPROVED | IN_PROGRESS | PASS | MERGED | DEPLOYED | INACTIVE | high | yes | 2026-10-05 |
+| [platform.semse-library-hub-f1-inventory](specs/platform/semse-library-hub-f1-inventory.spec.md) | platform | APPROVED | COMPLETE | PASS | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | yes | 2026-10-26 |
 | [platform.semse-library-hub](specs/platform/semse-library-hub.spec.md) | platform | DRAFT | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | no | NOT_VERIFIED |
 | [platform.semse-mcp-delegated-consent](specs/platform/semse-mcp-delegated-consent.spec.md) | platform | APPROVED | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | yes | NOT_VERIFIED |
 | [platform.semse-mcp-project-read](specs/platform/semse-mcp-project-read.spec.md) | platform | REVIEW | NOT_STARTED | NOT_RUN | MERGED | NOT_DEPLOYED | INACTIVE | critical | no | NOT_VERIFIED |

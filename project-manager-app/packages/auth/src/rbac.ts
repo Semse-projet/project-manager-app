@@ -6,6 +6,9 @@ export const rolePermissions: Record<string, string[]> = {
     // "Mis tareas" (GET /v1/tasks) es más angosto que jobs:read (ver TasksController).
     "tasks:read:self",
     "jobs:create",
+    // POST /v1/jobs/:jobId/transition. The service decides who may take each step
+    // (assertTransitionAuthorized: client-only, pro-only, owner or assigned pro).
+    "jobs:transition",
     "travel:manage",
     "jobs:archive",
     "jobs:restore",
@@ -81,6 +84,9 @@ export const rolePermissions: Record<string, string[]> = {
     "jobs:read",
     // "Mis tareas" (GET /v1/tasks) es más angosto que jobs:read (ver TasksController).
     "tasks:read:self",
+    // POST /v1/jobs/:jobId/transition. The service decides who may take each step
+    // (assertTransitionAuthorized: client-only, pro-only, owner or assigned pro).
+    "jobs:transition",
     "travel:manage",
     "bids:read",
     "bids:create",
@@ -193,6 +199,9 @@ export const rolePermissions: Record<string, string[]> = {
     // "Mis tareas" (GET /v1/tasks) es más angosto que jobs:read (ver TasksController).
     "tasks:read:self",
     "jobs:create",
+    // POST /v1/jobs/:jobId/transition. The service decides who may take each step
+    // (assertTransitionAuthorized: client-only, pro-only, owner or assigned pro).
+    "jobs:transition",
     "travel:manage",
     "jobs:archive",
     "jobs:restore",

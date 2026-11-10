@@ -32,7 +32,7 @@ function build() {
     project: {
       findFirst: async ({ where }: { where: { id: string; tenantId: string } }) => {
         const p = PROJECTS.find((x) => x.id === where.id && x.tenantId === where.tenantId);
-        return p ? { tenantId: p.tenantId, assignedProOrgId: p.assignedProOrgId, job: { clientOrgId: p.clientOrgId } } : null;
+        return p ? { tenantId: p.tenantId, jobId: "j_" + p.id, assignedProOrgId: p.assignedProOrgId, job: { clientOrgId: p.clientOrgId } } : null;
       },
     },
     dispute: {
@@ -48,6 +48,9 @@ function build() {
       },
       create: async ({ data }: { data: Record<string, unknown> }) => (writes.push("create"), { id: "d_new", ...data }),
     },
+    // create() opens the dispute in a transaction under the job row lock (#1111): open job.
+    $queryRaw: async () => [{ status: "IN_PROGRESS" }],
+    $transaction: async (fn: (tx: unknown) => Promise<unknown>) => fn(prisma),
   };
   const actorContext = { ensureActorContext: async () => {} };
   const repo = new DisputesRepository(prisma as never, actorContext as never, new ResourceScopeResolver(prisma as never));
