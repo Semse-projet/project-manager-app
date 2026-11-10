@@ -679,9 +679,14 @@ export class AgentsService {
           tools: input.tools,
           // A private Project Copilot cannot opt out of local inference even
           // if a future caller omits or explicitly disables localOnly.
+          // C85/#1066: for other agents, remembered project context must not
+          // silently fall back to cloud LLM providers either; the orchestrator
+          // enforces privacyCritical.
           context: (agentId === "project-copilot" || input.localOnly)
             ? { requiresTools: true, localOnly: true, privacyCritical: true, agentName: agentId, source: "private-project-copilot" }
-            : { requiresTools: true },
+            : typeof input.context?.relevantMemorySummary === "string" && input.context.relevantMemorySummary.length > 0
+              ? { requiresTools: true, privacyCritical: true }
+              : { requiresTools: true },
           maxTokens: 1024,
         });
 
