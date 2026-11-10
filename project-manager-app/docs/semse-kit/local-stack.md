@@ -60,3 +60,32 @@ PLAYWRIGHT_BASE_URL=http://localhost:3000 pnpm test:e2e:semse:es-en
 ```
 
 Si la versión de Playwright del repo pide un Chromium que no está instalado y no se puede descargar, se usa una config local **no versionada** que extienda `playwright.semse.config.ts` con `use.launchOptions.executablePath` apuntando al Chromium disponible. Nunca hay que modificar la config del repo para eso.
+
+## 6. Specs de API con identidad por cabeceras (contratación)
+
+`tests/e2e-semse/job-lifecycle-rating.spec.ts` recorre la contratación hablando directamente con la API:
+
+- recorrido feliz: trabajo → reserva → contrato → firmas → escrow `mock` → hito → evidencia → liberación → `completed` → valoraciones y reputación;
+- casos negativos de cada paso.
+
+Usa la identidad por cabeceras (`x-tenant-id`, `x-org-id`, `x-user-id`, `x-roles`) y las organizaciones y usuarios demo de la semilla. Necesita una **segunda API, sólo local**, en `:4122`:
+
+```bash
+(cd apps/api && env -u AUTH_SECRET SEMSE_ALLOW_HEADER_IDENTITY=true NODE_ENV=test PORT=4122 node dist/main.js)
+SEMSE_REQUIRE_HIRING_E2E=1 SEMSE_API_URL=http://127.0.0.1:4122 pnpm exec playwright test -c playwright.semse.config.ts tests/e2e-semse/job-lifecycle-rating.spec.ts
+```
+
+La API sólo acepta cabeceras con las tres condiciones: sin `AUTH_SECRET`, con `SEMSE_ALLOW_HEADER_IDENTITY=true` y con `NODE_ENV` en `development` o `test` (`headerIdentityAllowed`). Con `SEMSE_REQUIRE_HIRING_E2E=1` (modo de calificación), si la API no responde o no acepta la identidad por cabeceras, el spec **falla**: nunca se permite confundir cuatro pruebas omitidas con cuatro pruebas aprobadas. Sin esa variable conserva la omisión voluntaria para desarrollo local. El spec rechaza cualquier URL que no sea loopback (`localhost`, `127.0.0.1` o `[::1]`) porque crea Jobs, reservas, pagos simulados y valoraciones. **El CI general no ejecuta este spec**; un CI verde no demuestra esta prueba salvo evidencia de la invocación estricta.
+
+**Ojo con los `.env`:** `env -u AUTH_SECRET` sólo quita la variable del proceso. Al arrancar, `apps/api/src/main.ts` (dotenv) y `ConfigModule` vuelven a cargar `apps/api/.env` y `packages/db/.env` sin sobrescribir lo ya definido. Si alguno de los dos define `AUTH_SECRET`, la variable vuelve, la API exige Bearer y el spec se salta entero.
+
+- Para esta API, ninguno de esos archivos puede definir `AUTH_SECRET`.
+- Tampoco vale dejarla vacía (`AUTH_SECRET=`): la validación del entorno exige al menos 32 caracteres y la API no arranca.
+
+Comprobado el 2026-11-06:
+
+- sin `.env`, 200;
+- con un `.env` que define `AUTH_SECRET`, 401;
+- con `AUTH_SECRET=`, la API no arranca.
+
+`dispute-resolution.spec.ts` y `edge-cases-payment-rating.spec.ts` siguen desfasados respecto a la API actual (rutas como `POST /v1/escrow/fund` o `PATCH /v1/disputes/:id` ya no existen) y fallan.
