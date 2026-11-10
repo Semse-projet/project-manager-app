@@ -2,30 +2,36 @@
 type: checklist
 feature: "Unified Operational Graph Contract"
 spec: "docs/specs/prometeo/unified-graph-contract.spec.md"
-version: "2.0"
-date: "2026-10-04"
+version: "2.1"
+date: "2026-11-06"
 ---
 
 # Checklist: Unified Operational Graph Contract
 
-## Requirements
-- [ ] P1 scenarios testable
-- [ ] scope/out-of-scope clear
-- [ ] contract matches current repo
+## Requisitos
+- [ ] Escenarios P1 con Gherkin propio y trazados a pruebas (sección 9 del spec)
+- [ ] Alcance y fuera de alcance claros; Q-1 resuelta
+- [ ] Contrato coincide con `conversationSourceRefSchema` y con el orden de sensibilidad vigente
 
-## Security
-- [ ] source authorization before data return
-- [ ] tenant/resource isolation tested
-- [ ] no secrets/raw sensitive bodies
-- [ ] `SEMSE_OPERATIONAL_GRAPH_MODE` off is safe
+## Seguridad
+- [ ] Autorización en el proveedor y en el servicio, no solo en el controller
+- [ ] Aislamiento por tenant y por organización probado (2 × 2)
+- [ ] Nodos ocultos omitidos sin placeholder ni conteo
+- [ ] Denegación nunca aparece como degradación
+- [ ] Sin secretos ni cuerpos sensibles en logs, `label` ni `attributes`
+- [ ] Graphify exige `internal:architecture:read` también vía Prometeo
+- [ ] Flag ausente o desconocido se trata como `off`
 
-## Data/events
-- [ ] migration/backward compatibility handled
-- [ ] retry/idempotency handled where applicable
-- [ ] replay/rebuild explicit
+## Datos y eventos
+- [ ] Sin migración; sin tablas de grafo
+- [ ] Reconstruible: misma consulta, mismo resultado
 
-## Delivery
-- [ ] tests/build/typecheck/lint pass
-- [ ] strict/index/coverage pass
-- [ ] CI/merge/deploy/activation separately evidenced
-- [ ] canary/rollback defined
+## Usabilidad
+- [ ] `degradedSources` con motivo del catálogo cerrado
+- [ ] Guía de proveedor nuevo escrita
+- [ ] Métricas con nombre, SLO y responsable aprobados (Q-3)
+
+## Entrega
+- [ ] Tests, build, typecheck y lint en verde
+- [ ] `spec:validate:strict`, índice y cobertura en verde
+- [ ] CI y merge registrados; canary diferido al slice 3 (D-16)

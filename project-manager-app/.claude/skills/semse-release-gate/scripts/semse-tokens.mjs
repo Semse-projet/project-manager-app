@@ -49,7 +49,7 @@ export function cssDrift(palette, cssVars) {
 }
 
 // White text on filled buttons: apps/web/app/globals.css `.btn-primary` and
-// `.btn-accent` hard-code `color: #fff` instead of using a token.
+// `.btn-accent` hard-code `color: #fff` over `--brand-fill` / `--accent-fill`.
 export const ON_FILL = "#ffffff";
 
 // Text/background pairs the web UI really uses. "ui" = borders and focus
@@ -61,7 +61,7 @@ export const PAIRS = [
   ["brand", "base"], ["brand", "surface"],
   ["accent", "base"], ["accent", "surface"],
   ["ok", "surface"], ["warn", "surface"], ["error", "surface"], ["info", "surface"],
-  ["onFill", "brand"], ["onFill", "accent"],
+  ["onFill", "brandFill"], ["onFill", "accentFill"],
   ["border2", "surface", "ui"],
 ];
 
