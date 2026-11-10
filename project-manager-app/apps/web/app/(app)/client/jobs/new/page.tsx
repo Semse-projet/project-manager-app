@@ -18,7 +18,8 @@ import { ClientPageHeader } from "../../../../components/client/ClientPageHeader
 import LocationPickerMap from "../../../../components/maps/LocationPickerMap";
 import { CLIENT_ROUTES } from "../../../../lib/client-routes";
 import { trackProductEvent } from "../../../../../lib/product-intelligence";
-import { suggestBudget, type BudgetSuggestion } from "../../../../semse-api";
+import { suggestBudget, uploadEvidenceFile, type BudgetSuggestion } from "../../../../semse-api";
+import { uploadPendingJobAttachments, validateJobAttachmentSelection } from "../../../../../lib/job-publish-attachments";
 import {
   computeInitialJobWizardStep,
   JOB_CATEGORIES,
@@ -190,6 +191,11 @@ export default function NewJobPage() {
   };
 
   const hasPublishedRef = useRef(false);
+  // Persist one Job across retries when its subsequent file upload fails.
+  const publishedJobRef = useRef<{ id: string | null; url: string | null } | null>(null);
+  const completedAttachmentIndicesRef = useRef(new Set<number>());
+  const submissionGuardRef = useRef(false);
+  const [publishedJobId, setPublishedJobId] = useState<string | null>(null);
 
   useEffect(() => {
     if (currentUserLoading || !user || hydratedDraftOwnerId === user.id) return;
@@ -368,9 +374,22 @@ export default function NewJobPage() {
   ]);
 
   const handleSubmit = async () => {
+    if (submissionGuardRef.current) return;
+    submissionGuardRef.current = true;
     setSubmitting(true);
     setSubmitError(null);
     try {
+      if (filesNeedReselection && files.length === 0) {
+        setSubmitError("Vuelve a seleccionar los archivos del borrador o elige Omitir adjuntos.");
+        return;
+      }
+      const validationError = validateJobAttachmentSelection(files);
+      if (validationError) {
+        setSubmitError(validationError);
+        return;
+      }
+
+      if (!publishedJobRef.current) {
       const payload: Record<string, unknown> = {
         title,
         scope: description,
@@ -421,43 +440,64 @@ export default function NewJobPage() {
             } : {}),
           }
         : payload;
-
-      const res = await fetch(endpoint, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(requestBody),
-      });
-      const data = (await res.json()) as {
-        data?: { id?: string; jobId?: string; jobUrl?: string };
-        error?: { message: string };
-      };
-      if (!res.ok || data.error) {
-        setSubmitError(data.error?.message ?? `Error ${res.status}`);
-        setSubmitting(false);
-        return;
-      }
-      hasPublishedRef.current = true;
-      clearPersistedIntakeId();
-      if (user) {
-        clearJobWizardDraft(window.sessionStorage, user.id);
-      }
-      trackProductEvent("wizard.published", {
-        category: categoryId || null,
-        durationMs: Date.now() - wizardStartedAt,
-      });
-      const jobId = data.data?.jobId ?? data.data?.id;
-      if (jobId && preferredProfessional) {
-        const qs = new URLSearchParams();
-        qs.set("jobId", jobId);
-        if (prefill.source) {
-          qs.set("source", prefill.source);
+        const res = await fetch(endpoint, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(requestBody),
+        });
+        const data = (await res.json()) as {
+          data?: { id?: string; jobId?: string; jobUrl?: string };
+          error?: { message: string };
+        };
+        if (!res.ok || data.error) {
+          setSubmitError(data.error?.message ?? `Error ${res.status}`);
+          return;
         }
+
+        const jobId = data.data?.jobId ?? data.data?.id ?? null;
+        // The Job has already been created. Never POST it again on upload retry.
+        publishedJobRef.current = { id: jobId, url: data.data?.jobUrl ?? null };
+        setPublishedJobId(jobId ?? "");
+        hasPublishedRef.current = true;
+        clearPersistedIntakeId();
+        if (user) clearJobWizardDraft(window.sessionStorage, user.id);
+        trackProductEvent("wizard.published", {
+          category: categoryId || null,
+          durationMs: Date.now() - wizardStartedAt,
+        });
+      }
+
+      const published = publishedJobRef.current;
+      if (!published) return;
+      if (files.length > 0) {
+        if (!published.id) {
+          setSubmitError("El trabajo fue creado, pero el servidor no devolvió su identificador. Revisa Mis trabajos; no vuelvas a publicarlo.");
+          return;
+        }
+        await uploadPendingJobAttachments(
+          files,
+          published.id,
+          completedAttachmentIndicesRef.current,
+          uploadEvidenceFile,
+        );
+      }
+
+      if (published.id && preferredProfessional) {
+        const qs = new URLSearchParams();
+        qs.set("jobId", published.id);
+        if (prefill.source) qs.set("source", prefill.source);
         router.push(`/client/professionals?${qs.toString()}`);
         return;
       }
-      router.push(data.data?.jobUrl ?? (jobId ? `/client/jobs/${jobId}` : "/client/jobs"));
+      router.push(published.url ?? (published.id ? `/client/jobs/${published.id}` : "/client/jobs"));
     } catch {
-      setSubmitError("No se pudo conectar con el servidor");
+      setSubmitError(
+        publishedJobRef.current
+          ? "El trabajo ya fue creado, pero algunos adjuntos no pudieron subirse. Vuelve a intentar para continuar sin duplicar el trabajo, o abre el trabajo creado."
+          : "No se pudo conectar con el servidor",
+      );
+    } finally {
+      submissionGuardRef.current = false;
       setSubmitting(false);
     }
   };
@@ -520,6 +560,7 @@ export default function NewJobPage() {
         <div role="status" style={{ marginBottom: "16px", padding: "12px 16px", borderRadius: "12px", background: "rgba(245,158,11,.08)", border: "1px solid rgba(245,158,11,.24)", color: "#fcd34d", fontSize: "13px" }}>
           El resto del borrador se recuperó. Por seguridad del navegador, vuelve
           a seleccionar los archivos adjuntos antes de publicar.
+          <button type="button" onClick={() => setFilesNeedReselection(false)} style={{ display: "block", marginTop: 6, textDecoration: "underline", color: "inherit" }}>Omitir los adjuntos anteriores</button>
         </div>
       )}
 
@@ -676,10 +717,10 @@ export default function NewJobPage() {
             <div>
               <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: "var(--muted)", marginBottom: "8px" }}>ARCHIVOS ADJUNTOS (opcional)</label>
               <label
-                htmlFor="file-upload"
+                htmlFor={publishedJobId === null ? "file-upload" : undefined}
                 style={{
                   display: "flex", flexDirection: "column", alignItems: "center", gap: "8px",
-                  padding: "28px", borderRadius: "10px", cursor: "pointer",
+                  padding: "28px", borderRadius: "10px", cursor: publishedJobId !== null ? "default" : "pointer",
                   border: "2px dashed var(--border)", background: "var(--bg)",
                 }}
               >
@@ -693,9 +734,11 @@ export default function NewJobPage() {
                 id="file-upload"
                 type="file"
                 multiple
+                disabled={publishedJobId !== null}
                 style={{ display: "none" }}
                 onChange={e => {
                   setFiles(e.target.files ? Array.from(e.target.files) : []);
+                  completedAttachmentIndicesRef.current.clear();
                   setFilesNeedReselection(false);
                 }}
               />
@@ -888,6 +931,12 @@ export default function NewJobPage() {
 
       {/* Submit error */}
       {submitError && <ErrorState message={submitError} className="mt-3.5" />}
+      {publishedJobId !== null && (
+        <div role="status" style={{ marginTop: 12, fontSize: 13, color: "var(--ink)" }}>
+          El trabajo ya está publicado. {submitError ? "Los adjuntos pendientes pueden reintentarse aquí sin crear otro trabajo. " : ""}
+          <Link href={publishedJobId ? `/client/jobs/${publishedJobId}` : "/client/jobs"} style={{ textDecoration: "underline", color: "var(--accent)" }}>Abrir trabajo publicado</Link>
+        </div>
+      )}
 
       {/* Navigation */}
       <div style={{ display: "flex", justifyContent: "space-between", marginTop: "20px" }}>

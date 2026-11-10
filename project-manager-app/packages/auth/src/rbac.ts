@@ -6,6 +6,9 @@ export const rolePermissions: Record<string, string[]> = {
     // "Mis tareas" (GET /v1/tasks) es más angosto que jobs:read (ver TasksController).
     "tasks:read:self",
     "jobs:create",
+    // POST /v1/jobs/:jobId/transition. The service decides who may take each step
+    // (assertTransitionAuthorized: client-only, pro-only, owner or assigned pro).
+    "jobs:transition",
     "travel:manage",
     "jobs:archive",
     "jobs:restore",
@@ -81,6 +84,9 @@ export const rolePermissions: Record<string, string[]> = {
     "jobs:read",
     // "Mis tareas" (GET /v1/tasks) es más angosto que jobs:read (ver TasksController).
     "tasks:read:self",
+    // POST /v1/jobs/:jobId/transition. The service decides who may take each step
+    // (assertTransitionAuthorized: client-only, pro-only, owner or assigned pro).
+    "jobs:transition",
     "travel:manage",
     "bids:read",
     "bids:create",
@@ -117,6 +123,7 @@ export const rolePermissions: Record<string, string[]> = {
     "projects:financials:read",
     "agents:run:worker",
     "agents:run:manage",
+    "agents:run:execute",
     "agents:run:create",
     "matching:read",
     "governance:read",
@@ -146,6 +153,7 @@ export const rolePermissions: Record<string, string[]> = {
     "contributor-program:participate",
     "agents:run:worker",
     "agents:run:manage",
+    "agents:run:execute",
     "agents:run:create",
     "travel:manage",
     "bids:read",
@@ -177,6 +185,13 @@ export const rolePermissions: Record<string, string[]> = {
   EVENT_CONSUMER: [
     "domain-events:consume"
   ],
+  // Separate machine-authority grant. Human WORKER and OPS_ADMIN roles must
+  // never obtain an AgentRun claim capability from general management rights.
+  AGENT_RUNNER: [
+    "agents:run:claim",
+    // Only the fenced AgentRun lifecycle endpoints, not global worker/management privileges.
+    "agents:run:execute"
+  ],
   OPS_ADMIN: [
     "contributor-program:participate",
     "contributor-program:manage",
@@ -184,6 +199,9 @@ export const rolePermissions: Record<string, string[]> = {
     // "Mis tareas" (GET /v1/tasks) es más angosto que jobs:read (ver TasksController).
     "tasks:read:self",
     "jobs:create",
+    // POST /v1/jobs/:jobId/transition. The service decides who may take each step
+    // (assertTransitionAuthorized: client-only, pro-only, owner or assigned pro).
+    "jobs:transition",
     "travel:manage",
     "jobs:archive",
     "jobs:restore",
@@ -260,6 +278,7 @@ export const rolePermissions: Record<string, string[]> = {
     "agents:run:create",
     "agents:run:retry",
     "agents:run:manage",
+    "agents:run:execute",
     "agents:run:worker",
     "notifications:read",
     "finance:read",

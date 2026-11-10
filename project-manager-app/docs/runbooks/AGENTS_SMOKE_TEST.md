@@ -1,44 +1,39 @@
-# Agents Smoke Test (Local)
+# Agents Smoke Test — Solo API local aislada
 
-Valida rápidamente el flujo base de ejecución de agentes contra `apps/api`:
+Este smoke es una **prueba sintética local** del contrato firmado.
+No verifica un Worker BullMQ real, Redis, provisión de identidad,
+reclamos en producción ni exactly-once.
 
-1. Crear run
-2. Claim
-3. Heartbeat
-4. Complete
-5. Verificar detalle
-6. Reclaim stale
+## Recorrido protegido
+1. Crear run con identidad sintética de test.
+2. Reclamar **el runId específico**, obtener `claimToken` en memoria.
+3. Confirmar `/start` con `workerId`, `expectedAttempts` y `claimToken`.
+4. Enviar `/heartbeat` con la misma capacidad.
+5. Completar con la misma capacidad.
+6. Verificar `status=completed`.
+7. Ejecutar un barrido de recuperación.
 
-Notas:
-- Los runs soportan `maxAttempts` al crearse (`POST /v1/agents/runs`).
-- Al superar el máximo de intentos, reclaim puede marcar el run como `dead-letter` lógico.
-
-## Prerrequisitos
-
-- API corriendo en `http://localhost:4000` (o `SEMSE_API_URL`).
-- Rol con permisos de agentes (`OPS_ADMIN` o `WORKER` para claim/heartbeat/reclaim).
-
-## Ejecución
-
-```bash
-cd /home/yoni/labsemse/project-manager-app
-./scripts/agent-flow-smoke.sh
-```
-
-## Variables opcionales
-
-- `SEMSE_API_URL`
-- `SEMSE_TENANT_ID`
-- `SEMSE_USER_ID`
-- `SEMSE_ORG_ID`
-- `SEMSE_ROLES`
-- `SEMSE_WORKER_ID`
-
-## Ejemplo
+El token nunca se imprime ni se recupera del GET del run.
+El script falla ante HTTP distinto de 2xx, respuesta inválida o
+runId/estado no coincidente. Solo acepta http://localhost o
+http://127.0.0.1; la API de test debe ejecutar
+`NODE_ENV=test SEMSE_ALLOW_HEADER_IDENTITY=true` de forma explícita.
 
 ```bash
 SEMSE_API_URL=http://localhost:4000 \
-SEMSE_ROLES=OPS_ADMIN,WORKER \
-SEMSE_WORKER_ID=worker-local-01 \
+SEMSE_ROLES=OPS_ADMIN,AGENT_RUNNER \
 ./scripts/agent-flow-smoke.sh
 ```
+
+Los roles combinados solo representan una sesión **sintética de prueba**
+en loopback. No se debe crear un usuario humano con esos roles.
+El runtime real requiere una identidad de servicio separada y membresía
+`AGENT_RUNNER` activada mediante el procedimiento autorizado
+`scripts/ops/ensure-worker-service-membership.mjs` (dry-run primero).
+Ese script no modifica la BD sin `--apply`, y nunca debe usarse
+sin la aprobación operativa correspondiente.
+
+Pendientes de producción: prueba conjunta API+Worker+Redis+PostgreSQL
+en staging, revisión del HEAD exacto, segunda revisión y autorización
+DEC-PLATFORM-001 nivel 2. No habilitar el flag de finalización durable
+hasta completar sus pruebas.

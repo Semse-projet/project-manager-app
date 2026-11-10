@@ -4,8 +4,16 @@ import type { Prisma as PrismaTypes } from "@prisma/client";
 import { type AgentRunRecord } from "../../common/domain-store.js";
 import { ActorContextService } from "../../infrastructure/persistence/actor-context.service.js";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
+import { createAgentRunFinalizationEvent, isAgentRunFinalizationOutboxEnabled } from "./agent-run-finalization.policy.js";
 
 const { Prisma } = prismaClientPackage as typeof import("@prisma/client");
+
+// Replay status is local, non-serializable metadata; do not expose it through
+// HTTP responses or persist it with an AgentRun row.
+const replayedAgentRuns = new WeakSet<object>();
+export function isAgentRunReplay(run: AgentRunRecord): boolean {
+  return replayedAgentRuns.has(run);
+}
 
 type StoredAgentRun = {
   id: string;
@@ -148,6 +156,7 @@ export class AgentsRepository {
     userId: string;
     workerId: string;
     agentType?: AgentRunRecord["agentType"];
+    runId?: string;
   }): Promise<AgentRunRecord | null> {
     await this.actorContextService.ensureActorContext(input);
 
@@ -158,6 +167,7 @@ export class AgentsRepository {
           tenantId: input.tenantId,
           status: "QUEUED",
           deadLettered: false,
+          ...(input.runId ? { id: input.runId } : {}),
           ...(input.agentType ? { agentType: input.agentType } : {})
         },
         orderBy: { createdAt: "asc" }
@@ -168,19 +178,72 @@ export class AgentsRepository {
       }
 
       const now = new Date();
-      const claimed = (await db.agentRun.update({
-        where: { id: next.id },
+      // A transaction alone does not make findFirst + unconditional update
+      // a single claim: two workers can select the same QUEUED run.
+      // Compare-and-set the lifecycle and attempt budget atomically.
+      const claim = await db.agentRun.updateMany({
+        where: {
+          id: next.id,
+          tenantId: input.tenantId,
+          status: "QUEUED",
+          deadLettered: false,
+          attempts: { lt: next.maxAttempts },
+          ...(input.agentType ? { agentType: input.agentType } : {})
+        },
         data: {
           status: "RUNNING",
           workerId: input.workerId,
           attempts: { increment: 1 },
           startedAt: now,
-          heartbeatAt: now
+          heartbeatAt: now,
+          // A new claim must not inherit the previous generation's terminal
+          // error or completion timestamps after stale recovery.
+          error: null,
+          endedAt: null,
+          durationMs: null
         }
-      })) as StoredAgentRun;
+      });
+      if (claim.count !== 1) {
+        // Another worker already claimed, cancelled or exhausted this run.
+        return null;
+      }
 
-      return this.toRecord(claimed);
+      const claimed = (await db.agentRun.findFirst({
+        where: {
+          id: next.id,
+          tenantId: input.tenantId,
+          status: "RUNNING",
+          workerId: input.workerId
+        }
+      })) as StoredAgentRun | null;
+      // A concurrent terminal transition after our claim must never be
+      // represented as a fresh RUNNING claim.
+      return claimed ? this.toRecord(claimed) : null;
     });
+  }
+
+  /**
+   * Bounded, tenant-scoped projection used to reconcile QUEUED persistence
+   * against BullMQ on every recovery sweep, including after a process crash
+   * between a successful DB transaction and queue delivery.
+   * Lexical cursor allows fair traversal without an unbounded response.
+   */
+  async listQueuedForDelivery(input: {
+    tenantId: string; orgId: string; userId: string;
+    afterRunId?: string; maxItems: number;
+  }): Promise<AgentRunRecord[]> {
+    await this.actorContextService.ensureActorContext(input);
+    const rows = (await this.prisma.agentRun.findMany({
+      where: {
+        tenantId: input.tenantId,
+        status: "QUEUED",
+        deadLettered: false,
+        ...(input.afterRunId ? { id: { gt: input.afterRunId } } : {}),
+      },
+      orderBy: { id: "asc" },
+      take: Math.max(1, Math.min(20, input.maxItems)),
+    })) as StoredAgentRun[];
+    return rows.map((run) => this.toRecord(run));
   }
 
   async reclaimStale(input: {
@@ -273,6 +336,53 @@ export class AgentsRepository {
       throw new ConflictException("run reached max attempts and is dead-lettered");
     }
 
+    // In durable mode, serialise with the effects consumer on AgentRun.
+    // A retry before the old generation's receipt is COMMITTED would cause
+    // the consumer to observe the wrong status and lose terminal effects.
+    if (isAgentRunFinalizationOutboxEnabled()) {
+      return this.prisma.$transaction(async tx => {
+        await tx.$queryRaw(Prisma.sql`
+          SELECT "id" FROM "AgentRun"
+          WHERE "id"=${run.id} AND "tenantId"=${input.tenantId} FOR UPDATE
+        `);
+        const current = await tx.agentRun.findFirst({
+          where: { id: run.id, tenantId: input.tenantId }
+        });
+        if (!current || current.status === "RUNNING") {
+          throw new ConflictException("run changed during retry");
+        }
+        if (current.deadLettered || current.attempts >= current.maxAttempts) {
+          throw new ConflictException("run reached max attempts");
+        }
+        const pending = await tx.domainOutboxEvent.findFirst({
+          where: {
+            tenantId: input.tenantId, entityType: "AgentRun", entityId: run.id,
+            eventType: "agent.run.finalized.v1",
+            consumptions: { none: {
+              consumerName: "agent-run-effects.v1", status: "COMPLETED"
+            } },
+          },
+          select: { eventId: true },
+        });
+        if (pending) throw new ConflictException("prior terminal effects not yet recovered");
+        const updated = await tx.agentRun.updateMany({
+          where: {
+            id: run.id, tenantId: input.tenantId, status: current.status,
+            attempts: current.attempts,
+          },
+          data: {
+            status: "QUEUED", workerId: null, error: null,
+            startedAt: null, endedAt: null, heartbeatAt: null,
+          },
+        });
+        if (updated.count !== 1) throw new ConflictException("run changed during retry");
+        const saved = await tx.agentRun.findFirst({
+          where: { id: run.id, tenantId: input.tenantId },
+        });
+        if (!saved) throw new ConflictException("run unavailable after retry");
+        return this.toRecord(saved as StoredAgentRun);
+      });
+    }
     const updated = (await this.prisma.agentRun.update({
       where: { id: run.id },
       data: {
@@ -288,145 +398,189 @@ export class AgentsRepository {
     return this.toRecord(updated);
   }
 
-  async start(input: { tenantId: string; orgId: string; userId: string; runId: string }): Promise<AgentRunRecord> {
+  /** Worker starts carry the expected QUEUED attempt; manual starts remain available. */
+  async start(input: {
+    tenantId: string; orgId: string; userId: string; runId: string;
+    workerId?: string; expectedAttempts?: number;
+  }): Promise<AgentRunRecord> {
     await this.actorContextService.ensureActorContext(input);
     const run = await this.requireRun(input);
-
+    if (input.workerId && (!Number.isInteger(input.expectedAttempts) || input.expectedAttempts! < 0)) {
+      throw new ConflictException("worker start requires expectedAttempts");
+    }
     if (run.status === "RUNNING") {
-      return this.toRecord(run);
+      if (run.workerId) {
+        if (input.workerId !== run.workerId || input.expectedAttempts !== run.attempts) {
+          throw new ConflictException("stale worker attempt cannot start an owned run");
+        }
+      } else if (input.workerId) {
+        throw new ConflictException("run already started by another actor");
+      }
+      return this.toReplayRecord(run);
     }
     if (run.deadLettered || run.attempts >= run.maxAttempts) {
       throw new ConflictException("run reached max attempts and cannot be started");
     }
     if (run.status !== "QUEUED") {
-      throw new ConflictException(`cannot start run in status '${run.status.toLowerCase()}'`);
+      throw new ConflictException("cannot start run in status '" + run.status.toLowerCase() + "'");
     }
-
+    if (input.workerId) {
+      // Workers must use claimNext() to atomically acquire a queued run.
+      // In particular, an old worker may not reuse its previous attempt token
+      // to revive a run which was reclaimed and requeued.
+      throw new ConflictException("queued worker run must be acquired via claim, not start");
+    }
+    if (input.expectedAttempts !== undefined) {
+      throw new ConflictException("manual start cannot use a worker attempt token");
+    }
     const now = new Date();
-    const updated = (await this.prisma.agentRun.update({
-      where: { id: run.id },
+    const applied = await this.prisma.agentRun.updateMany({
+      where: {
+        id: run.id, tenantId: input.tenantId, status: "QUEUED",
+        deadLettered: false, attempts: run.attempts,
+      },
       data: {
-        status: "RUNNING",
-        attempts: { increment: 1 },
-        startedAt: now,
-        heartbeatAt: now
-      }
-    })) as StoredAgentRun;
-
-    return this.toRecord(updated);
+        status: "RUNNING", workerId: input.workerId ?? null,
+        attempts: { increment: 1 }, startedAt: now, heartbeatAt: now,
+      },
+    });
+    if (applied.count !== 1) throw new ConflictException("run was already claimed, cancelled or restarted");
+    return this.toRecord(await this.requireRun(input));
   }
 
   async heartbeat(input: {
-    tenantId: string;
-    orgId: string;
-    userId: string;
-    runId: string;
-    workerId: string;
+    tenantId: string; orgId: string; userId: string; runId: string;
+    workerId: string; expectedAttempts?: number;
   }): Promise<AgentRunRecord> {
     await this.actorContextService.ensureActorContext(input);
     const run = await this.requireRun(input);
-
     if (run.status !== "RUNNING") {
-      throw new ConflictException(`cannot heartbeat run in status '${run.status.toLowerCase()}'`);
+      throw new ConflictException("cannot heartbeat run in status '" + run.status.toLowerCase() + "'");
     }
-    if (run.workerId && run.workerId !== input.workerId) {
-      throw new ConflictException("run is owned by another worker");
-    }
-
-    const updated = (await this.prisma.agentRun.update({
-      where: { id: run.id },
-      data: {
-        workerId: input.workerId,
-        heartbeatAt: new Date()
+    if (run.workerId) {
+      if (input.workerId !== run.workerId || input.expectedAttempts !== run.attempts) {
+        throw new ConflictException("stale worker attempt cannot heartbeat");
       }
-    })) as StoredAgentRun;
+    } else if (input.expectedAttempts !== undefined) {
+      throw new ConflictException("worker cannot heartbeat an unowned manual run");
+    }
+    const applied = await this.prisma.agentRun.updateMany({
+      where: {
+        id: run.id, tenantId: input.tenantId, status: "RUNNING",
+        attempts: run.attempts, workerId: run.workerId,
+      },
+      data: {
+        heartbeatAt: new Date(),
+        ...(input.expectedAttempts !== undefined ? { workerId: input.workerId } : {}),
+      },
+    });
+    if (applied.count !== 1) throw new ConflictException("run ownership changed before heartbeat");
+    return this.toRecord(await this.requireRun(input));
+  }
 
-    return this.toRecord(updated);
+  private assertCurrentRunAttempt(
+    run: StoredAgentRun,
+    input: { workerId?: string; expectedAttempts?: number },
+  ): void {
+    if (run.workerId) {
+      if (input.workerId !== run.workerId || input.expectedAttempts !== run.attempts) {
+        throw new ConflictException("stale worker attempt cannot finalize an owned run");
+      }
+    } else if (input.workerId !== undefined || input.expectedAttempts !== undefined) {
+      throw new ConflictException("worker cannot finalize an unowned manual run");
+    }
+  }
+
+  /**
+   * In opt-in mode the state CAS and post-commit work receipt must share a
+   * PostgreSQL transaction. Without a consumer rollout flag stays OFF.
+   */
+  private async transitionToTerminal(
+    input: { tenantId: string; orgId: string; userId: string; requestId?: string },
+    run: StoredAgentRun,
+    status: "COMPLETED" | "FAILED",
+    mutation: PrismaTypes.AgentRunUpdateManyMutationInput,
+  ): Promise<void> {
+    const enabled = isAgentRunFinalizationOutboxEnabled();
+    const persist = async (db: AgentRunTx) => {
+      const changed = await db.agentRun.updateMany({
+        where: {
+          id: run.id, tenantId: input.tenantId,
+          status: "RUNNING", attempts: run.attempts, workerId: run.workerId,
+        },
+        data: mutation,
+      });
+      if (changed.count !== 1) throw new ConflictException("run ownership changed before terminal state");
+      if (!enabled) return;
+      const event = createAgentRunFinalizationEvent({
+        ...input, runId: run.id, attempts: run.attempts,
+        correlationId: run.correlationId, status,
+      });
+      await db.domainOutboxEvent.create({
+        data: {
+          eventId: event.eventId, eventType: event.eventType,
+          version: event.version, envelopeVersion: event.envelopeVersion,
+          tenantId: event.tenantId, orgId: event.orgId,
+          module: event.module, entityType: event.entityType, entityId: event.entityId,
+          actorType: event.actor.type, actorId: event.actor.id,
+          correlationId: event.correlationId, idempotencyKey: event.idempotencyKey,
+          schemaRef: event.schemaRef, payloadJson: event.payload,
+          occurredAt: new Date(event.occurredAt), recordedAt: new Date(event.recordedAt),
+        },
+      });
+    };
+    if (enabled) await this.prisma.$transaction(async tx => persist(tx as AgentRunTx));
+    else await persist(this.prisma as AgentRunTx);
   }
 
   async complete(input: {
-    tenantId: string;
-    orgId: string;
-    userId: string;
-    runId: string;
-    output?: Record<string, unknown>;
+    tenantId: string; orgId: string; userId: string; runId: string;
+    output?: Record<string, unknown>; workerId?: string; expectedAttempts?: number; requestId?: string;
   }): Promise<AgentRunRecord> {
     await this.actorContextService.ensureActorContext(input);
     const run = await this.requireRun(input);
-
-    if (run.status === "COMPLETED") {
-      return this.toRecord(run);
-    }
+    this.assertCurrentRunAttempt(run, input);
+    if (run.status === "COMPLETED") return this.toReplayRecord(run);
     if (run.status !== "RUNNING") {
-      throw new ConflictException(`cannot complete run in status '${run.status.toLowerCase()}'`);
+      throw new ConflictException("cannot complete run in status '" + run.status.toLowerCase() + "'");
     }
-
     const now = new Date();
     const durationMs = run.startedAt ? now.getTime() - run.startedAt.getTime() : null;
     const toolCallCount = typeof input.output?.toolCallCount === "number" ? input.output.toolCallCount : 0;
-
-    const updated = (await this.prisma.agentRun.update({
-      where: { id: run.id },
-      data: {
+    await this.transitionToTerminal(input, run, "COMPLETED", {
         status: "COMPLETED",
         outputJson: (input.output as PrismaTypes.InputJsonValue | undefined) ?? Prisma.JsonNull,
-        outputSummary:
-          typeof input.output?.summary === "string"
-            ? input.output.summary
-            : typeof input.output?.recommendation === "string"
-              ? input.output.recommendation
-              : null,
+        outputSummary: typeof input.output?.summary === "string"
+          ? input.output.summary
+          : typeof input.output?.recommendation === "string" ? input.output.recommendation : null,
         actionType: typeof input.output?.actionType === "string" ? input.output.actionType : null,
-        confidence:
-          typeof input.output?.confidence === "number"
-            ? input.output.confidence
-            : null,
-        requiresHumanReview:
-          typeof input.output?.requiresHumanReview === "boolean"
-            ? input.output.requiresHumanReview
-            : false,
-        error: null,
-        endedAt: now,
-        durationMs,
-        toolCallCount
-      }
-    })) as StoredAgentRun;
-
-    return this.toRecord(updated);
+        confidence: typeof input.output?.confidence === "number" ? input.output.confidence : null,
+        requiresHumanReview: typeof input.output?.requiresHumanReview === "boolean"
+          ? input.output.requiresHumanReview : false,
+        error: null, endedAt: now, durationMs, toolCallCount,
+    });
+    return this.toRecord(await this.requireRun(input));
   }
 
   async fail(input: {
-    tenantId: string;
-    orgId: string;
-    userId: string;
-    runId: string;
-    error: string;
+    tenantId: string; orgId: string; userId: string; runId: string;
+    error: string; workerId?: string; expectedAttempts?: number; requestId?: string;
   }): Promise<AgentRunRecord> {
     await this.actorContextService.ensureActorContext(input);
     const run = await this.requireRun(input);
-
-    if (run.status === "FAILED") {
-      return this.toRecord(run);
-    }
+    this.assertCurrentRunAttempt(run, input);
+    if (run.status === "FAILED") return this.toReplayRecord(run);
     if (run.status !== "RUNNING") {
-      throw new ConflictException(`cannot fail run in status '${run.status.toLowerCase()}'`);
+      throw new ConflictException("cannot fail run in status '" + run.status.toLowerCase() + "'");
     }
-
     const now = new Date();
     const durationMs = run.startedAt ? now.getTime() - run.startedAt.getTime() : null;
-
-    const updated = (await this.prisma.agentRun.update({
-      where: { id: run.id },
-      data: {
-        status: "FAILED",
-        error: input.error,
+    await this.transitionToTerminal(input, run, "FAILED", {
+        status: "FAILED", error: input.error,
         deadLettered: run.attempts >= run.maxAttempts,
-        endedAt: now,
-        durationMs
-      }
-    })) as StoredAgentRun;
-
-    return this.toRecord(updated);
+        endedAt: now, durationMs,
+    });
+    return this.toRecord(await this.requireRun(input));
   }
 
   async getEvents(input: { tenantId: string; runId: string }): Promise<{
@@ -511,6 +665,12 @@ export class AgentsRepository {
     );
 
     return run;
+  }
+
+  private toReplayRecord(run: StoredAgentRun): AgentRunRecord {
+    const record = this.toRecord(run);
+    replayedAgentRuns.add(record);
+    return record;
   }
 
   private toRecord(run: StoredAgentRun): AgentRunRecord {

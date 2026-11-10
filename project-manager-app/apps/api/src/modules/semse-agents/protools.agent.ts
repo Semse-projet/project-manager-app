@@ -35,6 +35,14 @@ export type ProToolsEstimateResult = {
   checklist:     string[];
   confidence:    number;
   agentNote:     string;
+  // Informational only: neither the BLS index nor legacy fallback amounts
+  // certify a vendor quote or the heuristic estimate's commercial accuracy.
+  pricingEvidence: {
+    status: "UNVERIFIED";
+    source: "LEGACY_CACHE_UNVERIFIED" | "HARDCODED_FALLBACK_UNVERIFIED" | "PRICING_NOT_CONFIGURED" | "PRICING_READ_FAILED";
+    verificationBasis: "NO_COMMERCIAL_PRICE_VALIDATION";
+  };
+  confidenceBasis: "HEURISTIC_NOT_CALIBRATED";
 };
 
 const TRADE_CHECKLISTS: Record<string, string[]> = {
@@ -177,13 +185,19 @@ export class ProToolsAgent {
     const trade = input.trade.toLowerCase();
     const locale: ProToolsLocale = input.locale === "en" ? "en" : "es";
 
-    // Fetch live BLS material prices (non-blocking fallback to empty map)
+    // Preserve the legacy price map (no monetary recalculation) while
+    // propagating fail-closed provenance to the estimate consumer. Index
+    // observation is not proof of commercial unit-price accuracy (T-008).
     let livePrices: Record<string, number> = {};
+    let pricingSource: ProToolsEstimateResult["pricingEvidence"]["source"] = "PRICING_NOT_CONFIGURED";
     if (this.pricing) {
       try {
-        livePrices = await this.pricing.getCurrentPrices();
+        const details = await this.pricing.getCurrentPricesWithProvenance();
+        livePrices = details.prices;
+        pricingSource = details.source;
       } catch {
-        this.logger.debug("[ProTools] pricing.getCurrentPrices failed — using hardcoded defaults");
+        pricingSource = "PRICING_READ_FAILED";
+        this.logger.debug("[ProTools] pricing provenance unavailable — using hardcoded defaults");
       }
     }
 
@@ -251,9 +265,13 @@ export class ProToolsAgent {
     const laborRate = contractorOverride?.laborRatePerHr ?? 35; // $/hr: contractor override or BLS-based default
     const totalLabor = laborHours * laborRate;
 
+    const priceWarning = locale === "en"
+      ? "Material prices and estimate amounts are not commercially verified; obtain dated supplier quotes and professional review."
+      : "Precios de materiales e importes del estimado no verificados comercialmente; obtener cotizaciones fechadas y revisión profesional.";
     const riskFlags = [
       ...(TRADE_RISKS[trade] ?? []).map((flag) => localized(locale, flag)),
       ...(toolResult?.riskFlags as string[] ?? []),
+      priceWarning,
     ];
 
     const checklist = (TRADE_CHECKLISTS[trade] ?? TRADE_CHECKLISTS.default!)
@@ -269,9 +287,15 @@ export class ProToolsAgent {
       riskFlags,
       checklist,
       confidence:     toolResult ? 0.85 : 0.65,
+      confidenceBasis: "HEURISTIC_NOT_CALIBRATED",
+      pricingEvidence: {
+        status: "UNVERIFIED",
+        source: pricingSource,
+        verificationBasis: "NO_COMMERCIAL_PRICE_VALIDATION",
+      },
       agentNote: locale === "en"
-        ? `ProTools estimate for ${input.trade}. ${toolResult ? "Tool-assisted." : "Rules-based — verify quantities on site."} ${contractorOverride ? `Custom rates applied ($${contractorOverride.laborRatePerHr}/hr, markup ${(contractorOverride.materialMarkup * 100).toFixed(1)}%).` : ""} Does not replace local inspection or required licensing.`
-        : `Estimado ProTools para ${input.trade}. ${toolResult ? "Asistido por herramientas." : "Basado en reglas — verificar cantidades en sitio."} ${contractorOverride ? `Tarifas propias aplicadas ($${contractorOverride.laborRatePerHr}/hr, markup ${(contractorOverride.materialMarkup * 100).toFixed(1)}%).` : ""} No reemplaza inspección local ni licencias requeridas.`,
+        ? `ProTools estimate for ${input.trade}. ${toolResult ? "Tool-assisted." : "Rules-based — verify quantities on site."} ${contractorOverride ? `Custom rates applied ($${contractorOverride.laborRatePerHr}/hr, markup ${(contractorOverride.materialMarkup * 100).toFixed(1)}%).` : ""} Does not replace local inspection or required licensing. Prices and tax treatment are preliminary and unverified.`
+        : `Estimado ProTools para ${input.trade}. ${toolResult ? "Asistido por herramientas." : "Basado en reglas — verificar cantidades en sitio."} ${contractorOverride ? `Tarifas propias aplicadas ($${contractorOverride.laborRatePerHr}/hr, markup ${(contractorOverride.materialMarkup * 100).toFixed(1)}%).` : ""} No reemplaza inspección local ni licencias requeridas. Precios e impuestos preliminares, sin validación comercial o fiscal.`,
     };
   }
 

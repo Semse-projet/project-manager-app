@@ -201,6 +201,35 @@ test("AC-09 una tarea interna se crea en la Org de la cuadrilla y luego se puede
   assert.deepEqual(w.audits.map((x) => x.action), ["crew_task.created", "task_allocation.assigned"]);
 });
 
+test("FIELD-R01 habitación 205: supervisor crea, asigna y solo el trabajador designado la ve", async () => {
+  const w = makeWorld();
+  const title = "Hab. 205 — Reparar pared";
+  const created: any = await w.service.createCrewTask(sup, "c1", "r1", { title, priority: "high" });
+  assert.equal(created.title, title);
+
+  const [allocation]: any[] = await w.service.assign(sup, "c1", created.taskId, "r2", ["ana"]);
+  assert.equal(allocation.status, "ASSIGNED");
+  assert.equal(allocation.taskTitle, null);
+
+  const mineAna: any[] = await w.service.listMine(ana);
+  const mineBob: any[] = await w.service.listMine({ tenantId: "t1", userId: "bob" });
+  assert.equal(mineAna.length, 1);
+  assert.equal(mineAna[0].taskTitle, title);
+  assert.deepEqual(mineBob, []);
+
+  await w.service.updateStatus(ana, allocation.allocationId, "ACKNOWLEDGED", undefined, "r3");
+  await w.service.updateStatus(ana, allocation.allocationId, "IN_PROGRESS", undefined, "r4");
+  const mineInProgress: any[] = await w.service.listMine(ana);
+  assert.equal(mineInProgress[0].taskTitle, title);
+  assert.equal(mineInProgress[0].status, "IN_PROGRESS");
+  assert.deepEqual(w.audits.map((a) => a.action), [
+    "crew_task.created",
+    "task_allocation.assigned",
+    "task_allocation.status_changed",
+    "task_allocation.status_changed"
+  ]);
+});
+
 test("AC-09 crear o listar tareas respeta el alcance y el flag", async () => {
   const w = makeWorld();
   await assert.rejects(w.service.createCrewTask(sup, "c2", "r", { title: "Ajena ajena" }), { status: 403 });

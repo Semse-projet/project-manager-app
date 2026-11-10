@@ -117,6 +117,19 @@ export class ContractSignatureVerificationPreflight {
       externalRequestId: scope.externalRequestId,
     });
     assertIndependentSignerConsents(signers, stepUp, this.verificationKey);
+    // A provider-supplied hash alone cannot establish that the certificate
+    // and audit trail are actual PDF artifacts. Reject empty/non-PDF evidence
+    // before any immutable storage or candidate journal write.
+    for (const [kind, bytes] of [
+      ["signed PDF", completion.signedPdf],
+      ["completion certificate", completion.certificate],
+      ["audit log", completion.auditLog],
+    ] as const) {
+      if (!(bytes instanceof Uint8Array) || bytes.byteLength < 8 ||
+          Buffer.from(bytes.subarray(0, 5)).toString("ascii") !== "%PDF-") {
+        throw new Error(`Documenso ${kind} is not a valid PDF artifact`);
+      }
+    }
     const pdf = await this.pdfValidator.validate(completion.signedPdf);
     if (pdf.signatureCount < 1 || pdf.signedPdfSha256 !== digest(completion.signedPdf) ||
         pdf.signedPdfSha256 !== completion.signedPdfSha256 ||

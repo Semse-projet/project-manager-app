@@ -142,7 +142,7 @@ export class JobsController {
   }
 
   @Post(":jobId/transition")
-  @RequirePermissions("jobs:update")
+  @RequirePermissions("jobs:transition")
   async transition(
     @Req() req: { headers?: Record<string, unknown> },
     @Param("jobId") jobId: string,
