@@ -66,6 +66,8 @@ async function main() {
   await assertReclaimWorks(staleRun.id);
 
   await assertOpsDashboard();
+  await assertMaterialPricingProvenance();
+  await assertProToolsPricingDisclosure();
 
   console.log("[api-integration] success");
 }
@@ -323,6 +325,38 @@ async function assertOpsDashboard() {
   assert.ok(json.data.jobs.total >= 1);
   assert.ok(json.data.projects.total >= 1);
   assert.ok(json.data.disputes.total >= 1);
+}
+
+async function assertMaterialPricingProvenance() {
+  const { json } = await request(actors.ops, "GET", "/v1/pricing/materials");
+  assert.ok(json.data && typeof json.data.prices === "object");
+  assert.ok(
+    ["LEGACY_CACHE_UNVERIFIED", "HARDCODED_FALLBACK_UNVERIFIED"].includes(json.data.source),
+    "BLS PPI index must not be advertised as a certified USD unit price",
+  );
+  assert.ok(json.data.provenance && typeof json.data.provenance === "object");
+  for (const value of Object.values(json.data.provenance)) {
+    assert.equal(value.verification, "UNVERIFIED");
+  }
+}
+
+async function assertProToolsPricingDisclosure() {
+  const { json } = await request(actors.ops, "POST", "/v1/agents/semse/protools/estimate", {
+    trade: "drywall",
+    description: "Synthetic integration check; not a customer quote",
+    area: 100,
+    rooms: 1,
+    locale: "en",
+  });
+  assert.equal(json.data.pricingEvidence?.status, "UNVERIFIED");
+  assert.equal(json.data.pricingEvidence?.verificationBasis, "NO_COMMERCIAL_PRICE_VALIDATION");
+  assert.equal(json.data.confidenceBasis, "HEURISTIC_NOT_CALIBRATED");
+  assert.ok(
+    json.data.riskFlags?.some(flag => /not commercially verified/i.test(flag)),
+    "ProTools must visibly warn that unit prices are not commercially verified",
+  );
+  assert.match(json.data.agentNote, /tax treatment are preliminary and unverified/i);
+  assert.ok(Number.isFinite(json.data.totalCost));
 }
 
 async function request(actor, method, path, body, options = {}) {
