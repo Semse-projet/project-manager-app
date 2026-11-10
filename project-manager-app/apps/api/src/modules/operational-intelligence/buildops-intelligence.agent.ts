@@ -33,8 +33,10 @@ export class BuildOpsIntelligenceAgent {
 
     try {
       // Load milestone with evidence items and related context
-      const milestone = await this.prisma.milestone.findUnique({
-        where: { id: input.milestoneId },
+      // Milestone has no tenantId column: constrain through its owning Project
+      // in SQL before reading evidence or writing any operational signals.
+      const milestone = await this.prisma.milestone.findFirst({
+        where: { id: input.milestoneId, project: { is: { tenantId: input.tenantId } } },
         include: {
           evidenceItems: true,
         },

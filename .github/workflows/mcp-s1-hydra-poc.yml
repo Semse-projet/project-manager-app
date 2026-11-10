@@ -22,10 +22,10 @@ jobs:
       HYDRA_VERSION: '26.2.0'
       HYDRA_SHA256: '28baf98c6d5da617c905d5ca77826fe863db9f9edab8f72664c69a56bde56b5a'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
       - name: Download and verify pinned official SQLite Hydra (no Docker)

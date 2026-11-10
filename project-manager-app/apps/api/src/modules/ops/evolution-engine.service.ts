@@ -330,7 +330,7 @@ export class EvolutionEngineService {
     }
 
     if (snap.intelligenceHealth.embeddingsMode === "fts_fallback") {
-      warnings.push("RAG en FTS fallback — verificar OPENAI_API_KEY en Railway.");
+      warnings.push("RAG en FTS fallback local: conservar privacidad. Embeddings semánticos requieren solución local-only autorizada, pruebas y rollback; no configurar claves cloud ni ejecutar backfill heredado.");
     }
 
     if (index.maturity.globalScore < 70) {

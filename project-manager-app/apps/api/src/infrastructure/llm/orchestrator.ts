@@ -95,7 +95,7 @@ export class LLMOrchestrator {
       result[name] = {
         registered: true,
         healthy,
-        localOnly: name === "ollama" || name === "template",
+        localOnly: name === "template" || (name === "ollama" && this.getOllamaProvider()?.isLocalEndpoint() === true),
         avgLatencyMs: snap.avgLatencyMs,
         successRate: snap.successRate,
         circuitState: snap.circuitState,
@@ -115,8 +115,12 @@ export class LLMOrchestrator {
       ? this.adaptiveRouter.rank(available, ctx, taskType)
       : buildFallbackChain(available[0] ?? "template", ctx);
 
-    // Enforce no-cloud policy for localOnly / privacyCritical
+    // Enforce an actual local execution boundary, not merely an "ollama"
+    // provider name. A remote Ollama server is still an external recipient.
     if (ctx?.localOnly || ctx?.privacyCritical) {
+      if (!this.getOllamaProvider()?.isLocalEndpoint()) {
+        chain.splice(0, chain.length, ...chain.filter((p) => p !== "ollama"));
+      }
       const cloudInChain = chain.filter(
         (p) => p === "anthropic" || p === "openai",
       );
