@@ -38,6 +38,7 @@ test("all static operational panel translation keys exist in both languages", ()
     "apps/web/components/buildops/BuildOpsProjectHealthPanel.tsx",
     "apps/web/components/change-orders/ChangeOrderImpactCard.tsx",
     "apps/web/components/semse/CrowdDecisionBadge.tsx",
+    "apps/web/components/semse/WorkerEvidenceSummary.tsx",
     "apps/web/app/(app)/client/dashboard/page.tsx",
     "apps/web/app/(app)/worker/dashboard/page.tsx",
     "apps/web/app/(app)/admin/dashboard/page.tsx",
@@ -265,4 +266,41 @@ test("ProTools estimate loading button preserves DOM subtree across ES/EN transi
   assert.doesNotMatch(page, /loading \? t\("pt\.calculating"\) : <></, "no text-node-to-fragment replacement at submit");
   assert.match(page, /result && resultLocale === language && \(/, "never show stale-language result");
   assert.match(page, /result && resultLocale !== language && !loading/, "offer explicit recalculate after locale switch");
+});
+
+test("worker mobile navigation renders five localized tab labels", () => {
+  const layout = readFileSync(path.join(root, "apps/web/app/(app)/layout.tsx"), "utf8");
+  const start = layout.indexOf("function WorkerMobileBottomNav");
+  const end = layout.indexOf("function AdminOnlyBanner", start);
+  assert.ok(start >= 0 && end > start, "Worker mobile navigation component not found");
+  const navigation = layout.slice(start, end);
+  assert.match(navigation, /const \{ t \} = useLanguage\(\)/);
+  assert.match(navigation, /\{t\(labelKey\)\}/);
+  const tabs = [
+    ["/worker/dashboard", "workerMobile.home"],
+    ["/worker/jobs", "workerMobile.jobs"],
+    ["/worker/tracker", "workerMobile.time"],
+    ["/worker/evidence", "workerMobile.evidence"],
+    ["/worker/opportunities", "workerMobile.offers"],
+  ] as const;
+  for (const [href, key] of tabs) {
+    const line = navigation.split("\n").find((entry) => entry.includes(`href: "${href}"`));
+    assert.ok(line?.includes(`labelKey: "${key}"`), `Wrong localization key for ${href}`);
+    assert.ok(es.has(key), `Missing Spanish mobile navigation key: ${key}`);
+    assert.ok(en.has(key), `Missing English mobile navigation key: ${key}`);
+  }
+  assert.doesNotMatch(navigation, /label:\s*"(?:Inicio|Trabajos|Tiempo|Evidencia|Ofertas)"/);
+});
+
+test("Prometeo keeps ingestion private and disables sharing until #974/#987 server gates", () => {
+  const page = readFileSync(path.join(root, "apps/web/app/(app)/admin/prometeo/page.tsx"), "utf8");
+  assert.ok(page.includes('useState("tenant_private")'), "new ingestion must default to tenant private");
+  assert.ok(page.includes('<option value="public_training" disabled>'), "public training requires approved consent");
+  assert.ok(page.includes('<option value="project_private" disabled>'), "project private requires authorized project context");
+  assert.ok(page.includes('<option value="tenant_private">'), "tenant-private ingestion remains selectable");
+  const fileIngest = page.indexOf('apiPost("/api/semse/prometeo/ingest-file"');
+  const textIngest = page.indexOf('apiPost("/api/semse/prometeo/ingest"');
+  assert.ok(fileIngest >= 0 && textIngest >= 0, "both ingestion paths must exist");
+  assert.ok(page.slice(fileIngest, fileIngest + 400).includes("visibility: ingestVisibility"), "file metadata is private by default");
+  assert.ok(page.slice(textIngest, textIngest + 400).includes("visibility: ingestVisibility"), "text metadata is private by default");
 });
