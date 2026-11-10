@@ -1,4 +1,5 @@
 import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
+import type { Prisma } from "@prisma/client";
 import { type DisputeRecord } from "../../common/domain-store.js";
 import { ActorContextService } from "../../infrastructure/persistence/actor-context.service.js";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
@@ -14,6 +15,16 @@ import {
   type DisputeActor,
   type DisputeOwnership
 } from "./disputes.policy.js";
+
+/**
+ * Event backbone F2 (slice 1): runs inside the SAME transaction as the dispute write — used to insert the v2 outbox
+ * event (F1 §8: if the insert fails, the state change rolls back). Without a hook every method behaves exactly as
+ * before (no new transaction), which is what `SEMSE_DISPUTE_EVENTS_V2_MODE=off` relies on.
+ */
+export type DisputeWriteHook = (
+  tx: Prisma.TransactionClient,
+  written: { record: DisputeRecord; projectId: string; jobId: string },
+) => Promise<void>;
 
 type StoredDispute = {
   id: string;
@@ -80,7 +91,7 @@ export class DisputesRepository {
     projectId?: string;
     jobId?: string;
     reason: string;
-  }): Promise<DisputeRecord> {
+  }, withinTx?: DisputeWriteHook): Promise<DisputeRecord> {
     await this.actorContextService.ensureActorContext(input);
 
     const resolvedProjectId = input.projectId
@@ -124,7 +135,7 @@ export class DisputesRepository {
         throw new ConflictException("an open dispute already exists for this project");
       }
 
-      return tx.dispute.create({
+      const created = (await tx.dispute.create({
         data: {
           tenantId: input.tenantId,
           projectId: resolvedProjectId,
@@ -132,7 +143,12 @@ export class DisputesRepository {
           reason: input.reason,
           status: "OPEN"
         }
-      });
+      })) as StoredDispute;
+      if (withinTx) {
+        if (!linked?.jobId) throw new NotFoundException(`Project '${resolvedProjectId}' has no linked job`);
+        await withinTx(tx, { record: this.toRecord(created), projectId: resolvedProjectId, jobId: linked.jobId });
+      }
+      return created;
     })) as StoredDispute;
 
     return this.toRecord(dispute);
@@ -145,7 +161,7 @@ export class DisputesRepository {
     roles: string[];
     disputeId: string;
     assigneeUserId: string;
-  }): Promise<DisputeRecord> {
+  }, withinTx?: DisputeWriteHook): Promise<DisputeRecord> {
     await this.actorContextService.ensureActorContext(input);
     await this.actorContextService.ensureActorContext({
       tenantId: input.tenantId,
@@ -181,15 +197,10 @@ export class DisputesRepository {
       throw new ConflictException("cannot assign a resolved dispute");
     }
 
-    const dispute = (await this.prisma.dispute.update({
-      where: { id: existing.id },
-      data: {
-        assigneeUserId: input.assigneeUserId,
-        status: "ASSIGNED"
-      }
-    })) as StoredDispute;
-
-    return this.toRecord(dispute);
+    return this.applyWrite(existing, {
+      assigneeUserId: input.assigneeUserId,
+      status: "ASSIGNED"
+    }, withinTx);
   }
 
   async getEventContext(input: { tenantId: string; disputeId: string }): Promise<{
@@ -353,7 +364,7 @@ export class DisputesRepository {
     roles: string[];
     disputeId: string;
     evidenceIds: string[];
-  }): Promise<DisputeRecord> {
+  }, withinTx?: DisputeWriteHook): Promise<DisputeRecord> {
     await this.actorContextService.ensureActorContext(input);
 
     const existing = (await this.prisma.dispute.findFirst({
@@ -371,12 +382,7 @@ export class DisputesRepository {
     const currentIds: string[] = existing.evidenceBundleIds ?? [];
     const merged = Array.from(new Set([...currentIds, ...input.evidenceIds]));
 
-    const dispute = (await this.prisma.dispute.update({
-      where: { id: existing.id },
-      data: { evidenceBundleIds: merged }
-    })) as StoredDispute;
-
-    return this.toRecord(dispute);
+    return this.applyWrite(existing, { evidenceBundleIds: merged }, withinTx);
   }
 
   async markUnderReview(input: {
@@ -385,7 +391,7 @@ export class DisputesRepository {
     userId: string;
     roles: string[];
     disputeId: string;
-  }): Promise<DisputeRecord> {
+  }, withinTx?: DisputeWriteHook): Promise<DisputeRecord> {
     await this.actorContextService.ensureActorContext(input);
     assertDisputeAssignable(this.toActor(input));
 
@@ -399,12 +405,7 @@ export class DisputesRepository {
       throw new ConflictException(`dispute must be ASSIGNED before moving to UNDER_REVIEW, current: ${existing.status}`);
     }
 
-    const dispute = (await this.prisma.dispute.update({
-      where: { id: existing.id },
-      data: { status: "UNDER_REVIEW" }
-    })) as StoredDispute;
-
-    return this.toRecord(dispute);
+    return this.applyWrite(existing, { status: "UNDER_REVIEW" }, withinTx);
   }
 
   async resolve(input: {
@@ -415,7 +416,7 @@ export class DisputesRepository {
     disputeId: string;
     resolution: string;
     resolutionType: string;
-  }): Promise<DisputeRecord> {
+  }, withinTx?: DisputeWriteHook): Promise<DisputeRecord> {
     await this.actorContextService.ensureActorContext(input);
 
     const existing = (await this.prisma.dispute.findFirst({
@@ -432,17 +433,35 @@ export class DisputesRepository {
       input.resolutionType,
     );
 
-    const dispute = (await this.prisma.dispute.update({
-      where: { id: existing.id },
-      data: {
-        status: "RESOLVED",
-        resolution: input.resolution,
-        resolutionType: input.resolutionType,
-        resolvedById: input.userId,
-        resolvedAt: new Date()
-      }
-    })) as StoredDispute;
+    return this.applyWrite(existing, {
+      status: "RESOLVED",
+      resolution: input.resolution,
+      resolutionType: input.resolutionType,
+      resolvedById: input.userId,
+      resolvedAt: new Date()
+    }, withinTx);
+  }
 
+  /**
+   * Without a hook: the same single `dispute.update` as before F2. With a hook: the update and the hook share one
+   * transaction, so a failing outbox insert rolls the state change back (F1 §8).
+   */
+  private async applyWrite(
+    existing: StoredDispute,
+    data: Prisma.DisputeUncheckedUpdateInput,
+    withinTx?: DisputeWriteHook,
+  ): Promise<DisputeRecord> {
+    if (!withinTx) {
+      const dispute = (await this.prisma.dispute.update({ where: { id: existing.id }, data })) as StoredDispute;
+      return this.toRecord(dispute);
+    }
+    const jobId = existing.project?.jobId;
+    if (!jobId) throw new NotFoundException(`Dispute '${existing.id}' has no linked job`);
+    const dispute = (await this.prisma.$transaction(async (tx) => {
+      const updated = (await tx.dispute.update({ where: { id: existing.id }, data })) as StoredDispute;
+      await withinTx(tx, { record: this.toRecord(updated), projectId: updated.projectId, jobId });
+      return updated;
+    })) as StoredDispute;
     return this.toRecord(dispute);
   }
 

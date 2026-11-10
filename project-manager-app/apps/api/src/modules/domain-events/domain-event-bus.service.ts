@@ -21,6 +21,13 @@ type RuntimeDomainEvent = {
   triggers: string[];
 };
 
+/**
+ * `audit-only` (event backbone F2, D3): the producer has moved notifications and agent triggers to an outbox
+ * consumer, so the legacy bus only records the AuditLog and invalidates projections/context. The default ("all")
+ * is the historical behaviour.
+ */
+export type DomainEventEmitOptions = { effects?: "all" | "audit-only" };
+
 const MAX_ROUTER_ATTEMPTS = 3;
 const RETRY_BASE_MS = 200;
 
@@ -38,8 +45,9 @@ export class DomainEventBus {
     private readonly lifecycleProjectionEvents?: ProjectLifecycleProjectionEventProducer,
   ) {}
 
-  async emit(event: unknown, context: EmitContext) {
+  async emit(event: unknown, context: EmitContext, options: DomainEventEmitOptions = {}) {
     const parsed = semseEventSchema.parse(event) as RuntimeDomainEvent;
+    const auditOnly = options.effects === "audit-only";
 
     await this.auditService.append({
       id: `aud_${Date.now()}`,
@@ -55,9 +63,16 @@ export class DomainEventBus {
         type: parsed.type,
         meta: parsed.meta,
         triggers: parsed.triggers,
-        payload: parsed.payload
+        payload: parsed.payload,
+        ...(auditOnly ? { effects: "audit-only" } : {})
       }
     });
+
+    if (auditOnly) {
+      this.invalidateOperationalContext(parsed, context);
+      await this.emitLifecycleProjectionInvalidation(parsed, context);
+      return [];
+    }
 
     // Fire notifications best-effort — never block the event flow
     void this.notificationsService.handleEvent({
