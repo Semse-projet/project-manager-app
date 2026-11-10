@@ -10,6 +10,7 @@ import { ErrorState } from "@semse/ui";
 import { BuildOpsPlanCard } from "@/components/semse/BuildOpsPlanCard";
 import { EvidenceChecklistCard } from "@/components/semse/EvidenceChecklistCard";
 import { useLanguage } from "@/lib/language-context";
+import { messageFromError, messageKey, messageTextOr, renderMessage, type UiMessage } from "@/lib/ui-message";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -49,12 +50,12 @@ export default function ProToolsPage() {
   const [result,      setResult]      = useState<EstimateResult | null>(null);
   const [resultLocale, setResultLocale] = useState<typeof language | null>(null);
   const [loading,     setLoading]     = useState(false);
-  const [error,       setError]       = useState<string | null>(null);
+  const [error,       setError]       = useState<UiMessage | null>(null);
   const [showChecklist,  setShowChecklist]  = useState(false);
   const [showMaterials,  setShowMaterials]  = useState(false);
   const [publishing,     setPublishing]     = useState(false);
   const [publishedJobId, setPublishedJobId] = useState<string | null>(null);
-  const [publishError,   setPublishError]   = useState<string | null>(null);
+  const [publishError,   setPublishError]   = useState<UiMessage | null>(null);
 
   const publishJob = async () => {
     if (!result) return;
@@ -76,17 +77,17 @@ export default function ProToolsPage() {
       if (resp.ok && json.data?.id) {
         setPublishedJobId(json.data.id);
       } else {
-        setPublishError((json.error?.message as string) ?? t("pt.publishFailure"));
+        setPublishError(messageTextOr(json.error?.message, "pt.publishFailure"));
       }
     } catch (e) {
-      setPublishError(e instanceof Error ? e.message : t("pt.networkError"));
+      setPublishError(messageFromError(e, "pt.networkError"));
     } finally {
       setPublishing(false);
     }
   };
 
   const runEstimate = async () => {
-    if (!description.trim()) { setError(t("pt.describeJob")); return; }
+    if (!description.trim()) { setError(messageKey("pt.describeJob")); return; }
     setLoading(true); setError(null); setResult(null);
     try {
       const resp = await fetch("/api/semse/agents/protools/estimate", {
@@ -99,14 +100,14 @@ export default function ProToolsPage() {
       // that surfaced to the user verbatim — check content-type first.
       const isJson = resp.headers.get("content-type")?.includes("application/json");
       if (!isJson) {
-        setError(`${t("pt.estimateServerError")} ${resp.status}).`);
+        setError(messageKey("pt.estimateServerError", ` ${resp.status}).`));
         return;
       }
       const json = await resp.json() as { data: EstimateResult };
       if (resp.ok && json.data) { setResult(json.data); setResultLocale(language); }
-      else setError(t("pt.estimateError"));
+      else setError(messageKey("pt.estimateError"));
     } catch (e) {
-      setError(e instanceof Error ? e.message : t("pt.networkError"));
+      setError(messageFromError(e, "pt.networkError"));
     } finally { setLoading(false); }
   };
 
@@ -156,7 +157,7 @@ export default function ProToolsPage() {
             </div>
           </div>
 
-          {error && <ErrorState message={error} />}
+          {error && <ErrorState message={renderMessage(error, t) ?? ""} />}
 
           <button type="button" onClick={runEstimate} disabled={loading}
             aria-busy={loading}
@@ -186,7 +187,7 @@ export default function ProToolsPage() {
                 <div style={{ fontSize: 13, fontWeight: 800, color: "var(--ink)", marginBottom: 2 }}>{t("pt.readyToHire")}</div>
                 <div style={{ fontSize: 11, color: "var(--muted)" }}>{t("pt.publishHint")}</div>
               </div>
-              {publishError && <div style={{ fontSize: 11, color: "#fca5a5" }}>{publishError}</div>}
+              {publishError && <div style={{ fontSize: 11, color: "#fca5a5" }}>{renderMessage(publishError, t)}</div>}
               <button onClick={publishJob} disabled={publishing}
                 style={{ display: "flex", alignItems: "center", gap: 6, padding: "10px 18px", borderRadius: 10, background: "rgba(99,102,241,.2)", border: "1px solid rgba(99,102,241,.4)", cursor: publishing ? "wait" : "pointer", fontSize: 12, fontWeight: 800, color: "#818cf8", whiteSpace: "nowrap" }}>
                 {publishing ? t("pt.publishing") : <><Send size={13} /> {t("pt.postJob")}</>}
