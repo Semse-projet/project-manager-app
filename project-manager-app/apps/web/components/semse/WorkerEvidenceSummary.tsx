@@ -2,9 +2,11 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, Camera, CheckCircle2 } from "lucide-react";
+import { useLanguage } from "../../lib/language-context";
 
 /** Fetches missing evidence items across active worker jobs and shows a summary badge. */
 export function WorkerEvidenceSummary() {
+  const { t } = useLanguage();
   const [missing,  setMissing]  = useState<number>(0);
   const [complete, setComplete] = useState(false);
   const [loaded,   setLoaded]   = useState(false);
@@ -29,7 +31,7 @@ export function WorkerEvidenceSummary() {
     return (
       <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", background: "rgba(134,239,172,.06)", border: "1px solid rgba(134,239,172,.2)", borderRadius: 12 }}>
         <CheckCircle2 size={16} color="#86efac" />
-        <span style={{ fontSize: 13, fontWeight: 700, color: "#86efac" }}>Evidencia al día — sin items pendientes</span>
+        <span style={{ fontSize: 13, fontWeight: 700, color: "#86efac" }}>{t("workerDash.evidenceUpToDate")}</span>
       </div>
     );
   }
@@ -47,10 +49,10 @@ export function WorkerEvidenceSummary() {
         </div>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 13, fontWeight: 800, color: "#fcd34d" }}>
-            {missing} evidencia{missing !== 1 ? "s" : ""} pendiente{missing !== 1 ? "s" : ""}
+            {missing} {missing === 1 ? t("workerDash.evidencePendingOne") : t("workerDash.evidencePendingMany")}
           </div>
           <div style={{ fontSize: 11, color: "var(--muted)" }}>
-            Sube las fotos requeridas para desbloquear tus pagos → Subir ahora
+            {t("workerDash.evidencePendingHint")}
           </div>
         </div>
         <AlertTriangle size={14} color="#fcd34d" style={{ flexShrink: 0 }} />

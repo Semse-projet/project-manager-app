@@ -4,7 +4,7 @@
 
 - [x] T00 Auditar VoiceStudio y SEMSE, confirmar endpoints upstream y contratos existentes.
 - [x] T00b Registrar DRAFT en SDD 2.0, índice y analizar solapamientos.
-- [ ] T01 Cerrar D1–D3 mediante aprobación expresa del propietario; revalidar HEAD, revisiones y permisos.
+- [x] T01 Cerrar D1–D3 mediante aprobación expresa del propietario; revalidar HEAD, revisiones y permisos.
 - [ ] T02 Elegir motor ASR/TTS, pesos/tokenizador/voz/outputs, licencia comercial exacta por revisión SHA y registro de fuente; definir retención/consentimiento D4–D5.
 - [ ] T03 Escribir tests de resolver ASR (unset, Whisper, VoiceStudio, error de configuración) y mapeo segmentos.
 - [ ] T04 Implementar ASR bajo TranscriptionProvider, sin alterar comportamientos previos, con timeout, límites y errores controlados.
@@ -22,3 +22,5 @@
 - [ ] T16 Documentar resultados, métricas reales, contrato de retención, activación y evidencia SDD; nunca etiquetar VERIFIED sin despliegue activo comprobado.
 
 **Dependencias:** T01 bloquea T03–T10; T02 bloquea cualquier prueba comercial/activación; T14 precede al merge; T15 precede a VERIFIED. Clonación, LiveKit/WebSocket, doblaje y MCP agentic son especificaciones futuras.
+
+**Slice interno de 2026-11-07:** cliente ASR/TTS WAV y selector sólo desarrollo, probado con stub HTTP. T03/T04/T07 parcialmente cubiertos; T06/T08/T09 (API autenticada, integración UI y audio para usuario final) siguen pendientes. Ninguna modificación productiva autorizada.

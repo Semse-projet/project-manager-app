@@ -61,6 +61,17 @@ test("CLIENT can request a governed dispute settlement while PRO and WORKER cann
   assert.ok(!rolePermissions["WORKER"].includes("disputes:resolve"));
 });
 
+test("private document sharing uses least-privilege access for owner-capable roles", () => {
+  for (const role of ["CLIENT", "PRO", "OPS_ADMIN"]) {
+    assert.equal(hasPermission([role], "knowledge:share"), true);
+  }
+  assert.equal(hasPermission(["WORKER"], "knowledge:share"), false);
+  assert.equal(hasPermission(["UNKNOWN_ROLE"], "knowledge:share"), false);
+  // Sharing project-specific documents must not grant PRO broad knowledge-library edits.
+  assert.equal(hasPermission(["PRO"], "knowledge:write"), false);
+  assert.equal(hasPermission(["PRO"], "knowledge:manage"), false);
+});
+
 test("domain permissions are explicit for knowledge, tools, vision, and weather", () => {
   for (const role of ["CLIENT", "PRO", "WORKER", "OPS_ADMIN"]) {
     assert.ok(rolePermissions[role].includes("knowledge:read"), `${role} should read knowledge domains`);

@@ -1,0 +1,180 @@
+{
+  "kind": "semse-direct-manifest-snapshot",
+  "scope": "packages",
+  "captured_date": "2026-10-25",
+  "source_ref": "main",
+  "source_note": "Manifiestos de GitHub, no runtime ni SBOM transitorio",
+  "entries": [
+    {
+      "path": "packages/agents/package.json",
+      "blob_sha": "b297192116349ad06c31ce4d9c5905d5049cbe3b",
+      "name": "@semse/agents",
+      "dependencies": {
+        "@semse/forge": "workspace:*",
+        "@semse/knowledge": "workspace:*",
+        "@semse/shared": "workspace:*",
+        "@semse/schemas": "workspace:*"
+      },
+      "devDependencies": {
+        "typescript": "^5.8.2"
+      },
+      "optionalDependencies": {},
+      "peerDependencies": {}
+    },
+    {
+      "path": "packages/auth/package.json",
+      "blob_sha": "30cb598115c4e5484cd41eb40e90afae07b08220",
+      "name": "@semse/auth",
+      "dependencies": {
+        "@semse/shared": "workspace:*"
+      },
+      "devDependencies": {
+        "typescript": "^5.8.2"
+      },
+      "optionalDependencies": {},
+      "peerDependencies": {}
+    },
+    {
+      "path": "packages/autonomy/package.json",
+      "blob_sha": "6d8e488c5f7544486eaf01d371d30400213ac1c6",
+      "name": "@semse/autonomy",
+      "dependencies": {
+        "@semse/shared": "workspace:*",
+        "playwright": "^1.63.0"
+      },
+      "devDependencies": {
+        "typescript": "^5.8.2"
+      },
+      "optionalDependencies": {},
+      "peerDependencies": {}
+    },
+    {
+      "path": "packages/db/package.json",
+      "blob_sha": "c463c0bbf1f8d8ec922a81620d90ab892dea1f38",
+      "name": "@semse/db",
+      "dependencies": {
+        "@prisma/client": "^6.19.3",
+        "dotenv": "^16.6.1",
+        "prisma": "^6.4.1"
+      },
+      "devDependencies": {
+        "tsx": "^4.23.15"
+      },
+      "optionalDependencies": {},
+      "peerDependencies": {}
+    },
+    {
+      "path": "packages/design-tokens/package.json",
+      "blob_sha": "b8728ad1db5bafb76c01165dfd74126453bb1080",
+      "name": "@semse/design-tokens",
+      "dependencies": {},
+      "devDependencies": {
+        "typescript": "^5.8.2"
+      },
+      "optionalDependencies": {},
+      "peerDependencies": {}
+    },
+    {
+      "path": "packages/forge/package.json",
+      "blob_sha": "72d6e6c0ee37baaffb00d21a49c1150e4688b54f",
+      "name": "@semse/forge",
+      "dependencies": {},
+      "devDependencies": {
+        "typescript": "^5.8.2"
+      },
+      "optionalDependencies": {},
+      "peerDependencies": {}
+    },
+    {
+      "path": "packages/knowledge/package.json",
+      "blob_sha": "4a24cd92ae21677be78887ceac4e1b36437fb23a",
+      "name": "@semse/knowledge",
+      "dependencies": {
+        "@semse/schemas": "workspace:*"
+      },
+      "devDependencies": {
+        "typescript": "^5.8.2"
+      },
+      "optionalDependencies": {},
+      "peerDependencies": {}
+    },
+    {
+      "path": "packages/product-events/package.json",
+      "blob_sha": "7c868f8989375ea177c2865752c44d93758808f2",
+      "name": "@semse/product-events",
+      "dependencies": {
+        "@semse/schemas": "workspace:*"
+      },
+      "devDependencies": {
+        "typescript": "^5.8.2"
+      },
+      "optionalDependencies": {},
+      "peerDependencies": {}
+    },
+    {
+      "path": "packages/schemas/package.json",
+      "blob_sha": "5600372f3678dd080d01ff2c002b6a143acad613",
+      "name": "@semse/schemas",
+      "dependencies": {
+        "zod": "^3.24.2"
+      },
+      "devDependencies": {
+        "typescript": "^5.8.2"
+      },
+      "optionalDependencies": {},
+      "peerDependencies": {}
+    },
+    {
+      "path": "packages/sdk/package.json",
+      "blob_sha": "1c19f7930758f737fd02dff03016d27cd33c0698",
+      "name": "@semse/sdk",
+      "dependencies": {},
+      "devDependencies": {
+        "typescript": "^5.8.2"
+      },
+      "optionalDependencies": {},
+      "peerDependencies": {}
+    },
+    {
+      "path": "packages/shared/package.json",
+      "blob_sha": "d9e2e17f1ab4d4beb5ddbaa44ed9adbd25cb4132",
+      "name": "@semse/shared",
+      "dependencies": {
+        "zod": "^3.24.2",
+        "@semse/schemas": "workspace:*"
+      },
+      "devDependencies": {
+        "typescript": "^5.8.2"
+      },
+      "optionalDependencies": {},
+      "peerDependencies": {}
+    },
+    {
+      "path": "packages/tools/package.json",
+      "blob_sha": "fbdbd0b6b61923f9851f1e7aa916c7af136c4e45",
+      "name": "@semse/tools",
+      "dependencies": {},
+      "devDependencies": {
+        "typescript": "^5.4.0"
+      },
+      "optionalDependencies": {},
+      "peerDependencies": {}
+    },
+    {
+      "path": "packages/ui/package.json",
+      "blob_sha": "497f4cdf9451a4c49b9ef6859469e6e7f2eafa35",
+      "name": "@semse/ui",
+      "dependencies": {
+        "@semse/schemas": "workspace:*",
+        "clsx": "^2.1.1",
+        "tailwind-merge": "^2.6.0"
+      },
+      "devDependencies": {},
+      "optionalDependencies": {},
+      "peerDependencies": {
+        "react": "^19.0.0",
+        "react-dom": "^19.0.0"
+      }
+    }
+  ]
+}
