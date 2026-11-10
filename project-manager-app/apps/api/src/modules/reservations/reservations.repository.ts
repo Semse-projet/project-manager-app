@@ -4,6 +4,8 @@ import { type ReservationRecord } from "../../common/domain-store.js";
 import { ActorContextService } from "../../infrastructure/persistence/actor-context.service.js";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { sameOrg } from "../../common/resource-scope.js";
+import { PROFESSIONAL_ORG_TYPE_FILTER } from "../../common/org-type.js";
+import { lockJobRow } from "../../common/job-lock.js";
 
 type ActorInput = {
   tenantId: string;
@@ -142,6 +144,12 @@ export class ReservationsRepository {
     try {
       reservation = (await this.prisma.$transaction(async (tx) => {
         const db = tx as ReservationTx;
+        // Re-check eligibility under the job row lock: a cancellation committed
+        // since the check above must not be overwritten with RESERVED.
+        const current = await lockJobRow(tx, job.id);
+        if (!current || !["POSTED", "PUBLISHED", "RESERVED"].includes(current)) {
+          throw new BadRequestException("job is not eligible for reservation");
+        }
         const created = await db.jobReservation.create({
           data: {
             jobId: input.jobId,
@@ -153,7 +161,7 @@ export class ReservationsRepository {
           select: reservationSelect
         });
 
-        if (job.status !== "RESERVED") {
+        if (current !== "RESERVED") {
           await db.job.update({
             where: { id: job.id },
             data: { status: "RESERVED" }
@@ -534,7 +542,7 @@ export class ReservationsRepository {
         userId: professionalId,
         org: {
           tenantId,
-          type: "pro"
+          type: PROFESSIONAL_ORG_TYPE_FILTER
         }
       },
       select: {

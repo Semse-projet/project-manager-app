@@ -3,18 +3,25 @@ id: "core.header-identity-fail-closed"
 title: "Identidad por cabeceras sólo con opt-in explícito (fail-closed fuera de producción)"
 domain: "core"
 sdd_version: "2.0"
-version: "0.2"
-status: "IMPLEMENTED"
+version: "0.5"
+status: "VERIFIED"
 owner: "semse-core"
 risk: "high"
 code_status: "COMPLETE"
-ci_status: "NOT_RUN"
-merge_status: "UNMERGED"
-deploy_status: "NOT_DEPLOYED"
-activation_status: "INACTIVE"
+ci_status: "PASS"
+merge_status: "MERGED"
+deploy_status: "DEPLOYED"
+activation_status: "ACTIVE"
 migration_status: "NOT_APPLICABLE"
 feature_flags: []
-production_evidence: []
+production_evidence:
+  - "https://github.com/Semse-projet/project-manager-app/pull/1092 (squash 7a66a96, CI 13/13 terminal sin fallos, Codex sin hallazgos)"
+  - "CI de main sobre 7a66a96 (push): CI 41897034776, API Integration 41897034611, API Smoke 41897034587, Autonomy Staged API 41897034631, Operacion Asistida API 41897034613, todos success"
+  - "Procedencia: Railway reporta commitHash 7a66a9657df07590ef8b360dac4ba12df8ed6915 (main) para el deployment 83f11346 de semse-API; el activo al 2026-11-06 (ce1cc4ad, 645ce3b) contiene 7a66a96 (git merge-base --is-ancestor)"
+  - "2026-11-04 Railway SEMSEproject/production: semse-API deployment 83f11346 SUCCESS; api_bootstrap_complete 19:34:16Z; sin auth_secret_missing_fail_closed ni auth_header_identity_mode_enabled (AUTH_SECRET presente)"
+  - "2026-11-04 tráfico HTTP post-deploy: llamadas firmadas del Worker 201, ningún 503. Smoke OPS_ADMIN en vivo hecho el 2026-11-07 (ver entrada siguiente)"
+  - "2026-11-07 smoke autenticado OPS_ADMIN (sesión real del owner): GET app.semseproject.com/api/semse/operational-signals y api.semseproject.com/v1/operational-intelligence/signals → 200 (03:50:08Z, 04:03:59Z, 04:06:16Z, 04:07:53Z; un 403 previo a las 03:48:17Z antes de entrar como OPS_ADMIN). Antes del fix: siempre 401. Contenido verificado el 2026-11-08 (entrada siguiente)"
+  - "2026-11-08 smoke OPS_ADMIN con contenido observado: web y API 200 a las 00:02:05Z (sesión real del owner; antes, 403 a las 23:54/23:55Z con una cuenta sin ops:dashboard:read y 401 del BFF a las 23:59Z sin sesión). Cuerpo {\"data\":[1 señal]}: type EXPERIENCE_FRICTION, tenantId tenant_default, ningún otro tenantId; el owner confirma que su cuenta OPS_ADMIN pertenece a tenant_default. El `null` visto antes era el último campo de la señal (resolvedAt)"
 related_files:
   - "apps/api/src/modules/auth/auth.service.ts"
   - "apps/api/src/common/request-context.ts"
@@ -41,7 +48,7 @@ related_endpoints:
   - "GET /v1/operational-intelligence/brief"
 related_events: []
 related_agents: []
-last_verified: "2026-11-04"
+last_verified: "2026-11-08"
 ---
 
 # Spec: Identidad por cabeceras sólo con opt-in explícito
@@ -411,15 +418,15 @@ No aplica. El BFF web no cambia en producción (ya usa bearer).
 ## 12. Gates de cierre
 
 - [x] Decisión §13 cerrada por el owner y `status: APPROVED`
-- [ ] Spec enlazado por `pnpm spec:index`
-- [ ] Plan, tasks, analyze y checklist coherentes con este spec
-- [ ] Tests de §9 escritos antes del código y verdes
-- [ ] `pnpm spec:validate:strict` verde
-- [ ] CI `PASS`
-- [ ] PR fusionado y SHA registrado
-- [ ] Deploy `DEPLOYED` y smoke autenticado de OI verificado por separado
-- [ ] `production_evidence` y `last_verified` actualizados
-- [ ] Sólo entonces `status: VERIFIED`
+- [x] Spec enlazado por `pnpm spec:index`
+- [x] Plan, tasks, analyze y checklist coherentes con este spec
+- [x] Tests de §9 escritos antes del código y verdes
+- [x] `pnpm spec:validate:strict` verde
+- [x] CI `PASS`
+- [x] PR fusionado y SHA registrado
+- [x] Deploy `DEPLOYED` y smoke autenticado de OI verificado por separado
+- [x] `production_evidence` y `last_verified` actualizados
+- [x] Sólo entonces `status: VERIFIED`
 
 ## 13. Decisión (clarify) — cerrada
 

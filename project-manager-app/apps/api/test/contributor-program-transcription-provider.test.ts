@@ -84,3 +84,28 @@ test("mapWhisperSegments: drops segments whose text is empty or whitespace-only"
 test("mapWhisperSegments: an empty segment list (silent clip) is an honest empty result, not an error", () => {
   assert.deepEqual(mapWhisperSegments([]), []);
 });
+
+test("resolveTranscriptionProvider: VoiceStudio is blocked in production, even when dev flags are true", () => {
+  withEnv({
+    SEMSE_ASR_PROVIDER: "voicestudio", NODE_ENV: "production",
+    SEMSE_VOICE_ENABLED: "true", SEMSE_VOICESTUDIO_DEV_ENABLED: "true",
+    SEMSE_VOICESTUDIO_BASE_URL: "https://speech.example.com/",
+    SEMSE_VOICESTUDIO_API_KEY: "test-secret", SEMSE_VOICESTUDIO_ASR_MODEL: "faster-whisper",
+  }, () => {
+    assert.throws(() => resolveTranscriptionProvider(fakeStorage), /VOICE_PRODUCTION_ACTIVATION_BLOCKED/);
+  });
+});
+
+test("resolveTranscriptionProvider: VoiceStudio only resolves with explicit non-production opt-in", () => {
+  withEnv({
+    SEMSE_ASR_PROVIDER: "voicestudio", NODE_ENV: "test",
+    RAILWAY_ENVIRONMENT_NAME: undefined, SEMSE_ENVIRONMENT: undefined,
+    SEMSE_VOICE_ENABLED: "true", SEMSE_VOICESTUDIO_DEV_ENABLED: "true",
+    SEMSE_VOICESTUDIO_BASE_URL: "https://speech.example.com/",
+    SEMSE_VOICESTUDIO_API_KEY: "test-secret", SEMSE_VOICESTUDIO_ASR_MODEL: "faster-whisper",
+  }, () => {
+    const provider = resolveTranscriptionProvider(fakeStorage);
+    assert.ok(provider);
+    assert.equal(typeof provider.transcribe, "function");
+  });
+});

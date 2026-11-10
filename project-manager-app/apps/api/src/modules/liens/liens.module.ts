@@ -10,10 +10,12 @@ import { NoticeController } from './notice.controller.js';
 import { WaiverController } from './waiver.controller.js';
 import { WaiverPaymentGateService } from './waiver-payment-gate.service.js';
 import { LienAccessService } from './lien-access.service.js';
+import { ResourceScopeModule } from '../../common/resource-scope.module.js';
 import { LienGridClient, createLienGridClient } from '../../integrations/liengrid.js';
 import { LobClient, createLobClient } from '../../integrations/lob.js';
 
 @Module({
+  imports: [ResourceScopeModule],
   controllers: [LiensController, LienSchedulerController, NoticeController, WaiverController],
   providers: [
     LiensService,

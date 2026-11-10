@@ -15,6 +15,21 @@ export class AgroProductionCycleService {
     return farm;
   }
 
+  /**
+   * C51: un id de ciclo de producción o de parcela recibido en el cuerpo debe pertenecer a la misma finca; si no,
+   * 404 (sin filtrar la existencia de recursos de otras fincas). Evita colgar datos propios de una finca ajena.
+   */
+  private async assertFarmReferences(farmId: string, refs: { productionCycleId?: string; fieldUnitId?: string }) {
+    if (refs.productionCycleId) {
+      const cycle = await this.prisma.agroProductionCycle.findFirst({ where: { id: refs.productionCycleId, farmId }, select: { id: true } });
+      if (!cycle) throw new NotFoundException(`Cycle not found for this farm: ${refs.productionCycleId}`);
+    }
+    if (refs.fieldUnitId) {
+      const unit = await this.prisma.agroFarmUnit.findFirst({ where: { id: refs.fieldUnitId, farmId }, select: { id: true } });
+      if (!unit) throw new NotFoundException(`Field unit not found for this farm: ${refs.fieldUnitId}`);
+    }
+  }
+
   async listCycles(farmId: string, ownerId: string) {
     await this.assertFarm(farmId, ownerId);
     return this.prisma.agroProductionCycle.findMany({
@@ -90,6 +105,7 @@ export class AgroProductionCycleService {
     areaHectares?: number; seedQuantityKg?: number; notes?: string;
   }) {
     await this.assertFarm(farmId, ownerId);
+    await this.assertFarmReferences(farmId, { productionCycleId: body.productionCycleId, fieldUnitId: body.fieldUnitId });
     return this.prisma.agroCropCycle.create({
       data: {
         farmId,
@@ -113,6 +129,7 @@ export class AgroProductionCycleService {
     const crop = await this.prisma.agroCropCycle.findUnique({ where: { id: cropCycleId } });
     if (!crop) throw new NotFoundException(`CropCycle not found: ${cropCycleId}`);
     await this.assertFarm(crop.farmId, ownerId);
+    await this.assertFarmReferences(crop.farmId, { fieldUnitId: body.fieldUnitId });
     return this.prisma.agroInputApplication.create({
       data: {
         farmId: crop.farmId,

@@ -181,9 +181,13 @@ describe("O.HI4: signed HTTP observer history enforces RBAC and tenant scope", (
   });
 
   test("no tenant B value (alerts, signals, RAG mode) leaks into tenant A", async () => {
-    const { raw } = await request(signed("tenant-A").token, "tenant-B");
+    const { status, data, raw } = await request(signed("tenant-A").token, "tenant-B");
+    assert.equal(status, 200, raw);
+    // Scan only the payload: the envelope's requestId is a random UUID that can
+    // contain "777" by chance and made this check flaky (main CI, 2026-11-08).
+    const payload = JSON.stringify(data.data);
     for (const leaked of ["B-1", "B-only", "private-B", "777"]) {
-      assert.ok(!raw.includes(leaked), "tenant B value leaked to tenant A: " + leaked);
+      assert.ok(!payload.includes(leaked), "tenant B value leaked to tenant A: " + leaked);
     }
   });
 

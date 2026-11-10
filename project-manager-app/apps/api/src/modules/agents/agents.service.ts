@@ -418,14 +418,17 @@ export class AgentsService {
       timestamp: new Date().toISOString()
     });
 
-    await this.agentQueueService.enqueueRun({
+    // A manual retry must not use the normal "create" enqueue path: BullMQ
+    // retains failed/completed jobs under the same deterministic jobId.
+    // The retry path replaces terminal jobs and reports non-enqueued runs.
+    const enqueue = await this.agentQueueService.enqueueRun({
       runId: run.id,
       tenantId: run.tenantId,
       agentType: run.agentType,
       correlationId: run.correlationId
-    });
+    }, { mode: "retry" });
 
-    return run;
+    return { ...run, enqueued: enqueue.enqueued, ...(enqueue.reason ? { reason: enqueue.reason } : {}) };
   }
 
   async start(input: { tenantId: string; orgId: string; userId: string; runId: string; requestId: string }) {
