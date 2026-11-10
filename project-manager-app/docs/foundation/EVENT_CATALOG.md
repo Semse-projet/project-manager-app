@@ -379,6 +379,27 @@ evento no deja al cliente inconsistente. Si aparece un consumidor durable
 propio incremento. Cada transición deja además `AuditLog`
 (`live_session.<action>`).
 
+### Prometeo — Decision Ledger (propuesto)
+
+**Propuestos, no implementados.** Los reserva
+[`../specs/prometeo/decision-ledger.spec.md`](../specs/prometeo/decision-ledger.spec.md)
+(`REVIEW`). No hay productor ni consumidor en `main`. Se registran para cumplir
+la sección 6 del acta de Operational Intelligence y para que la implementación
+no invente otros nombres; **no autorizan emitirlos** hasta que el spec esté
+`APPROVED`. Si el spec cambia los nombres, esta sección cambia con él.
+
+- `decision.recorded.v1` — una decisión ya autorizada queda registrada.
+  `aggregateType: DecisionRecord`.
+- `decision.superseded.v1` — una corrección sustituye a una decisión
+  (`supersedesDecisionId`).
+- `decision.voided.v1` — una decisión se anula, con motivo.
+
+Payload: el mínimo del catálogo más `decisionKind`, `subjectType`,
+`subjectId`, `entryKind` y `supersedesDecisionId` cuando aplique. **Sin**
+`rationale` ni `decisionValueJson`. Entrega prevista por el outbox F1 cuando el
+productor no comparta transacción; cada operación deja además `AuditLog`. V1
+excluye decisiones financieras.
+
 ## Notifications
 
 - `notification.queued`
@@ -391,6 +412,20 @@ propio incremento. Cada transición deja además `AuditLog`
 - `ops.case_escalated`
 - `ops.alert_raised`
 - `ops.alert_resolved`
+
+### Ops — smoke sintético de Observer (audit-only, #1089)
+
+Runbook: [`../runbooks/OBSERVER_1089_PROD_AB_SMOKE.md`](../runbooks/OBSERVER_1089_PROD_AB_SMOKE.md).
+Acciones de `AuditLog` escritas por el script de operador
+`scripts/ops/observer-prod-synthetic-smoke.mjs`, en la misma transacción que
+la mutación privilegiada, sin bus, outbox ni consumidores. `actorUserId` es
+`null` (herramienta de operador, sin actor humano). Payload sólo con ids,
+clave A/B y estados; nunca credenciales, tokens ni datos de Observer. Quedan
+en el tenant sintético archivado, que no se borra para conservarlas.
+
+- `observer.synthetic_account.provisioned` — `entityType: User`; alta del OPS_ADMIN sintético
+- `observer.synthetic_account.removed` — `entityType: Tenant`; borrado de usuario, org y sesiones y archivo del tenant
+- `observer.synthetic_cleanup.emergency_fallback` — `entityType: Tenant`; falló la limpieza atómica y se revocó el acceso de forma no atómica; exige `--cleanup` del operador
 
 ## Labor — FreeProject (audit-only)
 

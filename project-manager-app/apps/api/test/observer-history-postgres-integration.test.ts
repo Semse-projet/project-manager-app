@@ -131,7 +131,8 @@ dbTest("O.HI5: PostgreSQL session and membership enforce tenant-only observer HT
       assert.equal(a.status, 200, JSON.stringify(a.body));
       assert.equal(a.body.data.count, 2);
       assert.deepEqual(a.body.data.snapshots.map((s: any) => s.observedAt), ["A-1", "A-2"]);
-      const raw = JSON.stringify(a.body);
+      // Payload only: the envelope requestId is a random UUID that can contain "888".
+      const raw = JSON.stringify(a.body.data);
       for (const leaked of ["B-1", "B-private", "B-only", "888"]) {
         assert.ok(!raw.includes(leaked), "B metadata reached A: " + leaked);
       }
