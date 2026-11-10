@@ -23,7 +23,7 @@ function extractStr(payload: NotificationEventPayload, key: string): string | nu
  * Maps a domain event to zero or more notification specs.
  * Only creates notifications when there is a clear recipient userId.
  */
-function mapEventToNotifications(
+export function mapEventToNotifications(
   eventType: string,
   payload: NotificationEventPayload,
 ): NotificationSpec[] {

@@ -158,7 +158,7 @@ retroactiva.
 | [payments.shared-economic-ledger](specs/payments/shared-economic-ledger.spec.md) | payments | DRAFT | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | no | 2026-10-10 |
 | [platform.admin-integration-trust-status](specs/platform/admin-integration-trust-status.spec.md) | platform | APPROVED | COMPLETE | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-09-25 |
 | [platform.canonical-state-registry](specs/platform/canonical-state-registry.spec.md) | platform | IMPLEMENTED | COMPLETE | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | yes | 2026-08-28 |
-| [platform.event-backbone-f2-legacy-producers](specs/platform/event-backbone-f2-legacy-producers.spec.md) | platform | APPROVED | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | no | 2026-11-10 |
+| [platform.event-backbone-f2-legacy-producers](specs/platform/event-backbone-f2-legacy-producers.spec.md) | platform | APPROVED | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-11-10 |
 | [platform.event-backbone-f1](specs/platform/event-backbone.spec.md) | platform | APPROVED | legacy | legacy | legacy | legacy | legacy | critical | yes | 2026-07-12 |
 | [platform.finance-resource-scope](specs/platform/finance-resource-scope.spec.md) | platform | IMPLEMENTED | COMPLETE | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-10-05 |
 | [platform.library-hub-override-compatibility](specs/platform/library-hub-override-compatibility.spec.md) | platform | REVIEW | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | yes | NOT_VERIFIED |

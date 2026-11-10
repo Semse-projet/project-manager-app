@@ -3,12 +3,21 @@ import { type DisputeRecord } from "../../common/domain-store.js";
 import { AuditService } from "../../infrastructure/audit/audit.service.js";
 import type { OperationalContextService } from "../ai-models/context/operational-context.service.js";
 import { OPERATIONAL_CONTEXT_SERVICE } from "../ai-models/context/operational-context.token.js";
-import { DomainEventBus } from "../domain-events/domain-event-bus.service.js";
+import { DomainEventBus, type DomainEventEmitOptions } from "../domain-events/domain-event-bus.service.js";
+import { OutboxRepository } from "../domain-events/outbox.repository.js";
 import { ProjectLifecycleProjectionEventProducer } from "../domain-events/project-lifecycle-projection-event-producer.service.js";
 import { buildDisputeWorkspaceMemoryRecord } from "../knowledge/workspace-memory.business-records.js";
 import { WorkspaceMemoryRepository } from "../knowledge/workspace-memory.repository.js";
 import { buildDisputeResolvedEvent, type DisputeResolutionType } from "./disputes.events.js";
-import { DisputesRepository } from "./disputes.repository.js";
+import { DisputesRepository, type DisputeWriteHook } from "./disputes.repository.js";
+import {
+  buildDisputeV2Event,
+  resolveDisputeEventsV2Mode,
+  type DisputeEventsV2Mode,
+} from "./dispute-events-v2.js";
+import type { DisputeV2EventType } from "@semse/schemas";
+
+type DisputeActorInput = { tenantId: string; orgId: string; userId: string; requestId: string };
 
 @Injectable()
 export class DisputesService {
@@ -21,7 +30,50 @@ export class DisputesService {
     private readonly operationalContext?: OperationalContextService,
     @Optional()
     private readonly lifecycleProjectionEvents?: ProjectLifecycleProjectionEventProducer,
+    @Optional()
+    private readonly outboxRepository?: OutboxRepository,
   ) {}
+
+  /**
+   * Event backbone F2 (D1): per-tenant mode. Without an outbox repository the v2 path cannot run, so the service
+   * falls back to `off` — the legacy bus keeps every effect and nothing is lost.
+   */
+  private eventsV2Mode(tenantId: string): DisputeEventsV2Mode {
+    return this.outboxRepository ? resolveDisputeEventsV2Mode(tenantId) : "off";
+  }
+
+  /** In `shadow`/`on`, writes the v2 event to the outbox inside the dispute write's own transaction. */
+  private v2Hook(
+    mode: DisputeEventsV2Mode,
+    eventType: DisputeV2EventType,
+    input: DisputeActorInput,
+    payload: (written: Parameters<DisputeWriteHook>[1]) => Record<string, unknown>,
+  ): DisputeWriteHook | undefined {
+    const outbox = this.outboxRepository;
+    if (mode === "off" || !outbox) return undefined;
+    return async (tx, written) => {
+      await outbox.create(tx, buildDisputeV2Event({
+        eventType,
+        tenantId: input.tenantId,
+        orgId: input.orgId,
+        actorUserId: input.userId,
+        requestId: input.requestId,
+        effectsMode: mode,
+        disputeId: written.record.id,
+        payload: {
+          disputeId: written.record.id,
+          projectId: written.projectId,
+          jobId: written.jobId,
+          ...payload(written),
+        },
+      }));
+    };
+  }
+
+  /** D3: once the consumer owns notifications and agent triggers (`on`), the legacy emit keeps only the audit side. */
+  private legacyEmitOptions(mode: DisputeEventsV2Mode): DomainEventEmitOptions | undefined {
+    return mode === "on" ? { effects: "audit-only" } : undefined;
+  }
 
   private syncContext(tenantId: string, projectId: string | undefined, source: string, reason: string): void {
     this.operationalContext?.invalidateScope({
@@ -46,7 +98,11 @@ export class DisputesService {
     reason: string;
     requestId: string;
   }): Promise<DisputeRecord> {
-    const dispute = await this.disputesRepository.create(input);
+    const mode = this.eventsV2Mode(input.tenantId);
+    const dispute = await this.disputesRepository.create(
+      input,
+      this.v2Hook(mode, "dispute.opened.v1", input, () => ({ raisedById: input.userId })),
+    );
     const context = await this.disputesRepository.getEventContext({
       tenantId: input.tenantId,
       disputeId: dispute.id
@@ -90,7 +146,7 @@ export class DisputesService {
       orgId: input.orgId,
       userId: input.userId,
       requestId: input.requestId
-    });
+    }, this.legacyEmitOptions(mode));
 
     await this.workspaceMemoryRepository.append(
       buildDisputeWorkspaceMemoryRecord({
@@ -122,7 +178,11 @@ export class DisputesService {
       throw new BadRequestException("assigneeUserId is required");
     }
 
-    const dispute = await this.disputesRepository.assign(input);
+    const mode = this.eventsV2Mode(input.tenantId);
+    const dispute = await this.disputesRepository.assign(
+      input,
+      this.v2Hook(mode, "dispute.assigned.v1", input, () => ({ assigneeUserId: input.assigneeUserId })),
+    );
 
     await this.auditService.append({
       id: `aud_${Date.now()}`,
@@ -180,7 +240,7 @@ export class DisputesService {
       orgId: input.orgId,
       userId: input.userId,
       requestId: input.requestId
-    });
+    }, this.legacyEmitOptions(mode));
 
     return dispute;
   }
@@ -194,7 +254,15 @@ export class DisputesService {
     evidenceIds: string[];
     requestId: string;
   }): Promise<DisputeRecord> {
-    const dispute = await this.disputesRepository.submitEvidence(input);
+    const mode = this.eventsV2Mode(input.tenantId);
+    const dispute = await this.disputesRepository.submitEvidence(
+      input,
+      this.v2Hook(mode, "dispute.evidence_submitted.v1", input, ({ record }) => ({
+        submittedById: input.userId,
+        evidenceIds: input.evidenceIds,
+        totalEvidenceCount: record.evidenceBundleIds.length,
+      })),
+    );
 
     await this.auditService.append({
       id: `aud_${Date.now()}`,
@@ -238,7 +306,7 @@ export class DisputesService {
       orgId: input.orgId,
       userId: input.userId,
       requestId: input.requestId
-    });
+    }, this.legacyEmitOptions(mode));
 
     return dispute;
   }
@@ -251,7 +319,14 @@ export class DisputesService {
     disputeId: string;
     requestId: string;
   }): Promise<DisputeRecord> {
-    const dispute = await this.disputesRepository.markUnderReview(input);
+    const mode = this.eventsV2Mode(input.tenantId);
+    const dispute = await this.disputesRepository.markUnderReview(
+      input,
+      this.v2Hook(mode, "dispute.under_review.v1", input, ({ record }) => ({
+        assigneeUserId: record.assigneeUserId ?? null,
+        evidenceCount: record.evidenceBundleIds.length,
+      })),
+    );
 
     await this.auditService.append({
       id: `aud_${Date.now()}`,
@@ -307,7 +382,7 @@ export class DisputesService {
       orgId: input.orgId,
       userId: input.userId,
       requestId: input.requestId
-    });
+    }, this.legacyEmitOptions(mode));
 
     return dispute;
   }
@@ -326,7 +401,14 @@ export class DisputesService {
       throw new BadRequestException("resolution is required");
     }
 
-    const dispute = await this.disputesRepository.resolve(input);
+    const mode = this.eventsV2Mode(input.tenantId);
+    const dispute = await this.disputesRepository.resolve(
+      input,
+      this.v2Hook(mode, "dispute.resolved.v1", input, () => ({
+        resolvedById: input.userId,
+        resolutionType: input.resolutionType,
+      })),
+    );
 
     await this.auditService.append({
       id: `aud_${Date.now()}`,
@@ -357,7 +439,7 @@ export class DisputesService {
       orgId: input.orgId,
       userId: input.userId,
       requestId: input.requestId
-    });
+    }, this.legacyEmitOptions(mode));
     await this.lifecycleProjectionEvents?.emit({
       tenantId: input.tenantId,
       orgId: input.orgId,

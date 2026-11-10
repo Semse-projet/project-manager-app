@@ -9,13 +9,15 @@ owner: "semse-core"
 risk: "high"
 date: "2026-11-10"
 author: "Claude"
-code_status: "NOT_STARTED"
+code_status: "IN_PROGRESS"
 ci_status: "NOT_RUN"
 merge_status: "UNMERGED"
 deploy_status: "NOT_DEPLOYED"
 activation_status: "INACTIVE"
 migration_status: "NOT_APPLICABLE"
-feature_flags: []
+feature_flags:
+  - "SEMSE_DISPUTE_EVENTS_V2_MODE"
+  - "SEMSE_DISPUTE_EVENTS_V2_TENANT_IDS"
 production_evidence: []
 spec_index: "docs/SPEC_INDEX.md"
 related_files:
@@ -26,11 +28,15 @@ related_files:
   - "apps/api/src/modules/domain-events/domain-event-consumer.service.ts"
   - "apps/api/src/modules/notifications/notifications.service.ts"
   - "apps/api/src/modules/disputes/disputes.service.ts"
+  - "apps/api/src/modules/disputes/disputes.repository.ts"
+  - "apps/api/src/modules/disputes/dispute-events-v2.ts"
+  - "apps/api/src/modules/domain-events/dispute-effects.consumer.ts"
   - "apps/api/src/modules/milestones/milestones.service.ts"
   - "apps/api/src/modules/jobs/jobs.service.ts"
   - "apps/api/src/modules/users/users.service.ts"
   - "apps/api/src/modules/ratings/ratings.service.ts"
-related_tests: []
+related_tests:
+  - "apps/api/test/dispute-events-v2.test.ts"
 related_endpoints: []
 related_events:
   - "dispute.opened"
@@ -49,6 +55,9 @@ last_verified: "2026-11-10"
 
 # Spec: Event backbone F2 — productores que siguen en el bus legacy
 
+> **Slice 1 (disputas) en curso:** [plan](event-backbone-f2-legacy-producers.plan.md) ·
+> [tasks](event-backbone-f2-legacy-producers.tasks.md). Se despliega con el modo en `off`; la activación es del dueño.
+>
 > **APPROVED por el dueño el 2026-11-10** (decisiones D1–D4 de §5, todas con la opción propuesta). Cada slice se
 > implementa con su propio plan/tasks y PR. Continúa `platform.event-backbone-f1` (APPROVED), cuya decisión 7 fija el
 > rollout "por productor/consumidor; el bus v1 permanece compatible mientras se migra cada dominio". Origen:

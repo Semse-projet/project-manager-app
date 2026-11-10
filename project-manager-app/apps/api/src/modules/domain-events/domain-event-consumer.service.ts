@@ -27,6 +27,13 @@ import {
 import { randomUUID } from "node:crypto";
 import { MetricsService } from "../../infrastructure/observability/metrics.service.js";
 import { AgentRunFinalizationConsumer, AGENT_RUN_EFFECTS_CONSUMER } from "./agent-run-finalization.consumer.js";
+import {
+  DISPUTE_EFFECTS_CONSUMER,
+  DisputeEffectsConsumer,
+  DisputeEffectsDeadLetteredError,
+  DisputeEffectsTerminalError,
+} from "./dispute-effects.consumer.js";
+import { DISPUTE_V2_EVENT_TYPE_LIST } from "../disputes/dispute-events-v2.js";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { JobsRepository } from "../jobs/jobs.repository.js";
 import { ProjectsRepository } from "../projects/projects.repository.js";
@@ -113,6 +120,10 @@ type ConsumerResult = {
   sourceUpdatedAt?: string;
   duplicate?: boolean;
   deliveries?: Array<{ webhookId: string; delivered: boolean; reason?: string }>;
+  effectsMode?: "shadow" | "on";
+  legacyEventType?: string;
+  notifications?: Array<{ userId: string; type: string }>;
+  triggers?: string[];
 };
 
 type ProcessingIdentity = {
@@ -154,6 +165,7 @@ export class DomainEventConsumerService {
     private readonly jobsRepository?: JobsRepository,
     private readonly satelliteWebhooksService?: SatelliteWebhooksService,
     @Optional() private readonly agentRunFinalization?: AgentRunFinalizationConsumer,
+    @Optional() private readonly disputeEffects?: DisputeEffectsConsumer,
   ) {
     this.handlersByEventType = this.buildHandlerRegistry();
   }
@@ -179,6 +191,13 @@ export class DomainEventConsumerService {
         consumerName: JOBS_BIDS_PROJECTION_CONSUMER,
         handle: (storedEvent: DomainOutboxEvent, processingIdentity: ProcessingIdentity) =>
           this.processJobsBidsProjectionEvent(storedEvent, processingIdentity),
+      })),
+      // Event backbone F2, slice 1. No other consumer owns these types; the registry is still 1:1 (fan-out is a
+      // prerequisite of slice 2, see event-backbone-f2-legacy-producers.plan.md §3).
+      ...DISPUTE_V2_EVENT_TYPE_LIST.map((eventType) => ({
+        eventType,
+        consumerName: DISPUTE_EFFECTS_CONSUMER,
+        handle: (storedEvent: DomainOutboxEvent) => this.processDisputeEffectsEvent(storedEvent),
       })),
       ...SATELLITE_WEBHOOKS_EVENT_TYPES.map((eventType) => ({
         eventType,
@@ -268,6 +287,49 @@ export class DomainEventConsumerService {
         throw new UnprocessableEntityException({message:"Agent effects delivery dead-lettered",eventId:event.eventId});
       }
       throw new InternalServerErrorException({message:"Agent effects delivery failed; retryable",eventId:event.eventId});
+    }
+  }
+
+  private async processDisputeEffectsEvent(event: DomainOutboxEvent): Promise<ConsumerResult> {
+    if (!this.disputeEffects) {
+      throw new ServiceUnavailableException("Dispute effects consumer unavailable");
+    }
+    try {
+      const result = await this.disputeEffects.consume(event);
+      if (result.duplicate) this.metrics.recordEventConsumerDuplicate(DISPUTE_EFFECTS_CONSUMER);
+      else this.metrics.recordEventConsumerAttempt(DISPUTE_EFFECTS_CONSUMER, "completed");
+      return result;
+    } catch (error) {
+      if (error instanceof DisputeEffectsDeadLetteredError) {
+        throw new UnprocessableEntityException({
+          message: error.message,
+          eventId: event.eventId,
+          consumer: DISPUTE_EFFECTS_CONSUMER,
+        });
+      }
+      const failure = await this.recordFailure({
+        eventId: event.eventId,
+        tenantId: event.tenantId,
+        error: redactConsumerError(error),
+        terminal: error instanceof DisputeEffectsTerminalError,
+        consumerName: DISPUTE_EFFECTS_CONSUMER,
+      });
+      this.metrics.recordEventConsumerAttempt(DISPUTE_EFFECTS_CONSUMER, "failed");
+      if (failure.status === "DEAD_LETTER") {
+        this.metrics.recordEventConsumerDeadLetter(DISPUTE_EFFECTS_CONSUMER);
+        throw new UnprocessableEntityException({
+          message: "Domain event consumer moved delivery to dead letter",
+          eventId: event.eventId,
+          consumer: DISPUTE_EFFECTS_CONSUMER,
+          attempts: failure.attempts,
+        });
+      }
+      throw new InternalServerErrorException({
+        message: "Domain event consumer failed; retry is allowed",
+        eventId: event.eventId,
+        consumer: DISPUTE_EFFECTS_CONSUMER,
+        attempts: failure.attempts,
+      });
     }
   }
 

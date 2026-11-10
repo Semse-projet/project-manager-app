@@ -736,3 +736,95 @@ export function toLegacySemseEventV1(event: EvidenceUploadedV1Event) {
     triggers: ["evidence-coach", "audit"],
   });
 }
+
+// ── Disputes (event backbone F2, slice 1) ───────────────────────────────────
+// spec platform.event-backbone-f2-legacy-producers. Payloads carry references only (F1 decision 9): the dispute
+// reason and resolution text are re-read from the dispute by the consumer, never copied into the outbox.
+
+export const DISPUTE_OPENED_V1_SCHEMA_REF = "semse://schemas/events/dispute.opened.v1" as const;
+export const DISPUTE_ASSIGNED_V1_SCHEMA_REF = "semse://schemas/events/dispute.assigned.v1" as const;
+export const DISPUTE_EVIDENCE_SUBMITTED_V1_SCHEMA_REF =
+  "semse://schemas/events/dispute.evidence_submitted.v1" as const;
+export const DISPUTE_UNDER_REVIEW_V1_SCHEMA_REF = "semse://schemas/events/dispute.under_review.v1" as const;
+export const DISPUTE_RESOLVED_V1_SCHEMA_REF = "semse://schemas/events/dispute.resolved.v1" as const;
+
+const disputeRefsSchema = {
+  disputeId: nonEmptyId,
+  projectId: nonEmptyId,
+  jobId: nonEmptyId,
+};
+
+export const disputeOpenedV1PayloadSchema = z.object({ ...disputeRefsSchema, raisedById: nonEmptyId }).strict();
+export const disputeAssignedV1PayloadSchema = z.object({ ...disputeRefsSchema, assigneeUserId: nonEmptyId }).strict();
+export const disputeEvidenceSubmittedV1PayloadSchema = z
+  .object({
+    ...disputeRefsSchema,
+    submittedById: nonEmptyId,
+    evidenceIds: z.array(nonEmptyId).max(200),
+    totalEvidenceCount: z.number().int().nonnegative(),
+  })
+  .strict();
+export const disputeUnderReviewV1PayloadSchema = z
+  .object({
+    ...disputeRefsSchema,
+    assigneeUserId: nonEmptyId.nullable(),
+    evidenceCount: z.number().int().nonnegative(),
+  })
+  .strict();
+export const disputeResolvedV1PayloadSchema = z
+  .object({ ...disputeRefsSchema, resolvedById: nonEmptyId, resolutionType: nonEmptyId })
+  .strict();
+
+function disputeEventSchema<
+  TType extends string,
+  TRef extends string,
+  TPayload extends z.ZodTypeAny,
+>(eventType: TType, schemaRef: TRef, payload: TPayload) {
+  return semseDomainEventV2ObjectSchema
+    .extend({
+      eventType: z.literal(eventType),
+      version: z.literal(1),
+      envelopeVersion: z.literal(2),
+      module: z.literal("disputes"),
+      entityType: z.literal("Dispute"),
+      schemaRef: z.literal(schemaRef),
+      payload,
+    })
+    .superRefine((value, ctx) => {
+      validateEnvelopeV2(value as SemseDomainEventV2Input, ctx);
+      if (value.entityId !== (value.payload as { disputeId: string }).disputeId) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["entityId"],
+          message: "entityId must match payload.disputeId",
+        });
+      }
+    });
+}
+
+export const disputeOpenedV1EventSchema = disputeEventSchema(
+  "dispute.opened.v1", DISPUTE_OPENED_V1_SCHEMA_REF, disputeOpenedV1PayloadSchema,
+);
+export const disputeAssignedV1EventSchema = disputeEventSchema(
+  "dispute.assigned.v1", DISPUTE_ASSIGNED_V1_SCHEMA_REF, disputeAssignedV1PayloadSchema,
+);
+export const disputeEvidenceSubmittedV1EventSchema = disputeEventSchema(
+  "dispute.evidence_submitted.v1", DISPUTE_EVIDENCE_SUBMITTED_V1_SCHEMA_REF, disputeEvidenceSubmittedV1PayloadSchema,
+);
+export const disputeUnderReviewV1EventSchema = disputeEventSchema(
+  "dispute.under_review.v1", DISPUTE_UNDER_REVIEW_V1_SCHEMA_REF, disputeUnderReviewV1PayloadSchema,
+);
+export const disputeResolvedV1EventSchema = disputeEventSchema(
+  "dispute.resolved.v1", DISPUTE_RESOLVED_V1_SCHEMA_REF, disputeResolvedV1PayloadSchema,
+);
+
+/** The five dispute event types the dispute-effects.v1 consumer handles, mapped to their legacy (v1 bus) name. */
+export const DISPUTE_V2_EVENT_TYPES = {
+  "dispute.opened.v1": "dispute.opened",
+  "dispute.assigned.v1": "dispute.assigned",
+  "dispute.evidence_submitted.v1": "dispute.evidence_submitted",
+  "dispute.under_review.v1": "dispute.under_review",
+  "dispute.resolved.v1": "dispute.resolved",
+} as const;
+
+export type DisputeV2EventType = keyof typeof DISPUTE_V2_EVENT_TYPES;
