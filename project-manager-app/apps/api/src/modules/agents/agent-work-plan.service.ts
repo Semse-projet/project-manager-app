@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { ForbiddenException, Injectable, Logger, NotFoundException, Optional } from "@nestjs/common";
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException, Optional } from "@nestjs/common";
 import { getActionPolicy } from "@semse/agents";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
@@ -235,6 +235,89 @@ function normalizePlanStep(raw: unknown, idx: number): PlanStep {
 }
 
 /**
+ * Reject invalid dependency graphs before persisting or approving a work plan.
+ * Independent SEMSE implementation of the DAG invariant used by Conway
+ * Automaton's task graph; no external runtime or source is imported.
+ *
+ * Iterative topological traversal avoids recursion limits for large plans.
+ */
+export function assertValidPlanDependencies(
+  steps: ReadonlyArray<Pick<PlanStep, "id" | "dependsOnStepIds">>,
+): void {
+  const inDegree = new Map<string, number>();
+  const dependents = new Map<string, string[]>();
+
+  for (const step of steps) {
+    if (!step.id.trim()) {
+      throw new BadRequestException("El plan contiene un paso sin identificador.");
+    }
+    if (inDegree.has(step.id)) {
+      throw new BadRequestException(`El plan contiene un ID de paso duplicado: '${step.id}'.`);
+    }
+    inDegree.set(step.id, 0);
+    dependents.set(step.id, []);
+  }
+
+  for (const step of steps) {
+    const dependencies = new Set(step.dependsOnStepIds ?? []);
+    for (const dependencyId of dependencies) {
+      if (!inDegree.has(dependencyId)) {
+        throw new BadRequestException(
+          `El paso '${step.id}' depende de un paso inexistente: '${dependencyId}'.`,
+        );
+      }
+      if (dependencyId === step.id) {
+        throw new BadRequestException(`El paso '${step.id}' no puede depender de sí mismo.`);
+      }
+      inDegree.set(step.id, inDegree.get(step.id)! + 1);
+      dependents.get(dependencyId)!.push(step.id);
+    }
+  }
+
+  const ready = [...inDegree.entries()]
+    .filter(([, degree]) => degree === 0)
+    .map(([id]) => id);
+  let visited = 0;
+
+  while (ready.length > 0) {
+    const id = ready.pop()!;
+    visited++;
+    for (const dependentId of dependents.get(id) ?? []) {
+      const remaining = inDegree.get(dependentId)! - 1;
+      inDegree.set(dependentId, remaining);
+      if (remaining === 0) ready.push(dependentId);
+    }
+  }
+
+  if (visited !== steps.length) {
+    throw new BadRequestException("El plan contiene dependencias circulares y no puede ejecutarse.");
+  }
+}
+
+/**
+ * Preflight for all creation callers; must run before archive/memory side
+ * effects when superseding an active plan.
+ * Mirrors the ID/default-edge rules used by AgentWorkPlanService.create().
+ */
+export function validatePlanCreationGraph(
+  steps: ReadonlyArray<{ id?: string; dependsOnStepIds?: readonly string[] }>,
+): Array<{ id: string; dependsOnStepIds: string[] }> {
+  const stepIds = steps.map((step, idx) =>
+    typeof step.id === "string" && step.id.trim().length > 0 ? step.id.trim() : `step_${idx + 1}`,
+  );
+  const graph = steps.map((step, idx) => ({
+    id: stepIds[idx]!,
+    dependsOnStepIds: step.dependsOnStepIds?.length
+      ? [...step.dependsOnStepIds]
+      : idx > 0
+        ? [stepIds[idx - 1]!]
+        : [],
+  }));
+  assertValidPlanDependencies(graph);
+  return graph;
+}
+
+/**
  * Fingerprint of what an approval actually covers: which tools each step may
  * use and under which gates. Execution progress (status, timestamps, evidence)
  * is deliberately excluded, so completing a step never changes it.
@@ -323,25 +406,21 @@ export class AgentWorkPlanService {
     threadId?: string;
     contextSnapshot?: Record<string, unknown>;
     meta?: PlanMeta;
-  }): Promise<WorkPlanRecord> {
-    const stepIds = input.steps.map((step, idx) =>
-      typeof step.id === "string" && step.id.trim().length > 0 ? step.id.trim() : `step_${idx + 1}`,
-    );
+  }, db: Pick<Prisma.TransactionClient, "agentWorkPlan"> = this.prisma): Promise<WorkPlanRecord> {
+    const creationGraph = validatePlanCreationGraph(input.steps);
     const normalizedSteps = input.steps.map((step, idx) =>
       normalizePlanStep({
         ...step,
-        id: stepIds[idx],
+        id: creationGraph[idx]!.id,
         order: idx + 1,
         status: "pending",
-        dependsOnStepIds: step.dependsOnStepIds?.length
-          ? step.dependsOnStepIds
-          : idx > 0
-          ? [stepIds[idx - 1]!]
-          : [],
+        dependsOnStepIds: creationGraph[idx]!.dependsOnStepIds,
       }, idx),
     );
 
-    const created = await this.prisma.agentWorkPlan.create({
+    assertValidPlanDependencies(normalizedSteps);
+
+    const created = await db.agentWorkPlan.create({
       data: {
         tenantId: input.tenantId,
         orgId: input.orgId,
@@ -358,8 +437,77 @@ export class AgentWorkPlanService {
       },
     });
 
-    this.logger.log(`[plan] created id=${created.id} project=${input.projectId ?? "none"} steps=${normalizedSteps.length}`);
+    if (db === this.prisma) {
+      this.logger.log(`[plan] created id=${created.id} project=${input.projectId ?? "none"} steps=${normalizedSteps.length}`);
+    }
     return toRecord(created as StoredPlan);
+  }
+
+  /**
+   * Supersede an existing plan atomically. Both the cancellation and the new
+   * draft insert commit together, so storage failures cannot destroy the
+   * previous valid plan. Memory/audit side effects belong after commit.
+   */
+  /**
+   * Atomically supersede every existing active plan, including historical
+   * duplicates. Only after commit may callers emit archival memory.
+   * Serializable conflicts are retried a bounded number of times.
+   */
+  async createReplacingActivePlan(
+    input: Parameters<AgentWorkPlanService["create"]>[0] & { projectId: string },
+  ): Promise<{ created: WorkPlanRecord; archived: WorkPlanRecord[] }> {
+    validatePlanCreationGraph(input.steps);
+    const scope = {
+      tenantId: input.tenantId,
+      projectId: input.projectId,
+      status: { in: ["draft", "active", "executing"] },
+    } as const;
+
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const result = await this.prisma.$transaction(async (tx) => {
+          const previous = await tx.agentWorkPlan.findMany({
+            where: {
+              tenantId: scope.tenantId,
+              projectId: scope.projectId,
+              status: { in: [...scope.status.in] },
+            },
+            orderBy: { updatedAt: "desc" },
+          });
+          const cancelledAt = new Date();
+          if (previous.length) {
+            await tx.agentWorkPlan.updateMany({
+              where: {
+                tenantId: scope.tenantId,
+                projectId: scope.projectId,
+                status: { in: [...scope.status.in] },
+              },
+              data: { status: "cancelled", cancelledAt, cancelledBy: input.createdBy },
+            });
+          }
+
+          // The insertion and cancellation commit or roll back together.
+          const created = await this.create(input, tx);
+          const archived = previous.map((row) => toRecord({
+            ...row,
+            status: "cancelled",
+            cancelledAt,
+            cancelledBy: input.createdBy,
+          } as StoredPlan));
+          return { created, archived };
+        }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+
+        this.logger.log(`[plan] archived ${result.archived.length} plan(s) for project=${input.projectId}`);
+        this.logger.log(`[plan] created id=${result.created.id} project=${input.projectId} steps=${input.steps.length}`);
+        return result;
+      } catch (error) {
+        if ((error as { code?: unknown } | null)?.code !== "P2034") throw error;
+        if (attempt === 2) {
+          throw new ConflictException("plan replacement conflicted with concurrent changes; retry safely");
+        }
+      }
+    }
+    throw new ConflictException("plan replacement could not commit");
   }
 
   async findById(tenantId: string, planId: string): Promise<WorkPlanRecord> {
@@ -395,6 +543,7 @@ export class AgentWorkPlanService {
       throw new ForbiddenException(`Plan '${input.planId}' is not in draft status (current: ${plan.status})`);
     }
 
+    assertValidPlanDependencies(plan.steps);
     const approvedDefinitionHash = planDefinitionFingerprint(plan.steps);
     const updated = await this.prisma.agentWorkPlan.update({
       where: { id: input.planId },
@@ -519,6 +668,9 @@ export class AgentWorkPlanService {
     // plain execution progress (status/timestamps/evidence) keeps the version.
     const definitionChanged =
       planDefinitionFingerprint(current.steps) !== planDefinitionFingerprint(input.steps);
+    // Preserve progress updates for legacy plans, but reject any invalid new
+    // dependency definition before it reaches persistence or approval.
+    if (definitionChanged) assertValidPlanDependencies(input.steps);
     const updated = await this.prisma.agentWorkPlan.update({
       where: { id: input.planId },
       data: {

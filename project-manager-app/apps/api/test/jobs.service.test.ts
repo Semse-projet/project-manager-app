@@ -223,9 +223,10 @@ test("jobs service transition preserves preferred professional in returned job",
 
   const updated = await service.transitionJob({
     tenantId: "tenant_default",
-    orgId: "org_client_001",
-    userId: "usr_client_001",
-    roles: ["CLIENT"],
+    // Reserving goes through the reservation flow; only ops may force it here.
+    orgId: "org_admin_001",
+    userId: "usr_admin_001",
+    roles: ["OPS_ADMIN"],
     jobId: "job_pref_1",
     targetStatus: "reserved",
     requestId: "req_jobs_transition",
