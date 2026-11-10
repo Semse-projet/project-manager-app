@@ -799,7 +799,7 @@ export async function uploadEvidenceFile(
   }
 
   // 3. Register the evidence record in the DB
-  const evidence = await registerJobEvidence(jobId, { key, kind, milestoneId });
+  const evidence = await registerJobEvidence(jobId, { key, kind, milestoneId, filename: file.name });
   const evidenceId = String(evidence.id ?? "");
 
   return { key, evidenceId };
