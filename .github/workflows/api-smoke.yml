@@ -46,7 +46,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v6.1.0
+        uses: pnpm/action-setup@v6.1.1
         with:
           version: 10.33.0
 
@@ -68,7 +68,9 @@ jobs:
 
       - name: Start API
         run: |
-          pnpm start:api > /tmp/semse-api.log 2>&1 &
+          # Header-identity test API (no AUTH_SECRET): explicit local opt-in per
+          # core.header-identity-fail-closed. Ephemeral runner only, never Railway.
+          NODE_ENV=test SEMSE_ALLOW_HEADER_IDENTITY=true pnpm start:api > /tmp/semse-api.log 2>&1 &
           echo $! > /tmp/semse-api.pid
 
       - name: Wait for healthcheck
