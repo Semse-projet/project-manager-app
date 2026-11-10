@@ -35,6 +35,13 @@ import {
 } from "./dispute-effects.consumer.js";
 import { DISPUTE_V2_EVENT_TYPE_LIST } from "../disputes/dispute-events-v2.js";
 import {
+  MILESTONE_EFFECTS_CONSUMER,
+  MilestoneEffectsConsumer,
+  MilestoneEffectsDeadLetteredError,
+  MilestoneEffectsTerminalError,
+} from "./milestone-effects.consumer.js";
+import { hasStampedEffectsMode, MILESTONE_V2_EVENT_TYPE_LIST } from "../milestones/milestone-events-v2.js";
+import {
   dispatchToConsumers,
   groupDescriptorsByEventType,
   type FanOutDescriptor,
@@ -166,6 +173,7 @@ export class DomainEventConsumerService {
     private readonly satelliteWebhooksService?: SatelliteWebhooksService,
     @Optional() private readonly agentRunFinalization?: AgentRunFinalizationConsumer,
     @Optional() private readonly disputeEffects?: DisputeEffectsConsumer,
+    @Optional() private readonly milestoneEffects?: MilestoneEffectsConsumer,
   ) {
     this.handlersByEventType = this.buildHandlerRegistry();
   }
@@ -203,6 +211,14 @@ export class DomainEventConsumerService {
         consumerName: SATELLITE_WEBHOOKS_CONSUMER,
         handle: (storedEvent: DomainOutboxEvent, processingIdentity: ProcessingIdentity) =>
           this.processSatelliteWebhooksEvent(storedEvent, processingIdentity),
+      })),
+      // Event backbone F2, slice 2b. Shares approved/rejected.v1 with satellite-webhooks.v1 (fan-out) and only
+      // takes part in events a v2 producer stamped with an effects mode — never in the SAT-007 best-effort ones.
+      ...MILESTONE_V2_EVENT_TYPE_LIST.map((eventType) => ({
+        eventType,
+        consumerName: MILESTONE_EFFECTS_CONSUMER,
+        appliesTo: (storedEvent: DomainOutboxEvent) => hasStampedEffectsMode(storedEvent.metadataJson),
+        handle: (storedEvent: DomainOutboxEvent) => this.processMilestoneEffectsEvent(storedEvent),
       })),
     ];
 
@@ -283,44 +299,74 @@ export class DomainEventConsumerService {
     }
   }
 
-  private async processDisputeEffectsEvent(event: DomainOutboxEvent): Promise<ConsumerResult> {
-    if (!this.disputeEffects) {
-      throw new ServiceUnavailableException("Dispute effects consumer unavailable");
+  private processDisputeEffectsEvent(event: DomainOutboxEvent): Promise<ConsumerResult> {
+    return this.processEffectsConsumer(event, {
+      consumer: this.disputeEffects,
+      consumerName: DISPUTE_EFFECTS_CONSUMER,
+      unavailable: "Dispute effects consumer unavailable",
+      isDeadLettered: (error) => error instanceof DisputeEffectsDeadLetteredError,
+      isTerminal: (error) => error instanceof DisputeEffectsTerminalError,
+    });
+  }
+
+  private processMilestoneEffectsEvent(event: DomainOutboxEvent): Promise<ConsumerResult> {
+    return this.processEffectsConsumer(event, {
+      consumer: this.milestoneEffects,
+      consumerName: MILESTONE_EFFECTS_CONSUMER,
+      unavailable: "Milestone effects consumer unavailable",
+      isDeadLettered: (error) => error instanceof MilestoneEffectsDeadLetteredError,
+      isTerminal: (error) => error instanceof MilestoneEffectsTerminalError,
+    });
+  }
+
+  /** Metrics + failure bookkeeping shared by the F2 effects consumers (disputes, milestones). */
+  private async processEffectsConsumer(
+    event: DomainOutboxEvent,
+    spec: {
+      consumer?: { consume(event: DomainOutboxEvent): Promise<ConsumerResult> };
+      consumerName: string;
+      unavailable: string;
+      isDeadLettered: (error: unknown) => boolean;
+      isTerminal: (error: unknown) => boolean;
+    },
+  ): Promise<ConsumerResult> {
+    if (!spec.consumer) {
+      throw new ServiceUnavailableException(spec.unavailable);
     }
     try {
-      const result = await this.disputeEffects.consume(event);
-      if (result.duplicate) this.metrics.recordEventConsumerDuplicate(DISPUTE_EFFECTS_CONSUMER);
-      else this.metrics.recordEventConsumerAttempt(DISPUTE_EFFECTS_CONSUMER, "completed");
+      const result = await spec.consumer.consume(event);
+      if (result.duplicate) this.metrics.recordEventConsumerDuplicate(spec.consumerName);
+      else this.metrics.recordEventConsumerAttempt(spec.consumerName, "completed");
       return result;
     } catch (error) {
-      if (error instanceof DisputeEffectsDeadLetteredError) {
+      if (spec.isDeadLettered(error)) {
         throw new UnprocessableEntityException({
-          message: error.message,
+          message: (error as Error).message,
           eventId: event.eventId,
-          consumer: DISPUTE_EFFECTS_CONSUMER,
+          consumer: spec.consumerName,
         });
       }
       const failure = await this.recordFailure({
         eventId: event.eventId,
         tenantId: event.tenantId,
         error: redactConsumerError(error),
-        terminal: error instanceof DisputeEffectsTerminalError,
-        consumerName: DISPUTE_EFFECTS_CONSUMER,
+        terminal: spec.isTerminal(error),
+        consumerName: spec.consumerName,
       });
-      this.metrics.recordEventConsumerAttempt(DISPUTE_EFFECTS_CONSUMER, "failed");
+      this.metrics.recordEventConsumerAttempt(spec.consumerName, "failed");
       if (failure.status === "DEAD_LETTER") {
-        this.metrics.recordEventConsumerDeadLetter(DISPUTE_EFFECTS_CONSUMER);
+        this.metrics.recordEventConsumerDeadLetter(spec.consumerName);
         throw new UnprocessableEntityException({
           message: "Domain event consumer moved delivery to dead letter",
           eventId: event.eventId,
-          consumer: DISPUTE_EFFECTS_CONSUMER,
+          consumer: spec.consumerName,
           attempts: failure.attempts,
         });
       }
       throw new InternalServerErrorException({
         message: "Domain event consumer failed; retry is allowed",
         eventId: event.eventId,
-        consumer: DISPUTE_EFFECTS_CONSUMER,
+        consumer: spec.consumerName,
         attempts: failure.attempts,
       });
     }

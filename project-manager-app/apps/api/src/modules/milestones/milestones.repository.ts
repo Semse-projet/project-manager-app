@@ -1,4 +1,5 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException, Optional } from "@nestjs/common";
+import type { Prisma } from "@prisma/client";
 import { type MilestoneRecord } from "../../common/domain-store.js";
 import { ActorContextService } from "../../infrastructure/persistence/actor-context.service.js";
 import { evaluateRequiredEvidence, resolveEvidenceRevalidationMode } from "./evidence-readiness.js";
@@ -53,7 +54,16 @@ type StoredMilestone = {
   };
 };
 
-type MilestoneEventContext = {
+/**
+ * Event backbone F2, slice 2b: runs inside the SAME transaction as the milestone write (create or status
+ * transition) — used to insert the v2 outbox event. Without a hook every method writes exactly as before.
+ */
+export type MilestoneWriteHook = (
+  tx: Prisma.TransactionClient,
+  written: { milestoneId: string; projectId: string; jobId: string },
+) => Promise<void>;
+
+export type MilestoneEventContext = {
   milestoneId: string;
   projectId: string;
   jobId: string;
@@ -112,7 +122,7 @@ export class MilestonesRepository {
     userId: string;
     orgId: string;
     roles: string[];
-  }): Promise<MilestoneRecord> {
+  }, withinTx?: MilestoneWriteHook): Promise<MilestoneRecord> {
     if (!databaseEnabled()) {
       return createMilestoneMemory(input);
     }
@@ -152,7 +162,7 @@ export class MilestonesRepository {
       if (existing) {
         throw new ConflictException(`milestone sequence '${input.sequence}' already exists`);
       }
-      return tx.milestone.create({
+      const created = await tx.milestone.create({
         data: {
           projectId: input.projectId,
           title: input.title,
@@ -161,6 +171,11 @@ export class MilestonesRepository {
           status: "DRAFT"
         }
       });
+      if (withinTx) {
+        if (!project.jobId) throw new NotFoundException(`Project '${input.projectId}' has no linked job`);
+        await withinTx(tx, { milestoneId: created.id, projectId: input.projectId, jobId: project.jobId });
+      }
+      return created;
     })) as StoredMilestone;
 
     return toMilestoneRecord(milestone, input.tenantId);
@@ -206,7 +221,7 @@ export class MilestonesRepository {
     userId: string;
     orgId: string;
     roles: string[];
-  }): Promise<MilestoneRecord> {
+  }, withinTx?: MilestoneWriteHook): Promise<MilestoneRecord> {
     if (!databaseEnabled()) {
       return submitMilestoneMemory(input);
     }
@@ -216,7 +231,7 @@ export class MilestonesRepository {
     const snapshot = await this.getLifecycleSnapshot(input);
     assertMilestoneSubmittable(this.toActor(input), snapshot);
 
-    const updated = await this.transitionStatus(snapshot, milestoneStatusMap.submitted);
+    const updated = await this.transitionStatus(snapshot, milestoneStatusMap.submitted, withinTx);
 
     return toMilestoneRecord(updated, input.tenantId);
   }
@@ -227,7 +242,7 @@ export class MilestonesRepository {
     userId: string;
     orgId: string;
     roles: string[];
-  }): Promise<MilestoneRecord> {
+  }, withinTx?: MilestoneWriteHook): Promise<MilestoneRecord> {
     if (!databaseEnabled()) {
       return approveMilestoneMemory(input);
     }
@@ -242,7 +257,7 @@ export class MilestonesRepository {
     }
     assertMilestoneApprovable(this.toActor(input), snapshot, { evidenceMode });
 
-    const updated = await this.transitionStatus(snapshot, milestoneStatusMap.approved);
+    const updated = await this.transitionStatus(snapshot, milestoneStatusMap.approved, withinTx);
 
     return toMilestoneRecord(updated, input.tenantId);
   }
@@ -254,7 +269,7 @@ export class MilestonesRepository {
     userId: string;
     orgId: string;
     roles: string[];
-  }): Promise<MilestoneRecord> {
+  }, withinTx?: MilestoneWriteHook): Promise<MilestoneRecord> {
     if (!databaseEnabled()) {
       return rejectMilestoneMemory(input);
     }
@@ -264,7 +279,7 @@ export class MilestonesRepository {
     const snapshot = await this.getLifecycleSnapshot(input);
     assertMilestoneRejectable(this.toActor(input), snapshot);
 
-    const updated = await this.transitionStatus(snapshot, milestoneStatusMap.rejected);
+    const updated = await this.transitionStatus(snapshot, milestoneStatusMap.rejected, withinTx);
 
     return {
       ...toMilestoneRecord(updated, input.tenantId),
@@ -280,7 +295,7 @@ export class MilestonesRepository {
     userId: string;
     orgId: string;
     roles: string[];
-  }): Promise<MilestoneRecord> {
+  }, withinTx?: MilestoneWriteHook): Promise<MilestoneRecord> {
     if (!databaseEnabled()) {
       const milestone = rejectMilestoneMemory(input);
       milestone.status = "draft";
@@ -294,7 +309,7 @@ export class MilestonesRepository {
     const snapshot = await this.getLifecycleSnapshot(input);
     assertMilestoneRejectable(this.toActor(input), snapshot);
 
-    const updated = await this.transitionStatus(snapshot, milestoneStatusMap.draft);
+    const updated = await this.transitionStatus(snapshot, milestoneStatusMap.draft, withinTx);
 
     return {
       ...toMilestoneRecord(updated, input.tenantId),
@@ -304,68 +319,11 @@ export class MilestonesRepository {
   }
 
   async getEventContext(input: { tenantId: string; milestoneId: string }): Promise<MilestoneEventContext> {
-    const milestone = await this.prisma.milestone.findFirst({
-      where: {
-        id: input.milestoneId,
-        deletedAt: null,
-        project: {
-          tenantId: input.tenantId
-        }
-      },
-      select: {
-        id: true,
-        projectId: true,
-        project: {
-          select: {
-            jobId: true,
-            job: {
-              select: {
-                clientOrgId: true,
-                reservations: {
-                  where: { status: "ACCEPTED" },
-                  select: { professionalId: true },
-                  take: 1,
-                },
-                contract: {
-                  select: { clientUserId: true },
-                },
-              },
-            },
-          },
-        },
-        _count: {
-          select: {
-            evidence: true
-          }
-        }
-      }
-    });
-
-    if (!milestone) {
+    const context = await loadMilestoneEventContext(this.prisma, input);
+    if (!context) {
       throw new NotFoundException(`Milestone '${input.milestoneId}' not found`);
     }
-
-    let clientUserId = milestone.project.job?.contract?.clientUserId ?? null;
-
-    if (!clientUserId) {
-      const clientOrgId = milestone.project.job?.clientOrgId;
-      if (clientOrgId) {
-        const member = await this.prisma.membership.findFirst({
-          where: { orgId: clientOrgId, role: { key: "CLIENT" } },
-          select: { userId: true },
-        });
-        clientUserId = member?.userId ?? null;
-      }
-    }
-
-    return {
-      milestoneId: milestone.id,
-      projectId: milestone.projectId,
-      jobId: milestone.project.jobId,
-      evidenceCount: milestone._count.evidence,
-      proUserId: milestone.project.job?.reservations?.[0]?.professionalId ?? null,
-      clientUserId,
-    };
+    return context;
   }
 
   async listByJob(input: {
@@ -478,6 +436,7 @@ export class MilestonesRepository {
   private async transitionStatus(
     snapshot: MilestoneLifecycleSnapshot,
     to: (typeof milestoneStatusMap)[keyof typeof milestoneStatusMap],
+    withinTx?: MilestoneWriteHook,
   ): Promise<StoredMilestone> {
     const from = milestoneStatusMap[snapshot.currentStatus];
     // Same job row lock as a job's completion or cancellation (common/job-lock.ts):
@@ -496,7 +455,13 @@ export class MilestonesRepository {
       if (result.count === 0) {
         throw new ConflictException("milestone status changed concurrently; reload and retry");
       }
-      return tx.milestone.findUniqueOrThrow({ where: { id: snapshot.milestoneId } });
+      const updated = await tx.milestone.findUniqueOrThrow({ where: { id: snapshot.milestoneId } });
+      if (withinTx) {
+        const jobId = owner?.project?.jobId;
+        if (!jobId) throw new NotFoundException(`Milestone '${snapshot.milestoneId}' has no linked job`);
+        await withinTx(tx, { milestoneId: updated.id, projectId: updated.projectId, jobId });
+      }
+      return updated;
     })) as StoredMilestone;
   }
 
@@ -1113,4 +1078,74 @@ export class MilestonesRepository {
     ]);
     return total > 0 && total === approved;
   }
+}
+
+/**
+ * Participants and counters of a milestone, scoped by tenant (null if absent). Shared by the repository and by the
+ * milestone-effects.v1 consumer, which rebuilds the legacy event from it at consumption time.
+ */
+export async function loadMilestoneEventContext(
+  prisma: Pick<PrismaService, "milestone" | "membership">,
+  input: { tenantId: string; milestoneId: string },
+): Promise<MilestoneEventContext | null> {
+  const milestone = await prisma.milestone.findFirst({
+    where: {
+      id: input.milestoneId,
+      deletedAt: null,
+      project: {
+        tenantId: input.tenantId
+      }
+    },
+    select: {
+      id: true,
+      projectId: true,
+      project: {
+        select: {
+          jobId: true,
+          job: {
+            select: {
+              clientOrgId: true,
+              reservations: {
+                where: { status: "ACCEPTED" },
+                select: { professionalId: true },
+                take: 1,
+              },
+              contract: {
+                select: { clientUserId: true },
+              },
+            },
+          },
+        },
+      },
+      _count: {
+        select: {
+          evidence: true
+        }
+      }
+    }
+  });
+
+  if (!milestone) return null;
+
+  let clientUserId = milestone.project.job?.contract?.clientUserId ?? null;
+
+  if (!clientUserId) {
+    const clientOrgId = milestone.project.job?.clientOrgId;
+    if (clientOrgId) {
+      const member = await prisma.membership.findFirst({
+        where: { orgId: clientOrgId, role: { key: "CLIENT" } },
+        select: { userId: true },
+      });
+      clientUserId = member?.userId ?? null;
+    }
+  }
+
+  return {
+    milestoneId: milestone.id,
+    projectId: milestone.projectId,
+    jobId: milestone.project.jobId,
+    evidenceCount: milestone._count.evidence,
+    proUserId: milestone.project.job?.reservations?.[0]?.professionalId ?? null,
+    clientUserId,
+  };
 }

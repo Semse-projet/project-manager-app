@@ -29,7 +29,7 @@ El slice se entrega en dos PRs: **2a** (fan-out del registro, infraestructura si
 
 No hay cambios en el worker, la cola ni el replay: un job por evento, como hoy. El replay por consumidor ya reencola el evento entero, y los demás consumidores devuelven `duplicate`.
 
-## 2b. Productor y consumidor de milestones (siguiente PR)
+## 2b. Productor y consumidor de milestones (PR `feat/event-backbone-f2-milestones`)
 
 | Pieza | Cambio |
 |---|---|
@@ -37,6 +37,8 @@ No hay cambios en el worker, la cola ni el replay: un job por evento, como hoy. 
 | Eventos v2 | Nuevos: `milestone.created.v1`, `milestone.submitted.v1` y `milestone.revision_requested.v1`. Se reutilizan `milestone.approved.v1` y `milestone.rejected.v1` con el payload de SAT-007 sin cambios (D4). |
 | Productor | `MilestonesRepository` (`create`, `transitionStatus`) acepta un hook `withinTx`. En `shadow`/`on`, los 5 eventos se escriben en la transacción del cambio de estado, y la escritura best-effort de SAT-007 para `approved`/`rejected` pasa a ser transaccional (D4). En `off`, todo queda como hoy, incluida la escritura best-effort. |
 | Consumidor | `milestone-effects.v1` para los 5 tipos, con `appliesTo` = evento con `metadata.effectsMode`. Reconstruye el evento legacy y, en `on`, dispara agentes (`evidence-coach` en `submitted`, `risk` en `rejected`) y notificaciones. Esto incluye la notificación directa al profesional en `approved`, que hoy el servicio envía aparte con `proUserId`. En `shadow`, solo registro de paridad. |
+| Degradación | Si el repositorio no ejecuta el hook (persistencia en memoria) o falta Prisma/outbox, la llamada se trata como `off`: bus completo, escritura best-effort de SAT-007 y notificación directa. Ningún efecto se pierde. |
+| Motivo | `reject` y `requestChanges` rechazan con 400, antes de escribir, un motivo de más de 2000 caracteres (el límite de `rejectionReason`/`instructions`). Antes, `reject` confirmaba la transición y fallaba con 500 al construir el evento de SAT-007. |
 | Fuera de alcance | La evaluación de BuildOps Intelligence, la liberación automática de escrow y el autocompletado del job tras `approved` siguen en el servicio. No son efectos del bus (spec §3). |
 
 ### Decisión D5 (resuelta por el dueño el 2026-11-10: **instrucciones en el payload**)
@@ -54,3 +56,4 @@ No hay cambios en el worker, la cola ni el replay: un job por evento, como hoy. 
 
 - **Reintentos en fan-out:** si falla un consumidor, el job se reintenta para todos. Los completados responden `duplicate` desde su recibo, sin repetir efectos, a costa de una lectura extra por consumidor y reintento.
 - **503 por un consumidor no habilitado:** con fan-out, si un consumidor aplicable no está en la allowlist, el job se reintenta aunque los demás terminaron. Es el mismo comportamiento que hoy tiene un consumidor único no habilitado, y `appliesTo` evita que afecte a eventos que no le corresponden.
+- **Brechas legacy heredadas (no corregidas, la paridad las reproduce):** el esquema v1 de `milestone.submitted` no declara `clientUserId`, así que zod lo descarta y el cliente nunca recibe el aviso de entrega. `milestone.rejected` busca `proUserId`, que el payload no lleva, y `milestone.created`/`revision_requested` no tienen plantilla de notificación. Hoy, en la práctica, solo notifica la llamada directa de `approved`.

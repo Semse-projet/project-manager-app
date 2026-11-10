@@ -13,10 +13,17 @@ import type { OperationalContextService } from "../ai-models/context/operational
 import { OPERATIONAL_CONTEXT_SERVICE } from "../ai-models/context/operational-context.token.js";
 import { WorkspaceMemoryRepository } from "../knowledge/workspace-memory.repository.js";
 import { buildMilestoneWorkspaceMemoryRecord } from "../knowledge/workspace-memory.business-records.js";
-import { DomainEventBus } from "../domain-events/domain-event-bus.service.js";
+import { DomainEventBus, type DomainEventEmitOptions } from "../domain-events/domain-event-bus.service.js";
 import { OutboxRepository } from "../domain-events/outbox.repository.js";
 import { BuildOpsIntelligenceAgent } from "../operational-intelligence/buildops-intelligence.agent.js";
-import { MilestonesRepository } from "./milestones.repository.js";
+import { MilestonesRepository, type MilestoneWriteHook } from "./milestones.repository.js";
+import {
+  buildMilestoneV2Event,
+  MILESTONE_REASON_MAX_LENGTH,
+  resolveMilestoneEventsV2Mode,
+  type MilestoneEventsV2Mode,
+} from "./milestone-events-v2.js";
+import type { MilestoneV2EventType } from "@semse/schemas";
 import type { EscrowReleaseService } from "../payments/escrow-release.service.js";
 import type { NotificationsService } from "../notifications/notifications.service.js";
 import type { JobsService } from "../jobs/jobs.service.js";
@@ -121,6 +128,64 @@ export class MilestonesService {
     );
   }
 
+  /**
+   * Event backbone F2, slice 2b (D1): per-tenant mode. Without Prisma or the outbox the v2 path cannot run, so the
+   * service stays in `off` — the legacy bus and the SAT-007 best-effort write keep every effect.
+   */
+  private eventsV2Mode(tenantId: string): MilestoneEventsV2Mode {
+    return this.prisma && this.outboxRepository ? resolveMilestoneEventsV2Mode(tenantId) : "off";
+  }
+
+  /**
+   * In `shadow`/`on`, writes the v2 event inside the milestone write's own transaction. `ran()` tells whether the
+   * repository actually executed it (the in-memory persistence mode never does): if not, the call is treated as `off`
+   * so no effect is lost.
+   */
+  private v2Hook(
+    mode: MilestoneEventsV2Mode,
+    eventType: MilestoneV2EventType,
+    input: { tenantId: string; orgId: string; userId: string; requestId: string },
+    payload: (tx: Parameters<MilestoneWriteHook>[0], written: Parameters<MilestoneWriteHook>[1]) => Promise<Record<string, unknown>>,
+  ): { hook?: MilestoneWriteHook; effective: () => MilestoneEventsV2Mode } {
+    const outbox = this.outboxRepository;
+    if (mode === "off" || !outbox) return { effective: () => "off" };
+    let ran = false;
+    return {
+      hook: async (tx, written) => {
+        await outbox.create(tx, buildMilestoneV2Event({
+          eventType,
+          tenantId: input.tenantId,
+          orgId: input.orgId,
+          actorUserId: input.userId,
+          requestId: input.requestId,
+          effectsMode: mode,
+          milestoneId: written.milestoneId,
+          payload: {
+            milestoneId: written.milestoneId,
+            projectId: written.projectId,
+            jobId: written.jobId,
+            ...(await payload(tx, written)),
+          },
+        }));
+        ran = true;
+      },
+      effective: () => (ran ? mode : "off"),
+    };
+  }
+
+  /** D3: once the consumer owns notifications and agent triggers (`on`), the legacy emit keeps only the audit side. */
+  private legacyEmitOptions(mode: MilestoneEventsV2Mode): DomainEventEmitOptions | undefined {
+    return mode === "on" ? { effects: "audit-only" } : undefined;
+  }
+
+  private assertReasonLength(reason: string): void {
+    // The v2 payloads (and the SAT-007 rejected.v1 event) cap the reason at 2000 characters. Checked before the
+    // write: an over-long reason used to commit the transition and then fail building the SAT-007 event.
+    if (reason.trim().length > MILESTONE_REASON_MAX_LENGTH) {
+      throw new BadRequestException(`reason must be at most ${MILESTONE_REASON_MAX_LENGTH} characters`);
+    }
+  }
+
   private syncContext(tenantId: string, projectId: string, source: string, reason: string): void {
     this.operationalContext?.invalidateScope({
       tenantId,
@@ -145,7 +210,12 @@ export class MilestonesService {
       throw new BadRequestException("title is required");
     }
 
-    const milestone = await this.milestonesRepository.create(input);
+    const v2 = this.v2Hook(this.eventsV2Mode(input.tenantId), "milestone.created.v1", input, async () => ({
+      sequence: input.sequence,
+      amount: input.amount,
+    }));
+    const milestone = await this.milestonesRepository.create(input, v2.hook);
+    const mode = v2.effective();
 
     await this.auditService.append({
       id: `aud_${Date.now()}`,
@@ -177,7 +247,7 @@ export class MilestonesService {
       orgId: input.orgId,
       userId: input.userId,
       requestId: input.requestId
-    });
+    }, this.legacyEmitOptions(mode));
 
     this.syncContext(input.tenantId, input.projectId, "milestone.created", "milestone created");
 
@@ -231,7 +301,12 @@ export class MilestonesService {
     roles: string[];
     requestId: string;
   }): Promise<MilestoneRecord> {
-    const milestone = await this.milestonesRepository.submit(input);
+    const v2 = this.v2Hook(this.eventsV2Mode(input.tenantId), "milestone.submitted.v1", input, async (tx, written) => ({
+      professionalId: input.userId,
+      evidenceCount: await tx.evidence.count({ where: { milestoneId: written.milestoneId } }),
+    }));
+    const milestone = await this.milestonesRepository.submit(input, v2.hook);
+    const mode = v2.effective();
     const context = await this.milestonesRepository.getEventContext({
       tenantId: input.tenantId,
       milestoneId: input.milestoneId
@@ -277,7 +352,7 @@ export class MilestonesService {
       orgId: input.orgId,
       userId: input.userId,
       requestId: input.requestId
-    });
+    }, this.legacyEmitOptions(mode));
 
     void this.workspaceMemory.append(buildMilestoneWorkspaceMemoryRecord({
       tenantId: input.tenantId,
@@ -310,7 +385,16 @@ export class MilestonesService {
     roles: string[];
     requestId: string;
   }): Promise<MilestoneRecord> {
-    const milestone = await this.milestonesRepository.approve(input);
+    const v2 = this.v2Hook(this.eventsV2Mode(input.tenantId), "milestone.approved.v1", input, async (tx, written) => ({
+      reviewerId: input.userId,
+      // Same payload as the SAT-007 best-effort write: the committed milestone amount.
+      amount: Number((await tx.milestone.findUniqueOrThrow({
+        where: { id: written.milestoneId },
+        select: { amount: true },
+      })).amount),
+    }));
+    const milestone = await this.milestonesRepository.approve(input, v2.hook);
+    const mode = v2.effective();
     const context = await this.milestonesRepository.getEventContext({
       tenantId: input.tenantId,
       milestoneId: input.milestoneId
@@ -340,7 +424,7 @@ export class MilestonesService {
       orgId: input.orgId,
       userId: input.userId,
       requestId: input.requestId
-    });
+    }, this.legacyEmitOptions(mode));
 
     void this.workspaceMemory.append(buildMilestoneWorkspaceMemoryRecord({
       tenantId: input.tenantId,
@@ -357,17 +441,21 @@ export class MilestonesService {
 
     this.syncContext(input.tenantId, context.projectId, "milestone.approved", "milestone approved");
 
-    this.emitMilestoneOutboxEvent("approved", {
-      tenantId: input.tenantId,
-      orgId: input.orgId,
-      userId: input.userId,
-      milestoneId: milestone.id,
-      projectId: context.projectId,
-      jobId: context.jobId,
-      amount: milestone.amount,
-    });
+    // shadow/on: approved.v1 was already written in the approval transaction (D4); off: SAT-007 best-effort write.
+    if (mode === "off") {
+      this.emitMilestoneOutboxEvent("approved", {
+        tenantId: input.tenantId,
+        orgId: input.orgId,
+        userId: input.userId,
+        milestoneId: milestone.id,
+        projectId: context.projectId,
+        jobId: context.jobId,
+        amount: milestone.amount,
+      });
+    }
 
-    if (context.proUserId) {
+    // In `on` the milestone-effects.v1 consumer sends this notification (re-reading the professional).
+    if (context.proUserId && mode !== "on") {
       void this.notifications?.handleEvent({
         tenantId: input.tenantId,
         eventType: "milestone.approved",
@@ -435,7 +523,13 @@ export class MilestonesService {
       throw new BadRequestException("reason is required");
     }
 
-    const milestone = await this.milestonesRepository.reject(input);
+    this.assertReasonLength(input.reason);
+    const v2 = this.v2Hook(this.eventsV2Mode(input.tenantId), "milestone.rejected.v1", input, async () => ({
+      reviewerId: input.userId,
+      rejectionReason: input.reason,
+    }));
+    const milestone = await this.milestonesRepository.reject(input, v2.hook);
+    const mode = v2.effective();
     const context = await this.milestonesRepository.getEventContext({
       tenantId: input.tenantId,
       milestoneId: input.milestoneId
@@ -465,7 +559,7 @@ export class MilestonesService {
       orgId: input.orgId,
       userId: input.userId,
       requestId: input.requestId
-    });
+    }, this.legacyEmitOptions(mode));
 
     void this.workspaceMemory.append(buildMilestoneWorkspaceMemoryRecord({
       tenantId: input.tenantId,
@@ -483,15 +577,17 @@ export class MilestonesService {
 
     this.syncContext(input.tenantId, context.projectId, "milestone.rejected", "milestone rejected");
 
-    this.emitMilestoneOutboxEvent("rejected", {
-      tenantId: input.tenantId,
-      orgId: input.orgId,
-      userId: input.userId,
-      milestoneId: milestone.id,
-      projectId: context.projectId,
-      jobId: context.jobId,
-      rejectionReason: input.reason,
-    });
+    if (mode === "off") {
+      this.emitMilestoneOutboxEvent("rejected", {
+        tenantId: input.tenantId,
+        orgId: input.orgId,
+        userId: input.userId,
+        milestoneId: milestone.id,
+        projectId: context.projectId,
+        jobId: context.jobId,
+        rejectionReason: input.reason,
+      });
+    }
 
     void this.intelligenceAgent?.evaluateMilestone({
       tenantId: input.tenantId,
@@ -515,7 +611,13 @@ export class MilestonesService {
       throw new BadRequestException("reason is required");
     }
 
-    const milestone = await this.milestonesRepository.requestChanges(input);
+    this.assertReasonLength(input.reason);
+    const v2 = this.v2Hook(this.eventsV2Mode(input.tenantId), "milestone.revision_requested.v1", input, async () => ({
+      requestedById: input.userId,
+      instructions: input.reason,
+    }));
+    const milestone = await this.milestonesRepository.requestChanges(input, v2.hook);
+    const mode = v2.effective();
     const context = await this.milestonesRepository.getEventContext({
       tenantId: input.tenantId,
       milestoneId: input.milestoneId
@@ -549,7 +651,7 @@ export class MilestonesService {
       orgId: input.orgId,
       userId: input.userId,
       requestId: input.requestId
-    });
+    }, this.legacyEmitOptions(mode));
 
     this.syncContext(input.tenantId, context.projectId, "milestone.changes_requested", "milestone changes requested");
 

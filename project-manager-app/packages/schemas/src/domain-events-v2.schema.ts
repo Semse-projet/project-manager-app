@@ -828,3 +828,90 @@ export const DISPUTE_V2_EVENT_TYPES = {
 } as const;
 
 export type DisputeV2EventType = keyof typeof DISPUTE_V2_EVENT_TYPES;
+
+// ── Milestones (event backbone F2, slice 2b) ───────────────────────────────
+// spec platform.event-backbone-f2-legacy-producers, plan event-backbone-f2-milestones.plan.md.
+// `approved.v1` / `rejected.v1` keep the SAT-007 payload unchanged (D4). The new events carry references and
+// counters; the title is re-read by the consumer. `revision_requested.v1` carries the instructions (D5, same
+// exception `rejected.v1` already has for `rejectionReason`).
+
+export const MILESTONE_CREATED_V1_SCHEMA_REF = "semse://schemas/events/milestone.created.v1" as const;
+export const MILESTONE_SUBMITTED_V1_SCHEMA_REF = "semse://schemas/events/milestone.submitted.v1" as const;
+export const MILESTONE_REVISION_REQUESTED_V1_SCHEMA_REF =
+  "semse://schemas/events/milestone.revision_requested.v1" as const;
+
+const milestoneRefsSchema = {
+  milestoneId: nonEmptyId,
+  projectId: nonEmptyId,
+  jobId: nonEmptyId,
+};
+
+export const milestoneCreatedV1PayloadSchema = z
+  .object({
+    ...milestoneRefsSchema,
+    sequence: z.number().int(),
+    amount: z.number().nonnegative(),
+  })
+  .strict();
+export const milestoneSubmittedV1PayloadSchema = z
+  .object({
+    ...milestoneRefsSchema,
+    professionalId: nonEmptyId,
+    evidenceCount: z.number().int().nonnegative(),
+  })
+  .strict();
+export const milestoneRevisionRequestedV1PayloadSchema = z
+  .object({
+    ...milestoneRefsSchema,
+    requestedById: nonEmptyId,
+    instructions: z.string().trim().min(1).max(2000),
+  })
+  .strict();
+
+function milestoneEventSchema<
+  TType extends string,
+  TRef extends string,
+  TPayload extends z.ZodTypeAny,
+>(eventType: TType, schemaRef: TRef, payload: TPayload) {
+  return semseDomainEventV2ObjectSchema
+    .extend({
+      eventType: z.literal(eventType),
+      version: z.literal(1),
+      envelopeVersion: z.literal(2),
+      module: z.literal("milestones"),
+      entityType: z.literal("Milestone"),
+      schemaRef: z.literal(schemaRef),
+      payload,
+    })
+    .superRefine((value, ctx) => {
+      validateEnvelopeV2(value as SemseDomainEventV2Input, ctx);
+      if (value.entityId !== (value.payload as { milestoneId: string }).milestoneId) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["entityId"],
+          message: "entityId must match payload.milestoneId",
+        });
+      }
+    });
+}
+
+export const milestoneCreatedV1EventSchema = milestoneEventSchema(
+  "milestone.created.v1", MILESTONE_CREATED_V1_SCHEMA_REF, milestoneCreatedV1PayloadSchema,
+);
+export const milestoneSubmittedV1EventSchema = milestoneEventSchema(
+  "milestone.submitted.v1", MILESTONE_SUBMITTED_V1_SCHEMA_REF, milestoneSubmittedV1PayloadSchema,
+);
+export const milestoneRevisionRequestedV1EventSchema = milestoneEventSchema(
+  "milestone.revision_requested.v1", MILESTONE_REVISION_REQUESTED_V1_SCHEMA_REF, milestoneRevisionRequestedV1PayloadSchema,
+);
+
+/** The five milestone event types the milestone-effects.v1 consumer handles, mapped to their legacy (v1 bus) name. */
+export const MILESTONE_V2_EVENT_TYPES = {
+  "milestone.created.v1": "milestone.created",
+  "milestone.submitted.v1": "milestone.submitted",
+  "milestone.approved.v1": "milestone.approved",
+  "milestone.rejected.v1": "milestone.rejected",
+  "milestone.revision_requested.v1": "milestone.revision_requested",
+} as const;
+
+export type MilestoneV2EventType = keyof typeof MILESTONE_V2_EVENT_TYPES;
