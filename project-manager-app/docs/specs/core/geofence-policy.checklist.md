@@ -1,0 +1,11 @@
+# Checklist — BO-09
+- [ ] ASK por defecto; AUTO solo con consentimiento aparte y revocable.
+- [ ] No se guardan coordenadas.
+- [ ] El servidor decide pero nunca inicia ni termina un reloj ni inventa horas.
+- [ ] Sin doble sesión; la salida con reloj activo pregunta.
+- [ ] Idempotencia por eventId y enfriamiento.
+- [ ] Eventos solo del catálogo.
+- [ ] Flag apagado → 404.
+- [ ] spec:validate:strict, build, tests, CI verde.
+- [ ] Probado en iPhone (pendiente).
+- [ ] Probado en Android (pendiente: no hay dispositivo).

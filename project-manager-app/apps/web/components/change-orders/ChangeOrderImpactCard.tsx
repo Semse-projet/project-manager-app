@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { TrendingUp, Clock, Layers, AlertTriangle, CheckCircle } from "lucide-react";
+import { useLanguage } from "../../lib/language-context";
 
 type ImpactResult = {
   changeOrderId:      string;
@@ -25,11 +26,11 @@ function riskColor(r: ImpactResult["riskLevel"]): string {
   return "#86efac";
 }
 
-function paymentImpactLabel(p: ImpactResult["paymentImpact"]): { label: string; color: string } {
-  if (p === "already_applied")  return { label: "Ya aplicado",         color: "#6366f1" };
-  if (p === "requires_approval") return { label: "Requiere aprobación", color: "#fbbf24" };
-  if (p === "hold_required")    return { label: "Pago en espera",      color: "var(--error)" };
-  return { label: "Sin impacto de pago", color: "#86efac" };
+function paymentImpactLabel(p: ImpactResult["paymentImpact"], t: (key: string) => string): { label: string; color: string } {
+  if (p === "already_applied")  return { label: t("impact.status.already_applied"),         color: "#6366f1" };
+  if (p === "requires_approval") return { label: t("impact.status.requires_approval"), color: "#fbbf24" };
+  if (p === "hold_required")    return { label: t("impact.status.hold_required"),      color: "var(--error)" };
+  return { label: t("impact.status.none"), color: "#86efac" };
 }
 
 interface Props {
@@ -39,6 +40,7 @@ interface Props {
 }
 
 export function ChangeOrderImpactCard({ changeOrderId, canApply, onApplied }: Props) {
+  const { t, language } = useLanguage();
   const [impact, setImpact] = useState<ImpactResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [applying, setApplying] = useState(false);
@@ -69,38 +71,38 @@ export function ChangeOrderImpactCard({ changeOrderId, canApply, onApplied }: Pr
   }
 
   if (loading) {
-    return <div style={{ fontSize: 12, color: "var(--muted)", padding: 12 }}>Calculando impacto...</div>;
+    return <div style={{ fontSize: 12, color: "var(--muted)", padding: 12 }}>{t("impact.loading")}</div>;
   }
 
   if (!impact) {
-    return <div style={{ fontSize: 12, color: "var(--muted)", padding: 12 }}>Sin datos de impacto</div>;
+    return <div style={{ fontSize: 12, color: "var(--muted)", padding: 12 }}>{t("impact.empty")}</div>;
   }
 
-  const pImpact = paymentImpactLabel(impact.paymentImpact);
-  const money = (n: number) => n > 0 ? `$${Math.round(n).toLocaleString()}` : "—";
+  const pImpact = paymentImpactLabel(impact.paymentImpact, t);
+  const money = (n: number) => n > 0 ? new Intl.NumberFormat(language === "en" ? "en-US" : "es-MX", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(Math.round(n)) : "—";
 
   return (
     <div style={{ background: "rgba(255,255,255,.03)", border: `1px solid ${riskColor(impact.riskLevel)}33`, borderRadius: 14, padding: 14, display: "grid", gap: 12 }}>
 
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <TrendingUp size={14} color={riskColor(impact.riskLevel)} />
-        <span style={{ fontSize: 12, fontWeight: 800, color: "var(--ink)" }}>Impacto estimado</span>
+        <span style={{ fontSize: 12, fontWeight: 800, color: "var(--ink)" }}>{t("impact.title")}</span>
         <span style={{ marginLeft: "auto", fontSize: 11, fontWeight: 800, color: riskColor(impact.riskLevel) }}>
-          {impact.riskLevel.toUpperCase()}
+          {t(`risk.${impact.riskLevel}`).toUpperCase()}
         </span>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
         <div style={{ padding: "10px 12px", borderRadius: 10, background: "rgba(255,255,255,.03)", border: "1px solid var(--border)" }}>
-          <div style={{ fontSize: 10, color: "var(--muted)", marginBottom: 3 }}>Costo delta</div>
+          <div style={{ fontSize: 10, color: "var(--muted)", marginBottom: 3 }}>{t("impact.costDelta")}</div>
           <div style={{ fontSize: 16, fontWeight: 800, color: "var(--ink)" }}>{money(impact.costDeltaAvg)}</div>
           <div style={{ fontSize: 10, color: "var(--muted)", marginTop: 2 }}>{money(impact.costDeltaMin)} – {money(impact.costDeltaMax)}</div>
         </div>
         <div style={{ padding: "10px 12px", borderRadius: 10, background: "rgba(255,255,255,.03)", border: "1px solid var(--border)" }}>
-          <div style={{ fontSize: 10, color: "var(--muted)", marginBottom: 3 }}>Impacto en pago</div>
+          <div style={{ fontSize: 10, color: "var(--muted)", marginBottom: 3 }}>{t("impact.paymentImpact")}</div>
           <div style={{ fontSize: 12, fontWeight: 800, color: pImpact.color }}>{pImpact.label}</div>
           {impact.probability != null && (
-            <div style={{ fontSize: 10, color: "var(--muted)", marginTop: 2 }}>Probabilidad: {impact.probability}%</div>
+            <div style={{ fontSize: 10, color: "var(--muted)", marginTop: 2 }}>{t("impact.probability")}: {impact.probability}%</div>
           )}
         </div>
       </div>
@@ -108,7 +110,7 @@ export function ChangeOrderImpactCard({ changeOrderId, canApply, onApplied }: Pr
       {impact.affectedMilestones.length > 0 && (
         <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "var(--muted)" }}>
           <Layers size={12} />
-          <span>{impact.affectedMilestones.length} milestone(s) afectado(s)</span>
+          <span>{impact.affectedMilestones.length} {t("impact.affectedMilestones")}</span>
         </div>
       )}
 
@@ -126,14 +128,14 @@ export function ChangeOrderImpactCard({ changeOrderId, canApply, onApplied }: Pr
           }}
         >
           <CheckCircle size={13} />
-          {applying ? "Aplicando..." : "Aplicar a BuildOps"}
+          {applying ? t("impact.applying") : t("impact.applyToBuildOps")}
         </button>
       )}
 
       {applyResult?.alreadyApplied && (
         <div style={{ fontSize: 12, color: "#86efac", display: "flex", alignItems: "center", gap: 6 }}>
           <CheckCircle size={12} />
-          Ya aplicado — sin cambios adicionales
+          {t("impact.alreadyApplied")}
         </div>
       )}
 

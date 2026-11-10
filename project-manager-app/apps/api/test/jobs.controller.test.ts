@@ -91,7 +91,7 @@ test("jobs controller declares expected permissions", () => {
     ["create", "jobs:create"],
     ["update", "jobs:update"],
     ["archive", "jobs:archive"],
-    ["transition", "jobs:update"],
+    ["transition", "jobs:transition"],
     ["restore", "jobs:restore"],
   ];
 
