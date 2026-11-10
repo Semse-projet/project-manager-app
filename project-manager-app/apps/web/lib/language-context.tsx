@@ -839,6 +839,10 @@ const T: Record<LanguagePreference, Record<string, string>> = {
     "workerDash.tier.growing": "En crecimiento",
     "workerDash.tier.established": "Establecido",
     "workerDash.tier.trusted": "De confianza",
+    "workerDash.evidenceUpToDate": "Evidencia al día — sin items pendientes",
+    "workerDash.evidencePendingOne": "evidencia pendiente",
+    "workerDash.evidencePendingMany": "evidencias pendientes",
+    "workerDash.evidencePendingHint": "Sube las fotos requeridas para desbloquear tus pagos → Subir ahora",
 
     // ── Crowd decision badge ES/EN ────────────────────────────────────────
     "crowd.ready": "listo para pago",
@@ -1310,6 +1314,7 @@ const T: Record<LanguagePreference, Record<string, string>> = {
     "prom.visibility.public_training": "Público/Entrenamiento",
     "prom.visibility.tenant_private": "Privado organización",
     "prom.visibility.project_private": "Privado proyecto",
+    "prom.visibility.sharingDisabledHint": "Compartir documentos o asociarlos a proyectos requiere autorización explícita y una asociación verificada; estas opciones permanecen deshabilitadas por seguridad.",
     "prom.pasteContent": "Pega aquí el contenido del documento...",
     "prom.processing": "Procesando…",
     "prom.ingestText": "Ingestar texto",
@@ -2239,6 +2244,10 @@ const T: Record<LanguagePreference, Record<string, string>> = {
     "workerDash.tier.growing": "Growing",
     "workerDash.tier.established": "Established",
     "workerDash.tier.trusted": "Trusted",
+    "workerDash.evidenceUpToDate": "Evidence up to date — nothing pending",
+    "workerDash.evidencePendingOne": "pending evidence item",
+    "workerDash.evidencePendingMany": "pending evidence items",
+    "workerDash.evidencePendingHint": "Upload the required photos to unlock your payments → Upload now",
 
     // ── Crowd decision badge ES/EN ────────────────────────────────────────
     "crowd.ready": "ready for payment",
@@ -2708,6 +2717,7 @@ const T: Record<LanguagePreference, Record<string, string>> = {
     "prom.visibility.public_training": "Public/training",
     "prom.visibility.tenant_private": "Organization private",
     "prom.visibility.project_private": "Project private",
+    "prom.visibility.sharingDisabledHint": "Sharing documents or linking them to projects requires explicit authorization and a verified association; these options stay disabled for security.",
     "prom.pasteContent": "Paste the document content here...",
     "prom.processing": "Processing…",
     "prom.ingestText": "Ingest text",

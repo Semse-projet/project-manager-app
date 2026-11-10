@@ -1,10 +1,16 @@
 # Línea base de contraste WCAG — paleta SEMSE
 
-**Medido:** 2026-10-20 sobre `packages/design-tokens/src/colors.ts` en la rama `claude/replica-skill-repo-bpdobu` (paleta idéntica a `main` en `06dfd7b`). **Herramientas:** `semse-release-gate/scripts/semse-tokens.mjs` + `contrast.py`. **Umbrales WCAG 2.2 AA:** texto normal 4.5:1, texto grande 3:1, bordes y componentes de interfaz (`ui`) 3:1.
+**Umbrales WCAG 2.2 AA:** texto normal 4.5:1, texto grande 3:1, bordes y componentes de interfaz (`ui`) 3:1. **Herramientas:** `semse-release-gate/scripts/semse-tokens.mjs` + `contrast.py`.
 
-Esto es un **hallazgo**, no un cambio: este PR no toca colores. Corregirlo es un cambio de diseño que debe mover juntos `colors.ts`, los 4 bloques de `apps/web/app/globals.css` y el tema móvil (`semse-design-tokens`). Mientras tanto, `semse-release-gate` sólo bloquea pares **nuevos** por debajo de AA o ratios que **empeoren** respecto a esta tabla.
+## Estado actual (#1041): 0 de 20 pares fallan AA en los dos temas
 
-## Tema oscuro (por defecto): 5 de 20 pares fallan AA
+#1041 aplicó la paleta AA en `colors.ts`, los 4 bloques de `apps/web/app/globals.css` y `@theme`. Los botones rellenos (`.btn-primary`, `.btn-accent`) pasan a los tokens nuevos `brandFill` y `accentFill`, y `PAIRS` mide su texto blanco sobre ellos: 5.17:1 y 5.18:1. Desde ahora `semse-release-gate` bloquea **cualquier** par por debajo de AA.
+
+## Historial: medición del 2026-10-20, antes de #1041
+
+Medida sobre `packages/design-tokens/src/colors.ts` en la rama `claude/replica-skill-repo-bpdobu` (paleta idéntica a `main` en `06dfd7b`). Entonces era un hallazgo sin cambio de colores; se conserva como referencia.
+
+### Tema oscuro (por defecto): 5 de 20 pares fallaban AA
 
 | Par | Ratio | Necesita | Nota |
 |---|---|---|---|
@@ -14,7 +20,7 @@ Esto es un **hallazgo**, no un cambio: este PR no toca colores. Corregirlo es un
 | blanco sobre `accent` (#ff6a00) | 2.87 | 4.5 | texto de `.btn-accent` |
 | `border2` sobre `surface` | 1.53 | 3.0 (ui) | borde de inputs: casi invisible |
 
-## Tema claro: 8 de 20 pares fallan AA
+### Tema claro: 8 de 20 pares fallaban AA
 
 | Par | Ratio | Necesita | Nota |
 |---|---|---|---|

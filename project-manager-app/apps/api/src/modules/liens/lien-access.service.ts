@@ -1,6 +1,7 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service.js';
 import { hasScopeAccess, scopeFromOwnership } from '../../common/resource-scope.js';
+import { ResourceScopeResolver } from '../../common/resource-scope.resolver.js';
 
 export type LienActor = {
   tenantId: string;
@@ -38,19 +39,18 @@ export function assertLienAccess(actor: LienActor, ownership: LienOwnership, mod
  */
 @Injectable()
 export class LienAccessService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly scopeResolver: ResourceScopeResolver,
+  ) {}
 
   async assertProject(actor: LienActor, projectId: string, mode: LienAccessMode): Promise<void> {
-    const project = projectId
-      ? await this.prisma.project.findFirst({
-          where: { id: projectId, tenantId: actor.tenantId },
-          select: { assignedProOrgId: true, job: { select: { clientOrgId: true } } },
-        })
-      : null;
-    if (!project) throw new NotFoundException('Project not found');
+    // C51: alcance del proyecto con el resolver canónico (siempre filtrado por el tenant del actor).
+    const scope = projectId ? await this.scopeResolver.resolveProjectScope(actor.tenantId, projectId) : null;
+    if (!scope) throw new NotFoundException('Project not found');
     assertLienAccess(
       actor,
-      { clientOrgId: project.job?.clientOrgId ?? '', assignedProOrgId: project.assignedProOrgId ?? '' },
+      { clientOrgId: scope.clientOrgId ?? '', assignedProOrgId: scope.assignedProOrgId ?? '' },
       mode,
     );
   }
