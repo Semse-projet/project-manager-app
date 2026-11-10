@@ -97,6 +97,9 @@ dbTest("a deposit that starts while the job is being cancelled waits for it and 
     await cancel;
     const outcome = await racingDeposit;
     assert.notEqual(outcome, "deposited", "the deposit must not land in a cancelled job");
+    // The lock wait aborts the Serializable transaction (P2010 / 40001 from the raw
+    // FOR UPDATE); depositFunds retries it and the retry sees the cancelled job.
+    assert.match(outcome, /cannot fund escrow: job is cancelled/);
     assert.equal(await prisma.paymentTxn.count({ where: { escrow: { projectId: ids.projectId } } }), 0);
     assert.equal((await prisma.job.findUnique({ where: { id: ids.jobId } }))?.status, "CANCELLED");
   } finally {

@@ -358,7 +358,7 @@ export class PaymentsRepository {
       };
         }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
       } catch (error) {
-        if ((error as { code?: unknown } | null)?.code !== "P2034") throw error;
+        if (!isSerializationFailure(error)) throw error;
         if (attempt === 2) {
           throw new ConflictException("escrow funding conflicted with a concurrent transition; retry safely");
         }
@@ -871,4 +871,16 @@ export class PaymentsRepository {
     });
     return { reconciled: true, transaction: this.toRecord(updated) };
   }
+}
+
+/**
+ * Postgres 40001/40P01 as Prisma reports them: P2034 for a client query, but P2010
+ * (carrying the SQLSTATE) for a raw query. The job row lock is a raw
+ * `SELECT ... FOR UPDATE`, so a deposit that waited behind a cancellation fails
+ * there with P2010 40001 (seen against PostgreSQL 16, job-closure-lock-integration).
+ */
+function isSerializationFailure(error: unknown): boolean {
+  const { code, meta } = (error ?? {}) as { code?: unknown; meta?: { code?: unknown } };
+  if (code === "P2034") return true;
+  return code === "P2010" && (meta?.code === "40001" || meta?.code === "40P01");
 }
