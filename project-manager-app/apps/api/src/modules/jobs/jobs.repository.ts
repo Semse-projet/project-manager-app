@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import {
   JOB_CREATED_V1_SCHEMA_REF,
@@ -18,6 +18,7 @@ import {
   type JobsBidsProjectionSnapshot,
 } from "./jobs-bids-projection.js";
 import { sameOrg } from "../../common/resource-scope.js";
+import { lockJobRow } from "../../common/job-lock.js";
 import { buildJobVisibilityWhere } from "./jobs-visibility.js";
 
 const jobStatusMap = {
@@ -386,6 +387,14 @@ export class JobsRepository {
     actorType: "user" | "system" | "agent" | "webhook";
     actorId: string;
     requestId?: string;
+    /** Runs inside the write transaction, after the job row is locked (common/job-lock.ts). */
+    beforeWrite?: (tx: Prisma.TransactionClient) => Promise<void>;
+    /**
+     * Status the caller validated the transition from. When set, the row is locked
+     * and the write is refused if the job moved meanwhile (e.g. a concurrent
+     * completion), so a stale transition can never overwrite a newer status.
+     */
+    expectedFrom?: JobRecord["status"];
   }): Promise<JobRecord> {
     const dbStatus = jobStatusMap[input.status];
     if (!dbStatus) {
@@ -404,6 +413,15 @@ export class JobsRepository {
 
       if (!existing) {
         throw new NotFoundException(`Job '${input.jobId}' not found`);
+      }
+      if (input.beforeWrite || input.expectedFrom) {
+        const current = await lockJobRow(tx, existing.id);
+        if (input.expectedFrom && current !== jobStatusMap[input.expectedFrom]) {
+          throw new ConflictException(
+            `job changed from '${input.expectedFrom}' to '${String(current).toLowerCase()}' while this transition was in flight`
+          );
+        }
+        if (input.beforeWrite) await input.beforeWrite(tx);
       }
 
       const updated = await tx.job.update({
