@@ -10,7 +10,7 @@
 |---|---|---|---|---|
 | P0-1 | **Ningún AgentRun se reclama ni se ejecuta** (agentes de Prometeo, browser agent, retries). | API HTTP: `POST /v1/agents/runs/reclaim-stale` → **403** cada 10 s desde el deploy de #1129 (2026-11-09). #1129 separó `agents:run:claim` en el rol de máquina `AGENT_RUNNER` y su propia nota decía "aprovisionar la identidad del Worker con `AGENT_RUNNER` antes de desplegar". El merge desplegó sin ese paso. | (1) `SEMSE_ROLES` de semse-worker con `AGENT_RUNNER` → **hecho 2026-11-11 00:00Z** (autorizado por el dueño). (2) **[DUEÑO]** verificar y, previa aprobación explícita, aprovisionar la membresía `ACTIVE` de la identidad técnica `usr_worker_system` en el tenant/org reales del Worker; solicitar exclusivamente `AGENT_RUNNER` con el script de membresías (dry-run primero). **No usar `railway run` suponiendo que ejecuta dentro del contenedor**; ver procedimiento seguro §0.1. | Pendiente del paso 2 |
 | P0-2 | **Production Health Gate nunca se ejecuta** tras un deploy. | GitHub Actions `Railway Deploy`: el último éxito fue 2026-10-20 (`06dfd7b`); desde 2026-10-26, todos los runs de `main` fallan con `Not Authorized` de la API de Railway. El gate depende de ese job y queda `skipped`. Producción **sí** está al día porque Railway despliega `main` con su integración nativa de GitHub (`checkSuites: false`). | **[DUEÑO]** Regenerar el token de Railway y actualizar el secret `RAILWAY_TOKEN` del repo, o decidir retirar el deploy duplicado de Actions y dejar el Health Gate independiente (cambio de CI, necesita autorización). | Pendiente |
-| P0-3 | Los logs del worker registran "sweep/reclaim failed" sin motivo. | pino serializaba el `Error` como `{}`. | PR #1141 (`describeError`). | En PR |
+| P0-3 | Los logs del worker registran "sweep/reclaim failed" sin motivo. | pino serializaba el `Error` como `{}`. | PR #1141 (`describeError`), actualizado para omitir cuerpos HTTP, query strings y mensajes no clasificados. | Draft; CI y API Integration verdes en HEAD `3b09e0a5`; no desplegado |
 
 ### 0.1 Procedimiento seguro para el 403 de AgentRun
 
@@ -30,16 +30,18 @@
 
 **Sin cambios operativos en este PR:** estas instrucciones no ejecutan el grant, no leen valores secretos y no alteran Railway, DB ni permisos.
 
-## 1. Schedulers del worker apagados (semse-worker define 23 variables; ninguna de estas)
+## 1. Schedulers del worker: estado comprobado en producción (2026-11-11 13:14 UTC)
+
+La consulta de variables de Railway muestra ahora `PAYMENTS_RECONCILE_ENABLED` y `LIVE_SESSION_SWEEP_ENABLED` **definidas** en `semse-worker`. Sus valores no se leyeron; su ejecución está confirmada de forma independiente por solicitudes HTTP satisfactorias y logs del Worker. Esto actualiza la fotografía histórica anterior, sin implicar que deban modificarse sus valores.
 
 | Variable | Qué activa | Riesgo | Prerrequisito | Recomendación |
 |---|---|---|---|---|
 | `LIEN_ALERTS_ENABLED` | Chequeo horario de plazos de lien: transiciona `LienCalendar` y genera notices al llegar a 3 días. | Medio (aviso legal) | **El push/email al PRO no está implementado**: falta decidir el destinatario (ver §4, D-LIEN). | Activar después de D-LIEN; sin la notificación, solo cambia estados. |
-| `PAYMENTS_RECONCILE_ENABLED` | Cada ~15 min detecta RELEASE `PENDING` estancados, alerta y audita. **Solo lectura sobre dinero.** | Bajo | Ninguno. Runbook `ESCROW_RELEASE_RECONCILIATION.md`. | **[DUEÑO]** `true`. |
+| `PAYMENTS_RECONCILE_ENABLED` | Cada ~15 min detecta RELEASE `PENDING` estancados, alerta y audita. **Solo lectura sobre dinero.** | Bajo | Ninguno. Runbook `ESCROW_RELEASE_RECONCILIATION.md`. | **ACTIVO, verificado**: HTTP 201 a las 12:38, 12:53 y 13:08 UTC; logs del Worker indican 0 RELEASE `PENDING` estancados en esas ejecuciones. Mantener y monitorizar; no activar otro scheduler ni efectuar releases. |
 | `WEATHER_CHECK_ENABLED` | Alertas de clima por proyecto. | Bajo | **`TOMORROW_API_KEY` no está definida en la API**: hoy el módulo de clima usa el cliente **mock**, así que cualquier dato de clima en producción es simulado. | **[DUEÑO]** Configurar `TOMORROW_API_KEY` y después `WEATHER_CHECK_ENABLED=true`. |
-| `LIVE_SESSION_SWEEP_ENABLED` | Cierra sesiones live (LiveKit) caducadas cada minuto. | Bajo | Ninguno. | **[DUEÑO]** `true`. |
+| `LIVE_SESSION_SWEEP_ENABLED` | Cierra sesiones live (LiveKit) caducadas cada minuto. | Bajo | Ninguno. | **ACTIVO, verificado**: HTTP 201 cada minuto, incluida la ejecución de 13:14 UTC. Mantener; no duplicar el scheduler. |
 
-`PRODUCT_INTELLIGENCE_ENABLED`, `CONTRIBUTOR_EXTRACTION_SWEEP_ENABLED` y `AUTONOMY_LOOPS_ENABLED` sí están definidas en el worker.
+`PRODUCT_INTELLIGENCE_ENABLED`, `CONTRIBUTOR_EXTRACTION_SWEEP_ENABLED`, `AUTONOMY_LOOPS_ENABLED`, `PAYMENTS_RECONCILE_ENABLED` y `LIVE_SESSION_SWEEP_ENABLED` están definidas en el worker. La presencia de una variable por sí sola no acredita su valor; las dos últimas cuentan además con evidencia HTTP de ejecución.
 
 ## 2. Funcionalidades de la API con su variable sin definir (valor por defecto)
 
@@ -71,6 +73,13 @@ Variables **definidas** cuyo modo no se leyó (pueden estar en `off`/`shadow`): 
 - Cadena de dinero **con base real**, `smoke:escrow-contract`: job → reserva → contrato firmado por ambas partes → escrow fondeado (mock) → hito → evidencia → entrega → aprobación → **release**. El único fallo del smoke es que el PRO lee el resumen de escrow (403), y eso es deliberado según la spec de finanzas.
 - Smokes `projects`, `reservations`, `contracts`, `milestones`, `evidence`, `disputes` y `domain-events`: verdes.
 - Smokes desactualizados frente a endurecimientos posteriores (no son fallos de producto): `persistence` y `marketplace` (estado visible en mayúscula, `toVisibleJob`), `trust` (clave de evidencia con alcance por tenant, #717) y `escrow-contract` (finanzas solo para cliente y Ops). **Ninguno de estos smokes lo ejecuta el CI.**
+
+## 3.1 Verificación de los bloqueos y PRs (2026-11-11)
+
+- **AgentRun:** `POST /v1/agents/runs/reclaim-stale` sigue devolviendo HTTP 403 cada ~10 segundos (última observación de esta revisión: 13:14 UTC). La creación de `Membership ACTIVE` para `AGENT_RUNNER` sigue **no acreditada**; un HTTP 201 en otros barridos no la sustituye.
+- **#1141:** CI y API Integration `success` en HEAD `3b09e0a5`; permanece Draft, sin fusionar. Logs sanitizados todavía no están en el Worker productivo.
+- **#1142:** CI `success` en HEAD previo `3a389a06`; permanece Draft. Este cambio de inventario requiere que CI se ejecute nuevamente sobre el nuevo HEAD.
+- **P0-2 / `RAILWAY_TOKEN`:** permanece pendiente; separar el Production Health Gate del deploy duplicado es una alternativa de CI que debe revisarse y autorizarse. Que un endpoint de salud responda correctamente **no prueba por sí solo que el commit recién fusionado se haya desplegado**.
 
 ## 4. Decisiones pendientes del dueño
 
