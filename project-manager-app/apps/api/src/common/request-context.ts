@@ -31,6 +31,29 @@ function extractBearerToken(headers: Record<string, unknown>): string | null {
   return parts[1];
 }
 
+/** Local opt-in for header-derived identity (core.header-identity-fail-closed). */
+export const HEADER_IDENTITY_OPT_IN_ENV = "SEMSE_ALLOW_HEADER_IDENTITY";
+
+const HEADER_IDENTITY_NODE_ENVS = new Set(["development", "test"]);
+
+/**
+ * Single policy deciding whether caller-supplied identity headers may be
+ * trusted. Only true for local work: AUTH_SECRET unset AND the explicit
+ * opt-in set to exactly "true" AND NODE_ENV development/test. Anything else
+ * (staging, preview, unset NODE_ENV, production) must fail closed.
+ */
+export function headerIdentityAllowed(env: NodeJS.ProcessEnv = process.env): boolean {
+  if (env.AUTH_SECRET) return false;
+  if ((env[HEADER_IDENTITY_OPT_IN_ENV] ?? "").trim() !== "true") return false;
+  const nodeEnv = (env.NODE_ENV ?? "").trim().toLowerCase();
+  return HEADER_IDENTITY_NODE_ENVS.has(nodeEnv);
+}
+
+/** Thrown whenever identity cannot be verified and headers may not be trusted. */
+export function authorityUnavailable(): ServiceUnavailableException {
+  return new ServiceUnavailableException("Authentication authority unavailable");
+}
+
 export function parseHeaderRequestContext(headers: Record<string, unknown>): RequestContext {
   return {
     userId: requireHeader(headers, SEMSE_IDENTITY_HEADER_NAMES.userId),
@@ -71,10 +94,10 @@ export function resolveRequestContext(req: RequestLike & { authContext?: Request
     };
   }
 
-  // Header identity is an explicit local-development convenience only.
-  // Never let a missing AUTH_SECRET turn production into a header-trust mode.
-  if (process.env.NODE_ENV === "production") {
-    throw new ServiceUnavailableException("Authentication authority unavailable");
+  // Header identity is an explicit local-development opt-in only. A missing
+  // AUTH_SECRET must never turn any shared environment into header-trust mode.
+  if (!headerIdentityAllowed()) {
+    throw authorityUnavailable();
   }
   return parseHeaderRequestContext(headers);
 }

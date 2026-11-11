@@ -95,6 +95,27 @@ packages/db/prisma/schema.prisma + migrations > SQL o modelos legacy
 - Una tabla o accessor presente no demuestra que el flujo esté activo en
   produccion.
 
+## Consulta y linaje operativo (propuesto)
+
+**Propuesto, no implementado** (`docs/specs/prometeo/unified-query-lineage.spec.md`,
+`REVIEW`; programa `prometeo.operational-intelligence-program`).
+
+- La consulta de linaje es una **fachada federada de solo lectura**: no es
+  fuente de verdad de nada. Cada nodo y arista conserva la autoridad de su
+  proveedor (Graphify para topología de código, Decision Ledger para
+  decisiones autorizadas, H05 para ejecuciones de herramientas).
+- Si la fachada y su proveedor discrepan, gana el proveedor.
+- Consultar nunca autoriza acciones ni reemplaza la verificación de permisos
+  del módulo dueño.
+- No hay base de grafos ni copia persistente en V1.
+
+Superficies de consulta relacionadas que ya existen en `main` (comprobado en
+código el 2026-11-07; inventario no exhaustivo, a completar antes de aprobar
+el spec): `v1/repo-knowledge` (incluye Graphify), `v1/anatomy`,
+`v1/runtime-knowledge`, `v1/operational-intelligence`, `v1/knowledge`,
+`v1/intelligence`, `v1/ops/mission-control` y la consulta de ejecuciones
+`v1/prometeo/tools/executions`. La fachada nueva no las reemplaza.
+
 ## Documentos historicos y vision
 
 - Los archivos marcados `SUPERSEDIDO` son referencia, no autorizacion de

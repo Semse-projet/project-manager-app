@@ -19,7 +19,7 @@ date: "2026-10-15"
 - PR #797: fusionado 2026-10-06, trust contracts y código de Universal Connector. La metadata de `universal-connector-trust.spec.md` todavía contradice el estado de merge. **No tratar su deploy ni CI como confirmados**.
 - PR #859: fusionado 2026-10-11, solo documentación Workspace/Integraciones; no certifica funcionamiento.
 - `ADR-025-mcp-external-tool-gateway.md`: opción C aprobada el 2026-10-11 (MCP externo pospuesto). Necesita nuevo ADR/amendment para habilitar cualquier MCP Client externo.
-- Dos archivos nombrados ADR-042 para decisiones distintas; pendiente corrección con referencias.
+- Colisión histórica de dos archivos ADR-042 para decisiones distintas: reparada documentalmente en #940 (ADR-042 = Universal Connector; ADR-044 = grafo operativo, `PROPOSED`). La ratificación de ADR-044 sigue pendiente.
 - Git HEAD exacto de cada release, SHAs y estados Railway API/Web/Worker, DB migrations, feature flags, health y e2e: **NO COMPROBADOS en esta revisión**.
 - El documento `WORKSPACE_REUSE_AND_CONNECTORS.md` registra configuración tenant-wide que no autoriza conexiones por org automáticamente.
 - Línea de base: Constitución 1.1, `SDD_GOVERNANCE.md` 2.0 y `SOURCE_OF_TRUTH.md` 2.2; resolver cualquier divergencia antes de codificar.

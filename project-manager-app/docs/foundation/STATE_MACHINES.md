@@ -332,6 +332,92 @@ Estados persistidos de compatibilidad, no visibles como estados nuevos:
 - No se enruta media a Ollama ni se persiste stream en este alcance
   (`privacyCritical`).
 
+## McpDelegatedConsent
+
+> Reservado por [`../specs/platform/semse-mcp-delegated-consent.spec.md`](../specs/platform/semse-mcp-delegated-consent.spec.md)
+> (`REVIEW` 2026-10-26). **No implementado**: no existe modelo Prisma ni
+> servicio en `main`. Consentimiento OAuth delegado de S1/D7 que autoriza a un
+> cliente MCP a leer el estado de proyectos de **una** org; **no** muta la FSM
+> de `Project`/`Job`.
+
+### Estados
+
+- `PENDING`
+- `ACTIVE`
+- `REVOKED` (terminal)
+- `EXPIRED` (terminal)
+
+### Transiciones válidas
+
+- `PENDING -> ACTIVE`
+- `PENDING -> REVOKED`
+- `PENDING -> EXPIRED`
+- `ACTIVE -> REVOKED`
+- `ACTIVE -> EXPIRED`
+
+### Autorización por transición
+
+- `PENDING -> ACTIVE`: el propio usuario, en un flujo de consentimiento
+  confiable (D2), con `AuthSession ACTIVE`, `User active` y `projects:read`
+  vigente en la org del grant.
+- `* -> REVOKED`: v1, el propio usuario o `OPS_ADMIN` dentro de su tenant
+  (uno a uno, motivo obligatorio); v1.1, además admin de org y revocación
+  masiva por cliente; el flujo de supresión de User/Org (`subject_deleted`).
+- `* -> EXPIRED`: solo workers (mantenimiento o anonimización), nunca la vía
+  de lectura.
+
+### Condiciones
+
+- `REVOKED` y `EXPIRED` no se reabren; reautorizar crea un grant nuevo.
+- La revocación es compare-and-set e idempotente.
+- `expiresAt <= now()` se deniega aunque el estado siga `ACTIVE`.
+- La verificación por llamada no escribe.
+- Cada aceptación y revocación deja auditoría con IDs opacos y motivo.
+
+## DecisionRecord (propuesto)
+
+> **Propuesto, no implementado.** Lo reserva [`../specs/prometeo/decision-ledger.spec.md`](../specs/prometeo/decision-ledger.spec.md)
+> (`REVIEW`). No existe modelo Prisma, migración ni servicio en `main`. Se
+> registra aquí para cumplir la sección 6 del acta de Operational
+> Intelligence; **no autoriza implementar** hasta que el spec esté
+> `APPROVED`. Si el spec cambia, esta sección se actualiza con él.
+
+El Decision Ledger es de solo-agregar: **ninguna fila cambia de estado**. El
+estado de una decisión se **deriva** de las filas que la referencian por
+`supersedesDecisionId`. No muta la FSM de ningún otro dominio.
+
+### Estados derivados
+
+- `ACTIVE`: no existe ninguna fila que la referencie.
+- `SUPERSEDED` (terminal): existe una fila `CORRECTION` que la referencia.
+- `VOIDED` (terminal): existe una fila `VOID` que la referencia.
+
+### Transiciones válidas
+
+- `ACTIVE -> SUPERSEDED` (se añade una fila `CORRECTION`)
+- `ACTIVE -> VOIDED` (se añade una fila `VOID`)
+
+Una fila `CORRECTION` nace `ACTIVE` y sigue las mismas reglas. No hay
+transición hacia atrás.
+
+### Autorización por transición
+
+- Registrar una decisión o una corrección: solo el servicio del módulo
+  productor, con una autoridad ya validada (humano, política o autoridad de
+  dominio); no existe escritura pública.
+- Anular: permiso de anulación aparte (`lineage:decisions:void`, propuesto),
+  con motivo obligatorio y dentro del tenant.
+
+### Condiciones
+
+- `SUPERSEDED` y `VOIDED` no se reabren.
+- Una decisión tiene como mucho un sucesor: unicidad
+  `(tenantId, supersedesDecisionId)`.
+- Un *trigger* de base de datos rechaza `UPDATE` y `DELETE` sobre las tablas
+  del ledger.
+- Cada registro, corrección o anulación deja `AuditLog` y emite el evento
+  correspondiente de `EVENT_CATALOG.md` (también propuestos).
+
 ## Regla de implementación
 
 - Controllers validan inputs y contexto.

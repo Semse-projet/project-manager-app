@@ -6,7 +6,7 @@ export default defineConfig({
   testDir: "./tests/e2e-semse",
   testMatch: "**/*.spec.ts",
   timeout: 45_000,
-  retries: process.env.CI ? 2 : 0,
+  retries: process.env.SEMSE_PR973_E2E_QA === "1" ? 0 : process.env.CI ? 2 : 0,
   fullyParallel: false,
   workers: 1,
 

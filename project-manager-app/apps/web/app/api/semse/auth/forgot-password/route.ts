@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
+import { trustedClientHeaders } from "../../_server";
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   let body: { email?: string };
@@ -21,7 +22,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     await fetch(`${apiBaseUrl}/v1/auth/password-reset/request`, {
       method: "POST",
       cache: "no-store",
-      headers: { "content-type": "application/json" },
+      headers: { ...trustedClientHeaders(req), "content-type": "application/json" },
       body: JSON.stringify({ email: body.email }),
     });
     // Always return accepted (don't leak email existence)

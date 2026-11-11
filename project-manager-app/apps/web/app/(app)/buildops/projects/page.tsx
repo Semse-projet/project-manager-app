@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useLanguage } from "../../../../lib/language-context";
+import { messageFromError, renderMessage, type UiMessage } from "../../../../lib/ui-message";
 import { useEffect, useState } from "react";
 import { ArrowRight, FolderKanban, Plus } from "lucide-react";
 import { Badge, Card } from "@/components/ui";
@@ -14,7 +15,7 @@ export default function BuildOpsProjectsPage() {
   const { t } = useLanguage();
   const [projects, setProjects] = useState<BuildOpsProject[]>(sampleProjects);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<UiMessage | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -26,7 +27,7 @@ export default function BuildOpsProjectsPage() {
         setProjects(data);
       } catch (err) {
         if (!alive) return;
-        setError(err instanceof Error ? err.message : t("common.serverError"));
+        setError(messageFromError(err, "common.serverError"));
       } finally {
         if (alive) setLoading(false);
       }
@@ -51,7 +52,7 @@ export default function BuildOpsProjectsPage() {
             <p className="max-w-3xl text-sm text-muted">
               {t("page.buildOpsProjects.sub")}
             </p>
-            {error ? <p className="text-sm text-red-400">{error}</p> : null}
+            {error ? <p className="text-sm text-red-400">{renderMessage(error, t)}</p> : null}
             {loading ? <p className="text-sm text-muted">{t("buildops.loadingProjects")}</p> : null}
           </div>
           <Link href="/buildops/projects/new" className="inline-flex items-center gap-2 rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-[#0a0a14] transition-all hover:bg-brand-bright">

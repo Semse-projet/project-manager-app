@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Optional,
   InternalServerErrorException,
   NotFoundException,
   ServiceUnavailableException,
@@ -25,6 +26,7 @@ import {
 } from "@semse/schemas";
 import { randomUUID } from "node:crypto";
 import { MetricsService } from "../../infrastructure/observability/metrics.service.js";
+import { AgentRunFinalizationConsumer, AGENT_RUN_EFFECTS_CONSUMER } from "./agent-run-finalization.consumer.js";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { JobsRepository } from "../jobs/jobs.repository.js";
 import { ProjectsRepository } from "../projects/projects.repository.js";
@@ -151,12 +153,15 @@ export class DomainEventConsumerService {
     private readonly projectsRepository?: ProjectsRepository,
     private readonly jobsRepository?: JobsRepository,
     private readonly satelliteWebhooksService?: SatelliteWebhooksService,
+    @Optional() private readonly agentRunFinalization?: AgentRunFinalizationConsumer,
   ) {
     this.handlersByEventType = this.buildHandlerRegistry();
   }
 
   private buildHandlerRegistry(): ReadonlyMap<string, EventHandlerDescriptor> {
     const descriptors: EventHandlerDescriptor[] = [
+      { eventType:"agent.run.finalized.v1",consumerName:AGENT_RUN_EFFECTS_CONSUMER,
+        handle:(event)=>this.processAgentRunFinalizationEvent(event) },
       {
         eventType: EVIDENCE_UPLOADED_EVENT_TYPE,
         consumerName: EVIDENCE_READINESS_CONSUMER,
@@ -240,6 +245,29 @@ export class DomainEventConsumerService {
         message: "Domain event consumer is not allowlisted",
         consumer: consumerName,
       });
+    }
+  }
+
+  private async processAgentRunFinalizationEvent(event: DomainOutboxEvent): Promise<ConsumerResult> {
+    if (!this.agentRunFinalization) {
+      throw new ServiceUnavailableException("Agent finalization consumer unavailable");
+    }
+    try {
+      const result=await this.agentRunFinalization.consume(event);
+      if (result.duplicate) this.metrics.recordEventConsumerDuplicate(AGENT_RUN_EFFECTS_CONSUMER);
+      else this.metrics.recordEventConsumerAttempt(AGENT_RUN_EFFECTS_CONSUMER,"completed");
+      return result;
+    } catch(error) {
+      const failure=await this.recordFailure({
+        eventId:event.eventId,tenantId:event.tenantId,
+        error:redactConsumerError(error),terminal:false,consumerName:AGENT_RUN_EFFECTS_CONSUMER,
+      });
+      this.metrics.recordEventConsumerAttempt(AGENT_RUN_EFFECTS_CONSUMER,"failed");
+      if (failure.status==="DEAD_LETTER") {
+        this.metrics.recordEventConsumerDeadLetter(AGENT_RUN_EFFECTS_CONSUMER);
+        throw new UnprocessableEntityException({message:"Agent effects delivery dead-lettered",eventId:event.eventId});
+      }
+      throw new InternalServerErrorException({message:"Agent effects delivery failed; retryable",eventId:event.eventId});
     }
   }
 

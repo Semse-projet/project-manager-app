@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { BadRequestException, Body, ConflictException, Controller, Get, Logger, Param, Post, Query, Req, Patch } from "@nestjs/common";
+import { BadRequestException, Body, ConflictException, Controller, ForbiddenException, Get, Logger, Param, Post, Query, Req, Patch } from "@nestjs/common";
 import { SkipThrottle } from "@nestjs/throttler";
 import { agentCatalog } from "@semse/agents";
 import {
@@ -14,6 +14,7 @@ import { ok } from "../../common/api-response.js";
 import { parseWithSchema } from "../../common/zod-validation.js";
 import { RequirePermissions } from "../../common/permissions.decorator.js";
 import { resolveRequestContext } from "../../common/request-context.js";
+import { signAgentRunClaimToken, verifyAgentRunClaimToken } from "./agent-run-claim-token.js";
 import { resolveRequestId } from "../../common/request-id.js";
 import { AgentsService } from "./agents.service.js";
 import { CoordinatorService } from "./coordinator.service.js";
@@ -43,11 +44,19 @@ const createAgentRunSchema = z.object({
 
 const claimAgentRunSchema = z.object({
   workerId: z.string().min(1),
-  agentType: z.enum(agentCatalog).optional()
+  agentType: z.enum(agentCatalog).optional(),
+  runId: z.string().min(1).optional()
 });
 
 const heartbeatSchema = z.object({
-  workerId: z.string().min(1)
+  workerId: z.string().min(1),
+  expectedAttempts: z.number().int().nonnegative().optional(),
+  claimToken: z.string().optional()
+});
+const startRunSchema = z.object({
+  workerId: z.string().min(1).optional(),
+  expectedAttempts: z.number().int().nonnegative().optional(),
+  claimToken: z.string().optional()
 });
 
 const reclaimSchema = z.object({
@@ -56,13 +65,64 @@ const reclaimSchema = z.object({
 });
 
 const completeRunSchema = z.object({
-  output: z.record(z.unknown()).optional()
+  output: z.record(z.unknown()).optional(),
+  workerId: z.string().min(1).optional(),
+  expectedAttempts: z.number().int().nonnegative().optional(),
+  claimToken: z.string().optional()
 });
 
 const failRunSchema = z.object({
   error: z.string().min(1, "error message is required"),
-  details: z.record(z.unknown()).optional()
+  details: z.record(z.unknown()).optional(),
+  workerId: z.string().min(1).optional(),
+  expectedAttempts: z.number().int().nonnegative().optional(),
+  claimToken: z.string().optional()
 });
+
+/**
+ * A worker token is a paired workerId + attempt generation. Unfenced manual
+ * operations are reserved to administrators, never to ordinary WORKER roles.
+ * The authenticated request context supplies roles; not the caller's JSON.
+ */
+export function assertAgentRunMutationAccess(
+  roles: readonly string[],
+  input: { workerId?: string; expectedAttempts?: number },
+): void {
+  const owner = typeof input.workerId === "string" && input.workerId.length > 0;
+  const generation = Number.isInteger(input.expectedAttempts) && input.expectedAttempts! >= 0;
+  if (owner !== generation) {
+    throw new BadRequestException("workerId and expectedAttempts must be provided together");
+  }
+  if (!owner && !roles.some(role => ["OPS_ADMIN", "ADMIN", "SUPER_ADMIN"].includes(role.toUpperCase()))) {
+    throw new ForbiddenException("unfenced agent operations require an administrator");
+  }
+}
+
+function verifyWorkerMutation(
+  actor: { tenantId: string; orgId: string; userId: string; roles: string[] },
+  runId: string,
+  input: { workerId?: string; expectedAttempts?: number; claimToken?: string },
+): void {
+  assertAgentRunMutationAccess(actor.roles, input);
+  if (input.workerId) {
+    verifyAgentRunClaimToken({
+      tenantId: actor.tenantId, orgId: actor.orgId, userId: actor.userId,
+      runId, workerId: input.workerId, attempts: input.expectedAttempts!,
+    }, input.claimToken);
+  } else if (input.claimToken) {
+    throw new BadRequestException("manual run mutation cannot include a worker claim token");
+  }
+}
+
+/**
+ * Only a specifically provisioned agent runner may acquire or reclaim
+ * jobs. The signed claim token proves who claimed it, not who may claim.
+ */
+export function assertAgentRunClaimAuthority(roles: readonly string[]): void {
+  if (!roles.some(role => role.toUpperCase() === "AGENT_RUNNER")) {
+    throw new ForbiddenException("agent run claiming requires AGENT_RUNNER service role");
+  }
+}
 
 const copilotInputSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("chat"),    projectId: z.string(), message: z.string().min(1), threadId: z.string().optional() }),
@@ -340,7 +400,7 @@ export class AgentsController {
 
   @Post("runs/claim")
   @SkipThrottle()
-  @RequirePermissions("agents:run:worker")
+  @RequirePermissions("agents:run:claim")
   async claim(@Req() req: { headers?: Record<string, unknown> }, @Body() body: Record<string, unknown>) {
     const parsed = claimAgentRunSchema.safeParse(body);
     if (!parsed.success) {
@@ -348,6 +408,7 @@ export class AgentsController {
     }
 
     const actor = resolveRequestContext(req);
+    assertAgentRunClaimAuthority(actor.roles);
     const requestId = resolveRequestId(req.headers ?? {});
     const run = await this.agentsService.claim({
       tenantId: actor.tenantId,
@@ -355,15 +416,21 @@ export class AgentsController {
       userId: actor.userId,
       workerId: parsed.data.workerId,
       agentType: parsed.data.agentType,
+      runId: parsed.data.runId,
       requestId
     });
-
-    return ok(requestId, run);
+    if (!run) return ok(requestId, null);
+    const claimToken = signAgentRunClaimToken({
+      tenantId: actor.tenantId, orgId: actor.orgId, userId: actor.userId,
+      runId: run.id, workerId: run.workerId!, attempts: run.attempts,
+    });
+    // Claim secret is returned only to the successful claimant, never by GET.
+    return ok(requestId, { ...run, claimToken });
   }
 
   @Post("runs/reclaim-stale")
   @SkipThrottle()
-  @RequirePermissions("agents:run:worker")
+  @RequirePermissions("agents:run:claim")
   async reclaimStale(@Req() req: { headers?: Record<string, unknown> }, @Body() body: Record<string, unknown>) {
     const parsed = reclaimSchema.safeParse(body);
     if (!parsed.success) {
@@ -371,6 +438,7 @@ export class AgentsController {
     }
 
     const actor = resolveRequestContext(req);
+    assertAgentRunClaimAuthority(actor.roles);
     const requestId = resolveRequestId(req.headers ?? {});
     const reclaimed = await this.agentsService.reclaimStale({
       tenantId: actor.tenantId,
@@ -425,9 +493,11 @@ export class AgentsController {
 
   @Post("runs/:runId/start")
   @SkipThrottle()
-  @RequirePermissions("agents:run:manage")
-  async start(@Req() req: { headers?: Record<string, unknown> }, @Param("runId") runId: string) {
+  @RequirePermissions("agents:run:execute")
+  async start(@Req() req: { headers?: Record<string, unknown> }, @Param("runId") runId: string, @Body() body: unknown) {
+    const parsed = parseWithSchema(startRunSchema, body ?? {});
     const actor = resolveRequestContext(req);
+    verifyWorkerMutation(actor, runId, parsed);
     const requestId = resolveRequestId(req.headers ?? {});
     this.logger.warn(
       `[agent.run.start] ${JSON.stringify({
@@ -447,6 +517,8 @@ export class AgentsController {
       orgId: actor.orgId,
       userId: actor.userId,
       runId,
+      workerId: parsed.workerId,
+      expectedAttempts: parsed.expectedAttempts,
       requestId
     });
     return ok(requestId, run);
@@ -454,7 +526,7 @@ export class AgentsController {
 
   @Post("runs/:runId/heartbeat")
   @SkipThrottle()
-  @RequirePermissions("agents:run:worker")
+  @RequirePermissions("agents:run:execute")
   async heartbeat(
     @Req() req: { headers?: Record<string, unknown> },
     @Param("runId") runId: string,
@@ -465,6 +537,7 @@ export class AgentsController {
       throw new BadRequestException(parsed.error.flatten());
     }
     const actor = resolveRequestContext(req);
+    verifyWorkerMutation(actor, runId, parsed.data);
     const requestId = resolveRequestId(req.headers ?? {});
     const run = await this.agentsService.heartbeat({
       tenantId: actor.tenantId,
@@ -472,6 +545,7 @@ export class AgentsController {
       userId: actor.userId,
       runId,
       workerId: parsed.data.workerId,
+      expectedAttempts: parsed.data.expectedAttempts,
       requestId
     });
     return ok(requestId, run);
@@ -479,7 +553,7 @@ export class AgentsController {
 
   @Post("runs/:runId/complete")
   @SkipThrottle()
-  @RequirePermissions("agents:run:manage")
+  @RequirePermissions("agents:run:execute")
   async complete(
     @Req() req: { headers?: Record<string, unknown> },
     @Param("runId") runId: string,
@@ -487,6 +561,7 @@ export class AgentsController {
   ) {
     const parsed = parseWithSchema(completeRunSchema, body);
     const actor = resolveRequestContext(req);
+    verifyWorkerMutation(actor, runId, parsed);
     const requestId = resolveRequestId(req.headers ?? {});
     const run = await this.agentsService.complete({
       tenantId: actor.tenantId,
@@ -494,6 +569,8 @@ export class AgentsController {
       orgId: actor.orgId,
       userId: actor.userId,
       output: parsed.output,
+      workerId: parsed.workerId,
+      expectedAttempts: parsed.expectedAttempts,
       requestId
     });
     return ok(requestId, run);
@@ -501,7 +578,7 @@ export class AgentsController {
 
   @Post("runs/:runId/fail")
   @SkipThrottle()
-  @RequirePermissions("agents:run:manage")
+  @RequirePermissions("agents:run:execute")
   async fail(
     @Req() req: { headers?: Record<string, unknown> },
     @Param("runId") runId: string,
@@ -509,6 +586,7 @@ export class AgentsController {
   ) {
     const parsed = parseWithSchema(failRunSchema, body);
     const actor = resolveRequestContext(req);
+    verifyWorkerMutation(actor, runId, parsed);
     const requestId = resolveRequestId(req.headers ?? {});
     const run = await this.agentsService.fail({
       tenantId: actor.tenantId,
@@ -516,6 +594,8 @@ export class AgentsController {
       orgId: actor.orgId,
       userId: actor.userId,
       error: parsed.error,
+      workerId: parsed.workerId,
+      expectedAttempts: parsed.expectedAttempts,
       requestId
     });
     return ok(requestId, run);

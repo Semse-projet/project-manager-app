@@ -4,7 +4,7 @@ title: "SPEC-GTW-001 — Unificación del Model Gateway"
 type: spec
 domain: "prometeo"
 version: "1.1"
-status: "APPROVED"
+status: "REVIEW"
 owner: "semse-core"
 risk: "critical"
 date: "2026-07-31"
@@ -25,6 +25,15 @@ related_events: []
 related_agents:
   - prometeo
 last_verified: "2026-08-27"
+sdd_version: "2.0"
+code_status: "IN_PROGRESS"
+ci_status: "NOT_RUN"
+merge_status: "UNMERGED"
+deploy_status: "NOT_DEPLOYED"
+activation_status: "INACTIVE"
+migration_status: "NOT_APPLICABLE"
+feature_flags: []
+production_evidence: []
 ---
 
 # SPEC-GTW-001 — Unificación del Model Gateway

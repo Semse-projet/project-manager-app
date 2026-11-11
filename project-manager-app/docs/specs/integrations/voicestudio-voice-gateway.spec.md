@@ -3,32 +3,35 @@ id: "integrations.voicestudio-voice-gateway"
 title: "VoiceStudio Voice Gateway para Prometeo"
 domain: "integrations"
 sdd_version: "2.0"
-version: "0.2"
-status: "DRAFT"
+version: "0.3"
+status: "APPROVED"
 owner: "semse-core"
 risk: "high"
-code_status: "NOT_STARTED"
-ci_status: "NOT_RUN"
+code_status: "IN_PROGRESS"
+ci_status: "PASS"
 merge_status: "UNMERGED"
 deploy_status: "NOT_DEPLOYED"
 activation_status: "INACTIVE"
 migration_status: "NOT_APPLICABLE"
-feature_flags: ["SEMSE_ASR_PROVIDER", "SEMSE_VOICE_ENABLED", "SEMSE_TTS_PROVIDER"]
+feature_flags: ["SEMSE_ASR_PROVIDER", "SEMSE_VOICE_ENABLED", "SEMSE_TTS_PROVIDER", "SEMSE_VOICESTUDIO_STAGING_NODE_ENV_OK"]
 production_evidence: []
 related_files:
   - "apps/api/src/modules/contributor-program/transcription-provider.ts"
   - "apps/api/src/modules/agro/agro-asr.ts"
   - "apps/web/components/ai/prometeo-attachments.ts"
-related_tests: []
+related_tests:
+  - "apps/api/test/contributor-program-transcription-provider.test.ts"
+  - "apps/api/test/voicestudio-batch.client.test.ts"
+  - "apps/api/test/contributor-program-extraction.test.ts"
 related_endpoints: []
 related_events: []
 related_agents: ["prometeo"]
-last_verified: "2026-10-13"
+last_verified: "2026-11-07"
 ---
 
 # Spec: VoiceStudio Voice Gateway para Prometeo
 
-> **DRAFT: NO AUTORIZA IMPLEMENTAR NI ACTIVAR.** La verificación de 2026-10-13 es estática de repositorios, no CI/Railway. Referencias: SEMSE `388a1200bed0efb75ca0d9b13dea313ba7812b82`; VoiceStudio `c2ef99817fc4f2e0271a223c357e57e8df93cbde`; revalidar al implementar.
+> **APPROVED únicamente para desarrollar y probar los adaptadores internos batch ASR/TTS** por autorización explícita del propietario el 2026-11-07. **No autoriza activar servicios, modelos o flags, desplegar Railway, fusionar sin gates ni exponer endpoints nuevos.** La revisión inicial de 2026-10-13 fue estática; nueva revisión de upstream y main el 2026-11-07. Referencias: SEMSE `388a1200bed0efb75ca0d9b13dea313ba7812b82`; VoiceStudio `c2ef99817fc4f2e0271a223c357e57e8df93cbde`; revalidar al implementar.
 
 ## 1. Problema y resultado
 
@@ -89,9 +92,21 @@ Reusar StorageService y contratos de uploads existentes. No se autoriza migraci�
 
 Flags propuestos `SEMSE_VOICE_ENABLED=false`, `SEMSE_TTS_PROVIDER=off`, `SEMSE_ASR_PROVIDER` existente; URL, API key y voz fija secretas, sin añadirlas a navegador. Servicio VoiceStudio privado por HTTPS/red aislada; sin ingress externo a `/mcp/`, `/system/*` o `/api/settings/*`. Contenedor `linux/amd64` fijado por digest, volumen persistente, backup/restore probado y benchmark CPU/GPU antes de decidir Railway o host dedicado.
 
+**Gate técnico de staging (2026-11-08):** `Dockerfile.api` define `NODE_ENV=production` incluso cuando el entorno real de Railway se denomina `staging`. Para ejecutar únicamente el adaptador interno en staging, se exige `RAILWAY_ENVIRONMENT_NAME=staging` **y** `SEMSE_VOICESTUDIO_STAGING_NODE_ENV_OK=true` **y** las banderas de voz y desarrollo existentes (`SEMSE_VOICE_ENABLED=true` y `SEMSE_VOICESTUDIO_DEV_ENABLED=true`). Cualquier marcador `production`/`prod` en `SEMSE_ENVIRONMENT`, `RAILWAY_ENVIRONMENT_NAME` o `RAILWAY_ENVIRONMENT` siempre bloquea. Sin esa excepción el valor de `NODE_ENV=production` bloquea, y el valor por defecto continúa siendo OFF. La excepción **no autoriza** rutas públicas, datos de usuarios ni producción; solamente ensayos internos revisados.
+
 **Gate legal real:** VoiceStudio software AGPL-3.0; su inventario de modelos declara **cero** modelos `commercial_use:true` completamente revisados, y el modelo OmniVoice predeterminado menciona pesos CC-BY-NC. No usar modelos/outputs comercialmente antes de verificar licencia de pesos, tokenizador, voz y dependencias exactas.
 
 SLO p50/p95, cola, errores, tasa de fallback, uso RAM/CPU/GPU se establecen con datos medidos. Registrar CI, merge, SHA desplegado, canary, activación y rollback como evidencias separadas.
+
+
+### Corte de alcance de implementación autorizado (2026-11-07)
+
+El slice actual agrega **únicamente clientes internos** de VoiceStudio para ASR multipart y TTS WAV, sus contratos/pure mappers, la selección opt-in del proveedor ASR y pruebas con transporte falso; **no agrega** rutas HTTP ni cambia RBAC, UI, base de datos, Worker, Audio Agro, herramientas Prometeo ni despliegues. El cliente sólo recibirá bytes previamente autorizados por una capa de aplicación futura; no se permite usar `AgroEvidenceItem.fileUrl` ni generar una ruta nueva de lectura.
+
+- Requiere autorización explícita de la función **y** revisión documental de licencias/modelo/voz y retención D4-D5 antes de cualquier llamada a VoiceStudio real en entorno productivo. Un flag/alias no constituye licencia.
+- El modelo ASR y TTS deben ser IDs concretos configurados por administrador, no defaults/aliases que cambien el motor sin control de procedencia.
+- Upstream revisado: `debpalash/VoiceStudio@2e195d72d3794a88b7cb37f87a3e92a20193574e`; ningún modelo del inventario estaba marcado con revisión comercial aprobada. El upstream usa rutas `/v1/audio/transcriptions` y `/v1/audio/speech` y clave remota de consumo con poder administrativo: poner proxy con allowlist de rutas antes de cualquier despliegue.
+- Sin integración con Prometeo ni transcripción de evidencias a usuario final hasta autenticación, consentimientos y tests cross-org/cross-tenant del slice siguiente.
 
 ## 9. Tests derivados de spec
 
@@ -117,13 +132,13 @@ VoiceStudio: `docs/agentic-voice.md`, `docs/speech-platform.md`, `docs/api-auth.
 
 | Decisión | Recomendación | Estado |
 |---|---|---|
-| D1 MVP ASR/TTS batch | Sí, realtime posterior | PENDIENTE APROBACIÓN |
-| D2 servicio externo aislado | Sí; SEMSE API única entrada | PENDIENTE APROBACIÓN |
-| D3 clonación/doblaje apagados | Sí, hasta consentimiento y licencia | PENDIENTE APROBACIÓN |
+| D1 MVP ASR/TTS batch | Sí, realtime posterior | APROBADO propietario, 2026-11-07 |
+| D2 servicio externo aislado | Sí; SEMSE API única entrada | APROBADO propietario, 2026-11-07 |
+| D3 clonación/doblaje apagados | Sí, hasta consentimiento y licencia | APROBADO propietario, 2026-11-07 |
 | D4 motor y activos con uso comercial | fijar versiones/derechos con evidencia | BLOQUEA PRODUCCIÓN |
 | D5 retención, eliminación y custodia | resolver con owner/privacidad | BLOQUEA PRODUCCIÓN |
 
-- [ ] Owner aprueba spec D1-D3; actualizar `status: APPROVED` antes de código.
+- [x] Owner aprueba D1-D3 y `status: APPROVED` para **adaptadores internos y pruebas** (2026-11-07); sin aprobación de merge/producción.
 - [ ] Trazabilidad licencias+retención D4/D5 antes de activación comercial.
 - [ ] Spec/plan/tasks/analyze/checklist alineados y `spec:index` reproducible.
 - [ ] CI PASS, PR mergeado, deploy real, canary autenticado y evidencia de producción antes de `VERIFIED`.

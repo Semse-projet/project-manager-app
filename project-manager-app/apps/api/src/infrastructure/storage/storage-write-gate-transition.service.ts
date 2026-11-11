@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, ServiceUnavailableException } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service.js";
 import {
   resolveStorageWriteGateTransition,
@@ -6,11 +6,14 @@ import {
   type StorageWriteGateAction,
   type StorageWriteGatePhase,
 } from "./storage-write-gate-state.js";
+import { isProductionStorage } from "./production-storage-guard.js";
 
 /**
  * T-008: transactional phase transitions under the same PostgreSQL row lock
  * used by writer admission. The staging control plane supplies authenticated
- * operator metadata; production exposure remains separately prohibited.
+ * operator metadata. Defense in depth: this lower-level mutator also rejects
+ * direct production execution, even if a future internal caller bypasses the
+ * higher-level control service.
  */
 export type StorageTransitionAuthority = Readonly<{
   actorUserId: string;
@@ -70,6 +73,11 @@ export class StorageWriteGateTransitionService {
     idempotencyKey?: string;
     requestDigest?: string;
   }): Promise<{phase: StorageWriteGatePhase; epoch: bigint}> {
+    if (isProductionStorage(process.env)) {
+      throw new ServiceUnavailableException(
+        "Production storage write gate transitions are not enabled in this slice",
+      );
+    }
     if (!/^[A-Za-z0-9][A-Za-z0-9._:/-]{5,190}$/.test(input.scope)) {
       throw new StorageWriteGateBlockedError("invalid_scope");
     }

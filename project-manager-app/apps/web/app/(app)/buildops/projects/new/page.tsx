@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useLanguage } from "../../../../../lib/language-context";
+import { messageFromError, renderMessage, type UiMessage } from "../../../../../lib/ui-message";
 import { ArrowLeft, Save } from "lucide-react";
 import { Badge, Button, Card, Input, Select, Textarea } from "@/components/ui";
 import { buildOpsProjectStatusLabel, buildOpsProjectTypeLabel, buildOpsTradeLabel } from "../../../../lib/buildops-i18n";
@@ -42,7 +43,7 @@ export default function NewBuildOpsProjectPage() {
   const router = useRouter();
   const [input, setInput] = useState<BuildOpsProjectInput>(INITIAL_INPUT);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<UiMessage | null>(null);
 
   async function handleSave() {
     setSaving(true);
@@ -65,7 +66,7 @@ export default function NewBuildOpsProjectPage() {
 
       router.push(`/buildops/projects/${project.id}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("common.serverError"));
+      setError(messageFromError(err, "common.serverError"));
     } finally {
       setSaving(false);
     }
@@ -87,7 +88,7 @@ export default function NewBuildOpsProjectPage() {
           <p className="max-w-2xl text-sm text-muted">
             {t("buildops.newProjectIntro")}
           </p>
-          {error ? <p className="text-sm text-red-400">{error}</p> : null}
+          {error ? <p className="text-sm text-red-400">{renderMessage(error, t)}</p> : null}
         </section>
 
         <Card className="grid gap-4">

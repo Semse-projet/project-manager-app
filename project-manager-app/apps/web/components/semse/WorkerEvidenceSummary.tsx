@@ -2,32 +2,36 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, Camera, CheckCircle2 } from "lucide-react";
-
-type EvidenceItem = { status: string; label: string; jobId?: string };
+import { useLanguage } from "../../lib/language-context";
 
 /** Fetches missing evidence items across active worker jobs and shows a summary badge. */
 export function WorkerEvidenceSummary() {
-  const [missing, setMissing] = useState<number>(0);
-  const [loaded,  setLoaded]  = useState(false);
+  const { t } = useLanguage();
+  const [missing,  setMissing]  = useState<number>(0);
+  const [complete, setComplete] = useState(false);
+  const [loaded,   setLoaded]   = useState(false);
 
   const load = useCallback(async () => {
     try {
       const res = await fetch("/api/semse/worker/evidence-summary");
       if (!res.ok) return;
-      const json = await res.json() as { data: { missingCount: number; totalCount: number } };
+      const json = await res.json() as { data?: { missingCount?: number; complete?: boolean } };
       setMissing(json.data?.missingCount ?? 0);
-    } catch { /* silent */ } finally { setLoaded(true); }
+      setComplete(json.data?.complete === true);
+      setLoaded(true);
+    } catch { /* silent */ }
   }, []);
 
   useEffect(() => { void load(); }, [load]);
 
-  if (!loaded) return null;
+  // A failed or partial read must not tell the worker their evidence is up to date.
+  if (!loaded || (missing === 0 && !complete)) return null;
 
   if (missing === 0) {
     return (
       <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", background: "rgba(134,239,172,.06)", border: "1px solid rgba(134,239,172,.2)", borderRadius: 12 }}>
         <CheckCircle2 size={16} color="#86efac" />
-        <span style={{ fontSize: 13, fontWeight: 700, color: "#86efac" }}>Evidencia al día — sin items pendientes</span>
+        <span style={{ fontSize: 13, fontWeight: 700, color: "#86efac" }}>{t("workerDash.evidenceUpToDate")}</span>
       </div>
     );
   }
@@ -45,10 +49,10 @@ export function WorkerEvidenceSummary() {
         </div>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 13, fontWeight: 800, color: "#fcd34d" }}>
-            {missing} evidencia{missing !== 1 ? "s" : ""} pendiente{missing !== 1 ? "s" : ""}
+            {missing} {missing === 1 ? t("workerDash.evidencePendingOne") : t("workerDash.evidencePendingMany")}
           </div>
           <div style={{ fontSize: 11, color: "var(--muted)" }}>
-            Sube las fotos requeridas para desbloquear tus pagos → Subir ahora
+            {t("workerDash.evidencePendingHint")}
           </div>
         </div>
         <AlertTriangle size={14} color="#fcd34d" style={{ flexShrink: 0 }} />

@@ -40,6 +40,12 @@ export class AgroTraceabilityService {
     evidenceUrls?: string[]; verifiedBy?: string;
   }) {
     await this.assertFarm(farmId, ownerId);
+    // C51: el ciclo de producción referenciado debe ser de esta finca (si no, 404): el evento aparecería en la
+    // vista del ciclo de otra finca (`getCycle` incluye `traceability`).
+    if (body.productionCycleId) {
+      const cycle = await this.prisma.agroProductionCycle.findFirst({ where: { id: body.productionCycleId, farmId }, select: { id: true } });
+      if (!cycle) throw new NotFoundException(`Cycle not found for this farm: ${body.productionCycleId}`);
+    }
     return this.prisma.agroTraceabilityEvent.create({
       data: {
         farmId,

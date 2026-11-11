@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { useLanguage } from "../../../../../lib/language-context";
+import { messageFromError, renderMessage, type UiMessage } from "../../../../../lib/ui-message";
 import { ArrowLeft, ArrowRight, CheckSquare, Clock3, FolderKanban } from "lucide-react";
 import { Badge, Card } from "@/components/ui";
 import { buildOpsTaskPriorityLabel, buildOpsTaskStatusLabel } from "../../../../lib/buildops-i18n";
@@ -36,7 +37,7 @@ export default function BuildOpsTaskDetailPage() {
   const taskId = typeof params?.taskId === "string" ? params.taskId : "";
   const [task, setTask] = useState<BuildOpsTask>(fallbackTask);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<UiMessage | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -48,7 +49,7 @@ export default function BuildOpsTaskDetailPage() {
         setTask(data);
       } catch (err) {
         if (!alive) return;
-        setError(err instanceof Error ? err.message : t("common.serverError"));
+        setError(messageFromError(err, "common.serverError"));
       } finally {
         if (alive) setLoading(false);
       }
@@ -80,7 +81,7 @@ export default function BuildOpsTaskDetailPage() {
           <p className="max-w-3xl text-sm text-muted">
             {t("buildops.taskDetailIntro")}
           </p>
-          {error ? <p className="text-sm text-red-400">{error}</p> : null}
+          {error ? <p className="text-sm text-red-400">{renderMessage(error, t)}</p> : null}
           {loading ? <p className="text-sm text-muted">{t("buildops.loadingTask")}</p> : null}
         </section>
 

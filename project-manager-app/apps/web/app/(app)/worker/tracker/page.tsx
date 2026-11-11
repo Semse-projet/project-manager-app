@@ -1247,7 +1247,7 @@ export default function WorkerTrackerPage() {
             color: activeEntry?.status === "running" ? "var(--brand)" : "var(--ink)",
             letterSpacing: "0.05em",
             marginBottom: "8px",
-            fontFamily: "'Geist Mono', 'JetBrains Mono', monospace",
+            fontFamily: "var(--font-mono, 'JetBrains Mono', monospace)",
           }}
         >
           {fmtSeconds(elapsed)}

@@ -6,9 +6,10 @@ import { ReleaseAlreadyActiveError } from "./escrow-release.command.js";
 import { assertVerifiedEscrowReservation } from "./verified-escrow-reservation.gate.js";
 import { evaluateRequiredEvidence, resolveEvidenceRevalidationMode } from "../milestones/evidence-readiness.js";
 import { ActorContextService } from "../../infrastructure/persistence/actor-context.service.js";
+import { lockOpenJobForFunding } from "../../common/job-lock.js";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { findProjectLinkByJobIdOrThrow, findProjectLinkByProjectIdOrThrow } from "../projects/project-link.repository.js";
-import { assertProjectFinancialsReadable, type ProjectActor, type ProjectOwnership } from "../projects/projects.policy.js";
+import { assertProjectFinancialsReadable, assertProjectReadable, type ProjectActor, type ProjectOwnership } from "../projects/projects.policy.js";
 
 const { Prisma } = prismaClientPackage as typeof import("@prisma/client");
 const EscrowStatus = {
@@ -95,6 +96,35 @@ export class PaymentsRepository {
     }
 
     return milestone;
+  }
+
+  /**
+   * Read-only participation check (no actor-context upsert): the milestone
+   * exists in the actor's tenant (else 404) and the actor takes part in its
+   * project — client org, assigned pro org or OPS_ADMIN (else 403).
+   * Deliberately the project-READ rule, not the financials rule: product lets
+   * the assigned PRO propose a release of their own milestone (finance:write),
+   * while escrow balances stay client/ops-only.
+   */
+  async assertMilestoneProjectParticipant(input: {
+    tenantId: string;
+    milestoneId: string;
+    orgId: string;
+    userId: string;
+    roles?: string[];
+  }): Promise<void> {
+    const milestone = await this.prisma.milestone.findFirst({
+      where: { id: input.milestoneId, deletedAt: null, project: { tenantId: input.tenantId } },
+      select: { projectId: true },
+    });
+    if (!milestone) {
+      throw new NotFoundException(`Milestone '${input.milestoneId}' not found`);
+    }
+    const project = await findProjectLinkByProjectIdOrThrow(this.prisma, {
+      tenantId: input.tenantId,
+      projectId: milestone.projectId,
+    });
+    assertProjectReadable(this.toActor(input), this.toOwnership(project));
   }
 
   async findEscrowByProject(projectId: string) {
@@ -291,11 +321,20 @@ export class PaymentsRepository {
     amount: number;
     providerRef: string;
   }) {
-    return this.prisma.$transaction(async (tx) => {
+    // Serializable may abort when a cancellation commits while funding waits
+    // for the Job row lock. Retry only the DB reservation, before any external
+    // payment-provider call; a subsequent attempt observes the closed job.
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        return await this.prisma.$transaction(async (tx) => {
       const db = tx as PaymentTx;
       // Required transactional proof check BEFORE any escrow reservation.
       // Shadow until a separately reviewed staging canary enables enforce.
       await assertVerifiedEscrowReservation(tx, input.projectId, "deposit");
+      // Same row lock as a job's terminal transition: no deposit after (or while)
+      // the job is completed or cancelled. See common/job-lock.ts.
+      const fundedJob = await tx.project.findFirst({ where: { id: input.projectId }, select: { jobId: true } });
+      if (fundedJob?.jobId) await lockOpenJobForFunding(tx, fundedJob.jobId);
       const existing = await db.paymentEscrow.findFirst({
         where: {
           projectId: input.projectId,
@@ -346,7 +385,15 @@ export class PaymentsRepository {
         escrow,
         transaction: this.toRecord(transaction)
       };
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+        }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+      } catch (error) {
+        if ((error as { code?: unknown } | null)?.code !== "P2034") throw error;
+        if (attempt === 2) {
+          throw new ConflictException("escrow funding conflicted with a concurrent transition; retry safely");
+        }
+      }
+    }
+    throw new ConflictException("escrow funding reservation could not be completed");
   }
 
   /**

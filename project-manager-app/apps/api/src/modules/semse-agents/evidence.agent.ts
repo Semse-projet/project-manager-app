@@ -1,6 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import type { SemseAgentMessage } from "./semse-agents.service.js";
 import { SemseAgentsService } from "./semse-agents.service.js";
+import { localizeAgentTemplate, type AgentTemplateLocale } from "./agent-template-i18n.js";
 
 export type EvidenceChecklist = {
   milestoneTitle: string;
@@ -60,7 +61,7 @@ export class EvidenceAgent {
     }
   }
 
-  generateChecklist(milestoneTitle: string, trade: string): EvidenceChecklist {
+  generateChecklist(milestoneTitle: string, trade: string, locale: AgentTemplateLocale = "es"): EvidenceChecklist {
     const lower = milestoneTitle.toLowerCase();
     const matchedTrade = Object.keys(EVIDENCE_TEMPLATES).find((t) => lower.includes(t)) ?? trade;
     const required = EVIDENCE_TEMPLATES[matchedTrade] ?? [
@@ -69,6 +70,12 @@ export class EvidenceAgent {
     ];
 
     const disputeRisk: EvidenceChecklist["disputeRisk"] = required.length > 3 ? "high" : required.length > 2 ? "medium" : "low";
-    return { milestoneTitle, required, disputeRisk };
+    const localizedRequired = required.map((item) => ({
+      ...item,
+      label: localizeAgentTemplate(item.label, locale),
+      description: localizeAgentTemplate(item.description, locale),
+    }));
+    // Keep the original (possibly user-provided) milestone title, risk code and kind/phase enums intact.
+    return { milestoneTitle, required: localizedRequired, disputeRisk };
   }
 }

@@ -7,9 +7,10 @@ const ROLLING_WINDOW = 50;              // max samples per (provider, taskType)
 const CIRCUIT_OPEN_THRESHOLD = 3;       // consecutive failures to open circuit
 const CIRCUIT_HALF_OPEN_MS = 30_000;    // 30s before retrying
 const DEFAULT_ASSUMED_SUCCESS_RATE = 0.8;
-const COST_PER_1K: Record<LLMProviderName, number> = {
+const COST_PER_1K: Record<LLMProviderName, number | null> = {
   anthropic: 0.003,   // claude-sonnet approx input $/1K tokens
   openai:    0.002,   // gpt-4.1 approx
+  together:  null,    // model-specific pricing; unknown until billing metadata is integrated
   ollama:    0.000,   // local
   template:  0.000,
 };
@@ -25,7 +26,7 @@ export type ProviderSnapshot = {
   avgLatencyMs: number;
   p95LatencyMs: number;
   successRate: number;
-  estimatedCostPer1K: number;
+  estimatedCostPer1K: number | null;
   score: number;
   circuitState: "closed" | "open" | "half-open";
   lastFailureAt?: string;

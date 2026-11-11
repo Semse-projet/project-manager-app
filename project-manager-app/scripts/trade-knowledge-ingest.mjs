@@ -164,7 +164,7 @@ async function main() {
     log(`  Available: ${healthBefore.embeddingsAvailable}`);
     log(`  Docs before: ${healthBefore.totalDocuments ?? "?"}`);
     if (!healthBefore.embeddingsAvailable) {
-      warn("  OPENAI_API_KEY not set or unhealthy — will use FTS fallback mode");
+      warn("  FTS fallback local: no habilitar OpenAI para documentos privados; backfill L14 bloqueado");
     }
   } else {
     warn("  Could not reach embeddings/health endpoint — continuing anyway");
@@ -316,10 +316,10 @@ async function main() {
 
   log("");
   if (retrievalMode === "hybrid") {
-    ok("Retrieval mode: HYBRID ✓ — OpenAI embeddings are active and working.");
+    ok("Retrieval mode: HYBRID (verificar origen y autorización de embeddings; no se certifica nube)");
   } else if (retrievalMode === "fts_fallback") {
-    warn("Retrieval mode: FTS FALLBACK — embeddings not active. Check OPENAI_API_KEY in Railway.");
-    warn("Run backfill after fixing: node scripts/prometeo-backfill-embeddings.mjs");
+    warn("Retrieval mode: FTS FALLBACK — modo local privado intencional; no configurar OpenAI para documentos privados.");
+    warn("El backfill cloud legacy está BLOQUEADO por L14; usar sólo reemplazo local y autorizado tras revisión.");
   }
   log("═══════════════════════════════════════════════════════════");
 }

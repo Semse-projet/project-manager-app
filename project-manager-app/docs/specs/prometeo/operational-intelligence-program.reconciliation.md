@@ -338,8 +338,11 @@ Esta es **una actualización de hechos observables posterior al merge de #948**,
 
 ## 10. Confirmación
 
-**PR 0 NO está reconciliado.** Se reconciliará cuando se cumpla todo esto:
-- el paquete esté comparado;
-- D-01 a D-16 tengan disposición;
-- se hayan aplicado los cambios de la sección 6;
-- el owner apruebe esta acta en el registro de progresión, con la revisión del repo aprobada.
+**PR 0 reconciliado (2026-11-07).** El owner aprobó esta acta el 2026-11-07 (A3). La aprobación es efectiva cuando se fusiona el PR que contiene este texto, después de #1105, #1106, #1107, #1108, #1109, #1115, #1116 y #1117. Requisitos:
+
+- [x] Paquete comparado: [`operational-intelligence-program.package-comparison.md`](operational-intelligence-program.package-comparison.md) (#1117). PR 0 = V1 del paquete más los ajustes documentados.
+- [x] D-01 a D-16 con disposición: aceptadas en bloque el 2026-10-25 (#1042).
+- [x] Cambios de la sección 6 aplicados: ADR-044 y H05 (#1043), padre (#1044), slices (#1106 a #1109), `docs/foundation` y `SOURCE_OF_TRUTH.md` (#1116), referencias de interoperabilidad (#1115).
+- [x] Aprobación del owner registrada en el registro de progresión; la revisión aprobada es el commit de merge de este PR.
+
+**Siguen abiertos, fuera de esta acta:** B-03 (estado actual de H05 en Railway) y la versión de `graphifyy` en producción. Ninguno bloquea el cierre de la etapa 1; los dos se exigen antes del canary de los slices correspondientes.

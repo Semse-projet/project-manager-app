@@ -5,6 +5,7 @@ import { ActorContextService } from "../../infrastructure/persistence/actor-cont
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { ReservationsRepository } from "../reservations/reservations.repository.js";
 import { sameOrg } from "../../common/resource-scope.js";
+import { PROFESSIONAL_ORG_TYPE_FILTER } from "../../common/org-type.js";
 
 type ActorInput = {
   tenantId: string;
@@ -280,7 +281,7 @@ export class ContractsRepository {
         userId: professionalUserId,
         org: {
           tenantId,
-          type: "pro"
+          type: PROFESSIONAL_ORG_TYPE_FILTER
         }
       },
       select: {

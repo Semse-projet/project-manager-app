@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { useLanguage } from "../../../../../lib/language-context";
+import { messageFromError, renderMessage, type UiMessage } from "../../../../../lib/ui-message";
 import { useCapabilityState, useDeclareActiveProjectOrg } from "../../../../../lib/capability-context";
 import { deriveActiveCapability } from "../../../../../lib/capability";
 import { CapabilityBadge, type CapabilityRole } from "../../../../../components/semse/CapabilityBadge";
@@ -75,12 +76,12 @@ export default function BuildOpsProjectDetailPage() {
   const projectId = typeof params?.projectId === "string" ? params.projectId : "";
   const [project, setProject] = useState<BuildOpsProject>(fallbackProject);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<UiMessage | null>(null);
 
   const [approvalAction, setApprovalAction] = useState<ApprovalAction | null>(null);
   const [approvalInput, setApprovalInput] = useState("");
   const [approvalSubmitting, setApprovalSubmitting] = useState(false);
-  const [approvalError, setApprovalError] = useState<string | null>(null);
+  const [approvalError, setApprovalError] = useState<UiMessage | null>(null);
 
   // SSE: refresh health panel when change orders or signals change on this project
   const [healthRefreshKey, setHealthRefreshKey] = useState(0);
@@ -111,7 +112,7 @@ export default function BuildOpsProjectDetailPage() {
         setProject(data);
       } catch (err) {
         if (!alive) return;
-        setError(err instanceof Error ? err.message : t("common.serverError"));
+        setError(messageFromError(err, "common.serverError"));
       } finally {
         if (alive) setLoading(false);
       }
@@ -151,7 +152,7 @@ export default function BuildOpsProjectDetailPage() {
       setApprovalAction(null);
       setApprovalInput("");
     } catch (err) {
-      setApprovalError(err instanceof Error ? err.message : t("common.serverError"));
+      setApprovalError(messageFromError(err, "common.serverError"));
     } finally {
       setApprovalSubmitting(false);
     }
@@ -199,7 +200,7 @@ export default function BuildOpsProjectDetailPage() {
           <p className="max-w-3xl text-sm text-muted">
             {t("buildops.projectDetailIntro")}
           </p>
-          {error ? <p className="text-sm text-red-400">{error}</p> : null}
+          {error ? <p className="text-sm text-red-400">{renderMessage(error, t)}</p> : null}
           {loading ? <p className="text-sm text-muted">{t("buildops.loadingProject")}</p> : null}
         </section>
 
@@ -347,7 +348,7 @@ export default function BuildOpsProjectDetailPage() {
                   onChange={(e) => setApprovalInput(e.target.value)}
                   disabled={approvalSubmitting}
                 />
-                {approvalError ? <p className="text-sm text-red-400">{approvalError}</p> : null}
+                {approvalError ? <p className="text-sm text-red-400">{renderMessage(approvalError, t)}</p> : null}
                 <div className="flex gap-2">
                   <button
                     onClick={() => void submitApprovalAction()}

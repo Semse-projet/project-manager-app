@@ -14,6 +14,7 @@ import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { type BidRecord } from "../../common/domain-store.js";
 import { OutboxRepository } from "../domain-events/outbox.repository.js";
 import { sameOrg } from "../../common/resource-scope.js";
+import { lockJobRow } from "../../common/job-lock.js";
 
 type StoredBid = {
   id: string;
@@ -415,6 +416,12 @@ export class BidsRepository {
 
     const accepted = (await this.prisma.$transaction(async (tx) => {
       const db = tx as BidTx;
+      // A cancelled or completed job cannot be reopened by accepting an old
+      // submitted bid. Serialize with job closure under the SAME row lock.
+      const lockedStatus = await lockJobRow(db, bid.jobId);
+      if (lockedStatus !== "POSTED" && lockedStatus !== "PUBLISHED") {
+        throw new ConflictException("job must still be published or posted to accept a bid");
+      }
       const conflictingReservation = await db.jobReservation.findFirst({
         where: {
           jobId: bid.jobId,

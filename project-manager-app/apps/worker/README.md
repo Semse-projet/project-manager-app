@@ -28,7 +28,12 @@ npm run start
 - `SEMSE_TENANT_ID` (default: `tnt_demo`)
 - `SEMSE_USER_ID` (default: `usr_worker_001`)
 - `SEMSE_ORG_ID` (default: `org_worker`)
-- `SEMSE_ROLES` (default: `WORKER`)
+- `SEMSE_ROLES` (default del esquema compartido: `WORKER,EVENT_CONSUMER`, **sin autoridad de claim**).
+  En staging, una identidad de servicio previamente provisionada y aprobada necesita
+  `AGENT_RUNNER` para `/runs/claim` y `/runs/reclaim-stale`. El rol añade
+  `agents:run:claim` y `agents:run:execute`, sin permisos humanos de administración.
+  No agregarlo a sesiones de personas ni a los defaults generales. La provisión
+  real requiere acción independiente y validación de identidad/membresía en API.
 - `SEMSE_POLL_MS` (default: `3000`)
 - `SEMSE_HEARTBEAT_MS` (default: `2500`)
 - `SEMSE_RUN_SIM_MS` (default: `4000`)

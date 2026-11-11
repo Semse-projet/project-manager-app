@@ -27,8 +27,9 @@ import type { OperationalContextService } from "../ai-models/context/operational
 import { OPERATIONAL_CONTEXT_SERVICE } from "../ai-models/context/operational-context.token.js";
 import { WorkspaceMemoryRepository } from "../knowledge/workspace-memory.repository.js";
 import { AgentApprovalService } from "./agent-approval.service.js";
-import { AgentsRepository } from "./agents.repository.js";
+import { AgentsRepository, isAgentRunReplay } from "./agents.repository.js";
 import { AgentDelegationRepository } from "./agent-delegation.repository.js";
+import { isAgentRunFinalizationOutboxEnabled } from "./agent-run-finalization.policy.js";
 
 // ── Assistant preference helpers ──────────────────────────────────────────────
 
@@ -354,6 +355,7 @@ export class AgentsService {
     userId: string;
     workerId: string;
     agentType?: AgentRunRecord["agentType"];
+    runId?: string;
     requestId: string;
   }) {
     const run = await this.agentsRepository.claimNext(input);
@@ -374,6 +376,10 @@ export class AgentsService {
     return run;
   }
 
+  // Recovery cursor is an optimization only. On restart scanning begins at
+  // the first run; queue delivery is always idempotent by (tenantId, runId).
+  private readonly queuedDeliveryCursor = new Map<string, string>();
+
   async reclaimStale(input: {
     tenantId: string;
     orgId: string;
@@ -383,6 +389,39 @@ export class AgentsService {
     requestId: string;
   }) {
     const reclaimed = await this.agentsRepository.reclaimStale(input);
+
+    // A reclaimed run can be persisted as QUEUED even if this process loses
+    // the response or crashes before enqueueing it. Every scheduled sweep
+    // therefore reconciles a different bounded page of QUEUED runs, not
+    // merely those changed by this particular reclaim call.
+    const maxItems = Math.max(1, Math.min(input.maxItems ?? 20, 20));
+    const cursor = this.queuedDeliveryCursor.get(input.tenantId);
+    let queued = await this.agentsRepository.listQueuedForDelivery({
+      ...input, afterRunId: cursor, maxItems,
+    });
+    if (queued.length === 0 && cursor) {
+      this.queuedDeliveryCursor.delete(input.tenantId);
+      queued = await this.agentsRepository.listQueuedForDelivery({ ...input, maxItems });
+    }
+    if (queued.length > 0) {
+      this.queuedDeliveryCursor.set(input.tenantId, queued[queued.length - 1]!.id);
+    }
+    let queueReconciled = 0;
+    let queueBlocked = 0;
+    for (const run of queued) {
+      if (run.attempts >= run.maxAttempts) continue;
+      try {
+        const receipt = await this.agentQueueService.enqueueRun({
+          runId: run.id, tenantId: run.tenantId,
+          agentType: run.agentType, correlationId: run.correlationId,
+        }, { mode: "retry" });
+        if (receipt.enqueued) queueReconciled++;
+        else queueBlocked++;
+      } catch {
+        // Keep the DB source of truth QUEUED and retry on a later sweep.
+        queueBlocked++;
+      }
+    }
 
     if (reclaimed.length > 0) {
       await this.auditService.append({
@@ -400,6 +439,9 @@ export class AgentsService {
     return {
       reclaimedCount: reclaimed.length,
       deadLetteredCount: reclaimed.filter((entry) => entry.deadLettered).length,
+      queuedDeliveryScanned: queued.length,
+      queuedDeliveryReconciled: queueReconciled,
+      queuedDeliveryBlocked: queueBlocked,
       runs: reclaimed
     };
   }
@@ -418,18 +460,22 @@ export class AgentsService {
       timestamp: new Date().toISOString()
     });
 
-    await this.agentQueueService.enqueueRun({
+    // A manual retry must not use the normal "create" enqueue path: BullMQ
+    // retains failed/completed jobs under the same deterministic jobId.
+    // The retry path replaces terminal jobs and reports non-enqueued runs.
+    const enqueue = await this.agentQueueService.enqueueRun({
       runId: run.id,
       tenantId: run.tenantId,
       agentType: run.agentType,
       correlationId: run.correlationId
-    });
+    }, { mode: "retry" });
 
-    return run;
+    return { ...run, enqueued: enqueue.enqueued, ...(enqueue.reason ? { reason: enqueue.reason } : {}) };
   }
 
-  async start(input: { tenantId: string; orgId: string; userId: string; runId: string; requestId: string }) {
+  async start(input: { tenantId: string; orgId: string; userId: string; runId: string; requestId: string; workerId?: string; expectedAttempts?: number }) {
     const run = await this.agentsRepository.start(input);
+    if (isAgentRunReplay(run)) return run;
 
     await this.auditService.append({
       tenantId: input.tenantId,
@@ -451,6 +497,7 @@ export class AgentsService {
     userId: string;
     runId: string;
     workerId: string;
+    expectedAttempts?: number;
     requestId: string;
   }) {
     const run = await this.agentsRepository.heartbeat(input);
@@ -475,9 +522,13 @@ export class AgentsService {
     userId: string;
     runId: string;
     output?: Record<string, unknown>;
+    workerId?: string;
+    expectedAttempts?: number;
     requestId: string;
   }) {
     const run = await this.agentsRepository.complete(input);
+    // Effects are delivered by the transactional outbox in opt-in mode.
+    if (isAgentRunReplay(run) || isAgentRunFinalizationOutboxEnabled()) return run;
 
     const approvals = Array.isArray(input.output?.approvals)
       ? await this.agentApprovalService.register({
@@ -531,9 +582,12 @@ export class AgentsService {
     userId: string;
     runId: string;
     error: string;
+    workerId?: string;
+    expectedAttempts?: number;
     requestId: string;
   }) {
     const run = await this.agentsRepository.fail(input);
+    if (isAgentRunReplay(run) || isAgentRunFinalizationOutboxEnabled()) return run;
 
     await this.auditService.append({
       tenantId: input.tenantId,
@@ -576,15 +630,31 @@ export class AgentsService {
     message: string;
     agentId?: string;
     threadId?: string;
+    /** Mandatory for project-copilot threads; never reuse one across projects. */
+    projectId?: string;
     context?: Record<string, unknown>;
+    /** True when context contains private project/RAG data; enforced by the LLM router. */
+    localOnly?: boolean;
     tools: LLMToolDefinition[];
   }): Promise<ChatReply & { toolCalls: Array<{ toolName: string; toolUseId: string; input: Record<string, unknown> }> }> {
     const agentId = input.agentId ?? "assistant";
     const now = new Date().toISOString();
+    if (agentId === "project-copilot" && !input.projectId) {
+      throw new ForbiddenException("Project context required for Copilot thread");
+    }
 
     let thread = input.threadId ? getThread(input.threadId) : undefined;
+    // A threadId is not a capability: validate its tenant, owner AND agent
+    // before reading history or appending messages. Never reuse a foreign thread.
+    if (input.threadId && (
+      !thread || thread.tenantId !== input.tenantId ||
+      thread.userId !== input.userId || thread.agentId !== agentId ||
+      (agentId === "project-copilot" && thread.projectId !== input.projectId)
+    )) {
+      throw new NotFoundException("Chat thread not found");
+    }
     if (!thread) {
-      thread = createThread({ tenantId: input.tenantId, userId: input.userId, agentId });
+      thread = createThread({ tenantId: input.tenantId, userId: input.userId, agentId, projectId: input.projectId });
     }
 
     appendMessage(thread.id, { role: "user", content: input.message, timestamp: now });
@@ -607,21 +677,43 @@ export class AgentsService {
           history,
           userMessage: input.message,
           tools: input.tools,
+          // A private Project Copilot cannot opt out of local inference even
+          // if a future caller omits or explicitly disables localOnly.
+          // C85/#1066: for other agents, remembered project context must not
+          // silently fall back to cloud LLM providers either; the orchestrator
+          // enforces privacyCritical.
+          context: (agentId === "project-copilot" || input.localOnly)
+            ? { requiresTools: true, localOnly: true, privacyCritical: true, agentName: agentId, source: "private-project-copilot" }
+            : typeof input.context?.relevantMemorySummary === "string" && input.context.relevantMemorySummary.length > 0
+              ? { requiresTools: true, privacyCritical: true }
+              : { requiresTools: true },
           maxTokens: 1024,
         });
 
-        response = result.text || generateAgentResponse({ agentId, message: input.message, history: thread.messages, context: input.context });
-        toolCalls = result.toolCalls;
-        mode = (result.mode as ChatReply["mode"]) ?? "llm";
+        // Template responses are not a substitute for executable local tool
+        // plans. State the capability gap rather than silently implying an
+        // action was planned when no local tool-capable provider is available.
+        const unavailableLocalTools = (agentId === "project-copilot" || input.localOnly)
+          && input.tools.length > 0 && result.provider === "template";
+        response = unavailableLocalTools
+          ? "No hay un modelo local con herramientas disponible. No se ha propuesto ni ejecutado ninguna acción."
+          : result.text || generateAgentResponse({ agentId, message: input.message, history: thread.messages, context: input.context });
+        toolCalls = unavailableLocalTools ? [] : result.toolCalls;
+        mode = unavailableLocalTools ? "fallback" : (result.mode as ChatReply["mode"]) ?? "llm";
         provider = result.provider;
         model = result.model;
       } catch (err) {
         this.logger.warn(`[chatWithTools] LLM failed, falling back: ${err instanceof Error ? err.message : String(err)}`);
-        response = generateAgentResponse({ agentId, message: input.message, history: thread.messages, context: input.context });
+        response = (agentId === "project-copilot" || input.localOnly) && input.tools.length > 0
+          ? "No hay un modelo local con herramientas disponible. No se ha propuesto ni ejecutado ninguna acción."
+          : generateAgentResponse({ agentId, message: input.message, history: thread.messages, context: input.context });
         mode = "fallback";
       }
     } else {
-      response = generateAgentResponse({ agentId, message: input.message, history: thread.messages, context: input.context });
+      response = (agentId === "project-copilot" || input.localOnly) && input.tools.length > 0
+        ? "No hay un modelo local con herramientas disponible. No se ha propuesto ni ejecutado ninguna acción."
+        : generateAgentResponse({ agentId, message: input.message, history: thread.messages, context: input.context });
+      if ((agentId === "project-copilot" || input.localOnly) && input.tools.length > 0) mode = "fallback";
     }
 
     appendMessage(thread.id, { role: "assistant", content: response, timestamp: new Date().toISOString() });
@@ -639,9 +731,22 @@ export class AgentsService {
   }): Promise<ChatReply> {
     const agentId = input.agentId ?? "assistant";
     const now = new Date().toISOString();
+    // Generic chat lacks a verified project actor. It must never read or start
+    // project-copilot threads, which contain potentially private RAG material.
+    if (agentId === "project-copilot") {
+      throw new ForbiddenException("Project Copilot requires the authorized project harness");
+    }
 
     // Resolve or create thread
     let thread = input.threadId ? getThread(input.threadId) : undefined;
+    // A threadId is not a capability: validate its tenant, owner AND agent
+    // before reading history or appending messages. Never reuse a foreign thread.
+    if (input.threadId && (
+      !thread || thread.tenantId !== input.tenantId ||
+      thread.userId !== input.userId || thread.agentId !== agentId || Boolean(thread.projectId)
+    )) {
+      throw new NotFoundException("Chat thread not found");
+    }
     if (!thread) {
       thread = createThread({ tenantId: input.tenantId, userId: input.userId, agentId });
     }
@@ -689,14 +794,20 @@ export class AgentsService {
 
   getThreadMessages(input: { tenantId: string; userId: string; threadId: string }) {
     const thread = getThread(input.threadId);
-    if (!thread || thread.tenantId !== input.tenantId) {
+    // These generic endpoints cannot revalidate current project membership.
+    // Never expose private Copilot transcripts here, even to the original
+    // user after a project assignment or membership has been revoked.
+    if (!thread || thread.tenantId !== input.tenantId || thread.userId !== input.userId
+        || thread.projectId || thread.agentId === "project-copilot") {
       throw new NotFoundException(`Thread '${input.threadId}' not found`);
     }
     return thread;
   }
 
   getThreadList(input: { tenantId: string; userId: string }) {
-    return listThreads(input);
+    return listThreads(input).filter(thread =>
+      !thread.projectId && thread.agentId !== "project-copilot"
+    );
   }
 
   private async createIdempotent(input: {

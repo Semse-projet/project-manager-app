@@ -222,6 +222,11 @@ function createPrismaHarness() {
       state.transactionCalls++;
       return fn(prisma);
     },
+    // common/job-lock.ts: SELECT "status" FROM "Job" WHERE "id" = $1 FOR UPDATE
+    async $queryRaw(_strings: TemplateStringsArray, jobId: string) {
+      const job = state.jobs.get(jobId);
+      return job ? [{ status: job.status }] : [];
+    },
   };
 
   const actorContextService = {

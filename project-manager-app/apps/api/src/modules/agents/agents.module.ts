@@ -70,6 +70,8 @@ import { PrometeoMissionService } from "./prometeo-mission.service.js";
     PlanTemplatesService,
     ProjectCopilotHarness,
     PrometeoMissionService,
+    // SseController (infrastructure/sse) reuses the same participation check as REST (0.47).
+    ProjectAccessService,
   ],
 })
 export class AgentsModule {}

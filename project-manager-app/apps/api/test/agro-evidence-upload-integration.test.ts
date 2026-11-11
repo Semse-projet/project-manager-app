@@ -44,6 +44,10 @@ function uid(prefix: string) {
 
 async function buildApp() {
   delete process.env.AUTH_SECRET;
+  // This suite authenticates via x-user-id/x-roles headers on purpose; declare
+  // the explicit local opt-in (core.header-identity-fail-closed, option A).
+  process.env.NODE_ENV = "test";
+  process.env.SEMSE_ALLOW_HEADER_IDENTITY = "true";
   const { Module } = await import("@nestjs/common");
   const { APP_GUARD, NestFactory } = await import("@nestjs/core");
   const { ConfigModule } = await import("@nestjs/config");

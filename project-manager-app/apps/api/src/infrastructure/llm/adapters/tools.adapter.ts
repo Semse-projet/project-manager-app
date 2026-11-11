@@ -72,13 +72,35 @@ export function parsePromptToolCall(text: string): CopilotToolCall | null {
   const start = trimmed.indexOf("{");
   if (start === -1) return null;
 
+  // Match structural braces only. Valid tool arguments may contain literal
+  // unmatched braces or escaped quotes inside JSON string values.
   let depth = 0;
   let end = -1;
+  let inString = false;
+  let escaped = false;
   for (let i = start; i < trimmed.length; i++) {
-    if (trimmed[i] === "{") depth++;
-    else if (trimmed[i] === "}") { depth--; if (depth === 0) { end = i; break; } }
+    const ch = trimmed[i]!;
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (ch === "\\") {
+        escaped = true;
+      } else if (ch === '"') {
+        inString = false;
+      }
+      continue;
+    }
+    if (ch === '"') {
+      inString = true;
+    } else if (ch === "{") {
+      depth++;
+    } else if (ch === "}") {
+      depth--;
+      if (depth === 0) { end = i; break; }
+      if (depth < 0) return null;
+    }
   }
-  if (end === -1) return null;
+  if (end === -1 || inString) return null;
 
   const candidate = trimmed.slice(start, end + 1);
   try {

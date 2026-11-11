@@ -12,7 +12,12 @@ import { EmailService } from "../../infrastructure/email/email.service.js";
 import { SemseLoggerService } from "../../infrastructure/observability/semse-logger.service.js";
 import { generateOpaqueToken, hashPassword, sha256, verifyPassword } from "../../common/auth-password.js";
 import { signToken, verifyToken } from "../../common/auth-token.js";
-import { type RequestContext, parseHeaderRequestContext } from "../../common/request-context.js";
+import {
+  type RequestContext,
+  authorityUnavailable,
+  headerIdentityAllowed,
+  parseHeaderRequestContext,
+} from "../../common/request-context.js";
 import {
   demoPasswordMatches,
   isDisabledDemoIdentity,
@@ -21,6 +26,7 @@ import {
   resolveDemoLoginPassword,
 } from "./auth-demo-mode.js";
 import { AuthRepository } from "./auth.repository.js";
+import { intersectSessionRoles } from "./session-roles.js";
 
 const ACCESS_TOKEN_TTL_SECONDS = 60 * 60;
 const REFRESH_TOKEN_TTL_SECONDS = 60 * 60 * 24 * 30;
@@ -144,9 +150,7 @@ export class AuthService {
       throw new UnauthorizedException("Invalid or revoked auth session");
     }
 
-    const roles = snapshot.activeRoles.filter(
-      (role) => snapshot.session.roles.includes(role) && claims.roles.includes(role)
-    );
+    const roles = intersectSessionRoles(snapshot.activeRoles, snapshot.session.roles, claims.roles);
     if (roles.length === 0) {
       throw new UnauthorizedException("No active organization permission");
     }
@@ -155,8 +159,11 @@ export class AuthService {
 
   async authenticateRequest(req: RequestLike): Promise<RequestContext> {
     if (!process.env.AUTH_SECRET) {
-      if (process.env.NODE_ENV === "production") {
-        throw new ServiceUnavailableException("Authentication authority unavailable");
+      // Same single policy as resolveRequestContext: header identity only for
+      // explicit local opt-in (core.header-identity-fail-closed). Fail closed
+      // everywhere else, including staging/preview and an unset NODE_ENV.
+      if (!headerIdentityAllowed()) {
+        throw authorityUnavailable();
       }
       return parseHeaderRequestContext(req.headers ?? {});
     }

@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { normalizeSafeRedirectPath } from "@/lib/safe-redirect";
 import { flushProductEvents, trackProductEvent } from "@/lib/product-intelligence";
+import { LanguageProvider, useLanguage } from "@/lib/language-context";
+import { LanguageSwitch } from "../_auth/LanguageSwitch";
 
 // Never advertise demo identities on a production login screen.
 const DEMO_LOGIN_ENABLED = process.env.NODE_ENV !== "production";
@@ -12,49 +14,110 @@ const DEMO_LOGIN_ENABLED = process.env.NODE_ENV !== "production";
 // The public default demo password is only ever shown or pre-filled outside production.
 const SHOW_DEMO_PASSWORD = DEMO_LOGIN_ENABLED && process.env.NODE_ENV !== "production";
 
-function errorMessage(error: unknown, fallback: string): string {
-  if (typeof error === "string") return error;
-  if (error && typeof error === "object" && "message" in error) {
-    const message = (error as { message?: unknown }).message;
-    if (typeof message === "string" && message.trim()) return message;
-  }
-  return fallback;
+// The login API answers in Spanish; the page picks its own copy by status instead.
+type LoginErrorKey = "invalidCredentials" | "tooManyAttempts" | "genericError" | "networkError";
+
+function loginErrorKey(status: number): LoginErrorKey {
+  if (status === 401) return "invalidCredentials";
+  if (status === 429) return "tooManyAttempts";
+  return "genericError";
 }
+
+const COPY = {
+  es: {
+    tagline: "Plataforma de gestión de obras y servicios",
+    title: "Iniciar sesión",
+    passwordReset: "✓ Contraseña actualizada. Ya puedes iniciar sesión con tu nueva contraseña.",
+    returnTo: "Después de entrar volverás a",
+    signInAs: "Entrar como",
+    email: "Email",
+    password: "Contraseña",
+    submit: "Ingresar →",
+    submitting: "Ingresando…",
+    demoPassword: "Modo demo · contraseña:",
+    forgotPassword: "Olvidé mi contraseña",
+    createAccount: "Crear cuenta →",
+    invalidCredentials: "No se pudo iniciar sesión con esas credenciales",
+    tooManyAttempts: "Demasiados intentos. Intenta de nuevo más tarde.",
+    genericError: "Error al iniciar sesión",
+    networkError: "No se pudo conectar con el servidor",
+    presetWorker: "Profesional",
+    presetWorkerDesc: "Field Ops · Time Tracker · Evidencia",
+    presetClient: "Cliente",
+    presetClientDesc: "Publicar trabajos · Milestones · Pagos",
+    presetAdmin: "Admin",
+    presetAdminDesc: "Operaciones · Disputas · Config",
+  },
+  en: {
+    tagline: "Construction and services management platform",
+    title: "Sign in",
+    passwordReset: "✓ Password updated. You can now sign in with your new password.",
+    returnTo: "After signing in you will return to",
+    signInAs: "Sign in as",
+    email: "Email",
+    password: "Password",
+    submit: "Sign in →",
+    submitting: "Signing in…",
+    demoPassword: "Demo mode · password:",
+    forgotPassword: "Forgot my password",
+    createAccount: "Create account →",
+    invalidCredentials: "Could not sign in with those credentials",
+    tooManyAttempts: "Too many attempts. Please try again later.",
+    genericError: "Sign-in failed",
+    networkError: "Could not reach the server",
+    presetWorker: "Professional",
+    presetWorkerDesc: "Field Ops · Time Tracker · Evidence",
+    presetClient: "Client",
+    presetClientDesc: "Post jobs · Milestones · Payments",
+    presetAdmin: "Admin",
+    presetAdminDesc: "Operations · Disputes · Settings",
+  },
+} as const;
 
 // ── Demo account presets ─────────────────────────────────────────────────────
 
 const PRESETS = [
   {
-    label: "Profesional",
+    label: "presetWorker",
     email: "worker@demo.semse",
     color: "var(--ok)",
     icon: "🪖",
-    desc: "Field Ops · Time Tracker · Evidencia",
+    desc: "presetWorkerDesc",
   },
   {
-    label: "Cliente",
+    label: "presetClient",
     email: "client@demo.semse",
     color: "var(--brand)",
     icon: "🏢",
-    desc: "Publicar trabajos · Milestones · Pagos",
+    desc: "presetClientDesc",
   },
   {
-    label: "Admin",
+    label: "presetAdmin",
     email: "admin@demo.semse",
     color: "var(--violet)",
     icon: "⚙️",
-    desc: "Operaciones · Disputas · Config",
+    desc: "presetAdminDesc",
   },
 ] as const;
 
 // ── Component ────────────────────────────────────────────────────────────────
 
 export default function LoginPage() {
+  return (
+    <LanguageProvider>
+      <LoginForm />
+    </LanguageProvider>
+  );
+}
+
+function LoginForm() {
+  const { language } = useLanguage();
+  const c = COPY[language];
   const searchParams = useSearchParams();
   const [email, setEmail]       = useState(DEMO_LOGIN_ENABLED ? "client@demo.semse" : "");
   const [password, setPassword] = useState(SHOW_DEMO_PASSWORD ? "demo1234" : "");
   const [loading, setLoading]   = useState(false);
-  const [error, setError]       = useState<string | null>(null);
+  const [error, setError]       = useState<LoginErrorKey | null>(null);
   const redirectTo = normalizeSafeRedirectPath(searchParams?.get("from")) ?? undefined;
   const passwordReset = searchParams?.get("reset") === "1";
 
@@ -79,10 +142,10 @@ export default function LoginPage() {
         body: JSON.stringify({ email, password, redirectTo }),
       });
 
-      const data = (await res.json()) as { ok?: boolean; redirectTo?: string; error?: unknown };
+      const data = (await res.json().catch(() => ({}))) as { ok?: boolean; redirectTo?: string };
 
       if (!res.ok || !data.ok) {
-        setError(errorMessage(data.error, "Error al iniciar sesión"));
+        setError(loginErrorKey(res.status));
         return;
       }
 
@@ -92,7 +155,7 @@ export default function LoginPage() {
       await flushProductEvents();
       window.location.assign(data.redirectTo ?? "/client/dashboard");
     } catch {
-      setError("No se pudo conectar con el servidor");
+      setError("networkError");
     } finally {
       setLoading(false);
     }
@@ -110,6 +173,7 @@ export default function LoginPage() {
       }}
     >
       <div style={{ width: "100%", maxWidth: "440px" }}>
+        <LanguageSwitch />
 
         {/* Logo */}
         <div style={{ textAlign: "center", marginBottom: "36px" }}>
@@ -147,7 +211,7 @@ export default function LoginPage() {
             </span>
           </div>
           <p style={{ color: "var(--muted, #94a3b8)", fontSize: "14px" }}>
-            Plataforma de gestión de obras y servicios
+            {c.tagline}
           </p>
         </div>
 
@@ -168,7 +232,7 @@ export default function LoginPage() {
               marginBottom: "20px",
             }}
           >
-            Iniciar sesión
+            {c.title}
           </h2>
 
           {passwordReset && (
@@ -183,7 +247,7 @@ export default function LoginPage() {
                 fontSize: "12px",
               }}
             >
-              ✓ Contraseña actualizada. Ya puedes iniciar sesión con tu nueva contraseña.
+              {c.passwordReset}
             </div>
           )}
 
@@ -199,7 +263,7 @@ export default function LoginPage() {
                 fontSize: "12px",
               }}
             >
-              Después de entrar volverás a <strong>{redirectTo}</strong>
+              {c.returnTo} <strong>{redirectTo}</strong>
             </div>
           )}
 
@@ -215,7 +279,7 @@ export default function LoginPage() {
                   marginBottom: "10px",
                 }}
               >
-                Entrar como
+                {c.signInAs}
               </p>
               <div style={{ display: "flex", gap: "8px" }}>
                 {PRESETS.map((p) => {
@@ -238,7 +302,7 @@ export default function LoginPage() {
                       }}
                     >
                       <div style={{ fontSize: "18px", marginBottom: "4px" }}>{p.icon}</div>
-                      <div style={{ fontSize: "11px", fontWeight: 700 }}>{p.label}</div>
+                      <div style={{ fontSize: "11px", fontWeight: 700 }}>{c[p.label]}</div>
                     </button>
                   );
                 })}
@@ -252,7 +316,7 @@ export default function LoginPage() {
                     textAlign: "center",
                   }}
                 >
-                  {activePreset.desc}
+                  {c[activePreset.desc]}
                 </p>
               )}
             </div>
@@ -271,7 +335,7 @@ export default function LoginPage() {
                   marginBottom: "6px",
                 }}
               >
-                Email
+                {c.email}
               </label>
               <input
                 id="login-email"
@@ -305,7 +369,7 @@ export default function LoginPage() {
                   marginBottom: "6px",
                 }}
               >
-                Contraseña
+                {c.password}
               </label>
               <input
                 id="login-password"
@@ -341,7 +405,7 @@ export default function LoginPage() {
                   marginBottom: "16px",
                 }}
               >
-                {error}
+                {c[error]}
               </div>
             )}
 
@@ -364,7 +428,7 @@ export default function LoginPage() {
                 opacity: loading ? 0.7 : 1,
               }}
             >
-              {loading ? "Ingresando…" : "Ingresar →"}
+              {loading ? c.submitting : c.submit}
             </button>
           </form>
 
@@ -377,7 +441,7 @@ export default function LoginPage() {
                 textAlign: "center",
               }}
             >
-              Modo demo · contraseña:{" "}
+              {c.demoPassword}{" "}
               <code
                 style={{
                   background: "var(--raised, #111827)",
@@ -405,7 +469,7 @@ export default function LoginPage() {
               href="/forgot-password"
               style={{ color: "var(--muted, #94a3b8)", textDecoration: "none" }}
             >
-              Olvidé mi contraseña
+              {c.forgotPassword}
             </Link>
             <Link
               href={redirectTo ? `/register?from=${encodeURIComponent(redirectTo)}` : "/register"}
@@ -415,7 +479,7 @@ export default function LoginPage() {
                 fontWeight: 600,
               }}
             >
-              Crear cuenta →
+              {c.createAccount}
             </Link>
           </div>
         </div>

@@ -3,6 +3,15 @@ import { MaterialPricingService } from "./material-pricing.service.js";
 
 const REFRESH_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24h
 
+// Public BLS pricing telemetry is not needed in private/no-egress environments.
+// Preserve the existing default behavior; only an explicit "false" opts out.
+// This gate does not disable manual price reads from the local DB cache.
+export function isExternalPriceRefreshEnabled(
+  env: Readonly<{ SEMSE_PRICE_REFRESH_EXTERNAL_ENABLED?: string }> = process.env,
+): boolean {
+  return env.SEMSE_PRICE_REFRESH_EXTERNAL_ENABLED !== "false";
+}
+
 /**
  * Runs once on startup and then every 24 hours to refresh
  * material prices from BLS PPI API into DB cache.
@@ -15,6 +24,10 @@ export class PriceRefreshJob implements OnModuleInit {
   constructor(private readonly pricing: MaterialPricingService) {}
 
   onModuleInit(): void {
+    if (!isExternalPriceRefreshEnabled()) {
+      this.logger.log("External BLS material-price refresh disabled by operator");
+      return;
+    }
     // Run the startup DB check in the background so API health can start even
     // when Postgres is slow or temporarily unavailable during Railway boot.
     void this.runInitialRefresh().catch((error: unknown) => {
