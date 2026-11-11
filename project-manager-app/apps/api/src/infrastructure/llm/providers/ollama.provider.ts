@@ -74,6 +74,22 @@ export class OllamaProvider implements LLMProvider {
     }
   }
 
+  /**
+   * Treat only exact loopback URLs as local. A private-network/VPS name, a
+   * localhost lookalike, or an auth-in-URL endpoint is not an approved private
+   * inference boundary. Check parsed hostname, never substring matching.
+   */
+  isLocalEndpoint(): boolean {
+    try {
+      const url = new URL(this.baseUrl);
+      return (url.protocol === "http:" || url.protocol === "https:")
+        && ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname.toLowerCase())
+        && !url.username && !url.password;
+    } catch {
+      return false;
+    }
+  }
+
   getConfig() {
     return {
       baseUrl: this.baseUrl,
@@ -81,11 +97,14 @@ export class OllamaProvider implements LLMProvider {
       timeoutMs: this.timeoutMs,
       healthTimeoutMs: this.healthTimeoutMs,
       hasApiKey: !!this.apiKey,
-      isRemote: !this.baseUrl.includes("localhost") && !this.baseUrl.includes("127.0.0.1"),
+      isRemote: !this.isLocalEndpoint(),
     };
   }
 
   async chat(input: LLMChatInput): Promise<LLMChatResponse> {
+    if ((input.context?.localOnly || input.context?.privacyCritical) && !this.isLocalEndpoint()) {
+      throw new Error("Private LLM inference requires a verified loopback Ollama endpoint");
+    }
     const t0 = Date.now();
     const toolHint = input.tools?.length ? toPromptTools(input.tools) : "";
     const systemContent = input.systemPrompt + toolHint;
@@ -100,6 +119,9 @@ export class OllamaProvider implements LLMProvider {
       method: "POST",
       headers: { "content-type": "application/json", ...this.authHeaders() },
       body: JSON.stringify({ model: this.model, messages, stream: false }),
+      // Never follow a 307/308 from a trusted loopback URL to an external
+      // endpoint with private system prompts, user data or RAG excerpts.
+      redirect: "error",
       signal: AbortSignal.timeout(this.timeoutMs),
     });
 

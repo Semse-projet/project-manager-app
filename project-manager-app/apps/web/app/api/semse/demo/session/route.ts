@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { encodeSession, SESSION_COOKIE, type SessionPayload } from "@/lib/auth";
+import { trustedClientHeaders } from "../../_server";
 
 // Cookie legible por el cliente para que la UI muestre el banner de demo.
 // No es una credencial: la sesión real viaja en la cookie firmada httpOnly.
@@ -24,7 +25,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const upstream = await fetch(`${apiBaseUrl}/v1/demo/session`, {
     method: "POST",
     cache: "no-store",
-    headers: { "content-type": "application/json" },
+    headers: { ...trustedClientHeaders(request), "content-type": "application/json" },
     body: JSON.stringify({ vertical: "agro" }),
   });
 

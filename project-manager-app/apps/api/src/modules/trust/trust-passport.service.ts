@@ -77,10 +77,18 @@ export class TrustPassportService {
   ) {}
 
   async issue(tenantId: string, targetUserId: string): Promise<TrustPassportView> {
-    const user = await this.prisma.user.findFirst({
-      where: { id: targetUserId, status: "active" },
-      select: { id: true },
-    });
+    // C51: el usuario debe pertenecer (membresía ACTIVE) al tenant del solicitante; OPS_ADMIN no cruza tenants
+    // y un usuario de otro tenant se informa como inexistente (sin oráculo de existencia).
+    const user = tenantId
+      ? await this.prisma.user.findFirst({
+          where: {
+            id: targetUserId,
+            status: "active",
+            memberships: { some: { status: "ACTIVE", org: { tenantId } } },
+          },
+          select: { id: true },
+        })
+      : null;
     if (!user) throw new NotFoundException(`User '${targetUserId}' not found`);
 
     const [reputation, contributions] = await Promise.all([

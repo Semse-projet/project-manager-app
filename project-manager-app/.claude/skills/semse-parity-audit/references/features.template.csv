@@ -1,0 +1,13 @@
+feature,area,priority,original,clone,notes
+Crear tarea de obra con responsable y fecha,tareas,must,yes,no,EJEMPLO de plantilla: reemplazar por la matriz real del recon
+Adjuntar foto de avance como evidencia,evidencia,must,yes,no,
+Aprobar o rechazar un hito con comentario,aprobaciones,must,yes,no,
+Cliente ve sólo los proyectos de su organización,permisos,must,yes,no,
+Estimación con partidas y total,estimaciones,must,yes,no,
+Interfaz completa en español e inglés,i18n,must,yes,no,
+Registro de avance sin conexión en obra,offline,should,yes,no,
+Notificación al cliente cuando hay hito por aprobar,notificaciones,should,yes,no,
+Plantillas de tareas reutilizables,tareas,could,yes,no,
+Diagrama de Gantt,planificación,could,yes,no,
+Marketplace de integraciones de terceros,integraciones,could,yes,skip,red de socios de la referencia: no es una funcionalidad adoptable
+Pago con escrow liberado por hito aprobado,pagos,should,no,no,capacidad propia de SEMSE que la referencia no tiene: no suma a la paridad

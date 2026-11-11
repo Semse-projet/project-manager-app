@@ -94,3 +94,5 @@ El manifiesto real `apps/api/package.json` usa `zod: ^3.24.2` y `@semse/schemas`
 **No confirmado / no implementado:** issuer/resource OAuth D2, client onboarding, almacenamiento de consentimiento D7, código de MCP Server, prueba real de host, tests autenticados MCP, Railway y flags/secretos productivos. La ruta interna D4 está en desarrollo en PR separado, no en producción. La spec sigue REVIEW y la ADR-045 PROPOSED.
 
 **Owner decision record (rellenar al aprobar):** fecha, decision D1–D7, alcance, aprobador, threat review, SHA, enlace de acta y child spec actualizado. Ausencia de firma/review = NO APPROVED.
+
+**Mantenedor único (2026-10-26):** mientras SEMSE Project tenga un solo mantenedor con permisos de revisión, la "revisión de seguridad" que exige este documento se cumple con los controles por nivel de riesgo de [DEC-PLATFORM-001](../../architecture/DEC-PLATFORM-001-solo-maintainer-review.md): nivel 1 para specs/docs, nivel 2 para código con flag OFF y nivel 3 (revisión humana externa real) para activar o exponer MCP. Las revisiones automatizadas no cuentan como revisión humana independiente.

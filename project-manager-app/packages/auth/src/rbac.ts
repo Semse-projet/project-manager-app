@@ -6,6 +6,9 @@ export const rolePermissions: Record<string, string[]> = {
     // "Mis tareas" (GET /v1/tasks) es más angosto que jobs:read (ver TasksController).
     "tasks:read:self",
     "jobs:create",
+    // POST /v1/jobs/:jobId/transition. The service decides who may take each step
+    // (assertTransitionAuthorized: client-only, pro-only, owner or assigned pro).
+    "jobs:transition",
     "travel:manage",
     "jobs:archive",
     "jobs:restore",
@@ -56,6 +59,8 @@ export const rolePermissions: Record<string, string[]> = {
     "governance:propose",
     "knowledge:read",
     "knowledge:write",
+    // Document sharing requires additional document-owner policy verification.
+    "knowledge:share",
     "tools:read",
     "tools:run",
     "vision:read",
@@ -79,6 +84,9 @@ export const rolePermissions: Record<string, string[]> = {
     "jobs:read",
     // "Mis tareas" (GET /v1/tasks) es más angosto que jobs:read (ver TasksController).
     "tasks:read:self",
+    // POST /v1/jobs/:jobId/transition. The service decides who may take each step
+    // (assertTransitionAuthorized: client-only, pro-only, owner or assigned pro).
+    "jobs:transition",
     "travel:manage",
     "bids:read",
     "bids:create",
@@ -115,12 +123,14 @@ export const rolePermissions: Record<string, string[]> = {
     "projects:financials:read",
     "agents:run:worker",
     "agents:run:manage",
+    "agents:run:execute",
     "agents:run:create",
     "matching:read",
     "governance:read",
     "governance:vote",
     "governance:propose",
     "knowledge:read",
+    "knowledge:share",
     "tools:read",
     "tools:run",
     "vision:read",
@@ -143,6 +153,7 @@ export const rolePermissions: Record<string, string[]> = {
     "contributor-program:participate",
     "agents:run:worker",
     "agents:run:manage",
+    "agents:run:execute",
     "agents:run:create",
     "travel:manage",
     "bids:read",
@@ -174,6 +185,13 @@ export const rolePermissions: Record<string, string[]> = {
   EVENT_CONSUMER: [
     "domain-events:consume"
   ],
+  // Separate machine-authority grant. Human WORKER and OPS_ADMIN roles must
+  // never obtain an AgentRun claim capability from general management rights.
+  AGENT_RUNNER: [
+    "agents:run:claim",
+    // Only the fenced AgentRun lifecycle endpoints, not global worker/management privileges.
+    "agents:run:execute"
+  ],
   OPS_ADMIN: [
     "contributor-program:participate",
     "contributor-program:manage",
@@ -181,6 +199,9 @@ export const rolePermissions: Record<string, string[]> = {
     // "Mis tareas" (GET /v1/tasks) es más angosto que jobs:read (ver TasksController).
     "tasks:read:self",
     "jobs:create",
+    // POST /v1/jobs/:jobId/transition. The service decides who may take each step
+    // (assertTransitionAuthorized: client-only, pro-only, owner or assigned pro).
+    "jobs:transition",
     "travel:manage",
     "jobs:archive",
     "jobs:restore",
@@ -257,6 +278,7 @@ export const rolePermissions: Record<string, string[]> = {
     "agents:run:create",
     "agents:run:retry",
     "agents:run:manage",
+    "agents:run:execute",
     "agents:run:worker",
     "notifications:read",
     "finance:read",
@@ -267,6 +289,7 @@ export const rolePermissions: Record<string, string[]> = {
     "governance:close",
     "knowledge:read",
     "knowledge:write",
+    "knowledge:share",
     "knowledge:manage",
     "ops:coordinator:read",
     "tools:read",
@@ -285,7 +308,10 @@ export const rolePermissions: Record<string, string[]> = {
     "agro:workforce:admin",
     "live_sessions:read",
     "live_sessions:write",
-    "satellites:admin"
+    "satellites:admin",
+    // S1/D7 v1: revocar consentimientos MCP de su tenant uno a uno, con motivo
+    // obligatorio (docs/specs/platform/semse-mcp-delegated-consent.spec.md §3).
+    "mcp:consents:revoke:tenant"
   ],
   // Sesión demo pública (ui.demo-sandbox): SOLO agro, nada más — el aislamiento
   // del sandbox depende de que este set nunca crezca hacia jobs/payments/matching.

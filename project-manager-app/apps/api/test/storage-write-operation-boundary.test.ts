@@ -79,19 +79,25 @@ test("failed settlement does not invoke cleanup of an already published original
   assert.equal(cleaned, 0, "cleanup must not run after successful publication");
 });
 
-test("boundary and control plane are wired only behind staging and production guards", () => {
+test("boundary and control plane keep production canary and transition authority separate", () => {
   const moduleSource = readFileSync(new URL("../src/infrastructure/storage/storage.module.ts",import.meta.url),"utf8");
   const storageSource = readFileSync(new URL("../src/infrastructure/storage/storage.service.ts",import.meta.url),"utf8");
+  const modeSource = readFileSync(new URL("../src/infrastructure/storage/storage-write-gate-mode.ts",import.meta.url),"utf8");
   const controlSource = readFileSync(new URL("../src/infrastructure/storage/storage-write-gate-control.service.ts",import.meta.url),"utf8");
   assert.match(moduleSource, /StorageWriteOperationBoundary/);
   assert.match(moduleSource, /StorageWriteGateCoordinator/);
   assert.match(moduleSource, /StorageWriteGateTransitionService/);
   assert.match(moduleSource, /StorageWriteGateControlService/);
   assert.match(moduleSource, /StorageWriteGateControlController/);
-  assert.match(storageSource, /SEMSE_STORAGE_WRITE_GATE_MODE/);
-  assert.match(storageSource, /isProductionStorage/);
-  assert.match(storageSource, /ServiceUnavailableException/);
-  assert.match(controlSource, /SEMSE_STORAGE_WRITE_GATE_MODE !== "staging"/);
-  assert.match(controlSource, /isProductionStorage\(process\.env\)/);
-  assert.match(controlSource, /approved non-production staging/);
+  assert.match(storageSource, /storageWriteGateRuntimeEnabled/);
+  assert.match(storageSource, /private configuredBoundary\(/);
+  assert.match(modeSource, /SEMSE_STORAGE_WRITE_GATE_MODE/);
+  assert.match(modeSource, /SEMSE_STORAGE_WRITE_GATE_PRODUCTION_CONTROL_MODE/);
+  assert.match(modeSource, /mode === "staging"/);
+  assert.match(modeSource, /mode === "production"/);
+  assert.match(modeSource, /level === "provision"/);
+  assert.match(modeSource, /Production storage write gate control is not armed/);
+  assert.match(controlSource, /assertControlPlane\("observe"\)/);
+  assert.match(controlSource, /assertControlPlane\("provision"\)/);
+  assert.match(controlSource, /assertControlPlane\("mutate"\)/);
 });

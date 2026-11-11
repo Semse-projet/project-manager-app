@@ -257,3 +257,7 @@ forbidden_behavior:
 - [ ] canary autenticado con evidencias reales
 - [ ] evidencia sin secretos
 - [ ] sólo entonces VERIFIED
+
+## 2026-10-18 — Proposed evidence-review RAG security extension (#974 / #987)
+
+This is a **separate, not-yet-deployed** amendment to existing chat-evidence functionality. Evidence Review's agent receives private RAG context only when the reviewer is identified by a signed session, has ACTIVE org membership, and participates in the exact milestone project in its tenant with a live job; a validated OPS_ADMIN can use the tenant-limited privileged path. Missing scope produces rules-only/no-RAG fallback (never tenant-wide retrieval). Both model attempts require `localOnly`, and private document snippets/citations cannot silently reach cloud inference. Tests: `apps/api/test/evidence-review-rag-scope.test.ts`, `apps/api/test/prometeo-live-project-scope.test.ts` and signed-session API Integration smoke. Proposed ADR-046 and `prometeo.document-sharing-grants` REVIEW govern release; existing production `chat-evidence` evidence above is **not** evidence for this amendment.

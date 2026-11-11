@@ -118,9 +118,19 @@ Usado por el Worker para obtener su primer access token desde la API.
    → En 401: llama a POST /v1/auth/refresh con refreshToken
    → Renueva token automáticamente
 
-3. Si AUTH_SECRET no está configurado (dev): Worker usa identity headers directamente
-   → API acepta x-semse-user-id, x-semse-tenant-id, etc. en modo dev
+3. Si AUTH_SECRET no está configurado: Worker usa identity headers directamente
+   → API acepta x-user-id, x-tenant-id, x-org-id, x-roles SOLO si
+     SEMSE_ALLOW_HEADER_IDENTITY=true y NODE_ENV es development o test
+   → En cualquier otro caso (staging, preview, NODE_ENV sin definir, production)
+     la API responde 503 "Authentication authority unavailable"
 ```
+
+> **Opt-in local de identidad por cabeceras** (`core.header-identity-fail-closed`):
+> el modo por cabeceras exige las tres condiciones: `AUTH_SECRET` ausente,
+> `SEMSE_ALLOW_HEADER_IDENTITY=true` y `NODE_ENV` igual a `development` o `test`.
+> Con `AUTH_SECRET` definido o con `NODE_ENV=production`, el opt-in se ignora.
+> Al arrancar sin `AUTH_SECRET`, la API registra `auth_header_identity_mode_enabled`
+> o `auth_secret_missing_fail_closed`. **Nunca** definir esta variable en Railway.
 
 ---
 
@@ -131,6 +141,7 @@ Usado por el Worker para obtener su primer access token desde la API.
 |----------|-----------|-------------|
 | `AUTH_SECRET` | Sí (prod) | Secret para firmar/verificar API Bearer tokens. Mínimo 32 chars. |
 | `SEMSE_BOOTSTRAP_TOKEN` | Recomendado | Token que permite al Worker obtener un session token. |
+| `SEMSE_ALLOW_HEADER_IDENTITY` | No (solo local) | `true` permite identidad por cabeceras si falta `AUTH_SECRET` y `NODE_ENV` es `development`/`test`. Nunca en Railway. |
 
 ### Web (`apps/web`)
 | Variable | Requerida | Descripción |

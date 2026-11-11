@@ -133,6 +133,7 @@ function makeAcceptHarness(input: {
       callback: (tx: Record<string, any>) => Promise<unknown>,
     ) => {
       const tx = {
+        $queryRaw: async () => [{ status: "PUBLISHED" }],
         jobReservation: {
           findFirst: async () => null,
           create: async () => ({}),

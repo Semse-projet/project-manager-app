@@ -17,12 +17,14 @@
  *   node scripts/ops/ensure-worker-service-membership.mjs --apply    # escribe
  *
  * Límites duros: solo el usuario `usr_worker_system`, solo la org indicada
- * (debe existir y pertenecer al tenant), solo roles OPS_ADMIN/WORKER/EVENT_CONSUMER.
+ * (debe existir y pertenecer al tenant), solo roles OPS_ADMIN/WORKER/EVENT_CONSUMER/AGENT_RUNNER.
+ * AGENT_RUNNER solo mediante lista explícita de roles; NO se añade al default.
  * No crea User, Org ni Tenant: si faltan, aborta.
  */
 
 export const SERVICE_USER_ID = "usr_worker_system";
-export const ALLOWED_ROLES = ["OPS_ADMIN", "WORKER", "EVENT_CONSUMER"];
+export const DEFAULT_ROLES = ["OPS_ADMIN", "WORKER", "EVENT_CONSUMER"];
+export const ALLOWED_ROLES = [...DEFAULT_ROLES, "AGENT_RUNNER"];
 
 /**
  * Función pura: dado el estado leído de la BD, devuelve qué falta hacer o por
@@ -97,7 +99,7 @@ async function main() {
   const userId = process.env.SEMSE_USER_ID ?? SERVICE_USER_ID;
   const tenantId = process.env.SEMSE_TENANT_ID ?? "tenant_default";
   const orgId = process.env.SEMSE_ORG_ID ?? "org_admin_001";
-  const roles = (process.env.SEMSE_ROLES ?? ALLOWED_ROLES.join(",")).split(",").map((r) => r.trim());
+  const roles = (process.env.SEMSE_ROLES ?? DEFAULT_ROLES.join(",")).split(",").map((r) => r.trim());
 
   if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL es obligatorio");
   const module = await import("@prisma/client");

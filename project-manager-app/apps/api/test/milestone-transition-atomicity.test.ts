@@ -19,6 +19,7 @@ function build(initialStatus: string, opts: { activeRelease?: boolean } = {}) {
   const prisma = {
     milestone: {
       async findFirst() { return withProject(); },
+      async findUnique() { return withProject(); },
       async findUniqueOrThrow() { return { ...row }; },
       // `update where id` INCONDICIONAL: lo que usaba el codigo anterior (sin comparar estado).
       async update({ data }: { where: { id: string }; data: { status: string } }) {
@@ -36,6 +37,9 @@ function build(initialStatus: string, opts: { activeRelease?: boolean } = {}) {
     evidence: { async count() { return 3; } },
     milestoneEvidenceItem: { async findMany() { return []; } },
     paymentTxn: { async findFirst() { return opts.activeRelease ? { id: "txn_1" } : null; } },
+    // transitionStatus runs in a transaction under the job row lock (common/job-lock.ts).
+    async $transaction<T>(fn: (tx: unknown) => Promise<T>) { return fn(prisma); },
+    async $queryRaw() { return [{ status: "IN_PROGRESS" }]; },
   };
   const repo = new MilestonesRepository(prisma as never, { async ensureActorContext() {} } as never);
   return { repo, row };

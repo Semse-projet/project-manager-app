@@ -69,3 +69,40 @@ test("enforce blocks automatic AND manual escrow release before reserving money"
     else process.env.SEMSE_VERIFIED_ESCROW_MODE = previous;
   }
 });
+
+
+test("deposit conflict retries a bounded Serializable reservation and surfaces closed job as 409", async () => {
+  let attempts = 0;
+  const prisma = {
+    async $transaction() {
+      attempts++;
+      if (attempts === 1) throw Object.assign(new Error("serialization failure"), { code: "P2034" });
+      // The retried transaction sees the cancellation through lockOpenJobForFunding.
+      const { ConflictException } = await import("@nestjs/common");
+      throw new ConflictException("cannot fund escrow: job is cancelled");
+    },
+  };
+  const repository = new PaymentsRepository(prisma as never, {} as never);
+  await assert.rejects(repository.depositFunds({
+    projectId: "project_1", jobId: "job_1", currency: "USD", amount: 200, providerRef: "local_test",
+  }), (error: unknown) =>
+    typeof (error as any)?.getStatus === "function" && (error as any).getStatus() === 409
+      && /job is cancelled/.test((error as Error).message));
+  assert.equal(attempts, 2);
+});
+
+test("deposit serialization conflicts are bounded to three attempts, then fail with 409", async () => {
+  let attempts = 0;
+  const repository = new PaymentsRepository({
+    async $transaction() {
+      attempts++;
+      throw Object.assign(new Error("serialization failure"), { code: "P2034" });
+    },
+  } as never, {} as never);
+  await assert.rejects(repository.depositFunds({
+    projectId: "project_1", jobId: "job_1", currency: "USD", amount: 200, providerRef: "local_test",
+  }), (error: unknown) =>
+    typeof (error as any)?.getStatus === "function" && (error as any).getStatus() === 409
+      && /concurrent transition/.test((error as Error).message));
+  assert.equal(attempts, 3, "never spin indefinitely or invoke an external provider");
+});

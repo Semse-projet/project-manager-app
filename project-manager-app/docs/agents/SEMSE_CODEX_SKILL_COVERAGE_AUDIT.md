@@ -21,6 +21,14 @@
 - Verificar tras el PR: `cd project-manager-app && node --test tests/unit/semse-codex-skill-parity.test.mjs tests/unit/semse-skill-pack-contract.test.mjs`; `pnpm skill:route:report`; `pnpm test:unit`; CI requerido antes de merge.
 - **Límite:** no afirmar que están instaladas en `main` o en equipos/otras apps hasta que exista merge y se verifique su descubrimiento en ese entorno.
 
+## Kit de calidad SEMSE — 2026-10-20 (rama en revisión)
+
+- Se añaden **4 skills** propias adaptadas del pack externo `replica-skill` (MIT, commit `77c9436`), cada una con `SKILL.md` canónico y descriptor Codex: `semse-recon`, `semse-parity-audit`, `semse-functional-test`, `semse-release-gate`.
+- Inventario **en esta rama**: 31 skills Claude ↔ 31 descriptores Codex por ID; se mantiene la excepción legacy `testing-worker-tracker`.
+- `semse-kit-contract.test.mjs` comprueba el contrato del kit: frontmatter, delegación en skills existentes, prohibiciones de merge/deploy/pagos, procedencia y licencia del código adaptado, ausencia de imports de red en las herramientas Python y sus 39 tests upstream cuando hay `python3`.
+- Las 7 skills restantes del pack (architect, build, backend, deploy, brand, launch y casi todo design) **no** se importaron; motivos en `docs/semse-kit/README.md`.
+- Las fases 3–5 del kit (validadores, workflow de Actions, preview de Railway) no forman parte de esta entrega.
+
 ## Límites de completitud
 
 **23/23** significa paridad de **skills instaladas en este repositorio**, no que todas las conversaciones, librerías o proyectos externos ya estén integrados. No se importaron a ciegas prompts históricos ni colecciones externas de ECC.

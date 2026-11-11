@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 
 import { JobsService } from "../dist/modules/jobs/jobs.service.js";
 
-function makeService(overrides: { outboxRepository?: unknown; notifications?: unknown } = {}) {
+function makeService(overrides: { outboxRepository?: unknown; notifications?: unknown; jobsRepository?: unknown; domainEventBus?: unknown } = {}) {
   const prisma = {
     job: {
       findFirst: async () => ({
@@ -25,9 +25,9 @@ function makeService(overrides: { outboxRepository?: unknown; notifications?: un
   const workspaceMemoryRepository = { append: async () => undefined };
 
   const service = new JobsService(
-    jobsRepository as never,
+    (overrides.jobsRepository ?? jobsRepository) as never,
     auditService as never,
-    domainEventBus as never,
+    (overrides.domainEventBus ?? domainEventBus) as never,
     workspaceMemoryRepository as never,
     prisma as never,
     undefined,
@@ -66,4 +66,35 @@ test("systemCompleteJob still completes the job and notifies even when outboxRep
   await assert.doesNotReject(() =>
     service.systemCompleteJob({ tenantId: "tenant_1", jobId: "job_1", requestId: "req_1" }),
   );
+});
+
+test("stale automatic completion cannot emit a second completion, rating or webhook", async () => {
+  let expectedFrom: unknown;
+  let notifications = 0;
+  let events = 0;
+  let outbox = 0;
+  const svc = makeService({
+    jobsRepository: {
+      async updateStatus(input: Record<string, unknown>) {
+        expectedFrom = input.expectedFrom;
+        // Simulate a concurrent completion that committed after the first read.
+        if (input.expectedFrom === "review") {
+          const { ConflictException } = await import("@nestjs/common");
+          throw new ConflictException("job changed from 'review' to 'completed' while this transition was in flight");
+        }
+        throw new Error("missing optimistic lock");
+      },
+    },
+    domainEventBus: { async emit() { events++; } },
+    notifications: { async handleEvent() { notifications++; } },
+    outboxRepository: { async create() { outbox++; } },
+  });
+
+  await svc.systemCompleteJob({ tenantId: "tenant_1", jobId: "job_1", requestId: "req_stale" });
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.equal(expectedFrom, "review", "systemCompleteJob must supply its observed source status");
+  assert.equal(events, 0, "no second status-changed event after stale completion");
+  assert.equal(notifications, 0, "no duplicated completion/rating notifications");
+  assert.equal(outbox, 0, "no duplicate satellite webhook outbox records");
 });

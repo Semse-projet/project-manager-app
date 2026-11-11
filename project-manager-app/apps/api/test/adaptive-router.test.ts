@@ -50,10 +50,16 @@ test("rank: requiresTools → anthropic or openai first, not ollama", () => {
   assert.ok(!withoutTemplate.slice(0, 2).includes("ollama"));
 });
 
-test("rank: preferredProvider overrides everything", () => {
+test("rank: cloud preference never overrides privacyCritical or localOnly", () => {
   const { router } = makeRouter();
-  const chain = router.rank(ALL, { preferredProvider: "openai", privacyCritical: true }, "chat");
-  assert.equal(chain[0], "openai");
+  for (const ctx of [
+    { preferredProvider: "openai" as const, privacyCritical: true },
+    { preferredProvider: "anthropic" as const, localOnly: true },
+  ]) {
+    const chain = router.rank(ALL, ctx, "chat");
+    assert.ok(chain.includes("ollama"));
+    assert.ok(!chain.includes("openai") && !chain.includes("anthropic"));
+  }
 });
 
 test("rank: always ends with template", () => {
@@ -143,4 +149,30 @@ test("snapshot reflects recorded data", () => {
   assert.ok(snap.successRate > 0.6 && snap.successRate < 0.7);
   assert.ok(snap.avgLatencyMs > 0);
   assert.equal(snap.circuitState, "closed");
+});
+
+test("rank: local-only tool route retains Ollama and cannot select cloud providers", () => {
+  const { router } = makeRouter();
+  const chain = router.rank(ALL, {
+    preferredProvider: "openai", localOnly: true, privacyCritical: true, requiresTools: true,
+  }, "tool_use");
+  assert.equal(chain[0], "ollama");
+  assert.ok(!chain.includes("openai") && !chain.includes("anthropic"));
+});
+
+test("rank: local-only with no registered local LLM never falls back to cloud", () => {
+  const { router } = makeRouter();
+  const chain = router.rank(["openai", "anthropic", "template"], {
+    preferredProvider: "openai", localOnly: true, requiresTools: true,
+  }, "tool_use");
+  assert.deepEqual(chain, ["template"]);
+  const withoutTemplate = router.rank(["openai", "anthropic"], {
+    localOnly: true, requiresTools: true,
+  }, "tool_use");
+  assert.deepEqual(withoutTemplate, []);
+});
+
+test("rank: ordinary non-private preferredProvider still works", () => {
+  const { router } = makeRouter();
+  assert.equal(router.rank(ALL, { preferredProvider: "openai" }, "chat")[0], "openai");
 });

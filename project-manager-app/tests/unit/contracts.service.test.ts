@@ -198,7 +198,8 @@ test("contracts service: requestSignatures invokes hello-sign client if availabl
   const service = new ContractsService(
     {
       create: async () => STUB_CONTRACT,
-      findById: async () => STUB_CONTRACT,
+      // C51: pedir firmas exige la org cliente dueña; el contrato pertenece a "org_1".
+      findById: async () => ({ ...STUB_CONTRACT, clientOrgId: "org_1" }),
       updateSigningStatus: async (input: unknown) => {
         return { ...STUB_CONTRACT, ...(input as any) };
       },
@@ -216,6 +217,7 @@ test("contracts service: requestSignatures invokes hello-sign client if availabl
     tenantId: "tenant_1",
     orgId: "org_1",
     userId: "user_1",
+    roles: ["CLIENT"],
     contractId: "ct_1",
     signerEmail: "signer@example.com",
     signerName: "John Doe",

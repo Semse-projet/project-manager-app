@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto";
+import type { Prisma } from "@prisma/client";
 import { ConflictException, ForbiddenException, Injectable, NotFoundException, UnprocessableEntityException } from "@nestjs/common";
 import { hasPermission } from "../../common/rbac.js";
 import { AuditService } from "../../infrastructure/audit/audit.service.js";
@@ -53,19 +54,15 @@ export class SkillsService {
     entityType: string,
     entityId: string,
     requestId: string,
-    afterJson: Record<string, unknown>
+    afterJson: Record<string, unknown>,
+    tx?: Prisma.TransactionClient
   ): Promise<void> {
-    await this.audit.append({
-      tenantId,
-      orgId,
-      actorUserId,
-      action,
-      entityType,
-      entityId,
-      requestId,
-      timestamp: new Date().toISOString(),
-      afterJson
-    });
+    const entry = {
+      tenantId, orgId, actorUserId, action, entityType, entityId, requestId,
+      timestamp: new Date().toISOString(), afterJson
+    };
+    if (tx) await this.audit.appendInTransaction(entry, tx);
+    else await this.audit.append(entry);
   }
 
   /** El responsable decide sobre una asignación ENVIADA de su cuadrilla; la experiencia cuenta solo si la confirma. */
@@ -78,7 +75,7 @@ export class SkillsService {
     this.assertEnabled();
     const allocation = await this.prisma.taskAllocation.findFirst({ where: { id: allocationId, tenantId: actor.tenantId } });
     if (!allocation) throw new NotFoundException();
-    const crew = await this.prisma.crew.findFirst({ where: { id: allocation.crewId, tenantId: actor.tenantId } });
+    const crew = await this.prisma.crew.findFirst({ where: { id: allocation.crewId, tenantId: actor.tenantId, status: "ACTIVE" } });
     if (!crew) throw new NotFoundException();
     const roles = await this.liveRoles(actor.userId, actor.tenantId, allocation.orgId);
     if (crew.supervisorUserId !== actor.userId && !hasPermission(roles, CREWS_MANAGE)) throw new ForbiddenException();
@@ -93,36 +90,38 @@ export class SkillsService {
     const existing = await this.prisma.skillExperience.findFirst({ where: { sourceType: "TASK_ALLOCATION", sourceId: allocation.id } });
     if (existing) throw new ConflictException("Esta asignación ya fue revisada");
     const status = input.decision === "CONFIRM" ? "CONFIRMED" : "REJECTED";
-    let row: { id: string };
+    // Preparing actor foreign keys must precede the domain transaction.
+    await this.audit.prepareActorContext({
+      tenantId: actor.tenantId, orgId: allocation.orgId, actorUserId: actor.userId
+    });
     try {
-      row = await this.prisma.skillExperience.create({
-        data: {
-          tenantId: actor.tenantId,
-          orgId: allocation.orgId,
-          userId: allocation.userId,
-          trade: trade || "sin-oficio",
-          sourceType: "TASK_ALLOCATION",
-          sourceId: allocation.id,
-          status,
-          reviewedByUserId: actor.userId,
-          reviewNote: input.note ?? null,
-          decidedAt: new Date()
-        }
+      await this.prisma.$transaction(async (tx) => {
+        const row = await tx.skillExperience.create({
+          data: {
+            tenantId: actor.tenantId,
+            orgId: allocation.orgId,
+            userId: allocation.userId,
+            trade: trade || "sin-oficio",
+            sourceType: "TASK_ALLOCATION",
+            sourceId: allocation.id,
+            status,
+            reviewedByUserId: actor.userId,
+            reviewNote: input.note ?? null,
+            decidedAt: new Date()
+          }
+        });
+        await this.record(
+          actor.tenantId, allocation.orgId, actor.userId,
+          status === "CONFIRMED" ? "skill_experience.confirmed" : "skill_experience.rejected",
+          "SkillExperience", row.id, requestId, { allocationId: allocation.id }, tx
+        );
       });
     } catch (error) {
-      if ((error as { code?: string }).code === "P2002") throw new ConflictException("Esta asignación ya fue revisada");
+      if ((error as { code?: string }).code === "P2002") {
+        throw new ConflictException("Esta asignación ya fue revisada");
+      }
       throw error;
     }
-    await this.record(
-      actor.tenantId,
-      allocation.orgId,
-      actor.userId,
-      status === "CONFIRMED" ? "skill_experience.confirmed" : "skill_experience.rejected",
-      "SkillExperience",
-      row.id,
-      requestId,
-      { allocationId: allocation.id }
-    );
     return { status };
   }
 
@@ -146,18 +145,26 @@ export class SkillsService {
     }
     const token = randomBytes(24).toString("base64url");
     const now = new Date();
-    const created = await this.prisma.skillAttestation.create({
-      data: {
-        userId: actor.userId,
-        summary,
-        contentHash: hashSummary(summary),
-        tokenHash: hashToken(token),
-        consentedAt: now,
-        expiresAt: new Date(now.getTime() + (input.expiresInDays ?? DEFAULT_EXPIRY_DAYS) * 24 * 60 * 60 * 1000)
-      }
+    await this.audit.prepareActorContext({
+      tenantId: actor.tenantId, orgId: actor.orgId, actorUserId: actor.userId
     });
-    await this.record(actor.tenantId, actor.orgId, actor.userId, "skill_attestation.created", "SkillAttestation", created.id, requestId, {
-      trades: summary.trades.map((t) => t.trade)
+    const created = await this.prisma.$transaction(async (tx) => {
+      const row = await tx.skillAttestation.create({
+        data: {
+          userId: actor.userId,
+          summary,
+          contentHash: hashSummary(summary),
+          tokenHash: hashToken(token),
+          consentedAt: now,
+          expiresAt: new Date(now.getTime() + (input.expiresInDays ?? DEFAULT_EXPIRY_DAYS) * 24 * 60 * 60 * 1000)
+        }
+      });
+      await this.record(
+        actor.tenantId, actor.orgId, actor.userId,
+        "skill_attestation.created", "SkillAttestation", row.id, requestId,
+        { trades: summary.trades.map((t) => t.trade) }, tx
+      );
+      return row;
     });
     // El token se devuelve UNA vez; solo se guarda su hash.
     return { attestationId: created.id, token, expiresAt: created.expiresAt, summary };
@@ -180,12 +187,20 @@ export class SkillsService {
     this.assertEnabled();
     const row = await this.prisma.skillAttestation.findFirst({ where: { id: attestationId, userId: actor.userId } });
     if (!row) throw new NotFoundException();
-    const claimed = await this.prisma.skillAttestation.updateMany({
-      where: { id: row.id, status: "ACTIVE" },
-      data: { status: "REVOKED", revokedAt: new Date() }
+    await this.audit.prepareActorContext({
+      tenantId: actor.tenantId, orgId: actor.orgId, actorUserId: actor.userId
     });
-    if (claimed.count !== 1) throw new ConflictException("La atestación ya estaba revocada");
-    await this.record(actor.tenantId, actor.orgId, actor.userId, "skill_attestation.revoked", "SkillAttestation", row.id, requestId, {});
+    await this.prisma.$transaction(async (tx) => {
+      const claimed = await tx.skillAttestation.updateMany({
+        where: { id: row.id, userId: actor.userId, status: "ACTIVE" },
+        data: { status: "REVOKED", revokedAt: new Date() }
+      });
+      if (claimed.count !== 1) throw new ConflictException("La atestación ya estaba revocada");
+      await this.record(
+        actor.tenantId, actor.orgId, actor.userId,
+        "skill_attestation.revoked", "SkillAttestation", row.id, requestId, {}, tx
+      );
+    });
     return { status: "REVOKED" as const };
   }
 

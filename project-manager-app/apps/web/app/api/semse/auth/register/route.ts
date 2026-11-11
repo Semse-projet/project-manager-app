@@ -7,6 +7,7 @@ import {
   type SessionPayload,
 } from "@/lib/auth";
 import { resolveSafeRedirectPath } from "@/lib/safe-redirect";
+import { trustedClientHeaders } from "../../_server";
 
 const TTL_SECONDS = 8 * 60 * 60;
 
@@ -63,7 +64,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
     const registered = await fetchApiEnvelope<ApiRegisterData>(`${apiBaseUrl}/v1/auth/register`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { ...trustedClientHeaders(req), "content-type": "application/json" },
       body: JSON.stringify({ email, password, name, role: role ?? "CLIENT" }),
     });
 

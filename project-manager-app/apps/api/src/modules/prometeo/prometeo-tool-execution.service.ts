@@ -28,6 +28,7 @@ import { AgroTaskService } from "../agro/agro-task.service.js";
 import { AgroIncidentService } from "../agro/agro-incident.service.js";
 import { AgroIntakeService } from "../agro/agro-intake.service.js";
 import { FieldOpsService } from "../field-ops/field-ops.service.js";
+import { BusinessOsToolsService } from "./business-os-tools.service.js";
 import { PaymentsService } from "../payments/payments.service.js";
 import { VisionService } from "../vision/vision.service.js";
 import { VisionAccessPolicy } from "../vision/vision-access.policy.js";
@@ -150,6 +151,8 @@ export class PrometeoToolExecutionService {
     // Pertenencia de los recursos de visión (0.44). Sin `@Optional()` en Nest: si falta, la app no arranca; y si falta en
     // una construcción manual, las herramientas de visión por id fallan CERRADAS (ver `requireVisionAccess`).
     private readonly visionAccess?: VisionAccessPolicy,
+    // BO-13: solo lectura sobre Business OS. Opcional: si falta, esas herramientas quedan bloqueadas, no rompen el arranque.
+    @Optional() private readonly businessOs?: BusinessOsToolsService,
   ) {
     this.auditor = new ToolCallAuditor(toolGovernance);
   }
@@ -298,6 +301,19 @@ export class PrometeoToolExecutionService {
         tool: descriptor.name,
         missingPermissions: policy.missingPermissions,
       });
+    }
+
+    // 0.48: the proposer must be able to reach the resource BEFORE anything is
+    // queued or executed — an approved effect may run as someone else.
+    try {
+      await this.assertProposerScope(actor, invocation);
+    } catch (error) {
+      await this.auditor.finish(audit, false, {
+        status: "blocked",
+        blockedReason: error instanceof Error ? error.message : String(error),
+        errorCode: errorCodeOf(error),
+      });
+      throw error;
     }
 
     const startedAt = nowIso();
@@ -712,6 +728,30 @@ export class PrometeoToolExecutionService {
     }
   }
 
+  /**
+   * 0.48 — resource scope of the PROPOSER. `payments.propose_release` is
+   * human_required: on approval it runs as the approving OPS_ADMIN, so the
+   * release's own participation checks never evaluate who proposed it.
+   * time_tracker.* needs nothing here: the tracker repository already scopes
+   * sessions by createdBy and jobs by assignment. Fails closed when the
+   * payments service is not wired.
+   */
+  private async assertProposerScope(actor: RequestContext, invocation: PrometeoToolInvokeInput): Promise<void> {
+    if (`${invocation.namespace}.${invocation.name}` !== "payments.propose_release") return;
+    const input = (invocation.input ?? {}) as Record<string, unknown>;
+    const milestoneId = requiredString(input, "milestoneId");
+    if (!this.payments) {
+      throw new ForbiddenException("Payment scope check is not available in this deployment");
+    }
+    await this.payments.assertCanProposeRelease({
+      tenantId: actor.tenantId,
+      orgId: actor.orgId,
+      userId: actor.userId,
+      roles: actor.roles ?? [],
+      milestoneId,
+    });
+  }
+
   private requireVisionAccess(): VisionAccessPolicy {
     if (!this.visionAccess) throw new ForbiddenException("Vision access policy is not available");
     return this.visionAccess;
@@ -894,6 +934,20 @@ export class PrometeoToolExecutionService {
           const message = error instanceof MaterialsCalculatorError ? error.message : String(error);
           return { __blockedReason: message };
         }
+
+      case "business_os.my_assignments":
+      case "business_os.my_skills":
+      case "business_os.crew_tasks":
+      case "business_os.crew_blocked":
+      case "business_os.draft_report_summary": {
+        if (!this.businessOs) return { __blockedReason: "Las herramientas de Business OS no están disponibles" };
+        const ctx = { tenantId: actor.tenantId, orgId: actor.orgId, userId: actor.userId, roles: actor.roles };
+        if (key === "business_os.my_assignments") return this.businessOs.myAssignments(ctx);
+        if (key === "business_os.my_skills") return this.businessOs.mySkills(ctx);
+        if (key === "business_os.crew_tasks") return this.businessOs.crewTasks(ctx, input);
+        if (key === "business_os.crew_blocked") return this.businessOs.crewBlocked(ctx, input);
+        return this.businessOs.draftReportSummary(ctx, input);
+      }
 
       default:
         return {

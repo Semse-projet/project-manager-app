@@ -1,0 +1,48 @@
+# CODEOWNERS — SEMSEproject
+#
+# GitHub solicita automáticamente la revisión de estos owners cuando un PR
+# toca las rutas indicadas. La última regla que coincide gana, por eso la
+# regla global va primero y las rutas sensibles después.
+#
+# Este archivo sólo enruta revisiones. Exigir la aprobación del owner es una
+# opción aparte de la protección de rama ("Require review from Code Owners")
+# y no se activa desde aquí.
+#
+# Para añadir revisores, agregar su @usuario (o @org/equipo) a la línea
+# correspondiente.
+
+# Owner por defecto de todo el repositorio
+*                                                   @Samuelcastella
+
+# --- Gobernanza y contrato de agentes ---------------------------------------
+/.github/                                           @Samuelcastella
+/CLAUDE.md                                          @Samuelcastella
+/project-manager-app/AGENTS.md                      @Samuelcastella
+/project-manager-app/CLAUDE.md                      @Samuelcastella
+/project-manager-app/.specify/                      @Samuelcastella
+/project-manager-app/.claude/skills/                @Samuelcastella
+/project-manager-app/docs/SOURCE_OF_TRUTH.md        @Samuelcastella
+/project-manager-app/docs/foundation/               @Samuelcastella
+
+# --- Modelo de datos y contratos ----------------------------------------------
+/project-manager-app/packages/db/                   @Samuelcastella
+/project-manager-app/packages/schemas/              @Samuelcastella
+
+# --- Identidad, permisos y seguridad -------------------------------------------
+/project-manager-app/packages/auth/                 @Samuelcastella
+/project-manager-app/apps/api/src/modules/auth/     @Samuelcastella
+/project-manager-app/apps/api/src/common/           @Samuelcastella
+
+# --- Pagos, escrow y Trust ----------------------------------------------------
+/project-manager-app/apps/api/src/modules/payments/ @Samuelcastella
+/project-manager-app/apps/api/src/modules/payment-governance/ @Samuelcastella
+/project-manager-app/apps/api/src/modules/trust/    @Samuelcastella
+
+# --- Prometeo / IA y agentes --------------------------------------------------
+/project-manager-app/apps/api/src/modules/ai-models/ @Samuelcastella
+/project-manager-app/packages/agents/               @Samuelcastella
+
+# --- Infraestructura y despliegue (Railway) -----------------------------------
+/project-manager-app/infra/                         @Samuelcastella
+/project-manager-app/**/Dockerfile*                 @Samuelcastella
+/project-manager-app/**/railway.*                   @Samuelcastella

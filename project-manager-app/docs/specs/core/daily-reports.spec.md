@@ -59,3 +59,6 @@ Redacción asistida por Prometeo (BO-13), comparativa semanal, evidencias vincul
 
 ## Riesgos
 Un reporte "publicado" puede leerse como verdad oficial: por eso declara limitaciones y exige revisor distinto. Las horas son informativas, no autorizan nómina.
+
+## Capa web (slice `feat/bo-11-ui`)
+`/worker/daily-report` (el supervisor elige su cuadrilla y una fecha, genera o actualiza el borrador y lo lee) y `/client/daily-reports` (el responsable de la Org ve las cuadrillas, abre los reportes, **aprueba o devuelve con nota** y publica). Ambas comparten el panel `daily-report-panel.tsx`, con rutas BFF `crews/[crewId]/daily-reports/**`, `daily-reports/[reportId]/{review,publish}` y `organizations/[orgId]/crews`. La pantalla muestra horas por cuadrilla, registros abiertos sin horas, tareas cerradas, **las limitaciones** y la huella del contenido; la API decide permisos, estados y que el revisor sea distinto del generador. Con el flag apagado la API responde 404 y la UI muestra "aún no habilitados".

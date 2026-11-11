@@ -1,0 +1,171 @@
+name: Prometeo P0 Inventory Offline Verification
+
+on:
+  pull_request:
+    paths:
+      - "project-manager-app/scripts/audits/prometeo_p0/**"
+      - ".github/workflows/prometeo-p0-inventory-static.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  offline-inventory-contract:
+    name: Offline audit contract (NO database)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+      - name: Install pytest only
+        run: python -m pip install --disable-pip-version-check pytest==8.4.2
+      - name: Run synthetic evaluator and SQL static tests
+        working-directory: project-manager-app/scripts/audits/prometeo_p0
+        run: python -m pytest -q test_evaluator.py test_sql_contract.py
+
+  postgres16-synthetic-smoke:
+    name: PostgreSQL 16 synthetic SQL smoke (NO production)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: semse
+          POSTGRES_PASSWORD: semse
+          POSTGRES_DB: semse_p0_synthetic
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U semse -d semse_p0_synthetic"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # Explicit guard in the test runner refuses non-ephemeral destinations.
+      SEMSE_P0_SYNTHETIC_DB: "1"
+      PGHOST: "127.0.0.1"
+      PGPORT: "5433"
+      PGDATABASE: "semse_p0_synthetic"
+      PGUSER: "semse"
+      PGPASSWORD: "semse"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+      - name: Ensure PostgreSQL client is available
+        run: command -v psql || (sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client)
+      - name: Reject alternate libpq destinations before any fixture write
+        working-directory: project-manager-app/scripts/audits/prometeo_p0
+        shell: bash
+        run: |
+          set -euo pipefail
+          for variable in PGHOSTADDR PGSERVICE PGSERVICEFILE PGSYSCONFDIR PGOPTIONS; do
+            if env "${variable}=unsafe" bash test_postgres16_synthetic.sh > /dev/null 2>&1; then
+              echo "FAIL: fixture accepted unexpected ${variable}" >&2
+              exit 1
+            else
+              code=$?
+              if [ "$code" -ne 2 ]; then
+                echo "FAIL: guard returned ${code} for ${variable}" >&2
+                exit 1
+              fi
+            fi
+          done
+          echo "P0_LIBPQ_ALTERNATE_DESTINATIONS_REJECTED_PASS"
+      - name: Execute inventory against disposable synthetic PostgreSQL only
+        working-directory: project-manager-app/scripts/audits/prometeo_p0
+        run: bash test_postgres16_synthetic.sh
+
+
+  postgres16-full-prisma-schema:
+    name: PostgreSQL 16 full Prisma schema inventory smoke (NO production)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: semse
+          POSTGRES_PASSWORD: semse
+          POSTGRES_DB: semse_p0_full_schema
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U semse -d semse_p0_full_schema"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    defaults:
+      run:
+        working-directory: project-manager-app
+    env:
+      # Only disposable GitHub Actions PostgreSQL. No Railway secrets.
+      DATABASE_URL: postgresql://semse:semse@127.0.0.1:5433/semse_p0_full_schema?schema=public
+      SEMSE_P0_SYNTHETIC_DB: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6.1.1
+        with:
+          version: 10.33.0
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: project-manager-app/pnpm-lock.yaml
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Apply actual repository Prisma migrations to a disposable database
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$SEMSE_P0_SYNTHETIC_DB" = "1"
+          test "$DATABASE_URL" = "postgresql://semse:semse@127.0.0.1:5433/semse_p0_full_schema?schema=public"
+          pnpm db:migrate
+      - name: Execute read-only inventory against complete empty Prisma schema
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$SEMSE_P0_SYNTHETIC_DB" = "1"
+          test "$DATABASE_URL" = "postgresql://semse:semse@127.0.0.1:5433/semse_p0_full_schema?schema=public"
+          command -v psql || (sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client)
+          result="$(mktemp)"
+          trap 'rm -f "$result"' EXIT
+          # libpq receives ONLY these explicit trusted values, no inherited
+          # PGSERVICE/PGHOSTADDR/PGOPTIONS or credentials from the runner.
+          env -i PATH="$PATH" PGPASSWORD=semse psql -X -q -t -A \
+            -h 127.0.0.1 -p 5433 -U semse -d semse_p0_full_schema \
+            -v ON_ERROR_STOP=1 \
+            -f scripts/audits/prometeo_p0/prometeo_p0_historical_inventory_json_readonly.sql > "$result"
+          python3 scripts/audits/prometeo_p0/evaluate_inventory.py "$result" > /dev/null
+          python3 - "$result" <<'PY'
+          import json, sys
+          data = json.load(open(sys.argv[1], encoding="utf-8"))
+          assert data["documents"]["documents_total"] == 0
+          assert data["grants"]["grants_total"] == 0
+          assert data["chunks"]["chunks_total"] == 0
+          assert data["feedback"]["feedback_total"] == 0
+          print("P0_POSTGRES16_FULL_PRISMA_SCHEMA_READONLY_PASS")
+          PY
+
+# All DB writes above are disposable GitHub Actions fixtures or repo migrations
+# applied to an isolated ephemeral PostgreSQL service. The audit SQL uses
+# READ ONLY/ROLLBACK. No Railway URL, secrets, production data, deployment
+# changes or sharing flags are involved.

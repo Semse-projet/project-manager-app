@@ -50,19 +50,6 @@ export class EvidenceGatewayRepository {
     });
   }
 
-  /** Tenant-scoped project ownership (client org + assigned pro org), or null if not in this tenant. */
-  async getProjectOwnership(projectId: string, tenantId: string) {
-    const project = await this.prisma.project.findFirst({
-      where: { id: projectId, tenantId },
-      select: { assignedProOrgId: true, job: { select: { clientOrgId: true } } },
-    });
-    if (!project) return null;
-    return {
-      clientOrgId: project.job?.clientOrgId ?? "",
-      assignedProOrgId: project.assignedProOrgId ?? "",
-    };
-  }
-
   async milestoneBelongsToProject(milestoneId: string, projectId: string, tenantId: string): Promise<boolean> {
     const milestone = await this.prisma.milestone.findFirst({
       where: { id: milestoneId, projectId, project: { tenantId } },

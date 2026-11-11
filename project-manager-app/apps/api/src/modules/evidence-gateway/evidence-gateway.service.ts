@@ -2,6 +2,7 @@ import { Injectable, Logger, BadRequestException, NotFoundException } from "@nes
 import { assertEvidenceReadable, assertEvidenceWritable, type EvidenceActor } from "../evidence/evidence.policy.js";
 import { normalizeEvidenceBucketKey } from "../evidence/evidence.repository.js";
 import { EvidenceService } from "../evidence/evidence.service.js";
+import { ResourceScopeResolver } from "../../common/resource-scope.resolver.js";
 import { randomUUID } from "node:crypto";
 import { EvidenceGatewayRepository } from "./evidence-gateway.repository.js";
 import { SseEventBusService } from "../../infrastructure/sse/sse-event-bus.service.js";
@@ -43,6 +44,7 @@ export class EvidenceGatewayService {
     private readonly visionService: VisionService,
     private readonly storageService: StorageService,
     private readonly evidenceService: EvidenceService,
+    private readonly scopeResolver: ResourceScopeResolver,
     private readonly sseBus?: SseEventBusService,
   ) {}
 
@@ -53,12 +55,11 @@ export class EvidenceGatewayService {
    * caller's tenant is reported as not found (no existence oracle).
    */
   async assertProjectAccess(actor: EvidenceActor, projectId: string, mode: "read" | "write"): Promise<void> {
-    const ownership = projectId
-      ? await this.repository.getProjectOwnership(projectId, actor.tenantId)
-      : null;
-    if (!ownership) {
+    const scope = projectId ? await this.scopeResolver.resolveProjectScope(actor.tenantId, projectId) : null;
+    if (!scope) {
       throw new NotFoundException("Project not found");
     }
+    const ownership = { clientOrgId: scope.clientOrgId ?? "", assignedProOrgId: scope.assignedProOrgId ?? "" };
     if (mode === "write") assertEvidenceWritable(actor, ownership);
     else assertEvidenceReadable(actor, ownership);
   }

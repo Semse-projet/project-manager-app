@@ -1,5 +1,5 @@
 import { type NextRequest } from "next/server";
-import { buildAuthorizedHeaders, getServerConfig, runtimeDisabledResponse } from "../../../../_server";
+import { buildAuthorizedHeaders, getAuthenticatedServerConfig, routeErrorResponse, upstreamErrorResponse } from "../../../../_server";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -10,7 +10,7 @@ export async function GET(
 ) {
   try {
     const { planId } = await context.params;
-    const cfg = await getServerConfig(request);
+    const cfg = await getAuthenticatedServerConfig(request);
     const headers = (await buildAuthorizedHeaders(cfg));
 
     const apiRes = await fetch(
@@ -18,8 +18,11 @@ export async function GET(
       { headers, signal: request.signal },
     );
 
-    if (!apiRes.ok || !apiRes.body) {
-      return runtimeDisabledResponse();
+    if (!apiRes.ok) {
+      return upstreamErrorResponse(apiRes, `/v1/sse/plans/${encodeURIComponent(planId)}`);
+    }
+    if (!apiRes.body) {
+      return routeErrorResponse(new Error("SEMSE API stream returned no body"));
     }
 
     return new Response(apiRes.body, {
@@ -30,7 +33,7 @@ export async function GET(
         "X-Accel-Buffering": "no",
       },
     });
-  } catch {
-    return runtimeDisabledResponse();
+  } catch (error) {
+    return routeErrorResponse(error);
   }
 }

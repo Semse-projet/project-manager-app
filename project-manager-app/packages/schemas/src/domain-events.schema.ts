@@ -108,6 +108,19 @@ export const jobPostedEventSchema = domainEvent(
   ["trust-match", "notification", "audit"]
 );
 
+// Emitted by jobs.service.ts on every FSM transition (transitionJob) and on the
+// system auto-complete (systemCompleteJob); listed in EVENT_CATALOG.md
+// ("Jobs & Bids Event Projection"). Same payload as job.status_changed.v1.
+export const jobStatusChangedEventSchema = domainEvent(
+  "job.status_changed",
+  z.object({
+    jobId:      z.string(),
+    fromStatus: z.string(),
+    toStatus:   z.string(),
+  }),
+  ["risk", "audit"]
+);
+
 export const jobPreferredProfessionalSelectedEventSchema = domainEvent(
   "job.preferred_professional_selected",
   z.object({
@@ -667,6 +680,7 @@ export const policyTriggeredEventSchema = domainEvent(
 export const semseEventSchema = z.discriminatedUnion("type", [
   // Job
   jobCreatedEventSchema,
+  jobStatusChangedEventSchema,
   jobPostedEventSchema,
   jobPreferredProfessionalSelectedEventSchema,
   jobReservedEventSchema,
@@ -726,6 +740,7 @@ export type SemseEvent = z.infer<typeof semseEventSchema>;
 
 export const SEMSE_EVENT_TYPES = [
   "job.created",
+  "job.status_changed",
   "job.posted",
   "job.preferred_professional_selected",
   "job.reserved",
@@ -775,6 +790,7 @@ export type SemseEventType = typeof SEMSE_EVENT_TYPES[number];
 
 export const EVENT_AGENT_MAP: Record<SemseEventType, string[]> = {
   "job.created":                    ["pricing", "risk", "audit"],
+  "job.status_changed":             ["risk", "audit"],
   "job.posted":                     ["trust-match", "notification", "audit"],
   "job.preferred_professional_selected": ["trust-match", "audit"],
   "job.reserved":                   ["notification", "audit"],

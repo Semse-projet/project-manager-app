@@ -1,5 +1,5 @@
 import { type NextRequest } from "next/server";
-import { buildAuthorizedHeaders, getServerConfig, runtimeDisabledResponse } from "../../_server";
+import { buildAuthorizedHeaders, getServerConfig, routeErrorResponse, upstreamErrorResponse } from "../../_server";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -14,8 +14,11 @@ export async function GET(request: NextRequest) {
       { headers, signal: request.signal },
     );
 
-    if (!apiRes.ok || !apiRes.body) {
-      return runtimeDisabledResponse();
+    if (!apiRes.ok) {
+      return upstreamErrorResponse(apiRes, "/v1/sse/health");
+    }
+    if (!apiRes.body) {
+      return routeErrorResponse(new Error("SEMSE API stream returned no body"));
     }
 
     return new Response(apiRes.body, {
@@ -26,7 +29,7 @@ export async function GET(request: NextRequest) {
         "X-Accel-Buffering": "no",
       },
     });
-  } catch {
-    return runtimeDisabledResponse();
+  } catch (error) {
+    return routeErrorResponse(error);
   }
 }

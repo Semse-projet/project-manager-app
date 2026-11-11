@@ -4,6 +4,7 @@ import type { CSSProperties, ReactNode } from "react";
 import { LaborApiError, type FreeProjectView, type TimeEntryView } from "../../../labor-api";
 import { SemseApiError, type JobRecordView } from "../../../../semse-api";
 import type { TrackerLocalSession, TrackerLocalState } from "../trackerLocalStore";
+import { safeTrackerCsvCell, trackerCsvSyncState } from "./trackerCsv";
 
 // ── Offline-fallback helpers (compartidos entre el Timer tab y Registros) ──
 // Antes vivían solo en page.tsx (Timer tab), así que el formulario de
@@ -155,9 +156,9 @@ export function exportEntriesCsv(
   resolveProject: (entry: TimeEntryView) => ProjectRef,
   filename: string
 ) {
-  const cell = (value: unknown) => `"${String(value ?? "").replaceAll('"', '""')}"`;
+  const cell = safeTrackerCsvCell;
   const rows = [
-    ["id", "fecha", "inicio", "fin", "modo", "proposito", "proyecto", "descanso_min", "duracion_seg", "duracion_h", "tarifa", "moneda", "costo", "ubicacion", "notas"],
+    ["id", "fecha", "inicio", "fin", "modo", "proposito", "proyecto", "descanso_min", "duracion_seg", "duracion_h", "tarifa", "moneda", "costo", "ubicacion", "notas", "origen_sync"],
     ...entries.map((entry) => {
       const seconds = entrySeconds(entry);
       const cost = entryCost(entry);
@@ -169,14 +170,15 @@ export function exportEntriesCsv(
         entry.mode,
         entry.purpose,
         resolveProject(entry).label,
-        String(entry.breakMinutes ?? 0),
-        String(seconds),
-        String(Math.round((seconds / 3600) * 100) / 100),
-        entry.hourlyRate != null ? String(entry.hourlyRate) : "",
+        entry.breakMinutes ?? 0,
+        seconds,
+        Math.round((seconds / 3600) * 100) / 100,
+        entry.hourlyRate ?? "",
         entry.currency,
-        cost != null ? String(cost) : "",
+        cost ?? "",
         entry.location ?? "",
         entry.notes ?? "",
+        trackerCsvSyncState(entry.status),
       ];
     }),
   ];

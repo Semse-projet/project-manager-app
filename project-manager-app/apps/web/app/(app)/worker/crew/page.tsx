@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useLanguage } from "../../../../lib/language-context";
+import { buildCrewRoomTaskTitle } from "../../../../lib/crew-room-task-title";
 import {
   assignTaskToCrewMembers,
   createCrewTask,
@@ -10,6 +11,7 @@ import {
   fetchMyCrews,
   fetchTaskAllocations,
   releaseTaskAllocation,
+  reviewAllocationSkill,
   SemseApiError,
   type CrewTaskView,
   type SupervisedCrewView,
@@ -26,7 +28,9 @@ const COPY = {
     taskId: "Tarea",
     pickTask: "Elige una tarea",
     newTask: "Nueva tarea",
-    newTaskTitle: "Título de la nueva tarea",
+    newTaskTitle: "Trabajo a realizar",
+    room: "Habitación o área",
+    roomPlaceholder: "Ej. Hab. 205, pasillo norte",
     createTask: "Crear tarea",
     created: "Tarea creada.",
     members: "Personas",
@@ -35,6 +39,10 @@ const COPY = {
     load: "Ver asignaciones",
     none: "Esa tarea no tiene asignaciones en esta cuadrilla.",
     release: "Liberar",
+    tradeLabel: "Oficio de la experiencia",
+    confirmWork: "Confirmar trabajo",
+    rejectWork: "Rechazar",
+    reviewed: "Revisión registrada.",
     releaseReason: "Motivo para liberar",
     pickMember: "Elige al menos una persona.",
     done: "Listo.",
@@ -57,7 +65,9 @@ const COPY = {
     taskId: "Task",
     pickTask: "Pick a task",
     newTask: "New task",
-    newTaskTitle: "New task title",
+    newTaskTitle: "Work to be done",
+    room: "Room or area",
+    roomPlaceholder: "E.g. Room 205, north hallway",
     createTask: "Create task",
     created: "Task created.",
     members: "People",
@@ -66,6 +76,10 @@ const COPY = {
     load: "View assignments",
     none: "That task has no assignments in this crew.",
     release: "Release",
+    tradeLabel: "Trade of the experience",
+    confirmWork: "Confirm work",
+    rejectWork: "Reject",
+    reviewed: "Review recorded.",
     releaseReason: "Reason to release",
     pickMember: "Pick at least one person.",
     done: "Done.",
@@ -91,8 +105,10 @@ export default function MyCrewPage() {
   const [taskId, setTaskId] = useState("");
   const [tasks, setTasks] = useState<CrewTaskView[]>([]);
   const [newTitle, setNewTitle] = useState("");
+  const [room, setRoom] = useState("");
   const [reason, setReason] = useState("");
   const [releaseReason, setReleaseReason] = useState("");
+  const [trades, setTrades] = useState<Record<string, string>>({});
   const [allocations, setAllocations] = useState<TaskAllocationView[]>([]);
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -186,22 +202,35 @@ export default function MyCrewPage() {
               ))}
             </select>
           </label>
+          <label>
+            {c.room}
+            <input
+              value={room}
+              maxLength={60}
+              placeholder={c.roomPlaceholder}
+              onChange={(event) => setRoom(event.target.value)}
+              style={{ width: "100%", minHeight: 44 }}
+            />
+          </label>
           <span style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "end" }}>
             <label style={{ flex: "1 1 220px" }}>
               {c.newTaskTitle}
-              <input value={newTitle} maxLength={200} onChange={(event) => setNewTitle(event.target.value)} style={{ width: "100%", minHeight: 44 }} />
+              <input value={newTitle} maxLength={130} onChange={(event) => setNewTitle(event.target.value)} style={{ width: "100%", minHeight: 44 }} />
             </label>
             <button
-              disabled={busy || newTitle.trim().length < 2}
+              disabled={busy || !crewId || !buildCrewRoomTaskTitle(room, newTitle)}
               style={{ minHeight: 44 }}
               onClick={() => {
+                const title = buildCrewRoomTaskTitle(room, newTitle);
+                if (!title) return;
                 setBusy(true);
                 void (async () => {
                   try {
-                    const created = await createCrewTask(crewId, { title: newTitle.trim() });
+                    const created = await createCrewTask(crewId, { title });
                     setTasks(await fetchCrewTasks(crewId));
                     setTaskId(created.taskId);
                     setNewTitle("");
+                    setRoom("");
                     setMessage(c.created);
                   } catch (error) {
                     setMessage(describe(error));
@@ -275,6 +304,42 @@ export default function MyCrewPage() {
                       >
                         {c.release}
                       </button>
+                    ) : null}
+                    {item.status === "SUBMITTED" ? (
+                      <span style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", flexBasis: "100%" }}>
+                        <input
+                          aria-label={c.tradeLabel}
+                          placeholder={c.tradeLabel}
+                          maxLength={40}
+                          value={trades[item.allocationId] ?? ""}
+                          onChange={(event) => setTrades((current) => ({ ...current, [item.allocationId]: event.target.value }))}
+                          style={{ flex: "1 1 160px", minHeight: 44 }}
+                        />
+                        <button
+                          disabled={busy || (trades[item.allocationId] ?? "").trim().length < 2}
+                          style={{ minHeight: 44 }}
+                          onClick={() =>
+                            void run(async () => {
+                              await reviewAllocationSkill(item.allocationId, { decision: "CONFIRM", trade: (trades[item.allocationId] ?? "").trim() });
+                              setMessage(c.reviewed);
+                            })
+                          }
+                        >
+                          {c.confirmWork}
+                        </button>
+                        <button
+                          disabled={busy}
+                          style={{ minHeight: 44 }}
+                          onClick={() =>
+                            void run(async () => {
+                              await reviewAllocationSkill(item.allocationId, { decision: "REJECT" });
+                              setMessage(c.reviewed);
+                            })
+                          }
+                        >
+                          {c.rejectWork}
+                        </button>
+                      </span>
                     ) : null}
                   </li>
                 ))}

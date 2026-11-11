@@ -28,6 +28,11 @@ export class AnthropicProvider implements LLMProvider {
   isAvailable(): boolean { return true; }
 
   async chat(input: LLMChatInput): Promise<LLMChatResponse> {
+    // Defense-in-depth: even a direct provider call must never bypass the
+    // privacy boundary if an orchestrator/agent is misconfigured.
+    if (input.context?.localOnly || input.context?.privacyCritical) {
+      throw new Error("Private LLM inference forbids cloud Anthropic provider");
+    }
     const t0 = Date.now();
     const tools = input.tools?.length ? toAnthropicTools(input.tools) : undefined;
     const messages: Anthropic.MessageParam[] = [

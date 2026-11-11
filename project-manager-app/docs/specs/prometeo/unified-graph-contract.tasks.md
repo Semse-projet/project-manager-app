@@ -3,50 +3,48 @@ type: tasks
 feature: "Unified Operational Graph Contract"
 domain: "prometeo"
 plan: "docs/specs/prometeo/unified-graph-contract.plan.md"
-version: "2.0"
+version: "2.1"
 status: "PENDING"
 branch: "feat/unified-graph-contract"
-date: "2026-10-04"
+date: "2026-11-06"
 ---
 
 # Tasks: Unified Operational Graph Contract
 
-## Phase 0 — Governance
-- [ ] [UNIFIED_GRAPH_CONTRACT-001] Refresh main/Railway
-- [ ] [UNIFIED_GRAPH_CONTRACT-002] Approve spec
-- [ ] [UNIFIED_GRAPH_CONTRACT-003] Reconcile related files
-- [ ] [UNIFIED_GRAPH_CONTRACT-004] Write failing acceptance/security tests
+## Fase 0 — Gobierno
+- [ ] [UGC-001] Owner acepta ADR-044 con fecha y aprueba el acta
+- [x] [UGC-002] Owner resuelve Q-1 a Q-5 del spec (2026-11-06; valores numéricos y versión de `graphifyy` pendientes de dato)
+- [ ] [UGC-003] Owner aprueba el spec (`REVIEW` → `APPROVED`)
+- [ ] [UGC-004] Medir tamaño y tiempo de carga del `graph.json` de producción (condición de la prueba de Graphify)
+- [ ] [UGC-005] Refrescar `main` y reconciliar `related_files` con rutas reales
 
-## Phase 1 — Contract/data
-- [ ] [UNIFIED_GRAPH_CONTRACT-010] Implement shared types/schemas
-- [ ] [UNIFIED_GRAPH_CONTRACT-011] Implement migration if applicable
-- [ ] [UNIFIED_GRAPH_CONTRACT-012] Verify backward compatibility
-- [ ] [UNIFIED_GRAPH_CONTRACT-013] Verify idempotency/concurrency where applicable
+## Fase 1 — Pruebas en rojo
+- [ ] [UGC-010] Normalización Graphify → contrato y deduplicación determinista
+- [ ] [UGC-011] Matriz 2 tenants × 2 organizaciones (404/403) y orden de denegación
+- [ ] [UGC-012] Degradación frente a denegación
+- [ ] [UGC-013] Ciclos, `maxDepth`, `maxNodes`, `timeBudgetMs`
+- [ ] [UGC-014] `schema_mismatch` ante `graph.json` inválido
+- [ ] [UGC-015] Techo de sensibilidad, allowlist y redacción de `label`
+- [ ] [UGC-016] `SourceRef` de comunicación idéntico a `conversationSourceRefSchema`
 
-## Phase 2 — Domain/provider
-- [ ] [UNIFIED_GRAPH_CONTRACT-020] Implement service/provider/repository
-- [ ] [UNIFIED_GRAPH_CONTRACT-021] Enforce source authorization
-- [ ] [UNIFIED_GRAPH_CONTRACT-022] Implement degraded/fail-closed behavior
-- [ ] [UNIFIED_GRAPH_CONTRACT-023] Pass unit/integration tests
+## Fase 2 — Contratos y proveedor
+- [ ] [UGC-020] Esquemas Zod en `packages/schemas/src`
+- [ ] [UGC-021] Permisos de solo lectura en `packages/auth/src/rbac.ts`
+- [ ] [UGC-022] Proveedor Graphify con validación Zod y exigencia de `internal:architecture:read`
+- [ ] [UGC-023] Validación de argumentos si se usa la CLI
 
-## Phase 3 — API/tool
-- [ ] [UNIFIED_GRAPH_CONTRACT-030] Implement endpoint/tool if declared
-- [ ] [UNIFIED_GRAPH_CONTRACT-031] Add contract tests
-- [ ] [UNIFIED_GRAPH_CONTRACT-032] Update API docs
+## Fase 3 — Servicio
+- [ ] [UGC-030] Registro de proveedores y servicio de combinación
+- [ ] [UGC-031] Topes, protección de ciclos y `truncated`
+- [ ] [UGC-032] Guía para implementar un proveedor nuevo
 
-## Phase 4 — Verification
-- [ ] [UNIFIED_GRAPH_CONTRACT-040] directed tests
-- [ ] [UNIFIED_GRAPH_CONTRACT-041] regression
-- [ ] [UNIFIED_GRAPH_CONTRACT-042] build/typecheck/lint
-- [ ] [UNIFIED_GRAPH_CONTRACT-043] pnpm spec:validate:strict
-- [ ] [UNIFIED_GRAPH_CONTRACT-044] pnpm spec:coverage
-- [ ] [UNIFIED_GRAPH_CONTRACT-045] pnpm spec:index
+## Fase 4 — Verificación
+- [ ] [UGC-040] Pruebas dirigidas en verde
+- [ ] [UGC-041] Regresión de `GraphifyService` y `repo-knowledge`
+- [ ] [UGC-042] build, typecheck y lint
+- [ ] [UGC-043] `pnpm spec:validate:strict`, `spec:coverage` y `spec:index`
 
-## Phase 5 — Delivery
-- [ ] [UNIFIED_GRAPH_CONTRACT-050] PR review
-- [ ] [UNIFIED_GRAPH_CONTRACT-051] CI PASS
-- [ ] [UNIFIED_GRAPH_CONTRACT-052] merge SHA
-- [ ] [UNIFIED_GRAPH_CONTRACT-053] deployment terminal if runtime changed
-- [ ] [UNIFIED_GRAPH_CONTRACT-054] shadow/canary
-- [ ] [UNIFIED_GRAPH_CONTRACT-055] authenticated smoke
-- [ ] [UNIFIED_GRAPH_CONTRACT-056] production evidence/state update
+## Fase 5 — Entrega
+- [ ] [UGC-050] Revisión del PR y CI en verde
+- [ ] [UGC-051] SHA de merge registrado
+- [ ] [UGC-052] Metadatos SDD actualizados sin inventar estados (sin despliegue ni canary propios; D-16)

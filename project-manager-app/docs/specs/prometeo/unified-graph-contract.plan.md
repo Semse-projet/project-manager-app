@@ -3,67 +3,56 @@ type: plan
 feature: "Unified Operational Graph Contract"
 domain: "prometeo"
 spec: "docs/specs/prometeo/unified-graph-contract.spec.md"
-version: "2.0"
+version: "2.1"
 status: "DRAFT"
 branch: "feat/unified-graph-contract"
-date: "2026-10-04"
+date: "2026-11-06"
 ---
 
 # Plan técnico: Unified Operational Graph Contract
 
-## Truth snapshot
-Prepared against `370578ad81298ac53078eeef79db7e4110ce7a2a`.
-Refresh before implementation.
+## Snapshot
+Reescrito el 2026-11-06 contra `main` y el spec v1.1. El spec está en `REVIEW`; este plan no autoriza código. Refrescar `main` antes de implementar.
 
 ## Constitution check
-- [ ] spec APPROVED
-- [ ] permissions/resource scope final
-- [ ] tests written first
-- [ ] no parallel authority/store
-- [ ] delivery stages tracked separately
+- [ ] ADR-044 aceptado con fecha y acta aprobada
+- [ ] spec `APPROVED` (decisiones Q-1 a Q-5 resueltas)
+- [ ] permisos nuevos de solo lectura definidos en `rbac.ts` (D-04)
+- [ ] pruebas escritas primero y en rojo
+- [ ] sin autoridad ni almacén paralelo
+- [ ] CI, merge, despliegue y activación registrados por separado
 
-## Architecture
-Provide one typed read contract across Graphify, conversations and governed memory without another authoritative graph store.
+## Arquitectura
+Librería de solo lectura, sin endpoint ni consumidor propios (D-16). Tres piezas:
+1. **Contratos Zod** en `packages/schemas/src` (D-03): nodo, arista, consulta, resultado, `SourceRef`, catálogo de errores.
+2. **Módulo nuevo y propio** en `apps/api/src/modules/` (nombre en Q-2): interfaz `OperationalGraphProvider`, registro y servicio de combinación.
+3. **Proveedor Graphify** que lee `GRAPHIFY_GRAPH_PATH` y valida con Zod (opción A de la [prueba técnica](operational-intelligence-program.graphify-probe.md)).
 
-Files:
-- `apps/api/src/modules/intelligence/operational-graph/operational-graph.types.ts`
-- `apps/api/src/modules/intelligence/operational-graph/operational-graph.service.ts`
-- `apps/api/src/modules/intelligence/operational-graph/providers/graphify.provider.ts`
-- `apps/api/src/modules/intelligence/operational-graph/providers/memory.provider.ts`
-- `apps/api/src/modules/intelligence/operational-graph/providers/conversation.provider.ts`
-- `apps/api/test/operational-graph.contract.test.ts`
+Los proveedores de memoria y conversaciones quedan fuera hasta resolver Q-1.
 
-## Data
-No Prisma migration. No generic graph node/edge tables in V1.
+## Datos
+Sin migración Prisma. Sin tablas de grafo. Sin `db push`.
 
-## Security
-- authorize at source/provider boundary;
-- fail closed cross-tenant;
-- do not log source bodies/secrets;
-- `SEMSE_OPERATIONAL_GRAPH_MODE` off preserves previous behavior.
+## Seguridad
+- El servicio recibe una consulta ya autorizada y cada proveedor vuelve a comprobar el alcance de su fuente (G-07).
+- Falla cerrada: 404 de otro tenant, 403 de otra organización (D-05).
+- Ocultos se omiten sin rastro; denegación nunca es degradación (D-06).
+- Allowlist de atributos y redacción en el proveedor (D-07).
+- Sin cuerpos de fuentes ni atributos en logs.
+- `SEMSE_OPERATIONAL_GRAPH_MODE` ausente o desconocido = `off`.
 
-## Events / idempotency
-Read-only and reconstructable; no domain events required.
+## Eventos e idempotencia
+Solo lectura y reconstruible; sin eventos.
 
-## Implementation phases
-A. failing tests/contracts  
-B. data/domain/provider  
-C. API/tool if applicable  
-D. local verification  
-E. PR/CI/merge  
-F. deploy/shadow/canary/live
+## Fases
+A. pruebas y contratos en rojo → B. contratos Zod y proveedor → C. servicio de combinación → D. verificación local → E. PR, CI y merge. Sin fase de despliegue ni canary: los cubre el slice 3 (D-16).
 
 ## Rollback
-- disable `SEMSE_OPERATIONAL_GRAPH_MODE`;
-- do not delete ledger history;
-- restore previous read path;
-- forward-fix persisted data if needed.
+El slice no tiene efectos de datos: se revierte quitando el código. No hay historial que conservar; eso aplica solo al slice 2.
 
 ## Gates
-- [ ] exact files refreshed
-- [ ] tests first
-- [ ] spec strict
-- [ ] regression
+- [ ] archivos exactos confirmados contra `main`
+- [ ] pruebas primero
+- [ ] `spec:validate:strict` en verde
+- [ ] regresión de `GraphifyService` y de `repo-knowledge`
 - [ ] CI terminal
-- [ ] deployment terminal if affected
-- [ ] authenticated canary

@@ -74,3 +74,6 @@ GPS, geofence, recordatorios y auto-inicio (BO-09, requiere iOS y Android físic
 
 ## Riesgos
 Tiempo pagable impacta dinero: por eso no hay cálculo de pago y la activación exige revisión de Legal/Payroll. Una corrección aprobada modifica `TimeEntry`; el rastro queda en `LaborTimeCorrection` y en la auditoría.
+
+## Capa web (slice `feat/bo-08-ui`)
+`/worker/corrections` (la persona elige un registro terminado, propone nueva hora de fin y/o descanso real con motivo, y ve sus solicitudes) y `/client/labor-policy` (el responsable publica políticas versionadas y aprueba o rechaza correcciones, con nota). Rutas BFF `labor/corrections/**` y `organizations/[orgId]/labor/**`. La API decide los permisos y estados; la UI no calcula horas ni pagos. Con el flag apagado la API responde 404 y la UI muestra "aún no habilitadas". Sigue vigente que la activación con personas reales exige la revisión de Legal/Payroll de OPEN-09.

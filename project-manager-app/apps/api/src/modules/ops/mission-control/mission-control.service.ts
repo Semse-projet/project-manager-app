@@ -1157,7 +1157,7 @@ export class MissionControlService {
         deepLink: "/admin/ai-mission-control",
       });
     }
-    const latest = this.observer.getLatest();
+    const latest = this.observer.getLatest(tenantId);
     if (latest?.tenantId === tenantId) {
       latest.alerts.forEach((alert, index) => {
         items.push({

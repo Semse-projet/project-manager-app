@@ -44,9 +44,22 @@ const commandArguments = coverageEnabled
     ]
   : testArguments;
 
+// Unit tests exercise controllers through the local header-identity contract
+// (no AUTH_SECRET). core.header-identity-fail-closed makes that contract an
+// explicit opt-in, so declare it here instead of relying on an unset
+// NODE_ENV. Only defaults: an explicit value in the environment always wins,
+// and tests that assert the fail-closed policy set their own env.
+const childEnv = integrationEnabled
+  ? process.env
+  : {
+    ...process.env,
+    NODE_ENV: process.env.NODE_ENV ?? "test",
+    SEMSE_ALLOW_HEADER_IDENTITY: process.env.SEMSE_ALLOW_HEADER_IDENTITY ?? "true",
+  };
+
 const result = spawnSync(process.execPath, commandArguments, {
   cwd: apiRoot,
-  env: process.env,
+  env: childEnv,
   stdio: "inherit",
 });
 

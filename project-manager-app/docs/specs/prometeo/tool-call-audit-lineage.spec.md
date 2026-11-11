@@ -4,12 +4,12 @@ title: "Auditoría canónica por tool call y estado de ejecución de aprobacione
 sdd_version: "2.0"
 code_status: "IN_PROGRESS"
 ci_status: "NOT_RUN"
-merge_status: "UNMERGED"
+merge_status: "MERGED"
 deploy_status: "NOT_DEPLOYED"
 activation_status: "INACTIVE"
-migration_status: "PENDING"
+migration_status: "APPLIED"
 feature_flags: []
-production_evidence: []
+production_evidence: ["2026-10-06 Migración 20261005160000_h05_tool_call_audit_lifecycle aplicada en producción, según docs/AUDIT_REMEDIATION_PLAN.md (#808). Esta reconciliación no la volvió a leer en Railway.","2026-10-06 H05 en shadow: ejecución real exec_158c73af-7b78-49bb-b942-0c447f65ce7f; el owner confirmó con SELECT en el panel de Railway la fila con status succeeded, executionId y startedAt/completedAt (docs/AUDIT_REMEDIATION_PLAN.md, #808). Evidencia de segunda mano, sin secretos."]
 domain: "prometeo"
 version: "1.0"
 status: "APPROVED"
@@ -38,7 +38,7 @@ related_endpoints:
 related_events: []
 related_agents:
   - prometeo
-last_verified: "2026-10-05"
+last_verified: "2026-10-25"
 ---
 
 # Spec: Auditoría canónica por tool call y estado de ejecución de aprobaciones
@@ -58,6 +58,8 @@ last_verified: "2026-10-05"
 > run padre de **observabilidad** por acción (nace terminal, no ejecutable por el worker; ver plan 0.42).
 > *Pendiente:* registrar `runId` en la auditoría de las acciones del harness del copiloto (`source: project_copilot`).
 > La migración ya está aplicada en producción (2026-10-06).
+>
+> **Reconciliación de metadatos (2026-10-25):** `merge_status: MERGED` (entregas A, B y la corrección de la migración: #796, #798, #799) y `migration_status: APPLIED` (evidencia en `production_evidence`). Se dejan sin cambio `ci_status`, `deploy_status` y `activation_status`: no se verificaron aquí el CI de esos merges ni el despliegue actual, y `shadow` no equivale a `ACTIVE`. Pendiente B-03: leer en Railway el estado actual de `PROMETEO_TOOL_AUDIT_LIFECYCLE`.
 >
 > **Desviación respecto a §6.3:** los barridos corren como un servicio del propio proceso de la API
 > (`AuditMaintenanceService`, temporizador opcional `PROMETEO_TOOL_AUDIT_SWEEP_INTERVAL_MS`, apagado por defecto) y no como

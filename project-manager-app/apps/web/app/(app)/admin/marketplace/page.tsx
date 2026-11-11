@@ -6,6 +6,7 @@ import {
   Search, Star, Users, Zap,
 } from "lucide-react";
 import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
+import { useLanguage, type LanguagePreference } from "../../../../lib/language-context";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -34,31 +35,31 @@ const URGENCY_COLORS: Record<string, string> = {
   urgent: "#fca5a5", high: "#fb923c", medium: "#fcd34d", low: "#86efac",
 };
 
-const CATEGORY_LABELS: Record<string, string> = {
-  painting: "Pintura", plumbing: "Plomería", drywall: "Drywall",
-  electrical: "Electricidad", hvac: "HVAC", roofing: "Techos",
-  carpentry: "Carpintería", cleaning: "Limpieza", general: "General",
-};
+const CATEGORY_IDS = ["painting", "plumbing", "drywall", "electrical", "hvac", "roofing", "carpentry", "cleaning", "general"] as const;
 
 function UrgencyBadge({ urgency }: { urgency: string | null }) {
+  const { t } = useLanguage();
   const color = URGENCY_COLORS[urgency ?? "medium"] ?? "#94a3b8";
+  const label = urgency === null ? t("mp.urgency.medium") : Object.hasOwn(URGENCY_COLORS, urgency) ? t(`mp.urgency.${urgency}`) : urgency;
   return (
     <span style={{ fontSize: 9, fontWeight: 800, color, background: `${color}20`, padding: "2px 7px", borderRadius: 99 }}>
-      {(urgency ?? "medium").toUpperCase()}
+      {label}
     </span>
   );
 }
 
-function formatBudget(min: number | null, max: number | null, type: string | null): string {
-  if (!min && !max) return "Presupuesto abierto";
-  if (min && max) return `$${min.toLocaleString()}–$${max.toLocaleString()} ${type ?? ""}`.trim();
-  if (min) return `Desde $${min.toLocaleString()}`;
-  return `Hasta $${max!.toLocaleString()}`;
+function formatBudget(min: number | null, max: number | null, type: string | null, language: LanguagePreference, t: (key: string) => string): string {
+  const money = (amount: number) => new Intl.NumberFormat(language === "en" ? "en-US" : "es-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount);
+  if (!min && !max) return t("mp.budgetOpen");
+  if (min && max) return `${money(min)}–${money(max)} ${type ?? ""}`.trim();
+  if (min) return `${t("mp.from")} ${money(min)}`;
+  return `${t("mp.upTo")} ${money(max!)}`;
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function MarketplacePage() {
+  const { t, language } = useLanguage();
   const [listings, setListings] = useState<Listing[]>([]);
   const [professionals, setProfessionals] = useState<Professional[]>([]);
   const [stats,    setStats]    = useState<MarketplaceStats | null>(null);
@@ -101,13 +102,13 @@ export default function MarketplacePage() {
     <div style={{ maxWidth: 1100, margin: "0 auto", padding: "28px 20px", color: "var(--ink)" }}>
       <AdminPageHeader
         title="Marketplace"
-        subtitle="Trabajos publicados y profesionales verificados"
+        subtitle={t("mp.subtitle")}
         icon={Briefcase}
         iconColor="#818cf8"
         iconBg="rgba(99,102,241,.15)"
         showBack={false}
         actions={
-          <button onClick={load} disabled={loading}
+          <button onClick={load} disabled={loading} aria-label={t("mp.refresh")}
             style={{ padding: "8px 14px", borderRadius: 10, background: "rgba(255,255,255,.05)", border: "1px solid var(--border)", cursor: "pointer", fontSize: 12, color: "var(--muted)" }}>
             <RefreshCw size={12} className={loading ? "animate-spin" : undefined} />
           </button>
@@ -118,10 +119,10 @@ export default function MarketplacePage() {
       {stats && (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginBottom: 20 }}>
           {[
-            { label: "Publicados", value: String(stats.totalListings), icon: Briefcase, color: "#818cf8" },
-            { label: "Urgentes",   value: String(stats.byUrgency["urgent"] ?? 0), icon: Zap, color: "#fca5a5" },
-            { label: "Presupuesto promedio", value: stats.avgBudgetMin ? `$${stats.avgBudgetMin.toLocaleString()}` : "—", icon: DollarSign, color: "#86efac" },
-            { label: "Profesionales", value: String(professionals.length), icon: Users, color: "#67e8f9" },
+            { label: t("mp.posted"), value: String(stats.totalListings), icon: Briefcase, color: "#818cf8" },
+            { label: t("mp.urgentJobs"),   value: String(stats.byUrgency["urgent"] ?? 0), icon: Zap, color: "#fca5a5" },
+            { label: t("mp.avgBudget"), value: stats.avgBudgetMin ? new Intl.NumberFormat(language === "en" ? "en-US" : "es-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(stats.avgBudgetMin) : "—", icon: DollarSign, color: "#86efac" },
+            { label: t("mp.professionals"), value: String(professionals.length), icon: Users, color: "#67e8f9" },
           ].map(({ label, value, icon: Icon, color }) => (
             <div key={label} style={{ padding: "14px 16px", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
@@ -136,12 +137,12 @@ export default function MarketplacePage() {
 
       {/* Tabs */}
       <div style={{ display: "flex", gap: 4, marginBottom: 16, background: "rgba(255,255,255,.03)", padding: 4, borderRadius: 12, border: "1px solid var(--border)", width: "fit-content" }}>
-        {(["listings", "professionals"] as const).map((t) => (
-          <button key={t} onClick={() => setTab(t)}
+        {(["listings", "professionals"] as const).map((tabKey) => (
+          <button key={tabKey} onClick={() => setTab(tabKey)}
             style={{ padding: "7px 16px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700,
-              background: tab === t ? "rgba(99,102,241,.2)" : "transparent",
-              color: tab === t ? "#818cf8" : "var(--muted)" }}>
-            {t === "listings" ? "Trabajos" : "Profesionales"}
+              background: tab === tabKey ? "rgba(99,102,241,.2)" : "transparent",
+              color: tab === tabKey ? "#818cf8" : "var(--muted)" }}>
+            {t(tabKey === "listings" ? "mp.jobs" : "mp.professionals")}
           </button>
         ))}
       </div>
@@ -151,18 +152,18 @@ export default function MarketplacePage() {
         <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
           <div style={{ position: "relative", flex: 1, minWidth: 200 }}>
             <Search size={12} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--muted)" }} />
-            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar trabajos…"
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t("mp.searchJobs")}
               style={{ width: "100%", padding: "8px 10px 8px 28px", borderRadius: 10, border: "1px solid var(--border)", background: "rgba(255,255,255,.05)", color: "var(--ink)", fontSize: 12, boxSizing: "border-box" }} />
           </div>
           <select value={catFilter} onChange={(e) => setCatFilter(e.target.value)}
             style={{ padding: "8px 12px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--ink)", fontSize: 12 }}>
-            <option value="">Todas las categorías</option>
-            {Object.entries(CATEGORY_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+            <option value="">{t("mp.allCategories")}</option>
+            {CATEGORY_IDS.map((k) => <option key={k} value={k}>{t(`mp.category.${k}`)}</option>)}
           </select>
           <select value={urgFilter} onChange={(e) => setUrgFilter(e.target.value)}
             style={{ padding: "8px 12px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--ink)", fontSize: 12 }}>
-            <option value="">Todas las urgencias</option>
-            {["urgent", "high", "medium", "low"].map((u) => <option key={u} value={u}>{u}</option>)}
+            <option value="">{t("mp.allUrgencies")}</option>
+            {["urgent", "high", "medium", "low"].map((u) => <option key={u} value={u}>{t(`mp.urgency.${u}`)}</option>)}
           </select>
         </div>
       )}
@@ -174,7 +175,7 @@ export default function MarketplacePage() {
         <div style={{ display: "grid", gap: 12 }}>
           {listings.length === 0 && !loading && (
             <div style={{ padding: "32px", textAlign: "center", fontSize: 13, color: "var(--muted)", background: "var(--surface)", borderRadius: 14, border: "1px solid var(--border)" }}>
-              No hay trabajos publicados en este momento
+              {t("mp.noJobsAdmin")}
             </div>
           )}
           {listings.map((l) => (
@@ -186,21 +187,21 @@ export default function MarketplacePage() {
                     <UrgencyBadge urgency={l.urgency} />
                     {l.category && (
                       <span style={{ fontSize: 10, color: "#818cf8", background: "rgba(99,102,241,.1)", padding: "2px 8px", borderRadius: 99 }}>
-                        {CATEGORY_LABELS[l.category] ?? l.category}
+                        {CATEGORY_IDS.some((key) => key === l.category) ? t(`mp.category.${l.category}`) : l.category}
                       </span>
                     )}
                   </div>
                   <p style={{ margin: 0, fontSize: 11, color: "var(--muted)", lineHeight: 1.4 }}>{l.scope}</p>
                 </div>
                 <div style={{ textAlign: "right", flexShrink: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: "#86efac" }}>{formatBudget(l.budgetMin, l.budgetMax, l.budgetType)}</div>
-                  <div style={{ fontSize: 10, color: "var(--muted)", marginTop: 2 }}>{l.bidsCount} bids</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#86efac" }}>{formatBudget(l.budgetMin, l.budgetMax, l.budgetType, language, t)}</div>
+                  <div style={{ fontSize: 10, color: "var(--muted)", marginTop: 2 }}>{l.bidsCount} {t(l.bidsCount === 1 ? "mp.bidsSingular" : "mp.bidsPlural")}</div>
                 </div>
               </div>
               <div style={{ display: "flex", gap: 16, fontSize: 10, color: "var(--muted)" }}>
                 {l.location && <span style={{ display: "flex", alignItems: "center", gap: 4 }}><MapPin size={10} />{l.location}</span>}
                 {l.clientOrg && <span style={{ display: "flex", alignItems: "center", gap: 4 }}><Briefcase size={10} />{l.clientOrg}</span>}
-                <span style={{ display: "flex", alignItems: "center", gap: 4 }}><Clock size={10} />{new Date(l.postedAt).toLocaleDateString("es-MX")}</span>
+                <span style={{ display: "flex", alignItems: "center", gap: 4 }}><Clock size={10} />{new Date(l.postedAt).toLocaleDateString(language === "en" ? "en-US" : "es-MX")}</span>
               </div>
             </div>
           ))}
@@ -211,10 +212,10 @@ export default function MarketplacePage() {
       {tab === "professionals" && (
         <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, overflow: "hidden" }}>
           <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr", gap: 10, padding: "10px 18px", borderBottom: "1px solid var(--border)", fontSize: 10, fontWeight: 800, color: "var(--muted)" }}>
-            <span>PROFESIONAL</span><span>TRABAJOS</span><span>CALIFICACIÓN</span><span>ESTADO</span>
+            <span>{t("mp.professional")}</span><span>{t("mp.workCount")}</span><span>{t("mp.rating")}</span><span>{t("mp.status")}</span>
           </div>
           {professionals.length === 0 && (
-            <div style={{ padding: "24px", textAlign: "center", fontSize: 13, color: "var(--muted)" }}>Sin profesionales registrados</div>
+            <div style={{ padding: "24px", textAlign: "center", fontSize: 13, color: "var(--muted)" }}>{t("mp.noProfessionals")}</div>
           )}
           {professionals.map((p) => (
             <div key={p.id} style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr", gap: 10, padding: "12px 18px", borderBottom: "1px solid var(--border)", alignItems: "center" }}>
@@ -230,7 +231,7 @@ export default function MarketplacePage() {
                 <Star size={11} fill="#fcd34d" />
                 {p.avgRating ?? "—"}
               </div>
-              <div style={{ fontSize: 10, color: "#86efac", fontWeight: 600 }}>Verificado</div>
+              <div style={{ fontSize: 10, color: "#86efac", fontWeight: 600 }}>{t("mp.verified")}</div>
             </div>
           ))}
         </div>

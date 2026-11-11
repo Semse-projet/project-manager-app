@@ -77,6 +77,7 @@ export class SemseAgentsController {
       description: body.description,
       area:        body.area,
       rooms:       body.rooms,
+      locale:      body.locale === "en" ? "en" : "es",
       projectId:   (body.projectId as string) ?? undefined,
       zipCode:     (body.zipCode as string) ?? undefined,
       userId:      ctx.userId,
@@ -136,7 +137,7 @@ export class SemseAgentsController {
     const rid = resolveRequestId(req.headers ?? {});
     const trade = String(body.trade ?? "general");
     const hours = parsePositiveInt(body.estimatedHours, 8);
-    const plan = this.buildopsAgent.createPlan(trade, hours);
+    const plan = this.buildopsAgent.createPlan(trade, hours, body.locale === "en" ? "en" : "es");
     return ok(rid, { agentName: "buildops", trade, ...plan });
   }
 
@@ -147,7 +148,7 @@ export class SemseAgentsController {
     const rid = resolveRequestId(req.headers ?? {});
     const milestoneTitle = String(body.milestoneTitle ?? "Milestone");
     const trade          = String(body.trade ?? "general");
-    const checklist = this.evidenceAgent.generateChecklist(milestoneTitle, trade);
+    const checklist = this.evidenceAgent.generateChecklist(milestoneTitle, trade, body.locale === "en" ? "en" : "es");
     return ok(rid, { agentName: "evidence", ...checklist });
   }
 
