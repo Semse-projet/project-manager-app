@@ -61,25 +61,34 @@ export async function processJobWithLogging({ job, queue, data = {}, handler }) 
 }
 
 /**
- * Pino serializa un `Error` dentro de una clave arbitraria (`{ error }`) como
- * `{}`, así que los fallos de los barridos periódicos (reclaim, reservas,
- * contributors…) quedaban en los logs como "failed" sin motivo. Devuelve un
- * objeto plano y seguro: mensaje, tipo y, si el mensaje sigue el formato de
- * `requestJson` (`HTTP <status> <path>: …`), el código HTTP y la ruta. No
- * incluye stack ni cuerpo de la petición.
+ * Pino turns Error under a nonstandard key (`{ error }`) into `{}`.
+ * Return only non-sensitive diagnostics. In particular requestJson errors
+ * contain the entire upstream response body in Error.message: never log it.
  */
 export function describeError(error) {
-  const message = error instanceof Error ? error.message : String(error);
-  const details = {
-    message: message.length > 500 ? `${message.slice(0, 500)}…` : message,
-    type: error instanceof Error ? error.constructor.name : typeof error,
-  };
-  const http = /^HTTP (\d{3}) (\S+?):/.exec(message);
+  const raw = error instanceof Error ? error.message : String(error);
+  const type = error instanceof Error ? error.constructor.name : typeof error;
+  const http = /^HTTP ([1-5]\d{2}) (\/[^\s:]*):/.exec(raw);
+  let details;
   if (http) {
-    details.httpStatus = Number(http[1]);
-    details.path = http[2];
+    const httpStatus = Number(http[1]);
+    // Remove query strings/fragments; reject unexpected characters and long paths.
+    const candidate = http[2].split(/[?#]/, 1)[0];
+    const path = /^\/[A-Za-z0-9/_-]{1,160}$/.test(candidate) ? candidate : "[redacted]";
+    details = {
+      message: `HTTP ${httpStatus} ${path} (response omitted)`,
+      type,
+      httpStatus,
+      path
+    };
+  } else {
+    // Only known, fixed network error texts are safe to preserve verbatim.
+    const knownNetworkError = /^(fetch failed|request timed out|network timeout)$/i.test(raw);
+    details = { message: knownNetworkError ? raw : "Error details omitted", type };
   }
-  const causeCode = error instanceof Error ? error.cause?.code : undefined;
-  if (typeof causeCode === "string") details.causeCode = causeCode;
+  const code = error instanceof Error ? error.cause?.code : undefined;
+  if (typeof code === "string" && /^[A-Z][A-Z0-9_]{1,35}$/.test(code)) {
+    details.causeCode = code;
+  }
   return details;
 }
