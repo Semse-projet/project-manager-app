@@ -135,3 +135,31 @@ test("the job row lock's own serialization failure (raw query: P2010 / 40001) is
   }), /syntax/);
   assert.equal(other, 1);
 });
+
+test("a deadlock (P2010 / 40P01) is retried and, if it persists, stops at three attempts with 409", async () => {
+  const deadlock = () => Object.assign(new Error("Raw query failed. Code: `40P01`"), { code: "P2010", meta: { code: "40P01" } });
+  let attempts = 0;
+  const recovering = new PaymentsRepository({
+    async $transaction() {
+      attempts++;
+      if (attempts === 1) throw deadlock();
+      const { ConflictException } = await import("@nestjs/common");
+      throw new ConflictException("cannot fund escrow: job is cancelled");
+    },
+  } as never, {} as never);
+  await assert.rejects(recovering.depositFunds({
+    projectId: "project_1", jobId: "job_1", currency: "USD", amount: 200, providerRef: "local_test",
+  }), /job is cancelled/);
+  assert.equal(attempts, 2);
+
+  let persistent = 0;
+  const stuck = new PaymentsRepository({
+    async $transaction() { persistent++; throw deadlock(); },
+  } as never, {} as never);
+  await assert.rejects(stuck.depositFunds({
+    projectId: "project_1", jobId: "job_1", currency: "USD", amount: 200, providerRef: "local_test",
+  }), (error: unknown) =>
+    typeof (error as any)?.getStatus === "function" && (error as any).getStatus() === 409
+      && /concurrent transition/.test((error as Error).message));
+  assert.equal(persistent, 3, "never spin indefinitely or invoke an external provider");
+});

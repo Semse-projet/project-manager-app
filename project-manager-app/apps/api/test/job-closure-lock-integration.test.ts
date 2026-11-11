@@ -31,6 +31,24 @@ loadEnv({ path: path.resolve(__dirname, "..", "..", "..", "packages/db/.env") })
 
 const dbTest = process.env.DATABASE_URL ? test : test.skip;
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Resolves once another backend is blocked on a row lock of `"Job"` (pg_stat_activity
+ * reports it waiting on a Lock with a FOR UPDATE on that table), so a test can be
+ * sure the racing side really waits before the side holding the lock commits.
+ */
+async function waitForJobLockWaiter(prisma: PrismaClient, timeoutMs = 10_000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const [row] = await prisma.$queryRaw<Array<{ waiting: number }>>`
+      SELECT count(*)::int AS waiting FROM pg_stat_activity
+      WHERE datname = current_database() AND pid <> pg_backend_pid()
+        AND wait_event_type = 'Lock' AND query ILIKE '%FROM "Job"%FOR UPDATE%'`;
+    if ((row?.waiting ?? 0) > 0) return;
+    await sleep(25);
+  }
+  throw new Error("no backend ever waited on the job row lock");
+}
 const noActor = { async ensureActorContext() { return undefined; } };
 
 async function seed(prisma: PrismaClient, status: "ACCEPTED" | "CANCELLED" | "REVIEW" | "POSTED") {
@@ -92,7 +110,9 @@ dbTest("a deposit that starts while the job is being cancelled waits for it and 
     });
     await sleep(200);
     const racingDeposit = deposit(prisma, ids.projectId, ids.jobId).then(() => "deposited", (error: Error) => error.message);
-    await sleep(300);
+    // Only release the cancellation once the deposit is verifiably blocked on the
+    // job row lock: that wait is what makes its Serializable transaction fail.
+    await waitForJobLockWaiter(prisma);
     releaseCancel();
     await cancel;
     const outcome = await racingDeposit;
