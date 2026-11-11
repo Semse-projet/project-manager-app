@@ -48,6 +48,18 @@ test("WORKER has agent execution permissions", () => {
   assert.ok(rolePermissions["WORKER"].length >= 1);
 });
 
+test("AGENT_RUNNER can complete fenced AgentRuns without broad worker or management permissions", () => {
+  assert.equal(hasPermission(["AGENT_RUNNER"], "agents:run:claim"), true);
+  assert.equal(hasPermission(["AGENT_RUNNER"], "agents:run:execute"), true);
+  for (const permission of ["agents:run:worker", "agents:run:manage", "ops:dashboard:write", "payments:release"]) {
+    assert.equal(hasPermission(["AGENT_RUNNER"], permission), false, permission);
+  }
+  for (const role of ["PRO", "WORKER", "OPS_ADMIN"]) {
+    assert.equal(hasPermission([role], "agents:run:execute"), true, role);
+    assert.equal(hasPermission([role], "agents:run:claim"), false, role);
+  }
+});
+
 test("OPS_ADMIN includes ops-specific and dashboard:write permissions", () => {
   assert.ok(rolePermissions["OPS_ADMIN"].includes("ops:dashboard:read"));
   assert.ok(rolePermissions["OPS_ADMIN"].includes("ops:dashboard:write"));

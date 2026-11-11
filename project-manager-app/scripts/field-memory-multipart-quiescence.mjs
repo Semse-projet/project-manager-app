@@ -119,6 +119,18 @@ export async function inspectMultipartQuiescence({
               throw Error("multipart_entry_limit");
           }
         }
+      } else if(entry.name === ".put-staging" && entry.isDirectory()) {
+        // StorageService stores incomplete PUT bytes under this private
+        // directory, then publishes the final name atomically with link().
+        // Once uploads settle the directory remains but must be EMPTY.
+        // Do not follow symlinks or ignore nested/malformed entries.
+        const stageRoot = path.join(realMultipart, ".put-staging");
+        if (await ordinaryDirectory(stageRoot) !== stageRoot)
+          throw Error("unsafe_put_staging_realpath");
+        const staged = await safeChildren(stageRoot);
+        if (staged.some(child => child.isSymbolicLink()))
+          throw Error("unsafe_put_staging_symlink");
+        unknown += staged.length;
       } else if(entry.isFile() && MANIFEST.test(entry.name)) {
         manifests++;
       } else {

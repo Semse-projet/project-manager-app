@@ -8,6 +8,8 @@ export interface BlsPpiSeries {
 }
 
 export interface BlsPpiResult {
+  // Index origin only; no certification of real-world unit prices.
+  indexOrigin: "BLS_OBSERVED" | "UNVERIFIED_FALLBACK";
   seriesId: string;
   materialKey: string;
   indexValue: number;
@@ -82,19 +84,31 @@ export class BlsPpiService {
         return result;
       }
 
+      // Do not assume API ordering or accept annual, malformed, future or
+      // stale periods as a current observation. An old positive PPI must not
+      // refresh the TTL of a price snapshot.
+      const now = new Date();
+      const currentMonth = now.getUTCFullYear() * 12 + now.getUTCMonth();
+      const requested = new Set(unique);
       for (const series of data.Results.series) {
-        // BLS returns data in reverse chronological order; skip the annual-average pseudo-period.
-        const monthly = series.data.filter(d => d.period !== "M13");
+        if (!requested.has(series.seriesID) || !Array.isArray(series.data)) continue;
+        const monthly = series.data
+          .filter(d => /^M(0[1-9]|1[0-2])$/.test(d.period) && /^\d{4}$/.test(d.year))
+          .map(d => ({
+            ...d,
+            month: Number(d.year) * 12 + Number(d.period.slice(1)) - 1,
+          }))
+          .filter(d => d.month <= currentMonth && d.month >= currentMonth - 18)
+          .sort((a, b) => b.month - a.month);
         const latest = monthly[0];
         if (!latest) continue;
 
-        const yearAgo = monthly.find(
-          d => d.period === latest.period && d.year === String(Number(latest.year) - 1)
-        );
-
+        const yearAgo = monthly.find(d => d.month === latest.month - 12);
         result.set(series.seriesID, {
-          latest: parseFloat(latest.value),
-          yearAgo: yearAgo ? parseFloat(yearAgo.value) : undefined,
+          // Number() rejects trailing junk that parseFloat() would silently
+          // accept (e.g. "126invalid"). Non-finite values fail closed later.
+          latest: Number(latest.value),
+          yearAgo: yearAgo ? Number(yearAgo.value) : undefined,
         });
       }
     } catch (err) {
@@ -115,7 +129,7 @@ export class BlsPpiService {
       const reading = indexMap.get(series.seriesId);
       const currentIndex = reading?.latest;
 
-      if (currentIndex) {
+      if (currentIndex !== undefined && Number.isFinite(currentIndex) && currentIndex > 0) {
         // Convert PPI index (base 2012=100) to approximate USD price
         // Adjustment factor: current_index / 100 applied to base price
         const adjustmentFactor = currentIndex / 100;
@@ -124,6 +138,7 @@ export class BlsPpiService {
         const changeYoY = this.computeChangeYoY(currentIndex, reading?.yearAgo);
 
         results.push({
+          indexOrigin: "BLS_OBSERVED",
           seriesId: series.seriesId,
           materialKey: series.materialKey,
           indexValue: currentIndex,
@@ -136,6 +151,7 @@ export class BlsPpiService {
       } else {
         // Fallback to base price when API unavailable
         results.push({
+          indexOrigin: "UNVERIFIED_FALLBACK",
           seriesId: series.seriesId,
           materialKey: series.materialKey,
           indexValue: 100,
@@ -159,9 +175,13 @@ export class BlsPpiService {
    * commodity indices can genuinely swing past ±100% in volatile years.
    */
   private computeChangeYoY(current: number, yearAgo: number | undefined): number | null {
-    if (!yearAgo || yearAgo <= 0) return null;
+    if (!Number.isFinite(current) || current <= 0 ||
+        yearAgo === undefined || !Number.isFinite(yearAgo) || yearAgo <= 0) {
+      return null;
+    }
 
     const rawChange = ((current - yearAgo) / yearAgo) * 100;
+    if (!Number.isFinite(rawChange)) return null;
     const rounded = Math.round(rawChange * 100) / 100;
     return Math.max(-CHANGE_YOY_LIMIT, Math.min(CHANGE_YOY_LIMIT, rounded));
   }

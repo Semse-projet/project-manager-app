@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useLanguage } from "../../../../lib/language-context";
+import { buildCrewRoomTaskTitle } from "../../../../lib/crew-room-task-title";
 import {
   assignTaskToCrewMembers,
   createCrewTask,
@@ -27,7 +28,9 @@ const COPY = {
     taskId: "Tarea",
     pickTask: "Elige una tarea",
     newTask: "Nueva tarea",
-    newTaskTitle: "Título de la nueva tarea",
+    newTaskTitle: "Trabajo a realizar",
+    room: "Habitación o área",
+    roomPlaceholder: "Ej. Hab. 205, pasillo norte",
     createTask: "Crear tarea",
     created: "Tarea creada.",
     members: "Personas",
@@ -62,7 +65,9 @@ const COPY = {
     taskId: "Task",
     pickTask: "Pick a task",
     newTask: "New task",
-    newTaskTitle: "New task title",
+    newTaskTitle: "Work to be done",
+    room: "Room or area",
+    roomPlaceholder: "E.g. Room 205, north hallway",
     createTask: "Create task",
     created: "Task created.",
     members: "People",
@@ -100,6 +105,7 @@ export default function MyCrewPage() {
   const [taskId, setTaskId] = useState("");
   const [tasks, setTasks] = useState<CrewTaskView[]>([]);
   const [newTitle, setNewTitle] = useState("");
+  const [room, setRoom] = useState("");
   const [reason, setReason] = useState("");
   const [releaseReason, setReleaseReason] = useState("");
   const [trades, setTrades] = useState<Record<string, string>>({});
@@ -196,22 +202,35 @@ export default function MyCrewPage() {
               ))}
             </select>
           </label>
+          <label>
+            {c.room}
+            <input
+              value={room}
+              maxLength={60}
+              placeholder={c.roomPlaceholder}
+              onChange={(event) => setRoom(event.target.value)}
+              style={{ width: "100%", minHeight: 44 }}
+            />
+          </label>
           <span style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "end" }}>
             <label style={{ flex: "1 1 220px" }}>
               {c.newTaskTitle}
-              <input value={newTitle} maxLength={200} onChange={(event) => setNewTitle(event.target.value)} style={{ width: "100%", minHeight: 44 }} />
+              <input value={newTitle} maxLength={130} onChange={(event) => setNewTitle(event.target.value)} style={{ width: "100%", minHeight: 44 }} />
             </label>
             <button
-              disabled={busy || newTitle.trim().length < 2}
+              disabled={busy || !crewId || !buildCrewRoomTaskTitle(room, newTitle)}
               style={{ minHeight: 44 }}
               onClick={() => {
+                const title = buildCrewRoomTaskTitle(room, newTitle);
+                if (!title) return;
                 setBusy(true);
                 void (async () => {
                   try {
-                    const created = await createCrewTask(crewId, { title: newTitle.trim() });
+                    const created = await createCrewTask(crewId, { title });
                     setTasks(await fetchCrewTasks(crewId));
                     setTaskId(created.taskId);
                     setNewTitle("");
+                    setRoom("");
                     setMessage(c.created);
                   } catch (error) {
                     setMessage(describe(error));

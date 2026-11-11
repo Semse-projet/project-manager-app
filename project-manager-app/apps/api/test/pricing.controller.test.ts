@@ -29,7 +29,7 @@ test("pricing controller declares correct @RequirePermissions", () => {
   const expectations: Array<[string, string]> = [
     ["getMaterialPrices", "projects:read"],
     ["getPricingStatus",  "ops:dashboard:read"],
-    ["refreshPrices",     "ops:dashboard:read"],
+    ["refreshPrices",     "ops:dashboard:write"],
     ["getMyRates",        "projects:read"],
     ["upsertMyRates",     "projects:read"],
     ["deleteMyRates",     "projects:read"],
@@ -43,10 +43,19 @@ test("pricing controller declares correct @RequirePermissions", () => {
 
 // ── getMaterialPrices ─────────────────────────────────────────────────────────
 
-test("pricing controller: getMaterialPrices returns prices with BLS source tag", async () => {
+test("pricing controller: getMaterialPrices preserves price map while declaring unverified provenance", async () => {
   const controller = new PricingController(
     {
-      async getCurrentPrices() { return STUB_PRICES; },
+      async getCurrentPricesWithProvenance() {
+        return {
+          prices: Object.fromEntries(STUB_PRICES.map(x => [x.commodityCode, x.currentIndex])),
+          source: "LEGACY_CACHE_UNVERIFIED",
+          provenance: {
+            WPU0531: { verification: "UNVERIFIED", origin: "LEGACY_CACHE" },
+            WPU1012: { verification: "UNVERIFIED", origin: "LEGACY_CACHE" },
+          },
+        };
+      },
       async getPricingStatus() { return {}; },
       async refreshPrices() { return {}; },
     } as never,
@@ -59,8 +68,10 @@ test("pricing controller: getMaterialPrices returns prices with BLS source tag",
 
   const result = await controller.getMaterialPrices(makeReq() as never);
   assert.equal(result.requestId, "req_pricing_1");
-  assert.equal(result.data.source, "BLS_PPI_CACHE");
-  assert.equal(result.data.prices.length, 2);
+  assert.equal(result.data.source, "LEGACY_CACHE_UNVERIFIED");
+  assert.equal(Object.keys(result.data.prices).length, 2);
+  assert.equal(result.data.prices.WPU0531, 312.4);
+  assert.equal(result.data.provenance.WPU0531.verification, "UNVERIFIED");
 });
 
 // ── getPricingStatus ──────────────────────────────────────────────────────────

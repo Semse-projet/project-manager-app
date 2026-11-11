@@ -49,6 +49,16 @@ test("other existing agent tool chats retain their regular default routing contr
   assert.deepEqual(forwarded[0].context, { requiresTools: true });
 });
 
+test("other agent tool chats with remembered project context are privacy-critical (#1066)", async () => {
+  const { svc, forwarded } = service();
+  await svc.chatWithTools({
+    tenantId: "tenant-A", userId: "user-A", agentId: "generic",
+    message: "Continue with what we discussed", tools: [],
+    context: { relevantMemorySummary: "Remembered private project decision" },
+  });
+  assert.deepEqual(forwarded[0].context, { requiresTools: true, privacyCritical: true });
+});
+
 test("project-copilot tool calls cannot disable private local inference even with localOnly=false", async () => {
   const { svc, forwarded } = service();
   await svc.chatWithTools({

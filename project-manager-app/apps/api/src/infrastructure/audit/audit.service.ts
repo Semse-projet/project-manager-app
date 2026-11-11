@@ -25,6 +25,15 @@ export class AuditService {
     private readonly actorContextService: ActorContextService
   ) {}
 
+  /** Prepare FK actor records BEFORE opening the domain write transaction. */
+  async prepareActorContext(entry: Pick<AuditEntry, "tenantId" | "orgId" | "actorUserId">): Promise<void> {
+    await this.actorContextService.ensureActorContext({
+      tenantId: entry.tenantId,
+      orgId: entry.orgId,
+      userId: entry.actorUserId
+    });
+  }
+
   private auditData(entry: AuditEntry) {
     return {
       id: `aud_${crypto.randomUUID()}`,
@@ -43,21 +52,13 @@ export class AuditService {
     };
   }
 
-  /**
-   * For caller-owned atomic domain writes. Unlike legacy append(), this does
-   * NOT synthesize actors or organizations. Missing FK context fails closed.
-   * Keep compatible with the shared BO-12 audit contract (#1053).
-   */
+  /** Uses the SAME Prisma transaction as the domain mutation. Never opens another connection. */
   async appendInTransaction(entry: AuditEntry, tx: Prisma.TransactionClient): Promise<void> {
     await tx.auditLog.create({ data: this.auditData(entry) });
   }
 
   async append(entry: AuditEntry): Promise<void> {
-    await this.actorContextService.ensureActorContext({
-      tenantId: entry.tenantId,
-      orgId: entry.orgId,
-      userId: entry.actorUserId
-    });
+    await this.prepareActorContext(entry);
     await this.prisma.auditLog.create({ data: this.auditData(entry) });
   }
 }

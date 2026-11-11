@@ -63,7 +63,7 @@ function createController() {
     },
     claim(input: Record<string, unknown>) {
       calls.push({ method: "claim", input });
-      return { id: "run_3", claimed: true };
+      return { id: "run_3", tenantId: String(input.tenantId), workerId: String(input.workerId), attempts: 1, claimed: true };
     },
     reclaimStale(input: Record<string, unknown>) {
       calls.push({ method: "reclaimStale", input });
@@ -215,13 +215,13 @@ test("agents controller declares permissions and wraps representative payloads",
     ["detail", "agents:run:create"],
     ["workerDetail", "agents:run:worker"],
     ["createRun", "agents:run:create"],
-    ["claim", "agents:run:worker"],
-    ["reclaimStale", "agents:run:worker"],
+    ["claim", "agents:run:claim"],
+    ["reclaimStale", "agents:run:claim"],
     ["retry", "agents:run:retry"],
-    ["start", "agents:run:manage"],
-    ["heartbeat", "agents:run:worker"],
-    ["complete", "agents:run:manage"],
-    ["fail", "agents:run:manage"],
+    ["start", "agents:run:execute"],
+    ["heartbeat", "agents:run:execute"],
+    ["complete", "agents:run:execute"],
+    ["fail", "agents:run:execute"],
     ["listPlans", "agents:run:create"],
     ["getPlan", "agents:run:create"],
     ["approvePlan", "agents:run:create"],
@@ -264,7 +264,13 @@ test("agents controller declares permissions and wraps representative payloads",
     inputSummary: "summary",
   });
   const worker = await controller.workerDetail(actor as never, "run_1");
-  const claimed = await controller.claim(actor as never, { workerId: "worker_1" });
+  const runnerActor = {
+    ...actor, authContext: {
+      ...actor.authContext,
+      roles: ["OPS_ADMIN", "AGENT_RUNNER"],
+    },
+  };
+  const claimed = await controller.claim(runnerActor as never, { workerId: "worker_1" });
   const retried = await controller.retry(actor as never, "run_1");
   const planTemplates = await controller.listPlanTemplates(actor as never, "field");
 
