@@ -59,3 +59,27 @@ export async function processJobWithLogging({ job, queue, data = {}, handler }) 
     }, jobContext)
   );
 }
+
+/**
+ * Pino serializa un `Error` dentro de una clave arbitraria (`{ error }`) como
+ * `{}`, así que los fallos de los barridos periódicos (reclaim, reservas,
+ * contributors…) quedaban en los logs como "failed" sin motivo. Devuelve un
+ * objeto plano y seguro: mensaje, tipo y, si el mensaje sigue el formato de
+ * `requestJson` (`HTTP <status> <path>: …`), el código HTTP y la ruta. No
+ * incluye stack ni cuerpo de la petición.
+ */
+export function describeError(error) {
+  const message = error instanceof Error ? error.message : String(error);
+  const details = {
+    message: message.length > 500 ? `${message.slice(0, 500)}…` : message,
+    type: error instanceof Error ? error.constructor.name : typeof error,
+  };
+  const http = /^HTTP (\d{3}) (\S+?):/.exec(message);
+  if (http) {
+    details.httpStatus = Number(http[1]);
+    details.path = http[2];
+  }
+  const causeCode = error instanceof Error ? error.cause?.code : undefined;
+  if (typeof causeCode === "string") details.causeCode = causeCode;
+  return details;
+}

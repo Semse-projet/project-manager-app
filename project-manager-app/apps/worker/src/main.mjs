@@ -55,7 +55,7 @@ import {
   SEMSE_TRACE_HEADER_NAME,
   validateWorkerEnv
 } from "@semse/shared";
-import { getCurrentTraceId, processJobWithLogging } from "./observability/job-logging.mjs";
+import { describeError, getCurrentTraceId, processJobWithLogging } from "./observability/job-logging.mjs";
 import { executeSpecializedWorkerRun, shouldUseSpecializedWorkerHandler } from "./agent-run-handlers.mjs";
 import { processDomainEventQueueJob } from "./domain-event-worker.mjs";
 import { executeDeveloperRuntimeJob } from "./modules/developer-runtime/runtime.executor.mjs";
@@ -305,12 +305,12 @@ async function main() {
     });
     domainEventWorker.on("failed", (job, error) => {
       logger.error(
-        { eventId: job?.data?.eventId, error },
+        { eventId: job?.data?.eventId, error: describeError(error) },
         "domain event consumer job failed",
       );
     });
     domainEventWorker.on("error", (error) => {
-      logger.error({ error }, "domain event worker error");
+      logger.error({ error: describeError(error) }, "domain event worker error");
     });
     logger.info(
       { queue: SEMSE_DOMAIN_EVENT_QUEUE, concurrency: 2 },
@@ -622,7 +622,7 @@ async function sweepExpiredReservations() {
       logger.info({ expiredCount, jobsReopened }, "swept expired reservations");
     }
   } catch (error) {
-    logger.warn({ error }, "reservation sweep failed — will retry next interval");
+    logger.warn({ error: describeError(error) }, "reservation sweep failed — will retry next interval");
   }
 }
 
@@ -632,7 +632,7 @@ async function sweepExpiredLiveSessions() {
     const closed = response?.data?.closed ?? 0;
     if (closed > 0) logger.info({ closed }, "swept expired live sessions");
   } catch (error) {
-    logger.warn({ error }, "live session sweep failed -- will retry next interval");
+    logger.warn({ error: describeError(error) }, "live session sweep failed -- will retry next interval");
   }
 }
 
@@ -644,7 +644,7 @@ async function sweepPendingContributorExtractions() {
       logger.info({ processed, completed, failed }, "swept pending contributor-program extractions");
     }
   } catch (error) {
-    logger.warn({ error }, "contributor extraction sweep failed — will retry next interval");
+    logger.warn({ error: describeError(error) }, "contributor extraction sweep failed — will retry next interval");
   }
 }
 
@@ -659,7 +659,7 @@ async function reclaimStaleRuns() {
       logger.warn({ reclaimedCount }, "reclaimed stale runs");
     }
   } catch (error) {
-    logger.warn({ error }, "stale reclaim call failed");
+    logger.warn({ error: describeError(error) }, "stale reclaim call failed");
   }
 }
 
