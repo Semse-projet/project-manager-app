@@ -103,6 +103,7 @@ convierte automáticamente una spec en `VERIFIED`.
 | `0.44` | `api-prometeo-copilot`, `api.vision-service-security` | CLOSED |
 | `0.45` | `api-prometeo-copilot` | CLOSED |
 | `0.46` | `api-prometeo-copilot` | CLOSED |
+| `0.47` | `api-prometeo-copilot`, `api-agents-runtime`, `api.rbac-explicit-boundary` | CLOSED |
 
 Cobertura: **47/47**.
 
