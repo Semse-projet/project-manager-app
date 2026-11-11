@@ -8,9 +8,27 @@
 
 | # | Qué está roto | Evidencia | Arreglo | Estado |
 |---|---|---|---|---|
-| P0-1 | **Ningún AgentRun se reclama ni se ejecuta** (agentes de Prometeo, browser agent, retries). | API HTTP: `POST /v1/agents/runs/reclaim-stale` → **403** cada 10 s desde el deploy de #1129 (2026-11-09). #1129 separó `agents:run:claim` en el rol de máquina `AGENT_RUNNER` y su propia nota decía "aprovisionar la identidad del Worker con `AGENT_RUNNER` antes de desplegar". El merge desplegó sin ese paso. | (1) `SEMSE_ROLES` de semse-worker con `AGENT_RUNNER` → **hecho 2026-11-11 00:00Z** (autorizado por el dueño). (2) **[DUEÑO]** `railway run --service semse-worker node scripts/ops/ensure-worker-service-membership.mjs`: primero dry-run; si `ok:true` y `createMemberships` incluye `AGENT_RUNNER`, repetir con `--apply`. | Pendiente del paso 2 |
+| P0-1 | **Ningún AgentRun se reclama ni se ejecuta** (agentes de Prometeo, browser agent, retries). | API HTTP: `POST /v1/agents/runs/reclaim-stale` → **403** cada 10 s desde el deploy de #1129 (2026-11-09). #1129 separó `agents:run:claim` en el rol de máquina `AGENT_RUNNER` y su propia nota decía "aprovisionar la identidad del Worker con `AGENT_RUNNER` antes de desplegar". El merge desplegó sin ese paso. | (1) `SEMSE_ROLES` de semse-worker con `AGENT_RUNNER` → **hecho 2026-11-11 00:00Z** (autorizado por el dueño). (2) **[DUEÑO]** verificar y, previa aprobación explícita, aprovisionar la membresía `ACTIVE` de la identidad técnica `usr_worker_system` en el tenant/org reales del Worker; solicitar exclusivamente `AGENT_RUNNER` con el script de membresías (dry-run primero). **No usar `railway run` suponiendo que ejecuta dentro del contenedor**; ver procedimiento seguro §0.1. | Pendiente del paso 2 |
 | P0-2 | **Production Health Gate nunca se ejecuta** tras un deploy. | GitHub Actions `Railway Deploy`: el último éxito fue 2026-10-20 (`06dfd7b`); desde 2026-10-26, todos los runs de `main` fallan con `Not Authorized` de la API de Railway. El gate depende de ese job y queda `skipped`. Producción **sí** está al día porque Railway despliega `main` con su integración nativa de GitHub (`checkSuites: false`). | **[DUEÑO]** Regenerar el token de Railway y actualizar el secret `RAILWAY_TOKEN` del repo, o decidir retirar el deploy duplicado de Actions y dejar el Health Gate independiente (cambio de CI, necesita autorización). | Pendiente |
 | P0-3 | Los logs del worker registran "sweep/reclaim failed" sin motivo. | pino serializaba el `Error` como `{}`. | PR #1141 (`describeError`). | En PR |
+
+### 0.1 Procedimiento seguro para el 403 de AgentRun
+
+**Causa contractual:** `/v1/agents/runs/claim` y `/v1/agents/runs/reclaim-stale` requieren **ambos** el permiso `agents:run:claim` y el rol efectivo `AGENT_RUNNER`. En API la autorización es la intersección de `Membership ACTIVE`, roles persistidos en `AuthSession` y roles del JWT. Añadir `SEMSE_ROLES` sin la membresía activa y una sesión que incluya el rol no resuelve el 403.
+
+**Dónde ejecutar:** `railway run` ejecuta localmente e inyecta variables remotas, pero no equivale a ejecutar dentro de Railway ni garantiza conexión a una URL privada de PostgreSQL. La imagen final de `Dockerfile.worker` **no copia** `/app/scripts`, así que tampoco se debe intentar el script con `railway ssh -s semse-worker`. La imagen de `Dockerfile.api` sí copia `/app/scripts` y dispone del cliente Prisma. Usar una sesión `railway ssh` autorizada en `semse-API` con `/app` como directorio de trabajo, o un entorno controlado equivalente que tenga acceso a la base correcta.
+
+1. **Solo lectura:** confirmar en la configuración del Worker los identificadores reales `SEMSE_USER_ID`, `SEMSE_TENANT_ID`, `SEMSE_ORG_ID` y que `SEMSE_ROLES` solicite `AGENT_RUNNER`. No asumir valores de la API ni imprimir tokens.
+2. **Dry-run:** entrar en `semse-API` por SSH y ejecutar desde `/app` el comando siguiente, sustituyendo `TENANT_REAL` y `ORG_REAL` tras verificar los valores del Worker (se solicitan **solo** los grants faltantes de `AGENT_RUNNER`):
+
+   ```sh
+   SEMSE_USER_ID=usr_worker_system SEMSE_TENANT_ID=TENANT_REAL SEMSE_ORG_ID=ORG_REAL SEMSE_ROLES=AGENT_RUNNER node scripts/ops/ensure-worker-service-membership.mjs
+   ```
+
+3. **Puerta humana:** revisar `plan.ok=true`, `createRoles`, `createMemberships`, `alreadyActive` y `skippedNonActive`. Si aparece `skippedNonActive` o el tenant/org no coincide, **detenerse**; una suspensión/revocación no debe reactivarse por automatismo. `--apply` solo tras aprobación explícita del dueño para esa identidad/organización/rol, nunca para cuentas humanas.
+4. **Refresco y aceptación:** una sesión emitida antes de incluir `AGENT_RUNNER` sigue sin ese rol aunque se actualice la BD; renovar **controladamente** la sesión del Worker después del grant, si corresponde. Verificar respuesta no-403 en `reclaim-stale` y, con un run de prueba aislado, `claim → start → heartbeat → complete` con `claimToken`; no activar nuevas autonomías ni afirmar completitud por solo un 201.
+
+**Sin cambios operativos en este PR:** estas instrucciones no ejecutan el grant, no leen valores secretos y no alteran Railway, DB ni permisos.
 
 ## 1. Schedulers del worker apagados (semse-worker define 23 variables; ninguna de estas)
 
