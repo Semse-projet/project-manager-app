@@ -11,11 +11,13 @@ import { WaiverController } from './waiver.controller.js';
 import { WaiverPaymentGateService } from './waiver-payment-gate.service.js';
 import { LienAccessService } from './lien-access.service.js';
 import { ResourceScopeModule } from '../../common/resource-scope.module.js';
+import { EmailService } from '../../infrastructure/email/email.service.js';
+import { NotificationsModule } from '../notifications/notifications.module.js';
 import { LienGridClient, createLienGridClient } from '../../integrations/liengrid.js';
 import { LobClient, createLobClient } from '../../integrations/lob.js';
 
 @Module({
-  imports: [ResourceScopeModule],
+  imports: [ResourceScopeModule, NotificationsModule],
   controllers: [LiensController, LienSchedulerController, NoticeController, WaiverController],
   providers: [
     LiensService,
@@ -25,6 +27,7 @@ import { LobClient, createLobClient } from '../../integrations/lob.js';
     NoticeSendService,
     WaiverPaymentGateService,
     LienAccessService,
+    EmailService,
     {
       provide: LienGridClient,
       useFactory: () => {

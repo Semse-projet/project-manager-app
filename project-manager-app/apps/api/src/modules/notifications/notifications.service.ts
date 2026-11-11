@@ -609,63 +609,94 @@ export class NotificationsService {
     if (specs.length === 0) return;
 
     for (const spec of specs) {
-      try {
-        const notification = await this.repository.create({
-          tenantId: input.tenantId,
+      await this.deliver(input.tenantId, spec, input.eventType);
+    }
+  }
+
+  /**
+   * Notificación directa a usuarios concretos por el mismo canal que los eventos de dominio (in-app + SSE +
+   * WhatsApp si está habilitado + push). Para avisos que no nacen de un evento del bus, p. ej. la alerta de plazo
+   * de lien del scheduler. Best-effort por destinatario; devuelve cuántas se crearon.
+   */
+  async notifyUsers(input: {
+    tenantId: string;
+    userIds: string[];
+    type: string;
+    title: string;
+    body: string;
+    payload?: Record<string, unknown>;
+  }): Promise<{ created: number }> {
+    let created = 0;
+    for (const userId of new Set(input.userIds)) {
+      const ok = await this.deliver(
+        input.tenantId,
+        { userId, type: input.type, title: input.title, body: input.body, payload: input.payload },
+        input.type,
+      );
+      if (ok) created += 1;
+    }
+    return { created };
+  }
+
+  private async deliver(tenantId: string, spec: NotificationSpec, source: string): Promise<boolean> {
+    try {
+      const notification = await this.repository.create({
+        tenantId,
+        userId: spec.userId,
+        type: spec.type,
+        title: spec.title,
+        body: spec.body,
+        payload: spec.payload,
+      });
+
+      // SSE: notify the recipient in real-time
+      this.sse?.emit(`notifications:${tenantId}:${spec.userId}`, "notification:new", {
+        id:    notification.id,
+        type:  spec.type,
+        title: spec.title,
+        body:  spec.body,
+        createdAt: new Date().toISOString(),
+      });
+
+      if (this.communicationsOutbox) {
+        void this.communicationsOutbox.deliverNotification({
+          tenantId,
+          notificationId: notification.id,
           userId: spec.userId,
-          type: spec.type,
           title: spec.title,
           body: spec.body,
-          payload: spec.payload,
+          payload: {
+            type: spec.type,
+            ...(spec.payload ?? {}),
+          },
+        }).catch((error) => {
+          this.logger.warn(
+            { eventType: source, userId: spec.userId, notificationId: notification.id, error },
+            "Failed to deliver WhatsApp notification — skipping",
+          );
         });
+      }
 
-        // SSE: notify the recipient in real-time
-        this.sse?.emit(`notifications:${input.tenantId}:${spec.userId}`, "notification:new", {
-          id:    notification.id,
-          type:  spec.type,
-          title: spec.title,
-          body:  spec.body,
-          createdAt: new Date().toISOString(),
-        });
-
-        if (this.communicationsOutbox) {
-          void this.communicationsOutbox.deliverNotification({
-            tenantId: input.tenantId,
-            notificationId: notification.id,
-            userId: spec.userId,
-            title: spec.title,
-            body: spec.body,
-            payload: {
-              type: spec.type,
-              ...(spec.payload ?? {}),
-            },
-          }).catch((error) => {
+      if (this.pushDispatch) {
+        void this.pushDispatch
+          .sendToUser(tenantId, spec.userId, spec.title, spec.body, {
+            type: spec.type,
+            ...(spec.payload ?? {}),
+          })
+          .catch((error) => {
             this.logger.warn(
-              { eventType: input.eventType, userId: spec.userId, notificationId: notification.id, error },
-              "Failed to deliver WhatsApp notification — skipping",
+              { eventType: source, userId: spec.userId, notificationId: notification.id, error },
+              "Failed to deliver push notification — skipping",
             );
           });
-        }
-
-        if (this.pushDispatch) {
-          void this.pushDispatch
-            .sendToUser(input.tenantId, spec.userId, spec.title, spec.body, {
-              type: spec.type,
-              ...(spec.payload ?? {}),
-            })
-            .catch((error) => {
-              this.logger.warn(
-                { eventType: input.eventType, userId: spec.userId, notificationId: notification.id, error },
-                "Failed to deliver push notification — skipping",
-              );
-            });
-        }
-      } catch (error) {
-        this.logger.warn(
-          { eventType: input.eventType, userId: spec.userId, error },
-          "Failed to create notification — skipping",
-        );
       }
+      return true;
+    } catch (error) {
+      this.logger.warn(
+        { eventType: source, userId: spec.userId, error },
+        "Failed to create notification — skipping",
+      );
+      return false;
     }
   }
 
