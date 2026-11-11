@@ -1,0 +1,103 @@
+name: Production Runtime Health (tokenless)
+
+# Independent, read-only runtime provenance verification.
+# Direct Railway <-> GitHub integration is responsible for deploying code;
+# this workflow NEVER deploys or modifies Railway resources.
+# The old token-dependent Railway Deploy workflow remains unchanged.
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Prefer checking the newest CI-successful main commit to a superseded one.
+concurrency:
+  group: production-runtime-health
+  cancel-in-progress: true
+
+jobs:
+  provenance:
+    if: >-
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'main' &&
+       github.event.workflow_run.head_repository.full_name == github.repository) ||
+      (github.event_name == 'workflow_dispatch' &&
+       github.ref == 'refs/heads/main')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    steps:
+      - name: Resolve exact CI-tested main SHA
+        id: target
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          VERIFIED_SHA: ${{ github.event.workflow_run.head_sha }}
+          MAIN_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "workflow_run" ]; then
+            sha="$VERIFIED_SHA"
+          else
+            sha="$MAIN_SHA"
+          fi
+          [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::SHA inválido"; exit 1; }
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "Verificando producción frente al SHA de main: $sha"
+
+      - name: Checkout only the provenance verifier
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ steps.target.outputs.sha }}
+          sparse-checkout: project-manager-app/scripts/verify-deploy-provenance.mjs
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
+      - name: API and Web runtime provenance (fail closed)
+        env:
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+        run: |
+          set -euo pipefail
+          api_result="$(mktemp)"
+          web_result="$(mktemp)"
+          trap 'rm -f "$api_result" "$web_result"' EXIT
+
+          # Up to ~20 minutes for an automatic Railway build to surface.
+          # Both endpoints MUST return HTTP 2xx, the exact target gitSha,
+          # deploymentId and environment; unknown digest is only a warning.
+          node project-manager-app/scripts/verify-deploy-provenance.mjs \
+            --url=https://project-manager-app-production-977f.up.railway.app \
+            --path=/v1/health --expect-sha="$TARGET_SHA" \
+            --allow-unknown-digest --retries=90 --interval=8 --timeout=5 \
+            --markdown --label="semse-API" >"$api_result" 2>&1 &
+          api_pid=$!
+
+          node project-manager-app/scripts/verify-deploy-provenance.mjs \
+            --url=https://semse-web-production.up.railway.app \
+            --path=/api/semse/healthz --expect-sha="$TARGET_SHA" \
+            --allow-unknown-digest --retries=90 --interval=8 --timeout=5 \
+            --markdown --label="semse-web" >"$web_result" 2>&1 &
+          web_pid=$!
+
+          api_rc=0
+          wait "$api_pid" || api_rc=$?
+          web_rc=0
+          wait "$web_pid" || web_rc=$?
+
+          cat "$api_result" "$web_result" | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ "$api_rc" -ne 0 ] || [ "$web_rc" -ne 0 ]; then
+            echo "::error title=Runtime provenance::API o Web no reporta el SHA esperado. No se acredita el despliegue."
+            exit 1
+          fi
+          echo "API y Web ejecutan el SHA CI-validado $TARGET_SHA"
+
+      - name: Scope of the tokenless gate
+        if: always()
+        run: |
+          echo "Este gate verifica API y Web desde endpoints públicos; no acredita el SHA del Worker ni Vision, ni sustituye las pruebas de permisos de AgentRun." >> "$GITHUB_STEP_SUMMARY"
+          echo "El flujo antiguo Railway Deploy continúa dependiendo de RAILWAY_TOKEN hasta que se retire o reemplace con revisión de CI/CD." >> "$GITHUB_STEP_SUMMARY"
