@@ -8,12 +8,12 @@
 
 ## Cambio
 
-- `apps/worker/src/observability/job-logging.mjs`: `describeError(error)` devuelve un objeto plano con `message` (recortado a 500 caracteres), `type`, `httpStatus` y `path` cuando el mensaje sigue el formato de `requestJson` (`HTTP <status> <path>: …`), y `causeCode` en los errores de red. No incluye stack ni cuerpo.
+- `apps/worker/src/observability/job-logging.mjs`: `describeError(error)` devuelve un objeto plano con `message` sanitizado, `type`, `httpStatus` y `path` sin query/fragmento cuando el mensaje sigue el formato de `requestJson` (`HTTP <status> <path>: …`), y únicamente `causeCode` de red con formato permitido. **El cuerpo de respuesta HTTP y los mensajes no reconocidos se omiten**, para no introducir tokens ni datos personales en los logs. Tampoco incluye stack ni cuerpo de la petición.
 - `apps/worker/src/main.mjs`: los 6 `logger.*({ error })` (reclaim, barrido de reservas, live sessions, contributors y los dos del consumidor de eventos) usan `describeError`.
 
-No cambia el comportamiento: solo el contenido de los logs.
+Se sanea también la salida `processJobWithLogging` de BullMQ. No cambian las transiciones de jobs ni la política de reintentos: solo el contenido de los logs.
 
 ## Verificación
 
-- `tests/unit/worker-error-logging.test.mjs`: 3/3.
+- `tests/unit/worker-error-logging.test.mjs`: 5 casos escritos (sanitización de cuerpo, query strings, errores de red, valores no Error y rutas inesperadas); deben ejecutarse en CI después de este commit.
 - `node --check apps/worker/src/main.mjs`.
