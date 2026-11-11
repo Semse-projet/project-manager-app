@@ -9,8 +9,9 @@ import { UploadsController } from "./uploads.controller.js";
 
 @Module({
   controllers: [UploadsController, StorageWriteGateControlController],
-  // Runtime writer enforcement and the control plane are both inert unless
-  // SEMSE_STORAGE_WRITE_GATE_MODE=staging in a non-production environment.
+  // Runtime writer enforcement is inert unless explicitly enabled for the
+  // matching environment. Production control is OPEN-canary observe/provision
+  // only; drain/freeze/thaw remain blocked in this slice.
   providers: [
     StorageWriteGateCoordinator,
     StorageWriteOperationBoundary,

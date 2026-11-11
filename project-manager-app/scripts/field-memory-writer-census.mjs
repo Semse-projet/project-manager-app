@@ -44,12 +44,20 @@ const knownSinks = [
 ];
 
 const guardContracts = [
-  ["infrastructure/storage/storage.service.ts", [
+  ["infrastructure/storage/storage-write-gate-mode.ts", [
     /SEMSE_STORAGE_WRITE_GATE_MODE/,
+    /SEMSE_STORAGE_WRITE_GATE_PRODUCTION_CONTROL_MODE/,
     /mode === "off"/,
-    /isProductionStorage\(process\.env\)/,
-    /private stagingBoundary\(/,
-    /withWriteGateMutation</,
+    /mode === "staging"/,
+    /mode === "production"/,
+    /level === "observe"/,
+    /level === "provision"/,
+    /Production storage write gate control is not armed/,
+  ]],
+  ["infrastructure/storage/storage.service.ts", [
+    /storageWriteGateRuntimeEnabled/,
+    /private configuredBoundary\(/,
+    /withWriteGateMutation/,
     /async store\(/,
     /boundary\.beforePublish\(/,
     /async delete\(/,
