@@ -50,6 +50,26 @@ Sembrar las membresías reales que #877 exige, sin tocar la lógica de auth:
 4. Verificar: logs de API sin 401 de `/v1/agents/runs/reclaim-stale`; el AgentRun
    `cmqb7s6nh0001mi01dqgpeezr` pasa de `queued` a `running`/`completed`/`failed`.
 
+## Alternativa sin terminal: en el despliegue de la API (2026-11-11)
+
+Para cuando no hay una terminal con acceso a la base (o para un entorno nuevo), `scripts/pre-migrate.mjs` puede
+ejecutar la misma lógica, con los mismos límites, justo después de `migrate deploy`. Está **apagado por defecto** y se
+controla con variables de **semse-API**:
+
+| Variable | Valor |
+|---|---|
+| `SEMSE_WORKER_SERVICE_MEMBERSHIP_MODE` | `dry-run` (solo registra el plan) o `apply`. Sin definir o con otro valor: no hace nada. |
+| `SEMSE_WORKER_SERVICE_ROLES` | Lista explícita, obligatoria. Hoy: `OPS_ADMIN,WORKER,EVENT_CONSUMER,AGENT_RUNNER` (`AGENT_RUNNER` es necesario desde #1129 para `agents:run:claim`). |
+| `SEMSE_WORKER_SERVICE_TENANT_ID` / `SEMSE_WORKER_SERVICE_ORG_ID` | Opcionales; por defecto `tenant_default` / `org_admin_001`. Deben coincidir con `SEMSE_TENANT_ID` / `SEMSE_ORG_ID` del worker. |
+
+Pasos **[PROD]**: (1) definir las variables con `MODE=dry-run` y desplegar; (2) leer en los logs de deploy de la API
+la línea `"label":"worker-service-membership"`: debe decir `"outcome":"dry-run"`, con los roles que el worker ya usa
+en `alreadyActive` y los que faltan en `createMemberships`; (3) cambiar a `MODE=apply` y desplegar: `"outcome":"applied"`;
+(4) verificar que `/v1/agents/runs/reclaim-stale` responde 201 y **quitar `SEMSE_WORKER_SERVICE_MEMBERSHIP_MODE`**
+(dejarlo en `apply` es inocuo, porque es idempotente, pero no debe quedar como mecanismo permanente sin decisión).
+
+Nunca bloquea el arranque: si la base falla o el plan no es válido (`"outcome":"aborted"|"failed"`), la API arranca igual.
+
 ## Rollback
 
 Borrar solo las filas creadas (`Membership` de `usr_worker_system` en
