@@ -39,6 +39,11 @@ jobs:
        github.ref == 'refs/heads/main')
     outputs:
       deploy_sha: ${{ steps.resolve-sha.outputs.deploy_sha }}
+      # success | failure. El trigger por token NO es la fuente de verdad: Railway
+      # también despliega main con su integración nativa de GitHub. Si el token
+      # falla (p. ej. "Not Authorized" desde 2026-10-26), el job health-check
+      # sigue corriendo y verifica, sin token, que producción sirve el SHA exacto.
+      token_deploy: ${{ steps.token-deploy.outcome }}
     steps:
       - name: Resolve verified SHA
         id: resolve-sha
@@ -60,6 +65,10 @@ jobs:
           echo "SHA verificado a desplegar: $deploy_sha"
 
       - name: Deploy exact commit to Railway (fresh build)
+        id: token-deploy
+        # No bloquea: un token roto no debe apagar el gate de salud. Un deploy
+        # que de verdad no llega a producción lo detecta el gate de procedencia.
+        continue-on-error: true
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
           ENV_ID: d682210a-956a-4508-9c5b-4ca5959278f9
@@ -86,6 +95,11 @@ jobs:
             echo "Fresh build de $DEPLOY_SHA disparado para servicio $svc"
           done
 
+      - name: Warn when the token trigger failed
+        if: steps.token-deploy.outcome != 'success'
+        run: |
+          echo "::warning title=Railway Deploy::El trigger por RAILWAY_TOKEN falló (revisar/renovar el secret). El gate de salud verifica igualmente, sin token, que producción sirve el SHA."
+
   health-check:
     needs: deploy
     runs-on: ubuntu-24.04
@@ -93,10 +107,31 @@ jobs:
     permissions:
       contents: read
     steps:
+      # Varios merges seguidos se agrupan en un único despliegue: un SHA que ya
+      # no es la cabeza de main puede no llegar nunca a servirse. En ese caso
+      # el gate lo ejecuta el run del SHA más nuevo; este termina sin fallar.
+      - name: Skip when a newer main commit superseded this SHA
+        id: superseded
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DEPLOY_SHA: ${{ needs.deploy.outputs.deploy_sha }}
+        run: |
+          set -euo pipefail
+          head_sha=$(gh api "repos/${GITHUB_REPOSITORY}/commits/main" --jq .sha)
+          if [ "$head_sha" != "$DEPLOY_SHA" ]; then
+            echo "::notice title=Health gate::main avanzó a $head_sha; el gate de $DEPLOY_SHA lo cubre el run del commit más nuevo."
+            echo "superseded=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "superseded=false" >> "$GITHUB_OUTPUT"
+          fi
+
       # La URL pública responde con el deployment ANTERIOR mientras el nuevo
       # compila — verificar que el deployment del commit exacto existe y llega
       # a SUCCESS es el gate real; el curl de abajo solo confirma que sirve.
+      # Solo cuando el token funciona; sin token, el gate de procedencia de
+      # abajo espera al SHA con más reintentos.
       - name: Verify fresh deployments reached SUCCESS
+        if: steps.superseded.outputs.superseded != 'true' && needs.deploy.outputs.token_deploy == 'success'
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
           ENV_ID: d682210a-956a-4508-9c5b-4ca5959278f9
@@ -129,6 +164,7 @@ jobs:
           done
 
       - name: Verify semse-API health
+        if: steps.superseded.outputs.superseded != 'true'
         run: |
           curl -sf https://project-manager-app-production-977f.up.railway.app/v1/health \
             | grep -q '"status":"ok"' \
@@ -136,6 +172,7 @@ jobs:
             || { echo "semse-API health check failed ❌"; exit 1; }
 
       - name: Verify semse-web
+        if: steps.superseded.outputs.superseded != 'true'
         run: |
           code=$(curl -so /dev/null -w "%{http_code}" \
             https://semse-web-production.up.railway.app/)
@@ -153,6 +190,7 @@ jobs:
       # desconocida). imageDigest "unknown" se tolera como WARNING (Railway no lo
       # expone al runtime) hasta que el build inyecte un digest verificable.
       - name: Checkout provenance verifier (sparse, read-only)
+        if: steps.superseded.outputs.superseded != 'true'
         uses: actions/checkout@v7
         with:
           ref: ${{ needs.deploy.outputs.deploy_sha }}
@@ -161,19 +199,25 @@ jobs:
           persist-credentials: false
 
       - name: Runtime provenance gate (blocking)
+        if: steps.superseded.outputs.superseded != 'true'
         env:
           DEPLOY_SHA: ${{ needs.deploy.outputs.deploy_sha }}
+          TOKEN_DEPLOY: ${{ needs.deploy.outputs.token_deploy }}
         run: |
           set -uo pipefail
           out=$(mktemp)
           rc=0
+          # Con token, el paso anterior ya esperó al SUCCESS del deployment:
+          # 6 x 10 s bastan. Sin token, este gate es el que espera al build de
+          # la integración nativa de Railway: hasta 80 x 15 s (20 min).
+          if [ "$TOKEN_DEPLOY" = "success" ]; then retries=6; interval=10; else retries=80; interval=15; fi
           node project-manager-app/scripts/verify-deploy-provenance.mjs \
             --url=https://project-manager-app-production-977f.up.railway.app --path=/v1/health \
-            --expect-sha="$DEPLOY_SHA" --allow-unknown-digest --retries=6 --interval=10 \
+            --expect-sha="$DEPLOY_SHA" --allow-unknown-digest --retries="$retries" --interval="$interval" \
             --markdown --label="semse-API" >> "$out" || rc=1
           node project-manager-app/scripts/verify-deploy-provenance.mjs \
             --url=https://semse-web-production.up.railway.app --path=/api/semse/healthz \
-            --expect-sha="$DEPLOY_SHA" --allow-unknown-digest --retries=6 --interval=10 \
+            --expect-sha="$DEPLOY_SHA" --allow-unknown-digest --retries="$retries" --interval="$interval" \
             --markdown --label="semse-web" >> "$out" || rc=1
           cat "$out" | tee -a "$GITHUB_STEP_SUMMARY"
           if grep -q "🟡" "$out"; then
