@@ -51,7 +51,7 @@ export async function processJobWithLogging({ job, queue, data = {}, handler }) 
       } catch (error) {
         logger.error("job failed", {
           ...jobContext,
-          error: error instanceof Error ? error.message : String(error),
+          error: describeError(error),
           errorType: error instanceof Error ? error.constructor.name : "Unknown"
         });
         throw error;
