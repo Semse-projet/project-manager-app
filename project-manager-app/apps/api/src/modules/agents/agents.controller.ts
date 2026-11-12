@@ -271,16 +271,17 @@ export class AgentsController {
       throw new BadRequestException("Solo se puede reintentar la ejecución de una aprobación aprobada del copiloto.");
     }
     await this.projectCopilotHarness.authorizeApprovalDecision(agentActor, approval);
+    const executionId = `exec_${randomUUID()}`;
     const claimed = await this.agentsService.claimApprovalExecution({
       tenantId: actor.tenantId,
       approvalId: parsedParams.approvalId,
-      executionId: `exec_${randomUUID()}`,
+      executionId,
       from: ["FAILED"],
     });
     if (!claimed) {
       throw new ConflictException("La ejecución de esta aprobación no está en estado FAILED (ya se está ejecutando o terminó).");
     }
-    const executionResult = await this.projectCopilotHarness.executeFromApproval(agentActor, requestId, approval, { alreadyClaimed: true });
+    const executionResult = await this.projectCopilotHarness.executeFromApproval(agentActor, requestId, approval, { alreadyClaimed: true, executionId });
     return ok(requestId, { approvalId: parsedParams.approvalId, executionResult });
   }
 
