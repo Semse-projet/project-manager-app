@@ -106,3 +106,60 @@ test("deposit serialization conflicts are bounded to three attempts, then fail w
       && /concurrent transition/.test((error as Error).message));
   assert.equal(attempts, 3, "never spin indefinitely or invoke an external provider");
 });
+
+test("the job row lock's own serialization failure (raw query: P2010 / 40001) is retried too", async () => {
+  // lockOpenJobForFunding is a raw SELECT ... FOR UPDATE: when it waited behind a
+  // committed cancellation, Prisma reports P2010 carrying SQLSTATE 40001, not P2034.
+  let attempts = 0;
+  const repository = new PaymentsRepository({
+    async $transaction() {
+      attempts++;
+      if (attempts === 1) {
+        throw Object.assign(new Error("Raw query failed. Code: `40001`"), { code: "P2010", meta: { code: "40001" } });
+      }
+      const { ConflictException } = await import("@nestjs/common");
+      throw new ConflictException("cannot fund escrow: job is cancelled");
+    },
+  } as never, {} as never);
+  await assert.rejects(repository.depositFunds({
+    projectId: "project_1", jobId: "job_1", currency: "USD", amount: 200, providerRef: "local_test",
+  }), /job is cancelled/);
+  assert.equal(attempts, 2);
+  // Any other raw-query failure is not retried.
+  let other = 0;
+  const failing = new PaymentsRepository({
+    async $transaction() { other++; throw Object.assign(new Error("syntax"), { code: "P2010", meta: { code: "42601" } }); },
+  } as never, {} as never);
+  await assert.rejects(failing.depositFunds({
+    projectId: "project_1", jobId: "job_1", currency: "USD", amount: 200, providerRef: "local_test",
+  }), /syntax/);
+  assert.equal(other, 1);
+});
+
+test("a deadlock (P2010 / 40P01) is retried and, if it persists, stops at three attempts with 409", async () => {
+  const deadlock = () => Object.assign(new Error("Raw query failed. Code: `40P01`"), { code: "P2010", meta: { code: "40P01" } });
+  let attempts = 0;
+  const recovering = new PaymentsRepository({
+    async $transaction() {
+      attempts++;
+      if (attempts === 1) throw deadlock();
+      const { ConflictException } = await import("@nestjs/common");
+      throw new ConflictException("cannot fund escrow: job is cancelled");
+    },
+  } as never, {} as never);
+  await assert.rejects(recovering.depositFunds({
+    projectId: "project_1", jobId: "job_1", currency: "USD", amount: 200, providerRef: "local_test",
+  }), /job is cancelled/);
+  assert.equal(attempts, 2);
+
+  let persistent = 0;
+  const stuck = new PaymentsRepository({
+    async $transaction() { persistent++; throw deadlock(); },
+  } as never, {} as never);
+  await assert.rejects(stuck.depositFunds({
+    projectId: "project_1", jobId: "job_1", currency: "USD", amount: 200, providerRef: "local_test",
+  }), (error: unknown) =>
+    typeof (error as any)?.getStatus === "function" && (error as any).getStatus() === 409
+      && /concurrent transition/.test((error as Error).message));
+  assert.equal(persistent, 3, "never spin indefinitely or invoke an external provider");
+});
