@@ -130,3 +130,25 @@ nuevos y sin tocar `GET /members`, que pertenece a otro contrato.
 - **Tests**: los 2 casos nuevos se escribieron primero y fallaban; también se amplió el chequeo RBAC del controlador.
   `crews-worksites.test.ts` pasa 12/12 y la suite completa de `@semse/api` pasa 4018 tests con 0 fallos.
   `tsc` y `eslint` de la API y la web están limpios, `build:web` OK y `spec:validate:strict` da 0 errores.
+
+## Geofence BO-09 — spec v0.3, web y móvil
+
+- **Spec**: `core.geofence-policy` pasa a v0.3 APPROVED, con la autorización del propietario registrada. Ahora hay
+  Android disponible (Motorola), así que el Gate 5 puede cubrir iOS y Android, pero sigue pendiente.
+- **OPEN-17 decidido («BO-09 manda»)**: con `SEMSE_GEOFENCE_POLICY_ENABLED` encendido, `LocationPreference`
+  reemplaza a `User.proximityCheckInMode`.
+  - Mapeo del modo efectivo: OFF → off, ASK → ask, AUTO con consentimiento → auto, AUTO sin consentimiento → ask.
+    Hay una copia en web (`lib/location-mode.ts`) y otra en móvil (`src/geo/locationMode.ts`).
+  - Web: `/worker/settings` muestra BO-09 con consentimiento separado y revocación; `/worker/tracker` usa el modo
+    BO-09; `/worker/location` es nueva, con la preferencia y la transparencia de eventos.
+  - Móvil: `refreshProximitySites` y la pantalla de Ajustes pasan a BO-09, con diálogo de consentimiento.
+  - Con el flag apagado (404) todo queda igual que antes.
+- **OPEN-18 abierto**: los eventos exigen una `Worksite`, pero las obras no tienen coordenadas y los clientes detectan
+  jobs y proyectos libres. Hoy ningún cliente puede generar un evento válido, así que la decisión por evento del
+  servidor (señal mala → manual, enfriamiento, sin doble sesión) aún no gobierna el auto-inicio. Opciones: aceptar
+  `siteKind`/`siteId` en el evento o dar coordenadas a `Worksite` (requiere migración).
+- **Verificación**:
+  - Web: tests de mapeo y navegación 11/11, `tsc` y `eslint` limpios y `build:web` OK.
+  - Móvil: `tsc` limpio y test de mapeo 3/3, corrido con Node porque el preset jest-expo no arranca en el sandbox
+    (falta `react-native`, igual que sin estos cambios). CI no ejecuta pruebas del móvil.
+  - Capturas de `/worker/location` y del diálogo de revocación.

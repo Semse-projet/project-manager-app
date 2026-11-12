@@ -1,5 +1,7 @@
 import { fetchFreeProjects, fetchJobs, fetchProximityConfig } from "../api/labor";
 import { fetchProfile } from "../api/profile";
+import { fetchLocationPreference } from "../api/locationPreference";
+import { proximityModeFromLocationPreference } from "./locationMode";
 import { saveProximityConfig, saveProximityMode, saveSites, type ProximitySite } from "./siteCache";
 
 /**
@@ -9,11 +11,12 @@ import { saveProximityConfig, saveProximityMode, saveSites, type ProximitySite }
  * web tracker's own load-on-mount pattern.
  */
 export async function refreshProximitySites(): Promise<void> {
-  const [jobs, freeProjects, profile, proximityConfig] = await Promise.all([
+  const [jobs, freeProjects, profile, proximityConfig, locationPreference] = await Promise.all([
     fetchJobs().catch(() => []),
     fetchFreeProjects().catch(() => []),
     fetchProfile().catch(() => null),
     fetchProximityConfig().catch(() => null),
+    fetchLocationPreference().catch(() => null),
   ]);
 
   const sites: ProximitySite[] = [];
@@ -29,6 +32,8 @@ export async function refreshProximitySites(): Promise<void> {
   }
 
   await saveSites(sites);
-  if (profile) await saveProximityMode(profile.proximityCheckInMode);
+  // OPEN-17: BO-09 (when enabled) replaces the legacy profile mode.
+  if (locationPreference) await saveProximityMode(proximityModeFromLocationPreference(locationPreference));
+  else if (profile) await saveProximityMode(profile.proximityCheckInMode);
   if (proximityConfig) await saveProximityConfig(proximityConfig);
 }

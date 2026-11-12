@@ -536,6 +536,16 @@ export const navigationRegistry: NavigationNode[] = [
     status: "active",
   },
   {
+    id: "worker-location",
+    labelKey: "nav.locationClock",
+    canonicalHref: "/worker/location",
+    layer: "workspace",
+    os: "contractor",
+    roles: ["worker"],
+    owner: "operations",
+    status: "active",
+  },
+  {
     id: "admin-forge",
     labelKey: "nav.forge",
     canonicalHref: "/admin/forge",

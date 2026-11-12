@@ -17,13 +17,13 @@ import {
 export async function proxyAuthenticated(
   request: NextRequest,
   path: string,
-  options: { method?: "GET" | "POST" | "DELETE"; body?: unknown; status?: number } = {}
+  options: { method?: "GET" | "POST" | "PUT" | "DELETE"; body?: unknown; status?: number } = {}
 ): Promise<NextResponse> {
   if (!isApiBaseConfigured()) return runtimeDisabledResponse();
   const method = options.method ?? "GET";
   try {
     const init: RequestInit = { method };
-    if (method === "POST") {
+    if (method === "POST" || method === "PUT") {
       init.headers = { "content-type": "application/json" };
       init.body = JSON.stringify(options.body ?? {});
     }

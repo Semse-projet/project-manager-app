@@ -60,6 +60,8 @@ import { ProyectosTab } from "./sections/ProyectosTab";
 import { ReportesTab } from "./sections/ReportesTab";
 import { AsistenteTab } from "./sections/AsistenteTab";
 import { friendlyConnectionMessage, shouldPreserveLocalEvent } from "./sections/trackerUi";
+import { fetchLocationPreference } from "../../../lib/module-surfaces-api";
+import { proximityModeFromLocationPreference } from "../../../../lib/location-mode";
 
 // Auto-sync retry policy for the offline queue. Every attempt rewrites the
 // local state, and that rewrite is what re-evaluates the auto-sync effect, so a
@@ -401,7 +403,7 @@ export default function WorkerTrackerPage() {
       .then((value) => ({ ok: true as const, value }))
       .catch((caught: unknown) => ({ ok: false as const, error: caught }));
 
-    const [nextJobs, nextFreeProjects, activeTimerResult, nextWeek, nextMonth, nextProfile, nextProximityConfig] = await Promise.all([
+    const [nextJobs, nextFreeProjects, activeTimerResult, nextWeek, nextMonth, nextProfile, nextProximityConfig, nextLocationPreference] = await Promise.all([
       fetchTimeTrackerJobs().catch(() => [] as JobRecordView[]),
       fetchFreeProjects().catch(() => [] as FreeProjectView[]),
       activeTimerFetch,
@@ -409,13 +411,17 @@ export default function WorkerTrackerPage() {
       fetchMonthlySummary().catch(() => null),
       fetchMyProfile().catch(() => null),
       fetchProximityConfig().catch(() => null),
+      // OPEN-17: with the BO-09 flag on (200) its effective mode replaces the legacy
+      // profile proximityCheckInMode; flag off (404) or any error keeps the legacy value.
+      fetchLocationPreference().catch(() => null),
     ]);
 
     setJobs(nextJobs);
     setFreeProjects(nextFreeProjects);
     setWeekSummary(nextWeek);
     setMonthSummary(nextMonth);
-    if (nextProfile) setProximityCheckInMode(nextProfile.proximityCheckInMode ?? "ask");
+    if (nextLocationPreference) setProximityCheckInMode(proximityModeFromLocationPreference(nextLocationPreference));
+    else if (nextProfile) setProximityCheckInMode(nextProfile.proximityCheckInMode ?? "ask");
     if (nextProximityConfig) setProximityConfig(nextProximityConfig);
 
     if (activeTimerResult.ok) {

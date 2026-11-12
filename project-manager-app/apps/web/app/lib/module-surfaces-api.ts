@@ -359,3 +359,39 @@ export const removeCrewMember = (orgId: string, crewId: string, userId: string) 
 
 export const archiveCrew = (orgId: string, crewId: string) =>
   post<{ status: string }>(`${orgBase(orgId)}/crews/${seg(crewId)}/archive`);
+
+/* ─────────────────────── Location preference (BO-09) ─────────────────────── */
+// Spec: docs/specs/core/geofence-policy.spec.md v0.2.
+
+export type LocationMode = "ASK" | "AUTO" | "OFF";
+export type LocationPreference = {
+  mode: LocationMode;
+  autoStartConsent: boolean;
+  /** AUTO without a live consent behaves as ASK. */
+  effectiveMode: LocationMode;
+  policyVersion: number;
+};
+export type GeofenceDecision = "PROMPT" | "AUTO_START_ALLOWED" | "MANUAL_ONLY" | "LEAVE_PROMPT" | "EXCEPTION" | "IGNORE";
+export type GeofenceEventView = {
+  eventId: string;
+  type: "ARRIVAL" | "LEAVE" | "OFF_SITE_AT_SHIFT";
+  worksiteId: string | null;
+  decision: GeofenceDecision;
+  reason: string;
+  mode: LocationMode;
+  policyVersion: number;
+  accuracy: "GOOD" | "POOR" | "UNKNOWN";
+  occurredAt: string;
+  decidedAt: string;
+};
+
+export const fetchLocationPreference = () => request<LocationPreference>("/api/semse/me/location-preference");
+
+export const saveLocationPreference = (input: { mode: LocationMode; autoStartConsent?: boolean }) =>
+  request<LocationPreference>("/api/semse/me/location-preference", {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(input)
+  });
+
+export const fetchMyGeofenceEvents = () => request<GeofenceEventView[]>("/api/semse/me/geofence-events");
