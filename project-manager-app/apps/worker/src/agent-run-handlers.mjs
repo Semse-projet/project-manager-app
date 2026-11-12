@@ -72,10 +72,31 @@ function extractContext(run) {
   return { ...eventPayloadIdentifiers(input), ...input, ...asObject(input.context) };
 }
 
+// Optional context may be absent, but a rejected authorization is never "no data".
+// main.mjs requestJson emits "HTTP 401/403 <path>:" after session refresh.
+// Normalize typed errors too, and never propagate an upstream error body to logs.
+function authorizationFailureStatus(error) {
+  const status = error?.status ?? error?.statusCode ?? error?.response?.status;
+  if (status === 401 || status === 403) return status;
+  const match = /^HTTP (401|403)\s/.exec(error instanceof Error ? error.message : "");
+  return match ? Number(match[1]) : null;
+}
+
+function isAuthorizationFailure(error) {
+  return authorizationFailureStatus(error) !== null;
+}
+
 async function safeRequestJson(requestJson, path, init, options, logger, label) {
   try {
     return await requestJson(path, init, options);
   } catch (error) {
+    const httpStatus = authorizationFailureStatus(error);
+    if (httpStatus !== null) {
+      logger?.warn({ httpStatus, code: "AUTHZ_DENIED" }, "optional worker context denied; failing closed");
+      const denied = new Error(`HTTP ${httpStatus} optional worker context authorization denied`);
+      denied.statusCode = httpStatus;
+      throw denied;
+    }
     logger?.warn({
       path,
       error: error instanceof Error ? error.message : String(error),
@@ -588,7 +609,9 @@ async function handleEvidenceCoach({ run, requestJson, tenantId, logger }) {
   try {
     loaded = await loadOperationalContext({ context, requestJson, tenantId, logger });
   } catch (error) {
-    if (!asString(context.milestoneId)) {
+    // A milestone-only fallback is allowed for missing context, never for an
+    // unauthorized project/job read: do not produce evidence recommendations.
+    if (isAuthorizationFailure(error) || !asString(context.milestoneId)) {
       throw error;
     }
     logger.warn({
