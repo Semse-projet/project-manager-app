@@ -1,19 +1,19 @@
 name: Railway Deploy
 
-# serviceInstanceDeploy(latestCommit: true, commitSha: SHA) triggers a REAL
-# fresh build from source — unlike serviceInstanceDeployV2 which redeploys
-# the same cached image. Always use this form when pushing code changes.
+# Gate único de despliegue y procedencia de producción (consolida #1143 + #1145).
 #
-# Gate P0 2026-07-13: este workflow ya NO se dispara con cada push a main.
-# Solo despliega cuando el workflow CI del MISMO SHA terminó en success
-# (workflow_run), y despliega exactamente ese SHA (DEPLOY_SHA =
-# workflow_run.head_sha). Si CI falla, no hay deploy — producción se queda en
-# el último SHA sano.
+# Realidad verificada 2026-11-12 (Railway, solo lectura): los 4 servicios tienen
+# `checkSuites: false` → la integración nativa GitHub→Railway despliega CADA
+# push a main SIN esperar a CI. Este workflow NO es lo que decide qué corre en
+# producción: lo VERIFICA después de un CI verde y, si RAILWAY_TOKEN funciona,
+# además fuerza un fresh build del SHA exacto. Un SHA cuyo CI falla lo vigila
+# `production-unvalidated-deploy-alarm.yml`.
 #
-# Rollback: re-ejecutar este workflow con workflow_dispatch desde main NO
-# retrocede código; para volver a un SHA anterior, revertir el commit en main
-# (git revert) y dejar que CI + este gate desplieguen el revert. Nunca
-# desplegar a mano un SHA sin CI verde.
+# serviceInstanceDeploy(latestCommit: true, commitSha: SHA) dispara un fresh
+# build real (serviceInstanceDeployV2 redespliega la imagen en caché).
+#
+# Rollback: re-ejecutar este workflow NO retrocede código; revertir el commit
+# en main (git revert) y dejar que CI + este gate verifiquen el revert.
 on:
   workflow_run:
     workflows: ["CI"]
@@ -29,28 +29,30 @@ permissions: {}
 jobs:
   deploy:
     runs-on: ubuntu-24.04
-    # workflow_run: exigir CI success sobre main. workflow_dispatch: exigir
-    # que se lance desde main (github.ref del dispatch).
+    timeout-minutes: 10
+    # workflow_run: CI success de un push/dispatch sobre main DEL MISMO repo.
+    # Sin la comprobación de evento y repositorio, la CI de un PR desde un fork
+    # cuya rama se llame "main" cumpliría head_branch == 'main' y este job
+    # correría con RAILWAY_TOKEN.
     if: >-
       (github.event_name == 'workflow_run' &&
        github.event.workflow_run.conclusion == 'success' &&
-       github.event.workflow_run.head_branch == 'main') ||
+       github.event.workflow_run.head_branch == 'main' &&
+       (github.event.workflow_run.event == 'push' || github.event.workflow_run.event == 'workflow_dispatch') &&
+       github.event.workflow_run.head_repository.full_name == github.repository) ||
       (github.event_name == 'workflow_dispatch' &&
        github.ref == 'refs/heads/main')
     outputs:
       deploy_sha: ${{ steps.resolve-sha.outputs.deploy_sha }}
-      # success | failure. El trigger por token NO es la fuente de verdad: Railway
-      # también despliega main con su integración nativa de GitHub. Si el token
-      # falla (p. ej. "Not Authorized" desde 2026-10-26), el job health-check
-      # sigue corriendo y verifica, sin token, que producción sirve el SHA exacto.
+      # success | failure. Si el token falla ("Not Authorized" desde 2026-10-26)
+      # el gate de procedencia sigue corriendo sin token.
       token_deploy: ${{ steps.token-deploy.outcome }}
     steps:
       - name: Resolve verified SHA
         id: resolve-sha
         env:
-          # En workflow_run, GITHUB_SHA apunta al último commit de la rama por
-          # defecto en el momento del evento — puede NO ser el SHA que CI
-          # validó. head_sha sí es el commit exacto evaluado por CI.
+          # En workflow_run, GITHUB_SHA es la cabeza de la rama por defecto al
+          # emitirse el evento; head_sha es el commit exacto evaluado por CI.
           WORKFLOW_RUN_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
           EVENT_NAME: ${{ github.event_name }}
         run: |
@@ -60,14 +62,14 @@ jobs:
           else
             deploy_sha="$GITHUB_SHA"
           fi
-          [ -n "$deploy_sha" ] || { echo "No se pudo resolver el SHA a desplegar"; exit 1; }
+          [[ "$deploy_sha" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::SHA inválido: '$deploy_sha'"; exit 1; }
           echo "deploy_sha=$deploy_sha" >> "$GITHUB_OUTPUT"
-          echo "SHA verificado a desplegar: $deploy_sha"
+          echo "SHA verificado por CI: $deploy_sha"
 
       - name: Deploy exact commit to Railway (fresh build)
         id: token-deploy
-        # No bloquea: un token roto no debe apagar el gate de salud. Un deploy
-        # que de verdad no llega a producción lo detecta el gate de procedencia.
+        # No bloquea: un token roto no debe apagar el gate. Un deploy que no
+        # llega a producción lo detecta el gate de procedencia (fail closed).
         continue-on-error: true
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
@@ -98,18 +100,31 @@ jobs:
       - name: Warn when the token trigger failed
         if: steps.token-deploy.outcome != 'success'
         run: |
-          echo "::warning title=Railway Deploy::El trigger por RAILWAY_TOKEN falló (revisar/renovar el secret). El gate de salud verifica igualmente, sin token, que producción sirve el SHA."
+          echo "::warning title=Railway Deploy::El trigger por RAILWAY_TOKEN falló (revisar/renovar el secret). El gate verifica igualmente, sin token, qué SHA sirve producción; Worker y Vision quedan sin verificación de procedencia."
 
   health-check:
     needs: deploy
     runs-on: ubuntu-24.04
-    # Solo lectura del repo, y solo para traer el verificador de procedencia (C02).
+    timeout-minutes: 35
+    # Solo lectura: trae el verificador (C02) y consulta la cabeza de main.
     permissions:
       contents: read
     steps:
-      # Varios merges seguidos se agrupan en un único despliegue: un SHA que ya
-      # no es la cabeza de main puede no llegar nunca a servirse. En ese caso
-      # el gate lo ejecuta el run del SHA más nuevo; este termina sin fallar.
+      # Historia sin blobs para resolver el SHA esperado por watchPatterns; el
+      # árbol de trabajo solo contiene el verificador.
+      - name: Checkout provenance verifier (sparse, read-only)
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.deploy.outputs.deploy_sha }}
+          fetch-depth: 0
+          filter: blob:none
+          sparse-checkout: project-manager-app/scripts/verify-deploy-provenance.mjs
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
+      # Varios merges seguidos se agrupan en un solo despliegue: un SHA que ya
+      # no es la cabeza de main puede no servirse nunca. Lo cubre el run del
+      # commit más nuevo (CI verde → este gate; CI rojo → la alarma).
       - name: Skip when a newer main commit superseded this SHA
         id: superseded
         env:
@@ -125,11 +140,33 @@ jobs:
             echo "superseded=false" >> "$GITHUB_OUTPUT"
           fi
 
-      # La URL pública responde con el deployment ANTERIOR mientras el nuevo
-      # compila — verificar que el deployment del commit exacto existe y llega
-      # a SUCCESS es el gate real; el curl de abajo solo confirma que sirve.
-      # Solo cuando el token funciona; sin token, el gate de procedencia de
-      # abajo espera al SHA con más reintentos.
+      # API/Web/Worker usan watchPatterns ["project-manager-app/**"]: un commit
+      # que solo toca .github/ o la raíz NO se reconstruye por la vía nativa y
+      # producción sigue sirviendo el último commit que tocó esa ruta. Con el
+      # token, serviceInstanceDeploy fuerza el build del SHA exacto.
+      - name: Resolve SHA production must serve
+        id: expected
+        if: steps.superseded.outputs.superseded != 'true'
+        env:
+          DEPLOY_SHA: ${{ needs.deploy.outputs.deploy_sha }}
+          TOKEN_DEPLOY: ${{ needs.deploy.outputs.token_deploy }}
+        run: |
+          set -euo pipefail
+          if [ "$TOKEN_DEPLOY" = "success" ]; then
+            expected="$DEPLOY_SHA"
+          else
+            expected=$(git log -1 --format=%H "$DEPLOY_SHA" -- project-manager-app/)
+          fi
+          [[ "$expected" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::No se pudo resolver el SHA esperado"; exit 1; }
+          if [ "$expected" != "$DEPLOY_SHA" ]; then
+            echo "::notice title=Health gate::$DEPLOY_SHA no toca project-manager-app/**; Railway no lo reconstruye. Se exige que producción sirva $expected (último commit desplegable)."
+          fi
+          echo "sha=$expected" >> "$GITHUB_OUTPUT"
+          echo "SHA que producción debe servir: $expected"
+
+      # Solo con token: la URL pública responde con el deployment ANTERIOR
+      # mientras el nuevo compila; aquí se exige el deployment exacto en
+      # SUCCESS para los 4 servicios (única cobertura de Worker y Vision).
       - name: Verify fresh deployments reached SUCCESS
         if: steps.superseded.outputs.superseded != 'true' && needs.deploy.outputs.token_deploy == 'success'
         env:
@@ -163,67 +200,64 @@ jobs:
             [ -n "$ok" ] || { echo "servicio $svc: el deployment de $DEPLOY_SHA no llegó a SUCCESS a tiempo ❌"; exit 1; }
           done
 
-      - name: Verify semse-API health
-        if: steps.superseded.outputs.superseded != 'true'
-        run: |
-          curl -sf https://project-manager-app-production-977f.up.railway.app/v1/health \
-            | grep -q '"status":"ok"' \
-            && echo "semse-API healthy ✅" \
-            || { echo "semse-API health check failed ❌"; exit 1; }
-
-      - name: Verify semse-web
-        if: steps.superseded.outputs.superseded != 'true'
-        run: |
-          code=$(curl -so /dev/null -w "%{http_code}" \
-            https://semse-web-production.up.railway.app/)
-          [ "$code" = "200" ] \
-            && echo "semse-web healthy ✅ (HTTP $code)" \
-            || { echo "semse-web returned $code ❌"; exit 1; }
-
-      # C02 — procedencia en RUNTIME. GATE BLOQUEANTE (antes informativo; dos ciclos
-      # verdes con gitSha === DEPLOY_SHA en API y web: f59d1b0 y 7c9df29).
-      # El paso "Verify fresh deployments" ya comprueba que Railway tiene el commit
-      # exacto en SUCCESS; aqui se exige ademas que lo que CORRE (/v1/health y
-      # /api/semse/healthz) responda 2xx y reporte el MISMO gitSha (igualdad exacta)
-      # y un deploymentId. Discrepancia, campo desconocido, o health caido/sin
-      # respuesta tras los reintentos => el job falla (nunca se acepta procedencia
-      # desconocida). imageDigest "unknown" se tolera como WARNING (Railway no lo
-      # expone al runtime) hasta que el build inyecte un digest verificable.
-      - name: Checkout provenance verifier (sparse, read-only)
-        if: steps.superseded.outputs.superseded != 'true'
-        uses: actions/checkout@v7
-        with:
-          ref: ${{ needs.deploy.outputs.deploy_sha }}
-          sparse-checkout: project-manager-app/scripts/verify-deploy-provenance.mjs
-          sparse-checkout-cone-mode: false
-          persist-credentials: false
-
-      - name: Runtime provenance gate (blocking)
+      # C02 — procedencia en RUNTIME, BLOQUEANTE y sin token. /v1/health y
+      # /api/semse/healthz deben responder 2xx con gitSha === SHA esperado
+      # (igualdad exacta) y deploymentId/environment conocidos. imageDigest
+      # "unknown" se tolera como WARNING (Railway no lo expone al runtime).
+      - name: Runtime provenance gate (blocking, API + Web in parallel)
         if: steps.superseded.outputs.superseded != 'true'
         env:
+          GH_TOKEN: ${{ github.token }}
           DEPLOY_SHA: ${{ needs.deploy.outputs.deploy_sha }}
+          EXPECTED_SHA: ${{ steps.expected.outputs.sha }}
           TOKEN_DEPLOY: ${{ needs.deploy.outputs.token_deploy }}
         run: |
           set -uo pipefail
-          out=$(mktemp)
-          rc=0
-          # Con token, el paso anterior ya esperó al SUCCESS del deployment:
-          # 6 x 10 s bastan. Sin token, este gate es el que espera al build de
-          # la integración nativa de Railway: hasta 80 x 15 s (20 min).
+          api_out=$(mktemp); web_out=$(mktemp)
+          # Con token, el paso anterior ya esperó al SUCCESS: 6 x 10 s bastan.
+          # Sin token, este gate espera al build nativo: hasta 80 x 15 s (20 min).
           if [ "$TOKEN_DEPLOY" = "success" ]; then retries=6; interval=10; else retries=80; interval=15; fi
           node project-manager-app/scripts/verify-deploy-provenance.mjs \
             --url=https://project-manager-app-production-977f.up.railway.app --path=/v1/health \
-            --expect-sha="$DEPLOY_SHA" --allow-unknown-digest --retries="$retries" --interval="$interval" \
-            --markdown --label="semse-API" >> "$out" || rc=1
+            --expect-sha="$EXPECTED_SHA" --allow-unknown-digest --retries="$retries" --interval="$interval" --timeout=5 \
+            --markdown --label="semse-API" > "$api_out" 2>&1 &
+          api_pid=$!
           node project-manager-app/scripts/verify-deploy-provenance.mjs \
             --url=https://semse-web-production.up.railway.app --path=/api/semse/healthz \
-            --expect-sha="$DEPLOY_SHA" --allow-unknown-digest --retries="$retries" --interval="$interval" \
-            --markdown --label="semse-web" >> "$out" || rc=1
-          cat "$out" | tee -a "$GITHUB_STEP_SUMMARY"
-          if grep -q "🟡" "$out"; then
+            --expect-sha="$EXPECTED_SHA" --allow-unknown-digest --retries="$retries" --interval="$interval" --timeout=5 \
+            --markdown --label="semse-web" > "$web_out" 2>&1 &
+          web_pid=$!
+          api_rc=0; wait "$api_pid" || api_rc=$?
+          web_rc=0; wait "$web_pid" || web_rc=$?
+          cat "$api_out" "$web_out" | tee -a "$GITHUB_STEP_SUMMARY"
+          if grep -q "🟡" "$api_out" "$web_out"; then
             echo "::warning title=Procedencia en runtime::imageDigest desconocido (tolerado hasta inyectar un digest verificable)."
           fi
-          if [ "$rc" -ne 0 ]; then
-            echo "::error title=Procedencia en runtime::producción no reporta gitSha === $DEPLOY_SHA o el health no respondió. El deploy se marca como fallido."
-            exit 1
+          if [ "$api_rc" -eq 0 ] && [ "$web_rc" -eq 0 ]; then
+            echo "API y Web sirven $EXPECTED_SHA ✅"; exit 0
           fi
+          # Si main avanzó DURANTE la espera, Railway pudo saltarse este build:
+          # el run del commit más nuevo (gate o alarma) hereda la verificación.
+          head_sha=$(gh api "repos/${GITHUB_REPOSITORY}/commits/main" --jq .sha || echo "")
+          if [ -n "$head_sha" ] && [ "$head_sha" != "$DEPLOY_SHA" ]; then
+            echo "::notice title=Health gate::main avanzó a $head_sha durante la espera; el gate de $DEPLOY_SHA lo cubre el run del commit más nuevo."
+            exit 0
+          fi
+          echo "::error title=Procedencia en runtime::producción no reporta gitSha === $EXPECTED_SHA o el health no respondió. No se acredita el despliegue."
+          exit 1
+
+      - name: Scope of this gate
+        if: always()
+        env:
+          TOKEN_DEPLOY: ${{ needs.deploy.outputs.token_deploy }}
+        run: |
+          {
+            echo "### Alcance"
+            echo "- API y Web: procedencia en runtime por endpoints públicos (bloqueante)."
+            if [ "$TOKEN_DEPLOY" = "success" ]; then
+              echo "- Worker y Vision: deployment del SHA exacto en SUCCESS vía API de Railway."
+            else
+              echo "- Worker y Vision: **NO verificados** (sin RAILWAY_TOKEN válido y sin endpoint público de procedencia)."
+            fi
+            echo "- Railway despliega main sin esperar a CI (checkSuites:false); un SHA con CI rojo lo vigila la alarma de despliegue no validado."
+          } >> "$GITHUB_STEP_SUMMARY"
