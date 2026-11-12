@@ -223,7 +223,7 @@ test("non-string eventPayload identifiers are ignored", async () => {
   );
 });
 
- 
+
 // Security regression: an optional read returning HTTP 401/403 is not an empty
 // trust, disputes or evidence snapshot. A run must not report a risk decision
 // built from partial unauthorized inputs.
