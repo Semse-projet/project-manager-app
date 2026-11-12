@@ -1,6 +1,6 @@
 # Backlog de activación en producción — trabajo fusionado que no está encendido
 
-**Fecha:** 2026-11-11 · **Main:** `db92934` (desplegado en los 4 servicios de Railway, 2026-11-10 02:18Z) · **Fuente:** lectura de código de `main` y Railway en **solo lectura**: `describe-service` (solo nombres de variables, nunca valores), logs de deploy y HTTP.
+**Fecha de inventario original:** 2026-11-11 · **Corte adicional de operación:** 2026-11-12 01:40 UTC · **Main desplegado en API/Worker:** `7e80dd0f` (#1146) · **Fuente:** GitHub, logs de Railway y verificaciones PostgreSQL. El inventario de flags de §2 sigue siendo una fotografía del 11 de noviembre, **no** una lectura nueva de todas las variables.
 
 > Este documento no cambia producción. Cada fila marcada **[DUEÑO]** es un cambio de variable o de datos en Railway que requiere tu autorización explícita (AGENTS.md). "No definida" significa que la variable **no existe** en el servicio, así que el código usa su valor por defecto. Los valores de las variables definidas no se leyeron.
 
@@ -8,9 +8,9 @@
 
 | # | Qué está roto | Evidencia | Arreglo | Estado |
 |---|---|---|---|---|
-| P0-1 | **Ningún AgentRun se reclama ni se ejecuta** (agentes de Prometeo, browser agent, retries). | API HTTP: `POST /v1/agents/runs/reclaim-stale` → **403** cada 10 s desde el deploy de #1129 (2026-11-09). #1129 separó `agents:run:claim` en el rol de máquina `AGENT_RUNNER` y su propia nota decía "aprovisionar la identidad del Worker con `AGENT_RUNNER` antes de desplegar". El merge desplegó sin ese paso. | (1) `SEMSE_ROLES` de semse-worker con `AGENT_RUNNER` → **hecho 2026-11-11 00:00Z** (autorizado por el dueño). (2) **[DUEÑO]** verificar y, previa aprobación explícita, aprovisionar la membresía `ACTIVE` de la identidad técnica `usr_worker_system` en el tenant/org reales del Worker; solicitar exclusivamente `AGENT_RUNNER` con el script de membresías (dry-run primero). **No usar `railway run` suponiendo que ejecuta dentro del contenedor**; ver procedimiento seguro §0.1. | Pendiente del paso 2 |
+| P0-1 | **Incidente histórico 403 de AgentRun: recuperado.** | En PostgreSQL se creó el rol `AGENT_RUNNER` y la membresía única `ACTIVE` para `usr_worker_system` / `org_admin_001` / `tenant_default`. Reinicio autorizado del único `semse-worker` a las 00:00:19 UTC del 12-nov. API HTTP (hasta 01:40 UTC): **323 respuestas 201, 1 respuesta 401 transitoria de renovación, 0 respuestas 403** para `reclaim-stale`. | Sin conceder roles humanos ni cambiar otros servicios. La ejecución `browser-agent` `cmqrerl9g000ik101zkl4sgoy` terminó con `job completed`. **Separar** la falla de 12 runs delegados `pricing`/`risk` sin `projectId` ni `jobId`: nueva brecha de contexto, para corregir en código y probar en QA, sin reintentos en masa. | **RESUELTO el bloqueo de autorización**; pruebas negativas/heartbeat pendientes, defectos de contexto abiertos |
 | P0-2 | **Production Health Gate nunca se ejecuta** tras un deploy. | GitHub Actions `Railway Deploy`: el último éxito fue 2026-10-20 (`06dfd7b`); desde 2026-10-26, todos los runs de `main` fallan con `Not Authorized` de la API de Railway. El gate depende de ese job y queda `skipped`. Producción **sí** está al día porque Railway despliega `main` con su integración nativa de GitHub (`checkSuites: false`). | **[DUEÑO]** Regenerar el token de Railway y actualizar el secret `RAILWAY_TOKEN` del repo, o decidir retirar el deploy duplicado de Actions y dejar el Health Gate independiente (cambio de CI, necesita autorización). | Pendiente |
-| P0-3 | Los logs del worker registran "sweep/reclaim failed" sin motivo. | pino serializaba el `Error` como `{}`. | PR #1141 (`describeError`), actualizado para omitir cuerpos HTTP, query strings y mensajes no clasificados. | Draft; CI y API Integration verdes en HEAD `3b09e0a5`; no desplegado |
+| P0-3 | Los logs del worker registran "sweep/reclaim failed" sin motivo. | pino serializaba el `Error` como `{}`; incluso tras el reinicio hubo mensajes `error: {}` en ejecuciones fallidas. | PR #1141 (`describeError`), serializador que excluye cuerpos HTTP, query strings y mensajes no clasificados. | **Listo para revisión**, no fusionado ni desplegado; CI y API Integration verdes en HEAD `3b09e0a5` |
 
 ### 0.1 Procedimiento seguro para el 403 de AgentRun
 
@@ -28,7 +28,7 @@
 3. **Puerta humana:** revisar `plan.ok=true`, `createRoles`, `createMemberships`, `alreadyActive` y `skippedNonActive`. Si aparece `skippedNonActive` o el tenant/org no coincide, **detenerse**; una suspensión/revocación no debe reactivarse por automatismo. `--apply` solo tras aprobación explícita del dueño para esa identidad/organización/rol, nunca para cuentas humanas.
 4. **Refresco y aceptación:** una sesión emitida antes de incluir `AGENT_RUNNER` sigue sin ese rol aunque se actualice la BD; renovar **controladamente** la sesión del Worker después del grant, si corresponde. Verificar respuesta no-403 en `reclaim-stale` y, con un run de prueba aislado, `claim → start → heartbeat → complete` con `claimToken`; no activar nuevas autonomías ni afirmar completitud por solo un 201.
 
-**Sin cambios operativos en este PR:** estas instrucciones no ejecutan el grant, no leen valores secretos y no alteran Railway, DB ni permisos.
+**Cierre de la intervención (2026-11-12):** el dueño autorizó crear el grant y posteriormente reiniciar solo `semse-worker`. Mediante la interfaz de datos de Railway/PostgreSQL se crearon **dos registros**: `Role` (`AGENT_RUNNER`) y `Membership` (`usr_worker_system`, `org_admin_001`, estado `ACTIVE`); la consulta SQL independiente confirmó exactamente una fila `AGENT_RUNNER ACTIVE` junto a las tres membresías anteriores. **No se usó el script CLI para aplicar este grant**, por limitaciones de ejecución remota; el procedimiento anterior sigue siendo el runbook reutilizable en intervenciones futuras. Se reinició solo el Worker; no se hicieron merges, cambios de flags, releases ni DDL durante esta corrección.
 
 ## 1. Schedulers del worker: estado comprobado en producción (2026-11-11 13:14 UTC)
 
@@ -36,7 +36,7 @@ La consulta de variables de Railway muestra ahora `PAYMENTS_RECONCILE_ENABLED` y
 
 | Variable | Qué activa | Riesgo | Prerrequisito | Recomendación |
 |---|---|---|---|---|
-| `LIEN_ALERTS_ENABLED` | Chequeo horario de plazos de lien: transiciona `LienCalendar` y genera notices al llegar a 3 días. | Medio (aviso legal) | **El push/email al PRO no está implementado**: falta decidir el destinatario (ver §4, D-LIEN). | Activar después de D-LIEN; sin la notificación, solo cambia estados. |
+| `LIEN_ALERTS_ENABLED` | Chequeo horario de plazos de lien: transiciona `LienCalendar` y genera notices al llegar a 3 días. | Medio (aviso legal) | La implementación de destinatarios PRO activos y notificación está propuesta en **PR #1144**, sin fusionar, con revisión humana/legal pendiente. | **No activar** hasta revisión de la lógica legal, entrega real de mensajes y PR listo; el código desplegado todavía no incluye esta mejora. |
 | `PAYMENTS_RECONCILE_ENABLED` | Cada ~15 min detecta RELEASE `PENDING` estancados, alerta y audita. **Solo lectura sobre dinero.** | Bajo | Ninguno. Runbook `ESCROW_RELEASE_RECONCILIATION.md`. | **ACTIVO, verificado**: HTTP 201 a las 12:38, 12:53 y 13:08 UTC; logs del Worker indican 0 RELEASE `PENDING` estancados en esas ejecuciones. Mantener y monitorizar; no activar otro scheduler ni efectuar releases. |
 | `WEATHER_CHECK_ENABLED` | Alertas de clima por proyecto. | Bajo | **`TOMORROW_API_KEY` no está definida en la API**: hoy el módulo de clima usa el cliente **mock**, así que cualquier dato de clima en producción es simulado. | **[DUEÑO]** Configurar `TOMORROW_API_KEY` y después `WEATHER_CHECK_ENABLED=true`. |
 | `LIVE_SESSION_SWEEP_ENABLED` | Cierra sesiones live (LiveKit) caducadas cada minuto. | Bajo | Ninguno. | **ACTIVO, verificado**: HTTP 201 cada minuto, incluida la ejecución de 13:14 UTC. Mantener; no duplicar el scheduler. |
@@ -51,7 +51,7 @@ La consulta de variables de Railway muestra ahora `PAYMENTS_RECONCILE_ENABLED` y
 | `PAYMENTS_RELEASE_GOVERNANCE_MODE` | **shadow** | La gobernanza completa del release solo registra `release_governance_shadow_would_block`, no bloquea. | ADR-041 | Revisar los logs de shadow y pasar a `enforce`. |
 | `SEMSE_VERIFIED_ESCROW_MODE` | **shadow** | Prueba de contrato verificado antes de reservar fondos (#839): solo registra. | `tools/fase-1/m1.4-provider-verified-contract-execution.spec.md` | Revisar shadow y pasar a `enforce`. |
 | `AI_PRICING_CATALOG_MODE` | off | Costo de IA por catálogo versionado (C39): sin precios, el costo es el legado. | C39 | Cargar precios del dueño, `shadow`, luego `on`. |
-| `SEMSE_AGENT_RUN_FINALIZATION_OUTBOX_ENABLED` | off | Efectos de fin de AgentRun (approvals, auditoría, memoria) por outbox transaccional; hoy van por el camino directo. | event backbone F1 | Después de resolver P0-1. |
+| `SEMSE_AGENT_RUN_FINALIZATION_OUTBOX_ENABLED` | off | Efectos de fin de AgentRun (approvals, auditoría, memoria) por outbox transaccional; hoy van por el camino directo. | event backbone F1 | El bloqueo 403 está resuelto; **faltan** aceptación E2E, heartbeat, seguridad multitenant y revisión de efectos antes de activar. |
 | `SATELLITE_WEBHOOKS_ENABLED` | off | Webhooks salientes a satélites (SAT-007): los eventos se escriben, pero no se entregan. | `satellites/SAT-007-outbound-webhooks.spec.md` | Si hay satélites registrados. |
 | `SEMSE_GEOFENCE_POLICY_ENABLED` | off | Política de geocerca en servidor (BO-09, fusionado como "parcial"). | `core/geofence-policy.spec.md` | Completar el parcial antes de activar. |
 | `SEMSE_LABOR_POLICY_ENABLED` | off | Política laboral del Labor Engine. | `core/labor-policy.spec.md` | Revisar la spec. |
@@ -76,11 +76,18 @@ Variables **definidas** cuyo modo no se leyó (pueden estar en `off`/`shadow`): 
 
 ## 3.1 Verificación de los bloqueos y PRs (2026-11-11)
 
-- **AgentRun:** `POST /v1/agents/runs/reclaim-stale` sigue devolviendo HTTP 403 cada ~10 segundos (última observación de esta revisión: 13:14 UTC). La creación de `Membership ACTIVE` para `AGENT_RUNNER` sigue **no acreditada**; un HTTP 201 en otros barridos no la sustituye.
-- **#1141:** CI y API Integration `success` en HEAD `3b09e0a5`; permanece Draft, sin fusionar. Logs sanitizados todavía no están en el Worker productivo.
-- **#1142:** CI `success` en HEAD previo `3a389a06`; permanece Draft. Este cambio de inventario requiere que CI se ejecute nuevamente sobre el nuevo HEAD.
-- **P0-2 / `RAILWAY_TOKEN`:** permanece pendiente; separar el Production Health Gate del deploy duplicado es una alternativa de CI que debe revisarse y autorizarse. Que un endpoint de salud responda correctamente **no prueba por sí solo que el commit recién fusionado se haya desplegado**.
+- **AgentRun (actualización 2026-11-12):** el 403 de autorización fue **recuperado** mediante el rol + membresía `AGENT_RUNNER ACTIVE` y reinicio autorizado de solo Worker. De 00:00:17 a 01:40 UTC, `reclaim-stale` registró **323×201, 1×401 transitorio y 0×403**; hay un `browser-agent` completado. **Pendiente:** pruebas negativas, heartbeat/fencing y falla independiente de 12 delegados `pricing`/`risk` sin proyecto o trabajo en su contexto.
+- **#1141:** CI y API Integration `success` en HEAD `3b09e0a5`; listo para revisión humana, sin fusionar. Logs sanitizados todavía no están en el Worker productivo.
+- **#1142:** pasó a listo para revisión; este commit de documentación reemplaza el P0 de AgentRun obsoleto. Verificar CI del HEAD nuevo antes de integrar.
+- **P0-2 / `RAILWAY_TOKEN`:** pendiente. Hay **dos propuestas parcialmente solapadas** y aún sin fusionar: #1143 adapta `railway-deploy.yml`; #1145 crea un gate de runtime separado. Se debe decidir la arquitectura de CI, evitar ejecutar dos verificadores redundantes y exigir revisión humana, SHA y ejecución efectiva antes de declarar el gate operativo. Que un endpoint de salud responda **no prueba por sí solo** la procedencia del commit.
 
 ## 4. Decisiones pendientes del dueño
 
-- **D-LIEN** — ¿Quién recibe la alerta de plazo de lien (spec m2.1: "push + email al PRO")? El proyecto tiene `assignedProOrgId` (una organización), no un usuario. Opciones: (a) el profesional de la reserva aceptada, el mismo criterio que usan las notificaciones de hitos (no existe en proyectos adjudicados por Bid); (b) todos los miembros ACTIVOS de la organización PRO con rol `PRO`; (c) los dueños/administradores de esa organización.
+- **D-LIEN:** el PR #1144 documenta la decisión PD-10: notificar a todos los miembros con rol `PRO` y `Membership ACTIVE` de la organización profesional asignada, dentro del tenant y con usuario activo. **Esto no autoriza activar alertas legales**; #1144 sigue pendiente de revisión humana, validación de plazos y configuración del canal de correo. No repetir la decisión como si no existiera.
+
+
+## 5. Reparto operativo para cerrar la brecha sin duplicar trabajo (2026-11-12)
+
+- **TinyFish (navegación/verificación):** controles de UI pública de SEMSE Web ES/EN, inspección de estados de PR y checks en GitHub, reproducción no destructiva de errores, constatación de releases y de versiones visibles en Railway. Guardar evidencia de URL, pasos, hora y resultados. No adjudicar una prueba funcional a un resultado meramente visual.
+- **Codex/herramienta de desarrollo (código y pruebas):** corregir el origen de los 12 runs delegados `pricing`/`risk` sin `projectId`/`jobId`; añadir tests negativos y verificación claim → start → heartbeat → complete con fencing. Cerrar PR #1141 y revisar #1143/#1145 para conservar **un solo diseño aprobado** de health gate con trazabilidad de versión.
+- **Owner / gates (producción):** aprobar cada merge tras checks del HEAD y revisión aplicable; observar activaciones `off` → `shadow` → `on` por tenant, nunca activar automáticamente pagos, lien, escrow o publicación/RAG. La membresía `AGENT_RUNNER` y el reinicio puntual del Worker son hechos ya ejecutados, no tareas pendientes.
