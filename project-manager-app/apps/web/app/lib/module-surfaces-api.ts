@@ -324,6 +324,8 @@ export const revokeSatelliteWebhook = (id: string) =>
 export type OrgSummary = { id: string; name?: string } & Record<string, unknown>;
 export type OrgMember = { userId: string; orgId: string; roleId: string; createdAt: string };
 export type Worksite = { worksiteId: string; name: string; address: string | null; status: string };
+export type CrewMember = { userId: string; addedAt: string };
+export type OrgWorker = { userId: string; since: string };
 export type Crew = {
   crewId: string;
   orgId: string;
@@ -331,12 +333,15 @@ export type Crew = {
   supervisorUserId: string;
   worksiteId: string | null;
   status: string;
+  /** Active members (spec AC-10). Absent on API versions older than v0.3 of the spec. */
+  members?: CrewMember[];
 };
 
 const orgBase = (orgId: string) => `/api/semse/organizations/${seg(orgId)}`;
 
 export const fetchMyOrganizations = () => request<OrgSummary[]>("/api/semse/organizations");
 export const fetchOrgMembers = (orgId: string) => request<OrgMember[]>(`${orgBase(orgId)}/members`);
+export const fetchOrgWorkers = (orgId: string) => request<OrgWorker[]>(`${orgBase(orgId)}/workers`);
 
 export const fetchWorksites = (orgId: string) => request<Worksite[]>(`${orgBase(orgId)}/worksites`);
 export const createWorksite = (orgId: string, input: { name: string; address?: string }) =>

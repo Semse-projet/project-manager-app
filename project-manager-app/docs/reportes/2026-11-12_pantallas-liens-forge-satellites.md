@@ -110,3 +110,23 @@ El propietario aprobó `core.crews-worksites` en esta sesión (registrado en el 
   - Cambiar cualquiera de los dos amplía el contrato y requiere actualizar el spec.
 - **Pendiente para después**: geofence (`core.geofence-policy`, en DRAFT). El propietario tiene tres teléfonos para las
   pruebas en dispositivo que exige el spec: un Motorola (Android) y dos iPhone.
+
+## Ampliación de la API de cuadrillas (spec v0.3)
+
+Pedida por el propietario para cerrar los dos huecos anteriores. Los cambios son aditivos: sin migración, sin eventos
+nuevos y sin tocar `GET /members`, que pertenece a otro contrato.
+
+- **AC-10**: `GET /v1/organizations/:orgId/crews` incluye `members: [{ userId, addedAt }]` activos por cuadrilla, con
+  la misma regla de privacidad que el roster.
+- **AC-11**: endpoint nuevo `GET /v1/organizations/:orgId/workers`. Devuelve solo las membresías WORKER ACTIVE
+  (`userId`, `since`), con el mismo permiso (`org:crews:manage`), alcance y flag que el resto.
+- **Web**:
+  - cada cuadrilla lista sus miembros y cada uno tiene botón para quitarlo;
+  - "Agregar" ofrece solo trabajadores que no están ya en la cuadrilla;
+  - el supervisor se elige solo entre trabajadores.
+
+  Contra una API anterior a v0.3, la pantalla vuelve al comportamiento previo (todas las membresías, sin lista de
+  miembros).
+- **Tests**: los 2 casos nuevos se escribieron primero y fallaban; también se amplió el chequeo RBAC del controlador.
+  `crews-worksites.test.ts` pasa 12/12 y la suite completa de `@semse/api` pasa 4018 tests con 0 fallos.
+  `tsc` y `eslint` de la API y la web están limpios, `build:web` OK y `spec:validate:strict` da 0 errores.

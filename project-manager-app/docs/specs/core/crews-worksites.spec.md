@@ -3,7 +3,7 @@ id: "core.crews-worksites"
 title: "Obras y cuadrillas con alcance por supervisor (BO-07)"
 domain: "core"
 sdd_version: "2.0"
-version: "0.2"
+version: "0.3"
 status: "APPROVED"
 owner: "semse-core"
 risk: "high"
@@ -27,6 +27,7 @@ related_endpoints:
   - "GET /v1/organizations/:orgId/worksites"
   - "POST /v1/organizations/:orgId/crews"
   - "GET /v1/organizations/:orgId/crews"
+  - "GET /v1/organizations/:orgId/workers"
   - "POST /v1/organizations/:orgId/crews/:crewId/members"
   - "POST /v1/organizations/:orgId/crews/:crewId/members/remove"
   - "POST /v1/organizations/:orgId/crews/:crewId/archive"
@@ -60,6 +61,8 @@ Excluido: tareas, hitos, asignaciones, horarios, geolocalización y evidencia (B
 - AC-07: archivar una cuadrilla una sola vez; las archivadas no aparecen en `mine`.
 - AC-08: eventos de auditoría solo del catálogo (`EVENT_CATALOG.md`).
 - AC-09: flag apagado → todas las rutas 404 sin efectos.
+- AC-10: el listado de cuadrillas del gestor incluye los miembros ACTIVE de cada una, solo `userId` y `addedAt` (misma regla de privacidad que el roster); los quitados no aparecen.
+- AC-11: `GET /v1/organizations/:orgId/workers` lista solo las Memberships ACTIVE con rol WORKER de esa Org y tenant (`userId`, `since`), con el mismo permiso, alcance y flag que el resto (otra Org → 404, sin permiso → 403, flag apagado → 404).
 
 ## Reglas de privacidad
 El roster expone solo `userId` y fecha de alta; nunca compensación, oferta ni datos de engagement.
@@ -70,3 +73,7 @@ Qué más puede hacer un supervisor (asignar tareas, ver horas) llega con BO-08/
 ## Aprobación del propietario — 2026-11-12
 
 Samuel aprobó expresamente este spec en la sesión de diseño de pantallas de módulos sin UI, ante la pregunta «¿Apruebas core.crews-worksites (gestión de obras y cuadrillas por la empresa…) para que lo implemente?»: respuesta «Sí, aprobar». Autoriza implementar la capa web de gestión (crear obra, crear cuadrilla con supervisor WORKER, agregar/quitar miembros, archivar) sobre los endpoints ya existentes de este contrato. No cambia el contrato de la API, no constituye revisión independiente ni aprobación legal, y **no activa** `SEMSE_CREWS_ENABLED`: con el flag apagado la UI muestra que la función aún no está habilitada. La delegación de autoridad del supervisor sigue siendo `core.crew-supervisor-delegations` (DRAFT).
+
+## Ampliación v0.3 — 2026-11-12
+
+Pedida por el propietario en la misma sesión («Ampliar API de cuadrillas»), tras ver que la pantalla de gestión no podía mostrar quién está en cada cuadrilla ni filtrar trabajadores. Cambios aditivos, sin migración ni eventos nuevos: AC-10 (miembros en el listado del gestor) y AC-11 (endpoint de trabajadores elegibles). No se modificó `GET /v1/organizations/:orgId/members`, que pertenece a otro contrato y tiene otros consumidores. Tests: `apps/api/test/crews-worksites.test.ts` (2 casos nuevos + permisos RBAC del endpoint nuevo).

@@ -44,9 +44,11 @@ function makeWorld() {
     crewMember: table(crewMembers, () => ({ status: "ACTIVE", addedAt: new Date() })),
     membership: {
       async findMany({ where }: any) {
-        return memberships.filter((m) => m.userId === where.userId && m.orgId === where.orgId &&
+        return memberships.filter((m) => (where.userId === undefined || m.userId === where.userId) && m.orgId === where.orgId &&
           (where.status ? m.status === where.status : true) &&
-          (where.org ? m.org.tenantId === where.org.tenantId : true));
+          (where.role?.key ? m.role.key === where.role.key : true) &&
+          (where.org ? m.org.tenantId === where.org.tenantId : true))
+          .map((m) => ({ createdAt: new Date("2026-10-01T00:00:00Z"), ...m }));
       }
     }
   };
@@ -143,8 +145,31 @@ test("mis cuadrillas: el miembro ve la suya con rol MEMBER; archivar una vez", a
   assert.equal((await w.service.listMine({ userId: "ana" })).length, 0);
 });
 
+test("listar cuadrillas incluye sus miembros activos (solo userId y fecha de alta)", async () => {
+  const w = makeWorld();
+  const crew = await w.service.createCrew(owner, "orgA", "r", { name: "Pintura", supervisorUserId: "sup" });
+  await w.service.addMember(owner, "orgA", crew.crewId, "ana", "r");
+  await w.service.addMember(owner, "orgA", crew.crewId, "bob", "r");
+  await w.service.removeMember(owner, "orgA", crew.crewId, "bob", "r");
+  const [listed] = await w.service.listCrews(owner, "orgA");
+  assert.deepEqual(listed.members.map((m: Row) => m.userId), ["ana"]);
+  assert.deepEqual(Object.keys(listed.members[0]).sort(), ["addedAt", "userId"]);
+});
+
+test("trabajadores elegibles: solo WORKER ACTIVE de la Org; flag, Org ajena y permiso como el resto", async () => {
+  const w = makeWorld();
+  const workers = await w.service.listWorkers(owner, "orgA");
+  assert.deepEqual(workers.map((x: Row) => x.userId).sort(), ["ana", "bob", "sup"]);
+  assert.deepEqual(Object.keys(workers[0]).sort(), ["since", "userId"]);
+  await assert.rejects(w.service.listWorkers(owner, "orgB"), { status: 404 });
+  const worker = { tenantId: "t1", orgId: "orgA", userId: "ana", roles: ["WORKER"] };
+  await assert.rejects(w.service.listWorkers(worker, "orgA"), { status: 403 });
+  process.env.SEMSE_CREWS_ENABLED = "false";
+  await assert.rejects(w.service.listWorkers(owner, "orgA"), { status: 404 });
+});
+
 test("controller declara permisos RBAC", () => {
-  for (const method of ["createWorksite", "listWorksites", "createCrew", "listCrews", "addMember", "removeMember", "archive"]) {
+  for (const method of ["createWorksite", "listWorksites", "createCrew", "listCrews", "listWorkers", "addMember", "removeMember", "archive"]) {
     const meta = Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, (OrgCrewsController.prototype as any)[method]);
     assert.deepEqual(meta, ["org:crews:manage"]);
   }

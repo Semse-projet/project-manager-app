@@ -11,10 +11,12 @@ import {
   fetchMyOrganizations,
   fetchOrgCrews,
   fetchOrgMembers,
+  fetchOrgWorkers,
   fetchWorksites,
   removeCrewMember,
   type Crew,
   type OrgMember,
+  type OrgWorker,
   type OrgSummary,
   type Worksite
 } from "../../app/lib/module-surfaces-api";
@@ -42,16 +44,19 @@ import {
  * supervisor and members must be ACTIVE WORKERs of the org (422), and the
  * whole feature sits behind SEMSE_CREWS_ENABLED (404 when off).
  *
- * Known API gap: `GET /v1/organizations/:orgId/crews` does not return the
- * members of each crew (only the crew's supervisor can read its roster), so
- * this screen can add/remove people but cannot list current members.
+ * Since spec v0.3 the crew list carries each crew's active members (AC-10) and
+ * `GET .../workers` lists the org's ACTIVE WORKERs (AC-11). Against an older
+ * API both are absent: the pickers fall back to every active membership and
+ * the member list is hidden.
  */
 
 type Gate = "ok" | "disabled" | "forbidden" | "no-org";
 
-function memberLabel(member: OrgMember | undefined, userId: string) {
-  return member ? `${shortId(userId, 14)} · desde ${formatDate(member.createdAt)}` : shortId(userId, 14);
+function personLabel(person: OrgWorker | undefined, userId: string) {
+  return person ? `${shortId(userId, 14)} · desde ${formatDate(person.since)}` : shortId(userId, 14);
 }
+
+const asWorker = (m: OrgMember): OrgWorker => ({ userId: m.userId, since: m.createdAt });
 
 export function CrewsWorkspace() {
   const [orgs, setOrgs] = useState<OrgSummary[]>([]);
@@ -59,7 +64,8 @@ export function CrewsWorkspace() {
   const [gate, setGate] = useState<Gate>("ok");
   const [worksites, setWorksites] = useState<Worksite[]>([]);
   const [crews, setCrews] = useState<Crew[]>([]);
-  const [members, setMembers] = useState<OrgMember[]>([]);
+  const [people, setPeople] = useState<OrgWorker[]>([]);
+  const [onlyWorkers, setOnlyWorkers] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
@@ -92,8 +98,14 @@ export function CrewsWorkspace() {
       setWorksites(sites ?? []);
       setCrews(list ?? []);
       setGate("ok");
-      // Members feed the pickers; a failure here should not hide the crews.
-      setMembers((await fetchOrgMembers(orgId).catch(() => [] as OrgMember[])) ?? []);
+      // People feed the pickers; a failure here should not hide the crews.
+      try {
+        setPeople((await fetchOrgWorkers(orgId)) ?? []);
+        setOnlyWorkers(true);
+      } catch {
+        setPeople(((await fetchOrgMembers(orgId).catch(() => [] as OrgMember[])) ?? []).map(asWorker));
+        setOnlyWorkers(false);
+      }
     } catch (e) {
       if (e instanceof SurfaceApiError && e.status === 404) setGate("disabled");
       else if (e instanceof SurfaceApiError && e.status === 403) setGate("forbidden");
@@ -120,7 +132,7 @@ export function CrewsWorkspace() {
     }
   }
 
-  const memberById = useMemo(() => new Map(members.map((m) => [m.userId, m])), [members]);
+  const personById = useMemo(() => new Map(people.map((p) => [p.userId, p])), [people]);
   const siteById = useMemo(() => new Map(worksites.map((w) => [w.worksiteId, w])), [worksites]);
 
   const crewsBySite = useMemo(() => {
@@ -197,7 +209,11 @@ export function CrewsWorkspace() {
           <StatGrid>
             <Stat label="Obras activas" value={worksites.length} />
             <Stat label="Cuadrillas activas" value={crews.length} tone="brand" />
-            <Stat label="Personas en la empresa" value={members.length} hint="Membresías activas" />
+            <Stat
+              label={onlyWorkers ? "Trabajadores activos" : "Personas en la empresa"}
+              value={people.length}
+              hint={onlyWorkers ? "Pueden supervisar o integrar cuadrillas" : "Membresías activas"}
+            />
             <Stat label="Sin obra asignada" value={crews.filter((c) => !c.worksiteId).length} tone={crews.some((c) => !c.worksiteId) ? "warn" : "muted"} />
           </StatGrid>
 
@@ -215,7 +231,8 @@ export function CrewsWorkspace() {
             />
             <CreateCrewPanel
               worksites={worksites}
-              members={members}
+              people={people}
+              onlyWorkers={onlyWorkers}
               busy={busy === "crew"}
               onCreate={(input) =>
                 run("crew", async () => {
@@ -246,19 +263,22 @@ export function CrewsWorkspace() {
                           <CrewCard
                             key={crew.crewId}
                             crew={crew}
-                            supervisorLabel={memberLabel(memberById.get(crew.supervisorUserId), crew.supervisorUserId)}
-                            members={members}
+                            supervisorLabel={personLabel(personById.get(crew.supervisorUserId), crew.supervisorUserId)}
+                            people={people}
+                            personById={personById}
                             busy={busy}
                             onAdd={(userId) =>
                               run(`add:${crew.crewId}`, async () => {
                                 await addCrewMember(orgId, crew.crewId, userId);
                                 setFlash(`${shortId(userId, 14)} agregado a «${crew.name}».`);
+                                await load();
                               })
                             }
                             onRemove={(userId) =>
                               run(`remove:${crew.crewId}`, async () => {
                                 await removeCrewMember(orgId, crew.crewId, userId);
                                 setFlash(`${shortId(userId, 14)} quitado de «${crew.name}».`);
+                                await load();
                               })
                             }
                             onArchive={() => setArchiving(crew)}
@@ -349,12 +369,14 @@ function WorksitesPanel({
 
 function CreateCrewPanel({
   worksites,
-  members,
+  people,
+  onlyWorkers,
   busy,
   onCreate
 }: {
   worksites: Worksite[];
-  members: OrgMember[];
+  people: OrgWorker[];
+  onlyWorkers: boolean;
   busy: boolean;
   onCreate: (input: { name: string; supervisorUserId: string; worksiteId?: string }) => void;
 }) {
@@ -374,12 +396,15 @@ function CreateCrewPanel({
         <Field label="Nombre">
           <input value={name} onChange={(e) => setName(e.target.value)} minLength={2} maxLength={120} required style={inputStyle} placeholder="Ej. Cuadrilla de acabados" />
         </Field>
-        <Field label="Supervisor" hint="Debe ser un trabajador (WORKER) activo de la empresa; la plataforma lo valida.">
+        <Field
+          label="Supervisor"
+          hint={onlyWorkers ? "Solo aparecen trabajadores (WORKER) activos de la empresa." : "Debe ser un trabajador (WORKER) activo de la empresa; la plataforma lo valida."}
+        >
           <select value={supervisor} onChange={(e) => setSupervisor(e.target.value)} required style={inputStyle}>
             <option value="">Selecciona una persona…</option>
-            {members.map((m) => (
-              <option key={m.userId} value={m.userId}>
-                {memberLabel(m, m.userId)}
+            {people.map((p) => (
+              <option key={p.userId} value={p.userId}>
+                {personLabel(p, p.userId)}
               </option>
             ))}
           </select>
@@ -407,7 +432,8 @@ function CreateCrewPanel({
 function CrewCard({
   crew,
   supervisorLabel,
-  members,
+  people,
+  personById,
   busy,
   onAdd,
   onRemove,
@@ -415,14 +441,18 @@ function CrewCard({
 }: {
   crew: Crew;
   supervisorLabel: string;
-  members: OrgMember[];
+  people: OrgWorker[];
+  personById: Map<string, OrgWorker>;
   busy: string | null;
   onAdd: (userId: string) => void;
   onRemove: (userId: string) => void;
   onArchive: () => void;
 }) {
   const [person, setPerson] = useState("");
-  const candidates = members.filter((m) => m.userId !== crew.supervisorUserId);
+  // `members` is absent on APIs older than spec v0.3: fall back to a free pick for remove.
+  const knowsMembers = Array.isArray(crew.members);
+  const memberIds = new Set((crew.members ?? []).map((m) => m.userId));
+  const candidates = people.filter((p) => p.userId !== crew.supervisorUserId && !memberIds.has(p.userId));
   return (
     <article style={{ border: "1px solid var(--border)", borderRadius: 12, padding: 14, background: "var(--bg)", display: "flex", flexDirection: "column", gap: 10 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -434,31 +464,71 @@ function CrewCard({
         <span>Supervisor:</span>
         <span style={{ color: "var(--ink)", fontFamily: "var(--font-mono)", fontSize: 12 }}>{supervisorLabel}</span>
       </div>
-      <Field label="Persona">
+
+      {knowsMembers ? (
+        <div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted)", marginBottom: 6 }}>
+            Miembros ({crew.members!.length})
+          </div>
+          {crew.members!.length === 0 ? (
+            <p style={{ margin: 0, fontSize: 12, color: "var(--faint)" }}>Aún no hay miembros además del supervisor.</p>
+          ) : (
+            <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 4 }}>
+              {crew.members!.map((m) => (
+                <li key={m.userId} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}>
+                  <span style={{ flex: 1, minWidth: 0, color: "var(--ink)", fontFamily: "var(--font-mono)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {shortId(m.userId, 18)}
+                  </span>
+                  <span style={{ color: "var(--faint)" }}>desde {formatDate(m.addedAt)}</span>
+                  <button
+                    type="button"
+                    onClick={() => onRemove(m.userId)}
+                    disabled={busy === `remove:${crew.crewId}`}
+                    aria-label={`Quitar ${m.userId} de ${crew.name}`}
+                    title="Quitar de la cuadrilla"
+                    style={{ display: "inline-flex", padding: 4, borderRadius: 6, border: "none", background: "transparent", color: "var(--muted)", cursor: "pointer" }}
+                  >
+                    <UserMinus size={13} aria-hidden />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      ) : null}
+
+      <Field label={knowsMembers ? "Agregar persona" : "Persona"}>
         <select value={person} onChange={(e) => setPerson(e.target.value)} style={inputStyle} aria-label={`Persona para ${crew.name}`}>
-          <option value="">Selecciona…</option>
-          {candidates.map((m) => (
-            <option key={m.userId} value={m.userId}>
-              {memberLabel(m, m.userId)}
+          <option value="">{candidates.length ? "Selecciona…" : "No hay más trabajadores disponibles"}</option>
+          {(knowsMembers ? candidates : people.filter((p) => p.userId !== crew.supervisorUserId)).map((p) => (
+            <option key={p.userId} value={p.userId}>
+              {personLabel(personById.get(p.userId), p.userId)}
             </option>
           ))}
         </select>
       </Field>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-        <Button icon={UserPlus} busy={busy === `add:${crew.crewId}`} disabled={!person} onClick={() => onAdd(person)}>
+        <Button
+          icon={UserPlus}
+          busy={busy === `add:${crew.crewId}`}
+          disabled={!person}
+          onClick={() => {
+            onAdd(person);
+            setPerson("");
+          }}
+        >
           Agregar
         </Button>
-        <Button variant="ghost" icon={UserMinus} busy={busy === `remove:${crew.crewId}`} disabled={!person} onClick={() => onRemove(person)}>
-          Quitar
-        </Button>
+        {!knowsMembers ? (
+          <Button variant="ghost" icon={UserMinus} busy={busy === `remove:${crew.crewId}`} disabled={!person} onClick={() => onRemove(person)}>
+            Quitar
+          </Button>
+        ) : null}
         <span style={{ flex: 1 }} />
         <Button variant="danger" icon={Archive} onClick={onArchive}>
           Archivar
         </Button>
       </div>
-      <p style={{ margin: 0, fontSize: 11, color: "var(--faint)" }}>
-        Agregar es idempotente. Por ahora la lista de miembros solo la ve el supervisor de la cuadrilla.
-      </p>
     </article>
   );
 }
