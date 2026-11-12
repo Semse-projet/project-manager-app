@@ -9,11 +9,19 @@
  * - satellites: SatellitesService.listTokens/issueToken + SatelliteWebhookView
  */
 
+/** Error carrying the HTTP status, so screens can tell "feature off" (404) from "forbidden" (403). */
+export class SurfaceApiError extends Error {
+  constructor(message: string, readonly status: number) {
+    super(message);
+    this.name = "SurfaceApiError";
+  }
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, { cache: "no-store", ...init });
   const payload = (await response.json().catch(() => ({}))) as { data?: T; error?: { message?: string } };
   if (!response.ok) {
-    throw new Error(payload.error?.message ?? `La solicitud falló (${response.status})`);
+    throw new SurfaceApiError(payload.error?.message ?? `La solicitud falló (${response.status})`, response.status);
   }
   return payload.data as T;
 }
@@ -309,3 +317,40 @@ export const fetchSatelliteWebhooks = () => request<SatelliteWebhook[]>("/api/se
 
 export const revokeSatelliteWebhook = (id: string) =>
   del<{ id: string; status: string }>(`/api/semse/satellites/webhooks/${seg(id)}`);
+
+/* ─────────────────────── Crews & worksites (BO-07) ─────────────────────── */
+// Spec: docs/specs/core/crews-worksites.spec.md (APPROVED 2026-11-12).
+
+export type OrgSummary = { id: string; name?: string } & Record<string, unknown>;
+export type OrgMember = { userId: string; orgId: string; roleId: string; createdAt: string };
+export type Worksite = { worksiteId: string; name: string; address: string | null; status: string };
+export type Crew = {
+  crewId: string;
+  orgId: string;
+  name: string;
+  supervisorUserId: string;
+  worksiteId: string | null;
+  status: string;
+};
+
+const orgBase = (orgId: string) => `/api/semse/organizations/${seg(orgId)}`;
+
+export const fetchMyOrganizations = () => request<OrgSummary[]>("/api/semse/organizations");
+export const fetchOrgMembers = (orgId: string) => request<OrgMember[]>(`${orgBase(orgId)}/members`);
+
+export const fetchWorksites = (orgId: string) => request<Worksite[]>(`${orgBase(orgId)}/worksites`);
+export const createWorksite = (orgId: string, input: { name: string; address?: string }) =>
+  post<Worksite>(`${orgBase(orgId)}/worksites`, input);
+
+export const fetchOrgCrews = (orgId: string) => request<Crew[]>(`${orgBase(orgId)}/crews`);
+export const createCrew = (orgId: string, input: { name: string; supervisorUserId: string; worksiteId?: string }) =>
+  post<Crew>(`${orgBase(orgId)}/crews`, input);
+
+export const addCrewMember = (orgId: string, crewId: string, userId: string) =>
+  post<{ crewId: string; userId: string; status: string }>(`${orgBase(orgId)}/crews/${seg(crewId)}/members`, { userId });
+
+export const removeCrewMember = (orgId: string, crewId: string, userId: string) =>
+  post<{ crewId: string; userId: string; status: string }>(`${orgBase(orgId)}/crews/${seg(crewId)}/members/remove`, { userId });
+
+export const archiveCrew = (orgId: string, crewId: string) =>
+  post<{ status: string }>(`${orgBase(orgId)}/crews/${seg(crewId)}/archive`);

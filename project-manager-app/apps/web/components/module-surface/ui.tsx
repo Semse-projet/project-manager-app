@@ -227,7 +227,7 @@ export function Banner({ tone, children, onDismiss }: { tone: Tone; children: Re
 export function Empty({ icon: Icon, title, description, action }: { icon?: LucideIcon; title: string; description?: string; action?: ReactNode }) {
   return (
     <div style={{ textAlign: "center", padding: "32px 16px", color: "var(--muted)" }}>
-      {Icon ? <Icon size={28} style={{ color: "var(--faint)", marginBottom: 8 }} aria-hidden /> : null}
+      {Icon ? <Icon size={28} style={{ display: "block", margin: "0 auto 8px", color: "var(--faint)" }} aria-hidden /> : null}
       <div style={{ fontSize: 14, fontWeight: 700, color: "var(--ink)" }}>{title}</div>
       {description ? <p style={{ margin: "6px auto 0", maxWidth: 460, fontSize: 13, lineHeight: 1.5 }}>{description}</p> : null}
       {action ? <div style={{ marginTop: 14 }}>{action}</div> : null}

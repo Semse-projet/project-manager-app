@@ -88,3 +88,25 @@ No se tocó la API, Prisma, CI ni Railway.
 - Exponer en la API los avisos en `DRAFT` (o un filtro de estado).
 - E2E con Playwright para firmar un waiver y aprobar un run, siguiendo `semse-functional-test`.
 - Cuando crews/task-allocations pasen a `APPROVED`, diseñar sus pantallas con este mismo kit.
+
+## Continuación — Obras y cuadrillas (BO-07)
+
+El propietario aprobó `core.crews-worksites` en esta sesión (registrado en el spec como "Aprobación del propietario —
+2026-11-12", versión 0.2). `spec:validate:strict` da 0 errores y `SPEC_INDEX.md` se regeneró.
+
+- **Pantallas**: `/client/crews` y `/worker/crews`. CLIENT y PRO tienen `org:crews:manage`, y PRO entra con el rol de
+  app `worker`. Funciones: crear obras, crear cuadrillas con supervisor y obra opcional, agregar o quitar personas y
+  archivar con confirmación (es definitivo: no hay endpoint para desarchivar).
+- **Estados de la pantalla**: 404 significa flag `SEMSE_CREWS_ENABLED` apagado y se muestra como "aún no habilitado";
+  403 se muestra como "tu rol no puede gestionar cuadrillas"; también hay un estado para quien no pertenece a ninguna
+  empresa. La UI no activa el flag.
+- **BFF**: `organizations/[orgId]/{worksites,crews,crews/[crewId]/members,members/remove,archive}`, todas por el proxy
+  autenticado. El `GET crews` existente pasó al proxy autenticado (ninguna pantalla lo usaba).
+- **Huecos de la API**:
+  - `GET .../crews` no devuelve los miembros (el roster solo lo ve el supervisor), así que el gestor puede agregar y
+    quitar personas pero no ver la lista actual.
+  - `GET .../members` devuelve `roleId` (un ID interno) y no la clave de rol, así que el selector no puede filtrar
+    WORKER; la API valida con 422.
+  - Cambiar cualquiera de los dos amplía el contrato y requiere actualizar el spec.
+- **Pendiente para después**: geofence (`core.geofence-policy`, en DRAFT). El propietario tiene tres teléfonos para las
+  pruebas en dispositivo que exige el spec: un Motorola (Android) y dos iPhone.
