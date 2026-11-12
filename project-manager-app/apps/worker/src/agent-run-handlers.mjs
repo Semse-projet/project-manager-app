@@ -72,10 +72,23 @@ function extractContext(run) {
   return { ...eventPayloadIdentifiers(input), ...input, ...asObject(input.context) };
 }
 
+// Optional context may be unavailable, but an authz failure is never "no data".
+// main.mjs requestJson emits "HTTP 401/403 <path>:" after session refresh.
+// Also support typed status errors from test adapters.
+function isAuthorizationFailure(error) {
+  const status = error?.status ?? error?.statusCode ?? error?.response?.status;
+  return status === 401 || status === 403
+    || /^HTTP (?:401|403)\s/.test(error instanceof Error ? error.message : "");
+}
+
 async function safeRequestJson(requestJson, path, init, options, logger, label) {
   try {
     return await requestJson(path, init, options);
   } catch (error) {
+    if (isAuthorizationFailure(error)) {
+      logger?.warn({ status: "authorization_denied" }, "optional worker context denied; failing closed");
+      throw error;
+    }
     logger?.warn({
       path,
       error: error instanceof Error ? error.message : String(error),
