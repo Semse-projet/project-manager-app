@@ -1,4 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
+import { EmailService } from '../../infrastructure/email/email.service.js';
+import { NotificationsService } from '../notifications/notifications.service.js';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service.js';
 import { LiensService } from './liens.service.js';
 import { NoticeGeneratorService } from './notice-generator.service.js';
@@ -11,12 +13,12 @@ import { NoticeGeneratorService } from './notice-generator.service.js';
  *
  * Búsqueda: LienCalendars donde el deadline está en 30d, 7d, 3d, 1d
  * Transición: CREATED → ALERTED_30D → ALERTED_7D → ALERTED_3D
- * Notificación: push + email al PRO — NO IMPLEMENTADO (ver TODO abajo):
- *   requiere resolver qué usuario recibe la alerta a partir de
- *   Project.assignedProOrgId (un Org, no un userId) — no hay una noción
- *   establecida de "usuario principal de un Org" en este módulo; asumir una
- *   sin confirmar el criterio de producto podría mandar (o no mandar) un
- *   aviso legal a la persona equivocada.
+ * Notificación (decisión D-LIEN del dueño, 2026-11-11): en cada transición se
+ *   avisa a TODOS los miembros ACTIVOS con rol PRO de la organización asignada
+ *   al proyecto (Project.assignedProOrgId, dentro del tenant del proyecto) —
+ *   in-app + push (+ WhatsApp si está habilitado) vía NotificationsService, y
+ *   email vía EmailService. Best-effort: un fallo de envío no revierte la
+ *   transición ni bloquea los demás calendarios; queda en el log.
  * Generación: notices automáticos cuando ALERTED_3D se alcanza
  */
 @Injectable()
@@ -29,7 +31,9 @@ export class LienAlertsScheduler {
   constructor(
     private readonly prisma: PrismaService,
     private readonly liensService: LiensService,
-    private readonly noticeGeneratorService: NoticeGeneratorService
+    private readonly noticeGeneratorService: NoticeGeneratorService,
+    @Optional() private readonly notifications?: NotificationsService,
+    @Optional() private readonly email?: EmailService,
   ) {}
 
   /**
@@ -58,7 +62,7 @@ export class LienAlertsScheduler {
         },
         include: {
           project: {
-            select: { id: true, tenantId: true, job: { select: { title: true } } },
+            select: { id: true, tenantId: true, assignedProOrgId: true, job: { select: { title: true } } },
           },
         },
       });
@@ -108,12 +112,17 @@ export class LienAlertsScheduler {
               }
             }
 
-            // TODO: Enviar notificación (push + email)
-            // await this.notificationService.send({
-            //   type: 'LIEN_DEADLINE_ALERT',
-            //   projectId: calendar.projectId,
-            //   data: { daysToDeadline, newStatus }
-            // });
+            await this.notifyDeadlineAlert({
+              calendarId: calendar.id,
+              projectId: calendar.project.id,
+              tenantId: calendar.project.tenantId,
+              assignedProOrgId: calendar.project.assignedProOrgId,
+              projectTitle: calendar.project.job.title,
+              stateName: calendar.stateName,
+              deadline: calendar.preliminaryNoticeDeadline,
+              daysToDeadline,
+              newStatus,
+            });
           } catch (error) {
             this.logger.error(`Failed to update calendar ${calendar.id}`, error);
             // Continue con otros calendarios
@@ -128,6 +137,91 @@ export class LienAlertsScheduler {
     } catch (error) {
       this.logger.error('check-lien-deadlines job failed', error);
       throw error; // Propagar para que BullMQ reintente
+    }
+  }
+
+  /**
+   * D-LIEN: avisa a los miembros PRO activos de la organización asignada. Nunca lanza: el aviso es best-effort
+   * y la transición de estado ya quedó confirmada.
+   */
+  private async notifyDeadlineAlert(input: {
+    calendarId: string;
+    projectId: string;
+    tenantId: string;
+    assignedProOrgId: string;
+    projectTitle: string;
+    stateName: string;
+    deadline: Date;
+    daysToDeadline: number;
+    newStatus: string;
+  }): Promise<void> {
+    try {
+      const memberships = await this.prisma.membership.findMany({
+        where: {
+          orgId: input.assignedProOrgId,
+          status: 'ACTIVE',
+          role: { key: 'PRO' },
+          org: { tenantId: input.tenantId },
+          user: { status: 'active' },
+        },
+        select: { userId: true, user: { select: { email: true } } },
+      });
+      const recipients = new Map<string, string | null>();
+      for (const m of memberships) recipients.set(m.userId, m.user?.email ?? null);
+
+      if (recipients.size === 0) {
+        this.logger.warn(`Lien deadline alert has no recipient (no ACTIVE PRO member)`, {
+          calendarId: input.calendarId,
+          projectId: input.projectId,
+        });
+        return;
+      }
+
+      const days = Math.max(0, input.daysToDeadline);
+      const deadlineDate = input.deadline.toISOString().slice(0, 10);
+      const final = input.newStatus === 'ALERTED_3D';
+      const title = final
+        ? `Último aviso: plazo de lien en ${days} día(s)`
+        : `Plazo de lien en ${days} día(s)`;
+      const body =
+        `El plazo del aviso preliminar de lien (${input.stateName}) del proyecto "${input.projectTitle}" vence el ${deadlineDate}.` +
+        (final ? ' Los avisos ya se generaron: revísalos y envíalos antes del plazo.' : ' Revisa el calendario de liens del proyecto.');
+
+      let created = 0;
+      if (this.notifications) {
+        ({ created } = await this.notifications.notifyUsers({
+          tenantId: input.tenantId,
+          userIds: [...recipients.keys()],
+          type: 'lien_deadline_alert',
+          title,
+          body,
+          payload: {
+            lienCalendarId: input.calendarId,
+            projectId: input.projectId,
+            status: input.newStatus,
+            daysToDeadline: days,
+            deadline: deadlineDate,
+          },
+        }));
+      }
+
+      let emailsSent = 0;
+      if (this.email) {
+        for (const address of new Set([...recipients.values()].filter((e): e is string => Boolean(e)))) {
+          const result = await this.email.send({ to: address, subject: `SEMSE — ${title}`, html: `<p>${escapeHtml(body)}</p>`, text: body });
+          if (result.sent) emailsSent += 1;
+        }
+      }
+
+      this.logger.log(`Lien deadline alert delivered`, {
+        calendarId: input.calendarId,
+        status: input.newStatus,
+        recipients: recipients.size,
+        notificationsCreated: created,
+        emailsSent,
+      });
+    } catch (error) {
+      this.logger.error(`Failed to deliver lien deadline alert for ${input.calendarId}`, error);
     }
   }
 
@@ -157,4 +251,8 @@ export class LienAlertsScheduler {
     this.logger.warn(`Reset ${result.count} calendars to CREATED for testing`);
     return result.count;
   }
+}
+
+function escapeHtml(value: string): string {
+  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
