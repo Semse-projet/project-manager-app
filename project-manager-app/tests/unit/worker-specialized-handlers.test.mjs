@@ -269,5 +269,6 @@ test("risk still tolerates a missing optional trust snapshot (404)", async () =>
   const result = await executeSpecializedWorkerRun(input);
   assert.equal(result.actionType, "classify");
   assert.equal(result.result.jobId, "job-1");
-  assert.equal(result.result.trustScore, null);
+  // The project trust fallback remains available despite the optional job 404.
+  assert.equal(result.result.trustScore, 82);
 });
