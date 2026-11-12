@@ -272,3 +272,42 @@ test("risk still tolerates a missing optional trust snapshot (404)", async () =>
   // The project trust fallback remains available despite the optional job 404.
   assert.equal(result.result.trustScore, 82);
 });
+
+test("evidence-coach does not turn a forbidden project read into milestone-only review", async () => {
+  const input = makeRun("evidence-coach");
+  input.requestJson = async (path, ...args) => {
+    if (path === "/v1/projects/proj-1") {
+      throw new Error("HTTP 403 /v1/projects/proj-1: sensitive upstream details");
+    }
+    return requestJson(path, ...args);
+  };
+
+  await assert.rejects(
+    () => executeSpecializedWorkerRun(input),
+    (error) => {
+      assert.equal(error.statusCode, 403);
+      assert.match(error.message, /HTTP 403 optional worker context authorization denied/);
+      assert.doesNotMatch(error.message, /sensitive upstream details/);
+      return true;
+    },
+  );
+});
+
+test("denied optional reads never echo upstream details into their errors", async () => {
+  const input = makeRun("risk");
+  input.requestJson = async (path, ...args) => {
+    if (path === "/v1/jobs/job-1/trust") {
+      throw new Error("HTTP 403 /v1/jobs/job-1/trust: hidden personal information");
+    }
+    return requestJson(path, ...args);
+  };
+
+  await assert.rejects(
+    () => executeSpecializedWorkerRun(input),
+    (error) => {
+      assert.equal(error.statusCode, 403);
+      assert.doesNotMatch(error.message, /hidden personal information|job-1/);
+      return true;
+    },
+  );
+});
