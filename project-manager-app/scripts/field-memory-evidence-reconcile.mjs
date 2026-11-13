@@ -2,6 +2,7 @@
 // Offline, read-only Evidence-to-originals reconciliation; no network or SQL.
 // Database projection is confidential. Never print IDs, keys, paths, or hashes.
 import {readFile} from 'node:fs/promises';
+import {createHash,timingSafeEqual} from 'node:crypto';
 import path from 'node:path';
 import {pathToFileURL} from 'node:url';
 const SHA=/^[a-f0-9]{64}$/;
@@ -63,17 +64,89 @@ export function reconcileEvidence(manifest,projection) {
     note:'Compare private projection against hashed originals only; DB export provenance, checksum authority, tenant/org ownership and consistency require verified server controls.',
   };
 }
+
+/**
+ * T-008j: compare a private DB checkpoint envelope with an independently
+ * hashed originals manifest. SHA-256 binds bytes within this offline bundle
+ * only; it does not authenticate the exporter, the database, the filesystem
+ * freeze, or the origin of stored Evidence checksums.
+ *
+ * Output deliberately contains aggregate counts only — never tenant IDs,
+ * storage keys, source paths, file hashes, or checkpoint IDs.
+ */
+export function reconcileFrozenCheckpoint(manifest,checkpoint) {
+  const sha=/^[a-f0-9]{64}$/;
+  const flags=[
+    ['databaseTransactionConsistent',true],
+    ['filesystemSnapshotConsistent',false],
+    ['checksumAuthorityVerified',false],
+    ['restoreVerified',false],
+    ['captureSessionActivationPermitted',false],
+  ];
+  if (!checkpoint || typeof checkpoint!=='object' ||
+      checkpoint.status!=='DB_PROJECTION_ONLY' ||
+      checkpoint.phase!=='FROZEN' ||
+      typeof checkpoint.epoch!=='string' ||
+      !/^[1-9][0-9]*$/.test(checkpoint.epoch) ||
+      typeof checkpoint.scopeDigest!=='string' || !sha.test(checkpoint.scopeDigest) ||
+      typeof checkpoint.coverageDigest!=='string' || !sha.test(checkpoint.coverageDigest) ||
+      typeof checkpoint.projectionDigest!=='string' || !sha.test(checkpoint.projectionDigest) ||
+      !flags.every(([key,value])=>checkpoint[key]===value) ||
+      checkpoint.privateProjection?.schema!=='semse-evidence-backup-projection-v1' ||
+      !Array.isArray(checkpoint.privateProjection.records) ||
+      !Number.isSafeInteger(checkpoint.recordCount) ||
+      checkpoint.recordCount!==checkpoint.privateProjection.records.length ||
+      !checkpoint.violations || typeof checkpoint.violations!=='object' ||
+      !['missingChecksum','unsafeOrLegacyKey','tenantMismatch',
+        'duplicateKey','missingOrCrossTenantProject']
+        .every(k=>checkpoint.violations[k]===0)) {
+    throw Error('Checkpoint envelope incomplete or untrusted');
+  }
+  const computed=createHash('sha256')
+    .update(JSON.stringify(checkpoint.privateProjection)).digest('hex');
+  const integrityMatched=timingSafeEqual(
+    Buffer.from(computed,'hex'),Buffer.from(checkpoint.projectionDigest,'hex'));
+  if(!integrityMatched) {
+    return {
+      result:'BLOCKED',
+      reason:'projection_digest_mismatch',
+      projectionDigestMatches:false,
+      databaseSnapshotProvenanceVerified:false,
+      filesystemSnapshotConsistent:false,
+      checksumAuthorityVerified:false,
+      restoreVerified:false,
+      captureSessionActivationPermitted:false,
+    };
+  }
+  const comparison=reconcileEvidence(manifest,checkpoint.privateProjection);
+  return {
+    ...comparison,
+    result:comparison.result==='MATCHED_METADATA_NOT_ATTESTED'
+      ? 'OFFLINE_CHECKPOINT_MATCH_NOT_ATTESTED' : 'BLOCKED',
+    projectionDigestMatches:true,
+    databaseSnapshotProvenanceVerified:false,
+    databaseSnapshotConsistent:false,
+    filesystemSnapshotConsistent:false,
+    checksumAuthorityVerified:false,
+    restoreVerified:false,
+    captureSessionActivationPermitted:false,
+    note:'Private checkpoint self-integrity and metadata comparison only. Neither SHA-256 nor a claimed FROZEN epoch authenticates the origin or proves consistent DB/FS custody.',
+  };
+}
+
 function option(flag){
   const i=process.argv.indexOf(flag);
   return i>=0&&process.argv[i+1]&&!process.argv[i+1].startsWith('--')?process.argv[i+1]:undefined;
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(path.resolve(process.argv[1])).href){
   try{
-    const manifest=option('--manifest'),projection=option('--projection');
-    if(!manifest||!projection) throw Error('Missing private inputs');
-    const files=await Promise.all([readFile(manifest,'utf8'),readFile(projection,'utf8')]);
-    if(files.some(s=>s.length>60*1024*1024)) throw Error('Projection too large');
-    const r=reconcileEvidence(JSON.parse(files[0]),JSON.parse(files[1]));
+    const manifest=option('--manifest'),projection=option('--projection'),checkpoint=option('--checkpoint');
+    if(!manifest || Boolean(projection)===Boolean(checkpoint)) throw Error('Missing or ambiguous private inputs');
+    const files=await Promise.all([readFile(manifest,'utf8'),readFile(checkpoint||projection,'utf8')]);
+    if(files.some(s=>s.length>60*1024*1024)) throw Error('Private input too large');
+    const r=checkpoint
+      ? reconcileFrozenCheckpoint(JSON.parse(files[0]),JSON.parse(files[1]))
+      : reconcileEvidence(JSON.parse(files[0]),JSON.parse(files[1]));
     process.stdout.write(JSON.stringify(r,null,2)+'\n');
     // Offline metadata similarity is never authority to activate custody.
     process.exitCode=2;
