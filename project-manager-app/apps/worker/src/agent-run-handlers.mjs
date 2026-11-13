@@ -51,9 +51,25 @@ function summarizeText(value, limit = 220) {
   return `${text.slice(0, Math.max(0, limit - 1))}…`;
 }
 
+// Identificadores que AgentTriggerRouter (triggerType "event") deja en
+// `input.eventPayload` en lugar de `input.context` (#1147). Solo se toman
+// strings no vacíos: la API valida tenant/org en cada lookup posterior.
+const EVENT_PAYLOAD_ID_KEYS = ["projectId", "jobId", "milestoneId", "disputeId"];
+
+function eventPayloadIdentifiers(input) {
+  const payload = asObject(input.eventPayload);
+  const ids = {};
+  for (const key of EVENT_PAYLOAD_ID_KEYS) {
+    const value = asString(payload[key]);
+    if (value) ids[key] = value;
+  }
+  return ids;
+}
+
 function extractContext(run) {
   const input = asObject(run?.input);
-  return { ...input, ...asObject(input.context) };
+  // Precedencia: contexto explícito > campos de input > IDs del evento de dominio.
+  return { ...eventPayloadIdentifiers(input), ...input, ...asObject(input.context) };
 }
 
 async function safeRequestJson(requestJson, path, init, options, logger, label) {
