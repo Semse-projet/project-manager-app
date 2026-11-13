@@ -93,6 +93,11 @@ export function CrewsWorkspace() {
     if (!orgId) return;
     setLoading(true);
     setError(null);
+    // Never render the previous organization's data while switching scopes.
+    setWorksites([]);
+    setCrews([]);
+    setPeople([]);
+    setOnlyWorkers(true);
     try {
       const [sites, list] = await Promise.all([fetchWorksites(orgId), fetchOrgCrews(orgId)]);
       setWorksites(sites ?? []);
@@ -102,9 +107,19 @@ export function CrewsWorkspace() {
       try {
         setPeople((await fetchOrgWorkers(orgId)) ?? []);
         setOnlyWorkers(true);
-      } catch {
-        setPeople(((await fetchOrgMembers(orgId).catch(() => [] as OrgMember[])) ?? []).map(asWorker));
-        setOnlyWorkers(false);
+      } catch (workersError) {
+        // Compatibility fallback applies only when this endpoint is absent.
+        // A 401/403 or transport failure must not become a broader member list.
+        if (workersError instanceof SurfaceApiError && workersError.status === 404) {
+          setPeople(((await fetchOrgMembers(orgId).catch(() => [] as OrgMember[])) ?? []).map(asWorker));
+          setOnlyWorkers(false);
+        } else {
+          setPeople([]);
+          setOnlyWorkers(true);
+          setError(workersError instanceof Error
+            ? workersError.message
+            : "No fue posible verificar los trabajadores autorizados");
+        }
       }
     } catch (e) {
       if (e instanceof SurfaceApiError && e.status === 404) setGate("disabled");
