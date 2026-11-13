@@ -87,6 +87,7 @@ export const ADMIN_MODULES: AdminModule[] = [
       { id: "finance", label: "Finance", href: "/admin/finance" },
       { id: "disputes", label: "Disputes", href: "/admin/disputes" },
       { id: "change-orders", label: "Change Orders", href: "/admin/change-orders" },
+      { id: "liens", label: "Lien Rights", href: "/admin/liens", description: "Lien deadlines per state, certified preliminary notices, and waivers that gate escrow release." },
       { id: "governance", label: "Governance", href: "/admin/governance" },
     ],
   },
@@ -122,6 +123,7 @@ export const ADMIN_MODULES: AdminModule[] = [
       { id: "memory", label: "Memory", href: "/admin/memory" },
       { id: "intelligence-rooms", label: "Intelligence Rooms", href: "/admin/intelligence-rooms" },
       { id: "browser-agent", label: "Browser Agent", href: "/admin/browser-agent" },
+      { id: "forge", label: "SEMSE Forge", href: "/admin/forge", description: "Spec-governed build runs: lifecycle, human approvals, task dispatch, and audit trail." },
       { id: "product-intelligence", label: "Product Intelligence", href: "/admin/product-intelligence" },
     ],
   },
@@ -134,6 +136,7 @@ export const ADMIN_MODULES: AdminModule[] = [
     metric: { label: "Tools", value: "9", tone: "success" },
     children: [
       { id: "tools", label: "Pro Tools Catalog", href: "/admin/tools", description: "27 trade tools with specs, estimators, and research endpoints." },
+      { id: "satellites", label: "Satellites", href: "/admin/satellites", description: "External SDK apps: scoped tokens and signed outbound webhooks." },
       { id: "developer-runtime", label: "Developer Runtime", href: "/admin/developer-runtime", description: "Live execution environment for custom operators." },
       { id: "coordinator", label: "Coordinator", href: "/admin/coordinator", description: "Multi-agent task coordination and scheduling." },
       { id: "semse-x", label: "SEMSE X", href: "/admin/semse-x", description: "Experimental and next-gen features sandbox." },

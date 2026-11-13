@@ -1,19 +1,27 @@
-import { NextRequest, NextResponse } from "next/server";
-import { fetchSemseDataForRequest, handleServerError, runtimeDisabledResponse } from "../../../_server";
+import type { NextRequest } from "next/server";
+import { proxyAuthenticated, readJsonBody, segment } from "../../../_authenticated-proxy";
 
-function fail(error: unknown) {
-  if (error instanceof Error && error.message.includes("not configured")) {
-    return runtimeDisabledResponse();
-  }
-  return handleServerError(error);
+// Spec: docs/specs/core/crews-worksites.spec.md (APPROVED 2026-11-12). Behind
+// SEMSE_CREWS_ENABLED: with the flag off the API answers 404 and the UI says so.
+type Ctx = { params: Promise<{ orgId: string }> };
+
+export const dynamic = "force-dynamic";
+
+export async function GET(request: NextRequest, context: Ctx) {
+  const { orgId } = await context.params;
+  return proxyAuthenticated(request, `/v1/organizations/${segment(orgId)}/crews`);
 }
 
-export async function GET(request: NextRequest, context: { params: Promise<{ orgId: string }> }) {
-  try {
-    const { orgId } = await context.params;
-    const data = await fetchSemseDataForRequest<Record<string, unknown>[]>(`/v1/organizations/${encodeURIComponent(orgId)}/crews`, request);
-    return NextResponse.json({ data });
-  } catch (error) {
-    return fail(error);
-  }
+export async function POST(request: NextRequest, context: Ctx) {
+  const { orgId } = await context.params;
+  const body = await readJsonBody(request);
+  return proxyAuthenticated(request, `/v1/organizations/${segment(orgId)}/crews`, {
+    method: "POST",
+    body: {
+      name: body.name,
+      supervisorUserId: body.supervisorUserId,
+      ...(body.worksiteId ? { worksiteId: body.worksiteId } : {})
+    },
+    status: 201
+  });
 }
