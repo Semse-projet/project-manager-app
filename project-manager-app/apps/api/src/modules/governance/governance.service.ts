@@ -12,8 +12,10 @@ import {
 } from "./governance-voting.algorithm.js";
 import {
   creditsForEvent,
-  computeDecayFactor,
+  computeCreditBalance,
   creditTier,
+  voteCost,
+  VOTE_SPENT_EVENT,
   GovernanceCreditSummary,
   CreditEvent,
 } from "./governance-credits.algorithm.js";
@@ -119,6 +121,30 @@ export class GovernanceService {
           where: { proposalId_voterId: { proposalId: dto.proposalId, voterId: dto.voterId } },
         });
         if (existing) throw new ConflictException("Voter has already voted on this proposal");
+
+        // spec api.governance-quadratic-credits: k units cost k² − 1 earned credits (one unit is free); spent
+        // credits never decay nor come back. Locked per voter so two concurrent votes can't spend the same balance.
+        const cost = voteCost(units);
+        if (cost > 0) {
+          await this.lockVoterCredits(tx, proposal.tenantId, dto.voterId);
+          const ledger = await tx.governanceCreditEvent.findMany({
+            where: { tenantId: proposal.tenantId, userId: dto.voterId },
+            select: { eventType: true, credits: true, createdAt: true },
+          });
+          const { available } = computeCreditBalance(ledger);
+          if (available < cost) {
+            throw new ConflictException({ message: "Insufficient governance credits", cost, available, units });
+          }
+          await tx.governanceCreditEvent.create({
+            data: {
+              tenantId: proposal.tenantId,
+              userId: dto.voterId,
+              eventType: VOTE_SPENT_EVENT,
+              credits: -cost,
+              context: JSON.stringify({ proposalId: dto.proposalId, units, cost }),
+            },
+          });
+        }
 
         return tx.governanceVote.create({
           data: {
@@ -257,6 +283,14 @@ export class GovernanceService {
 
   // ── Helpers ────────────────────────────────────────────────────────────────
 
+  /** Transaction-scoped advisory lock per (tenant, voter): serializes balance check + spend across proposals. */
+  private async lockVoterCredits(tx: Prisma.TransactionClient, tenantId: string, voterId: string): Promise<void> {
+    // $executeRaw (not $queryRaw): the function returns `void`, which Prisma can't deserialize as a column — same
+    // pattern as ai-pricing-catalog / chat-evidence-analysis.
+    const lockKey = `governance-credits:${tenantId}:${voterId}`;
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${lockKey}))`;
+  }
+
   private async lockProposal(
     tx: Prisma.TransactionClient,
     proposalId: string,
@@ -344,19 +378,16 @@ export class GovernanceService {
       orderBy: { createdAt: "asc" },
     });
 
-    const now = new Date();
-    let totalCredits = 0;
-    for (const e of events) {
-      const raw = Number(e.credits);
-      const decay = computeDecayFactor(e.createdAt, now);
-      totalCredits += raw * decay;
-    }
-    totalCredits = Math.round(totalCredits * 100) / 100;
+    // totalCredits/tier measure what was EARNED (participation, with decay); spending on votes never lowers the
+    // tier. availableCredits is what can still be spent (spec api.governance-quadratic-credits).
+    const balance = computeCreditBalance(events, new Date());
 
     return {
-      totalCredits,
-      tier: creditTier(totalCredits),
+      totalCredits: balance.earned,
+      tier: creditTier(balance.earned),
       eventsCount: events.length,
+      spentCredits: balance.spent,
+      availableCredits: balance.available,
     };
   }
 }

@@ -65,6 +65,7 @@ retroactiva.
 | [api-dispute-lifecycle](specs/api/disputes.spec.md) | disputes | VERIFIED | legacy | legacy | legacy | legacy | legacy | critical | yes | 2026-07-23 |
 | [api-evidence-upload-review](specs/api/evidence.spec.md) | evidence | VERIFIED | legacy | legacy | legacy | legacy | legacy | critical | yes | 2026-07-25 |
 | [api-field-ops](specs/api/field-ops.spec.md) | field-ops | IMPLEMENTED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-25 |
+| [api.governance-quadratic-credits](specs/api/governance-quadratic-credits.spec.md) | governance | APPROVED | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-11-10 |
 | [api.governance-tenant-boundary](specs/api/governance-tenant-boundary.spec.md) | governance | VERIFIED | legacy | legacy | legacy | legacy | legacy | critical | yes | 2026-07-25 |
 | [api-smart-intake](specs/api/intake.spec.md) | smart-intake | VERIFIED | legacy | legacy | legacy | legacy | legacy | medium | yes | 2026-06-09 |
 | [api-job-lifecycle-bids](specs/api/jobs.spec.md) | jobs | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-23 |
