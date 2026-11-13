@@ -722,3 +722,31 @@ test("AC-09 crear o listar tareas respeta el alcance y el flag", async () => {
   process.env.SEMSE_TASK_ALLOCATION_ENABLED = "false";
   await assert.rejects(w.service.createCrewTask(sup, "c1", "r", { title: "Apagado" }), { status: 404 });
 });
+
+test("S0B-PERF-01: listMine comprueba elegibilidad una vez por crew activa y vuelve a validar en la siguiente petición", async () => {
+  const w = makeWorld();
+  await w.service.assign(sup, "c1", "task1", "r-perf", ["ana"]);
+  const allocation = { ...w.allocations[0] };
+  for (let index = 0; index < 50; index++) {
+    w.allocations.push({ ...allocation, id: `bulk-${index}`, taskId: `task-bulk-${index}` });
+  }
+  w.allocations.push({ ...allocation, id: "released-history", status: "RELEASED" });
+
+  const db = (w.service as any).prisma;
+  const calls = { crew: 0, crewMember: 0, membership: 0 };
+  const crewFindFirst = db.crew.findFirst.bind(db.crew);
+  const memberFindFirst = db.crewMember.findFirst.bind(db.crewMember);
+  const membershipFindMany = db.membership.findMany.bind(db.membership);
+  db.crew.findFirst = async (...args: any[]) => { calls.crew++; return crewFindFirst(...args); };
+  db.crewMember.findFirst = async (...args: any[]) => { calls.crewMember++; return memberFindFirst(...args); };
+  db.membership.findMany = async (...args: any[]) => { calls.membership++; return membershipFindMany(...args); };
+
+  const mine = await w.service.listMine(ana);
+  assert.equal(mine.length, 51);
+  assert.deepEqual(calls, { crew: 1, crewMember: 1, membership: 1 });
+
+  // Cache scoped to one request: membership revocation must take effect immediately.
+  w.memberships.find((m) => m.userId === "ana" && m.role.key === "WORKER")!.status = "REVOKED";
+  assert.deepEqual(await w.service.listMine(ana), []);
+  assert.deepEqual(calls, { crew: 2, crewMember: 2, membership: 2 });
+});

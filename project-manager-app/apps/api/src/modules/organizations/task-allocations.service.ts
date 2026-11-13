@@ -346,11 +346,21 @@ export class TaskAllocationsService {
   async listMine(user: { tenantId: string; userId: string }) {
     this.assertEnabled();
     const rows = await this.prisma.taskAllocation.findMany({ where: { tenantId: user.tenantId, userId: user.userId } });
-    const visible = await Promise.all(
-      rows.map(async (row) => row.status !== "RELEASED" &&
-        await this.isActiveWorkerInCrew(user.tenantId, row.orgId, row.crewId, user.userId))
-    );
-    const live = rows.filter((_row, index) => visible[index]);
+    const candidates = rows.filter((row) => row.status !== "RELEASED");
+    // Eligibility depends on the current crew/org, not on the individual task.
+    // Share the in-flight check per crew within this request only: no stale
+    // cache can survive revocation or a change of tenant/organization.
+    const eligibilityByCrew = new Map<string, Promise<boolean>>();
+    const visible = await Promise.all(candidates.map((row) => {
+      const key = JSON.stringify([row.orgId, row.crewId]);
+      let eligibility = eligibilityByCrew.get(key);
+      if (!eligibility) {
+        eligibility = this.isActiveWorkerInCrew(user.tenantId, row.orgId, row.crewId, user.userId);
+        eligibilityByCrew.set(key, eligibility);
+      }
+      return eligibility;
+    }));
+    const live = candidates.filter((_row, index) => visible[index]);
     const titles = await this.titles(user.tenantId, live.map((r) => r.taskId));
     return live.map((row) => this.view(row, titles.get(row.taskId)));
   }
