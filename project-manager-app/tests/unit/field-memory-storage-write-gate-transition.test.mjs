@@ -29,13 +29,17 @@ test("transition audit is atomic with phase update and migration is additive", (
   assert.match(schema, /audits\s+StorageWriteGateAudit\[\]/);
 });
 
-test("control plane is wired but remains staging-only and production-blocked", () => {
+test("control plane is wired with production OPEN-canary but production mutations blocked", () => {
   const module = read("../../apps/api/src/infrastructure/storage/storage.module.ts");
+  const mode = read("../../apps/api/src/infrastructure/storage/storage-write-gate-mode.ts");
   const control = read("../../apps/api/src/infrastructure/storage/storage-write-gate-control.service.ts");
   assert.match(module, /StorageWriteGateTransitionService/);
   assert.match(module, /StorageWriteGateControlService/);
-  assert.match(control, /SEMSE_STORAGE_WRITE_GATE_MODE !== "staging"/);
-  assert.match(control, /isProductionStorage\(process\.env\)/);
+  assert.match(mode, /SEMSE_STORAGE_WRITE_GATE_PRODUCTION_CONTROL_MODE/);
+  assert.match(mode, /level === "observe"/);
+  assert.match(mode, /level === "provision"/);
+  assert.match(mode, /Production storage write gate control is not armed/);
+  assert.match(control, /assertControlPlane\("mutate"\)/);
 });
 
 test("reopening fences stale tickets and invalidates writer coverage", () => {

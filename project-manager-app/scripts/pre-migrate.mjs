@@ -363,6 +363,15 @@ try {
   process.exit(1);
 }
 
+// Identidad de servicio del worker (runbook WORKER_SERVICE_IDENTITY_MEMBERSHIP): apagado salvo que
+// SEMSE_WORKER_SERVICE_MEMBERSHIP_MODE sea dry-run o apply. Nunca bloquea el arranque.
+try {
+  const { ensureWorkerServiceMembershipFromEnv } = await import("./ops/ensure-worker-service-membership.mjs");
+  await ensureWorkerServiceMembershipFromEnv(prisma);
+} catch (err) {
+  console.warn("[pre-migrate] warn: membresía de servicio del worker no evaluada:", err?.message ?? err);
+}
+
 // Force exit — prisma.$disconnect() can hang keeping the process alive,
 // which prevents the && chain from starting node apps/api/dist/main.js
 prisma.$disconnect().catch(() => {});

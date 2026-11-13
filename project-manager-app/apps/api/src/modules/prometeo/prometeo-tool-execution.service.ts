@@ -303,6 +303,19 @@ export class PrometeoToolExecutionService {
       });
     }
 
+    // 0.48: the proposer must be able to reach the resource BEFORE anything is
+    // queued or executed — an approved effect may run as someone else.
+    try {
+      await this.assertProposerScope(actor, invocation);
+    } catch (error) {
+      await this.auditor.finish(audit, false, {
+        status: "blocked",
+        blockedReason: error instanceof Error ? error.message : String(error),
+        errorCode: errorCodeOf(error),
+      });
+      throw error;
+    }
+
     const startedAt = nowIso();
 
     if (policy.decision === "allow") {
@@ -713,6 +726,30 @@ export class PrometeoToolExecutionService {
           __blockedReason: `${key} is registered but not wired for write execution in Prometeo P1.`,
         };
     }
+  }
+
+  /**
+   * 0.48 — resource scope of the PROPOSER. `payments.propose_release` is
+   * human_required: on approval it runs as the approving OPS_ADMIN, so the
+   * release's own participation checks never evaluate who proposed it.
+   * time_tracker.* needs nothing here: the tracker repository already scopes
+   * sessions by createdBy and jobs by assignment. Fails closed when the
+   * payments service is not wired.
+   */
+  private async assertProposerScope(actor: RequestContext, invocation: PrometeoToolInvokeInput): Promise<void> {
+    if (`${invocation.namespace}.${invocation.name}` !== "payments.propose_release") return;
+    const input = (invocation.input ?? {}) as Record<string, unknown>;
+    const milestoneId = requiredString(input, "milestoneId");
+    if (!this.payments) {
+      throw new ForbiddenException("Payment scope check is not available in this deployment");
+    }
+    await this.payments.assertCanProposeRelease({
+      tenantId: actor.tenantId,
+      orgId: actor.orgId,
+      userId: actor.userId,
+      roles: actor.roles ?? [],
+      milestoneId,
+    });
   }
 
   private requireVisionAccess(): VisionAccessPolicy {

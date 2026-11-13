@@ -1,0 +1,82 @@
+name: Production Unvalidated Deploy Alarm
+
+# Railway despliega cada push a main SIN esperar a CI (checkSuites:false en los
+# 4 servicios, verificado 2026-11-12) y semse-API ejecuta pre-migrate antes de
+# cada deploy. Si el CI de un commit de main FALLA, `Railway Deploy` no corre
+# (exige CI success) y nada avisaría de que producción sirve código no
+# validado. Esta alarma, de solo lectura y sin secretos, vigila esa ventana y
+# FALLA si API o Web llegan a servir el SHA con CI rojo. No despliega, no hace
+# rollback y no toca Railway: la remediación (revert en main) es humana.
+#
+# Va en un workflow aparte a propósito: si fuera un job de `Railway Deploy`,
+# una alarma verde dejaría ese workflow en success y dispararía
+# `Production Health Gate` (deploy.yml) como si hubiera un deploy validado.
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+permissions: {}
+
+jobs:
+  alarm:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    if: >-
+      github.event.workflow_run.conclusion != 'success' &&
+      github.event.workflow_run.conclusion != 'skipped' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    permissions:
+      contents: read
+    steps:
+      # Verificador desde la cabeza de main (no ejecuta código del SHA rojo).
+      - name: Checkout provenance verifier (sparse, read-only)
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          filter: blob:none
+          sparse-checkout: project-manager-app/scripts/verify-deploy-provenance.mjs
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
+      - name: Watch whether production serves the CI-failed SHA
+        env:
+          FAILED_SHA: ${{ github.event.workflow_run.head_sha }}
+          CI_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+        run: |
+          set -euo pipefail
+          [[ "$FAILED_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::SHA inválido"; exit 1; }
+          # watchPatterns ["project-manager-app/**"]: si el commit no toca esa
+          # ruta, Railway no lo reconstruye y no hay nada que vigilar.
+          if [ -z "$(git diff --name-only "${FAILED_SHA}^1" "$FAILED_SHA" -- project-manager-app/)" ]; then
+            echo "::notice title=Alarma::$FAILED_SHA no toca project-manager-app/**; Railway no lo despliega."
+            exit 0
+          fi
+          echo "CI de $FAILED_SHA terminó en '$CI_CONCLUSION'. Vigilando API y Web hasta 20 min."
+          for _ in $(seq 1 80); do
+            for target in \
+              "semse-API|https://project-manager-app-production-977f.up.railway.app|/v1/health" \
+              "semse-web|https://semse-web-production.up.railway.app|/api/semse/healthz"; do
+              IFS='|' read -r label base path <<< "$target"
+              # El verificador sale con 1 cuando el SHA NO coincide (caso normal):
+              # se captura su JSON y solo se lee el gitSha observado.
+              json=$(node project-manager-app/scripts/verify-deploy-provenance.mjs \
+                --url="$base" --path="$path" --expect-sha="$FAILED_SHA" --allow-unknown-digest \
+                --retries=1 --timeout=5 || true)
+              served=$(printf '%s' "$json" | jq -r '.observed.gitSha // "unknown"' 2>/dev/null || echo "unknown")
+              if [ "$served" = "$FAILED_SHA" ]; then
+                {
+                  echo "### ⛔ Producción sirve un SHA con CI rojo"
+                  echo "- Servicio: $label"
+                  echo "- SHA: \`$FAILED_SHA\` (CI: $CI_CONCLUSION)"
+                  echo "- Remediación humana: revertir en main; revisar migraciones aplicadas por pre-migrate."
+                } >> "$GITHUB_STEP_SUMMARY"
+                echo "::error title=Despliegue no validado::$label sirve $FAILED_SHA, cuyo CI terminó en '$CI_CONCLUSION'."
+                exit 1
+              fi
+            done
+            sleep 15
+          done
+          echo "Producción no llegó a servir $FAILED_SHA en 20 min (ventana vigilada; no prueba que no se sirva después)." | tee -a "$GITHUB_STEP_SUMMARY"

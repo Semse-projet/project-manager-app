@@ -94,6 +94,43 @@ export async function applyPlan(prisma, { userId, orgId }, plan) {
   });
 }
 
+/**
+ * Camino de despliegue (scripts/pre-migrate.mjs, tras `migrate deploy`): mismas reglas y límites que el modo
+ * manual, pero configurado con variables propias de la API para no depender de una terminal con acceso a la BD.
+ *
+ *   SEMSE_WORKER_SERVICE_MEMBERSHIP_MODE = dry-run | apply   (cualquier otro valor o sin definir: no hace nada)
+ *   SEMSE_WORKER_SERVICE_ROLES           = lista explícita, p. ej. OPS_ADMIN,WORKER,EVENT_CONSUMER,AGENT_RUNNER
+ *                                          (obligatoria: aquí no hay default, AGENT_RUNNER nunca es implícito)
+ *   SEMSE_WORKER_SERVICE_TENANT_ID / SEMSE_WORKER_SERVICE_ORG_ID  (default tenant_default / org_admin_001)
+ *
+ * Nunca lanza: un fallo aquí no debe impedir que la API arranque. Devuelve lo que hizo y lo registra en una
+ * línea JSON sin secretos.
+ */
+export async function ensureWorkerServiceMembershipFromEnv(prisma, env = process.env, log = console.log) {
+  const mode = (env.SEMSE_WORKER_SERVICE_MEMBERSHIP_MODE ?? "").trim().toLowerCase();
+  if (mode !== "dry-run" && mode !== "apply") return { outcome: "skipped", reason: "mode_off" };
+  const roles = (env.SEMSE_WORKER_SERVICE_ROLES ?? "").split(",").map((r) => r.trim()).filter(Boolean);
+  const tenantId = env.SEMSE_WORKER_SERVICE_TENANT_ID?.trim() || "tenant_default";
+  const orgId = env.SEMSE_WORKER_SERVICE_ORG_ID?.trim() || "org_admin_001";
+  const emit = (result) => {
+    log(JSON.stringify({ label: "worker-service-membership", mode, userId: SERVICE_USER_ID, tenantId, orgId, ...result }));
+    return result;
+  };
+  if (!roles.length) return emit({ outcome: "skipped", reason: "SEMSE_WORKER_SERVICE_ROLES vacío" });
+  try {
+    const state = await readState(prisma, { userId: SERVICE_USER_ID, orgId });
+    const plan = planServiceMembership({ userId: SERVICE_USER_ID, tenantId, orgId, roles, state });
+    if (!plan.ok) return emit({ outcome: "aborted", plan });
+    if (mode === "apply" && (plan.createRoles.length || plan.createMemberships.length)) {
+      await applyPlan(prisma, { userId: SERVICE_USER_ID, orgId }, plan);
+      return emit({ outcome: "applied", plan });
+    }
+    return emit({ outcome: mode === "apply" ? "nothing_to_do" : "dry-run", plan });
+  } catch (error) {
+    return emit({ outcome: "failed", error: String(error?.message ?? error).slice(0, 300) });
+  }
+}
+
 async function main() {
   const apply = process.argv.includes("--apply");
   const userId = process.env.SEMSE_USER_ID ?? SERVICE_USER_ID;

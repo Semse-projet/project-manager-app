@@ -52,21 +52,20 @@ function validateKind(kind: string): asserts kind is StorageWriteKind {
 }
 
 /**
- * T-008 / S1b: DURABLE ADMISSION LEDGER ONLY.
+ * T-008: durable writer admission ledger shared by the StorageService boundary
+ * and the audited control plane.
  *
- * No module provider, route, controller or production StorageService calls this
- * class in this slice. Do not interpret its presence as an operational freeze.
- *
- * Serialization invariant: every writer admission and EVERY future transition
- * to DRAINING must SELECT the identical gate row FOR UPDATE in the same DB
+ * Serialization invariant: every writer admission and every phase transition
+ * to DRAINING selects the identical gate row FOR UPDATE in the same DB
  * transaction before inserting a ticket or changing phase. A post-admission
  * ticket stays ACTIVE until publication/cleanup and reference registration are
  * complete, never just until the stream finishes.
  *
  * A killed process leaves an ACTIVE row which blocks later FROZEN; never use
- * lease timeouts as proof that the process cannot still publish. The next
- * slice must implement audited operator transition, fencing, and Evidence
- * reconciliation before this can be wired to production.
+ * lease timeouts as proof that the process cannot still publish. Production
+ * mutation remains prohibited in the OPEN-only canary slice: production may
+ * provision/observe an OPEN gate, while drain/freeze/thaw/recovery require a
+ * separately reviewed production-control slice and full Evidence reconciliation.
  */
 @Injectable()
 export class StorageWriteGateCoordinator {
