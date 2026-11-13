@@ -184,15 +184,31 @@ export class AgroInventoryService {
       });
     }
 
+    // PD-08 (0.49a): a movement is never rejected for insufficient stock — field consumption is real even when the
+    // recorded inventory is behind — but one that leaves the item below zero is marked as an overdraft (its own audit
+    // row, the response and an INVENTORY_OVERDRAFT dashboard alert) so a supervisor reconciles it.
+    const resultingStock = await this.repo.computeStock(input.itemId);
+    const overdraft = resultingStock < 0;
+
     await this.audit.record({
       farmId, actorId: ownerId,
       entityType: "AgroInventoryMovement", entityId: movement.id,
       action: "inventory.movement_recorded",
-      after: { itemId: input.itemId, movementType: input.movementType, quantity: qty },
+      after: { itemId: input.itemId, movementType: input.movementType, quantity: qty, resultingStock, overdraft },
       source: "WEB",
     });
 
-    return movement;
+    if (overdraft) {
+      await this.audit.record({
+        farmId, actorId: ownerId,
+        entityType: "AgroInventoryMovement", entityId: movement.id,
+        action: "inventory.overdraft_recorded",
+        after: { itemId: input.itemId, itemName: item.name, unit: item.unit, movementType: input.movementType, quantity: qty, resultingStock },
+        source: "WEB",
+      });
+    }
+
+    return { ...movement, resultingStock, overdraft };
   }
 
   async consumeInventory(farmId: string, ownerId: string, input: {
