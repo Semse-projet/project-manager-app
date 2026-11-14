@@ -41,7 +41,7 @@ async function fixture() {
     await tx.tenant.create({data:{id:tenantId,slug:tenantId,name:"Disposable Finalization Test"}});
     await tx.user.create({data:{id:userId,email:userId+"@example.invalid"}});
     return tx.agentRun.create({data:{
-      tenantId,agentType:"pricing",triggerType:"manual",inputJson:{},
+      tenantId,orgId:"org_test",agentType:"pricing",triggerType:"manual",inputJson:{},
       correlationId:uid("corr"),status:"QUEUED",maxAttempts:3,
     }});
   });
