@@ -57,6 +57,10 @@ function createController() {
       calls.push({ method: "detailRun", input });
       return { id: String(input.runId ?? "run_1"), tenantId: String(input.tenantId ?? "tenant_1") };
     },
+    workerDetail(input: Record<string, unknown>) {
+      calls.push({ method: "workerDetail", input });
+      return { id: String(input.runId ?? "run_1"), tenantId: String(input.tenantId ?? "tenant_1") };
+    },
     create(input: Record<string, unknown>) {
       calls.push({ method: "createRun", input });
       return { id: "run_2", tenantId: String(input.tenantId ?? "tenant_1"), agentType: String(input.agentType ?? "project-copilot") };
@@ -263,13 +267,15 @@ test("agents controller declares permissions and wraps representative payloads",
     triggerType: "manual",
     inputSummary: "summary",
   });
-  const worker = await controller.workerDetail(actor as never, "run_1");
+  await assert.rejects(() => controller.workerDetail(actor as never, "run_1"),
+    (error: any) => error?.getStatus?.() === 403);
   const runnerActor = {
     ...actor, authContext: {
       ...actor.authContext,
       roles: ["OPS_ADMIN", "AGENT_RUNNER"],
     },
   };
+  const worker = await controller.workerDetail(runnerActor as never, "run_1");
   const claimed = await controller.claim(runnerActor as never, { workerId: "worker_1" });
   const retried = await controller.retry(actor as never, "run_1");
   const planTemplates = await controller.listPlanTemplates(actor as never, "field");
