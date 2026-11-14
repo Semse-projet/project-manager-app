@@ -478,7 +478,7 @@ export class AgentsService {
     return { ...run, enqueued: enqueue.enqueued, ...(enqueue.reason ? { reason: enqueue.reason } : {}) };
   }
 
-  async start(input: { tenantId: string; orgId: string; userId: string; runId: string; requestId: string; workerId?: string; expectedAttempts?: number }) {
+  async start(input: { tenantId: string; orgId: string; userId: string; runId: string; requestId: string; workerId?: string; expectedAttempts?: number; verifiedWorkerClaim?: boolean }) {
     const run = await this.agentsRepository.start({ ...input, workerAccess: input.verifiedWorkerClaim === true });
     if (isAgentRunReplay(run)) return run;
 
@@ -504,7 +504,6 @@ export class AgentsService {
     workerId: string;
     expectedAttempts?: number;
     requestId: string;
-    verifiedWorkerClaim?: boolean;
     verifiedWorkerClaim?: boolean;
   }) {
     const run = await this.agentsRepository.heartbeat({ ...input, workerAccess: input.verifiedWorkerClaim === true });
