@@ -124,7 +124,7 @@ test("F4 controller declares read/write permissions on every new contract", () =
   }
 });
 
-test("F4 regression: AgentRun retry/requeue always filter id and tenantId", async () => {
+test("F4 and #1153 regression: AgentRun retry/requeue require id + tenantId + orgId", async () => {
   const updateCalls: Array<Record<string, unknown>> = [];
   const prisma = {
     agentRun: {
@@ -152,11 +152,11 @@ test("F4 regression: AgentRun retry/requeue always filter id and tenantId", asyn
   await assert.rejects(() => repository.requeueAgentRun(actor), NotFoundException);
   assert.deepEqual(
     (updateCalls[0]?.where as Record<string, unknown>),
-    { id: actor.runId, tenantId: actor.tenantId },
+    { id: actor.runId, tenantId: actor.tenantId, orgId: actor.orgId },
   );
   assert.deepEqual(
     (updateCalls[1]?.where as Record<string, unknown>),
-    { id: actor.runId, tenantId: actor.tenantId },
+    { id: actor.runId, tenantId: actor.tenantId, orgId: actor.orgId },
   );
 });
 
