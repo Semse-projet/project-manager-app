@@ -352,7 +352,8 @@ export class AgentsController {
 
   @Get("runs/:runId/worker")
   @SkipThrottle()
-  @RequirePermissions("agents:run:worker")
+  // AGENT_RUNNER has only claim/execute; do not grant broad WORKER management.
+  @RequirePermissions("agents:run:claim")
   async workerDetail(@Req() req: { headers?: Record<string, unknown> }, @Param("runId") runId: string) {
     const actor = resolveRequestContext(req);
     assertAgentRunClaimAuthority(actor.roles);
