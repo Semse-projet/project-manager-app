@@ -78,6 +78,7 @@ export class DomainEventsRepository {
     return this.prisma.agentRun.findMany({
       where: {
         tenantId: input.tenantId,
+        orgId: input.orgId,
         correlationId: input.correlationId
       },
       orderBy: { createdAt: "asc" }
@@ -133,15 +134,17 @@ export class DomainEventsRepository {
   }
 
   async listTimelineRows(input: ActorInput & { correlationId: string; runIds: string[] }) {
+    // AuditLog has no orgId field. Only IDs already authorized by the
+    // org-scoped AgentRun projection may be used for audit lookup.
+    // A correlationId alone is NOT an authorization capability.
+    if (input.runIds.length === 0) return [];
     await this.actorContextService.ensureActorContext(input);
 
     return this.prisma.auditLog.findMany({
       where: {
         tenantId: input.tenantId,
-        OR: [
-          { entityId: { contains: input.correlationId } },
-          ...(input.runIds.length > 0 ? [{ entityId: { in: input.runIds } }] : [])
-        ]
+        entityType: "AgentRun",
+        entityId: { in: input.runIds }
       },
       orderBy: { occurredAt: "asc" },
       take: 200
