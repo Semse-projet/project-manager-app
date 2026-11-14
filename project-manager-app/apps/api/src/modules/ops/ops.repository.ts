@@ -92,6 +92,7 @@ export class OpsRepository {
     return this.prisma.agentRun.findMany({
       where: {
         tenantId: input.tenantId,
+        orgId: input.orgId,
         ...(input.correlationId ? { correlationId: input.correlationId } : {}),
         ...(input.agentType ? { agentType: input.agentType } : {}),
         ...(input.triggerType ? { triggerType: input.triggerType } : {})
@@ -107,6 +108,7 @@ export class OpsRepository {
     return this.prisma.agentRun.findMany({
       where: {
         tenantId: input.tenantId,
+        orgId: input.orgId,
         correlationId: input.correlationId
       },
       orderBy: { createdAt: "asc" }
@@ -119,6 +121,7 @@ export class OpsRepository {
     return this.prisma.auditLog.findMany({
       where: {
         tenantId: input.tenantId,
+        orgId: input.orgId,
         OR: [
           { entityId: { contains: input.correlationId } },
           ...(input.runIds.length > 0 ? [{ entityId: { in: input.runIds } }] : [])
@@ -160,12 +163,13 @@ export class OpsRepository {
       }),
       this.prisma.agentRun.groupBy({
         by: ["status"],
-        where: { tenantId: input.tenantId },
+        where: { tenantId: input.tenantId, orgId: input.orgId },
         _count: { _all: true }
       }),
       this.prisma.agentRun.count({
         where: {
           tenantId: input.tenantId,
+          orgId: input.orgId,
           deadLettered: true
         }
       }),
@@ -173,6 +177,7 @@ export class OpsRepository {
         SELECT COUNT(*)::bigint AS count
         FROM "AgentRun"
         WHERE "tenantId" = ${input.tenantId}
+          AND "orgId" = ${input.orgId}
           AND "attempts" >= "maxAttempts"
       `
     ]);
@@ -231,7 +236,7 @@ export class OpsRepository {
     await this.actorContextService.ensureActorContext(input);
 
     const updated = await this.prisma.agentRun.updateMany({
-      where: { id: input.runId, tenantId: input.tenantId },
+      where: { id: input.runId, tenantId: input.tenantId, orgId: input.orgId },
       data: {
         status: "QUEUED",
         error: null,
@@ -248,7 +253,7 @@ export class OpsRepository {
       });
     }
     return this.prisma.agentRun.findFirstOrThrow({
-      where: { id: input.runId, tenantId: input.tenantId },
+      where: { id: input.runId, tenantId: input.tenantId, orgId: input.orgId },
     }) as Promise<OpsAgentRunRow>;
   }
 
@@ -256,7 +261,7 @@ export class OpsRepository {
     await this.actorContextService.ensureActorContext(input);
 
     const updated = await this.prisma.agentRun.updateMany({
-      where: { id: input.runId, tenantId: input.tenantId },
+      where: { id: input.runId, tenantId: input.tenantId, orgId: input.orgId },
       data: {
         status: "QUEUED",
         error: null,
@@ -274,7 +279,7 @@ export class OpsRepository {
       });
     }
     return this.prisma.agentRun.findFirstOrThrow({
-      where: { id: input.runId, tenantId: input.tenantId },
+      where: { id: input.runId, tenantId: input.tenantId, orgId: input.orgId },
     }) as Promise<OpsAgentRunRow>;
   }
 }
