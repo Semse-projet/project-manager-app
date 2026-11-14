@@ -255,6 +255,7 @@ retroactiva.
 | [ui-public-landing-operational-entry](specs/ui/public-landing-operational-entry.spec.md) | ui | VERIFIED | legacy | legacy | legacy | legacy | legacy | low | yes | 2026-06-10 |
 | [ui.semse-hub](specs/ui/semse-hub.spec.md) | ui | IMPLEMENTED | legacy | legacy | legacy | legacy | legacy | low | yes | 2026-07-12 |
 | [ui-work-os-navigation-decision-intelligence](specs/ui/work-os-navigation-decision-intelligence.spec.md) | ui | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-06-09 |
+| [ui.workspace-functional-hub](specs/ui/workspace-functional-hub.spec.md) | ui | IMPLEMENTED | COMPLETE | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | yes | NOT_VERIFIED |
 | [vision.sense-vision-field-library](specs/vision/sense-vision-field-library.spec.md) | vision | APPROVED | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | yes | 2026-09-24 |
 
 <!-- SPEC_INDEX:END -->
