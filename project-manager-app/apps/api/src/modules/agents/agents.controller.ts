@@ -355,7 +355,8 @@ export class AgentsController {
   @RequirePermissions("agents:run:worker")
   async workerDetail(@Req() req: { headers?: Record<string, unknown> }, @Param("runId") runId: string) {
     const actor = resolveRequestContext(req);
-    const run = await this.agentsService.detail({
+    assertAgentRunClaimAuthority(actor.roles);
+    const run = await this.agentsService.workerDetail({
       tenantId: actor.tenantId,
       orgId: actor.orgId,
       userId: actor.userId,
@@ -456,7 +457,7 @@ export class AgentsController {
   @RequirePermissions("agents:run:create")
   async runEvents(@Req() req: { headers?: Record<string, unknown> }, @Param("runId") runId: string) {
     const actor = resolveRequestContext(req);
-    const data = await this.agentsService.runEvents({ tenantId: actor.tenantId, runId });
+    const data = await this.agentsService.runEvents({ tenantId: actor.tenantId, orgId: actor.orgId, userId: actor.userId, runId });
     return ok(resolveRequestId(req.headers ?? {}), data);
   }
 
@@ -519,6 +520,7 @@ export class AgentsController {
       runId,
       workerId: parsed.workerId,
       expectedAttempts: parsed.expectedAttempts,
+      verifiedWorkerClaim: Boolean(parsed.workerId),
       requestId
     });
     return ok(requestId, run);
@@ -546,6 +548,7 @@ export class AgentsController {
       runId,
       workerId: parsed.data.workerId,
       expectedAttempts: parsed.data.expectedAttempts,
+      verifiedWorkerClaim: true,
       requestId
     });
     return ok(requestId, run);
@@ -571,6 +574,7 @@ export class AgentsController {
       output: parsed.output,
       workerId: parsed.workerId,
       expectedAttempts: parsed.expectedAttempts,
+      verifiedWorkerClaim: Boolean(parsed.workerId),
       requestId
     });
     return ok(requestId, run);
@@ -596,6 +600,7 @@ export class AgentsController {
       error: parsed.error,
       workerId: parsed.workerId,
       expectedAttempts: parsed.expectedAttempts,
+      verifiedWorkerClaim: Boolean(parsed.workerId),
       requestId
     });
     return ok(requestId, run);
