@@ -38,8 +38,8 @@ const id = (kind: string) => kind + "_" + randomUUID().replaceAll("-", "");
 
 async function fixture() {
   const tenantId = id("tenant"), otherTenantId = id("tenant");
-  const orgId = id("org"), foreignOrgId = id("org"), workerOrgId = id("org");
-  const userId = id("user"), foreignUserId = id("user"), workerUserId = id("user");
+  const orgId = id("org"), foreignOrgId = id("org"), workerOrgId = id("org"), otherTenantOrgId = id("org");
+  const userId = id("user"), foreignUserId = id("user"), workerUserId = id("user"), otherTenantUserId = id("user");
   await prisma.tenant.createMany({ data: [
     { id: tenantId, slug: tenantId, name: "Disposable owner QA" },
     { id: otherTenantId, slug: otherTenantId, name: "Disposable other tenant" },
@@ -48,22 +48,24 @@ async function fixture() {
     { id: orgId, tenantId, name: "Owner", type: "CLIENT" },
     { id: foreignOrgId, tenantId, name: "Foreign", type: "CLIENT" },
     { id: workerOrgId, tenantId, name: "Worker", type: "OPS" },
+    { id: otherTenantOrgId, tenantId: otherTenantId, name: "Foreign tenant", type: "CLIENT" },
   ] });
-  await prisma.user.createMany({ data: [userId, foreignUserId, workerUserId]
+  await prisma.user.createMany({ data: [userId, foreignUserId, workerUserId, otherTenantUserId]
     .map(v => ({ id: v, email: v + "@example.invalid", status: "active" })) });
   const owner = { tenantId, orgId, userId };
   const foreign = { tenantId, orgId: foreignOrgId, userId: foreignUserId };
   const worker = { tenantId, orgId: workerOrgId, userId: workerUserId };
+  const otherTenant = { tenantId: otherTenantId, orgId: otherTenantOrgId, userId: otherTenantUserId };
   return {
-    owner, foreign, worker, otherTenantId,
+    owner, foreign, worker, otherTenant, otherTenantId,
     async create(agentType: "risk" | "pricing" = "risk") {
       return runs.create({ ...owner, agentType, triggerType: "manual",
         correlationId: id("corr"), input: { testOnly: true } });
     },
     async cleanup() {
       await prisma.agentRun.deleteMany({ where: { tenantId } });
-      await prisma.user.deleteMany({ where: { id: { in: [userId, foreignUserId, workerUserId] } } });
-      await prisma.org.deleteMany({ where: { id: { in: [orgId, foreignOrgId, workerOrgId] } } });
+      await prisma.user.deleteMany({ where: { id: { in: [userId, foreignUserId, workerUserId, otherTenantUserId] } } });
+      await prisma.org.deleteMany({ where: { id: { in: [orgId, foreignOrgId, workerOrgId, otherTenantOrgId] } } });
       await prisma.tenant.deleteMany({ where: { id: { in: [tenantId, otherTenantId] } } });
     },
   };
@@ -82,6 +84,10 @@ dbTest("org A sees its run, org B is excluded from list/detail/events/cancel/ret
       () => runs.getEvents({ ...f.foreign, runId: run.id }),
       () => runs.cancel({ ...f.foreign, runId: run.id }),
       () => runs.retry({ ...f.foreign, runId: run.id }),
+      () => runs.start({ ...f.foreign, runId: run.id }),
+      () => runs.complete({ ...f.foreign, runId: run.id, output: { summary: "foreign" } }),
+      () => runs.fail({ ...f.foreign, runId: run.id, error: "foreign" }),
+      () => runs.findById({ ...f.otherTenant, runId: run.id }),
       () => ops.retryAgentRun({ ...f.foreign, runId: run.id }),
       () => ops.requeueAgentRun({ ...f.foreign, runId: run.id }),
     ]) await assert.rejects(action, (error: any) => error?.getStatus?.() === 404);
