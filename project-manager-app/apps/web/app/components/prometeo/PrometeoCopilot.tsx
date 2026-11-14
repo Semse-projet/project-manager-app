@@ -31,7 +31,14 @@ function newId(): string {
     : `msg-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
-export function PrometeoCopilot() {
+export type PrometeoCopilotProps = {
+  /** Una señal positiva abre el widget; incrementar para volver a abrirlo tras cerrarlo. */
+  openSignal?: number;
+  /** La referencia del shell se aceptó. No indica ejecución de negocio ni proyecto creado. */
+  onWorkspaceMissionLoaded?: () => void;
+};
+
+export function PrometeoCopilot({ openSignal, onWorkspaceMissionLoaded }: PrometeoCopilotProps = {}) {
   const router = useRouter();
   const pathname = usePathname();
   // Consulta en vuelo: se cancela al cambiar de página y al desmontar, y su respuesta nunca se asocia a otro contexto.
@@ -43,8 +50,11 @@ export function PrometeoCopilot() {
     inflight.current?.abort();
     return () => inflight.current?.abort();
   }, [pathname]);
-  const { context, loading } = useCopilotContext();
-  const [open, setOpen] = useState(false);
+  const { context, loading, error, refresh } = useCopilotContext();
+  const [open, setOpen] = useState(() => typeof openSignal === "number" && Number.isFinite(openSignal) && openSignal > 0);
+  useEffect(() => {
+    if (typeof openSignal === "number" && Number.isFinite(openSignal) && openSignal > 0) setOpen(true);
+  }, [openSignal]);
   const modalOpen = useModalOpen();
   const [messages, setMessages] = useState<CopilotMessage[]>([]);
   const [pending, setPending] = useState(false);
@@ -167,7 +177,7 @@ export function PrometeoCopilot() {
   }
 
   async function handleAcceptMission(s: CopilotMissionSuggestion) {
-    if (!sessionId) return;
+    if (!sessionId || pending) return;
     setPending(true);
     try {
       const mission = await createMissionFromCopilot({
@@ -177,13 +187,16 @@ export function PrometeoCopilot() {
       });
       setSuggestion(null);
       flashMood("success", 2500);
+      // El push puede apuntar a la ruta actual: notificar al shell explícitamente
+      // para que refresque su store, sin agregar aquí otra fuente de contexto.
+      onWorkspaceMissionLoaded?.();
       router.push(mission.workspaceUrl);
     } catch {
       flashMood("error");
       // surface as a chat message so the user isn't left guessing
       setMessages((prev) => [
         ...prev,
-        { id: newId(), role: "assistant", content: "No se pudo crear la misión." },
+        { id: newId(), role: "assistant", content: "No se pudo abrir la referencia de trabajo. Puedes volver a intentar aceptar la sugerencia." },
       ]);
     } finally {
       setPending(false);
@@ -245,28 +258,39 @@ export function PrometeoCopilot() {
   }
 
   return (
-    <div className="fixed bottom-24 right-6 z-50 flex h-[32rem] max-h-[calc(100vh-8rem)] w-96 max-w-[calc(100vw-3rem)] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
-      <header className="flex items-center justify-between border-b border-slate-100 px-3 py-2">
+    <div role="region" aria-label="Prometeo Copilot" className="fixed bottom-3 right-3 z-50 flex h-[32rem] max-h-[calc(100dvh-1.5rem)] w-[calc(100vw-1.5rem)] max-w-sm flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-2xl sm:bottom-24 sm:right-6 sm:max-h-[calc(100dvh-8rem)] [&_button]:min-h-11 [&_button]:min-w-11 [&_input]:min-h-11 [&_input]:min-w-0">
+      <header className="flex shrink-0 items-center justify-between border-b border-[var(--border)] px-3 py-2">
         <div className="flex items-center gap-2">
           <span className="flex items-center justify-center overflow-hidden rounded-xl bg-slate-900"><PrometeoMascot size={48} mood={shownMood} label="Prometeo" /></span>
-          <span className="text-sm font-semibold text-slate-800">Prometeo Copilot</span>
+          <span className="text-sm font-semibold text-[var(--ink)]">Prometeo Copilot</span>
         </div>
         <button
           type="button"
           onClick={() => setOpen(false)}
-          className="rounded-lg p-1 text-slate-400 hover:bg-slate-100"
+          className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-[var(--muted)] hover:bg-[var(--brand-dim)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--brand)]"
           aria-label="Cerrar Copilot"
         >
           <X className="h-4 w-4" />
         </button>
       </header>
 
+      {openSignal !== undefined && (
+        <p className="shrink-0 border-b border-[var(--border)] px-3 py-2 text-xs text-[var(--muted)]">Referencia de trabajo · sin ejecución vinculada. Aceptar una sugerencia solo abre contexto.</p>
+      )}
+      {error && (
+        <div role="alert" className="shrink-0 border-b border-[var(--border)] px-3 py-2 text-xs text-[var(--error)]">
+          <p>No se pudo cargar el contexto de Prometeo.</p>
+          <p className="mt-1 break-words">{error}</p>
+          <button type="button" onClick={refresh} disabled={loading} className="mt-2 min-h-11 rounded-lg border border-[var(--border)] px-3 text-[var(--brand)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--brand)] disabled:opacity-50">Reintentar contexto</button>
+        </div>
+      )}
+      {loading && context && <p role="status" className="shrink-0 px-3 py-2 text-xs text-[var(--muted)]">Actualizando contexto de Prometeo…</p>}
       <ContextDetector context={context} loading={loading} />
       {context && (
         <QuickActions
           actions={context.suggestedActions}
           onExecute={handleQuickAction}
-          disabled={pending}
+          disabled={pending || loading || Boolean(error)}
         />
       )}
       {suggestion && (

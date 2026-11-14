@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
 import { usePathname } from "next/navigation";
 import type { CopilotContextResponse } from "@semse/schemas";
 import { detectCopilotContext } from "../bff/prometeo";
+import { useWorkspaceQuery } from "../../app/workspace/lib/use-workspace-query";
 
 export type UseCopilotContext = {
   context: CopilotContextResponse | null;
@@ -12,33 +13,12 @@ export type UseCopilotContext = {
   refresh: () => void;
 };
 
-/**
- * Detects the Prometeo Copilot's context from the current route. Re-runs
- * whenever the pathname changes so the floating Copilot always reflects the
- * module the user is looking at.
- */
+/** The existing context endpoint stays authoritative; a 401 retires its scope. */
 export function useCopilotContext(): UseCopilotContext {
   const pathname = usePathname();
-  const [context, setContext] = useState<CopilotContextResponse | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const refresh = useCallback(() => {
-    if (typeof window === "undefined") return;
-    const currentUrl = window.location.href;
-    setLoading(true);
-    setError(null);
-    detectCopilotContext({ currentUrl })
-      .then(setContext)
-      .catch((e: unknown) =>
-        setError(e instanceof Error ? e.message : "No se pudo detectar el contexto"),
-      )
-      .finally(() => setLoading(false));
-  }, []);
-
-  useEffect(() => {
-    refresh();
-  }, [pathname, refresh]);
-
-  return { context, loading, error, refresh };
+  const load = useCallback(() => detectCopilotContext({
+    currentUrl: typeof window !== "undefined" ? window.location.href : pathname,
+  }), [pathname]);
+  const query = useWorkspaceQuery<CopilotContextResponse>(`copilot-context:${pathname}`, load);
+  return { context: query.data, loading: query.loading, error: query.error, refresh: query.retry };
 }

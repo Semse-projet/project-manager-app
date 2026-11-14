@@ -1,482 +1,141 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { FileText, Upload } from "lucide-react";
+import { fetchJobEvidence, fetchJobMilestones, planUpload, registerJobEvidence, semseRuntimeEnabled } from "../../../semse-api";
+import { PanelState } from "../../../workspace/components/PanelState";
+import { useWorkspaceQuery, isWorkspaceAccessError } from "../../../workspace/lib/use-workspace-query";
 import {
-  completeMultipartUploadSession,
-  createMultipartUploadSession,
-  fetchJobEvidence,
-  presignEvidence,
-  registerJobEvidence,
-  uploadMultipartPart,
-  semseRuntimeEnabled
-} from "../../../semse-api";
-import { Button } from "../../../../components/ui/button";
-import { Input, Select } from "../../../../components/ui/input";
-import { MetricCard } from "../../../../components/ui/card";
-import { FeedbackBanner } from "../../../../components/ui/error-state";
-import { EmptyState } from "../../../../components/ui/empty-state";
-import { PageSpinner } from "../../../../components/ui/spinner";
+  EVIDENCE_KIND_LABELS, evidenceKindForFile, evidenceStatus, evidenceStatusLabel, evidenceText,
+  evidenceUploadProxyUrl, uploadRealEvidenceFile, type EvidenceKind,
+} from "../../../workspace/lib/evidence-model";
 
 type EvidencePageProps = { params: Promise<{ jobId: string }> };
-type EvidenceKind = "PHOTO" | "VIDEO" | "DOCUMENT";
-type EvidenceSource =
-  | "local_device"
-  | "camera_capture"
-  | "field_ops"
-  | "project_copilot"
-  | "external_transfer";
-
-type PresignResponse = {
-  key?: string;
-  recommendedStrategy?: string;
-  maxSingleUploadBytes?: number;
-  acceptedChannels?: string[];
-  uploadGuidance?: string;
-  multipart?: {
-    recommendedChunkSizeBytes?: number;
-    recommendedPartCount?: number;
-    requiresOutOfBandTransfer?: boolean;
-  } | null;
-};
-
-type MultipartSessionResponse = PresignResponse & {
-  sessionId?: string;
-  provider?: string;
-  expiresAt?: string;
-  parts?: Array<{
-    partNumber?: number;
-    startByte?: number;
-    endByte?: number;
-    uploadUrl?: string;
-  }>;
-};
-
-const kindMeta: Record<EvidenceKind, { label: string; emoji: string; mime: string }> = {
-  PHOTO:    { label: "Foto",      emoji: "📷", mime: "image/jpeg" },
-  VIDEO:    { label: "Video",     emoji: "🎬", mime: "video/mp4" },
-  DOCUMENT: { label: "Documento", emoji: "📄", mime: "application/pdf" }
-};
-
-const sourceOptions: Array<{ value: EvidenceSource; label: string; hint: string }> = [
-  { value: "local_device", label: "Equipo local", hint: "Arrastre directo o selección manual." },
-  { value: "camera_capture", label: "Captura móvil/cámara", hint: "Fotos rápidas en campo." },
-  { value: "field_ops", label: "Field Ops", hint: "Material generado durante operación." },
-  { value: "project_copilot", label: "Copiloto del proyecto", hint: "Archivos referenciados desde el copiloto." },
-  { value: "external_transfer", label: "Transferencia externa", hint: "Lotes grandes, video largo o ZIP pesado." }
-];
+const control = "min-h-11 w-full min-w-0 rounded-lg border border-[var(--border)] bg-[var(--bg)] px-3 text-sm text-[var(--ink)]";
+const action = "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-[var(--border)] px-3 text-sm text-[var(--brand)] disabled:opacity-50";
 
 export default function JobEvidencePage({ params }: EvidencePageProps) {
   const runtimeEnabled = semseRuntimeEnabled();
-  const [jobId, setJobId]         = useState("");
-  const [items, setItems]         = useState<Record<string, unknown>[]>([]);
-  const [loading, setLoading]     = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError]         = useState<string | null>(null);
-  const [feedback, setFeedback]   = useState<string | null>(null);
-  const [kind, setKind]           = useState<EvidenceKind>("PHOTO");
-  const [filename, setFilename]   = useState("evidence-photo.jpg");
+  const [jobId, setJobId] = useState("");
+  const [routeError, setRouteError] = useState<string | null>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [kind, setKind] = useState<EvidenceKind>("PHOTO");
   const [milestoneId, setMilestoneId] = useState("");
-  const [source, setSource]       = useState<EvidenceSource>("local_device");
-  const [fileSizeMb, setFileSizeMb] = useState("8");
-  const [uploadAdvice, setUploadAdvice] = useState<PresignResponse | null>(null);
-  const [multipartSession, setMultipartSession] = useState<MultipartSessionResponse | null>(null);
-  const [multipartProgress, setMultipartProgress] = useState<Record<number, "pending" | "uploading" | "uploaded">>({});
-  const [completingMultipart, setCompletingMultipart] = useState(false);
-
+  const [submitting, setSubmitting] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<string | null>(null);
+  const uploadLock = useRef(false);
+  const mounted = useRef(true);
+  const routeVersion = useRef(0);
+  const fileInput = useRef<HTMLInputElement>(null);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   useEffect(() => {
-    let cancelled = false;
-
-    async function boot() {
-      const resolved = await params;
-      if (cancelled) return;
-      setJobId(resolved.jobId);
-      try {
-        const data = await fetchJobEvidence(resolved.jobId);
-        if (!cancelled) { setItems(data); setError(null); }
-      } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : "No se pudo leer la evidencia.");
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
-
-    void boot();
-    return () => { cancelled = true; };
+    let current = true;
+    routeVersion.current += 1;
+    setJobId(""); setRouteError(null); setFile(null); setMilestoneId(""); setFeedback(null); setUploadError(null);
+    Promise.resolve(params).then((resolved) => {
+      if (current) setJobId(resolved.jobId);
+    }, (error: unknown) => {
+      if (current) setRouteError(error instanceof Error ? error.message : "No se pudo resolver el trabajo.");
+    });
+    return () => { current = false; };
   }, [params]);
-
-  const stats = useMemo(() => ({
-    photos:    items.filter((i) => String(i.kind).toUpperCase() === "PHOTO").length,
-    videos:    items.filter((i) => String(i.kind).toUpperCase() === "VIDEO").length,
-    documents: items.filter((i) => String(i.kind).toUpperCase() === "DOCUMENT").length
-  }), [items]);
+  const evidenceLoader = useCallback(() => fetchJobEvidence(encodeURIComponent(jobId)), [jobId]);
+  const milestonesLoader = useCallback(() => fetchJobMilestones(encodeURIComponent(jobId)), [jobId]);
+  const itemsQuery = useWorkspaceQuery(jobId ? `job-evidence:${jobId}` : null, evidenceLoader);
+  const milestonesQuery = useWorkspaceQuery(jobId ? `job-evidence-milestones:${jobId}` : null, milestonesLoader);
+  const items = itemsQuery.data ?? [];
+  const milestones = milestonesQuery.data ?? [];
+  const validMilestoneId = milestones.some((row) => evidenceText(row.id) === milestoneId) ? milestoneId : "";
 
   async function handleRegister() {
-    if (!jobId || submitting) return;
-    setSubmitting(true);
-    setError(null);
-    setFeedback(null);
+    if (uploadLock.current || !runtimeEnabled || !jobId || !file) return;
+    const selectedFile = file;
+    const uploadVersion = routeVersion.current;
+    uploadLock.current = true; setSubmitting(true); setUploadError(null); setFeedback(null);
     try {
-      const presigned = (await presignEvidence({
-        filename: filename.trim() || "evidence-file",
-        contentType: kindMeta[kind].mime,
-        fileSizeBytes: Math.max(1, Number(fileSizeMb || "0")) * 1024 * 1024,
-        source
-      })) as PresignResponse;
-      const key = typeof presigned.key === "string" ? presigned.key : null;
-      if (!key) throw new Error("No se pudo obtener la key de evidencia.");
-      setUploadAdvice(presigned);
-      if (presigned.recommendedStrategy === "external_transfer") {
-        const session = (await createMultipartUploadSession({
-          domain: "evidence",
-          filename: filename.trim() || "evidence-file",
-          contentType: kindMeta[kind].mime,
-          fileSizeBytes: Math.max(1, Number(fileSizeMb || "0")) * 1024 * 1024,
-          source
-        })) as MultipartSessionResponse;
-        setMultipartSession(session);
-        setMultipartProgress(
-          Object.fromEntries((session.parts ?? []).map((part, index) => [part.partNumber ?? index + 1, "pending"]))
-        );
-      } else {
-        setMultipartSession(null);
-        setMultipartProgress({});
-      }
-      await registerJobEvidence(jobId, { key, kind, milestoneId: milestoneId.trim() || undefined });
-      const refreshed = await fetchJobEvidence(jobId);
-      setItems(refreshed);
-      setFeedback(`Evidencia registrada: ${filename.trim() || "archivo"}.`);
-      setFilename("evidence-photo.jpg");
-      setMilestoneId("");
-      setSource("local_device");
-      setFileSizeMb("8");
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "No se pudo registrar la evidencia.");
-      setMultipartSession(null);
-      setMultipartProgress({});
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  async function handleCompleteMultipart() {
-    if (!multipartSession?.sessionId || !multipartSession.parts?.length || completingMultipart) return;
-    setCompletingMultipart(true);
-    setError(null);
-    setFeedback(null);
-    try {
-      const etagsByPart = new Map<number, string>();
-      for (const [index, part] of multipartSession.parts.entries()) {
-        const partNumber = part.partNumber ?? index + 1;
-        // This page has no real file input (it's a manual API-exercise tool,
-        // not the end-user evidence upload flow) — synthesize a chunk of the
-        // declared size so the part upload has real bytes to hash, instead
-        // of only sending a Content-Length header the server used to trust
-        // blindly and never actually store.
-        const bytes = typeof part.endByte === "number" && typeof part.startByte === "number"
-          ? Math.max(1, part.endByte - part.startByte + 1)
-          : 1024 * 1024;
-        setMultipartProgress((current) => ({ ...current, [partNumber]: "uploading" }));
-        const { etag } = await uploadMultipartPart({
-          sessionId: multipartSession.sessionId,
-          partNumber,
-          chunk: new Blob([new Uint8Array(bytes)])
-        });
-        etagsByPart.set(partNumber, etag);
-        setMultipartProgress((current) => ({ ...current, [partNumber]: "uploaded" }));
-      }
-      const completion = await completeMultipartUploadSession({
-        sessionId: multipartSession.sessionId,
-        parts: multipartSession.parts.map((part, index) => {
-          const partNumber = part.partNumber ?? index + 1;
-          const etag = etagsByPart.get(partNumber);
-          if (!etag) throw new Error(`Missing etag for part ${partNumber}`);
-          return { partNumber, etag };
-        })
+      await uploadRealEvidenceFile(selectedFile, { jobId, kind, ...(validMilestoneId ? { milestoneId: validMilestoneId } : {}) }, {
+        plan: planUpload,
+        put: async (key, realFile, contentType) => {
+          const response = await fetch(evidenceUploadProxyUrl(key), {
+            method: "PUT", headers: { "content-type": contentType }, body: realFile,
+          });
+          if (!response.ok) {
+            const message = await response.text().catch(() => "");
+            throw new Error(`No se pudo subir el archivo (${response.status}).${message ? ` ${message}` : ""}`);
+          }
+        },
+        register: registerJobEvidence,
       });
-      setFeedback(
-        `Sesión multipart completada: ${completion.status} · ${completion.partsReceived} partes confirmadas.`
-      );
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "No se pudo completar la sesión multipart.");
+      if (!mounted.current || uploadVersion !== routeVersion.current) return;
+      setFeedback(`Bytes subidos y evidencia registrada: ${selectedFile.name}. La carga no implica validación ni aprobación del hito.`);
+      setFile(null); setMilestoneId("");
+      if (fileInput.current) fileInput.current.value = "";
+      itemsQuery.retry();
+    } catch (error) {
+      if (mounted.current && uploadVersion === routeVersion.current) setUploadError(error instanceof Error ? error.message : "No se pudo subir y registrar la evidencia. Se conserva el archivo seleccionado.");
     } finally {
-      setCompletingMultipart(false);
+      uploadLock.current = false;
+      if (mounted.current) setSubmitting(false);
     }
   }
 
-  return (
-    <div className="mx-auto w-full max-w-5xl px-4 sm:px-6 py-8">
-      {/* Breadcrumb */}
-      <nav aria-label="Breadcrumb" className="mb-6 flex items-center gap-2 text-xs text-muted">
-        <Link href="/" className="hover:text-brand transition-colors">Jobs</Link>
-        <span aria-hidden className="text-white/20">/</span>
-        <Link href={`/jobs/${jobId}`} className="hover:text-brand transition-colors">Detalle</Link>
-        <span aria-hidden className="text-white/20">/</span>
-        <span className="text-ink font-medium">Evidencia</span>
-      </nav>
-
-      {/* Header */}
-      <div className="mb-6">
-        <p className="text-[0.68rem] font-semibold tracking-widest uppercase text-brand mb-1">
-          Trazabilidad
-        </p>
-        <h1 className="text-2xl font-bold tracking-tight text-ink">Evidencia</h1>
-        <p className="mt-1 text-sm text-muted">
-          Registra prueba documental del avance del trabajo.
-        </p>
+  return <div className="mx-auto grid w-full min-w-0 max-w-5xl gap-6 px-4 py-8 text-[var(--ink)] sm:px-6">
+    <nav aria-label="Ruta de navegación" className="flex min-w-0 flex-wrap items-center gap-2 text-sm text-[var(--muted)]">
+      <Link href="/" className={action}>Trabajos</Link><span aria-hidden>/</span>
+      {jobId && <Link href={`/jobs/${encodeURIComponent(jobId)}`} className={action}>Detalle</Link>}<span aria-hidden>/</span><span>Evidencia</span>
+    </nav>
+    <header><p className="text-xs font-semibold uppercase tracking-widest text-[var(--brand)]">Trazabilidad</p><h1 className="mt-1 text-2xl font-bold">Evidencia</h1><p className="mt-2 text-sm text-[var(--muted)]">Selecciona un archivo de tu dispositivo. Se preparará la carga, se enviarán sus bytes reales y después se registrará la evidencia canónica.</p></header>
+    {!runtimeEnabled && <PanelState title="Carga real no disponible" description="El runtime de evidencia no está habilitado. No se simularán archivos ni se registrarán keys sin contenido." />}
+    {routeError && <PanelState title="No se pudo resolver el trabajo" description={routeError} error />}
+    {!jobId && !routeError && <PanelState title="Resolviendo trabajo" loading />}
+    {jobId && <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,260px)]">
+      <div className="grid min-w-0 gap-6">
+        <section className="min-w-0 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5" aria-labelledby="upload-evidence-title">
+          <h2 id="upload-evidence-title" className="mb-4 font-semibold">Subir archivo real</h2>
+          {uploadError && <div className="mb-4"><PanelState title="No se pudo completar la carga" description={uploadError} error /></div>}
+          {feedback && <p role="status" className="mb-4 rounded-lg border border-[var(--border)] p-3 text-sm">{feedback}</p>}
+          <fieldset disabled={submitting || !runtimeEnabled} className="grid min-w-0 gap-4 border-0 p-0">
+            <label className="grid min-w-0 gap-2 text-sm text-[var(--muted)]">Archivo del dispositivo
+              <input ref={fileInput} type="file" data-testid="evidence-file-input" className={`${control} py-2`} onChange={(event) => {
+                const selected = event.target.files?.[0] ?? null;
+                setFile(selected); setUploadError(null); setFeedback(null);
+                if (selected) setKind(evidenceKindForFile(selected));
+              }} />
+            </label>
+            {file && <p className="text-sm text-[var(--muted)] [overflow-wrap:anywhere]">{file.name} · {(file.size / 1024 / 1024).toFixed(1)} MiB</p>}
+            <div className="grid min-w-0 gap-4 sm:grid-cols-2">
+              <label className="grid min-w-0 gap-2 text-sm text-[var(--muted)]">Tipo
+                <select className={control} data-testid="evidence-kind-select" value={kind} onChange={(event) => setKind(event.target.value as EvidenceKind)}>{Object.entries(EVIDENCE_KIND_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
+              </label>
+              <label className="grid min-w-0 gap-2 text-sm text-[var(--muted)]">Hito (opcional)
+                <select className={control} value={validMilestoneId} disabled={milestonesQuery.loading || Boolean(milestonesQuery.error)} onChange={(event) => setMilestoneId(event.target.value)}><option value="">Sin hito específico</option>{milestones.map((row) => evidenceText(row.id) && <option key={evidenceText(row.id)} value={evidenceText(row.id)}>{evidenceText(row.title) || evidenceText(row.id)}</option>)}</select>
+              </label>
+            </div>
+            <p className="rounded-lg border border-[var(--border)] bg-[var(--bg)] p-3 text-xs text-[var(--muted)]">Hasta 25 MiB por archivo, sujeto al límite del servidor. Esta pantalla solo admite subida directa; si el plan solicita external_transfer (transferencia externa), se rechazará con explicación y no se registrará evidencia. No se fabrican archivos ni partes multipart.</p>
+            <button type="button" data-testid="register-evidence-button" className={`${action} justify-self-start bg-[var(--brand-dim)]`} disabled={!file || submitting || !runtimeEnabled} onClick={() => void handleRegister()}><Upload size={16} />{submitting ? "Subiendo y registrando…" : "Subir y registrar evidencia"}</button>
+          </fieldset>
+          {milestonesQuery.loading && <div className="mt-4"><PanelState title="Cargando hitos" loading /></div>}
+          {milestonesQuery.error && <div className="mt-4"><PanelState title={isWorkspaceAccessError(milestonesQuery.error) ? "Sin acceso a los hitos" : "Consulta parcial: no se pudieron cargar los hitos"} description={`${milestonesQuery.error} El selector no permite asociar hitos no consultados; puedes cargar a nivel de trabajo.`} error onRetry={milestonesQuery.retry} /></div>}
+          <div className="mt-4 flex flex-wrap gap-2"><Link href={`/jobs/${encodeURIComponent(jobId)}`} className={action}>Volver al detalle</Link><Link href={`/worker/evidence?jobId=${encodeURIComponent(jobId)}`} className={action}>Hub de evidencia profesional</Link><Link href={`/jobs/${encodeURIComponent(jobId)}/escrow`} className={action}>Consultar escrow</Link></div>
+        </section>
+        <section className="grid min-w-0 gap-4 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5" aria-labelledby="registered-evidence-title">
+          <h2 id="registered-evidence-title" className="font-semibold">Evidencia registrada</h2>
+          {itemsQuery.loading && <PanelState title="Cargando evidencia" loading />}
+          {itemsQuery.error && <PanelState title={isWorkspaceAccessError(itemsQuery.error) ? "Sin acceso a la evidencia" : "No se pudo leer la evidencia"} description={itemsQuery.error} error onRetry={itemsQuery.retry} />}
+          {itemsQuery.data?.length === 0 && <PanelState title="Sin evidencia aún" description="Sube el primer archivo real para documentar el avance del trabajo." />}
+          <ul className="grid min-w-0 gap-2">{items.map((item, index) => <li key={evidenceText(item.id) || index} className="flex min-w-0 flex-wrap items-start gap-3 rounded-xl border border-[var(--border)] bg-[var(--bg)] p-4">
+            <FileText size={18} className="shrink-0 text-[var(--brand)]" aria-hidden />
+            <div className="min-w-0 flex-1 [overflow-wrap:anywhere]"><p className="text-sm font-semibold">{evidenceText(item.filename) || evidenceText(item.key) || `Evidencia ${index + 1}`}</p><p className="mt-1 text-xs text-[var(--muted)]">{EVIDENCE_KIND_LABELS[evidenceText(item.kind)] || evidenceText(item.kind) || "Tipo no disponible"} · {evidenceStatusLabel(evidenceStatus(item))}</p><p className="mt-1 text-xs text-[var(--muted)]">{evidenceText(item.milestoneId) || "Sin hito específico"} · {evidenceText(item.createdAt) || "Fecha no disponible"}</p></div>
+            {evidenceText(item.key) && <Link href={evidenceUploadProxyUrl(evidenceText(item.key))} target="_blank" rel="noreferrer" className={action}>Ver archivo</Link>}
+          </li>)}</ul>
+        </section>
       </div>
-
-      {/* Runtime banner */}
-      {!runtimeEnabled ? (
-        <div className="mb-6 rounded-xl border border-amber-500/20 bg-amber-500/[0.07] px-4 py-3">
-          <p className="text-xs font-semibold text-amber-300">Modo simulación</p>
-          <p className="mt-0.5 text-xs text-amber-300/70">
-            Configura las variables de entorno del servidor para registrar evidencia real.
-          </p>
-        </div>
-      ) : null}
-
-      {loading ? (
-        <PageSpinner />
-      ) : (
-        <div className="grid gap-6 lg:grid-cols-[1fr_260px]">
-          {/* Main content */}
-          <div className="grid gap-6">
-            {/* Stats */}
-            <div className="grid grid-cols-3 gap-3">
-              <MetricCard label="Fotos"      value={stats.photos} />
-              <MetricCard label="Videos"     value={stats.videos} />
-              <MetricCard label="Documentos" value={stats.documents} accent={stats.documents > 0} />
-            </div>
-
-            {/* Register form */}
-            <div className="rounded-2xl border border-white/[0.08] bg-[#0d0d20] p-5">
-              <h2 className="mb-4 text-sm font-semibold text-ink">Registrar evidencia</h2>
-
-              {error    ? <div className="mb-4"><FeedbackBanner type="error"   message={error} /></div> : null}
-              {feedback ? <div className="mb-4"><FeedbackBanner type="success" message={feedback} /></div> : null}
-
-              <div className="grid gap-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <Select
-                    label="Tipo"
-                    data-testid="evidence-kind-select"
-                    value={kind}
-                    onChange={(e) => setKind(e.target.value as EvidenceKind)}
-                  >
-                    <option value="PHOTO">Foto</option>
-                    <option value="VIDEO">Video</option>
-                    <option value="DOCUMENT">Documento</option>
-                  </Select>
-                  <Input
-                    label="Milestone ID"
-                    value={milestoneId}
-                    onChange={(e) => setMilestoneId(e.target.value)}
-                    placeholder="opcional"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <Select
-                    label="Canal de ingreso"
-                    value={source}
-                    onChange={(e) => setSource(e.target.value as EvidenceSource)}
-                  >
-                    {sourceOptions.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </Select>
-                  <Input
-                    label="Tamaño estimado (MB)"
-                    value={fileSizeMb}
-                    onChange={(e) => setFileSizeMb(e.target.value)}
-                    placeholder="8"
-                  />
-                </div>
-
-                <Input
-                  label="Nombre del archivo"
-                  data-testid="evidence-filename-input"
-                  value={filename}
-                  onChange={(e) => setFilename(e.target.value)}
-                  placeholder="evidence-photo.jpg"
-                />
-
-                <div className="flex items-center gap-3 flex-wrap">
-                  <Link href={`/jobs/${jobId}`} className="ghost-action-button text-xs">
-                    ← Volver al detalle
-                  </Link>
-                  <Link href={`/worker/evidence`} className="ghost-action-button text-xs">
-                    Hub de evidencia
-                  </Link>
-                  <Link href={`/jobs/${jobId}/escrow`} className="ghost-action-button text-xs">
-                    Escrow
-                  </Link>
-                  <Button
-                    data-testid="register-evidence-button"
-                    disabled={!runtimeEnabled}
-                    loading={submitting}
-                    onClick={handleRegister}
-                  >
-                    Registrar evidencia
-                  </Button>
-                </div>
-
-                <div className="rounded-xl border border-white/[0.08] bg-[#131328] px-4 py-3 text-xs text-muted">
-                  {Number(fileSizeMb || "0") > 25 ? (
-                    <p>
-                      Archivo grande detectado. Usa <strong className="text-ink">Transferencia externa</strong> para
-                      videos largos, ZIPs, CAD o paquetes de evidencia por encima de 25 MB.
-                    </p>
-                  ) : (
-                    <p>
-                      Para archivos normales puedes registrar desde equipo local, móvil/cámara, Field Ops o el copiloto del proyecto.
-                    </p>
-                  )}
-                </div>
-
-                {uploadAdvice ? (
-                  <div className="rounded-xl border border-sky-500/20 bg-sky-500/[0.08] px-4 py-3 text-xs text-sky-100">
-                    <p className="font-semibold text-white">Recomendación de carga</p>
-                    <p className="mt-1">{uploadAdvice.uploadGuidance ?? "Sin guía adicional."}</p>
-                    <div className="mt-2 grid gap-1 text-sky-100/85">
-                      <p>Estrategia: {uploadAdvice.recommendedStrategy ?? "single_put"}</p>
-                      <p>
-                        Límite recomendado por subida simple:{" "}
-                        {typeof uploadAdvice.maxSingleUploadBytes === "number"
-                          ? `${Math.round(uploadAdvice.maxSingleUploadBytes / (1024 * 1024))} MB`
-                          : "n/d"}
-                      </p>
-                      {uploadAdvice.multipart ? (
-                        <p>
-                          Multipart sugerido:{" "}
-                          {uploadAdvice.multipart.recommendedPartCount ?? "n/d"} partes de{" "}
-                          {typeof uploadAdvice.multipart.recommendedChunkSizeBytes === "number"
-                            ? `${Math.round(uploadAdvice.multipart.recommendedChunkSizeBytes / (1024 * 1024))} MB`
-                            : "n/d"}
-                        </p>
-                      ) : null}
-                    </div>
-                  </div>
-                ) : null}
-
-                {multipartSession?.sessionId ? (
-                  <div className="rounded-xl border border-teal-500/20 bg-teal-500/[0.08] px-4 py-3 text-xs text-teal-100">
-                    <p className="font-semibold text-white">Sesión multipart creada</p>
-                    <p className="mt-1">
-                      ID: <span className="font-mono">{multipartSession.sessionId}</span> · proveedor: {multipartSession.provider ?? "—"}
-                    </p>
-                    <p className="mt-1">
-                      Partes: {multipartSession.parts?.length ?? 0} · expira: {multipartSession.expiresAt ?? "—"}
-                    </p>
-                    <div className="mt-3 grid gap-1 text-teal-100/85">
-                      {multipartSession.parts?.slice(0, 5).map((part) => (
-                        <p key={part.partNumber}>
-                          Parte {part.partNumber}: {typeof part.startByte === "number" ? Math.round(part.startByte / (1024 * 1024)) : "?"} MB
-                          {" - "}
-                          {typeof part.endByte === "number" ? Math.round(part.endByte / (1024 * 1024)) : "?"} MB
-                          {" · "}
-                          {multipartProgress[part.partNumber ?? 0] ?? "pending"}
-                        </p>
-                      ))}
-                      {(multipartSession.parts?.length ?? 0) > 5 ? (
-                        <p>... y {(multipartSession.parts?.length ?? 0) - 5} partes más</p>
-                      ) : null}
-                    </div>
-                    <div className="mt-3">
-                      <Button
-                        disabled={completingMultipart}
-                        loading={completingMultipart}
-                        onClick={handleCompleteMultipart}
-                      >
-                        Completar sesión multipart
-                      </Button>
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-            </div>
-
-            {/* Evidence list */}
-            <div className="rounded-2xl border border-white/[0.08] bg-[#0d0d20] p-5">
-              <h2 className="mb-4 text-sm font-semibold text-ink">Evidencia registrada</h2>
-              {items.length === 0 ? (
-                <EmptyState
-                  title="Sin evidencia aún"
-                  description="Registra la primera evidencia para trazar el avance del trabajo."
-                />
-              ) : (
-                <ul className="grid gap-2">
-                  {items.map((item, i) => {
-                    const k = String(item.kind ?? "unknown").toUpperCase() as EvidenceKind;
-                    const meta = kindMeta[k] ?? { label: k, emoji: "📎" };
-                    return (
-                      <li key={String(item.id ?? i)}
-                        className="flex items-center justify-between gap-4 rounded-xl border border-white/[0.07] bg-[#131328] px-4 py-3">
-                        <div className="flex items-center gap-3 min-w-0">
-                          <span aria-hidden className="text-xl shrink-0">{meta.emoji}</span>
-                          <div className="min-w-0">
-                            <p className="text-xs font-semibold text-ink">{meta.label}</p>
-                            <p className="text-xs text-muted truncate">{String(item.key ?? "—")}</p>
-                          </div>
-                        </div>
-                        <div className="text-right shrink-0">
-                          <p className="text-xs font-semibold text-ink">
-                            {String(item.milestoneId ?? "job-level")}
-                          </p>
-                          <p className="text-[0.68rem] text-muted">{String(item.createdAt ?? "")}</p>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </div>
-          </div>
-
-          {/* Sidebar */}
-          <aside className="grid gap-4 content-start">
-            <div className="rounded-2xl border border-white/[0.08] bg-[#131328] p-5">
-              <p className="text-[0.68rem] font-semibold tracking-widest uppercase text-muted mb-3">
-                Total registrado
-              </p>
-              <p className="text-3xl font-bold tracking-tight text-ink">{items.length}</p>
-              <p className="mt-1 text-xs text-muted">archivos de evidencia</p>
-            </div>
-
-            <div className="rounded-2xl border border-white/[0.08] bg-[#131328] p-4">
-              <p className="text-[0.68rem] font-semibold tracking-widest uppercase text-muted mb-2">
-                Tipos soportados
-              </p>
-              <ul className="grid gap-1.5">
-                {Object.entries(kindMeta).map(([k, v]) => (
-                  <li key={k} className="flex items-center gap-2 text-xs text-muted">
-                    <span aria-hidden>{v.emoji}</span> {v.label}
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            <div className="rounded-2xl border border-white/[0.08] bg-[#131328] p-4">
-              <p className="text-[0.68rem] font-semibold tracking-widest uppercase text-muted mb-2">
-                Canales de carga
-              </p>
-              <ul className="grid gap-2">
-                {sourceOptions.map((option) => (
-                  <li key={option.value} className="text-xs text-muted">
-                    <span className="font-semibold text-ink">{option.label}:</span> {option.hint}
-                  </li>
-                ))}
-              </ul>
-              <p className="mt-3 text-xs text-muted">
-                Recomendación: usa transferencia externa para paquetes mayores a 25 MB o cuando recibas archivos pesados de terceros.
-              </p>
-            </div>
-          </aside>
-        </div>
-      )}
-    </div>
-  );
+      <aside className="grid min-w-0 content-start gap-4">
+        {itemsQuery.data && <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5"><h2 className="text-sm font-semibold">Total registrado</h2><p className="mt-2 text-3xl font-bold">{items.length}</p><p className="mt-1 text-xs text-[var(--muted)]">Archivos devueltos por la fuente autorizada</p><dl className="mt-4 grid gap-2 text-sm">{Object.entries(EVIDENCE_KIND_LABELS).map(([value, label]) => <div key={value} className="flex justify-between gap-2"><dt>{label}</dt><dd>{items.filter((item) => evidenceText(item.kind).toUpperCase() === value).length}</dd></div>)}</dl></section>}
+        <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4"><h2 className="text-sm font-semibold">Evidencia y gobernanza</h2><p className="mt-2 text-xs text-[var(--muted)]">El backend conserva la autorización por recurso, tenant y organización. Registrar un archivo no aprueba hitos ni altera pagos; sus estados de validación se muestran tal como fueron recibidos.</p></section>
+      </aside>
+    </div>}
+  </div>;
 }

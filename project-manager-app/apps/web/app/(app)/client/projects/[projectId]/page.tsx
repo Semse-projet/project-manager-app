@@ -1,211 +1,441 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, RefreshCw, ShieldCheck, Activity, FileText, ChevronRight, Bot } from "lucide-react";
+import {
+  ArrowLeft,
+  RefreshCw,
+  ShieldCheck,
+  Activity,
+  FileText,
+  ChevronRight,
+  Bot,
+} from "lucide-react";
 import { BuildOpsProjectHealthPanel } from "@/components/buildops/BuildOpsProjectHealthPanel";
 import { ProjectActivityFeed } from "@/components/buildops/ProjectActivityFeed";
 import { ProjectLifecycleProjectionPanel } from "@/components/projects/ProjectLifecycleProjectionPanel";
-import { fetchBuildOpsProject, type BuildOpsProject } from "../../../../lib/buildops-api";
-import { fetchJob } from "../../../../semse-api";
-import { buildCanonicalProjectView } from "../../../../../lib/canonical-project-view";
-import { useCapabilityState, useDeclareActiveProjectOrg } from "../../../../../lib/capability-context";
+import {
+  fetchBuildOpsProject,
+  fetchBuildOpsProjects,
+  type BuildOpsProject,
+} from "../../../../lib/buildops-api";
+import {
+  fetchProjects,
+  fetchJob,
+  fetchJobMilestones,
+} from "../../../../semse-api";
+import {
+  buildCanonicalProjectView,
+  type CanonicalProjectViewFields,
+} from "../../../../../lib/canonical-project-view";
+import {
+  useCapabilityState,
+  useDeclareActiveProjectOrg,
+} from "../../../../../lib/capability-context";
 import { deriveActiveCapability } from "../../../../../lib/capability";
-import { CapabilityBadge, type CapabilityRole } from "../../../../../components/semse/CapabilityBadge";
+import {
+  CapabilityBadge,
+  type CapabilityRole,
+} from "../../../../../components/semse/CapabilityBadge";
+import {
+  normalizeProjects,
+  resolveSelectedProject,
+  resolveProjectIds,
+  readProjectMilestones,
+  projectStatusLabel,
+  milestoneStatusLabel,
+  type WorkspaceProject,
+} from "../../../../workspace/lib/projects-model";
+import {
+  useWorkspaceQuery,
+  isWorkspaceAccessError,
+} from "../../../../workspace/lib/use-workspace-query";
+import { PanelState } from "../../../../workspace/components/PanelState";
 
-type MilestoneRow = {
-  id: string;
-  title: string;
-  status: string;
-  dueDate?: string | null;
-  amount?: number | null;
+type ProjectDetail = {
+  view: CanonicalProjectViewFields | BuildOpsProject;
+  canonical: WorkspaceProject | null;
+  buildOps: BuildOpsProject | null;
+  warning: string | null;
 };
 
-const STATUS_COLOR: Record<string, string> = {
-  completed: "var(--ok)",
-  approved:  "var(--ok)",
-  in_review: "var(--warn)",
-  blocked:   "var(--error)",
-  pending:   "#94a3b8",
-};
-
-const STATUS_LABEL: Record<string, string> = {
-  completed: "Completado",
-  approved:  "Aprobado",
-  in_review: "En revisión",
-  blocked:   "Bloqueado",
-  pending:   "Pendiente",
-};
-
-function formatCurrency(n: number | null | undefined): string {
-  if (n == null) return "—";
-  return `$${n.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+function errorMessage(error: unknown): string {
+  const status =
+    error && typeof error === "object" && "status" in error
+      ? String(error.status)
+      : "";
+  return [
+    status,
+    error instanceof Error
+      ? error.message
+      : "No se pudo completar la consulta.",
+  ]
+    .filter(Boolean)
+    .join(" · ");
 }
-
-function formatDate(d: string | null | undefined): string {
-  if (!d) return "—";
-  return new Date(d).toLocaleDateString("es-MX", { day: "2-digit", month: "short", year: "numeric" });
+function formatAmount(value: number | null | undefined): string {
+  return value == null || !Number.isFinite(value)
+    ? "No disponible"
+    : value.toLocaleString("es-MX", { maximumFractionDigits: 2 });
 }
-
-async function fetchMilestonesForProject(projectId: string): Promise<MilestoneRow[]> {
-  try {
-    const r = await fetch(`/api/semse/buildops/milestones?projectId=${encodeURIComponent(projectId)}`);
-    if (!r.ok) return [];
-    const json = await r.json() as unknown;
-    const arr = Array.isArray(json) ? json : (json as { data?: unknown[] })?.data ?? [];
-    return arr.map((m: unknown) => {
-      const row = m as Record<string, unknown>;
-      return {
-        id: String(row.id ?? ""),
-        title: String(row.title ?? row.name ?? "Hito"),
-        status: String(row.status ?? "pending").toLowerCase(),
-        dueDate: typeof row.dueDate === "string" ? row.dueDate : null,
-        amount: typeof row.amount === "number" ? row.amount : null,
-      };
-    });
-  } catch {
-    return [];
-  }
+function formatDate(value: string): string {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? "Fecha no disponible"
+    : date.toLocaleDateString("es-MX", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      });
 }
-
-// `/client/projects` lista proyectos canónicos (`/v1/projects`), pero el detalle de
-// BuildOps solo conoce `BuildOpsProject.id`. Si el id es canónico (p. ej. el proyecto
-// creado al aceptar una oferta), se arma una vista reducida desde el proyecto canónico.
-async function fetchCanonicalProjectView(projectId: string): Promise<BuildOpsProject | null> {
-  try {
-    const r = await fetch(`/api/semse/projects/${encodeURIComponent(projectId)}`, { cache: "no-store" });
-    if (!r.ok) return null;
-    const json = (await r.json()) as { data?: Record<string, unknown> } & Record<string, unknown>;
-    const record = (json.data ?? json) as Record<string, unknown>;
-    const job = typeof record.jobId === "string" ? await fetchJob(record.jobId).catch(() => null) : null;
-    const view = buildCanonicalProjectView(record, job as Record<string, unknown> | null);
-    if (!view) return null;
-    return { ...view, orgId: "", createdBy: "", projectType: "", clientName: "", professionalName: null, riskScore: 0, riskLevel: "low", completion: 0 } as unknown as BuildOpsProject;
-  } catch {
-    return null;
-  }
-}
+const actionStyle = {
+  minHeight: 44,
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  padding: "10px 12px",
+  borderRadius: 10,
+  border: "1px solid var(--border)",
+  textDecoration: "none",
+  color: "var(--ink)",
+  fontSize: 13,
+} as const;
+const iconButtonStyle = {
+  minWidth: 44,
+  minHeight: 44,
+  padding: 8,
+  borderRadius: 8,
+  border: "1px solid var(--border)",
+  background: "var(--bg)",
+  color: "var(--ink)",
+  cursor: "pointer",
+  display: "grid",
+  placeItems: "center",
+} as const;
 
 export default function ClientProjectDetailPage() {
   const params = useParams<{ projectId: string }>();
   const router = useRouter();
-  const projectId = typeof params?.projectId === "string" ? params.projectId : "";
+  const projectId =
+    typeof params?.projectId === "string" ? params.projectId : "";
+  const [tab, setTab] = useState<"overview" | "milestones" | "activity">(
+    "overview",
+  );
 
-  const [project, setProject] = useState<BuildOpsProject | null>(null);
-  const [milestones, setMilestones] = useState<MilestoneRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [tab, setTab] = useState<"overview" | "milestones" | "activity">("overview");
-
-  const load = useCallback(async () => {
-    if (!projectId) return;
-    setLoading(true);
-    setError(null);
+  const load = useCallback(async (): Promise<ProjectDetail> => {
     try {
-      const [proj, ms] = await Promise.all([
-        fetchBuildOpsProject(projectId).catch(() => null),
-        fetchMilestonesForProject(projectId),
-      ]);
-      setProject(proj ?? (await fetchCanonicalProjectView(projectId)));
-      setMilestones(ms);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Error al cargar el proyecto");
-    } finally {
-      setLoading(false);
+      // Resolve identity from authorized lists; do not probe BuildOps with a canonical ID.
+      const records = await fetchProjects();
+      const authorized = normalizeProjects(records);
+      const canonical = resolveSelectedProject(authorized, projectId);
+      if (canonical) {
+        const source = records.find((record) => record.id === canonical.id);
+        let job: Record<string, unknown> | null = null;
+        let warning: string | null = null;
+        if (canonical.jobId) {
+          try {
+            job = (await fetchJob(
+              encodeURIComponent(canonical.jobId),
+            )) as unknown as Record<string, unknown>;
+          } catch (error) {
+            warning = `Datos del trabajo no disponibles: ${errorMessage(error)}`;
+          }
+        }
+        const view = buildCanonicalProjectView(source, job);
+        if (!view)
+          throw new Error(
+            "La respuesta del trabajo no corresponde al proyecto.",
+          );
+        return { view, canonical, buildOps: null, warning };
+      }
+      const buildOpsList = await fetchBuildOpsProjects();
+      const candidate = buildOpsList.find(
+        (project) => project.id === projectId,
+      );
+      if (!candidate)
+        throw new Error(
+          "Proyecto no encontrado o no disponible para tu sesión.",
+        );
+      const buildOps = await fetchBuildOpsProject(candidate.id);
+      if (buildOps.id !== candidate.id)
+        throw new Error(
+          "La respuesta no corresponde al proyecto BuildOps seleccionado.",
+        );
+      const ids = resolveProjectIds(
+        "buildops",
+        buildOps as unknown as Record<string, unknown>,
+      );
+      const linked = ids.canonicalProjectId
+        ? resolveSelectedProject(authorized, ids.canonicalProjectId)
+        : null;
+      if (linked && ids.jobId && ids.jobId !== linked.jobId)
+        throw new Error(
+          "Las referencias de trabajo y proyecto BuildOps no coinciden.",
+        );
+      return { view: buildOps, canonical: linked, buildOps, warning: null };
+    } catch (error) {
+      throw new Error(errorMessage(error));
     }
   }, [projectId]);
+  const projectQuery = useWorkspaceQuery(
+    projectId ? `client:project:${projectId}` : null,
+    load,
+  );
+  const detail = projectQuery.data;
+  const project = detail?.view ?? null;
+  const canonical = detail?.canonical ?? null;
+  const buildOps = detail?.buildOps ?? null;
+  const loadMilestones = useCallback(async () => {
+    if (!canonical)
+      throw new Error("No existe un proyecto canónico autorizado vinculado.");
+    try {
+      return await readProjectMilestones(canonical, fetchJobMilestones);
+    } catch (error) {
+      throw new Error(errorMessage(error));
+    }
+  }, [canonical]);
+  const milestones = useWorkspaceQuery(
+    canonical?.jobId
+      ? `client:project-milestones:${canonical.id}:${canonical.jobId}`
+      : null,
+    loadMilestones,
+  );
 
-  useEffect(() => { void load(); }, [load]);
-
-  useDeclareActiveProjectOrg(project?.orgId ?? null);
+  useDeclareActiveProjectOrg(buildOps?.orgId ?? null);
   const { capabilities } = useCapabilityState();
-  const activeCapability = deriveActiveCapability(capabilities, project?.orgId ?? null);
+  const activeCapability = deriveActiveCapability(
+    capabilities,
+    buildOps?.orgId ?? null,
+  );
 
-  if (loading) {
+  if (projectQuery.loading)
+    return <PanelState title="Cargando proyecto" loading />;
+  if (projectQuery.error || !project)
     return (
-      <div style={{ padding: "32px", textAlign: "center", color: "var(--muted)" }}>
-        Cargando proyecto...
-      </div>
-    );
-  }
-
-  if (error || !project) {
-    return (
-      <div style={{ padding: "32px" }}>
-        <p style={{ color: "var(--error)" }}>{error ?? "Proyecto no encontrado"}</p>
-        <button onClick={() => router.back()} style={{ marginTop: "12px", padding: "8px 16px", borderRadius: "8px", border: "1px solid var(--border)", background: "var(--bg)", cursor: "pointer" }}>
+      <div className="space-y-3 p-4">
+        <PanelState
+          title={
+            isWorkspaceAccessError(projectQuery.error)
+              ? "Sin acceso al proyecto"
+              : "Proyecto no disponible"
+          }
+          description={projectQuery.error ?? "No hay un proyecto seleccionado."}
+          error
+          onRetry={projectQuery.retry}
+        />
+        <button type="button" onClick={() => router.back()} style={actionStyle}>
           Volver
         </button>
       </div>
     );
-  }
 
-  const completedMilestones = milestones.filter(m => ["completed", "approved"].includes(m.status)).length;
+  const resolvedMilestones = milestones.data;
+  const approvedMilestones = resolvedMilestones?.filter((milestone) =>
+    ["approved", "paid"].includes(milestone.status),
+  ).length;
+  const stats = [
+    {
+      label: "Hitos aprobados o pagados",
+      value: resolvedMilestones
+        ? `${approvedMilestones}/${resolvedMilestones.length}`
+        : milestones.loading
+          ? "Cargando"
+          : "No disponibles",
+    },
+    {
+      label: "Presupuesto estimado · moneda no informada",
+      value: formatAmount(project.budgetEstimate),
+    },
+    ...(buildOps && Number.isFinite(buildOps.completion)
+      ? [
+          {
+            label: "Avance · fuente BuildOps",
+            value: `${buildOps.completion}%`,
+          },
+        ]
+      : []),
+    ...(buildOps?.riskLevel
+      ? [
+          {
+            label: "Riesgo · fuente BuildOps",
+            value:
+              (
+                {
+                  low: "Bajo",
+                  medium: "Medio",
+                  high: "Alto",
+                  critical: "Crítico",
+                } as Record<string, string>
+              )[buildOps.riskLevel] ?? "No disponible",
+          },
+        ]
+      : []),
+  ];
+  const canonicalId = canonical?.id ?? null;
+  const jobId = canonical?.jobId ?? buildOps?.jobId ?? null;
+  // The existing project-copilot harness resolves /v1/projects, not BuildOps.id.
+  const copilotId = canonicalId;
 
   return (
-    <div style={{ padding: "24px", maxWidth: "960px", margin: "0 auto" }}>
-      {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "20px" }}>
+    <div
+      style={{
+        padding: "clamp(12px, 3vw, 24px)",
+        maxWidth: 960,
+        minWidth: 0,
+        margin: "0 auto",
+      }}
+    >
+      <header
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          alignItems: "center",
+          gap: 12,
+          marginBottom: 20,
+        }}
+      >
         <button
+          type="button"
           onClick={() => router.push("/client/projects")}
-          style={{ padding: "6px", borderRadius: "8px", border: "1px solid var(--border)", background: "var(--bg)", cursor: "pointer", display: "flex", alignItems: "center" }}
+          style={iconButtonStyle}
+          aria-label="Volver a proyectos"
         >
           <ArrowLeft size={16} />
         </button>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <h1 style={{ margin: 0, fontSize: "20px", fontWeight: 800, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
+            <h1
+              style={{
+                margin: 0,
+                fontSize: 20,
+                fontWeight: 800,
+                color: "var(--ink)",
+                overflowWrap: "anywhere",
+              }}
+            >
               {project.title}
             </h1>
-            {activeCapability ? (
-              <CapabilityBadge role={activeCapability.role as CapabilityRole} size="sm" />
-            ) : null}
+            {activeCapability && (
+              <CapabilityBadge
+                role={activeCapability.role as CapabilityRole}
+                size="sm"
+              />
+            )}
           </div>
-          <p style={{ margin: "2px 0 0", fontSize: "12px", color: "var(--muted)" }}>
+          <p style={{ margin: "4px 0 0", fontSize: 12, color: "var(--muted)" }}>
             {project.trade} · {project.location}
           </p>
+          {canonical && (
+            <p
+              style={{ margin: "4px 0 0", fontSize: 12, color: "var(--brand)" }}
+            >
+              {projectStatusLabel(canonical.status)}
+            </p>
+          )}
         </div>
         <button
-          onClick={() => void load()}
-          style={{ padding: "6px", borderRadius: "8px", border: "1px solid var(--border)", background: "var(--bg)", cursor: "pointer", display: "flex", alignItems: "center" }}
+          type="button"
+          onClick={() => {
+            projectQuery.retry();
+            milestones.retry();
+          }}
+          style={iconButtonStyle}
+          aria-label="Actualizar proyecto"
+          disabled={projectQuery.loading}
         >
-          <RefreshCw size={14} />
+          <RefreshCw size={16} />
         </button>
-      </div>
-
-      {/* Quick stats bar */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "10px", marginBottom: "20px" }}>
-        {[
-          { label: "Avance", value: `${project.completion ?? 0}%`, color: "var(--ok)" },
-          { label: "Hitos", value: `${completedMilestones}/${milestones.length}`, color: "#6366f1" },
-          { label: "Presupuesto", value: formatCurrency(project.budgetEstimate), color: "var(--warn)" },
-          { label: "Riesgo", value: (project.riskLevel ?? "low").toUpperCase(), color: project.riskLevel === "critical" ? "var(--error)" : project.riskLevel === "high" ? "#fb7185" : project.riskLevel === "medium" ? "#fbbf24" : "#86efac" },
-        ].map(stat => (
-          <div key={stat.label} style={{ padding: "12px 14px", borderRadius: "12px", background: "var(--bg)", border: "1px solid var(--border)", textAlign: "center" }}>
-            <div style={{ fontSize: "16px", fontWeight: 800, color: stat.color }}>{stat.value}</div>
-            <div style={{ fontSize: "10px", color: "var(--muted)", marginTop: "2px", textTransform: "uppercase", letterSpacing: "0.05em" }}>{stat.label}</div>
+      </header>
+      {detail?.warning && (
+        <div className="mb-4">
+          <PanelState
+            title={
+              isWorkspaceAccessError(detail.warning)
+                ? "Sin acceso a los datos del trabajo"
+                : "Consulta parcial"
+            }
+            description={detail.warning}
+            error
+            onRetry={projectQuery.retry}
+          />
+        </div>
+      )}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns:
+            "repeat(auto-fit, minmax(min(100%, 160px), 1fr))",
+          gap: 10,
+          marginBottom: 20,
+        }}
+      >
+        {stats.map((stat) => (
+          <div
+            key={stat.label}
+            style={{
+              padding: "12px 14px",
+              borderRadius: 12,
+              background: "var(--bg)",
+              border: "1px solid var(--border)",
+              textAlign: "center",
+            }}
+          >
+            <div style={{ fontSize: 16, fontWeight: 800, color: "var(--ink)" }}>
+              {stat.value}
+            </div>
+            <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4 }}>
+              {stat.label}
+            </div>
           </div>
         ))}
       </div>
-
-      {/* Tabs */}
-      <div style={{ display: "flex", gap: "4px", marginBottom: "20px", borderBottom: "1px solid var(--border)" }}>
-        {([
-          { key: "overview",   label: "Resumen",   Icon: ShieldCheck },
-          { key: "milestones", label: "Hitos",     Icon: FileText },
-          { key: "activity",   label: "Actividad", Icon: Activity },
-        ] as const).map(({ key, label, Icon }) => (
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          gap: 4,
+          marginBottom: 20,
+          borderBottom: "1px solid var(--border)",
+        }}
+        role="tablist"
+        aria-label="Información del proyecto"
+      >
+        {(
+          [
+            { key: "overview", label: "Resumen", Icon: ShieldCheck },
+            { key: "milestones", label: "Hitos", Icon: FileText },
+            { key: "activity", label: "Actividad", Icon: Activity },
+          ] as const
+        ).map(({ key, label, Icon }) => (
           <button
+            type="button"
             key={key}
+            role="tab"
+            aria-selected={tab === key}
             onClick={() => setTab(key)}
             style={{
-              display: "flex", alignItems: "center", gap: "6px",
-              padding: "8px 14px", border: "none", background: "transparent", cursor: "pointer",
-              fontSize: "13px", fontWeight: tab === key ? 700 : 500,
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              minHeight: 44,
+              padding: "8px 14px",
+              border: "none",
+              background: "transparent",
+              cursor: "pointer",
+              fontSize: 13,
               color: tab === key ? "var(--ink)" : "var(--muted)",
-              borderBottom: tab === key ? "2px solid var(--ink)" : "2px solid transparent",
-              marginBottom: "-1px",
+              borderBottom:
+                tab === key
+                  ? "2px solid var(--brand)"
+                  : "2px solid transparent",
             }}
           >
             <Icon size={14} />
@@ -213,93 +443,207 @@ export default function ClientProjectDetailPage() {
           </button>
         ))}
       </div>
-
-      {/* Tab content */}
       {tab === "overview" && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
-          <div style={{ gridColumn: "1 / -1" }}>
-            <ProjectLifecycleProjectionPanel projectId={project.canonicalProjectId} />
-          </div>
-          {project.orgId ? <BuildOpsProjectHealthPanel projectId={projectId} /> : null}
-          <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-            <div style={{ padding: "16px", borderRadius: "14px", background: "var(--bg)", border: "1px solid var(--border)" }}>
-              <h3 style={{ margin: "0 0 12px", fontSize: "13px", fontWeight: 700, color: "var(--ink)" }}>Acciones</h3>
-              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                <Link
-                  href={`/client/projects/${projectId}/copilot`}
-                  style={{ display: "flex", alignItems: "center", gap: "8px", padding: "10px 12px", borderRadius: "10px", border: "1px solid var(--border)", textDecoration: "none", color: "var(--ink)", fontSize: "13px" }}
-                >
-                  <Bot size={14} style={{ color: "#6366f1" }} />
-                  <span style={{ flex: 1 }}>Hablar con Prometeo</span>
-                  <ChevronRight size={12} style={{ color: "var(--muted)" }} />
-                </Link>
-                <Link
-                  href={`/client/jobs?projectId=${projectId}`}
-                  style={{ display: "flex", alignItems: "center", gap: "8px", padding: "10px 12px", borderRadius: "10px", border: "1px solid var(--border)", textDecoration: "none", color: "var(--ink)", fontSize: "13px" }}
-                >
-                  <FileText size={14} style={{ color: "var(--warn)" }} />
-                  <span style={{ flex: 1 }}>Ver trabajos del proyecto</span>
-                  <ChevronRight size={12} style={{ color: "var(--muted)" }} />
-                </Link>
-                <Link
-                  href={`/client/change-orders?projectId=${projectId}`}
-                  style={{ display: "flex", alignItems: "center", gap: "8px", padding: "10px 12px", borderRadius: "10px", border: "1px solid var(--border)", textDecoration: "none", color: "var(--ink)", fontSize: "13px" }}
-                >
-                  <ShieldCheck size={14} style={{ color: "var(--ok)" }} />
-                  <span style={{ flex: 1 }}>Órdenes de cambio</span>
-                  <ChevronRight size={12} style={{ color: "var(--muted)" }} />
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns:
+              "repeat(auto-fit, minmax(min(100%, 280px), 1fr))",
+            gap: 16,
+          }}
+        >
+          {canonicalId && (
+            <div style={{ gridColumn: "1 / -1" }}>
+              <ProjectLifecycleProjectionPanel projectId={canonicalId} />
+            </div>
+          )}
+          {buildOps && <BuildOpsProjectHealthPanel projectId={buildOps.id} />}
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div
+              style={{
+                padding: 16,
+                borderRadius: 14,
+                background: "var(--bg)",
+                border: "1px solid var(--border)",
+              }}
+            >
+              <h3
+                style={{
+                  margin: "0 0 12px",
+                  fontSize: 13,
+                  fontWeight: 700,
+                  color: "var(--ink)",
+                }}
+              >
+                Acciones
+              </h3>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {copilotId && (
+                  <Link
+                    href={`/client/projects/${encodeURIComponent(copilotId)}/copilot`}
+                    style={actionStyle}
+                  >
+                    <Bot size={14} style={{ color: "var(--brand)" }} />
+                    <span style={{ flex: 1 }}>Hablar con Prometeo</span>
+                    <ChevronRight size={12} />
+                  </Link>
+                )}
+                {!copilotId && (
+                  <p style={{ fontSize: 12, color: "var(--muted)" }}>
+                    El copiloto requiere un proyecto canónico vinculado y
+                    autorizado.
+                  </p>
+                )}
+                {jobId && (
+                  <Link
+                    href={`/client/jobs/${encodeURIComponent(jobId)}`}
+                    style={actionStyle}
+                  >
+                    <FileText size={14} />
+                    <span style={{ flex: 1 }}>Ver trabajo vinculado</span>
+                    <ChevronRight size={12} />
+                  </Link>
+                )}
+                <Link href="/client/change-orders" style={actionStyle}>
+                  <ShieldCheck size={14} />
+                  <span style={{ flex: 1 }}>
+                    Abrir órdenes de cambio · todos los proyectos
+                  </span>
+                  <ChevronRight size={12} />
                 </Link>
               </div>
             </div>
-
-            {project.description ? (
-              <div style={{ padding: "16px", borderRadius: "14px", background: "var(--bg)", border: "1px solid var(--border)" }}>
-                <h3 style={{ margin: "0 0 8px", fontSize: "13px", fontWeight: 700, color: "var(--ink)" }}>Descripción</h3>
-                <p style={{ margin: 0, fontSize: "12px", color: "var(--muted)", lineHeight: 1.6 }}>{project.description}</p>
+            {project.description && (
+              <div
+                style={{
+                  padding: 16,
+                  borderRadius: 14,
+                  background: "var(--bg)",
+                  border: "1px solid var(--border)",
+                }}
+              >
+                <h3
+                  style={{
+                    margin: "0 0 8px",
+                    fontSize: 13,
+                    fontWeight: 700,
+                    color: "var(--ink)",
+                  }}
+                >
+                  Descripción
+                </h3>
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: 12,
+                    color: "var(--muted)",
+                    lineHeight: 1.6,
+                    overflowWrap: "anywhere",
+                  }}
+                >
+                  {project.description}
+                </p>
               </div>
-            ) : null}
+            )}
           </div>
         </div>
       )}
-
       {tab === "milestones" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-          {milestones.length === 0 ? (
-            <div style={{ padding: "32px", textAlign: "center", color: "var(--muted)", fontSize: "14px" }}>
-              No hay hitos registrados para este proyecto.
-            </div>
-          ) : milestones.map(ms => (
-            <div key={ms.id} style={{ padding: "14px 16px", borderRadius: "12px", background: "var(--bg)", border: "1px solid var(--border)", display: "flex", alignItems: "center", gap: "12px" }}>
-              <div style={{ width: "10px", height: "10px", borderRadius: "50%", background: STATUS_COLOR[ms.status] ?? "#94a3b8", flexShrink: 0 }} />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: "13px", fontWeight: 600, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ms.title}</div>
-                {ms.dueDate ? (
-                  <div style={{ fontSize: "11px", color: "var(--muted)", marginTop: "2px" }}>
-                    Entrega: {formatDate(ms.dueDate)}
+        <div className="space-y-3">
+          {!canonical?.jobId ? (
+            <PanelState
+              title="Hitos no disponibles"
+              description="No existe una vinculación a Project y Job autorizados. No se intercambian IDs BuildOps/Project/Job."
+            />
+          ) : milestones.loading ? (
+            <PanelState title="Cargando hitos" loading />
+          ) : milestones.error ? (
+            <PanelState
+              title={
+                isWorkspaceAccessError(milestones.error)
+                  ? "Sin acceso a los hitos"
+                  : "No se pudieron cargar los hitos"
+              }
+              description={milestones.error}
+              error
+              onRetry={milestones.retry}
+            />
+          ) : !resolvedMilestones?.length ? (
+            <PanelState
+              title="Sin hitos registrados"
+              description="La consulta del trabajo vinculado se completó sin hitos."
+            />
+          ) : (
+            resolvedMilestones.map((milestone) => (
+              <div
+                key={milestone.id}
+                style={{
+                  padding: "14px 16px",
+                  borderRadius: 12,
+                  background: "var(--bg)",
+                  border: "1px solid var(--border)",
+                  display: "flex",
+                  flexWrap: "wrap",
+                  alignItems: "center",
+                  gap: 12,
+                }}
+              >
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div
+                    style={{
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: "var(--ink)",
+                      overflowWrap: "anywhere",
+                    }}
+                  >
+                    {milestone.title}
                   </div>
-                ) : null}
-              </div>
-              {ms.amount != null ? (
-                <div style={{ fontSize: "13px", fontWeight: 700, color: "var(--ink)", flexShrink: 0 }}>
-                  {formatCurrency(ms.amount)}
+                  {milestone.dueDate && (
+                    <div
+                      style={{
+                        fontSize: 11,
+                        color: "var(--muted)",
+                        marginTop: 2,
+                      }}
+                    >
+                      Entrega: {formatDate(milestone.dueDate)}
+                    </div>
+                  )}
                 </div>
-              ) : null}
-              <span style={{
-                padding: "3px 8px", borderRadius: "999px", fontSize: "11px", fontWeight: 700,
-                background: `${STATUS_COLOR[ms.status] ?? "#94a3b8"}22`,
-                color: STATUS_COLOR[ms.status] ?? "#94a3b8",
-                flexShrink: 0,
-              }}>
-                {STATUS_LABEL[ms.status] ?? ms.status}
-              </span>
-            </div>
-          ))}
+                {milestone.amount != null && (
+                  <span style={{ fontSize: 12, color: "var(--muted)" }}>
+                    {formatAmount(milestone.amount)} · moneda no informada
+                  </span>
+                )}
+                <span
+                  style={{
+                    padding: "4px 8px",
+                    borderRadius: 8,
+                    fontSize: 12,
+                    background: "var(--brand-dim)",
+                    color:
+                      milestone.status === "rejected"
+                        ? "var(--error)"
+                        : "var(--ink)",
+                  }}
+                >
+                  {milestoneStatusLabel(milestone.status)}
+                </span>
+              </div>
+            ))
+          )}
         </div>
       )}
-
-      {tab === "activity" && (
-        <ProjectActivityFeed projectId={projectId} />
-      )}
+      {tab === "activity" &&
+        (buildOps ? (
+          <ProjectActivityFeed projectId={buildOps.id} />
+        ) : (
+          <PanelState
+            title="Actividad BuildOps no vinculada"
+            description="Este es un proyecto canónico. No se consultará la actividad de otro agregado con su ID."
+          />
+        ))}
     </div>
   );
 }
