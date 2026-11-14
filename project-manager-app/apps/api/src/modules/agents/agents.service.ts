@@ -222,7 +222,12 @@ export class AgentsService {
     return this.agentsRepository.findById(input);
   }
 
-  async runEvents(input: { tenantId: string; runId: string }) {
+  /** Only a role-verified service worker may see an org-foreign run in its tenant. */
+  async workerDetail(input: { tenantId: string; orgId: string; userId: string; runId: string }) {
+    return this.agentsRepository.findByIdForWorker(input);
+  }
+
+  async runEvents(input: { tenantId: string; orgId: string; userId: string; runId: string }) {
     return this.agentsRepository.getEvents(input);
   }
 
@@ -474,7 +479,7 @@ export class AgentsService {
   }
 
   async start(input: { tenantId: string; orgId: string; userId: string; runId: string; requestId: string; workerId?: string; expectedAttempts?: number }) {
-    const run = await this.agentsRepository.start(input);
+    const run = await this.agentsRepository.start({ ...input, workerAccess: input.verifiedWorkerClaim === true });
     if (isAgentRunReplay(run)) return run;
 
     await this.auditService.append({
@@ -499,8 +504,10 @@ export class AgentsService {
     workerId: string;
     expectedAttempts?: number;
     requestId: string;
+    verifiedWorkerClaim?: boolean;
+    verifiedWorkerClaim?: boolean;
   }) {
-    const run = await this.agentsRepository.heartbeat(input);
+    const run = await this.agentsRepository.heartbeat({ ...input, workerAccess: input.verifiedWorkerClaim === true });
 
     await this.auditService.append({
       tenantId: input.tenantId,
@@ -525,8 +532,9 @@ export class AgentsService {
     workerId?: string;
     expectedAttempts?: number;
     requestId: string;
+    verifiedWorkerClaim?: boolean;
   }) {
-    const run = await this.agentsRepository.complete(input);
+    const run = await this.agentsRepository.complete({ ...input, workerAccess: input.verifiedWorkerClaim === true });
     // Effects are delivered by the transactional outbox in opt-in mode.
     if (isAgentRunReplay(run) || isAgentRunFinalizationOutboxEnabled()) return run;
 
@@ -585,8 +593,9 @@ export class AgentsService {
     workerId?: string;
     expectedAttempts?: number;
     requestId: string;
+    verifiedWorkerClaim?: boolean;
   }) {
-    const run = await this.agentsRepository.fail(input);
+    const run = await this.agentsRepository.fail({ ...input, workerAccess: input.verifiedWorkerClaim === true });
     if (isAgentRunReplay(run) || isAgentRunFinalizationOutboxEnabled()) return run;
 
     await this.auditService.append({
@@ -828,6 +837,7 @@ export class AgentsService {
     const key = buildIdempotencyKey([
       "agent.run.create",
       input.tenantId,
+      input.orgId,
       input.agentType,
       input.correlationId,
       input.idempotencyKey ?? ""
