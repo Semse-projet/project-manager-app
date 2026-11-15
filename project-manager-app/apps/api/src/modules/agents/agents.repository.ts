@@ -738,31 +738,39 @@ export class AgentsRepository {
     return this.toRecord(await this.requireRun(input));
   }
 
-  async getEvents(input: { tenantId: string; runId: string }): Promise<{
+  async getEvents(input: {
+    tenantId: string; orgId: string; userId: string; roles?: string[];
+    runId: string;
+  }): Promise<{
     runId: string;
     events: Array<{ type: string; at: string; detail: string }>;
   }> {
+    await this.actorContextService.ensureActorContext(input);
     const run = (await this.prisma.agentRun.findFirst({
       where: { id: input.runId, tenantId: input.tenantId },
       select: {
         id: true, status: true, agentType: true, correlationId: true,
+        triggerType: true, inputJson: true,
         error: true, inputSummary: true, outputSummary: true,
         createdAt: true, startedAt: true, heartbeatAt: true, endedAt: true,
       },
     })) as (StoredAgentRun & { inputSummary?: string | null; outputSummary?: string | null }) | null;
     if (!run) throw new NotFoundException(`Agent run '${input.runId}' not found`);
 
+    const outputVisible = await this.canReadScopedRunOutput(run, input);
     const events: Array<{ type: string; at: string; detail: string }> = [];
     events.push({ type: "queued",  at: run.createdAt.toISOString(), detail: `Agent '${run.agentType}' queued (correlationId: ${run.correlationId})` });
     if (run.startedAt)    events.push({ type: "started",   at: run.startedAt.toISOString(),   detail: "Execution started" });
     if (run.heartbeatAt)  events.push({ type: "heartbeat", at: run.heartbeatAt.toISOString(), detail: "Last heartbeat received" });
-    if (run.inputSummary) events.push({ type: "input",     at: (run.startedAt ?? run.createdAt).toISOString(), detail: run.inputSummary });
+    if (run.inputSummary && outputVisible) events.push({ type: "input", at: (run.startedAt ?? run.createdAt).toISOString(), detail: run.inputSummary });
     if (run.endedAt) {
       const isOk = run.status === "COMPLETED";
       events.push({
         type: isOk ? "completed" : "failed",
         at: run.endedAt.toISOString(),
-        detail: isOk
+        detail: !outputVisible
+          ? (isOk ? "Run completed successfully" : "Run failed")
+          : isOk
           ? (run.outputSummary ?? "Run completed successfully")
           : (run.error ?? "Run failed with unknown error"),
       });
