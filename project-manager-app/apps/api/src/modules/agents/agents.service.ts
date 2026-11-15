@@ -214,11 +214,11 @@ export class AgentsService {
     return this.agentApprovalService.decide(input);
   }
 
-  async list(input: { tenantId: string; orgId: string; userId: string }) {
+  async list(input: { tenantId: string; orgId: string; userId: string; roles?: string[] }) {
     return this.agentsRepository.list(input);
   }
 
-  async detail(input: { tenantId: string; orgId: string; userId: string; runId: string }) {
+  async detail(input: { tenantId: string; orgId: string; userId: string; runId: string; roles?: string[] }) {
     return this.agentsRepository.findById(input);
   }
 
@@ -229,7 +229,7 @@ export class AgentsService {
     return this.agentsRepository.getClaimedJobCreatedContext(input);
   }
 
-  async runEvents(input: { tenantId: string; runId: string }) {
+  async runEvents(input: { tenantId: string; orgId: string; userId: string; roles?: string[]; runId: string }) {
     return this.agentsRepository.getEvents(input);
   }
 
