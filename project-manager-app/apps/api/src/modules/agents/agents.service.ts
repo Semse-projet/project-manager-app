@@ -222,6 +222,13 @@ export class AgentsService {
     return this.agentsRepository.findById(input);
   }
 
+  async getClaimedJobCreatedContext(input: {
+    tenantId: string; orgId: string; userId: string; runId: string;
+    workerId: string; expectedAttempts: number;
+  }) {
+    return this.agentsRepository.getClaimedJobCreatedContext(input);
+  }
+
   async runEvents(input: { tenantId: string; runId: string }) {
     return this.agentsRepository.getEvents(input);
   }
