@@ -4,7 +4,7 @@
  * Never execute against Railway, preview, staging or production.
  */
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
+import { randomUUID, createHash } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 import { PrismaClient } from "@prisma/client";
 
@@ -96,7 +96,7 @@ try {
       orderBy: {createdAt: "asc"},
       select: {
         id: true, agentType: true, triggerType: true, status: true,
-        attempts: true, workerId: true, startedAt: true, endedAt: true, inputJson: true,
+        attempts: true, workerId: true, startedAt: true, endedAt: true, inputJson: true, error: true,
       },
     });
     if (runs.length === 2 && runs.every(r => r.status === "COMPLETED" || r.status === "FAILED")) break;
@@ -107,6 +107,8 @@ try {
     runs: runs.map(r => ({
       agentType: r.agentType, status: r.status,
       attempts: r.attempts, workerClaimed: Boolean(r.workerId),
+      errorCategory: !r.error ? null : /403|forbidden|insufficient permissions/i.test(r.error) ? "forbidden_403" : /401|unauthorized/i.test(r.error) ? "unauthorized_401" : /context|projectId|jobId/i.test(r.error) ? "context_error" : /claimToken|fenc/i.test(r.error) ? "fencing_error" : "other",
+      errorFingerprint: r.error ? createHash("sha256").update(r.error).digest("hex").slice(0,12) : null,
     })),
   });
   assert.equal(runs.length, 2, "expected one pricing and one risk run");
