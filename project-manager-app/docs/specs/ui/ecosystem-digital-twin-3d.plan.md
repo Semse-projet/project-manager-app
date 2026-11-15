@@ -11,8 +11,10 @@ date: "2026-11-15"
 
 # Plan técnico: Ecosystem Digital Twin 3D
 
-> El branch es un nombre de trabajo documental; no implica que se haya creado
-> en GitHub. Implementación, CI, merge, deploy y activación se reportan aparte.
+> El branch remoto `feat/ecosystem-digital-twin-3d` y el PR **#1157** ya existen:
+> https://github.com/Semse-projet/project-manager-app/pull/1157. Base: `main`;
+> SHA head revisado al abrir: `e4689f9400792707a64d91048495652286eadfd2`.
+> Implementación, CI, merge, deploy y activación se reportan aparte.
 
 ## 1. Snapshot de verdad
 
@@ -120,7 +122,8 @@ date: "2026-11-15"
 
 ### Fase E — Integración y Fase F — Producción
 
-- No autorizadas. PR, CI, merge, Railway, canary y activación quedan pendientes.
+- PR **#1157** abierto y diff remoto completo revisado. CI remoto, merge, Railway,
+  canary y activación quedan pendientes o no autorizados; el PR sigue `UNMERGED`.
 
 ## 8. Riesgos
 

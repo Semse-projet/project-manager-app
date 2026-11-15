@@ -4,7 +4,7 @@ feature: "Ecosystem Digital Twin 3D"
 domain: "ui"
 plan: "docs/specs/ui/ecosystem-digital-twin-3d.plan.md"
 version: "2.0"
-status: "LOCAL_COMPLETE_PREVIEW_V7_SAVED"
+status: "PR_OPEN_LOCAL_CI_PASS"
 branch: "feat/ecosystem-digital-twin-3d"
 date: "2026-11-15"
 ---
@@ -12,7 +12,8 @@ date: "2026-11-15"
 # Tareas: Ecosystem Digital Twin 3D
 
 `[ ]` pendiente · `[x]` completo · `[~]` bloqueado · `[P]` paralelizable.
-El nombre de branch no declara creación, push, PR o merge.
+Branch y PR **#1157** existen; el PR sigue abierto y sin merge:
+https://github.com/Semse-projet/project-manager-app/pull/1157.
 
 ## Fase 0 — SDD y verdad
 
@@ -66,13 +67,18 @@ El nombre de branch no declara creación, push, PR o merge.
 - [x] [T-049B] Validar spec V7 aislado con strict/coverage y conservar índice
   canónico de 219 filas; documentar la copia persistente parcial.
 
-## Fase 5 — PR, CI y merge (no autorizado)
+## Fase 5 — PR, CI y merge (PR abierto; merge no autorizado)
 
-- [x] [T-050] Revisar diff/secretos; preparación de PR queda en un gate posterior.
+- [x] [T-050] Revisar diff remoto completo contra `main`: 40 archivos dentro del
+  alcance, sin secretos, capturas, assets PWA, Prisma ni archivos de Railway.
 - [x] [T-050B] Crear `v7-pr-draft.md` y auditar 28 archivos principales sin
-  secretos, `.env`, `workspace:*` en builder ni `Math.random()`; no abrir PR.
+  secretos, `.env`, `workspace:*` en builder ni `Math.random()` en código.
 - [x] [T-050A] Ejecutar CI local equivalente V7 con Node 22: paquetes, 13 unitarios,
   TypeScript, ESLint, build Web, builder estático y 8 E2E sin reintentos verdes.
+- [x] [T-050C] Abrir PR **#1157** con base `main` y head
+  `feat/ecosystem-digital-twin-3d`; SHA revisado al abrir:
+  `e4689f9400792707a64d91048495652286eadfd2`. URL:
+  https://github.com/Semse-projet/project-manager-app/pull/1157.
 - [ ] [T-051] Esperar CI remoto terminal y registrar `ci_status`; el PASS local no
   cambia por sí solo este estado.
 - [ ] [T-052] Fusionar sólo con confirmación explícita y registrar SHA.

@@ -12,9 +12,9 @@ status: "PASS_LOCAL_VALIDATION"
 
 ## Resultado
 
-El incremento local está implementado y verificado dentro de la autorización. No
-se reinterpreta como permiso de PR, merge, CI adicional, Railway, despliegue o
-activación. `code_status=COMPLETE` describe únicamente el código local; CI,
+El incremento local está implementado y verificado dentro de la autorización. La
+autorización posterior de branch y PR no se reinterpreta como permiso de merge,
+Railway, despliegue o activación. `code_status=COMPLETE` describe el código; CI,
 merge, deploy y activación conservan estados independientes.
 
 ## Trazabilidad
@@ -69,8 +69,12 @@ merge, deploy y activación conservan estados independientes.
   TypeScript Web, ESLint (0 errores/39 advertencias ajenas), build Web de 422
   páginas, builder estático y 8/8 E2E sin reintentos. Evidencia:
   `artifacts/evidence/digital-twin/v7-ci-local.md` y reporte JSON asociado.
-- Borrador local de PR y auditoría de paquete: `v7-pr-draft.md`; no hay branch
-  remoto, push, PR ni merge. El diff Git completo sigue siendo un gate previo.
+- Registro de PR y auditoría de paquete: `v7-pr-draft.md`. Diff remoto completo
+  revisado contra `main`: 40 archivos dentro del alcance y sin hallazgos de
+  secretos. PR **#1157** `OPEN`, base `main`, head
+  `feat/ecosystem-digital-twin-3d`, SHA revisado al abrir
+  `e4689f9400792707a64d91048495652286eadfd2`:
+  https://github.com/Semse-projet/project-manager-app/pull/1157. No hay merge.
 
 ## Decisiones y no inferencias
 

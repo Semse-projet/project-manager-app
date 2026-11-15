@@ -56,7 +56,11 @@
 - [x] Strict/coverage del spec V7 aislado verdes; índice canónico de 219 filas
   preservado sin presentar la copia parcial como nueva validación full-repo.
 - [x] Paquete principal auditado sin secretos ni cambios funcionales fuera de alcance.
-- [x] Borrador `v7-pr-draft.md` creado; diff Git completo y PR real pendientes.
+- [x] Diff remoto completo revisado contra `main`: 40 archivos autorizados, sin
+  secretos, capturas, assets PWA, Prisma ni archivos de Railway.
+- [x] PR **#1157** abierto con base `main`, head `feat/ecosystem-digital-twin-3d`
+  y SHA revisado `e4689f9400792707a64d91048495652286eadfd2`:
+  https://github.com/Semse-projet/project-manager-app/pull/1157. Sin merge.
 - [x] Limitación de suite global documentada sin atribuirla a tests del gemelo.
 
 ## Estados de entrega
@@ -67,6 +71,7 @@
   La confirmación disponible es de guardado y validación local, no una
   confirmación visual remota del usuario.
 - CI local equivalente: `PASS`; CI remoto/plataforma: `NOT_RUN`.
+- PR: **#1157** `OPEN`, sin merge; URL registrada en este paquete y en las evidencias.
 - Merge: `UNMERGED`.
 - Deploy: `NOT_DEPLOYED`.
 - Activación: `INACTIVE`.
