@@ -110,7 +110,7 @@ try {
       errorCategory: !r.error ? null : /403|forbidden|insufficient permissions/i.test(r.error) ? "forbidden_403" : /401|unauthorized/i.test(r.error) ? "unauthorized_401" : /context|projectId|jobId/i.test(r.error) ? "context_error" : /claimToken|fenc/i.test(r.error) ? "fencing_error" : "other",
       errorFingerprint: r.error ? createHash("sha256").update(r.error).digest("hex").slice(0,12) : null,
       failedRequestSurface: !r.error ? null : /\/v1\/jobs\//i.test(r.error) ? "jobs_detail" : /\/v1\/agents\/runs\/[^\s]+\/complete/i.test(r.error) ? "run_complete" : /\/v1\/agents\/runs\/[^\s]+\/start/i.test(r.error) ? "run_start" : /\/v1\/agents\/runs\/[^\s]+\/fail/i.test(r.error) ? "run_fail" : /\/v1\/projects\//i.test(r.error) ? "projects_detail" : "unclassified_surface",
-      failureDetail: r.error ? r.error.replace(/Bearer\\s+[^\\s]+/gi, "Bearer [REDACTED]").replace(/cm[a-z0-9]{15,}/gi, "[synthetic_id]").replace(/[A-Za-z0-9_-]{40,}/g, "[REDACTED]").slice(0,240) : null,
+      failureDetail: r.error ? r.error.replace(/Bearer\s+[^\s]+/gi, "Bearer [REDACTED]").replace(/cm[a-z0-9]{15,}/gi, "[synthetic_id]").replace(/[A-Za-z0-9_-]{40,}/g, "[REDACTED]").slice(0,240) : null,
     })),
   });
   assert.equal(runs.length, 2, "expected one pricing and one risk run");
