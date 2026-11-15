@@ -5,6 +5,7 @@ import { type AgentRunRecord } from "../../common/domain-store.js";
 import { ActorContextService } from "../../infrastructure/persistence/actor-context.service.js";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { createAgentRunFinalizationEvent, isAgentRunFinalizationOutboxEnabled } from "./agent-run-finalization.policy.js";
+import { buildJobVisibilityWhere } from "../jobs/jobs-visibility.js";
 
 const { Prisma } = prismaClientPackage as typeof import("@prisma/client");
 
@@ -49,34 +50,102 @@ export class AgentsRepository {
     private readonly actorContextService: ActorContextService
   ) {}
 
-  async list(input: { tenantId: string; orgId: string; userId: string }): Promise<AgentRunRecord[]> {
-    await this.actorContextService.ensureActorContext(input);
-
-    const runs = (await this.prisma.agentRun.findMany({
-      where: {
-        tenantId: input.tenantId
-      },
-      orderBy: { createdAt: "desc" }
-    })) as StoredAgentRun[];
-
-    return runs.map((run) => this.toRecord(run));
+  /**
+   * The API's ordinary run-list and run-detail routes used to expose all
+   * tenant runs. Newly enriched job.created output must not bypass the
+   * canonical Jobs visibility policy used by JobsRepository.
+   *
+   * Return unchanged legacy run metadata, but hide enriched output and errors
+   * when the originating Job is not visible to the requesting principal.
+   */
+  private scopedJobCreatedId(run: Pick<StoredAgentRun, "agentType" | "triggerType" | "inputJson">): string | null {
+    if (run.triggerType !== "event" || !["pricing", "risk"].includes(run.agentType)) return null;
+    const input = run.inputJson && typeof run.inputJson === "object" &&
+      !Array.isArray(run.inputJson) ? run.inputJson as Record<string, unknown> : {};
+    if (input.eventType !== "job.created") return null;
+    const event = input.eventPayload && typeof input.eventPayload === "object" &&
+      !Array.isArray(input.eventPayload) ? input.eventPayload as Record<string, unknown> : {};
+    // Empty string means "restricted, but unverifiable" and fails closed.
+    return typeof event.jobId === "string" && event.jobId ? event.jobId : "";
   }
 
-  async findById(input: { tenantId: string; orgId: string; userId: string; runId: string }): Promise<AgentRunRecord> {
-    await this.actorContextService.ensureActorContext(input);
-
-    const run = (await this.prisma.agentRun.findFirst({
+  private async canReadScopedRunOutput(
+    run: Pick<StoredAgentRun, "agentType" | "triggerType" | "inputJson">,
+    actor: { tenantId: string; orgId: string; userId: string; roles?: string[] },
+  ): Promise<boolean> {
+    const jobId = this.scopedJobCreatedId(run);
+    if (jobId === null) return true;
+    if (!jobId) return false;
+    const job = await this.prisma.job.findFirst({
       where: {
-        id: input.runId,
-        tenantId: input.tenantId
-      }
-    })) as StoredAgentRun | null;
+        id: jobId,
+        tenantId: actor.tenantId,
+        deletedAt: null,
+        ...buildJobVisibilityWhere({
+          orgId: actor.orgId,
+          userId: actor.userId,
+          roles: actor.roles ?? [],
+        }),
+      },
+      select: { id: true },
+    });
+    return !!job;
+  }
 
-    if (!run) {
-      throw new NotFoundException(`Agent run '${input.runId}' not found`);
+  private toVisibleRecord(run: StoredAgentRun, outputVisible: boolean): AgentRunRecord {
+    const result = this.toRecord(run);
+    if (!outputVisible) {
+      // A current scope/budget calculation may be more private than the
+      // event input originally available to the tenant.
+      result.output = undefined;
+      result.error = undefined;
     }
+    return result;
+  }
 
-    return this.toRecord(run);
+  async list(input: {
+    tenantId: string; orgId: string; userId: string; roles?: string[];
+  }): Promise<AgentRunRecord[]> {
+    await this.actorContextService.ensureActorContext(input);
+    const runs = (await this.prisma.agentRun.findMany({
+      where: { tenantId: input.tenantId },
+      orderBy: { createdAt: "desc" },
+    })) as StoredAgentRun[];
+
+    // One batched visibility lookup, not an unbounded per-run N+1 lookup.
+    const ids = [...new Set(
+      runs.map(run => this.scopedJobCreatedId(run)).filter((id): id is string => !!id),
+    )];
+    const visibleJobs = ids.length
+      ? await this.prisma.job.findMany({
+          where: {
+            id: { in: ids },
+            tenantId: input.tenantId,
+            deletedAt: null,
+            ...buildJobVisibilityWhere({
+              orgId: input.orgId, userId: input.userId, roles: input.roles ?? [],
+            }),
+          },
+          select: { id: true },
+        })
+      : [];
+    const visibleIds = new Set(visibleJobs.map(job => job.id));
+    return runs.map(run => {
+      const id = this.scopedJobCreatedId(run);
+      return this.toVisibleRecord(run, id === null || visibleIds.has(id));
+    });
+  }
+
+  async findById(input: {
+    tenantId: string; orgId: string; userId: string; runId: string; roles?: string[];
+  }): Promise<AgentRunRecord> {
+    await this.actorContextService.ensureActorContext(input);
+    const run = (await this.prisma.agentRun.findFirst({
+      where: { id: input.runId, tenantId: input.tenantId },
+    })) as StoredAgentRun | null;
+    if (!run) throw new NotFoundException(`Agent run '${input.runId}' not found`);
+    const canSeeOutput = await this.canReadScopedRunOutput(run, input);
+    return this.toVisibleRecord(run, canSeeOutput);
   }
 
   /**
