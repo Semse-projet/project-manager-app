@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createJobCreatedContextReader } from "../../apps/worker/src/job-created-context-reader.mjs";
+import { createJobCreatedContextReader, createClaimedJobCreatedHandlerRun } from "../../apps/worker/src/job-created-context-reader.mjs";
 import { executeSpecializedWorkerRun } from "../../apps/worker/src/agent-run-handlers.mjs";
 
 const tenantId = "tnt_context_test";
@@ -66,6 +66,46 @@ test("pricing and risk consume only authorized persisted job.created projection"
       run, requestJson: reader(), tenantId, logger, workerId: "worker-qa-1149",
     });
     assert.equal(result.result.jobId, jobId);
+  }
+});
+
+
+test("job.created handler cannot override authorized Job via run.input/context", async () => {
+  const hostileInput = {
+    eventType: "job.created",
+    jobId: "foreign-job",
+    projectId: "foreign-project",
+    eventPayload: { jobId, clientOrgId: "org_real" },
+    context: {
+      jobId: "foreign-job",
+      projectId: "foreign-project",
+      project: { jobId: "foreign-job", projectId: "foreign-project" },
+    },
+  };
+  for (const agentType of ["pricing", "risk"]) {
+    const run = {
+      id: "conflict-" + agentType, agentType, triggerType: "event",
+      input: hostileInput,
+    };
+    const securedRun = createClaimedJobCreatedHandlerRun(run, projection);
+    assert.deepEqual(securedRun.input, {
+      eventType: "job.created",
+      eventPayload: { jobId },
+      context: { jobId },
+    });
+    assert.equal(run.input.context.jobId, "foreign-job", "do not mutate persisted input");
+    const touched = [];
+    const requestJson = async (...args) => {
+      touched.push(args[0]);
+      return reader()(...args);
+    };
+    const result = await executeSpecializedWorkerRun({
+      run: securedRun, requestJson, tenantId, logger,
+      workerId: "worker-qa-1149",
+    });
+    assert.equal(result.result.jobId, jobId);
+    assert.equal(result.result.projectId ?? null, null);
+    assert.ok(touched.every(path => !path.includes("foreign-job") && !path.includes("foreign-project")));
   }
 });
 
