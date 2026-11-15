@@ -784,9 +784,15 @@ export class AgentsRepository {
     orgId: string;
     userId: string;
     runId: string;
+    roles?: string[];
   }): Promise<AgentRunRecord> {
     await this.actorContextService.ensureActorContext(input);
     const run = await this.requireRun(input);
+    // This mutation also returns a run record, including its output. Deny
+    // cross-org cancellation and result reads for scoped job.created runs.
+    if (!(await this.canReadScopedRunOutput(run, input))) {
+      throw new NotFoundException("Agent run unavailable for this actor");
+    }
 
     if (["COMPLETED", "FAILED"].includes(run.status)) {
       return this.toRecord(run);
