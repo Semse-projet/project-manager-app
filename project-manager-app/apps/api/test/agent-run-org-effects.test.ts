@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { AgentsService } from "../dist/modules/agents/agents.service.js";
 import { AgentsRepository } from "../dist/modules/agents/agents.repository.js";
+import { DomainEventsRepository } from "../dist/modules/domain-events/domain-events.repository.js";
 
 const actor = {
   tenantId: "tenant_qa", orgId: "org_service_worker", userId: "usr_worker",
@@ -48,4 +49,24 @@ test("#1153: an unclassified legacy run cannot produce approvals under the servi
     (error: any) => error?.getStatus?.() === 409,
   );
   assert.equal(changed, 0, "no terminal DB update may occur for an unowned approval");
+});
+
+
+test("#1153: outbox correlation projection requires exact organization scope", async () => {
+  const whereClauses: unknown[] = [];
+  const repo = new DomainEventsRepository({
+    domainOutboxEvent: {
+      async findMany(input: { where: Record<string, unknown> }) {
+        whereClauses.push(input.where);
+        return [];
+      },
+    },
+  } as never, { async ensureActorContext() {} } as never);
+  await repo.listOutboxByCorrelationId({
+    tenantId: actor.tenantId, orgId: "org_real_owner", userId: actor.userId,
+    correlationId: "corr_shared_between_orgs",
+  });
+  assert.deepEqual(whereClauses, [{
+    tenantId: actor.tenantId, orgId: "org_real_owner", correlationId: "corr_shared_between_orgs",
+  }]);
 });
