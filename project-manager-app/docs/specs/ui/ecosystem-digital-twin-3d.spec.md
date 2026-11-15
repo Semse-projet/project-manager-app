@@ -77,7 +77,7 @@ respuesta con la topología del ecosistema.
 
 **Resultado esperado:** una vista de sólo lectura que permita entender los
 módulos y relaciones en 3D, 2D y lista; reproducir tres flujos de valor; buscar,
-seleccionar y inspeccionar módulos; y distinguir siempre topología estática,
+seleccionar e inspeccionar módulos; y distinguir siempre topología estática,
 madurez de registro y observación runtime. Ningún valor ausente se inventa.
 
 ## 2. Alcance
@@ -284,8 +284,8 @@ No aplica: no se añaden tools, prompts, agentes, citas ni acciones.
   `STATUS_COMMITTED`. Es una preview local guardada, no publicación ni deploy.
   El visor dinámico fallaba en `npm install` por dependencias `workspace:*`;
   `preview/static` usa versiones fijadas propias y no consulta API ni `.env`.
-- Evidencia V7: `artifacts/evidence/digital-twin/v7-validacion.md` y capturas
-  desktop/móvil del mismo directorio.
+- Evidencia V7 remota: `artifacts/evidence/digital-twin/v7-validacion.md`, CI local
+  y reporte E2E. Las capturas desktop/móvil permanecen locales, fuera del paquete Git.
 - Señal de rollback: error de render no contenido, regresión de acceso o datos
   estáticos presentados como observación runtime.
 - Owner operativo: `semse-core` después de un gate de despliegue independiente.
@@ -361,6 +361,11 @@ Tres búsquedas/fuentes primarias:
   copia persistente parcial no se presenta como una nueva validación full-repo.
 - [x] Migración `NOT_APPLICABLE` y rollback de código documentado.
 - [x] CI local equivalente V7 `PASS` con Node 22; evidencia `v7-ci-local.md`.
+- [x] Diff remoto completo revisado contra `main`: 40 archivos dentro del alcance,
+  sin secretos, capturas, assets PWA, Prisma ni archivos de Railway.
+- [x] PR **#1157** abierto con base `main` y head `feat/ecosystem-digital-twin-3d`:
+  https://github.com/Semse-projet/project-manager-app/pull/1157. SHA head revisado
+  al abrir: `e4689f9400792707a64d91048495652286eadfd2`. PR `OPEN`, sin merge.
 - [ ] CI remoto `PASS`: pendiente; `ci_status=NOT_RUN` porque no existe check
   remoto terminal asociado a este árbol.
 - [ ] PR fusionado y SHA: pendiente.
