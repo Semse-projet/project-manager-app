@@ -97,6 +97,8 @@ jobs:
           echo "SEMSE_BOOTSTRAP_TOKEN=$BOOT" >> "$GITHUB_ENV"
       - name: Build API and workspace packages
         run: pnpm build:api
+      - name: Validate SDD 2.0 strictly
+        run: pnpm spec:validate:strict
       - name: Migrate disposable PostgreSQL
         run: node scripts/pre-migrate.mjs
       - name: Seed only disposable localhost PostgreSQL
