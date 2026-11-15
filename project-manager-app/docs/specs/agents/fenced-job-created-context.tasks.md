@@ -10,7 +10,7 @@
 | FJC-06 | E2E firmado pricing/risk COMPLETED | demostrado en ejecución previa | Actions 43765877708 |
 | FJC-07 | HTTP negativos de claim, rol y estado | implementado, pendiente CI final | qa-1149-disposable-agentrun-e2e.mjs |
 | FJC-08 | SDD y spec index | preparado, pendiente validación | spec, plan, checklist |
-| FJC-09 | Auditoría independiente fencing/tenant/org | pendiente | revisión humana |
+| FJC-09 | Auditoría independiente fencing/tenant/org y semántica de eventos atrasados | pendiente | revisión humana, flag default OFF, 409 Project existente |
 | FJC-10 | CI completo en HEAD final | pendiente | GitHub Actions + CodeQL |
 | FJC-11 | Merge/producción/canary | no ejecutar hasta autorización | gate humano |
 | FJC-12 | Decisión sobre runs históricos | pendiente e independiente | issue #1147 |
