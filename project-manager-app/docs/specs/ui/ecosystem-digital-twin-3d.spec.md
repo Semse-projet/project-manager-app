@@ -8,12 +8,12 @@ status: "APPROVED"
 owner: "semse-core"
 risk: "medium"
 code_status: "COMPLETE"
-ci_status: "FAIL"
+ci_status: "PASS"
 merge_status: "UNMERGED"
 deploy_status: "NOT_DEPLOYED"
 activation_status: "INACTIVE"
 migration_status: "NOT_APPLICABLE"
-verification_scope: "local:13-directed-unit-pass;8-e2e-pass-with-controlled-403;web-build-typecheck-eslint-pass;v7-visual-and-static-builder-typecheck-build-smoke-pass;node22-ci-local-equivalent-pass;remote-quality-gates-fail;remote-unit-and-codeql-pass;remote-e2e-qa-skipped;no-production-validation"
+verification_scope: "local:13-directed-unit-pass;8-e2e-pass-with-controlled-403;web-build-typecheck-eslint-pass;v7-visual-and-static-builder-typecheck-build-smoke-pass;node22-ci-local-equivalent-and-spec-preflight-pass;remote-quality-gates-unit-codeql-e2e-pass;remote-pr973-qa-not-applicable-skipped;no-production-validation"
 feature_flags: []
 production_evidence: []
 related_files:
@@ -77,7 +77,7 @@ respuesta con la topología del ecosistema.
 
 **Resultado esperado:** una vista de sólo lectura que permita entender los
 módulos y relaciones en 3D, 2D y lista; reproducir tres flujos de valor; buscar,
-seleccionar y inspeccionar módulos; y distinguir siempre topología estática,
+seleccionar e inspeccionar módulos; y distinguir siempre topología estática,
 madurez de registro y observación runtime. Ningún valor ausente se inventa.
 
 ## 2. Alcance
@@ -366,9 +366,11 @@ Tres búsquedas/fuentes primarias:
 - [x] PR **#1157** abierto con base `main` y head `feat/ecosystem-digital-twin-3d`:
   https://github.com/Semse-projet/project-manager-app/pull/1157. SHA head revisado
   al abrir: `e4689f9400792707a64d91048495652286eadfd2`. PR `OPEN`, sin merge.
-- [ ] CI remoto `PASS`: no alcanzado; `ci_status=FAIL` porque `quality-gates`
-  terminó en fallo. `unit-coverage` y CodeQL pasaron; E2E/QA remotos fueron `skipped`.
-  La causa específica requiere revisar el log del job, sin atribuirla al gemelo.
+- [x] CI remoto `PASS` sobre `e2d70e2b0ff38cb97581f96d0d0c81b8b74f565c`:
+  `quality-gates`, `unit-coverage`, E2E y ambos CodeQL terminaron `success`.
+  `pr973-authenticated-qa` quedó `skipped` por ser exclusivo del PR #973.
+  La causa `TS5097` del incremento se corrigió habilitando `allowImportingTsExtensions`;
+  no se desactivó ningún gate.
 - [ ] PR fusionado y SHA: pendiente.
 - [ ] Deployment `DEPLOYED`: pendiente.
 - [ ] Activación/canary: `INACTIVE`, pendiente de gate separado.
