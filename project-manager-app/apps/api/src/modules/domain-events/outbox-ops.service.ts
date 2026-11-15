@@ -114,14 +114,15 @@ export class OutboxOpsService {
     const [{ items, nextCursor }, counts, oldestPendingAgeMs] = await Promise.all([
       this.outboxRepository.list({
         tenantId: input.actor.tenantId,
+        orgId: input.actor.orgId,
         status: input.status as OutboxStatusName | undefined,
         eventType: input.eventType,
         correlationId: input.correlationId,
         limit,
         cursor,
       }),
-      this.outboxRepository.countsByStatus(input.actor.tenantId),
-      this.outboxRepository.oldestPendingAgeMs(input.actor.tenantId),
+      this.outboxRepository.countsByStatus(input.actor.tenantId, input.actor.orgId),
+      this.outboxRepository.oldestPendingAgeMs(input.actor.tenantId, new Date(), input.actor.orgId),
     ]);
 
     return {
@@ -136,6 +137,7 @@ export class OutboxOpsService {
     const detail = await this.outboxRepository.findDeliveryDetail({
       eventId: input.eventId,
       tenantId: input.actor.tenantId,
+      orgId: input.actor.orgId,
     });
     if (!detail) {
       throw new NotFoundException({ message: "Domain event not found", eventId: input.eventId });
@@ -157,6 +159,7 @@ export class OutboxOpsService {
     const result = await this.outboxRepository.replay({
       eventId: input.eventId,
       tenantId: input.actor.tenantId,
+      orgId: input.actor.orgId,
       consumerName: input.consumerName,
     });
 
