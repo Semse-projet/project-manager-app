@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { BadRequestException, Body, ConflictException, Controller, ForbiddenException, Get, Logger, Param, Post, Query, Req, Patch } from "@nestjs/common";
+import { BadRequestException, Body, ConflictException, Controller, ForbiddenException, Get, Logger, Param, Post, Query, Req, Patch, ServiceUnavailableException } from "@nestjs/common";
 import { SkipThrottle } from "@nestjs/throttler";
 import { agentCatalog } from "@semse/agents";
 import {
@@ -512,6 +512,10 @@ export class AgentsController {
   ) {
     const parsed = parseWithSchema(claimedJobCreatedContextSchema, body);
     const actor = resolveRequestContext(req);
+    // Nonactivated deployments cannot expose this new context read surface.
+    if (process.env.SEMSE_AGENTRUN_JOB_CREATED_CONTEXT_ENABLED !== "true") {
+      throw new ServiceUnavailableException("AgentRun job-created context is not activated");
+    }
     verifyWorkerMutation(actor, runId, parsed);
     const data = await this.agentsService.getClaimedJobCreatedContext({
       tenantId: actor.tenantId, orgId: actor.orgId, userId: actor.userId,
