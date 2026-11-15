@@ -156,6 +156,15 @@ try {
     const foreignDetail = await readEndpoint(runPath, secondClient.accessToken);
     assert.equal(foreignDetail?.output ?? null, null,
       "different CLIENT org must not see enriched AgentRun output");
+    // Cancel normally returns a full AgentRun, so it must not be an output
+    // disclosure backdoor for a different org's completed run.
+    const forbiddenCancel = await fetch(apiText + runPath + "/cancel", {
+      method: "POST",
+      headers: { authorization: "Bearer " + secondClient.accessToken },
+      signal: AbortSignal.timeout(10_000),
+    });
+    assert.equal(forbiddenCancel.status, 404,
+      "foreign-org cancel must not disclose or mutate the scoped AgentRun");
     assert.equal(foreignDetail?.error ?? null, null,
       "different CLIENT org must not see sensitive error details");
     const listItem = foreignRunList.find(r => r.id === completed.id);
