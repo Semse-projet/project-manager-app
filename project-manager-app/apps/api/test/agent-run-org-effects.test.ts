@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { AgentsService } from "../dist/modules/agents/agents.service.js";
 import { AgentsRepository } from "../dist/modules/agents/agents.repository.js";
 import { DomainEventsRepository } from "../dist/modules/domain-events/domain-events.repository.js";
+import { AgentDelegationRepository } from "../dist/modules/agents/agent-delegation.repository.js";
 
 const actor = {
   tenantId: "tenant_qa", orgId: "org_service_worker", userId: "usr_worker",
@@ -69,4 +70,34 @@ test("#1153: outbox correlation projection requires exact organization scope", a
   assert.deepEqual(whereClauses, [{
     tenantId: actor.tenantId, orgId: "org_real_owner", correlationId: "corr_shared_between_orgs",
   }]);
+});
+
+
+test("#1153: delegation update is constrained by run id, tenant and persisted owner", async () => {
+  const writes: any[] = [];
+  const repo = new AgentDelegationRepository({ agentDelegation: {
+    async update(input: unknown) { writes.push(input); return { id: "del_qa", projectId: null }; },
+  } } as never);
+  await repo.updateStatus("del_qa", actor.tenantId, "org_real_owner", actor.runId, "completed");
+  assert.deepEqual(writes[0].where, {
+    id: "del_qa", tenantId: actor.tenantId, orgId: "org_real_owner", targetRunId: actor.runId,
+  });
+});
+
+test("#1153: worker completion uses run ownership for linked delegation effects", async () => {
+  const calls: any[][] = [];
+  const run = {
+    id: actor.runId, tenantId: actor.tenantId, orgId: "org_real_owner",
+    agentType: "pricing", triggerType: "event", input: { delegationId: "del_qa" }, output: {},
+  };
+  const service = new AgentsService(
+    { async complete() { return run; } } as never,
+    { async append() {} } as never, {} as never, {} as never,
+    {} as never, {} as never, {} as never,
+    { async updateStatus(...args: any[]) { calls.push(args); return { projectId: null }; } } as never,
+  );
+  await service.complete({ ...actor, output: {} });
+  assert.deepEqual(calls[0]?.slice(0,5), [
+    "del_qa", actor.tenantId, "org_real_owner", actor.runId, "completed",
+  ]);
 });
