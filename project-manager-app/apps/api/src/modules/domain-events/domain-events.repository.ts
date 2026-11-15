@@ -91,6 +91,7 @@ export class DomainEventsRepository {
     return this.prisma.domainOutboxEvent.findMany({
       where: {
         tenantId: input.tenantId,
+        orgId: input.orgId,
         correlationId: input.correlationId,
       },
       select: {
