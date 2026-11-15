@@ -1,6 +1,10 @@
 import type { NextConfig } from "next";
 import path from "node:path";
 
+// The hosted preview is embedded in an iframe. Keep production framing
+// protections unchanged unless the preview-only Dockerfile opts in explicitly.
+const isEmbeddedPreview = process.env.SEMSE_PREVIEW_EMBEDDED === "true";
+
 const securityHeaders = [
   {
     key: "Content-Security-Policy",
@@ -8,7 +12,7 @@ const securityHeaders = [
       "default-src 'self'",
       "base-uri 'self'",
       "object-src 'none'",
-      "frame-ancestors 'none'",
+      ...(isEmbeddedPreview ? [] : ["frame-ancestors 'none'"]),
       "form-action 'self'",
       "img-src 'self' data: blob: https:",
       "font-src 'self' data:",
@@ -21,10 +25,9 @@ const securityHeaders = [
     key: "Strict-Transport-Security",
     value: "max-age=31536000; includeSubDomains; preload",
   },
-  {
-    key: "X-Frame-Options",
-    value: "DENY",
-  },
+  ...(isEmbeddedPreview
+    ? []
+    : [{ key: "X-Frame-Options", value: "DENY" }]),
   {
     key: "X-Content-Type-Options",
     value: "nosniff",
