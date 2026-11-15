@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
@@ -30,6 +31,14 @@ type ActorInput = {
   userId: string;
   requestId: string;
 };
+
+function requireOrgScope(actor: ActorInput): void {
+  if (typeof actor.tenantId !== "string" || !actor.tenantId.trim()
+      || typeof actor.orgId !== "string" || !actor.orgId.trim()) {
+    throw new ForbiddenException("outbox operations require an authenticated tenant and organization");
+  }
+}
+
 
 function decodeCursor(cursor: string | undefined): { recordedAt: Date; eventId: string } | undefined {
   if (!cursor) {
@@ -105,6 +114,7 @@ export class OutboxOpsService {
     limit?: number;
     cursor?: string;
   }) {
+    requireOrgScope(input.actor);
     if (input.status && !VALID_STATUSES.has(input.status as OutboxStatusName)) {
       throw new BadRequestException({ message: "Invalid status filter", status: input.status });
     }
@@ -134,6 +144,7 @@ export class OutboxOpsService {
   }
 
   async getDeliveryDetail(input: { actor: ActorInput; eventId: string }) {
+    requireOrgScope(input.actor);
     const detail = await this.outboxRepository.findDeliveryDetail({
       eventId: input.eventId,
       tenantId: input.actor.tenantId,
@@ -151,6 +162,7 @@ export class OutboxOpsService {
     consumerName?: string;
     reason: string;
   }) {
+    requireOrgScope(input.actor);
     const reason = input.reason.trim();
     if (!reason) {
       throw new BadRequestException({ message: "reason is required" });
