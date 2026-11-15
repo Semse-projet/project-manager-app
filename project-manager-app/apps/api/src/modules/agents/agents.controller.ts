@@ -481,6 +481,7 @@ export class AgentsController {
       tenantId: actor.tenantId,
       orgId: actor.orgId,
       userId: actor.userId,
+      roles: actor.roles,
       runId,
       requestId,
     });
