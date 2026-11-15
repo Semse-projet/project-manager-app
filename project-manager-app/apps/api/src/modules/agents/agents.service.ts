@@ -484,7 +484,8 @@ export class AgentsService {
 
     await this.auditService.append({
       tenantId: input.tenantId,
-      orgId: input.orgId,
+      // The worker principal may belong to another org: use persisted run ownership.
+      orgId: run.orgId ?? input.orgId,
       actorUserId: input.userId,
       action: "agent.run.start",
       entityType: "AgentRun",
@@ -510,7 +511,8 @@ export class AgentsService {
 
     await this.auditService.append({
       tenantId: input.tenantId,
-      orgId: input.orgId,
+      // The worker principal may belong to another org: use persisted run ownership.
+      orgId: run.orgId ?? input.orgId,
       actorUserId: input.userId,
       action: "agent.run.heartbeat",
       entityType: "AgentRun",
@@ -540,7 +542,7 @@ export class AgentsService {
     const approvals = Array.isArray(input.output?.approvals)
       ? await this.agentApprovalService.register({
           tenantId: input.tenantId,
-          orgId: input.orgId,
+          orgId: run.orgId ?? input.orgId,
           userId: input.userId,
           requestId: input.requestId,
           approvals: input.output.approvals as Parameters<AgentApprovalService["register"]>[0]["approvals"]
@@ -549,7 +551,8 @@ export class AgentsService {
 
     await this.auditService.append({
       tenantId: input.tenantId,
-      orgId: input.orgId,
+      // The worker principal may belong to another org: use persisted run ownership.
+      orgId: run.orgId ?? input.orgId,
       actorUserId: input.userId,
       action: "agent.run.complete",
       entityType: "AgentRun",
@@ -599,7 +602,8 @@ export class AgentsService {
 
     await this.auditService.append({
       tenantId: input.tenantId,
-      orgId: input.orgId,
+      // The worker principal may belong to another org: use persisted run ownership.
+      orgId: run.orgId ?? input.orgId,
       actorUserId: input.userId,
       action: "agent.run.fail",
       entityType: "AgentRun",
