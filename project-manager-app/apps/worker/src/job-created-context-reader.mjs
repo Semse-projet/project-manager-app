@@ -29,3 +29,23 @@ export function createJobCreatedContextReader(projection, tenantId) {
     throw new Error("Path unavailable in claimed job.created context");
   };
 }
+
+/**
+ * The event payload is persisted input, but only the fenced API projection is
+ * authority for Job identity. A user-controlled run.input.context may contain
+ * contradictory Job/Project IDs. Never let it reach specialized handlers.
+ */
+export function createClaimedJobCreatedHandlerRun(run, projection) {
+  const jobId = projection?.job?.id;
+  if (typeof jobId !== "string" || jobId.length === 0) {
+    throw new Error("Claimed job.created handler input missing authorized Job");
+  }
+  return {
+    ...run,
+    input: {
+      eventType: "job.created",
+      eventPayload: { jobId },
+      context: { jobId },
+    },
+  };
+}
