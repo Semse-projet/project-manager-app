@@ -123,6 +123,64 @@ try {
     assert.ok(r.workerId, r.agentType + " lacks worker claim");
     assert.ok(r.startedAt && r.endedAt, r.agentType + " lifecycle not persisted");
   }
+
+  // Negative HTTP authorization tests: no token or credentials are emitted.
+  const serviceSessionResponse = await fetch(apiText + "/v1/auth/token", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-semse-bootstrap-token": process.env.SEMSE_BOOTSTRAP_TOKEN,
+    },
+    body: JSON.stringify({
+      userId: "usr_worker_system", tenantId: "tenant_default",
+      orgId: "org_admin_001", roles: ["AGENT_RUNNER"], ttlSeconds: 120,
+    }),
+    signal: AbortSignal.timeout(10_000),
+  });
+  assert.equal(serviceSessionResponse.status, 201, "ephemeral service token not issued");
+  const serviceSession = await serviceSessionResponse.json();
+  const workerBearer = serviceSession?.data?.accessToken;
+  assert.ok(workerBearer, "ephemeral service token missing");
+  const { signAgentRunClaimToken } = await import(
+    "../apps/api/dist/modules/agents/agent-run-claim-token.js"
+  );
+  const sampleRun = runs[0];
+  const binding = {
+    tenantId: "tenant_default", orgId: "org_admin_001",
+    userId: "usr_worker_system", runId: sampleRun.id,
+    workerId: sampleRun.workerId, attempts: sampleRun.attempts,
+  };
+  async function contextStatus(bearer, claimToken, b = binding) {
+    const response = await fetch(
+      apiText + "/v1/agents/runs/" + encodeURIComponent(sampleRun.id) + "/job-created-context",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json", authorization: "Bearer " + bearer },
+        body: JSON.stringify({
+          workerId: b.workerId, expectedAttempts: b.attempts, claimToken,
+        }),
+        signal: AbortSignal.timeout(10_000),
+      }
+    );
+    return response.status;
+  }
+  const validTerminalToken = signAgentRunClaimToken(binding);
+  const badHmac = await contextStatus(workerBearer, "invalid-token");
+  assert.equal(badHmac, 403, "bad HMAC must not read Job context");
+  const clientDenied = await contextStatus(actor.accessToken, validTerminalToken);
+  assert.equal(clientDenied, 403, "CLIENT may not consume Worker context");
+  const terminalDenied = await contextStatus(workerBearer, validTerminalToken);
+  assert.equal(terminalDenied, 404, "completed run must not read context again");
+  const staleAttempt = { ...binding, attempts: binding.attempts + 1 };
+  const staleDenied = await contextStatus(
+    workerBearer, signAgentRunClaimToken(staleAttempt), staleAttempt
+  );
+  assert.equal(staleDenied, 404, "an inactive worker generation must not read context");
+  emit("negative_http_PASS", {
+    invalidClaim: badHmac, clientWithoutRunner: clientDenied,
+    terminalAttempt: terminalDenied, staleGeneration: staleDenied,
+  });
+
   emit("PASS", {correlationId, agentTypes: ["pricing", "risk"]});
 } finally {
   await prisma.$disconnect();
