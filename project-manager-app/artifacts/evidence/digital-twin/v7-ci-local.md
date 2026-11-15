@@ -12,7 +12,7 @@
 - Chromium del sistema para E2E, sin reintentos (`SEMSE_PR973_E2E_QA=1`).
 - Workspace temporal construido desde el árbol V7 actual.
 
-No se encontraron definiciones de GitHub Actions en el SHA autorizado. Por ello se ejecutaron directamente los scripts y comandos de validación del workspace. El estado `ci_status` del spec permanece `NOT_RUN`: estas pruebas locales no deben confundirse con un check remoto terminal.
+En el SHA base autorizado no se localizaron las definiciones de GitHub Actions durante la preparación local, por lo que primero se ejecutaron directamente los scripts y comandos del workspace. Al abrir el PR sí se activaron checks remotos reales; sus resultados terminales se registran más abajo. El CI local equivalente fue `PASS`, pero el estado agregado actual del spec es `ci_status=FAIL` por el fallo remoto de `quality-gates`.
 
 ## Resultados
 

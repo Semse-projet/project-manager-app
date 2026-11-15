@@ -8,12 +8,12 @@ status: "APPROVED"
 owner: "semse-core"
 risk: "medium"
 code_status: "COMPLETE"
-ci_status: "NOT_RUN"
+ci_status: "FAIL"
 merge_status: "UNMERGED"
 deploy_status: "NOT_DEPLOYED"
 activation_status: "INACTIVE"
 migration_status: "NOT_APPLICABLE"
-verification_scope: "local:13-directed-unit-pass;8-e2e-pass-with-controlled-403;web-build-typecheck-eslint-pass;v7-visual-and-static-builder-typecheck-build-smoke-pass;node22-ci-local-equivalent-pass;no-remote-ci-or-production-validation"
+verification_scope: "local:13-directed-unit-pass;8-e2e-pass-with-controlled-403;web-build-typecheck-eslint-pass;v7-visual-and-static-builder-typecheck-build-smoke-pass;node22-ci-local-equivalent-pass;remote-quality-gates-fail;remote-unit-and-codeql-pass;remote-e2e-qa-skipped;no-production-validation"
 feature_flags: []
 production_evidence: []
 related_files:
@@ -366,8 +366,9 @@ Tres búsquedas/fuentes primarias:
 - [x] PR **#1157** abierto con base `main` y head `feat/ecosystem-digital-twin-3d`:
   https://github.com/Semse-projet/project-manager-app/pull/1157. SHA head revisado
   al abrir: `e4689f9400792707a64d91048495652286eadfd2`. PR `OPEN`, sin merge.
-- [ ] CI remoto `PASS`: pendiente; `ci_status=NOT_RUN` porque no existe check
-  remoto terminal asociado a este árbol.
+- [ ] CI remoto `PASS`: no alcanzado; `ci_status=FAIL` porque `quality-gates`
+  terminó en fallo. `unit-coverage` y CodeQL pasaron; E2E/QA remotos fueron `skipped`.
+  La causa específica requiere revisar el log del job, sin atribuirla al gemelo.
 - [ ] PR fusionado y SHA: pendiente.
 - [ ] Deployment `DEPLOYED`: pendiente.
 - [ ] Activación/canary: `INACTIVE`, pendiente de gate separado.
