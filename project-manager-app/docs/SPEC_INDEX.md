@@ -41,7 +41,7 @@ retroactiva.
 | [semse-agent-architecture](specs/agents/SEMSE_AGENT_ARCHITECTURE.spec.md) | agents | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-06-09 |
 | [semse-forge-agent-harness](specs/agents/SEMSE_FORGE_AGENT_HARNESS.spec.md) | agents | APPROVED | legacy | legacy | legacy | legacy | legacy | critical | yes | 2026-07-17 |
 | [agents.agent-queue-retry-idempotency](specs/agents/agent-queue-retry-idempotency.spec.md) | agents | APPROVED | COMPLETE | PASS | MERGED | DEPLOYED | INACTIVE | medium | yes | 2026-10-12 |
-| [agents.browser-agent-runtime-guard](specs/agents/browser-agent-runtime-guard.spec.md) | agents | DRAFT | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | no | 2026-10-12 |
+| [agents.browser-agent-runtime-guard](specs/agents/browser-agent-runtime-guard.spec.md) | agents | DRAFT | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | yes | 2026-10-12 |
 | [agt-002-prometeo-core](specs/agents/prometeo-core.spec.md) | agents | IMPLEMENTED | COMPLETE | NOT_RUN | MERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-08-17 |
 | [agt-001-verification-loop](specs/agents/verification-loop.spec.md) | agents | IMPLEMENTED | legacy | legacy | legacy | legacy | legacy | medium | yes | 2026-07-04 |
 | [agro.audio-ssrf-containment](specs/agro/agro-audio-ssrf-containment.spec.md) | agro | DRAFT | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | no | 2026-10-13 |
@@ -250,6 +250,7 @@ retroactiva.
 | [ui.mobile-product-consolidation](specs/ui/mobile-product-consolidation.spec.md) | ui | APPROVED | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-09-06 |
 | [ui.pro-flows-remediation](specs/ui/pro-flows-remediation.spec.md) | ui | APPROVED | legacy | legacy | legacy | legacy | legacy | critical | no | 2026-08-14 |
 | [ui-pro-flows](specs/ui/pro-flows.spec.md) | ui | DEPRECATED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-06-09 |
+| [ui.ecosystem-digital-twin-3d](specs/ui/ecosystem-digital-twin-3d.spec.md) | ui | APPROVED | COMPLETE | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | yes | 2026-11-15 |
 | [ui.prometeo-mascot-3d](specs/ui/prometeo-mascot-3d.spec.md) | ui | APPROVED | COMPLETE | PASS | MERGED | DEPLOYED | ACTIVE | medium | yes | 2026-10-05 |
 | [ui.prometeo-multimodal-workspace-p3a](specs/ui/prometeo-multimodal-workspace.spec.md) | ui | IMPLEMENTED | legacy | legacy | legacy | legacy | legacy | medium | yes | 2026-07-16 |
 | [ui-public-landing-operational-entry](specs/ui/public-landing-operational-entry.spec.md) | ui | VERIFIED | legacy | legacy | legacy | legacy | legacy | low | yes | 2026-06-10 |
