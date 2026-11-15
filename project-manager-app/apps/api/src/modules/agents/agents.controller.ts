@@ -59,6 +59,12 @@ const startRunSchema = z.object({
   claimToken: z.string().optional()
 });
 
+const claimedJobCreatedContextSchema = z.object({
+  workerId: z.string().min(1),
+  expectedAttempts: z.number().int().positive(),
+  claimToken: z.string().min(1),
+}).strict();
+
 const reclaimSchema = z.object({
   staleAfterMs: z.number().int().positive().default(10000),
   maxItems: z.number().int().positive().max(500).optional()
@@ -489,6 +495,30 @@ export class AgentsController {
     });
 
     return ok(requestId, run);
+  }
+
+  /**
+   * A job.created event may precede Project creation. Only the currently
+   * claimed Worker attempt may read its originating Job's minimal projection.
+   * This does not confer projects:read/jobs:read to AGENT_RUNNER.
+   */
+  @Post("runs/:runId/job-created-context")
+  @SkipThrottle()
+  @RequirePermissions("agents:run:execute")
+  async jobCreatedContext(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Param("runId") runId: string,
+    @Body() body: unknown
+  ) {
+    const parsed = parseWithSchema(claimedJobCreatedContextSchema, body);
+    const actor = resolveRequestContext(req);
+    verifyWorkerMutation(actor, runId, parsed);
+    const data = await this.agentsService.getClaimedJobCreatedContext({
+      tenantId: actor.tenantId, orgId: actor.orgId, userId: actor.userId,
+      runId, workerId: parsed.workerId,
+      expectedAttempts: parsed.expectedAttempts,
+    });
+    return ok(resolveRequestId(req.headers ?? {}), data);
   }
 
   @Post("runs/:runId/start")
