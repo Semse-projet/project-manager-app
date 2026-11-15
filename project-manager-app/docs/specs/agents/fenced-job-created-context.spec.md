@@ -32,7 +32,7 @@ related_events:
 related_agents:
   - "pricing"
   - "risk"
-last_verified: ""
+last_verified: "2026-11-15"
 ---
 
 # SDD 2.0 — Contexto mínimo de Job para AgentRuns
