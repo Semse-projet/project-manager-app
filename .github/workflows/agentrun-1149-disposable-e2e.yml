@@ -16,7 +16,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: agentrun-1149-disposable-qa
+  group: agentrun-1149-disposable-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 defaults:
