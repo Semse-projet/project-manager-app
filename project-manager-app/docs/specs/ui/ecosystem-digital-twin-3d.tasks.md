@@ -4,7 +4,7 @@ feature: "Ecosystem Digital Twin 3D"
 domain: "ui"
 plan: "docs/specs/ui/ecosystem-digital-twin-3d.plan.md"
 version: "2.0"
-status: "PR_OPEN_REMOTE_CI_FAIL"
+status: "PR_OPEN_REMOTE_CI_PASS"
 branch: "feat/ecosystem-digital-twin-3d"
 date: "2026-11-15"
 ---
@@ -79,9 +79,11 @@ https://github.com/Semse-projet/project-manager-app/pull/1157.
   `feat/ecosystem-digital-twin-3d`; SHA revisado al abrir:
   `e4689f9400792707a64d91048495652286eadfd2`. URL:
   https://github.com/Semse-projet/project-manager-app/pull/1157.
-- [x] [T-051] Registrar CI remoto terminal: `ci_status=FAIL` por `quality-gates`;
-  `unit-coverage` y CodeQL verdes, E2E/QA remotos `skipped`. No se atribuye la causa
-  al gemelo sin revisar el log del job.
+- [x] [T-051] Diagnosticar y corregir los fallos remotos sin eludir gates: orden
+  canónico del índice SDD y `allowImportingTsExtensions` para imports `.ts` del gemelo.
+- [x] [T-051A] Registrar CI remoto terminal `PASS` sobre
+  `e2d70e2b0ff38cb97581f96d0d0c81b8b74f565c`: `quality-gates`, `unit-coverage`,
+  E2E y CodeQL verdes; QA #973 `skipped` por alcance.
 - [ ] [T-052] Fusionar sólo con confirmación explícita y registrar SHA.
 
 ## Fase 6 — Deploy y activación (no autorizado)

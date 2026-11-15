@@ -122,8 +122,9 @@ date: "2026-11-15"
 
 ### Fase E — Integración y Fase F — Producción
 
-- PR **#1157** abierto y diff remoto completo revisado. CI remoto terminal:
-  `FAIL` por `quality-gates`; `unit-coverage` y CodeQL pasaron, E2E/QA se omitieron.
+- PR **#1157** abierto y diff remoto completo revisado. CI remoto terminal `PASS`
+  sobre `e2d70e2b0ff38cb97581f96d0d0c81b8b74f565c`: `quality-gates`,
+  `unit-coverage`, E2E y CodeQL verdes; QA #973 omitida por alcance.
   Merge, Railway, canary y activación quedan no autorizados; el PR sigue `UNMERGED`.
 
 ## 8. Riesgos
