@@ -79,6 +79,68 @@ export class AgentsRepository {
     return this.toRecord(run);
   }
 
+  /**
+   * Read-only job-created context for a specific, currently fenced Worker attempt.
+   * Never grant AGENT_RUNNER a general Job or Project read permission.
+   * The resource is resolved from the persisted run's event, not client input.
+   */
+  async getClaimedJobCreatedContext(input: {
+    tenantId: string; orgId: string; userId: string; runId: string;
+    workerId: string; expectedAttempts: number;
+  }): Promise<{ job: {
+    id: string; title: string; scope: string; category: string | null;
+    status: string; urgency: string | null; budgetMin: number | null;
+    budgetMax: number | null;
+  } }> {
+    await this.actorContextService.ensureActorContext(input);
+    const run = await this.prisma.agentRun.findFirst({
+      where: {
+        id: input.runId, tenantId: input.tenantId, status: "RUNNING",
+        workerId: input.workerId, attempts: input.expectedAttempts,
+        deadLettered: false,
+        triggerType: "event",
+        agentType: { in: ["pricing", "risk"] },
+      },
+      select: { inputJson: true, correlationId: true },
+    });
+    if (!run) throw new NotFoundException("Claimed AgentRun is unavailable");
+    const payload = run.inputJson && typeof run.inputJson === "object" &&
+      !Array.isArray(run.inputJson) ? run.inputJson as Record<string, unknown> : {};
+    const eventPayload = payload.eventPayload && typeof payload.eventPayload === "object" &&
+      !Array.isArray(payload.eventPayload) ? payload.eventPayload as Record<string, unknown> : {};
+    const origin = payload.operatorContext && typeof payload.operatorContext === "object" &&
+      !Array.isArray(payload.operatorContext) ? payload.operatorContext as Record<string, unknown> : {};
+    const jobId = eventPayload.jobId;
+    const originOrgId = origin.orgId;
+    if (payload.eventType !== "job.created" || typeof jobId !== "string" ||
+        !jobId || run.correlationId !== `job:${jobId}:created` ||
+        typeof originOrgId !== "string" || !originOrgId ||
+        origin.tenantId !== input.tenantId ||
+        eventPayload.clientOrgId !== originOrgId) {
+      throw new NotFoundException("Claimed AgentRun context unavailable");
+    }
+    const job = await this.prisma.job.findFirst({
+      where: {
+        id: jobId, tenantId: input.tenantId, clientOrgId: originOrgId,
+        deletedAt: null,
+      },
+      select: {
+        id: true, title: true, scope: true, category: true,
+        status: true, urgency: true, budgetMin: true, budgetMax: true,
+      },
+    });
+    if (!job) throw new NotFoundException("Claimed AgentRun context unavailable");
+    return {
+      job: {
+        id: job.id, title: job.title, scope: job.scope,
+        category: job.category, status: job.status.toLowerCase(),
+        urgency: job.urgency,
+        budgetMin: job.budgetMin?.toNumber() ?? null,
+        budgetMax: job.budgetMax?.toNumber() ?? null,
+      },
+    };
+  }
+
   async create(input: {
     tenantId: string;
     orgId: string;
