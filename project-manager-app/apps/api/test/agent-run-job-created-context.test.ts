@@ -28,7 +28,7 @@ function repository(overrides: {
     lockSql?: string; lockParams?: unknown[]; transactionUsed?: boolean;
   } = {};
   const client = {
-    async $transaction<T>(callback: (tx: typeof client) => Promise<T>): Promise<T> {
+    async $transaction(callback: (tx: unknown) => Promise<unknown>): Promise<unknown> {
       calls.transactionUsed = true;
       return callback(client);
     },
