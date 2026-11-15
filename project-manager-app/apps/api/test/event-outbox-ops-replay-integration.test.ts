@@ -192,7 +192,24 @@ dbTest(
   },
 );
 
-dbTest(
+
+const isolatedOrgTest = (() => {
+  const raw = process.env.DATABASE_URL;
+  if (!raw) return test.skip;
+  let url: URL;
+  try { url = new URL(raw); } catch { return test.skip; }
+  if (!["postgresql:", "postgres:"].includes(url.protocol)
+      || !["localhost", "127.0.0.1", "[::1]"].includes(url.hostname)
+      || url.port !== "5433") return test.skip;
+  const database = decodeURIComponent(url.pathname.slice(1));
+  if (process.env.GITHUB_ACTIONS === "true")
+    return process.env.CI === "true" && url.hostname === "127.0.0.1"
+      && url.username === "semse" && database === "semse" ? test : test.skip;
+  return process.env.SEMSE_ALLOW_DISPOSABLE_AGENT_CLAIM_DB === "1"
+      && /^semse_(test|e2e)(?:_|$)/.test(database) ? test : test.skip;
+})();
+
+isolatedOrgTest(
   "#1156: outbox owner filters list, counts, delivery detail and replay inside one tenant",
   async (t) => {
     const tenantId = await createTenant();
