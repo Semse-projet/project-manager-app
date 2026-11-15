@@ -12,7 +12,7 @@
 - Chromium del sistema para E2E, sin reintentos (`SEMSE_PR973_E2E_QA=1`).
 - Workspace temporal construido desde el árbol V7 actual.
 
-En el SHA base autorizado no se localizaron las definiciones de GitHub Actions durante la preparación local, por lo que primero se ejecutaron directamente los scripts y comandos del workspace. Al abrir el PR sí se activaron checks remotos reales; sus resultados terminales se registran más abajo. El CI local equivalente fue `PASS`, pero el estado agregado actual del spec es `ci_status=FAIL` por el fallo remoto de `quality-gates`.
+En el SHA base autorizado no se localizaron las definiciones de GitHub Actions durante la preparación local, por lo que primero se ejecutaron directamente los scripts y comandos del workspace. Al abrir el PR sí se activaron checks remotos reales; sus resultados terminales se registran más abajo. Tras las correcciones verificadas, el CI local equivalente y el remoto son `PASS`, y el estado agregado actual del spec es `ci_status=PASS`.
 
 ## Resultados
 
@@ -53,18 +53,25 @@ El fixture y `local-digital-twin-test-only` son exclusivamente datos de prueba l
 
 ## CI remoto posterior en PR #1157
 
-Checks terminales observados sobre el head `c2120191d18befed061f97f3c27f18fa01e8e9c0`:
+Se corrigieron dos causas sin desactivar gates:
+
+1. El índice SDD se regeneró en orden lexicográfico canónico; el gate documental pasó.
+2. Con el `tsconfig.json` remoto exacto se reprodujeron nueve errores `TS5097` en imports `.ts` del gemelo. Se añadió `allowImportingTsExtensions: true`, conservando `strict` y `noEmit`. El archivo remoto quedó verificado byte a byte con blob `7a6362a7c6fc8c987e9b9327ffd6fd9e7a34e2cc`.
+
+El archivo `apps/worker/src/main.mjs` existe con el mismo blob en base y head; su ausencia inicial en la réplica era un artefacto de copia parcial, no un fallo del producto. Tras restaurarlo sólo en la réplica, `spec:preflight` local completo terminó con código `0`, incluidos builds, Prisma generate, typechecks API/Web/móvil y sintaxis del worker. Los 13 unitarios dirigidos volvieron a pasar.
+
+Checks terminales observados sobre el head `e2d70e2b0ff38cb97581f96d0d0c81b8b74f565c`:
 
 | Check remoto | Resultado | Evidencia |
 |---|---|---|
-| `unit-coverage` | `success` | [Job 132733732264](https://github.com/Semse-projet/project-manager-app/actions/runs/43688413879/job/132733732264) |
-| `quality-gates` | `failure` | [Job 132733732078](https://github.com/Semse-projet/project-manager-app/actions/runs/43688413879/job/132733732078) |
-| CodeQL Python | `success` | [Job 132733649627](https://github.com/Semse-projet/project-manager-app/actions/runs/43688408254/job/132733649627) |
-| CodeQL JavaScript/TypeScript | `success` | [Job 132733649487](https://github.com/Semse-projet/project-manager-app/actions/runs/43688408254/job/132733649487) |
-| `e2e` | `skipped` | [Job 132733970416](https://github.com/Semse-projet/project-manager-app/actions/runs/43688413879/job/132733970416) |
-| `pr973-authenticated-qa` | `skipped` | [Job 132733970213](https://github.com/Semse-projet/project-manager-app/actions/runs/43688413879/job/132733970213) |
+| `quality-gates` | `success` | [Job 132862985067](https://github.com/Semse-projet/project-manager-app/actions/runs/43730937465/job/132862985067) |
+| `unit-coverage` | `success` | [Job 132862984790](https://github.com/Semse-projet/project-manager-app/actions/runs/43730937465/job/132862984790) |
+| `e2e` | `success` | [Job 132865928080](https://github.com/Semse-projet/project-manager-app/actions/runs/43730937465/job/132865928080) |
+| CodeQL Python | `success` | [Job 132862598338](https://github.com/Semse-projet/project-manager-app/actions/runs/43730814072/job/132862598338) |
+| CodeQL JavaScript/TypeScript | `success` | [Job 132862598526](https://github.com/Semse-projet/project-manager-app/actions/runs/43730814072/job/132862598526) |
+| `pr973-authenticated-qa` | `skipped` | [Job 132865929117](https://github.com/Semse-projet/project-manager-app/actions/runs/43730937465/job/132865929117); workflow exclusivo del PR #973 |
 
-El resultado agregado remoto es `FAIL`. No se inspeccionó todavía el log de `quality-gates`; no se atribuye su causa al gemelo ni se modifica producto para eludirlo.
+El resultado agregado remoto es `PASS`. Dentro de `quality-gates` pasaron SDD, Prisma, toolchain, `Spec preflight`, unitarios globales y `Verify workspace`.
 
 ## Límites y estados
 
@@ -73,7 +80,7 @@ El resultado agregado remoto es `FAIL`. No se inspeccionó todavía el log de `q
 - No se ejecutó merge, deploy, publicación, Railway ni activación.
 - El PR **#1157** se abrió posteriormente con autorización y permanece `OPEN`, sin merge: https://github.com/Semse-projet/project-manager-app/pull/1157.
 - CI local equivalente: `PASS`.
-- CI remoto/plataforma: `FAIL` por `quality-gates`; `unit-coverage` y CodeQL pasaron; E2E/QA remotos fueron omitidos.
+- CI remoto/plataforma: `PASS`; `quality-gates`, `unit-coverage`, E2E y CodeQL pasaron; QA #973 fue omitida por alcance.
 - Merge: `UNMERGED`.
 - Deploy: `NOT_DEPLOYED`.
 - Activación: `INACTIVE`.

@@ -79,7 +79,7 @@ El árbol persistente es una copia parcial del monorepo: contiene dos specs y ca
 
 ## Validación CI local posterior
 
-Con Node 22 se completó una validación CI local equivalente: paquetes internos, 13 unitarios, TypeScript Web, ESLint, build Web de 422 páginas, builder estático y 8/8 E2E sin reintentos, todos verdes. ESLint conserva 39 advertencias preexistentes fuera del gemelo. Consultar [`v7-ci-local.md`](v7-ci-local.md) y [`v7-ci-e2e-report.json`](v7-ci-e2e-report.json). El CI remoto posterior terminó `FAIL` por `quality-gates`; `unit-coverage` y CodeQL pasaron y E2E/QA remotos fueron omitidos, por lo que `ci_status=FAIL`.
+Con Node 22 se completó una validación CI local equivalente: paquetes internos, 13 unitarios, TypeScript Web, ESLint, build Web de 422 páginas, builder estático y 8/8 E2E sin reintentos, todos verdes. ESLint conserva 39 advertencias preexistentes fuera del gemelo. Consultar [`v7-ci-local.md`](v7-ci-local.md) y [`v7-ci-e2e-report.json`](v7-ci-e2e-report.json). Tras corregir el índice SDD y los imports `.ts`, `spec:preflight` local y el CI remoto terminaron `PASS`: `quality-gates`, `unit-coverage`, E2E y CodeQL verdes; QA #973 omitida por alcance. Por tanto, `ci_status=PASS`.
 
 ## Registro y revisión de PR
 
@@ -91,12 +91,13 @@ El diff remoto completo se revisó contra `main` (`7029da63e719b264f7b2bfaff7eb4
 - URL: https://github.com/Semse-projet/project-manager-app/pull/1157
 - Base: `main`; head: `feat/ecosystem-digital-twin-3d`.
 - SHA head revisado al abrir: `e4689f9400792707a64d91048495652286eadfd2`.
+- SHA head con CI remoto verde: `e2d70e2b0ff38cb97581f96d0d0c81b8b74f565c`.
 
 ## Estados independientes
 
 - Código local: `COMPLETE`.
 - Preview V7: `STATUS_COMMITTED`, ID `1656593`.
-- CI remoto: `FAIL` por `quality-gates`; CI local equivalente: `PASS`.
+- CI remoto: `PASS`; CI local equivalente y `spec:preflight`: `PASS`.
 - PR: `OPEN`, #1157, sin merge.
 - Merge: `UNMERGED`.
 - Deploy: `NOT_DEPLOYED`.

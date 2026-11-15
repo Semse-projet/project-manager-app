@@ -6,6 +6,7 @@
 **Head:** `feat/ecosystem-digital-twin-3d`.  
 **SHA base autorizado:** `7029da63e719b264f7b2bfaff7eb4b716fe167b9`.  
 **SHA head revisado al abrir:** `e4689f9400792707a64d91048495652286eadfd2`.  
+**SHA head con CI remoto verde:** `e2d70e2b0ff38cb97581f96d0d0c81b8b74f565c`.  
 **Título:** `feat(web): añadir gemelo digital 3D accesible de SEMSE`
 
 ## Resumen
@@ -76,7 +77,7 @@ Evidencias:
 - [`v7-ci-e2e-report.json`](v7-ci-e2e-report.json)
 - Capturas locales `v7-desktop.png` y `v7-mobile.png`, deliberadamente no incluidas en el paquete remoto.
 
-La validación CI local es equivalente y terminó `PASS`. El CI remoto posterior terminó `FAIL` por `quality-gates`; `unit-coverage` y ambos análisis CodeQL pasaron, mientras `e2e` y `pr973-authenticated-qa` fueron `skipped`. Por tanto, `ci_status=FAIL`; no se atribuye el fallo al gemelo sin revisar su log.
+La validación CI local equivalente y el `spec:preflight` completo terminaron `PASS`. Se reprodujeron y corrigieron el desorden del índice SDD y nueve errores `TS5097` de imports `.ts` del incremento. El CI remoto sobre `e2d70e2b0ff38cb97581f96d0d0c81b8b74f565c` terminó `PASS`: `quality-gates`, `unit-coverage`, E2E y ambos análisis CodeQL pasaron; `pr973-authenticated-qa` fue `skipped` por ser exclusivo del PR #973. Por tanto, `ci_status=PASS`; no se desactivó ni eludió ningún gate.
 
 ## Preview
 
@@ -116,9 +117,9 @@ El diff remoto completo fue revisado contra `main` antes de abrir el PR: 40 arch
 ## Gates posteriores — no ejecutados
 
 - [x] Crear branch/commits y abrir PR **#1157** con confirmación explícita; SHA head revisado al abrir: `e4689f9400792707a64d91048495652286eadfd2`.
-- [x] Registrar CI remoto terminal: `FAIL` por `quality-gates`; `unit-coverage` y CodeQL verdes, E2E/QA `skipped`.
+- [x] Diagnosticar y corregir SDD/`TS5097`; registrar CI remoto terminal `PASS`: `quality-gates`, `unit-coverage`, E2E y CodeQL verdes; QA #973 `skipped`.
 - [ ] Fusionar sólo con autorización específica y registrar SHA de merge.
 - [ ] Desplegar mediante un gate separado.
 - [ ] Ejecutar smoke autenticado de producción y activación/canary independiente.
 
-**Estados actuales:** código `COMPLETE`; CI local `PASS`; CI remoto `FAIL`; merge `UNMERGED`; deploy `NOT_DEPLOYED`; activación `INACTIVE`; migración `NOT_APPLICABLE`; `production_evidence=[]`.
+**Estados actuales:** código `COMPLETE`; CI local `PASS`; CI remoto `PASS`; merge `UNMERGED`; deploy `NOT_DEPLOYED`; activación `INACTIVE`; migración `NOT_APPLICABLE`; `production_evidence=[]`.
