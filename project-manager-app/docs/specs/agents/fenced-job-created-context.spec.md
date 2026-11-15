@@ -24,6 +24,7 @@ related_files:
   - "apps/worker/src/job-created-context-reader.mjs"
 related_tests:
   - "apps/api/test/agent-run-job-created-context.test.ts"
+  - "apps/api/test/agent-run-job-output-visibility.test.ts"
   - "tests/unit/job-created-context-reader.test.mjs"
   - "scripts/qa-1149-disposable-agentrun-e2e.mjs"
 related_endpoints:
@@ -77,6 +78,8 @@ Las condiciones deben cumplirse juntas:
 - Job activo con `tenantId` y `clientOrgId` iguales al tenant y org de origen;
   no se usa la org de administración del Worker como dueña del Job.
 - La identidad sin claim no obtiene acceso; un runId/JobId aislado no autoriza.
+- El Worker reconstruye el input del handler usando EXCLUSIVAMENTE el Job autorizado por el claim. Los IDs contradictorios en run.input/context no llegan a pricing/risk.
+- Los endpoints públicos de AgentRun (listado, detalle, eventos y cancelación) no pueden exponer el output ni los resúmenes de un Job que el actor no pueda leer conforme a jobs:read y la misma política jobs-visibility de JobsRepository. Los metadatos preexistentes no otorgan permiso de lectura de presupuestos/alcances derivados.
 
 ## 4. Escenarios y aceptación
 
@@ -88,7 +91,7 @@ con eventPayload.jobId y lifecycle trazables.
 **N1 — negativos obligatorios.** Bloquear tenant, org de origen, Job, correlación,
 worker o generación divergente; denegar ruta genérica y métodos de escritura;
 rechazar claimToken inválido, sesión sin permiso, intento ya finalizado y
-token de un intento anterior. No permitir un score de confianza inventado.
+token de un intento anterior. Validar un HMAC adulterado que conserve los 43 caracteres base64url, no solo un token inválido por formato. Comprobar IDs contradictorios en run.input.context y lecturas de output/resultados desde otra CLIENT org y desde WORKER sin jobs:read, incluso a través de cancel y events. No permitir un score de confianza inventado.
 
 ## 5. Contrato API
 
@@ -134,6 +137,7 @@ Los doce runs históricos permanecen intactos.
 - [x] GitHub Actions: HTTP firmado, Worker BullMQ, Postgres/Redis descartables,
   un Job creado y pricing/risk COMPLETED (run 43765877708).
 - [ ] Contrato HTTP con claim adulterado, sesión sin rol y tokens obsoletos.
+- [ ] Verificar nueva regresión cross-org del resultado persistido en HTTP (list/detail/events/cancel) y roles sin jobs:read sobre HEAD.
 - [ ] Seguridad cross-org adicional, idempotencia/replay y revisión humana.
 - [ ] CI completo sobre el SHA final del PR y canary aprobado.
 
