@@ -1,0 +1,125 @@
+/**
+ * #1147 / PR #1149 regression: signed HTTP job.created => real BullMQ Worker.
+ * Hard scope: disposable GitHub Actions PostgreSQL/Redis only.
+ * Never execute against Railway, preview, staging or production.
+ */
+import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
+import { setTimeout as delay } from "node:timers/promises";
+import { PrismaClient } from "@prisma/client";
+
+const tag = "qa-1149-agentrun-event";
+const dbUrlText = process.env.DATABASE_URL ?? "";
+const apiText = process.env.SEMSE_API_URL ?? "";
+function refuse(reason) { throw new Error(tag + ": refused: " + reason); }
+if (
+  process.env.GITHUB_ACTIONS !== "true" ||
+  process.env.GITHUB_REPOSITORY !== "Semse-projet/project-manager-app" ||
+  process.env.SEMSE_QA_1149_DISPOSABLE !== "1" ||
+  process.env.NODE_ENV !== "test" ||
+  process.env.RAILWAY_ENVIRONMENT ||
+  process.env.RAILWAY_ENVIRONMENT_NAME
+) refuse("not an explicitly opted-in disposable GitHub runner");
+let dbUrl, apiUrl;
+try { dbUrl = new URL(dbUrlText); apiUrl = new URL(apiText); }
+catch { refuse("missing or invalid URL"); }
+if (
+  dbUrl.hostname !== "127.0.0.1" || dbUrl.port !== "5433" ||
+  dbUrl.pathname !== "/semse" || dbUrl.username !== "semse" ||
+  apiUrl.hostname !== "127.0.0.1" || apiUrl.port !== "4000" ||
+  apiUrl.protocol !== "http:" || apiUrl.pathname !== "/"
+) refuse("nonlocal or unexpected database/API target");
+if (!process.env.AUTH_SECRET || !process.env.SEMSE_BOOTSTRAP_TOKEN) {
+  refuse("missing ephemeral authentication secrets");
+}
+const prisma = new PrismaClient();
+const sample = "SEMSE QA-1149 " + randomUUID();
+const pollTimeoutMs = 90_000;
+const emit = (phase, data = {}) => console.log(JSON.stringify({tag, phase, ...data}));
+
+async function post(path, body, token) {
+  const response = await fetch(apiText + path, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      ...(token ? {authorization: "Bearer " + token} : {}),
+    },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(20_000),
+  });
+  const value = await response.json().catch(() => null);
+  // Never log entire responses: they may contain access and refresh tokens.
+  assert.equal(response.status, 201, path + " HTTP " + response.status);
+  assert.equal(value?.success, true, path + " canonical envelope failed");
+  return value.data;
+}
+try {
+  const [tenant, workerMembership, duplicates] = await Promise.all([
+    prisma.tenant.findFirst({where: {id: "tenant_default", status: "active"}, select: {id: true}}),
+    prisma.membership.findFirst({
+      where: {
+        userId: "usr_worker_system", orgId: "org_admin_001", status: "ACTIVE",
+        role: {key: "AGENT_RUNNER"},
+      },
+      select: {userId: true},
+    }),
+    prisma.job.count({where: {title: sample}}),
+  ]);
+  assert.ok(tenant, "isolated tenant fixture missing");
+  assert.ok(workerMembership, "worker has no active AGENT_RUNNER membership");
+  assert.equal(duplicates, 0);
+
+  const health = await fetch(apiText + "/v1/health", {signal: AbortSignal.timeout(10_000)});
+  assert.equal(health.status, 200, "signed local API not healthy");
+  const email = "qa1149-" + randomUUID() + "@example.com";
+  const password = "QATest-1149-" + randomUUID() + "-!";
+  const actor = await post("/v1/auth/register", {
+    email, password, name: "Synthetic CI client", role: "CLIENT",
+  });
+  assert.ok(actor?.accessToken, "registration returned no access token");
+  emit("signed_client_created", {tenant: "tenant_default"});
+
+  const job = await post("/v1/jobs", {
+    title: sample,
+    scope: "Synthetic disposable CI validation of event-triggered pricing and risk; no contract, customer, payment or physical work.",
+    category: "general", locationType: "remote", urgency: "low",
+  }, actor.accessToken);
+  assert.ok(job?.id, "job create returned no ID");
+  const correlationId = "job:" + job.id + ":created";
+  emit("synthetic_job_created", {correlationId});
+
+  const pollStart = Date.now();
+  let runs = [];
+  while (Date.now() - pollStart < pollTimeoutMs) {
+    runs = await prisma.agentRun.findMany({
+      where: {tenantId: "tenant_default", correlationId, agentType: {in: ["pricing", "risk"]}},
+      orderBy: {createdAt: "asc"},
+      select: {
+        id: true, agentType: true, triggerType: true, status: true,
+        attempts: true, workerId: true, startedAt: true, endedAt: true, inputJson: true,
+      },
+    });
+    if (runs.length === 2 && runs.every(r => r.status === "COMPLETED" || r.status === "FAILED")) break;
+    await delay(1_500);
+  }
+  emit("observed", {
+    count: runs.length,
+    runs: runs.map(r => ({
+      agentType: r.agentType, status: r.status,
+      attempts: r.attempts, workerClaimed: Boolean(r.workerId),
+    })),
+  });
+  assert.equal(runs.length, 2, "expected one pricing and one risk run");
+  assert.deepEqual(runs.map(r => r.agentType).sort(), ["pricing", "risk"]);
+  for (const r of runs) {
+    assert.equal(r.triggerType, "event");
+    assert.equal(r.inputJson?.eventType, "job.created");
+    assert.equal(r.inputJson?.eventPayload?.jobId, job.id);
+    assert.equal(r.status, "COMPLETED", r.agentType + " did not complete");
+    assert.ok(r.workerId, r.agentType + " lacks worker claim");
+    assert.ok(r.startedAt && r.endedAt, r.agentType + " lifecycle not persisted");
+  }
+  emit("PASS", {correlationId, agentTypes: ["pricing", "risk"]});
+} finally {
+  await prisma.$disconnect();
+}
