@@ -223,3 +223,16 @@ test("#1156: public outbox operations forward effective org scope to every repos
   await assert.rejects(() => service.replay({ actor: ACTOR, eventId: EVENT_ID, reason: "qa" }), NotFoundException);
   assert.equal((calls.replay as any).orgId, ACTOR.orgId);
 });
+
+
+test("#1156: outbox operations fail closed with missing org identity", async () => {
+  const { service } = makeService({ replayResult: { outcome: "replayed", replayCount: 1, status: "PENDING" } });
+  const invalid = { ...ACTOR, orgId: "" };
+  for (const fn of [
+    () => service.listOutbox({ actor: invalid }),
+    () => service.getDeliveryDetail({ actor: invalid, eventId: EVENT_ID }),
+    () => service.replay({ actor: invalid, eventId: EVENT_ID, reason: "test" }),
+  ]) {
+    await assert.rejects(fn, (e: any) => e?.getStatus?.() === 403);
+  }
+});
