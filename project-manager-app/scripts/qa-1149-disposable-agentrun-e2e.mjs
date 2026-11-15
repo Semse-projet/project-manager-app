@@ -150,9 +150,9 @@ try {
     userId: "usr_worker_system", runId: sampleRun.id,
     workerId: sampleRun.workerId, attempts: sampleRun.attempts,
   };
-  async function contextStatus(bearer, claimToken, b = binding) {
+  async function contextStatus(bearer, claimToken, b = binding, runId = sampleRun.id) {
     const response = await fetch(
-      apiText + "/v1/agents/runs/" + encodeURIComponent(sampleRun.id) + "/job-created-context",
+      apiText + "/v1/agents/runs/" + encodeURIComponent(runId) + "/job-created-context",
       {
         method: "POST",
         headers: { "content-type": "application/json", authorization: "Bearer " + bearer },
@@ -164,22 +164,83 @@ try {
     );
     return response.status;
   }
-  const validTerminalToken = signAgentRunClaimToken(binding);
-  const badHmac = await contextStatus(workerBearer, "invalid-token");
-  assert.equal(badHmac, 403, "bad HMAC must not read Job context");
-  const clientDenied = await contextStatus(actor.accessToken, validTerminalToken);
-  assert.equal(clientDenied, 403, "CLIENT may not consume Worker context");
-  const terminalDenied = await contextStatus(workerBearer, validTerminalToken);
-  assert.equal(terminalDenied, 404, "completed run must not read context again");
-  const staleAttempt = { ...binding, attempts: binding.attempts + 1 };
-  const staleDenied = await contextStatus(
-    workerBearer, signAgentRunClaimToken(staleAttempt), staleAttempt
-  );
-  assert.equal(staleDenied, 404, "an inactive worker generation must not read context");
-  emit("negative_http_PASS", {
-    invalidClaim: badHmac, clientWithoutRunner: clientDenied,
-    terminalAttempt: terminalDenied, staleGeneration: staleDenied,
+  // Real event-created runs have already completed; terminal rejection alone
+  // cannot prove that fencing works while a lease is RUNNING.
+  const originalRunToken = signAgentRunClaimToken(binding);
+  const completedDenied = await contextStatus(workerBearer, originalRunToken);
+  assert.equal(completedDenied, 404, "completed run must not read context again");
+
+  // This direct DB fixture is ONLY an adversarial control on disposable
+  // GitHub runner PostgreSQL. It is never queued or used as a business run.
+  const ownedJob = await prisma.job.findFirst({
+    where: { id: job.id, tenantId: "tenant_default" },
+    select: { clientOrgId: true },
   });
+  assert.ok(ownedJob?.clientOrgId, "origin organization missing from synthetic Job");
+  const securityRun = await prisma.agentRun.create({
+    data: {
+      tenantId: "tenant_default",
+      agentType: "pricing",
+      triggerType: "event",
+      correlationId,
+      inputJson: {
+        eventType: "job.created",
+        eventPayload: { jobId: job.id, clientOrgId: ownedJob.clientOrgId },
+        operatorContext: { tenantId: "tenant_default", orgId: ownedJob.clientOrgId },
+      },
+      status: "RUNNING",
+      workerId: "gha-qa1149-security-fixture",
+      attempts: 2,
+      maxAttempts: 3,
+      deadLettered: false,
+      startedAt: new Date(),
+      heartbeatAt: new Date(),
+    },
+  });
+  try {
+    const active = {
+      ...binding,
+      runId: securityRun.id,
+      workerId: "gha-qa1149-security-fixture",
+      attempts: 2,
+    };
+    const validLive = await contextStatus(
+      workerBearer, signAgentRunClaimToken(active), active, securityRun.id
+    );
+    assert.equal(validLive, 201, "current active claimant should obtain minimal Job context");
+    const invalidHmac = await contextStatus(
+      workerBearer, "invalid-token", active, securityRun.id
+    );
+    assert.equal(invalidHmac, 403, "invalid HMAC must be rejected for active run");
+    const clientDenied = await contextStatus(
+      actor.accessToken, signAgentRunClaimToken(active), active, securityRun.id
+    );
+    assert.equal(clientDenied, 403, "CLIENT may not use context even with claim");
+    const otherGeneration = { ...active, attempts: 3 };
+    const staleAttemptDenied = await contextStatus(
+      workerBearer, signAgentRunClaimToken(otherGeneration),
+      otherGeneration, securityRun.id
+    );
+    assert.equal(staleAttemptDenied, 404, "different attempt must fail while run is RUNNING");
+    const otherWorker = { ...active, workerId: "unrelated-worker" };
+    const otherWorkerDenied = await contextStatus(
+      workerBearer, signAgentRunClaimToken(otherWorker),
+      otherWorker, securityRun.id
+    );
+    assert.equal(otherWorkerDenied, 404, "different worker must fail while run is RUNNING");
+    emit("negative_http_PASS", {
+      activeFencedClaim: validLive,
+      invalidClaim: invalidHmac,
+      clientWithoutRunner: clientDenied,
+      terminalAttempt: completedDenied,
+      staleGenerationWhileRunning: staleAttemptDenied,
+      wrongWorkerWhileRunning: otherWorkerDenied,
+    });
+  } finally {
+    // Remove only the artificial security fixture; preserve the two real runs
+    // as the immutable E2E result until the disposable runner is destroyed.
+    await prisma.agentRun.delete({ where: { id: securityRun.id } });
+  }
 
   emit("PASS", {correlationId, agentTypes: ["pricing", "risk"]});
 } finally {
