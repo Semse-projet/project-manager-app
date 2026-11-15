@@ -124,6 +124,53 @@ try {
     assert.ok(r.startedAt && r.endedAt, r.agentType + " lifecycle not persisted");
   }
 
+  // Codex P1: tenant-wide AgentRun result reads must not leak current private
+  // Job scope, budget, estimates or error summaries to a different CLIENT org.
+  const secondClient = await post("/v1/auth/register", {
+    email: "qa1149-other-" + randomUUID() + "@example.com",
+    password: "QATest-1149-" + randomUUID() + "-!",
+    name: "Synthetic unrelated CI client",
+    role: "CLIENT",
+  });
+  assert.ok(secondClient?.accessToken, "second synthetic client token missing");
+  async function readEndpoint(path, bearer) {
+    const response = await fetch(apiText + path, {
+      headers: { authorization: "Bearer " + bearer },
+      signal: AbortSignal.timeout(10_000),
+    });
+    const body = await response.json().catch(() => null);
+    assert.equal(response.status, 200, path + " returned " + response.status);
+    return body?.data;
+  }
+  const foreignJobResponse = await fetch(apiText + "/v1/jobs/" + encodeURIComponent(job.id), {
+    headers: { authorization: "Bearer " + secondClient.accessToken },
+    signal: AbortSignal.timeout(10_000),
+  });
+  assert.equal(foreignJobResponse.status, 403, "other CLIENT must not see originating Job");
+  const foreignRunList = await readEndpoint("/v1/agents/runs", secondClient.accessToken);
+  assert.ok(Array.isArray(foreignRunList), "foreign run list response invalid");
+  for (const completed of runs) {
+    const runPath = "/v1/agents/runs/" + encodeURIComponent(completed.id);
+    const ownerDetail = await readEndpoint(runPath, actor.accessToken);
+    assert.ok(ownerDetail?.output, "owning client should see completed run output");
+    const foreignDetail = await readEndpoint(runPath, secondClient.accessToken);
+    assert.equal(foreignDetail?.output ?? null, null,
+      "different CLIENT org must not see enriched AgentRun output");
+    assert.equal(foreignDetail?.error ?? null, null,
+      "different CLIENT org must not see sensitive error details");
+    const listItem = foreignRunList.find(r => r.id === completed.id);
+    assert.ok(listItem, "cross-org run metadata should retain prior behavior");
+    assert.equal(listItem.output ?? null, null, "run list leaked enriched output");
+    const foreignEvents = await readEndpoint(runPath + "/events", secondClient.accessToken);
+    assert.ok(Array.isArray(foreignEvents?.events), "event view missing");
+    const terminal = foreignEvents.events.find(x => x.type === "completed");
+    assert.equal(terminal?.detail, "Run completed successfully",
+      "event outputSummary leaked across organizations");
+    assert.equal(foreignEvents.events.some(x => x.type === "input"), false,
+      "event input summary leaked across organizations");
+  }
+  emit("cross_org_output_privacy_PASS", {checkedRuns: runs.length, foreignJobStatus: foreignJobResponse.status});
+
   // Negative HTTP authorization tests: no token or credentials are emitted.
   const serviceSessionResponse = await fetch(apiText + "/v1/auth/token", {
     method: "POST",
