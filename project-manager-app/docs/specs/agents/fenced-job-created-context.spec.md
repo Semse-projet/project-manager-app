@@ -13,7 +13,8 @@ merge_status: "UNMERGED"
 deploy_status: "NOT_DEPLOYED"
 activation_status: "INACTIVE"
 migration_status: "NOT_APPLICABLE"
-feature_flags: []
+feature_flags:
+  - "SEMSE_AGENTRUN_JOB_CREATED_CONTEXT_ENABLED"
 production_evidence: []
 related_files:
   - "apps/api/src/modules/agents/agents.controller.ts"
@@ -53,7 +54,7 @@ del `claimToken` al handler.
 
 Incluido: un Job originario, solo `pricing/risk` de `job.created` y proyección
 mínima {id,title,scope,category,status,urgency,budgetMin,budgetMax}.
-Un Job recién creado puede no tener Project.
+Un Job recién creado puede no tener Project. Si al procesar un evento demorado el Job ya tiene Project, devolver 409 (sin fingir que no hay Project ni evidencia) hasta aprobar un contrato de contexto adicional.
 
 Excluido: otros agentes y triggers, datos personales, contratos, pagos,
 evidencia, listados de Projects, replay de los 12 runs históricos y issue #1159.
@@ -98,7 +99,8 @@ POST /v1/agents/runs/:runId/job-created-context
 - Output: {requestId, data:{job:{id,title,scope,category,status,urgency,
   budgetMin,budgetMax}}}; sin token ni información de otro recurso.
 - 400 invalid body; 401 sin sesión; 403 permiso o HMAC incorrecto;
-  404 run no vigente / Job sin scope.
+  404 run no vigente / Job sin scope; 409 Job con Project ya asociado;
+  503 feature flag desactivado.
 - Sin escritura de BD, pagos, eventos, aprobación o reintentos.
 
 El Worker solicita contexto **tras claim/start** desde su núcleo, sin
@@ -109,7 +111,7 @@ que no existen en job.created; rechaza rutas o métodos arbitrarios.
 ## 6. FSM / eventos
 
 QUEUED→RUNNING (claim con fencing), RUNNING→COMPLETED o FAILED.
-El endpoint no muta estado ni genera outbox. Si el lease cambia, denegar.
+El endpoint no muta estado ni genera outbox. El flag SEMSE_AGENTRUN_JOB_CREATED_CONTEXT_ENABLED está apagado por defecto y sólo se activa en el runner efímero durante CI; cualquier activación en staging/prod necesita GO explícito. Si el lease cambia, denegar.
 El evento original `job.created` permanece inalterado.
 
 ## 7. Datos y migración
