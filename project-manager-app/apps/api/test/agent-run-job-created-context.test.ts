@@ -108,6 +108,14 @@ test("fencing refuses another worker, generation, tenant, or terminal run", asyn
   }
 });
 
+test("delayed job.created fails closed if the Job has since gained a Project", async () => {
+  const {subject} = repository({job: {...row, project: {id: "project_created_later"}}});
+  await assert.rejects(
+    subject.getClaimedJobCreatedContext(worker),
+    (error: unknown) => (error as {getStatus?:()=>number})?.getStatus?.() === 409
+  );
+});
+
 test("a reclaimed/terminal run without the current row lock cannot read its Job", async () => {
   const {subject, calls} = repository({lockGranted: false});
   await assert.rejects(
