@@ -1231,6 +1231,8 @@ model Rating {
 model AuditLog {
   id          String   @id @default(cuid())
   tenantId    String
+  /// Explicit verified organization of NEW audit records. Legacy NULL stays unclassified.
+  orgId       String?
   actorUserId String?
   entityType  String
   entityId    String
@@ -1244,6 +1246,7 @@ model AuditLog {
   actor       User?    @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
 
   @@index([tenantId, occurredAt])
+  @@index([tenantId, orgId, occurredAt])
   @@index([entityType, entityId])
 }
 
