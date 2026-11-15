@@ -14,6 +14,8 @@
 - Confrontar run RUNNING, worker, intento, tenant, trigger y eventPayload con DB.
 - Resolver Job por tenant y clientOrgId del operador originador; nunca desde IDs sin ownership.
 - Proyección mínima y lector Worker deny-by-default; claimToken no entra a handlers.
+- Feature flag SEMSE_AGENTRUN_JOB_CREATED_CONTEXT_ENABLED apagado por defecto, habilitado solo en CI descartable hasta aprobación explícita.
+- Si el evento llega después de crear Project, devolver 409; no informar ausencia de hitos/evidencia como hecho comprobado.
 
 ## Fase 2 — Verificación
 
