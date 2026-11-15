@@ -11,8 +11,11 @@
 - [x] Si el Job ya tiene Project, el endpoint responde 409 sin simular listas vacías.
 - [x] El endpoint está desactivado por defecto; solo el E2E descartable activa su flag.
 - [x] Reader bloquea otros Jobs, Projects, rutas y métodos de escritura.
-- [ ] Tests HTTP de otro tenant/org y claim después de reclaim concurrente.
-- [ ] Revisión humana independiente de posibles IDOR/capability leak.
+- [x] El input del handler deriva del Job autorizado; ignora overrides de run.input.context.
+- [x] Los outputs de runs de job.created solo se exponen con jobs:read y la política canónica de visibilidad del Job, incluida la ruta de eventos y cancelación.
+- [ ] Tests HTTP de otra organización CLIENT (list/detail/events/cancel) y claim después de reclaim concurrente en SHA final.
+- [x] El HMAC adversarial conserva longitud y formato, pero cambia bytes de firma.
+- [ ] Resolver hallazgos bloqueantes P1 de Copilot y Codex y obtener dos nuevas revisiones automatizadas del HEAD final.
 
 ## Funcionamiento y CI
 - [x] E2E anterior: un Job sintético, pricing/risk COMPLETED (Actions #43765877708).
