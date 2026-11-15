@@ -6,6 +6,7 @@ import { ActorContextService } from "../../infrastructure/persistence/actor-cont
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { createAgentRunFinalizationEvent, isAgentRunFinalizationOutboxEnabled } from "./agent-run-finalization.policy.js";
 import { buildJobVisibilityWhere } from "../jobs/jobs-visibility.js";
+import { hasPermission } from "../../common/rbac.js";
 
 const { Prisma } = prismaClientPackage as typeof import("@prisma/client");
 
@@ -75,7 +76,7 @@ export class AgentsRepository {
   ): Promise<boolean> {
     const jobId = this.scopedJobCreatedId(run);
     if (jobId === null) return true;
-    if (!jobId) return false;
+    if (!jobId || !hasPermission(actor.roles ?? [], "jobs:read")) return false;
     const job = await this.prisma.job.findFirst({
       where: {
         id: jobId,
@@ -116,7 +117,7 @@ export class AgentsRepository {
     const ids = [...new Set(
       runs.map(run => this.scopedJobCreatedId(run)).filter((id): id is string => !!id),
     )];
-    const visibleJobs = ids.length
+    const visibleJobs = ids.length && hasPermission(input.roles ?? [], "jobs:read")
       ? await this.prisma.job.findMany({
           where: {
             id: { in: ids },
