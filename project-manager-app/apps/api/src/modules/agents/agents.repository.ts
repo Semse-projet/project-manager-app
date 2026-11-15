@@ -93,52 +93,69 @@ export class AgentsRepository {
     budgetMax: number | null;
   } }> {
     await this.actorContextService.ensureActorContext(input);
-    const run = await this.prisma.agentRun.findFirst({
-      where: {
-        id: input.runId, tenantId: input.tenantId, status: "RUNNING",
-        workerId: input.workerId, attempts: input.expectedAttempts,
-        deadLettered: false,
-        triggerType: "event",
-        agentType: { in: ["pricing", "risk"] },
-      },
-      select: { inputJson: true, correlationId: true },
+    // Hold a row lock while verifying the run and reading its originating Job.
+    // This prevents reclaim/finalization from invalidating the lease between
+    // the RUNNING check and the Job SELECT. Values use bound query parameters.
+    return this.prisma.$transaction(async (tx) => {
+      const lease = await tx.$queryRaw<{ id: string }[]>`
+        SELECT id FROM "AgentRun"
+        WHERE id = ${input.runId}
+          AND "tenantId" = ${input.tenantId}
+          AND status = 'RUNNING'
+          AND "workerId" = ${input.workerId}
+          AND attempts = ${input.expectedAttempts}
+          AND "deadLettered" = FALSE
+          AND "triggerType" = 'event'
+          AND "agentType" IN ('pricing', 'risk')
+        FOR SHARE
+      `;
+      if (lease.length !== 1) throw new NotFoundException("Claimed AgentRun is unavailable");
+      const run = await tx.agentRun.findFirst({
+        where: {
+          id: input.runId, tenantId: input.tenantId, status: "RUNNING",
+          workerId: input.workerId, attempts: input.expectedAttempts,
+          deadLettered: false, triggerType: "event",
+          agentType: { in: ["pricing", "risk"] },
+        },
+        select: { inputJson: true, correlationId: true },
+      });
+      if (!run) throw new NotFoundException("Claimed AgentRun is unavailable");
+      const payload = run.inputJson && typeof run.inputJson === "object" &&
+        !Array.isArray(run.inputJson) ? run.inputJson as Record<string, unknown> : {};
+      const eventPayload = payload.eventPayload && typeof payload.eventPayload === "object" &&
+        !Array.isArray(payload.eventPayload) ? payload.eventPayload as Record<string, unknown> : {};
+      const origin = payload.operatorContext && typeof payload.operatorContext === "object" &&
+        !Array.isArray(payload.operatorContext) ? payload.operatorContext as Record<string, unknown> : {};
+      const jobId = eventPayload.jobId;
+      const originOrgId = origin.orgId;
+      if (payload.eventType !== "job.created" || typeof jobId !== "string" ||
+          !jobId || run.correlationId !== `job:${jobId}:created` ||
+          typeof originOrgId !== "string" || !originOrgId ||
+          origin.tenantId !== input.tenantId ||
+          eventPayload.clientOrgId !== originOrgId) {
+        throw new NotFoundException("Claimed AgentRun context unavailable");
+      }
+      const job = await tx.job.findFirst({
+        where: {
+          id: jobId, tenantId: input.tenantId, clientOrgId: originOrgId,
+          deletedAt: null,
+        },
+        select: {
+          id: true, title: true, scope: true, category: true,
+          status: true, urgency: true, budgetMin: true, budgetMax: true,
+        },
+      });
+      if (!job) throw new NotFoundException("Claimed AgentRun context unavailable");
+      return {
+        job: {
+          id: job.id, title: job.title, scope: job.scope,
+          category: job.category, status: job.status.toLowerCase(),
+          urgency: job.urgency,
+          budgetMin: job.budgetMin?.toNumber() ?? null,
+          budgetMax: job.budgetMax?.toNumber() ?? null,
+        },
+      };
     });
-    if (!run) throw new NotFoundException("Claimed AgentRun is unavailable");
-    const payload = run.inputJson && typeof run.inputJson === "object" &&
-      !Array.isArray(run.inputJson) ? run.inputJson as Record<string, unknown> : {};
-    const eventPayload = payload.eventPayload && typeof payload.eventPayload === "object" &&
-      !Array.isArray(payload.eventPayload) ? payload.eventPayload as Record<string, unknown> : {};
-    const origin = payload.operatorContext && typeof payload.operatorContext === "object" &&
-      !Array.isArray(payload.operatorContext) ? payload.operatorContext as Record<string, unknown> : {};
-    const jobId = eventPayload.jobId;
-    const originOrgId = origin.orgId;
-    if (payload.eventType !== "job.created" || typeof jobId !== "string" ||
-        !jobId || run.correlationId !== `job:${jobId}:created` ||
-        typeof originOrgId !== "string" || !originOrgId ||
-        origin.tenantId !== input.tenantId ||
-        eventPayload.clientOrgId !== originOrgId) {
-      throw new NotFoundException("Claimed AgentRun context unavailable");
-    }
-    const job = await this.prisma.job.findFirst({
-      where: {
-        id: jobId, tenantId: input.tenantId, clientOrgId: originOrgId,
-        deletedAt: null,
-      },
-      select: {
-        id: true, title: true, scope: true, category: true,
-        status: true, urgency: true, budgetMin: true, budgetMax: true,
-      },
-    });
-    if (!job) throw new NotFoundException("Claimed AgentRun context unavailable");
-    return {
-      job: {
-        id: job.id, title: job.title, scope: job.scope,
-        category: job.category, status: job.status.toLowerCase(),
-        urgency: job.urgency,
-        budgetMin: job.budgetMin?.toNumber() ?? null,
-        budgetMax: job.budgetMax?.toNumber() ?? null,
-      },
-    };
   }
 
   async create(input: {
