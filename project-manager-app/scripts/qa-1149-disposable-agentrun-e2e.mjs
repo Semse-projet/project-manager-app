@@ -208,8 +208,12 @@ try {
       workerBearer, signAgentRunClaimToken(active), active, securityRun.id
     );
     assert.equal(validLive, 201, "current active claimant should obtain minimal Job context");
+    const signedToken = signAgentRunClaimToken(active);
+    // Same valid base64url token length, but different decoded MAC bytes.
+    const tamperedHmac = (signedToken[0] === "A" ? "B" : "A") + signedToken.slice(1);
+    assert.match(tamperedHmac, /^[A-Za-z0-9_-]{43}$/);
     const invalidHmac = await contextStatus(
-      workerBearer, "invalid-token", active, securityRun.id
+      workerBearer, tamperedHmac, active, securityRun.id
     );
     assert.equal(invalidHmac, 403, "invalid HMAC must be rejected for active run");
     const clientDenied = await contextStatus(
