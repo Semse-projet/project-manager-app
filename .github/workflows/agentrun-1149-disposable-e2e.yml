@@ -1,0 +1,151 @@
+name: AgentRun 1149 Disposable E2E
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/agentrun-1149-disposable-e2e.yml"
+      - "project-manager-app/scripts/qa-1149-disposable-agentrun-e2e.mjs"
+      - "project-manager-app/apps/api/**"
+      - "project-manager-app/apps/worker/**"
+      - "project-manager-app/packages/db/**"
+      - "project-manager-app/packages/auth/**"
+      - "project-manager-app/packages/shared/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: agentrun-1149-disposable-qa
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: project-manager-app
+
+jobs:
+  signed-job-event-e2e:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: semse
+          POSTGRES_PASSWORD: semse
+          POSTGRES_DB: semse
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U semse -d semse"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7.4-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://semse:semse@127.0.0.1:5433/semse?schema=public
+      REDIS_URL: redis://127.0.0.1:6379
+      SEMSE_API_URL: http://127.0.0.1:4000
+      SEMSE_DEFAULT_TENANT_ID: tenant_default
+      SEMSE_QA_1149_DISPOSABLE: "1"
+      SEMSE_ALLOW_HEADER_IDENTITY: "false"
+      SEMSE_EVENT_CONSUMERS_ENABLED: "false"
+      SEMSE_EVENT_OUTBOX_DISPATCH_ENABLED: "false"
+      AUTONOMY_LOOPS_ENABLED: "false"
+      PAYMENTS_RECONCILE_ENABLED: "false"
+      PAYMENT_PROVIDER: mock
+      SEMSE_PAYMENT_PROVIDER: mock
+      PRODUCT_INTELLIGENCE_ENABLED: "false"
+      SEMSE_WORKER_ID: gha-qa1149-worker
+      SEMSE_USER_ID: usr_worker_system
+      SEMSE_ORG_ID: org_admin_001
+      SEMSE_TENANT_ID: tenant_default
+      SEMSE_ROLES: AGENT_RUNNER
+      SEMSE_FAIL_RATE: "0"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6.1.1
+        with:
+          version: 10.33.0
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: project-manager-app/pnpm-lock.yaml
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Generate ephemeral auth secrets
+        run: |
+          set -euo pipefail
+          AUTH="$(openssl rand -hex 32)"
+          BOOT="$(openssl rand -hex 32)"
+          echo "::add-mask::$AUTH"
+          echo "::add-mask::$BOOT"
+          echo "AUTH_SECRET=$AUTH" >> "$GITHUB_ENV"
+          echo "SEMSE_BOOTSTRAP_TOKEN=$BOOT" >> "$GITHUB_ENV"
+      - name: Build API and workspace packages
+        run: pnpm build:api
+      - name: Migrate disposable PostgreSQL
+        run: node scripts/pre-migrate.mjs
+      - name: Seed only disposable localhost PostgreSQL
+        run: pnpm db:seed
+      - name: Provision minimal AGENT_RUNNER membership in disposable database
+        run: node scripts/ops/ensure-worker-service-membership.mjs --apply
+      - name: Start signed API
+        run: |
+          set -euo pipefail
+          HOST=127.0.0.1 PORT=4000 pnpm start:api > /tmp/qa1149-api.log 2>&1 &
+          echo $! > /tmp/qa1149-api.pid
+      - name: Wait for signed API health
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 75); do
+            if curl -sf http://127.0.0.1:4000/v1/health >/dev/null; then
+              echo "Signed API healthy on ephemeral runner"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Signed API did not start"
+          exit 1
+      - name: Start real BullMQ Worker
+        run: |
+          set -euo pipefail
+          pnpm start:worker > /tmp/qa1149-worker.log 2>&1 &
+          echo $! > /tmp/qa1149-worker.pid
+      - name: Check Worker started with durable session
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 50); do
+            if grep -q 'worker started' /tmp/qa1149-worker.log; then
+              echo "Real AgentRun Worker started"
+              exit 0
+            fi
+            if grep -q '"label":"auth/token:failed"' /tmp/qa1149-worker.log; then
+              echo "Worker durable session issuance failed"
+              exit 1
+            fi
+            sleep 1
+          done
+          echo "Worker did not reach ready state"
+          exit 1
+      - name: Verify one signed job.created with pricing and risk completed
+        run: node scripts/qa-1149-disposable-agentrun-e2e.mjs
+      - name: Stop synthetic Worker and API
+        if: always()
+        run: |
+          for f in /tmp/qa1149-worker.pid /tmp/qa1149-api.pid; do
+            if [ -f "$f" ]; then kill "$(cat "$f")" 2>/dev/null || true; fi
+          done
