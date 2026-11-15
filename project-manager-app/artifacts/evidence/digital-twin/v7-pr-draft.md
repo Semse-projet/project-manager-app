@@ -1,9 +1,12 @@
-# Borrador local de PR — SEMSE Digital Twin V7
+# Registro de PR — SEMSE Digital Twin V7
 
-**Estado:** `DRAFT_LOCAL` — no se creó branch remoto, commit, push ni PR.  
-**Base propuesta:** `main` en `Semse-projet/project-manager-app`.  
+**Estado:** `OPEN`, sin merge.  
+**PR:** **#1157** — https://github.com/Semse-projet/project-manager-app/pull/1157  
+**Base:** `main` en `Semse-projet/project-manager-app`.  
+**Head:** `feat/ecosystem-digital-twin-3d`.  
 **SHA base autorizado:** `7029da63e719b264f7b2bfaff7eb4b716fe167b9`.  
-**Título propuesto:** `feat(web): añadir gemelo digital 3D accesible de SEMSE`
+**SHA head revisado al abrir:** `e4689f9400792707a64d91048495652286eadfd2`.  
+**Título:** `feat(web): añadir gemelo digital 3D accesible de SEMSE`
 
 ## Resumen
 
@@ -71,8 +74,7 @@ Evidencias:
 - [`v7-validacion.md`](v7-validacion.md)
 - [`v7-ci-local.md`](v7-ci-local.md)
 - [`v7-ci-e2e-report.json`](v7-ci-e2e-report.json)
-- [`v7-desktop.png`](v7-desktop.png)
-- [`v7-mobile.png`](v7-mobile.png)
+- Capturas locales `v7-desktop.png` y `v7-mobile.png`, deliberadamente no incluidas en el paquete remoto.
 
 La validación CI es local equivalente. No hay check remoto terminal asociado a este árbol; `ci_status` permanece `NOT_RUN` hasta que exista esa evidencia.
 
@@ -109,11 +111,11 @@ Revertir los archivos del incremento restaura la composición anterior sin repar
 - `Math.random()` en el incremento del gemelo: 0.
 - El fixture E2E y `local-digital-twin-test-only` son exclusivamente locales y no representan credenciales de producción.
 
-Antes de abrir el PR real todavía debe revisarse el diff Git completo en un checkout que contenga el árbol histórico íntegro; esta auditoría no sustituye esa revisión ni un CI remoto.
+El diff remoto completo fue revisado contra `main` antes de abrir el PR: 40 archivos dentro del alcance autorizado, sin capturas, assets PWA restaurados, `.env`, Prisma ni archivos de Railway. Esta auditoría no sustituye un CI remoto.
 
 ## Gates posteriores — no ejecutados
 
-- [ ] Crear branch/commit y abrir PR con confirmación explícita.
+- [x] Crear branch/commits y abrir PR **#1157** con confirmación explícita; SHA head revisado al abrir: `e4689f9400792707a64d91048495652286eadfd2`.
 - [ ] Esperar CI remoto terminal y registrar resultado.
 - [ ] Fusionar sólo con autorización específica y registrar SHA de merge.
 - [ ] Desplegar mediante un gate separado.

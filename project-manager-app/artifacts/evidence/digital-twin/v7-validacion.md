@@ -14,10 +14,10 @@
 
 ## Evidencias visuales
 
-- [Captura V7 desktop](v7-desktop.png)
-- [Captura V7 móvil](v7-mobile.png)
+- Captura local `v7-desktop.png`.
+- Captura local `v7-mobile.png`.
 
-Ambas capturas fueron abiertas e inspeccionadas localmente. Se comprobó la composición general, el contraste, las etiquetas, el inspector y el encuadre móvil. No se afirma confirmación visual del visor remoto por parte del usuario.
+Ambas capturas fueron abiertas e inspeccionadas localmente. Se comprobó la composición general, el contraste, las etiquetas, el inspector y el encuadre móvil. Permanecen fuera del paquete remoto para no añadir binarios; no se afirma confirmación visual del visor remoto por parte del usuario.
 
 ## Validación funcional V7
 
@@ -81,15 +81,23 @@ El árbol persistente es una copia parcial del monorepo: contiene dos specs y ca
 
 Con Node 22 se completó una validación CI local equivalente: paquetes internos, 13 unitarios, TypeScript Web, ESLint, build Web de 422 páginas, builder estático y 8/8 E2E sin reintentos, todos verdes. ESLint conserva 39 advertencias preexistentes fuera del gemelo. Consultar [`v7-ci-local.md`](v7-ci-local.md) y [`v7-ci-e2e-report.json`](v7-ci-e2e-report.json). Este resultado no es CI remoto y no cambia `ci_status=NOT_RUN`.
 
-## Preparación de PR
+## Registro y revisión de PR
 
-Se creó [`v7-pr-draft.md`](v7-pr-draft.md) con alcance, archivos, pruebas, riesgos y rollback. La auditoría de 28 archivos principales no encontró secretos, archivos `.env`, protocolos `workspace:*` en el builder ni `Math.random()` en el gemelo. No se creó branch remoto, push ni PR; la revisión del diff Git completo sigue pendiente en un checkout íntegro.
+Se actualizó [`v7-pr-draft.md`](v7-pr-draft.md) como registro del PR con alcance, archivos, pruebas, riesgos y rollback. La auditoría de 28 archivos principales no encontró secretos, archivos `.env`, protocolos `workspace:*` en el builder ni `Math.random()` en el código del gemelo.
+
+El diff remoto completo se revisó contra `main` (`7029da63e719b264f7b2bfaff7eb4b716fe167b9`): **40 archivos**, todos dentro del incremento autorizado, sin capturas, assets PWA restaurados, cambios Prisma ni archivos de Railway. Treinta y ocho archivos coinciden byte a byte con la copia local validada; el reporte E2E sólo difiere en el salto de línea final y el lockfile es estructuralmente idéntico.
+
+- PR: **#1157**, `OPEN`, sin merge.
+- URL: https://github.com/Semse-projet/project-manager-app/pull/1157
+- Base: `main`; head: `feat/ecosystem-digital-twin-3d`.
+- SHA head revisado al abrir: `e4689f9400792707a64d91048495652286eadfd2`.
 
 ## Estados independientes
 
 - Código local: `COMPLETE`.
 - Preview V7: `STATUS_COMMITTED`, ID `1656593`.
 - CI: `NOT_RUN`.
+- PR: `OPEN`, #1157, sin merge.
 - Merge: `UNMERGED`.
 - Deploy: `NOT_DEPLOYED`.
 - Activación: `INACTIVE`.

@@ -1,7 +1,7 @@
 # Validaciones CI locales — SEMSE Digital Twin V7
 
 **Fecha:** 2026-11-15  
-**Autorización:** ejecutar validaciones CI, sin crear PR, fusionar, desplegar ni activar.  
+**Autorización inicial:** ejecutar validaciones CI, sin crear PR, fusionar, desplegar ni activar; posteriormente se autorizó branch y PR, manteniendo prohibidos merge, deploy y activación.  
 **Resultado:** `PASS` para el conjunto dirigido y los builds aplicables.  
 **Tipo de evidencia:** CI local equivalente; no es una ejecución remota de GitHub Actions.
 
@@ -54,7 +54,8 @@ El fixture y `local-digital-twin-test-only` son exclusivamente datos de prueba l
 ## Límites y estados
 
 - No se repitió la suite unitaria global de 1.616 tests; su limitación previa permanece documentada y no se atribuye al gemelo.
-- No se ejecutó CI remoto, PR, merge, deploy, publicación, Railway ni activación.
+- No se ejecutó CI remoto, merge, deploy, publicación, Railway ni activación.
+- El PR **#1157** se abrió posteriormente con autorización y permanece `OPEN`, sin merge: https://github.com/Semse-projet/project-manager-app/pull/1157.
 - CI local equivalente: `PASS`.
 - CI remoto/plataforma: `NOT_RUN`.
 - Merge: `UNMERGED`.
