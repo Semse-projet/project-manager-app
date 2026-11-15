@@ -338,7 +338,8 @@ export class AgentsController {
     const runs = await this.agentsService.list({
       tenantId: actor.tenantId,
       orgId: actor.orgId,
-      userId: actor.userId
+      userId: actor.userId,
+      roles: actor.roles,
     });
     return ok(resolveRequestId(req.headers ?? {}), runs);
   }
@@ -351,7 +352,8 @@ export class AgentsController {
       tenantId: actor.tenantId,
       orgId: actor.orgId,
       userId: actor.userId,
-      runId
+      roles: actor.roles,
+      runId,
     });
     return ok(resolveRequestId(req.headers ?? {}), run);
   }
@@ -365,7 +367,8 @@ export class AgentsController {
       tenantId: actor.tenantId,
       orgId: actor.orgId,
       userId: actor.userId,
-      runId
+      roles: actor.roles,
+      runId,
     });
     return ok(resolveRequestId(req.headers ?? {}), run);
   }
@@ -462,7 +465,10 @@ export class AgentsController {
   @RequirePermissions("agents:run:create")
   async runEvents(@Req() req: { headers?: Record<string, unknown> }, @Param("runId") runId: string) {
     const actor = resolveRequestContext(req);
-    const data = await this.agentsService.runEvents({ tenantId: actor.tenantId, runId });
+    const data = await this.agentsService.runEvents({
+      tenantId: actor.tenantId, orgId: actor.orgId,
+      userId: actor.userId, roles: actor.roles, runId,
+    });
     return ok(resolveRequestId(req.headers ?? {}), data);
   }
 
