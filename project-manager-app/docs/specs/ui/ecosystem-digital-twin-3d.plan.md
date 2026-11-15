@@ -1,176 +1,156 @@
-# Plan de implementación — Gemelo digital 3D del ecosistema SEMSE
+---
+type: plan
+feature: "Ecosystem Digital Twin 3D"
+domain: "ui"
+spec: "docs/specs/ui/ecosystem-digital-twin-3d.spec.md"
+version: "2.0"
+status: "APPROVED"
+branch: "feat/ecosystem-digital-twin-3d"
+date: "2026-11-15"
+---
 
-## Metadata
+# Plan técnico: Ecosystem Digital Twin 3D
 
-```yaml
-plan_id: ui.ecosystem-digital-twin-3d.plan
-spec_id: ui.ecosystem-digital-twin-3d
-version: "1.3"
-status: IMPLEMENTED_PR_OPEN
-created_at: "2026-11-15"
-updated_at: "2026-11-15"
-implementation_mode: existing-code-redesign-v7
-preview_saved_id: "1656593"
-preview_status: STATUS_COMMITTED
-ci_local_status: PASS
-remote_pr: 1157
-merge_status: UNMERGED
-```
+> El branch remoto `feat/ecosystem-digital-twin-3d` y el PR **#1157** ya existen:
+> https://github.com/Semse-projet/project-manager-app/pull/1157. Base: `main`;
+> SHA head revisado al abrir: `e4689f9400792707a64d91048495652286eadfd2`.
+> Implementación, CI, merge, deploy y activación se reportan aparte.
 
-## 1. Objetivo de entrega
+## 1. Snapshot de verdad
 
-Actualizar el mapa histórico de Consciousness para presentar los 33 módulos
-históricos como módulos del ecosistema, distribuidos en nueve dominios
-canónicos, con una escena 3D legible y alternativas equivalentes 2D/lista.
-La lectura de datos debe distinguir topología estática, madurez de registro y
-salud global observada sin inventar telemetría por nodo.
+- `origin/main` SHA: `7029da63e719b264f7b2bfaff7eb4b716fe167b9`.
+- Raíz canónica: `project-manager-app/`; árbol fuente de trabajo:
+  `/mnt/agents/output/project-manager-app-source`. La preview ligera se sirve
+  por separado desde `/mnt/agents/output/app`.
+- SHA desplegado API/Web, servicios y flags: no comprobados; fuera de alcance.
+- Estado de migraciones: `NOT_APPLICABLE`; no se toca Prisma.
+- Frontend: Next.js 15.5.28, React 19.3, Three.js/@types 0.170.
+- Backend: `apps/api` NestJS; BFF actual `/api/semse/ops/consciousness`.
+- Drift conocido: la topología usa siete cortex históricos y valores estáticos;
+  `MODULE_REGISTRY` del backend es conocimiento estático mantenido manualmente,
+  aunque conviva con observación runtime en la misma respuesta.
 
-El incremento se integra en `/admin/consciousness` y en la ruta pública
-histórica `/semse-consciousness-map`, conservando el límite de seguridad de la
-ruta admin y reutilizando el BFF existente. No modifica el contrato upstream.
+## 2. Constitution check
 
-La iteración V7 aplica el rediseño visual elegido sobre la implementación
-actual. No vuelve a definir requisitos ni abre una feature nueva: conserva los
-contratos, datos, rutas y pruebas del incremento ya validado.
+- [x] Spec aprobado antes de código producto.
+- [x] Permiso y límite existentes declarados; no se añade RBAC.
+- [x] Evidence/Payment Governance revisados: sólo rutas visuales, sin comandos.
+- [x] Sin mutaciones críticas, eventos ni auditoría nueva.
+- [x] Tests preceden implementación y demuestran el gap en rojo.
+- [x] Sin secretos ni backend paralelo.
+- [x] Código, CI, merge, deploy y activación se medirán por separado.
 
-## 2. Decisiones de implementación
+## 3. Arquitectura y autoridad
 
-1. **Un solo view model.** La escena, el SVG y la lista consumen exactamente el
-   mismo snapshot. Ninguna vista recalcula salud ni traduce estados por su
-   cuenta.
-2. **Adaptación explícita.** El catálogo histórico conserva sus IDs y mapea cada
-   módulo a un dominio canónico. La metadata arquitectónica no se presenta como
-   una medición runtime.
-3. **Render directo de Three.js.** Se utiliza `InstancedMesh` para nodos,
-   `LineSegments` para aristas y raycasting por `instanceId`; no se introduce
-   React Three Fiber ni una segunda fuente de estado.
-4. **Layout determinista.** Los dominios ocupan centros fijos en una retícula
-   3×3 y los módulos se distribuyen con un PRNG sembrado. No hay
-   `Math.random()` en la lógica del gemelo.
-5. **Progreso bajo demanda.** El canvas renderiza al interactuar, cambiar datos,
-   reproducir un flujo o redimensionar. No mantiene un loop ambiental en reposo.
-6. **Fallback real.** Ausencia/pérdida de WebGL o preferencia de movimiento
-   reducido deja disponible una vista funcional; no deja una pantalla vacía.
-7. **Preview separada de producción.** La entrega navegable usa una variante
-   estática del mismo view model y no requiere API, autenticación ni secretos.
-8. **Builder reproducible.** `preview/static` sincroniza las fuentes canónicas,
-   fija versiones y ejecuta typecheck/build propios, sin `workspace:*`.
+- Fuente de verdad de escritura: inalterada; esta feature no escribe.
+- Read models: adaptación en memoria, sin persistencia ni caché nueva.
+- Topología: `semse-consciousness-topology.ts` conserva IDs y relaciones.
+- Madurez: coincidencia explícita con `maturity.byModule`, etiquetada
+  `consciousness-registry`, no como salud live.
+- Observación: sólo `observation.healthScore` y timestamps alimentan el resumen
+  global; no se distribuye ese score artificialmente entre nodos.
+- Contratos Zod: no se añade un contrato paralelo; tipos TypeScript locales de
+  presentación consumen el shape actual ya usado por admin.
+- UI: una composición React comparte snapshot, selección, filtros y playback.
+- Three.js: carga dinámica cliente, `InstancedMesh`, `LineSegments`,
+  `OrbitControls`, canvas nuevo por montaje y labels DOM proyectadas.
+- Worker/queues/agentes/tools/ADR: sin cambios ni ADR requerido para esta vista.
 
-## 3. Fases ejecutadas
+## 4. Datos y migración
 
-### Fase 0 — Gobierno y alcance
+- Cambio Prisma, SQL, expand/contract, backfill, pre-deploy y prueba de
+  migración: no aplican.
+- Compatibilidad durante deploy: aditiva en admin y sustitución visual de la
+  ruta histórica; los archivos legacy no se borran en este incremento.
+- Rollback: revertir archivos; ninguna reparación de datos.
 
-- Crear spec, plan, tasks, analysis y checklist.
-- Mantener estados separados: código, CI, merge, deploy, activación y migración.
-- Confirmar que no hay requisito Prisma, migración, mutación o deployment.
-- Actualizar el índice SDD con una única entrada del gemelo.
+## 5. Seguridad y política
 
-### Fase 1 — Contratos y pruebas previas
+- Permisos: reutilizar `ops:dashboard:read`; no confiar en el canvas para RBAC.
+- Tenant/org/resource scope: enteramente en BFF/API existente.
+- Step-up/aprobación/auditoría: no aplica, sin comandos.
+- Pagos/evidencia: los nombres de flujos no representan transacciones ni
+  autorizan releases, approvals o acciones.
+- Abuse cases: suplantar salud live, filtrar respuesta admin en ruta pública,
+  XSS por labels y denegación por loops de GPU. Mitigación: fuentes explícitas,
+  snapshot estático en ruta histórica, React textContent/DOM seguro y loop finito.
 
-- Definir contratos de nodos, aristas, dominios, flujos, selección y playback.
-- Escribir primero pruebas para cobertura de 33 IDs, aristas válidas, nulos de
-  runtime, respuesta parcial, layout determinista y final de flujos.
-- Fijar tres flujos: `intake_to_contract`, `execution_to_evidence` y
-  `evidence_to_payment`.
+## 6. Eventos, idempotencia y reconstrucción
 
-### Fase 2 — View model y adaptadores
+- Sin productores, outbox, consumers, replay ni DLQ.
+- Playback: token de ejecución local; reiniciar/cambiar flujo/desmontar cancela
+  el frame anterior. No representa eventos de negocio.
+- Rebuild: funciones puras reconstruyen snapshot y layout de forma determinista.
 
-- Añadir `view-model.ts`, `topology-adapter.ts`, `consciousness-adapter.ts`,
-  `layout.ts` y `flows.ts`.
-- Mantener `runtimeHealth` y `observedAt` en `null` sin medición por nodo.
-- Etiquetar madurez histórica como `consciousness-registry`.
-- Añadir aristas derivadas `value_flow` sin alterar las aristas históricas.
-- No degradar nodos por una fuente nula en la ruta estática no consultada.
+## 7. Estrategia de implementación
 
-### Fase 3 — Escena y controles
+### Fase A — SDD, tests y contratos
 
-- Implementar instancing, etiquetas DOM proyectadas, órbita, zoom, raycasting,
-  foco y reset.
-- Implementar playback finito de 650 ms por segmento y repetición explícita.
-- Añadir búsqueda, filtro de dominio, vistas equivalentes, inspector y textos de
-  procedencia.
-- Garantizar targets móviles de al menos 44 px y foco visible.
+1. Recuperar manifiestos, documentación y tooling del SHA confirmado.
+2. Escribir tests de cobertura de IDs/dominios, nulos, fuentes, aristas, flujos
+   y layout; ejecutarlos antes de crear implementación.
+3. Crear tipos y funciones puras mínimas para hacer verdes los tests.
 
-### Fase 4 — Integración
+### Fase B — Datos y dominio
 
-- Sustituir el mapa histórico por el gemelo en la ruta estática.
-- Reutilizar la respuesta BFF en `/admin/consciousness`, conservando loading,
-  error y autorización existentes.
-- Añadir `next/dynamic` con `ssr:false` y lifecycle client-only.
-- Condicionar la excepción iframe de preview con `SEMSE_PREVIEW_EMBEDDED=true`;
-  el modo normal conserva `frame-ancestors 'none'` y `X-Frame-Options: DENY`.
+- No aplica a persistencia. El adaptador vive en presentación y no implementa
+  reglas de Payment, Evidence, Trust ni otros módulos dueños.
 
-### Fase 5 — Validación y evidencias
+### Fase C — UI
 
-- Ejecutar 13 unitarios dirigidos y ocho escenarios Playwright.
-- Ejecutar typecheck estricto, ESLint sin errores y build Web.
-- Validar desktop/móvil, reduced motion, WebGL ausente, contexto perdido,
-  resize, admin con fixture y 403 controlado.
-- Capturar métricas de render y screenshots locales.
-- Guardar preview sin declarar deploy, merge o activación.
+1. Construir layout de nueve dominios y paths derivados de flujos.
+2. Implementar Three.js con recursos rastreados, resize, selección y fallback.
+3. Implementar 2D/lista y controles; todos consumen las mismas props.
+4. Integrar admin y ruta histórica; retirar el intervalo aleatorio.
+5. Aplicar el rediseño V7 conservando props, callbacks, selectores accesibles,
+   datos y playback.
+6. Añadir `preview/static` como envoltorio reproducible de los mismos componentes,
+   sin Next, API, Docker ni dependencias `workspace:*`.
 
-### Fase 6 — Rediseño visual V7 y empaquetado
+### Fase D — Verificación local
 
-- Aplicar lenguaje obsidiana/cian, encabezado editorial, KPIs, panel inspector,
-  filtros compactos y leyenda de procedencia.
-- Mejorar encuadre responsive y legibilidad de etiquetas sin cambiar los datos.
-- Mantener todos los nombres accesibles y callbacks existentes para no romper E2E.
-- Generar capturas V7 desktop/móvil y actualizar evidencias textuales.
-- Sustituir la entrada de preview dinámica por una entrega estática ligera.
-- Crear builder reproducible y lockfile propio; verificar que la salida compilada
-  carga, renderiza 33 nodos y conserva vistas, búsqueda y navegación móvil.
-- Guardar la versión V7 y registrar su ID sin tratarlo como publicación.
+- Tests unitarios dirigidos y regresión relacionada.
+- `next build`/typecheck/lint según disponibilidad del workspace completo.
+- Spec validate/index/coverage con scripts canónicos.
+- Servidor local, E2E, capturas desktop/móvil y revisión visual manual.
+- Comprobar consola, selección, playback, reduced motion y fallback.
+- Ejecutar `npm ci`, `npm run typecheck`, `npm run build` y smoke de navegador
+  en `preview/static`; conservar reporte y capturas específicas de V7.
+- Guardar preview V7 como estado separado de publicación y producción.
+- Ejecutar CI local equivalente con Node 22 y conservar reporte estructurado E2E;
+  no promover `ci_status` sin un check remoto terminal.
 
-### Fase 7 — CI y revisión remota
+### Fase E — Integración y Fase F — Producción
 
-- Ejecutar una pasada CI local equivalente con Node 22: paquetes internos,
-  unitarios, typecheck, lint, builds y E2E.
-- Auditar el paquete antes de cualquier push: sin secretos, `.env`, capturas,
-  protocolos `workspace:*` ni artefactos innecesarios.
-- Preparar registro de PR y evidencias; cualquier push/PR posterior requiere la
-  confirmación del usuario, mientras merge/deploy/activación permanecen fuera de
-  alcance.
-- Revisar el diff remoto completo contra `main` antes de abrir el PR.
-- Abrir el PR real #1157 con base `main` y head `feat/ecosystem-digital-twin-3d`
-  tras autorización explícita, sin fusionarlo.
-- Corregir el orden del índice SDD reproducido por el gate remoto.
-- Reproducir con el `tsconfig` remoto exacto los nueve `TS5097`, habilitar
-  `allowImportingTsExtensions` sin reducir `strict`/`noEmit`, y verificar el
-  `spec:preflight` completo con código `0`.
-- Registrar CI remoto terminal `PASS` sobre `e2d70e2b0ff38cb97581f96d0d0c81b8b74f565c`:
-  quality gates, cobertura, E2E y CodeQL verdes; QA #973 omitida por alcance.
+- PR **#1157** abierto y diff remoto completo revisado. CI remoto terminal `PASS`
+  sobre `e2d70e2b0ff38cb97581f96d0d0c81b8b74f565c`: `quality-gates`,
+  `unit-coverage`, E2E y CodeQL verdes; QA #973 omitida por alcance.
+  Merge, Railway, canary y activación quedan no autorizados; el PR sigue `UNMERGED`.
 
-## 4. Archivos del incremento
+## 8. Riesgos
 
-- `apps/web/lib/digital-twin/*`
-- `apps/web/components/semse/digital-twin/*`
-- `apps/web/components/semse/semse-consciousness-map.tsx`
-- `apps/web/app/semse-consciousness-map/page.tsx`
-- `apps/web/app/(app)/admin/consciousness/page.tsx`
-- `apps/web/next.config.ts`
-- `tests/unit/semse-digital-twin-*.test.ts`
-- `tests/e2e-semse/semse-digital-twin.spec.ts`
-- `preview/static/*`
-- `Dockerfile`
-- `docs/specs/ui/ecosystem-digital-twin-3d.*`
-- `docs/SPEC_INDEX.md`
-- `artifacts/evidence/digital-twin/*`
+| Riesgo | Probabilidad | Impacto | Mitigación | Señal de rollback |
+|---|---|---|---|---|
+| Confundir registro estático con runtime | Media | Alto | Fuentes/nulos en modelo y textos visibles | Cualquier label live sin observación |
+| Fuga GPU/listeners en StrictMode | Media | Medio | Canvas por montaje, disposables y cancelación | Canvas/frame tras desmontar |
+| Coste de render o batería | Media | Medio | Instancing, batch, DPR tope y render bajo demanda | RAF continuo en reposo |
+| Inaccesibilidad del canvas | Media | Alto | 2D/lista, teclado, foco y reduced motion | Flujo sólo posible con puntero |
+| Workspace incompleto impide build | Media | Medio | Recuperar lock/packages/scripts; reportar bloqueo real | No declarar build sin evidencia |
+| Visor dinámico instala con npm y rechaza `workspace:*` | Alta | Medio | Entrega estática con manifiesto/lock propios y fuentes sincronizadas | No reintroducir workspaces en `preview/static` |
 
-`scripts/workspace-runner.mjs` se restauró desde el SHA autorizado porque el
-checkout parcial no lo contenía y el tooling del monorepo lo requiere; no se
-introdujo una nueva política de workspace.
+## 9. Investigación externa
 
-## 5. Evidencia y gates posteriores
+| Búsqueda primaria | Fuente | Decisión |
+|---|---|---|
+| InstancedMesh/raycast r170 | Three.js docs | Una malla instanciada y `instanceId`; colores actualizados explícitamente |
+| Disposal/render on demand | Three.js manual | Registrar recursos y renderizar por cambios |
+| Context loss/reduced motion | MDN | Fallback accesible, restauración y animación finita opcional |
 
-La validación local terminó con 13/13 unitarios, TypeScript Web, ESLint sin
-errores, Next build, builder estático y 8/8 E2E verdes. El detalle está en
-`artifacts/evidence/digital-twin/v7-validacion.md` y `v7-ci-local.md`.
-El CI remoto posterior también terminó `PASS` sobre el head corregido.
+## 10. Gates antes de tareas
 
-El PR real #1157 está abierto y sin merge en
-https://github.com/Semse-projet/project-manager-app/pull/1157. El SHA revisado al
-abrirlo fue `e4689f9400792707a64d91048495652286eadfd2`; el head con CI remoto
-verde es `e2d70e2b0ff38cb97581f96d0d0c81b8b74f565c`.
-
-Los gates de merge, Railway, publicación, canary y activación no están
-autorizados ni ejecutados. No hay evidencia de producción ni migración asociada.
+- [x] Archivos exactos identificados.
+- [x] Migración no aplicable y rollback definidos.
+- [x] Tests ordenados antes del código.
+- [x] Sin flag/canary en este incremento; gate de producción separado.
+- [x] Evidencia local/CI/merge/deploy/activación diferenciada.
+- [x] Scope reversible; dependencias del builder fijadas y auditadas localmente.
