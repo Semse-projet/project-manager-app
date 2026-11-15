@@ -61,6 +61,7 @@ import { processDomainEventQueueJob } from "./domain-event-worker.mjs";
 import { executeDeveloperRuntimeJob } from "./modules/developer-runtime/runtime.executor.mjs";
 import { runCurator } from "./modules/curator/curator.service.mjs";
 import { setupPermanentLoops } from "./modules/autonomy-loops/loops.scheduler.mjs";
+import { createJobCreatedContextReader } from "./job-created-context-reader.mjs";
 
 const workerDir = dirname(fileURLToPath(import.meta.url));
 dotenvConfig({ path: resolve(workerDir, "..", ".env"), override: false });
@@ -486,11 +487,27 @@ async function processQueuedRun(queueRun) {
       return { failed: true };
     }
 
+    // Obtain the originating Job only through the active run/attempt fence.
+    // The claim token stays in this Worker core, never in handlers or LLM tools.
+    const scopedRequestJson =
+      run.triggerType === "event" &&
+      run.input?.eventType === "job.created" &&
+      (run.agentType === "pricing" || run.agentType === "risk")
+        ? createJobCreatedContextReader(
+            (await postJson(
+              "/v1/agents/runs/" + encodeURIComponent(run.id) + "/job-created-context",
+              { workerId: config.workerId, expectedAttempts, claimToken },
+              { tenantId: run.tenantId ?? queueRun.tenantId }
+            ))?.data,
+            run.tenantId ?? queueRun.tenantId
+          )
+        : requestJson;
+
     const result = shouldUseSpecializedWorkerHandler(run.agentType)
       ? await executeSpecializedWorkerRun({
           run,
           workerId: config.workerId,
-          requestJson,
+          requestJson: scopedRequestJson,
           logger,
           tenantId: run.tenantId ?? queueRun.tenantId,
         })
