@@ -233,7 +233,7 @@ export class AgentsService {
     return this.agentsRepository.getEvents(input);
   }
 
-  async cancelRun(input: { tenantId: string; orgId: string; userId: string; runId: string; requestId: string }) {
+  async cancelRun(input: { tenantId: string; orgId: string; userId: string; runId: string; roles?: string[]; requestId: string }) {
     const cancelled = await this.agentsRepository.cancel(input);
     await this.auditService.append({
       tenantId: input.tenantId, orgId: input.orgId, actorUserId: input.userId,
