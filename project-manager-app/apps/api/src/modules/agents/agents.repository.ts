@@ -563,13 +563,13 @@ export class AgentsRepository {
     await this.actorContextService.ensureActorContext(input);
     const run = await this.requireRun(input);
     this.assertCurrentRunAttempt(run, input);
-    // An unclassified historical run cannot create approvals under the worker's org.
-    if (!run.orgId && Array.isArray(input.output?.approvals) && input.output.approvals.length > 0) {
-      throw new ConflictException("legacy agent run requires verified organization owner before creating approvals");
-    }
     if (run.status === "COMPLETED") return this.toReplayRecord(run);
     if (run.status !== "RUNNING") {
       throw new ConflictException("cannot complete run in status '" + run.status.toLowerCase() + "'");
+    }
+    // Unclassified historical ownership cannot be replaced with the worker's org.
+    if (!run.orgId && Array.isArray(input.output?.approvals) && input.output.approvals.length > 0) {
+      throw new ConflictException("legacy agent run requires verified organization owner before creating approvals");
     }
     const now = new Date();
     const durationMs = run.startedAt ? now.getTime() - run.startedAt.getTime() : null;
