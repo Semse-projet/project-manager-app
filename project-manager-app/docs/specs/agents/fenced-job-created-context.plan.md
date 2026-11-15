@@ -14,6 +14,8 @@
 - Confrontar run RUNNING, worker, intento, tenant, trigger y eventPayload con DB.
 - Resolver Job por tenant y clientOrgId del operador originador; nunca desde IDs sin ownership.
 - Proyección mínima y lector Worker deny-by-default; claimToken no entra a handlers.
+- Derivar los IDs de los handlers solo de la proyección autorizada, nunca de run.input.context.
+- Filtrar output, resúmenes de eventos y cancelación por jobs:read + política canónica de visibilidad Job antes de exponerlos a otro actor.
 - Feature flag SEMSE_AGENTRUN_JOB_CREATED_CONTEXT_ENABLED apagado por defecto, habilitado solo en CI descartable hasta aprobación explícita.
 - Si el evento llega después de crear Project, devolver 409; no informar ausencia de hitos/evidencia como hecho comprobado.
 
@@ -21,6 +23,7 @@
 
 - Unit tests para tenant, org, claim generation, evento, objeto ausente y métodos no GET.
 - E2E real con un Job sintético; exactamente pricing/risk COMPLETED.
+- Crear una segunda CLIENT org sintética y comprobar redacción de resultados en lista, detalle, eventos y cancelación; HMAC adulterado con formato válido.
 - HTTP negativos: HMAC inválido, CLIENT sin rol, run terminal, intento obsoleto.
 - CI: SDD strict, spec index, API integration, coverage, quality gates, E2E, CodeQL.
 
