@@ -572,10 +572,12 @@ export class AgentsService {
       status: "completed"
     });
 
-    if (run.triggerType === "event" && run.input?.delegationId && typeof run.input.delegationId === "string") {
+    if (run.triggerType === "event" && run.input?.delegationId && typeof run.input.delegationId === "string" && run.orgId) {
       const delegation = await this.agentDelegationRepository.updateStatus(
         run.input.delegationId,
         input.tenantId,
+        run.orgId,
+        run.id,
         "completed",
         input.output
       );
@@ -619,10 +621,12 @@ export class AgentsService {
       status: "failed"
     });
 
-    if (run.triggerType === "event" && run.input?.delegationId && typeof run.input.delegationId === "string") {
+    if (run.triggerType === "event" && run.input?.delegationId && typeof run.input.delegationId === "string" && run.orgId) {
       const delegation = await this.agentDelegationRepository.updateStatus(
         run.input.delegationId,
         input.tenantId,
+        run.orgId,
+        run.id,
         "failed",
         undefined,
         run.error ?? input.error
@@ -870,6 +874,12 @@ export class AgentsService {
   }): Promise<void> {
     const operatorContext = asOperatorContext(input.run.input?.operatorContext);
     if (!operatorContext?.workspaceId) {
+      return;
+    }
+    // Never publish worker-generated memory into a foreign org/workspace
+    // inferred from the run's JSON rather than its persisted owner.
+    if (!input.run.orgId || operatorContext.tenantId !== input.run.tenantId || operatorContext.orgId !== input.run.orgId) {
+      this.logger.warn("[agent.run.summary] skipped unverified workspace owner");
       return;
     }
 
