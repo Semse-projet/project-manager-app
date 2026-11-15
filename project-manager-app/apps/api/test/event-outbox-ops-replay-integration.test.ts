@@ -191,3 +191,56 @@ dbTest(
     assert.equal(detailFromOtherTenant, null);
   },
 );
+
+
+const isolatedOrgTest = (() => {
+  const raw = process.env.DATABASE_URL;
+  if (!raw) return test.skip;
+  let url: URL;
+  try { url = new URL(raw); } catch { return test.skip; }
+  if (!["postgresql:", "postgres:"].includes(url.protocol)
+      || !["localhost", "127.0.0.1", "[::1]"].includes(url.hostname)
+      || url.port !== "5433") return test.skip;
+  const database = decodeURIComponent(url.pathname.slice(1));
+  if (process.env.GITHUB_ACTIONS === "true")
+    return process.env.CI === "true" && url.hostname === "127.0.0.1"
+      && url.username === "semse" && database === "semse" ? test : test.skip;
+  return process.env.SEMSE_ALLOW_DISPOSABLE_AGENT_CLAIM_DB === "1"
+      && /^semse_(test|e2e)(?:_|$)/.test(database) ? test : test.skip;
+})();
+
+isolatedOrgTest(
+  "#1156: outbox owner filters list, counts, delivery detail and replay inside one tenant",
+  async (t) => {
+    const tenantId = await createTenant();
+    t.after(async () => cleanupTenant(tenantId));
+    const repository = new OutboxRepository(prisma as never);
+    const owned = await createOutboxEvent({ tenantId, status: "DEAD_LETTER" });
+    const foreign = await createOutboxEvent({ tenantId, status: "DEAD_LETTER" });
+
+    const ours = await repository.list({ tenantId, orgId: owned.orgId, limit: 50 });
+    assert.deepEqual(ours.items.map(row => row.eventId), [owned.eventId]);
+    const counts = await repository.countsByStatus(tenantId, owned.orgId);
+    assert.equal(counts.DEAD_LETTER, 1);
+
+    const denied = await repository.findDeliveryDetail({
+      tenantId, orgId: foreign.orgId, eventId: owned.eventId,
+    });
+    assert.equal(denied, null, "foreign org receives no delivery metadata");
+    assert.deepEqual(
+      await repository.replay({ tenantId, orgId: foreign.orgId, eventId: owned.eventId }),
+      { outcome: "not_found" },
+    );
+    const unchanged = await prisma.domainOutboxEvent.findUniqueOrThrow({ where: { eventId: owned.eventId } });
+    assert.equal(unchanged.status, "DEAD_LETTER", "foreign org cannot mutate an event");
+
+    const visible = await repository.findDeliveryDetail({
+      tenantId, orgId: owned.orgId, eventId: owned.eventId,
+    });
+    assert.equal(visible?.eventId, owned.eventId);
+    assert.deepEqual(
+      await repository.replay({ tenantId, orgId: owned.orgId, eventId: owned.eventId }),
+      { outcome: "replayed", replayCount: 1, status: "PENDING" },
+    );
+  },
+);
