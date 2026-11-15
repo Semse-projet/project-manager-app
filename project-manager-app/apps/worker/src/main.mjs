@@ -490,6 +490,7 @@ async function processQueuedRun(queueRun) {
     // Obtain the originating Job only through the active run/attempt fence.
     // The claim token stays in this Worker core, never in handlers or LLM tools.
     const scopedRequestJson =
+      process.env.SEMSE_AGENTRUN_JOB_CREATED_CONTEXT_ENABLED === "true" &&
       run.triggerType === "event" &&
       run.input?.eventType === "job.created" &&
       (run.agentType === "pricing" || run.agentType === "risk")
