@@ -519,6 +519,11 @@ export class AgentsRepository {
     mutation: PrismaTypes.AgentRunUpdateManyMutationInput,
   ): Promise<void> {
     const enabled = isAgentRunFinalizationOutboxEnabled();
+    // A durable finalization envelope must never attribute an unowned legacy run
+    // to the service worker's organization.
+    if (enabled && !run.orgId) {
+      throw new ConflictException("legacy agent run needs verified org ownership before durable finalization");
+    }
     const persist = async (db: AgentRunTx) => {
       const changed = await db.agentRun.updateMany({
         where: {
@@ -558,6 +563,10 @@ export class AgentsRepository {
     await this.actorContextService.ensureActorContext(input);
     const run = await this.requireRun(input);
     this.assertCurrentRunAttempt(run, input);
+    // An unclassified historical run cannot create approvals under the worker's org.
+    if (!run.orgId && Array.isArray(input.output?.approvals) && input.output.approvals.length > 0) {
+      throw new ConflictException("legacy agent run requires verified organization owner before creating approvals");
+    }
     if (run.status === "COMPLETED") return this.toReplayRecord(run);
     if (run.status !== "RUNNING") {
       throw new ConflictException("cannot complete run in status '" + run.status.toLowerCase() + "'");
