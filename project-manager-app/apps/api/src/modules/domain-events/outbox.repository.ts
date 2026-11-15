@@ -276,6 +276,8 @@ export class OutboxRepository {
 
   async list(input: {
     tenantId: string;
+    /** Provided by user-facing OutboxOpsService; omitted only by internal trusted callers. */
+    orgId?: string;
     status?: OutboxStatusName;
     eventType?: string;
     correlationId?: string;
@@ -286,6 +288,7 @@ export class OutboxRepository {
     const rows = await prisma.domainOutboxEvent.findMany({
       where: {
         tenantId: input.tenantId,
+        ...(input.orgId ? { orgId: input.orgId } : {}),
         ...(input.status ? { status: input.status } : {}),
         ...(input.eventType ? { eventType: input.eventType } : {}),
         ...(input.correlationId ? { correlationId: input.correlationId } : {}),
@@ -326,11 +329,12 @@ export class OutboxRepository {
 
   async countsByStatus(
     tenantId: string,
+    orgId?: string,
   ): Promise<Record<OutboxStatusName, number>> {
     const prisma = this.requirePrisma();
     const grouped = await prisma.domainOutboxEvent.groupBy({
       by: ["status"],
-      where: { tenantId },
+      where: { tenantId, ...(orgId ? { orgId } : {}) },
       _count: { _all: true },
     });
     const counts: Record<OutboxStatusName, number> = {
@@ -346,10 +350,10 @@ export class OutboxRepository {
     return counts;
   }
 
-  async oldestPendingAgeMs(tenantId: string, now = new Date()): Promise<number> {
+  async oldestPendingAgeMs(tenantId: string, now = new Date(), orgId?: string): Promise<number> {
     const prisma = this.requirePrisma();
     const oldest = await prisma.domainOutboxEvent.findFirst({
-      where: { tenantId, status: { in: ["PENDING", "FAILED", "CLAIMED"] } },
+      where: { tenantId, ...(orgId ? { orgId } : {}), status: { in: ["PENDING", "FAILED", "CLAIMED"] } },
       orderBy: [{ recordedAt: "asc" }, { eventId: "asc" }],
       select: { recordedAt: true },
     });
@@ -359,10 +363,12 @@ export class OutboxRepository {
   async findDeliveryDetail(input: {
     eventId: string;
     tenantId: string;
+    orgId?: string;
   }): Promise<OutboxDeliveryDetail | null> {
     const prisma = this.requirePrisma();
     const event = await prisma.domainOutboxEvent.findFirst({
-      where: { eventId: input.eventId, tenantId: input.tenantId },
+      where: { eventId: input.eventId, tenantId: input.tenantId,
+        ...(input.orgId ? { orgId: input.orgId } : {}) },
       select: {
         ...OUTBOX_LIST_SELECT,
         module: true,
@@ -406,6 +412,7 @@ export class OutboxRepository {
   async replay(input: {
     eventId: string;
     tenantId: string;
+    orgId?: string;
     consumerName?: string;
     now?: Date;
   }): Promise<OutboxReplayResult> {
@@ -414,7 +421,8 @@ export class OutboxRepository {
 
     return prisma.$transaction(async (tx) => {
       const event = await tx.domainOutboxEvent.findFirst({
-        where: { eventId: input.eventId, tenantId: input.tenantId },
+        where: { eventId: input.eventId, tenantId: input.tenantId,
+          ...(input.orgId ? { orgId: input.orgId } : {}) },
         select: { eventId: true, status: true, replayCount: true },
       });
       if (!event) {
