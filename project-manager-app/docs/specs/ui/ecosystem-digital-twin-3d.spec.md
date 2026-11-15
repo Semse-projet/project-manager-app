@@ -77,7 +77,7 @@ respuesta con la topología del ecosistema.
 
 **Resultado esperado:** una vista de sólo lectura que permita entender los
 módulos y relaciones en 3D, 2D y lista; reproducir tres flujos de valor; buscar,
-seleccionar e inspeccionar módulos; y distinguir siempre topología estática,
+seleccionar y inspeccionar módulos; y distinguir siempre topología estática,
 madurez de registro y observación runtime. Ningún valor ausente se inventa.
 
 ## 2. Alcance
