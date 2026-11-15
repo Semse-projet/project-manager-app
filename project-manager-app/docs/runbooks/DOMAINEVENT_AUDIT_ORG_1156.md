@@ -7,6 +7,7 @@
 - A generic `domain-events:read` permission is not ownership proof. For `GET /v1/domain-events` and `GET /v1/domain-events/:correlationId`, the event audit row must match the actor's authenticated `tenantId` **and** `orgId`.
 - New audited emissions persist verified `orgId` from `AuditService.append` / `appendInTransaction`. Do not derive ownership from event JSON, correlation ID, user ID, payload, role string, or request header.
 - The additive migration gives `AuditLog.orgId String?` and `@@index([tenantId,orgId,occurredAt])`, with **no default or backfill**. Old rows with NULL are intentionally hidden from org-facing DomainEvents list/trace until separately classified by authorized human review.
+- User-facing outbox list, status counts, pending age, event detail and replay must also be restricted to the authenticated `(tenantId, orgId)`. The internal event dispatcher keeps its existing tenant-wide/reconciliation queries; user-facing `OutboxOpsService` always passes the org boundary explicitly.
 - Correlation trace requires an exact suffix `:<correlationId>`; not substring matching.
 - DomainOutboxEvent correlation scope and AgentRun scopes are supplied by the prerequisite #1154. This PR must not accidentally broaden those queries.
 
