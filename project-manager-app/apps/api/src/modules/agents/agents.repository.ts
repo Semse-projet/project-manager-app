@@ -143,9 +143,16 @@ export class AgentsRepository {
         select: {
           id: true, title: true, scope: true, category: true,
           status: true, urgency: true, budgetMin: true, budgetMax: true,
+          project: { select: { id: true } },
         },
       });
       if (!job) throw new NotFoundException("Claimed AgentRun context unavailable");
+      // Job.created may be processed after the Project has been assigned.
+      // Do not synthesize "no Project/milestones/evidence" from current data.
+      // A Project-aware fenced projection needs its own reviewed contract.
+      if (job.project) {
+        throw new ConflictException("Job now has a Project; Project-aware context contract required");
+      }
       return {
         job: {
           id: job.id, title: job.title, scope: job.scope,
