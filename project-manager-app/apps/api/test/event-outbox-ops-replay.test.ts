@@ -201,3 +201,25 @@ test("outbox ops getDeliveryDetail: never exposes payloadJson even if present up
   assert.equal((detail as Record<string, unknown>).payloadJson, undefined);
   assert.equal((detail as Record<string, unknown>).status, "DEAD_LETTER");
 });
+
+test("#1156: public outbox operations forward effective org scope to every repository method", async () => {
+  const calls: Record<string, unknown> = {};
+  const repository = {
+    async list(input: unknown) { calls.list = input; return { items: [], nextCursor: null }; },
+    async countsByStatus(...args: unknown[]) { calls.counts = args; return {}; },
+    async oldestPendingAgeMs(...args: unknown[]) { calls.oldest = args; return 0; },
+    async findDeliveryDetail(input: unknown) { calls.detail = input; return null; },
+    async replay(input: unknown) { calls.replay = input; return { outcome: "not_found" }; },
+  };
+  const service = new OutboxOpsService(repository as never, {} as never, {} as never);
+  await service.listOutbox({ actor: ACTOR });
+  assert.equal((calls.list as any).orgId, ACTOR.orgId);
+  assert.deepEqual(calls.counts, [ACTOR.tenantId, ACTOR.orgId]);
+  assert.equal((calls.oldest as any[])[0], ACTOR.tenantId);
+  assert.ok((calls.oldest as any[])[1] instanceof Date);
+  assert.equal((calls.oldest as any[])[2], ACTOR.orgId);
+  await assert.rejects(() => service.getDeliveryDetail({ actor: ACTOR, eventId: EVENT_ID }), NotFoundException);
+  assert.equal((calls.detail as any).orgId, ACTOR.orgId);
+  await assert.rejects(() => service.replay({ actor: ACTOR, eventId: EVENT_ID, reason: "qa" }), NotFoundException);
+  assert.equal((calls.replay as any).orgId, ACTOR.orgId);
+});
