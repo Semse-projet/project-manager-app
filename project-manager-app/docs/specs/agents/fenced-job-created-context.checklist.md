@@ -7,6 +7,9 @@
 - [x] Job vinculado a clientOrgId y tenant de origen del evento.
 - [x] Scope exacto de job.created/pricing/risk; correlación verificable.
 - [x] No se pasa claimToken a agentes/handlers/LLMs o logs.
+- [x] Se bloquea la fila del run durante la lectura del Job, evitando cambio concurrente de claim.
+- [x] Si el Job ya tiene Project, el endpoint responde 409 sin simular listas vacías.
+- [x] El endpoint está desactivado por defecto; solo el E2E descartable activa su flag.
 - [x] Reader bloquea otros Jobs, Projects, rutas y métodos de escritura.
 - [ ] Tests HTTP de otro tenant/org y claim después de reclaim concurrente.
 - [ ] Revisión humana independiente de posibles IDOR/capability leak.
