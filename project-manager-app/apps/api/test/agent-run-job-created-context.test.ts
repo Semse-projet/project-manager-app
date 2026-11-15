@@ -21,10 +21,25 @@ const row = {
 };
 
 function repository(overrides: {
-  run?: unknown; job?: unknown;
+  run?: unknown; job?: unknown; lockGranted?: boolean;
 } = {}) {
-  const calls: { runWhere?: unknown; jobWhere?: unknown; jobSelect?: unknown } = {};
+  const calls: {
+    runWhere?: unknown; jobWhere?: unknown; jobSelect?: unknown;
+    lockSql?: string; lockParams?: unknown[]; transactionUsed?: boolean;
+  } = {};
   const client = {
+    async $transaction<T>(callback: (tx: typeof client) => Promise<T>): Promise<T> {
+      calls.transactionUsed = true;
+      return callback(client);
+    },
+    async $queryRaw(strings: TemplateStringsArray, ...params: unknown[]) {
+      calls.lockSql = strings.join("?");
+      calls.lockParams = params;
+      if (overrides.lockGranted === false ||
+        params[0] !== worker.runId || params[1] !== worker.tenantId ||
+        params[2] !== worker.workerId || params[3] !== worker.expectedAttempts) return [];
+      return [{id: worker.runId}];
+    },
     agentRun: {
       async findFirst(args: { where: Record<string, unknown> }) {
         calls.runWhere = args.where;
@@ -59,6 +74,11 @@ test("only fenced active event attempts obtain the originating Job, with a minim
   assert.equal(result.job.id, "job_owned");
   assert.equal(result.job.budgetMin, 123);
   assert.equal(result.job.budgetMax, null);
+  assert.equal(calls.transactionUsed, true, "run lock and Job read must share a transaction");
+  assert.match(calls.lockSql ?? "", /FOR SHARE/, "run row must be locked");
+  assert.match(calls.lockSql ?? "", /status = 'RUNNING'/);
+  assert.match(calls.lockSql ?? "", /"deadLettered" = FALSE/);
+  assert.deepEqual(calls.lockParams, [worker.runId, worker.tenantId, worker.workerId, worker.expectedAttempts]);
   assert.deepEqual(Object.keys(result.job).sort(),
     ["budgetMax","budgetMin","category","id","scope","status","title","urgency"].sort());
   assert.deepEqual(calls.jobWhere, {
@@ -86,6 +106,15 @@ test("fencing refuses another worker, generation, tenant, or terminal run", asyn
       (error: unknown) => (error as {getStatus?:()=>number})?.getStatus?.() === 404
     );
   }
+});
+
+test("a reclaimed/terminal run without the current row lock cannot read its Job", async () => {
+  const {subject, calls} = repository({lockGranted: false});
+  await assert.rejects(
+    subject.getClaimedJobCreatedContext(worker),
+    (error: unknown) => (error as {getStatus?:()=>number})?.getStatus?.() === 404
+  );
+  assert.equal(calls.jobWhere, undefined, "no Job query after a failed lease lock");
 });
 
 test("event source must match Job, event metadata and origin org; no arbitrary resource", async () => {
