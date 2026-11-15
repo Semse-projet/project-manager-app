@@ -111,7 +111,7 @@ que no existen en job.created; rechaza rutas o métodos arbitrarios.
 ## 6. FSM / eventos
 
 QUEUED→RUNNING (claim con fencing), RUNNING→COMPLETED o FAILED.
-El endpoint no muta estado ni genera outbox. El flag SEMSE_AGENTRUN_JOB_CREATED_CONTEXT_ENABLED está apagado por defecto y sólo se activa en el runner efímero durante CI; cualquier activación en staging/prod necesita GO explícito. Si el lease cambia, denegar.
+El endpoint no muta estado ni genera outbox. Tanto la API como el Worker comprueban SEMSE_AGENTRUN_JOB_CREATED_CONTEXT_ENABLED, apagado por defecto; sin opt-in, el Worker conserva la ruta anterior. El E2E efímero habilita ambos. Cualquier activación en staging/producción necesita GO explícito y coordinación de los dos servicios. Si el lease cambia, denegar.
 El evento original `job.created` permanece inalterado.
 
 ## 7. Datos y migración
