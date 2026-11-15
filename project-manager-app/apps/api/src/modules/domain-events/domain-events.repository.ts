@@ -49,6 +49,7 @@ export class DomainEventsRepository {
     return this.prisma.auditLog.findMany({
       where: {
         tenantId: input.tenantId,
+        orgId: input.orgId,
         action: "domain.event.emit",
         entityType: "DomainEvent"
       },
@@ -63,6 +64,7 @@ export class DomainEventsRepository {
     return this.prisma.auditLog.findMany({
       where: {
         tenantId: input.tenantId,
+        orgId: input.orgId,
         action: "domain.event.emit",
         entityType: "DomainEvent",
         entityId: { contains: input.correlationId }
