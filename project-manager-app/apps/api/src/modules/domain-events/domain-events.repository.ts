@@ -67,7 +67,7 @@ export class DomainEventsRepository {
         orgId: input.orgId,
         action: "domain.event.emit",
         entityType: "DomainEvent",
-        entityId: { contains: input.correlationId }
+        entityId: { endsWith: `:${input.correlationId}` }
       },
       orderBy: { occurredAt: "asc" },
       take: 50
