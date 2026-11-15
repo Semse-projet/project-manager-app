@@ -70,7 +70,8 @@
   `CHANGE_SIGNAL_CHANGED`; no equivale a publicación, deploy ni activación.
   La confirmación disponible es de guardado y validación local, no una
   confirmación visual remota del usuario.
-- CI local equivalente: `PASS`; CI remoto/plataforma: `NOT_RUN`.
+- CI local equivalente: `PASS`; CI remoto/plataforma: `FAIL` por `quality-gates`.
+  `unit-coverage` y CodeQL: `PASS`; E2E y QA autenticada remotos: `skipped`.
 - PR: **#1157** `OPEN`, sin merge; URL registrada en este paquete y en las evidencias.
 - Merge: `UNMERGED`.
 - Deploy: `NOT_DEPLOYED`.

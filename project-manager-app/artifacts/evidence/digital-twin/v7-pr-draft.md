@@ -76,7 +76,7 @@ Evidencias:
 - [`v7-ci-e2e-report.json`](v7-ci-e2e-report.json)
 - Capturas locales `v7-desktop.png` y `v7-mobile.png`, deliberadamente no incluidas en el paquete remoto.
 
-La validación CI es local equivalente. No hay check remoto terminal asociado a este árbol; `ci_status` permanece `NOT_RUN` hasta que exista esa evidencia.
+La validación CI local es equivalente y terminó `PASS`. El CI remoto posterior terminó `FAIL` por `quality-gates`; `unit-coverage` y ambos análisis CodeQL pasaron, mientras `e2e` y `pr973-authenticated-qa` fueron `skipped`. Por tanto, `ci_status=FAIL`; no se atribuye el fallo al gemelo sin revisar su log.
 
 ## Preview
 
@@ -116,9 +116,9 @@ El diff remoto completo fue revisado contra `main` antes de abrir el PR: 40 arch
 ## Gates posteriores — no ejecutados
 
 - [x] Crear branch/commits y abrir PR **#1157** con confirmación explícita; SHA head revisado al abrir: `e4689f9400792707a64d91048495652286eadfd2`.
-- [ ] Esperar CI remoto terminal y registrar resultado.
+- [x] Registrar CI remoto terminal: `FAIL` por `quality-gates`; `unit-coverage` y CodeQL verdes, E2E/QA `skipped`.
 - [ ] Fusionar sólo con autorización específica y registrar SHA de merge.
 - [ ] Desplegar mediante un gate separado.
 - [ ] Ejecutar smoke autenticado de producción y activación/canary independiente.
 
-**Estados actuales:** código local `COMPLETE`; CI local `PASS`; CI remoto `NOT_RUN`; merge `UNMERGED`; deploy `NOT_DEPLOYED`; activación `INACTIVE`; migración `NOT_APPLICABLE`; `production_evidence=[]`.
+**Estados actuales:** código `COMPLETE`; CI local `PASS`; CI remoto `FAIL`; merge `UNMERGED`; deploy `NOT_DEPLOYED`; activación `INACTIVE`; migración `NOT_APPLICABLE`; `production_evidence=[]`.

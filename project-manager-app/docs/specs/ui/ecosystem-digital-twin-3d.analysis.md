@@ -103,5 +103,6 @@ merge, deploy y activación conservan estados independientes.
   SHA autorizado `7029da63e719b264f7b2bfaff7eb4b716fe167b9`.
 - WebGL ausente, pérdida de contexto, unmount y remount fueron ejercitados en
   Chromium con software WebGL; no se afirma cobertura de todos los dispositivos.
-- No hay smoke autenticado de producción, CI remoto, merge, deploy ni activación.
-  El CI local equivalente no altera `ci_status=NOT_RUN`.
+- No hay smoke autenticado de producción, merge, deploy ni activación. El CI remoto
+  terminó `FAIL` por `quality-gates`; `unit-coverage` y CodeQL pasaron, mientras
+  `e2e` y `pr973-authenticated-qa` fueron `skipped`. No se oculta el fallo.

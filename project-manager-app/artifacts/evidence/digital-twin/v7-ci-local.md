@@ -51,13 +51,29 @@ El fixture y `local-digital-twin-test-only` son exclusivamente datos de prueba l
 - Se restauraron los tres archivos exactos desde `7029da63e719b264f7b2bfaff7eb4b716fe167b9`, se reinició el servidor para reconocer los nuevos assets públicos y la suite final pasó 8/8 sin reintentos. No se modificó código de producto para eludir el fallo.
 - El build estático conserva las advertencias no bloqueantes ya registradas: directivas `use client` ignoradas por Rollup y chunk diferido de Three.js de 512,37 KB.
 
+## CI remoto posterior en PR #1157
+
+Checks terminales observados sobre el head `c2120191d18befed061f97f3c27f18fa01e8e9c0`:
+
+| Check remoto | Resultado | Evidencia |
+|---|---|---|
+| `unit-coverage` | `success` | [Job 132733732264](https://github.com/Semse-projet/project-manager-app/actions/runs/43688413879/job/132733732264) |
+| `quality-gates` | `failure` | [Job 132733732078](https://github.com/Semse-projet/project-manager-app/actions/runs/43688413879/job/132733732078) |
+| CodeQL Python | `success` | [Job 132733649627](https://github.com/Semse-projet/project-manager-app/actions/runs/43688408254/job/132733649627) |
+| CodeQL JavaScript/TypeScript | `success` | [Job 132733649487](https://github.com/Semse-projet/project-manager-app/actions/runs/43688408254/job/132733649487) |
+| `e2e` | `skipped` | [Job 132733970416](https://github.com/Semse-projet/project-manager-app/actions/runs/43688413879/job/132733970416) |
+| `pr973-authenticated-qa` | `skipped` | [Job 132733970213](https://github.com/Semse-projet/project-manager-app/actions/runs/43688413879/job/132733970213) |
+
+El resultado agregado remoto es `FAIL`. No se inspeccionó todavía el log de `quality-gates`; no se atribuye su causa al gemelo ni se modifica producto para eludirlo.
+
 ## Límites y estados
 
 - No se repitió la suite unitaria global de 1.616 tests; su limitación previa permanece documentada y no se atribuye al gemelo.
-- No se ejecutó CI remoto, merge, deploy, publicación, Railway ni activación.
+- Las validaciones anteriores fueron locales. Al abrir el PR se ejecutó CI remoto real, registrado en la sección siguiente.
+- No se ejecutó merge, deploy, publicación, Railway ni activación.
 - El PR **#1157** se abrió posteriormente con autorización y permanece `OPEN`, sin merge: https://github.com/Semse-projet/project-manager-app/pull/1157.
 - CI local equivalente: `PASS`.
-- CI remoto/plataforma: `NOT_RUN`.
+- CI remoto/plataforma: `FAIL` por `quality-gates`; `unit-coverage` y CodeQL pasaron; E2E/QA remotos fueron omitidos.
 - Merge: `UNMERGED`.
 - Deploy: `NOT_DEPLOYED`.
 - Activación: `INACTIVE`.

@@ -79,7 +79,7 @@ El árbol persistente es una copia parcial del monorepo: contiene dos specs y ca
 
 ## Validación CI local posterior
 
-Con Node 22 se completó una validación CI local equivalente: paquetes internos, 13 unitarios, TypeScript Web, ESLint, build Web de 422 páginas, builder estático y 8/8 E2E sin reintentos, todos verdes. ESLint conserva 39 advertencias preexistentes fuera del gemelo. Consultar [`v7-ci-local.md`](v7-ci-local.md) y [`v7-ci-e2e-report.json`](v7-ci-e2e-report.json). Este resultado no es CI remoto y no cambia `ci_status=NOT_RUN`.
+Con Node 22 se completó una validación CI local equivalente: paquetes internos, 13 unitarios, TypeScript Web, ESLint, build Web de 422 páginas, builder estático y 8/8 E2E sin reintentos, todos verdes. ESLint conserva 39 advertencias preexistentes fuera del gemelo. Consultar [`v7-ci-local.md`](v7-ci-local.md) y [`v7-ci-e2e-report.json`](v7-ci-e2e-report.json). El CI remoto posterior terminó `FAIL` por `quality-gates`; `unit-coverage` y CodeQL pasaron y E2E/QA remotos fueron omitidos, por lo que `ci_status=FAIL`.
 
 ## Registro y revisión de PR
 
@@ -96,7 +96,7 @@ El diff remoto completo se revisó contra `main` (`7029da63e719b264f7b2bfaff7eb4
 
 - Código local: `COMPLETE`.
 - Preview V7: `STATUS_COMMITTED`, ID `1656593`.
-- CI: `NOT_RUN`.
+- CI remoto: `FAIL` por `quality-gates`; CI local equivalente: `PASS`.
 - PR: `OPEN`, #1157, sin merge.
 - Merge: `UNMERGED`.
 - Deploy: `NOT_DEPLOYED`.
