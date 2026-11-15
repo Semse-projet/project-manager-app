@@ -50,7 +50,7 @@ async function post(path, body, token) {
   const value = await response.json().catch(() => null);
   // Never log entire responses: they may contain access and refresh tokens.
   assert.equal(response.status, 201, path + " HTTP " + response.status);
-  assert.equal(value?.success, true, path + " canonical envelope failed");
+  assert.ok(value && typeof value.requestId === "string" && value.data, path + " canonical envelope failed");
   return value.data;
 }
 try {
