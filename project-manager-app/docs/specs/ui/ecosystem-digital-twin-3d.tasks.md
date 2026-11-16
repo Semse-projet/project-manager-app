@@ -3,7 +3,7 @@ type: tasks
 feature: "Ecosystem Digital Twin 3D"
 domain: "ui"
 plan: "docs/specs/ui/ecosystem-digital-twin-3d.plan.md"
-version: "2.1"
+version: "2.2"
 status: "PR_OPEN_REVIEW_FIXES_CI_PENDING"
 branch: "feat/ecosystem-digital-twin-3d"
 date: "2026-11-16"
@@ -66,12 +66,16 @@ https://github.com/Semse-projet/project-manager-app/pull/1157.
   `CHANGE_SIGNAL_CHANGED`; no registrarlo como publicación o deploy.
 - [x] [T-049B] Validar spec V7 aislado con strict/coverage y conservar índice
   canónico de 219 filas; documentar la copia persistente parcial.
-- [x] [T-049C] Reproducir los once hilos de revisión y añadir regresiones de
-  layout, niebla, color, SMIL, foco, aristas, iframe, Dockerfile y secreto E2E.
+- [x] [T-049C] Reproducir los doce hilos de revisión y añadir regresiones de
+  layout, niebla, color, SMIL, reanudación 3D→2D, foco, aristas, iframe,
+  Dockerfile y secreto E2E.
 - [x] [T-049D] Validar las correcciones con TypeScript, ESLint, build Next.js,
-  unitarios globales y 11 E2E Chromium, incluido admin autenticado en móvil.
+  17 unitarios dirigidos y 12 E2E Chromium, incluido admin autenticado en móvil.
 - [x] [T-049E] Documentar las correcciones y la evidencia en
   `docs/reportes/2026-11-16_digital-twin-pr-review-fixes.md`.
+- [x] [T-049F] Reproducir el reinicio 3D→2D con `0,1333` s tras 1,9 s de flujo;
+  conservar `playback.startedAt`, impedir dobles inicios en StrictMode y validar
+  juntos el cambio de vista, el inicio tardío, reduced motion y el final finito.
 
 ## Fase 5 — PR, CI y merge (PR abierto; merge no autorizado)
 

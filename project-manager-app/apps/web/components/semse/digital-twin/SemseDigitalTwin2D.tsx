@@ -36,10 +36,22 @@ export function SemseDigitalTwin2D({
     .map((position, index) => `${index === 0 ? "M" : "L"} ${position.x} ${position.z}`).join(" ");
   const finalPosition = playbackFlow ? positions[playbackFlow.nodeIds.at(-1) ?? ""] : undefined;
   const motionRef = useRef<SVGAnimateMotionElement>(null);
+  const startedPlaybackRef = useRef<number | null>(null);
 
   useLayoutEffect(() => {
-    if (playback?.nonce && !reducedMotion) motionRef.current?.beginElement();
-  }, [playback?.nonce, reducedMotion]);
+    const motion = motionRef.current;
+    if (!playback?.nonce || reducedMotion || !motion || !playbackFlow) return;
+    // React StrictMode replays layout effects; do not restart the same pulse twice.
+    if (startedPlaybackRef.current === playback.nonce) return;
+    startedPlaybackRef.current = playback.nonce;
+    const duration = (playbackFlow.nodeIds.length - 1) * 0.65;
+    const elapsed = Math.min(duration, Math.max(0, (performance.now() - playback.startedAt) / 1000));
+    // Seek forward from this SVG's current clock: late starts must keep their start event,
+    // while mounting 2D mid-flow must preserve the parent's original playback deadline.
+    motion.beginElement();
+    const svg = motion.ownerSVGElement;
+    if (svg) svg.setCurrentTime(svg.getCurrentTime() + elapsed);
+  }, [playback?.nonce, playback?.startedAt, playbackFlow, reducedMotion]);
 
   return (
     <div className="absolute inset-0 overflow-auto bg-[#060B14] p-2" data-testid="digital-twin-2d">

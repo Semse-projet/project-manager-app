@@ -247,6 +247,32 @@ test.describe("SEMSE Ecosystem Digital Twin", () => {
     await expect(play).toHaveText("Repetir flujo", { timeout: 9_000 });
   });
 
+  test("cambiar a 2D durante un flujo conserva el tiempo de reproducción", async ({ page }) => {
+    await openReadyMap(page);
+    await page.getByRole("button", { name: "Flujos de valor" }).click();
+    const play = page.getByTestId("digital-twin-play-flow");
+    await play.click();
+    await page.waitForTimeout(1_900);
+    await page.getByRole("button", { name: "2D", exact: true }).click();
+
+    const motion = page.locator("animateMotion");
+    await expect(motion).toHaveCount(1);
+    const timing = await motion.evaluate((element) => {
+      const animation = element as SVGAnimationElement;
+      const svg = element.ownerSVGElement;
+      if (!svg) throw new Error("La animación 2D no tiene un reloj SVG");
+      return {
+        elapsed: svg.getCurrentTime() - animation.getStartTime(),
+        duration: animation.getSimpleDuration(),
+      };
+    });
+    expect(timing.duration).toBeCloseTo(2.6, 1);
+    expect(timing.elapsed).toBeGreaterThan(1.5);
+    expect(timing.elapsed).toBeLessThan(2.6);
+    await expect(play).toHaveText("Repetir flujo", { timeout: 9_000 });
+    await expect(motion).toHaveCount(0);
+  });
+
   test("WebGL ausente y pérdida de contexto cambian a 2D sin pantalla en blanco", async ({ page }) => {
     await page.addInitScript(() => {
       const original = HTMLCanvasElement.prototype.getContext;
