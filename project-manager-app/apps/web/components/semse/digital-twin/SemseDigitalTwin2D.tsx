@@ -1,5 +1,6 @@
 "use client";
 
+import { useLayoutEffect, useRef } from "react";
 import { createDigitalTwinLayout, createDomainLayout } from "@/lib/digital-twin/layout";
 import {
   DOMAIN_BY_ID,
@@ -34,6 +35,11 @@ export function SemseDigitalTwin2D({
   const motionPath = playbackFlow?.nodeIds.map((id) => positions[id]).filter(Boolean)
     .map((position, index) => `${index === 0 ? "M" : "L"} ${position.x} ${position.z}`).join(" ");
   const finalPosition = playbackFlow ? positions[playbackFlow.nodeIds.at(-1) ?? ""] : undefined;
+  const motionRef = useRef<SVGAnimateMotionElement>(null);
+
+  useLayoutEffect(() => {
+    if (playback?.nonce && !reducedMotion) motionRef.current?.beginElement();
+  }, [playback?.nonce, reducedMotion]);
 
   return (
     <div className="absolute inset-0 overflow-auto bg-[#060B14] p-2" data-testid="digital-twin-2d">
@@ -66,7 +72,7 @@ export function SemseDigitalTwin2D({
             <line
               key={edge.id} x1={source.x} y1={source.z} x2={target.x} y2={target.z}
               stroke={isFlow ? "#D4A853" : isSelected ? "#2EC4B6" : "#243247"}
-              strokeWidth={isFlow ? 0.14 : 0.07} strokeOpacity={isFlow || isSelected ? 0.95 : 0.58}
+              strokeWidth={isFlow || isSelected ? 2 : 1} strokeOpacity={isFlow || isSelected ? 0.95 : 0.72}
               vectorEffect="non-scaling-stroke"
             />
           );
@@ -86,7 +92,8 @@ export function SemseDigitalTwin2D({
               aria-label={`${node.label}, ${DOMAIN_BY_ID[node.canonicalDomain].label}`}
               aria-pressed={isSelected}
               tabIndex={isEmphasized ? 0 : -1}
-              className="cursor-pointer outline-none focus-visible:outline-none"
+              data-testid={`digital-twin-2d-node-${node.id}`}
+              className="group cursor-pointer outline-none"
               opacity={!isEmphasized ? 0.2 : isOutsideFlow ? 0.28 : 1}
               onClick={() => onSelect(node.id)}
               onKeyDown={(event) => {
@@ -98,6 +105,14 @@ export function SemseDigitalTwin2D({
               }}
             >
               <title>{node.label} — {node.description}</title>
+              <circle
+                r="0.82"
+                fill="none"
+                stroke="#67E8F9"
+                strokeWidth="0.14"
+                className="pointer-events-none opacity-0 group-focus:opacity-100"
+                data-focus-ring={node.id}
+              />
               {isSelected && <circle r="0.9" fill="none" stroke="#E8EDF3" strokeWidth="0.09" />}
               <circle r={isSelected ? 0.62 : 0.46} fill={fill} stroke={isSelected ? "#FFFFFF" : "#060B14"} strokeWidth="0.08" />
               <circle r="0.14" fill="#E8EDF3" fillOpacity="0.75" pointerEvents="none" />
@@ -114,7 +129,14 @@ export function SemseDigitalTwin2D({
         )}
         {playbackFlow && motionPath && !reducedMotion && (
           <circle key={playback?.nonce} r="0.3" fill="#FDE68A" stroke="#D4A853" strokeWidth="0.12" pointerEvents="none">
-            <animateMotion path={motionPath} dur={`${(playbackFlow.nodeIds.length - 1) * 0.65}s`} repeatCount="1" fill="freeze" />
+            <animateMotion
+              ref={motionRef}
+              path={motionPath}
+              dur={`${(playbackFlow.nodeIds.length - 1) * 0.65}s`}
+              begin="indefinite"
+              repeatCount="1"
+              fill="freeze"
+            />
           </circle>
         )}
       </svg>

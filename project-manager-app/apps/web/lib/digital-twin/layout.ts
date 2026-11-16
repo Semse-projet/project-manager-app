@@ -44,10 +44,13 @@ export function createDigitalTwinLayout(
     const domainNodes = nodes
       .filter((node) => node.canonicalDomain === domainId)
       .sort((a, b) => a.id.localeCompare(b.id));
+    const domainOffset = (stableHash(domainId) % 360) * Math.PI / 180;
     domainNodes.forEach((node, index) => {
       const hash = stableHash(node.id);
-      const angle = index * 2.399963229728653 + (hash % 360) * Math.PI / 180;
-      const radius = 3.1 + (hash % 4) * 0.55;
+      // Even angular spacing keeps every centre farther apart than the rendered
+      // diameters in both views; per-node hashes previously caused collisions.
+      const angle = domainOffset + index * Math.PI * 2 / domainNodes.length;
+      const radius = 3.6;
       positions[node.id] = {
         x: center.x + Math.cos(angle) * radius,
         y: center.y + LAYER_HEIGHT[node.executionLayer] + (hash % 5) * 0.11,

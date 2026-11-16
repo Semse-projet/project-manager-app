@@ -314,11 +314,21 @@ export class SemseDigitalTwinScene {
       if (state.perspective === "flows" && activeFlow && !flowNodes.has(node.id)) {
         color = new THREE.Color("#334155");
       }
-      if (!isEmphasized) color.multiplyScalar(0.28);
+      if (!isEmphasized) color = color.clone().multiplyScalar(0.28);
       this.nodeMesh.setColorAt(index, color);
     });
     this.nodeMesh.instanceMatrix.needsUpdate = true;
-    if (this.nodeMesh.instanceColor) this.nodeMesh.instanceColor.needsUpdate = true;
+    if (this.nodeMesh.instanceColor) {
+      this.nodeMesh.instanceColor.needsUpdate = true;
+      const attribute = this.nodeMesh.instanceColor;
+      const color = new THREE.Color();
+      this.renderer.domElement.dataset.nodeColors = JSON.stringify(Object.fromEntries(
+        this.snapshot.nodes.map((node, index) => [
+          node.id,
+          `#${color.setRGB(attribute.getX(index), attribute.getY(index), attribute.getZ(index)).getHexString()}`,
+        ]),
+      ));
+    }
 
     this.selectionHalo.visible = Boolean(selectedPosition);
     if (selectedPosition) {
@@ -456,15 +466,20 @@ export class SemseDigitalTwinScene {
     const width = Math.max(1, this.container.clientWidth);
     const height = Math.max(1, this.container.clientHeight);
     this.camera.aspect = width / height;
-    this.camera.updateProjectionMatrix();
     const nextFitScale = Math.max(1, 1.2 / this.camera.aspect);
+    this.controls.maxDistance = 85 * nextFitScale;
     if (Math.abs(nextFitScale - this.cameraFitScale) > 0.001) {
       const offset = this.camera.position.clone().sub(this.controls.target);
       this.camera.position.copy(this.controls.target)
         .add(offset.multiplyScalar(nextFitScale / this.cameraFitScale));
-      this.cameraFitScale = nextFitScale;
-      this.controls.maxDistance = 85 * nextFitScale;
       this.controls.update();
+    }
+    this.cameraFitScale = nextFitScale;
+    this.camera.far = 180 * nextFitScale;
+    this.camera.updateProjectionMatrix();
+    if (this.scene.fog instanceof THREE.Fog) {
+      this.scene.fog.near = 48 * nextFitScale;
+      this.scene.fog.far = 105 * nextFitScale;
     }
     this.renderer.setSize(width, height, false);
     this.requestRender();
@@ -506,6 +521,23 @@ export class SemseDigitalTwinScene {
     this.renderer.domElement.dataset.drawCalls = String(this.renderer.info.render.calls);
     this.renderer.domElement.dataset.triangles = String(this.renderer.info.render.triangles);
     this.renderer.domElement.dataset.dpr = String(this.renderer.getPixelRatio());
+
+    const cameraSpace = new THREE.Vector3();
+    const projected = new THREE.Vector3();
+    const fogFar = this.scene.fog instanceof THREE.Fog ? this.scene.fog.far : Number.POSITIVE_INFINITY;
+    let visibleNodeCount = 0;
+    for (const node of this.snapshot.nodes) {
+      const position = this.positions[node.id];
+      cameraSpace.set(position.x, position.y, position.z).applyMatrix4(this.camera.matrixWorldInverse);
+      projected.set(position.x, position.y, position.z).project(this.camera);
+      const beforeFog = -cameraSpace.z < fogFar;
+      const inFrame = projected.x >= -1 && projected.x <= 1
+        && projected.y >= -1 && projected.y <= 1
+        && projected.z >= -1 && projected.z <= 1;
+      if (beforeFog && inFrame) visibleNodeCount += 1;
+    }
+    this.renderer.domElement.dataset.visibleNodeCount = String(visibleNodeCount);
+    this.renderer.domElement.dataset.clippedOrFoggedNodeCount = String(this.snapshot.nodes.length - visibleNodeCount);
     if (continuePlayback) this.requestRender();
   };
 

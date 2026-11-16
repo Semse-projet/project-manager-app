@@ -1,3 +1,5 @@
+# Optional Next.js web image for explicit container builds. Railway web uses
+# Dockerfile.web and the static visual preview does not consume this file.
 FROM node:22-slim AS base
 RUN apt-get update && apt-get install -y openssl python3 make g++ && rm -rf /var/lib/apt/lists/*
 RUN corepack enable && corepack prepare pnpm@10.33.0 --activate
@@ -34,7 +36,7 @@ COPY . .
 ARG NEXT_PUBLIC_SEMSE_RUNTIME_ENABLED=true
 ARG NEXT_PUBLIC_SEMSE_DEMO_LOGIN_ENABLED=false
 ARG NEXT_PUBLIC_PRODUCT_INTELLIGENCE_ENABLED=false
-ARG SEMSE_PREVIEW_EMBEDDED=true
+ARG SEMSE_PREVIEW_EMBEDDED=false
 ENV NEXT_PUBLIC_SEMSE_RUNTIME_ENABLED=$NEXT_PUBLIC_SEMSE_RUNTIME_ENABLED
 ENV NEXT_PUBLIC_SEMSE_DEMO_LOGIN_ENABLED=$NEXT_PUBLIC_SEMSE_DEMO_LOGIN_ENABLED
 ENV NEXT_PUBLIC_PRODUCT_INTELLIGENCE_ENABLED=$NEXT_PUBLIC_PRODUCT_INTELLIGENCE_ENABLED

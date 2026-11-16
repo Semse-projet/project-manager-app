@@ -41,3 +41,27 @@ test("cada módulo permanece próximo al centro de su dominio", () => {
     assert.ok(horizontalDistance >= 2.5 && horizontalDistance <= 6.5);
   }
 });
+
+test("mantiene todos los módulos separados y seleccionables en 2D y 3D", () => {
+  const snapshot = createStaticDigitalTwinSnapshot();
+  const positions = createDigitalTwinLayout(snapshot.nodes);
+
+  for (let left = 0; left < snapshot.nodes.length; left += 1) {
+    for (let right = left + 1; right < snapshot.nodes.length; right += 1) {
+      const leftNode = snapshot.nodes[left];
+      const rightNode = snapshot.nodes[right];
+      const a = positions[leftNode.id];
+      const b = positions[rightNode.id];
+      const distance2D = Math.hypot(a.x - b.x, a.z - b.z);
+      const distance3D = Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
+      assert.ok(
+        distance2D >= 1.5,
+        `${leftNode.id} y ${rightNode.id} quedan a ${distance2D.toFixed(3)} unidades en 2D`,
+      );
+      assert.ok(
+        distance3D >= 1.5,
+        `${leftNode.id} y ${rightNode.id} quedan a ${distance3D.toFixed(3)} unidades en 3D`,
+      );
+    }
+  }
+});

@@ -3,7 +3,9 @@ import { createHmac } from "node:crypto";
 import { mkdir } from "node:fs/promises";
 
 const MAP_PATH = "/semse-consciousness-map";
-const TEST_SESSION_SECRET = "local-digital-twin-test-only";
+const TEST_SESSION_SECRET = process.env.SEMSE_WEB_SESSION_SECRET?.trim()
+  || process.env.AUTH_SECRET?.trim()
+  || "semse-dev-session-secret";
 const EVIDENCE_DIR = "artifacts/evidence/digital-twin";
 
 async function openReadyMap(page: Page) {
@@ -152,10 +154,17 @@ test.describe("SEMSE Ecosystem Digital Twin", () => {
     await expect(page.locator('g[role="button"][tabindex="0"]')).toHaveCount(1);
     const node2d = page.getByRole("button", { name: /Payment Governance, SEMSE Payments/ });
     await node2d.focus();
+    await expect(node2d.locator("[data-focus-ring]")).toHaveCSS("opacity", "1");
     await page.keyboard.press("Space");
     await expect(node2d).toHaveAttribute("aria-pressed", "true");
     await page.keyboard.press("Escape");
     await expect(node2d).toHaveAttribute("aria-pressed", "false");
+
+    const relationshipWidths = await page.getByTestId("digital-twin-2d")
+      .locator('line[vector-effect="non-scaling-stroke"]')
+      .evaluateAll((lines) => lines.map((line) => Number(line.getAttribute("stroke-width"))));
+    expect(relationshipWidths.length).toBeGreaterThan(0);
+    expect(Math.min(...relationshipWidths)).toBeGreaterThanOrEqual(1);
 
     await page.getByRole("button", { name: "Lista", exact: true }).click();
     await page.getByPlaceholder("Buscar módulo, descripción o señal…").fill("no-existe-en-el-ecosistema");
@@ -165,6 +174,32 @@ test.describe("SEMSE Ecosystem Digital Twin", () => {
     await expect(page.getByText("No hay módulos que coincidan")).toBeVisible();
     await page.getByLabel("Filtrar por dominio").selectOption("all");
     await expect(page.locator('[data-testid^="digital-twin-node-"]')).toHaveCount(33);
+  });
+
+  test("2D permite seleccionar por separado módulos vecinos", async ({ page }) => {
+    await openReadyMap(page);
+    await page.getByRole("button", { name: "2D", exact: true }).click();
+
+    const disputes = page.getByTestId("digital-twin-2d-node-disputes");
+    const passport = page.getByTestId("digital-twin-2d-node-trust_passport");
+    await disputes.click();
+    await expect(disputes).toHaveAttribute("aria-pressed", "true");
+    await expect(passport).toHaveAttribute("aria-pressed", "false");
+    await passport.click();
+    await expect(passport).toHaveAttribute("aria-pressed", "true");
+    await expect(disputes).toHaveAttribute("aria-pressed", "false");
+  });
+
+  test("filtrar en salud no muta los colores de criticidad", async ({ page }) => {
+    const scene = await openReadyMap(page);
+    const canvas = scene.locator("canvas");
+    await page.getByRole("button", { name: "Salud y riesgo" }).click();
+    const initialColors = await canvas.getAttribute("data-node-colors");
+    expect(initialColors).not.toBeNull();
+
+    await page.getByLabel("Filtrar por dominio").selectOption("semse-core");
+    await page.getByLabel("Filtrar por dominio").selectOption("all");
+    await expect(canvas).toHaveAttribute("data-node-colors", initialColors!);
   });
 
   test("los tres flujos terminan y pueden repetirse sin loop", async ({ page }) => {
@@ -191,6 +226,25 @@ test.describe("SEMSE Ecosystem Digital Twin", () => {
     await page.getByTestId("digital-twin-play-flow").click();
     await expect(page.getByTestId("digital-twin-play-flow")).toHaveText("Repetir flujo");
     await expect(page.locator("animateMotion")).toHaveCount(0);
+  });
+
+  test("el flujo 2D se mueve aunque se reproduzca varios segundos después", async ({ page }) => {
+    await openReadyMap(page);
+    await page.getByRole("button", { name: "2D", exact: true }).click();
+    await page.getByRole("button", { name: "Flujos de valor" }).click();
+    await page.waitForTimeout(4_000);
+
+    const play = page.getByTestId("digital-twin-play-flow");
+    await play.click();
+    const pulse = page.locator("circle").filter({ has: page.locator("animateMotion") });
+    await expect(pulse).toBeVisible();
+    const start = await pulse.boundingBox();
+    await page.waitForTimeout(250);
+    const moved = await pulse.boundingBox();
+    expect(start).not.toBeNull();
+    expect(moved).not.toBeNull();
+    expect(Math.hypot(moved!.x - start!.x, moved!.y - start!.y)).toBeGreaterThan(1);
+    await expect(play).toHaveText("Repetir flujo", { timeout: 9_000 });
   });
 
   test("WebGL ausente y pérdida de contexto cambian a 2D sin pantalla en blanco", async ({ page }) => {
@@ -242,6 +296,8 @@ test.describe("SEMSE Ecosystem Digital Twin", () => {
       await expect.poll(async () => Number(await scene.locator("canvas").getAttribute("data-render-count"))).toBeGreaterThan(before);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
       if (width === 375) {
+        await expect(scene.locator("canvas")).toHaveAttribute("data-visible-node-count", "33");
+        await expect(scene.locator("canvas")).toHaveAttribute("data-clipped-or-fogged-node-count", "0");
         for (const name of ["3D", "2D", "Lista"]) {
           const box = await page.getByRole("button", { name, exact: true }).boundingBox();
           expect(box?.height).toBeGreaterThanOrEqual(44);
@@ -288,6 +344,10 @@ test.describe("SEMSE Ecosystem Digital Twin", () => {
     await page.goto("/admin/consciousness");
     await expect(page.getByTestId("semse-digital-twin")).toBeVisible({ timeout: 20_000 });
     await expect(page.getByText("Salud global observada · 88/100")).toBeVisible();
+    await page.setViewportSize({ width: 375, height: 812 });
+    const adminCanvas = page.getByTestId("digital-twin-3d").locator("canvas");
+    await expect(adminCanvas).toHaveAttribute("data-visible-node-count", "33");
+    await expect(adminCanvas).toHaveAttribute("data-clipped-or-fogged-node-count", "0");
     await page.getByRole("button", { name: "Lista", exact: true }).click();
     await page.getByTestId("digital-twin-node-buildops").click();
     const details = page.getByLabel("Detalle del módulo");

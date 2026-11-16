@@ -3,10 +3,10 @@ type: tasks
 feature: "Ecosystem Digital Twin 3D"
 domain: "ui"
 plan: "docs/specs/ui/ecosystem-digital-twin-3d.plan.md"
-version: "2.0"
-status: "PR_OPEN_REMOTE_CI_PASS"
+version: "2.1"
+status: "PR_OPEN_REVIEW_FIXES_CI_PENDING"
 branch: "feat/ecosystem-digital-twin-3d"
-date: "2026-11-15"
+date: "2026-11-16"
 ---
 
 # Tareas: Ecosystem Digital Twin 3D
@@ -66,6 +66,12 @@ https://github.com/Semse-projet/project-manager-app/pull/1157.
   `CHANGE_SIGNAL_CHANGED`; no registrarlo como publicación o deploy.
 - [x] [T-049B] Validar spec V7 aislado con strict/coverage y conservar índice
   canónico de 219 filas; documentar la copia persistente parcial.
+- [x] [T-049C] Reproducir los once hilos de revisión y añadir regresiones de
+  layout, niebla, color, SMIL, foco, aristas, iframe, Dockerfile y secreto E2E.
+- [x] [T-049D] Validar las correcciones con TypeScript, ESLint, build Next.js,
+  unitarios globales y 11 E2E Chromium, incluido admin autenticado en móvil.
+- [x] [T-049E] Documentar las correcciones y la evidencia en
+  `docs/reportes/2026-11-16_digital-twin-pr-review-fixes.md`.
 
 ## Fase 5 — PR, CI y merge (PR abierto; merge no autorizado)
 
@@ -84,6 +90,8 @@ https://github.com/Semse-projet/project-manager-app/pull/1157.
 - [x] [T-051A] Registrar CI remoto terminal `PASS` sobre
   `e2d70e2b0ff38cb97581f96d0d0c81b8b74f565c`: `quality-gates`, `unit-coverage`,
   E2E y CodeQL verdes; QA #973 `skipped` por alcance.
+- [ ] [T-051B] Verificar CI remoto del nuevo head con las correcciones de
+  revisión; no reutilizar el resultado histórico como evidencia del delta.
 - [ ] [T-052] Fusionar sólo con confirmación explícita y registrar SHA.
 
 ## Fase 6 — Deploy y activación (no autorizado)
@@ -104,10 +112,11 @@ https://github.com/Semse-projet/project-manager-app/pull/1157.
 - [x] Builder reproducible y evidencias propias de V7 incorporados al árbol fuente.
 - [x] Migración `NOT_APPLICABLE`; Omniverse y grafo operativo permanecen fuera.
 
-## Limitación de suite global documentada
+## Validación global de la ronda de revisión
 
-La ejecución completa contabilizó 1.616 tests: 1.586 verdes, 5 omitidos, 11 TODO
-y 14 fallos. Trece archivos requieren `apps/api/dist` no generado y uno es un
-TODO ya declarado. El build API independiente quedó bloqueado por errores
-TypeScript en módulos fuera del diff; no se modificó backend ni Prisma para
-ocultar esa limitación.
+Con Node 22, las dependencias fijadas, el build API y el cliente Prisma generados,
+la suite global terminó con 1.753 tests: 1.736 verdes, 0 fallos, 6 omitidos y
+11 TODO. SDD strict, cobertura de planes, índice y sus 29 pruebas también pasan.
+La primera ejecución local sin esos artefactos y sin la estructura documental
+outer no se usa como evidencia del delta. No se ejecutaron migraciones ni
+operaciones de Railway; el preflight sólo validó la configuración existente.
