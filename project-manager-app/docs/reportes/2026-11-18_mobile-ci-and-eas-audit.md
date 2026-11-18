@@ -15,8 +15,9 @@ arrancaba en ninguna suite, sin que ningún check se pusiera en rojo. Corregido 
 
 - **Disparadores:** PRs que tocan `apps/mobile/**`, `packages/schemas/**`, `packages/design-tokens/**`, el
   `package.json` raíz, `pnpm-lock.yaml`, `pnpm-workspace.yaml` o `.npmrc`; también `workflow_dispatch`.
-  - El propio archivo del workflow **no** está en `paths`, así que el PR que lo agrega no lo ejecuta. Se activa al
-    fusionarse, o a mano, con la autorización del propietario.
+  - El propio archivo del workflow **sí** está en `paths` (cambio del 2026-11-18, tras fusionarse #1162 y con la
+    autorización del propietario): el PR que lo agrega o lo edita lo ejecuta, así que cada cambio queda verificado en
+    GitHub Actions y no solo en local.
 - **Pasos:**
   - `pnpm install --frozen-lockfile`;
   - `build:packages` (jest usa los `dist/` de `@semse/schemas` y `@semse/design-tokens`);
@@ -31,8 +32,8 @@ arrancaba en ninguna suite, sin que ningún check se pusiera en rojo. Corregido 
   firma, no instala y no ejercita el renderer Fabric en un teléfono.
 - **Lint:** `apps/mobile` no tiene script ni configuración de lint; agregarlo queda fuera de este PR.
 - **Validación local** (rama apilada sobre #1162, con los mismos comandos del workflow): `expo install --check` OK,
-  expo-doctor 21/21, `tsc` OK, jest 232/232, export de Android e iOS OK. **Todavía no hay ejecución en GitHub
-  Actions:** el workflow no corre en su propio PR.
+  expo-doctor 21/21, `tsc` OK, jest 232/232, export de Android e iOS OK. La ejecución en GitHub Actions se
+  registra en el PR #1166 (job `mobile-checks`).
 
 ## 3. Auditoría de EAS y configuración de Expo (punto 3)
 
