@@ -152,3 +152,52 @@ nuevos y sin tocar `GET /members`, que pertenece a otro contrato.
   - Móvil: `tsc` limpio y test de mapeo 3/3, corrido con Node porque el preset jest-expo no arranca en el sandbox
     (falta `react-native`, igual que sin estos cambios). CI no ejecuta pruebas del móvil.
   - Capturas de `/worker/location` y del diálogo de revocación.
+
+## Verificación E2E real y correcciones (2026-11-18)
+
+**Stack local:** Postgres 16 y Redis, con migraciones y seed aplicados; API en modo identidad por headers
+(`SEMSE_ALLOW_HEADER_IDENTITY=true`, solo en desarrollo) con los flags de cuadrillas, geofence y satellites encendidos;
+web con `next dev`. Playwright recorre navegador → BFF → API → Postgres **sin interceptar nada**, con usuarios
+sintéticos `usr_e2e_*`: los usuarios demo sembrados se rechazan cuando la web corre en modo producción, que es lo
+correcto.
+
+### Bugs reales encontrados y corregidos
+1. **Todos los endpoints de liens respondían 500 en cualquier entorno.** Los 4 controladores usaban
+   `@UseGuards(AuthGuard('jwt'))` de `@nestjs/passport`, pero no hay ninguna estrategia `jwt` registrada en la API
+   («Unknown authentication strategy "jwt"»).
+   - Se quitó ese guard: la autenticación ya la hace el `APP_GUARD` global, y el `RbacGuard`, `@AuthenticatedAccess` y
+     `LienAccessService` siguen aplicando los permisos.
+   - Test de regresión: `liens-controllers-auth-guard.test.ts`.
+   - **Pendiente fuera de alcance:** `capability-registry` y `weather` tienen el mismo guard roto.
+2. **Los borradores de avisos quedaban inalcanzables.** `GET .../liens/notices` excluía los `DRAFT`, y
+   `generate-notice` no regenera para destinatarios que ya tienen aviso. Un borrador no enviado en la misma sesión
+   desaparecía para siempre.
+   - Nuevo `LiensService.getLienNotices()`: devuelve todos los avisos, sin el HTML (para eso está el preview).
+   - Tests: `liens-service-get-notices.test.ts` y un caso nuevo en `notice-controller-send-and-list.test.ts`.
+3. **Enviar sin dirección válida daba 500 sin explicación.** Ahora responde 422 con el motivo, y un aviso que ya no
+   está en borrador responde 409. Los tests de `notice-send-address-parsing` exigen el 422.
+4. **Formato del estado en liens.** La pantalla enviaba el nombre completo ("California"), pero la API lo reenvía a
+   LienGrid como `state`, cuyo contrato (spec §4.1, el cliente simulado y los tests) es el código USPS ("CA"). La UI
+   ahora envía el código y muestra el nombre. El ejemplo del endpoint en el spec ("California") contradice al de
+   LienGrid; queda anotado para corregir el spec.
+5. **Integrado el commit `c4efd49`** del dueño del PR: `CrewsWorkspace` falla de forma segura ante 401/403 y limpia el
+   estado al cambiar de organización.
+
+### Evidencia
+- **E2E real: 24/24, sin 5xx en el BFF.**
+  - Liens: calendario CA/TX, avisos, preview aislado, envío rechazado con 422 y luego exitoso con Lob simulado, y firma
+    de waiver.
+  - Cliente: solo lectura (generar avisos devuelve 403).
+  - Admin: revisión de plazos.
+  - Forge: crear run, transición y bloqueo con confirmación.
+  - Satellites: emitir token y revocarlo.
+  - Cuadrillas: obra, cuadrilla, alta, baja y archivo de miembros.
+  - Ubicación: consentimiento AUTO y revocación; Ajustes con BO-09.
+- **Negativos por el BFF:**
+  - sin sesión → 401;
+  - WORKER en cuadrillas, y PRO en satellites y forge → 403;
+  - otra organización en cuadrillas → 404;
+  - gestor de la org → 200.
+- **Suites:** `@semse/api` 4024 pass / 0 fail; raíz 1717 pass / 0 fail; `tsc` y `eslint` de la web limpios.
+- **No cubierto:** cambio de organización con más de una org por usuario (el seed no la tiene), ES/EN en E2E, móvil en
+  dispositivo y las rutas de `capability-registry` y `weather`.

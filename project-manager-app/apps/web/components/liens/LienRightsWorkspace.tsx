@@ -54,14 +54,24 @@ import { SignaturePad } from "./SignaturePad";
 
 /* ───────────────────────────── vocab ───────────────────────────── */
 
-const US_STATES = [
-  "Alabama", "Alaska", "Arizona", "Arkansas", "California", "Colorado", "Connecticut", "Delaware", "Florida",
-  "Georgia", "Hawaii", "Idaho", "Illinois", "Indiana", "Iowa", "Kansas", "Kentucky", "Louisiana", "Maine",
-  "Maryland", "Massachusetts", "Michigan", "Minnesota", "Mississippi", "Missouri", "Montana", "Nebraska",
-  "Nevada", "New Hampshire", "New Jersey", "New Mexico", "New York", "North Carolina", "North Dakota", "Ohio",
-  "Oklahoma", "Oregon", "Pennsylvania", "Rhode Island", "South Carolina", "South Dakota", "Tennessee", "Texas",
-  "Utah", "Vermont", "Virginia", "Washington", "West Virginia", "Wisconsin", "Wyoming"
+// The API forwards `stateName` verbatim to LienGrid as `state`, whose contract
+// (spec §4.1, the mock client and liens-service tests) is the USPS 2-letter code.
+// The UI shows the full name and sends the code.
+const US_STATES: Array<[code: string, name: string]> = [
+  ["AL", "Alabama"], ["AK", "Alaska"], ["AZ", "Arizona"], ["AR", "Arkansas"], ["CA", "California"], ["CO", "Colorado"],
+  ["CT", "Connecticut"], ["DE", "Delaware"], ["FL", "Florida"], ["GA", "Georgia"], ["HI", "Hawaii"], ["ID", "Idaho"],
+  ["IL", "Illinois"], ["IN", "Indiana"], ["IA", "Iowa"], ["KS", "Kansas"], ["KY", "Kentucky"], ["LA", "Louisiana"],
+  ["ME", "Maine"], ["MD", "Maryland"], ["MA", "Massachusetts"], ["MI", "Michigan"], ["MN", "Minnesota"],
+  ["MS", "Mississippi"], ["MO", "Missouri"], ["MT", "Montana"], ["NE", "Nebraska"], ["NV", "Nevada"],
+  ["NH", "New Hampshire"], ["NJ", "New Jersey"], ["NM", "New Mexico"], ["NY", "New York"], ["NC", "North Carolina"],
+  ["ND", "North Dakota"], ["OH", "Ohio"], ["OK", "Oklahoma"], ["OR", "Oregon"], ["PA", "Pennsylvania"],
+  ["RI", "Rhode Island"], ["SC", "South Carolina"], ["SD", "South Dakota"], ["TN", "Tennessee"], ["TX", "Texas"],
+  ["UT", "Utah"], ["VT", "Vermont"], ["VA", "Virginia"], ["WA", "Washington"], ["WV", "West Virginia"],
+  ["WI", "Wisconsin"], ["WY", "Wyoming"]
 ];
+const STATE_NAME = new Map<string, string>(US_STATES);
+/** Full name for a stored stateName (accepts codes and, for older rows, full names). */
+const stateLabel = (value?: string | null) => (value ? STATE_NAME.get(value.toUpperCase()) ?? value : "—");
 
 const CALENDAR_STATUS: Record<string, { label: string; tone: Tone }> = {
   CREATED: { label: "En plazo", tone: "muted" },
@@ -195,8 +205,9 @@ export function LienRightsWorkspace({ mode }: Props) {
     }
   }
 
-  // `GET notices` only returns non-DRAFT notices, so freshly generated drafts
-  // are kept locally until they are sent.
+  // `GET notices` lists every notice, DRAFT included (API fix 2026-11-12). The
+  // just-generated drafts are merged in too, so they show up immediately even
+  // against an older API that still filtered drafts out.
   const allNotices = useMemo(() => {
     const sentIds = new Set(notices.map((n) => n.id));
     return [...drafts.filter((d) => !sentIds.has(d.id)), ...notices].sort(
@@ -214,7 +225,10 @@ export function LienRightsWorkspace({ mode }: Props) {
     return dates[0] ?? null;
   }, [calendars]);
 
-  const calendarState = (id: string) => calendars.find((c) => c.id === id)?.stateName ?? shortId(id);
+  const calendarState = (id: string) => {
+    const calendar = calendars.find((c) => c.id === id);
+    return calendar ? stateLabel(calendar.stateName) : shortId(id);
+  };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -288,7 +302,7 @@ export function LienRightsWorkspace({ mode }: Props) {
               tone={waivers.length ? "warn" : "ok"}
               hint={waivers.length ? "Bloquean la liberación de fondos" : "Nada bloquea el pago"}
             />
-            <Stat label="Avisos enviados" value={notices.length} tone="brand" />
+            <Stat label="Avisos enviados" value={notices.filter((n) => n.status !== "DRAFT").length} tone="brand" />
           </StatGrid>
 
           {waivers.length > 0 ? (
@@ -305,7 +319,7 @@ export function LienRightsWorkspace({ mode }: Props) {
               onCreate={(input) =>
                 run("create", async () => {
                   await createLienCalendar(projectId, input);
-                  setFlash(`Calendario de ${input.stateName} creado con los plazos de LienGrid.`);
+                  setFlash(`Calendario de ${stateLabel(input.stateName)} creado con los plazos de LienGrid.`);
                   await load();
                 })
               }
@@ -314,7 +328,12 @@ export function LienRightsWorkspace({ mode }: Props) {
                   const result = await generateLienNotices(projectId, calendar.id, recipient);
                   const created = Array.isArray(result) ? result : result ? [result] : [];
                   setDrafts((prev) => [...created, ...prev]);
-                  setFlash(`${created.length} aviso(s) en borrador generados para ${calendar.stateName}. Revísalos antes de enviar.`);
+                  setFlash(
+                    created.length
+                      ? `${created.length} aviso(s) en borrador generados para ${stateLabel(calendar.stateName)}. Revísalos antes de enviar.`
+                      : `Ya existen avisos para esos destinatarios en ${stateLabel(calendar.stateName)}; revísalos en «Avisos legales».`
+                  );
+                  await load();
                 })
               }
             />
@@ -400,10 +419,10 @@ function CalendarsPanel({
   onGenerate: (calendar: LienCalendar, recipient?: LienRecipientType) => void;
 }) {
   const [showForm, setShowForm] = useState(false);
-  const [stateName, setStateName] = useState("California");
+  const [stateName, setStateName] = useState("CA");
   const [startDate, setStartDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [recipientById, setRecipientById] = useState<Record<string, string>>({});
-  const used = new Set(calendars.map((c) => c.stateName));
+  const used = new Set(calendars.map((c) => c.stateName.toUpperCase()));
 
   return (
     <Panel
@@ -435,10 +454,10 @@ function CalendarsPanel({
         >
           <Field label="Estado">
             <select value={stateName} onChange={(e) => setStateName(e.target.value)} style={inputStyle}>
-              {US_STATES.map((s) => (
-                <option key={s} value={s} disabled={used.has(s)}>
-                  {s}
-                  {used.has(s) ? " (ya existe)" : ""}
+              {US_STATES.map(([code, name]) => (
+                <option key={code} value={code} disabled={used.has(code)}>
+                  {name}
+                  {used.has(code) ? " (ya existe)" : ""}
                 </option>
               ))}
             </select>
@@ -471,7 +490,7 @@ function CalendarsPanel({
             return (
               <article key={c.id} style={{ border: "1px solid var(--border)", borderRadius: 12, padding: 14, background: "var(--bg)" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                  <strong style={{ fontSize: 15, color: "var(--ink)", flex: 1 }}>{c.stateName}</strong>
+                  <strong style={{ fontSize: 15, color: "var(--ink)", flex: 1 }}>{stateLabel(c.stateName)}</strong>
                   <Pill tone={status.tone}>{status.label}</Pill>
                   {c.requiresCertifiedMail ? <Pill tone="muted" icon={Mail}>Certificado</Pill> : null}
                   {c.requiresNotary ? <Pill tone="violet" icon={Stamp}>Notario</Pill> : null}
@@ -494,7 +513,7 @@ function CalendarsPanel({
 
                 <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
                   <select
-                    aria-label={`Destinatario para ${c.stateName}`}
+                    aria-label={`Destinatario para ${stateLabel(c.stateName)}`}
                     value={recipientById[c.id] ?? ""}
                     onChange={(e) => setRecipientById((prev) => ({ ...prev, [c.id]: e.target.value }))}
                     style={{ ...inputStyle, width: "auto", flex: "1 1 180px" }}
@@ -544,7 +563,7 @@ function WaiversPanel({ waivers, onSign }: { waivers: LienWaiver[]; onSign: (wai
                 </div>
                 <dl style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "4px 12px", margin: "10px 0 0", fontSize: 13 }}>
                   <dt style={{ color: "var(--muted)" }}>Estado</dt>
-                  <dd style={{ margin: 0, color: "var(--ink)" }}>{w.stateName ?? "—"}</dd>
+                  <dd style={{ margin: 0, color: "var(--ink)" }}>{stateLabel(w.stateName)}</dd>
                   <dt style={{ color: "var(--muted)" }}>Monto liberado</dt>
                   <dd style={{ margin: 0, color: "var(--ink)" }}>{money(w.releaseAmount)}</dd>
                   <dt style={{ color: "var(--muted)" }}>Firmar antes de</dt>
