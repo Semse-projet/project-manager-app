@@ -212,7 +212,7 @@ retroactiva.
 | [m1-4-signature-dispatch-outbox](specs/tools/fase-1/m1.4-signature-dispatch-outbox.spec.md) | contracts | DRAFT | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | yes | NOT_VERIFIED |
 | [m1-4-signature-interoperability](specs/tools/fase-1/m1.4-signature-interoperability.spec.md) | contracts | DRAFT | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | yes | NOT_VERIFIED |
 | [m1-4-universal-signature-port](specs/tools/fase-1/m1.4-universal-signature-port.spec.md) | contracts | DRAFT | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | yes | NOT_VERIFIED |
-| [tools.lien-rights-management](specs/tools/fase-2/m2.1-lien-rights.spec.md) | legal | APPROVED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-08-27 |
+| [tools.lien-rights-management](specs/tools/fase-2/m2.1-lien-rights.spec.md) | legal | APPROVED | IN_PROGRESS | NOT_RUN | MERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-11-18 |
 | [tools.anti-dispute-documentation](specs/tools/fase-2/m2.2-dispute-docs.spec.md) | evidence | APPROVED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-08-27 |
 | [tools.weather-integration-alerts](specs/tools/fase-2/m2.3-weather.spec.md) | operations | APPROVED | legacy | legacy | legacy | legacy | legacy | medium | yes | 2026-08-27 |
 | [tools.multi-stage-releases](specs/tools/fase-3/m3.1-multi-stage-releases.spec.md) | payments | DEPRECATED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-19 |
