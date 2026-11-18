@@ -2,14 +2,16 @@
 
 ## 1. Por qué CI no detectó que la app móvil no compilaba
 
-**Causa raíz:** ningún workflow ejecuta nada de `apps/mobile`.
-- `ci.yml` (`quality-gates`, `unit-coverage`, `e2e`) corre `test:unit` de la raíz, `verify:workspace` (API),
-  `spec:preflight`, builds de API y web y Playwright de la web.
-- `pnpm check` (`test:unit` + Prisma + `build:api` + `build:web`) tampoco incluye el móvil.
+**Causa raíz:** del móvil, CI solo verificaba **tipos**; no la alineación de dependencias, ni jest, ni el empaquetado.
+- `ci.yml` (`quality-gates`) corre `spec:preflight` → `railway:preflight` → `typecheck:all`, que incluye
+  `check:mobile` (`tsc --noEmit` del móvil). Corrección del 2026-11-18, tras la revisión de Devin en #1166: la primera
+  versión de este reporte decía que ningún workflow ejecutaba nada del móvil.
+- Ningún workflow ejecutaba `expo install --check`, la suite jest del móvil ni `expo export`.
+- `pnpm check` (`test:unit` + Prisma + `build:api` + `build:web`) tampoco las incluye.
 - Ningún workflow tiene filtros de rutas sobre `apps/mobile/**`.
 
-Por eso `main` llegó a tener `react-native@0.87.1` con Expo SDK 57 (que exige 0.86.3): `expo export` fallaba y jest no
-arrancaba en ninguna suite, sin que ningún check se pusiera en rojo. Corregido en #1162.
+Por eso `main` llegó a tener `react-native@0.87.1` con Expo SDK 57 (que exige 0.86.3): los tipos seguían siendo válidos, pero
+`expo export` fallaba y jest no arrancaba en ninguna suite, sin que ningún check se pusiera en rojo. Corregido en #1162.
 
 ## 2. Workflow propuesto: `.github/workflows/mobile-checks.yml`
 

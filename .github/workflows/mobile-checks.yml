@@ -2,7 +2,9 @@ name: Mobile Checks
 
 # Static validation of apps/mobile (Expo). Added after main shipped a mobile app
 # that could not bundle (react-native 0.87.1 vs Expo SDK 57's 0.86.3) and no
-# workflow noticed: ci.yml never runs anything for apps/mobile.
+# workflow noticed: ci.yml only typechecks the app (spec:preflight ->
+# typecheck:all -> check:mobile); nothing checked dependency alignment, ran its
+# jest suite or bundled it.
 #
 # These checks DO NOT replace a native EAS build or on-device testing: they
 # catch dependency drift, type errors, unit-test regressions and JS bundling
