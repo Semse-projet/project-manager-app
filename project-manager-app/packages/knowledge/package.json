@@ -16,7 +16,8 @@
     "build": "tsc -p tsconfig.json && node ./scripts/copy-seeds.mjs"
   },
   "dependencies": {
-    "@semse/schemas": "workspace:*"
+    "@semse/schemas": "workspace:*",
+    "zod": "^3.24.2"
   },
   "devDependencies": {
     "typescript": "^5.8.2"
