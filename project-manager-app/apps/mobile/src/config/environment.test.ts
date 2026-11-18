@@ -21,4 +21,10 @@ describe("one API origin for every mobile surface", () => {
     expect(resolveApiBaseUrl({ canonical: "http://192.168.1.10:4132", development: true })).toBe("http://192.168.1.10:4132");
     expect(() => resolveApiBaseUrl({ canonical: "http://192.168.1.10:4132" })).toThrow(/URL/);
   });
+  test("a pilot build requires an explicit, non-production API origin", () => {
+    expect(() => resolveApiBaseUrl({ appEnv: "pilot" })).toThrow(/staging/);
+    expect(() => resolveApiBaseUrl({ appEnv: "pilot", canonical: "https://api.semseproject.com/v1" })).toThrow(/producción/);
+    expect(() => resolveApiBaseUrl({ appEnv: "pilot", legacy: "https://api.semseproject.com" })).toThrow(/producción/);
+    expect(resolveApiBaseUrl({ appEnv: "pilot", canonical: "https://staging-api.example" })).toBe("https://staging-api.example");
+  });
 });
