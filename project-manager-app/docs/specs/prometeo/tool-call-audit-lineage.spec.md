@@ -56,7 +56,8 @@ last_verified: "2026-10-25"
 > (`POST /v1/agents/approvals/:approvalId/retry-execution`), consulta autorizada (D4: `GET /v1/prometeo/tools/executions/:executionId`
 > y `GET /v1/prometeo/tools/executions?projectId=`) y servicio de barridos. *D5 (2026-10-06):* el copiloto abre un
 > run padre de **observabilidad** por acción (nace terminal, no ejecutable por el worker; ver plan 0.42).
-> *Pendiente:* registrar `runId` en la auditoría de las acciones del harness del copiloto (`source: project_copilot`).
+> *Harness (2026-11-10):* las acciones ejecutadas por el harness del copiloto se auditan con `source: project_copilot`,
+> el `runId` del run padre D5 y, tras aprobar, el mismo `executionId` de la aprobación (ver plan 0.42).
 > La migración ya está aplicada en producción (2026-10-06).
 >
 > **Reconciliación de metadatos (2026-10-25):** `merge_status: MERGED` (entregas A, B y la corrección de la migración: #796, #798, #799) y `migration_status: APPLIED` (evidencia en `production_evidence`). Se dejan sin cambio `ci_status`, `deploy_status` y `activation_status`: no se verificaron aquí el CI de esos merges ni el despliegue actual, y `shadow` no equivale a `ACTIVE`. Pendiente B-03: leer en Railway el estado actual de `PROMETEO_TOOL_AUDIT_LIFECYCLE`.
