@@ -8,7 +8,11 @@ function normalizeOrigin(value: string, development: boolean): string {
     if (url.username || url.password || url.search || url.hash) throw new Error();
     if (url.protocol !== "https:" && !(development && url.protocol === "http:")) throw new Error();
     if (url.pathname.replace(/\/+$/, "") !== "" && url.pathname.replace(/\/+$/, "") !== "/v1") throw new Error();
-    return url.origin;
+    // "api.semseproject.com." (FQDN with a trailing dot) is the same DNS name as
+    // "api.semseproject.com": strip the dot so equality checks cannot be bypassed.
+    const host = url.hostname.replace(/\.+$/, "");
+    if (!host) throw new Error();
+    return `${url.protocol}//${host}${url.port ? `:${url.port}` : ""}`;
   } catch {
     // Never echo a potentially credential-bearing configuration value.
     throw new Error("La URL del API debe ser un origen HTTPS válido, sin credenciales ni parámetros.");
