@@ -1,0 +1,87 @@
+name: Mobile Checks
+
+# Static validation of apps/mobile (Expo). Added after main shipped a mobile app
+# that could not bundle (react-native 0.87.1 vs Expo SDK 57's 0.86.3) and no
+# workflow noticed: ci.yml only typechecks the app (spec:preflight ->
+# typecheck:all -> check:mobile); nothing checked dependency alignment, ran its
+# jest suite or bundled it.
+#
+# These checks DO NOT replace a native EAS build or on-device testing: they
+# catch dependency drift, type errors, unit-test regressions and JS bundling
+# failures cheaply, without Expo/Apple credentials and without EAS minutes.
+#
+# It runs on PRs that touch the mobile app, the shared inputs it consumes or this
+# workflow file itself (so any edit to it is exercised on its own PR), or
+# manually via workflow_dispatch.
+on:
+  pull_request:
+    paths:
+      - "project-manager-app/apps/mobile/**"
+      - "project-manager-app/packages/schemas/**"
+      - "project-manager-app/packages/design-tokens/**"
+      - "project-manager-app/package.json"
+      - "project-manager-app/pnpm-lock.yaml"
+      - "project-manager-app/pnpm-workspace.yaml"
+      - "project-manager-app/.npmrc"
+      - ".github/workflows/mobile-checks.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: mobile-checks-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: project-manager-app
+
+jobs:
+  mobile-checks:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6.1.1
+        with:
+          version: 10.33.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: project-manager-app/pnpm-lock.yaml
+
+      - name: Install dependencies (lockfile must resolve as committed)
+        run: pnpm install --frozen-lockfile
+
+      # jest maps @semse/schemas and @semse/design-tokens to their dist/ builds.
+      - name: Build workspace packages
+        run: pnpm build:packages
+
+      - name: Expo dependency alignment
+        working-directory: project-manager-app/apps/mobile
+        run: npx expo install --check
+
+      - name: Expo Doctor
+        working-directory: project-manager-app/apps/mobile
+        run: npx --yes expo-doctor@1.21.8
+
+      - name: Typecheck
+        working-directory: project-manager-app/apps/mobile
+        run: pnpm check
+
+      - name: Unit tests
+        working-directory: project-manager-app/apps/mobile
+        run: pnpm test --ci
+
+      - name: Bundle JS (Android + iOS) — not a native build
+        working-directory: project-manager-app/apps/mobile
+        run: |
+          npx expo export --platform android --output-dir "$RUNNER_TEMP/expo-export-android"
+          npx expo export --platform ios --output-dir "$RUNNER_TEMP/expo-export-ios"
