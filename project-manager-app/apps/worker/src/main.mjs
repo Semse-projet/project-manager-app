@@ -366,9 +366,9 @@ async function main() {
 
   // m2.1-lien-rights — chequeo de deadlines de lien cada hora, solo con el
   // kill switch activo. Transiciona LienCalendar.status y genera notices
-  // automáticos al llegar a ALERTED_3D; el push/email al PRO sigue sin
-  // implementar (ver TODO en lien-alerts.scheduler.ts) — esto solo reemplaza
-  // el trigger manual por uno automático para la parte que sí funciona hoy.
+  // automáticos al llegar a ALERTED_3D, y en cada transición avisa (in-app,
+  // push y email) a los miembros PRO activos de la organización asignada
+  // (decisión D-LIEN, ver lien-alerts.scheduler.ts).
   if (process.env.LIEN_ALERTS_ENABLED === "true") {
     void runLienDeadlineCheckSafe();
     lienDeadlineTimer = setInterval(() => { void runLienDeadlineCheckSafe(); }, LIEN_DEADLINE_CHECK_INTERVAL_MS);
