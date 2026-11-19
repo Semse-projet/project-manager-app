@@ -36,6 +36,11 @@ function makeFakeLiensService(calendars: unknown[]) {
     async getLienCalendars(_projectId: string) {
       return calendars;
     },
+    // Mirrors LiensService.getLienNotices: every notice of the project's
+    // calendars, DRAFT included.
+    async getLienNotices(_projectId: string) {
+      return calendars.flatMap((calendar) => ((calendar as { notices?: unknown[] }).notices ?? []));
+    },
   };
 }
 
@@ -66,6 +71,27 @@ test("getNotices flattens notices already included on each calendar instead of r
   assert.deepEqual(
     result.data.map((n: { id: string }) => n.id),
     ["notice_1", "notice_2", "notice_3"],
+  );
+});
+
+test("getNotices includes DRAFT notices so a generated draft can be reviewed and sent later", async () => {
+  const all = [{ id: "draft_1", status: "DRAFT" }, { id: "notice_1", status: "NOTICE_SENT" }];
+  const liens = {
+    // Like the real getLienCalendars(): its include drops DRAFT notices.
+    async getLienCalendars() {
+      return [{ id: "cal_1", notices: all.filter((n) => n.status !== "DRAFT") }];
+    },
+    async getLienNotices() {
+      return all;
+    },
+  };
+  const controller = new NoticeController({} as never, {} as never, liens as never, allowAccess);
+
+  const result = await controller.getNotices(fakeReq, "proj_1");
+
+  assert.deepEqual(
+    result.data.map((n: { id: string; status: string }) => n.status),
+    ["DRAFT", "NOTICE_SENT"],
   );
 });
 

@@ -1,0 +1,397 @@
+/**
+ * Client-side wrappers for the liens, forge and satellites BFF routes
+ * (apps/web/app/api/semse/{liens,forge,satellites,admin/liens}/**). Components
+ * call these functions; they never build NestJS URLs themselves.
+ *
+ * Types mirror the API's real response shapes:
+ * - liens: apps/api/src/modules/liens/*.controller.ts + LienCalendar/LienNotice/LienWaiver in schema.prisma
+ * - forge: packages/forge/src/types.ts (ForgeRun) + ForgeRepository.missionControlSummary
+ * - satellites: SatellitesService.listTokens/issueToken + SatelliteWebhookView
+ */
+
+/** Error carrying the HTTP status, so screens can tell "feature off" (404) from "forbidden" (403). */
+export class SurfaceApiError extends Error {
+  constructor(message: string, readonly status: number) {
+    super(message);
+    this.name = "SurfaceApiError";
+  }
+}
+
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(path, { cache: "no-store", ...init });
+  const payload = (await response.json().catch(() => ({}))) as { data?: T; error?: { message?: string } };
+  if (!response.ok) {
+    throw new SurfaceApiError(payload.error?.message ?? `La solicitud falló (${response.status})`, response.status);
+  }
+  return payload.data as T;
+}
+
+const post = <T>(path: string, body?: unknown) =>
+  request<T>(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body ?? {}) });
+
+const del = <T>(path: string) => request<T>(path, { method: "DELETE" });
+
+const seg = encodeURIComponent;
+
+/* ───────────────────────────── Projects (picker) ───────────────────────────── */
+
+export type CanonicalProject = {
+  id: string;
+  jobId: string;
+  assignedProOrgId: string;
+  status: string;
+};
+
+export const fetchCanonicalProjects = () => request<CanonicalProject[]>("/api/semse/projects");
+
+/* ───────────────────────────────── Liens ───────────────────────────────── */
+
+export type LienCalendarStatus =
+  | "CREATED"
+  | "ALERTED_30D"
+  | "ALERTED_7D"
+  | "ALERTED_3D"
+  | "NOTICE_SENT"
+  | "NOTICE_DELIVERED"
+  | "NOTICE_FAILED";
+
+export type LienRecipientType = "owner" | "general_contractor" | "lender" | "architect";
+
+export type LienNotice = {
+  id: string;
+  lienCalendarId: string;
+  noticeType: string;
+  recipientType: LienRecipientType | string;
+  generatedAt: string;
+  sentVia: string;
+  lobLetterTrackingId?: string | null;
+  lobLetterUrl?: string | null;
+  sentAt?: string | null;
+  status: string;
+  deliveredAt?: string | null;
+  createdAt: string;
+};
+
+export type LienCalendar = {
+  id: string;
+  projectId: string;
+  stateName: string;
+  preliminaryNoticeDeadline: string;
+  waiverDeadline: string;
+  finalNoticeDeadline?: string | null;
+  statusLienDeadline?: string | null;
+  status: LienCalendarStatus | string;
+  requiresNotary: boolean;
+  requiresCertifiedMail: boolean;
+  notices?: LienNotice[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type LienWaiver = {
+  id: string;
+  lienCalendarId: string;
+  stateName?: string | null;
+  waiverType: "conditional" | "unconditional" | string;
+  releaseAmount?: string | number | null;
+  requiredBefore: string;
+  status: "PENDING" | "SIGNED" | "REJECTED" | "EXPIRED" | string;
+  signingUrl?: string | null;
+};
+
+export type LienNoticePreview = Record<string, unknown> & { html?: string; content?: string; noticeContent?: string };
+
+const liensBase = (projectId: string) => `/api/semse/liens/${seg(projectId)}`;
+
+export const fetchLienCalendars = (projectId: string) => request<LienCalendar[]>(`${liensBase(projectId)}/calendar`);
+
+export const createLienCalendar = (projectId: string, input: { stateName: string; projectStartDate: string }) =>
+  post<LienCalendar>(`${liensBase(projectId)}/calendar`, input);
+
+export const generateLienNotices = (projectId: string, calendarId: string, recipientType?: LienRecipientType) =>
+  post<LienNotice | LienNotice[]>(
+    `${liensBase(projectId)}/calendar/${seg(calendarId)}/generate-notice`,
+    recipientType ? { recipientType } : {}
+  );
+
+export const fetchLienNotices = (projectId: string) => request<LienNotice[]>(`${liensBase(projectId)}/notices`);
+
+export const fetchLienNoticePreview = (projectId: string, noticeId: string) =>
+  request<LienNoticePreview>(`${liensBase(projectId)}/notices/${seg(noticeId)}/preview`);
+
+export const sendLienNotice = (projectId: string, noticeId: string) =>
+  post<LienNotice>(`${liensBase(projectId)}/notices/${seg(noticeId)}/send`);
+
+export const fetchLienWaivers = (projectId: string) => request<LienWaiver[]>(`${liensBase(projectId)}/waivers`);
+
+export const signLienWaiver = (projectId: string, waiverId: string, signature: string) =>
+  post<LienWaiver>(`${liensBase(projectId)}/waivers/${seg(waiverId)}/sign`, { signature });
+
+export const runLienDeadlineCheck = () =>
+  post<{ success: boolean; message: string }>("/api/semse/admin/liens/check-deadlines");
+
+/* ───────────────────────────────── Forge ───────────────────────────────── */
+
+export type ForgeRunState =
+  | "idea"
+  | "intake"
+  | "spec_draft"
+  | "spec_review"
+  | "approved"
+  | "planned"
+  | "building"
+  | "verifying"
+  | "ready_for_review"
+  | "merged"
+  | "deployed"
+  | "observing"
+  | "closed"
+  | "blocked"
+  | "rolled_back";
+
+export type ForgeSpecStatus = "DRAFT" | "REVIEW" | "APPROVED" | "IMPLEMENTED" | "VERIFIED";
+export type ForgeApprovalMode = "none" | "creator_review" | "ops_admin" | "security" | "dual_control";
+export type ForgeTaskStatus =
+  | "pending"
+  | "ready"
+  | "running"
+  | "blocked_on_dependency"
+  | "blocked_on_approval"
+  | "succeeded"
+  | "failed"
+  | "cancelled";
+
+export type ForgeTask = {
+  id: string;
+  title: string;
+  requestedRole: string;
+  riskLevel: "low" | "medium" | "high" | "critical";
+  objective: string;
+  dependencies: string[];
+  targetBranch: string;
+  environment: string;
+  status?: ForgeTaskStatus;
+  priority?: number;
+  acceptanceCriteria?: Array<{ id: string; statement: string; required: boolean }>;
+};
+
+export type ForgeApproval = {
+  mode: ForgeApprovalMode;
+  status: "pending" | "approved" | "rejected";
+  actor?: string;
+  at?: string;
+  requestedBy?: string;
+  approvedBy?: string[];
+};
+
+export type ForgeEvent = {
+  id: string;
+  type: string;
+  runId: string;
+  timestamp: string;
+  actor: string;
+  detail: Record<string, unknown>;
+};
+
+export type ForgeRun = {
+  id: string;
+  title: string;
+  state: ForgeRunState;
+  spec: { id: string; path: string; digest: string; status: ForgeSpecStatus };
+  tasks: ForgeTask[];
+  assignedAgents: Record<string, string[]>;
+  approvals: ForgeApproval[];
+  events: ForgeEvent[];
+  agentRunIds: string[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ForgeMissionControl = {
+  total: number;
+  blocked: number;
+  pendingApprovals: number;
+  readyForReview: number;
+  recent: ForgeRun[];
+};
+
+/**
+ * Mirror of packages/forge/src/state-machine.ts `forgeRunTransitions`. The
+ * web app does not depend on @semse/forge; the API remains the authority and
+ * rejects any transition not in its own table. Keep in sync when the FSM
+ * (docs/specs/fsm/forge-run-lifecycle.spec.md) changes.
+ */
+export const FORGE_RUN_TRANSITIONS: Record<ForgeRunState, readonly ForgeRunState[]> = {
+  idea: ["intake", "blocked"],
+  intake: ["spec_draft", "blocked"],
+  spec_draft: ["spec_review", "blocked"],
+  spec_review: ["approved", "spec_draft", "blocked"],
+  approved: ["planned", "blocked"],
+  planned: ["building", "blocked"],
+  building: ["verifying", "blocked", "rolled_back"],
+  verifying: ["ready_for_review", "building", "blocked", "rolled_back"],
+  ready_for_review: ["merged", "building", "blocked"],
+  merged: ["deployed", "closed", "rolled_back"],
+  deployed: ["observing", "rolled_back", "blocked"],
+  observing: ["closed", "rolled_back", "blocked"],
+  closed: [],
+  blocked: ["intake", "spec_draft", "spec_review", "planned", "building", "verifying", "rolled_back"],
+  rolled_back: ["spec_draft", "planned", "closed"]
+};
+
+export const fetchForgeMissionControl = () => request<ForgeMissionControl>("/api/semse/forge/mission-control");
+export const fetchForgeRuns = () => request<ForgeRun[]>("/api/semse/forge/runs");
+export const fetchForgeRun = (runId: string) => request<ForgeRun>(`/api/semse/forge/runs/${seg(runId)}`);
+export const fetchForgeRunnableTasks = (runId: string) =>
+  request<ForgeTask[]>(`/api/semse/forge/runs/${seg(runId)}/tasks/runnable`);
+
+export const createForgeRun = (input: {
+  title: string;
+  spec: { id: string; path: string; digest: string; status: ForgeSpecStatus };
+}) => post<ForgeRun>("/api/semse/forge/runs", input);
+
+export const transitionForgeRun = (runId: string, next: ForgeRunState) =>
+  post<ForgeRun>(`/api/semse/forge/runs/${seg(runId)}/transitions`, { next });
+
+export const dispatchNextForgeTask = (runId: string) =>
+  post<Record<string, unknown>>(`/api/semse/forge/runs/${seg(runId)}/dispatch-next`);
+
+export const decideForgeApproval = (runId: string, mode: ForgeApprovalMode, decision: "approved" | "rejected") =>
+  post<ForgeRun>(`/api/semse/forge/runs/${seg(runId)}/approvals/${seg(mode)}/decide`, { decision });
+
+/* ─────────────────────────────── Satellites ─────────────────────────────── */
+
+/** Mirror of SATELLITE_SCOPE_CATALOG (apps/api/src/modules/satellites/satellites.service.ts). */
+export const SATELLITE_SCOPES = [
+  "intake:read",
+  "intake:write",
+  "jobs:read",
+  "jobs:write",
+  "milestones:read",
+  "knowledge:read",
+  "uploads:driver",
+  "tools:invoke",
+  "events:subscribe"
+] as const;
+
+export type SatelliteScope = (typeof SATELLITE_SCOPES)[number];
+
+export type SatelliteToken = {
+  id: string;
+  name: string;
+  scopes: string[];
+  status: string;
+  expiresAt: string | null;
+  revokedAt: string | null;
+  lastUsedAt: string | null;
+  createdAt: string;
+};
+
+export type IssuedSatelliteToken = {
+  id: string;
+  name: string;
+  token: string;
+  scopes: string[];
+  createdAt: string;
+  expiresAt: string | null;
+};
+
+export type SatelliteWebhook = {
+  id: string;
+  url: string;
+  events: string[];
+  status: string;
+  lastDeliveryAt: string | null;
+  consecutiveFailures: number;
+  createdAt: string;
+};
+
+export const fetchSatelliteTokens = () => request<SatelliteToken[]>("/api/semse/satellites/tokens");
+
+export const issueSatelliteToken = (input: { name: string; scopes: SatelliteScope[]; expiresAt?: string }) =>
+  post<IssuedSatelliteToken>("/api/semse/satellites/tokens", input);
+
+export const revokeSatelliteToken = (id: string) => del<Record<string, unknown>>(`/api/semse/satellites/tokens/${seg(id)}`);
+
+export const fetchSatelliteWebhooks = () => request<SatelliteWebhook[]>("/api/semse/satellites/webhooks");
+
+export const revokeSatelliteWebhook = (id: string) =>
+  del<{ id: string; status: string }>(`/api/semse/satellites/webhooks/${seg(id)}`);
+
+/* ─────────────────────── Crews & worksites (BO-07) ─────────────────────── */
+// Spec: docs/specs/core/crews-worksites.spec.md (APPROVED 2026-11-12).
+
+export type OrgSummary = { id: string; name?: string } & Record<string, unknown>;
+export type OrgMember = { userId: string; orgId: string; roleId: string; createdAt: string };
+export type Worksite = { worksiteId: string; name: string; address: string | null; status: string };
+export type CrewMember = { userId: string; addedAt: string };
+export type OrgWorker = { userId: string; since: string };
+export type Crew = {
+  crewId: string;
+  orgId: string;
+  name: string;
+  supervisorUserId: string;
+  worksiteId: string | null;
+  status: string;
+  /** Active members (spec AC-10). Absent on API versions older than v0.3 of the spec. */
+  members?: CrewMember[];
+};
+
+const orgBase = (orgId: string) => `/api/semse/organizations/${seg(orgId)}`;
+
+export const fetchMyOrganizations = () => request<OrgSummary[]>("/api/semse/organizations");
+export const fetchOrgMembers = (orgId: string) => request<OrgMember[]>(`${orgBase(orgId)}/members`);
+export const fetchOrgWorkers = (orgId: string) => request<OrgWorker[]>(`${orgBase(orgId)}/workers`);
+
+export const fetchWorksites = (orgId: string) => request<Worksite[]>(`${orgBase(orgId)}/worksites`);
+export const createWorksite = (orgId: string, input: { name: string; address?: string }) =>
+  post<Worksite>(`${orgBase(orgId)}/worksites`, input);
+
+export const fetchOrgCrews = (orgId: string) => request<Crew[]>(`${orgBase(orgId)}/crews`);
+export const createCrew = (orgId: string, input: { name: string; supervisorUserId: string; worksiteId?: string }) =>
+  post<Crew>(`${orgBase(orgId)}/crews`, input);
+
+export const addCrewMember = (orgId: string, crewId: string, userId: string) =>
+  post<{ crewId: string; userId: string; status: string }>(`${orgBase(orgId)}/crews/${seg(crewId)}/members`, { userId });
+
+export const removeCrewMember = (orgId: string, crewId: string, userId: string) =>
+  post<{ crewId: string; userId: string; status: string }>(`${orgBase(orgId)}/crews/${seg(crewId)}/members/remove`, { userId });
+
+export const archiveCrew = (orgId: string, crewId: string) =>
+  post<{ status: string }>(`${orgBase(orgId)}/crews/${seg(crewId)}/archive`);
+
+/* ─────────────────────── Location preference (BO-09) ─────────────────────── */
+// Spec: docs/specs/core/geofence-policy.spec.md v0.2.
+
+export type LocationMode = "ASK" | "AUTO" | "OFF";
+export type LocationPreference = {
+  mode: LocationMode;
+  autoStartConsent: boolean;
+  /** AUTO without a live consent behaves as ASK. */
+  effectiveMode: LocationMode;
+  policyVersion: number;
+};
+export type GeofenceDecision = "PROMPT" | "AUTO_START_ALLOWED" | "MANUAL_ONLY" | "LEAVE_PROMPT" | "EXCEPTION" | "IGNORE";
+export type GeofenceEventView = {
+  eventId: string;
+  type: "ARRIVAL" | "LEAVE" | "OFF_SITE_AT_SHIFT";
+  worksiteId: string | null;
+  decision: GeofenceDecision;
+  reason: string;
+  mode: LocationMode;
+  policyVersion: number;
+  accuracy: "GOOD" | "POOR" | "UNKNOWN";
+  occurredAt: string;
+  decidedAt: string;
+};
+
+export const fetchLocationPreference = () => request<LocationPreference>("/api/semse/me/location-preference");
+
+export const saveLocationPreference = (input: { mode: LocationMode; autoStartConsent?: boolean }) =>
+  request<LocationPreference>("/api/semse/me/location-preference", {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(input)
+  });
+
+export const fetchMyGeofenceEvents = () => request<GeofenceEventView[]>("/api/semse/me/geofence-events");

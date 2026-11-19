@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { ConflictException, Injectable, Logger, UnprocessableEntityException } from '@nestjs/common';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service.js';
 import { LobClient } from '../../integrations/lob.js';
 
@@ -55,7 +55,7 @@ export class NoticeSendService {
     });
 
     if (notice.status !== 'DRAFT') {
-      throw new Error(`Cannot send notice with status ${notice.status}`);
+      throw new ConflictException(`Cannot send notice with status ${notice.status}`);
     }
 
     // 1. Preparar datos para Lob.com
@@ -64,7 +64,8 @@ export class NoticeSendService {
     // producing an undeliverable (or wrongly-delivered) certified letter.
     const parsedAddress = parseMailAddress(notice.lienCalendar.project.job.location);
     if (!parsedAddress) {
-      throw new Error(
+      // 422 (not a bare Error → 500) so the sender sees why and can fix the job address.
+      throw new UnprocessableEntityException(
         `Cannot send notice ${noticeId}: project job location is missing or not in ` +
           `"street, city, ST zip" format (got: ${notice.lienCalendar.project.job.location ?? 'none'}) — ` +
           `refusing to mail a legal notice to a guessed address.`

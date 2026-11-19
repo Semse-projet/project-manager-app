@@ -60,6 +60,14 @@ export class OrgCrewsController {
     return ok(resolveRequestId(req.headers ?? {}), data);
   }
 
+  @Get("workers")
+  @RequirePermissions("org:crews:manage")
+  async listWorkers(@Req() req: Req_, @Param("orgId") orgId: string) {
+    const actor = resolveRequestContext(req);
+    const data = await this.crews.listWorkers(actor, parseWithSchema(idSchema, orgId));
+    return ok(resolveRequestId(req.headers ?? {}), data);
+  }
+
   @Post("crews/:crewId/members")
   @HttpCode(200)
   @RequirePermissions("org:crews:manage")

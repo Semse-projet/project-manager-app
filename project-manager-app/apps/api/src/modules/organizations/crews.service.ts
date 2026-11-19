@@ -144,7 +144,26 @@ export class CrewsService {
       orderBy: { createdAt: "desc" },
       take: 200
     });
-    return rows.map((c) => this.crewView(c));
+    // The manager sees each crew's active members with the same privacy rule as
+    // the supervisor roster: userId and addedAt only, never compensation/offer data.
+    const members = rows.length
+      ? await this.prisma.crewMember.findMany({ where: { crewId: { in: rows.map((c) => c.id) }, status: "ACTIVE" } })
+      : [];
+    return rows.map((c) => ({
+      ...this.crewView(c),
+      members: members.filter((m) => m.crewId === c.id).map((m) => ({ userId: m.userId, addedAt: m.addedAt }))
+    }));
+  }
+
+  /** ACTIVE WORKER memberships of the Org: who can be a crew supervisor or member (userId and since only). */
+  async listWorkers(actor: CrewActor, orgId: string) {
+    this.assertEnabled();
+    await this.requireManage(actor, orgId);
+    const rows = await this.prisma.membership.findMany({
+      where: { orgId, status: "ACTIVE", role: { key: "WORKER" }, org: { tenantId: actor.tenantId } },
+      orderBy: { createdAt: "asc" }
+    });
+    return rows.map((m) => ({ userId: m.userId, since: m.createdAt }));
   }
 
   async addMember(actor: CrewActor, orgId: string, crewId: string, userId: string, requestId: string) {
