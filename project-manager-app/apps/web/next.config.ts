@@ -1,30 +1,36 @@
 import type { NextConfig } from "next";
 import path from "node:path";
 
+// Only the public, read-only map may be embedded in the hosted preview.
+// Authenticated and mutation-capable routes always keep anti-clickjacking headers.
+const isEmbeddedPreview = process.env.SEMSE_PREVIEW_EMBEDDED === "true";
+const PREVIEW_MAP_PATH = "/semse-consciousness-map";
+
+function contentSecurityPolicy(frameAncestors: string) {
+  return [
+    "default-src 'self'",
+    "base-uri 'self'",
+    "object-src 'none'",
+    frameAncestors,
+    "form-action 'self'",
+    "img-src 'self' data: blob: https:",
+    "font-src 'self' data:",
+    "style-src 'self' 'unsafe-inline'",
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+    "connect-src 'self' http: https: ws: wss:",
+  ].join("; ");
+}
+
 const securityHeaders = [
   {
     key: "Content-Security-Policy",
-    value: [
-      "default-src 'self'",
-      "base-uri 'self'",
-      "object-src 'none'",
-      "frame-ancestors 'none'",
-      "form-action 'self'",
-      "img-src 'self' data: blob: https:",
-      "font-src 'self' data:",
-      "style-src 'self' 'unsafe-inline'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-      "connect-src 'self' http: https: ws: wss:",
-    ].join("; "),
+    value: contentSecurityPolicy("frame-ancestors 'none'"),
   },
   {
     key: "Strict-Transport-Security",
     value: "max-age=31536000; includeSubDomains; preload",
   },
-  {
-    key: "X-Frame-Options",
-    value: "DENY",
-  },
+  { key: "X-Frame-Options", value: "DENY" },
   {
     key: "X-Content-Type-Options",
     value: "nosniff",
@@ -37,6 +43,17 @@ const securityHeaders = [
     key: "Permissions-Policy",
     value: "camera=(), microphone=(), geolocation=(self), payment=(), usb=(), serial=()",
   },
+];
+
+// Next.js applies the LAST matching value for a repeated header key. CSP
+// frame-ancestors supersedes X-Frame-Options in current browsers; SAMEORIGIN
+// remains as a restrictive fallback for older clients.
+const embeddedPreviewMapHeaders = [
+  {
+    key: "Content-Security-Policy",
+    value: contentSecurityPolicy("frame-ancestors 'self' https://kimi.com https://*.kimi.com"),
+  },
+  { key: "X-Frame-Options", value: "SAMEORIGIN" },
 ];
 
 // Sense Vision (spec: vision/sense-vision-field-library) is the one page that
@@ -71,6 +88,9 @@ const nextConfig: NextConfig = {
         source: "/worker/sense-vision",
         headers: [senseVisionPermissionsPolicy],
       },
+      ...(isEmbeddedPreview
+        ? [{ source: PREVIEW_MAP_PATH, headers: embeddedPreviewMapHeaders }]
+        : []),
     ];
   },
   async rewrites() {
