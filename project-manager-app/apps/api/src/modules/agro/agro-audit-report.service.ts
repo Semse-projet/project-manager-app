@@ -68,6 +68,11 @@ export class AgroAuditReportService {
     if (lowStock.length > 0) {
       findings.push({ type: "WARNING", area: "INVENTORY", message: `${lowStock.length} item(s) below minimum stock` });
     }
+    // PD-08 (0.49a): exits may take stock below zero; report it so the supervisor reconciles the inventory.
+    const overdraft = items.filter(i => (stockMap.get(i.id) ?? 0) < 0);
+    if (overdraft.length > 0) {
+      findings.push({ type: "WARNING", area: "INVENTORY", message: `${overdraft.length} item(s) with negative stock (overdraft) — reconcile with IN/ADJUSTMENT` });
+    }
 
     // Animals without activity this week
     const activeAnimalIds = new Set(

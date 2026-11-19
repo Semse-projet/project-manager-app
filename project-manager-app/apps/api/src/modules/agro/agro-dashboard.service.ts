@@ -5,7 +5,7 @@ import { AgroFarmAccessService, authorizeFarmAction } from "./agro-farm-access.s
 import { canPerformAgroFarmAction } from "./agro-farm-policy.js";
 
 export interface AgroAlert {
-  type: "OVERDUE_TASK" | "BLOCKED_TASK" | "LOW_STOCK" | "MISSING_EVIDENCE" | "ANIMAL_INACTIVITY";
+  type: "OVERDUE_TASK" | "BLOCKED_TASK" | "LOW_STOCK" | "INVENTORY_OVERDRAFT" | "MISSING_EVIDENCE" | "ANIMAL_INACTIVITY";
   severity: "CRITICAL" | "WARNING" | "INFO";
   entityType: string;
   entityId: string;
@@ -59,7 +59,12 @@ export class AgroDashboardService {
       else if (m.movementType === "OUT") stockByItem.set(m.itemId, curr - Number(m.quantity ?? 0));
       else stockByItem.set(m.itemId, curr + Number(m.adjustmentDelta ?? 0));
     }
+    // PD-08 (0.49a): exits are allowed past zero; a negative balance is an overdraft the supervisor must reconcile,
+    // reported on its own (with or without minimumStock) instead of as one more low-stock line.
+    const overdraftItems = items.filter(item => (stockByItem.get(item.id) ?? 0) < 0);
+    const overdraftIds = new Set(overdraftItems.map(item => item.id));
     const lowStockItems = items.filter(item =>
+      !overdraftIds.has(item.id) &&
       item.minimumStock != null && (stockByItem.get(item.id) ?? 0) <= Number(item.minimumStock)
     );
 
@@ -88,6 +93,13 @@ export class AgroDashboardService {
         entityType: "AgroFarmTask",
         entityId: t.id,
         message: `Task "${t.title}" is blocked: ${t.blockReason ?? "no reason"}`,
+      })),
+      ...overdraftItems.map(item => ({
+        type: "INVENTORY_OVERDRAFT" as const,
+        severity: "CRITICAL" as const,
+        entityType: "AgroInventoryItem",
+        entityId: item.id,
+        message: `${item.name} stock is negative (${stockByItem.get(item.id) ?? 0} ${item.unit}): more was used than recorded — reconcile with an IN or ADJUSTMENT movement`,
       })),
       ...lowStockItems.map(item => ({
         type: "LOW_STOCK" as const,
@@ -127,14 +139,17 @@ export class AgroDashboardService {
       alerts,
       recentActivity: canSeeActivity ? recentAuditEvents : [],
       recentEvidence,
-      nextBestActions: this.computeNextActions(overdueTasks, blockedTasks, lowStockItems),
+      nextBestActions: this.computeNextActions(overdueTasks, blockedTasks, lowStockItems, overdraftItems),
     };
   }
 
-  private computeNextActions(overdue: any[], blocked: any[], lowStock: any[]) {
+  private computeNextActions(overdue: any[], blocked: any[], lowStock: any[], overdraft: any[] = []) {
     const actions: { priority: number; action: string; detail: string }[] = [];
     if (overdue.length > 0) {
       actions.push({ priority: 1, action: "RESOLVE_OVERDUE_TASKS", detail: `${overdue.length} task(s) overdue` });
+    }
+    if (overdraft.length > 0) {
+      actions.push({ priority: 2, action: "RECONCILE_INVENTORY", detail: `${overdraft.length} item(s) with negative stock` });
     }
     if (blocked.length > 0) {
       actions.push({ priority: 2, action: "UNBLOCK_TASKS", detail: `${blocked.length} task(s) blocked` });
