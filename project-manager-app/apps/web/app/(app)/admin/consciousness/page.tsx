@@ -8,6 +8,7 @@ import {
 import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
 import { RecommendationsPanel } from "@/components/semse/RecommendationsPanel";
 import { SimulationPanel } from "@/components/semse/SimulationPanel";
+import { SemseDigitalTwin } from "@/components/semse/digital-twin/SemseDigitalTwin";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -196,6 +197,8 @@ export default function ConsciousnessPage() {
 
       {data && (
         <div style={{ display: "grid", gap: 20 }}>
+
+          <SemseDigitalTwin source={data} />
 
           {/* Row 1: Maturity + Live Observation */}
           <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 20, alignItems: "start" }}>

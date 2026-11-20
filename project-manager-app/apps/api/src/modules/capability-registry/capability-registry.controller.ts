@@ -1,6 +1,4 @@
 import { Controller, Get, Param, Req } from "@nestjs/common";
-import { AuthGuard } from "@nestjs/passport";
-import { UseGuards } from "@nestjs/common";
 import type { FastifyRequest } from "fastify";
 import { ok } from "../../common/api-response.js";
 import { resolveRequestId } from "../../common/request-id.js";
@@ -13,7 +11,6 @@ import { CapabilityRegistryService } from "./capability-registry.service.js";
  * tenant business data, so any authenticated actor may read it.
  */
 @Controller("v1/capabilities")
-@UseGuards(AuthGuard("jwt"))
 @AuthenticatedAccess("Capability registry is platform engineering metadata; any authenticated actor may read it.")
 export class CapabilityRegistryController {
   constructor(private readonly registry: CapabilityRegistryService) {}

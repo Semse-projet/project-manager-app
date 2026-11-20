@@ -1,0 +1,126 @@
+---
+type: tasks
+feature: "Ecosystem Digital Twin 3D"
+domain: "ui"
+plan: "docs/specs/ui/ecosystem-digital-twin-3d.plan.md"
+version: "2.2"
+status: "PR_OPEN_REVIEW_FIXES_CI_PENDING"
+branch: "feat/ecosystem-digital-twin-3d"
+date: "2026-11-16"
+---
+
+# Tareas: Ecosystem Digital Twin 3D
+
+`[ ]` pendiente · `[x]` completo · `[~]` bloqueado · `[P]` paralelizable.
+Branch y PR **#1157** existen; el PR sigue abierto y sin merge:
+https://github.com/Semse-projet/project-manager-app/pull/1157.
+
+## Fase 0 — SDD y verdad
+
+- [x] [T-001] Confirmar alcance autorizado, spec `APPROVED` y SHA de main.
+- [x] [T-002] Registrar que producción, flags y migraciones no fueron tocados.
+- [x] [T-003] Completar spec, plan, análisis y checklist.
+- [x] [T-004] Registrar tres fuentes primarias y decisiones.
+- [x] [T-005] Ejecutar indexador canónico para enlazar el spec.
+
+## Fase 1 — Tests y contratos
+
+- [x] [T-010] Escribir tests rojos de adaptación, fuentes y valores ausentes.
+- [x] [T-011] [P] Escribir tests rojos de layout determinista y aristas válidas.
+- [x] [T-012] [P] Escribir tests rojos de paths y playback finito.
+- [x] [T-013] Ejecutar tests y conservar evidencia del fallo por módulos ausentes.
+
+## Fase 2 — Modelo de presentación
+
+- [x] [T-020] Implementar tipos, nueve dominios y mapeo explícito de 33 IDs.
+- [x] [T-021] Implementar adaptador de topología y aristas derivadas.
+- [x] [T-022] Implementar composición Consciousness con madurez de registro,
+  observación global, módulos desconocidos y `null` runtime por nodo.
+- [x] [T-023] Implementar layout estable y flujos sin aleatoriedad.
+- [x] [T-024] Pasar 13 tests unitarios del modelo.
+
+## Fase 3 — UI
+
+- [x] [T-030] Implementar escena Three.js bajo demanda y lifecycle completo.
+- [x] [T-031] Implementar controles, detalle, búsqueda, filtros y playback.
+- [x] [T-032] Implementar vistas 2D/lista, teclado y reduced motion.
+- [x] [T-033] Implementar estados empty/degraded/error/WebGL y responsive.
+- [x] [T-034] Integrar admin con el fetch existente y ruta histórica estática.
+- [x] [T-035] Eliminar salud aleatoria del componente histórico migrado.
+
+## Fase 4 — Verificación local
+
+- [x] [T-040] Tests unitarios dirigidos verdes: 13/13.
+- [x] [T-041] E2E de modos, selección, búsqueda, flujos, fallback y 403: 8/8.
+- [x] [T-042] Build/typecheck/lint y revisión de consola.
+- [x] [T-043] `pnpm spec:validate:strict`: 219 specs, 0 errores, 0 advertencias.
+- [x] [T-044] `pnpm spec:index`, `spec:index:check` y `spec:coverage` ejecutados.
+- [x] [T-045] Capturas desktop/móvil y revisión visual real.
+- [x] [T-046] Actualizar metadata sólo al estado local demostrado.
+- [x] [T-047] Rediseñar V7 sin cambiar view model, datos, callbacks ni accesibilidad.
+- [x] [T-048] Crear builder `preview/static` con lockfile, sincronización acotada,
+  typecheck estricto y build Vite; validar `npm ci`, typecheck, build y smoke.
+- [x] [T-049] Inspeccionar capturas V7 desktop/móvil y crear
+  `artifacts/evidence/digital-twin/v7-validacion.md`.
+- [x] [T-049A] Guardar preview V7 `1656593` con `STATUS_COMMITTED` y
+  `CHANGE_SIGNAL_CHANGED`; no registrarlo como publicación o deploy.
+- [x] [T-049B] Validar spec V7 aislado con strict/coverage y conservar índice
+  canónico de 219 filas; documentar la copia persistente parcial.
+- [x] [T-049C] Reproducir los doce hilos de revisión y añadir regresiones de
+  layout, niebla, color, SMIL, reanudación 3D→2D, foco, aristas, iframe,
+  Dockerfile y secreto E2E.
+- [x] [T-049D] Validar las correcciones con TypeScript, ESLint, build Next.js,
+  17 unitarios dirigidos y 12 E2E Chromium, incluido admin autenticado en móvil.
+- [x] [T-049E] Documentar las correcciones y la evidencia en
+  `docs/reportes/2026-11-16_digital-twin-pr-review-fixes.md`.
+- [x] [T-049F] Reproducir el reinicio 3D→2D con `0,1333` s tras 1,9 s de flujo;
+  conservar `playback.startedAt`, impedir dobles inicios en StrictMode y validar
+  juntos el cambio de vista, el inicio tardío, reduced motion y el final finito.
+
+## Fase 5 — PR, CI y merge (PR abierto; merge no autorizado)
+
+- [x] [T-050] Revisar diff remoto completo contra `main`: 40 archivos dentro del
+  alcance, sin secretos, capturas, assets PWA, Prisma ni archivos de Railway.
+- [x] [T-050B] Crear `v7-pr-draft.md` y auditar 28 archivos principales sin
+  secretos, `.env`, `workspace:*` en builder ni `Math.random()` en código.
+- [x] [T-050A] Ejecutar CI local equivalente V7 con Node 22: paquetes, 13 unitarios,
+  TypeScript, ESLint, build Web, builder estático y 8 E2E sin reintentos verdes.
+- [x] [T-050C] Abrir PR **#1157** con base `main` y head
+  `feat/ecosystem-digital-twin-3d`; SHA revisado al abrir:
+  `e4689f9400792707a64d91048495652286eadfd2`. URL:
+  https://github.com/Semse-projet/project-manager-app/pull/1157.
+- [x] [T-051] Diagnosticar y corregir los fallos remotos sin eludir gates: orden
+  canónico del índice SDD y `allowImportingTsExtensions` para imports `.ts` del gemelo.
+- [x] [T-051A] Registrar CI remoto terminal `PASS` sobre
+  `e2d70e2b0ff38cb97581f96d0d0c81b8b74f565c`: `quality-gates`, `unit-coverage`,
+  E2E y CodeQL verdes; QA #973 `skipped` por alcance.
+- [ ] [T-051B] Verificar CI remoto del nuevo head con las correcciones de
+  revisión; no reutilizar el resultado histórico como evidencia del delta.
+- [ ] [T-052] Fusionar sólo con confirmación explícita y registrar SHA.
+
+## Fase 6 — Deploy y activación (no autorizado)
+
+- [ ] [T-060] Verificar pre-deploy y deployment terminal.
+- [ ] [T-061] Ejecutar smoke autenticado y comprobar límites existentes.
+- [ ] [T-062] Activar canary sólo con gate separado.
+- [ ] [T-063] Registrar evidencia de producción; `last_verified` actual sólo
+  representa la verificación local de 2026-11-15.
+
+## Criterio de Done del incremento local
+
+- [x] Código y pruebas locales completos, sin afirmar CI/merge/deploy/activación.
+- [x] 3D, 2D y lista verificados en navegador; fallback y reduced motion también.
+- [x] Ningún valor estático se etiqueta como telemetría runtime.
+- [x] Preview V7 guardada con ID `1656593` y confirmación `STATUS_COMMITTED`;
+  no equivale a publicación, deploy ni activación.
+- [x] Builder reproducible y evidencias propias de V7 incorporados al árbol fuente.
+- [x] Migración `NOT_APPLICABLE`; Omniverse y grafo operativo permanecen fuera.
+
+## Validación global de la ronda de revisión
+
+Con Node 22, las dependencias fijadas, el build API y el cliente Prisma generados,
+la suite global terminó con 1.753 tests: 1.736 verdes, 0 fallos, 6 omitidos y
+11 TODO. SDD strict, cobertura de planes, índice y sus 29 pruebas también pasan.
+La primera ejecución local sin esos artefactos y sin la estructura documental
+outer no se usa como evidencia del delta. No se ejecutaron migraciones ni
+operaciones de Railway; el preflight sólo validó la configuración existente.
