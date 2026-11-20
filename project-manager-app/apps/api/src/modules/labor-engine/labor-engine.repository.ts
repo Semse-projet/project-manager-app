@@ -1,4 +1,5 @@
 ﻿import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { ActorContextService } from "../../infrastructure/persistence/actor-context.service.js";
 import { randomUUID } from "node:crypto";
@@ -251,26 +252,45 @@ export class LaborEngineRepository {
    */
   async startRealtimeEntryConsumingDecision(
     data: Parameters<LaborEngineRepository["startRealtimeEntry"]>[0],
-    decision: { geofenceEventId: string; notBefore: Date },
+    decision: {
+      geofenceEventId: string;
+      notBefore: Date;
+      /**
+       * Revalidación del alcance DENTRO de la transacción (vínculo, membresía, asignación,
+       * consentimiento): una revocación que confirma entre la validación previa y la
+       * reclamación no deja pasar el inicio. Con aislamiento Serializable, una revocación
+       * concurrente aborta la transacción (P2034 → 409).
+       */
+      revalidate?: (tx: Prisma.TransactionClient) => Promise<void>;
+    },
   ): Promise<TimeEntryRecord> {
     const createData = this.buildTimeEntryData({ ...data, mode: "realtime", startedAt: new Date() });
-    return this.prisma.$transaction(async (tx) => {
-      const claim = await tx.geofenceEvent.updateMany({
-        where: {
-          id: decision.geofenceEventId,
-          tenantId: data.tenantId,
-          userId: data.createdBy,
-          decision: "AUTO_START_ALLOWED",
-          consumedByTimeEntryId: null,
-          createdAt: { gte: decision.notBefore },
-        },
-        data: { consumedByTimeEntryId: createData.id },
-      });
-      if (claim.count !== 1) {
-        throw new ConflictException({ code: "auto_start_not_authorized", message: "La decisión de auto-inicio ya no es válida; confirma el inicio." });
-      }
-      return tx.timeEntry.create({ data: createData }) as unknown as TimeEntryRecord;
+    const denied = () => new ConflictException({
+      code: "auto_start_not_authorized",
+      message: "La decisión de auto-inicio ya no es válida; confirma el inicio.",
     });
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        if (decision.revalidate) await decision.revalidate(tx);
+        const claim = await tx.geofenceEvent.updateMany({
+          where: {
+            id: decision.geofenceEventId,
+            tenantId: data.tenantId,
+            userId: data.createdBy,
+            decision: "AUTO_START_ALLOWED",
+            consumedByTimeEntryId: null,
+            createdAt: { gte: decision.notBefore },
+          },
+          data: { consumedByTimeEntryId: createData.id },
+        });
+        if (claim.count !== 1) throw denied();
+        return tx.timeEntry.create({ data: createData }) as unknown as TimeEntryRecord;
+      }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    } catch (error) {
+      // Conflicto de serialización (revocación o consumo concurrente): nunca un 500.
+      if ((error as { code?: unknown } | null)?.code === "P2034") throw denied();
+      throw error;
+    }
   }
 
   /** OPEN-18: lectura de la decisión de geocerca de la persona (para validar el vínculo antes de consumirla). */

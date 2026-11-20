@@ -1,4 +1,6 @@
 import { ConflictException, Injectable, NotFoundException, UnprocessableEntityException } from "@nestjs/common";
+import type { GeofenceSiteView } from "@semse/schemas";
+import { jobAssignmentWhere } from "../../common/job-assignment.js";
 import { AuditService } from "../../infrastructure/audit/audit.service.js";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import {
@@ -26,6 +28,9 @@ import {
  * no inicia ni termina relojes ni inventa horas.
  */
 export type GeofenceActor = { tenantId: string; orgId: string; userId: string };
+
+/** Máximo de sitios detectables devueltos a una persona (tras filtrar por elegibilidad). */
+export const MAX_GEOFENCE_SITES = 200;
 
 export function isGeofencePolicyEnabled(): boolean {
   return process.env.SEMSE_GEOFENCE_POLICY_ENABLED === "true";
@@ -251,7 +256,7 @@ export class GeofenceService {
    * OBRA (nunca coordenadas de la persona). Solo obras con coordenadas; `verified` indica si
    * pueden llegar a AUTO_START_ALLOWED.
    */
-  async listSites(user: GeofenceActor) {
+  async listSites(user: GeofenceActor): Promise<GeofenceSiteView[]> {
     this.assertEnabled();
     if (!isWorksiteBindingEnabled()) throw new NotFoundException();
     const memberships = await this.prisma.membership.findMany({
@@ -260,19 +265,39 @@ export class GeofenceService {
     });
     const orgIds = [...new Set(memberships.filter((m) => m.role?.key === "WORKER").map((m) => m.orgId))];
     if (orgIds.length === 0) return [];
-    const bindings = await this.prisma.worksiteBinding.findMany({
-      where: { tenantId: user.tenantId, orgId: { in: orgIds }, status: "ACTIVE" },
-      orderBy: { createdAt: "desc" },
-      take: 200
-    });
-    const sites = [];
+    // Los filtros de elegibilidad van en la consulta, ANTES del límite: obra ACTIVE con
+    // coordenadas y objetivo usable por la persona (job asignado en esa Org / proyecto propio).
+    // Así el límite recorta sitios detectables, no vínculos que de todos modos se descartarían.
+    const bindings = [];
+    for (const orgId of orgIds) {
+      const rows = await this.prisma.worksiteBinding.findMany({
+        where: {
+          tenantId: user.tenantId,
+          orgId,
+          status: "ACTIVE",
+          worksite: { is: { status: "ACTIVE", latitude: { not: null }, longitude: { not: null } } },
+          OR: [
+            { kind: "FREE_PROJECT", freeProject: { is: { tenantId: user.tenantId, createdBy: user.userId } } },
+            {
+              kind: "JOB",
+              job: { is: { tenantId: user.tenantId, deletedAt: null, OR: jobAssignmentWhere({ orgId, userId: user.userId }) } }
+            }
+          ]
+        },
+        orderBy: { createdAt: "desc" },
+        take: MAX_GEOFENCE_SITES
+      });
+      bindings.push(...rows);
+    }
+    const sites: GeofenceSiteView[] = [];
     for (const b of bindings) {
+      if (sites.length >= MAX_GEOFENCE_SITES) break;
       const targetId = b.kind === "JOB" ? b.jobId : b.freeProjectId;
       if (!targetId) continue;
       const resolved = await resolveSiteForWorker(this.prisma, user, { kind: b.kind as SiteRef["kind"], id: targetId });
       if (!resolved || resolved.worksite.latitude == null || resolved.worksite.longitude == null) continue;
       sites.push({
-        kind: b.kind,
+        kind: b.kind as GeofenceSiteView["kind"],
         targetId,
         worksiteId: resolved.worksite.id,
         worksiteName: resolved.worksite.name,

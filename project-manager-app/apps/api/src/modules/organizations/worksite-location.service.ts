@@ -10,12 +10,13 @@ import { hasScopeAccess } from "../../common/resource-scope.js";
 import { AuditService } from "../../infrastructure/audit/audit.service.js";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import {
-  activeTargetKey,
-  isWorksiteBindingEnabled,
-  isWorksiteLocationVerified,
-  type LocationSource,
-  type SiteRef
-} from "../geofence/site-binding.js";
+  WORKSITE_RADIUS_METERS,
+  type WorksiteBindingInput,
+  type WorksiteBindingView,
+  type WorksiteLocationInput,
+  type WorksiteLocationView
+} from "@semse/schemas";
+import { activeTargetKey, isWorksiteBindingEnabled, isWorksiteLocationVerified } from "../geofence/site-binding.js";
 import { isCrewsEnabled, type CrewActor } from "./crews.service.js";
 
 /**
@@ -28,11 +29,8 @@ import { isCrewsEnabled, type CrewActor } from "./crews.service.js";
 
 const MANAGE = "org:crews:manage";
 
-/** Q2 (aprobada 2026-11-20): radio por defecto de la geocerca de una obra. */
-export const DEFAULT_WORKSITE_RADIUS_METERS = 150;
-
-export type LocationInput = { latitude: number; longitude: number; radiusMeters?: number; source: LocationSource };
-export type BindingInput = { kind: SiteRef["kind"]; targetId: string };
+export type LocationInput = WorksiteLocationInput;
+export type BindingInput = WorksiteBindingInput;
 
 type BindingRow = {
   id: string;
@@ -105,8 +103,8 @@ export class WorksiteLocationService {
     await this.requireManage(actor, orgId);
     await this.activeWorksite(actor, orgId, worksiteId);
     const verified = input.source === "manual_pin" || input.source === "onsite_capture";
-    const radiusMeters = input.radiusMeters ?? DEFAULT_WORKSITE_RADIUS_METERS;
-    if (!Number.isInteger(radiusMeters) || radiusMeters < 50 || radiusMeters > 1000) {
+    const radiusMeters = input.radiusMeters ?? WORKSITE_RADIUS_METERS.default;
+    if (!Number.isInteger(radiusMeters) || radiusMeters < WORKSITE_RADIUS_METERS.min || radiusMeters > WORKSITE_RADIUS_METERS.max) {
       throw new UnprocessableEntityException("El radio de la obra debe estar entre 50 y 1000 m");
     }
     const now = new Date();
@@ -243,25 +241,25 @@ export class WorksiteLocationService {
     radiusMeters: number | null;
     locationSource: string | null;
     locationVerifiedAt: Date | null;
-  }) {
+  }): WorksiteLocationView {
     return {
       worksiteId: site.id,
       latitude: site.latitude == null ? null : Number(site.latitude),
       longitude: site.longitude == null ? null : Number(site.longitude),
       radiusMeters: site.radiusMeters,
-      source: site.locationSource,
+      source: site.locationSource as WorksiteLocationView["source"],
       verified: isWorksiteLocationVerified(site),
       verifiedAt: site.locationVerifiedAt
     };
   }
 
-  private bindingView(row: BindingRow) {
+  private bindingView(row: BindingRow): WorksiteBindingView {
     return {
       bindingId: row.id,
       worksiteId: row.worksiteId,
-      kind: row.kind,
+      kind: row.kind as WorksiteBindingView["kind"],
       targetId: row.kind === "JOB" ? row.jobId : row.freeProjectId,
-      status: row.status,
+      status: row.status as WorksiteBindingView["status"],
       createdBy: row.createdBy,
       createdAt: row.createdAt,
       endedAt: row.endedAt

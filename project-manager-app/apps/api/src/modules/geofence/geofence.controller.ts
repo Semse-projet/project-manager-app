@@ -1,5 +1,6 @@
 import { Body, Controller, Get, HttpCode, Post, Put, Req } from "@nestjs/common";
 import { Throttle } from "@nestjs/throttler";
+import { siteRefSchema } from "@semse/schemas";
 import { z } from "zod";
 import { ok } from "../../common/api-response.js";
 import { AuthenticatedAccess } from "../../common/permissions.decorator.js";
@@ -21,7 +22,7 @@ const eventSchema = z.object({
   type: z.enum(["ARRIVAL", "LEAVE", "OFF_SITE_AT_SHIFT"]),
   worksiteId: z.string().trim().min(1).max(64).optional(),
   // OPEN-18: job o proyecto libre detectado por el cliente; se ignora con el flag apagado.
-  site: z.object({ kind: z.enum(["JOB", "FREE_PROJECT"]), id: z.string().trim().min(1).max(64) }).optional(),
+  site: siteRefSchema.optional(),
   occurredAt: z.coerce.date(),
   // Solo se acepta la precisión; el cuerpo NO admite coordenadas (el esquema las descarta).
   accuracyMeters: z.number().min(0).max(100_000).optional()

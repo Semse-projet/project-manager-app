@@ -26,6 +26,7 @@ related_files:
   - "apps/api/src/modules/labor-engine/labor-engine.service.ts"
   - "apps/api/src/modules/labor-engine/labor-engine.repository.ts"
   - "apps/api/src/common/resource-scope.ts"
+  - "packages/schemas/src/worksite-binding.schema.ts"
   - "packages/db/prisma/schema.prisma"
   - "packages/db/prisma/migrations/20261120120000_worksite_location_binding/migration.sql"
 related_tests:
@@ -100,23 +101,29 @@ OPS_ADMIN no cruza tenants (regla de ResourceScope). Un recurso de otro tenant u
 ## 4. Escenarios y criterios de aceptación
 
 - **AC-01:** con el flag apagado, el contrato actual no cambia: `site` se ignora y la decisión es la misma que hoy.
-- **AC-02:** una obra sin coordenadas **verificadas** solo puede dar `PROMPT` (nunca `AUTO_START_ALLOWED`); motivo
-  `site_unverified`.
+- **AC-02:** una obra sin coordenadas **verificadas** solo puede dar `PROMPT` (nunca `AUTO_START_ALLOWED`). El
+  motivo es un texto descriptivo, como el resto de `GeofenceEvent.reason` («obra sin ubicación verificada…»); el
+  contrato que consumen los clientes es `decision`, no el texto.
 - **AC-03:** coordenadas verificadas = `locationSource ∈ {"manual_pin","onsite_capture"}` con `locationVerifiedAt` y
   `locationVerifiedBy`; `"geocoded"` sola no basta para AUTO.
 - **AC-04:** a lo sumo **un vínculo ACTIVE** por (tenant, kind, targetId), garantizado en la base por el índice
   único de `activeTargetKey` (§7). Vincular de nuevo el mismo par es
   idempotente; vincular a otra obra exige terminar el anterior (409 si no).
 - **AC-05:** el evento con `site` resuelve el vínculo ACTIVE; si no existe, la obra está archivada o la persona ya no
-  tiene alcance → `IGNORE`, motivo `site_not_allowed`. Sin oráculo de existencia.
+  tiene alcance → `IGNORE`, con el motivo descriptivo existente («obra no permitida para esta persona»). Sin oráculo
+  de existencia.
 - **AC-06:** si llegan `worksiteId` y `site` y no coinciden con el vínculo → 422.
 - **AC-07:** el `GeofenceEvent` guarda `worksiteId` resuelto y `bindingId` (nuevo, nulable) para auditoría.
 - **AC-08:** iniciar un `TimeEntry` con `checkInMethod = "proximity_auto"` exige `geofenceEventId` de la misma
   persona y tenant, decisión `AUTO_START_ALLOWED`, mismo `jobId`/`freeProjectId` que el vínculo, antigüedad
   ≤ 10 min y **no consumido**. Si falla → 409 `auto_start_not_authorized`; el cliente debe pedir confirmación
-  (`proximity_confirmed`). El consumo se marca en `GeofenceEvent.consumedByTimeEntryId` en la misma transacción.
+  (`proximity_confirmed`). El consumo se marca en `GeofenceEvent.consumedByTimeEntryId` en la misma transacción,
+  con aislamiento `Serializable`; un conflicto de serialización (`P2034`) también responde 409. La distancia del
+  fichaje se mide contra la obra autorizada, no contra las coordenadas del Job o del proyecto.
 - **AC-09:** `proximity_confirmed` y `manual_tagged` no cambian (no exigen evento).
-- **AC-10:** revocar la Membership o terminar el vínculo invalida decisiones pendientes no consumidas.
+- **AC-10:** revocar la Membership, terminar el vínculo, reasignar el Job o salir de AUTO (retirar el consentimiento)
+  invalida las decisiones pendientes no consumidas. Se revalida **dentro** de la transacción de consumo, así que una
+  revocación que confirma entre la validación previa y la reclamación tampoco deja pasar el inicio.
 
 ## 5. Contratos (propuestos)
 
@@ -126,7 +133,10 @@ OPS_ADMIN no cruza tenants (regla de ResourceScope). Un recurso de otro tenant u
 - `POST /v1/organizations/:orgId/worksites/:worksiteId/bindings` — `{ kind: "JOB" | "FREE_PROJECT", targetId }`.
 - `GET /v1/organizations/:orgId/worksites/:worksiteId/bindings`
 - `POST /v1/organizations/:orgId/worksites/:worksiteId/bindings/:bindingId/end`
-- `GET /v1/me/geofence-sites` — `[{ kind, targetId, worksiteId, latitude, longitude, radiusMeters, verified }]`.
+- `GET /v1/me/geofence-sites` — `[{ kind, targetId, worksiteId, worksiteName, latitude, longitude, radiusMeters,
+  verified }]`. Los filtros de elegibilidad se aplican en la consulta antes del límite (200 sitios).
+- Contratos compartidos en `packages/schemas/src/worksite-binding.schema.ts` (`siteRefSchema`,
+  `worksiteLocationInputSchema`, `worksiteBindingInputSchema` y vistas) y `geofenceEventId` en `startTimerSchema`.
 - `POST /v1/me/geofence-events` — añade `site?: { kind, id }` (opcional; `worksiteId` se conserva).
 - Tracker (labor engine) — al iniciar con `checkInMethod: "proximity_auto"` acepta `geofenceEventId`.
 

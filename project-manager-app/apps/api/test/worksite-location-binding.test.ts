@@ -23,6 +23,8 @@ function matches(row: Row | undefined, where: Row | undefined): boolean {
     const value = row?.[k];
     if (v && typeof v === "object" && !(v instanceof Date)) {
       if ("in" in v) return (v.in as unknown[]).includes(value);
+      if ("not" in v) return value !== v.not && value !== undefined;
+      if ("is" in v) return value != null && matches(value, v.is as Row);
       if ("gte" in v) return value instanceof Date && value.getTime() >= (v.gte as Date).getTime();
       return matches(value, v as Row);
     }
@@ -79,7 +81,19 @@ function world() {
         if (!row) return null;
         return include?.worksite ? { ...row, worksite: worksites.find((w) => w.id === row.worksiteId) } : row;
       },
-      async findMany({ where }: any) { return bindings.filter((b) => matches(b, where)); },
+      async findMany({ where, take }: any) {
+        // Como Prisma: filtra con las relaciones a la vista, ordena por createdAt desc y luego limita.
+        const withRelations = bindings.map((b) => ({
+          ...b,
+          worksite: worksites.find((w) => w.id === b.worksiteId),
+          job: b.jobId ? jobs.find((j) => j.id === b.jobId) : null,
+          freeProject: b.freeProjectId ? freeProjects.find((f) => f.id === b.freeProjectId) : null
+        }));
+        const kindFilter = (row: Row) => !where.OR || where.OR.some((alt: Row) => alt.kind === row.kind);
+        const hit = withRelations.filter((b) => matches(b, where) && kindFilter(b))
+          .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+        return (take ? hit.slice(0, take) : hit).map((b) => bindings.find((x) => x.id === b.id));
+      },
       async create({ data }: any) {
         if (data.activeTargetKey && bindings.some((b) => b.activeTargetKey === data.activeTargetKey)) {
           throw Object.assign(new Error("unique"), { code: "P2002" });
@@ -127,10 +141,13 @@ function world() {
     async getActiveTimeEntry(tenantId: string, createdBy: string) { return entries.find((t) => t.tenantId === tenantId && t.createdBy === createdBy && t.status === "running") ?? null; },
     async isJobAssignedToWorker(tenantId: string, _orgId: string, jobId: string, userId: string) { return jobs.some((j) => j.id === jobId && j.tenantId === tenantId && j.assignedTo.includes(userId)); },
     async isFreeProjectOwnedByWorker(tenantId: string, id: string, userId: string) { return freeProjects.some((f) => f.id === id && f.tenantId === tenantId && f.createdBy === userId); },
-    async getJobCoordinates() { return null; },
+    jobCoordinates: null as null | { latitude: number; longitude: number },
+    async getJobCoordinates() { return repo.jobCoordinates; },
     async getFreeProjectCoordinates() { return null; },
     async startRealtimeEntry(data: Row) { const row = { id: `te${++seq}`, status: "running", ...data }; entries.push(row); return row; },
-    async startRealtimeEntryConsumingDecision(data: Row, decision: { geofenceEventId: string; notBefore: Date }) {
+    async startRealtimeEntryConsumingDecision(data: Row, decision: { geofenceEventId: string; notBefore: Date; revalidate?: (tx: unknown) => Promise<void> }) {
+      if (repo.beforeTransaction) await repo.beforeTransaction();
+      if (decision.revalidate) await decision.revalidate(prisma);
       const ev = events.find((e) => e.id === decision.geofenceEventId && e.tenantId === data.tenantId && e.userId === data.createdBy &&
         e.decision === "AUTO_START_ALLOWED" && e.consumedByTimeEntryId == null && e.createdAt.getTime() >= decision.notBefore.getTime());
       if (!ev) throw Object.assign(new Error("conflict"), { status: 409 });
@@ -140,11 +157,14 @@ function world() {
       return row;
     },
     async findGeofenceDecision(tenantId: string, userId: string, id: string) { return events.find((e) => e.id === id && e.tenantId === tenantId && e.userId === userId) ?? null; },
-    async findActiveBinding(tenantId: string, id: string) { return bindings.find((b) => b.id === id && b.tenantId === tenantId && b.status === "ACTIVE") ?? null; }
+    async findActiveBinding(tenantId: string, id: string) { return bindings.find((b) => b.id === id && b.tenantId === tenantId && b.status === "ACTIVE") ?? null; },
+    /** Simula un cambio que confirma entre la validación previa y la transacción. */
+    beforeTransaction: null as null | (() => Promise<void>)
   };
 
   return {
     prisma,
+    repo,
     memberships,
     worksites,
     bindings,
@@ -396,3 +416,49 @@ test("AC-01 con el flag de vínculos apagado, proximity_auto se comporta como an
   await start(w);
   assert.equal(w.entries.length, 1);
 });
+
+// ---- correcciones de la revisión (Devin, 2026-11-20) ----
+test("revocación que confirma entre la validación y la transacción: la revalidación dentro de la transacción la detecta", async () => {
+  const w = world();
+  const id = await allowed(w);
+  w.repo.beforeTransaction = async () => { w.memberships.find((m) => m.userId === "ana")!.status = "SUSPENDED"; };
+  await assert.rejects(start(w, { geofenceEventId: id }), { status: 409 });
+  assert.equal(w.entries.length, 0);
+  assert.equal(w.events.find((e) => e.id === id)?.consumedByTimeEntryId, null);
+});
+
+test("salir de AUTO tras recibir AUTO_START_ALLOWED invalida la decisión pendiente (también si ocurre ya en la transacción)", async () => {
+  const w = world();
+  const id = await allowed(w);
+  await w.geofence.setPreference(ana, "r", { mode: "ASK" });
+  await assert.rejects(start(w, { geofenceEventId: id }), { status: 409 });
+  const w2 = world();
+  const id2 = await allowed(w2);
+  w2.repo.beforeTransaction = async () => { await w2.geofence.setPreference(ana, "r", { mode: "OFF" }); };
+  await assert.rejects(start(w2, { geofenceEventId: id2 }), { status: 409 });
+  assert.equal(w2.entries.length, 0);
+});
+
+test("la distancia del fichaje autorizado se mide contra la obra verificada, no contra la geocodificación del Job", async () => {
+  const w = world();
+  const id = await allowed(w);
+  w.repo.jobCoordinates = { latitude: 19.45, longitude: -99.13 }; // ~2 km al norte del pin de la obra
+  const entry: any = await start(w, { geofenceEventId: id, checkIn: { latitude: 19.4327, longitude: -99.1333, method: "proximity_auto" } });
+  assert.ok(entry.checkInDistanceMeters < 50, `distancia ${entry.checkInDistanceMeters} m`);
+});
+
+test("lista de sitios: el límite se aplica tras filtrar; un sitio válido antiguo no se pierde detrás de 200 vínculos descartables", async () => {
+  const w = world();
+  await boundVerifiedJob(w);
+  w.bindings[0].createdAt = new Date(Date.now() - 60_000);
+  for (let i = 0; i < 205; i++) {
+    w.bindings.push({
+      id: `noise${i}`, tenantId: "t1", orgId: "orgA", worksiteId: "w2", kind: "FREE_PROJECT", jobId: null,
+      freeProjectId: `fpNoise${i}`, status: "ACTIVE", activeTargetKey: `t1:FREE_PROJECT:fpNoise${i}`, createdBy: "boss",
+      createdAt: new Date(), endedAt: null
+    });
+  }
+  const sites = await w.geofence.listSites(ana);
+  assert.deepEqual(sites.map((s) => s.targetId), ["jobA"]);
+});
+

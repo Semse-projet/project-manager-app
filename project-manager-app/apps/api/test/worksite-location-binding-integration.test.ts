@@ -164,6 +164,34 @@ dbTest("PG-04 una decisión vencida o no AUTO_START_ALLOWED no se consume y no d
   }
 });
 
+dbTest("PG-05 si la revalidación dentro de la transacción rechaza (revocación concurrente), no se consume la decisión ni queda TimeEntry", async () => {
+  const f = await fixture();
+  try {
+    const event = await prisma.geofenceEvent.create({
+      data: {
+        tenantId: f.tenantId, orgId: f.orgId, userId: "user_wsb", eventId: uid("evt"), type: "ARRIVAL",
+        worksiteId: f.worksiteId, decision: "AUTO_START_ALLOWED", reason: "test", mode: "AUTO", policyVersion: 1,
+        accuracyBucket: "GOOD", occurredAt: new Date()
+      }
+    });
+    const entry = { tenantId: f.tenantId, orgId: f.orgId, createdBy: "user_wsb", purpose: "job_linked", jobId: f.jobId };
+    await assert.rejects(repository.startRealtimeEntryConsumingDecision(entry, {
+      geofenceEventId: event.id,
+      notBefore: new Date(Date.now() - 10 * 60_000),
+      revalidate: async (tx: any) => {
+        // La revalidación lee dentro de la transacción; aquí simula que el acceso ya no vale.
+        const stillActive = await tx.worksiteBinding.count({ where: { tenantId: f.tenantId, status: "ACTIVE" } });
+        if (stillActive === 0) throw Object.assign(new Error("revoked"), { status: 409 });
+      }
+    }), (e) => (e as { status?: number }).status === 409);
+    assert.equal(await prisma.timeEntry.count({ where: { tenantId: f.tenantId } }), 0);
+    const stored = await prisma.geofenceEvent.findUnique({ where: { id: event.id } });
+    assert.equal(stored?.consumedByTimeEntryId, null);
+  } finally {
+    await f.cleanup();
+  }
+});
+
 test.after(async () => {
   await prisma.$disconnect();
 });

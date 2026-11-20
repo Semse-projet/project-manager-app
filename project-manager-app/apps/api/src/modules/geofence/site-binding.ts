@@ -1,3 +1,4 @@
+import type { SiteKind, SiteRef } from "@semse/schemas";
 import { jobAssignmentWhere } from "../../common/job-assignment.js";
 
 /**
@@ -11,12 +12,9 @@ import { jobAssignmentWhere } from "../../common/job-assignment.js";
  * de valer de inmediato (AC-05, AC-10).
  */
 
-export type SiteKind = "JOB" | "FREE_PROJECT";
-export type SiteRef = { kind: SiteKind; id: string };
+export type { SiteKind, SiteRef };
 
 export const VERIFIED_LOCATION_SOURCES = ["manual_pin", "onsite_capture"] as const;
-export const LOCATION_SOURCES = ["manual_pin", "onsite_capture", "geocoded"] as const;
-export type LocationSource = (typeof LOCATION_SOURCES)[number];
 
 export function isWorksiteBindingEnabled(): boolean {
   return process.env.SEMSE_WORKSITE_BINDING_ENABLED === "true";
@@ -61,12 +59,22 @@ export type ResolvedSite = {
 };
 
 // Mínimo que necesita la resolución; lo cumplen PrismaService y un cliente de transacción.
-type SitePrisma = {
+export type SitePrisma = {
   worksiteBinding: { findFirst(args: unknown): Promise<any> };
   membership: { findMany(args: unknown): Promise<any[]> };
   job: { findFirst(args: unknown): Promise<any> };
   freeProject: { findFirst(args: unknown): Promise<any> };
+  locationPreference: { findFirst(args: unknown): Promise<any> };
 };
+
+/**
+ * Consentimiento de auto-inicio vigente (modo AUTO, consentido y no revocado). Se revalida al
+ * consumir una decisión: salir de AUTO después de recibir AUTO_START_ALLOWED la invalida.
+ */
+export async function hasLiveAutoConsent(prisma: SitePrisma, user: { tenantId: string; userId: string }): Promise<boolean> {
+  const pref = await prisma.locationPreference.findFirst({ where: { tenantId: user.tenantId, userId: user.userId } });
+  return pref?.mode === "AUTO" && !!pref.autoStartConsentedAt && !pref.autoStartRevokedAt;
+}
 
 /**
  * Devuelve el sitio solo si TODO se cumple; si no, null (sin oráculo de existencia):

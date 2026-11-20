@@ -8,7 +8,13 @@ import { geocodeAddressSafe } from "../../integrations/google-maps.js";
 import { distanceMeters, isValidCoordinate } from "../../integrations/geo-distance.js";
 import { AdminService } from "../admin/admin.service.js";
 import { AUTO_START_VALIDITY_MS } from "../geofence/geofence.policy.js";
-import { isWorksiteBindingEnabled, resolveSiteForWorker } from "../geofence/site-binding.js";
+import {
+  hasLiveAutoConsent,
+  isWorksiteBindingEnabled,
+  resolveSiteForWorker,
+  type ResolvedSite,
+  type SitePrisma,
+} from "../geofence/site-binding.js";
 
 // Calendario lunes-domingo / día 1-fin de mes. Usado a propósito por los KPIs
 // que se etiquetan como "Esta semana"/"Este mes"/"Semana actual" y por la
@@ -282,10 +288,34 @@ export class LaborEngineService {
     // una sola vez en la misma transacción. Sin la decisión → 409: el cliente debe pedir
     // confirmación (`proximity_confirmed`). Los inicios manuales o confirmados no cambian (AC-09).
     if (isWorksiteBindingEnabled() && params.checkIn?.method === "proximity_auto") {
-      const geofenceEventId = await this.assertAutoStartDecision(params);
+      const authorized = await this.assertAutoStartDecision(params);
+      // La distancia del fichaje se mide contra la OBRA autorizada, no contra las coordenadas
+      // (quizá geocodificadas y distintas) del Job o proyecto: evita alertas de ausencia falsas.
+      const ws = authorized.site.worksite;
+      const checkIn = params.checkIn;
+      if (ws.latitude != null && ws.longitude != null && isValidCoordinate(checkIn.latitude, checkIn.longitude)) {
+        entry.checkInDistanceMeters = Math.round(
+          distanceMeters(checkIn, { latitude: Number(ws.latitude), longitude: Number(ws.longitude) }),
+        );
+      }
+      const target = authorized.target;
       return this.repo.startRealtimeEntryConsumingDecision(entry, {
-        geofenceEventId,
+        geofenceEventId: authorized.decisionId,
         notBefore: new Date(Date.now() - AUTO_START_VALIDITY_MS),
+        // AC-10 dentro de la transacción: si entre la validación previa y la reclamación se
+        // revoca la membresía, se termina el vínculo, se reasigna el job o se retira el
+        // consentimiento, el inicio no pasa.
+        revalidate: async (tx) => {
+          const client = tx as unknown as SitePrisma;
+          const user = { tenantId: params.tenantId, userId: params.createdBy };
+          const again = await resolveSiteForWorker(client, user, target);
+          if (!again || again.binding.id !== authorized.site.binding.id || !(await hasLiveAutoConsent(client, user))) {
+            throw new ConflictException({
+              code: "auto_start_not_authorized",
+              message: "El auto-inicio ya no está autorizado; confirma el inicio.",
+            });
+          }
+        },
       });
     }
     return this.repo.startRealtimeEntry(entry);
@@ -297,7 +327,7 @@ export class LaborEngineService {
     jobId?: string;
     freeProjectId?: string;
     geofenceEventId?: string;
-  }): Promise<string> {
+  }): Promise<{ decisionId: string; target: { kind: "JOB" | "FREE_PROJECT"; id: string }; site: ResolvedSite }> {
     const denied = () => new ConflictException({
       code: "auto_start_not_authorized",
       message: "El auto-inicio no está autorizado; confirma el inicio.",
@@ -328,7 +358,11 @@ export class LaborEngineService {
       id: target.id,
     });
     if (!site || site.binding.id !== binding.id) throw denied();
-    return decision.id;
+    // El consentimiento de AUTO debe seguir vigente: salir de AUTO invalida decisiones pendientes.
+    if (!(await hasLiveAutoConsent(this.repo.sitePrisma, { tenantId: params.tenantId, userId: params.createdBy }))) {
+      throw denied();
+    }
+    return { decisionId: decision.id, target: { kind: target.kind, id: target.id }, site };
   }
 
   /** Never blocks the timer/entry on distance — GPS is unreliable indoors. Only records
