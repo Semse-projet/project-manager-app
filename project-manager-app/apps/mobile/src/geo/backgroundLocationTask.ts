@@ -17,5 +17,5 @@ TaskManager.defineTask<{ locations: LocationObject[] }>(PROXIMITY_LOCATION_TASK,
   if (!locations || locations.length === 0) return;
 
   const latest = locations[locations.length - 1];
-  await evaluateLocation({ latitude: latest.coords.latitude, longitude: latest.coords.longitude });
+  await evaluateLocation({ latitude: latest.coords.latitude, longitude: latest.coords.longitude, accuracy: latest.coords.accuracy });
 });
