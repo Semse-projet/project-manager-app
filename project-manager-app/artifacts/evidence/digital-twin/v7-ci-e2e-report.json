@@ -1,0 +1,382 @@
+{
+  "config": {
+    "argv": [
+      "/tmp/semse-node22/node_modules/node/bin/node",
+      "/tmp/semse-ci-runtime/node_modules/.bin/playwright",
+      "test",
+      "-c",
+      "playwright.semse.config.ts",
+      "tests/e2e-semse/semse-digital-twin.spec.ts"
+    ],
+    "configFile": "/tmp/semse-ci-runtime/playwright.semse.config.ts",
+    "rootDir": "/tmp/semse-ci-runtime/tests/e2e-semse",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/tmp/semse-ci-runtime/artifacts/evidence/playwright/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "chromium",
+        "name": "chromium",
+        "testDir": "/tmp/semse-ci-runtime/tests/e2e-semse",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.spec.ts"
+        ],
+        "timeout": 45000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "artifacts/evidence/playwright/report.json"
+        }
+      ],
+      [
+        "html",
+        {
+          "outputFolder": "artifacts/evidence/playwright/html",
+          "open": "never"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.63.0",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "semse-digital-twin.spec.ts",
+      "file": "semse-digital-twin.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "SEMSE Ecosystem Digital Twin",
+          "file": "semse-digital-twin.spec.ts",
+          "line": 81,
+          "column": 6,
+          "specs": [
+            {
+              "title": "3D renderiza 33 instancias, permanece en reposo y admite teclado/reset",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 45000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 3376,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-15T05:25:35.007Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "digital-twin-performance",
+                          "contentType": "application/json",
+                          "body": "eyJyZXF1ZXN0cyI6MjQsImVuY29kZWRCeXRlcyI6NjMxMjIzLCJkcmF3Q2FsbHMiOjIyLCJ0cmlhbmdsZXMiOjc2ODAsImlkbGVSZW5kZXJDb3VudCI6N30="
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "b9d5ad85d622a8571918-a126157cffa7941b18f6",
+              "file": "semse-digital-twin.spec.ts",
+              "line": 82,
+              "column": 3
+            },
+            {
+              "title": "2D y lista conservan búsqueda, filtro, selección y estado vacío",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 45000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 2578,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-15T05:25:38.830Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "b9d5ad85d622a8571918-937fa846f40727875f51",
+              "file": "semse-digital-twin.spec.ts",
+              "line": 140,
+              "column": 3
+            },
+            {
+              "title": "los tres flujos terminan y pueden repetirse sin loop",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 45000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 12198,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-15T05:25:41.441Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "b9d5ad85d622a8571918-b9fcd524cd7212041b83",
+              "file": "semse-digital-twin.spec.ts",
+              "line": 170,
+              "column": 3
+            },
+            {
+              "title": "reduced motion llega al estado final sin impulso SMIL",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 45000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 2404,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-15T05:25:53.652Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "b9d5ad85d622a8571918-203e3075fd0c5ce1f9dc",
+              "file": "semse-digital-twin.spec.ts",
+              "line": 186,
+              "column": 3
+            },
+            {
+              "title": "WebGL ausente y pérdida de contexto cambian a 2D sin pantalla en blanco",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 45000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1622,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-15T05:25:56.080Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "b9d5ad85d622a8571918-a50260c4ae03e45e59a7",
+              "file": "semse-digital-twin.spec.ts",
+              "line": 196,
+              "column": 3
+            },
+            {
+              "title": "el evento webglcontextlost ofrece fallback y el unmount elimina el canvas",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 45000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 2666,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-15T05:25:57.712Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "b9d5ad85d622a8571918-1447ad6697d81ccc95d2",
+              "file": "semse-digital-twin.spec.ts",
+              "line": 213,
+              "column": 3
+            },
+            {
+              "title": "desktop y móvil no desbordan; resize vuelve a renderizar y controles son táctiles",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 45000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 4057,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-15T05:26:00.395Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "b9d5ad85d622a8571918-f03dc5ad806389692068",
+              "file": "semse-digital-twin.spec.ts",
+              "line": 233,
+              "column": 3
+            },
+            {
+              "title": "admin compone una respuesta controlada sin convertir registro en runtime",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 45000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 5050,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-15T05:26:04.472Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "b9d5ad85d622a8571918-afe28d13779f72819327",
+              "file": "semse-digital-twin.spec.ts",
+              "line": 266,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-11-15T05:25:34.505Z",
+    "duration": 35323.888,
+    "expected": 8,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}
