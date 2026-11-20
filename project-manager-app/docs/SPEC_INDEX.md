@@ -120,6 +120,7 @@ retroactiva.
 | [core.skills](specs/core/skills.spec.md) | core | DRAFT | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-10-18 |
 | [core.task-allocations](specs/core/task-allocations.spec.md) | core | DRAFT | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-10-18 |
 | [core.universal-identity-multi-role](specs/core/universal-identity-multi-role.spec.md) | core | APPROVED | IN_PROGRESS | PASS | MERGED | DEPLOYED | INACTIVE | high | yes | 2026-08-13 |
+| [core.worksite-location-binding](specs/core/worksite-location-binding.spec.md) | core | APPROVED | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | yes | 2026-11-20 |
 | [semse-creator-platform](specs/creator/SEMSE_CREATOR_PLATFORM.spec.md) | creator | APPROVED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-17 |
 | [evidence.canonical-fase1](specs/evidence/evidence-canonical-fase1.spec.md) | evidence | IMPLEMENTED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-19 |
 | [evidence.field-memory-capture-session](specs/evidence/field-memory-capture-session.spec.md) | evidence | APPROVED | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-10-11 |
