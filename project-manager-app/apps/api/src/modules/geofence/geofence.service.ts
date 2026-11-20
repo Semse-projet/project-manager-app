@@ -9,6 +9,12 @@ import {
   type GeofenceType,
   type LocationMode
 } from "./geofence.policy.js";
+import {
+  isWorksiteBindingEnabled,
+  isWorksiteLocationVerified,
+  resolveSiteForWorker,
+  type SiteRef
+} from "./site-binding.js";
 
 /**
  * BO-09 — preferencia de ubicación y decisión ante eventos de geocerca.
@@ -29,6 +35,8 @@ export type EventInput = {
   eventId: string;
   type: GeofenceType;
   worksiteId?: string;
+  /** OPEN-18: job o proyecto libre detectado; el servidor lo resuelve a la obra vinculada. */
+  site?: SiteRef;
   occurredAt: Date;
   accuracyMeters?: number;
 };
@@ -45,6 +53,7 @@ type EventRow = {
   eventId: string;
   type: string;
   worksiteId: string | null;
+  bindingId?: string | null;
   decision: string;
   reason: string;
   mode: string;
@@ -139,7 +148,26 @@ export class GeofenceService {
 
     let siteAllowed = false;
     let orgId = user.orgId;
-    if (input.worksiteId) {
+    let worksiteId: string | null = input.worksiteId ?? null;
+    let bindingId: string | null = null;
+    // OPEN-18: con SEMSE_WORKSITE_BINDING_ENABLED apagado, `site` se ignora y nada cambia (AC-01).
+    const bindingOn = isWorksiteBindingEnabled();
+    let siteVerified: boolean | undefined;
+    if (bindingOn && input.site) {
+      const resolved = await resolveSiteForWorker(this.prisma, user, input.site);
+      if (resolved) {
+        if (input.worksiteId && input.worksiteId !== resolved.worksite.id) {
+          throw new UnprocessableEntityException("La obra indicada no coincide con la obra vinculada a ese sitio");
+        }
+        siteAllowed = true;
+        orgId = resolved.worksite.orgId;
+        worksiteId = resolved.worksite.id;
+        bindingId = resolved.binding.id;
+        siteVerified = resolved.verified;
+      } else {
+        siteVerified = false;
+      }
+    } else if (input.worksiteId) {
       const worksite = await this.prisma.worksite.findFirst({ where: { id: input.worksiteId, tenantId: user.tenantId } });
       if (worksite) {
         const member = await this.prisma.membership.findMany({
@@ -149,6 +177,8 @@ export class GeofenceService {
           siteAllowed = true;
           orgId = worksite.orgId;
         }
+        // AC-02: con el flag encendido, una obra sin ubicación verificada nunca auto-inicia.
+        if (bindingOn) siteVerified = isWorksiteLocationVerified(worksite);
       }
     }
 
@@ -158,7 +188,7 @@ export class GeofenceService {
 
     const now = Date.now();
     const recent = await this.prisma.geofenceEvent.findMany({
-      where: { tenantId: user.tenantId, userId: user.userId, type: input.type, worksiteId: input.worksiteId ?? null }
+      where: { tenantId: user.tenantId, userId: user.userId, type: input.type, worksiteId }
     });
     const recentDuplicate = recent.some((e) => e.decision !== "IGNORE" && now - e.createdAt.getTime() < COOLDOWN_MS);
 
@@ -171,7 +201,8 @@ export class GeofenceService {
       activeSession: !!active,
       siteAllowed,
       ageMs: now - input.occurredAt.getTime(),
-      recentDuplicate
+      recentDuplicate,
+      siteVerified
     });
 
     try {
@@ -182,7 +213,8 @@ export class GeofenceService {
           userId: user.userId,
           eventId: input.eventId,
           type: input.type,
-          worksiteId: input.worksiteId ?? null,
+          worksiteId,
+          ...(bindingId ? { bindingId } : {}),
           decision: result.decision,
           reason: result.reason,
           mode: pref.effectiveMode,
@@ -214,11 +246,52 @@ export class GeofenceService {
       .map((row) => this.eventView(row));
   }
 
+  /**
+   * OPEN-18: sitios que la persona puede detectar ahora, con la ubicación y el radio de la
+   * OBRA (nunca coordenadas de la persona). Solo obras con coordenadas; `verified` indica si
+   * pueden llegar a AUTO_START_ALLOWED.
+   */
+  async listSites(user: GeofenceActor) {
+    this.assertEnabled();
+    if (!isWorksiteBindingEnabled()) throw new NotFoundException();
+    const memberships = await this.prisma.membership.findMany({
+      where: { userId: user.userId, status: "ACTIVE", org: { tenantId: user.tenantId } },
+      include: { role: true }
+    });
+    const orgIds = [...new Set(memberships.filter((m) => m.role?.key === "WORKER").map((m) => m.orgId))];
+    if (orgIds.length === 0) return [];
+    const bindings = await this.prisma.worksiteBinding.findMany({
+      where: { tenantId: user.tenantId, orgId: { in: orgIds }, status: "ACTIVE" },
+      orderBy: { createdAt: "desc" },
+      take: 200
+    });
+    const sites = [];
+    for (const b of bindings) {
+      const targetId = b.kind === "JOB" ? b.jobId : b.freeProjectId;
+      if (!targetId) continue;
+      const resolved = await resolveSiteForWorker(this.prisma, user, { kind: b.kind as SiteRef["kind"], id: targetId });
+      if (!resolved || resolved.worksite.latitude == null || resolved.worksite.longitude == null) continue;
+      sites.push({
+        kind: b.kind,
+        targetId,
+        worksiteId: resolved.worksite.id,
+        worksiteName: resolved.worksite.name,
+        latitude: Number(resolved.worksite.latitude),
+        longitude: Number(resolved.worksite.longitude),
+        radiusMeters: resolved.worksite.radiusMeters,
+        verified: resolved.verified
+      });
+    }
+    return sites;
+  }
+
   private eventView(row: EventRow) {
     return {
+      id: row.id,
       eventId: row.eventId,
       type: row.type as GeofenceType,
       worksiteId: row.worksiteId,
+      bindingId: row.bindingId ?? null,
       decision: row.decision as GeofenceDecision,
       reason: row.reason,
       mode: row.mode,

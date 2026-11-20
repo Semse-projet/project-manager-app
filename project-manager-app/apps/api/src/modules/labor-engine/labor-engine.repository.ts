@@ -1,4 +1,4 @@
-﻿import { Injectable, NotFoundException } from "@nestjs/common";
+﻿import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { ActorContextService } from "../../infrastructure/persistence/actor-context.service.js";
 import { randomUUID } from "node:crypto";
@@ -110,6 +110,28 @@ export class LaborEngineRepository {
     /** Idempotency key from the client's offline-safe event queue (Time Tracker). */
     clientEventId?: string;
   }): Promise<TimeEntryRecord> {
+    const createData = this.buildTimeEntryData(data);
+
+    if (!data.clientEventId) {
+      return this.prisma.timeEntry.create({ data: createData }) as unknown as TimeEntryRecord;
+    }
+
+    // Idempotent insert: a client-supplied event id is unique per (tenant, worker).
+    // If this exact event already produced a row (retried sync after a partial-batch
+    // failure, or the success response never reached the client), return that row
+    // instead of inserting a duplicate payable time entry.
+    try {
+      return await this.prisma.timeEntry.create({ data: createData }) as unknown as TimeEntryRecord;
+    } catch (error) {
+      if (isUniqueConstraintError(error)) {
+        const existing = await this.findTimeEntryByClientEventId(data.tenantId, data.createdBy, data.clientEventId);
+        if (existing) return existing;
+      }
+      throw error;
+    }
+  }
+
+  private buildTimeEntryData(data: Parameters<LaborEngineRepository["createTimeEntry"]>[0]) {
     const now = new Date();
     const breakMinutes = Math.max(0, data.breakMinutes ?? 0);
     const duration = data.durationMinutes
@@ -146,24 +168,7 @@ export class LaborEngineRepository {
       createdAt: now,
       updatedAt: now,
     };
-
-    if (!data.clientEventId) {
-      return this.prisma.timeEntry.create({ data: createData }) as unknown as TimeEntryRecord;
-    }
-
-    // Idempotent insert: a client-supplied event id is unique per (tenant, worker).
-    // If this exact event already produced a row (retried sync after a partial-batch
-    // failure, or the success response never reached the client), return that row
-    // instead of inserting a duplicate payable time entry.
-    try {
-      return await this.prisma.timeEntry.create({ data: createData }) as unknown as TimeEntryRecord;
-    } catch (error) {
-      if (isUniqueConstraintError(error)) {
-        const existing = await this.findTimeEntryByClientEventId(data.tenantId, data.createdBy, data.clientEventId);
-        if (existing) return existing;
-      }
-      throw error;
-    }
+    return createData;
   }
 
   async findTimeEntryByClientEventId(tenantId: string, createdBy: string, clientEventId: string): Promise<TimeEntryRecord | null> {
@@ -235,6 +240,58 @@ export class LaborEngineRepository {
       mode: "realtime",
       startedAt: new Date(),
     });
+  }
+
+  /**
+   * OPEN-18 AC-08: inicia un reloj `proximity_auto` consumiendo, en la MISMA transacción,
+   * la decisión AUTO_START_ALLOWED del servidor. La reclamación es condicional (no
+   * consumida, de esta persona y tenant, AUTO_START_ALLOWED, más reciente que `notBefore`)
+   * y `consumedByTimeEntryId` es único: dos inicios con el mismo evento → solo uno gana; el
+   * otro recibe 409 y no deja TimeEntry.
+   */
+  async startRealtimeEntryConsumingDecision(
+    data: Parameters<LaborEngineRepository["startRealtimeEntry"]>[0],
+    decision: { geofenceEventId: string; notBefore: Date },
+  ): Promise<TimeEntryRecord> {
+    const createData = this.buildTimeEntryData({ ...data, mode: "realtime", startedAt: new Date() });
+    return this.prisma.$transaction(async (tx) => {
+      const claim = await tx.geofenceEvent.updateMany({
+        where: {
+          id: decision.geofenceEventId,
+          tenantId: data.tenantId,
+          userId: data.createdBy,
+          decision: "AUTO_START_ALLOWED",
+          consumedByTimeEntryId: null,
+          createdAt: { gte: decision.notBefore },
+        },
+        data: { consumedByTimeEntryId: createData.id },
+      });
+      if (claim.count !== 1) {
+        throw new ConflictException({ code: "auto_start_not_authorized", message: "La decisión de auto-inicio ya no es válida; confirma el inicio." });
+      }
+      return tx.timeEntry.create({ data: createData }) as unknown as TimeEntryRecord;
+    });
+  }
+
+  /** OPEN-18: lectura de la decisión de geocerca de la persona (para validar el vínculo antes de consumirla). */
+  async findGeofenceDecision(tenantId: string, userId: string, geofenceEventId: string) {
+    return this.prisma.geofenceEvent.findFirst({
+      where: { id: geofenceEventId, tenantId, userId },
+      select: { id: true, decision: true, bindingId: true, consumedByTimeEntryId: true, createdAt: true },
+    });
+  }
+
+  /** OPEN-18: vínculo ACTIVE de la decisión (objetivo exacto que se puede iniciar). */
+  async findActiveBinding(tenantId: string, bindingId: string) {
+    return this.prisma.worksiteBinding.findFirst({
+      where: { id: bindingId, tenantId, status: "ACTIVE" },
+      select: { id: true, kind: true, jobId: true, freeProjectId: true },
+    });
+  }
+
+  /** Cliente Prisma para la resolución compartida de sitios (solo lectura). */
+  get sitePrisma() {
+    return this.prisma;
   }
 
   async pauseTimeEntry(id: string, tenantId: string, createdBy: string): Promise<TimeEntryRecord> {

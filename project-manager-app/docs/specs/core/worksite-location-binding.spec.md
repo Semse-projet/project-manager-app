@@ -3,11 +3,11 @@ id: "core.worksite-location-binding"
 title: "Ubicación verificable de obra y vínculo Job/proyecto libre para geocercas (OPEN-18)"
 domain: "core"
 sdd_version: "2.0"
-version: "0.1"
-status: "DRAFT"
+version: "0.2"
+status: "APPROVED"
 owner: "semse-core"
 risk: "critical"
-code_status: "NOT_STARTED"
+code_status: "IN_PROGRESS"
 ci_status: "NOT_RUN"
 merge_status: "UNMERGED"
 deploy_status: "NOT_DEPLOYED"
@@ -17,20 +17,42 @@ feature_flags:
   - "SEMSE_WORKSITE_BINDING_ENABLED"
 production_evidence: []
 related_files:
+  - "apps/api/src/modules/geofence/site-binding.ts"
+  - "apps/api/src/modules/geofence/geofence.policy.ts"
   - "apps/api/src/modules/geofence/geofence.service.ts"
-  - "apps/api/src/modules/organizations/crews.service.ts"
+  - "apps/api/src/modules/geofence/geofence.controller.ts"
+  - "apps/api/src/modules/organizations/worksite-location.service.ts"
+  - "apps/api/src/modules/organizations/worksite-location.controller.ts"
+  - "apps/api/src/modules/labor-engine/labor-engine.service.ts"
+  - "apps/api/src/modules/labor-engine/labor-engine.repository.ts"
   - "apps/api/src/common/resource-scope.ts"
   - "packages/db/prisma/schema.prisma"
-related_tests: []
-related_endpoints: []
-related_events: []
+  - "packages/db/prisma/migrations/20261120120000_worksite_location_binding/migration.sql"
+related_tests:
+  - "apps/api/test/worksite-location-binding.test.ts"
+  - "apps/api/test/worksite-location-binding-integration.test.ts"
+  - "apps/api/test/geofence-policy.test.ts"
+related_endpoints:
+  - "PUT /v1/organizations/:orgId/worksites/:worksiteId/location"
+  - "POST /v1/organizations/:orgId/worksites/:worksiteId/bindings"
+  - "GET /v1/organizations/:orgId/worksites/:worksiteId/bindings"
+  - "POST /v1/organizations/:orgId/worksites/:worksiteId/bindings/:bindingId/end"
+  - "GET /v1/me/geofence-sites"
+  - "POST /v1/me/geofence-events"
+  - "POST /v1/labor/timer/start"
+related_events:
+  - "worksite.location_set"
+  - "worksite_binding.created"
+  - "worksite_binding.ended"
 related_agents: []
-last_verified: "2026-11-18"
+last_verified: "2026-11-20"
 ---
 # OPEN-18 — Ubicación verificable de obra y vínculo Job/proyecto libre
 
-> **DRAFT para aprobación del propietario.** Nada de esto está implementado ni migrado. La migración solo se
-> ejecutará después de que el propietario apruebe este contrato, su compatibilidad, sus pruebas y su rollback (§7–§9).
+> **APPROVED por el propietario el 2026-11-20** («Apruebo OPEN-18»), incluidas las propuestas de Q1–Q3 (§11).
+> Implementación del servidor en curso (#1168), tras `SEMSE_WORKSITE_BINDING_ENABLED` apagado. La migración es
+> aditiva y está versionada en el repo; **no se ha aplicado en ningún entorno compartido** (staging ni producción):
+> hacerlo exige una autorización aparte.
 
 ## 1. Problema y resultado
 
@@ -82,7 +104,8 @@ OPS_ADMIN no cruza tenants (regla de ResourceScope). Un recurso de otro tenant u
   `site_unverified`.
 - **AC-03:** coordenadas verificadas = `locationSource ∈ {"manual_pin","onsite_capture"}` con `locationVerifiedAt` y
   `locationVerifiedBy`; `"geocoded"` sola no basta para AUTO.
-- **AC-04:** a lo sumo **un vínculo ACTIVE** por (tenant, kind, targetId). Vincular de nuevo el mismo par es
+- **AC-04:** a lo sumo **un vínculo ACTIVE** por (tenant, kind, targetId), garantizado en la base por el índice
+  único de `activeTargetKey` (§7). Vincular de nuevo el mismo par es
   idempotente; vincular a otra obra exige terminar el anterior (409 si no).
 - **AC-05:** el evento con `site` resuelve el vínculo ACTIVE; si no existe, la obra está archivada o la persona ya no
   tiene alcance → `IGNORE`, motivo `site_not_allowed`. Sin oráculo de existencia.
@@ -147,9 +170,12 @@ CREATE TABLE "WorksiteBinding" (
     ("kind" = 'JOB' AND "jobId" IS NOT NULL AND "freeProjectId" IS NULL) OR
     ("kind" = 'FREE_PROJECT' AND "freeProjectId" IS NOT NULL AND "jobId" IS NULL))
 );
-CREATE UNIQUE INDEX "WorksiteBinding_active_job_uq" ON "WorksiteBinding"("tenantId","jobId") WHERE "status" = 'ACTIVE';
-CREATE UNIQUE INDEX "WorksiteBinding_active_fp_uq"  ON "WorksiteBinding"("tenantId","freeProjectId") WHERE "status" = 'ACTIVE';
-CREATE INDEX "WorksiteBinding_worksite_idx" ON "WorksiteBinding"("tenantId","worksiteId","status");
+-- v0.2: en lugar de índices parciales, una clave nulable con índice único (ver la nota de abajo).
+--   "activeTargetKey" = '<tenantId>:<kind>:<targetId>' mientras ACTIVE; NULL al terminar.
+CREATE UNIQUE INDEX "WorksiteBinding_activeTargetKey_key" ON "WorksiteBinding"("activeTargetKey");
+ALTER TABLE "WorksiteBinding" ADD CONSTRAINT "WorksiteBinding_active_key_ck" CHECK (
+  ("status" = 'ACTIVE' AND "activeTargetKey" IS NOT NULL) OR ("status" = 'ENDED' AND "activeTargetKey" IS NULL));
+CREATE INDEX "WorksiteBinding_tenantId_worksiteId_status_idx" ON "WorksiteBinding"("tenantId","worksiteId","status");
 
 ALTER TABLE "GeofenceEvent"
   ADD COLUMN "bindingId" TEXT,
@@ -160,9 +186,14 @@ CREATE UNIQUE INDEX "GeofenceEvent_consumed_uq" ON "GeofenceEvent"("consumedByTi
 - **Por qué una tabla de vínculo y no `worksiteId` en `Job`/`FreeProject`:** el `Job` pertenece a la org cliente y la
   obra a la org que gestiona cuadrillas; escribir en `Job` desde el módulo de cuadrillas violaría «no cross-module
   DB writes». El vínculo vive en el módulo dueño de las obras.
-- **Índices parciales:** Prisma no los genera y el repo **no tiene precedente** (ninguna migración usa
-  `CREATE UNIQUE INDEX … WHERE`). Irían en SQL crudo dentro de la migración, documentados en `schema.prisma`, con la
-  prueba PostgreSQL del §9 como garantía; el plan debe confirmar que `prisma migrate diff` no intenta borrarlos.
+- **Unicidad del vínculo activo (cambio de implementación en v0.2, misma garantía):** la v0.1 proponía índices
+  únicos parciales (`… WHERE "status" = 'ACTIVE'`). Prisma no los representa y el repo no tiene precedente, así que
+  `prisma migrate diff` los vería como deriva. Se sustituyen por `activeTargetKey`: una clave nulable con índice
+  único que Prisma sí gestiona. Postgres admite varios NULL, así que los vínculos ENDED no colisionan. Un CHECK
+  ata la clave al estado. Lo prueba PG-01 sobre PostgreSQL real.
+- **CHECK constraints** (objetivo coherente con `kind`, clave ligada al estado, radio de 50–1000 m): van en SQL
+  dentro de la migración. Prisma no los gestiona ni los borra; `migrate diff` contra la base migrada no muestra
+  deriva propia.
 - **`TimeEntry` no cambia.** La relación evento→sesión se guarda en `GeofenceEvent.consumedByTimeEntryId`.
 - **Sin backfill.** Las obras existentes quedan sin coordenadas (solo `PROMPT` hasta verificarlas).
 
@@ -172,6 +203,11 @@ CREATE UNIQUE INDEX "GeofenceEvent_consumed_uq" ON "GeofenceEvent"("consumedByTi
   `SEMSE_WORKSITE_BINDING_ENABLED` **solo en staging** para el piloto; (4) producción, con autorización explícita.
 - **Clientes antiguos:** siguen enviando `worksiteId` o nada; con el flag apagado o sin `site`, el comportamiento es
   el actual. AC-08 solo se aplica con el flag encendido, para no romper builds móviles ya instalados.
+- **Clientes antes de encender el flag:** hoy web (`useProximityCheckIn`) y móvil (`proximityService`) envían
+  `checkIn.method = "proximity_auto"` sin `geofenceEventId`. Con el flag encendido, esos inicios reciben 409
+  (`auto_start_not_authorized`) y el cliente debe pedir confirmación. Antes de activarlo hay que adaptar ambos
+  clientes: detectar con `GET /v1/me/geofence-sites`, enviar `site` en el evento y pasar el `id` de la decisión
+  como `geofenceEventId` al iniciar. Es la tarea W-07 del plan, que depende de la extracción FieldOps (#1169).
 - **Requiere** `core.geofence-policy` v0.3 y `core.crews-worksites` v0.3 (extracción FieldOps, apilada sobre #1054).
 
 ## 9. Tests requeridos (antes de implementar, T-002)
@@ -200,7 +236,7 @@ CREATE UNIQUE INDEX "GeofenceEvent_consumed_uq" ON "GeofenceEvent"("consumedByTi
    inversa: `DROP TABLE "WorksiteBinding"` y `DROP COLUMN` de las 6 + 2 columnas. Ningún `TimeEntry` se toca en
    ningún paso.
 
-## 11. Preguntas abiertas para el propietario
+## 11. Preguntas del propietario (resueltas el 2026-11-20: aprobadas las propuestas)
 
 - Q1: ¿un proyecto libre de un trabajador independiente sin Org gestionable puede vincularse? Propuesta: no en el
   piloto; requiere `org:crews:manage` en la Org de la obra.

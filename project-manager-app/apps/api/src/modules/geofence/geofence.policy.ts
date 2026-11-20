@@ -14,6 +14,8 @@ export const GOOD_ACCURACY_METERS = 50;
 export const MAX_EVENT_AGE_MS = 10 * 60_000;
 export const MAX_FUTURE_SKEW_MS = 5 * 60_000;
 export const COOLDOWN_MS = 10 * 60_000;
+/** OPEN-18 AC-08 / Q3: una decisión AUTO_START_ALLOWED solo sirve para iniciar un reloj durante 10 min. */
+export const AUTO_START_VALIDITY_MS = 10 * 60_000;
 
 export function accuracyBucket(meters: number | undefined | null): AccuracyBucket {
   if (typeof meters !== "number" || !Number.isFinite(meters) || meters < 0) return "UNKNOWN";
@@ -31,6 +33,11 @@ export type DecisionInput = {
   /** now - occurredAt en ms (negativo = evento en el futuro). */
   ageMs: number;
   recentDuplicate: boolean;
+  /**
+   * OPEN-18 AC-02: false si la obra no tiene ubicación verificada (pin manual o captura en
+   * sitio). Ausente = comportamiento anterior (flag SEMSE_WORKSITE_BINDING_ENABLED apagado).
+   */
+  siteVerified?: boolean;
 };
 
 export type DecisionResult = { decision: GeofenceDecision; reason: string };
@@ -48,6 +55,9 @@ export function decide(input: DecisionInput): DecisionResult {
       if (input.activeSession) return { decision: "IGNORE", reason: "ya hay una sesión de trabajo activa" };
       if (input.accuracy !== "GOOD") return { decision: "MANUAL_ONLY", reason: "ubicación imprecisa: inicio manual" };
       if (input.mode === "AUTO" && input.autoConsent) {
+        if (input.siteVerified === false) {
+          return { decision: "PROMPT", reason: "obra sin ubicación verificada: preguntar antes de iniciar" };
+        }
         return { decision: "AUTO_START_ALLOWED", reason: "AUTO con consentimiento y ubicación fiable" };
       }
       return { decision: "PROMPT", reason: "preguntar antes de iniciar" };
