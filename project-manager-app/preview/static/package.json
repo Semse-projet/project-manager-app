@@ -1,0 +1,27 @@
+{
+  "name": "@semse/digital-twin-static-preview",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/sync-sources.mjs && vite",
+    "typecheck": "node scripts/sync-sources.mjs && tsc -p tsconfig.json",
+    "build": "node scripts/sync-sources.mjs && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "lucide-react": "0.577.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "three": "0.170.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "4.3.3",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@types/three": "0.170.0",
+    "tailwindcss": "4.3.3",
+    "typescript": "5.8.2",
+    "vite": "7.3.7"
+  }
+}

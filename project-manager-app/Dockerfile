@@ -1,0 +1,72 @@
+# Optional Next.js web image for explicit container builds. Railway web uses
+# Dockerfile.web and the static visual preview does not consume this file.
+FROM node:22-slim AS base
+RUN apt-get update && apt-get install -y openssl python3 make g++ && rm -rf /var/lib/apt/lists/*
+RUN corepack enable && corepack prepare pnpm@10.33.0 --activate
+
+FROM base AS deps
+WORKDIR /app
+
+COPY package.json pnpm-workspace.yaml .npmrc ./
+COPY apps/angular/package.json ./apps/angular/
+COPY apps/api/package.json ./apps/api/
+COPY apps/autonomy-server/package.json ./apps/autonomy-server/
+COPY apps/web/package.json ./apps/web/
+COPY apps/worker/package.json ./apps/worker/
+COPY packages/agents/package.json ./packages/agents/
+COPY packages/auth/package.json ./packages/auth/
+COPY packages/autonomy/package.json ./packages/autonomy/
+COPY packages/db/package.json ./packages/db/
+COPY packages/forge/package.json ./packages/forge/
+COPY packages/knowledge/package.json ./packages/knowledge/
+COPY packages/product-events/package.json ./packages/product-events/
+COPY packages/schemas/package.json ./packages/schemas/
+COPY packages/shared/package.json ./packages/shared/
+COPY packages/tools/package.json ./packages/tools/
+COPY packages/ui/package.json ./packages/ui/
+COPY pnpm-lock.yaml ./
+
+RUN pnpm install --frozen-lockfile
+
+FROM deps AS builder
+WORKDIR /app
+
+COPY . .
+
+ARG NEXT_PUBLIC_SEMSE_RUNTIME_ENABLED=true
+ARG NEXT_PUBLIC_SEMSE_DEMO_LOGIN_ENABLED=false
+ARG NEXT_PUBLIC_PRODUCT_INTELLIGENCE_ENABLED=false
+ARG SEMSE_PREVIEW_EMBEDDED=false
+ENV NEXT_PUBLIC_SEMSE_RUNTIME_ENABLED=$NEXT_PUBLIC_SEMSE_RUNTIME_ENABLED
+ENV NEXT_PUBLIC_SEMSE_DEMO_LOGIN_ENABLED=$NEXT_PUBLIC_SEMSE_DEMO_LOGIN_ENABLED
+ENV NEXT_PUBLIC_PRODUCT_INTELLIGENCE_ENABLED=$NEXT_PUBLIC_PRODUCT_INTELLIGENCE_ENABLED
+ENV SEMSE_PREVIEW_EMBEDDED=$SEMSE_PREVIEW_EMBEDDED
+
+# SEMSE_WEB_SESSION_SECRET is intentionally NOT baked here.
+# middleware.ts runs on Node.js runtime (not Edge), so Railway injects it at
+# container start via Service Variables — no build arg needed.
+# Set SEMSE_WEB_SESSION_SECRET as a Railway Service Variable (runtime).
+#
+# NOTE: SEMSE_API_BASE_URL is also NOT baked here — it is a server-side env var read
+# at request time by Next.js API Routes. Set it as a Railway Service Variable
+# (runtime), not a Build Variable. Railway private URL: http://semse-api.railway.internal:4000
+
+RUN NODE_OPTIONS="--max-old-space-size=4096" DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy" pnpm run build:web
+RUN mkdir -p apps/web/public
+
+FROM node:22-slim AS runner
+WORKDIR /app
+
+ENV NODE_ENV=production
+ENV HOSTNAME=0.0.0.0
+
+COPY --from=builder /app/apps/web/.next/standalone ./
+COPY --from=builder /app/apps/web/.next/static ./apps/web/.next/static
+COPY --from=builder /app/apps/web/public ./apps/web/public
+COPY --from=builder /app/apps/web/scripts/railway-start.mjs ./apps/web/scripts/railway-start.mjs
+
+EXPOSE 3000
+
+# Railway routes the public service domain to target port 3000, while deployment
+# healthchecks use the injected PORT. The start wrapper serves both ports.
+CMD ["node", "apps/web/scripts/railway-start.mjs"]
