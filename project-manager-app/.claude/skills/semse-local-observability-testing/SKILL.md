@@ -30,17 +30,40 @@ REDIS_URL=redis://127.0.0.1:6379
 STORAGE_PROVIDER=local
 ENABLE_LLM_ROUTER=false
 RATE_LIMIT_LIMIT=5000
+SEMSE_ALLOW_HEADER_IDENTITY=true               # local-only opt-in, see "Auth shortcut" below
 ```
 
-### Auth shortcut for CLI testing
-**Omit `AUTH_SECRET` entirely** and the API falls back to header identity auth
-(`authenticateRequest` in `apps/api/src/modules/auth/auth.service.ts:101` →
-`parseHeaderRequestContext`, `apps/api/src/common/request-context.ts:34`). Then every request just needs:
+### Auth shortcut for CLI testing (header identity — local only)
+Header identity is **fail-closed** (`core.header-identity-fail-closed`). Omitting `AUTH_SECRET` is no longer
+enough: without the explicit opt-in every protected route answers
+`503 "Authentication authority unavailable"`. The API trusts caller-supplied identity headers **only when all
+three hold** — `headerIdentityAllowed()` in `apps/api/src/common/request-context.ts:45`, used by
+`authenticateRequest` in `apps/api/src/modules/auth/auth.service.ts:160`:
+
+1. `AUTH_SECRET` is **unset** (if it is set, a Bearer token from the login flow is mandatory);
+2. `SEMSE_ALLOW_HEADER_IDENTITY=true` (exactly `"true"`);
+3. `NODE_ENV` is `development` or `test` (anything else, including unset, fails closed).
+
+Then every request just needs:
 ```
--H "x-tenant-id: tnt_demo" -H "x-org-id: org_admin_001" -H "x-user-id: usr_admin_001" -H "x-roles: OPS_ADMIN"
+-H "x-tenant-id: tenant_default" -H "x-org-id: org_admin_001" -H "x-user-id: usr_admin_001" -H "x-roles: OPS_ADMIN"
 ```
-No login/Bearer token needed. Roles → permissions live in `packages/auth/src/rbac.ts`.
-(If `AUTH_SECRET` is set, a Bearer token from the login flow is mandatory.)
+(the seeded tenant is `tenant_default`). Roles → permissions live in `packages/auth/src/rbac.ts`.
+
+**Why it exists:** it lets you exercise RBAC/tenant scoping from curl or Playwright without running the login
+flow. **Why it is dangerous:** whoever sends the headers *is* that user, any role, any tenant. It is an
+impersonation switch, so:
+- use it only on your own machine/sandbox against a disposable local database;
+- never set it in a shared, staging, preview or production environment, and never as a workaround for a real
+  auth problem — fix the auth path instead. The fail-closed policy above refuses it outside development/test
+  anyway, but do not rely on that alone;
+- when you finish, stop the API and remove the variable (`unset SEMSE_ALLOW_HEADER_IDENTITY`, or drop the line
+  from your local `apps/api/.env`, which is git-ignored — never commit it).
+
+**Web against this API:** run the web with `next dev` (development), which forwards the signed session's
+identity as headers. `next start` runs in production mode: it requires `SEMSE_BOOTSTRAP_TOKEN` to reach the API
+and rejects sessions of the seeded demo users (`usr_client_001`, `usr_worker_001`, `usr_admin_001`) by design —
+create your own synthetic users/memberships for browser tests.
 
 ## Start the services (log to files; nothing useful is on screen, so do not record)
 ```bash

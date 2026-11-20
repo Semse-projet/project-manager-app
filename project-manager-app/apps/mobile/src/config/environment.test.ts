@@ -9,6 +9,9 @@ describe("one API origin for every mobile surface", () => {
     expect(resolveApiBaseUrl({ legacy: "https://api.semseproject.com/" })).toBe("https://api.semseproject.com");
     expect(resolveApiBaseUrl({ canonical: "https://api.semseproject.com/", legacy: "https://api.semseproject.com/v1" })).toBe("https://api.semseproject.com");
   });
+  test("a trailing-dot FQDN is the same origin as the plain host", () => {
+    expect(resolveApiBaseUrl({ canonical: "https://staging-api.example.", legacy: "https://staging-api.example" })).toBe("https://staging-api.example");
+  });
   test("rejects conflicting backends", () => {
     expect(() => resolveApiBaseUrl({ canonical: "https://one.example", legacy: "https://two.example" })).toThrow(/distintas/);
   });
@@ -20,5 +23,14 @@ describe("one API origin for every mobile surface", () => {
   test("allows explicit LAN HTTP only in development", () => {
     expect(resolveApiBaseUrl({ canonical: "http://192.168.1.10:4132", development: true })).toBe("http://192.168.1.10:4132");
     expect(() => resolveApiBaseUrl({ canonical: "http://192.168.1.10:4132" })).toThrow(/URL/);
+  });
+  test("a pilot build requires an explicit, non-production API origin", () => {
+    expect(() => resolveApiBaseUrl({ appEnv: "pilot" })).toThrow(/staging/);
+    expect(() => resolveApiBaseUrl({ appEnv: "pilot", canonical: "https://api.semseproject.com/v1" })).toThrow(/producción/);
+    expect(() => resolveApiBaseUrl({ appEnv: "pilot", legacy: "https://api.semseproject.com" })).toThrow(/producción/);
+    // FQDN with a trailing dot is still production.
+    expect(() => resolveApiBaseUrl({ appEnv: "pilot", canonical: "https://api.semseproject.com./v1" })).toThrow(/producción/);
+    expect(() => resolveApiBaseUrl({ appEnv: "pilot", canonical: "https://API.SemseProject.com.." })).toThrow(/producción/);
+    expect(resolveApiBaseUrl({ appEnv: "pilot", canonical: "https://staging-api.example" })).toBe("https://staging-api.example");
   });
 });
