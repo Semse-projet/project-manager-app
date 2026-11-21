@@ -3,7 +3,7 @@ id: "labor.weekly-reconciliation"
 title: "Conciliación semanal del Time Tracker"
 domain: "labor"
 sdd_version: "2.0"
-version: "0.12"
+version: "0.13"
 status: "DRAFT"
 owner: "semse-core"
 risk: "critical"
@@ -48,7 +48,7 @@ related_agents: []
 last_verified: "2026-11-21"
 ---
 
-# Conciliación semanal · borrador para revisión (v0.12 DRAFT)
+# Conciliación semanal · borrador para revisión (v0.13 DRAFT)
 
 > **DRAFT / NO IMPLEMENTAR.** Esta SDD no autoriza código, migraciones, grants, membresías, flags, pruebas funcionales, CI, despliegue ni activación. B4-11/B4-12 siguen abiertos. Plan 3 sigue abierto.
 
@@ -62,7 +62,8 @@ last_verified: "2026-11-21"
 | v0.9 | misma ruta, commit `f199e615…` | Registra la **aprobación de producto de C3-17 (2026-11-21)** en §10.17 y su trazabilidad. Espejo Drive `SEMSE_Conciliacion_SDD_v0.9_DRAFT_2026-11-21.md` (SHA-256 `83312e52…e6`). |
 | v0.10 | misma ruta, commit `00cc6ebd…` | Añadió §10.17.6 (evidencia de código para los detalles P-C317) y un paquete de opciones para el dueño. No decidió ningún detalle. Espejo Drive SHA-256 `abc10832…6eae`. |
 | v0.11 | misma ruta, commit `59c745fe…` | Registró los detalles P-C317-01, 02, 06 y 07 confirmados por el dueño el 21-11 (§10.17.7). Espejo Drive SHA-256 `ec3af0a4…2458`. |
-| **v0.12** | misma ruta y rama, base `main@86c0be5468a7c96c0a9dd4bc8df34e386e7c8c7f` | Esta revisión: registra las **seis reglas operativas de C3-17** aprobadas por el dueño el 21-11 (§10.17.8, R-C317-13…18). Sigue `DRAFT` y **no** está en `main`. |
+| v0.12 | misma ruta, commit `80118039…` | Registró las **seis reglas operativas de C3-17** aprobadas por el dueño el 21-11 (§10.17.8, R-C317-13…18). Espejo Drive SHA-256 `6badeae5…8e41`. |
+| **v0.13** | misma ruta y rama, base `main@86c0be5468a7c96c0a9dd4bc8df34e386e7c8c7f` | Esta revisión: registra dos **precisiones derivadas** de C3-17 (§10.17.9, R-C317-19 y R-C317-20) y cierra el residual P-C317-01c. Sigue `DRAFT` y **no** está en `main`. |
 
 Según `docs/SOURCE_OF_TRUTH.md`, la SDD canónica es la del repositorio (`docs/specs/` + `docs/SPEC_INDEX.md`). Library y Drive son espejos; si contradicen al repositorio prevalece el repositorio. Library **no fue accesible** desde esta sesión: las versiones Library citadas (Plan 3 v70, Plan 9 v27, Plan 4 v38, Plan 6 v24, SDD v22) son referencias heredadas no revalidadas aquí.
 
@@ -627,7 +628,7 @@ El ajuste automático **no se implementa** hasta que la SDD esté aprobada y se 
 | C3-17 | R-C317-05 | clave idempotente | reintento sin duplicar | T-V06 | Bloqueado por G12 |
 | C3-17 | R-C317-06 | CAS del caso | carrera en el borde de 24 h: un solo ganador | T-V07 | Bloqueado por G10 |
 | C3-17 | R-C317-07 | alcance comparable | parte ambiguo o alcance incompatible: no se ajusta | T-V08 | NO EJECUTADA |
-| C3-17 | Detalles P-C317-01…09 resueltos (§10.17.7 y §10.17.8); queda P-C317-01c | — | — | T-V09…T-V18 | **Requiere decisión** |
+| C3-17 | Detalles P-C317-01…09 y residual P-C317-01c resueltos (§10.17.7–§10.17.9) | — | — | T-V09…T-V22 | **Requiere decisión** |
 
 ### 10.17.6 Evidencia de código para decidir P-C317-01…09 (v0.10; sólo hechos, sin elegir valores)
 
@@ -686,9 +687,9 @@ El dueño respondió en la sesión de trabajo del 21-11-2026 a las preguntas del
 | 5 | Al vencer sin resolución válida, las horas del parte **vigente** se usan como base de facturación del alcance comparable, **hacia arriba o hacia abajo**. No sobrescribe ni corrige `TimeEntry`; no aprueba nómina, factura ni pago | **R-C317-17** | Resuelve P-C317-08; reconfirma R-C317-12 y R-C317-02 |
 | 6 | Tras el vencimiento, una persona autorizada, incluido un supervisor con delegación explícita, puede reabrir con motivo y referencia al ajuste anterior. Se crea una nueva etapa; el historial conserva el ajuste previo y la evidencia nueva. La base de facturación cambia sólo según el resultado de esa revisión autorizada | **R-C317-18** | Resuelve P-C317-09; aplica C3-09 |
 
-**Lectura literal registrada, no una regla nueva:** la regla 3 sólo detiene el plazo con una *decisión registrada por persona autorizada*. Una devolución o una disputa (Plan 3 §6: «conservan el asunto pendiente») no son decisiones, así que, según el texto aprobado, no suspenden el plazo. Si el dueño quiere otro tratamiento, debe indicarlo.
+**[v0.13: convertida en regla aprobada R-C317-20, §10.17.9]** **Lectura literal registrada, no una regla nueva:** la regla 3 sólo detiene el plazo con una *decisión registrada por persona autorizada*. Una devolución o una disputa (Plan 3 §6: «conservan el asunto pendiente») no son decisiones, así que, según el texto aprobado, no suspenden el plazo. Si el dueño quiere otro tratamiento, debe indicarlo.
 
-**Detalle residual — P-C317-01c (requiere decisión):** cuando un mismo alcance comparable afecta a varios usuarios (p. ej. un parte agregado de cuadrilla, C3-07), qué constancia de notificación inicia el plazo. Hasta decidirlo, ese caso no tiene inicio de plazo definido y no recibe ajuste automático, lo que es coherente con R-C317-15.
+**[v0.13: resuelto por R-C317-19, §10.17.9]** **Detalle residual — P-C317-01c:** cuando un mismo alcance comparable afecta a varios usuarios (p. ej. un parte agregado de cuadrilla, C3-07), qué constancia de notificación inicia el plazo. Hasta decidirlo, ese caso no tiene inicio de plazo definido y no recibe ajuste automático, lo que es coherente con R-C317-15.
 
 #### Contrato lógico derivado (sin elegir tablas, endpoints ni capabilities)
 
@@ -709,7 +710,7 @@ El dueño respondió en la sesión de trabajo del 21-11-2026 a las preguntas del
 | G06–G07 auditoría A/B | La constancia, el ajuste y la reapertura requieren auditoría atómica y correlacionada | Plan 4 + auditoría |
 | G10, G12, G13 CAS, idempotencia, estados | Carrera entre decisión y vencimiento, reintentos y estados terminales | Labor |
 | Ejecución programada | Vencimiento puntual con identidad; hoy el worker no tiene principal de servicio | Runtime + Labor |
-| P-C317-01c | Alcances con varios usuarios | Dueño del producto |
+| P-C317-01c | Alcances con varios usuarios | Dueño del producto **[v0.13] Resuelto: R-C317-19** |
 | G35 CI / pruebas | T-V01…T-V18 sin ejecutar | CI (Plan 10) |
 
 #### Trazabilidad
@@ -723,6 +724,37 @@ El dueño respondió en la sesión de trabajo del 21-11-2026 a las preguntas del
 | 4 Cambio del parte | R-C317-16 | versionado y nuevo plazo | cambio material → versión nueva, nueva constancia, nuevo plazo; cambio no material → plazo intacto | T-V16 | Aprobada; NO EJECUTADA |
 | 5 Efecto y dirección | R-C317-17 | base = parte vigente, sube o baja | ajuste en ambas direcciones; `TimeEntry` intacto; sin nómina, factura ni pago | T-V12, T-V17 | Aprobada; NO EJECUTADA |
 | 6 Reapertura | R-C317-18 | nueva etapa con delegación | supervisor sin delegación → denegado; con delegación → nueva etapa e historial íntegro | T-V18 | Aprobada; NO EJECUTADA (bloqueada por C3-09/Plan 4) |
+
+### 10.17.9 Precisiones derivadas de C3-17 (2026-11-21, v0.13)
+
+**Fuente:** instrucción expresa del dueño del producto en la sesión de trabajo del 21-11-2026. Son **reglas de producto derivadas** de las decisiones ya aprobadas (C3-07, C3-17 y las reglas 1 a 6 de §10.17.8). No conceden permisos ni autorizan código, migraciones, cambios de datos, despliegues ni pagos.
+
+| # | Tema | Precisión aprobada | Requisito |
+|---|---|---|---|
+| A | Partes agregados y desglose | Un parte agregado sin desglose **no se atribuye ni se reparte** entre trabajadores. Cuando existe desglose comparable, **cada trabajador recibe su propia notificación** y su plazo de 24 h corre desde esa notificación | R-C317-19 |
+| B | Disputa, devolución y vencimiento | Una disputa o devolución **no suspende ni reinicia** el plazo; sólo una decisión registrada por una persona autorizada resuelve la diferencia. Al vencer se aplica la regla aprobada a la base de facturación, salvo que el parte sea ambiguo o el alcance no sea comparable; en esos casos no se ajusta y queda pendiente. `TimeEntry` queda intacto y se conserva el historial | R-C317-20 |
+
+- **R-C317-19** resuelve el residual **P-C317-01c** y es coherente con C3-07 (no repartir agregados). Con desglose comparable, cada trabajador es un alcance comparable propio: su constancia, su vencimiento y su resultado se registran por separado, y en un mismo parte unos trabajadores pueden quedar resueltos por decisión y otros ajustados por vencimiento.
+- **R-C317-20** convierte en regla aprobada la lectura literal registrada en v0.12 (§10.17.8, «Lectura literal registrada»): una disputa o devolución no es una decisión. Reafirma R-C317-15, R-C317-17 y R-C317-02.
+
+**Consecuencia registrada (no es una regla nueva):** con R-C317-13 el plazo empieza con la constancia de notificación **al usuario**. Un parte agregado sin desglose no genera notificación por trabajador, así que no tiene plazo ni ajuste automático y su diferencia permanece **pendiente de decisión humana**. Si se quisiera ajustar la base de facturación a nivel agregado, haría falta una regla explícita del dueño; no se presume.
+
+#### Contrato lógico derivado
+
+- Un **alcance comparable por trabajador** sólo existe si el parte trae un desglose de horas por trabajador para el mismo Job, periodo y alcance verificable. No hay prorrateo, inferencia ni asignación por similitud.
+- Constancia, vencimiento, decisión o ajuste y auditoría quedan **por trabajador y por versión del parte**. Un cambio material en el desglose de un trabajador abre un nuevo plazo sólo para ese trabajador (R-C317-16).
+- Los estados «devuelto» y «en disputa» conservan el asunto pendiente y **no** alteran el vencimiento calculado.
+
+#### Trazabilidad
+
+| Precisión | Requisito | Contrato | Aceptación observable | Prueba prevista | Estado |
+|---|---|---|---|---|---|
+| A — agregado sin desglose | R-C317-19 | sin atribución ni reparto | parte agregado → ninguna fila por trabajador, sin plazo, diferencia pendiente | T-V19 | Aprobada; NO EJECUTADA |
+| A — desglose comparable | R-C317-19 | una constancia y un plazo por trabajador | N trabajadores → N constancias y N vencimientos independientes; resultados mixtos posibles | T-V20 | Aprobada; NO EJECUTADA |
+| B — disputa o devolución | R-C317-20 | no altera el vencimiento | registrar disputa o devolución antes del vencimiento → el vencimiento no cambia y se aplica la regla | T-V21 | Aprobada; NO EJECUTADA |
+| B — parte ambiguo o alcance no comparable al vencer | R-C317-20 | sin ajuste | vence → sin ajuste, pendiente, `TimeEntry` intacto, historial completo | T-V22 | Aprobada; NO EJECUTADA |
+
+**Gates:** los mismos de §10.17.8 (identidad de servicio, persistencia del caso y de la constancia por trabajador, autoridad de decisión, delegación de reapertura, auditoría, CAS e idempotencia, ejecución programada, CI). Ninguno cambia con estas precisiones.
 
 ## 10.18 Matriz de pruebas previstas (ninguna ejecutada)
 
@@ -772,6 +804,10 @@ El dueño respondió en la sesión de trabajo del 21-11-2026 a las preguntas del
 | T-V16 | C3-17 regla 4: cambio material (horas o alcance) vs. no material del parte | integración | material → nueva versión, nueva constancia y nuevo plazo; no material → plazo intacto | NO EJECUTADA |
 | T-V17 | C3-17 regla 5: ajuste hacia arriba y hacia abajo | integración | base = parte vigente en ambos casos; `TimeEntry` intacto; sin factura ni pago | NO EJECUTADA |
 | T-V18 | C3-17 regla 6: reapertura por persona autorizada, por supervisor con delegación y por supervisor sin ella | integración autenticada | nueva etapa e historial íntegro; sin delegación → denegado | NO EJECUTADA (bloqueada por C3-09/Plan 4) |
+| T-V19 | C3-17 precisión A: parte agregado sin desglose | integración | sin atribución, sin reparto, sin plazo; diferencia pendiente | NO EJECUTADA |
+| T-V20 | C3-17 precisión A: desglose comparable con varios trabajadores | integración | una constancia y un vencimiento por trabajador; resultados independientes | NO EJECUTADA |
+| T-V21 | C3-17 precisión B: disputa o devolución antes del vencimiento | integración | el vencimiento no cambia; al vencer se aplica la regla | NO EJECUTADA |
+| T-V22 | C3-17 precisión B: parte ambiguo o alcance no comparable al vencer | integración | sin ajuste; pendiente; `TimeEntry` intacto | NO EJECUTADA |
 | T-V01 | Validadores documentales | documental | 0 errores/avisos | **EJECUTADA** (ver reporte del corte) |
 
 ## 10.19 Trazabilidad decisión → requisito → contrato → aceptación → prueba → resultado
@@ -790,6 +826,6 @@ El dueño respondió en la sesión de trabajo del 21-11-2026 a las preguntas del
 | **C3-17 aprobada por el dueño 2026-11-21** (ajuste por vencimiento al tiempo del pagador) | R-C317-01…08 | §10.17 | ver §10.17.5 | T-V01…T-V09 | Decisión de producto **aprobada**; detalles P-C317-01…09 **requieren decisión**; implementación bloqueada por G04/G07/G10/G12; pruebas NO EJECUTADAS |
 | Responsable del piloto: Yoni Castellanos (declarado por usuario 18-nov) | verificar designación y autoridad | §8 / Plan 4 | ninguna decisión sin autoridad verificada | T-R02 | Requiere evidencia; no se atribuyen permisos |
 
-## Estado de salida de v0.12
+## Estado de salida de v0.13
 
 `DRAFT`. C3-17 queda aprobada como decisión de producto; eso no cambia el estado de la SDD ni cierra gates técnicos. No hay implementación, migración, prueba funcional ni CI de esta revisión. Validadores documentales ejecutados localmente (ver `docs/reportes/2026-11-21_plan3-conciliacion-gates.md`). B4-11/B4-12 abiertos. **PLAN 3 AÚN ABIERTO.**

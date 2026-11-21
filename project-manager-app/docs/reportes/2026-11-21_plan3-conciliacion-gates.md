@@ -67,3 +67,10 @@ El dueño confirmó: pagadora = emisor declarado y, si no lo hay, `Job.clientOrg
 ## Addendum 4 — seis reglas operativas de C3-17 aprobadas (2026-11-21)
 
 El dueño aprobó seis reglas: inicio con la constancia de notificación al usuario; contenido y registro de la constancia; «sin resolver» como ausencia de decisión autorizada; nuevo plazo ante un cambio material del parte; ajuste de la base de facturación hacia arriba o hacia abajo sin tocar `TimeEntry`; y reapertura por persona autorizada o por supervisor con delegación. Todas aplican sólo con el mismo Job y un alcance verificable. Quedaron en la SDD v0.12 §10.17.8 (R-C317-13…18, pruebas T-V13…T-V18 sin ejecutar, gates técnicos y de autorización). Queda un residual: P-C317-01c (alcances con varios usuarios). Validaciones: estricto 220/0/0; `--base-ref` 0/0; índice 220; cobertura 0/0/0; 29/29.
+
+## Addendum 5 — precisiones derivadas de C3-17 (2026-11-21)
+
+- **R-C317-19 (precisión A):** un parte agregado sin desglose no se atribuye ni se reparte entre trabajadores. Con desglose comparable, cada trabajador recibe su propia notificación y corre su propio plazo. Resuelve el residual P-C317-01c.
+- **R-C317-20 (precisión B):** una disputa o devolución no suspende ni reinicia el plazo; sólo resuelve una decisión de persona autorizada. Con un parte ambiguo o un alcance no comparable no hay ajuste.
+- Consecuencia registrada: un parte agregado sin desglose no tiene plazo ni ajuste automático y queda pendiente de decisión humana.
+- Registradas en la SDD v0.13 §10.17.9, con pruebas T-V19…T-V22 sin ejecutar. Validaciones: estricto 220/0/0; `--base-ref` 0/0; índice 220; cobertura 0/0/0; 29/29.
