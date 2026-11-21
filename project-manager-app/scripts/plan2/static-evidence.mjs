@@ -7,7 +7,8 @@
 // del Plan 2. Imprime JSON con ruta, línea, blob SHA de git y resultado.
 //
 // Uso (desde project-manager-app/):
-//   node scripts/plan2/static-evidence.mjs [--root <dir>] [--out <archivo.json>]
+//   node scripts/plan2/static-evidence.mjs [--root <dir>] [--out <archivo.json>] [--since <sha>]
+// --since lista los archivos relevantes que cambiaron entre <sha> y HEAD.
 //
 // Un "found: false" en un control de bloqueo significa que el patrón que
 // sostenía el bloqueo ya no aparece: hay que re-evaluar, no cerrar el gate.
@@ -89,7 +90,42 @@ export const CHECKS = [
     file: 'packages/db/prisma/schema.prisma',
     pattern: /model Evidence \{[^}]*checksum\s+String\?/,
   },
+  {
+    id: 'D-06',
+    claim: 'UPLOADS_SIGNED_GET_MODE vale "off" si no está definida (lectura de archivos sin firma por defecto)',
+    file: 'apps/api/src/infrastructure/storage/signed-url.ts',
+    pattern: /UPLOADS_SIGNED_GET_MODE \?\? "off"/,
+  },
+  {
+    id: 'D-07',
+    claim: 'EVIDENCE_ORIGINAL_SHA256_MODE vale "off" si no está definida (sin checksum del original por defecto)',
+    file: 'apps/api/src/modules/evidence/evidence-original-integrity.ts',
+    pattern: /EVIDENCE_ORIGINAL_SHA256_MODE \?\? "off"/,
+  },
+  {
+    id: 'D-08',
+    claim: 'GET /v1/uploads/files/* está declarado @Public()',
+    file: 'apps/api/src/infrastructure/storage/uploads.controller.ts',
+    pattern: /@Public\(\)\s*\n\s*@Get\("files\/\*"\)/,
+  },
 ];
+
+/** Rutas cuyo cambio obliga a re-evaluar C/D/E. */
+export const RELEVANT_PATHS = [
+  'apps/api/src/modules/labor-engine', 'apps/api/src/modules/field-ops', 'apps/api/src/modules/evidence',
+  'apps/api/src/infrastructure/storage', 'apps/api/src/common/parse-query.ts', 'packages/db/prisma/schema.prisma',
+  'docs/specs/labor/personal-record-export.spec.md', 'docs/runbooks/BACKUP_RESTORE.md', 'docs/runbooks/FIELD_MEMORY_STORAGE_PREFLIGHT.md',
+  'scripts/field-memory-offsite-recovery-windows.ps1', 'scripts/field-memory-custody-gate.mjs', 'scripts/field-memory-source-inventory.mjs',
+];
+
+/** Archivos relevantes que cambiaron entre `since` y HEAD (null si `since` no está disponible localmente). */
+export function changedSince(root, since) {
+  try {
+    execFileSync('git', ['-C', root, 'cat-file', '-e', `${since}^{commit}`], { stdio: 'ignore' });
+  } catch { return null; }
+  const out = execFileSync('git', ['-C', root, 'diff', '--name-only', since, 'HEAD', '--', ...RELEVANT_PATHS], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+  return out.trim().split('\n').filter(Boolean);
+}
 
 function gitBlobSha(root, file) {
   try {
@@ -160,6 +196,15 @@ export async function runStaticEvidence(root) {
   return { generatedAt: new Date().toISOString(), head, scope: 'static-source-only', results };
 }
 
+export async function runWithSince(root, since) {
+  const report = await runStaticEvidence(root);
+  if (since) {
+    const changed = changedSince(root, since);
+    report.since = { commit: since, available: changed !== null, changedRelevantFiles: changed };
+  }
+  return report;
+}
+
 function pick(check) {
   return { id: check.id, claim: check.claim, file: check.file, expectAbsent: Boolean(check.expectAbsent) };
 }
@@ -168,8 +213,9 @@ async function main() {
   const args = process.argv.slice(2);
   const rootIdx = args.indexOf('--root');
   const outIdx = args.indexOf('--out');
+  const sinceIdx = args.indexOf('--since');
   const root = path.resolve(rootIdx >= 0 ? args[rootIdx + 1] : process.cwd());
-  const report = await runStaticEvidence(root);
+  const report = await runWithSince(root, sinceIdx >= 0 ? args[sinceIdx + 1] : undefined);
   const json = JSON.stringify(report, null, 2);
   if (outIdx >= 0) await writeFile(args[outIdx + 1], json + '\n');
   process.stdout.write(json + '\n');

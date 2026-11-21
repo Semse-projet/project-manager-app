@@ -1,8 +1,11 @@
 #!/usr/bin/env node
 // Plan 2 — comparación v4 ↔ v6 de colecciones exportadas del Site (solo lectura).
 //
-// Entrada: dos exportaciones JSON con forma { "<colección>": [ {..}, ... ] }
-// o { "collections": { ... } }. No publica, no importa, no combina, no
+// Entrada: dos exportaciones JSON con forma { "<colección>": [ {..}, ... ] },
+// { "collections": { ... } } o { "data": { ... } } (formato semse-hours-site-v1).
+// Las colecciones-mapa (objetos como assignments o reviews) se comparan por
+// clave de mapa. La comparación usa TODOS los campos (incluidos source y
+// synthetic), a diferencia del comparador del navegador de v5/v6. No publica, no importa, no combina, no
 // resuelve conflictos: los enumera y conserva AMBAS versiones por su hash.
 //
 // Salida (JSON): por colección, recuentos, sólo-en-A, sólo-en-B, idénticos,
@@ -40,10 +43,26 @@ async function readJson(file) {
   } finally { await fh.close(); }
 }
 
-function collectionsOf(doc) {
-  const root = doc && typeof doc === 'object' && doc.collections && typeof doc.collections === 'object' ? doc.collections : doc;
-  return Object.fromEntries(Object.entries(root ?? {}).filter(([, v]) => Array.isArray(v)));
+/** Raíz de colecciones: `collections`, `data` (formato semse-hours-site-v1) o el propio documento. */
+export function collectionsRoot(doc) {
+  if (doc && typeof doc === 'object') {
+    if (doc.collections && typeof doc.collections === 'object') return doc.collections;
+    if (doc.data && typeof doc.data === 'object' && !Array.isArray(doc.data)) return doc.data;
+  }
+  return doc;
 }
+
+/** Arreglos se comparan por `key`; objetos-mapa (p. ej. assignments, reviews) por su clave de mapa. */
+function collectionsOf(doc, key) {
+  const out = {};
+  for (const [name, v] of Object.entries(collectionsRoot(doc) ?? {})) {
+    if (Array.isArray(v)) out[name] = v;
+    else if (v && typeof v === 'object') out[name] = Object.entries(v).map(([k, value]) => ({ [key]: k, value, __mapEntry: true }));
+  }
+  return out;
+}
+
+export const canonicalSha256 = (v) => createHash('sha256').update(canonical(v)).digest('hex');
 
 function changedFields(a, b) {
   const keys = new Set([...Object.keys(a ?? {}), ...Object.keys(b ?? {})]);
@@ -56,8 +75,8 @@ export function parseCountSpec(spec) {
 }
 
 export function diffCollections(docA, docB, { key = 'id', counts = [] } = {}) {
-  const A = collectionsOf(docA);
-  const B = collectionsOf(docB);
+  const A = collectionsOf(docA, key);
+  const B = collectionsOf(docB, key);
   const names = [...new Set([...Object.keys(A), ...Object.keys(B)])].sort();
   const collections = [];
   const bodies = [];
@@ -134,7 +153,11 @@ async function main() {
   const { bodies, ...summary } = result;
   const report = {
     tool: 'plan2/diff-site-collections', checkedAt: new Date().toISOString(),
-    inputs: { a: { path: a, sha256: da.sha256, bytes: da.bytes }, b: { path: b, sha256: db.sha256, bytes: db.bytes } },
+    inputs: {
+      a: { path: a, sha256: da.sha256, bytes: da.bytes, canonicalCollectionsSha256: canonicalSha256(collectionsRoot(da.data)) },
+      b: { path: b, sha256: db.sha256, bytes: db.bytes, canonicalCollectionsSha256: canonicalSha256(collectionsRoot(db.data)) },
+    },
+    canonicalization: 'claves ordenadas recursivamente, sin espacios, JSON.stringify de JS; puede diferir de otra implementación en escapes no ASCII o formato numérico: cotejar antes de equiparar hashes',
     verdict: summary.unresolvedCollisions === 0 ? 'NO_COLLISIONS' : 'COLLISIONS_UNRESOLVED_DO_NOT_IMPORT',
     ...summary,
   };

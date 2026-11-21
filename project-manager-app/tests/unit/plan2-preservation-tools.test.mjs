@@ -7,7 +7,7 @@ import path from 'node:path';
 import { after, before, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { parseCsv, verifyPackage } from '../../scripts/plan2/verify-preservation-package.mjs';
+import { applyTransform, parseCsv, verifyPackage } from '../../scripts/plan2/verify-preservation-package.mjs';
 import { diffCollections } from '../../scripts/plan2/diff-site-collections.mjs';
 import { runStaticEvidence } from '../../scripts/plan2/static-evidence.mjs';
 
@@ -81,8 +81,15 @@ describe('plan2 verify-preservation-package (sintético)', () => {
       expect: { uiTotalSeconds: 210 },
     }, { baseDir: dir });
     assert.equal(r.summary.laborSeconds, 270);
-    assert.deepEqual(r.summary.alternativeSums, [{ label: 'UI: durationMinutes·60 o accumulatedSeconds', seconds: 210, minusPrimarySeconds: -60, uiMinusThisSeconds: 0 }]);
+    assert.deepEqual(r.summary.alternativeSums, [{ label: 'UI: durationMinutes·60 o accumulatedSeconds', transform: null, seconds: 210, minusPrimarySeconds: -60, uiMinusThisSeconds: 0 }]);
     assert.ok(r.findings.some((f) => f.code === 'UI_TOTAL_DIFFERS'), 'la diferencia frente a la suma primaria sigue informada');
+  });
+
+  it('applyTransform aplica redondeos por fila sin alterar la entrada', () => {
+    assert.equal(applyTransform(119, 'floorMinute'), 60);
+    assert.equal(applyTransform(90, 'roundMinute'), 120);
+    assert.equal(applyTransform(3600 * 1.234, 'roundHours2'), 3600 * 1.23);
+    assert.throws(() => applyTransform(1, 'otra'));
   });
 
   it('FAIL ante hash alterado', async () => {
@@ -136,6 +143,29 @@ describe('plan2 diff-site-collections (sintético)', () => {
     const c = diffCollections(v4, v6).collections[0];
     assert.deepEqual(c.classification, { coincidencias: 1, candidatos: 1, conflictos: 1, huerfanosA: 1, huerfanosB: 1, sinClave: 0 });
     assert.deepEqual(c.candidates, [{ keyA: 'old', keysB: ['new'] }]);
+  });
+
+  it('formato data (semse-hours-site-v1): detecta cambios sólo en source/synthetic y en colecciones-mapa', () => {
+    const base = { format: 'semse-hours-site-v1', exportedAt: 'T1', data: {
+      entries: [{ id: 'e1', horas: 1, source: 'manual', synthetic: false }],
+      proposals: [{ id: 'p1', entryId: 'e1', horas: 1 }],
+      assignments: { w1: { org: 'o1' } },
+      reviews: {},
+    } };
+    const other = { format: 'semse-hours-site-v1', exportedAt: 'T2', data: {
+      entries: [{ id: 'e1', horas: 1, source: 'import', synthetic: true }],
+      proposals: [{ id: 'p1', entryId: 'e1', horas: 2 }],
+      assignments: { w1: { org: 'o2' } },
+      reviews: {},
+    } };
+    const r = diffCollections(base, other);
+    const by = Object.fromEntries(r.collections.map((c) => [c.name, c]));
+    assert.deepEqual(by.entries.collisions[0].changedFields, ['source', 'synthetic']);
+    assert.equal(by.proposals.classification.conflictos, 1, 'proposals con mismo ID y contenido distinto es conflicto, no omisión');
+    assert.equal(by.assignments.classification.conflictos, 1, 'mapa con valor distinto se conserva como conflicto');
+    assert.equal(r.collections.some((c) => c.name === 'format' || c.name === 'exportedAt'), false);
+    const same = diffCollections(base, { ...base, exportedAt: 'T3' });
+    assert.equal(same.unresolvedCollisions, 0, 'reexport que sólo cambia exportedAt no genera conflictos');
   });
 
   it('claves duplicadas y registros sin clave cuentan como no resueltos', () => {

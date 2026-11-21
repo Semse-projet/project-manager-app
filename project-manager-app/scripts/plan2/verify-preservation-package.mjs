@@ -84,6 +84,15 @@ export function toSeconds(value, unit) {
   return n; // seconds
 }
 
+/** Transformaciones por fila para contrastar hipótesis de redondeo; no corrigen datos. */
+export function applyTransform(seconds, transform) {
+  if (!transform) return seconds;
+  if (transform === 'floorMinute') return Math.floor(seconds / 60) * 60;
+  if (transform === 'roundMinute') return Math.round(seconds / 60) * 60;
+  if (transform === 'roundHours2') return Math.round((seconds / 3600) * 100) * 36;
+  throw new Error(`transform desconocida: ${transform}`);
+}
+
 function isSynthetic(record, marker) {
   if (!marker) return false;
   return String(getPath(record, marker.field)) === String(marker.value);
@@ -162,9 +171,9 @@ export async function verifyPackage(manifest, { baseDir = process.cwd() } = {}) 
       const seconds = labor.reduce((s, r) => {
         const primary = toSeconds(getPath(r, alt.field), alt.unit);
         const fallback = alt.fallbackField ? toSeconds(getPath(r, alt.fallbackField), alt.fallbackUnit) : null;
-        return s + (primary ?? fallback ?? 0);
+        return s + applyTransform(primary ?? fallback ?? 0, alt.transform);
       }, 0);
-      const out = { label: alt.label ?? alt.field, seconds, minusPrimarySeconds: seconds - laborSeconds };
+      const out = { label: alt.label ?? alt.field, transform: alt.transform ?? null, seconds, minusPrimarySeconds: seconds - laborSeconds };
       if (manifest.expect?.uiTotalSeconds != null) out.uiMinusThisSeconds = manifest.expect.uiTotalSeconds - seconds;
       return out;
     });

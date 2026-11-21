@@ -1,6 +1,6 @@
 # SEMSE — Plan 2 «Preservación de datos y linaje» · Paquete de actualización v34 → v35
 
-**Fecha:** 2026-11-21 · **Revisión del paquete:** r2 · **Preparado por:** agente técnico de ejecución (sesión Claude Code) · **Estado de este documento:** BORRADOR PARA EL PROPIETARIO — no revisado, no aprobado, no fusionado en el plan.
+**Fecha:** 2026-11-21 · **Revisión del paquete:** r3 · **Preparado por:** agente técnico de ejecución (sesión Claude Code) · **Estado de este documento:** BORRADOR PARA EL PROPIETARIO — no revisado, no aprobado, no fusionado en el plan.
 
 > ## Aviso de autoridad — leer primero
 >
@@ -12,6 +12,16 @@
 > Tampoco fueron accesibles: Planes 0, 1 (su rama cerrada), 3, 4, 6, 11 y 13; el respaldo JSON (SHA-256 `821f55d1…b357`); las dos exportaciones JSON; el CSV; el Site v4/v6 y el kit v4→v6.
 >
 > Por eso este documento **no es el plan íntegro v35** y no reproduce ni reconstruye el contenido de v34. Es el conjunto de cambios, evidencias, matriz y conclusiones que el propietario debe incorporar sobre v34. Los identificadores `P2-…` son provisionales y deben mapearse a los de v34. Las reglas de clasificación del Plan 2 (coincidencia/candidato/conflicto/huérfano) no se conocen textualmente: las definiciones de §3.B son **provisionales** y deben alinearse con v34.
+
+> ## r3 — 2026-11-21: v34 recibida; plan íntegro v35 fuera del repositorio
+>
+> - El propietario pegó en la sesión el texto del Plan 2 (cabecera «Fecha de revisión: 20 de noviembre de 2026», sin número de versión; identificado por el propietario como v34). Con él se produjo el **archivo íntegro `SEMSE_Plan_2_Preservacion_Datos_Linaje.md` v35**, entregado al propietario por la sesión y **no versionado aquí**: el repositorio es público y el plan contiene IDs de registros, nombres de proyectos del cliente, horas e IDs de la Biblioteca (minimización, §12.2 del plan). Este paquete queda como registro técnico sin datos de registros.
+> - Los artefactos que cita la v34 (respaldo JSON, segunda exportación, CSV, manifiesto `5547…`, verificador Python `761b…`, derivados de Plan 3) siguen en la Biblioteca de ChatGPT y **no se re-ejecutaron**.
+> - **Corrección:** la hipótesis de §3.A sobre los 120 s se basaba en el tracker web de SEMSE. Según la v34 (§2.20), el total histórico de 171,50 h procede de la **interfaz del Site** (HTML v4), así que esa regla no aplica salvo prueba en contrario. Queda **retirada** como hipótesis principal; el verificador ofrece transformaciones por fila (`floorMinute`, `roundMinute`, `roundHours2`) para contrastar reglas sobre el respaldo.
+> - Código: `git diff 7029da63…86c0be5` (el SHA que cita la v34 frente al actual) está vacío en todas las rutas relevantes. Nuevos controles D-06 (`UPLOADS_SIGNED_GET_MODE ?? "off"`), D-07 (`EVIDENCE_ORIGINAL_SHA256_MODE ?? "off"`) y D-08 (`@Public()` en `files/*`): todos HOLDS.
+> - `diff-site-collections` admite el formato `semse-hours-site-v1` (`data`) y las colecciones-mapa (`assignments`, `reviews`), y compara todos los campos, incluidos `source` y `synthetic`. Cubre por diseño las brechas de merge v5/v6 descritas en la v34. **12/12 pruebas sintéticas PASS.**
+> - Mapeo de IDs: P2-C1 = D2-06, P2-D2/D3 = D2-07, P2-E1 = D2-08/O11-10. La matriz completa con 28 pendientes está en §14 del plan íntegro.
+> - Se retiró de este documento el identificador de una carpeta privada de Drive que figuraba en r1/r2; permanece en el historial de la rama.
 
 ---
 
@@ -72,7 +82,7 @@ No se detectaron diferencias entre planes porque no se pudo leer ninguno; queda 
 | `docs/reportes/2026-10-24_worker-personal-export-as-is.md` | en `main` | inventario previo F1-H01…H07, **histórico** |
 | `docs/runbooks/BACKUP_RESTORE.md` (commit `c64d01c5`), `docs/reportes/2026-10-12_f07_primer_drill_restore_postgres.md`, `docs/reportes/2026-10-13_field-memory-offsite-recovery-gates.md`, `scripts/field-memory-offsite-restore-rehearsal.mjs`, `scripts/backup/pg-restore-drill.sh` | en `main` | procedimiento y gates de recuperación (E), **histórico** |
 | `.claude/skills/semse-backup-restore-verification/SKILL.md` | en `main` | niveles de evidencia (E) |
-| Google Drive, carpeta privada `15_RESPALDO_GITHUB_Y_RAILWAY` (`1P2TL-YxZv_YSy-3gc0LMixiz4LYvYfsh`) | informe y LEEME (mod. 2026-11-06T00:23Z); metadatos y fragmento inicial del manifiesto JSON | candidato para O11-10 (E). **No** se descargaron dump, RDB, tar ni zip |
+| Google Drive, carpeta privada `15_RESPALDO_GITHUB_Y_RAILWAY` (ID omitido) | informe y LEEME (mod. 2026-11-06T00:23Z); metadatos y fragmento inicial del manifiesto JSON | candidato para O11-10 (E). **No** se descargaron dump, RDB, tar ni zip |
 | Railway, proyecto `SEMSEproject`, entorno `production` (`d682210a…`) | `describe-environment` y `list-deployments` de `semse-API`, 2026-11-21 | paridad de SHA desplegado (C, D) e inventario de volúmenes (E). Sin logs, variables, SSH, backups ni cambios |
 
 **Railway (solo lectura, 2026-11-21):** el despliegue activo de `semse-API` (`3ce6c26a…`, SUCCESS, creado 2026-11-20T05:14:55Z) declara `commitHash 86c0be5…`, el mismo que se inspeccionó. `semse-web`, `semse-worker` y `semse-vision` tienen despliegues de la misma marca de tiempo. Volúmenes: `postgres-volume`, `redis-volume` y `project-manager-app-volume` (`/data` de `semse-API`), 5000 MB cada uno; sin buckets; sin cambios staged. **Límites:** la paridad de SHA según metadatos de Railway no demuestra el comportamiento en ejecución, y el inventario de volúmenes no demuestra que existan backups ni que sean recuperables.
@@ -126,7 +136,7 @@ Plan 2 v34 y Planes 0, 1, 3, 4, 6, 11, 13 · respaldo `821f…`, exportaciones J
 
 **Qué demuestra el hash y qué no:** un SHA-256 igual demuestra que los bytes son idénticos a los de la copia de referencia. No demuestra quién generó el archivo, que su contenido sea veraz, que las horas sean exactas o estén aprobadas, ni que el respaldo esté completo frente al Site o a `TimeEntry`.
 
-**Diferencia de 120 s: abierta.** Hipótesis derivada del código, no causa demostrada:
+**Diferencia de 120 s: abierta.** [r3: hipótesis **retirada**: el total procede del Site, no del tracker; ver el aviso r3] Hipótesis derivada del código del tracker, no causa demostrada:
 - el servidor guarda `durationMinutes = floor(totalSeconds/60)` y `accumulatedSeconds = totalSeconds`;
 - la interfaz (`entrySeconds`) usa `durationMinutes·60` cuando existe y `fmtHours` redondea a 0,01 h (36 s);
 - las filas `pending_sync` usan `Math.round(seconds/60)`.
@@ -249,7 +259,7 @@ Estados: **demostrado** · **pendiente** · **bloquea** · **requiere revisión 
 | P2-D1 | Referencia concreta de Evidence en el respaldo | requiere revisión humana | Estado previo: ninguna; no re-verificado | — | Plan 1 / propietario | Buscar claves en la copia de trabajo, sin binarios | Sí/no registrado con el hash del archivo |
 | P2-D2 | Relación `TimeEntry`–`TimeEvidence`–`Evidence`, ownership, DTO, checksum, retención | bloquea | D-01…D-05 HOLDS | `schema.prisma` `147d5ad1` | Plan 6 (+ Plan 4) | Decisión y modelo de Plan 6 | Esquema y pruebas de doble autorización con negativos |
 | P2-D3 | Abrir binarios de Evidence | mantener bloqueado | Nada abierto | — | Plan 6 + propietario | Ninguna | D2 cerrado + autorización |
-| P2-E1 | Recuperación aislada (O11-10) | mantener bloqueado | Candidato Drive 2026-11-05 autodeclarado; requisitos §3.E incompletos | Drive `1P2TL…`; runbook `c64d01c5` | Plan 11 | Designar operador, ventana, destino cifrado y autorización | Inventario, tamaños y hashes sin faltantes ni inesperados, con registro del operador |
+| P2-E1 | Recuperación aislada (O11-10) | mantener bloqueado | Candidato Drive 2026-11-05 autodeclarado; requisitos §3.E incompletos | Drive (carpeta privada); runbook `c64d01c5` | Plan 11 | Designar operador, ventana, destino cifrado y autorización | Inventario, tamaños y hashes sin faltantes ni inesperados, con registro del operador |
 | P2-E2 | Custodia del dump con PII en Drive | requiere revisión humana | PRIVATE; cifrado no demostrado | metadatos Drive | Plan 11 / propietario | Decidir cifrado, retención o eliminación | Decisión registrada y aplicada por el responsable |
 
 ---

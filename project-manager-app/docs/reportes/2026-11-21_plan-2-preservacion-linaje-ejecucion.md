@@ -15,7 +15,7 @@
 
 1. La interfaz del tracker suma `durationMinutes·60` (truncado con `floor` en el servidor) y redondea a 0,01 h; es hipótesis verificable —no causa— de la diferencia de 120 s.
 2. `TimeEvidence` no tiene FK a `Evidence`, ni `tenantId`, ni checksum, y ningún código lo usa: la cadena `TimeEntry`–`TimeEvidence`–`Evidence` no existe en el esquema.
-3. Existe en Drive un respaldo autodeclarado del 2026-11-05 con restore aislado reportado; candidato para Plan 11/O11-10, **no verificado**. Su custodia (dump con PII en Drive sin cifrado de destino demostrado) requiere decisión humana.
+3. Existe en Drive (carpeta privada) un respaldo autodeclarado del 2026-11-05 con restore aislado reportado; candidato para Plan 11/O11-10, **no verificado**. Su custodia (dump con PII en Drive sin cifrado de destino demostrado) requiere decisión humana.
 
 ## Segunda intervención (r2, mismo día)
 
@@ -24,7 +24,14 @@
 - `diff-site-collections` clasifica coincidencias, candidatos (re-clave), conflictos y huérfanos sin emparejar; el verificador rotula sus sumas como no aprobadas. 10/10 pruebas sintéticas PASS.
 - Paquete r2: contexto del propietario (Time Tracker nativo, `TimeEntry` canónico), responsables por plan con Plan 13, puerta de ejecución P2-G1 (sin aprobación demostrada) y P2-A6 (discrepancia de Railway de Plan 1).
 
+## Tercera intervención (r3, mismo día)
+
+- El propietario pegó en la sesión el texto del Plan 2 v34. Con él se produjo el archivo íntegro v35, entregado fuera del repositorio porque este es público y el plan contiene datos a nivel de registro. Ver el aviso r3 del paquete.
+- Se **retira** el hallazgo 1 como hipótesis de los 120 s: el total histórico procede del Site (HTML v4), no del tracker web de SEMSE.
+- Diff `7029da63…86c0be5` vacío en las rutas relevantes; nuevos controles D-06…D-08 HOLDS.
+- `diff-site-collections` admite `data` y colecciones-mapa, y compara `source`/`synthetic`. El verificador admite transformaciones por fila. 12/12 pruebas PASS.
+
 ## Gobernanza
 
-- No es feature de dominio: herramientas de verificación en `scripts/` y documentación, sin endpoints, sin cambios de esquema ni de permisos. No se tocó Railway, producción, Evidence, CI ni flags.
+- No es feature de dominio: herramientas de verificación en `scripts/` y documentación, sin endpoints, sin cambios de esquema ni de permisos. En Railway solo se leyeron inventario y metadatos de despliegue; no se tocaron producción, Evidence, CI ni flags.
 - Bloqueos y solicitud única al propietario: ver §5–§6 del paquete.

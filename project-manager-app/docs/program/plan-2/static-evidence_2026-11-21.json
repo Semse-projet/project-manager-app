@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-11-21T03:16:45.153Z",
-  "head": "86c0be5468a7c96c0a9dd4bc8df34e386e7c8c7f",
+  "generatedAt": "2026-11-21T03:27:59.720Z",
+  "head": "c3948486740ac07055ba8794ab8561213319f4ba",
   "scope": "static-source-only",
   "results": [
     {
@@ -111,6 +111,33 @@
       "blobSha": "147d5ad154ee515205643f62359c5d5922ee93c7"
     },
     {
+      "id": "D-06",
+      "claim": "UPLOADS_SIGNED_GET_MODE vale \"off\" si no está definida (lectura de archivos sin firma por defecto)",
+      "file": "apps/api/src/infrastructure/storage/signed-url.ts",
+      "expectAbsent": false,
+      "status": "HOLDS",
+      "line": 20,
+      "blobSha": "d215d01996898d92b9f3b9ed48da13ad8c8e5dac"
+    },
+    {
+      "id": "D-07",
+      "claim": "EVIDENCE_ORIGINAL_SHA256_MODE vale \"off\" si no está definida (sin checksum del original por defecto)",
+      "file": "apps/api/src/modules/evidence/evidence-original-integrity.ts",
+      "expectAbsent": false,
+      "status": "HOLDS",
+      "line": 8,
+      "blobSha": "f54148385d4e8b4a63a9f05efaff4781df0ad9af"
+    },
+    {
+      "id": "D-08",
+      "claim": "GET /v1/uploads/files/* está declarado @Public()",
+      "file": "apps/api/src/infrastructure/storage/uploads.controller.ts",
+      "expectAbsent": false,
+      "status": "HOLDS",
+      "line": 260,
+      "blobSha": "694841ac445ce356e3249e208ae64f5b34151bcd"
+    },
+    {
       "id": "D-05",
       "claim": "Ningún código de apps/ o packages/ lee o escribe prisma.timeEvidence",
       "file": "apps/**, packages/**",
@@ -119,5 +146,10 @@
       "blobSha": null,
       "matches": []
     }
-  ]
+  ],
+  "since": {
+    "commit": "7029da63e719b264f7b2bfaff7eb4b716fe167b9",
+    "available": true,
+    "changedRelevantFiles": []
+  }
 }
