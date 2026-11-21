@@ -63,3 +63,7 @@ No se tocó código, esquema, migraciones, workflows, permisos ni configuración
 ## Addendum 3 — detalles de C3-17 confirmados (2026-11-21)
 
 El dueño confirmó: pagadora = emisor declarado y, si no lo hay, `Job.clientOrgId` (P-07); inicio = creación de la notificación (P-01); 24 h transcurridas entre instantes (P-02); efecto limitado a la base de facturación (P-06). Quedó registrado en la SDD v0.11 §10.17.7 (R-C317-09…12, pruebas T-V09…T-V12 sin ejecutar). Siguen pendientes P-01b, P-03, P-04, P-05, P-08 y P-09. Validaciones: estricto 220/0/0; `--base-ref` 0/0; índice 220; cobertura 0/0/0; 29/29.
+
+## Addendum 4 — seis reglas operativas de C3-17 aprobadas (2026-11-21)
+
+El dueño aprobó seis reglas: inicio con la constancia de notificación al usuario; contenido y registro de la constancia; «sin resolver» como ausencia de decisión autorizada; nuevo plazo ante un cambio material del parte; ajuste de la base de facturación hacia arriba o hacia abajo sin tocar `TimeEntry`; y reapertura por persona autorizada o por supervisor con delegación. Todas aplican sólo con el mismo Job y un alcance verificable. Quedaron en la SDD v0.12 §10.17.8 (R-C317-13…18, pruebas T-V13…T-V18 sin ejecutar, gates técnicos y de autorización). Queda un residual: P-C317-01c (alcances con varios usuarios). Validaciones: estricto 220/0/0; `--base-ref` 0/0; índice 220; cobertura 0/0/0; 29/29.
