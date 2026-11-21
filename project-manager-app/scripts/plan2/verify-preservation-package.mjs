@@ -155,6 +155,9 @@ export async function verifyPackage(manifest, { baseDir = process.cwd() } = {}) 
     const synthetic = records.filter((r) => isSynthetic(r, rc.syntheticMarker));
     const labor = records.filter((r) => !isSynthetic(r, rc.syntheticMarker)
       && (!rc.laborPurpose || String(getPath(r, rc.purposeField)) === String(rc.laborPurpose)));
+    // Una duración ausente o no numérica no se cuenta como cero medido: es un fallo explícito.
+    const invalidDurations = labor.filter((r) => toSeconds(getPath(r, rc.durationField), rc.durationUnit) == null).length;
+    if (invalidDurations) fail('INVALID_DURATION', `${invalidDurations} registros del propósito laboral sin duración numérica en ${rc.durationField}`);
     const laborSeconds = labor.reduce((s, r) => s + (toSeconds(getPath(r, rc.durationField), rc.durationUnit) ?? 0), 0);
     Object.assign(summary, {
       jsonRecords: records.length,
@@ -163,6 +166,7 @@ export async function verifyPackage(manifest, { baseDir = process.cwd() } = {}) 
       syntheticPreserved: synthetic.length, // contados, nunca eliminados ni sumados
       laborPurpose: rc.laborPurpose ?? null,
       laborRecords: labor.length,
+      invalidDurations,
       laborSeconds,
     });
     // Sumas alternativas (p. ej. Σ durationMinutes·60, como hace la UI del

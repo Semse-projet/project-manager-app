@@ -129,6 +129,19 @@ describe('plan2 verify-preservation-package (sintético)', () => {
     assert.equal(r.csvComparison.distinctComparedIds, 1);
   });
 
+  it('FAIL si una duración laboral no es numérica (no se suma como cero)', async () => {
+    const body = JSON.stringify([{ id: 'a', purpose: 'payable', s: 60 }, { id: 'b', purpose: 'payable', s: 'corrupt' }]);
+    await writeFile(path.join(dir, 'bad.json'), body);
+    const r = await verifyPackage({
+      files: [{ role: 'j', path: 'bad.json' }],
+      records: { jsonRole: 'j', idField: 'id', durationField: 's', durationUnit: 'seconds', purposeField: 'purpose', laborPurpose: 'payable' },
+      expect: { laborRecords: 2 },
+    }, { baseDir: dir });
+    assert.equal(r.status, 'FAIL');
+    assert.ok(r.findings.some((f) => f.code === 'INVALID_DURATION'));
+    assert.equal(r.summary.invalidDurations, 1);
+  });
+
   it('parseCsv rechaza una última celda con comillas sin cerrar', () => {
     assert.throws(() => parseCsv('id,s\na,"60'), /comillas sin cerrar/);
   });

@@ -15,11 +15,12 @@
 
 > ## r6 — 2026-11-21: correcciones de la revisión automática del PR
 >
-> Se atendieron los 9 comentarios de la revisión del PR, todos verificados contra el código. Ninguna corrección cambia los resultados sobre los datos reales; reejecutados sobre copias: PASS con 20 IDs distintos cotejados, `NO_COLLISIONS` con hash canónico `4cd2eb39…` y 15/15 controles HOLDS.
+> Se atendieron los 13 comentarios de la revisión automática del PR (9 de Devin y 4 de Codex; tres de Codex repetían hallazgos de Devin), todos verificados contra el código. Ninguna corrección cambia los resultados sobre los datos reales; reejecutados sobre copias: PASS con 20 IDs distintos cotejados, `NO_COLLISIONS` con hash canónico `4cd2eb39…` y 15/15 controles HOLDS.
 >
 > **`verify-preservation-package.mjs`**
 > - Falla con `DUPLICATE_IDS_IN_CSV` si el CSV repite IDs. `expect.comparedIds` se compara ahora con los IDs distintos cotejados, no con el número de filas.
 > - El parser CSV rechaza una celda final con comillas sin cerrar (archivo truncado).
+> - Falla con `INVALID_DURATION` si un registro del propósito laboral no tiene duración numérica, en lugar de sumarla como cero.
 >
 > **`diff-site-collections.mjs`**
 > - Recorre la unión de claves. Una clave duplicada en cualquiera de los lados cuenta como **un** conflicto, conserva sus cuerpos y queda fuera de candidatos y huérfanos.
@@ -31,7 +32,7 @@
 > - Lee archivos, búsquedas y `--since` de **un único commit** (`--rev`, por defecto HEAD) mediante `git show` y `git grep`, no del árbol de trabajo. Así, el blob citado es el que se analizó.
 > - `--out` crea el archivo en exclusiva (nunca sobrescribe) y rechaza destinos dentro del checkout.
 >
-> **Pruebas:** 18/18 sintéticas en PASS (6 nuevas, una por cada defecto corregido).
+> **Pruebas:** 19/19 sintéticas en PASS (7 nuevas, una por cada defecto corregido).
 >
 > **Documentación**
 > - §5 y §8 quedan marcadas como estado de r2. A1, A2, A3 y A5 pasaron a demostrados en r4.
@@ -344,10 +345,10 @@ Para pasar del trabajo independiente a la ejecución del Plan 2 hace falta **una
 
 | Archivo | SHA-256 |
 |---|---|
-| `scripts/plan2/verify-preservation-package.mjs` | `f6f829fb1df699527e65d29e33af9b3a70bab76745c9920667198883cf9c3d63` |
+| `scripts/plan2/verify-preservation-package.mjs` | `e34ddc449a9d2a7cb86866cf36cb37725ece4722ce2b22414a5161ff95f4461f` |
 | `scripts/plan2/diff-site-collections.mjs` | `e4cd8753a6ae353fff94c3228027a3317eb8d3e4c8b9cf549b4f0673f5cd56a2` |
 | `scripts/plan2/static-evidence.mjs` | `bf7fc6507db14100c1a9f718759da986c17f098f816a43716803df6a21caf0a2` |
-| `tests/unit/plan2-preservation-tools.test.mjs` | `8c0560f253d3b59ed4eb29d257089547119f481be04c84b4110776697c3aa5df` |
+| `tests/unit/plan2-preservation-tools.test.mjs` | `f31e75bb036cd00afb244e474adaaa29065f6139ff8d3fcabbe40470dff678c5` |
 | `docs/program/plan-2/static-evidence_2026-11-21.json` | `9858b2e16164d6cfe5b12b3ef8ab5fc09d58341867ae36a789b4d52be2d095db` |
 | este documento | se calcula fuera del documento (un archivo no puede contener su propio hash) |
 
