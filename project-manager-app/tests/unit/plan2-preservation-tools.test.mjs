@@ -130,6 +130,14 @@ describe('plan2 diff-site-collections (sintético)', () => {
     assert.ok(r.unresolvedCollisions > 0);
   });
 
+  it('clasifica coincidencias, candidatos (re-clave), conflictos y huérfanos sin emparejar', () => {
+    const v4 = { C: [{ id: 'same', v: 1 }, { id: 'old', v: 7 }, { id: 'gone', v: 9 }, { id: 'chg', v: 1 }] };
+    const v6 = { C: [{ id: 'same', v: 1 }, { id: 'new', v: 7 }, { id: 'fresh', v: 3 }, { id: 'chg', v: 2 }] };
+    const c = diffCollections(v4, v6).collections[0];
+    assert.deepEqual(c.classification, { coincidencias: 1, candidatos: 1, conflictos: 1, huerfanosA: 1, huerfanosB: 1, sinClave: 0 });
+    assert.deepEqual(c.candidates, [{ keyA: 'old', keysB: ['new'] }]);
+  });
+
   it('claves duplicadas y registros sin clave cuentan como no resueltos', () => {
     const r = diffCollections({ C: [{ id: 'a' }, { id: 'a', v: 2 }, { v: 3 }] }, { C: [{ id: 'a' }] });
     assert.ok(r.unresolvedCollisions >= 2);

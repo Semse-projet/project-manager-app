@@ -87,13 +87,39 @@ export function diffCollections(docA, docB, { key = 'id', counts = [] } = {}) {
       bodies.push({ collection: name, key: k, versionA: va, versionB: vb });
     }
     for (const k of mb.keys()) if (!ma.has(k)) out.onlyInB.push(k);
+    // Candidatos: registros sin pareja por clave cuyo contenido (sin la clave)
+    // es byte-idéntico en canónico al de un registro sin pareja del otro lado.
+    // Sólo se listan para revisión humana; nunca se emparejan ni combinan.
+    const withoutKey = (r) => { const { [key]: _omit, ...rest } = r ?? {}; return hashOf(rest); };
+    const orphanB = new Map();
+    for (const k of out.onlyInB) for (const r of mb.get(k)) {
+      const h = withoutKey(r);
+      if (!orphanB.has(h)) orphanB.set(h, []);
+      orphanB.get(h).push(k);
+    }
+    out.candidates = [];
+    const candidateA = new Set();
+    const candidateB = new Set();
+    for (const k of out.onlyInA) for (const r of ma.get(k)) {
+      const ks = orphanB.get(withoutKey(r));
+      if (ks) { out.candidates.push({ keyA: k, keysB: ks }); candidateA.add(k); ks.forEach((x) => candidateB.add(x)); }
+    }
+    out.classification = {
+      coincidencias: out.identical,
+      candidatos: out.candidates.length,
+      conflictos: out.collisions.length + out.duplicateKeys.a.length + out.duplicateKeys.b.length,
+      huerfanosA: out.onlyInA.filter((k) => !candidateA.has(k)).length,
+      huerfanosB: out.onlyInB.filter((k) => !candidateB.has(k)).length,
+      sinClave: out.keyless.a + out.keyless.b,
+    };
     collections.push(out);
   }
   const countResults = counts.map(parseCountSpec).filter(Boolean).map((c) => {
     const match = (list) => (list ?? []).filter((r) => String(r?.[c.field]) === c.value).length;
     return { ...c, matchesA: match(A[c.collection]), matchesB: match(B[c.collection]) };
   });
-  const totalCollisions = collections.reduce((s, c) => s + c.collisions.length + c.duplicateKeys.a.length + c.duplicateKeys.b.length + c.keyless.a + c.keyless.b, 0);
+  // Candidatos cuentan como no resueltos: requieren decisión humana.
+  const totalCollisions = collections.reduce((s, c) => s + c.classification.conflictos + c.classification.sinClave + c.classification.candidatos, 0);
   return { collections, counts: countResults, unresolvedCollisions: totalCollisions, bodies };
 }
 

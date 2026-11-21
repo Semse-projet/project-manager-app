@@ -233,6 +233,7 @@ export async function verifyPackage(manifest, { baseDir = process.cwd() } = {}) 
       'SHA-256 igual = mismos bytes; no prueba autenticidad del origen ni exactitud de horas.',
       'Filas sintéticas se cuentan y preservan; no se suman como trabajo.',
       'El verificador no atribuye causa a diferencias de totales.',
+      'laborSeconds es una suma descriptiva del respaldo: no son horas aprobadas, no autoriza pagos y no sustituye a TimeEntry como registro canónico.',
       'No lee ni infiere Evidence ni adjuntos.',
     ],
     files,

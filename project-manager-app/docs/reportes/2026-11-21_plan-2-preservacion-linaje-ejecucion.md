@@ -17,6 +17,13 @@
 2. `TimeEvidence` no tiene FK a `Evidence`, ni `tenantId`, ni checksum, y ningún código lo usa: la cadena `TimeEntry`–`TimeEvidence`–`Evidence` no existe en el esquema.
 3. Existe en Drive un respaldo autodeclarado del 2026-11-05 con restore aislado reportado; candidato para Plan 11/O11-10, **no verificado**. Su custodia (dump con PII en Drive sin cifrado de destino demostrado) requiere decisión humana.
 
+## Segunda intervención (r2, mismo día)
+
+- El enlace compartido de ChatGPT al Plan 2 exige sesión y muestra un desafío de Cloudflare: no se sorteó. v34 y Planes 0–13 siguen no accesibles (ninguna rama ni repositorio accesible los contiene).
+- Railway, solo lectura: `semse-API` en producción tiene como commit fuente `86c0be5`, el mismo inspeccionado; volúmenes inventariados. Esto no prueba comportamiento en ejecución ni backups.
+- `diff-site-collections` clasifica coincidencias, candidatos (re-clave), conflictos y huérfanos sin emparejar; el verificador rotula sus sumas como no aprobadas. 10/10 pruebas sintéticas PASS.
+- Paquete r2: contexto del propietario (Time Tracker nativo, `TimeEntry` canónico), responsables por plan con Plan 13, puerta de ejecución P2-G1 (sin aprobación demostrada) y P2-A6 (discrepancia de Railway de Plan 1).
+
 ## Gobernanza
 
 - No es feature de dominio: herramientas de verificación en `scripts/` y documentación, sin endpoints, sin cambios de esquema ni de permisos. No se tocó Railway, producción, Evidence, CI ni flags.
