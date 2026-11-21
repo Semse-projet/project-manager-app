@@ -86,3 +86,12 @@ El dueño aprobó seis reglas: inicio con la constancia de notificación al usua
   - A-05: confirmar el Art. III;
   - A-06: confirmar Payment Governance.
 - Validaciones: estricto 220/0/0; `--base-ref` 0/0; índice 220; cobertura de planes 0/0/0; 29/29. `spec:coverage` (informativo) lista esta spec sin `related_tests` y como riesgo crítico no verificado, lo cual es correcto.
+
+## Addendum 7 — A-01, A-05, A-06 y A-02 (2026-11-21)
+
+- **A-01, decisión de producto (R-C317-21):** si `TimeEntry` cambia durante el plazo, el cotejo pasa a `STALE` de forma terminal y no se ajusta con él. Hace falta un cotejo nuevo y una nueva notificación válida para que vuelva a correr un plazo.
+- **A-05, criterio de producto (R-C317-22):** Evidence es respaldo de la decisión humana, sin efecto automático sobre `TimeEntry` ni sobre la base. Falta la confirmación del owner de Plan 6 (Art. III y custodia).
+- **A-06, pendiente del owner de Payments:** la base no emite facturas ni pagos (R-C317-23), pero **no se declara exenta** del Art. IV.
+- **A-02, pendiente del owner de arquitectura:** no se elige entre crear `packages/fsm` y enmendar la constitución.
+- Pregunta residual: el efecto de un cambio de `TimeEntry` después del ajuste.
+- SDD v0.15 §10.17.10 (pruebas T-V23…T-V25 sin ejecutar); plan, tareas, checklist y análisis actualizados. Validaciones: estricto 220/0/0; `--base-ref` 0/0; índice 220; cobertura 0/0/0; 29/29.

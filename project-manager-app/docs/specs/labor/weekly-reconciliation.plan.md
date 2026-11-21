@@ -33,8 +33,8 @@ date: "2026-11-21"
 
 - [ ] **Art. I** Spec aprobada antes de código — **NO**: spec `DRAFT`.
 - [ ] **Art. II** Tests derivados de la spec — descritos (T-V01…T-V22, T-R/W/A/C/I/P/B), **ninguno escrito ni ejecutado**.
-- [~] **Art. III** Evidence-first — la spec contempla Evidence como referencia no decisoria y deja objetos Evidence para fases posteriores (Plan 6, opción A). Requiere que el owner confirme que esto es compatible con el artículo para este flujo.
-- [ ] **Art. IV** Payment Governance — la base de facturación no libera fondos; confirmar con el owner de Payments que no requiere revisión formal (pendiente).
+- [~] **Art. III** Evidence-first — la spec contempla Evidence como referencia no decisoria y deja objetos Evidence para fases posteriores (Plan 6, opción A). Requiere que el owner confirme que esto es compatible con el artículo para este flujo. **[21-11]** Criterio de producto aprobado (R-C317-22: Evidence es respaldo de la decisión humana, sin efecto automático); falta la confirmación del owner de Plan 6.
+- [ ] **Art. IV** Payment Governance — la base de facturación no emite facturas ni pagos (R-C317-23), pero **no se declara exenta**: el owner de Payments debe determinar si requiere revisión. Sin esa determinación no hay activación.
 - [ ] **Art. V** AuditLog en transiciones críticas — contrato de tres clases definido; persistencia y atomicidad **bloqueadas** (G06–G07).
 - [ ] **Art. VI** RBAC en backend — capabilities de captura, decisión y reapertura **no existen** (Plan 4).
 - [~] **Art. VII** Multi-tenant — los modelos nuevos llevarán `tenantId`; `TimeEvidence` existente lo incumple (deuda heredada, Plan 6).
@@ -114,7 +114,7 @@ date: "2026-11-21"
 | Vencimiento aplicado sin constancia válida | media | alto (base de facturación incorrecta) | R-C317-13/15 fail-closed + T-V13/T-V15 | ajuste sin constancia en auditoría |
 | Decisión humana y vencimiento simultáneos | media | medio | CAS del caso + T-V07 | dos resultados para la misma versión |
 | Lectura cross-org | baja | crítico | ResourceScope + T-R04/R05 | cualquier fila ajena |
-| `TimeEntry` cambia durante el plazo | media | medio | **requiere decisión** (análisis A-01) | diferencia notificada ≠ diferencia vigente |
+| `TimeEntry` cambia durante el plazo | media | medio | R-C317-21: cotejo `STALE` terminal, cotejo nuevo y nueva notificación; test T-V23 | diferencia notificada ≠ diferencia vigente |
 | Worker sin identidad | alta (hoy) | alto | S4 bloqueado hasta G04 | — |
 
 ## 9. Investigación externa

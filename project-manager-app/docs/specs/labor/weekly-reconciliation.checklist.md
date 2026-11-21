@@ -12,10 +12,10 @@ date: "2026-11-21"
 
 ## Requisitos
 
-- [~] Cada escenario P1 es verificable. Los casos de aceptación tienen prueba prevista (T-*), sin ejecutar. Falta A-01 (cambio de `TimeEntry` durante el plazo).
+- [~] Cada escenario P1 es verificable. Los casos de aceptación tienen prueba prevista (T-*), sin ejecutar. A-01 resuelto (R-C317-21); queda el caso de un cambio de `TimeEntry` después del ajuste.
 - [x] El alcance y lo que queda fuera evitan ambigüedad: dentro del Time Tracker; sin app paralela; sin nómina, escrow ni pagos; OCR fuera del primer slice.
 - [~] Los contratos API/UI/agente no se contradicen. Contrato lógico completo; sin endpoints elegidos. El intérprete de notas (§9.11) no tiene autoridad.
-- [x] Decisiones de producto de C3-17 completas (C3-17, P-C317-01…09, 01b y 01c; R-C317-01…20).
+- [x] Decisiones de producto de C3-17 completas (C3-17, P-C317-01…09, 01b y 01c; R-C317-01…22), salvo la residual de un cambio de `TimeEntry` después del ajuste.
 
 ## Seguridad
 
@@ -37,7 +37,8 @@ date: "2026-11-21"
 ## Evidencia y dinero
 
 - [x] La evidencia no se confunde con aprobación automática (spec §10.7).
-- [~] Payment Governance: la base de facturación no libera fondos; falta la confirmación del owner de Payments.
+- [ ] Payment Governance: la base no emite facturas ni pagos (R-C317-23); **no se declara exenta**; falta la determinación del owner de Payments (A-06).
+- [~] Evidence como respaldo de la decisión humana (R-C317-22); falta la confirmación del owner de Plan 6 (A-05).
 - [x] Los cálculos excluyen propuestas y los 120 s sin causa del total confirmado (§10.16).
 - [x] `TimeEntry` nunca se modifica desde la conciliación (C3-05, R-C317-02/17/20).
 

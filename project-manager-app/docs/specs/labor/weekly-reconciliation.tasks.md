@@ -21,7 +21,9 @@ date: "2026-11-21"
 - [~] [T-003] Completar plan, análisis y checklist — borradores creados el 21-11; bloqueados por los gaps del análisis
 - [x] [T-004] Registrar investigación externa (DOL FLSA como contexto) — la validación legal sigue pendiente (G21)
 - [ ] [T-005] Decidir la ubicación del FSM: crear `packages/fsm` o enmendar la constitución (ADR) — owner de arquitectura
-- [ ] [T-006] Decidir el efecto de un cambio de `TimeEntry` durante el plazo C3-17 (análisis A-01) — dueño del producto
+- [x] [T-006] Decidir el efecto de un cambio de `TimeEntry` durante el plazo C3-17 (análisis A-01) — decidido el 21-11 (R-C317-21)
+- [ ] [T-009] Obtener la confirmación del owner de Plan 6 sobre A-05 (Art. III y custodia) y la determinación del owner de Payments sobre A-06 (Art. IV)
+- [ ] [T-009b] Decidir el efecto de un cambio de `TimeEntry` **después** de aplicado el ajuste (spec §10.17.10) — dueño del producto
 - [ ] [T-007] Reconciliar la SDD v0.7 perdida (`docs/plan3-conciliacion-v47`) si su autor la conserva (G31)
 - [ ] [T-008] Registrar en `STATE_MACHINES.md` y `EVENT_CATALOG.md` los estados y eventos propuestos, una vez aprobada la spec
 
@@ -32,7 +34,7 @@ date: "2026-11-21"
 - [~] [T-012] Tests de auditoría: T-A01…T-A05
 - [~] [T-013] Tests de concurrencia e idempotencia: T-C01…T-C05, T-I01, T-I02
 - [~] [T-014] Tests de perfil horario y baseline: T-P01, T-P02, T-B01
-- [~] [T-015] Tests de C3-17: T-V01…T-V22
+- [~] [T-015] Tests de C3-17: T-V01…T-V25
 - [~] [T-016] [P] Schemas Zod del caso, la declaración, la constancia y el resultado
 - [~] [T-017] Confirmar que los tests fallan por el gap y no por el fixture
 

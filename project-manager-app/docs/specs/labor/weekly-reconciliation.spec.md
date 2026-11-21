@@ -3,7 +3,7 @@ id: "labor.weekly-reconciliation"
 title: "Conciliación semanal del Time Tracker"
 domain: "labor"
 sdd_version: "2.0"
-version: "0.14"
+version: "0.15"
 status: "DRAFT"
 owner: "semse-core"
 risk: "critical"
@@ -48,7 +48,7 @@ related_agents: []
 last_verified: "2026-11-21"
 ---
 
-# Conciliación semanal · borrador para revisión (v0.14 DRAFT)
+# Conciliación semanal · borrador para revisión (v0.15 DRAFT)
 
 > **DRAFT / NO IMPLEMENTAR.** Esta SDD no autoriza código, migraciones, grants, membresías, flags, pruebas funcionales, CI, despliegue ni activación. B4-11/B4-12 siguen abiertos. Plan 3 sigue abierto.
 
@@ -64,7 +64,8 @@ last_verified: "2026-11-21"
 | v0.11 | misma ruta, commit `59c745fe…` | Registró los detalles P-C317-01, 02, 06 y 07 confirmados por el dueño el 21-11 (§10.17.7). Espejo Drive SHA-256 `ec3af0a4…2458`. |
 | v0.12 | misma ruta, commit `80118039…` | Registró las **seis reglas operativas de C3-17** aprobadas por el dueño el 21-11 (§10.17.8, R-C317-13…18). Espejo Drive SHA-256 `6badeae5…8e41`. |
 | v0.13 | misma ruta, commit `740256c1…` | Registró dos **precisiones derivadas** de C3-17 (§10.17.9, R-C317-19 y R-C317-20) y cerró el residual P-C317-01c. Espejo Drive SHA-256 `0cedcc08…c85e`. |
-| **v0.14** | misma ruta y rama, base `main@86c0be5468a7c96c0a9dd4bc8df34e386e7c8c7f` | Esta revisión: añade los documentos SDD hermanos (plan, tareas, checklist y análisis, todos DRAFT) y registra los gaps A-01…A-06 del análisis. Sigue `DRAFT` y **no** está en `main`. |
+| v0.14 | misma ruta, commit `8ec7b51c…` | Añadió los documentos SDD hermanos (plan, tareas, checklist y análisis, todos DRAFT) y registra los gaps A-01…A-06 del análisis. Espejo Drive SHA-256 `0bed9788…939b`. |
+| **v0.15** | misma ruta y rama, base `main@86c0be5468a7c96c0a9dd4bc8df34e386e7c8c7f` | Esta revisión: registra A-01 y A-05 como decisiones de producto y A-06 y A-02 como confirmaciones pendientes de owners (§10.17.10, R-C317-21…23). Sigue `DRAFT` y **no** está en `main`. |
 
 Según `docs/SOURCE_OF_TRUTH.md`, la SDD canónica es la del repositorio (`docs/specs/` + `docs/SPEC_INDEX.md`). Library y Drive son espejos; si contradicen al repositorio prevalece el repositorio. Library **no fue accesible** desde esta sesión: las versiones Library citadas (Plan 3 v70, Plan 9 v27, Plan 4 v38, Plan 6 v24, SDD v22) son referencias heredadas no revalidadas aquí.
 
@@ -757,6 +758,31 @@ El dueño respondió en la sesión de trabajo del 21-11-2026 a las preguntas del
 
 **Gates:** los mismos de §10.17.8 (identidad de servicio, persistencia del caso y de la constancia por trabajador, autoridad de decisión, delegación de reapertura, auditoría, CAS e idempotencia, ejecución programada, CI). Ninguno cambia con estas precisiones.
 
+### 10.17.10 Decisiones A-01 y A-05 y confirmaciones pendientes A-06 y A-02 (2026-11-21, v0.15)
+
+**Fuente:** instrucción expresa del dueño del producto en la sesión de trabajo del 21-11-2026, en respuesta al análisis de consistencia (`weekly-reconciliation.analyze.md`). Las decisiones de producto y las confirmaciones pendientes de owners se registran **por separado**. Nada de esto concede permisos, autoriza código ni cambia pagos.
+
+| ID | Tema | Tipo y estado | Contenido | Requisito | Owner |
+|---|---|---|---|---|---|
+| A-01 | Cambio de `TimeEntry` durante el plazo | **Decisión de producto aprobada (2026-11-21)** | Si `TimeEntry` cambia durante el plazo, el cotejo vigente queda **`STALE`** y no se aplica el ajuste automático usando esa comparación. Se conserva el historial y se requiere un **cotejo nuevo** con el `TimeEntry` actualizado. El plazo sólo vuelve a correr después de una **nueva notificación válida** del nuevo cotejo. `STALE` es terminal para ese cotejo | R-C317-21 | Dueño del producto |
+| A-05 | Evidence en la conciliación | **Criterio de producto aprobado (2026-11-21)**; **pendiente:** confirmación del owner de Plan 6 sobre su compatibilidad con el Art. III y con la política de custodia vigente | Evidence sirve como **respaldo** para que una persona autorizada revise y decida; por sí sola **no cambia `TimeEntry` ni determina automáticamente la base de facturación** | R-C317-22 | Dueño del producto · owner de Plan 6 |
+| A-06 | Payment Governance (Art. IV) | **Pendiente del owner de Payments** | La base de facturación de conciliación **no autoriza** emitir una factura ni ejecutar un pago. **No se declara exenta del Art. IV**: el owner de Payments debe determinar si el cambio de base requiere revisión de Payment Governance | R-C317-23 (sólo la parte «no autoriza factura ni pago») | Owner de Payments |
+| A-02 | Ubicación del FSM | **Pendiente del owner de arquitectura** | Crear `packages/fsm` o enmendar la constitución es decisión del **owner de arquitectura**; no se elige sin su aprobación | — | Owner de arquitectura |
+
+**Requisitos:**
+- **R-C317-21 (A-01).** Un cotejo cuya entrada de `TimeEntry` cambia (nueva revisión) antes de vencer pasa a `STALE` de forma terminal: no se aplica ajuste con él, su constancia y su plazo quedan cerrados, y se conserva en el historial. Para seguir hace falta un cotejo nuevo con la revisión actualizada y una **nueva constancia de notificación** (R-C317-13/14). Es coherente con el `STALE` terminal de `LaborTimeCorrection` (§10.2), aunque se trata de una entidad distinta: el cotejo del caso.
+- **R-C317-22 (A-05).** Evidence es respaldo para la decisión de una persona autorizada; no muta `TimeEntry`, no detiene ni inicia el plazo y no fija la base de facturación. Reafirma §10.7 y C3-08. La compatibilidad con el Art. III («Evidence-first») y con la política de custodia (D6-01/04/09) **queda pendiente de confirmar** por el owner de Plan 6.
+- **R-C317-23 (A-06, parcial).** El resultado de la conciliación no emite facturas ni ejecuta pagos. **No se presume exención del Art. IV**: si el cambio de base requiere revisión de Payment Governance lo decide el owner de Payments. Hasta entonces, la conciliación **no se activa** en un flujo que alimente facturación sin esa determinación.
+
+**Pregunta residual que A-01 no cubre (requiere decisión):** si `TimeEntry` cambia **después** de aplicado el ajuste por vencimiento. La regla 6 (reapertura autorizada, R-C317-18) sería el camino natural, pero no está decidido que un cambio posterior exija o dispare una reapertura. No se presume.
+
+| Decisión | Requisito | Contrato | Aceptación observable | Prueba prevista | Estado |
+|---|---|---|---|---|---|
+| A-01 | R-C317-21 | cotejo con revisión de `TimeEntry`; cambio de revisión → `STALE` terminal | cambio de `TimeEntry` antes de vencer → cotejo `STALE`, sin ajuste; cotejo nuevo + nueva constancia → plazo nuevo | T-V23 | Aprobada; NO EJECUTADA (depende de la revisión de TimeEntry, G10) |
+| A-05 | R-C317-22 | Evidence sin efecto automático | adjuntar o retirar Evidence no cambia `TimeEntry`, el plazo ni la base | T-V24 | Criterio aprobado; confirmación de Plan 6 pendiente; NO EJECUTADA |
+| A-06 | R-C317-23 | sin factura ni pago | ningún resultado de la conciliación crea factura, escrow ni pago | T-V25 | Parte aprobada; determinación de Payments pendiente; NO EJECUTADA |
+| A-02 | — | ubicación del FSM | ADR aprobado | — | Pendiente del owner de arquitectura |
+
 ## 10.18 Matriz de pruebas previstas (ninguna ejecutada)
 
 | ID | Caso | Tipo | Positivo / negativo esperado | Estado |
@@ -809,6 +835,9 @@ El dueño respondió en la sesión de trabajo del 21-11-2026 a las preguntas del
 | T-V20 | C3-17 precisión A: desglose comparable con varios trabajadores | integración | una constancia y un vencimiento por trabajador; resultados independientes | NO EJECUTADA |
 | T-V21 | C3-17 precisión B: disputa o devolución antes del vencimiento | integración | el vencimiento no cambia; al vencer se aplica la regla | NO EJECUTADA |
 | T-V22 | C3-17 precisión B: parte ambiguo o alcance no comparable al vencer | integración | sin ajuste; pendiente; `TimeEntry` intacto | NO EJECUTADA |
+| T-V23 | A-01: `TimeEntry` cambia antes del vencimiento | integración con carrera controlada | cotejo `STALE` terminal, sin ajuste; cotejo nuevo y nueva constancia inician un plazo nuevo | NO EJECUTADA |
+| T-V24 | A-05: Evidence no tiene efecto automático | integración | `TimeEntry`, plazo y base sin cambios al adjuntar o retirar Evidence | NO EJECUTADA |
+| T-V25 | A-06: sin factura ni pago | integración | ningún efecto en facturas, escrow ni pagos | NO EJECUTADA |
 | T-V01 | Validadores documentales | documental | 0 errores/avisos | **EJECUTADA** (ver reporte del corte) |
 
 ## 10.19 Trazabilidad decisión → requisito → contrato → aceptación → prueba → resultado
@@ -833,13 +862,13 @@ El dueño respondió en la sesión de trabajo del 21-11-2026 a las preguntas del
 - Tareas: [`weekly-reconciliation.tasks.md`](weekly-reconciliation.tasks.md) (PENDING; tareas de código bloqueadas).
 - Checklist: [`weekly-reconciliation.checklist.md`](weekly-reconciliation.checklist.md).
 - Análisis de consistencia: [`weekly-reconciliation.analyze.md`](weekly-reconciliation.analyze.md). Resultado **con gaps**:
-  - **A-01**: efecto de un cambio de `TimeEntry` durante el plazo C3-17; requiere decisión de producto.
-  - **A-02**: `packages/fsm` no existe, pese a la decisión bloqueada de la constitución.
+  - **A-01**: efecto de un cambio de `TimeEntry` durante el plazo C3-17 — **[v0.15] resuelto: R-C317-21**.
+  - **A-02**: `packages/fsm` no existe, pese a la decisión bloqueada de la constitución — **[v0.15] pendiente del owner de arquitectura**.
   - **A-03**: eventos sin catalogar.
   - **A-04**: `TimeEvidence` sin `tenantId`.
-  - **A-05**: confirmar el Art. III frente a Evidence como referencia.
-  - **A-06**: confirmar Payment Governance.
+  - **A-05**: confirmar el Art. III frente a Evidence como referencia — **[v0.15] criterio de producto aprobado (R-C317-22); confirmación del owner de Plan 6 pendiente**.
+  - **A-06**: confirmar Payment Governance — **[v0.15] pendiente del owner de Payments; no se declara exento**.
 
-## Estado de salida de v0.14
+## Estado de salida de v0.15
 
 `DRAFT`. C3-17 queda aprobada como decisión de producto; eso no cambia el estado de la SDD ni cierra gates técnicos. No hay implementación, migración, prueba funcional ni CI de esta revisión. Validadores documentales ejecutados localmente (ver `docs/reportes/2026-11-21_plan3-conciliacion-gates.md`). B4-11/B4-12 abiertos. **PLAN 3 AÚN ABIERTO.**
