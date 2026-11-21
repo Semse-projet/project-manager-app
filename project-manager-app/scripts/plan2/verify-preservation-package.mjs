@@ -198,12 +198,16 @@ export async function verifyPackage(manifest, { baseDir = process.cwd() } = {}) 
 
   // Cotejo JSON ↔ CSV.
   const cc = manifest.csv;
-  const compare = { compared: 0, distinctComparedIds: 0, duplicateCsvIds: 0, matched: 0, withinTolerance: 0, mismatched: [], onlyInJson: 0, onlyInCsv: 0, toleranceSeconds: cc?.toleranceSeconds ?? 0 };
+  const compare = { compared: 0, distinctComparedIds: 0, duplicateCsvIds: 0, ambiguousJsonIds: 0, ambiguousJsonRows: 0, matched: 0, withinTolerance: 0, mismatched: [], onlyInJson: 0, onlyInCsv: 0, toleranceSeconds: cc?.toleranceSeconds ?? 0 };
   if (cc && rc) {
     const csv = parsed.get(cc.role);
     if (csv?.kind !== 'csv') fail('CSV_MISSING', cc.role);
     else {
-      const byId = new Map(records.map((r) => [String(getPath(r, rc.idField)), r]));
+      // IDs repetidos en el JSON hacen el cotejo ambiguo: no se elige uno, se falla.
+      const jsonIdCount = new Map();
+      for (const r of records) { const id = String(getPath(r, rc.idField)); jsonIdCount.set(id, (jsonIdCount.get(id) ?? 0) + 1); }
+      const ambiguousJson = new Set([...jsonIdCount].filter(([, n]) => n > 1).map(([id]) => id));
+      const byId = new Map(records.filter((r) => !ambiguousJson.has(String(getPath(r, rc.idField)))).map((r) => [String(getPath(r, rc.idField)), r]));
       const csvIds = new Set();
       const comparedIds = new Set();
       const dupCsv = new Set();
@@ -211,6 +215,7 @@ export async function verifyPackage(manifest, { baseDir = process.cwd() } = {}) 
         const id = String(row[cc.idColumn] ?? '');
         if (csvIds.has(id)) dupCsv.add(id);
         csvIds.add(id);
+        if (ambiguousJson.has(id)) { compare.ambiguousJsonRows++; continue; }
         const j = byId.get(id);
         if (!j) { compare.onlyInCsv++; continue; }
         compare.compared++;
@@ -225,6 +230,8 @@ export async function verifyPackage(manifest, { baseDir = process.cwd() } = {}) 
       compare.onlyInJson = [...byId.keys()].filter((id) => !csvIds.has(id)).length;
       compare.distinctComparedIds = comparedIds.size;
       compare.duplicateCsvIds = dupCsv.size;
+      compare.ambiguousJsonIds = ambiguousJson.size;
+      if (ambiguousJson.size) fail('AMBIGUOUS_JSON_IDS', `${ambiguousJson.size} ID repetidos en el JSON: sus filas no se cotejan con el CSV`);
       if (dupCsv.size) fail('DUPLICATE_IDS_IN_CSV', `${dupCsv.size} ID repetidos en el CSV: el cotejo no es inequívoco`);
       if (compare.mismatched.length) fail('CSV_JSON_MISMATCH', `${compare.mismatched.length} filas fuera de tolerancia`);
       const exp = manifest.expect ?? {};

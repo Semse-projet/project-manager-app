@@ -154,7 +154,7 @@ export function diffCollections(docA, docB, { key = 'id', counts = [] } = {}) {
   const totalCollisions = collections.reduce((s, c) => s + c.classification.conflictos + c.classification.sinClave + c.classification.candidatos, 0);
   // Registros presentes en un solo snapshot también requieren decisión (Plan 2 §8.2).
   const orphans = collections.reduce((s, c) => s + c.classification.huerfanosA + c.classification.huerfanosB, 0);
-  return { collectionsFound: names.length, collections, counts: countResults, unresolvedCollisions: totalCollisions, orphansRequiringDecision: orphans, bodies };
+  return { collectionsFound: names.length, collectionsFoundA: Object.keys(A).length, collectionsFoundB: Object.keys(B).length, collections, counts: countResults, unresolvedCollisions: totalCollisions, orphansRequiringDecision: orphans, bodies };
 }
 
 async function main() {
@@ -173,7 +173,8 @@ async function main() {
       b: { path: b, sha256: db.sha256, bytes: db.bytes, canonicalCollectionsSha256: canonicalSha256(collectionsRoot(db.data)) },
     },
     canonicalization: 'claves ordenadas recursivamente, sin espacios, JSON.stringify de JS; puede diferir de otra implementación en escapes no ASCII o formato numérico: cotejar antes de equiparar hashes',
-    verdict: summary.collectionsFound === 0 ? 'NO_COLLECTIONS_FOUND'
+    // Cada snapshot debe aportar colecciones reconocidas por sí mismo.
+    verdict: summary.collectionsFoundA === 0 || summary.collectionsFoundB === 0 ? 'NO_COLLECTIONS_FOUND'
       : summary.unresolvedCollisions > 0 ? 'COLLISIONS_UNRESOLVED_DO_NOT_IMPORT'
       : summary.orphansRequiringDecision > 0 ? 'DIFFERENCES_REQUIRE_DECISION'
       : 'NO_COLLISIONS',

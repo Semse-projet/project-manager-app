@@ -142,6 +142,20 @@ describe('plan2 verify-preservation-package (sintético)', () => {
     assert.equal(r.summary.invalidDurations, 1);
   });
 
+  it('FAIL si el JSON repite un ID (cotejo ambiguo)', async () => {
+    await writeFile(path.join(dir, 'amb.json'), JSON.stringify({ entries: [{ id: 'a', s: 60 }, { id: 'a', s: 120 }] }));
+    await writeFile(path.join(dir, 'amb.csv'), 'id,s\na,120\n');
+    const r = await verifyPackage({
+      files: [{ role: 'j', path: 'amb.json' }, { role: 'c', path: 'amb.csv' }],
+      records: { jsonRole: 'j', recordsPath: 'entries', idField: 'id', durationField: 's', durationUnit: 'seconds' },
+      csv: { role: 'c', idColumn: 'id', durationColumn: 's', durationUnit: 'seconds' },
+      expect: { comparedIds: 1 },
+    }, { baseDir: dir });
+    assert.equal(r.status, 'FAIL');
+    assert.ok(r.findings.some((f) => f.code === 'AMBIGUOUS_JSON_IDS'));
+    assert.equal(r.csvComparison.distinctComparedIds, 0);
+  });
+
   it('parseCsv rechaza una última celda con comillas sin cerrar', () => {
     assert.throws(() => parseCsv('id,s\na,"60'), /comillas sin cerrar/);
   });
@@ -219,6 +233,9 @@ describe('plan2 diff-site-collections (sintético)', () => {
 
   it('sin colecciones no se declara ausencia de colisiones; huérfanos requieren decisión', () => {
     assert.equal(diffCollections({ error: 'x' }, { error: 'y' }).collectionsFound, 0);
+    const one = diffCollections({ data: { entries: [], reviews: {} } }, { error: 'export failed' });
+    assert.equal(one.collectionsFoundA, 2);
+    assert.equal(one.collectionsFoundB, 0, 'un snapshot sin colecciones no queda cubierto por las del otro');
     const r = diffCollections({ C: [{ id: 'a', v: 1 }] }, { C: [{ id: 'b', v: 2 }] });
     assert.equal(r.unresolvedCollisions, 0);
     assert.equal(r.orphansRequiringDecision, 2);
