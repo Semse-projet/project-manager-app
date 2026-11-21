@@ -1,0 +1,155 @@
+{
+  "generatedAt": "2026-11-21T03:27:59.720Z",
+  "head": "c3948486740ac07055ba8794ab8561213319f4ba",
+  "scope": "static-source-only",
+  "results": [
+    {
+      "id": "C-01",
+      "claim": "GET /v1/labor/entries filtra por el actor (createdBy = userId de la sesión): ruta personal, no extracción por organización",
+      "file": "apps/api/src/modules/labor-engine/labor-engine.controller.ts",
+      "expectAbsent": false,
+      "status": "HOLDS",
+      "line": 296,
+      "section": [
+        "/@Get\\(\"entries\"\\)/",
+        "/@Get\\(\"summary\\/week\"\\)/"
+      ],
+      "blobSha": "41d967a10b9d9b97f95d883329549464000e3d5f"
+    },
+    {
+      "id": "C-02",
+      "claim": "GET /v1/labor/entries no acepta cursor ni offset en la query",
+      "file": "apps/api/src/modules/labor-engine/labor-engine.controller.ts",
+      "expectAbsent": true,
+      "status": "HOLDS",
+      "line": null,
+      "section": [
+        "/@Get\\(\"entries\"\\)/",
+        "/@Get\\(\"summary\\/week\"\\)/"
+      ],
+      "blobSha": "41d967a10b9d9b97f95d883329549464000e3d5f"
+    },
+    {
+      "id": "C-03",
+      "claim": "limit se parsea sin tope superior (parsePositiveInt sin max): un límite grande no es paginación",
+      "file": "apps/api/src/common/parse-query.ts",
+      "expectAbsent": false,
+      "status": "HOLDS",
+      "line": 7,
+      "blobSha": "505c94aa0cf72dd910da0be5190115e4936f8e02"
+    },
+    {
+      "id": "C-04",
+      "claim": "listTimeEntries ordena solo por startedAt (sin desempate por id)",
+      "file": "apps/api/src/modules/labor-engine/labor-engine.repository.ts",
+      "expectAbsent": false,
+      "status": "HOLDS",
+      "line": 346,
+      "blobSha": "8237b66e07eaa8698b168099d00f0ca1a738845f"
+    },
+    {
+      "id": "C-05",
+      "claim": "listTimeEntries filtra por tenantId, no por orgId",
+      "file": "apps/api/src/modules/labor-engine/labor-engine.repository.ts",
+      "expectAbsent": false,
+      "status": "HOLDS",
+      "line": 319,
+      "blobSha": "8237b66e07eaa8698b168099d00f0ca1a738845f"
+    },
+    {
+      "id": "C-06",
+      "claim": "admin/overview: vistas acotadas a la semana y take: 50 (QualityGuard), no exportación",
+      "file": "apps/api/src/modules/labor-engine/labor-engine.repository.ts",
+      "expectAbsent": false,
+      "status": "HOLDS",
+      "line": 444,
+      "blobSha": "8237b66e07eaa8698b168099d00f0ca1a738845f"
+    },
+    {
+      "id": "C-07",
+      "claim": "Spec labor.personal-record-export sigue en DRAFT (sin contrato aprobado de exportación)",
+      "file": "docs/specs/labor/personal-record-export.spec.md",
+      "expectAbsent": false,
+      "status": "HOLDS",
+      "line": 7,
+      "blobSha": "b47ee17299ac30665f6792653291913fce66f98b"
+    },
+    {
+      "id": "D-01",
+      "claim": "TimeEvidence no tiene FK a Evidence (solo fileUrl libre)",
+      "file": "packages/db/prisma/schema.prisma",
+      "expectAbsent": true,
+      "status": "HOLDS",
+      "line": null,
+      "blobSha": "147d5ad154ee515205643f62359c5d5922ee93c7"
+    },
+    {
+      "id": "D-02",
+      "claim": "TimeEvidence no tiene tenantId propio (alcance solo transitivo vía TimeEntry)",
+      "file": "packages/db/prisma/schema.prisma",
+      "expectAbsent": true,
+      "status": "HOLDS",
+      "line": null,
+      "blobSha": "147d5ad154ee515205643f62359c5d5922ee93c7"
+    },
+    {
+      "id": "D-03",
+      "claim": "TimeEvidence no tiene checksum ni versionado",
+      "file": "packages/db/prisma/schema.prisma",
+      "expectAbsent": true,
+      "status": "HOLDS",
+      "line": null,
+      "blobSha": "147d5ad154ee515205643f62359c5d5922ee93c7"
+    },
+    {
+      "id": "D-04",
+      "claim": "Evidence tiene checksum opcional (String?) — no garantizado por esquema",
+      "file": "packages/db/prisma/schema.prisma",
+      "expectAbsent": false,
+      "status": "HOLDS",
+      "line": 1135,
+      "blobSha": "147d5ad154ee515205643f62359c5d5922ee93c7"
+    },
+    {
+      "id": "D-06",
+      "claim": "UPLOADS_SIGNED_GET_MODE vale \"off\" si no está definida (lectura de archivos sin firma por defecto)",
+      "file": "apps/api/src/infrastructure/storage/signed-url.ts",
+      "expectAbsent": false,
+      "status": "HOLDS",
+      "line": 20,
+      "blobSha": "d215d01996898d92b9f3b9ed48da13ad8c8e5dac"
+    },
+    {
+      "id": "D-07",
+      "claim": "EVIDENCE_ORIGINAL_SHA256_MODE vale \"off\" si no está definida (sin checksum del original por defecto)",
+      "file": "apps/api/src/modules/evidence/evidence-original-integrity.ts",
+      "expectAbsent": false,
+      "status": "HOLDS",
+      "line": 8,
+      "blobSha": "f54148385d4e8b4a63a9f05efaff4781df0ad9af"
+    },
+    {
+      "id": "D-08",
+      "claim": "GET /v1/uploads/files/* está declarado @Public()",
+      "file": "apps/api/src/infrastructure/storage/uploads.controller.ts",
+      "expectAbsent": false,
+      "status": "HOLDS",
+      "line": 260,
+      "blobSha": "694841ac445ce356e3249e208ae64f5b34151bcd"
+    },
+    {
+      "id": "D-05",
+      "claim": "Ningún código de apps/ o packages/ lee o escribe prisma.timeEvidence",
+      "file": "apps/**, packages/**",
+      "status": "HOLDS",
+      "line": null,
+      "blobSha": null,
+      "matches": []
+    }
+  ],
+  "since": {
+    "commit": "7029da63e719b264f7b2bfaff7eb4b716fe167b9",
+    "available": true,
+    "changedRelevantFiles": []
+  }
+}
