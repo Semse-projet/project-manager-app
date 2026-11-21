@@ -59,3 +59,7 @@ No se tocó código, esquema, migraciones, workflows, permisos ni configuración
 - SDD v0.10 §10.17.6: hechos de código para P-C317-01…09. `Notification.sentAt` se fija al crear la fila; `readAt` al leer. Sólo `OutboundDelivery` tiene estado de entrega. `Org` y `Worksite` no tienen zona horaria, y Daily Reports usa un desfase fijo enviado por el cliente. Los candidatos para el pagador son `Job.clientOrgId`, `Contract.clientOrgId` y `BusinessEngagement`; ninguno modela un pagador externo sin cuenta.
 - Paquete de opciones para el dueño en Drive (`SEMSE_Plan3_Paquete_Decisiones_C3-17_2026-11-21.md`). No decide nada.
 - Validaciones: estricto 220/0/0; `--base-ref origin/main` 0/0; índice 220; cobertura de planes 0/0/0; 29/29.
+
+## Addendum 3 — detalles de C3-17 confirmados (2026-11-21)
+
+El dueño confirmó: pagadora = emisor declarado y, si no lo hay, `Job.clientOrgId` (P-07); inicio = creación de la notificación (P-01); 24 h transcurridas entre instantes (P-02); efecto limitado a la base de facturación (P-06). Quedó registrado en la SDD v0.11 §10.17.7 (R-C317-09…12, pruebas T-V09…T-V12 sin ejecutar). Siguen pendientes P-01b, P-03, P-04, P-05, P-08 y P-09. Validaciones: estricto 220/0/0; `--base-ref` 0/0; índice 220; cobertura 0/0/0; 29/29.

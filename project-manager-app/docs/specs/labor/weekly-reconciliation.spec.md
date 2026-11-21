@@ -3,7 +3,7 @@ id: "labor.weekly-reconciliation"
 title: "Conciliación semanal del Time Tracker"
 domain: "labor"
 sdd_version: "2.0"
-version: "0.10"
+version: "0.11"
 status: "DRAFT"
 owner: "semse-core"
 risk: "critical"
@@ -48,7 +48,7 @@ related_agents: []
 last_verified: "2026-11-21"
 ---
 
-# Conciliación semanal · borrador para revisión (v0.10 DRAFT)
+# Conciliación semanal · borrador para revisión (v0.11 DRAFT)
 
 > **DRAFT / NO IMPLEMENTAR.** Esta SDD no autoriza código, migraciones, grants, membresías, flags, pruebas funcionales, CI, despliegue ni activación. B4-11/B4-12 siguen abiertos. Plan 3 sigue abierto.
 
@@ -60,7 +60,8 @@ last_verified: "2026-11-21"
 | v0.7 | Rama local `docs/plan3-conciliacion-v47`, HEAD `50289be4187c9d334f0ad064c7440de6ffba3ecd` (según Plan 3 §32) | **No disponible:** la rama no existe en `origin` (`git fetch`/`ls-remote` sin ref) y el SHA no está en este checkout. No se reconstruyó; las diferencias v0.6→v0.7 que no aparezcan aquí deben volver a incorporarse desde esa copia si su autor la conserva. |
 | v0.8 | misma ruta, commits `176cacfb…` y `515e7042…` de la rama `claude/plan3-conciliacion-gates-32rob6` | Primera vez que la SDD existe en el repositorio canónico accesible. Espejo en Drive: `SEMSE_Conciliacion_SDD_v0.8_DRAFT_2026-11-21.md` (SHA-256 `56c032be…0b97`). |
 | v0.9 | misma ruta, commit `f199e615…` | Registra la **aprobación de producto de C3-17 (2026-11-21)** en §10.17 y su trazabilidad. Espejo Drive `SEMSE_Conciliacion_SDD_v0.9_DRAFT_2026-11-21.md` (SHA-256 `83312e52…e6`). |
-| **v0.10** | misma ruta y rama, base `main@86c0be5468a7c96c0a9dd4bc8df34e386e7c8c7f` | Esta revisión: añade §10.17.6 (evidencia de código para los detalles P-C317) y un paquete de opciones para el dueño. No decide ningún detalle. Sigue `DRAFT` y **no** está en `main`. |
+| v0.10 | misma ruta, commit `00cc6ebd…` | Añadió §10.17.6 (evidencia de código para los detalles P-C317) y un paquete de opciones para el dueño. No decidió ningún detalle. Espejo Drive SHA-256 `abc10832…6eae`. |
+| **v0.11** | misma ruta y rama, base `main@86c0be5468a7c96c0a9dd4bc8df34e386e7c8c7f` | Esta revisión: registra los detalles P-C317-01, 02, 06 y 07 confirmados por el dueño el 21-11 (§10.17.7). Sigue `DRAFT` y **no** está en `main`. |
 
 Según `docs/SOURCE_OF_TRUTH.md`, la SDD canónica es la del repositorio (`docs/specs/` + `docs/SPEC_INDEX.md`). Library y Drive son espejos; si contradicen al repositorio prevalece el repositorio. Library **no fue accesible** desde esta sesión: las versiones Library citadas (Plan 3 v70, Plan 9 v27, Plan 4 v38, Plan 6 v24, SDD v22) son referencias heredadas no revalidadas aquí.
 
@@ -598,13 +599,13 @@ Ninguna fuente vigente aprobada los fija. Plan 3 §9.13 (borrador del 19-nov) y 
 
 | ID | Detalle | Candidato en fuentes (no confirmado) | Owner |
 |---|---|---|---|
-| P-C317-01 | Evento que inicia el plazo de 24 h | «notificación registrada del Time Tracker al usuario» (§9.13) | Dueño del producto |
-| P-C317-02 | Zona horaria/reloj que rige; si 24 h son transcurridas por instante (UTC) o civiles | ninguno | Dueño del producto + Labor |
+| P-C317-01 | Evento que inicia el plazo de 24 h | «notificación registrada del Time Tracker al usuario» (§9.13) | Dueño del producto — **Confirmado 21-11: creación de la notificación (R-C317-10); P-01b abierto** |
+| P-C317-02 | Zona horaria/reloj que rige; si 24 h son transcurridas por instante (UTC) o civiles | ninguno | Dueño del producto + Labor — **Confirmado 21-11: 24 h transcurridas entre instantes (R-C317-11)** |
 | P-C317-03 | Cómo se notifica, a quién (trabajador, compañía pagadora, responsable de la obra) y cómo se acredita la recepción | «notificación registrada» sin canal definido | Producto + notificaciones |
 | P-C317-04 | Qué estados cuentan como «sin resolverse» (en revisión, aclaración solicitada, devuelto, disputa); si una disputa suspende el plazo | ninguno | Dueño del producto |
 | P-C317-05 | Qué es exactamente «el tiempo que estableció la compañía que paga»: versión vigente del parte; qué ocurre si el parte se sustituye dentro del plazo (¿reinicia?) | §9.13: «la SDD debe definir cómo se renueva el plazo si las fuentes cambian» | Dueño del producto |
-| P-C317-06 | Alcance del efecto de «tiempo conciliado»: ¿sólo base de facturación entre compañías (texto de C3-17 del 19-nov) o también el resultado mostrado al trabajador y a su organización? (Nómina y pagos quedan excluidos en cualquier caso) | C3-17 v19-nov: «base de facturación» | Dueño del producto |
-| P-C317-07 | Cómo se identifica a la compañía que paga un trabajo (fuente canónica Job → organización pagadora) | ninguno verificado en código | Producto + Plan 4 |
+| P-C317-06 | Alcance del efecto de «tiempo conciliado»: ¿sólo base de facturación entre compañías (texto de C3-17 del 19-nov) o también el resultado mostrado al trabajador y a su organización? (Nómina y pagos quedan excluidos en cualquier caso) | C3-17 v19-nov: «base de facturación» | Dueño del producto — **Confirmado 21-11: sólo base de facturación (R-C317-12)** |
+| P-C317-07 | Cómo se identifica a la compañía que paga un trabajo (fuente canónica Job → organización pagadora) | ninguno verificado en código | Producto + Plan 4 — **Confirmado 21-11: emisor declarado; si no, `Job.clientOrgId` (R-C317-09)** |
 | P-C317-08 | Dirección: la lectura literal aplica tanto si el parte del pagador es menor como si es mayor que `TimeEntry`; confirmar | literal del texto aprobado | Dueño del producto |
 | P-C317-09 | Reapertura tras el ajuste con evidencia nueva: quién y con qué motivo | §9.13 punto 4 y C3-09 (diseño) | Dueño del producto + Plan 4 |
 
@@ -625,7 +626,7 @@ El ajuste automático **no se implementa** hasta que la SDD esté aprobada y se 
 | C3-17 | R-C317-05 | clave idempotente | reintento sin duplicar | T-V06 | Bloqueado por G12 |
 | C3-17 | R-C317-06 | CAS del caso | carrera en el borde de 24 h: un solo ganador | T-V07 | Bloqueado por G10 |
 | C3-17 | R-C317-07 | alcance comparable | parte ambiguo o alcance incompatible: no se ajusta | T-V08 | NO EJECUTADA |
-| C3-17 | P-C317-01…09 | — | — | T-V09 (plazo/zona) se define al confirmarse | **Requiere decisión** |
+| C3-17 | P-C317-01b, 03, 04, 05, 08, 09 (01, 02, 06 y 07 confirmados: §10.17.7) | — | — | T-V09 definida en §10.17.7 | **Requiere decisión** |
 
 ### 10.17.6 Evidencia de código para decidir P-C317-01…09 (v0.10; sólo hechos, sin elegir valores)
 
@@ -644,6 +645,28 @@ Inspección estática de `main@86c0be5468a7c96c0a9dd4bc8df34e386e7c8c7f` (`schem
 | P-C317-09 reapertura | C3-09 (diseño) y BO-08 sin delegación implementada. | Depende de Plan 4. |
 
 El paquete de opciones para el dueño está en `SEMSE_Plan3_Paquete_Decisiones_C3-17_2026-11-21.md` (Drive Plan 3). Las recomendaciones técnicas de ese paquete no son decisiones y no se reflejan como requisitos hasta que el dueño las confirme.
+
+### 10.17.7 Detalles de C3-17 confirmados por el dueño (2026-11-21, v0.11)
+
+El dueño respondió en la sesión de trabajo del 21-11-2026 a las preguntas del paquete `SEMSE_Plan3_Paquete_Decisiones_C3-17_2026-11-21.md`. Las respuestas quedan como **decisiones de producto confirmadas**. No cambian permisos ni el estado `DRAFT` y no autorizan implementación.
+
+| ID | Respuesta del dueño | Requisito resultante |
+|---|---|---|
+| P-C317-07 | «Ambas con prioridad»: el emisor declarado del parte si existe; si no, el cliente del Job (`Job.clientOrgId`) | **R-C317-09.** La compañía pagadora de un alcance es (1) el emisor registrado en la declaración vigente, vinculado al Job o alcance por un capturista autorizado; (2) si no hay emisor declarado, `Job.clientOrgId` del Job vinculado. Si no hay ni emisor ni Job, no hay pagadora identificable y el ajuste **no aplica**. El resultado registra cuál de las dos fuentes se usó. |
+| P-C317-01 | «Creación de la notificación» | **R-C317-10.** El plazo empieza en el instante en que SEMSE crea la notificación de la diferencia a las partes con cuenta (hoy `Notification`, creada con `sentAt`). No requiere lectura ni entrega. Sin notificación creada, el plazo no empieza y no hay ajuste. |
+| P-C317-02 | «24 h transcurridas» | **R-C317-11.** El vencimiento es inicio + 24 h exactas medidas entre instantes (UTC), sin depender de la zona horaria ni del cambio de horario. La zona horaria sólo se usa para mostrar la hora de vencimiento; mientras no exista una zona canónica (G19/G20), la interfaz debe indicar en qué zona muestra la hora. |
+| P-C317-06 | «Sólo base de facturación» | **R-C317-12.** El ajuste fija la **base de facturación** del alcance comparable entre compañías. El trabajador sigue viendo su `TimeEntry` y, por separado, el ajuste y la diferencia. No modifica `TimeEntry`, nómina, escrow ni pagos. |
+
+**Subdetalle nuevo que esta respuesta deja abierto — P-C317-01b:** si SEMSE crea notificaciones para varias partes en instantes distintos, qué instante cuenta (la primera, la del trabajador afectado o la última). No se elige aquí.
+
+**Detalles que siguen pendientes:** P-C317-03 (canal, destinatarios y acreditación), P-C317-04 (estados «sin resolverse» y si una disputa suspende el plazo), P-C317-05 (si un parte sustituido reinicia el plazo), P-C317-08 (dirección del ajuste), P-C317-09 (reapertura) y P-C317-01b.
+
+| Decisión | Requisito | Contrato | Aceptación observable | Prueba prevista | Estado |
+|---|---|---|---|---|---|
+| P-C317-07 confirmado | R-C317-09 | resolución de pagadora con prioridad y fuente registrada | parte con emisor → emisor; sin emisor → `Job.clientOrgId`; sin ambos → sin ajuste | T-V10 | Confirmado; NO EJECUTADA |
+| P-C317-01 confirmado | R-C317-10 | inicio = creación de la notificación | sin notificación no hay inicio ni ajuste | T-V11 | Confirmado; NO EJECUTADA (P-01b abierto) |
+| P-C317-02 confirmado | R-C317-11 | 24 h entre instantes | vence exactamente a inicio + 86 400 s, también al cruzar un cambio de horario | T-V09 | Confirmado; NO EJECUTADA |
+| P-C317-06 confirmado | R-C317-12 | efecto limitado a la base de facturación | `TimeEntry` intacto; el trabajador ve original, ajuste y diferencia por separado | T-V02, T-V12 | Confirmado; NO EJECUTADA |
 
 ## 10.18 Matriz de pruebas previstas (ninguna ejecutada)
 
@@ -683,7 +706,10 @@ El paquete de opciones para el dueño está en `SEMSE_Plan3_Paquete_Decisiones_C
 | T-V06 | C3-17: reintento del vencimiento | integración | un solo resultado y evento | NO EJECUTADA |
 | T-V07 | C3-17: resolución humana y vencimiento simultáneos | carrera controlada | un solo ganador por CAS | NO EJECUTADA |
 | T-V08 | C3-17: parte ambiguo, alcance incompatible o sin inicio de plazo acreditado | integración | no se ajusta; queda pendiente | NO EJECUTADA |
-| T-V09 | C3-17: cómputo del plazo y zona horaria (incluido cambio de horario) | unidad | según P-C317-01/02 una vez confirmados | NO DEFINIDA (requiere decisión) |
+| T-V09 | C3-17: vencimiento = inicio + 86 400 s entre instantes, también al cruzar un cambio de horario (R-C317-11) | unidad (reloj controlado) | vence exactamente en ese instante; la zona sólo afecta a la presentación | NO EJECUTADA |
+| T-V10 | C3-17: resolución de la pagadora (emisor declarado → `Job.clientOrgId` → ninguna) (R-C317-09) | unidad/integración | fuente registrada; sin pagadora no hay ajuste | NO EJECUTADA |
+| T-V11 | C3-17: inicio en la creación de la notificación; sin notificación no hay plazo (R-C317-10) | integración | instante de inicio registrado = creación | NO EJECUTADA |
+| T-V12 | C3-17: efecto limitado a la base de facturación (R-C317-12) | integración | `TimeEntry` intacto; vista del trabajador con original, ajuste y diferencia | NO EJECUTADA |
 | T-V01 | Validadores documentales | documental | 0 errores/avisos | **EJECUTADA** (ver reporte del corte) |
 
 ## 10.19 Trazabilidad decisión → requisito → contrato → aceptación → prueba → resultado
@@ -702,6 +728,6 @@ El paquete de opciones para el dueño está en `SEMSE_Plan3_Paquete_Decisiones_C
 | **C3-17 aprobada por el dueño 2026-11-21** (ajuste por vencimiento al tiempo del pagador) | R-C317-01…08 | §10.17 | ver §10.17.5 | T-V01…T-V09 | Decisión de producto **aprobada**; detalles P-C317-01…09 **requieren decisión**; implementación bloqueada por G04/G07/G10/G12; pruebas NO EJECUTADAS |
 | Responsable del piloto: Yoni Castellanos (declarado por usuario 18-nov) | verificar designación y autoridad | §8 / Plan 4 | ninguna decisión sin autoridad verificada | T-R02 | Requiere evidencia; no se atribuyen permisos |
 
-## Estado de salida de v0.10
+## Estado de salida de v0.11
 
 `DRAFT`. C3-17 queda aprobada como decisión de producto; eso no cambia el estado de la SDD ni cierra gates técnicos. No hay implementación, migración, prueba funcional ni CI de esta revisión. Validadores documentales ejecutados localmente (ver `docs/reportes/2026-11-21_plan3-conciliacion-gates.md`). B4-11/B4-12 abiertos. **PLAN 3 AÚN ABIERTO.**
