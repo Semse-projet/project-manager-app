@@ -3,7 +3,7 @@ id: "core.crews-worksites"
 title: "Obras y cuadrillas con alcance por supervisor (BO-07)"
 domain: "core"
 sdd_version: "2.0"
-version: "0.1"
+version: "0.2"
 status: "APPROVED"
 owner: "semse-core"
 risk: "high"
@@ -39,7 +39,7 @@ related_events:
   - "crew.member_removed"
   - "crew.archived"
 related_agents: []
-last_verified: "2026-10-18"
+last_verified: "2026-11-21"
 ---
 # BO-07 — Obras y cuadrillas con alcance por supervisor
 

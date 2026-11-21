@@ -272,6 +272,19 @@ test("S0B-P2034-02: liberación y cambio de estado responden 409 sin mutación n
   assert.equal(w.audits.length, auditsBefore);
 });
 
+test("S0B-P2002/P2028: carrera de inserción única y transacción vencida responden 409, nunca 500", async () => {
+  for (const code of ["P2002", "P2028"]) {
+    const w = makeWorld();
+    w.beforeTransaction(() => { throw Object.assign(new Error(`synthetic ${code}`), { code }); });
+    await assert.rejects(w.service.assign(sup, "c1", "task1", `r-${code}`, ["ana"]), { status: 409 });
+    assert.equal(w.allocations.length, 0);
+    assert.equal(w.audits.length, 0);
+  }
+  const w = makeWorld();
+  w.beforeTransaction(() => { throw Object.assign(new Error("other failure"), { code: "P2003" }); });
+  await assert.rejects(w.service.assign(sup, "c1", "task1", "r-other", ["ana"]), (e: any) => e?.status !== 409);
+});
+
 test("S0B-N18: fallo de auditoría al liberar mantiene intacta la asignación", async () => {
   const w = makeWorld();
   const [a] = await w.service.assign(sup, "c1", "task1", "r1", ["ana"]);

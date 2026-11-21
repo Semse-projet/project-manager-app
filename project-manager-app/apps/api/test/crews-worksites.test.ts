@@ -164,7 +164,8 @@ test("S0A-ROSTER-01: no listar miembro WORKER revocado aunque su CrewMember y PR
 
   w.memberships.find((m) => m.userId === "ana" && m.orgId === "orgA" && m.role.key === "WORKER")!.status = "REVOKED";
   w.memberships.push({ userId: "ana", orgId: "orgA", status: "ACTIVE", role: { key: "PRO" }, org: { tenantId: "t1" } });
-  // Una identidad todavía WORKER en otro tenant no restituye pertenencia a orgA.
+  w.memberships.push({ userId: "ana", orgId: "orgA", status: "ACTIVE", role: { key: "WORKER" }, org: { tenantId: "t2" } });
+  // Ni un PRO ACTIVE en orgA ni una identidad todavía WORKER en otro tenant restituyen la pertenencia a orgA/t1.
   const roster = await w.service.rosterForSupervisor({ tenantId: "t1", userId: "sup" }, crew.crewId);
   assert.deepEqual(roster.members.map((m: Row) => m.userId), ["bob"]);
   assert.equal(w.crewMembers.filter((m) => m.crewId === crew.crewId && m.userId === "ana").length, 1, "keep historical CrewMember");
