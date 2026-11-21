@@ -531,8 +531,9 @@ Correlación: A.`correlationId` = B.`decisionCorrelationId` = C.`correlationId` 
 ## 10.15 Evidence (coordinación con Plan 6)
 
 - `TimeEvidence` (`schema.prisma`) cuelga de `TimeEntry` con `fileUrl` libre; **sin** FK a `Evidence`, sin `tenantId/orgId`, sin checksum ni versión; ningún código usa `prisma.timeEvidence` (coincide con Plan 2 v36r2 §2.24).
-- Plan 6 en Drive (`00-INDICE_CONTEXTO_PLAN6.md`, 20 nov) registra documento maestro **v27** (la referencia heredada era Library v24): P6-02 Opción A (captura textual con procedencia) para el primer slice; objetos Evidence, permisos de objeto, checksum, archivos, cámara y OCR en fases posteriores; implementación «no lista».
+- Plan 6 en Drive (`SEMSE_Plan_6_Evidence_Custodia.md`, versión documental 27, 20 nov; la referencia heredada era Library v24): P6-02 Opción A (captura textual con procedencia) para el primer slice; objetos Evidence, permisos de objeto, checksum, archivos, cámara y OCR en fases posteriores; implementación «no lista».
 - D6-01 (servicio/modelo), D6-04 (retención/borrado) y D6-09 (lectura/retiro/reemplazo): **siguen abiertos**; no hay decisión nueva verificable.
+- Plan 6 v27 (tabla D6-04) asigna la **retención de las declaraciones textuales** del caso al contrato general de Plan 3/5: requiere decisión de owner (Plan 3/5 + privacidad/legal); no se fija aquí plazo ni mecanismo.
 - Para el primer slice: conciliación registra sólo la **declaración textual de la fuente** (emisor, declarante, procedencia, periodo, alcance) sin referencia a objetos Evidence; OCR/extracción fuera. No se abrió, descargó ni copió ningún binario.
 
 ## 10.16 Baseline histórico — revalidación 21 de noviembre de 2026
@@ -610,6 +611,7 @@ No se localizó HTML v4 **publicado** con hash/linaje ni exportación/captura or
 | Identidad separada (Plan 3/4) | principal de servicio | §10.12 | `system` rechazado | T-W01…W03 | Bloqueado: no existe tipo de principal |
 | Auditoría 3 clases (Plan 4 B4-11/B4-12) | A/B/C correlacionables | §10.13 | DENY nunca expone | T-A01…A05 | Requiere decisión; `orgId` no persistido |
 | D6-01/04/09 (Plan 6) | custodia y acceso | §10.15 | sólo declaración textual en slice 1 | — | Bloqueado en Plan 6 |
+| Retención de declaraciones (Plan 6 v27 → Plan 3/5) | política de retención/borrado | §10.15 | no persistir sin política | — | Requiere decisión |
 | Perfil horario (C3-10/C3-12) | entradas versionadas | §10.14 | pendiente sin perfil | T-P01/P02 | Bloqueado: sin TZ/asignación |
 | §9.13 prevalencia del pagador | diseño pendiente | §10.17 | no aplica sin notificación acreditada | — | Requiere decisión |
 | Responsable del piloto: Yoni Castellanos (declarado por usuario 18-nov) | verificar designación y autoridad | §8 / Plan 4 | ninguna decisión sin autoridad verificada | T-R02 | Requiere evidencia; no se atribuyen permisos |
