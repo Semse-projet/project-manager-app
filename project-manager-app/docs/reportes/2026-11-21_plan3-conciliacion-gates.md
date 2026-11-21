@@ -43,3 +43,13 @@ No se tocó código, esquema, migraciones, workflows, permisos ni configuración
 ## Estado
 
 **PLAN 3 AÚN ABIERTO.** SDD `DRAFT`; B4-11/B4-12 abiertos; gates de lector, identidad, auditoría, CAS/STALE, Evidence, perfil horario, baseline y CI siguen abiertos o requieren decisión de owners.
+
+---
+
+## Addendum — aprobación de C3-17 (2026-11-21)
+
+- **Decisión de producto aprobada por el dueño (literal):** «Si una conciliación de horas sigue sin resolverse después de 24 horas, SEMSE ajustará el tiempo conciliado al tiempo que estableció la compañía que paga ese trabajo.»
+- Registrada en la SDD v0.9 §10.17 (requisitos R-C317-01…08, detalles pendientes P-C317-01…09, gates técnicos y trazabilidad) y en Plan 3 v72 (Drive).
+- No cambia `status: DRAFT`, no concede permisos, no autoriza modificar `TimeEntry` ni implementar el ajuste automático.
+- Corrección: el corte anterior trató la regla como «diseño pendiente» sin citar que ya existía como C3-17 (Plan 3 §9, borrador del 19-nov).
+- Validaciones repetidas sobre la v0.9: estricto 220/0/0; `--base-ref origin/main` 0/0; índice 220; cobertura de planes 0/0/0; 29/29 pruebas de validadores; `git diff --cached --check` limpio.
