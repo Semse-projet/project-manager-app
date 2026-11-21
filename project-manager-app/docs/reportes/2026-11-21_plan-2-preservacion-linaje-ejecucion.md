@@ -42,6 +42,16 @@
 - El respaldo no contiene referencias de Evidence.
 - El plan íntegro v35 (sobre el v34 auténtico), el diff y los reportes se entregaron al propietario **fuera del repositorio**, porque contienen IDs de registros. Este reporte solo registra resultados agregados.
 
+## Quinta intervención (r5, mismo día): v36 del plan
+
+- La revisión documental de v35 recomienda dar pase a la puerta documental. No es aprobación formal; la puerta operativa y la de ejecución siguen bloqueadas.
+- Reproducción, con resultado idéntico byte a byte:
+  - paquete de entrada: 9/9 SHA-256 OK;
+  - diff v34→v35 y `patch` desde la v34 original;
+  - construcción de la v35;
+  - verificadores Python y Node, comparación de colecciones y análisis de los 120 s.
+- La v36 (`03f21990…550a`) corrige cuatro errores documentales; la principal es el estado de la hipótesis del redondeo del total, que no tiene apoyo en el código v4 local. Los 120 s siguen sin causa. Los entregables con datos personales se mantienen fuera del repositorio.
+
 ## Gobernanza
 
 - No es feature de dominio: herramientas de verificación en `scripts/` y documentación, sin endpoints, sin cambios de esquema ni de permisos. En Railway solo se leyeron inventario y metadatos de despliegue; no se tocaron producción, Evidence, CI ni flags.

@@ -1,6 +1,6 @@
 # SEMSE — Plan 2 «Preservación de datos y linaje» · Paquete de actualización v34 → v35
 
-**Fecha:** 2026-11-21 · **Revisión del paquete:** r4 · **Preparado por:** agente técnico de ejecución (sesión Claude Code) · **Estado de este documento:** BORRADOR PARA EL PROPIETARIO — no revisado, no aprobado, no fusionado en el plan.
+**Fecha:** 2026-11-21 · **Revisión del paquete:** r5 · **Preparado por:** agente técnico de ejecución (sesión Claude Code) · **Estado de este documento:** BORRADOR PARA EL PROPIETARIO — no revisado, no aprobado, no fusionado en el plan.
 
 > ## Aviso de autoridad — leer primero
 >
@@ -13,6 +13,29 @@
 >
 > Por eso este documento **no es el plan íntegro v35** y no reproduce ni reconstruye el contenido de v34. Es el conjunto de cambios, evidencias, matriz y conclusiones que el propietario debe incorporar sobre v34. Los identificadores `P2-…` son provisionales y deben mapearse a los de v34. Las reglas de clasificación del Plan 2 (coincidencia/candidato/conflicto/huérfano) no se conocen textualmente: las definiciones de §3.B son **provisionales** y deben alinearse con v34.
 
+> ## r5 — 2026-11-21: v36 del plan (correcciones documentales)
+>
+> - El plan íntegro **v36** (SHA-256 `03f219902d3a0f66966f5e3c25384d38d2cef1f1947daea354969c773555550a`) se construyó a partir de la v35 (`1a35a30a…4c97`) sin sobrescribirla. Igual que las versiones anteriores, se entregó al propietario **fuera de este repositorio**, con los diffs v35→v36 y v34→v36.
+> - **Revisión documental de v35:** recomienda dar pase a la puerta documental. **No es la aprobación formal del propietario.** La puerta operativa y la de ejecución del conjunto de Planes 0–13 siguen bloqueadas; Plan 13 v8 la registra como CERRADA.
+> - **Reproducción con las entradas autorizadas** (solo lectura, sobre copias de trabajo): todo resultó idéntico byte a byte a lo entregado.
+>   - Paquete de entrada: 9/9 SHA-256 OK, y los originales siguen intactos.
+>   - Diff v34→v35: el regenerado coincide con el entregado, y `patch(v34, diff)` da exactamente la v35.
+>   - La construcción de la v35 desde la v34 es reproducible.
+>   - Verificador Python: `RESULT: PASS`.
+>   - Verificador Node y comparación de colecciones: mismo resultado, con hash canónico `4cd2eb39…`.
+>   - Análisis de los 120 s y de subconjuntos: mismas salidas.
+>   - Herramientas de este repositorio: 5/5 SHA-256 coinciden con §2.25 del plan.
+> - **Correcciones documentales de v36** (no cambian evidencias ni gates):
+>   1. El estado de la hipótesis del redondeo del total a 0,1/0,5 h pasa a «aritméticamente compatible, sin apoyo en el código v4 local, que daría 171,54 h». **Los 120 s siguen sin causa confirmada.**
+>   2. «Excepciones 0/2 explicado en el código v4 local» queda acotado como no demostrado en el Site publicado.
+>   3. Se corrige una referencia ambigua en §11.
+>   4. Se corrigen las fechas de las secciones del Plan 11.
+> - **No reproducible todavía:**
+>   - la tercera captura de Plan 1 (`6ea22fd6…`), que no se ha recibido;
+>   - la equivalencia del HTML v4 local con el Site publicado;
+>   - la vista previa v6, el archive de Sites v2, el ZIP v5 y el kit.
+> - Los archivos con datos personales (planes, JSON, CSV, diffs) se mantienen privados. El paquete compartible solo contiene hashes, salidas agregadas de los verificadores e instrucciones de reproducción.
+>
 > ## r4 — 2026-11-21: paquete de entrada verificado
 >
 > - Paquete de entrada recibido (ZIP `56a2173a…cf61`). 9/9 SHA-256 coinciden con los documentados en v34. El verificador Python del propietario da `RESULT: PASS`, re-ejecutado el 21 nov sobre copias de trabajo. Los verificadores de este repo dan PASS y `NO_COLLISIONS`, y el hash canónico de `data` se reproduce en una segunda implementación.
