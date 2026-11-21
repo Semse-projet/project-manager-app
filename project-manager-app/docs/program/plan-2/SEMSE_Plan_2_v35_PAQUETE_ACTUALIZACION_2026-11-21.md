@@ -1,6 +1,6 @@
 # SEMSE — Plan 2 «Preservación de datos y linaje» · Paquete de actualización v34 → v35
 
-**Fecha:** 2026-11-21 · **Revisión del paquete:** r3 · **Preparado por:** agente técnico de ejecución (sesión Claude Code) · **Estado de este documento:** BORRADOR PARA EL PROPIETARIO — no revisado, no aprobado, no fusionado en el plan.
+**Fecha:** 2026-11-21 · **Revisión del paquete:** r4 · **Preparado por:** agente técnico de ejecución (sesión Claude Code) · **Estado de este documento:** BORRADOR PARA EL PROPIETARIO — no revisado, no aprobado, no fusionado en el plan.
 
 > ## Aviso de autoridad — leer primero
 >
@@ -13,6 +13,12 @@
 >
 > Por eso este documento **no es el plan íntegro v35** y no reproduce ni reconstruye el contenido de v34. Es el conjunto de cambios, evidencias, matriz y conclusiones que el propietario debe incorporar sobre v34. Los identificadores `P2-…` son provisionales y deben mapearse a los de v34. Las reglas de clasificación del Plan 2 (coincidencia/candidato/conflicto/huérfano) no se conocen textualmente: las definiciones de §3.B son **provisionales** y deben alinearse con v34.
 
+> ## r4 — 2026-11-21: paquete de entrada verificado
+>
+> - Paquete de entrada recibido (ZIP `56a2173a…cf61`). 9/9 SHA-256 coinciden con los documentados en v34. El verificador Python del propietario da `RESULT: PASS`, re-ejecutado el 21 nov sobre copias de trabajo. Los verificadores de este repo dan PASS y `NO_COLLISIONS`, y el hash canónico de `data` se reproduce en una segunda implementación.
+> - Por eso A1, A2, A3 y A5 (P2-A*) pasan a **demostrado (prueba ejecutada 21 nov)**. A4 (120 s) sigue en **revisión humana**: el redondeo por fila queda descartado con datos, y el redondeo del total a 0,1/0,5 h es solo una hipótesis compatible.
+> - El plan íntegro v35 se construyó sobre el **archivo auténtico** de v34 (SHA-256 `30f59430…72ff`) y sustituye al borrador anterior basado en el texto pegado. Se entregó con el diff v34→v35 y los reportes, fuera de este repositorio público.
+>
 > ## r3 — 2026-11-21: v34 recibida; plan íntegro v35 fuera del repositorio
 >
 > - El propietario pegó en la sesión el texto del Plan 2 (cabecera «Fecha de revisión: 20 de noviembre de 2026», sin número de versión; identificado por el propietario como v34). Con él se produjo el **archivo íntegro `SEMSE_Plan_2_Preservacion_Datos_Linaje.md` v35**, entregado al propietario por la sesión y **no versionado aquí**: el repositorio es público y el plan contiene IDs de registros, nombres de proyectos del cliente, horas e IDs de la Biblioteca (minimización, §12.2 del plan). Este paquete queda como registro técnico sin datos de registros.

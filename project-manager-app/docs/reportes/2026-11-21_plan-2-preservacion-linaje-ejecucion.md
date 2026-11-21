@@ -31,6 +31,17 @@
 - Diff `7029da63…86c0be5` vacío en las rutas relevantes; nuevos controles D-06…D-08 HOLDS.
 - `diff-site-collections` admite `data` y colecciones-mapa, y compara `source`/`synthetic`. El verificador admite transformaciones por fila. 12/12 pruebas PASS.
 
+## Cuarta intervención (r4, mismo día): paquete de entrada recibido
+
+- El propietario entregó el ZIP de entrada (SHA-256 `56a2173a…cf61`): Plan 2 v34 auténtico, las dos exportaciones JSON, el CSV, el manifiesto, el verificador Python y los derivados de Plan 3. 9/9 hashes coinciden con `SHA256SUMS.txt` y con los documentados en v34.
+- Verificador Python del propietario (leído antes de ejecutarlo; Python 3.13.18, `-I`, sobre copias de trabajo): `RESULT: PASS`. Originales intactos antes y después.
+- Herramientas de `scripts/plan2/` sobre las mismas copias:
+  - `verify-preservation-package`: PASS; 15 filas `payable` no sintéticas, 1 `synthetic` preservada y no sumada, 20 IDs cotejados y 0 fuera de tolerancia;
+  - `diff-site-collections` entre las dos exportaciones: `NO_COLLISIONS`, con el hash canónico de `data` reproducido en JS igual al del manifiesto (Python).
+- 120 s: las 15 duraciones son minutos exactos, así que el redondeo por fila queda descartado. Solo el redondeo del total a 0,1/0,5 h reproduce 171,50 h, como hipótesis compatible y no como causa. Además, en 11 de 15 filas las marcas `inicio`/`fin` no coinciden con la duración; queda para Plan 3.
+- El respaldo no contiene referencias de Evidence.
+- El plan íntegro v35 (sobre el v34 auténtico), el diff y los reportes se entregaron al propietario **fuera del repositorio**, porque contienen IDs de registros. Este reporte solo registra resultados agregados.
+
 ## Gobernanza
 
 - No es feature de dominio: herramientas de verificación en `scripts/` y documentación, sin endpoints, sin cambios de esquema ni de permisos. En Railway solo se leyeron inventario y metadatos de despliegue; no se tocaron producción, Evidence, CI ni flags.
