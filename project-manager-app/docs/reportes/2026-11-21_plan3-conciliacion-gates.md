@@ -74,3 +74,15 @@ El dueño aprobó seis reglas: inicio con la constancia de notificación al usua
 - **R-C317-20 (precisión B):** una disputa o devolución no suspende ni reinicia el plazo; sólo resuelve una decisión de persona autorizada. Con un parte ambiguo o un alcance no comparable no hay ajuste.
 - Consecuencia registrada: un parte agregado sin desglose no tiene plazo ni ajuste automático y queda pendiente de decisión humana.
 - Registradas en la SDD v0.13 §10.17.9, con pruebas T-V19…T-V22 sin ejecutar. Validaciones: estricto 220/0/0; `--base-ref` 0/0; índice 220; cobertura 0/0/0; 29/29.
+
+## Addendum 6 — plan, tareas, checklist y análisis (2026-11-21)
+
+- Nuevos documentos SDD en DRAFT, sin ejecutar nada: `weekly-reconciliation.plan.md`, `.tasks.md`, `.checklist.md` y `.analyze.md`. La SDD pasa a v0.14 y los enlaza.
+- El análisis concluye **con gaps**:
+  - A-01: un cambio de `TimeEntry` durante el plazo C3-17 no está cubierto por las reglas aprobadas;
+  - A-02: `packages/fsm` no existe, pese a la decisión bloqueada de la constitución;
+  - A-03: eventos sin catalogar;
+  - A-04: `TimeEvidence` sin `tenantId`;
+  - A-05: confirmar el Art. III;
+  - A-06: confirmar Payment Governance.
+- Validaciones: estricto 220/0/0; `--base-ref` 0/0; índice 220; cobertura de planes 0/0/0; 29/29. `spec:coverage` (informativo) lista esta spec sin `related_tests` y como riesgo crítico no verificado, lo cual es correcto.

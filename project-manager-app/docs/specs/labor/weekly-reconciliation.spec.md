@@ -3,7 +3,7 @@ id: "labor.weekly-reconciliation"
 title: "Conciliación semanal del Time Tracker"
 domain: "labor"
 sdd_version: "2.0"
-version: "0.13"
+version: "0.14"
 status: "DRAFT"
 owner: "semse-core"
 risk: "critical"
@@ -48,7 +48,7 @@ related_agents: []
 last_verified: "2026-11-21"
 ---
 
-# Conciliación semanal · borrador para revisión (v0.13 DRAFT)
+# Conciliación semanal · borrador para revisión (v0.14 DRAFT)
 
 > **DRAFT / NO IMPLEMENTAR.** Esta SDD no autoriza código, migraciones, grants, membresías, flags, pruebas funcionales, CI, despliegue ni activación. B4-11/B4-12 siguen abiertos. Plan 3 sigue abierto.
 
@@ -63,7 +63,8 @@ last_verified: "2026-11-21"
 | v0.10 | misma ruta, commit `00cc6ebd…` | Añadió §10.17.6 (evidencia de código para los detalles P-C317) y un paquete de opciones para el dueño. No decidió ningún detalle. Espejo Drive SHA-256 `abc10832…6eae`. |
 | v0.11 | misma ruta, commit `59c745fe…` | Registró los detalles P-C317-01, 02, 06 y 07 confirmados por el dueño el 21-11 (§10.17.7). Espejo Drive SHA-256 `ec3af0a4…2458`. |
 | v0.12 | misma ruta, commit `80118039…` | Registró las **seis reglas operativas de C3-17** aprobadas por el dueño el 21-11 (§10.17.8, R-C317-13…18). Espejo Drive SHA-256 `6badeae5…8e41`. |
-| **v0.13** | misma ruta y rama, base `main@86c0be5468a7c96c0a9dd4bc8df34e386e7c8c7f` | Esta revisión: registra dos **precisiones derivadas** de C3-17 (§10.17.9, R-C317-19 y R-C317-20) y cierra el residual P-C317-01c. Sigue `DRAFT` y **no** está en `main`. |
+| v0.13 | misma ruta, commit `740256c1…` | Registró dos **precisiones derivadas** de C3-17 (§10.17.9, R-C317-19 y R-C317-20) y cerró el residual P-C317-01c. Espejo Drive SHA-256 `0cedcc08…c85e`. |
+| **v0.14** | misma ruta y rama, base `main@86c0be5468a7c96c0a9dd4bc8df34e386e7c8c7f` | Esta revisión: añade los documentos SDD hermanos (plan, tareas, checklist y análisis, todos DRAFT) y registra los gaps A-01…A-06 del análisis. Sigue `DRAFT` y **no** está en `main`. |
 
 Según `docs/SOURCE_OF_TRUTH.md`, la SDD canónica es la del repositorio (`docs/specs/` + `docs/SPEC_INDEX.md`). Library y Drive son espejos; si contradicen al repositorio prevalece el repositorio. Library **no fue accesible** desde esta sesión: las versiones Library citadas (Plan 3 v70, Plan 9 v27, Plan 4 v38, Plan 6 v24, SDD v22) son referencias heredadas no revalidadas aquí.
 
@@ -826,6 +827,19 @@ El dueño respondió en la sesión de trabajo del 21-11-2026 a las preguntas del
 | **C3-17 aprobada por el dueño 2026-11-21** (ajuste por vencimiento al tiempo del pagador) | R-C317-01…08 | §10.17 | ver §10.17.5 | T-V01…T-V09 | Decisión de producto **aprobada**; detalles P-C317-01…09 **requieren decisión**; implementación bloqueada por G04/G07/G10/G12; pruebas NO EJECUTADAS |
 | Responsable del piloto: Yoni Castellanos (declarado por usuario 18-nov) | verificar designación y autoridad | §8 / Plan 4 | ninguna decisión sin autoridad verificada | T-R02 | Requiere evidencia; no se atribuyen permisos |
 
-## Estado de salida de v0.13
+## Documentos SDD hermanos (v0.14)
+
+- Plan técnico preparatorio: [`weekly-reconciliation.plan.md`](weekly-reconciliation.plan.md) (DRAFT; no ejecutar).
+- Tareas: [`weekly-reconciliation.tasks.md`](weekly-reconciliation.tasks.md) (PENDING; tareas de código bloqueadas).
+- Checklist: [`weekly-reconciliation.checklist.md`](weekly-reconciliation.checklist.md).
+- Análisis de consistencia: [`weekly-reconciliation.analyze.md`](weekly-reconciliation.analyze.md). Resultado **con gaps**:
+  - **A-01**: efecto de un cambio de `TimeEntry` durante el plazo C3-17; requiere decisión de producto.
+  - **A-02**: `packages/fsm` no existe, pese a la decisión bloqueada de la constitución.
+  - **A-03**: eventos sin catalogar.
+  - **A-04**: `TimeEvidence` sin `tenantId`.
+  - **A-05**: confirmar el Art. III frente a Evidence como referencia.
+  - **A-06**: confirmar Payment Governance.
+
+## Estado de salida de v0.14
 
 `DRAFT`. C3-17 queda aprobada como decisión de producto; eso no cambia el estado de la SDD ni cierra gates técnicos. No hay implementación, migración, prueba funcional ni CI de esta revisión. Validadores documentales ejecutados localmente (ver `docs/reportes/2026-11-21_plan3-conciliacion-gates.md`). B4-11/B4-12 abiertos. **PLAN 3 AÚN ABIERTO.**

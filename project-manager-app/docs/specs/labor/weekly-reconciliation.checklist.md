@@ -1,0 +1,46 @@
+---
+type: checklist
+feature: "weekly-reconciliation"
+spec: "docs/specs/labor/weekly-reconciliation.spec.md"
+version: "2.0"
+date: "2026-11-21"
+---
+
+# Checklist — Conciliación semanal del Time Tracker (estado al 21-11-2026)
+
+> `[x]` cumplido con evidencia documental · `[ ]` no cumplido · `[~]` parcial. Ningún punto marcado cumplido implica implementación, prueba ejecutada ni activación.
+
+## Requisitos
+
+- [~] Cada escenario P1 es verificable. Los casos de aceptación tienen prueba prevista (T-*), sin ejecutar. Falta A-01 (cambio de `TimeEntry` durante el plazo).
+- [x] El alcance y lo que queda fuera evitan ambigüedad: dentro del Time Tracker; sin app paralela; sin nómina, escrow ni pagos; OCR fuera del primer slice.
+- [~] Los contratos API/UI/agente no se contradicen. Contrato lógico completo; sin endpoints elegidos. El intérprete de notas (§9.11) no tiene autoridad.
+- [x] Decisiones de producto de C3-17 completas (C3-17, P-C317-01…09, 01b y 01c; R-C317-01…20).
+
+## Seguridad
+
+- [ ] Los permisos se validan en backend. Las capabilities de captura, decisión y reapertura no existen (Plan 4).
+- [ ] Tenant, organización, propiedad y alcance de recurso probados (T-R04/R05 sin ejecutar).
+- [ ] Hay paso de aprobación para acciones críticas (decisión y reapertura con autoridad verificada).
+- [~] Sin secretos ni PII en logs/evidencia. Minimización definida en la spec §10.13; sin implementar.
+- [ ] Identidad de servicio verificable (G04).
+
+## Datos y eventos
+
+- [ ] La migración es reproducible y compatible (propuesta en el plan §4).
+- [ ] Backfill, rollback o forward-fix definidos y aprobados.
+- [ ] Estado y outbox atómicos (G07).
+- [ ] Consumidores idempotentes y reejecutables (G12).
+- [ ] CAS en todos los writers de TimeEntry (G10).
+- [ ] Ubicación del FSM decidida (`packages/fsm` no existe).
+
+## Evidencia y dinero
+
+- [x] La evidencia no se confunde con aprobación automática (spec §10.7).
+- [~] Payment Governance: la base de facturación no libera fondos; falta la confirmación del owner de Payments.
+- [x] Los cálculos excluyen propuestas y los 120 s sin causa del total confirmado (§10.16).
+- [x] `TimeEntry` nunca se modifica desde la conciliación (C3-05, R-C317-02/17/20).
+
+## Entrega (Art. XIII)
+
+- [ ] Spec `APPROVED` · [ ] código · [ ] CI · [ ] merge · [ ] deploy · [ ] activación · [ ] migración · [ ] evidencia de producción.
