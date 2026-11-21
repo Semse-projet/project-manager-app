@@ -96,16 +96,28 @@ export function diffCollections(docA, docB, { key = 'id', counts = [] } = {}) {
     };
     const ma = index(ra, 'a');
     const mb = index(rb, 'b');
-    for (const [k, va] of ma) {
-      const vb = mb.get(k);
-      if (!vb) { out.onlyInA.push(k); continue; }
-      const ha = va.map(hashOf);
-      const hb = vb.map(hashOf);
-      if (va.length === 1 && vb.length === 1 && ha[0] === hb[0]) { out.identical++; continue; }
-      out.collisions.push({ key: k, hashesA: ha, hashesB: hb, changedFields: va.length === 1 && vb.length === 1 ? changedFields(va[0], vb[0]) : ['<clave duplicada>'] });
-      bodies.push({ collection: name, key: k, versionA: va, versionB: vb });
+    // Recorre la unión de claves. Una clave duplicada en cualquiera de los dos
+    // lados es UN conflicto (se cuenta una sola vez), conserva todos sus cuerpos
+    // y queda fuera de candidatos y huérfanos.
+    const allKeys = [...new Set([...ma.keys(), ...mb.keys()])].sort();
+    for (const k of allKeys) {
+      const va = ma.get(k) ?? [];
+      const vb = mb.get(k) ?? [];
+      if (va.length > 1 || vb.length > 1) {
+        out.collisions.push({ key: k, duplicateKey: true, hashesA: va.map(hashOf), hashesB: vb.map(hashOf), changedFields: ['<clave duplicada>'] });
+        bodies.push({ collection: name, key: k, versionA: va, versionB: vb });
+        continue;
+      }
+      if (va.length && vb.length) {
+        const ha = hashOf(va[0]);
+        const hb = hashOf(vb[0]);
+        if (ha === hb) { out.identical++; continue; }
+        out.collisions.push({ key: k, hashesA: [ha], hashesB: [hb], changedFields: changedFields(va[0], vb[0]) });
+        bodies.push({ collection: name, key: k, versionA: va, versionB: vb });
+      } else if (va.length) out.onlyInA.push(k);
+      else out.onlyInB.push(k);
     }
-    for (const k of mb.keys()) if (!ma.has(k)) out.onlyInB.push(k);
+    out.duplicateKeys = { a: [...new Set(out.duplicateKeys.a)], b: [...new Set(out.duplicateKeys.b)] };
     // Candidatos: registros sin pareja por clave cuyo contenido (sin la clave)
     // es byte-idéntico en canónico al de un registro sin pareja del otro lado.
     // Sólo se listan para revisión humana; nunca se emparejan ni combinan.
@@ -126,7 +138,7 @@ export function diffCollections(docA, docB, { key = 'id', counts = [] } = {}) {
     out.classification = {
       coincidencias: out.identical,
       candidatos: out.candidates.length,
-      conflictos: out.collisions.length + out.duplicateKeys.a.length + out.duplicateKeys.b.length,
+      conflictos: out.collisions.length,
       huerfanosA: out.onlyInA.filter((k) => !candidateA.has(k)).length,
       huerfanosB: out.onlyInB.filter((k) => !candidateB.has(k)).length,
       sinClave: out.keyless.a + out.keyless.b,
@@ -134,12 +146,15 @@ export function diffCollections(docA, docB, { key = 'id', counts = [] } = {}) {
     collections.push(out);
   }
   const countResults = counts.map(parseCountSpec).filter(Boolean).map((c) => {
-    const match = (list) => (list ?? []).filter((r) => String(r?.[c.field]) === c.value).length;
+    // En colecciones-mapa el registro original está en `value`.
+    const match = (list) => (list ?? []).filter((r) => String((r?.__mapEntry ? r.value : r)?.[c.field]) === c.value).length;
     return { ...c, matchesA: match(A[c.collection]), matchesB: match(B[c.collection]) };
   });
   // Candidatos cuentan como no resueltos: requieren decisión humana.
   const totalCollisions = collections.reduce((s, c) => s + c.classification.conflictos + c.classification.sinClave + c.classification.candidatos, 0);
-  return { collections, counts: countResults, unresolvedCollisions: totalCollisions, bodies };
+  // Registros presentes en un solo snapshot también requieren decisión (Plan 2 §8.2).
+  const orphans = collections.reduce((s, c) => s + c.classification.huerfanosA + c.classification.huerfanosB, 0);
+  return { collectionsFound: names.length, collections, counts: countResults, unresolvedCollisions: totalCollisions, orphansRequiringDecision: orphans, bodies };
 }
 
 async function main() {
@@ -158,7 +173,10 @@ async function main() {
       b: { path: b, sha256: db.sha256, bytes: db.bytes, canonicalCollectionsSha256: canonicalSha256(collectionsRoot(db.data)) },
     },
     canonicalization: 'claves ordenadas recursivamente, sin espacios, JSON.stringify de JS; puede diferir de otra implementación en escapes no ASCII o formato numérico: cotejar antes de equiparar hashes',
-    verdict: summary.unresolvedCollisions === 0 ? 'NO_COLLISIONS' : 'COLLISIONS_UNRESOLVED_DO_NOT_IMPORT',
+    verdict: summary.collectionsFound === 0 ? 'NO_COLLECTIONS_FOUND'
+      : summary.unresolvedCollisions > 0 ? 'COLLISIONS_UNRESOLVED_DO_NOT_IMPORT'
+      : summary.orphansRequiringDecision > 0 ? 'DIFFERENCES_REQUIRE_DECISION'
+      : 'NO_COLLISIONS',
     ...summary,
   };
   await writeFile(path.resolve(out), JSON.stringify(report, null, 2) + '\n', { flag: 'wx' });

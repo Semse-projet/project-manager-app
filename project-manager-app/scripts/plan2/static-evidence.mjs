@@ -7,13 +7,16 @@
 // del Plan 2. Imprime JSON con ruta, línea, blob SHA de git y resultado.
 //
 // Uso (desde project-manager-app/):
-//   node scripts/plan2/static-evidence.mjs [--root <dir>] [--out <archivo.json>] [--since <sha>]
-// --since lista los archivos relevantes que cambiaron entre <sha> y HEAD.
+//   node scripts/plan2/static-evidence.mjs [--root <dir>] [--rev <commit>] [--out <archivo.json>] [--since <sha>]
+// Todo se lee de UN commit fijo (--rev, por defecto HEAD) con `git show`/`git grep <rev>`:
+// los cambios locales sin commit no alteran el resultado ni su atribución.
+// --since lista los archivos relevantes que cambiaron entre <sha> y ese commit.
+// --out crea el archivo en exclusiva (nunca sobrescribe) y rechaza destinos dentro del checkout.
 //
 // Un "found: false" en un control de bloqueo significa que el patrón que
 // sostenía el bloqueo ya no aparece: hay que re-evaluar, no cerrar el gate.
 import { execFileSync } from 'node:child_process';
-import { readFile, writeFile } from 'node:fs/promises';
+import { realpath, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -119,37 +122,41 @@ export const RELEVANT_PATHS = [
 ];
 
 /** Archivos relevantes que cambiaron entre `since` y HEAD (null si `since` no está disponible localmente). */
-export function changedSince(root, since) {
+function git(root, args) {
+  return execFileSync('git', ['-C', root, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], maxBuffer: 64 * 1024 * 1024 });
+}
+
+/** Resuelve un único commit para toda la ejecución. */
+export function resolveRev(root, rev = 'HEAD') {
+  try { return git(root, ['rev-parse', '--verify', `${rev}^{commit}`]).trim(); } catch { return null; }
+}
+
+/** Archivos relevantes que cambiaron entre `since` y `rev` (null si alguno no está disponible). */
+export function changedSince(root, since, rev = 'HEAD') {
   try {
     execFileSync('git', ['-C', root, 'cat-file', '-e', `${since}^{commit}`], { stdio: 'ignore' });
   } catch { return null; }
-  const out = execFileSync('git', ['-C', root, 'diff', '--name-only', since, 'HEAD', '--', ...RELEVANT_PATHS], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+  const out = execFileSync('git', ['-C', root, 'diff', '--name-only', since, rev, '--', ...RELEVANT_PATHS], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
   return out.trim().split('\n').filter(Boolean);
 }
 
-function gitBlobSha(root, file) {
-  try {
-    return execFileSync('git', ['-C', root, 'rev-parse', `HEAD:./${file}`], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
-  } catch {
-    return null;
-  }
+function gitBlobSha(root, rev, file) {
+  try { return git(root, ['rev-parse', `${rev}:./${file}`]).trim(); } catch { return null; }
 }
 
 function lineOf(text, index) {
   return text.slice(0, index).split('\n').length;
 }
 
-export async function runStaticEvidence(root) {
-  const head = (() => {
-    try { return execFileSync('git', ['-C', root, 'rev-parse', 'HEAD'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim(); }
-    catch { return null; }
-  })();
+export async function runStaticEvidence(root, rev = 'HEAD') {
+  const head = resolveRev(root, rev);
+  if (!head) throw new Error(`No se pudo resolver el commit ${rev}`);
   const results = [];
   for (const check of CHECKS) {
     let text;
     let fullText;
     try {
-      text = await readFile(path.join(root, check.file), 'utf8');
+      text = git(root, ['show', `${head}:./${check.file}`]);
       fullText = text;
     } catch {
       results.push({ ...pick(check), status: 'FILE_MISSING', line: null, blobSha: null });
@@ -159,7 +166,7 @@ export async function runStaticEvidence(root) {
     if (check.section) {
       const start = check.section[0].exec(text);
       if (!start) {
-        results.push({ ...pick(check), status: 'SECTION_MISSING', line: null, blobSha: gitBlobSha(root, check.file) });
+        results.push({ ...pick(check), status: 'SECTION_MISSING', line: null, blobSha: gitBlobSha(root, head, check.file) });
         continue;
       }
       const rest = text.slice(start.index + start[0].length);
@@ -175,13 +182,13 @@ export async function runStaticEvidence(root) {
       status: holds ? 'HOLDS' : 'DOES_NOT_HOLD',
       line: m ? lineOf(fullText, offset + m.index) : null,
       section: check.section ? check.section.map(String) : undefined,
-      blobSha: gitBlobSha(root, check.file),
+      blobSha: gitBlobSha(root, head, check.file),
     });
   }
   // Uso de TimeEvidence fuera del esquema (lecturas/escrituras en código de app).
   let timeEvidenceUsages = [];
   try {
-    const out = execFileSync('git', ['-C', root, 'grep', '-n', '-E', 'timeEvidence\\.', '--', 'apps', 'packages'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+    const out = git(root, ['grep', '-n', '-E', 'timeEvidence\\.', head, '--', 'apps', 'packages']);
     timeEvidenceUsages = out.trim().split('\n').filter(Boolean);
   } catch { /* git grep sale 1 cuando no hay coincidencias */ }
   results.push({
@@ -193,16 +200,25 @@ export async function runStaticEvidence(root) {
     blobSha: null,
     matches: timeEvidenceUsages,
   });
-  return { generatedAt: new Date().toISOString(), head, scope: 'static-source-only', results };
+  return { generatedAt: new Date().toISOString(), head, source: 'commit (git show/git grep), no el árbol de trabajo', scope: 'static-source-only', results };
 }
 
-export async function runWithSince(root, since) {
-  const report = await runStaticEvidence(root);
+export async function runWithSince(root, since, rev = 'HEAD') {
+  const report = await runStaticEvidence(root, rev);
   if (since) {
-    const changed = changedSince(root, since);
+    const changed = changedSince(root, since, report.head);
     report.since = { commit: since, available: changed !== null, changedRelevantFiles: changed };
   }
   return report;
+}
+
+/** true si `target` (o su directorio, resuelto con realpath) está dentro del checkout de git. */
+export async function isInsideCheckout(root, target) {
+  let top;
+  try { top = await realpath(git(root, ['rev-parse', '--show-toplevel']).trim()); } catch { top = await realpath(root); }
+  let dir;
+  try { dir = await realpath(path.dirname(target)); } catch { dir = path.resolve(path.dirname(target)); }
+  return dir === top || dir.startsWith(top + path.sep);
 }
 
 function pick(check) {
@@ -214,10 +230,18 @@ async function main() {
   const rootIdx = args.indexOf('--root');
   const outIdx = args.indexOf('--out');
   const sinceIdx = args.indexOf('--since');
+  const revIdx = args.indexOf('--rev');
   const root = path.resolve(rootIdx >= 0 ? args[rootIdx + 1] : process.cwd());
-  const report = await runWithSince(root, sinceIdx >= 0 ? args[sinceIdx + 1] : undefined);
+  const report = await runWithSince(root, sinceIdx >= 0 ? args[sinceIdx + 1] : undefined, revIdx >= 0 ? args[revIdx + 1] : 'HEAD');
   const json = JSON.stringify(report, null, 2);
-  if (outIdx >= 0) await writeFile(args[outIdx + 1], json + '\n');
+  if (outIdx >= 0) {
+    const out = path.resolve(args[outIdx + 1]);
+    if (await isInsideCheckout(root, out)) {
+      console.error('Rechazado: --out no puede apuntar dentro del checkout (el verificador es de solo lectura).');
+      process.exit(2);
+    }
+    await writeFile(out, json + '\n', { flag: 'wx' });
+  }
   process.stdout.write(json + '\n');
 }
 

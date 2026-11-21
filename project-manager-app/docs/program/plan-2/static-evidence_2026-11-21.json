@@ -1,6 +1,7 @@
 {
-  "generatedAt": "2026-11-21T03:27:59.720Z",
-  "head": "c3948486740ac07055ba8794ab8561213319f4ba",
+  "generatedAt": "2026-11-21T14:18:04.032Z",
+  "head": "af3a7e75c4f6e31380084bd843229eb98196b992",
+  "source": "commit (git show/git grep), no el árbol de trabajo",
   "scope": "static-source-only",
   "results": [
     {

@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 
 import { applyTransform, parseCsv, verifyPackage } from '../../scripts/plan2/verify-preservation-package.mjs';
 import { diffCollections } from '../../scripts/plan2/diff-site-collections.mjs';
-import { runStaticEvidence } from '../../scripts/plan2/static-evidence.mjs';
+import { isInsideCheckout, runStaticEvidence } from '../../scripts/plan2/static-evidence.mjs';
 
 const sha = (s) => createHash('sha256').update(s).digest('hex');
 
@@ -113,6 +113,26 @@ describe('plan2 verify-preservation-package (sintético)', () => {
     assert.deepEqual(r.csvComparison.mismatched.map((x) => [x.id, x.deltaSeconds]), [['e2', 12]]);
   });
 
+  it('FAIL si el CSV repite un ID; comparedIds cuenta IDs distintos', async () => {
+    const body = JSON.stringify({ entries: [{ id: 'a', s: 60 }, { id: 'b', s: 60 }] });
+    await writeFile(path.join(dir, 'dup.json'), body);
+    await writeFile(path.join(dir, 'dup.csv'), 'id,s\na,60\na,60\n');
+    const r = await verifyPackage({
+      files: [{ role: 'j', path: 'dup.json' }, { role: 'c', path: 'dup.csv' }],
+      records: { jsonRole: 'j', recordsPath: 'entries', idField: 'id', durationField: 's', durationUnit: 'seconds' },
+      csv: { role: 'c', idColumn: 'id', durationColumn: 's', durationUnit: 'seconds' },
+      expect: { comparedIds: 2 },
+    }, { baseDir: dir });
+    assert.equal(r.status, 'FAIL');
+    assert.ok(r.findings.some((f) => f.code === 'DUPLICATE_IDS_IN_CSV'));
+    assert.ok(r.findings.some((f) => f.code === 'COMPARED_COUNT_MISMATCH'));
+    assert.equal(r.csvComparison.distinctComparedIds, 1);
+  });
+
+  it('parseCsv rechaza una última celda con comillas sin cerrar', () => {
+    assert.throws(() => parseCsv('id,s\na,"60'), /comillas sin cerrar/);
+  });
+
   it('parseCsv maneja comillas, comas y CRLF', () => {
     const { header, records } = parseCsv('﻿a,b\r\n"x, ""y""",2\n');
     assert.deepEqual(header, ['a', 'b']);
@@ -168,6 +188,29 @@ describe('plan2 diff-site-collections (sintético)', () => {
     assert.equal(same.unresolvedCollisions, 0, 'reexport que sólo cambia exportedAt no genera conflictos');
   });
 
+  it('--count sobre colecciones-mapa lee el registro original', () => {
+    const r = diffCollections({ data: { reviews: { r1: { status: 'open' } } } }, { data: { reviews: { r1: { status: 'open' }, r2: { status: 'closed' } } } }, { counts: ['reviews:status=open'] });
+    assert.deepEqual(r.counts.map((c) => [c.matchesA, c.matchesB]), [[1, 1]]);
+  });
+
+  it('clave duplicada en un solo lado: un conflicto con sus cuerpos, ni huérfano ni candidato', () => {
+    const r = diffCollections({ C: [{ id: 'x', v: 1 }, { id: 'x', v: 2 }] }, { C: [] });
+    const c = r.collections[0];
+    assert.deepEqual(c.classification, { coincidencias: 0, candidatos: 0, conflictos: 1, huerfanosA: 0, huerfanosB: 0, sinClave: 0 });
+    assert.equal(r.bodies.length, 1);
+    assert.equal(r.bodies[0].versionA.length, 2);
+    assert.deepEqual(r.bodies[0].versionB, []);
+    const both = diffCollections({ C: [{ id: 'x', v: 1 }, { id: 'x', v: 2 }] }, { C: [{ id: 'x', v: 1 }] });
+    assert.equal(both.collections[0].classification.conflictos, 1, 'la clave duplicada compartida se cuenta una sola vez');
+  });
+
+  it('sin colecciones no se declara ausencia de colisiones; huérfanos requieren decisión', () => {
+    assert.equal(diffCollections({ error: 'x' }, { error: 'y' }).collectionsFound, 0);
+    const r = diffCollections({ C: [{ id: 'a', v: 1 }] }, { C: [{ id: 'b', v: 2 }] });
+    assert.equal(r.unresolvedCollisions, 0);
+    assert.equal(r.orphansRequiringDecision, 2);
+  });
+
   it('claves duplicadas y registros sin clave cuentan como no resueltos', () => {
     const r = diffCollections({ C: [{ id: 'a' }, { id: 'a', v: 2 }, { v: 3 }] }, { C: [{ id: 'a' }] });
     assert.ok(r.unresolvedCollisions >= 2);
@@ -180,5 +223,13 @@ describe('plan2 static-evidence (repositorio)', () => {
     const r = await runStaticEvidence(root);
     assert.ok(r.results.length >= 10);
     for (const res of r.results) assert.ok(['HOLDS', 'DOES_NOT_HOLD', 'FILE_MISSING', 'SECTION_MISSING'].includes(res.status), res.id);
+  });
+  it('lee un commit fijo y rechaza --out dentro del checkout', async () => {
+    const root = path.resolve(import.meta.dirname, '..', '..');
+    const r = await runStaticEvidence(root, 'HEAD');
+    assert.match(r.head, /^[0-9a-f]{40}$/);
+    assert.match(r.source, /commit/);
+    assert.equal(await isInsideCheckout(root, path.join(root, 'docs', 'x.json')), true);
+    assert.equal(await isInsideCheckout(root, path.join(os.tmpdir(), 'x.json')), false);
   });
 });

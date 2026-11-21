@@ -63,6 +63,7 @@ export function parseCsv(text) {
       row.push(cell); rows.push(row); row = []; cell = '';
     } else cell += ch;
   }
+  if (quoted) throw new Error('CSV inválido: comillas sin cerrar al final del archivo (posible truncado)');
   if (cell !== '' || row.length) { row.push(cell); rows.push(row); }
   const nonEmpty = rows.filter((r) => !(r.length === 1 && r[0] === ''));
   const [header = [], ...body] = nonEmpty;
@@ -193,19 +194,23 @@ export async function verifyPackage(manifest, { baseDir = process.cwd() } = {}) 
 
   // Cotejo JSON ↔ CSV.
   const cc = manifest.csv;
-  const compare = { compared: 0, matched: 0, withinTolerance: 0, mismatched: [], onlyInJson: 0, onlyInCsv: 0, toleranceSeconds: cc?.toleranceSeconds ?? 0 };
+  const compare = { compared: 0, distinctComparedIds: 0, duplicateCsvIds: 0, matched: 0, withinTolerance: 0, mismatched: [], onlyInJson: 0, onlyInCsv: 0, toleranceSeconds: cc?.toleranceSeconds ?? 0 };
   if (cc && rc) {
     const csv = parsed.get(cc.role);
     if (csv?.kind !== 'csv') fail('CSV_MISSING', cc.role);
     else {
       const byId = new Map(records.map((r) => [String(getPath(r, rc.idField)), r]));
       const csvIds = new Set();
+      const comparedIds = new Set();
+      const dupCsv = new Set();
       for (const row of csv.records) {
         const id = String(row[cc.idColumn] ?? '');
+        if (csvIds.has(id)) dupCsv.add(id);
         csvIds.add(id);
         const j = byId.get(id);
         if (!j) { compare.onlyInCsv++; continue; }
         compare.compared++;
+        comparedIds.add(id);
         const js = toSeconds(getPath(j, rc.durationField), rc.durationUnit);
         const cs = toSeconds(row[cc.durationColumn], cc.durationUnit);
         const delta = js == null || cs == null ? null : cs - js;
@@ -214,9 +219,13 @@ export async function verifyPackage(manifest, { baseDir = process.cwd() } = {}) 
         else compare.mismatched.push({ id, jsonSeconds: js, csvSeconds: cs, deltaSeconds: delta });
       }
       compare.onlyInJson = [...byId.keys()].filter((id) => !csvIds.has(id)).length;
+      compare.distinctComparedIds = comparedIds.size;
+      compare.duplicateCsvIds = dupCsv.size;
+      if (dupCsv.size) fail('DUPLICATE_IDS_IN_CSV', `${dupCsv.size} ID repetidos en el CSV: el cotejo no es inequívoco`);
       if (compare.mismatched.length) fail('CSV_JSON_MISMATCH', `${compare.mismatched.length} filas fuera de tolerancia`);
       const exp = manifest.expect ?? {};
-      if (exp.comparedIds != null && exp.comparedIds !== compare.compared) fail('COMPARED_COUNT_MISMATCH', `esperado ${exp.comparedIds}, obtenido ${compare.compared}`);
+      // Se compara contra IDs distintos con correspondencia inequívoca, no contra filas.
+      if (exp.comparedIds != null && exp.comparedIds !== compare.distinctComparedIds) fail('COMPARED_COUNT_MISMATCH', `esperado ${exp.comparedIds}, obtenido ${compare.distinctComparedIds} IDs distintos`);
     }
   }
 

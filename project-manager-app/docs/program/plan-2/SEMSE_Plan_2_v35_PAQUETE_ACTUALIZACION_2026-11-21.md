@@ -1,6 +1,6 @@
 # SEMSE — Plan 2 «Preservación de datos y linaje» · Paquete de actualización v34 → v35
 
-**Fecha:** 2026-11-21 · **Revisión del paquete:** r5 · **Preparado por:** agente técnico de ejecución (sesión Claude Code) · **Estado de este documento:** BORRADOR PARA EL PROPIETARIO — no revisado, no aprobado, no fusionado en el plan.
+**Fecha:** 2026-11-21 · **Revisión del paquete:** r6 · **Preparado por:** agente técnico de ejecución (sesión Claude Code) · **Estado de este documento:** BORRADOR PARA EL PROPIETARIO — no revisado, no aprobado, no fusionado en el plan.
 
 > ## Aviso de autoridad — leer primero
 >
@@ -13,6 +13,33 @@
 >
 > Por eso este documento **no es el plan íntegro v35** y no reproduce ni reconstruye el contenido de v34. Es el conjunto de cambios, evidencias, matriz y conclusiones que el propietario debe incorporar sobre v34. Los identificadores `P2-…` son provisionales y deben mapearse a los de v34. Las reglas de clasificación del Plan 2 (coincidencia/candidato/conflicto/huérfano) no se conocen textualmente: las definiciones de §3.B son **provisionales** y deben alinearse con v34.
 
+> ## r6 — 2026-11-21: correcciones de la revisión automática del PR
+>
+> Se atendieron los 9 comentarios de la revisión del PR, todos verificados contra el código. Ninguna corrección cambia los resultados sobre los datos reales; reejecutados sobre copias: PASS con 20 IDs distintos cotejados, `NO_COLLISIONS` con hash canónico `4cd2eb39…` y 15/15 controles HOLDS.
+>
+> **`verify-preservation-package.mjs`**
+> - Falla con `DUPLICATE_IDS_IN_CSV` si el CSV repite IDs. `expect.comparedIds` se compara ahora con los IDs distintos cotejados, no con el número de filas.
+> - El parser CSV rechaza una celda final con comillas sin cerrar (archivo truncado).
+>
+> **`diff-site-collections.mjs`**
+> - Recorre la unión de claves. Una clave duplicada en cualquiera de los lados cuenta como **un** conflicto, conserva sus cuerpos y queda fuera de candidatos y huérfanos.
+> - `--count` lee el registro original en las colecciones-mapa.
+> - Si ningún lado tiene colecciones, el veredicto es `NO_COLLECTIONS_FOUND`.
+> - Los registros que solo están en un snapshot dan `DIFFERENCES_REQUIRE_DECISION` (Plan 2 §8.2).
+>
+> **`static-evidence.mjs`**
+> - Lee archivos, búsquedas y `--since` de **un único commit** (`--rev`, por defecto HEAD) mediante `git show` y `git grep`, no del árbol de trabajo. Así, el blob citado es el que se analizó.
+> - `--out` crea el archivo en exclusiva (nunca sobrescribe) y rechaza destinos dentro del checkout.
+>
+> **Pruebas:** 18/18 sintéticas en PASS (6 nuevas, una por cada defecto corregido).
+>
+> **Documentación**
+> - §5 y §8 quedan marcadas como estado de r2. A1, A2, A3 y A5 pasaron a demostrados en r4.
+> - Los hashes de §7 se rotulan como r2 y se añade la tabla vigente de r6.
+> - `static-evidence_2026-11-21.json` se regeneró con la herramienta corregida.
+>
+> El plan íntegro v36, privado, cita en su §2.25 los hashes de las herramientas en el commit `d27952a`. Siguen siendo válidos para ese commit, pero las herramientas vigentes son las de r6.
+>
 > ## r5 — 2026-11-21: v36 del plan (correcciones documentales)
 >
 > - El plan íntegro **v36** (SHA-256 `03f219902d3a0f66966f5e3c25384d38d2cef1f1947daea354969c773555550a`) se construyó a partir de la v35 (`1a35a30a…4c97`) sin sobrescribirla. Igual que las versiones anteriores, se entregó al propietario **fuera de este repositorio**, con los diffs v35→v36 y v34→v36.
@@ -267,6 +294,8 @@ Otros lectores revisados, ninguno sirve como exportación: `daily-reports.servic
 
 ## 5. Matriz final de pendientes
 
+> **Estado de r2 (histórico).** A1, A2, A3 y A5 pasaron a **demostrado** (prueba ejecutada) en r4. La matriz vigente, con 31 renglones, está en §14 del plan íntegro v36 (privado). Esta tabla se conserva como registro de r2.
+
 Estados: **demostrado** · **pendiente** · **bloquea** · **requiere revisión humana** · **mantener bloqueado**. Fecha de la evidencia: 2026-11-21. Entorno: contenedor de sesión, `main@86c0be5` (= SHA desplegado de `semse-API` según Railway), sin datos de producción.
 
 | ID prov. | Pendiente | Estado | Evidencia y fecha | Fuente / versión / entorno | Dependencia y responsable | Siguiente acción verificable | Criterio de cierre |
@@ -303,13 +332,23 @@ Para pasar del trabajo independiente a la ejecución del Plan 2 hace falta **una
 
 ## 7. Entregables y reproducción
 
-| Archivo | SHA-256 (2026-11-21, r2) |
+| Archivo | SHA-256 (2026-11-21, **r2, histórico**: no corresponde al HEAD actual) |
 |---|---|
 | `scripts/plan2/verify-preservation-package.mjs` | `6aac72325adb0d28e8bec6f52ce89050c98edc65040bf7e43aca291be52e60d3` |
 | `scripts/plan2/diff-site-collections.mjs` | `dbb43aaf591a5cf3b0a69d1f5fbee3ffa7d706c26731ee50083ff5b7071ba204` |
 | `scripts/plan2/static-evidence.mjs` | `128172f90f983ff61aa9eae4b54bf4985b6d051cfd9711f9902fe0584fcfe9ec` |
 | `tests/unit/plan2-preservation-tools.test.mjs` | `ba2a56501a3b3f0747d94d2a0aa4013c00b66b4da6952c289d362f170efd0e90` |
 | `docs/program/plan-2/static-evidence_2026-11-21.json` | `c732fdc1ea7bfc83e72200206bf975ed0caecf523d0bc4384fed120df7d58e35` |
+
+**Hashes vigentes (r6, 2026-11-21):**
+
+| Archivo | SHA-256 |
+|---|---|
+| `scripts/plan2/verify-preservation-package.mjs` | `f6f829fb1df699527e65d29e33af9b3a70bab76745c9920667198883cf9c3d63` |
+| `scripts/plan2/diff-site-collections.mjs` | `e4cd8753a6ae353fff94c3228027a3317eb8d3e4c8b9cf549b4f0673f5cd56a2` |
+| `scripts/plan2/static-evidence.mjs` | `bf7fc6507db14100c1a9f718759da986c17f098f816a43716803df6a21caf0a2` |
+| `tests/unit/plan2-preservation-tools.test.mjs` | `8c0560f253d3b59ed4eb29d257089547119f481be04c84b4110776697c3aa5df` |
+| `docs/program/plan-2/static-evidence_2026-11-21.json` | `9858b2e16164d6cfe5b12b3ef8ab5fc09d58341867ae36a789b4d52be2d095db` |
 | este documento | se calcula fuera del documento (un archivo no puede contener su propio hash) |
 
 Desde `project-manager-app/`:
@@ -350,6 +389,8 @@ Manifiesto de ejemplo (ajustar los nombres de campo a la estructura real, que es
 ---
 
 ## 8. Conclusiones
+
+> **Estado de r2 (histórico).** Para el estado vigente, ver los avisos r4–r6 al inicio de este documento y §15 del plan íntegro v36.
 
 1. **Preparación documental:** el paquete r2 está listo para revisión. El **archivo íntegro v35 no existe** porque v34 no fue accesible. El plan no está revisado ni aprobado por el propietario.
 2. **Trabajo ejecutado:**
