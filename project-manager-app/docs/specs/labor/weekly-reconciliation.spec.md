@@ -3,7 +3,7 @@ id: "labor.weekly-reconciliation"
 title: "Conciliación semanal del Time Tracker"
 domain: "labor"
 sdd_version: "2.0"
-version: "0.9"
+version: "0.10"
 status: "DRAFT"
 owner: "semse-core"
 risk: "critical"
@@ -48,7 +48,7 @@ related_agents: []
 last_verified: "2026-11-21"
 ---
 
-# Conciliación semanal · borrador para revisión (v0.9 DRAFT)
+# Conciliación semanal · borrador para revisión (v0.10 DRAFT)
 
 > **DRAFT / NO IMPLEMENTAR.** Esta SDD no autoriza código, migraciones, grants, membresías, flags, pruebas funcionales, CI, despliegue ni activación. B4-11/B4-12 siguen abiertos. Plan 3 sigue abierto.
 
@@ -59,7 +59,8 @@ last_verified: "2026-11-21"
 | v0.6 | Espejo Library rev. 22; copia en Drive Plan 3 `SEMSE_Conciliacion_SDD_DRAFT_2026-11-19.md` (ID `1UteeI6LS8EQzWw5MPFYasF79327GQLG2`, SHA-256 `b73dd8713bd04230a1ede3d59efb9b151fb60012b8f9f66a135f4d72695efdb8`) | Leída íntegra. Es la base textual de esta v0.8. |
 | v0.7 | Rama local `docs/plan3-conciliacion-v47`, HEAD `50289be4187c9d334f0ad064c7440de6ffba3ecd` (según Plan 3 §32) | **No disponible:** la rama no existe en `origin` (`git fetch`/`ls-remote` sin ref) y el SHA no está en este checkout. No se reconstruyó; las diferencias v0.6→v0.7 que no aparezcan aquí deben volver a incorporarse desde esa copia si su autor la conserva. |
 | v0.8 | misma ruta, commits `176cacfb…` y `515e7042…` de la rama `claude/plan3-conciliacion-gates-32rob6` | Primera vez que la SDD existe en el repositorio canónico accesible. Espejo en Drive: `SEMSE_Conciliacion_SDD_v0.8_DRAFT_2026-11-21.md` (SHA-256 `56c032be…0b97`). |
-| **v0.9** | `docs/specs/labor/weekly-reconciliation.spec.md`, misma rama, base `main@86c0be5468a7c96c0a9dd4bc8df34e386e7c8c7f` | Esta revisión: registra la **aprobación de producto de C3-17 (2026-11-21)** en §10.17 y su trazabilidad. Sigue `DRAFT` y **no** está en `main`. |
+| v0.9 | misma ruta, commit `f199e615…` | Registra la **aprobación de producto de C3-17 (2026-11-21)** en §10.17 y su trazabilidad. Espejo Drive `SEMSE_Conciliacion_SDD_v0.9_DRAFT_2026-11-21.md` (SHA-256 `83312e52…e6`). |
+| **v0.10** | misma ruta y rama, base `main@86c0be5468a7c96c0a9dd4bc8df34e386e7c8c7f` | Esta revisión: añade §10.17.6 (evidencia de código para los detalles P-C317) y un paquete de opciones para el dueño. No decide ningún detalle. Sigue `DRAFT` y **no** está en `main`. |
 
 Según `docs/SOURCE_OF_TRUTH.md`, la SDD canónica es la del repositorio (`docs/specs/` + `docs/SPEC_INDEX.md`). Library y Drive son espejos; si contradicen al repositorio prevalece el repositorio. Library **no fue accesible** desde esta sesión: las versiones Library citadas (Plan 3 v70, Plan 9 v27, Plan 4 v38, Plan 6 v24, SDD v22) son referencias heredadas no revalidadas aquí.
 
@@ -626,6 +627,24 @@ El ajuste automático **no se implementa** hasta que la SDD esté aprobada y se 
 | C3-17 | R-C317-07 | alcance comparable | parte ambiguo o alcance incompatible: no se ajusta | T-V08 | NO EJECUTADA |
 | C3-17 | P-C317-01…09 | — | — | T-V09 (plazo/zona) se define al confirmarse | **Requiere decisión** |
 
+### 10.17.6 Evidencia de código para decidir P-C317-01…09 (v0.10; sólo hechos, sin elegir valores)
+
+Inspección estática de `main@86c0be5468a7c96c0a9dd4bc8df34e386e7c8c7f` (`schema.prisma` blob `147d5ad154ee515205643f62359c5d5922ee93c7`; `notifications.repository.ts`; `daily-reports.service.ts`). No define ninguno de los detalles: describe con qué piezas reales contaría cada opción.
+
+| Detalle | Hecho en código | Consecuencia para la decisión |
+|---|---|---|
+| P-C317-01 inicio | `Notification` es por `userId` + `tenantId`, sin `orgId`. `sentAt` se fija **al crear la fila** (`notifications.repository.ts`, `sentAt: new Date()`), no al entregarla. `readAt` se fija cuando el usuario la lee. `OutboundDelivery` (WhatsApp/SMS) tiene estados `QUEUED/SENT/DELIVERED/READ/FAILED`. | «Notificación registrada» puede significar creación (`sentAt`), entrega acreditada (sólo canales externos) o lectura (`readAt`). Si se cuenta desde la lectura, el plazo depende de que la parte la abra. Una compañía pagadora sin cuenta (C3-01) no puede recibir `Notification`. |
+| P-C317-02 zona/reloj | Ni `Org` ni `Worksite` ni `LaborSchedulePolicy` tienen zona horaria. Labor Engine usa la zona del proceso (servicio) y UTC (repositorio). Daily Reports recibe un `tzOffsetMinutes` fijo enviado por el cliente (no IANA). | Hoy no hay una zona canónica por organización u obra. Un plazo medido como 24 h transcurridas entre instantes no necesita zona para calcularse, sólo para mostrarse. Un plazo «civil» requiere una zona canónica, que hoy no existe (G19/G20). |
+| P-C317-03 notificación | Canales `IN_APP/EMAIL/PUSH/SMS/WHATSAPP`. Acreditación de entrega sólo para salidas externas (`OutboundDelivery.status`). | Acreditar la recepción exige un canal con estado de entrega o una confirmación explícita. El in-app sólo acredita creación o lectura. |
+| P-C317-04 «sin resolverse» | No existe modelo de caso de conciliación ni estados en el esquema (B4-05). | Los estados que detienen o no el plazo se definen por primera vez en la SDD; no hay comportamiento previo que preservar. |
+| P-C317-05 versión del parte | No existe modelo de declaración externa. | El ajuste debe referenciar una versión concreta (R-C317-03). La decisión es si cambiar la versión reinicia el plazo o no. |
+| P-C317-06 efecto | `Contract` → `PaymentEscrow` existe; conciliación no escribe ahí (C3-05, fuera de alcance). | El efecto se limita al resultado del caso, sea cual sea la opción; ninguna opción toca escrow ni pagos. |
+| P-C317-07 pagador | `Job.clientOrgId` (obligatorio, `Org`), `Contract.clientOrgId` (opcional), `BusinessEngagement` (trabajador↔org empleadora). No hay entidad «compañía pagadora externa sin cuenta». `TimeEntry.jobId` puede ser nulo. | `Job.clientOrgId` es un candidato, no una prueba: el cliente del Job puede no ser quien paga las horas del trabajador (p. ej. un contratista intermedio), y una entrada sin Job no tiene pagador derivable. |
+| P-C317-08 dirección | — | Decisión de producto pura. |
+| P-C317-09 reapertura | C3-09 (diseño) y BO-08 sin delegación implementada. | Depende de Plan 4. |
+
+El paquete de opciones para el dueño está en `SEMSE_Plan3_Paquete_Decisiones_C3-17_2026-11-21.md` (Drive Plan 3). Las recomendaciones técnicas de ese paquete no son decisiones y no se reflejan como requisitos hasta que el dueño las confirme.
+
 ## 10.18 Matriz de pruebas previstas (ninguna ejecutada)
 
 | ID | Caso | Tipo | Positivo / negativo esperado | Estado |
@@ -683,6 +702,6 @@ El ajuste automático **no se implementa** hasta que la SDD esté aprobada y se 
 | **C3-17 aprobada por el dueño 2026-11-21** (ajuste por vencimiento al tiempo del pagador) | R-C317-01…08 | §10.17 | ver §10.17.5 | T-V01…T-V09 | Decisión de producto **aprobada**; detalles P-C317-01…09 **requieren decisión**; implementación bloqueada por G04/G07/G10/G12; pruebas NO EJECUTADAS |
 | Responsable del piloto: Yoni Castellanos (declarado por usuario 18-nov) | verificar designación y autoridad | §8 / Plan 4 | ninguna decisión sin autoridad verificada | T-R02 | Requiere evidencia; no se atribuyen permisos |
 
-## Estado de salida de v0.9
+## Estado de salida de v0.10
 
 `DRAFT`. C3-17 queda aprobada como decisión de producto; eso no cambia el estado de la SDD ni cierra gates técnicos. No hay implementación, migración, prueba funcional ni CI de esta revisión. Validadores documentales ejecutados localmente (ver `docs/reportes/2026-11-21_plan3-conciliacion-gates.md`). B4-11/B4-12 abiertos. **PLAN 3 AÚN ABIERTO.**

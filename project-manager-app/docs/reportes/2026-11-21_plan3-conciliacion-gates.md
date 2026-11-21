@@ -53,3 +53,9 @@ No se tocó código, esquema, migraciones, workflows, permisos ni configuración
 - No cambia `status: DRAFT`, no concede permisos, no autoriza modificar `TimeEntry` ni implementar el ajuste automático.
 - Corrección: el corte anterior trató la regla como «diseño pendiente» sin citar que ya existía como C3-17 (Plan 3 §9, borrador del 19-nov).
 - Validaciones repetidas sobre la v0.9: estricto 220/0/0; `--base-ref origin/main` 0/0; índice 220; cobertura de planes 0/0/0; 29/29 pruebas de validadores; `git diff --cached --check` limpio.
+
+## Addendum 2 — evidencia para los detalles de C3-17 (2026-11-21)
+
+- SDD v0.10 §10.17.6: hechos de código para P-C317-01…09. `Notification.sentAt` se fija al crear la fila; `readAt` al leer. Sólo `OutboundDelivery` tiene estado de entrega. `Org` y `Worksite` no tienen zona horaria, y Daily Reports usa un desfase fijo enviado por el cliente. Los candidatos para el pagador son `Job.clientOrgId`, `Contract.clientOrgId` y `BusinessEngagement`; ninguno modela un pagador externo sin cuenta.
+- Paquete de opciones para el dueño en Drive (`SEMSE_Plan3_Paquete_Decisiones_C3-17_2026-11-21.md`). No decide nada.
+- Validaciones: estricto 220/0/0; `--base-ref origin/main` 0/0; índice 220; cobertura de planes 0/0/0; 29/29.
