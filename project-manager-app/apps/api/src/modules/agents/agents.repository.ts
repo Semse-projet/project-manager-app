@@ -5,6 +5,8 @@ import { type AgentRunRecord } from "../../common/domain-store.js";
 import { ActorContextService } from "../../infrastructure/persistence/actor-context.service.js";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { createAgentRunFinalizationEvent, isAgentRunFinalizationOutboxEnabled } from "./agent-run-finalization.policy.js";
+import { buildJobVisibilityWhere } from "../jobs/jobs-visibility.js";
+import { hasPermission } from "../../common/rbac.js";
 
 const { Prisma } = prismaClientPackage as typeof import("@prisma/client");
 
@@ -49,34 +51,188 @@ export class AgentsRepository {
     private readonly actorContextService: ActorContextService
   ) {}
 
-  async list(input: { tenantId: string; orgId: string; userId: string }): Promise<AgentRunRecord[]> {
-    await this.actorContextService.ensureActorContext(input);
-
-    const runs = (await this.prisma.agentRun.findMany({
-      where: {
-        tenantId: input.tenantId
-      },
-      orderBy: { createdAt: "desc" }
-    })) as StoredAgentRun[];
-
-    return runs.map((run) => this.toRecord(run));
+  /**
+   * The API's ordinary run-list and run-detail routes used to expose all
+   * tenant runs. Newly enriched job.created output must not bypass the
+   * canonical Jobs visibility policy used by JobsRepository.
+   *
+   * Return unchanged legacy run metadata, but hide enriched output and errors
+   * when the originating Job is not visible to the requesting principal.
+   */
+  private scopedJobCreatedId(run: Pick<StoredAgentRun, "agentType" | "triggerType" | "inputJson">): string | null {
+    if (run.triggerType !== "event" || !["pricing", "risk"].includes(run.agentType)) return null;
+    const input = run.inputJson && typeof run.inputJson === "object" &&
+      !Array.isArray(run.inputJson) ? run.inputJson as Record<string, unknown> : {};
+    if (input.eventType !== "job.created") return null;
+    const event = input.eventPayload && typeof input.eventPayload === "object" &&
+      !Array.isArray(input.eventPayload) ? input.eventPayload as Record<string, unknown> : {};
+    // Empty string means "restricted, but unverifiable" and fails closed.
+    return typeof event.jobId === "string" && event.jobId ? event.jobId : "";
   }
 
-  async findById(input: { tenantId: string; orgId: string; userId: string; runId: string }): Promise<AgentRunRecord> {
-    await this.actorContextService.ensureActorContext(input);
-
-    const run = (await this.prisma.agentRun.findFirst({
+  private async canReadScopedRunOutput(
+    run: Pick<StoredAgentRun, "agentType" | "triggerType" | "inputJson">,
+    actor: { tenantId: string; orgId: string; userId: string; roles?: string[] },
+  ): Promise<boolean> {
+    const jobId = this.scopedJobCreatedId(run);
+    if (jobId === null) return true;
+    if (!jobId || !hasPermission(actor.roles ?? [], "jobs:read")) return false;
+    const job = await this.prisma.job.findFirst({
       where: {
-        id: input.runId,
-        tenantId: input.tenantId
-      }
-    })) as StoredAgentRun | null;
+        id: jobId,
+        tenantId: actor.tenantId,
+        deletedAt: null,
+        ...buildJobVisibilityWhere({
+          orgId: actor.orgId,
+          userId: actor.userId,
+          roles: actor.roles ?? [],
+        }),
+      },
+      select: { id: true },
+    });
+    return !!job;
+  }
 
-    if (!run) {
-      throw new NotFoundException(`Agent run '${input.runId}' not found`);
+  private toVisibleRecord(run: StoredAgentRun, outputVisible: boolean): AgentRunRecord {
+    const result = this.toRecord(run);
+    if (!outputVisible) {
+      // A current scope/budget calculation may be more private than the
+      // event input originally available to the tenant.
+      result.output = undefined;
+      result.error = undefined;
     }
+    return result;
+  }
 
-    return this.toRecord(run);
+  async list(input: {
+    tenantId: string; orgId: string; userId: string; roles?: string[];
+  }): Promise<AgentRunRecord[]> {
+    await this.actorContextService.ensureActorContext(input);
+    const runs = (await this.prisma.agentRun.findMany({
+      where: { tenantId: input.tenantId },
+      orderBy: { createdAt: "desc" },
+    })) as StoredAgentRun[];
+
+    // One batched visibility lookup, not an unbounded per-run N+1 lookup.
+    const ids = [...new Set(
+      runs.map(run => this.scopedJobCreatedId(run)).filter((id): id is string => !!id),
+    )];
+    const visibleJobs = ids.length && hasPermission(input.roles ?? [], "jobs:read")
+      ? await this.prisma.job.findMany({
+          where: {
+            id: { in: ids },
+            tenantId: input.tenantId,
+            deletedAt: null,
+            ...buildJobVisibilityWhere({
+              orgId: input.orgId, userId: input.userId, roles: input.roles ?? [],
+            }),
+          },
+          select: { id: true },
+        })
+      : [];
+    const visibleIds = new Set(visibleJobs.map(job => job.id));
+    return runs.map(run => {
+      const id = this.scopedJobCreatedId(run);
+      return this.toVisibleRecord(run, id === null || visibleIds.has(id));
+    });
+  }
+
+  async findById(input: {
+    tenantId: string; orgId: string; userId: string; runId: string; roles?: string[];
+  }): Promise<AgentRunRecord> {
+    await this.actorContextService.ensureActorContext(input);
+    const run = (await this.prisma.agentRun.findFirst({
+      where: { id: input.runId, tenantId: input.tenantId },
+    })) as StoredAgentRun | null;
+    if (!run) throw new NotFoundException(`Agent run '${input.runId}' not found`);
+    const canSeeOutput = await this.canReadScopedRunOutput(run, input);
+    return this.toVisibleRecord(run, canSeeOutput);
+  }
+
+  /**
+   * Read-only job-created context for a specific, currently fenced Worker attempt.
+   * Never grant AGENT_RUNNER a general Job or Project read permission.
+   * The resource is resolved from the persisted run's event, not client input.
+   */
+  async getClaimedJobCreatedContext(input: {
+    tenantId: string; orgId: string; userId: string; runId: string;
+    workerId: string; expectedAttempts: number;
+  }): Promise<{ job: {
+    id: string; title: string; scope: string; category: string | null;
+    status: string; urgency: string | null; budgetMin: number | null;
+    budgetMax: number | null;
+  } }> {
+    await this.actorContextService.ensureActorContext(input);
+    // Hold a row lock while verifying the run and reading its originating Job.
+    // This prevents reclaim/finalization from invalidating the lease between
+    // the RUNNING check and the Job SELECT. Values use bound query parameters.
+    return this.prisma.$transaction(async (tx) => {
+      const lease = await tx.$queryRaw<{ id: string }[]>`
+        SELECT id FROM "AgentRun"
+        WHERE id = ${input.runId}
+          AND "tenantId" = ${input.tenantId}
+          AND status = 'RUNNING'
+          AND "workerId" = ${input.workerId}
+          AND attempts = ${input.expectedAttempts}
+          AND "deadLettered" = FALSE
+          AND "triggerType" = 'event'
+          AND "agentType" IN ('pricing', 'risk')
+        FOR SHARE
+      `;
+      if (lease.length !== 1) throw new NotFoundException("Claimed AgentRun is unavailable");
+      const run = await tx.agentRun.findFirst({
+        where: {
+          id: input.runId, tenantId: input.tenantId, status: "RUNNING",
+          workerId: input.workerId, attempts: input.expectedAttempts,
+          deadLettered: false, triggerType: "event",
+          agentType: { in: ["pricing", "risk"] },
+        },
+        select: { inputJson: true, correlationId: true },
+      });
+      if (!run) throw new NotFoundException("Claimed AgentRun is unavailable");
+      const payload = run.inputJson && typeof run.inputJson === "object" &&
+        !Array.isArray(run.inputJson) ? run.inputJson as Record<string, unknown> : {};
+      const eventPayload = payload.eventPayload && typeof payload.eventPayload === "object" &&
+        !Array.isArray(payload.eventPayload) ? payload.eventPayload as Record<string, unknown> : {};
+      const origin = payload.operatorContext && typeof payload.operatorContext === "object" &&
+        !Array.isArray(payload.operatorContext) ? payload.operatorContext as Record<string, unknown> : {};
+      const jobId = eventPayload.jobId;
+      const originOrgId = origin.orgId;
+      if (payload.eventType !== "job.created" || typeof jobId !== "string" ||
+          !jobId || run.correlationId !== `job:${jobId}:created` ||
+          typeof originOrgId !== "string" || !originOrgId ||
+          origin.tenantId !== input.tenantId ||
+          eventPayload.clientOrgId !== originOrgId) {
+        throw new NotFoundException("Claimed AgentRun context unavailable");
+      }
+      const job = await tx.job.findFirst({
+        where: {
+          id: jobId, tenantId: input.tenantId, clientOrgId: originOrgId,
+          deletedAt: null,
+        },
+        select: {
+          id: true, title: true, scope: true, category: true,
+          status: true, urgency: true, budgetMin: true, budgetMax: true,
+          project: { select: { id: true } },
+        },
+      });
+      if (!job) throw new NotFoundException("Claimed AgentRun context unavailable");
+      // Job.created may be processed after the Project has been assigned.
+      // Do not synthesize "no Project/milestones/evidence" from current data.
+      // A Project-aware fenced projection needs its own reviewed contract.
+      if (job.project) {
+        throw new ConflictException("Job now has a Project; Project-aware context contract required");
+      }
+      return {
+        job: {
+          id: job.id, title: job.title, scope: job.scope,
+          category: job.category, status: job.status.toLowerCase(),
+          urgency: job.urgency,
+          budgetMin: job.budgetMin?.toNumber() ?? null,
+          budgetMax: job.budgetMax?.toNumber() ?? null,
+        },
+      };
+    });
   }
 
   async create(input: {
@@ -583,31 +739,39 @@ export class AgentsRepository {
     return this.toRecord(await this.requireRun(input));
   }
 
-  async getEvents(input: { tenantId: string; runId: string }): Promise<{
+  async getEvents(input: {
+    tenantId: string; orgId: string; userId: string; roles?: string[];
+    runId: string;
+  }): Promise<{
     runId: string;
     events: Array<{ type: string; at: string; detail: string }>;
   }> {
+    await this.actorContextService.ensureActorContext(input);
     const run = (await this.prisma.agentRun.findFirst({
       where: { id: input.runId, tenantId: input.tenantId },
       select: {
         id: true, status: true, agentType: true, correlationId: true,
+        triggerType: true, inputJson: true,
         error: true, inputSummary: true, outputSummary: true,
         createdAt: true, startedAt: true, heartbeatAt: true, endedAt: true,
       },
     })) as (StoredAgentRun & { inputSummary?: string | null; outputSummary?: string | null }) | null;
     if (!run) throw new NotFoundException(`Agent run '${input.runId}' not found`);
 
+    const outputVisible = await this.canReadScopedRunOutput(run, input);
     const events: Array<{ type: string; at: string; detail: string }> = [];
     events.push({ type: "queued",  at: run.createdAt.toISOString(), detail: `Agent '${run.agentType}' queued (correlationId: ${run.correlationId})` });
     if (run.startedAt)    events.push({ type: "started",   at: run.startedAt.toISOString(),   detail: "Execution started" });
     if (run.heartbeatAt)  events.push({ type: "heartbeat", at: run.heartbeatAt.toISOString(), detail: "Last heartbeat received" });
-    if (run.inputSummary) events.push({ type: "input",     at: (run.startedAt ?? run.createdAt).toISOString(), detail: run.inputSummary });
+    if (run.inputSummary && outputVisible) events.push({ type: "input", at: (run.startedAt ?? run.createdAt).toISOString(), detail: run.inputSummary });
     if (run.endedAt) {
       const isOk = run.status === "COMPLETED";
       events.push({
         type: isOk ? "completed" : "failed",
         at: run.endedAt.toISOString(),
-        detail: isOk
+        detail: !outputVisible
+          ? (isOk ? "Run completed successfully" : "Run failed")
+          : isOk
           ? (run.outputSummary ?? "Run completed successfully")
           : (run.error ?? "Run failed with unknown error"),
       });
@@ -620,9 +784,15 @@ export class AgentsRepository {
     orgId: string;
     userId: string;
     runId: string;
+    roles?: string[];
   }): Promise<AgentRunRecord> {
     await this.actorContextService.ensureActorContext(input);
     const run = await this.requireRun(input);
+    // This mutation also returns a run record, including its output. Deny
+    // cross-org cancellation and result reads for scoped job.created runs.
+    if (!(await this.canReadScopedRunOutput(run, input))) {
+      throw new NotFoundException("Agent run unavailable for this actor");
+    }
 
     if (["COMPLETED", "FAILED"].includes(run.status)) {
       return this.toRecord(run);

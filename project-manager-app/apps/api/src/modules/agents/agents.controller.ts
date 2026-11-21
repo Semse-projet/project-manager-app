@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { BadRequestException, Body, ConflictException, Controller, ForbiddenException, Get, Logger, Param, Post, Query, Req, Patch } from "@nestjs/common";
+import { BadRequestException, Body, ConflictException, Controller, ForbiddenException, Get, Logger, Param, Post, Query, Req, Patch, ServiceUnavailableException } from "@nestjs/common";
 import { SkipThrottle } from "@nestjs/throttler";
 import { agentCatalog } from "@semse/agents";
 import {
@@ -58,6 +58,12 @@ const startRunSchema = z.object({
   expectedAttempts: z.number().int().nonnegative().optional(),
   claimToken: z.string().optional()
 });
+
+const claimedJobCreatedContextSchema = z.object({
+  workerId: z.string().min(1),
+  expectedAttempts: z.number().int().positive(),
+  claimToken: z.string().min(1),
+}).strict();
 
 const reclaimSchema = z.object({
   staleAfterMs: z.number().int().positive().default(10000),
@@ -332,7 +338,8 @@ export class AgentsController {
     const runs = await this.agentsService.list({
       tenantId: actor.tenantId,
       orgId: actor.orgId,
-      userId: actor.userId
+      userId: actor.userId,
+      roles: actor.roles,
     });
     return ok(resolveRequestId(req.headers ?? {}), runs);
   }
@@ -345,7 +352,8 @@ export class AgentsController {
       tenantId: actor.tenantId,
       orgId: actor.orgId,
       userId: actor.userId,
-      runId
+      roles: actor.roles,
+      runId,
     });
     return ok(resolveRequestId(req.headers ?? {}), run);
   }
@@ -359,7 +367,8 @@ export class AgentsController {
       tenantId: actor.tenantId,
       orgId: actor.orgId,
       userId: actor.userId,
-      runId
+      roles: actor.roles,
+      runId,
     });
     return ok(resolveRequestId(req.headers ?? {}), run);
   }
@@ -456,7 +465,10 @@ export class AgentsController {
   @RequirePermissions("agents:run:create")
   async runEvents(@Req() req: { headers?: Record<string, unknown> }, @Param("runId") runId: string) {
     const actor = resolveRequestContext(req);
-    const data = await this.agentsService.runEvents({ tenantId: actor.tenantId, runId });
+    const data = await this.agentsService.runEvents({
+      tenantId: actor.tenantId, orgId: actor.orgId,
+      userId: actor.userId, roles: actor.roles, runId,
+    });
     return ok(resolveRequestId(req.headers ?? {}), data);
   }
 
@@ -469,6 +481,7 @@ export class AgentsController {
       tenantId: actor.tenantId,
       orgId: actor.orgId,
       userId: actor.userId,
+      roles: actor.roles,
       runId,
       requestId,
     });
@@ -489,6 +502,34 @@ export class AgentsController {
     });
 
     return ok(requestId, run);
+  }
+
+  /**
+   * A job.created event may precede Project creation. Only the currently
+   * claimed Worker attempt may read its originating Job's minimal projection.
+   * This does not confer projects:read/jobs:read to AGENT_RUNNER.
+   */
+  @Post("runs/:runId/job-created-context")
+  @SkipThrottle()
+  @RequirePermissions("agents:run:execute")
+  async jobCreatedContext(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Param("runId") runId: string,
+    @Body() body: unknown
+  ) {
+    const parsed = parseWithSchema(claimedJobCreatedContextSchema, body);
+    const actor = resolveRequestContext(req);
+    // Nonactivated deployments cannot expose this new context read surface.
+    if (process.env.SEMSE_AGENTRUN_JOB_CREATED_CONTEXT_ENABLED !== "true") {
+      throw new ServiceUnavailableException("AgentRun job-created context is not activated");
+    }
+    verifyWorkerMutation(actor, runId, parsed);
+    const data = await this.agentsService.getClaimedJobCreatedContext({
+      tenantId: actor.tenantId, orgId: actor.orgId, userId: actor.userId,
+      runId, workerId: parsed.workerId,
+      expectedAttempts: parsed.expectedAttempts,
+    });
+    return ok(resolveRequestId(req.headers ?? {}), data);
   }
 
   @Post("runs/:runId/start")

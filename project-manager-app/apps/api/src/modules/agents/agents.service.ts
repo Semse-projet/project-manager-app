@@ -214,19 +214,26 @@ export class AgentsService {
     return this.agentApprovalService.decide(input);
   }
 
-  async list(input: { tenantId: string; orgId: string; userId: string }) {
+  async list(input: { tenantId: string; orgId: string; userId: string; roles?: string[] }) {
     return this.agentsRepository.list(input);
   }
 
-  async detail(input: { tenantId: string; orgId: string; userId: string; runId: string }) {
+  async detail(input: { tenantId: string; orgId: string; userId: string; runId: string; roles?: string[] }) {
     return this.agentsRepository.findById(input);
   }
 
-  async runEvents(input: { tenantId: string; runId: string }) {
+  async getClaimedJobCreatedContext(input: {
+    tenantId: string; orgId: string; userId: string; runId: string;
+    workerId: string; expectedAttempts: number;
+  }) {
+    return this.agentsRepository.getClaimedJobCreatedContext(input);
+  }
+
+  async runEvents(input: { tenantId: string; orgId: string; userId: string; roles?: string[]; runId: string }) {
     return this.agentsRepository.getEvents(input);
   }
 
-  async cancelRun(input: { tenantId: string; orgId: string; userId: string; runId: string; requestId: string }) {
+  async cancelRun(input: { tenantId: string; orgId: string; userId: string; runId: string; roles?: string[]; requestId: string }) {
     const cancelled = await this.agentsRepository.cancel(input);
     await this.auditService.append({
       tenantId: input.tenantId, orgId: input.orgId, actorUserId: input.userId,
