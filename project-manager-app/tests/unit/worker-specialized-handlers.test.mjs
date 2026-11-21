@@ -222,3 +222,91 @@ test("non-string eventPayload identifiers are ignored", async () => {
     /Delegated run requires at least projectId or jobId/,
   );
 });
+
+// Security regression: an optional read returning HTTP 401/403 is not an empty
+// trust, disputes or evidence snapshot. A run must not report a risk decision
+// built from partial unauthorized inputs.
+test("risk fails closed when optional trust read is denied (403)", async () => {
+  const input = makeRun("risk");
+  input.requestJson = async (path, ...args) => {
+    if (path === "/v1/jobs/job-1/trust") {
+      throw new Error("HTTP 403 /v1/jobs/job-1/trust: forbidden");
+    }
+    return requestJson(path, ...args);
+  };
+
+  await assert.rejects(
+    () => executeSpecializedWorkerRun(input),
+    /HTTP 403 optional worker context authorization denied/,
+  );
+});
+
+test("evidence-coach fails closed when optional evidence lookup is unauthorized (401)", async () => {
+  const input = makeRun("evidence-coach");
+  input.requestJson = async (path, ...args) => {
+    if (path === "/v1/milestones/ms-1/evidence-items") {
+      throw new Error("HTTP 401 /v1/milestones/ms-1/evidence-items: unauthorized");
+    }
+    return requestJson(path, ...args);
+  };
+
+  await assert.rejects(
+    () => executeSpecializedWorkerRun(input),
+    /HTTP 401 optional worker context authorization denied/,
+  );
+});
+
+test("risk still tolerates a missing optional trust snapshot (404)", async () => {
+  const input = makeRun("risk");
+  input.requestJson = async (path, ...args) => {
+    if (path === "/v1/jobs/job-1/trust") {
+      throw new Error("HTTP 404 /v1/jobs/job-1/trust: not found");
+    }
+    return requestJson(path, ...args);
+  };
+
+  const result = await executeSpecializedWorkerRun(input);
+  assert.equal(result.actionType, "classify");
+  assert.equal(result.result.jobId, "job-1");
+  // The project trust fallback remains available despite the optional job 404.
+  assert.equal(result.result.trustScore, 82);
+});
+
+test("evidence-coach does not turn a forbidden project read into milestone-only review", async () => {
+  const input = makeRun("evidence-coach");
+  input.requestJson = async (path, ...args) => {
+    if (path === "/v1/projects/proj-1") {
+      throw new Error("HTTP 403 /v1/projects/proj-1: sensitive upstream details");
+    }
+    return requestJson(path, ...args);
+  };
+
+  await assert.rejects(
+    () => executeSpecializedWorkerRun(input),
+    (error) => {
+      assert.equal(error.statusCode, 403);
+      assert.match(error.message, /HTTP 403 optional worker context authorization denied/);
+      assert.doesNotMatch(error.message, /sensitive upstream details/);
+      return true;
+    },
+  );
+});
+
+test("denied optional reads never echo upstream details into their errors", async () => {
+  const input = makeRun("risk");
+  input.requestJson = async (path, ...args) => {
+    if (path === "/v1/jobs/job-1/trust") {
+      throw new Error("HTTP 403 /v1/jobs/job-1/trust: hidden personal information");
+    }
+    return requestJson(path, ...args);
+  };
+
+  await assert.rejects(
+    () => executeSpecializedWorkerRun(input),
+    (error) => {
+      assert.equal(error.statusCode, 403);
+      assert.doesNotMatch(error.message, /hidden personal information|job-1/);
+      return true;
+    },
+  );
+});
