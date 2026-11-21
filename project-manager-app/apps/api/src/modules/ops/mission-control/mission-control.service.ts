@@ -206,7 +206,7 @@ export class MissionControlService {
     const chunks = await Promise.all([
       load("signal", () => this.loadSignalExceptions(actor.tenantId)),
       load("event", () => this.loadEventExceptions(actor.tenantId)),
-      load("agent_run", () => this.loadAgentRunExceptions(actor.tenantId)),
+      load("agent_run", () => this.loadAgentRunExceptions(actor.tenantId, actor.orgId)),
       load("approval", () => this.loadApprovalExceptions(actor.tenantId)),
       load("loop", () => this.loadLoopExceptions()),
       load("incident", () => this.loadIncidentExceptions(actor.tenantId)),
@@ -608,7 +608,7 @@ export class MissionControlService {
       });
     }
     const run = await this.prisma.agentRun.findFirst({
-      where: { id: input.targetId, tenantId: actor.tenantId },
+      where: { id: input.targetId, tenantId: actor.tenantId, orgId: actor.orgId },
       select: {
         id: true,
         status: true,
@@ -729,7 +729,7 @@ export class MissionControlService {
     input: MissionControlActionInput,
     receiptId: string,
   ): Promise<AdapterResult> {
-    await this.assertExceptionTarget(actor.tenantId, input.targetId);
+    await this.assertExceptionTarget(actor.tenantId, actor.orgId, input.targetId);
     const existing = await this.prisma.missionControlIncident.findFirst({
       where: {
         tenantId: actor.tenantId,
@@ -847,7 +847,7 @@ export class MissionControlService {
     };
   }
 
-  private async assertExceptionTarget(tenantId: string, exceptionId: string): Promise<void> {
+  private async assertExceptionTarget(tenantId: string, orgId: string, exceptionId: string): Promise<void> {
     const [source, targetId] = exceptionId.split(":", 2);
     let exists = false;
     if (source === "signal") {
@@ -862,7 +862,7 @@ export class MissionControlService {
       }));
     } else if (source === "agent_run") {
       exists = Boolean(await this.prisma.agentRun.findFirst({
-        where: { id: targetId, tenantId },
+        where: { id: targetId, tenantId, orgId },
         select: { id: true },
       }));
     } else if (source === "approval") {
@@ -998,10 +998,11 @@ export class MissionControlService {
     });
   }
 
-  private async loadAgentRunExceptions(tenantId: string): Promise<MissionControlExceptionItem[]> {
+  private async loadAgentRunExceptions(tenantId: string, orgId: string): Promise<MissionControlExceptionItem[]> {
     const rows = await this.prisma.agentRun.findMany({
       where: {
         tenantId,
+        orgId,
         OR: [
           { status: { in: ["FAILED", "CANCELLED"] } },
           { deadLettered: true },
