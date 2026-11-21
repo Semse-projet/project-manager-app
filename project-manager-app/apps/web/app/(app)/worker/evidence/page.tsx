@@ -1,40 +1,34 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { useLanguage } from "../../../../lib/language-context";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Upload, Camera, FileText, Image as ImageIcon, Clock, ChevronDown, RefreshCw, CheckCircle2, AlertTriangle, Eye } from "lucide-react";
+import { Upload, Camera, FileText, Image as ImageIcon, RefreshCw, CheckCircle2, AlertTriangle, Eye } from "lucide-react";
 import { HtmlInCanvasPanel, StatusBadge } from "@semse/ui";
-import {
-  fetchMyJobs,
-  fetchJobMilestones,
-  fetchJobEvidence,
-  registerJobEvidence,
-  planUpload,
-  sendNotification,
-  type JobRecordView,
-} from "../../../semse-api";
+import { fetchMyJobs, fetchJobMilestones, fetchJobEvidence, registerJobEvidence, planUpload, sendNotification } from "../../../semse-api";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
+import { PanelState } from "../../../workspace/components/PanelState";
+import { useWorkspaceQuery, isWorkspaceAccessError } from "../../../workspace/lib/use-workspace-query";
+import {
+  evidenceStatus as readEvidenceStatus, evidenceStatusLabel, evidenceUploadProxyUrl,
+  resolveAccessibleJobId, uploadRealEvidenceFile, uploadEvidenceBatch,
+  type EvidenceRow, type EvidenceKind, type EvidenceUploadResult,
+} from "../../../workspace/lib/evidence-model";
 
-type EvidenceRow = Record<string, unknown>;
-type MilestoneRow = Record<string, unknown>;
-
-const KIND_OPTIONS = [
-  { value: "PHOTO",    label: "Foto" },
-  { value: "VIDEO",    label: "Video" },
-  { value: "DOCUMENT", label: "Documento" },
-] as const;
-
-type EvidenceKind = "PHOTO" | "VIDEO" | "DOCUMENT";
 type FieldCapturePhase = "UNSPECIFIED" | "BEFORE_CONCEALMENT" | "DURING_INSTALL" | "AFTER_CONCEALMENT";
-
+const KIND_OPTIONS = [{ value: "PHOTO", label: "Foto" }, { value: "VIDEO", label: "Video" }, { value: "DOCUMENT", label: "Documento" }] as const;
 const FIELD_CAPTURE_PHASES: Array<{ value: FieldCapturePhase; label: string }> = [
   { value: "UNSPECIFIED", label: "Sin etapa de captura" },
   { value: "BEFORE_CONCEALMENT", label: "Antes de cerrar pared / sheetrock" },
   { value: "DURING_INSTALL", label: "Durante la instalación" },
   { value: "AFTER_CONCEALMENT", label: "Después de cerrar pared" },
 ];
-
+function asString(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value : undefined;
+}
+function mimeToKind(mime: string): EvidenceKind {
+  return mime.startsWith("image/") ? "PHOTO" : mime.startsWith("video/") ? "VIDEO" : "DOCUMENT";
+}
 function describeFieldCapture(row: EvidenceRow): string | null {
   const metadata = row.metadata;
   if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return null;
@@ -42,111 +36,71 @@ function describeFieldCapture(row: EvidenceRow): string | null {
   if (!capture || typeof capture !== "object" || Array.isArray(capture)) return null;
   const record = capture as Record<string, unknown>;
   const zone = asString(record.zoneLabel);
-  const floor = asString(record.floorLabel);
   if (!zone) return null;
-  const phase = FIELD_CAPTURE_PHASES.find((option) => option.value === record.phase)?.label;
-  return [floor, zone, phase].filter(Boolean).join(" · ") + " · Ubicación declarada, no verificada";
+  return [asString(record.floorLabel), zone, FIELD_CAPTURE_PHASES.find((option) => option.value === record.phase)?.label].filter(Boolean).join(" · ") + " · Ubicación declarada, no verificada";
 }
-
-function mimeToKind(mime: string): EvidenceKind {
-  if (mime.startsWith("image/")) return "PHOTO";
-  if (mime.startsWith("video/")) return "VIDEO";
-  return "DOCUMENT";
+function statusVariant(status: string): "success" | "warning" | "error" | "info" {
+  if (["approved", "passed", "accepted"].includes(status)) return "success";
+  if (["rejected", "failed"].includes(status)) return "error";
+  if (["pending", "under_review", "manual_review"].includes(status)) return "warning";
+  return "info";
 }
-
-function asString(v: unknown): string | undefined {
-  return typeof v === "string" && v.trim().length > 0 ? v : undefined;
-}
-
-function formatDate(v: unknown): string {
-  if (!v) return "—";
-  const d = new Date(String(v));
-  if (isNaN(d.getTime())) return String(v);
-  return d.toLocaleDateString("es-MX", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
-}
-
-const STATUS_MAP: Record<string, { variant: "success" | "warning" | "error" | "info"; label: string }> = {
-  approved:     { variant: "success", label: "Aprobada" },
-  passed:       { variant: "success", label: "Aprobada" },
-  pending:      { variant: "warning", label: "Pendiente" },
-  under_review: { variant: "warning", label: "Revisión" },
-  rejected:     { variant: "error",   label: "Rechazada" },
-  failed:       { variant: "error",   label: "Rechazada" },
-};
-
-function evidenceStatus(row: EvidenceRow) {
-  const raw = asString(row.validationStatus) ?? asString(row.validation_status) ?? asString(row.status) ?? "pending";
-  const normalized = raw.toLowerCase().replace(/-/g, "_");
-  return STATUS_MAP[normalized] ?? STATUS_MAP.pending;
-}
+const control = "min-h-11 w-full min-w-0 rounded-lg border border-[var(--border)] bg-[var(--bg)] px-3 text-sm text-[var(--ink)]";
+const secondary = "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-[var(--border)] px-3 text-sm text-[var(--brand)] disabled:opacity-50";
 
 export default function WorkerEvidencePage() {
-  const { t } = useLanguage();
-  const [jobs, setJobs] = useState<JobRecordView[]>([]);
+  return <Suspense fallback={<PanelState title="Cargando evidencia" loading />}><WorkerEvidenceHub /></Suspense>;
+}
+
+function WorkerEvidenceHub() {
+  const searchParams = useSearchParams();
+  const requestedJobId = searchParams.get("jobId") ?? "";
   const [selectedJobId, setSelectedJobId] = useState("");
-  const [milestones, setMilestones] = useState<MilestoneRow[]>([]);
   const [selectedMilestoneId, setSelectedMilestoneId] = useState("");
   const [kind, setKind] = useState<EvidenceKind>("PHOTO");
   const [captureZoneLabel, setCaptureZoneLabel] = useState("");
   const [captureFloorLabel, setCaptureFloorLabel] = useState("");
   const [capturePhase, setCapturePhase] = useState<FieldCapturePhase>("UNSPECIFIED");
-  const [evidenceFeed, setEvidenceFeed] = useState<EvidenceRow[]>([]);
-  const [loadingJobs, setLoadingJobs] = useState(true);
-  const [loadingEvidence, setLoadingEvidence] = useState(false);
-  const [dragOver, setDragOver] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
+  const [dragOver, setDragOver] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadResults, setUploadResults] = useState<EvidenceUploadResult[]>([]);
   const [uploadNote, setUploadNote] = useState<{ msg: string; ok: boolean } | null>(null);
-  const [evidenceLoadError, setEvidenceLoadError] = useState<string | null>(null);
+  const uploadLock = useRef(false);
+  const mounted = useRef(true);
+  const selectionRequest = useRef<string | null>(null);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
 
-  const loadJobs = useCallback(async () => {
-    setLoadingJobs(true);
-    try {
-      const data = await fetchMyJobs();
-      setJobs(data);
-      if (data.length > 0 && !selectedJobId) setSelectedJobId(data[0].id);
-    } catch { /* keep empty */ }
-    setLoadingJobs(false);
-  }, [selectedJobId]);
-
-  useEffect(() => { void loadJobs(); }, []);
-
-  const loadMilestonesAndEvidence = useCallback(async (jobId: string) => {
-    if (!jobId) return;
-    setLoadingEvidence(true);
-    setEvidenceLoadError(null);
-    try {
-      const [ms, ev] = await Promise.all([
-        fetchJobMilestones(jobId).catch(() => []),
-        fetchJobEvidence(jobId).catch((e) => {
-          setEvidenceLoadError(e instanceof Error ? e.message : "No se pudo cargar el historial de evidencias.");
-          return [];
-        }),
-      ]);
-      setMilestones(ms as MilestoneRow[]);
-      setEvidenceFeed(ev as EvidenceRow[]);
-      if (ms.length > 0 && !selectedMilestoneId) {
-        setSelectedMilestoneId(asString((ms[0] as MilestoneRow).id) ?? "");
-      }
-    } catch (e) {
-      setEvidenceLoadError(e instanceof Error ? e.message : "No se pudo cargar el historial de evidencias.");
-    }
-    setLoadingEvidence(false);
-  }, [selectedMilestoneId]);
-
+  const jobsLoader = useCallback(() => fetchMyJobs(), []);
+  const jobsQuery = useWorkspaceQuery("worker-evidence-jobs", jobsLoader);
+  const jobs = jobsQuery.data ?? [];
   useEffect(() => {
-    if (selectedJobId) void loadMilestonesAndEvidence(selectedJobId);
-  }, [selectedJobId]);
+    if (!jobsQuery.data || uploadLock.current) return;
+    const requestChanged = selectionRequest.current !== requestedJobId;
+    selectionRequest.current = requestedJobId;
+    const nextJobId = !requestChanged && jobsQuery.data.some((job) => job.id === selectedJobId)
+      ? selectedJobId : resolveAccessibleJobId(jobsQuery.data, requestedJobId);
+    if (nextJobId === selectedJobId) return;
+    setSelectedJobId(nextJobId);
+    setSelectedMilestoneId(""); setFiles([]); setUploadResults([]);
+    setCaptureZoneLabel(""); setCaptureFloorLabel(""); setCapturePhase("UNSPECIFIED");
+  }, [jobsQuery.data, requestedJobId, selectedJobId, uploading]);
+  const activeJobId = jobs.some((job) => job.id === selectedJobId) ? selectedJobId : "";
+  const milestonesLoader = useCallback(() => fetchJobMilestones(encodeURIComponent(activeJobId)), [activeJobId]);
+  const evidenceLoader = useCallback(() => fetchJobEvidence(encodeURIComponent(activeJobId)), [activeJobId]);
+  const milestonesQuery = useWorkspaceQuery(activeJobId ? `worker-evidence-milestones:${activeJobId}` : null, milestonesLoader);
+  const evidenceQuery = useWorkspaceQuery(activeJobId ? `worker-evidence:${activeJobId}` : null, evidenceLoader);
+  const milestones = milestonesQuery.data ?? [];
+  const evidenceFeed = evidenceQuery.data ?? [];
+  const validMilestoneId = milestones.some((row) => asString(row.id) === selectedMilestoneId) ? selectedMilestoneId : "";
 
   function handleFiles(incoming: File[]) {
-    if (incoming.length === 0) return;
-    setFiles(incoming);
+    if (uploadLock.current || !incoming.length) return;
+    setFiles(incoming); setUploadNote(null); setUploadResults([]);
     if (incoming.length === 1) setKind(mimeToKind(incoming[0].type));
-    setUploadNote(null);
   }
-
   async function handleUpload() {
-    if (!selectedJobId || files.length === 0 || uploading) return;
+    if (!activeJobId || !files.length || uploadLock.current) return;
     const zoneLabel = captureZoneLabel.trim();
     const floorLabel = captureFloorLabel.trim();
     const hasFieldCapture = Boolean(zoneLabel || floorLabel || capturePhase !== "UNSPECIFIED");
@@ -154,311 +108,129 @@ export default function WorkerEvidencePage() {
       setUploadNote({ msg: "Para documentar la zona debes indicar una zona y la etapa de obra.", ok: false });
       return;
     }
-    setUploading(true);
-    setUploadNote(null);
+    const jobId = activeJobId;
+    const selectedFiles = files.slice();
+    uploadLock.current = true; setUploading(true); setUploadNote(null); setUploadResults([]);
     try {
-      for (const file of files) {
-        const fileKind = files.length === 1 ? kind : mimeToKind(file.type);
-        const contentType = file.type || "application/octet-stream";
-
-        const plan = await planUpload({ domain: "evidence", filename: file.name, contentType, fileSizeBytes: file.size, source: "local_device" });
-        const strategy = asString(plan.recommendedStrategy) ?? "single_put";
-        const key = asString(plan.key);
-        if (!key) {
-          throw new Error(`No se pudo preparar el almacenamiento para "${file.name}".`);
-        }
-
-        if (strategy === "external_transfer") {
-          // Files over the single-PUT limit (~25MB) don't have a working upload
-          // path yet — fail clearly instead of silently registering a fake key.
-          throw new Error(`"${file.name}" es demasiado grande para subir aquí todavía (límite temporal ~25MB). Usa un archivo más pequeño o divídelo.`);
-        }
-
-        const uploadRes = await fetch(`/api/semse/uploads/files/${encodeURIComponent(key)}`, {
-          method: "PUT",
-          headers: { "content-type": contentType, "content-length": String(file.size) },
-          body: file,
-        });
-        if (!uploadRes.ok) {
-          const text = await uploadRes.text().catch(() => "");
-          throw new Error(`No se pudo subir "${file.name}" (${uploadRes.status}).${text ? ` ${text}` : ""}`);
-        }
-
-        // The real bytes were PUT successfully above; now the canonical
-        // Evidence record may carry untrusted site annotations, never auth or
-        // verified as-built coordinates.
-        await registerJobEvidence(selectedJobId, {
-          key,
-          kind: fileKind,
-          filename: file.name,
-          ...(selectedMilestoneId ? { milestoneId: selectedMilestoneId } : {}),
+      const results = await uploadEvidenceBatch(selectedFiles, async (file) => {
+        if (!mounted.current) throw new Error("Carga cancelada al salir de la página.");
+        const fileKind = selectedFiles.length === 1 ? kind : mimeToKind(file.type);
+        return uploadRealEvidenceFile(file, {
+          jobId, kind: fileKind,
+          ...(validMilestoneId ? { milestoneId: validMilestoneId } : {}),
           ...(fileKind === "PHOTO" && hasFieldCapture ? {
             metadata: {
               fieldCapture: {
-                schemaVersion: 1,
-                zoneLabel,
-                ...(floorLabel ? { floorLabel } : {}),
-                phase: capturePhase,
-                trust: "CLAIMED_BY_WORKER",
+                schemaVersion: 1, zoneLabel, ...(floorLabel ? { floorLabel } : {}),
+                phase: capturePhase, trust: "CLAIMED_BY_WORKER",
               },
             },
           } : {}),
+        }, {
+          plan: planUpload,
+          put: async (key, realFile, contentType) => {
+            const uploadRes = await fetch(evidenceUploadProxyUrl(key), {
+              method: "PUT", headers: { "content-type": contentType }, body: realFile,
+            });
+            if (!uploadRes.ok) {
+              const text = await uploadRes.text().catch(() => "");
+              throw new Error(`No se pudo subir "${realFile.name}" (${uploadRes.status}).${text ? ` ${text}` : ""}`);
+            }
+          },
+          // The orchestrator passes the encoded Job.id only after the real PUT succeeded.
+          register: async (selectedJobId, payload) => await registerJobEvidence(selectedJobId, payload),
         });
+      });
+      if (!mounted.current) return;
+      setUploadResults(results);
+      const successful = results.filter((result) => result.ok).length;
+      setFiles(results.filter((result) => !result.ok).map((result) => result.file));
+      setUploadNote({ msg: `${successful} de ${results.length} archivos registrados.${successful < results.length ? " Se conservan los archivos fallidos para reintentar; los exitosos no se volverán a enviar." : ""}`, ok: successful === results.length });
+      if (successful) {
+        evidenceQuery.retry();
+        try {
+          await sendNotification({ title: "Evidencia registrada", body: `${successful} archivo(s) registrado(s) en "${jobs.find((job) => job.id === jobId)?.title ?? "trabajo"}".`, kind: "approval", targetRole: "client", linkHref: `/client/jobs/${encodeURIComponent(jobId)}` });
+        } catch (error) {
+          if (mounted.current) setUploadNote({ msg: `${successful} archivos registrados. No se pudo enviar la notificación: ${error instanceof Error ? error.message : "error de notificación"}. Revisa los resultados por archivo antes de reintentar.`, ok: false });
+        }
       }
-
-      const jobTitle = jobs.find(j => j.id === selectedJobId)?.title ?? "trabajo";
-      sendNotification({
-        title: "Evidencia registrada",
-        body: `${files.length} archivo${files.length > 1 ? "s" : ""} registrado${files.length > 1 ? "s" : ""} en "${jobTitle}".`,
-        kind: "approval",
-        targetRole: "client",
-        linkHref: `/client/jobs/${selectedJobId}`,
-      }).catch(() => {});
-
-      setUploadNote({ msg: `${files.length} archivo${files.length > 1 ? "s" : ""} registrado${files.length > 1 ? "s" : ""} correctamente.`, ok: true });
-      setFiles([]);
-      await loadMilestonesAndEvidence(selectedJobId);
-    } catch (err) {
-      setUploadNote({ msg: err instanceof Error ? err.message : "No se pudo registrar la evidencia.", ok: false });
+    } finally {
+      uploadLock.current = false;
+      if (mounted.current) setUploading(false);
     }
-    setUploading(false);
   }
 
-  const card: React.CSSProperties = {
-    background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "12px", padding: "18px",
-  };
-
-  const filteredFeed = selectedJobId
-    ? evidenceFeed.filter(ev => !asString(ev.jobId) || asString(ev.jobId) === selectedJobId)
-    : evidenceFeed;
-
-  return (
-    <div style={{ maxWidth: "800px", margin: "0 auto" }}>
-      <HtmlInCanvasPanel as="section" style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: "24px" }} canvasClassName="rounded-2xl" minHeight={82}>
-        <div>
-          <Link href="/worker/dashboard" style={{ display: "inline-flex", alignItems: "center", gap: "5px", color: "var(--muted)", fontSize: "12px", fontWeight: 600, textDecoration: "none", marginBottom: "8px" }}>
-            <span style={{ fontSize: "14px" }}>←</span> Dashboard
-          </Link>
-          <h1 style={{ fontSize: "22px", fontWeight: 800, color: "var(--ink)", marginBottom: "4px" }}>Evidencias</h1>
-          <p style={{ fontSize: "13px", color: "var(--muted)" }}>Registra fotos y documentos para validar el avance de tus trabajos</p>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <NotificationBanner audience="worker" />
-          <button onClick={() => selectedJobId && void loadMilestonesAndEvidence(selectedJobId)} disabled={loadingEvidence} style={{ padding: "8px", borderRadius: "8px", border: "1px solid var(--border)", background: "var(--surface)", color: "var(--muted)", cursor: "pointer", display: "flex" }}>
-            <RefreshCw size={15} className={loadingEvidence ? "animate-spin" : undefined} />
-          </button>
-        </div>
-      </HtmlInCanvasPanel>
-
-      {/* Coach signal */}
-      <div style={{ marginBottom: "16px", borderRadius: "12px", border: "1px solid rgba(251,191,36,0.3)", background: "rgba(251,191,36,0.07)", padding: "12px 16px" }}>
-        <strong style={{ fontSize: "12px", color: "#fbbf24", display: "block", marginBottom: "4px" }}>▶ Qué necesita el agente de evidencia</strong>
-        <ul style={{ margin: 0, padding: "0 0 0 16px", fontSize: "12px", color: "var(--muted)", lineHeight: 1.7 }}>
-          <li>Fotos del antes y después del trabajo</li>
-          <li>Video corto mostrando el resultado final</li>
-          <li>Documento o comprobante si aplica (factura, certificado, plano)</li>
-        </ul>
-        <p style={{ fontSize: "11px", color: "var(--muted)", marginTop: "6px" }}>
-          Mínimo 1 foto obligatoria. El agente valida cobertura y calidad antes de permitir la aprobación del milestone.
-        </p>
+  return <div className="mx-auto grid w-full min-w-0 max-w-3xl gap-5 text-[var(--ink)]">
+    <HtmlInCanvasPanel as="section" canvasClassName="rounded-2xl" minHeight={82}>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div><Link href="/worker/dashboard" className={secondary}>Volver al panel</Link><h1 className="mt-3 text-2xl font-bold">Evidencias</h1><p className="mt-1 text-sm text-[var(--muted)]">Sube archivos reales para documentar tus trabajos.</p></div>
+        <div className="flex flex-wrap items-center gap-2"><NotificationBanner audience="worker" /><button type="button" aria-label="Actualizar trabajos, hitos y evidencia" className={secondary} disabled={uploading} onClick={() => { jobsQuery.retry(); milestonesQuery.retry(); evidenceQuery.retry(); }}><RefreshCw size={16} /></button></div>
       </div>
-
-      {/* Upload Zone */}
-      <HtmlInCanvasPanel as="section" style={{ ...card, marginBottom: "20px" }} canvasClassName="rounded-2xl" minHeight={320}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "14px" }}>
-          {/* Job selector */}
-          <div>
-            <label style={{ fontSize: "11px", fontWeight: 700, color: "var(--muted)", display: "block", marginBottom: "6px" }}>TRABAJO</label>
-            <div style={{ position: "relative" }}>
-              <select value={selectedJobId} onChange={e => { setSelectedJobId(e.target.value); setSelectedMilestoneId(""); setFiles([]); setCaptureZoneLabel(""); setCaptureFloorLabel(""); setCapturePhase("UNSPECIFIED"); }}
-                style={{ width: "100%", padding: "10px 36px 10px 13px", borderRadius: "8px", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--ink)", fontSize: "13px", appearance: "none", cursor: "pointer", outline: "none" }}
-              >
-                {loadingJobs ? <option value="">Cargando...</option> : jobs.length === 0 ? <option value="">Sin trabajos activos</option> : null}
-                {jobs.map(j => <option key={j.id} value={j.id}>{j.title}</option>)}
-              </select>
-              <ChevronDown size={14} style={{ position: "absolute", right: "12px", top: "50%", transform: "translateY(-50%)", color: "var(--muted)", pointerEvents: "none" }} />
-            </div>
-          </div>
-
-          {/* Milestone selector */}
-          <div>
-            <label style={{ fontSize: "11px", fontWeight: 700, color: "var(--muted)", display: "block", marginBottom: "6px" }}>MILESTONE (opcional)</label>
-            <div style={{ position: "relative" }}>
-              <select value={selectedMilestoneId} onChange={e => setSelectedMilestoneId(e.target.value)}
-                style={{ width: "100%", padding: "10px 36px 10px 13px", borderRadius: "8px", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--ink)", fontSize: "13px", appearance: "none", cursor: "pointer", outline: "none" }}
-              >
-                <option value="">Sin milestone específico</option>
-                {milestones.map((m, i) => (
-                  <option key={asString(m.id) ?? i} value={asString(m.id) ?? ""}>
-                    {asString(m.title) ?? `Milestone ${i + 1}`}{asString(m.status) ? ` · ${asString(m.status)}` : ""}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown size={14} style={{ position: "absolute", right: "12px", top: "50%", transform: "translateY(-50%)", color: "var(--muted)", pointerEvents: "none" }} />
-            </div>
-          </div>
+    </HtmlInCanvasPanel>
+    {jobsQuery.loading && <PanelState title="Cargando trabajos" loading />}
+    {jobsQuery.error && <PanelState title={isWorkspaceAccessError(jobsQuery.error) ? "Sin acceso a los trabajos" : "No se pudieron cargar los trabajos"} description={jobsQuery.error} error onRetry={jobsQuery.retry} />}
+    {requestedJobId && jobsQuery.data && !jobs.some((job) => job.id === requestedJobId) && <PanelState title="El trabajo solicitado no está disponible" description="El jobId del enlace no figura en tu lista accesible. Selecciona otro trabajo; el enlace no concede permisos." error />}
+    {jobsQuery.data?.length === 0 && <PanelState title="Sin trabajos disponibles" description="No se devolvieron trabajos asignados para esta sesión." />}
+    <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4 text-sm text-[var(--muted)]"><strong className="text-[var(--ink)]">Qué necesita el agente de evidencia</strong><ul className="mt-2 list-disc pl-5"><li>Fotos del antes y después</li><li>Video corto del resultado</li><li>Documento o comprobante si corresponde</li></ul><p className="mt-2">La carga no implica validación, aprobación del hito ni liberación de fondos.</p></div>
+    <HtmlInCanvasPanel as="section" canvasClassName="rounded-2xl" minHeight={320}>
+      <fieldset disabled={uploading} className="grid min-w-0 gap-4 border-0 p-0">
+        <legend className="mb-3 text-base font-semibold">Subir evidencia real</legend>
+        <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+          <label className="grid min-w-0 gap-2 text-sm text-[var(--muted)]">Trabajo
+            <select className={control} value={activeJobId} disabled={jobsQuery.loading || !jobs.length} onChange={e => { setSelectedJobId(e.target.value); setSelectedMilestoneId(""); setFiles([]); setCaptureZoneLabel(""); setCaptureFloorLabel(""); setCapturePhase("UNSPECIFIED"); setUploadResults([]); setUploadNote(null); }}>
+              <option value="">Selecciona un trabajo</option>{jobs.map((job) => <option key={job.id} value={job.id}>{job.title}</option>)}
+            </select>
+          </label>
+          <label className="grid min-w-0 gap-2 text-sm text-[var(--muted)]">Hito (opcional)
+            <select className={control} value={validMilestoneId} disabled={milestonesQuery.loading || Boolean(milestonesQuery.error) || !activeJobId} onChange={e => setSelectedMilestoneId(e.target.value)}>
+              <option value="">Sin hito específico</option>{milestones.map((row) => asString(row.id) && <option key={asString(row.id)} value={asString(row.id)}>{asString(row.title) ?? asString(row.id)}</option>)}
+            </select>
+          </label>
         </div>
-
-        {/* Kind selector */}
-        <div style={{ display: "flex", gap: "6px", marginBottom: "14px" }}>
-          {KIND_OPTIONS.map(opt => (
-            <button key={opt.value} onClick={() => setKind(opt.value)}
-              style={{ padding: "6px 14px", borderRadius: "8px", border: `1px solid ${kind === opt.value ? "var(--brand)" : "var(--border)"}`, background: kind === opt.value ? "var(--brand)14" : "transparent", color: kind === opt.value ? "var(--brand)" : "var(--muted)", fontSize: "12px", fontWeight: 700, cursor: "pointer" }}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Optional job-scoped field photo annotations; never as-built verification. */}
-        <fieldset style={{ border: "1px solid var(--border)", borderRadius: 10, padding: 12, marginBottom: 14 }}>
-          <legend style={{ fontSize: 12, fontWeight: 700, color: "var(--ink)", padding: "0 6px" }}>Contexto de la fotografía en obra (opcional)</legend>
-          <p style={{ fontSize: 11, color: "var(--muted)", marginBottom: 10 }}>
-            Identifica la pared o instalación antes del sheetrock. Son datos declarados por el trabajador:
-            no representan coordenadas, medidas ni estado as-built verificados.
-          </p>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
-            <label style={{ fontSize: 12, color: "var(--muted)", display: "grid", gap: 4 }}>
-              Piso / nivel
-              <input value={captureFloorLabel} onChange={e => setCaptureFloorLabel(e.target.value)} maxLength={60}
-                placeholder="Ej.: Piso 7" style={{ minWidth: 0, padding: 9, borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg)", color: "var(--ink)" }} />
-            </label>
-            <label style={{ fontSize: 12, color: "var(--muted)", display: "grid", gap: 4 }}>
-              Zona / pared
-              <input value={captureZoneLabel} onChange={e => setCaptureZoneLabel(e.target.value)} maxLength={100}
-                placeholder="Ej.: Pasillo A, pared norte" style={{ minWidth: 0, padding: 9, borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg)", color: "var(--ink)" }} />
-            </label>
-            <label style={{ fontSize: 12, color: "var(--muted)", display: "grid", gap: 4 }}>
-              Etapa de obra
-              <select value={capturePhase} onChange={e => setCapturePhase(e.target.value as FieldCapturePhase)}
-                style={{ minWidth: 0, padding: 9, borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg)", color: "var(--ink)" }}>
-                {FIELD_CAPTURE_PHASES.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
-              </select>
-            </label>
+        {milestonesQuery.loading && <PanelState title="Cargando hitos" loading />}
+        {milestonesQuery.error && <PanelState title={isWorkspaceAccessError(milestonesQuery.error) ? "Sin acceso a los hitos" : "Consulta parcial: no se pudieron cargar los hitos"} description={`${milestonesQuery.error} Puedes cargar evidencia a nivel de trabajo, pero no seleccionar un hito no consultado.`} error onRetry={milestonesQuery.retry} />}
+        <div className="flex flex-wrap gap-2" aria-label="Tipo de evidencia">{KIND_OPTIONS.map((option) => <button type="button" key={option.value} className={secondary} aria-pressed={kind === option.value} style={{ background: kind === option.value ? "var(--brand-dim)" : "transparent" }} onClick={() => setKind(option.value)}>{option.label}</button>)}</div>
+        <fieldset className="min-w-0 rounded-xl border border-[var(--border)] p-3">
+          <legend className="px-2 text-sm font-semibold">Contexto de la fotografía en obra (opcional)</legend>
+          <p className="mb-3 text-xs text-[var(--muted)]">Ubicación declarada, no verificada. No representa coordenadas, medidas ni estado as-built verificados.</p>
+          <div className="grid min-w-0 gap-3 sm:grid-cols-3">
+            <label className="grid min-w-0 gap-2 text-sm text-[var(--muted)]">Piso / nivel<input className={control} value={captureFloorLabel} onChange={e => setCaptureFloorLabel(e.target.value)} maxLength={60} placeholder="Ej.: Piso 7" /></label>
+            <label className="grid min-w-0 gap-2 text-sm text-[var(--muted)]">Zona / pared<input className={control} value={captureZoneLabel} onChange={e => setCaptureZoneLabel(e.target.value)} maxLength={100} placeholder="Ej.: Pared norte" /></label>
+            <label className="grid min-w-0 gap-2 text-sm text-[var(--muted)]">Etapa de obra<select className={control} value={capturePhase} onChange={e => setCapturePhase(e.target.value as FieldCapturePhase)}>{FIELD_CAPTURE_PHASES.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
           </div>
         </fieldset>
-
-        {/* Drop zone */}
-        <label htmlFor="evidence-upload"
-          onDragOver={e => { e.preventDefault(); setDragOver(true); }}
-          onDragLeave={() => setDragOver(false)}
-          onDrop={e => { e.preventDefault(); setDragOver(false); handleFiles(Array.from(e.dataTransfer.files)); }}
-          style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "10px", padding: "36px 24px", borderRadius: "12px", cursor: "pointer", border: `2px dashed ${dragOver ? "var(--brand)" : "var(--border)"}`, background: dragOver ? "rgba(99,102,241,.06)" : "var(--bg)", transition: "all 0.15s" }}
-        >
-          <div style={{ width: "48px", height: "48px", borderRadius: "14px", background: "rgba(99,102,241,.12)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <Upload size={22} color="var(--brand)" />
-          </div>
-          <div style={{ textAlign: "center" }}>
-            <p style={{ fontSize: "14px", fontWeight: 700, color: "var(--ink)" }}>Arrastra archivos aquí</p>
-            <p style={{ fontSize: "12px", color: "var(--muted)", marginTop: "3px" }}>o haz clic para seleccionar · fotos, video, PDF, ZIP</p>
-          </div>
-          <div style={{ display: "flex", gap: "8px" }}>
-            {[Camera, ImageIcon, FileText].map((Icon, i) => (
-              <div key={i} style={{ padding: "5px 10px", borderRadius: "6px", background: "var(--surface)", border: "1px solid var(--border)", display: "flex", alignItems: "center", gap: "4px" }}>
-                <Icon size={12} color="var(--muted)" />
-                <span style={{ fontSize: "11px", color: "var(--muted)" }}>{i === 0 ? "Fotos" : i === 1 ? "Imágenes/Video" : "PDF/ZIP"}</span>
-              </div>
-            ))}
-          </div>
-        </label>
-        <input id="evidence-upload" type="file" multiple accept="image/*,video/*,.pdf,.doc,.docx,.zip,.rar,.7z,.heic,.dwg,.xlsx" style={{ display: "none" }} onChange={e => handleFiles(e.target.files ? Array.from(e.target.files) : [])} />
-
-        {files.length > 0 && (
-          <div style={{ marginTop: "14px", display: "grid", gap: "10px" }}>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
-              {files.map((f, i) => (
-                <div key={i} style={{ display: "flex", alignItems: "center", gap: "6px", padding: "5px 10px", borderRadius: "7px", background: "var(--bg)", border: "1px solid var(--border)" }}>
-                  <FileText size={12} color="var(--muted)" />
-                  <span style={{ fontSize: "12px", color: "var(--ink)" }}>{f.name}</span>
-                  <span style={{ fontSize: "11px", color: "var(--faint)" }}>({(f.size / 1024 / 1024).toFixed(1)} MB)</span>
-                </div>
-              ))}
-            </div>
-            <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-              <button onClick={() => void handleUpload()} disabled={uploading || !selectedJobId}
-                style={{ display: "inline-flex", alignItems: "center", gap: "7px", padding: "10px 18px", borderRadius: "9px", border: "none", background: "var(--brand)", color: "#fff", fontSize: "13px", fontWeight: 700, cursor: uploading || !selectedJobId ? "not-allowed" : "pointer", opacity: uploading || !selectedJobId ? 0.7 : 1 }}
-              >
-                {uploading ? <RefreshCw size={14} className="animate-spin" /> : <Upload size={14} />}
-                {uploading ? "Registrando..." : `Registrar ${files.length} archivo${files.length > 1 ? "s" : ""}`}
-              </button>
-              <button onClick={() => setFiles([])} style={{ padding: "10px 14px", borderRadius: "9px", border: "1px solid var(--border)", background: "transparent", color: "var(--muted)", fontSize: "12px", cursor: "pointer" }}>
-                Cancelar
-              </button>
-            </div>
-          </div>
-        )}
-
-        {uploadNote && (
-          <div style={{ marginTop: "10px", display: "flex", alignItems: "center", gap: "8px", padding: "10px 14px", borderRadius: "10px", border: `1px solid ${uploadNote.ok ? "rgba(16,185,129,.25)" : "rgba(239,68,68,.25)"}`, background: uploadNote.ok ? "rgba(16,185,129,.06)" : "rgba(239,68,68,.06)" }}>
-            {uploadNote.ok ? <CheckCircle2 size={14} color="var(--ok)" /> : <AlertTriangle size={14} color="var(--error)" />}
-            <span style={{ fontSize: "12px", color: uploadNote.ok ? "var(--ok)" : "var(--error)", fontWeight: 700 }}>{uploadNote.msg}</span>
-          </div>
-        )}
-      </HtmlInCanvasPanel>
-
-      {/* Evidence feed */}
-      <HtmlInCanvasPanel as="section" canvasClassName="rounded-2xl" minHeight={200}>
-        <h2 style={{ fontSize: "14px", fontWeight: 700, color: "var(--ink)", marginBottom: "12px" }}>
-          Historial de evidencias {selectedJobId && `— ${jobs.find(j => j.id === selectedJobId)?.title ?? ""}`}
-        </h2>
-        {evidenceLoadError && (
-          <div style={{ marginBottom: "10px", display: "flex", alignItems: "center", gap: "8px", padding: "10px 14px", borderRadius: "10px", border: "1px solid rgba(239,68,68,.25)", background: "rgba(239,68,68,.06)" }}>
-            <AlertTriangle size={14} color="var(--error)" />
-            <span style={{ fontSize: "12px", color: "var(--error)", fontWeight: 700 }}>{evidenceLoadError}</span>
-          </div>
-        )}
-        {loadingEvidence ? (
-          <div style={{ display: "grid", gap: "8px" }}>
-            {[1,2,3].map(i => <div key={i} style={{ height: "64px", borderRadius: "10px", background: "var(--raised)", animation: "pulse 1.5s ease-in-out infinite" }} />)}
-          </div>
-        ) : filteredFeed.length === 0 ? (
-          <div style={{ padding: "28px", textAlign: "center", fontSize: "13px", color: "var(--muted)", borderRadius: "10px", border: "1px dashed var(--border)" }}>
-            No hay evidencias registradas para este trabajo todavía.
-          </div>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-            {filteredFeed
-              .slice()
-              .sort((a, b) => new Date(asString(b.createdAt) ?? 0).getTime() - new Date(asString(a.createdAt) ?? 0).getTime())
-              .map((ev, idx) => {
-                const s = evidenceStatus(ev);
-                const fieldCaptureLabel = describeFieldCapture(ev);
-                const isImage = asString(ev.kind) === "PHOTO" || asString(ev.mimeType)?.startsWith("image");
-                const name = asString(ev.filename) ?? asString(ev.originalFilename) ?? asString(ev.key) ?? `Evidencia ${idx + 1}`;
-                const msTitle = milestones.find(m => asString(m.id) === asString(ev.milestoneId))
-                  ? asString((milestones.find(m => asString(m.id) === asString(ev.milestoneId)) as MilestoneRow).title) : undefined;
-                const evKey = asString(ev.key);
-                const previewUrl = asString(ev.previewUrl) ?? asString(ev.url) ?? asString(ev.signedUrl)
-                  ?? (evKey ? `/api/semse/uploads/files/${encodeURIComponent(evKey)}` : undefined);
-                return (
-                  <div key={asString(ev.id) ?? idx} style={{ ...card, display: "flex", alignItems: "center", gap: "14px", padding: "12px 16px" }}>
-                    <div style={{ width: "38px", height: "38px", borderRadius: "10px", flexShrink: 0, background: isImage ? "rgba(59,130,246,.12)" : "rgba(139,92,246,.12)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      {isImage ? <ImageIcon size={17} color="var(--brand)" /> : <FileText size={17} color="var(--violet)" />}
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ fontSize: "13px", fontWeight: 600, color: "var(--ink)", marginBottom: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</p>
-                      <p style={{ fontSize: "11px", color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {msTitle ? `${msTitle} · ` : ""}{asString(ev.kind) ?? "—"}
-                      </p>
-                      {fieldCaptureLabel && <p style={{ fontSize: "11px", color: "var(--muted)", marginTop: "2px", overflowWrap: "anywhere" }}>{fieldCaptureLabel}</p>}
-                      <p style={{ fontSize: "11px", color: "var(--faint)", display: "flex", alignItems: "center", gap: "4px", marginTop: "2px" }}>
-                        <Clock size={10} /> {formatDate(ev.createdAt ?? ev.capturedAt)}
-                      </p>
-                    </div>
-                    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "6px", flexShrink: 0 }}>
-                      <StatusBadge variant={s.variant} text={s.label} size="sm" />
-                      {previewUrl && (
-                        <Link href={previewUrl} target="_blank" rel="noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: "4px", fontSize: "11px", fontWeight: 700, color: "var(--muted)", textDecoration: "none" }}>
-                          <Eye size={11} /> Ver
-                        </Link>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-          </div>
-        )}
-      </HtmlInCanvasPanel>
-    </div>
-  );
+        <div className="grid min-w-0 gap-3 rounded-xl border-2 border-dashed border-[var(--border)] bg-[var(--bg)] p-5" style={{ borderColor: dragOver ? "var(--brand)" : undefined }} onDragOver={e => { e.preventDefault(); if (!uploading) setDragOver(true); }} onDragLeave={() => setDragOver(false)} onDrop={e => { e.preventDefault(); setDragOver(false); handleFiles(Array.from(e.dataTransfer.files)); }}>
+          <div className="flex items-center gap-2"><Upload size={20} className="text-[var(--brand)]" /><span>Arrastra archivos o selecciónalos en tu dispositivo</span></div>
+          <label htmlFor="evidence-upload" className="text-sm text-[var(--muted)]">Fotos, video o documentos · hasta 25 MiB por archivo · solo subida directa</label>
+          <input id="evidence-upload" className={`${control} py-2`} type="file" multiple accept="image/*,video/*,.pdf,.doc,.docx,.zip,.rar,.7z,.heic,.dwg,.xlsx" onChange={e => handleFiles(e.target.files ? Array.from(e.target.files) : [])} />
+        </div>
+        {files.length > 0 && <div className="grid min-w-0 gap-3">
+          <ul className="grid gap-1 text-sm text-[var(--muted)]">{files.map((file, index) => <li key={index} className="[overflow-wrap:anywhere]">{file.name} · {(file.size / 1024 / 1024).toFixed(1)} MiB</li>)}</ul>
+          <div className="flex flex-wrap gap-2"><button type="button" className={`${secondary} bg-[var(--brand-dim)]`} disabled={!activeJobId || uploading} onClick={() => void handleUpload()}><Upload size={16} />{uploading ? "Subiendo y registrando…" : `Subir ${files.length} archivo(s)`}</button><button type="button" className={secondary} onClick={() => { setFiles([]); setUploadResults([]); }}>Cancelar selección</button></div>
+        </div>}
+      </fieldset>
+      {uploadNote && <div role={uploadNote.ok ? "status" : "alert"} className="mt-4 flex items-start gap-2 rounded-lg border border-[var(--border)] p-3 text-sm" style={{ color: uploadNote.ok ? "var(--ink)" : "var(--error)" }}>{uploadNote.ok ? <CheckCircle2 size={18} className="shrink-0" /> : <AlertTriangle size={18} className="shrink-0" />}<span>{uploadNote.msg}</span></div>}
+      {uploadResults.length > 0 && <ul aria-label="Resultado por archivo" className="mt-3 grid min-w-0 gap-2 text-sm">{uploadResults.map((result, index) => <li key={index} className="[overflow-wrap:anywhere]" style={{ color: result.ok ? "var(--ink)" : "var(--error)" }}>{result.file.name}: {result.ok ? "Bytes subidos y evidencia registrada" : result.error}</li>)}</ul>}
+    </HtmlInCanvasPanel>
+    <HtmlInCanvasPanel as="section" canvasClassName="rounded-2xl" minHeight={200}>
+      <h2 className="mb-3 font-semibold">Historial de evidencias{activeJobId ? ` — ${jobs.find((job) => job.id === activeJobId)?.title ?? ""}` : ""}</h2>
+      {evidenceQuery.loading && <PanelState title="Cargando historial" loading />}
+      {evidenceQuery.error && <PanelState title={isWorkspaceAccessError(evidenceQuery.error) ? "Sin acceso a la evidencia" : "No se pudo cargar el historial"} description={evidenceQuery.error} error onRetry={evidenceQuery.retry} />}
+      {!activeJobId && <PanelState title="Selecciona un trabajo autorizado" />}
+      {evidenceQuery.data?.length === 0 && <PanelState title="Sin evidencia registrada para este trabajo" />}
+      <ul className="grid min-w-0 gap-2">{evidenceFeed.map((row, index) => {
+        const status = readEvidenceStatus(row);
+        const fieldCaptureLabel = describeFieldCapture(row);
+        const key = asString(row.key);
+        const previewUrl = key ? evidenceUploadProxyUrl(key) : undefined;
+        const image = row.kind === "PHOTO";
+        const milestone = milestones.find((item) => item.id === row.milestoneId);
+        return <li key={asString(row.id) ?? index} className="flex min-w-0 flex-wrap items-start gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4">
+          {image ? <ImageIcon size={20} className="shrink-0 text-[var(--brand)]" /> : <FileText size={20} className="shrink-0 text-[var(--brand)]" />}
+          <div className="min-w-0 flex-1 [overflow-wrap:anywhere]"><p className="text-sm font-semibold">{asString(row.filename) ?? key ?? `Evidencia ${index + 1}`}</p><p className="mt-1 text-xs text-[var(--muted)]">{asString(milestone?.title) ?? asString(row.milestoneId) ?? "Sin hito específico"} · {KIND_OPTIONS.find((option) => option.value === row.kind)?.label ?? asString(row.kind) ?? "Tipo no disponible"}</p>{fieldCaptureLabel && <p className="mt-1 text-xs text-[var(--muted)]">{fieldCaptureLabel}</p>}<p className="mt-1 text-xs text-[var(--muted)]">{asString(row.createdAt) ?? "Fecha no disponible"}</p></div>
+          <div className="grid gap-2"><StatusBadge variant={statusVariant(status)} text={evidenceStatusLabel(status)} size="sm" />{previewUrl && <Link href={previewUrl} target="_blank" rel="noreferrer" className={secondary}><Eye size={14} />Ver archivo</Link>}</div>
+        </li>;
+      })}</ul>
+    </HtmlInCanvasPanel>
+  </div>;
 }

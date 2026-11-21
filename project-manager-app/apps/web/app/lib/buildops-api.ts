@@ -117,7 +117,7 @@ export type BuildOpsMilestone = {
 async function parseBuildOpsResponse<T>(response: Response): Promise<T> {
   const payload = await response.json().catch(() => ({} as { error?: { message?: string } }));
   if (!response.ok) {
-    throw new Error(payload?.error?.message ?? "BuildOps request failed");
+    throw Object.assign(new Error(payload?.error?.message ?? "BuildOps request failed"), { status: response.status });
   }
   return (payload.data ?? payload) as T;
 }

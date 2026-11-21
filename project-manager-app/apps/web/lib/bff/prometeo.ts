@@ -26,10 +26,10 @@ async function unwrap<T>(res: Response): Promise<T> {
     // string in the copilot chat left users guessing (AUDIT_REMEDIATION_PLAN.md
     // 1.11c); translate it to an actionable message instead of forwarding it.
     if (res.status === 401) {
-      throw new Error("Tu sesión expiró. Actualiza la página e inicia sesión de nuevo para seguir usando el asistente.");
+      throw Object.assign(new Error("Tu sesión expiró. Actualiza la página e inicia sesión de nuevo para seguir usando el asistente."), { status: 401 });
     }
     const body = (await res.json().catch(() => null)) as { error?: { message?: string } } | null;
-    throw new Error(body?.error?.message ?? `Request failed (${res.status})`);
+    throw Object.assign(new Error(body?.error?.message ?? `Request failed (${res.status})`), { status: res.status });
   }
   const json = (await res.json()) as { data: T };
   return json.data;
