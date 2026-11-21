@@ -52,6 +52,23 @@
   - verificadores Python y Node, comparación de colecciones y análisis de los 120 s.
 - La v36 (`03f21990…550a`) corrige cuatro errores documentales; la principal es el estado de la hipótesis del redondeo del total, que no tiene apoyo en el código v4 local. Los 120 s siguen sin causa. Los entregables con datos personales se mantienen fuera del repositorio.
 
+## Sexta intervención (r6, mismo día): revisión automática del PR
+
+- Se atendieron los 15 hallazgos de Devin y Codex sobre las herramientas de `scripts/plan2/`. Se verificaron, corrigieron y resolvieron en los commits `9820a5f`, `082363c` y `729a29a`.
+- Pruebas sintéticas: 20/20 PASS.
+- CI sobre `729a29a` (integración con `main@86c0be5`) en verde: `quality-gates`, `unit-coverage`, `e2e` y CodeQL.
+- El fallo previo de `unit-coverage` en `082363c` vino de una prueba de la API que depende del reloj. No es de este PR.
+
+## Séptima intervención (r7, mismo día): v36 borrador r2
+
+- La auditoría humana pidió dos correcciones.
+  - En §13 del plan: reconciliar las referencias a Plan 6 y Plan 11, y precisar el estado de la comparación por colección.
+  - Limitar al respaldo del 5 nov la frase sobre lecturas en Drive.
+- Se entregó el borrador r2 (`01b6f054…0a50`) **fuera del repositorio**, con su diff v35→v36 r2 y sus SHA-256, que se verificaron tras subirlo a Drive. Detalle en el aviso r7 del paquete.
+- Las herramientas en `729a29a` se re-ejecutaron sobre copias nuevas de los originales y dieron el mismo resultado. Paquete de entrada 9/9 OK, verificador `PASS` y comparación `NO_COLLISIONS`.
+- Sin cambios en hallazgos ni puertas: los 120 s siguen sin causa confirmada y el plan no está aprobado por el propietario.
+- En la carpeta «Plan 2» no hay artefactos nuevos para la puerta operativa.
+
 ## Gobernanza
 
 - No es feature de dominio: herramientas de verificación en `scripts/` y documentación, sin endpoints, sin cambios de esquema ni de permisos. En Railway solo se leyeron inventario y metadatos de despliegue; no se tocaron producción, Evidence, CI ni flags.

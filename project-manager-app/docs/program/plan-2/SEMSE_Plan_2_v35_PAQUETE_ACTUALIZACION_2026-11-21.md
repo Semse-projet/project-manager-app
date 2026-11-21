@@ -1,6 +1,6 @@
 # SEMSE — Plan 2 «Preservación de datos y linaje» · Paquete de actualización v34 → v35
 
-**Fecha:** 2026-11-21 · **Revisión del paquete:** r6 · **Preparado por:** agente técnico de ejecución (sesión Claude Code) · **Estado de este documento:** BORRADOR PARA EL PROPIETARIO — no revisado, no aprobado, no fusionado en el plan.
+**Fecha:** 2026-11-21 · **Revisión del paquete:** r7 · **Preparado por:** agente técnico de ejecución (sesión Claude Code) · **Estado de este documento:** BORRADOR PARA EL PROPIETARIO — no revisado, no aprobado, no fusionado en el plan.
 
 > ## Aviso de autoridad — leer primero
 >
@@ -12,6 +12,23 @@
 > Tampoco fueron accesibles: Planes 0, 1 (su rama cerrada), 3, 4, 6, 11 y 13; el respaldo JSON (SHA-256 `821f55d1…b357`); las dos exportaciones JSON; el CSV; el Site v4/v6 y el kit v4→v6.
 >
 > Por eso este documento **no es el plan íntegro v35** y no reproduce ni reconstruye el contenido de v34. Es el conjunto de cambios, evidencias, matriz y conclusiones que el propietario debe incorporar sobre v34. Los identificadores `P2-…` son provisionales y deben mapearse a los de v34. Las reglas de clasificación del Plan 2 (coincidencia/candidato/conflicto/huérfano) no se conocen textualmente: las definiciones de §3.B son **provisionales** y deben alinearse con v34.
+
+> ## r7 — 2026-11-21: v36 borrador r2 (auditoría humana)
+>
+> - El plan íntegro **v36 borrador r2** (SHA-256 `01b6f0545f9816d05d1fd103f25ab3ba68f6b8699e1c29641ac510d681473a50`) parte del borrador r1 (`03f21990…550a`). No sobrescribe la v35 (`1a35a30a…4c97`) ni el r1.
+> - Se entregó al propietario **fuera de este repositorio**, en la carpeta privada de Drive. Incluye el diff v35→v36 r2 (`4781b550…3838`), el diff r1→r2 y `SHA256SUMS_v36r2.txt` (`1359eeb4…2b19`). Los SHA-256 de los archivos descargados de Drive coinciden con los locales.
+> - **Correcciones pedidas por la auditoría**, nueva §2.33 del plan:
+>   1. §13 reconcilia las referencias a Plan 6 y Plan 11 con §2.31 y §10.3.1. Plan 6 es v27, no v26. Plan 11 no declara versión y no es v2; su §17 cita Plan 2 v30. También aclara que la comparación por colección existe y ya se ejecutó entre las dos exportaciones disponibles (`NO_COLLISIONS`). Faltan los snapshots de otros perfiles, así que el bloqueo sobre cualquier importación o combinación sigue vigente.
+>   2. La frase sobre lecturas en Drive estaba en §13 («Límites vigentes»), no en §15. Ahora se limita al respaldo de producción del 5 nov y ya no contradice la lectura de los Planes 0, 1, 3, 4, 6, 11 y 13 ni la de los HTML v4, v5 y v6.
+> - **Correcciones adicionales**, cada una justificada en §2.33:
+>   - en §13, «Plan 3 v70» se precisa: el archivo de Plan 3 no declara versión;
+>   - el estado de las herramientas pasa a `729a29a`, con 20/20 pruebas y el PR fuera de borrador. Re-ejecutadas sobre copias nuevas, dan los mismos resultados: paquete 9/9, `PASS` y `NO_COLLISIONS` con hash `4cd2eb39…`.
+> - **Sin cambios:**
+>   - los hallazgos;
+>   - los 120 s, que siguen **sin causa confirmada**;
+>   - el estado **«No aprobado por el propietario»**;
+>   - ninguna puerta cerrada: la operativa y la de ejecución de los Planes 0–13 siguen bloqueadas.
+> - La construcción es reproducible desde la v35, y `patch(v35, diff)` da exactamente la v36 r2.
 
 > ## r6 — 2026-11-21: correcciones de la revisión automática del PR
 >
