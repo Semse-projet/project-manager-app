@@ -104,3 +104,9 @@ El dueño aprobó seis reglas: inicio con la constancia de notificación al usua
   - al owner de Plan 4, la autoridad efectiva para reabrir: hoy no existe `case.reopen`, y `org:labor:manage` sólo lo tienen CLIENT y OPS_ADMIN;
   - al owner de Labor, el contrato de etapa, concurrencia, idempotencia y auditoría.
 - Plan, tareas, checklist y análisis actualizados (A-08…A-10). Validaciones: estricto 220/0/0; `--base-ref` 0/0; índice 220; cobertura 0/0/0; 29/29.
+
+## Addendum 9 — G45 opción (b) aprobada (2026-11-22)
+
+- **Decisión de producto (R-C317-24):** si `TimeEntry` cambia después del ajuste por vencimiento, el resultado se marca como desactualizado y se exige una revisión nueva. La base aplicada se conserva hasta que una persona autorizada la resuelva, sin cambios automáticos en la base ni en `TimeEntry`. Es coherente con Plan 3 §9.4 y sustituye a la propuesta (a).
+- Residuales: G45-R1 (cómo se abre la revisión exigida) y G45-R2 (si su cotejo tiene un plazo C3-17).
+- Gates técnicos de estados, permisos, auditoría y concurrencia: pendientes. SDD v0.17 §10.17.12, pruebas T-V26…T-V29 sin ejecutar. Validaciones: estricto 220/0/0; `--base-ref` 0/0; índice 220; cobertura 0/0/0; 29/29.

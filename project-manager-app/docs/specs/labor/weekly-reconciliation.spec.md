@@ -3,7 +3,7 @@ id: "labor.weekly-reconciliation"
 title: "Conciliación semanal del Time Tracker"
 domain: "labor"
 sdd_version: "2.0"
-version: "0.16"
+version: "0.17"
 status: "DRAFT"
 owner: "semse-core"
 risk: "critical"
@@ -48,7 +48,7 @@ related_agents: []
 last_verified: "2026-11-22"
 ---
 
-# Conciliación semanal · borrador para revisión (v0.16 DRAFT)
+# Conciliación semanal · borrador para revisión (v0.17 DRAFT)
 
 > **DRAFT / NO IMPLEMENTAR.** Esta SDD no autoriza código, migraciones, grants, membresías, flags, pruebas funcionales, CI, despliegue ni activación. B4-11/B4-12 siguen abiertos. Plan 3 sigue abierto.
 
@@ -66,7 +66,8 @@ last_verified: "2026-11-22"
 | v0.13 | misma ruta, commit `740256c1…` | Registró dos **precisiones derivadas** de C3-17 (§10.17.9, R-C317-19 y R-C317-20) y cerró el residual P-C317-01c. Espejo Drive SHA-256 `0cedcc08…c85e`. |
 | v0.14 | misma ruta, commit `8ec7b51c…` | Añadió los documentos SDD hermanos (plan, tareas, checklist y análisis, todos DRAFT) y registra los gaps A-01…A-06 del análisis. Espejo Drive SHA-256 `0bed9788…939b`. |
 | v0.15 | misma ruta, commit `217e2fad…` | Registró A-01 y A-05 como decisiones de producto y A-06 y A-02 como confirmaciones pendientes de owners (§10.17.10, R-C317-21…23). Espejo Drive SHA-256 `a0b72672…3850`. |
-| **v0.16** | misma ruta y rama, base `main@86c0be5468a7c96c0a9dd4bc8df34e386e7c8c7f` (revalidado el 2026-11-22) | Esta revisión: registra G45 **sólo como propuesta pendiente de aprobación** (§10.17.11), su cotejo con Plan 3 §9.4, C3-09 y las reglas de C3-17, y las solicitudes a los owners de Plan 4 y Labor. Sigue `DRAFT` y **no** está en `main`. |
+| v0.16 | misma ruta, commit `df925eee…` | Registró G45 **sólo como propuesta pendiente de aprobación** (§10.17.11), su cotejo con Plan 3 §9.4, C3-09 y las reglas de C3-17, y las solicitudes a los owners de Plan 4 y Labor. Espejo Drive SHA-256 `d4fd7820…81ae7`. |
+| **v0.17** | misma ruta y rama, base `main@86c0be5468a7c96c0a9dd4bc8df34e386e7c8c7f` | Esta revisión: registra la **decisión de producto G45, opción (b)** (§10.17.12, R-C317-24). Sigue `DRAFT` y **no** está en `main`. |
 
 Según `docs/SOURCE_OF_TRUTH.md`, la SDD canónica es la del repositorio (`docs/specs/` + `docs/SPEC_INDEX.md`). Library y Drive son espejos; si contradicen al repositorio prevalece el repositorio. Library **no fue accesible** desde esta sesión: las versiones Library citadas (Plan 3 v70, Plan 9 v27, Plan 4 v38, Plan 6 v24, SDD v22) son referencias heredadas no revalidadas aquí.
 
@@ -786,6 +787,8 @@ El dueño respondió en la sesión de trabajo del 21-11-2026 a las preguntas del
 
 ### 10.17.11 G45 — cambio de `TimeEntry` después del ajuste: **propuesta pendiente de aprobación** (2026-11-22, v0.16)
 
+> **[v0.17] Superada:** el dueño eligió la opción **(b)**; la decisión está en §10.17.12 (R-C317-24). El texto siguiente se conserva como historial de la propuesta.
+>
 > **No es una regla aprobada.** Se registra para revisión del dueño del producto. Ninguna parte de esta sección es requisito hasta su aprobación expresa; no se asigna número R-C317.
 
 **Propuesta vigente (sin aprobar):** «Si `TimeEntry` cambia después de aplicado el ajuste por vencimiento, no se reabre ni se cambia automáticamente la base de facturación. Se conserva el ajuste y se registra que cambió la fuente. Una persona autorizada puede reabrir la revisión con motivo y referencia al ajuste anterior; la nueva etapa conserva el historial.»
@@ -829,9 +832,56 @@ Texto completo de ambas solicitudes: `SEMSE_Plan3_Solicitudes_Confirmacion_Owner
 | A-05 | Criterio de producto | **Aprobado** (R-C317-22); compatibilidad con Art. III y custodia **pendiente** | Dueño · owner de Plan 6 |
 | A-02 | Decisión de arquitectura | **Pendiente** | Owner de arquitectura |
 | A-06 | Determinación de Payment Governance | **Pendiente**; no se declara exento | Owner de Payments |
-| G45 | Propuesta de producto | **Pendiente de aprobación** del dueño (incluida la relación con §9.4) | Dueño del producto |
+| G45 | Decisión de producto | **[v0.17] Aprobada: opción (b), R-C317-24 (§10.17.12)**; quedan G45-R1 y G45-R2 | Dueño del producto |
 | Autoridad para reabrir | Evidencia técnica | **Solicitada** | Owner de Plan 4 |
 | Contrato de etapa nueva | Contrato técnico | **Solicitado** | Owner de Labor |
+
+### 10.17.12 G45 — decisión de producto aprobada: opción (b) (2026-11-22, v0.17)
+
+**Fuente:** instrucción expresa del dueño del producto en la sesión de trabajo del 2026-11-22: «Para G45, elijo la opción (b) como decisión de producto…». Es una **decisión de producto aprobada**. No concede permisos, no autoriza código y no cambia el estado `DRAFT`. Los gates técnicos de estados, permisos, auditoría y concurrencia **siguen pendientes**.
+
+**R-C317-24.** Si `TimeEntry` cambia después del ajuste por vencimiento, el resultado se **marca como desactualizado** y se **exige una revisión nueva**. La base de facturación ya aplicada **se conserva** hasta que una persona autorizada resuelva esa revisión. No se cambian automáticamente ni la base ni `TimeEntry`; se conservan el ajuste previo y el historial.
+
+#### Coherencia con las reglas vigentes
+
+| Regla vigente | Coherencia con R-C317-24 |
+|---|---|
+| Plan 3 §9.4 «Detectar cambio canónico → desactualizado; se requiere nueva revisión» | **Coherente.** La opción (b) aplica §9.4 al resultado por vencimiento; ya no hay contradicción |
+| R-C317-21 (A-01, antes del vencimiento → cotejo `STALE` terminal) | Coherente y complementaria. Antes del vencimiento el cotejo se invalida y no hay ajuste; después, el resultado se marca desactualizado y la base se conserva hasta la resolución |
+| R-C317-18 (regla 6, reapertura) | Compatible. La reapertura voluntaria sigue existiendo; R-C317-24 añade una revisión **obligatoria** ante un cambio de `TimeEntry` |
+| R-C317-02, 17 y 20 | Coherente: `TimeEntry` intacto; sólo una decisión autorizada cambia la base |
+| A-03 (eventos) | La marca de desactualizado y la revisión exigida necesitan eventos que no están catalogados; no se inventan |
+
+**Transición (usa sólo estados y acciones de Plan 3 §4.3/§9.4; nombres físicos pendientes):**
+
+1. El resultado de sistema por vencimiento C3-17 está vigente y la base = horas del parte vigente.
+2. Cuando cambia la revisión de `TimeEntry` vinculada a ese cotejo, el resultado pasa a **desactualizado** (término de §9.4) y queda una **revisión nueva exigida**. Se registran en el historial la revisión anterior → nueva, el instante y el origen del cambio. La base aplicada **no cambia**.
+3. Revisión nueva: cotejo nuevo sobre la revisión vigente de `TimeEntry` (cómo se abre: G45-R1; si tiene plazo: G45-R2).
+4. Resolución por una persona autorizada: la base pasa al resultado de esa revisión. Hasta entonces se mantiene la anterior.
+5. El ajuste previo, la marca de desactualizado y la revisión quedan en el historial. `TimeEntry` nunca se modifica desde la conciliación.
+
+#### Preguntas residuales que la decisión no fija (requieren decisión)
+
+| ID | Pregunta | Owner |
+|---|---|---|
+| G45-R1 | Cómo se abre la revisión exigida: SEMSE crea automáticamente una etapa nueva al marcar el resultado como desactualizado, o queda pendiente hasta que una persona autorizada la inicie | Dueño del producto (+ Plan 4 si la inicia una persona) |
+| G45-R2 | Si el cotejo nuevo de esa revisión queda sujeto a un nuevo plazo de 24 h y a ajuste por vencimiento (reglas 1–5), o sólo puede resolverlo una persona autorizada. La lectura literal de la decisión («se conserva hasta que una persona autorizada resuelva») apunta a lo segundo, pero no se presume | Dueño del producto |
+
+#### Gates técnicos que siguen pendientes
+
+- **Estados:** las máquinas del caso y del resultado (vigente → desactualizado → revisión → resuelto) dependen de la ubicación del FSM (A-02/G41) y de `STATE_MACHINES.md`.
+- **Permisos:** quién resuelve la revisión exigida y, si aplica, quién la inicia (G46, Plan 4). Hoy no existen `case.reopen` ni delegación.
+- **Auditoría:** clase B atómica para la marca de desactualizado y para la resolución (G06–G07); eventos sin catalogar (A-03).
+- **Concurrencia:** detección del cambio de revisión de `TimeEntry` (G10), carrera entre la marca y una resolución en curso, e idempotencia de la marca (G12, G47).
+
+#### Trazabilidad
+
+| Decisión | Requisito | Contrato | Aceptación observable | Prueba prevista | Estado |
+|---|---|---|---|---|---|
+| G45 (b) | R-C317-24 | resultado → desactualizado ante un cambio de revisión de `TimeEntry` | tras el ajuste, un cambio de `TimeEntry` marca el resultado como desactualizado y exige revisión; la base no cambia | T-V26 | Aprobada; NO EJECUTADA |
+| G45 (b) | R-C317-24 | base conservada hasta la resolución autorizada | antes de la resolución, la base es la del ajuste; tras una resolución autorizada, la base es la de la revisión | T-V27 | Aprobada; NO EJECUTADA (bloqueada por G46) |
+| G45 (b) | R-C317-24 | sin efecto automático sobre `TimeEntry` | `TimeEntry` intacto; ajuste, marca e historial conservados | T-V28 | Aprobada; NO EJECUTADA |
+| G45 (b) | R-C317-24 | marca idempotente y sin carrera | dos cambios seguidos o un reintento producen una sola marca vigente; una resolución en curso no se pierde | T-V29 | Aprobada; NO EJECUTADA (bloqueada por G10/G12/G47) |
 
 ## 10.18 Matriz de pruebas previstas (ninguna ejecutada)
 
@@ -888,6 +938,10 @@ Texto completo de ambas solicitudes: `SEMSE_Plan3_Solicitudes_Confirmacion_Owner
 | T-V23 | A-01: `TimeEntry` cambia antes del vencimiento | integración con carrera controlada | cotejo `STALE` terminal, sin ajuste; cotejo nuevo y nueva constancia inician un plazo nuevo | NO EJECUTADA |
 | T-V24 | A-05: Evidence no tiene efecto automático | integración | `TimeEntry`, plazo y base sin cambios al adjuntar o retirar Evidence | NO EJECUTADA |
 | T-V25 | A-06: sin factura ni pago | integración | ningún efecto en facturas, escrow ni pagos | NO EJECUTADA |
+| T-V26 | G45 (b): cambio de `TimeEntry` después del ajuste | integración | resultado desactualizado; revisión exigida; base sin cambios | NO EJECUTADA |
+| T-V27 | G45 (b): base conservada hasta la resolución autorizada | integración autenticada | la base cambia sólo con la resolución de una persona autorizada | NO EJECUTADA |
+| T-V28 | G45 (b): sin efecto sobre `TimeEntry` | integración | `TimeEntry` intacto; historial completo | NO EJECUTADA |
+| T-V29 | G45 (b): marca idempotente y concurrencia | carrera controlada | una sola marca; no se pierde una resolución en curso | NO EJECUTADA |
 | T-V01 | Validadores documentales | documental | 0 errores/avisos | **EJECUTADA** (ver reporte del corte) |
 
 ## 10.19 Trazabilidad decisión → requisito → contrato → aceptación → prueba → resultado
@@ -919,6 +973,6 @@ Texto completo de ambas solicitudes: `SEMSE_Plan3_Solicitudes_Confirmacion_Owner
   - **A-05**: confirmar el Art. III frente a Evidence como referencia — **[v0.15] criterio de producto aprobado (R-C317-22); confirmación del owner de Plan 6 pendiente**.
   - **A-06**: confirmar Payment Governance — **[v0.15] pendiente del owner de Payments; no se declara exento**.
 
-## Estado de salida de v0.16
+## Estado de salida de v0.17
 
 `DRAFT`. C3-17 queda aprobada como decisión de producto; eso no cambia el estado de la SDD ni cierra gates técnicos. No hay implementación, migración, prueba funcional ni CI de esta revisión. Validadores documentales ejecutados localmente (ver `docs/reportes/2026-11-21_plan3-conciliacion-gates.md`). B4-11/B4-12 abiertos. **PLAN 3 AÚN ABIERTO.**
