@@ -3,14 +3,14 @@ import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from "rea
 import { useFocusEffect } from "@react-navigation/native";
 import { fetchProfile, updateProximityCheckInMode, type ProximityCheckInMode } from "../api/profile";
 import { useAuth } from "../context/AuthContext";
-import { saveProximityMode } from "../geo/siteCache";
+import { applyProximityMode } from "../geo/applyProximityMode";
 import {
-  fetchLocationPreference,
+  readLocationPreference,
   saveLocationPreference,
   type LocationMode,
   type LocationPreference,
 } from "../api/locationPreference";
-import { proximityModeFromLocationPreference } from "../geo/locationMode";
+import { proximityModeFromLocationPreference, resolveProximityMode } from "../geo/locationMode";
 import { useTheme } from "../theme/theme";
 
 const OPTIONS: { value: ProximityCheckInMode; label: string; hint: string }[] = [
@@ -42,6 +42,8 @@ export default function SettingsScreen() {
   const [mode, setMode] = useState<ProximityCheckInMode>("ask");
   // null = BO-09 disabled (404) → legacy profile mode, as before.
   const [pref, setPref] = useState<LocationPreference | null>(null);
+  // BO-09 read failed (not a 404): show the error, never the legacy options.
+  const [prefError, setPrefError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -50,11 +52,16 @@ export default function SettingsScreen() {
     useCallback(() => {
       let cancelled = false;
       setLoading(true);
-      Promise.all([fetchProfile(), fetchLocationPreference().catch(() => null)])
-        .then(([profile, locationPreference]) => {
+      Promise.all([fetchProfile(), readLocationPreference()])
+        .then(async ([profile, result]) => {
           if (cancelled) return;
           setMode(profile.proximityCheckInMode);
-          setPref(locationPreference);
+          setPref(result.kind === "ok" ? result.pref : null);
+          setPrefError(result.kind === "error" ? result.message : null);
+          // Apply what was just read to the mode the background task uses, so a
+          // revocation seen here takes effect without saving again.
+          const nextMode = resolveProximityMode(result, profile.proximityCheckInMode);
+          if (nextMode) await applyProximityMode(nextMode);
         })
         .catch((caught: unknown) => {
           if (!cancelled) setError(caught instanceof Error ? caught.message : "No se pudo cargar tu perfil.");
@@ -74,7 +81,7 @@ export default function SettingsScreen() {
     setError(null);
     try {
       await updateProximityCheckInMode(next);
-      await saveProximityMode(next);
+      await applyProximityMode(next);
       setMode(next);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "No se pudo guardar.");
@@ -108,7 +115,7 @@ export default function SettingsScreen() {
     try {
       const saved = await saveLocationPreference({ mode: next, ...(consent ? { autoStartConsent: true } : {}) });
       setPref(saved);
-      await saveProximityMode(proximityModeFromLocationPreference(saved));
+      await applyProximityMode(proximityModeFromLocationPreference(saved));
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "No se pudo guardar.");
     } finally {
@@ -128,7 +135,14 @@ export default function SettingsScreen() {
     <View style={styles.container}>
       <Text style={styles.title}>Check-in automático por ubicación</Text>
       {error ? <Text style={styles.error}>{error}</Text> : null}
-      {pref
+      {prefError ? (
+        <Text style={styles.error}>
+          No se pudo leer tu preferencia de ubicación ({prefError}). Mientras tanto la detección queda desactivada.
+        </Text>
+      ) : null}
+      {prefError
+        ? null
+        : pref
         ? BO09_OPTIONS.map((option) => {
             const selected = pref.mode === option.value;
             return (

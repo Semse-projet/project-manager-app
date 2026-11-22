@@ -67,7 +67,10 @@ Spec `core.worksite-location-binding` con:
 
 Pendiente de la aprobación final del propietario.
 
-## 6. #1054 — bloqueos reales
+## 6. #1054 — bloqueos reales (registro del 2026-11-18)
+
+> **Histórico.** Esta tabla refleja el estado del 2026-11-18. Las specs quedaron APPROVED el 2026-11-20 y #1054 se fusionó
+> el 2026-11-22 (`main@dbf64b7d`); la evidencia está en el propio PR.
 
 | Bloqueo | Estado verificado |
 |---|---|
