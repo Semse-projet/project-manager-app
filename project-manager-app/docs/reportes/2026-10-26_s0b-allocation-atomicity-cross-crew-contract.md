@@ -212,9 +212,10 @@ compartido requiere revisión de compatibilidad del bootstrap/worker.
 
 - [x] Revisión estática del comportamiento y schema actual.
 - [x] Contrato escrito para casos N10…N18.
-- [ ] Ratificación D-S0B-01…05 y reconciliación con spec BO-10.
-- [ ] BO-10/SDD aplicable APPROVED antes de implementación.
-- [ ] Tests rojos y luego verdes con PostgreSQL real.
+- [x] Ratificación D-S0B-01…05 por el propietario (2026-11-20), según §4; reconciliadas en la spec BO-10 (`core.task-allocations` v0.2, APPROVED).
+- [x] BO-10 (`core.task-allocations`) APPROVED el 2026-11-20, **antes del merge** de #1054. Constancia: el código de
+  #1054 se escribió antes de esa aprobación, con la spec todavía en DRAFT.
+- [x] Tests verdes con PostgreSQL real: `S0B-PG-01` ejecutado (`ok`, no SKIP) en API Integration sobre `95bb5cb3`.
 - [ ] Integridad de AuditLog comprobada y cobertura de carreras.
 - [ ] Revisión de seguridad y tests locales completos.
 - [ ] **CI manual al final de preparación, antes de merge**.

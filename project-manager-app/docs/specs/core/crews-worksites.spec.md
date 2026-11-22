@@ -3,8 +3,8 @@ id: "core.crews-worksites"
 title: "Obras y cuadrillas con alcance por supervisor (BO-07)"
 domain: "core"
 sdd_version: "2.0"
-version: "0.1"
-status: "DRAFT"
+version: "0.2"
+status: "APPROVED"
 owner: "semse-core"
 risk: "high"
 code_status: "IN_PROGRESS"
@@ -39,7 +39,7 @@ related_events:
   - "crew.member_removed"
   - "crew.archived"
 related_agents: []
-last_verified: "2026-10-18"
+last_verified: "2026-11-21"
 ---
 # BO-07 — Obras y cuadrillas con alcance por supervisor
 
@@ -66,3 +66,10 @@ El roster expone solo `userId` y fecha de alta; nunca compensación, oferta ni d
 
 ## Pendiente de decisión
 Qué más puede hacer un supervisor (asignar tareas, ver horas) llega con BO-08/BO-10 y requiere OPEN-05 (¿el supervisor solicita o ejecuta?). Aquí solo lee su roster.
+
+## Aprobación (propietario)
+
+El propietario aprobó esta spec el 2026-11-12, en la sesión de las pantallas de cuadrillas; la v0.3 que lo registra
+está en #1169. Se refleja aquí porque #1054 modifica el código de BO-07 (`crews.service.ts`) y el SDD exige una spec
+APPROVED. Al integrar #1169, prevalece su v0.3.
+
