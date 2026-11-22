@@ -12,7 +12,7 @@ date: "2026-11-21"
 
 ## Requisitos
 
-- [~] Cada escenario P1 es verificable. Los casos de aceptación tienen prueba prevista (T-*), sin ejecutar. A-01 resuelto (R-C317-21); queda el caso de un cambio de `TimeEntry` después del ajuste.
+- [~] Cada escenario P1 es verificable. Los casos de aceptación tienen prueba prevista (T-*), sin ejecutar. A-01 resuelto (R-C317-21). El cambio de `TimeEntry` después del ajuste tiene propuesta G45 **pendiente de aprobación**.
 - [x] El alcance y lo que queda fuera evitan ambigüedad: dentro del Time Tracker; sin app paralela; sin nómina, escrow ni pagos; OCR fuera del primer slice.
 - [~] Los contratos API/UI/agente no se contradicen. Contrato lógico completo; sin endpoints elegidos. El intérprete de notas (§9.11) no tiene autoridad.
 - [x] Decisiones de producto de C3-17 completas (C3-17, P-C317-01…09, 01b y 01c; R-C317-01…22), salvo la residual de un cambio de `TimeEntry` después del ajuste.
@@ -21,7 +21,7 @@ date: "2026-11-21"
 
 - [ ] Los permisos se validan en backend. Las capabilities de captura, decisión y reapertura no existen (Plan 4).
 - [ ] Tenant, organización, propiedad y alcance de recurso probados (T-R04/R05 sin ejecutar).
-- [ ] Hay paso de aprobación para acciones críticas (decisión y reapertura con autoridad verificada).
+- [ ] Hay paso de aprobación para acciones críticas (decisión y reapertura con autoridad verificada). Evidencia de autoridad para reabrir solicitada a Plan 4: hoy no existe `case.reopen`.
 - [~] Sin secretos ni PII en logs/evidencia. Minimización definida en la spec §10.13; sin implementar.
 - [ ] Identidad de servicio verificable (G04).
 

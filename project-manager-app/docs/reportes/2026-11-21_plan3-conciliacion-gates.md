@@ -95,3 +95,12 @@ El dueño aprobó seis reglas: inicio con la constancia de notificación al usua
 - **A-02, pendiente del owner de arquitectura:** no se elige entre crear `packages/fsm` y enmendar la constitución.
 - Pregunta residual: el efecto de un cambio de `TimeEntry` después del ajuste.
 - SDD v0.15 §10.17.10 (pruebas T-V23…T-V25 sin ejecutar); plan, tareas, checklist y análisis actualizados. Validaciones: estricto 220/0/0; `--base-ref` 0/0; índice 220; cobertura 0/0/0; 29/29.
+
+## Addendum 8 — G45 como propuesta pendiente; solicitudes a Plan 4 y Labor (2026-11-22)
+
+- Revalidado: `main@86c0be5…`; la rama estaba en `217e2fad…`, limpia, con la SDD v0.15 `DRAFT`.
+- **G45** queda registrada **sólo como propuesta pendiente de aprobación** (SDD v0.16 §10.17.11), sin número R-C317. El cotejo con las reglas vigentes encontró una posible contradicción con Plan 3 §9.4 («se requiere nueva revisión» frente a la reapertura opcional). No hay conflicto con C3-09, R-C317-18, R-C317-21 ni R-C317-02/17/20. «Fuente cambiada» necesita un evento que no está catalogado.
+- Solicitudes documentadas:
+  - al owner de Plan 4, la autoridad efectiva para reabrir: hoy no existe `case.reopen`, y `org:labor:manage` sólo lo tienen CLIENT y OPS_ADMIN;
+  - al owner de Labor, el contrato de etapa, concurrencia, idempotencia y auditoría.
+- Plan, tareas, checklist y análisis actualizados (A-08…A-10). Validaciones: estricto 220/0/0; `--base-ref` 0/0; índice 220; cobertura 0/0/0; 29/29.

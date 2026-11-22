@@ -23,7 +23,9 @@ date: "2026-11-21"
 - [ ] [T-005] Decidir la ubicación del FSM: crear `packages/fsm` o enmendar la constitución (ADR) — owner de arquitectura
 - [x] [T-006] Decidir el efecto de un cambio de `TimeEntry` durante el plazo C3-17 (análisis A-01) — decidido el 21-11 (R-C317-21)
 - [ ] [T-009] Obtener la confirmación del owner de Plan 6 sobre A-05 (Art. III y custodia) y la determinación del owner de Payments sobre A-06 (Art. IV)
-- [ ] [T-009b] Decidir el efecto de un cambio de `TimeEntry` **después** de aplicado el ajuste (spec §10.17.10) — dueño del producto
+- [ ] [T-009b] Decidir G45: efecto de un cambio de `TimeEntry` **después** de aplicado el ajuste. Hay propuesta registrada (spec §10.17.11), **pendiente de aprobación**; incluye decidir su relación con Plan 3 §9.4 — dueño del producto
+- [ ] [T-009c] Recibir del owner de Plan 4 la evidencia de autoridad efectiva para reabrir (C3-09)
+- [ ] [T-009d] Recibir del owner de Labor el contrato de etapa nueva, concurrencia, idempotencia y auditoría
 - [ ] [T-007] Reconciliar la SDD v0.7 perdida (`docs/plan3-conciliacion-v47`) si su autor la conserva (G31)
 - [ ] [T-008] Registrar en `STATE_MACHINES.md` y `EVENT_CATALOG.md` los estados y eventos propuestos, una vez aprobada la spec
 

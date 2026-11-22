@@ -3,7 +3,7 @@ id: "labor.weekly-reconciliation"
 title: "Conciliación semanal del Time Tracker"
 domain: "labor"
 sdd_version: "2.0"
-version: "0.15"
+version: "0.16"
 status: "DRAFT"
 owner: "semse-core"
 risk: "critical"
@@ -45,10 +45,10 @@ related_tests: []
 related_endpoints: []
 related_events: []
 related_agents: []
-last_verified: "2026-11-21"
+last_verified: "2026-11-22"
 ---
 
-# Conciliación semanal · borrador para revisión (v0.15 DRAFT)
+# Conciliación semanal · borrador para revisión (v0.16 DRAFT)
 
 > **DRAFT / NO IMPLEMENTAR.** Esta SDD no autoriza código, migraciones, grants, membresías, flags, pruebas funcionales, CI, despliegue ni activación. B4-11/B4-12 siguen abiertos. Plan 3 sigue abierto.
 
@@ -65,7 +65,8 @@ last_verified: "2026-11-21"
 | v0.12 | misma ruta, commit `80118039…` | Registró las **seis reglas operativas de C3-17** aprobadas por el dueño el 21-11 (§10.17.8, R-C317-13…18). Espejo Drive SHA-256 `6badeae5…8e41`. |
 | v0.13 | misma ruta, commit `740256c1…` | Registró dos **precisiones derivadas** de C3-17 (§10.17.9, R-C317-19 y R-C317-20) y cerró el residual P-C317-01c. Espejo Drive SHA-256 `0cedcc08…c85e`. |
 | v0.14 | misma ruta, commit `8ec7b51c…` | Añadió los documentos SDD hermanos (plan, tareas, checklist y análisis, todos DRAFT) y registra los gaps A-01…A-06 del análisis. Espejo Drive SHA-256 `0bed9788…939b`. |
-| **v0.15** | misma ruta y rama, base `main@86c0be5468a7c96c0a9dd4bc8df34e386e7c8c7f` | Esta revisión: registra A-01 y A-05 como decisiones de producto y A-06 y A-02 como confirmaciones pendientes de owners (§10.17.10, R-C317-21…23). Sigue `DRAFT` y **no** está en `main`. |
+| v0.15 | misma ruta, commit `217e2fad…` | Registró A-01 y A-05 como decisiones de producto y A-06 y A-02 como confirmaciones pendientes de owners (§10.17.10, R-C317-21…23). Espejo Drive SHA-256 `a0b72672…3850`. |
+| **v0.16** | misma ruta y rama, base `main@86c0be5468a7c96c0a9dd4bc8df34e386e7c8c7f` (revalidado el 2026-11-22) | Esta revisión: registra G45 **sólo como propuesta pendiente de aprobación** (§10.17.11), su cotejo con Plan 3 §9.4, C3-09 y las reglas de C3-17, y las solicitudes a los owners de Plan 4 y Labor. Sigue `DRAFT` y **no** está en `main`. |
 
 Según `docs/SOURCE_OF_TRUTH.md`, la SDD canónica es la del repositorio (`docs/specs/` + `docs/SPEC_INDEX.md`). Library y Drive son espejos; si contradicen al repositorio prevalece el repositorio. Library **no fue accesible** desde esta sesión: las versiones Library citadas (Plan 3 v70, Plan 9 v27, Plan 4 v38, Plan 6 v24, SDD v22) son referencias heredadas no revalidadas aquí.
 
@@ -783,6 +784,55 @@ El dueño respondió en la sesión de trabajo del 21-11-2026 a las preguntas del
 | A-06 | R-C317-23 | sin factura ni pago | ningún resultado de la conciliación crea factura, escrow ni pago | T-V25 | Parte aprobada; determinación de Payments pendiente; NO EJECUTADA |
 | A-02 | — | ubicación del FSM | ADR aprobado | — | Pendiente del owner de arquitectura |
 
+### 10.17.11 G45 — cambio de `TimeEntry` después del ajuste: **propuesta pendiente de aprobación** (2026-11-22, v0.16)
+
+> **No es una regla aprobada.** Se registra para revisión del dueño del producto. Ninguna parte de esta sección es requisito hasta su aprobación expresa; no se asigna número R-C317.
+
+**Propuesta vigente (sin aprobar):** «Si `TimeEntry` cambia después de aplicado el ajuste por vencimiento, no se reabre ni se cambia automáticamente la base de facturación. Se conserva el ajuste y se registra que cambió la fuente. Una persona autorizada puede reabrir la revisión con motivo y referencia al ajuste anterior; la nueva etapa conserva el historial.»
+
+#### Cotejo con las reglas vigentes
+
+| Fuente | Qué dice | Relación con la propuesta G45 |
+|---|---|---|
+| Plan 3 §9.4, fila «Detectar cambio canónico» | En **cualquier estado revisable**, si una entrada cambia, «snapshot y decisión afectada quedan desactualizados; **se requiere** nueva revisión» | **Posible contradicción.** §9.4 exige una revisión nueva y G45 la deja como **opcional** («puede reabrir»). Que el resultado por vencimiento sea o no un «estado revisable» no está definido. Si lo es, G45 enmendaría §9.4 para ese estado; si no lo es, no hay conflicto, pero hay que decirlo explícitamente. **Requiere decisión del dueño.** |
+| Plan 3 §4.3, acciones «Vencimiento de C3-17» y «Reabrir» | El vencimiento registra una base de facturación por vencimiento como **resultado de sistema**; reabrir crea una etapa nueva y conserva el resultado anterior | **Coherente.** G45 conserva el resultado y sólo usa la acción «Reabrir» ya definida; no crea estados nuevos. |
+| C3-09 / R-C317-18 (regla 6) | Reapertura por persona autorizada, incluido un supervisor con delegación explícita (`case.reopen`), con motivo y referencia; nueva etapa; la base cambia sólo según el resultado de esa revisión | **Coherente.** G45 reutiliza la regla 6 sin ampliarla. Depende de la misma autoridad, que hoy no existe en el backend (ver solicitud a Plan 4). |
+| R-C317-21 (A-01) | Un cambio de `TimeEntry` **durante** el plazo deja el cotejo `STALE` de forma terminal | **No hay contradicción de alcance.** A-01 cubre el periodo previo al vencimiento y G45 el posterior al ajuste. Asimetría que conviene registrar: antes del vencimiento el cambio invalida el cotejo; después, según G45, el resultado se mantiene. |
+| R-C317-02, R-C317-17 | `TimeEntry` nunca se sobrescribe; el ajuste afecta sólo a la base de facturación | **Coherente.** |
+| R-C317-20 | Sólo una decisión de persona autorizada resuelve | **Coherente.** G45 no introduce resolución automática. |
+| C3-05 / BO-08 | Las correcciones de `TimeEntry` sólo entran por el flujo canónico | **Coherente.** Un cambio posterior típico sería una corrección BO-08 aprobada; G45 no la bloquea ni la hace retroactiva sobre la base. |
+| `EVENT_CATALOG.md` (A-03) | Sin eventos del caso | «Registrar que cambió la fuente» necesita un registro o evento que **no existe**; no se inventa nombre. |
+
+**Transición propuesta (sólo si se aprueba G45; usa únicamente estados y acciones ya nombrados en Plan 3 §4.3/§9.4):**
+
+1. Resultado de sistema por vencimiento C3-17 (base = horas del parte vigente) **se mantiene**.
+2. Cuando la revisión de `TimeEntry` vinculada a ese cotejo cambia: se añade al historial una anotación inmutable «fuente cambiada» (revisión anterior → nueva, instante, origen del cambio). **No** cambia el estado del caso ni la base y **no** inicia un plazo. Nombre y forma del registro: pendientes del catálogo de eventos (A-03) y de Labor.
+3. **Reabrir** (acción existente, R-C317-18): una persona autorizada, con motivo y referencia al ajuste, crea una etapa nueva «en revisión» con un cotejo nuevo sobre la revisión vigente de `TimeEntry`. A partir de ahí aplican las reglas aprobadas (constancia, plazo, decisión o vencimiento).
+4. El ajuste anterior y la anotación quedan en el historial.
+
+**Para aprobar G45, el dueño debe decidir también** si el resultado por vencimiento es un «estado revisable» de §9.4. Las salidas posibles son: (a) G45 enmienda §9.4 para ese estado (la revisión nueva es opcional); o (b) el resultado se marca «desactualizado» y la revisión es obligatoria, sin cambiar la base de forma automática. La propuesta actual corresponde a (a).
+
+**Pruebas previstas sólo si se aprueba** (no se añaden a la matriz §10.18 hasta entonces): cambio de `TimeEntry` tras el ajuste → base intacta, anotación registrada, sin plazo nuevo; reapertura autorizada posterior → etapa nueva con cotejo sobre la revisión vigente; supervisor sin delegación → reapertura denegada.
+
+#### Solicitudes a owners derivadas (documentadas; no contactados fuera del flujo)
+
+- **Plan 4:** evidencia de la autoridad efectiva para reabrir. Hoy no existen ni `case.reopen` ni delegación en Labor; `org:labor:manage` sólo lo tienen CLIENT y OPS_ADMIN (`rbac.ts` blob `d344c29b…`), y el supervisor sólo existe como `Crew.supervisorUserId` para Daily Reports.
+- **Labor:** contrato de la etapa nueva, concurrencia, idempotencia, auditoría y registro de «fuente cambiada».
+
+Texto completo de ambas solicitudes: `SEMSE_Plan3_Solicitudes_Confirmacion_Owners_2026-11-22.md` (Drive).
+
+#### Estado separado de decisiones y confirmaciones (2026-11-22)
+
+| ID | Tipo | Estado | Owner |
+|---|---|---|---|
+| A-01 | Decisión de producto | **Aprobada** (R-C317-21) | Dueño del producto |
+| A-05 | Criterio de producto | **Aprobado** (R-C317-22); compatibilidad con Art. III y custodia **pendiente** | Dueño · owner de Plan 6 |
+| A-02 | Decisión de arquitectura | **Pendiente** | Owner de arquitectura |
+| A-06 | Determinación de Payment Governance | **Pendiente**; no se declara exento | Owner de Payments |
+| G45 | Propuesta de producto | **Pendiente de aprobación** del dueño (incluida la relación con §9.4) | Dueño del producto |
+| Autoridad para reabrir | Evidencia técnica | **Solicitada** | Owner de Plan 4 |
+| Contrato de etapa nueva | Contrato técnico | **Solicitado** | Owner de Labor |
+
 ## 10.18 Matriz de pruebas previstas (ninguna ejecutada)
 
 | ID | Caso | Tipo | Positivo / negativo esperado | Estado |
@@ -869,6 +919,6 @@ El dueño respondió en la sesión de trabajo del 21-11-2026 a las preguntas del
   - **A-05**: confirmar el Art. III frente a Evidence como referencia — **[v0.15] criterio de producto aprobado (R-C317-22); confirmación del owner de Plan 6 pendiente**.
   - **A-06**: confirmar Payment Governance — **[v0.15] pendiente del owner de Payments; no se declara exento**.
 
-## Estado de salida de v0.15
+## Estado de salida de v0.16
 
 `DRAFT`. C3-17 queda aprobada como decisión de producto; eso no cambia el estado de la SDD ni cierra gates técnicos. No hay implementación, migración, prueba funcional ni CI de esta revisión. Validadores documentales ejecutados localmente (ver `docs/reportes/2026-11-21_plan3-conciliacion-gates.md`). B4-11/B4-12 abiertos. **PLAN 3 AÚN ABIERTO.**

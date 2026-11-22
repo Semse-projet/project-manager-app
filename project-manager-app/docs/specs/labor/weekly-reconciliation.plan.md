@@ -116,6 +116,8 @@ date: "2026-11-21"
 | Lectura cross-org | baja | crítico | ResourceScope + T-R04/R05 | cualquier fila ajena |
 | `TimeEntry` cambia durante el plazo | media | medio | R-C317-21: cotejo `STALE` terminal, cotejo nuevo y nueva notificación; test T-V23 | diferencia notificada ≠ diferencia vigente |
 | Worker sin identidad | alta (hoy) | alto | S4 bloqueado hasta G04 | — |
+| `TimeEntry` cambia después del ajuste | media | medio | propuesta G45 pendiente de aprobación (spec §10.17.11) | base de facturación basada en un cotejo cuya fuente cambió, sin revisión |
+| Reapertura sin autoridad verificable | alta (hoy) | alto | evidencia solicitada a Plan 4; la acción no se expone | reapertura por un actor sin delegación |
 
 ## 9. Investigación externa
 
