@@ -87,3 +87,24 @@ it("elegir Desactivado detiene la ubicación en segundo plano", async () => {
   await waitFor(() => expect(saveProximityMode).toHaveBeenCalledWith("off"));
   expect(stopProximityTracking).toHaveBeenCalled();
 });
+
+it("BO-09 en OFF con el perfil caído: aplica off y no ofrece las opciones anteriores", async () => {
+  (fetchProfile as jest.Mock).mockRejectedValue(new Error("perfil 503"));
+  (readLocationPreference as jest.Mock).mockResolvedValue({
+    kind: "ok",
+    pref: { mode: "OFF", effectiveMode: "OFF", autoStartConsent: false, policyVersion: 1 },
+  });
+  await render(<SettingsScreen />);
+  await waitFor(() => expect(saveProximityMode).toHaveBeenCalledWith("off"));
+  expect(stopProximityTracking).toHaveBeenCalled();
+  expect(screen.queryByText("Preguntar siempre")).toBeNull();
+  expect(screen.getByText("Preguntar")).toBeTruthy();
+});
+
+it("BO-09 apagado (404) con el perfil caído: muestra el error y no ofrece opciones", async () => {
+  (fetchProfile as jest.Mock).mockRejectedValue(new Error("perfil 503"));
+  await render(<SettingsScreen />);
+  await waitFor(() => expect(screen.getByText("perfil 503")).toBeTruthy());
+  expect(screen.queryByText("Preguntar siempre")).toBeNull();
+  expect(saveProximityMode).not.toHaveBeenCalled();
+});

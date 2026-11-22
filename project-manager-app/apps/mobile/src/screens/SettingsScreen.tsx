@@ -44,6 +44,7 @@ export default function SettingsScreen() {
   const [pref, setPref] = useState<LocationPreference | null>(null);
   // BO-09 read failed (not a 404): show the error, never the legacy options.
   const [prefError, setPrefError] = useState<string | null>(null);
+  const [legacyAvailable, setLegacyAvailable] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -52,19 +53,25 @@ export default function SettingsScreen() {
     useCallback(() => {
       let cancelled = false;
       setLoading(true);
-      Promise.all([fetchProfile(), readLocationPreference()])
-        .then(async ([profile, result]) => {
+      // The two reads are independent: a failed profile read must not discard the
+      // authoritative BO-09 result (which may be OFF).
+      Promise.all([fetchProfile().then((value) => ({ ok: true as const, value }), (caught: unknown) => ({ ok: false as const, caught })), readLocationPreference()])
+        .then(async ([profileResult, result]) => {
           if (cancelled) return;
-          setMode(profile.proximityCheckInMode);
+          const profile = profileResult.ok ? profileResult.value : null;
+          if (profile) setMode(profile.proximityCheckInMode);
           setPref(result.kind === "ok" ? result.pref : null);
           setPrefError(result.kind === "error" ? result.message : null);
+          // Legacy options only after a confirmed BO-09 404 and a loaded profile.
+          setLegacyAvailable(result.kind === "disabled" && profile !== null);
+          if (!profileResult.ok && result.kind === "disabled") {
+            const caught = profileResult.caught;
+            setError(caught instanceof Error ? caught.message : "No se pudo cargar tu perfil.");
+          }
           // Apply what was just read to the mode the background task uses, so a
           // revocation seen here takes effect without saving again.
-          const nextMode = resolveProximityMode(result, profile.proximityCheckInMode);
+          const nextMode = resolveProximityMode(result, profile?.proximityCheckInMode ?? null);
           if (nextMode) await applyProximityMode(nextMode);
-        })
-        .catch((caught: unknown) => {
-          if (!cancelled) setError(caught instanceof Error ? caught.message : "No se pudo cargar tu perfil.");
         })
         .finally(() => {
           if (!cancelled) setLoading(false);
@@ -76,7 +83,7 @@ export default function SettingsScreen() {
   );
 
   async function handleSelect(next: ProximityCheckInMode) {
-    if (saving || next === mode) return;
+    if (saving || !legacyAvailable || next === mode) return;
     setSaving(true);
     setError(null);
     try {
@@ -162,6 +169,8 @@ export default function SettingsScreen() {
               </Pressable>
             );
           })
+        : !legacyAvailable
+        ? null
         : OPTIONS.map((option) => {
             const selected = mode === option.value;
             return (
