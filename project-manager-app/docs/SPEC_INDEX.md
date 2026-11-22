@@ -95,8 +95,8 @@ retroactiva.
 | [core.business-access-foundation](specs/core/business-access-foundation.spec.md) | core | APPROVED | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | yes | 2026-10-12 |
 | [core.business-offers](specs/core/business-offers.spec.md) | core | APPROVED | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | yes | 2026-10-20 |
 | [core.communications-canonical-model](specs/core/communications-canonical-model.spec.md) | core | APPROVED | legacy | legacy | legacy | legacy | legacy | medium | no | 2026-07-19 |
-| [core.crew-supervisor-delegations](specs/core/crew-supervisor-delegations.spec.md) | core | DRAFT | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | no | 2026-10-28 |
-| [core.crews-worksites](specs/core/crews-worksites.spec.md) | core | APPROVED | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-11-12 |
+| [core.crew-supervisor-delegations](specs/core/crew-supervisor-delegations.spec.md) | core | APPROVED | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | no | 2026-11-21 |
+| [core.crews-worksites](specs/core/crews-worksites.spec.md) | core | APPROVED | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-11-22 |
 | [core.daily-reports](specs/core/daily-reports.spec.md) | core | DRAFT | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-10-18 |
 | [core.geofence-policy](specs/core/geofence-policy.spec.md) | core | APPROVED | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | yes | 2026-11-12 |
 | [core.header-identity-fail-closed](specs/core/header-identity-fail-closed.spec.md) | core | VERIFIED | COMPLETE | PASS | MERGED | DEPLOYED | ACTIVE | high | yes | 2026-11-08 |
@@ -118,7 +118,7 @@ retroactiva.
 | [core.preferred-organization-context](specs/core/preferred-organization-context.spec.md) | core | DRAFT | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | low | no | 2026-09-18 |
 | [core.prometeo-business-os](specs/core/prometeo-business-os.spec.md) | core | DRAFT | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-10-18 |
 | [core.skills](specs/core/skills.spec.md) | core | DRAFT | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-10-18 |
-| [core.task-allocations](specs/core/task-allocations.spec.md) | core | DRAFT | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-10-18 |
+| [core.task-allocations](specs/core/task-allocations.spec.md) | core | APPROVED | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-11-21 |
 | [core.universal-identity-multi-role](specs/core/universal-identity-multi-role.spec.md) | core | APPROVED | IN_PROGRESS | PASS | MERGED | DEPLOYED | INACTIVE | high | yes | 2026-08-13 |
 | [semse-creator-platform](specs/creator/SEMSE_CREATOR_PLATFORM.spec.md) | creator | APPROVED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-17 |
 | [evidence.canonical-fase1](specs/evidence/evidence-canonical-fase1.spec.md) | evidence | IMPLEMENTED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-19 |
@@ -212,7 +212,7 @@ retroactiva.
 | [m1-4-signature-dispatch-outbox](specs/tools/fase-1/m1.4-signature-dispatch-outbox.spec.md) | contracts | DRAFT | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | yes | NOT_VERIFIED |
 | [m1-4-signature-interoperability](specs/tools/fase-1/m1.4-signature-interoperability.spec.md) | contracts | DRAFT | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | yes | NOT_VERIFIED |
 | [m1-4-universal-signature-port](specs/tools/fase-1/m1.4-universal-signature-port.spec.md) | contracts | DRAFT | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | yes | NOT_VERIFIED |
-| [tools.lien-rights-management](specs/tools/fase-2/m2.1-lien-rights.spec.md) | legal | APPROVED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-08-27 |
+| [tools.lien-rights-management](specs/tools/fase-2/m2.1-lien-rights.spec.md) | legal | APPROVED | IN_PROGRESS | NOT_RUN | MERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-11-18 |
 | [tools.anti-dispute-documentation](specs/tools/fase-2/m2.2-dispute-docs.spec.md) | evidence | APPROVED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-08-27 |
 | [tools.weather-integration-alerts](specs/tools/fase-2/m2.3-weather.spec.md) | operations | APPROVED | legacy | legacy | legacy | legacy | legacy | medium | yes | 2026-08-27 |
 | [tools.multi-stage-releases](specs/tools/fase-3/m3.1-multi-stage-releases.spec.md) | payments | DEPRECATED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-19 |
@@ -235,6 +235,7 @@ retroactiva.
 | [ui-client-flows](specs/ui/client-flows.spec.md) | ui | DEPRECATED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-06-09 |
 | [ui.demo-sandbox](specs/ui/demo-sandbox.spec.md) | ui | IMPLEMENTED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-12 |
 | [ui.design-system-remediation](specs/ui/design-system-remediation.spec.md) | ui | REVIEW | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | no | 2026-10-04 |
+| [ui.ecosystem-digital-twin-3d](specs/ui/ecosystem-digital-twin-3d.spec.md) | ui | APPROVED | COMPLETE | PASS | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | yes | 2026-11-15 |
 | [ui-smart-intake-flow](specs/ui/intake-flow.spec.md) | ui | VERIFIED | legacy | legacy | legacy | legacy | legacy | medium | yes | 2026-06-09 |
 | [ui.landing-personas](specs/ui/landing-personas.spec.md) | ui | IMPLEMENTED | legacy | legacy | legacy | legacy | legacy | low | yes | 2026-07-12 |
 | [ui.localization-architecture](specs/ui/localization-architecture.spec.md) | ui | REVIEW | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-10-27 |

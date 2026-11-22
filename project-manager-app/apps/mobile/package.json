@@ -45,6 +45,7 @@
     "web": "expo start --web",
     "check": "tsc --noEmit",
     "test": "jest",
+    "eas-build-pre-install": "node ./scripts/check-build-env.mjs",
     "eas-build-post-install": "cd ../.. && pnpm run build:packages"
   },
   "private": true,

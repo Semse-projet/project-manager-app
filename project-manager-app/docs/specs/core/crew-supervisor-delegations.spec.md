@@ -3,8 +3,8 @@ id: "core.crew-supervisor-delegations"
 title: "Designaciones temporales y autoridad verificable de supervisores de cuadrilla"
 domain: "core"
 sdd_version: "2.0"
-version: "0.1"
-status: "DRAFT"
+version: "0.2"
+status: "APPROVED"
 owner: "semse-core"
 risk: "high"
 code_status: "NOT_STARTED"
@@ -20,7 +20,7 @@ related_tests: []
 related_endpoints: []
 related_events: []
 related_agents: []
-last_verified: "2026-10-28"
+last_verified: "2026-11-21"
 ---
 
 # SDD 2.0 — Autoridad verificable de supervisores de cuadrilla
@@ -437,10 +437,21 @@ modelos, migraciones, endpoints, flags, personas reales o producción.
 
 Gates:
 - [x] OPEN-SUP-01: principio de delegante propietario/representante verificado ratificado (2026-10-22).
-- [ ] Fuente verificable de representación y demás decisiones OPEN-SUP-02…06 resueltas; aprobación global aún pendiente.
-- [ ] Spec APPROVED; plan/tasks/checklist y análisis completos.
+- [ ] Fuente verificable de representación y demás decisiones OPEN-SUP-02…06 resueltas. **Gate de implementación:**
+  la aprobación de la spec (abajo) no las decide.
+- [x] Spec APPROVED por el propietario el 2026-11-20. Aprobó «con cambios», pero sin especificar ninguno, así que se
+  registra tal como está. Plan, tasks y checklist existen; falta el análisis.
 - [ ] `STATE_MACHINES.md` y `EVENT_CATALOG.md` aprobados/actualizados.
 - [ ] Tests rojos y luego PASS, CI terminal verde.
 - [ ] PR técnico revisado por seguridad; merge SHA registrado.
 - [ ] Migración, deploy y canary autenticado verificados por separado.
 - [ ] Solo con evidencia, `activation_status` y `status: VERIFIED`.
+
+## Aprobación (propietario, 2026-11-20)
+
+La spec pasa a **APPROVED** como contrato de dirección. Siguen **abiertas** OPEN-SUP-02…06 (elegibilidad, suplencia,
+nivel de acción, seguridad y activación) y la fuente verificable de propietario o representante (OPEN-SUP-01,
+subtarea técnica). Son gates de implementación: no se escribe código de designaciones hasta resolverlas
+(`code_status: NOT_STARTED`). Nada de esto autoriza modelos, migraciones, endpoints, flags ni producción. Las
+decisiones S0b D-S0B-01…05 quedaron ratificadas en `core.task-allocations` (BO-10).
+
