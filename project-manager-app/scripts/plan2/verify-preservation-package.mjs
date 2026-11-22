@@ -75,6 +75,13 @@ export function getPath(obj, dotted) {
   return dotted.split('.').reduce((acc, key) => (acc == null ? undefined : acc[key]), obj);
 }
 
+/** Identidad de un registro: `null` si falta o queda vacía tras recortar espacios. */
+export function idOf(value) {
+  if (value === undefined || value === null) return null;
+  const id = String(value);
+  return id.trim() === '' ? null : id;
+}
+
 export function toSeconds(value, unit) {
   if (value === null || value === undefined || value === '') return null;
   const n = Number(value);
@@ -149,7 +156,10 @@ export async function verifyPackage(manifest, { baseDir = process.cwd() } = {}) 
     const list = src?.kind === 'json' ? getPath(src.data, rc.recordsPath) : undefined;
     if (!Array.isArray(list)) fail('RECORDS_NOT_ARRAY', `${rc.jsonRole}:${rc.recordsPath ?? '<raíz>'}`);
     else records = list;
-    const ids = records.map((r) => String(getPath(r, rc.idField)));
+    // Un ID ausente o vacío no es identidad: se cuenta y falla, nunca se coteja.
+    const ids = records.map((r) => idOf(getPath(r, rc.idField))).filter((id) => id != null);
+    const missingJsonIds = records.length - ids.length;
+    if (missingJsonIds) fail('MISSING_IDS_IN_JSON', `${missingJsonIds} registros sin ${rc.idField} o con valor vacío`);
     const dupIds = [...new Set(ids.filter((id, k) => ids.indexOf(id) !== k))];
     if (dupIds.length) warn('DUPLICATE_IDS_IN_JSON', `${dupIds.length} ID repetidos (no se deduplican)`);
     const synthetic = records.filter((r) => isSynthetic(r, rc.syntheticMarker));
@@ -162,6 +172,7 @@ export async function verifyPackage(manifest, { baseDir = process.cwd() } = {}) 
     Object.assign(summary, {
       jsonRecords: records.length,
       duplicateIds: dupIds.length,
+      missingIds: missingJsonIds,
       syntheticRecords: synthetic.length,
       syntheticPreserved: synthetic.length, // contados, nunca eliminados ni sumados
       laborPurpose: rc.laborPurpose ?? null,
@@ -198,21 +209,22 @@ export async function verifyPackage(manifest, { baseDir = process.cwd() } = {}) 
 
   // Cotejo JSON ↔ CSV.
   const cc = manifest.csv;
-  const compare = { compared: 0, distinctComparedIds: 0, duplicateCsvIds: 0, ambiguousJsonIds: 0, ambiguousJsonRows: 0, matched: 0, withinTolerance: 0, mismatched: [], onlyInJson: 0, onlyInCsv: 0, toleranceSeconds: cc?.toleranceSeconds ?? 0 };
+  const compare = { compared: 0, distinctComparedIds: 0, missingCsvIds: 0, duplicateCsvIds: 0, ambiguousJsonIds: 0, ambiguousJsonRows: 0, matched: 0, withinTolerance: 0, mismatched: [], onlyInJson: 0, onlyInCsv: 0, toleranceSeconds: cc?.toleranceSeconds ?? 0 };
   if (cc && rc) {
     const csv = parsed.get(cc.role);
     if (csv?.kind !== 'csv') fail('CSV_MISSING', cc.role);
     else {
       // IDs repetidos en el JSON hacen el cotejo ambiguo: no se elige uno, se falla.
       const jsonIdCount = new Map();
-      for (const r of records) { const id = String(getPath(r, rc.idField)); jsonIdCount.set(id, (jsonIdCount.get(id) ?? 0) + 1); }
+      for (const r of records) { const id = idOf(getPath(r, rc.idField)); if (id != null) jsonIdCount.set(id, (jsonIdCount.get(id) ?? 0) + 1); }
       const ambiguousJson = new Set([...jsonIdCount].filter(([, n]) => n > 1).map(([id]) => id));
-      const byId = new Map(records.filter((r) => !ambiguousJson.has(String(getPath(r, rc.idField)))).map((r) => [String(getPath(r, rc.idField)), r]));
+      const byId = new Map(records.map((r) => [idOf(getPath(r, rc.idField)), r]).filter(([id]) => id != null && !ambiguousJson.has(id)));
       const csvIds = new Set();
       const comparedIds = new Set();
       const dupCsv = new Set();
       for (const row of csv.records) {
-        const id = String(row[cc.idColumn] ?? '');
+        const id = idOf(row[cc.idColumn]);
+        if (id == null) { compare.missingCsvIds++; continue; }
         if (csvIds.has(id)) dupCsv.add(id);
         csvIds.add(id);
         if (ambiguousJson.has(id)) { compare.ambiguousJsonRows++; continue; }
@@ -231,6 +243,7 @@ export async function verifyPackage(manifest, { baseDir = process.cwd() } = {}) 
       compare.distinctComparedIds = comparedIds.size;
       compare.duplicateCsvIds = dupCsv.size;
       compare.ambiguousJsonIds = ambiguousJson.size;
+      if (compare.missingCsvIds) fail('MISSING_IDS_IN_CSV', `${compare.missingCsvIds} filas del CSV sin ${cc.idColumn} o con valor vacío: no se cotejan`);
       if (ambiguousJson.size) fail('AMBIGUOUS_JSON_IDS', `${ambiguousJson.size} ID repetidos en el JSON: sus filas no se cotejan con el CSV`);
       if (dupCsv.size) fail('DUPLICATE_IDS_IN_CSV', `${dupCsv.size} ID repetidos en el CSV: el cotejo no es inequívoco`);
       if (compare.mismatched.length) fail('CSV_JSON_MISMATCH', `${compare.mismatched.length} filas fuera de tolerancia`);

@@ -1,6 +1,6 @@
 # SEMSE — Plan 2 «Preservación de datos y linaje» · Paquete de actualización v34 → v35
 
-**Fecha:** 2026-11-21 · **Revisión del paquete:** r7 · **Preparado por:** agente técnico de ejecución (sesión Claude Code) · **Estado de este documento:** BORRADOR PARA EL PROPIETARIO — no revisado, no aprobado, no fusionado en el plan.
+**Fecha:** 2026-11-21 · **Revisión del paquete:** r8 · **Preparado por:** agente técnico de ejecución (sesión Claude Code) · **Estado de este documento:** BORRADOR PARA EL PROPIETARIO — no revisado, no aprobado, no fusionado en el plan.
 
 > ## Aviso de autoridad — leer primero
 >
@@ -12,6 +12,14 @@
 > Tampoco fueron accesibles: Planes 0, 1 (su rama cerrada), 3, 4, 6, 11 y 13; el respaldo JSON (SHA-256 `821f55d1…b357`); las dos exportaciones JSON; el CSV; el Site v4/v6 y el kit v4→v6.
 >
 > Por eso este documento **no es el plan íntegro v35** y no reproduce ni reconstruye el contenido de v34. Es el conjunto de cambios, evidencias, matriz y conclusiones que el propietario debe incorporar sobre v34. Los identificadores `P2-…` son provisionales y deben mapearse a los de v34. Las reglas de clasificación del Plan 2 (coincidencia/candidato/conflicto/huérfano) no se conocen textualmente: las definiciones de §3.B son **provisionales** y deben alinearse con v34.
+
+> ## r8 — 2026-11-22: IDs vacíos en el cotejo JSON↔CSV
+>
+> - Corrige un hallazgo de la revisión automática del PR. Un ID vacío o ausente en el JSON y en el CSV contaba como un ID cotejado. Antes, el ID ausente del JSON se convertía en el texto `"undefined"`.
+> - Ahora esos registros no se cotejan y el verificador falla con `MISSING_IDS_IN_JSON` o `MISSING_IDS_IN_CSV`, según el lado.
+> - Pruebas: 21/21 PASS, con una nueva para este caso.
+> - Sobre las copias de los originales, el resultado no cambia: `PASS`, 20 IDs cotejados, 0 IDs vacíos en cada lado y paquete de entrada 9/9 OK.
+> - Los hashes de las herramientas que registra la v36 r2 (§2.33) son los del commit `729a29a`; los vigentes están en §7.
 
 > ## r7 — 2026-11-21: v36 borrador r2 (auditoría humana)
 >
@@ -359,14 +367,14 @@ Para pasar del trabajo independiente a la ejecución del Plan 2 hace falta **una
 | `tests/unit/plan2-preservation-tools.test.mjs` | `ba2a56501a3b3f0747d94d2a0aa4013c00b66b4da6952c289d362f170efd0e90` |
 | `docs/program/plan-2/static-evidence_2026-11-21.json` | `c732fdc1ea7bfc83e72200206bf975ed0caecf523d0bc4384fed120df7d58e35` |
 
-**Hashes vigentes (r6, 2026-11-21):**
+**Hashes vigentes (r8, 2026-11-22; solo cambian el verificador y las pruebas respecto de r6):**
 
 | Archivo | SHA-256 |
 |---|---|
-| `scripts/plan2/verify-preservation-package.mjs` | `9375db94044dff644e9924e230812576c66eb1f72720287b7f85d2b3a1151c23` |
+| `scripts/plan2/verify-preservation-package.mjs` | `6e0f8b823c5cb440b0d7f6d52d13a7aba4007787278cc229c8ffc8568afb6ac1` |
 | `scripts/plan2/diff-site-collections.mjs` | `3d303009605ca3ee9fbd3afa9d3354c53132c8e46946c17ec8d06036eb63699f` |
 | `scripts/plan2/static-evidence.mjs` | `bf7fc6507db14100c1a9f718759da986c17f098f816a43716803df6a21caf0a2` |
-| `tests/unit/plan2-preservation-tools.test.mjs` | `4c602701fd78d29a4326e249ce120555f06688f416eb305eab3dadaa082ee66f` |
+| `tests/unit/plan2-preservation-tools.test.mjs` | `7c7d0f4fd021d10f890ae2196c168745656290d32588caa4360ea55caab15689` |
 | `docs/program/plan-2/static-evidence_2026-11-21.json` | `9858b2e16164d6cfe5b12b3ef8ab5fc09d58341867ae36a789b4d52be2d095db` |
 | este documento | se calcula fuera del documento (un archivo no puede contener su propio hash) |
 

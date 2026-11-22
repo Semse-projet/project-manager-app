@@ -156,6 +156,24 @@ describe('plan2 verify-preservation-package (sintético)', () => {
     assert.equal(r.csvComparison.distinctComparedIds, 0);
   });
 
+  it('FAIL si faltan IDs o están vacíos: no cuentan como cotejados', async () => {
+    await writeFile(path.join(dir, 'noid.json'), JSON.stringify({ entries: [{ id: '', s: 60 }, { s: 30 }, { id: 'b', s: 90 }] }));
+    await writeFile(path.join(dir, 'noid.csv'), 'id,s\n,60\n  ,30\nb,90\n');
+    const r = await verifyPackage({
+      files: [{ role: 'j', path: 'noid.json' }, { role: 'c', path: 'noid.csv' }],
+      records: { jsonRole: 'j', recordsPath: 'entries', idField: 'id', durationField: 's', durationUnit: 'seconds' },
+      csv: { role: 'c', idColumn: 'id', durationColumn: 's', durationUnit: 'seconds' },
+      expect: { comparedIds: 1 },
+    }, { baseDir: dir });
+    assert.equal(r.status, 'FAIL');
+    assert.ok(r.findings.some((f) => f.code === 'MISSING_IDS_IN_JSON'));
+    assert.ok(r.findings.some((f) => f.code === 'MISSING_IDS_IN_CSV'));
+    assert.equal(r.summary.missingIds, 2);
+    assert.equal(r.csvComparison.missingCsvIds, 2);
+    assert.equal(r.csvComparison.distinctComparedIds, 1);
+    assert.equal(r.csvComparison.duplicateCsvIds, 0);
+  });
+
   it('parseCsv rechaza una última celda con comillas sin cerrar', () => {
     assert.throws(() => parseCsv('id,s\na,"60'), /comillas sin cerrar/);
   });
