@@ -3,8 +3,8 @@ id: "core.task-allocations"
 title: "Asignación de tareas a personas de una cuadrilla (BO-10)"
 domain: "core"
 sdd_version: "2.0"
-version: "0.1"
-status: "DRAFT"
+version: "0.2"
+status: "APPROVED"
 owner: "semse-core"
 risk: "high"
 code_status: "IN_PROGRESS"
@@ -22,13 +22,14 @@ related_files:
   - "packages/db/prisma/schema.prisma"
 related_tests:
   - "apps/api/test/task-allocations.test.ts"
+  - "apps/api/test/task-allocations-audit-integration.test.ts"
 related_endpoints: []
 related_events:
   - "task_allocation.assigned"
   - "task_allocation.status_changed"
   - "task_allocation.released"
 related_agents: []
-last_verified: "2026-10-18"
+last_verified: "2026-11-21"
 ---
 # BO-10 — Asignación de tareas a personas de una cuadrilla
 
@@ -58,3 +59,24 @@ Revisión de evidencia y reglas de aprobación (siguiente slice), notificaciones
 
 ## Riesgos
 Escalada de alcance: un supervisor asignando fuera de su cuadrilla. Mitigado con revalidación de membresía y pruebas AC-02. `SUBMITTED` no implica aceptación ni pago.
+
+## Aprobación y decisiones S0b (propietario, 2026-11-20)
+
+- **Spec APPROVED** por el propietario, sin cambios.
+- **D-S0B-01…05 ratificadas** tal como las propone
+  `docs/reportes/2026-10-26_s0b-allocation-atomicity-cross-crew-contract.md` §4:
+  1. una `JobTask` de origen `Crew` pertenece a esa crew; los supervisores de otra crew no la alcanzan;
+  2. una asignación vigente de la misma `taskId+userId` en otra crew devuelve 409 neutral, sin idempotencia ni
+     transferencia implícita;
+  3. `assign([...])` es todo o nada: un error de base o de auditoría no deja asignaciones parciales;
+  4. el traslado entre cuadrillas exige una acción explícita y aprobación empresarial; `RELEASED` no habilita
+     cambiar de crew;
+  5. se conserva `@@unique([taskId,userId])`; varias crews simultáneas sobre la misma tarea requerirían un ADR y
+     una migración propios.
+- **Gobernanza:** se aplica DEC-PLATFORM-001 (ACCEPTED). El código de #1054 es de **nivel 2**: aislamiento
+  tenant/org/crew con `SEMSE_TASK_ALLOCATION_ENABLED` apagado. Exige:
+  - dos revisiones automatizadas de herramientas distintas;
+  - pruebas negativas sobre PostgreSQL real en CI (`S0B-PG-01`);
+  - una pausa de 24 h tras el último commit;
+  - la autorrevisión del propietario con este checklist, registrada en el PR.
+

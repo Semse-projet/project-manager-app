@@ -40,7 +40,7 @@ related_events:
   - "crew.member_removed"
   - "crew.archived"
 related_agents: []
-last_verified: "2026-11-12"
+last_verified: "2026-11-22"
 ---
 # BO-07 — Obras y cuadrillas con alcance por supervisor
 

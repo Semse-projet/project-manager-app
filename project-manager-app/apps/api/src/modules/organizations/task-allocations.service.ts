@@ -105,14 +105,18 @@ export class TaskAllocationsService {
     tx?: Prisma.TransactionClient
   ): Promise<boolean> {
     const db = tx ?? this.prisma;
-    const [crew, member, memberships] = await Promise.all([
-      db.crew.findFirst({ where: { id: crewId, tenantId, orgId, status: "ACTIVE" } }),
-      db.crewMember.findFirst({ where: { crewId, userId, status: "ACTIVE" } }),
+    const readCrew = () => db.crew.findFirst({ where: { id: crewId, tenantId, orgId, status: "ACTIVE" } });
+    const readMember = () => db.crewMember.findFirst({ where: { crewId, userId, status: "ACTIVE" } });
+    const readMemberships = () =>
       db.membership.findMany({
         where: { userId, orgId, status: "ACTIVE", org: { tenantId } },
         include: { role: true }
-      })
-    ]);
+      });
+    // Inside an interactive transaction Prisma runs queries on one connection: issue them
+    // one after another (parallel queries on a tx client are unsupported). Outside, in parallel.
+    const [crew, member, memberships] = tx
+      ? [await readCrew(), await readMember(), await readMemberships()]
+      : await Promise.all([readCrew(), readMember(), readMemberships()]);
     return Boolean(crew && member && memberships.some((membership) => membership.role.key === "WORKER"));
   }
 
@@ -148,12 +152,20 @@ export class TaskAllocationsService {
    * Conflicts in a Serializable transaction must not become generic 500s.
    * Do not replay a mutation automatically: callers must start a fresh request
    * so membership, crew authority and current task state are read again.
+   *
+   * Mapped to 409:
+   * - P2034: serialization failure / deadlock.
+   * - P2002: a concurrent request inserted the same allocation first
+   *   (`@@unique([taskId,userId])`); Postgres may report it as 23505 instead of 40001.
+   * - P2028: the interactive transaction expired or could not start in time
+   *   (contended pool, large batch) — retryable, never a generic 500.
    */
   private async serializableMutation<T>(operation: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
     try {
       return await this.prisma.$transaction(operation, { isolationLevel: "Serializable" });
     } catch (error) {
-      if (error !== null && typeof error === "object" && "code" in error && error.code === "P2034") {
+      const code = error !== null && typeof error === "object" && "code" in error ? error.code : undefined;
+      if (code === "P2034" || code === "P2002" || code === "P2028") {
         throw new ConflictException("Conflicto concurrente; consulta el estado y vuelve a intentar");
       }
       throw error;
