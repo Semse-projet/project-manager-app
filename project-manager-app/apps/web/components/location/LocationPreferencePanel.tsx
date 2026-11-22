@@ -10,6 +10,7 @@ import {
   type LocationPreference
 } from "../../app/lib/module-surfaces-api";
 import { Banner, ConfirmDialog, Loading, Pill, type Tone } from "../module-surface/ui";
+import { useLanguage } from "../../lib/language-context";
 
 /**
  * BO-09 location preference (docs/specs/core/geofence-policy.spec.md v0.3).
@@ -17,29 +18,68 @@ import { Banner, ConfirmDialog, Loading, Pill, type Tone } from "../module-surfa
  * calls `onUnavailable`, so the caller can keep its legacy control (OPEN-17).
  */
 
-const MODES: { value: LocationMode; label: string; desc: string; icon: typeof MapPin; tone: Tone }[] = [
-  {
-    value: "ASK",
-    label: "Preguntar",
-    desc: "Al llegar a la obra te preguntamos si quieres iniciar el reloj. Es la opción por defecto.",
-    icon: MapPin,
-    tone: "brand"
+// ES/EN copy. The consent and revocation texts must be readable in the language
+// the worker selected, so they are not left as untranslated literals.
+const COPY = {
+  es: {
+    ask: ["Preguntar", "Al llegar a la obra te preguntamos si quieres iniciar el reloj. Es la opción por defecto."],
+    auto: ["Iniciar automático", "El reloj puede iniciarse solo al detectar que llegaste a un lugar de trabajo. Requiere tu consentimiento específico."],
+    off: ["Desactivado", "SEMSE no usa tu ubicación para el reloj."],
+    savedAuto: "Inicio automático activado con tu consentimiento. Puedes revocarlo cuando quieras.",
+    savedOff: "Ubicación desactivada para el reloj.",
+    savedAsk: "Te preguntaremos antes de iniciar el reloj.",
+    saveError: "No se pudo guardar",
+    loadError: "No se pudo cargar tu preferencia de ubicación",
+    loading: "Cargando preferencia de ubicación…",
+    groupLabel: "Uso de la ubicación para el reloj",
+    consentActive: "Consentimiento vigente",
+    autoWithoutConsent: "AUTO está elegido pero sin consentimiento vigente, así que el sistema se comporta como «Preguntar».",
+    privacy: "SEMSE nunca guarda tus coordenadas en estas decisiones: solo el resultado y un rango de precisión. Versión de política",
+    consentTitle: "Consentimiento para inicio automático",
+    consentConfirm: "Doy mi consentimiento",
+    consentBody:
+      "Con este modo, cuando la app detecte que llegaste a un lugar de trabajo podrá iniciar tu reloj sin preguntarte. Si se inició por error, puedes detenerlo desde el reloj. El reloj nunca se detiene solo por tu ubicación.",
+    consentCheckbox:
+      "Acepto que mi ubicación se use para iniciar el reloj automáticamente. Puedo revocarlo en cualquier momento cambiando de modo.",
+    leaveTitle: "Salir del inicio automático",
+    leaveConfirm: "Cambiar modo",
+    leaveBody: "Al salir de «Iniciar automático» se revoca tu consentimiento. Si más adelante quieres volver, te lo pediremos de nuevo."
   },
-  {
-    value: "AUTO",
-    label: "Iniciar automático",
-    desc: "El reloj puede iniciarse solo al detectar que llegaste a un lugar de trabajo. Requiere tu consentimiento específico.",
-    icon: Navigation,
-    tone: "warn"
-  },
-  {
-    value: "OFF",
-    label: "Desactivado",
-    desc: "SEMSE no usa tu ubicación para el reloj.",
-    icon: MapPinOff,
-    tone: "muted"
+  en: {
+    ask: ["Ask", "When you arrive at the worksite we ask whether you want to start the clock. This is the default."],
+    auto: ["Start automatically", "The clock can start on its own when we detect you arrived at a workplace. Requires your specific consent."],
+    off: ["Off", "SEMSE does not use your location for the clock."],
+    savedAuto: "Automatic start turned on with your consent. You can revoke it at any time.",
+    savedOff: "Location turned off for the clock.",
+    savedAsk: "We will ask you before starting the clock.",
+    saveError: "Could not save",
+    loadError: "Could not load your location preference",
+    loading: "Loading location preference…",
+    groupLabel: "Use of your location for the clock",
+    consentActive: "Consent active",
+    autoWithoutConsent: "AUTO is selected but there is no active consent, so the system behaves as “Ask”.",
+    privacy: "SEMSE never stores your coordinates in these decisions: only the result and an accuracy range. Policy version",
+    consentTitle: "Consent for automatic start",
+    consentConfirm: "I give my consent",
+    consentBody:
+      "With this mode, when the app detects you arrived at a workplace it can start your clock without asking. If it started by mistake, you can stop it from the clock. The clock never stops on its own because of your location.",
+    consentCheckbox:
+      "I agree that my location is used to start the clock automatically. I can revoke this at any time by changing the mode.",
+    leaveTitle: "Leave automatic start",
+    leaveConfirm: "Change mode",
+    leaveBody: "Leaving “Start automatically” revokes your consent. If you want to come back later, we will ask you again."
   }
-];
+} as const;
+
+type Copy = (typeof COPY)[keyof typeof COPY];
+
+function modes(c: Copy): { value: LocationMode; label: string; desc: string; icon: typeof MapPin; tone: Tone }[] {
+  return [
+    { value: "ASK", label: c.ask[0], desc: c.ask[1], icon: MapPin, tone: "brand" },
+    { value: "AUTO", label: c.auto[0], desc: c.auto[1], icon: Navigation, tone: "warn" },
+    { value: "OFF", label: c.off[0], desc: c.off[1], icon: MapPinOff, tone: "muted" }
+  ];
+}
 
 export function LocationPreferencePanel({
   onUnavailable,
@@ -48,6 +88,8 @@ export function LocationPreferencePanel({
   onUnavailable?: () => void;
   onChange?: (pref: LocationPreference) => void;
 }) {
+  const { language } = useLanguage();
+  const c: Copy = COPY[language] ?? COPY.es;
   const [pref, setPref] = useState<LocationPreference | null>(null);
   const [state, setState] = useState<"loading" | "ready" | "unavailable" | "error">("loading");
   const [error, setError] = useState<string | null>(null);
@@ -70,7 +112,7 @@ export function LocationPreferencePanel({
           onUnavailable?.();
         } else {
           setState("error");
-          setError(e instanceof Error ? e.message : "No se pudo cargar tu preferencia de ubicación");
+          setError(e instanceof Error ? e.message : c.loadError);
         }
       });
     // Load once on mount; callbacks are notifications, not dependencies.
@@ -86,14 +128,10 @@ export function LocationPreferencePanel({
       setPref(next);
       onChange?.(next);
       setSaved(
-        mode === "AUTO"
-          ? "Inicio automático activado con tu consentimiento. Puedes revocarlo cuando quieras."
-          : mode === "OFF"
-            ? "Ubicación desactivada para el reloj."
-            : "Te preguntaremos antes de iniciar el reloj."
+        mode === "AUTO" ? c.savedAuto : mode === "OFF" ? c.savedOff : c.savedAsk
       );
     } catch (e) {
-      setError(e instanceof Error ? e.message : "No se pudo guardar");
+      setError(e instanceof Error ? e.message : c.saveError);
     } finally {
       setBusy(false);
     }
@@ -113,16 +151,16 @@ export function LocationPreferencePanel({
     void save(mode);
   }
 
-  if (state === "loading") return <Loading label="Cargando preferencia de ubicación…" />;
+  if (state === "loading") return <Loading label={c.loading} />;
   if (state === "unavailable") return null;
-  if (state === "error" || !pref) return <Banner tone="error">{error ?? "No se pudo cargar tu preferencia de ubicación"}</Banner>;
+  if (state === "error" || !pref) return <Banner tone="error">{error ?? c.loadError}</Banner>;
 
   const autoWithoutConsent = pref.mode === "AUTO" && !pref.autoStartConsent;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <div role="radiogroup" aria-label="Uso de la ubicación para el reloj" style={{ display: "grid", gap: 8 }}>
-        {MODES.map((m) => {
+      <div role="radiogroup" aria-label={c.groupLabel} style={{ display: "grid", gap: 8 }}>
+        {modes(c).map((m) => {
           const selected = pref.mode === m.value;
           return (
             <button
@@ -151,7 +189,7 @@ export function LocationPreferencePanel({
                   {m.label}
                   {selected && m.value === "AUTO" && pref.autoStartConsent ? (
                     <Pill tone="ok" icon={ShieldCheck}>
-                      Consentimiento vigente
+                      {c.consentActive}
                     </Pill>
                   ) : null}
                 </span>
@@ -163,20 +201,19 @@ export function LocationPreferencePanel({
       </div>
 
       {autoWithoutConsent ? (
-        <Banner tone="warn">AUTO está elegido pero sin consentimiento vigente, así que el sistema se comporta como «Preguntar».</Banner>
+        <Banner tone="warn">{c.autoWithoutConsent}</Banner>
       ) : null}
       {error ? <Banner tone="error" onDismiss={() => setError(null)}>{error}</Banner> : null}
       {saved ? <Banner tone="ok" onDismiss={() => setSaved(null)}>{saved}</Banner> : null}
 
       <p style={{ margin: 0, fontSize: 11, color: "var(--faint)", lineHeight: 1.5 }}>
-        SEMSE nunca guarda tus coordenadas en estas decisiones: solo el resultado y un rango de precisión. Versión de política{" "}
-        {pref.policyVersion}.
+        {c.privacy} {pref.policyVersion}.
       </p>
 
       <ConfirmDialog
         open={askConsent}
-        title="Consentimiento para inicio automático"
-        confirmLabel="Doy mi consentimiento"
+        title={c.consentTitle}
+        confirmLabel={c.consentConfirm}
         busy={busy}
         confirmDisabled={!consentChecked}
         onCancel={() => setAskConsent(false)}
@@ -187,19 +224,18 @@ export function LocationPreferencePanel({
         }}
       >
         <p style={{ margin: "0 0 10px" }}>
-          Con este modo, cuando la app detecte que llegaste a un lugar de trabajo podrá iniciar tu reloj sin preguntarte. Si
-          se inició por error, puedes detenerlo desde el reloj. El reloj nunca se detiene solo por tu ubicación.
+          {c.consentBody}
         </p>
         <label style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 12, color: "var(--ink)" }}>
           <input type="checkbox" checked={consentChecked} onChange={(e) => setConsentChecked(e.target.checked)} style={{ marginTop: 2 }} />
-          Acepto que mi ubicación se use para iniciar el reloj automáticamente. Puedo revocarlo en cualquier momento cambiando de modo.
+          {c.consentCheckbox}
         </label>
       </ConfirmDialog>
 
       <ConfirmDialog
         open={Boolean(confirmLeaveAuto)}
-        title="Salir del inicio automático"
-        confirmLabel="Cambiar modo"
+        title={c.leaveTitle}
+        confirmLabel={c.leaveConfirm}
         busy={busy}
         onCancel={() => setConfirmLeaveAuto(null)}
         onConfirm={() => {
@@ -208,7 +244,7 @@ export function LocationPreferencePanel({
           if (next) void save(next);
         }}
       >
-        Al salir de «Iniciar automático» se revoca tu consentimiento. Si más adelante quieres volver, te lo pediremos de nuevo.
+        {c.leaveBody}
       </ConfirmDialog>
     </div>
   );

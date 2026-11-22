@@ -1,9 +1,10 @@
 import { fetchFreeProjects, fetchJobs, fetchProximityConfig } from "../api/labor";
 import { fetchProfile } from "../api/profile";
-import { fetchLocationPreference } from "../api/locationPreference";
+import { readLocationPreference } from "../api/locationPreference";
 import { fetchGeofenceSites } from "../api/geofence";
-import { proximityModeFromLocationPreference } from "./locationMode";
-import { saveProximityConfig, saveProximityMode, saveSites, type ProximitySite } from "./siteCache";
+import { applyProximityMode } from "./applyProximityMode";
+import { resolveProximityMode } from "./locationMode";
+import { saveProximityConfig, saveSites, type ProximitySite } from "./siteCache";
 
 /**
  * Best-effort refresh of the site list + proximity preference the background
@@ -17,7 +18,7 @@ export async function refreshProximitySites(): Promise<void> {
     fetchFreeProjects().catch(() => []),
     fetchProfile().catch(() => null),
     fetchProximityConfig().catch(() => null),
-    fetchLocationPreference().catch(() => null),
+    readLocationPreference(),
     // OPEN-18: 200 = the server decides each arrival at linked worksites; 404/error = legacy mode.
     fetchGeofenceSites().catch(() => null),
   ]);
@@ -48,8 +49,9 @@ export async function refreshProximitySites(): Promise<void> {
   }
 
   await saveSites(sites);
-  // OPEN-17: BO-09 (when enabled) replaces the legacy profile mode.
-  if (locationPreference) await saveProximityMode(proximityModeFromLocationPreference(locationPreference));
-  else if (profile) await saveProximityMode(profile.proximityCheckInMode);
+  // OPEN-17: BO-09 (when enabled) replaces the legacy profile mode. Only a 404 falls
+  // back to the profile; a failed read fails closed to "off" (resolveProximityMode).
+  const nextMode = resolveProximityMode(locationPreference, profile?.proximityCheckInMode ?? null);
+  if (nextMode) await applyProximityMode(nextMode);
   if (proximityConfig) await saveProximityConfig(proximityConfig);
 }

@@ -60,9 +60,9 @@ import { ProyectosTab } from "./sections/ProyectosTab";
 import { ReportesTab } from "./sections/ReportesTab";
 import { AsistenteTab } from "./sections/AsistenteTab";
 import { friendlyConnectionMessage, shouldPreserveLocalEvent } from "./sections/trackerUi";
-import { fetchLocationPreference, fetchMyGeofenceSites, reportGeofenceArrival } from "../../../lib/module-surfaces-api";
+import { fetchLocationPreference, fetchMyGeofenceSites, reportGeofenceArrival, SurfaceApiError } from "../../../lib/module-surfaces-api";
 import { clientSiteKind, proximityActionForDecision, serverSiteKind } from "../../../../lib/geofence-decision";
-import { proximityModeFromLocationPreference } from "../../../../lib/location-mode";
+import { resolveProximityMode, type LocationPreferenceResult } from "../../../../lib/location-mode";
 
 // Auto-sync retry policy for the offline queue. Every attempt rewrites the
 // local state, and that rewrite is what re-evaluates the auto-sync effect, so a
@@ -415,8 +415,12 @@ export default function WorkerTrackerPage() {
       fetchMyProfile().catch(() => null),
       fetchProximityConfig().catch(() => null),
       // OPEN-17: with the BO-09 flag on (200) its effective mode replaces the legacy
-      // profile proximityCheckInMode; flag off (404) or any error keeps the legacy value.
-      fetchLocationPreference().catch(() => null),
+      // profile proximityCheckInMode. Only a 404 (flag off) keeps the legacy value;
+      // any other error fails closed to "off" (resolveProximityMode).
+      fetchLocationPreference()
+        .then((pref): LocationPreferenceResult => ({ kind: "ok", pref }))
+        .catch((caught: unknown): LocationPreferenceResult =>
+          caught instanceof SurfaceApiError && caught.status === 404 ? { kind: "disabled" } : { kind: "error" }),
       // OPEN-18: 200 = el servidor tiene activos los vínculos de obra y decide cada llegada;
       // 404 o error = modo anterior (jobs/proyectos con coordenadas propias).
       fetchMyGeofenceSites().catch(() => null),
@@ -426,8 +430,8 @@ export default function WorkerTrackerPage() {
     setFreeProjects(nextFreeProjects);
     setWeekSummary(nextWeek);
     setMonthSummary(nextMonth);
-    if (nextLocationPreference) setProximityCheckInMode(proximityModeFromLocationPreference(nextLocationPreference));
-    else if (nextProfile) setProximityCheckInMode(nextProfile.proximityCheckInMode ?? "ask");
+    const nextProximityMode = resolveProximityMode(nextLocationPreference, nextProfile ? nextProfile.proximityCheckInMode ?? "ask" : null);
+    if (nextProximityMode) setProximityCheckInMode(nextProximityMode);
     if (nextProximityConfig) setProximityConfig(nextProximityConfig);
     setGeofenceSites(
       nextGeofenceSites

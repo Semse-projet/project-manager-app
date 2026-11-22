@@ -254,3 +254,22 @@ usuario (`createdBy`) en su tenant; ajeno o inexistente responde igual.
 - **Estado de entrega:** sujeto a CI, revisión, merge y smoke de PR #937; no
   afirmar producción por documentación.
 
+
+## Obras y cuadrillas — BO-07 (spec `core.crews-worksites` v0.3; flag `SEMSE_CREWS_ENABLED`, apagado → 404)
+
+Gestión: exige `org:crews:manage` y Membership ACTIVE del actor en esa Org y tenant. Otra Org → 404, sin permiso → 403.
+
+- `POST /v1/organizations/:orgId/worksites` · `GET /v1/organizations/:orgId/worksites`
+- `POST /v1/organizations/:orgId/crews` · `GET /v1/organizations/:orgId/crews` — el listado incluye los miembros ACTIVE, solo `userId` y `addedAt` (AC-10).
+- `GET /v1/organizations/:orgId/workers` — WORKER ACTIVE de la Org elegibles para cuadrillas, solo `userId` y `since` (AC-11).
+- `POST /v1/organizations/:orgId/crews/:crewId/members` · `POST .../members/remove` · `POST .../archive`
+- `GET /v1/crews/mine` · `GET /v1/crews/:crewId/roster` — lectura propia y roster solo para el supervisor vigente; revalidan la Membership en cada lectura.
+- Los listados devuelven como máximo 200 registros activos, sin paginación.
+- **Estado de entrega:** el flag está apagado en producción; no afirmar activación por documentación.
+
+## Preferencia de ubicación — BO-09 (spec `core.geofence-policy` v0.3; flag `SEMSE_GEOFENCE_POLICY_ENABLED`, apagado → 404)
+
+- `GET /v1/me/location-preference` · `PUT /v1/me/location-preference` — modo ASK/AUTO/OFF; AUTO exige consentimiento separado y vigente, y salir de AUTO lo revoca.
+- `POST /v1/me/geofence-events` · `GET /v1/me/geofence-events` — decisiones de llegada o salida, sin guardar coordenadas.
+- Clientes: solo un 404 permite volver al modo anterior del perfil. Cualquier otro error de lectura deja la detección en OFF.
+- **Estado de entrega:** el flag está apagado en producción.

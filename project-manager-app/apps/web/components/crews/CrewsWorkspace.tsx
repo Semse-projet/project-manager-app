@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Archive, Building2, HardHat, MapPin, Plus, RefreshCw, UserMinus, UserPlus, Users } from "lucide-react";
 import {
   SurfaceApiError,
@@ -89,8 +89,14 @@ export function CrewsWorkspace() {
       });
   }, []);
 
+  // Each load gets a generation; a response from a superseded load (the user
+  // switched organization meanwhile) must not write state for the new scope.
+  const loadGeneration = useRef(0);
+
   const load = useCallback(async () => {
     if (!orgId) return;
+    const generation = ++loadGeneration.current;
+    const current = () => generation === loadGeneration.current;
     setLoading(true);
     setError(null);
     // Never render the previous organization's data while switching scopes.
@@ -100,18 +106,24 @@ export function CrewsWorkspace() {
     setOnlyWorkers(true);
     try {
       const [sites, list] = await Promise.all([fetchWorksites(orgId), fetchOrgCrews(orgId)]);
+      if (!current()) return;
       setWorksites(sites ?? []);
       setCrews(list ?? []);
       setGate("ok");
       // People feed the pickers; a failure here should not hide the crews.
       try {
-        setPeople((await fetchOrgWorkers(orgId)) ?? []);
+        const workers = (await fetchOrgWorkers(orgId)) ?? [];
+        if (!current()) return;
+        setPeople(workers);
         setOnlyWorkers(true);
       } catch (workersError) {
+        if (!current()) return;
         // Compatibility fallback applies only when this endpoint is absent.
         // A 401/403 or transport failure must not become a broader member list.
         if (workersError instanceof SurfaceApiError && workersError.status === 404) {
-          setPeople(((await fetchOrgMembers(orgId).catch(() => [] as OrgMember[])) ?? []).map(asWorker));
+          const members = (await fetchOrgMembers(orgId).catch(() => [] as OrgMember[])) ?? [];
+          if (!current()) return;
+          setPeople(members.map(asWorker));
           setOnlyWorkers(false);
         } else {
           setPeople([]);
@@ -122,11 +134,12 @@ export function CrewsWorkspace() {
         }
       }
     } catch (e) {
+      if (!current()) return;
       if (e instanceof SurfaceApiError && e.status === 404) setGate("disabled");
       else if (e instanceof SurfaceApiError && e.status === 403) setGate("forbidden");
       else setError(e instanceof Error ? e.message : "No se pudieron cargar las cuadrillas");
     } finally {
-      setLoading(false);
+      if (current()) setLoading(false);
     }
   }, [orgId]);
 
