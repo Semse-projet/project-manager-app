@@ -31,9 +31,10 @@ export class AgentDelegationRepository {
     });
   }
 
-  async updateStatus(id: string, tenantId: string, status: string, resultJson?: Record<string, unknown>, error?: string) {
+  async updateStatus(id: string, tenantId: string, orgId: string, targetRunId: string, status: string, resultJson?: Record<string, unknown>, error?: string) {
+    // A delegation can be completed only by its recorded target run, in the same org.
     return this.prisma.agentDelegation.update({
-      where: { id, tenantId },
+      where: { id, tenantId, orgId, targetRunId },
       data: {
         status,
         ...(resultJson && { resultJson: resultJson as any }),

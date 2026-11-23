@@ -769,6 +769,7 @@ export class JobsService {
     const runs = await this.prisma.agentRun.findMany({
       where: {
         tenantId: input.tenantId,
+        orgId: input.orgId,
         correlationId: { startsWith: correlationPrefix }
       },
       orderBy: { createdAt: "desc" },
