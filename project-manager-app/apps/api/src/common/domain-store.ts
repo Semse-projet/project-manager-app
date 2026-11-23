@@ -153,6 +153,8 @@ export type PaymentTxnRecord = {
 export type AgentRunRecord = {
   id: string;
   tenantId: string;
+  /** Persisted owning org. Absent for unclassified legacy runs. */
+  orgId?: string;
   agentType: WorkerAgentRole;
   status: "queued" | "running" | "completed" | "failed";
   triggerType: "manual" | "event" | "schedule";

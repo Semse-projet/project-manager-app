@@ -18,6 +18,7 @@ export function isAgentRunReplay(run: AgentRunRecord): boolean {
 type StoredAgentRun = {
   id: string;
   tenantId: string;
+  orgId: string | null;
   agentType: string;
   triggerType: string;
   inputJson: unknown;
@@ -54,7 +55,8 @@ export class AgentsRepository {
 
     const runs = (await this.prisma.agentRun.findMany({
       where: {
-        tenantId: input.tenantId
+        tenantId: input.tenantId,
+        orgId: input.orgId
       },
       orderBy: { createdAt: "desc" }
     })) as StoredAgentRun[];
@@ -68,7 +70,8 @@ export class AgentsRepository {
     const run = (await this.prisma.agentRun.findFirst({
       where: {
         id: input.runId,
-        tenantId: input.tenantId
+        tenantId: input.tenantId,
+        orgId: input.orgId
       }
     })) as StoredAgentRun | null;
 
@@ -76,6 +79,16 @@ export class AgentsRepository {
       throw new NotFoundException(`Agent run '${input.runId}' not found`);
     }
 
+    return this.toRecord(run);
+  }
+
+  /** Internal tenant-scoped read, only after AGENT_RUNNER role verification. */
+  async findByIdForWorker(input: { tenantId: string; orgId: string; userId: string; runId: string }): Promise<AgentRunRecord> {
+    await this.actorContextService.ensureActorContext(input);
+    const run = (await this.prisma.agentRun.findFirst({
+      where: { id: input.runId, tenantId: input.tenantId }
+    })) as StoredAgentRun | null;
+    if (!run) throw new NotFoundException(`Agent run '${input.runId}' not found`);
     return this.toRecord(run);
   }
 
@@ -100,6 +113,7 @@ export class AgentsRepository {
     const run = (await this.prisma.agentRun.create({
       data: {
         tenantId: input.tenantId,
+        orgId: input.orgId,
         agentType: input.agentType,
         triggerType: input.triggerType,
         inputJson: (input.input as PrismaTypes.InputJsonValue | undefined) ?? {},
@@ -133,6 +147,7 @@ export class AgentsRepository {
     const run = (await this.prisma.agentRun.create({
       data: {
         tenantId: input.tenantId,
+        orgId: input.orgId,
         agentType: input.agentType,
         triggerType: "manual",
         inputJson: input.input as PrismaTypes.InputJsonValue,
@@ -402,6 +417,7 @@ export class AgentsRepository {
   async start(input: {
     tenantId: string; orgId: string; userId: string; runId: string;
     workerId?: string; expectedAttempts?: number;
+    workerAccess?: boolean;
   }): Promise<AgentRunRecord> {
     await this.actorContextService.ensureActorContext(input);
     const run = await this.requireRun(input);
@@ -451,6 +467,7 @@ export class AgentsRepository {
   async heartbeat(input: {
     tenantId: string; orgId: string; userId: string; runId: string;
     workerId: string; expectedAttempts?: number;
+    workerAccess?: boolean;
   }): Promise<AgentRunRecord> {
     await this.actorContextService.ensureActorContext(input);
     const run = await this.requireRun(input);
@@ -502,6 +519,11 @@ export class AgentsRepository {
     mutation: PrismaTypes.AgentRunUpdateManyMutationInput,
   ): Promise<void> {
     const enabled = isAgentRunFinalizationOutboxEnabled();
+    // A durable finalization envelope must never attribute an unowned legacy run
+    // to the service worker's organization.
+    if (enabled && !run.orgId) {
+      throw new ConflictException("legacy agent run needs verified org ownership before durable finalization");
+    }
     const persist = async (db: AgentRunTx) => {
       const changed = await db.agentRun.updateMany({
         where: {
@@ -513,7 +535,7 @@ export class AgentsRepository {
       if (changed.count !== 1) throw new ConflictException("run ownership changed before terminal state");
       if (!enabled) return;
       const event = createAgentRunFinalizationEvent({
-        ...input, runId: run.id, attempts: run.attempts,
+        ...input, orgId: run.orgId ?? input.orgId, runId: run.id, attempts: run.attempts,
         correlationId: run.correlationId, status,
       });
       await db.domainOutboxEvent.create({
@@ -536,6 +558,7 @@ export class AgentsRepository {
   async complete(input: {
     tenantId: string; orgId: string; userId: string; runId: string;
     output?: Record<string, unknown>; workerId?: string; expectedAttempts?: number; requestId?: string;
+    workerAccess?: boolean;
   }): Promise<AgentRunRecord> {
     await this.actorContextService.ensureActorContext(input);
     const run = await this.requireRun(input);
@@ -543,6 +566,10 @@ export class AgentsRepository {
     if (run.status === "COMPLETED") return this.toReplayRecord(run);
     if (run.status !== "RUNNING") {
       throw new ConflictException("cannot complete run in status '" + run.status.toLowerCase() + "'");
+    }
+    // Unclassified historical ownership cannot be replaced with the worker's org.
+    if (!run.orgId && Array.isArray(input.output?.approvals) && input.output.approvals.length > 0) {
+      throw new ConflictException("legacy agent run requires verified organization owner before creating approvals");
     }
     const now = new Date();
     const durationMs = run.startedAt ? now.getTime() - run.startedAt.getTime() : null;
@@ -565,6 +592,7 @@ export class AgentsRepository {
   async fail(input: {
     tenantId: string; orgId: string; userId: string; runId: string;
     error: string; workerId?: string; expectedAttempts?: number; requestId?: string;
+    workerAccess?: boolean;
   }): Promise<AgentRunRecord> {
     await this.actorContextService.ensureActorContext(input);
     const run = await this.requireRun(input);
@@ -583,12 +611,13 @@ export class AgentsRepository {
     return this.toRecord(await this.requireRun(input));
   }
 
-  async getEvents(input: { tenantId: string; runId: string }): Promise<{
+  async getEvents(input: { tenantId: string; orgId: string; userId: string; runId: string }): Promise<{
     runId: string;
     events: Array<{ type: string; at: string; detail: string }>;
   }> {
+    await this.actorContextService.ensureActorContext(input);
     const run = (await this.prisma.agentRun.findFirst({
-      where: { id: input.runId, tenantId: input.tenantId },
+      where: { id: input.runId, tenantId: input.tenantId, orgId: input.orgId },
       select: {
         id: true, status: true, agentType: true, correlationId: true,
         error: true, inputSummary: true, outputSummary: true,
@@ -638,11 +667,13 @@ export class AgentsRepository {
     return this.toRecord(updated);
   }
 
-  private async requireRun(input: { tenantId: string; runId: string }): Promise<StoredAgentRun> {
+  private async requireRun(input: { tenantId: string; orgId: string; runId: string; workerAccess?: boolean }): Promise<StoredAgentRun> {
     const run = (await this.prisma.agentRun.findFirst({
       where: {
         id: input.runId,
-        tenantId: input.tenantId
+        tenantId: input.tenantId,
+        // Tenant-wide lifecycle access requires a verified worker claim.
+        ...(input.workerAccess === true ? {} : { orgId: input.orgId })
       }
     })) as StoredAgentRun | null;
 
@@ -677,6 +708,7 @@ export class AgentsRepository {
     return {
       id: run.id,
       tenantId: run.tenantId,
+      orgId: run.orgId ?? undefined,
       agentType: run.agentType as AgentRunRecord["agentType"],
       status: run.status.toLowerCase() as AgentRunRecord["status"],
       triggerType: run.triggerType as AgentRunRecord["triggerType"],
