@@ -5,6 +5,8 @@ import { AgroEvidenceService } from "./agro-evidence.service.js";
 import { AgroFarmAccessService } from "./agro-farm-access.service.js";
 import { AgroTaskRefResolver, type ResolvedAgroTask } from "./agro-task-ref.resolver.js";
 import { AgroVisionService, type AgroVisionResult } from "./agro-vision.service.js";
+import { evidenceFileUrlAllowedHosts } from "./agro-file-url.js";
+import { resolveAllowlistedSafeUrl } from "@semse/shared";
 import {
   AGRO_INTAKE_DISCLAIMER, AGRO_INTAKE_ENGINE, buildIncidentTitle, classifyIncident, detectCompletion,
   detectSpecies, incidentProposalBase, matchEntities, normalizeText, scoreTaskMatch, type IntakeCandidate,
@@ -213,8 +215,11 @@ export class AgroIntakeService {
   ): Promise<Array<{ evidenceId: string } & AgroVisionResult>> {
     if (!this.vision) return [];
     const photoRows = evidenceRows.filter((e) => e.mediaType === "PHOTO" && e.fileUrl);
+    const allowedHosts = evidenceFileUrlAllowedHosts();
     const results = await Promise.all(
       photoRows.map(async (row) => {
+        const safe = await resolveAllowlistedSafeUrl(row.fileUrl!, { allowedHosts });
+        if (!safe.safe) return null;
         const result = await this.vision!.recognize(row.fileUrl!);
         return result ? { evidenceId: row.id, ...result } : null;
       }),

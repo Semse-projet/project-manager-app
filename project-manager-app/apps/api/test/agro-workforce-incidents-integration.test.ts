@@ -36,6 +36,7 @@ async function buildApp() {
   // the explicit local opt-in (core.header-identity-fail-closed, option A).
   process.env.NODE_ENV = "test";
   process.env.SEMSE_ALLOW_HEADER_IDENTITY = "true";
+  process.env.SEMSE_EVIDENCE_FILE_URL_ALLOWED_HOSTS = "8.8.8.8";
   const { Module } = await import("@nestjs/common");
   const { APP_GUARD, NestFactory } = await import("@nestjs/core");
   const { ConfigModule } = await import("@nestjs/config");
@@ -132,7 +133,7 @@ dbTest("agro E2E: workforce verification + incident lifecycle over HTTP with aud
     // ── 4. Verificar con evidencia ───────────────────────────────────────────
     const selfVerify = await call("worker", "WORKER", "POST", `/v1/agro/farms/${farmId}/worker-capabilities/${wcId}/verify`, { result: "APPROVED", method: "DIRECT_OBSERVATION" });
     assert.equal(selfVerify.status, 403, "WORKER lacks agro:workforce:verify");
-    const ev = await call("sup", "PRO", "POST", `/v1/agro/farms/${farmId}/worker-capabilities/${wcId}/evidence`, { mediaType: "PHOTO", fileUrl: "https://example.test/lechones.jpg", title: "Manejo en maternidad" });
+    const ev = await call("sup", "PRO", "POST", `/v1/agro/farms/${farmId}/worker-capabilities/${wcId}/evidence`, { mediaType: "PHOTO", fileUrl: "https://8.8.8.8/lechones.jpg", title: "Manejo en maternidad" });
     assert.equal(ev.status, 201, JSON.stringify(ev.body));
     const noEvidence = await call("sup", "PRO", "POST", `/v1/agro/farms/${farmId}/worker-capabilities/${wcId}/verify`, { result: "APPROVED", method: "DIRECT_OBSERVATION" });
     assert.equal(noEvidence.status, 400);
@@ -145,7 +146,7 @@ dbTest("agro E2E: workforce verification + incident lifecycle over HTTP with aud
 
     // Capacidad profesional: el supervisor no puede, la veterinaria sí
     const vacc = await call("worker", "WORKER", "POST", `/v1/agro/farms/${farmId}/workers/me/capabilities`, { capability: "vacunacion_aplicacion" });
-    const vaccEv = await call("vet", "PRO", "POST", `/v1/agro/farms/${farmId}/worker-capabilities/${vacc.data.workerCapability.id}/evidence`, { mediaType: "DOCUMENT", fileUrl: "https://example.test/cert.pdf" });
+    const vaccEv = await call("vet", "PRO", "POST", `/v1/agro/farms/${farmId}/worker-capabilities/${vacc.data.workerCapability.id}/evidence`, { mediaType: "DOCUMENT", fileUrl: "https://8.8.8.8/cert.pdf" });
     const supVacc = await call("sup", "PRO", "POST", `/v1/agro/farms/${farmId}/worker-capabilities/${vacc.data.workerCapability.id}/verify`, { result: "APPROVED", method: "CERTIFICATE", evidenceIds: [vaccEv.data.evidence.id] });
     assert.equal(supVacc.status, 403);
     const vetVacc = await call("vet", "PRO", "POST", `/v1/agro/farms/${farmId}/worker-capabilities/${vacc.data.workerCapability.id}/verify`, { result: "APPROVED", method: "CERTIFICATE", evidenceIds: [vaccEv.data.evidence.id] });
@@ -179,7 +180,7 @@ dbTest("agro E2E: workforce verification + incident lifecycle over HTTP with aud
     assert.equal(retry.data.incident.id, incidentId);
 
     // ── 6. Adjuntar evidencia ────────────────────────────────────────────────
-    const photo = await call("worker", "WORKER", "POST", `/v1/agro/incidents/${incidentId}/evidence`, { mediaType: "PHOTO", fileUrl: "https://example.test/herida.jpg" });
+    const photo = await call("worker", "WORKER", "POST", `/v1/agro/incidents/${incidentId}/evidence`, { mediaType: "PHOTO", fileUrl: "https://8.8.8.8/herida.jpg" });
     assert.equal(photo.status, 201, JSON.stringify(photo.body));
     const audioNoFile = await call("worker", "WORKER", "POST", `/v1/agro/incidents/${incidentId}/evidence`, { mediaType: "AUDIO" });
     assert.equal(audioNoFile.status, 400);

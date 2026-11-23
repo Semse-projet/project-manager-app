@@ -48,6 +48,7 @@ async function buildApp() {
   // the explicit local opt-in (core.header-identity-fail-closed, option A).
   process.env.NODE_ENV = "test";
   process.env.SEMSE_ALLOW_HEADER_IDENTITY = "true";
+  process.env.SEMSE_EVIDENCE_FILE_URL_ALLOWED_HOSTS = "8.8.8.8";
   const { Module } = await import("@nestjs/common");
   const { APP_GUARD, NestFactory } = await import("@nestjs/core");
   const { ConfigModule } = await import("@nestjs/config");
@@ -75,6 +76,7 @@ dbTest("agro T-053: a real uploaded file's absolute URL is accepted and persiste
   const prisma = new PrismaClient();
   const app = await buildApp();
   const fastify = app.getHttpAdapter().getInstance();
+  process.env.SEMSE_API_BASE_URL = "https://8.8.8.8";
   const { StorageService } = await import("../dist/infrastructure/storage/storage.service.js");
   const storage = new StorageService();
 

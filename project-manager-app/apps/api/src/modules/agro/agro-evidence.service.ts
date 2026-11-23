@@ -4,6 +4,7 @@ import { AgroEvidenceRepository } from "./agro-evidence.repository.js";
 import { AgroFarmRepository } from "./agro-farm.repository.js";
 import { AgroFarmAccessService, authorizeFarmAction } from "./agro-farm-access.service.js";
 import type { AgroFarmAction } from "./agro-farm-policy.js";
+import { assertSafeEvidenceFileUrl } from "./agro-file-url.js";
 
 export const AGRO_EVIDENCE_ENTITY_TYPES = [
   "FARM", "FARM_UNIT", "ANIMAL", "ANIMAL_GROUP",
@@ -89,6 +90,9 @@ export class AgroEvidenceService {
     if (input.mediaType === "NOTE" && !input.note) {
       throw new BadRequestException("note is required for NOTE evidence");
     }
+    if (input.fileUrl) {
+      await assertSafeEvidenceFileUrl(input.fileUrl);
+    }
 
     const evidence = await this.repo.createEvidence({
       farmId,
@@ -144,6 +148,9 @@ export class AgroEvidenceService {
     const evidence = await this.getEvidence(evidenceId);
     // Cada miembro edita su propia evidencia; la de otros, solo supervisión.
     await this.authorize(evidence.farmId, ownerId, evidence.capturedById === ownerId ? "evidence.create" : "evidence.update_any");
+    if (input.fileUrl) {
+      await assertSafeEvidenceFileUrl(input.fileUrl);
+    }
 
     const updated = await this.repo.updateEvidence(evidenceId, input);
     await this.audit.record({

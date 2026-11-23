@@ -10,7 +10,16 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { isIpv4Safe, isIpv6Safe, isIpSafe, resolveSafeUrl } from "@semse/shared";
+import {
+  fetchAllowlistedHttps,
+  isHostAllowed,
+  isIpv4Safe,
+  isIpv6Safe,
+  isIpSafe,
+  parseHostnameAllowlist,
+  resolveAllowlistedSafeUrl,
+  resolveSafeUrl,
+} from "@semse/shared";
 
 test("isIpv4Safe accepts public addresses and rejects loopback/private/link-local/CGNAT/multicast", () => {
   assert.equal(isIpv4Safe("8.8.8.8"), true);
@@ -103,4 +112,89 @@ test("resolveSafeUrl rejects a public IPv6-literal loopback/unique-local address
   const publicV6 = await resolveSafeUrl("https://[2606:4700:4700::1111]/webhook");
   assert.equal(publicV6.safe, true);
   if (publicV6.safe) assert.equal(publicV6.family, 6);
+});
+
+test("parseHostnameAllowlist trims, lowercases and drops empties", () => {
+  assert.deepEqual(parseHostnameAllowlist(" API.semseproject.com, app.semseproject.com, ,API.semseproject.com "), [
+    "api.semseproject.com",
+    "app.semseproject.com",
+  ]);
+});
+
+test("isHostAllowed matches exact hosts and optional wildcard suffixes", () => {
+  assert.equal(isHostAllowed("api.semseproject.com", ["api.semseproject.com"]), true);
+  assert.equal(isHostAllowed("cdn.semseproject.com", ["api.semseproject.com"]), false);
+  assert.equal(isHostAllowed("cdn.semseproject.com", ["*.semseproject.com"]), true);
+  assert.equal(isHostAllowed("semseproject.com", ["*.semseproject.com"]), true);
+});
+
+test("resolveAllowlistedSafeUrl is fail-closed when the allowlist is empty", async () => {
+  const result = await resolveAllowlistedSafeUrl("https://8.8.8.8/file.jpg", { allowedHosts: [] });
+  assert.equal(result.safe, false);
+  if (!result.safe) assert.equal(result.reason, "allowlist_empty");
+});
+
+test("resolveAllowlistedSafeUrl rejects a public host that is not on the allowlist", async () => {
+  const result = await resolveAllowlistedSafeUrl("https://1.1.1.1/file.jpg", { allowedHosts: ["8.8.8.8"] });
+  assert.equal(result.safe, false);
+  if (!result.safe) assert.match(result.reason, /host_not_allowlisted/);
+});
+
+test("resolveAllowlistedSafeUrl still rejects loopback and http even when the host is listed", async () => {
+  const loopback = await resolveAllowlistedSafeUrl("https://127.0.0.1/file.jpg", { allowedHosts: ["127.0.0.1"] });
+  assert.equal(loopback.safe, false);
+
+  const http = await resolveAllowlistedSafeUrl("http://8.8.8.8/file.jpg", { allowedHosts: ["8.8.8.8"] });
+  assert.equal(http.safe, false);
+
+  const ok = await resolveAllowlistedSafeUrl("https://8.8.8.8/file.jpg", { allowedHosts: ["8.8.8.8"] });
+  assert.equal(ok.safe, true);
+});
+
+test("fetchAllowlistedHttps refuses a redirect to a private or off-list host", async () => {
+  const fetchImpl = async (url: string) => {
+    if (url === "https://8.8.8.8/start") {
+      return new Response(null, { status: 302, headers: { Location: "https://127.0.0.1/secret" } });
+    }
+    if (url === "https://8.8.8.8/other") {
+      return new Response(null, { status: 302, headers: { Location: "https://1.1.1.1/x" } });
+    }
+    return new Response("nope", { status: 200 });
+  };
+
+  const toLoopback = await fetchAllowlistedHttps("https://8.8.8.8/start", {
+    allowedHosts: ["8.8.8.8"],
+    fetchImpl: fetchImpl as typeof fetch,
+  });
+  assert.equal(toLoopback.ok, false);
+  if (!toLoopback.ok) assert.match(toLoopback.reason, /unsafe_resolved_address|loopback/);
+
+  const offList = await fetchAllowlistedHttps("https://8.8.8.8/other", {
+    allowedHosts: ["8.8.8.8"],
+    fetchImpl: fetchImpl as typeof fetch,
+  });
+  assert.equal(offList.ok, false);
+  if (!offList.ok) assert.match(offList.reason, /host_not_allowlisted/);
+});
+
+test("fetchAllowlistedHttps follows an allowlisted https redirect and returns the final body", async () => {
+  const fetchImpl = async (url: string) => {
+    if (url === "https://8.8.8.8/start") {
+      return new Response(null, { status: 302, headers: { Location: "/ok" } });
+    }
+    if (url === "https://8.8.8.8/ok") {
+      return new Response("safe-bytes", { status: 200 });
+    }
+    throw new Error(`unexpected fetch ${url}`);
+  };
+
+  const result = await fetchAllowlistedHttps("https://8.8.8.8/start", {
+    allowedHosts: ["8.8.8.8"],
+    fetchImpl: fetchImpl as typeof fetch,
+  });
+  assert.equal(result.ok, true);
+  if (result.ok) {
+    assert.equal(result.finalUrl, "https://8.8.8.8/ok");
+    assert.equal(await result.response.text(), "safe-bytes");
+  }
 });
