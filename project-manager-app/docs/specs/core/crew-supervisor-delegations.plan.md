@@ -137,7 +137,9 @@ date: "2026-10-22"
 | asignar tarea | supervisor grant con `crew:tasks:assign`, persona de crew, tarea propia de org | grant vencido, task otra org |
 | liberar asignación | `crew:tasks:release`, motivo auditable | liberar de otra crew |
 | revisar trabajo | reviewer distinto del autor y permiso específico | autor = reviewer |
-| verificar horas | permiso específico futuro | aprobar nómina por supervisor |
+| consultar horas del alcance | supervisor con permiso de consulta (candidato `crew:time:read`), misma org/crew/Job | otra crew, Job u org; compensación |
+| corregir y enviar horas | supervisor con delegación vigente (candidato `crew:time:correct`) dentro del alcance; autor e instante registrados (spec §3.1, 2026-11-23) | fuera del alcance; delegación vencida/revocada; efecto sobre `TimeEntry` pendiente (K1) |
+| aprobación final de horas para pago | dueño de la empresa o del trabajo en su ámbito (K3/K4 pendientes); no ejecuta pago | supervisor por ser supervisor; cualquier pago automático |
 | revocar grant | delegante autorizado + versión + motivo | revocación repetida con nuevo efecto |
 | cambiar de org | recalcular contexto, no persistir rol activo global | reutilizar autoridad anterior |
 

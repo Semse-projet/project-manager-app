@@ -73,6 +73,7 @@ date: "2026-10-22"
 - [ ] Migración expand, checksum, backfill selectivo y rollback.
 - [ ] Reintento/idempotencia no crea grants superpuestos.
 - [ ] Revocación no borra historia de horas/evidencia.
+- [ ] OPEN-SUP-04 (horas, decisión 2026-11-23): propuesta, corrección enviada y aprobación final separadas; supervisor sin aprobación final; solo consulta sin escritura; alcance limitado. Pendientes K1–K6 (spec §3.1).
 
 ## Eventos
 - [ ] Estados y transiciones en `STATE_MACHINES.md`.

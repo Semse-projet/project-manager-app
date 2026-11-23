@@ -27,6 +27,7 @@ date: "2026-11-21"
 - [x] [T-009e] Decidir G45-R1 y G45-R2 — decidido el 2026-11-22: la revisión la inicia una persona autorizada (R-C317-25) y no tiene plazo automático (R-C317-26)
 - [ ] [T-009c] Recibir del owner de Plan 4 la evidencia de autoridad efectiva para reabrir (C3-09) e **iniciar y resolver** la revisión exigida (R-C317-25/26)
 - [ ] [T-009d] Recibir del owner de Labor el contrato de etapa nueva, concurrencia, idempotencia y auditoría
+- [ ] [T-009f] Decidir K1–K6 de OPEN-SUP-04 (horas), en especial K1: si la corrección enviada por el supervisor cambia `TimeEntry` y, en ese caso, enmendar la decisión del 17-11 y C3-04 — dueño del producto + Plan 4
 - [ ] [T-007] Reconciliar la SDD v0.7 perdida (`docs/plan3-conciliacion-v47`) si su autor la conserva (G31)
 - [ ] [T-008] Registrar en `STATE_MACHINES.md` y `EVENT_CATALOG.md` los estados y eventos propuestos, una vez aprobada la spec
 

@@ -119,3 +119,29 @@ El dueño aprobó seis reglas: inicio con la constancia de notificación al usua
 - Consecuencia registrada: un resultado desactualizado puede quedarse así mientras nadie lo revise; no hay recordatorios definidos.
 - `origin/main` avanzó a `dbf64b7…` (#1054). No toca Labor, TimeEntry, auditoría, autenticación ni esquema. Sí aprueba `core.crew-supervisor-delegations` (código `NOT_STARTED`), candidata a fuente de la delegación para G46, aunque no define acciones de conciliación y su OPEN-SUP-04 sigue abierto.
 - SDD v0.18 §10.17.13, pruebas T-V30 y T-V31 sin ejecutar. Validaciones: estricto 220/0/0; `--base-ref origin/main` (`dbf64b7…`) 0/0; índice 220; cobertura 0/0/0; 29/29.
+
+## Addendum 11 — OPEN-SUP-04 (horas): decisión del responsable del producto (2026-11-23)
+
+- **Inspeccionado antes de editar:**
+  - `core.crew-supervisor-delegations` (APPROVED v0.2, código `NOT_STARTED`), con su plan, tareas y checklist;
+  - la propuesta no ratificada `2026-10-22_p02-p06-supervisor-decision-proposals.md`;
+  - `core.labor-policy` (BO-08) y `packages/auth/src/rbac.ts` (blob `d344c29b…`);
+  - la decisión de Plan 3 del 17-11 y C3-04.
+- **Registrado:** spec de delegaciones v0.3 §3.1. Incluye las cinco reglas, la matriz por actor y los tres estados (propuesta, corrección enviada, aprobación final para pago).
+  - Los permisos candidatos `crew:time:read` y `crew:time:correct` se marcan como **no existentes**.
+  - Se añaden seis pruebas previstas, sin ejecutar.
+- **Estado de OPEN-SUP-04:** **parcialmente resuelto.** La parte «horas» está decidida como producto. «Materiales» y «reasignación fuera de crew» siguen abiertos. Nada está implementado y `code_status` sigue en `NOT_STARTED`.
+- **Conflictos documentados sin resolver**, cada uno con la decisión concreta que falta:
+  - **K1:** la corrección enviada por el supervisor frente a la regla del 17-11 y C3-04 («el supervisor verifica y recomienda; el responsable decide»).
+  - **K2:** quién revisa la propuesta del trabajador.
+  - **K3:** `org:labor:manage` lo tiene cualquier CLIENT u OPS_ADMIN, no sólo «el dueño»; no hay fuente canónica de dueño; falta el papel de OPS_ADMIN.
+  - **K4:** el ámbito de «dueño de la empresa» frente a «dueño del trabajo» y su relación con C3-17.
+  - **K5:** el supervisor que corrige sus propias horas.
+  - **K6:** la aprobación para pago y Payment Governance (A-06); no existe un estado «aprobado».
+- **Documentos actualizados:**
+  - delegaciones: plan, tareas (DOC-07 `[~]`) y checklist;
+  - nota de referencia cruzada en `core.labor-policy`, sin cambiar sus reglas;
+  - SDD de conciliación v0.19 §10.17.14, con su plan de tareas (T-009f), checklist y análisis.
+- **Mientras K1 no se decida**, las reglas vigentes de Plan 3 siguen siendo la referencia para la conciliación. G46 sigue abierto.
+- **`origin/main`** avanzó a `dcf1e12…` (#1154): sólo toca `AgentRun`, sin efecto en estas rutas.
+- **Validaciones:** estricto 220/0/0; `--base-ref origin/main` 0/0; índice 220; cobertura 0/0/0.
