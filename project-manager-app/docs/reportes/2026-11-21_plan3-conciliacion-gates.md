@@ -188,3 +188,23 @@ El dueño aprobó seis reglas: inicio con la constancia de notificación al usua
 - **Sustituidas sin borrarse:** la propuesta provisional de dos niveles (D7-10) y la agrupación «Más».
 - **Preguntas abiertas de Plan 7:** Q7-01…Q7-07.
 - **Sin cambios técnicos:** sólo cambia este reporte. Sin código, permisos, datos, configuración, producción, despliegue, PR ni pagos.
+
+## Addendum 14 — Navegación Plan 7: ocho accesos, Time Entry y Cierre de jornada (2026-11-22 America/Chicago · 2026-11-23 UTC)
+
+- **Revalidado antes de editar:**
+  - Repositorio: HEAD `6bd7afe` = remoto; `origin/main` `dcf1e12`, sin commits nuevos; `AGENTS.md` y `CLAUDE.md` sin cambios.
+  - Drive de Plan 3: v83, matriz r2 e informe ejecutivo r3, comprobados por SHA, sin cambios.
+  - Drive de Plan 7: **otra sesión trabajó en paralelo**. Añadió §75–§77 al Plan 7 fechado y una §74 distinta al maestro sin fecha, y creó los wireframes v7 y v8. No se sobrescribió nada; se versionó como archivos nuevos.
+- **Hechos observados (auditoría visual del propietario, no verificada por esta sesión):** los sitios «Cierre de jornada» y «Conciliación de horas» son locales, sin cuenta ni conexión, y no sincronizan ni aprueban horas o pagos. No son una integración con SEMSE.
+- **Decisiones registradas en Plan 7 §78 (N7-08…N7-14):**
+  - Carrusel de Time Tracker con ocho accesos: Timer, Resumen, Registros, Proyectos, Reportes, Asistente, Time Entry, Cierre de jornada.
+  - Time Entry tiene navegación interna de diez subsecciones; la conciliación semanal está en Time Entry › Conciliación.
+  - Cierre de jornada es la revisión diaria, distinta del cierre semanal.
+- **Plan 3:**
+  - v84 §46: sólo referencia cruzada.
+  - Matriz r3: nota en G38 y nuevo G49.
+  - Informe ejecutivo r4.
+  - Plan SDD: nota de ubicación de navegación.
+  - Ninguna regla de conciliación cambia. K3, K4 y K6 siguen abiertos.
+- **Wireframe v9:** capas corregidas. Revisado sólo por render local; no es una prueba del producto.
+- **Sin cambios técnicos:** sin código, permisos, datos, configuración, producción, despliegue, PR ni pagos.
