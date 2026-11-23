@@ -82,7 +82,10 @@ export async function resolveSafeUrl(
   rawUrl: string,
   options?: { lookup?: DnsLookupFn },
 ): Promise<SafeUrlResult> {
-  const lookupFn = options?.lookup ?? lookup;
+  const lookupFn: DnsLookupFn = options?.lookup ?? (async (hostname, options) => {
+    const resolved = await lookup(hostname, { all: true, verbatim: true });
+    return Array.isArray(resolved) ? resolved : [resolved];
+  });
   let url: URL;
   try {
     url = new URL(rawUrl);
