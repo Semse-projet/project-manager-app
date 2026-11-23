@@ -191,3 +191,211 @@ dbTest(
     assert.equal(detailFromOtherTenant, null);
   },
 );
+
+
+const isolatedOrgTest = (() => {
+  const raw = process.env.DATABASE_URL;
+  if (!raw) return test.skip;
+  let url: URL;
+  try { url = new URL(raw); } catch { return test.skip; }
+  if (!["postgresql:", "postgres:"].includes(url.protocol)
+      || !["localhost", "127.0.0.1", "[::1]"].includes(url.hostname)
+      || url.port !== "5433") return test.skip;
+  const database = decodeURIComponent(url.pathname.slice(1));
+  if (process.env.GITHUB_ACTIONS === "true")
+    return process.env.CI === "true" && url.hostname === "127.0.0.1"
+      && url.username === "semse" && database === "semse" ? test : test.skip;
+  return process.env.SEMSE_ALLOW_DISPOSABLE_AGENT_CLAIM_DB === "1"
+      && /^semse_(test|e2e)(?:_|$)/.test(database) ? test : test.skip;
+})();
+
+isolatedOrgTest(
+  "#1156: outbox owner filters list, counts, delivery detail and replay inside one tenant",
+  async (t) => {
+    const tenantId = await createTenant();
+    t.after(async () => cleanupTenant(tenantId));
+    const repository = new OutboxRepository(prisma as never);
+    const owned = await createOutboxEvent({ tenantId, status: "DEAD_LETTER" });
+    const foreign = await createOutboxEvent({ tenantId, status: "DEAD_LETTER" });
+
+    const ours = await repository.list({ tenantId, orgId: owned.orgId, limit: 50 });
+    assert.deepEqual(ours.items.map(row => row.eventId), [owned.eventId]);
+    const counts = await repository.countsByStatus(tenantId, owned.orgId);
+    assert.equal(counts.DEAD_LETTER, 1);
+
+    const denied = await repository.findDeliveryDetail({
+      tenantId, orgId: foreign.orgId, eventId: owned.eventId,
+    });
+    assert.equal(denied, null, "foreign org receives no delivery metadata");
+    assert.deepEqual(
+      await repository.replay({ tenantId, orgId: foreign.orgId, eventId: owned.eventId }),
+      { outcome: "not_found" },
+    );
+    const unchanged = await prisma.domainOutboxEvent.findUniqueOrThrow({ where: { eventId: owned.eventId } });
+    assert.equal(unchanged.status, "DEAD_LETTER", "foreign org cannot mutate an event");
+
+    const visible = await repository.findDeliveryDetail({
+      tenantId, orgId: owned.orgId, eventId: owned.eventId,
+    });
+    assert.equal(visible?.eventId, owned.eventId);
+    assert.deepEqual(
+      await repository.replay({ tenantId, orgId: owned.orgId, eventId: owned.eventId }),
+      { outcome: "replayed", replayCount: 1, status: "PENDING" },
+    );
+  },
+);
+
+isolatedOrgTest(
+  "#1156: system-org project deliveries are visible and replayable only for the owning orgs",
+  async (t) => {
+    const tenantId = await createTenant();
+    const orgA = uniqueId("org_a");
+    const orgB = uniqueId("org_b");
+    const jobA = uniqueId("job_a");
+    const jobB = uniqueId("job_b");
+    const projectA = uniqueId("project_a");
+    const projectB = uniqueId("project_b");
+    t.after(async () => {
+      await prisma.domainEventConsumption.deleteMany({ where: { tenantId } });
+      await prisma.domainOutboxEvent.deleteMany({ where: { tenantId } });
+      await prisma.project.deleteMany({ where: { tenantId } });
+      await prisma.job.deleteMany({ where: { tenantId } });
+      await prisma.org.deleteMany({ where: { tenantId } });
+      await prisma.tenant.deleteMany({ where: { id: tenantId } });
+    });
+
+    await prisma.org.createMany({
+      data: [
+        { id: orgA, tenantId, type: "CLIENT", name: orgA },
+        { id: orgB, tenantId, type: "PROFESSIONAL", name: orgB },
+      ],
+    });
+    await prisma.job.create({
+      data: { id: jobA, tenantId, clientOrgId: orgA, title: "A", scope: "A" },
+    });
+    await prisma.job.create({
+      data: { id: jobB, tenantId, clientOrgId: orgB, title: "B", scope: "B" },
+    });
+    await prisma.project.create({
+      data: { id: projectA, tenantId, jobId: jobA, assignedProOrgId: orgA },
+    });
+    await prisma.project.create({
+      data: { id: projectB, tenantId, jobId: jobB, assignedProOrgId: orgB },
+    });
+
+    const systemOwned = await prisma.domainOutboxEvent.create({
+      data: {
+        eventType: "project.lifecycle-source-changed.v1",
+        version: 1,
+        envelopeVersion: 2,
+        tenantId,
+        orgId: "system",
+        module: "projects",
+        entityType: "Project",
+        entityId: projectA,
+        actorType: "system",
+        actorId: "finance-service",
+        correlationId: uniqueId("corr_sys_a"),
+        idempotencyKey: uniqueId("idem_sys_a"),
+        schemaRef: "project.lifecycle-source-changed.v1",
+        payloadJson: { projectId: projectA },
+        occurredAt: new Date(),
+        status: "DEAD_LETTER",
+        attempts: 5,
+        maxAttempts: 5,
+        lastError: "projection failed",
+      },
+    });
+    const systemForeign = await prisma.domainOutboxEvent.create({
+      data: {
+        eventType: "project.lifecycle-source-changed.v1",
+        version: 1,
+        envelopeVersion: 2,
+        tenantId,
+        orgId: "system",
+        module: "projects",
+        entityType: "Project",
+        entityId: projectB,
+        actorType: "system",
+        actorId: "finance-service",
+        correlationId: uniqueId("corr_sys_b"),
+        idempotencyKey: uniqueId("idem_sys_b"),
+        schemaRef: "project.lifecycle-source-changed.v1",
+        payloadJson: { projectId: projectB },
+        occurredAt: new Date(),
+        status: "DEAD_LETTER",
+        attempts: 5,
+        maxAttempts: 5,
+        lastError: "projection failed",
+      },
+    });
+    const systemUntied = await prisma.domainOutboxEvent.create({
+      data: {
+        eventType: "ops.internal.v1",
+        version: 1,
+        envelopeVersion: 2,
+        tenantId,
+        orgId: "system",
+        module: "ops",
+        entityType: "OpsJob",
+        entityId: uniqueId("ops"),
+        actorType: "system",
+        actorId: "ops",
+        correlationId: uniqueId("corr_untied"),
+        idempotencyKey: uniqueId("idem_untied"),
+        schemaRef: "ops.internal.v1",
+        payloadJson: {},
+        occurredAt: new Date(),
+        status: "DEAD_LETTER",
+        attempts: 5,
+        maxAttempts: 5,
+        lastError: "internal",
+      },
+    });
+    const otherOrg = await createOutboxEvent({ tenantId, status: "DEAD_LETTER" });
+
+    const repository = new OutboxRepository(prisma as never);
+    const listed = await repository.list({ tenantId, orgId: orgA, limit: 50 });
+    assert.deepEqual(listed.items.map((row) => row.eventId), [systemOwned.eventId]);
+
+    const counts = await repository.countsByStatus(tenantId, orgA);
+    assert.equal(counts.DEAD_LETTER, 1);
+
+    assert.equal(
+      (await repository.findDeliveryDetail({ tenantId, orgId: orgA, eventId: systemOwned.eventId }))?.eventId,
+      systemOwned.eventId,
+    );
+    assert.equal(
+      await repository.findDeliveryDetail({ tenantId, orgId: orgA, eventId: systemForeign.eventId }),
+      null,
+      "system delivery for another org's project stays hidden",
+    );
+    assert.equal(
+      await repository.findDeliveryDetail({ tenantId, orgId: orgA, eventId: systemUntied.eventId }),
+      null,
+      "system delivery without a project tie stays hidden",
+    );
+    assert.equal(
+      await repository.findDeliveryDetail({ tenantId, orgId: orgA, eventId: otherOrg.eventId }),
+      null,
+      "another org's own deliveries stay hidden",
+    );
+
+    assert.deepEqual(
+      await repository.replay({ tenantId, orgId: orgA, eventId: systemForeign.eventId }),
+      { outcome: "not_found" },
+    );
+    assert.deepEqual(
+      await repository.replay({ tenantId, orgId: orgA, eventId: systemOwned.eventId }),
+      { outcome: "replayed", replayCount: 1, status: "PENDING" },
+    );
+    const replayed = await prisma.domainOutboxEvent.findUniqueOrThrow({
+      where: { eventId: systemOwned.eventId },
+    });
+    assert.equal(replayed.status, "PENDING");
+    const foreignUnchanged = await prisma.domainOutboxEvent.findUniqueOrThrow({
+      where: { eventId: systemForeign.eventId },
+    });
+    assert.equal(foreignUnchanged.status, "DEAD_LETTER");
+  },
+);
