@@ -33,3 +33,7 @@
 **Actualización 22-11:** se añaden A-08 (G45, propuesta pendiente), A-09 (autoridad para reabrir) y A-10 (contrato de etapa). Sigue **con gaps**.
 
 **Actualización 22-11 (2):** A-08 está resuelto por decisión de producto (R-C317-24). Quedan las preguntas residuales G45-R1 (cómo se abre la revisión exigida) y G45-R2 (si su cotejo tiene un plazo C3-17), y los gates técnicos A-09/A-10. Sigue **con gaps**.
+
+**Actualización 2026-11-22 (3):** G45-R1 y G45-R2 están resueltas por decisión de producto (R-C317-25, R-C317-26); G45 queda completo como decisión de producto. A-09 (Plan 4) se amplía: la autoridad debe cubrir también **iniciar** la revisión exigida. Siguen abiertos A-02…A-07, A-09 y A-10. Sigue **con gaps**.
+
+**Revalidación 2026-11-23:** `origin/main` = `dbf64b7…` (#1054). No hay cambios en las rutas de Labor, TimeEntry, auditoría, autenticación ni esquema. `core.crew-supervisor-delegations` pasó a `APPROVED` (código `NOT_STARTED`); es la candidata a fuente de la delegación de supervisor para A-09/G46, pero no define acciones de conciliación y su OPEN-SUP-04 (nivel de acción, incluidas «horas») sigue abierto.

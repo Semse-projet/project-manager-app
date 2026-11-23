@@ -12,10 +12,10 @@ date: "2026-11-21"
 
 ## Requisitos
 
-- [~] Cada escenario P1 es verificable. Los casos de aceptación tienen prueba prevista (T-*), sin ejecutar. A-01 resuelto (R-C317-21). El cambio de `TimeEntry` después del ajuste está decidido (G45 opción (b), R-C317-24); quedan G45-R1 y G45-R2.
+- [~] Cada escenario P1 es verificable. Los casos de aceptación tienen prueba prevista (T-*), sin ejecutar. A-01 resuelto (R-C317-21). El cambio de `TimeEntry` después del ajuste está decidido por completo (G45 opción (b), R-C317-24; G45-R1/R2, R-C317-25/26).
 - [x] El alcance y lo que queda fuera evitan ambigüedad: dentro del Time Tracker; sin app paralela; sin nómina, escrow ni pagos; OCR fuera del primer slice.
 - [~] Los contratos API/UI/agente no se contradicen. Contrato lógico completo; sin endpoints elegidos. El intérprete de notas (§9.11) no tiene autoridad.
-- [x] Decisiones de producto de C3-17 completas (C3-17, P-C317-01…09, 01b y 01c; R-C317-01…24), salvo las residuales G45-R1 y G45-R2.
+- [x] Decisiones de producto de C3-17 completas (C3-17, P-C317-01…09, 01b y 01c, G45 y G45-R1/R2; R-C317-01…26).
 
 ## Seguridad
 

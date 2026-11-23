@@ -110,3 +110,12 @@ El dueño aprobó seis reglas: inicio con la constancia de notificación al usua
 - **Decisión de producto (R-C317-24):** si `TimeEntry` cambia después del ajuste por vencimiento, el resultado se marca como desactualizado y se exige una revisión nueva. La base aplicada se conserva hasta que una persona autorizada la resuelva, sin cambios automáticos en la base ni en `TimeEntry`. Es coherente con Plan 3 §9.4 y sustituye a la propuesta (a).
 - Residuales: G45-R1 (cómo se abre la revisión exigida) y G45-R2 (si su cotejo tiene un plazo C3-17).
 - Gates técnicos de estados, permisos, auditoría y concurrencia: pendientes. SDD v0.17 §10.17.12, pruebas T-V26…T-V29 sin ejecutar. Validaciones: estricto 220/0/0; `--base-ref` 0/0; índice 220; cobertura 0/0/0; 29/29.
+
+## Addendum 10 — G45-R1 y G45-R2 aprobadas; revalidación de `main` (2026-11-22/23)
+
+- **Decisiones de producto:**
+  - R-C317-25 (G45-R1): la revisión exigida la inicia una persona autorizada; SEMSE no crea la etapa de forma automática.
+  - R-C317-26 (G45-R2): esa revisión no tiene plazo automático ni ajuste por vencimiento.
+- Consecuencia registrada: un resultado desactualizado puede quedarse así mientras nadie lo revise; no hay recordatorios definidos.
+- `origin/main` avanzó a `dbf64b7…` (#1054). No toca Labor, TimeEntry, auditoría, autenticación ni esquema. Sí aprueba `core.crew-supervisor-delegations` (código `NOT_STARTED`), candidata a fuente de la delegación para G46, aunque no define acciones de conciliación y su OPEN-SUP-04 sigue abierto.
+- SDD v0.18 §10.17.13, pruebas T-V30 y T-V31 sin ejecutar. Validaciones: estricto 220/0/0; `--base-ref origin/main` (`dbf64b7…`) 0/0; índice 220; cobertura 0/0/0; 29/29.

@@ -3,7 +3,7 @@ id: "labor.weekly-reconciliation"
 title: "Conciliación semanal del Time Tracker"
 domain: "labor"
 sdd_version: "2.0"
-version: "0.17"
+version: "0.18"
 status: "DRAFT"
 owner: "semse-core"
 risk: "critical"
@@ -48,7 +48,7 @@ related_agents: []
 last_verified: "2026-11-22"
 ---
 
-# Conciliación semanal · borrador para revisión (v0.17 DRAFT)
+# Conciliación semanal · borrador para revisión (v0.18 DRAFT)
 
 > **DRAFT / NO IMPLEMENTAR.** Esta SDD no autoriza código, migraciones, grants, membresías, flags, pruebas funcionales, CI, despliegue ni activación. B4-11/B4-12 siguen abiertos. Plan 3 sigue abierto.
 
@@ -67,7 +67,8 @@ last_verified: "2026-11-22"
 | v0.14 | misma ruta, commit `8ec7b51c…` | Añadió los documentos SDD hermanos (plan, tareas, checklist y análisis, todos DRAFT) y registra los gaps A-01…A-06 del análisis. Espejo Drive SHA-256 `0bed9788…939b`. |
 | v0.15 | misma ruta, commit `217e2fad…` | Registró A-01 y A-05 como decisiones de producto y A-06 y A-02 como confirmaciones pendientes de owners (§10.17.10, R-C317-21…23). Espejo Drive SHA-256 `a0b72672…3850`. |
 | v0.16 | misma ruta, commit `df925eee…` | Registró G45 **sólo como propuesta pendiente de aprobación** (§10.17.11), su cotejo con Plan 3 §9.4, C3-09 y las reglas de C3-17, y las solicitudes a los owners de Plan 4 y Labor. Espejo Drive SHA-256 `d4fd7820…81ae7`. |
-| **v0.17** | misma ruta y rama, base `main@86c0be5468a7c96c0a9dd4bc8df34e386e7c8c7f` | Esta revisión: registra la **decisión de producto G45, opción (b)** (§10.17.12, R-C317-24). Sigue `DRAFT` y **no** está en `main`. |
+| v0.17 | misma ruta, commit `81bc53f6…` | Registró la **decisión de producto G45, opción (b)** (§10.17.12, R-C317-24). Espejo Drive SHA-256 `fb868f0f…83ca`. |
+| **v0.18** | misma ruta y rama, base `main@86c0be5468a7c96c0a9dd4bc8df34e386e7c8c7f` | Esta revisión: registra las decisiones de producto **G45-R1 y G45-R2** (§10.17.13, R-C317-25 y R-C317-26). Sigue `DRAFT` y **no** está en `main`. |
 
 Según `docs/SOURCE_OF_TRUTH.md`, la SDD canónica es la del repositorio (`docs/specs/` + `docs/SPEC_INDEX.md`). Library y Drive son espejos; si contradicen al repositorio prevalece el repositorio. Library **no fue accesible** desde esta sesión: las versiones Library citadas (Plan 3 v70, Plan 9 v27, Plan 4 v38, Plan 6 v24, SDD v22) son referencias heredadas no revalidadas aquí.
 
@@ -832,7 +833,7 @@ Texto completo de ambas solicitudes: `SEMSE_Plan3_Solicitudes_Confirmacion_Owner
 | A-05 | Criterio de producto | **Aprobado** (R-C317-22); compatibilidad con Art. III y custodia **pendiente** | Dueño · owner de Plan 6 |
 | A-02 | Decisión de arquitectura | **Pendiente** | Owner de arquitectura |
 | A-06 | Determinación de Payment Governance | **Pendiente**; no se declara exento | Owner de Payments |
-| G45 | Decisión de producto | **[v0.17] Aprobada: opción (b), R-C317-24 (§10.17.12)**; quedan G45-R1 y G45-R2 | Dueño del producto |
+| G45 | Decisión de producto | **Aprobada: opción (b), R-C317-24 (§10.17.12); G45-R1 y G45-R2 aprobadas: R-C317-25 y R-C317-26 (§10.17.13)** | Dueño del producto |
 | Autoridad para reabrir | Evidencia técnica | **Solicitada** | Owner de Plan 4 |
 | Contrato de etapa nueva | Contrato técnico | **Solicitado** | Owner de Labor |
 
@@ -860,12 +861,12 @@ Texto completo de ambas solicitudes: `SEMSE_Plan3_Solicitudes_Confirmacion_Owner
 4. Resolución por una persona autorizada: la base pasa al resultado de esa revisión. Hasta entonces se mantiene la anterior.
 5. El ajuste previo, la marca de desactualizado y la revisión quedan en el historial. `TimeEntry` nunca se modifica desde la conciliación.
 
-#### Preguntas residuales que la decisión no fija (requieren decisión)
+#### Preguntas residuales que la decisión no fija (requerían decisión; **[v0.18] resueltas en §10.17.13**)
 
 | ID | Pregunta | Owner |
 |---|---|---|
-| G45-R1 | Cómo se abre la revisión exigida: SEMSE crea automáticamente una etapa nueva al marcar el resultado como desactualizado, o queda pendiente hasta que una persona autorizada la inicie | Dueño del producto (+ Plan 4 si la inicia una persona) |
-| G45-R2 | Si el cotejo nuevo de esa revisión queda sujeto a un nuevo plazo de 24 h y a ajuste por vencimiento (reglas 1–5), o sólo puede resolverlo una persona autorizada. La lectura literal de la decisión («se conserva hasta que una persona autorizada resuelva») apunta a lo segundo, pero no se presume | Dueño del producto |
+| G45-R1 | Cómo se abre la revisión exigida: SEMSE crea automáticamente una etapa nueva al marcar el resultado como desactualizado, o queda pendiente hasta que una persona autorizada la inicie | Dueño del producto (+ Plan 4 si la inicia una persona) **[v0.18] Decidido: la inicia una persona autorizada (R-C317-25)** |
+| G45-R2 | Si el cotejo nuevo de esa revisión queda sujeto a un nuevo plazo de 24 h y a ajuste por vencimiento (reglas 1–5), o sólo puede resolverlo una persona autorizada. La lectura literal de la decisión («se conserva hasta que una persona autorizada resuelva») apunta a lo segundo, pero no se presume | Dueño del producto **[v0.18] Decidido: sin plazo automático (R-C317-26)** |
 
 #### Gates técnicos que siguen pendientes
 
@@ -882,6 +883,39 @@ Texto completo de ambas solicitudes: `SEMSE_Plan3_Solicitudes_Confirmacion_Owner
 | G45 (b) | R-C317-24 | base conservada hasta la resolución autorizada | antes de la resolución, la base es la del ajuste; tras una resolución autorizada, la base es la de la revisión | T-V27 | Aprobada; NO EJECUTADA (bloqueada por G46) |
 | G45 (b) | R-C317-24 | sin efecto automático sobre `TimeEntry` | `TimeEntry` intacto; ajuste, marca e historial conservados | T-V28 | Aprobada; NO EJECUTADA |
 | G45 (b) | R-C317-24 | marca idempotente y sin carrera | dos cambios seguidos o un reintento producen una sola marca vigente; una resolución en curso no se pierde | T-V29 | Aprobada; NO EJECUTADA (bloqueada por G10/G12/G47) |
+
+### 10.17.13 G45-R1 y G45-R2 — decisiones de producto aprobadas (2026-11-22, v0.18)
+
+**Fuente:** instrucción expresa del dueño del producto en la sesión de trabajo del 2026-11-22: «G45-R1: la revisión la inicia una persona autorizada; G45-R2: sin plazo automático. Apruebo ambas respuestas para G45-R1 y G45-R2 como decisiones de producto». Son **decisiones de producto aprobadas**. No conceden permisos ni autorizan código, y no cambian el estado `DRAFT`.
+
+| ID | Tema | Decisión | Requisito |
+|---|---|---|---|
+| G45-R1 | Cómo se abre la revisión exigida | La revisión exigida tras marcar el resultado como desactualizado **la inicia una persona autorizada**; SEMSE no crea la etapa de forma automática | R-C317-25 |
+| G45-R2 | Plazo del cotejo de esa revisión | El cotejo de esa revisión **no tiene plazo automático**: no corre un plazo de 24 h ni hay ajuste por vencimiento; sólo lo resuelve una persona autorizada | R-C317-26 |
+
+- **R-C317-25 (G45-R1).** Marcar el resultado como desactualizado (R-C317-24) **no** crea una etapa. La etapa de revisión nueva la crea una persona autorizada con la acción existente «Reabrir»/«Iniciar revisión» de Plan 3 §4.3/§9.4, con motivo y referencia al resultado desactualizado. Es coherente con R-C317-18.
+- **R-C317-26 (G45-R2).** En la etapa iniciada por R-C317-25 **no** se aplican las reglas 1 a 5 de plazo y vencimiento (R-C317-13…17): no hay constancia que inicie un plazo ni ajuste automático. La base aplicada se mantiene hasta que una persona autorizada registre la resolución (R-C317-24). Esto **no** cambia el tratamiento de los cotejos ordinarios de C3-17, que siguen con plazo.
+
+**Consecuencia registrada (no es una regla nueva):** como la revisión no se abre sola ni tiene plazo, un resultado desactualizado puede quedarse así, con la base aplicada, mientras nadie autorizado inicie y resuelva la revisión. La SDD no define recordatorios ni alertas para ese caso; si el dueño los quiere, deben decidirse aparte.
+
+**Cierre de §10.17.12:** con estas dos decisiones, G45 queda completo como decisión de producto. Los gates técnicos de estados, permisos, auditoría y concurrencia siguen pendientes.
+
+**Ampliación de la solicitud a Plan 4 (G46):** la autoridad que se pide debe cubrir también **iniciar** la revisión exigida (R-C317-25) y resolverla sin plazo (R-C317-26), no sólo «reabrir». Falta saber si es la misma capability que `case.reopen` o una distinta.
+
+#### Revalidación de `main` antes del commit (2026-11-23)
+
+`origin/main` avanzó de `86c0be5468a7c96c0a9dd4bc8df34e386e7c8c7f` a `dbf64b7d959135a536bfa7c5a0dd4e266cef3ea7` (un commit, #1054, «fix(security): revalidate active worker scope for crew operations»). Toca `organizations/crews.*`, `task-allocations.service.ts`, sus tests y cuatro specs `core`. **No** toca Labor Engine, TimeEntry, Field Ops, auditoría, autenticación, `schema.prisma`, `rbac.ts` ni el catálogo de eventos, así que los hallazgos de §10.10–§10.17.6 siguen valiendo. Esta rama sigue basada en `86c0be5…` y no se hizo merge de `main`.
+
+**Relevante para G46:** en ese commit, `core.crew-supervisor-delegations` (blob `2a756eb4…`) pasó a `APPROVED` como contrato de dirección (aprobación del propietario del 2026-11-20). Su `code_status` es `NOT_STARTED`. Define delegaciones de supervisor **explícitas, vigentes y auditables**, acotadas por tenant + org + crew (+ worksite/Job) + persona + **acción**, con permisos `crew:*` específicos para el delegado y `org:supervisors:delegate` para el delegante verificado. Con esa spec, `Crew.supervisorUserId` deja de conceder autoridad por sí solo. Siguen abiertos OPEN-SUP-02…06, entre ellos **OPEN-SUP-04, nivel de acción, que incluye «horas»**, y la fuente verificable de propietario o representante.
+
+**Consecuencia para esta SDD:** esa spec es la **candidata** a fuente de la delegación de supervisor que exigen C3-09, R-C317-18 y R-C317-25. Pero **no** define acciones de conciliación (iniciar, reabrir o resolver una revisión) ni está implementada. G46 sigue abierto; la solicitud a Plan 4 se amplía para que confirme si estas acciones se añaden como acciones delegables de esa spec y cómo se resuelve OPEN-SUP-04.
+
+#### Trazabilidad
+
+| Decisión | Requisito | Contrato | Aceptación observable | Prueba prevista | Estado |
+|---|---|---|---|---|---|
+| G45-R1 | R-C317-25 | marcar desactualizado no crea etapa; la crea una persona autorizada | tras la marca no hay etapa nueva; un actor autorizado la crea con motivo; un actor sin autoridad no puede | T-V30 | Aprobada; NO EJECUTADA (bloqueada por G46) |
+| G45-R2 | R-C317-26 | sin plazo ni vencimiento en esa etapa | no hay constancia de plazo ni ajuste automático; la base cambia sólo con la resolución autorizada | T-V31 | Aprobada; NO EJECUTADA |
 
 ## 10.18 Matriz de pruebas previstas (ninguna ejecutada)
 
@@ -942,6 +976,8 @@ Texto completo de ambas solicitudes: `SEMSE_Plan3_Solicitudes_Confirmacion_Owner
 | T-V27 | G45 (b): base conservada hasta la resolución autorizada | integración autenticada | la base cambia sólo con la resolución de una persona autorizada | NO EJECUTADA |
 | T-V28 | G45 (b): sin efecto sobre `TimeEntry` | integración | `TimeEntry` intacto; historial completo | NO EJECUTADA |
 | T-V29 | G45 (b): marca idempotente y concurrencia | carrera controlada | una sola marca; no se pierde una resolución en curso | NO EJECUTADA |
+| T-V30 | G45-R1: la revisión exigida la inicia una persona autorizada | integración autenticada | la marca no crea etapa; actor autorizado → etapa nueva; actor sin autoridad → denegado | NO EJECUTADA |
+| T-V31 | G45-R2: sin plazo automático en la revisión exigida | integración con reloj controlado | pasadas 24 h no hay ajuste; la base cambia sólo con la resolución autorizada | NO EJECUTADA |
 | T-V01 | Validadores documentales | documental | 0 errores/avisos | **EJECUTADA** (ver reporte del corte) |
 
 ## 10.19 Trazabilidad decisión → requisito → contrato → aceptación → prueba → resultado
@@ -973,6 +1009,6 @@ Texto completo de ambas solicitudes: `SEMSE_Plan3_Solicitudes_Confirmacion_Owner
   - **A-05**: confirmar el Art. III frente a Evidence como referencia — **[v0.15] criterio de producto aprobado (R-C317-22); confirmación del owner de Plan 6 pendiente**.
   - **A-06**: confirmar Payment Governance — **[v0.15] pendiente del owner de Payments; no se declara exento**.
 
-## Estado de salida de v0.17
+## Estado de salida de v0.18
 
 `DRAFT`. C3-17 queda aprobada como decisión de producto; eso no cambia el estado de la SDD ni cierra gates técnicos. No hay implementación, migración, prueba funcional ni CI de esta revisión. Validadores documentales ejecutados localmente (ver `docs/reportes/2026-11-21_plan3-conciliacion-gates.md`). B4-11/B4-12 abiertos. **PLAN 3 AÚN ABIERTO.**
