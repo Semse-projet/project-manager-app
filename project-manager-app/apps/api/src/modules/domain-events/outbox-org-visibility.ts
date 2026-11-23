@@ -6,17 +6,12 @@
  * they reference a Project tied to the caller (client org or assigned pro).
  */
 
+import type { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
+
 export const SYSTEM_OUTBOX_ORG_ID = "system";
 export const PROJECT_OUTBOX_ENTITY_TYPE = "Project";
 
-export type ProjectLookupClient = {
-  project: {
-    findMany: (args: {
-      where: unknown;
-      select: { id: true };
-    }) => Promise<Array<{ id: string }>>;
-  };
-};
+export type ProjectLookupClient = Pick<PrismaService, "project">;
 
 export type OutboxOrgScopeWhere = {
   OR: Array<{
