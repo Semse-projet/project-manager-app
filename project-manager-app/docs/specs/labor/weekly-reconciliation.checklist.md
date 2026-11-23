@@ -19,7 +19,7 @@ date: "2026-11-21"
 
 ## Seguridad
 
-- [ ] Los permisos se validan en backend. Las capabilities de captura, decisión y reapertura no existen (Plan 4). OPEN-SUP-04 (horas) decidido como producto (2026-11-23); conflictos K1–K6 pendientes; nada implementado.
+- [ ] Los permisos se validan en backend. Las capabilities de captura, decisión y reapertura no existen (Plan 4). OPEN-SUP-04 (horas) decidido como producto (2026-11-23); K1, K2 y K5 decididos, K3, K4 y K6 pendientes; nada implementado.
 - [ ] Tenant, organización, propiedad y alcance de recurso probados (T-R04/R05 sin ejecutar).
 - [ ] Hay paso de aprobación para acciones críticas (decisión y reapertura con autoridad verificada). Evidencia de autoridad para reabrir solicitada a Plan 4: hoy no existe `case.reopen`.
 - [~] Sin secretos ni PII en logs/evidencia. Minimización definida en la spec §10.13; sin implementar.

@@ -145,3 +145,29 @@ El dueño aprobó seis reglas: inicio con la constancia de notificación al usua
 - **Mientras K1 no se decida**, las reglas vigentes de Plan 3 siguen siendo la referencia para la conciliación. G46 sigue abierto.
 - **`origin/main`** avanzó a `dcf1e12…` (#1154): sólo toca `AgentRun`, sin efecto en estas rutas.
 - **Validaciones:** estricto 220/0/0; `--base-ref origin/main` 0/0; índice 220; cobertura 0/0/0.
+
+## Addendum 12 — Respuestas del propietario a K1–K6; aclaración de fechas y de Drive (2026-11-23 UTC)
+
+- **Decididos** (dirección del propietario):
+  - **K1:** la corrección enviada por el supervisor no cambia `TimeEntry` y queda pendiente de decisión. Se mantienen la decisión del 17-11 y C3-04, sin enmienda.
+  - **K2:** ante una propuesta, el supervisor revisa y recomienda; el responsable decide.
+  - **K5:** nadie revisa ni decide lo suyo; el supervisor sobre sus propias horas sólo propone como trabajador.
+- **Abiertos:**
+  - **K3:** `org:labor:manage` no equivale a dueño.
+  - **K4:** no hay regla de aprobación única ni doble; C3-17 no la resuelve.
+  - **K6:** no hay estado «aprobado para pago»; A-06 pendiente.
+- **Siguen abiertos:** materiales, reasignación fuera de crew, G46, G47, A-02…A-06 y los gates técnicos.
+- **Registrado como pendiente de aprobación:** EF-SUP-01, la incorporación formal de §3.1 a la spec `APPROVED` de delegaciones (añadida después de la aprobación del 2026-11-20).
+- **Documentos:**
+  - delegaciones v0.4: §3.1, pruebas previstas, §12, plan, tareas (DOC-07b) y checklist;
+  - nota en `core.labor-policy`;
+  - SDD v0.20 §10.17.14, con sus tareas (T-009f `[~]`), checklist y análisis.
+- **Fechas:** todas las fechas de este reporte y de las specs son fechas **UTC del entorno**.
+  - Reloj del contenedor: `2026-11-23T02:09Z`, zona `Etc/UTC`.
+  - Commits `dd0f5f4`/`44142dd`: `2026-11-23T01:46:51Z`.
+  - Archivos de Drive del Addendum 11: `createdTime` entre `2026-11-23T01:48:19Z` y `01:48:24Z`.
+  - En husos al oeste de UTC (p. ej. UTC−5) ese instante corresponde a la tarde del **2026-11-22**. Por eso la fecha de revisión del propietario (2026-11-22) y la de los archivos (2026-11-23) difieren sin contradecirse. No se renombraron archivos.
+- **Drive, evidencia real del Addendum 11:**
+  - Existencia: los cinco archivos están en la carpeta `1y8A3OiXv9EHGxrJkhQ1pu1Jbnc3BFE_3`, uno por título, sin duplicados; se comprobó con una nueva consulta del 2026-11-23.
+  - **Sólo el registro** OPEN-SUP-04 se descargó y cotejó por SHA-256 (`2d25d6d8…`).
+  - Los otros cuatro (matriz, delegaciones v0.3, SDD v0.19 y Plan 3 v81) se comprobaron **sólo por tamaño** en bytes.

@@ -3,7 +3,7 @@ id: "labor.weekly-reconciliation"
 title: "Conciliación semanal del Time Tracker"
 domain: "labor"
 sdd_version: "2.0"
-version: "0.19"
+version: "0.20"
 status: "DRAFT"
 owner: "semse-core"
 risk: "critical"
@@ -48,7 +48,7 @@ related_agents: []
 last_verified: "2026-11-23"
 ---
 
-# Conciliación semanal · borrador para revisión (v0.19 DRAFT)
+# Conciliación semanal · borrador para revisión (v0.20 DRAFT)
 
 > **DRAFT / NO IMPLEMENTAR.** Esta SDD no autoriza código, migraciones, grants, membresías, flags, pruebas funcionales, CI, despliegue ni activación. B4-11/B4-12 siguen abiertos. Plan 3 sigue abierto.
 
@@ -69,7 +69,8 @@ last_verified: "2026-11-23"
 | v0.16 | misma ruta, commit `df925eee…` | Registró G45 **sólo como propuesta pendiente de aprobación** (§10.17.11), su cotejo con Plan 3 §9.4, C3-09 y las reglas de C3-17, y las solicitudes a los owners de Plan 4 y Labor. Espejo Drive SHA-256 `d4fd7820…81ae7`. |
 | v0.17 | misma ruta, commit `81bc53f6…` | Registró la **decisión de producto G45, opción (b)** (§10.17.12, R-C317-24). Espejo Drive SHA-256 `fb868f0f…83ca`. |
 | v0.18 | misma ruta, commit `127e0cff…` | Registró las decisiones de producto **G45-R1 y G45-R2** (§10.17.13, R-C317-25 y R-C317-26). Espejo Drive SHA-256 `e30b9b54…2d2d`. |
-| **v0.19** | misma ruta y rama; merge de `main@dbf64b7d959135a536bfa7c5a0dd4e266cef3ea7` en la rama (commit `f7e1740…`) | Esta revisión: enlaza la decisión **OPEN-SUP-04 (horas)** de `core.crew-supervisor-delegations` §3.1 (2026-11-23) y registra sus conflictos con C3-04 y con la decisión del 17-11 (§10.17.14). Sigue `DRAFT` y **no** está en `main`. |
+| v0.19 | misma ruta y rama, commit `dd0f5f4…`; merge de `main@dbf64b7d959135a536bfa7c5a0dd4e266cef3ea7` en la rama (commit `f7e1740…`) | Esta revisión: enlaza la decisión **OPEN-SUP-04 (horas)** de `core.crew-supervisor-delegations` §3.1 (2026-11-23) y registra sus conflictos con C3-04 y con la decisión del 17-11 (§10.17.14). SHA-256 local del espejo `461bf1b3…562f`; la copia en Drive se comprobó **sólo por tamaño**, no por SHA. |
+| **v0.20** | misma ruta y rama, base `main@dcf1e12771669630078658531c99a27b832b3d19` | Esta revisión: registra las respuestas del propietario a K1–K6 (§10.17.14): **K1, K2 y K5 decididos** manteniendo la decisión del 17-11 y C3-04; **K3, K4 y K6 abiertos**. Sigue `DRAFT` y **no** está en `main`. |
 
 Según `docs/SOURCE_OF_TRUTH.md`, la SDD canónica es la del repositorio (`docs/specs/` + `docs/SPEC_INDEX.md`). Library y Drive son espejos; si contradicen al repositorio prevalece el repositorio. Library **no fue accesible** desde esta sesión: las versiones Library citadas (Plan 3 v70, Plan 9 v27, Plan 4 v38, Plan 6 v24, SDD v22) son referencias heredadas no revalidadas aquí.
 
@@ -918,7 +919,7 @@ Texto completo de ambas solicitudes: `SEMSE_Plan3_Solicitudes_Confirmacion_Owner
 | G45-R1 | R-C317-25 | marcar desactualizado no crea etapa; la crea una persona autorizada | tras la marca no hay etapa nueva; un actor autorizado la crea con motivo; un actor sin autoridad no puede | T-V30 | Aprobada; NO EJECUTADA (bloqueada por G46) |
 | G45-R2 | R-C317-26 | sin plazo ni vencimiento en esa etapa | no hay constancia de plazo ni ajuste automático; la base cambia sólo con la resolución autorizada | T-V31 | Aprobada; NO EJECUTADA |
 
-### 10.17.14 Autoridad sobre horas — OPEN-SUP-04 (horas) y su relación con Plan 3 (2026-11-23, v0.19)
+### 10.17.14 Autoridad sobre horas — OPEN-SUP-04 (horas) y su relación con Plan 3 (2026-11-23, v0.19–v0.20)
 
 **Fuente:** decisión del responsable del producto del 2026-11-23, registrada en `core.crew-supervisor-delegations` §3.1 (spec `APPROVED`; código `NOT_STARTED`). Se resume aquí porque afecta a la revisión y a la corrección de horas de la conciliación. **No** cambia el estado `DRAFT` de esta SDD ni autoriza implementación.
 
@@ -942,9 +943,22 @@ Texto completo de ambas solicitudes: `SEMSE_Plan3_Solicitudes_Confirmacion_Owner
 - Regla 5 ↔ ResourceScope y G01/G03: coherente.
 - La conciliación **sigue sin escribir** `TimeEntry` (C3-05): las correcciones del supervisor irían por el flujo canónico de horas, no por la conciliación.
 
-**Conflictos con decisiones aprobadas de Plan 3 (sin resolver aquí):** K1 (la «corrección enviada» del supervisor frente a la decisión del 17-11, «el supervisor verifica y recomienda; el responsable decide las correcciones», y C3-04, «el supervisor sólo revisa y recomienda») y K2–K6. La tabla completa está en `core.crew-supervisor-delegations` §3.1. **Mientras K1 no se decida, las reglas vigentes de Plan 3 siguen siendo la referencia** para la conciliación.
+**Conflictos con decisiones aprobadas de Plan 3 (texto de v0.19; ver la actualización de v0.20 más abajo):** K1 (la «corrección enviada» del supervisor frente a la decisión del 17-11, «el supervisor verifica y recomienda; el responsable decide las correcciones», y C3-04, «el supervisor sólo revisa y recomienda») y K2–K6. La tabla completa está en `core.crew-supervisor-delegations` §3.1. **Mientras K1 no se decida, las reglas vigentes de Plan 3 siguen siendo la referencia** para la conciliación.
 
 **Efecto sobre G46:** la autoridad para iniciar, reabrir y resolver revisiones de conciliación (R-C317-18/25/26) tiene ahora un marco candidato más preciso (supervisor dentro de su alcance; dueño para la aprobación final). Pero sigue sin capability ni implementación, y depende de K1–K3. G46 sigue abierto.
+
+**Actualización v0.20 — respuestas del propietario a K1–K6 (2026-11-23, fecha UTC del entorno):**
+
+| ID | Estado | Efecto en esta SDD |
+|---|---|---|
+| K1 | **Decidido** | La corrección enviada por el supervisor **no cambia** `TimeEntry`; queda pendiente de decisión. **Se mantienen sin enmienda** la decisión del 17-11 y C3-04 («el supervisor verifica y recomienda; el responsable decide»). Ya no hay conflicto con Plan 3. Cambiar el comportamiento del registro oficial exige una aprobación explícita posterior. |
+| K2 | **Decidido** | Ante una propuesta del trabajador, el supervisor revisa y recomienda; el responsable decide. |
+| K5 | **Decidido** | Nadie revisa ni decide lo suyo; el supervisor sobre sus propias horas sólo propone como trabajador. Coherente con C3-04 («distinto del proponente/titular») y BO-08. |
+| K3 | **Abierto** | `org:labor:manage` no equivale a dueño (lo tienen CLIENT y OPS_ADMIN). Sin identidad, alcance ni permisos de dueño no se implementa autoridad de dueño ni aprobación de pago. |
+| K4 | **Abierto** | Sin regla de aprobación única o doble entre dueño de empresa y dueño de trabajo. **C3-17 no resuelve** quién aprueba horas: sólo fija la base de facturación por vencimiento (R-C317-09/17/23). |
+| K6 | **Abierto** | No hay estado «aprobado para pago»; A-06 sin resolver. Una decisión del responsable o una corrección aceptada **no** es autorización de pago. Payments define primero la gobernanza y el contrato de transición. |
+
+Para la conciliación, las reglas vigentes de Plan 3 siguen siendo la referencia y ahora coinciden con OPEN-SUP-04 (horas). La coherencia de la regla 3 indicada arriba («introduce una aprobación final para pago») queda **bloqueada** por K3, K4 y K6: esta SDD no modela esa aprobación. G46 sigue abierto (depende de K3 y de la capability de Plan 4).
 
 **Revalidación de `main` (2026-11-23):** `origin/main` avanzó a `dcf1e12771669630078658531c99a27b832b3d19` (#1154). Sólo toca `AgentRun` (añade `orgId` nullable y un índice) y sus consumidores; no cambia Labor, `TimeEntry`, `rbac.ts`, autenticación ni las specs `core.crew-supervisor-delegations` y `core.labor-policy`.
 
@@ -1040,6 +1054,6 @@ Texto completo de ambas solicitudes: `SEMSE_Plan3_Solicitudes_Confirmacion_Owner
   - **A-05**: confirmar el Art. III frente a Evidence como referencia — **[v0.15] criterio de producto aprobado (R-C317-22); confirmación del owner de Plan 6 pendiente**.
   - **A-06**: confirmar Payment Governance — **[v0.15] pendiente del owner de Payments; no se declara exento**.
 
-## Estado de salida de v0.19
+## Estado de salida de v0.20
 
 `DRAFT`. C3-17 queda aprobada como decisión de producto; eso no cambia el estado de la SDD ni cierra gates técnicos. No hay implementación, migración, prueba funcional ni CI de esta revisión. Validadores documentales ejecutados localmente (ver `docs/reportes/2026-11-21_plan3-conciliacion-gates.md`). B4-11/B4-12 abiertos. **PLAN 3 AÚN ABIERTO.**

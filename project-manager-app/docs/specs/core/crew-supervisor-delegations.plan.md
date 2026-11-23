@@ -138,8 +138,9 @@ date: "2026-10-22"
 | liberar asignación | `crew:tasks:release`, motivo auditable | liberar de otra crew |
 | revisar trabajo | reviewer distinto del autor y permiso específico | autor = reviewer |
 | consultar horas del alcance | supervisor con permiso de consulta (candidato `crew:time:read`), misma org/crew/Job | otra crew, Job u org; compensación |
-| corregir y enviar horas | supervisor con delegación vigente (candidato `crew:time:correct`) dentro del alcance; autor e instante registrados (spec §3.1, 2026-11-23) | fuera del alcance; delegación vencida/revocada; efecto sobre `TimeEntry` pendiente (K1) |
-| aprobación final de horas para pago | dueño de la empresa o del trabajo en su ámbito (K3/K4 pendientes); no ejecuta pago | supervisor por ser supervisor; cualquier pago automático |
+| corregir y enviar horas | supervisor con delegación vigente (candidato `crew:time:correct`) dentro del alcance; autor e instante registrados; queda **pendiente de decisión** del responsable (spec §3.1, K1) | escribir `TimeEntry` al enviar; sus propias horas (sólo propuesta, K5); fuera del alcance; delegación vencida/revocada |
+| decidir correcciones y propuestas | responsable designado (Plan 3, 17-11), distinto del autor (K2, K5) | supervisor; decidir lo propio; tratar la decisión como aprobación para pago (K6) |
+| aprobación final de horas para pago | **bloqueada** hasta K3, K4 y K6 (A-06); no se diseña capability | cualquier implementación previa; cualquier pago automático |
 | revocar grant | delegante autorizado + versión + motivo | revocación repetida con nuevo efecto |
 | cambiar de org | recalcular contexto, no persistir rol activo global | reutilizar autoridad anterior |
 
