@@ -14,6 +14,7 @@ import {
   type OutboxListItem,
   type OutboxStatusName,
 } from "./outbox.repository.js";
+import { isUsableOutboxOrgId } from "./outbox-org-visibility.js";
 
 export const OPS_EVENT_REPLAY_REQUESTED_TYPE = "ops.event_replay_requested.v1";
 
@@ -34,7 +35,7 @@ type ActorInput = {
 
 function requireOrgScope(actor: ActorInput): void {
   if (typeof actor.tenantId !== "string" || !actor.tenantId.trim()
-      || typeof actor.orgId !== "string" || !actor.orgId.trim()) {
+      || !isUsableOutboxOrgId(actor.orgId ?? "")) {
     throw new ForbiddenException("outbox operations require an authenticated tenant and organization");
   }
 }

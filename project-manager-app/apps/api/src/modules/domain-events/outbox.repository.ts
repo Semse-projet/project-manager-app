@@ -3,6 +3,7 @@ import type { Prisma } from "@prisma/client";
 import prismaClientPackage from "../../../../../node_modules/.prisma/client/index.js";
 import type { SemseDomainEventV2 } from "@semse/schemas";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
+import { userFacingOutboxOrgWhere } from "./outbox-org-visibility.js";
 
 const { Prisma: PrismaRuntime } = prismaClientPackage as typeof import("../../../../../node_modules/.prisma/client/index.js");
 
@@ -285,24 +286,30 @@ export class OutboxRepository {
     cursor?: { recordedAt: Date; eventId: string };
   }): Promise<{ items: OutboxListItem[]; nextCursor: string | null }> {
     const prisma = this.requirePrisma();
+    const orgScope = input.orgId
+      ? await this.orgScopeWhere(input.tenantId, input.orgId)
+      : undefined;
+    const andFilters = [
+      ...(orgScope ? [orgScope] : []),
+      ...(input.cursor
+        ? [{
+            OR: [
+              { recordedAt: { gt: input.cursor.recordedAt } },
+              {
+                recordedAt: input.cursor.recordedAt,
+                eventId: { gt: input.cursor.eventId },
+              },
+            ],
+          }]
+        : []),
+    ];
     const rows = await prisma.domainOutboxEvent.findMany({
       where: {
         tenantId: input.tenantId,
-        ...(input.orgId ? { orgId: input.orgId } : {}),
         ...(input.status ? { status: input.status } : {}),
         ...(input.eventType ? { eventType: input.eventType } : {}),
         ...(input.correlationId ? { correlationId: input.correlationId } : {}),
-        ...(input.cursor
-          ? {
-              OR: [
-                { recordedAt: { gt: input.cursor.recordedAt } },
-                {
-                  recordedAt: input.cursor.recordedAt,
-                  eventId: { gt: input.cursor.eventId },
-                },
-              ],
-            }
-          : {}),
+        ...(andFilters.length > 0 ? { AND: andFilters } : {}),
       },
       select: OUTBOX_LIST_SELECT,
       orderBy: [{ recordedAt: "asc" }, { eventId: "asc" }],
@@ -332,9 +339,10 @@ export class OutboxRepository {
     orgId?: string,
   ): Promise<Record<OutboxStatusName, number>> {
     const prisma = this.requirePrisma();
+    const orgScope = orgId ? await this.orgScopeWhere(tenantId, orgId) : undefined;
     const grouped = await prisma.domainOutboxEvent.groupBy({
       by: ["status"],
-      where: { tenantId, ...(orgId ? { orgId } : {}) },
+      where: { tenantId, ...(orgScope ?? {}) },
       _count: { _all: true },
     });
     const counts: Record<OutboxStatusName, number> = {
@@ -352,8 +360,9 @@ export class OutboxRepository {
 
   async oldestPendingAgeMs(tenantId: string, now = new Date(), orgId?: string): Promise<number> {
     const prisma = this.requirePrisma();
+    const orgScope = orgId ? await this.orgScopeWhere(tenantId, orgId) : undefined;
     const oldest = await prisma.domainOutboxEvent.findFirst({
-      where: { tenantId, ...(orgId ? { orgId } : {}), status: { in: ["PENDING", "FAILED", "CLAIMED"] } },
+      where: { tenantId, ...(orgScope ?? {}), status: { in: ["PENDING", "FAILED", "CLAIMED"] } },
       orderBy: [{ recordedAt: "asc" }, { eventId: "asc" }],
       select: { recordedAt: true },
     });
@@ -366,9 +375,12 @@ export class OutboxRepository {
     orgId?: string;
   }): Promise<OutboxDeliveryDetail | null> {
     const prisma = this.requirePrisma();
+    const orgScope = input.orgId
+      ? await this.orgScopeWhere(input.tenantId, input.orgId)
+      : undefined;
     const event = await prisma.domainOutboxEvent.findFirst({
       where: { eventId: input.eventId, tenantId: input.tenantId,
-        ...(input.orgId ? { orgId: input.orgId } : {}) },
+        ...(orgScope ?? {}) },
       select: {
         ...OUTBOX_LIST_SELECT,
         module: true,
@@ -418,11 +430,14 @@ export class OutboxRepository {
   }): Promise<OutboxReplayResult> {
     const prisma = this.requirePrisma();
     const now = input.now ?? new Date();
+    const orgScope = input.orgId
+      ? await this.orgScopeWhere(input.tenantId, input.orgId)
+      : undefined;
 
     return prisma.$transaction(async (tx) => {
       const event = await tx.domainOutboxEvent.findFirst({
         where: { eventId: input.eventId, tenantId: input.tenantId,
-          ...(input.orgId ? { orgId: input.orgId } : {}) },
+          ...(orgScope ?? {}) },
         select: { eventId: true, status: true, replayCount: true },
       });
       if (!event) {
@@ -506,6 +521,10 @@ export class OutboxRepository {
         : 0,
       deadLetterTotal,
     };
+  }
+
+  private async orgScopeWhere(tenantId: string, orgId: string) {
+    return userFacingOutboxOrgWhere(this.requirePrisma(), tenantId, orgId);
   }
 
   private requirePrisma(): PrismaService {

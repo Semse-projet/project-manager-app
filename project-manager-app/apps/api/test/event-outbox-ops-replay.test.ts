@@ -236,3 +236,15 @@ test("#1156: outbox operations fail closed with missing org identity", async () 
     await assert.rejects(fn, (e: any) => e?.getStatus?.() === 403);
   }
 });
+
+test("#1156: outbox operations fail closed when the session org is the system sentinel", async () => {
+  const { service } = makeService({ replayResult: { outcome: "replayed", replayCount: 1, status: "PENDING" } });
+  const invalid = { ...ACTOR, orgId: "system" };
+  for (const fn of [
+    () => service.listOutbox({ actor: invalid }),
+    () => service.getDeliveryDetail({ actor: invalid, eventId: EVENT_ID }),
+    () => service.replay({ actor: invalid, eventId: EVENT_ID, reason: "test" }),
+  ]) {
+    await assert.rejects(fn, (e: any) => e?.getStatus?.() === 403);
+  }
+});
