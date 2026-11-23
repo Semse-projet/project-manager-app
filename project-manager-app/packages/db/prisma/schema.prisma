@@ -1232,6 +1232,8 @@ model AuditLog {
   id          String   @id @default(cuid())
   tenantId    String
   /// Explicit verified organization of NEW audit records. Legacy NULL stays unclassified.
+  /// Agent-run finalization history may still be written without orgId and must
+  /// stay reachable only through already-authorized AgentRun IDs, not this column.
   orgId       String?
   actorUserId String?
   entityType  String
