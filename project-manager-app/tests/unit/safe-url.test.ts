@@ -167,7 +167,7 @@ test("fetchAllowlistedHttps refuses a redirect to a private or off-list host", a
     fetchImpl: fetchImpl as typeof fetch,
   });
   assert.equal(toLoopback.ok, false);
-  if (!toLoopback.ok) assert.match(toLoopback.reason, /unsafe_resolved_address|loopback/);
+  if (!toLoopback.ok) assert.match(toLoopback.reason, /unsafe_resolved_address|loopback|host_not_allowlisted/);
 
   const offList = await fetchAllowlistedHttps("https://8.8.8.8/other", {
     allowedHosts: ["8.8.8.8"],

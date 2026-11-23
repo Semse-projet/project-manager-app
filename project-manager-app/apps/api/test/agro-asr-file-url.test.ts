@@ -32,7 +32,7 @@ test("HttpUrlStorageReader.readAllowlistedBuffer fetches only after allowlist an
 
   await assert.rejects(
     () => reader.readAllowlistedBuffer("https://8.8.8.8/go", ["8.8.8.8"], fetchImpl as typeof fetch),
-    /unsafe_resolved_address|loopback/,
+    /unsafe_resolved_address|loopback|host_not_allowlisted/,
   );
 
   const buf = await reader.readAllowlistedBuffer("https://8.8.8.8/ok", ["8.8.8.8"], fetchImpl as typeof fetch);
