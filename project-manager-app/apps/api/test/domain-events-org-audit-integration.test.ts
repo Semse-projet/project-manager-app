@@ -83,6 +83,18 @@ dbTest("#1156: audit emits owner and list/trace hide other orgs and legacy rows"
     assert.equal(corrA.length, 1, "A excludes B, unknown legacy owner and prefix collisions");
     assert.equal(corrB.length, 1);
     assert.equal(corrC.length, 1, "cross-tenant event cannot enter A/B trace");
+
+    const colonCorr = "turno:inicio";
+    await owned(tenantId, orgA, userA, "manual:" + colonCorr);
+    await owned(tenantId, orgA, userA, colonCorr);
+    await owned(tenantId, orgA, userA, "turnoXinicio");
+    const exactColon = await events.listDomainEventAuditRowsByCorrelationId({ ...A, correlationId: colonCorr });
+    assert.equal(exactColon.length, 1, "longer prefix before the same suffix must not match");
+    assert.equal(exactColon[0]?.entityId, "qa.event:" + colonCorr);
+    const wildcard = await events.listDomainEventAuditRowsByCorrelationId({ ...A, correlationId: "turno_inicio" });
+    assert.equal(wildcard.length, 0, "LIKE wildcards in the correlation must be literal");
+    const literalWildcard = await events.listDomainEventAuditRowsByCorrelationId({ ...A, correlationId: "turnoXinicio" });
+    assert.equal(literalWildcard.length, 1);
   } finally {
     await prisma.auditLog.deleteMany({where:{tenantId:{in:[tenantId,otherTenantId]}}});
     await prisma.user.deleteMany({where:{id:{in:[userA,userB,userC]}}});
