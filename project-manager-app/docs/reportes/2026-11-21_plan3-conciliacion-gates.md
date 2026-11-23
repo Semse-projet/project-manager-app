@@ -171,3 +171,20 @@ El dueño aprobó seis reglas: inicio con la constancia de notificación al usua
   - Existencia: los cinco archivos están en la carpeta `1y8A3OiXv9EHGxrJkhQ1pu1Jbnc3BFE_3`, uno por título, sin duplicados; se comprobó con una nueva consulta del 2026-11-23.
   - **Sólo el registro** OPEN-SUP-04 se descargó y cotejó por SHA-256 (`2d25d6d8…`).
   - Los otros cuatro (matriz, delegaciones v0.3, SDD v0.19 y Plan 3 v81) se comprobaron **sólo por tamaño** en bytes.
+
+## Addendum 13 — Ratificación de OPEN-SUP-04 y decisiones de navegación de Plan 7 (2026-11-22 America/Chicago · 2026-11-23 UTC)
+
+- **Fuente:** mensaje del propietario en esta conversación.
+- **OPEN-SUP-04, ratificado sin cambios de contenido:**
+  - K1 y K2 se mantienen como están aprobados en Plan 3: el supervisor verifica y recomienda, y una corrección enviada no modifica por sí sola el `TimeEntry` oficial; queda pendiente de la decisión del responsable.
+  - K5: nadie revisa ni decide su propia corrección.
+  - No hizo falta tocar la spec de delegaciones (v0.4) ni la SDD (v0.20): ya lo recogían.
+- **Siguen pendientes de respuesta del propietario:** K3, K4, K6, materiales y reasignación fuera de crew.
+- **Plan 7 (navegación):** se registraron siete decisiones, N7-01…N7-07, en una versión nueva del documento maestro de Plan 7 en Drive (§74), sin modificar el original. Ninguna spec del repositorio cubre esa navegación, así que aquí sólo queda esta referencia.
+  - Time Tracker y Time Entry son páginas separadas.
+  - Un carrusel único: Resumen, Jornadas, Conciliar, Evidencias, y el resto por desplazamiento horizontal, sin «Más».
+  - Resumen general es la página inicial y está separado de Conciliar.
+  - Las secciones pueden tener resúmenes contextuales, sin mezclarse con el Resumen general.
+- **Sustituidas sin borrarse:** la propuesta provisional de dos niveles (D7-10) y la agrupación «Más».
+- **Preguntas abiertas de Plan 7:** Q7-01…Q7-07.
+- **Sin cambios técnicos:** sólo cambia este reporte. Sin código, permisos, datos, configuración, producción, despliegue, PR ni pagos.
