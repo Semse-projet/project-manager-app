@@ -147,27 +147,37 @@ de abajo es el alcance tenant de `OPS_ADMIN`.
 
 ```sql
 WITH direct AS (
-  SELECT id, title, status
+  SELECT id, title, status::text AS status
   FROM "Job"
   WHERE "tenantId" = 'tenant_default'
+    AND "deletedAt" IS NULL
   ORDER BY id DESC
   LIMIT 20
 ),
 projected AS (
   SELECT
-    "snapshotJson"->'job'->>'id' AS id,
-    "snapshotJson"->'job'->>'title' AS title,
-    "snapshotJson"->'job'->>'status' AS status
-  FROM "JobsBidsProjection"
-  WHERE "tenantId" = 'tenant_default'
-  ORDER BY "jobId" DESC
+    p."snapshotJson"->'job'->>'id' AS id,
+    p."snapshotJson"->'job'->>'title' AS title,
+    p."snapshotJson"->'job'->>'status' AS status
+  FROM "JobsBidsProjection" p
+  JOIN "Job" j ON j.id = p."jobId"
+  WHERE p."tenantId" = 'tenant_default'
+    AND j."deletedAt" IS NULL
+  ORDER BY p."jobId" DESC
   LIMIT 20
 )
-SELECT 'missing_in_projection' AS kind, d.id, d.title AS direct_title, d.status AS direct_status,
+SELECT 'missing_in_projection' AS kind, d.id,
+       d.title AS direct_title, d.status AS direct_status,
        NULL::text AS projection_title, NULL::text AS projection_status
 FROM direct d
 LEFT JOIN projected p ON p.id = d.id
 WHERE p.id IS NULL
+UNION ALL
+SELECT 'extra_in_projection', p.id,
+       NULL::text, NULL::text, p.title, p.status
+FROM projected p
+LEFT JOIN direct d ON d.id = p.id
+WHERE d.id IS NULL
 UNION ALL
 SELECT 'field_mismatch', d.id, d.title, d.status, p.title, p.status
 FROM direct d
@@ -175,6 +185,12 @@ JOIN projected p ON p.id = d.id
 WHERE d.status IS DISTINCT FROM p.status
    OR d.title IS DISTINCT FROM p.title;
 ```
+
+`status::text` es obligatorio: `Job.status` es el enum `JobStatus` y el JSON
+devuelve texto. `deletedAt IS NULL` en ambos lados es el mismo filtro que
+`loadJobsSummary` (la fila de proyección sobrevive al archivo; la lectura la
+excluye con `job.deletedAt`). `extra_in_projection` cubre el otro sentido:
+un id que la proyección mostraría y la query directa no.
 
 Solo con cero filas, y con el checklist de publicación/receipt/replay ya
 cerrado para este tenant:

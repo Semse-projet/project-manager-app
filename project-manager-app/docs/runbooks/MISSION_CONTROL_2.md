@@ -126,9 +126,9 @@ Still open, and the reason `activation_status` stays `INACTIVE`:
       `SEMSE_MISSION_CONTROL_V2_CANARY_TENANT_IDS` receives 404
       `MISSION_CONTROL_V2_DISABLED` on runbooks, exceptions and actions,
       and the response body does not include another tenant's data;
-- [ ] one effectful `ACKNOWLEDGE` / `RESOLVE` / `ESCALATE` on a synthetic
-      signal in `tenant_default`, with the duplicate-key and AuditLog checks
-      below.
+- [ ] one effectful signal `ACKNOWLEDGE` and `RESOLVE`, one `ESCALATE` of
+      `signal:<id>`, and one `RESOLVE` of `incident:<id>` in `tenant_default`,
+      with the duplicate-key and AuditLog checks below.
 
 Local tests already lock the code path (`apps/api/test/mission-control-2.test.ts`:
 default-off policy, 404 before Prisma for a tenant outside the allowlist,
@@ -146,19 +146,33 @@ curl -sS -D - -o /tmp/mc-runbooks.json \
 
 ```bash
 # Canary tenant, dry-run first. reason length 10–500, idempotencyKey length 8–128.
+# dryRun is part of the intent hash. Changing it with the same key returns 409
+# MISSION_CONTROL_IDEMPOTENCY_CONFLICT. Use a new key for the real action,
+# then repeat that exact real body to prove duplicate: true.
 curl -sS -H "Authorization: Bearer $OPS_TOKEN" -H "Content-Type: application/json" \
-  -d '{"action":"ACKNOWLEDGE","targetType":"OperationalSignal","targetId":"<signal-id>","reason":"Canary acknowledge after operator review.","runbookId":"signal-triage-v1","idempotencyKey":"mc-f4-ack-001","dryRun":true}' \
+  -d '{"action":"ACKNOWLEDGE","targetType":"OperationalSignal","targetId":"<signal-id>","reason":"Canary acknowledge after operator review.","runbookId":"signal-triage-v1","idempotencyKey":"mc-f4-ack-dry","dryRun":true}' \
   "https://<api-host>/v1/ops/mission-control/actions"
 ```
 
-Repeat the same body with `dryRun: false` only after the dry-run receipt is
-`NO_OP`. Repeat that exact body again and require the same `receipt.id` and
-`duplicate: true`. Then `RESOLVE` with a new key, `ESCALATE` with another key,
-and `RESOLVE` on the created incident. Confirm one `AuditLog` row per action
-(`ops.mission-control.action`), including dry-run and no-op. Delete or resolve
-only the synthetic signal you created. Do not replay domain events or retry
-AgentRuns except as dry-run unless that target is already part of an incident
-you own.
+After that receipt is `NO_OP`, send the same JSON with `"dryRun": false` and
+`"idempotencyKey": "mc-f4-ack-real"`. Send that second body again and require
+the same `receipt.id` and `duplicate: true`.
+
+`ACKNOWLEDGE`, `RESOLVE`, and `DISMISS` on the signal use
+`targetType: OperationalSignal` and `targetId` equal to the signal id.
+`ESCALATE` is not implemented on that target. Escalate with:
+
+```json
+{"action":"ESCALATE","targetType":"MissionControlException","targetId":"signal:<signal-id>","reason":"Canary escalation after operator review.","runbookId":"signal-triage-v1","idempotencyKey":"mc-f4-esc-real","dryRun":false}
+```
+
+Close the incident that response creates with a new key, runbook
+`incident-coordination-v1`, `targetType: MissionControlException`, and
+`targetId: incident:<incident-id>`. `RESOLVE` on `signal:<id>` is rejected.
+Confirm one `AuditLog` row per action (`ops.mission-control.action`),
+including dry-run and no-op. Delete or resolve only the synthetic signal you
+created. Do not replay domain events or retry AgentRuns except as dry-run
+unless that target is already part of an incident you own.
 
 1. Confirm API/Web health separately from feature activation.
 2. Confirm `SEMSE_MISSION_CONTROL_V2_ENABLED` is unset or `false`, and

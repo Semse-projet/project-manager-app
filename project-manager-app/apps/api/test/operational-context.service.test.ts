@@ -130,6 +130,7 @@ test("jobs read-through uses the projection once it has caught up with the direc
       findMany: async (args: { where: Record<string, unknown> }) => {
         assert.equal(args.where.tenantId, "tenant_1");
         assert.equal(args.where.clientOrgId, "org_1");
+        assert.deepEqual(args.where.job, { deletedAt: null });
         return [
           { snapshotJson: { job: { id: "job_1", title: "From projection", status: "ACCEPTED" } } },
         ];

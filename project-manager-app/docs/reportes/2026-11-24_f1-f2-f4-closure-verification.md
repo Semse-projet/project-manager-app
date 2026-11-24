@@ -44,6 +44,12 @@ Resultado: 10 passed, 0 failed, incluido el caso de dispatch generalizado F1-F.
 
 No hay Postgres ni Docker en esta sesión, así que no se reaplicó la migración contra una base local. No se llamó a Railway ni a producción.
 
+## Revisión del PR
+
+El canary SQL ahora castea `Job.status` a texto, excluye `deletedAt` en los dos lados y reporta filas que solo están en la proyección. El read-through aplica el mismo filtro (`job.deletedAt IS NULL`). En Mission Control, cambiar `dryRun` exige otra idempotency key, y `ESCALATE` usa `MissionControlException` con `signal:<id>` / `incident:<id>`. El chat de Prometeo traduce el 400 `ADAPTER_PENDING` a un resultado `blocked` y la misión sigue en `waiting_input`.
+
+Prueba añadida: `ai-models.controller.test.ts` (8/8 con `NODE_ENV=test` y `SEMSE_ALLOW_HEADER_IDENTITY=true`). El read-through, incluido el filtro de archivados, sigue en `operational-context.service.test.ts`.
+
 ## Siguientes pasos
 
 1. F1-F: el owner ejecuta `docs/runbooks/F1F_EVENT_BACKBONE_CANARY.md` sin pisar allowlists. Registrar SLO, DLQ y ausencia de efecto en pagos. Recién entonces el spec puede pasar a `VERIFIED`.
