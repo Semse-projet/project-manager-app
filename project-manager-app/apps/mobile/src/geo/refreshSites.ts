@@ -2,6 +2,7 @@ import { fetchFreeProjects, fetchJobs, fetchProximityConfig } from "../api/labor
 import { fetchProfile } from "../api/profile";
 import { readLocationPreference } from "../api/locationPreference";
 import { fetchGeofenceSites } from "../api/geofence";
+import { classifyGeofenceSitesLoad } from "./geofenceDecision";
 import { applyProximityMode } from "./applyProximityMode";
 import { resolveProximityMode } from "./locationMode";
 import { saveProximityConfig, saveSites, type ProximitySite } from "./siteCache";
@@ -19,13 +20,17 @@ export async function refreshProximitySites(): Promise<void> {
     fetchProfile().catch(() => null),
     fetchProximityConfig().catch(() => null),
     readLocationPreference(),
-    // OPEN-18: 200 = the server decides each arrival at linked worksites; 404/error = legacy mode.
-    fetchGeofenceSites().catch(() => null),
+    // OPEN-18: 200 = the server decides. Only a 404 keeps legacy sites.
+    // Any other error fails closed (no local coordinates, no proximity_auto).
+    fetchGeofenceSites()
+      .then((sites) => ({ ok: true as const, sites }))
+      .catch(() => ({ ok: false as const })),
   ]);
 
+  const geofenceLoad = classifyGeofenceSitesLoad(geofenceSites);
   const sites: ProximitySite[] = [];
-  if (geofenceSites) {
-    for (const site of geofenceSites) {
+  if (geofenceLoad.status === "ready") {
+    for (const site of geofenceLoad.sites) {
       sites.push({
         kind: site.kind === "JOB" ? "job" : "free",
         id: site.targetId,
@@ -37,12 +42,12 @@ export async function refreshProximitySites(): Promise<void> {
       });
     }
   }
-  for (const job of geofenceSites ? [] : jobs) {
+  for (const job of geofenceLoad.status === "disabled" ? jobs : []) {
     if (typeof job.latitude === "number" && typeof job.longitude === "number") {
       sites.push({ kind: "job", id: job.id, name: job.title, latitude: job.latitude, longitude: job.longitude });
     }
   }
-  for (const project of geofenceSites ? [] : freeProjects) {
+  for (const project of geofenceLoad.status === "disabled" ? freeProjects : []) {
     if (typeof project.latitude === "number" && typeof project.longitude === "number") {
       sites.push({ kind: "free", id: project.id, name: project.name, latitude: project.latitude, longitude: project.longitude });
     }

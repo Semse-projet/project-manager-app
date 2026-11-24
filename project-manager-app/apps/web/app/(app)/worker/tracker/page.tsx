@@ -61,7 +61,7 @@ import { ReportesTab } from "./sections/ReportesTab";
 import { AsistenteTab } from "./sections/AsistenteTab";
 import { friendlyConnectionMessage, shouldPreserveLocalEvent } from "./sections/trackerUi";
 import { fetchLocationPreference, fetchMyGeofenceSites, reportGeofenceArrival, SurfaceApiError } from "../../../lib/module-surfaces-api";
-import { clientSiteKind, proximityActionForDecision, serverSiteKind } from "../../../../lib/geofence-decision";
+import { classifyGeofenceSitesLoad, clientSiteKind, proximityActionForDecision, serverSiteKind } from "../../../../lib/geofence-decision";
 import { resolveProximityMode, type LocationPreferenceResult } from "../../../../lib/location-mode";
 
 // Auto-sync retry policy for the offline queue. Every attempt rewrites the
@@ -368,7 +368,7 @@ export default function WorkerTrackerPage() {
   const [autoSyncStopped, setAutoSyncStopped] = useState(false);
   const [proximityCheckInMode, setProximityCheckInMode] = useState<ProximityCheckInMode>("ask");
   const [proximityConfig, setProximityConfig] = useState<ProximityConfigView | null>(null);
-  /** OPEN-18: obras vinculadas detectables (null = servidor sin vínculos activos; modo anterior). */
+  /** OPEN-18: obras vinculadas. null = 404 (modo anterior). [] = lista vacía o error (sin auto-inicio local). */
   const [geofenceSites, setGeofenceSites] = useState<ProximitySite[] | null>(null);
   const [proximityExplainerDismissed, setProximityExplainerDismissed] = useState(true);
   const autoSyncAttemptsRef = useRef(0);
@@ -421,9 +421,11 @@ export default function WorkerTrackerPage() {
         .then((pref): LocationPreferenceResult => ({ kind: "ok", pref }))
         .catch((caught: unknown): LocationPreferenceResult =>
           caught instanceof SurfaceApiError && caught.status === 404 ? { kind: "disabled" } : { kind: "error" }),
-      // OPEN-18: 200 = el servidor tiene activos los vínculos de obra y decide cada llegada;
-      // 404 o error = modo anterior (jobs/proyectos con coordenadas propias).
-      fetchMyGeofenceSites().catch(() => null),
+      // OPEN-18: 200 = el servidor decide cada llegada. Solo un 404 conserva el modo
+      // anterior. Cualquier otro error falla cerrado (sin sitios locales).
+      fetchMyGeofenceSites()
+        .then((sites) => ({ ok: true as const, sites }))
+        .catch(() => ({ ok: false as const })),
     ]);
 
     setJobs(nextJobs);
@@ -433,17 +435,20 @@ export default function WorkerTrackerPage() {
     const nextProximityMode = resolveProximityMode(nextLocationPreference, nextProfile ? nextProfile.proximityCheckInMode ?? "ask" : null);
     if (nextProximityMode) setProximityCheckInMode(nextProximityMode);
     if (nextProximityConfig) setProximityConfig(nextProximityConfig);
+    const geofenceLoad = classifyGeofenceSitesLoad(nextGeofenceSites);
     setGeofenceSites(
-      nextGeofenceSites
-        ? nextGeofenceSites.map((site) => ({
-            kind: clientSiteKind(site.kind),
-            id: site.targetId,
-            name: site.worksiteName,
-            latitude: site.latitude,
-            longitude: site.longitude,
-            radiusMeters: site.radiusMeters ?? undefined,
-          }))
-        : null,
+      geofenceLoad.status === "disabled"
+        ? null
+        : geofenceLoad.status === "unavailable"
+          ? []
+          : geofenceLoad.sites.map((site) => ({
+              kind: clientSiteKind(site.kind),
+              id: site.targetId,
+              name: site.worksiteName,
+              latitude: site.latitude,
+              longitude: site.longitude,
+              radiusMeters: site.radiusMeters ?? undefined,
+            })),
     );
 
     if (activeTimerResult.ok) {

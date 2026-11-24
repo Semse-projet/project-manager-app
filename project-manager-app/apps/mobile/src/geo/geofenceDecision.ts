@@ -12,3 +12,17 @@ export function proximityActionForDecision(decision: string | null | undefined):
   if (decision === "PROMPT" || decision === "MANUAL_ONLY") return "ask";
   return "none";
 }
+
+/** Mirror of apps/web/lib/geofence-decision.ts `classifyGeofenceSitesLoad`. */
+export type GeofenceSitesLoad<T> =
+  | { status: "disabled" }
+  | { status: "ready"; sites: T[] }
+  | { status: "unavailable" };
+
+export function classifyGeofenceSitesLoad<T>(
+  result: { ok: true; sites: T[] | null } | { ok: false },
+): GeofenceSitesLoad<T> {
+  if (!result.ok) return { status: "unavailable" };
+  if (result.sites === null) return { status: "disabled" };
+  return { status: "ready", sites: result.sites };
+}
