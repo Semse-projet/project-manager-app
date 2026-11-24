@@ -496,16 +496,18 @@ Dependencias declaradas:
 - **Core/Identity (F0)** — el modelo multi-capacidad es un cambio
   fundacional de identidad/RBAC, no una feature de UI aislada.
 
-Fuera de alcance explicito hasta que el ADR de MCP se apruebe: ninguna tool
-externa se registra en el Tool Registry, y `prometeo-core.spec.md` mantiene
-su alcance acotado a modulos internos.
+Fuera de alcance por ADR-025 (`ACCEPTED`, 2026-08-04, opción C): no se
+construye el cliente MCP externo. Ninguna tool externa entra al Tool
+Registry por este tramo, y `prometeo-core.spec.md` mantiene su alcance
+acotado a módulos internos. Reabrir eso exige otra decisión, no completar
+un ADR que ya está cerrado.
 
 Gate de salida: specs indexados (`pnpm spec:index`) y validados
-(`pnpm spec:validate:strict`) — cumplido para las dos specs de este
-tramo (`APPROVED` 2026-08-04, investigacion externa y gate de pagos
-`critical` revisados explicitamente, ver spec de originador §12b) — y el
-ADR de MCP resuelto (aprobado o descartado formalmente) antes de que
-cualquier tool externa entre al registry, todavia pendiente.
+(`pnpm spec:validate:strict`) — cumplido en el checkout del 2026-11-24
+para el índice (219 specs, strict local 0/0). Las dos specs de este tramo
+siguen `APPROVED` desde 2026-08-04 y `code_status: IN_PROGRESS`. ADR-025
+ya está resuelto en la opción C. La fase 3 de pago real del originador
+sigue sin iniciar.
 
 ## Reglas del programa
 

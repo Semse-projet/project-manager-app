@@ -126,7 +126,7 @@ spec cita una evidencia anterior (esa fecha es la del spec, no de este corte).
 
 | Dominio | Módulos presentes en `apps/api/src/modules/` | Flag de código relevante |
 | --- | --- | --- |
-| SEMSE Core | `auth`, `users`, `organizations`, `did`, `worker-verification`, `geofence`, `originator` | Geocerca, cuadrillas, identidad UI y registro de originador: apagados si la variable no es `true` (la UI de identidad también acepta lista canario) |
+| SEMSE Core | `auth`, `users`, `organizations`, `did`, `worker-verification`, `geofence`, `originator` | Geocerca y cuadrillas: apagadas si la variable no es `true`. Identidad UI y registro de originador: apagados si la variable no es `true`, salvo que el tenant esté en su lista (`SEMSE_IDENTITY_CAPABILITY_UI_CANARY_TENANT_IDS` o `SEMSE_ORIGINATOR_CANARY_TENANT_IDS`) |
 | SEMSE Connect | `jobs`, `marketplace`, `matching`, `bids`, `field-ops`, `labor-engine`, `communications`, `contracts`, `reservations` | `SEMSE_LABOR_POLICY_ENABLED` apagado salvo `true` |
 | SEMSE Payments | `payments`, `payment-governance`, `finance`, `liens` | `PAYMENTS_RELEASE_COMMAND` solo con `on`; gobernanza de release por defecto `shadow`; `LIEN_ALERTS_ENABLED` solo con `true` |
 | SEMSE Trust | `ratings`, `trust`, `governance`, `disputes` | Código presente; sin relectura de producción |
@@ -145,8 +145,6 @@ Lo que se releyó en código el 2026-11-24, y lo que no:
 
 - Siguen apagados por defecto en código (variable ausente o valor distinto
   del esperado): `PAYMENTS_RELEASE_COMMAND` (solo `on`),
-  `PAYMENTS_RELEASE_GOVERNANCE_MODE` (default `shadow`),
-  `SEMSE_VERIFIED_ESCROW_MODE` (default `shadow`),
   `AI_PRICING_CATALOG_MODE` (default `off`),
   `SEMSE_AGENT_RUN_FINALIZATION_OUTBOX_ENABLED`,
   `SATELLITE_WEBHOOKS_ENABLED`, `SEMSE_GEOFENCE_POLICY_ENABLED`,
@@ -155,7 +153,13 @@ Lo que se releyó en código el 2026-11-24, y lo que no:
   `SEMSE_MISSION_CONTROL_V2_ENABLED` (o lista canario),
   `SEMSE_ORIGINATOR_REGISTRATION_ENABLED` (o lista canario),
   `SEMSE_TOGETHER_ENABLED`, `SEMSE_VOICE_ENABLED` junto con
-  `SEMSE_VOICESTUDIO_DEV_ENABLED`. Que Railway las deje sin definir no se
+  `SEMSE_VOICESTUDIO_DEV_ENABLED`.
+- No están apagados: `PAYMENTS_RELEASE_GOVERNANCE_MODE` cae en `shadow`
+  (evalúa y registra `release_governance_shadow_would_block`, no bloquea;
+  `off` salta la evaluación y `enforce` bloquea). `SEMSE_VERIFIED_ESCROW_MODE`
+  cae en `shadow` y registra lo que habría bloqueado; un valor distinto de
+  `shadow` o `enforce` lanza error, no desactiva el control.
+- Que Railway deje sin definir cualquiera de estas variables no se
   re-verificó desde el inventario del 2026-11-11.
 - En git, después del texto de #1142: #1143/#1145 están en `66314be2`
   (health gate sin `RAILWAY_TOKEN`); #1146 está en `7e80dd0f`; el arreglo de

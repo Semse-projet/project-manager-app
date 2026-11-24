@@ -18,6 +18,10 @@ Se alinearon `docs/SEMSE_CONTEXT.md`, `docs/architecture/CURRENT_ARCHITECTURE.md
 - `node ./scripts/spec-index.mjs --check` válido (219 specs). `node ./scripts/spec-validate.mjs --strict`: Errors 0, Warnings 0.
 - No se llamó a Railway, no se leyó el valor de variables de producción y no se ejecutó EAS.
 
+## Revisión Devin (mismo día)
+
+Cuatro notas del review se contrastaron con el código y se corrigieron: la lista canario del originador, el default `shadow` de la gobernanza y del escrow verificado, las cuadrillas de #1169 en web (el móvil solo recibió la preferencia de ubicación) y el gate F10 que aún pedía resolver ADR-025, ya `ACCEPTED` en la opción C.
+
 ## Siguientes pasos
 
 - Releer Railway antes de afirmar SHA desplegado, canary F3/F4 o el valor de los flags.
