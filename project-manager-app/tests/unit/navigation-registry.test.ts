@@ -93,6 +93,22 @@ test("Legacy route nodes map to canonical routes", () => {
   }
 });
 
+test("Liens, Forge, and Satellites stay registered outside the FieldOps pilot", () => {
+  const expected = [
+    ["/admin/liens", "nav.lienRights"],
+    ["/client/liens", "nav.lienRights"],
+    ["/worker/liens", "nav.lienRights"],
+    ["/admin/forge", "nav.forge"],
+    ["/admin/satellites", "nav.satellites"],
+  ] as const;
+  for (const [href, labelKey] of expected) {
+    const node = navigationRegistry.find((entry) => entry.canonicalHref === href);
+    assert.ok(node, `missing navigation node for ${href}`);
+    assert.equal(node.labelKey, labelKey);
+    assert.equal(node.status, "active");
+  }
+});
+
 test("Mission Control cards link to workspace routes", () => {
   // Mission Control has nodes. Let's make sure there are active workspaces/OS mappings they go to.
   const missionControlNodes = navigationRegistry.filter((n) => n.layer === "mission-control");

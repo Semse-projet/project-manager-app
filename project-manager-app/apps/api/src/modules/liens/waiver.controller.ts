@@ -1,5 +1,4 @@
-import { Controller, Post, Get, Param, Body, Req, UseGuards, Logger, BadRequestException } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
+import { Controller, Post, Get, Param, Body, Req, Logger, BadRequestException } from '@nestjs/common';
 import { AuthenticatedAccess } from '../../common/permissions.decorator.js';
 import { resolveRequestContext } from '../../common/request-context.js';
 import { LiensService } from './liens.service.js';
@@ -9,7 +8,6 @@ import { LienAccessService } from './lien-access.service.js';
  * Waiver Controller — endpoints para firmar waivers.
  */
 @Controller('v1/projects/:projectId/liens/waivers')
-@UseGuards(AuthGuard('jwt'))
 @AuthenticatedAccess('Legacy lien waiver endpoints are JWT-protected and pending granular lien permissions.')
 export class WaiverController {
   private readonly logger = new Logger(WaiverController.name);

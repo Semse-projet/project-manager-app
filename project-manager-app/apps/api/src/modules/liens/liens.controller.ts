@@ -5,11 +5,9 @@ import {
   Param,
   Body,
   Req,
-  UseGuards,
   Logger,
   BadRequestException,
 } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
 import { AuthenticatedAccess } from '../../common/permissions.decorator.js';
 import { resolveRequestContext } from '../../common/request-context.js';
 import { LiensService } from './liens.service.js';
@@ -23,7 +21,6 @@ import { LienAccessService } from './lien-access.service.js';
  * - GET    /v1/projects/:projectId/liens/waivers
  */
 @Controller('v1/projects/:projectId/liens')
-@UseGuards(AuthGuard('jwt'))
 @AuthenticatedAccess('Legacy lien endpoints are JWT-protected and pending granular lien permissions.')
 export class LiensController {
   private readonly logger = new Logger(LiensController.name);

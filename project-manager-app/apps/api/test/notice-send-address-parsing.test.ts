@@ -76,7 +76,8 @@ test("sendNotice refuses to mail a notice when the project job has no location",
   const lobCalls: unknown[] = [];
   const service = new NoticeSendService(prisma as never, makeFakeLobClient(lobCalls) as never);
 
-  await assert.rejects(() => service.sendNotice("notice_1"), /refusing to mail/i);
+  // 422, not a bare Error (500): the user must see why the notice was refused.
+  await assert.rejects(() => service.sendNotice("notice_1"), (err: any) => err?.getStatus?.() === 422 && /refusing to mail/i.test(err.message));
   assert.equal(lobCalls.length, 0);
 });
 
@@ -85,7 +86,8 @@ test("sendNotice refuses to mail a notice when the location is freeform/unparsea
   const lobCalls: unknown[] = [];
   const service = new NoticeSendService(prisma as never, makeFakeLobClient(lobCalls) as never);
 
-  await assert.rejects(() => service.sendNotice("notice_1"), /refusing to mail/i);
+  // 422, not a bare Error (500): the user must see why the notice was refused.
+  await assert.rejects(() => service.sendNotice("notice_1"), (err: any) => err?.getStatus?.() === 422 && /refusing to mail/i.test(err.message));
   assert.equal(lobCalls.length, 0);
 });
 

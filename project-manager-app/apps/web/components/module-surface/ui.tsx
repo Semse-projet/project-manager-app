@@ -5,7 +5,7 @@ import type { LucideIcon } from "lucide-react";
 import { Loader2 } from "lucide-react";
 
 /**
- * Small, token-only UI kit for the crews / location module surfaces.
+ * Small, token-only UI kit for module surfaces (crews, location, liens, forge, satellites).
  *
  * Every color resolves to a theme token from apps/web/app/globals.css
  * (`--ok`, `--warn`, `--error`, `--brand`, `--violet`, `--signal`, `--muted`),
