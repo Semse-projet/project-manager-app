@@ -1269,6 +1269,10 @@ model Rating {
 model AuditLog {
   id          String   @id @default(cuid())
   tenantId    String
+  /// Explicit verified organization of NEW audit records. Legacy NULL stays unclassified.
+  /// Agent-run finalization history may still be written without orgId and must
+  /// stay reachable only through already-authorized AgentRun IDs, not this column.
+  orgId       String?
   actorUserId String?
   entityType  String
   entityId    String
@@ -1282,6 +1286,7 @@ model AuditLog {
   actor       User?    @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
 
   @@index([tenantId, occurredAt])
+  @@index([tenantId, orgId, occurredAt])
   @@index([entityType, entityId])
 }
 
@@ -1351,6 +1356,8 @@ model DomainEventConsumption {
 model AgentRun {
   id                  String         @id @default(cuid())
   tenantId            String
+  // Nullable only for legacy runs; never infer a historical owner from client input.
+  orgId               String?
   agentType           String
   triggerType         String
   inputJson           Json
@@ -1380,6 +1387,7 @@ model AgentRun {
   updatedAt           DateTime       @updatedAt
 
   @@index([tenantId, status])
+  @@index([tenantId, orgId, createdAt])
   @@index([tenantId, agentType, status, createdAt])
   @@index([tenantId, correlationId])
   @@index([correlationId])

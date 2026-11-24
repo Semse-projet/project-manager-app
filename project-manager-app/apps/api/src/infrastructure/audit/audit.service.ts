@@ -38,6 +38,8 @@ export class AuditService {
     return {
       id: `aud_${crypto.randomUUID()}`,
       tenantId: entry.tenantId,
+      // Persist authenticated operational owner instead of deriving it from payload.
+      orgId: entry.orgId,
       actorUserId: entry.actorUserId,
       entityType: entry.entityType,
       entityId: entry.entityId,

@@ -183,7 +183,8 @@ export class AgentRunFinalizationConsumer {
       }
       if (run.triggerType==="event" && typeof input.delegationId==="string") {
         const n=await tx.agentDelegation.updateMany({
-          where:{id:input.delegationId,tenantId:event.tenantId},
+          // A completion receipt may only close the delegation bound to this run and owner.
+          where:{id:input.delegationId,tenantId:event.tenantId,orgId:event.orgId,targetRunId:run.id},
           data:{
             status:event.payload.terminalStatus==="COMPLETED"?"completed":"failed",
             ...(event.payload.terminalStatus==="COMPLETED"
