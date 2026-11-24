@@ -121,10 +121,83 @@ generar tráfico).
    `COMPLETED`, consumer `jobs-bids-projection.v1`, `lastError=null`.
 6. Repetir la entrega y confirmar `duplicate=true`, sin segundo efecto en la
    proyección.
-7. Con `SEMSE_JOBS_PROJECTION_READTHROUGH_ENABLED=true` solo para el tenant
-   canario: comparar el campo `jobs` que devuelve `buildContext()` contra el
-   resultado de la query directa (`prisma.job.findMany`) para el mismo
-   usuario — deben coincidir.
+7. **No actives** `SEMSE_JOBS_PROJECTION_READTHROUGH_ENABLED` en este punto.
+   El código del read-through ya está en `main` y queda detrás del flag
+   (default `false`). PRO y WORKER no lo usan nunca: su visibilidad es
+   `marketplace` y la proyección solo tiene `clientOrgId`. Lo usan
+   `OPS_ADMIN` (tenant completo) y `CLIENT` (filtro `clientOrgId`). La
+   confianza en runtime es por conteo de filas (`projectionRows >= min(count, 20)`),
+   no por igualdad de `title`/`status`. Por eso el muestreo de abajo es
+   obligatorio antes de T-086.
+
+### T-086 — Read-through, solo después del muestreo
+
+Contrato que CI ya prueba (no sustituye esta ventana):
+
+- flag default off: `isJobsBidsProjectionReadthroughEnabled({}) === false`;
+- CLIENT lee la proyección cuando el conteo alcanzó y el snapshot es válido;
+- un fallo o un backfill incompleto vuelve a `job.findMany` sin lanzar;
+- PRO/WORKER no consultan `JobsBidsProjection` aunque el flag esté en `true`;
+- `diffJobReadthroughSamples` marca id ausente o `title`/`status` distinto.
+
+En la base del tenant canario, con el flag todavía en `false`, esta consulta
+debe devolver **cero filas** para el alcance que vas a activar. Repítela para
+el `clientOrgId` de un CLIENT real si el canary incluye ese rol; el ejemplo
+de abajo es el alcance tenant de `OPS_ADMIN`.
+
+```sql
+WITH direct AS (
+  SELECT id, title, status
+  FROM "Job"
+  WHERE "tenantId" = 'tenant_default'
+  ORDER BY id DESC
+  LIMIT 20
+),
+projected AS (
+  SELECT
+    "snapshotJson"->'job'->>'id' AS id,
+    "snapshotJson"->'job'->>'title' AS title,
+    "snapshotJson"->'job'->>'status' AS status
+  FROM "JobsBidsProjection"
+  WHERE "tenantId" = 'tenant_default'
+  ORDER BY "jobId" DESC
+  LIMIT 20
+)
+SELECT 'missing_in_projection' AS kind, d.id, d.title AS direct_title, d.status AS direct_status,
+       NULL::text AS projection_title, NULL::text AS projection_status
+FROM direct d
+LEFT JOIN projected p ON p.id = d.id
+WHERE p.id IS NULL
+UNION ALL
+SELECT 'field_mismatch', d.id, d.title, d.status, p.title, p.status
+FROM direct d
+JOIN projected p ON p.id = d.id
+WHERE d.status IS DISTINCT FROM p.status
+   OR d.title IS DISTINCT FROM p.title;
+```
+
+Solo con cero filas, y con el checklist de publicación/receipt/replay ya
+cerrado para este tenant:
+
+```bash
+railway variables set SEMSE_JOBS_PROJECTION_READTHROUGH_ENABLED=true --service api
+```
+
+El flag lo lee la API (`buildContext` / `POST /prometeo/chat`). No hace falta
+encenderlo en el Worker. Después:
+
+- [ ] una sesión `OPS_ADMIN` y una sesión `CLIENT` del tenant canario abren
+      Prometeo y el bloque de trabajos coincide con `GET` de jobs de esa
+      misma sesión (mismos id, título y estado de los recientes);
+- [ ] 5xx de `POST /prometeo/chat` no suben respecto de la hora anterior;
+- [ ] un PRO del mismo tenant sigue viendo sus jobs (prueba de que el
+      camino directo no se apagó).
+
+Rollback inmediato si cualquiera falla:
+
+```bash
+railway variables set SEMSE_JOBS_PROJECTION_READTHROUGH_ENABLED=false --service api
+```
 
 ## Checklist de cierre
 

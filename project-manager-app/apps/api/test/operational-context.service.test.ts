@@ -150,6 +150,37 @@ test("jobs read-through uses the projection once it has caught up with the direc
   }
 });
 
+test("jobs read-through does not consult the projection for PRO or WORKER even when the flags are on", async () => {
+  let projectionReads = 0;
+  const { prisma } = makePrisma({
+    job: {
+      findMany: async () => [{ id: "job_1", title: "From direct query", status: "POSTED" }],
+      count: async () => 1,
+    },
+    jobsBidsProjection: {
+      findMany: async () => {
+        projectionReads += 1;
+        return [{ snapshotJson: { job: { id: "job_1", title: "From projection", status: "ACCEPTED" } } }];
+      },
+    },
+  });
+  process.env.SEMSE_JOBS_PROJECTION_ENABLED = "true";
+  process.env.SEMSE_JOBS_PROJECTION_CANARY_TENANT_IDS = "tenant_1";
+  process.env.SEMSE_JOBS_PROJECTION_READTHROUGH_ENABLED = "true";
+  try {
+    const service = new OperationalContextService(prisma as never);
+    const pro = await service.buildContext({ ...baseInput, role: "PRO" });
+    const worker = await service.buildContext({ ...baseInput, userId: "user_worker", role: "WORKER" });
+    assert.equal(projectionReads, 0);
+    assert.deepEqual(pro.jobs.recent, [{ id: "job_1", title: "From direct query", status: "POSTED" }]);
+    assert.deepEqual(worker.jobs.recent, [{ id: "job_1", title: "From direct query", status: "POSTED" }]);
+  } finally {
+    delete process.env.SEMSE_JOBS_PROJECTION_ENABLED;
+    delete process.env.SEMSE_JOBS_PROJECTION_CANARY_TENANT_IDS;
+    delete process.env.SEMSE_JOBS_PROJECTION_READTHROUGH_ENABLED;
+  }
+});
+
 test("jobs read-through falls back to the direct query when the projection query throws", async () => {
   const { prisma } = makePrisma({
     job: {

@@ -90,7 +90,11 @@ date: "2026-07-12"
 - [x] **T-073** Fault test: Redis OFF durante registro Evidence. (`apps/api/test/evidence-outbox-integration.test.ts` — "F1-E fault test (T-073)")
 - [x] **T-074** Fault test: crash después de enqueue antes de ack. (cubierto desde F1-C por `apps/api/test/event-outbox-dispatcher-integration.test.ts` — "an expired lease becomes eligible for a new dispatcher")
 - [ ] **T-075** Deploy con switches OFF y verificar health.
-- [ ] **T-076** Canary allowlist solo `evidence.uploaded.v1`.
+- [ ] **T-076** Canary del slice Evidence. El procedimiento de 2026-07 que
+      asignaba el allowlist **solo** a `evidence.uploaded.v1` quedó
+      obsoleto: esas variables ahora también llevan F3 y jobs/bids. Seguir
+      `docs/runbooks/F1F_EVENT_BACKBONE_CANARY.md` (inspección, sin pisar
+      la lista). Sigue abierto: no hay ventana de SLO registrada.
 - [ ] **T-077** Verificar SLO, duplicados, DLQ y ausencia de pagos.
 - [x] **T-078** Crear reporte F1 con research loop y evidencia. (`docs/reportes/F1E_OPS_DLQ_REPLAY_2026-07-19.md`)
 - [x] **T-079** Actualizar arquitectura/matriz/roadmap según estado real. (ver `ROADMAP.md` — sección F1)
