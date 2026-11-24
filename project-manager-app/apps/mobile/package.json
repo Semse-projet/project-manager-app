@@ -11,7 +11,7 @@
     "@semse/design-tokens": "workspace:*",
     "@semse/schemas": "workspace:*",
     "@stripe/stripe-react-native": "0.64.0",
-    "expo": "~57.0.33",
+    "expo": "~57.0.34",
     "expo-constants": "~57.0.25",
     "expo-crypto": "~57.0.4",
     "expo-dev-client": "~57.0.22",
