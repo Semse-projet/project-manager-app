@@ -92,3 +92,62 @@ test("agro-evidence: getRecentEvidence respects limit", async () => {
   const evidence = await svc.getRecentEvidence("farm_1", "usr_1", 5);
   assert.equal(evidence.length, 5);
 });
+
+function withEvidenceAllowlist(hosts: string, fn: () => Promise<void>) {
+  const prevHosts = process.env.SEMSE_EVIDENCE_FILE_URL_ALLOWED_HOSTS;
+  const prevApi = process.env.SEMSE_API_BASE_URL;
+  const prevWeb = process.env.SEMSE_WEB_BASE_URL;
+  process.env.SEMSE_EVIDENCE_FILE_URL_ALLOWED_HOSTS = hosts;
+  delete process.env.SEMSE_API_BASE_URL;
+  delete process.env.SEMSE_WEB_BASE_URL;
+  return fn().finally(() => {
+    if (prevHosts === undefined) delete process.env.SEMSE_EVIDENCE_FILE_URL_ALLOWED_HOSTS;
+    else process.env.SEMSE_EVIDENCE_FILE_URL_ALLOWED_HOSTS = prevHosts;
+    if (prevApi === undefined) delete process.env.SEMSE_API_BASE_URL;
+    else process.env.SEMSE_API_BASE_URL = prevApi;
+    if (prevWeb === undefined) delete process.env.SEMSE_WEB_BASE_URL;
+    else process.env.SEMSE_WEB_BASE_URL = prevWeb;
+  });
+}
+
+test("agro-evidence: createEvidence PHOTO accepts an allowlisted public https fileUrl", async () => {
+  await withEvidenceAllowlist("8.8.8.8", async () => {
+    const svc = new AgroEvidenceService(makeEvidenceRepo(), makeFarmRepo(), makeAuditRepo());
+    const ev = await svc.createEvidence("farm_1", "usr_1", {
+      entityType: "GENERAL",
+      mediaType: "PHOTO",
+      fileUrl: "https://8.8.8.8/photo.jpg",
+    });
+    assert.equal(ev.fileUrl, "https://8.8.8.8/photo.jpg");
+  });
+});
+
+test("agro-evidence: createEvidence PHOTO rejects http, loopback, and off-list hosts", async () => {
+  await withEvidenceAllowlist("8.8.8.8", async () => {
+    const svc = new AgroEvidenceService(makeEvidenceRepo(), makeFarmRepo(), makeAuditRepo());
+    await assert.rejects(
+      () => svc.createEvidence("farm_1", "usr_1", { entityType: "GENERAL", mediaType: "PHOTO", fileUrl: "http://8.8.8.8/photo.jpg" }),
+      BadRequestException,
+    );
+    await assert.rejects(
+      () => svc.createEvidence("farm_1", "usr_1", { entityType: "GENERAL", mediaType: "PHOTO", fileUrl: "https://127.0.0.1/photo.jpg" }),
+      BadRequestException,
+    );
+    await assert.rejects(
+      () => svc.createEvidence("farm_1", "usr_1", { entityType: "GENERAL", mediaType: "PHOTO", fileUrl: "https://1.1.1.1/photo.jpg" }),
+      BadRequestException,
+    );
+  });
+});
+
+test("agro-evidence: updateEvidence rejects a fileUrl that is not on the allowlist", async () => {
+  await withEvidenceAllowlist("8.8.8.8", async () => {
+    const svc = new AgroEvidenceService(makeEvidenceRepo(), makeFarmRepo(), makeAuditRepo());
+    await assert.rejects(
+      () => svc.updateEvidence("ev_1", "usr_1", { fileUrl: "https://169.254.169.254/latest/meta-data" }),
+      BadRequestException,
+    );
+    const updated = await svc.updateEvidence("ev_1", "usr_1", { fileUrl: "https://8.8.8.8/ok.jpg" });
+    assert.equal(updated.fileUrl, "https://8.8.8.8/ok.jpg");
+  });
+});

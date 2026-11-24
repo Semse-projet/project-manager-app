@@ -78,7 +78,14 @@ export function isIpSafe(ip: string, family: 4 | 6): boolean {
  * (never re-resolve DNS between this check and the actual connect — see
  * SAT-007 spec §8 point 2 on DNS rebinding).
  */
-export async function resolveSafeUrl(rawUrl: string): Promise<SafeUrlResult> {
+export async function resolveSafeUrl(
+  rawUrl: string,
+  options?: { lookup?: DnsLookupFn },
+): Promise<SafeUrlResult> {
+  const lookupFn: DnsLookupFn = options?.lookup ?? (async (hostname, options) => {
+    const resolved = await lookup(hostname, { all: true, verbatim: true });
+    return Array.isArray(resolved) ? resolved : [resolved];
+  });
   let url: URL;
   try {
     url = new URL(rawUrl);
@@ -104,7 +111,7 @@ export async function resolveSafeUrl(rawUrl: string): Promise<SafeUrlResult> {
 
   let addresses: Array<{ address: string; family: number }>;
   try {
-    addresses = await lookup(hostname, { all: true, verbatim: true });
+    addresses = await lookupFn(hostname, { all: true, verbatim: true });
   } catch {
     return { safe: false, reason: "dns_resolution_failed" };
   }
@@ -128,4 +135,140 @@ export async function resolveSafeUrl(rawUrl: string): Promise<SafeUrlResult> {
     family: chosen.family === 6 ? 6 : 4,
     port,
   };
+}
+
+export type DnsAddress = { address: string; family: number };
+export type DnsLookupFn = (
+  hostname: string,
+  options: { all: true; verbatim: true },
+) => Promise<DnsAddress[]>;
+
+export function normalizeAllowedHost(value: string): string {
+  const trimmed = value.trim().toLowerCase().replace(/\.$/, "");
+  if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+    return trimmed.slice(1, -1);
+  }
+  return trimmed;
+}
+
+export function parseHostnameAllowlist(raw: string | undefined | null): string[] {
+  if (!raw) return [];
+  const hosts: string[] = [];
+  const seen = new Set<string>();
+  for (const token of raw.split(",")) {
+    const host = normalizeAllowedHost(token);
+    if (!host || seen.has(host)) continue;
+    seen.add(host);
+    hosts.push(host);
+  }
+  return hosts;
+}
+
+export function isHostAllowed(hostname: string, allowedHosts: readonly string[]): boolean {
+  const host = normalizeAllowedHost(hostname);
+  if (!host) return false;
+  return allowedHosts.some((allowedRaw) => {
+    const allowed = normalizeAllowedHost(allowedRaw);
+    if (!allowed) return false;
+    if (allowed.startsWith("*.")) {
+      const suffix = allowed.slice(1);
+      return host === allowed.slice(2) || host.endsWith(suffix);
+    }
+    return host === allowed;
+  });
+}
+
+function hostnameFromUrl(url: URL): string {
+  const rawHostname = url.hostname.toLowerCase();
+  return rawHostname.startsWith("[") && rawHostname.endsWith("]")
+    ? rawHostname.slice(1, -1)
+    : rawHostname;
+}
+
+/**
+ * Like `resolveSafeUrl`, but the hostname must also appear on an explicit
+ * allowlist. An empty allowlist is fail-closed. Unsafe resolved addresses
+ * are still rejected even when the host is listed.
+ */
+export async function resolveAllowlistedSafeUrl(
+  rawUrl: string,
+  options: { allowedHosts: readonly string[]; lookup?: DnsLookupFn },
+): Promise<SafeUrlResult> {
+  if (!options.allowedHosts.length) {
+    return { safe: false, reason: "allowlist_empty" };
+  }
+
+  let url: URL;
+  try {
+    url = new URL(rawUrl);
+  } catch {
+    return { safe: false, reason: "invalid_url" };
+  }
+
+  if (!isHostAllowed(hostnameFromUrl(url), options.allowedHosts)) {
+    return { safe: false, reason: `host_not_allowlisted:${hostnameFromUrl(url)}` };
+  }
+
+  return resolveSafeUrl(rawUrl, { lookup: options.lookup });
+}
+
+const REDIRECT_STATUS = new Set([301, 302, 303, 307, 308]);
+
+export type FetchAllowlistedResult =
+  | { ok: true; response: Response; finalUrl: string }
+  | { ok: false; reason: string };
+
+/**
+ * Fetches an HTTPS URL only after allowlist + public-IP DNS checks, and
+ * re-validates every redirect target (including after DNS) before following
+ * it. Redirects are never followed automatically by the HTTP client.
+ */
+export async function fetchAllowlistedHttps(
+  rawUrl: string,
+  options: {
+    allowedHosts: readonly string[];
+    maxRedirects?: number;
+    fetchImpl?: typeof fetch;
+    lookup?: DnsLookupFn;
+  },
+): Promise<FetchAllowlistedResult> {
+  const maxRedirects = options.maxRedirects ?? 3;
+  const fetchImpl = options.fetchImpl ?? fetch;
+  let current = rawUrl;
+
+  for (let hop = 0; hop <= maxRedirects; hop += 1) {
+    const safe = await resolveAllowlistedSafeUrl(current, {
+      allowedHosts: options.allowedHosts,
+      lookup: options.lookup,
+    });
+    if (!safe.safe) {
+      return { ok: false, reason: safe.reason };
+    }
+
+    let response: Response;
+    try {
+      response = await fetchImpl(current, { method: "GET", redirect: "manual" });
+    } catch {
+      return { ok: false, reason: "fetch_failed" };
+    }
+
+    if (REDIRECT_STATUS.has(response.status)) {
+      const location = response.headers.get("location");
+      if (!location) {
+        return { ok: false, reason: "redirect_without_location" };
+      }
+      let next: URL;
+      try {
+        next = new URL(location, current);
+      } catch {
+        return { ok: false, reason: "invalid_redirect_url" };
+      }
+      current = next.toString();
+      continue;
+    }
+
+    return { ok: true, response, finalUrl: current };
+  }
+
+  return { ok: false, reason: "too_many_redirects" };
 }

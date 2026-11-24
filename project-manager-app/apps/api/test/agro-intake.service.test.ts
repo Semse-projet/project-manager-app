@@ -10,6 +10,8 @@ import {
 } from "../dist/modules/agro/agro-intake.domain.js";
 import { findPrometeoToolDescriptor } from "../dist/modules/prometeo/prometeo-tool-registry.js";
 
+process.env.SEMSE_EVIDENCE_FILE_URL_ALLOWED_HOSTS ??= "8.8.8.8";
+
 // ── Dominio ──────────────────────────────────────────────────────────────────
 
 test("agro-intake: normalizes accents and punctuation", () => {
@@ -211,8 +213,8 @@ test("agro-intake T-054: text already provided → does not attempt transcriptio
 });
 
 test("agro-intake T-054: photo evidence → vision candidates attached, best-effort", async () => {
-  const evidenceRows = [{ id: "ev_photo", mediaType: "PHOTO", fileUrl: "https://cdn.test/photo1.jpg" }];
-  const vision = { recognize: async (url: string) => (url === "https://cdn.test/photo1.jpg" ? { provider: "ollama", model: "qwen2.5vl:3b", candidates: [{ slug: "pig", label: "Pig", confidence: 0.8 }] } : null) };
+  const evidenceRows = [{ id: "ev_photo", mediaType: "PHOTO", fileUrl: "https://8.8.8.8/photo1.jpg" }];
+  const vision = { recognize: async (url: string) => (url === "https://8.8.8.8/photo1.jpg" ? { provider: "ollama", model: "qwen2.5vl:3b", candidates: [{ slug: "pig", label: "Pig", confidence: 0.8 }] } : null) };
   const { svc } = setup({ evidenceRows, vision });
 
   const p = await svc.propose("farm_1", "worker", { text: "Este cerdito tiene una herida en el cachete.", evidenceIds: ["ev_photo"] });
@@ -222,7 +224,7 @@ test("agro-intake T-054: photo evidence → vision candidates attached, best-eff
 });
 
 test("agro-intake T-054: vision disabled/unavailable → empty signals, proposal still returned", async () => {
-  const evidenceRows = [{ id: "ev_photo", mediaType: "PHOTO", fileUrl: "https://cdn.test/photo1.jpg" }];
+  const evidenceRows = [{ id: "ev_photo", mediaType: "PHOTO", fileUrl: "https://8.8.8.8/photo1.jpg" }];
   const { svc } = setup({ evidenceRows }); // sin vision inyectada (@Optional())
 
   const p = await svc.propose("farm_1", "worker", { text: "Al lote 15 le falta agua.", evidenceIds: ["ev_photo"] });

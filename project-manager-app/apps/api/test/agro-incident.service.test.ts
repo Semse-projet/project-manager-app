@@ -10,6 +10,8 @@ import {
   incidentTransitionTimestamps, suggestedSeverity,
 } from "../dist/modules/agro/agro-incident.domain.js";
 
+process.env.SEMSE_EVIDENCE_FILE_URL_ALLOWED_HOSTS ??= "8.8.8.8";
+
 // ── FSM y severidad ──────────────────────────────────────────────────────────
 
 test("agro-incident-fsm: happy path OPEN → TRIAGED → IN_PROGRESS → RESOLVED → CLOSED", () => {
@@ -168,7 +170,7 @@ test("agro-incident: clientEventId makes reports idempotent", async () => {
 test("agro-incident: inline evidence goes to AgroEvidenceItem(INCIDENT) and the timeline", async () => {
   const { svc, audits, evidence } = setup();
   const { incident } = await svc.create("farm_1", "worker", {
-    ...BASE, evidence: [{ mediaType: "PHOTO", fileUrl: "https://example.test/p.jpg" }, { mediaType: "AUDIO", fileUrl: "https://example.test/a.m4a" }],
+    ...BASE, evidence: [{ mediaType: "PHOTO", fileUrl: "https://8.8.8.8/p.jpg" }, { mediaType: "AUDIO", fileUrl: "https://8.8.8.8/a.m4a" }],
   });
   assert.equal(evidence.length, 2);
   assert.ok(evidence.every((e) => e.entityType === "INCIDENT" && e.entityId === incident.id));
