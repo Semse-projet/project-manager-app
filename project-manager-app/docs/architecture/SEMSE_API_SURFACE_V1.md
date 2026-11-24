@@ -163,6 +163,7 @@ de Production Health las verifica junto con las nueve páginas `/modules/*`.
 - `GET /v1/agents/runs/:runId`
 - `POST /v1/agents/runs/:runId/retry`
 - `POST /v1/agents/runs/:runId/start`
+- `POST /v1/agents/runs/:runId/claimed-job-context` (`agents:run:execute` + claim token; proyección mínima del Job del evento `job.created`, sin `jobs:read` ni `projects:read`)
 - `POST /v1/agents/runs/:runId/heartbeat`
 - `POST /v1/agents/runs/:runId/complete`
 - `POST /v1/agents/runs/:runId/fail`

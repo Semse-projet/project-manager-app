@@ -57,6 +57,7 @@ import {
 } from "@semse/shared";
 import { getCurrentTraceId, processJobWithLogging } from "./observability/job-logging.mjs";
 import { executeSpecializedWorkerRun, shouldUseSpecializedWorkerHandler } from "./agent-run-handlers.mjs";
+import { loadClaimedJobContext } from "./claimed-job-context.mjs";
 import { processDomainEventQueueJob } from "./domain-event-worker.mjs";
 import { executeDeveloperRuntimeJob } from "./modules/developer-runtime/runtime.executor.mjs";
 import { runCurator } from "./modules/curator/curator.service.mjs";
@@ -486,19 +487,31 @@ async function processQueuedRun(queueRun) {
       return { failed: true };
     }
 
-    const result = shouldUseSpecializedWorkerHandler(run.agentType)
+    const claimedJobContext = await loadClaimedJobContext({
+      requestJson,
+      run,
+      claimToken,
+      workerId: config.workerId,
+      expectedAttempts,
+      tenantId: run.tenantId ?? queueRun.tenantId,
+    });
+    const executableRun = claimedJobContext
+      ? { ...run, claimedJobContext }
+      : run;
+
+    const result = shouldUseSpecializedWorkerHandler(executableRun.agentType)
       ? await executeSpecializedWorkerRun({
-          run,
+          run: executableRun,
           workerId: config.workerId,
           requestJson,
           logger,
-          tenantId: run.tenantId ?? queueRun.tenantId,
+          tenantId: executableRun.tenantId ?? queueRun.tenantId,
         })
       : executeGovernedAgentRun({
-          agentType: run.agentType,
-          runId: run.id,
-          correlationId: run.correlationId,
-          payload: run.input ?? {},
+          agentType: executableRun.agentType,
+          runId: executableRun.id,
+          correlationId: executableRun.correlationId,
+          payload: executableRun.input ?? {},
           environment: "worker"
         });
 
