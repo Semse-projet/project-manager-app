@@ -1,26 +1,20 @@
 # Arquitectura vigente de SEMSEproject
 
 **Estado:** CANONICA
-**Corte verificado:** 2026-10-03 (refresco parcial — ver nota de alcance abajo)
-**Código en `origin/main`:** `7da00947` (PR #757, "fix(c51): intelligence archive/risk por proyecto exigen tenant + ProjectScope")
-**Producción desplegada (Railway, verificado en vivo):** `3d9743d4` (PR #753, "fix(c51): clima por proyecto exige tenant + ProjectScope") — API y Web confirmados en ese SHA; main va 4 PRs por delante de lo desplegado (#753→#757)
-**F3 desplegado/activo en canary:** contenido desde `f1234291` (no re-verificado en este corte — ver §11)
+**Corte de código:** 2026-11-24, `origin/main` `594279afefad1fe760b94ec84c2cee382281ceb1` (PR #1169)
+**Producción:** no re-verificada desde 2026-10-03. Ese día API y Web estaban en `3d9743d4` (PR #753) y `main` en `7da00947` (PR #757). No usar esos SHA como producción de hoy.
+**F3 en código:** merge `f1234291` (ancestro). El canary de producción no se re-verificó desde 2026-07-31 (§11).
 **Repositorio:** `Semse-projet/project-manager-app`
 **Raiz de aplicacion:** `project-manager-app/`
 
-> **Nota de alcance de este refresco (2026-10-03):** se verificaron en vivo el
-> SHA de `main`, el estado de despliegue de Railway (vía API, no solo
-> healthcheck) y la salud de specs (`pnpm spec:index` + `spec:validate:strict`
-> → 128 specs, 0 errores/warnings, subiendo de 98 el 2026-07-31). El resto de
-> las filas de la tabla §6 y las secciones narrativas **no se re-verificaron
-> individualmente en este pase** — siguen siendo la foto del 2026-07-31 y
-> deben tratarse como `HISTORICAL` (no verdad actual) hasta que alguien las
-> reconcilie contra código/runtime, siguiendo la regla de este mismo
-> documento (§13: "ningún nivel inferior anula...", y la disciplina de modos
-> de operación de `semseproject` SKILL.md §9). Entre el corte anterior y hoy
-> se mergeó una iniciativa completa no reflejada aún en la tabla: la
-> consolidación cognitiva de `ADR-023` (ver `ROADMAP.md`, "Programa
-> transversal — Consolidación Cognitiva").
+> **Nota de alcance (2026-11-24):** se contrastó el árbol de `main` (apps,
+> módulos, flags por defecto, ancestros git de F3/F4/F10/móvil y el registro
+> de tools). No se consultó Railway. Hay 219 archivos
+> `docs/specs/**/*.spec.md`; `node ./scripts/spec-validate.mjs --strict` en
+> este checkout dio 0 errores y 0 warnings. Las filas de §6 que este pase
+> no releyó en código siguen siendo la foto anterior y hay que tratarlas
+> como históricas. La lectura de producción del 2026-10-03 queda en §11
+> marcada como no re-verificada desde esa fecha.
 
 Este documento describe la arquitectura vigente y la direccion aprobada. No
 reemplaza los contratos SDD, modelos Prisma ni tests. Su funcion es ordenar esas
@@ -133,26 +127,28 @@ La raiz canónica es un monorepo pnpm. Las aplicaciones principales son:
 - `apps/web`: Next.js y BFF por Route Handlers.
 - `apps/api`: NestJS, Prisma y reglas de dominio.
 - `apps/worker`: BullMQ, timers y trabajos asincronos.
+- `apps/mobile`: cliente Expo/React Native del monorepo (`@semse/mobile`).
+  `package.json` fija `expo` `~57.0.34` y `react-native` `0.86.3`. `app.json`
+  usa el nombre `SEMSE` y el slug `semse-mobile`. El primer `package.json`
+  en `main` es #489 (`01a9247e`, 2026-07-31). La consolidación #598
+  (`a42600ec`) es ancestro; #1162, #1166, #1167, #1181 y #1182 son commits
+  posteriores de compilación, CI mínimo y perfil EAS. No hay release de
+  tienda ni canary en dispositivo re-verificado en este corte. El spike de
+  junio de 2026 archivado en `archive/mobile-spike-2026-06` es otra línea:
+  no describe este árbol.
 - `apps/vision-service`: analisis visual especializado.
 - `apps/autonomy-server`: runtime de autonomia donde se despliegue.
 - `apps/angular` y `apps/assistant-portal`: superficies adicionales o de
   transicion; no redefinen la raiz canónica.
 
-> **Cliente movil: planeado, no existente.** Hubo un `apps/mobile` con un spike
-> de React Native/Expo (2026-06-22) que nunca llego a compilar — sin
-> `package.json` ni `tsconfig`, y con dependencias que jamas se instalaron en el
-> monorepo. Se retiro el 2026-07-26 y queda archivado en el tag
-> `archive/mobile-spike-2026-06`. El diseño vigente del cliente movil es la spec
-> `SAT-003`, que lo define como **satelite externo** consumiendo el BFF/API via
-> SDK, no como una app del monorepo.
-
 Paquetes compartidos existentes:
 
 ```text
-packages/agents       packages/auth       packages/autonomy
-packages/db           packages/knowledge  packages/product-events
-packages/schemas      packages/sdk        packages/shared
-packages/tools        packages/ui
+packages/agents         packages/auth          packages/autonomy
+packages/db             packages/design-tokens packages/forge
+packages/knowledge      packages/product-events
+packages/schemas        packages/sdk           packages/shared
+packages/tools          packages/ui
 ```
 
 Los futuros paquetes `events`, `policies`, `ledger` y `observability` solo se
@@ -167,19 +163,19 @@ en los modulos actuales.
 | Transactional Outbox | Implementado/parcial y ejercitado | Evidence + outbox comparten transacción; dispatcher usa leases; effect + receipt son atómicos; F3 verificó publicación, consumo y replay | Hooks F3 fuera de Evidence siguen post-commit best-effort |
 | BullMQ y loops | Implementado/parcial | Worker, retries, backpressure, kill switch y agent runs dead-lettered | Falta unificar observabilidad, replay y DLQ por evento |
 | Prometeo Runtime P2 | Implementado y desplegado | Misiones persistentes sobre `AgentWorkPlan`, aprobacion y checkpoints | Mutaciones, compensacion, budgets y verificacion transversal pendientes |
-| Prometeo Tool Registry | Implementado/parcial | 31 descriptors; 23/24 read y 7/7 write cableados; policy/audit/approval gobiernan escritura | `vision.analyze_video` y verification/compensación explícita |
+| Prometeo Tool Registry | Implementado/parcial (código 2026-11-24) | 41 descriptores en `prometeo-tool-registry.ts`: 31 `readTool`, 10 `writeTool` | `adapterPending: true` en `vision.analyze_video`, `business_os.assign_task` y `business_os.release_task`; verification/compensación explícita sigue pendiente. El conteo 31/24/7 es el corte 2026-07-31 |
 | Model Gateway unificado (`ADR-023`) | Specs avanzaron, código sin tocar — verificado 2026-10-03 | `SPEC-AGT-002`(Prometeo Core)/`SPEC-AGT-004`(ToolResult multimodal): `IMPLEMENTED`/mergeados; `SPEC-GTW-001`(unificación gateway): `APPROVED`; `SPEC-GTW-002`(cache control)/`SPEC-AGT-003`(retrieval AgentDecision): `REVIEW` | `ai-model-gateway.service.ts::executeWithSlug` sigue bifurcando DeepSeek/Kimi/GLM fuera de `LLMOrchestrator`/`ProviderMetricsStore` tal como describía `SPEC-GTW-001` — el diseño está aprobado, la implementación no empezó; ver skill `semse-prometeo-orchestrator` |
 | Evidence provenance | Parcial | Evidence, checksum, metadata, geo, analisis visual y storage abstraction | Chain of custody, firmas, retencion y acceso no estan unificados |
 | Economic Ledger | Pendiente como sistema comun | `PaymentTxn` y ledgers verticales registran movimientos operativos | No existe double-entry compartido, cuentas, lineas, reversals ni trial balance |
 | Policy/Approval | Parcial | RBAC default-deny y aprobaciones en Prometeo, BuildOps y Payments | No existe decision engine transversal versionado |
-| Mission Control | F4 implementado local; SDD 2.0 aprobado | cola normalizada, receipts idempotentes, runbooks allowlisted, adapters con autoridad de dominio, UI/BFF exception-first y SSE autenticado tenant-safe | CI/merge/deploy y canary `tenant_default` |
-| Project Lifecycle Projection | Verificado en canary (F3) | API/BFF/UI, snapshot durable, rebuild tenant-scoped, evento/consumer, CAS, duplicado y replay verificados para `tenant_default` | Ventana SLO y promoción global; outbox atómica por dominio |
-| Product Intelligence | Implementado/parcial (PI-00..PI-06) | SDK separado, contratos, modelos, ingesta, retencion, instrumentacion auth/wizard y funnels de experiencia/economico | Activacion de flags no verificada; PI-07 Friction Engine y fases PI-08..PI-11 pendientes |
+| Mission Control | F4 mergeado en código (#486 `afb2dccd`, ancestro de `594279af`) | `isMissionControlV2Enabled`: solo `SEMSE_MISSION_CONTROL_V2_ENABLED=true` o tenant en `SEMSE_MISSION_CONTROL_V2_CANARY_TENANT_IDS`. Spec `activation_status: INACTIVE` | Activación de producción no re-verificada desde la evidencia del spec (2026-10-11). No hace falta otro merge para que el código exista |
+| Project Lifecycle Projection | Código F3 en `main` (`f1234291`, ancestro). Canary de producción no re-verificado desde 2026-07-31 | El cálculo exige `SEMSE_PROJECT_LIFECYCLE_PROJECTION_ENABLED=true` y allowlist (`SEMSE_PROJECT_LIFECYCLE_CANARY_TENANT_IDS`, o `*`). La persistencia exige `SEMSE_PROJECT_LIFECYCLE_PERSIST_ENABLED=true` | Releer flags en Railway antes de llamar al canary “activo”. SLO y outbox atómica por dominio siguen abiertos |
+| Product Intelligence | Código presente, incluida la agregación PI-07 en `product-intelligence.service.ts` | El observer leído sale solo si `PRODUCT_INTELLIGENCE_ENABLED=true` | Valor de producción no re-verificado. No se re-auditó PI-08..PI-11 en este pase |
 | Workspace/Context Bridge | Parcial | Developer runtime, context bridge panel y capas de contexto existentes | Registry de terminales, shared mission context y scopes uniformes |
-| SDD/Blueprint Engine | Implementado/parcial | 98 specs; strict 0/0; templates SDD 2.0; estados code/CI/merge/deploy/activation separados | Migrar specs al tocarlas y cerrar evidencia de producción |
+| SDD/Blueprint Engine | 219 archivos `*.spec.md`. Strict local 0/0 el 2026-11-24 (`node ./scripts/spec-validate.mjs --strict`) | Templates SDD 2.0 y columnas separadas de entrega siguen vigentes | El conteo 98 (2026-07-31) y 128 (2026-10-03) es histórico. El 0/0 de este corte es local, no el CI del PR |
 | Observabilidad | Parcial | Sentry, metricas Prometheus, health/readiness y auditoria | No hay trazas OTel end-to-end ni SLOs de negocio completos |
 | Storage | Parcial | Storage service con local y S3/R2, MinIO local, Evidence bucket keys | Debe verificarse provider y politicas de retencion en cada ambiente |
-| Offline | Parcial | Mobile offline store y Agro sync service | No hay sincronizacion compartida completa ni UX offline uniforme |
+| Offline | Parcial | `apps/mobile/src/timer/localTimer.ts` es el timer offline del cliente Expo; el web usa otro store | No hay sincronización compartida única entre web y móvil |
 | Backup/DR | Parcial | Simulaciones BCP y restore de operacion asistida en CI | Falta evidencia de PITR/restore real de DB y object storage de produccion |
 
 La matriz con evidencia y criterios de cierre vive en
@@ -314,10 +310,18 @@ su cuenta.
 8. Toda declaracion de estado debe distinguir codigo, pruebas, merge y
    produccion.
 
-## 11. Estado de produccion verificado
+## 11. Estado de produccion
 
-**Verificado en vivo el 2026-10-03** (modo `PRODUCTION_VERIFIED` —
-`mcp__Railway__list-deployments`/`environment-status`, no solo healthcheck):
+**No re-verificado desde 2026-10-03.** Esta pasada no llamó a Railway ni a
+los healthchecks. El bloque siguiente es la última lectura en vivo que este
+archivo conserva; no es el SHA desplegado hoy. `main` avanzó de `7da00947`
+a `594279af` (2026-11-24). El PR abierto #1142 anotó, el 2026-11-12, API y
+Worker en `7e80dd0f`; esa nota tampoco se releyó y el runbook no está en
+`main`.
+
+**Lectura en vivo del 2026-10-03** (modo `PRODUCTION_VERIFIED` ese día —
+`mcp__Railway__list-deployments`/`environment-status`, no solo healthcheck).
+Tratarla como histórica:
 
 - `origin/main`: `7da00947` (PR #757).
 - Producción Railway (proyecto `SEMSEproject`, environment `production`):
@@ -373,7 +377,7 @@ El orden aprobado es F0-F9 y se mantiene en [`../../ROADMAP.md`](../../ROADMAP.m
 2. F1: Event Backbone.
 3. F2: Prometeo Tool Registry gobernado.
 4. F3: Project Lifecycle Projection.
-5. F4: Mission Control 2.0 — implementación local completa; CI, merge, deploy y canary siguientes.
+5. F4: Mission Control 2.0 — código mergeado (#486); encendido por flag o lista canario; activación de producción no re-verificada desde 2026-10-11.
 6. F5: Shared Economic Ledger.
 7. F6: Agenda y Dispatch.
 8. F7: Prometeo Multimodal.

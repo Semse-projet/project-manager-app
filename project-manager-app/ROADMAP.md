@@ -1,6 +1,6 @@
 # Roadmap maestro de SEMSEproject
 
-**Actualizado:** 2026-10-11
+**Actualizado:** 2026-11-24 (corte de código `main` `594279afefad1fe760b94ec84c2cee382281ceb1`, PR #1169). Producción no re-verificada desde 2026-10-03.
 **Arquitectura:** [`docs/architecture/CURRENT_ARCHITECTURE.md`](docs/architecture/CURRENT_ARCHITECTURE.md)
 **Matriz:** [`docs/architecture/IMPLEMENTATION_STATUS_MATRIX.md`](docs/architecture/IMPLEMENTATION_STATUS_MATRIX.md)
 
@@ -13,12 +13,16 @@ actual sin reescritura ni renombramiento masivo.
 - Monorepo pnpm, Next.js, NestJS, Prisma, PostgreSQL, Redis y BullMQ existen.
 - Core, Connect, Payments, Trust, AI, Agro, BuildOps, Knowledge e Integrations
   tienen implementacion real en distintos grados.
-- Prometeo Runtime P2 esta fusionado y desplegado.
-- `origin/main` y API/Web/Worker/Vision están en `114cb9ca`, todos con
-  deployments terminales `SUCCESS`; ese SHA contiene F3 (`f1234291`).
-- F1-D y Product Intelligence PI-00..PI-06 están integrados. Los switches del
-  Event Backbone se activaron con allowlists acotadas para Evidence y F3; esto
-  no equivale al cierre global F1-F.
+- Prometeo Runtime P2 está en el código. Su despliegue no se re-verificó en este corte.
+- `origin/main` es `594279af` (2026-11-24). `114cb9ca` (2026-07-30) es ancestro
+  y contiene F3 (`f1234291`); no es el SHA desplegado que esta pasada haya
+  vuelto a leer. La última lectura Railway citada por la arquitectura es del
+  2026-10-03 (`3d9743d4` en API/Web) y queda sin re-verificar desde esa fecha.
+- `apps/mobile` es una app Expo del monorepo (SDK 57, ver el programa de
+  consolidación más abajo). No está retirada.
+- F1-D y el código de Product Intelligence, incluida la agregación PI-07, están
+  en `main`. Los switches del Event Backbone no se releyeron en Railway; el
+  código de la proyección F3 exige flag `true` y allowlist. Eso no cierra F1-F.
 - El programa F3-F9 está gobernado por
   `docs/specs/platform/production-convergence-program.spec.md`.
 
@@ -84,9 +88,9 @@ Estado del corte:
   contra PostgreSQL y Redis reales;
 - `Milestone.status`, `paymentReadiness` y Payments no son mutados.
 
-El código F1-D/F1-E está mergeado/desplegado. Dispatcher y consumers están
-activos sólo para types/consumers allowlisted; no se declara el backbone
-globalmente cerrado.
+El código F1-D/F1-E está en `main`. El deploy y la allowlist de producción no
+se re-verificaron desde los cortes de julio y octubre de 2026. No se declara
+el backbone globalmente cerrado.
 
 Gate de salida:
 
@@ -218,10 +222,14 @@ antes de `APPROVED`):
 > ninguna de las copias/checkouts de origen.
 
 Contrato: [`docs/specs/ui/mobile-product-consolidation.spec.md`](docs/specs/ui/mobile-product-consolidation.spec.md)
-(`APPROVED`, `risk: high`) + plan/tasks/checklist/analyze +
+(`APPROVED`, `code_status: IN_PROGRESS`, `merge_status: MERGED` desde el
+corte 2026-11-24, `risk: high`) + plan/tasks/checklist/analyze +
 [`docs/consolidation/MOBILE_SOURCE_REGISTER.md`](docs/consolidation/MOBILE_SOURCE_REGISTER.md).
-Rama de integración `feat/semse-product-consolidation-20260906`, **PR draft #598**,
-base `main@88171003`.
+PR #598 mergeado en `a42600ec` (ancestro de `main`). `package.json` actual:
+`expo` `~57.0.34`, `react-native` `0.86.3` (#1181, #1182). El workflow de chequeo móvil está en la raíz del checkout,
+`.github/workflows/mobile-checks.yml` (#1166), no dentro de
+`project-manager-app/.github`. Esta pasada no re-ejecutó jest, `expo export`
+ni EAS.
 
 Entregables al corte (2026-09-07):
 
@@ -253,19 +261,20 @@ Hallazgos de inventario:
   commitear sólo el pull-to-refresh era mejora real; el resto ya está superado
   por la Fase 7 completa de Admin en `main`.
 
-Gates de salida (abiertos):
+Gates de salida que este corte no cerró:
 
-- **Canary autenticado por rol en device** (iOS/Android) — no cerrado por
-  compilar (spec §8, T-060);
-- **Build iOS** — cuota EAS del plan Free agotada, resetea 2026-10-01;
-- **Sesiones en vivo (LiveSession)** — recuperación por contrato aparte, con
-  spec propio + migración SQL aditiva + tests de ownership antes de suscribir
-  SSE: [`docs/consolidation/LIVESESSION_RECOVERY_CONTRACT.md`](docs/consolidation/LIVESESSION_RECOVERY_CONTRACT.md);
-- **Procedencia** de los commits `2deefd26…`/`cd534762…` de builds EAS
-  recientes — en otra máquina del propietario, sin pushear;
-- **CI real** — mismo hallazgo transversal de infra (ver matriz §9);
-- **Docs canónicas** — esta entrada y la fila de la matriz; `SPEC_INDEX`
-  regenerado.
+- **Canary autenticado por rol en device** (iOS/Android) — no se re-verificó
+  (spec §8, T-060);
+- **Build iOS / cuota EAS** — la nota de 2026-09 decía que el plan Free
+  reseteaba el 2026-10-01. No se consultó EAS en este corte;
+- **Release de tienda** — no re-verificado. `deploy_status` del spec sigue
+  `NOT_DEPLOYED` por eso, no porque #598 siga abierto;
+- **Sesiones en vivo (LiveSession)** — el contrato aparte sigue en
+  [`docs/consolidation/LIVESESSION_RECOVERY_CONTRACT.md`](docs/consolidation/LIVESESSION_RECOVERY_CONTRACT.md);
+  no se auditó aquí si las fases posteriores (#600/#602) cierran ese gate;
+- **CI del HEAD** — no se listaron los runs de Actions de `594279af`. El
+  hallazgo de agosto que decía “Actions muerto desde 2026-08-19” no describe
+  noviembre (ver matriz, hallazgo 9).
 
 ## F2 — Prometeo Tool Registry gobernado (GOBERNANZA EN MAIN — PRs #369/#371/#372; adapters `vision.*` cableados 2026-07-20 salvo `analyze_video`)
 
@@ -297,17 +306,22 @@ Contrato ejecutable:
 
 Estado del corte:
 
-- spec SDD 2.0 `VERIFIED`, CI/E2E/integración `PASS`, merge/deploy completos;
-- código event-driven mergeado en `f1234291`; `origin/main@114cb9ca` lo contiene;
-- PostgreSQL tiene las tres migraciones F3 aplicadas, incluida la reparación
-  canónica de Evidence verificada con nueve columnas, cero tenant nulo, dos FKs
-  y tres índices;
-- cálculo y persistencia están activos sólo para `tenant_default`;
-- el canary autenticado produjo revisión estable y un snapshot durable con
-  mismatch cero;
-- rebuild idempotente, evento/consumer, consumo automático, duplicado y replay
-  quedaron verificados: 5 publicaciones, 5 consumos y cero estados fallidos;
-- F3 queda cerrado para el scope canary, no promovido globalmente.
+- spec SDD 2.0 `VERIFIED` con la evidencia de entrega que el propio spec
+  registra al 2026-07-31. Esa evidencia de CI, deploy y canary no se
+  re-verificó el 2026-11-24;
+- código event-driven mergeado en `f1234291`, ancestro de `main@594279af`.
+  En código, el cálculo por tenant exige
+  `SEMSE_PROJECT_LIFECYCLE_PROJECTION_ENABLED=true` y la allowlist
+  `SEMSE_PROJECT_LIFECYCLE_CANARY_TENANT_IDS` (o `*`);
+- la reparación PostgreSQL de Evidence (nueve columnas, cero tenant nulo, dos
+  FKs, tres índices) es la lectura del 2026-07-31, no re-verificada;
+- el 2026-07-31 el cálculo y la persistencia se observaron activos sólo para
+  `tenant_default` (no re-verificado desde esa fecha);
+- ese canary produjo revisión estable y un snapshot durable con mismatch cero;
+- rebuild, evento/consumer, duplicado y replay quedaron verificados entonces:
+  5 publicaciones, 5 consumos y cero estados fallidos;
+- F3 quedó cerrado para el scope canary de ese corte, no promovido
+  globalmente. No repetir “canary activo” sin releer Railway.
 
 Crear un read model por proyecto que responda:
 
@@ -320,16 +334,19 @@ Crear un read model por proyecto que responda:
 - pago retenido;
 - trust/risk signals.
 
-Gate de salida: cumplido para `tenant_default`; la vista es coherente y
-reconstituible por replay. F4 es el siguiente child; su SDD ya está aprobado y
-abre la implementación reversible.
+Gate de salida: cumplido el 2026-07-31 para `tenant_default`, sin relectura
+posterior. F4 ya está mergeado; ver la sección siguiente. Su activación no se
+infiere de ese canary.
 
 ## F4 — Mission Control 2.0
 
-**Child SDD 2.0 `operations.mission-control-2` aprobado; implementación
-mergeada y desplegada (PR #486, merge commit `afb2dccd`, 2026-07-31;
-ancestro confirmado de `origin/main`). Canary `tenant_default` no verificado
-en esta pasada — no se infiere activación desde merge/deploy.**
+**Child SDD 2.0 `operations.mission-control-2` está `IMPLEMENTED` /
+`merge_status: MERGED` (PR #486, `afb2dccd`, 2026-07-31, ancestro de
+`main@594279af`). El código se enciende solo con
+`SEMSE_MISSION_CONTROL_V2_ENABLED=true` o con el tenant en
+`SEMSE_MISSION_CONTROL_V2_CANARY_TENANT_IDS`. El spec sigue en
+`activation_status: INACTIVE`. La evidencia de deploy y la lectura canario
+del 2026-10-11 no se re-verificaron.**
 
 Contrato ejecutable:
 
@@ -441,23 +458,20 @@ Contrato ejecutable:
 
 - [`docs/specs/core/universal-identity-multi-role.spec.md`](docs/specs/core/universal-identity-multi-role.spec.md) — `APPROVED` 2026-08-04
 - [`docs/specs/core/originador-referral-program.spec.md`](docs/specs/core/originador-referral-program.spec.md) — `APPROVED` 2026-08-04; recompensa hibrida (bono fijo + % de `platformFeeCents`) gateada por `StripeConnectAccount`, multi-pais (Latinoamerica priorizada tras EE.UU.); Fase 3 bloqueada solo por el gate legal por pais (§12b), la dependencia F5 se retiro tras confirmar que reutiliza el mismo mecanismo de pago que ya usan los profesionales
-- [`docs/architecture/ADR-025-mcp-external-tool-gateway.md`](docs/architecture/ADR-025-mcp-external-tool-gateway.md) — decision de arquitectura, `PROPOSED`, no alcance activo
+- [`docs/architecture/ADR-025-mcp-external-tool-gateway.md`](docs/architecture/ADR-025-mcp-external-tool-gateway.md) — `ACCEPTED` el 2026-08-04, opción C: no construir ahora el cliente MCP externo. No es alcance activo. El consentimiento entrante (`apps/api/src/modules/mcp-consent`) es otro flujo y no publica rutas.
 
 `APPROVED` autoriza el contrato, no implica código completo: ambas specs
-están `code_status: IN_PROGRESS` (ver `IMPLEMENTATION_STATUS_MATRIX.md`).
-Identidad universal tiene Fase 1-2 (`GET /v1/users/me/capabilities`)
-mergeada y desplegada (PR #539), más el selector de capacidad en Web
-implementado 2026-08-13 y mergeado (PR #568) detrás de un flag de
-canario apagado (`SEMSE_IDENTITY_CAPABILITY_UI_ENABLED`/
-`_CANARY_TENANT_IDS`). Originador tiene el RBAC self-service de Connect
-y la corrección de reward math mergeados y desplegados (PR #538), más
-Fase 1-2 (registro/validación de originador, sin dinero real —
-`POST /v1/projects/:projectId/originator`, modelo `OriginatorReward`) y
-el enganche de `OriginatorReward` a los dos triggers reales del spec
-(primer milestone financiado, proyecto completado) implementados
-2026-08-13 detrás de flag apagado (PR #569, abierto sin mergear). La
-Fase 3 de recompensa real (pago efectivo, bloqueada por gate legal por
-país) sigue sin iniciar.
+siguen `code_status: IN_PROGRESS` (ver `IMPLEMENTATION_STATUS_MATRIX.md`).
+Identidad universal: Fase 1-2 (`GET /v1/users/me/capabilities`, #539
+`8e0ad1e3`) y el selector web (#568 `500bebc7`) son ancestros de `main`.
+La UI sale solo si `SEMSE_IDENTITY_CAPABILITY_UI_ENABLED=true` o el tenant
+está en `SEMSE_IDENTITY_CAPABILITY_UI_CANARY_TENANT_IDS`. Originador: #538
+`6040d75e` y #569 `41eca604` (2026-08-26) son ancestros. El registro sale
+solo si `SEMSE_ORIGINATOR_REGISTRATION_ENABLED=true` o el tenant está en
+`SEMSE_ORIGINATOR_CANARY_TENANT_IDS`. El spec marca `activation_status:
+CANARY` con evidencia del 2026-10-12; esa lectura no se repitió. La Fase 3
+de recompensa real sigue sin iniciar (gate legal por país). El deploy de
+estos SHA no se re-verificó el 2026-11-24.
 
 Entregables:
 

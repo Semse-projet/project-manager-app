@@ -16,6 +16,45 @@
 4. [`SOURCE_OF_TRUTH.md`](SOURCE_OF_TRUTH.md)
 5. [`../ROADMAP.md`](../ROADMAP.md)
 
+## Corte de código 2026-11-24
+
+`main` es `594279afefad1fe760b94ec84c2cee382281ceb1` (PR #1169). La matriz
+generada sale del frontmatter de cada spec (`pnpm spec:index`). Las columnas
+Deploy y Activation **no se re-verificaron contra Railway** en este corte:
+léelas como la última evidencia escrita en el spec (`Last Verified`), no como
+una observación de producción del 2026-11-24.
+
+No se re-auditó fila por fila. Estas sí se contrastaron con git y con el
+código:
+
+- `ui.mobile-product-consolidation`: `merge_status` pasa a `MERGED` porque
+  #598 (`a42600ec`) es ancestro de `main`. `code_status` sigue `IN_PROGRESS`:
+  los gates de dispositivo y tienda no se re-ejecutaron. `deploy_status`
+  sigue `NOT_DEPLOYED` porque no se confirmó un release, no porque la app
+  falte en el monorepo.
+- `operations.mission-control-2`: ya estaba `MERGED`. El código se enciende
+  con `SEMSE_MISSION_CONTROL_V2_ENABLED=true` o la lista canario. `INACTIVE`
+  coincide con el default del código cuando la variable no está. La evidencia
+  de canary del 2026-10-11 dentro del spec no se releyó.
+- `core.universal-identity-multi-role`: #539 y #568 son ancestros. El
+  `verification_scope` que decía “fase 3 sin mergear” estaba vencido. El
+  selector web sigue detrás de `SEMSE_IDENTITY_CAPABILITY_UI_ENABLED` o su
+  lista canario. `DEPLOYED` en la fila es evidencia vieja del spec, no
+  re-verificada desde 2026-08-13.
+- `core.originador-referral-program`: #569 (`41eca604`) está en `main`. La
+  columna `CANARY` es la evidencia del spec del 2026-10-12, no re-verificada.
+  En código el registro exige `SEMSE_ORIGINATOR_REGISTRATION_ENABLED=true` o
+  `SEMSE_ORIGINATOR_CANARY_TENANT_IDS`.
+- `core.geofence-policy` y `core.crews-worksites` siguen `UNMERGED` /
+  `IN_PROGRESS` porque los specs no se declaran cerrados (Gate 5 y OPEN-18
+  en geocerca). Aun así hay código en `main` (#1019 y #1169) y, si la
+  variable no es `true`, el flag queda apagado.
+
+El inventario de “mergeado y no encendido” sigue en el PR abierto
+[#1142](https://github.com/Semse-projet/project-manager-app/pull/1142). No
+está en `main`. Sus lecturas de Railway no se re-verificaron desde
+2026-11-12.
+
 ## Estados
 
 | Estado | Uso |
@@ -248,7 +287,7 @@ retroactiva.
 | [ui.mobile-admin-trust](specs/ui/mobile-admin-trust.spec.md) | ui | IMPLEMENTED | COMPLETE | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | low | yes | 2026-08-26 |
 | [ui.mobile-admin-users](specs/ui/mobile-admin-users.spec.md) | ui | IMPLEMENTED | COMPLETE | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | yes | 2026-08-26 |
 | [ui.mobile-client-tab](specs/ui/mobile-client-tab.spec.md) | ui | IMPLEMENTED | COMPLETE | PASS | MERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-08-05 |
-| [ui.mobile-product-consolidation](specs/ui/mobile-product-consolidation.spec.md) | ui | APPROVED | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-09-06 |
+| [ui.mobile-product-consolidation](specs/ui/mobile-product-consolidation.spec.md) | ui | APPROVED | IN_PROGRESS | NOT_RUN | MERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-11-24 |
 | [ui.pro-flows-remediation](specs/ui/pro-flows-remediation.spec.md) | ui | APPROVED | legacy | legacy | legacy | legacy | legacy | critical | no | 2026-08-14 |
 | [ui-pro-flows](specs/ui/pro-flows.spec.md) | ui | DEPRECATED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-06-09 |
 | [ui.prometeo-mascot-3d](specs/ui/prometeo-mascot-3d.spec.md) | ui | APPROVED | COMPLETE | PASS | MERGED | DEPLOYED | ACTIVE | medium | yes | 2026-10-05 |
