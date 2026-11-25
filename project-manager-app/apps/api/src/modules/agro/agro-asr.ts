@@ -5,6 +5,8 @@
  * prove ownership or custody. Retain the legacy class name for compatibility,
  * but make every read fail closed without touching the network. P1 must
  * replace this with a StorageService reader gated by tenant/farm/asset binding.
+ * Do not add an allowlisted fetch here: issue #911 stays fail-closed until
+ * that binding exists. Agro intake also refuses to forward fileUrl to vision.
  */
 import type { TranscriptionStorageReader } from "../contributor-program/transcription-provider.js";
 
