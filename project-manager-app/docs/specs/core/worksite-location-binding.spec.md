@@ -3,19 +3,21 @@ id: "core.worksite-location-binding"
 title: "Ubicación verificable de obra y vínculo Job/proyecto libre para geocercas (OPEN-18)"
 domain: "core"
 sdd_version: "2.0"
-version: "0.2"
+version: "0.3"
 status: "APPROVED"
 owner: "semse-core"
 risk: "critical"
 code_status: "IN_PROGRESS"
-ci_status: "NOT_RUN"
-merge_status: "UNMERGED"
-deploy_status: "NOT_DEPLOYED"
+ci_status: "PASS"
+merge_status: "MERGED"
+deploy_status: "DEPLOYED"
 activation_status: "INACTIVE"
-migration_status: "PENDING"
+migration_status: "APPLIED"
 feature_flags:
   - "SEMSE_WORKSITE_BINDING_ENABLED"
-production_evidence: []
+production_evidence:
+  - "2026-11-25: #1168 fusionado (main@bc127c90); migración 20261120120000_worksite_location_binding aplicada por pre-migrate en semse-API (deploy 744e05fa); health gitSha bc127c90, flag apagado"
+  - "2026-11-25: #1172 (clientes W-07) fusionado (main@384859ff); 4 servicios SUCCESS; health gitSha 384859ff; flag apagado"
 related_files:
   - "apps/api/src/modules/geofence/site-binding.ts"
   - "apps/api/src/modules/geofence/geofence.policy.ts"
@@ -46,14 +48,16 @@ related_events:
   - "worksite_binding.created"
   - "worksite_binding.ended"
 related_agents: []
-last_verified: "2026-11-20"
+last_verified: "2026-11-25"
 ---
 # OPEN-18 — Ubicación verificable de obra y vínculo Job/proyecto libre
 
 > **APPROVED por el propietario el 2026-11-20** («Apruebo OPEN-18»), incluidas las propuestas de Q1–Q3 (§11).
-> Implementación del servidor en curso (#1168), tras `SEMSE_WORKSITE_BINDING_ENABLED` apagado. La migración es
-> aditiva y está versionada en el repo; **no se ha aplicado en ningún entorno compartido** (staging ni producción):
-> hacerlo exige una autorización aparte.
+> **v0.3 (2026-11-25):** el propietario aprueba la opción A para trabajadores de varias Org (AC-11) y los arreglos de
+> clientes AC-12…AC-14, que salen de la revisión automatizada de #1172.
+> **Estado de entrega:** servidor (#1168) y clientes (#1172) fusionados y desplegados. La migración aditiva está
+> aplicada en producción y en el staging aislado. `SEMSE_WORKSITE_BINDING_ENABLED` está **apagado** en producción:
+> encenderlo exige una orden aparte del propietario, después de AC-12…AC-14 y del cierre de Gate 5.
 
 ## 1. Problema y resultado
 
@@ -124,6 +128,22 @@ OPS_ADMIN no cruza tenants (regla de ResourceScope). Un recurso de otro tenant u
 - **AC-10:** revocar la Membership, terminar el vínculo, reasignar el Job o salir de AUTO (retirar el consentimiento)
   invalida las decisiones pendientes no consumidas. Se revalida **dentro** de la transacción de consumo, así que una
   revocación que confirma entre la validación previa y la reclamación tampoco deja pasar el inicio.
+- **AC-11 (v0.3, opción A):** solo cuentan las obras de la **Org de la sesión**. `GET /v1/me/geofence-sites` lista
+  únicamente obras de esa Org; una llegada a una obra de otra Org de la persona → `IGNORE`, sin oráculo; y una
+  decisión de otra Org no autoriza un inicio desde esta sesión (409). Motivo: el Time Tracker valida la asignación
+  contra la Org de la sesión. **Al cambiar de Org:** los clientes vuelven a pedir `geofence-sites` al cargar el
+  reloj (web) o al ganar el foco el Reloj o Ajustes (móvil), y entonces aparecen las obras de la Org nueva. Las
+  decisiones pendientes de la Org anterior no sirven en la nueva.
+- **AC-12 (v0.3):** un inicio `proximity_auto` que no se completa (409 `auto_start_not_authorized`, sin conexión o
+  5xx) **nunca** se guarda para reintentarlo: un reintento posterior no llevaría la decisión y saldría como inicio
+  manual. Se descarta y se ofrece la confirmación normal; solo un toque explícito envía `proximity_confirmed`
+  (web y móvil).
+- **AC-13 (v0.3):** una respuesta de llegada que llega después de que la detección se detuvo (salir del reloj,
+  cambiar de pestaña, apagar la detección) se descarta: no inicia ni avisa.
+- **AC-14 (v0.3):** en obras vinculadas, el enfriamiento de avisos (20 min por defecto) solo empieza tras una acción
+  visible (aviso o inicio). Un `IGNORE` no lo activa; un límite de 1 min por sitio evita informar la llegada en
+  cada lectura del GPS. El intervalo de distancia del GPS en segundo plano es de 40 m, por debajo del radio mínimo
+  de 50 m.
 
 ## 5. Contratos (propuestos)
 
@@ -241,6 +261,12 @@ CREATE UNIQUE INDEX "GeofenceEvent_consumed_uq" ON "GeofenceEvent"("consumedByTi
 
 1. **Inmediato:** apagar `SEMSE_WORKSITE_BINDING_ENABLED`. El servidor ignora `site` y AC-08, y los clientes vuelven a
    la confirmación local. No se pierde ningún dato.
+   - **Móvil en segundo plano (v0.3):** la tarea de ubicación usa las obras vinculadas guardadas hasta la siguiente
+     actualización. Esta ocurre al iniciar sesión o al ganar el foco el Reloj o Ajustes. Mientras tanto, cada
+     llegada a una obra vinculada se envía con `site`. Con el flag apagado, el servidor la ignora y, sin
+     `worksiteId`, decide `IGNORE`: **no hay auto-inicio ni aviso**, es un fallo seguro. Tras la actualización,
+     `geofence-sites` responde 404 y vuelven los jobs y proyectos locales (test
+     `refreshSites.test.ts › rollback`). Para recuperar antes la detección local, basta con abrir el Reloj.
 2. **Código:** revertir el PR de implementación (la migración aditiva puede quedarse).
 3. **Esquema (solo si se pide):** exportar `WorksiteBinding` y las columnas nuevas, y luego aplicar una migración
    inversa: `DROP TABLE "WorksiteBinding"` y `DROP COLUMN` de las 6 + 2 columnas. Ningún `TimeEntry` se toca en

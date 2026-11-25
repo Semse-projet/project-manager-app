@@ -274,3 +274,8 @@ Gestión: exige `org:crews:manage` y Membership ACTIVE del actor en esa Org y te
 - `POST /v1/me/geofence-events` · `GET /v1/me/geofence-events` — decisiones de llegada o salida, sin guardar coordenadas.
 - Clientes: solo un 404 permite volver al modo anterior del perfil. Cualquier otro error de lectura deja la detección en OFF.
 - **Estado de entrega:** el flag está apagado en producción.
+- `GET /v1/me/geofence-sites` (OPEN-18, flag `SEMSE_WORKSITE_BINDING_ENABLED`, apagado → 404): obras vinculadas
+  **solo de la Org de la sesión** (AC-11), con la ubicación y el radio de la obra, nunca de la persona.
+- `POST /v1/me/geofence-events` con `site`: una obra de otra Org → `IGNORE`. `POST /v1/labor/timer/start` con
+  `proximity_auto` exige `geofenceEventId` vigente; si no, 409 `auto_start_not_authorized`, y el cliente pide
+  confirmación sin reintentar el inicio automático (AC-12).
