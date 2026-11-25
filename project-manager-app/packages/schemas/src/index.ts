@@ -26,6 +26,7 @@ export * from "./domain-events.view.js";
 export * from "./api-input.schema.js";
 export * from "./tracker.schema.js";
 export * from "./labor-engine.schema.js";
+export * from "./worksite-binding.schema.js";
 export * from "./user.schema.js";
 export * from "./user-profile.schema.js";
 export * from "./push-notifications.schema.js";

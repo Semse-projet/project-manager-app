@@ -60,7 +60,8 @@ import { ProyectosTab } from "./sections/ProyectosTab";
 import { ReportesTab } from "./sections/ReportesTab";
 import { AsistenteTab } from "./sections/AsistenteTab";
 import { friendlyConnectionMessage, shouldPreserveLocalEvent } from "./sections/trackerUi";
-import { fetchLocationPreference, SurfaceApiError } from "../../../lib/module-surfaces-api";
+import { fetchLocationPreference, fetchMyGeofenceSites, reportGeofenceArrival, SurfaceApiError } from "../../../lib/module-surfaces-api";
+import { classifyGeofenceSitesLoad, clientSiteKind, proximityActionForDecision, serverSiteKind } from "../../../../lib/geofence-decision";
 import { resolveProximityMode, type LocationPreferenceResult } from "../../../../lib/location-mode";
 
 // Auto-sync retry policy for the offline queue. Every attempt rewrites the
@@ -367,6 +368,8 @@ export default function WorkerTrackerPage() {
   const [autoSyncStopped, setAutoSyncStopped] = useState(false);
   const [proximityCheckInMode, setProximityCheckInMode] = useState<ProximityCheckInMode>("ask");
   const [proximityConfig, setProximityConfig] = useState<ProximityConfigView | null>(null);
+  /** OPEN-18: obras vinculadas. null = 404 (modo anterior). [] = lista vacía o error (sin auto-inicio local). */
+  const [geofenceSites, setGeofenceSites] = useState<ProximitySite[] | null>(null);
   const [proximityExplainerDismissed, setProximityExplainerDismissed] = useState(true);
   const autoSyncAttemptsRef = useRef(0);
 
@@ -403,7 +406,7 @@ export default function WorkerTrackerPage() {
       .then((value) => ({ ok: true as const, value }))
       .catch((caught: unknown) => ({ ok: false as const, error: caught }));
 
-    const [nextJobs, nextFreeProjects, activeTimerResult, nextWeek, nextMonth, nextProfile, nextProximityConfig, nextLocationPreference] = await Promise.all([
+    const [nextJobs, nextFreeProjects, activeTimerResult, nextWeek, nextMonth, nextProfile, nextProximityConfig, nextLocationPreference, nextGeofenceSites] = await Promise.all([
       fetchTimeTrackerJobs().catch(() => [] as JobRecordView[]),
       fetchFreeProjects().catch(() => [] as FreeProjectView[]),
       activeTimerFetch,
@@ -418,6 +421,11 @@ export default function WorkerTrackerPage() {
         .then((pref): LocationPreferenceResult => ({ kind: "ok", pref }))
         .catch((caught: unknown): LocationPreferenceResult =>
           caught instanceof SurfaceApiError && caught.status === 404 ? { kind: "disabled" } : { kind: "error" }),
+      // OPEN-18: 200 = el servidor decide cada llegada. Solo un 404 conserva el modo
+      // anterior. Cualquier otro error falla cerrado (sin sitios locales).
+      fetchMyGeofenceSites()
+        .then((sites) => ({ ok: true as const, sites }))
+        .catch(() => ({ ok: false as const })),
     ]);
 
     setJobs(nextJobs);
@@ -427,6 +435,21 @@ export default function WorkerTrackerPage() {
     const nextProximityMode = resolveProximityMode(nextLocationPreference, nextProfile ? nextProfile.proximityCheckInMode ?? "ask" : null);
     if (nextProximityMode) setProximityCheckInMode(nextProximityMode);
     if (nextProximityConfig) setProximityConfig(nextProximityConfig);
+    const geofenceLoad = classifyGeofenceSitesLoad(nextGeofenceSites);
+    setGeofenceSites(
+      geofenceLoad.status === "disabled"
+        ? null
+        : geofenceLoad.status === "unavailable"
+          ? []
+          : geofenceLoad.sites.map((site) => ({
+              kind: clientSiteKind(site.kind),
+              id: site.targetId,
+              name: site.worksiteName,
+              latitude: site.latitude,
+              longitude: site.longitude,
+              radiusMeters: site.radiusMeters ?? undefined,
+            })),
+    );
 
     if (activeTimerResult.ok) {
       const nextActive = activeTimerResult.value;
@@ -847,6 +870,7 @@ export default function WorkerTrackerPage() {
     jobId?: string;
     freeProjectId?: string;
     checkIn?: { latitude: number; longitude: number; method?: "proximity_confirmed" | "proximity_auto" };
+    geofenceEventId?: string;
   }) {
     const jobId = overrides ? overrides.jobId : (mode === "job" ? selectedJob : undefined);
     const freeProjectId = overrides ? overrides.freeProjectId : (mode === "free" ? selectedFreeProject : undefined);
@@ -870,7 +894,7 @@ export default function WorkerTrackerPage() {
     setActiveEntry(localSessionToEntry(localStart.localSession));
     setElapsed(0);
     try {
-      const entry = await startLaborTimer({ purpose, jobId, freeProjectId, notes: notes.trim() || undefined, checkIn: overrides?.checkIn, clientEventId: localStart.event.id });
+      const entry = await startLaborTimer({ purpose, jobId, freeProjectId, notes: notes.trim() || undefined, checkIn: overrides?.checkIn, clientEventId: localStart.event.id, geofenceEventId: overrides?.geofenceEventId });
       const remainingEvents = localStart.state.pendingEvents.filter((event) => event.id !== localStart.event.id);
       persistTrackerLocalState({
         ...localStart.state,
@@ -908,7 +932,8 @@ export default function WorkerTrackerPage() {
     void handleStart({
       jobId: site.kind === "job" ? site.id : undefined,
       freeProjectId: site.kind === "free" ? site.id : undefined,
-      checkIn,
+      checkIn: { latitude: checkIn.latitude, longitude: checkIn.longitude, method: checkIn.method },
+      geofenceEventId: checkIn.geofenceEventId,
     });
     if (checkIn.method === "proximity_auto") {
       setSyncNotice(`Reloj iniciado automáticamente: estás cerca de "${site.name}". Detenlo desde el timer si fue un error.`);
@@ -920,6 +945,16 @@ export default function WorkerTrackerPage() {
     mode: proximityCheckInMode,
     jobs,
     freeProjects,
+    serverSites: geofenceSites,
+    evaluateArrival: async (site, here) => {
+      const decision = await reportGeofenceArrival({
+        eventId: `arrival-${site.kind}-${site.id}-${Date.now()}`,
+        site: { kind: serverSiteKind(site.kind), id: site.id },
+        occurredAt: new Date().toISOString(),
+        accuracyMeters: here.accuracyMeters,
+      });
+      return { action: proximityActionForDecision(decision.decision), geofenceEventId: decision.id };
+    },
     onStart: handleProximityStart,
     radiusMeters: proximityConfig?.radiusMeters,
     cooldownMs: proximityConfig ? proximityConfig.cooldownMinutes * 60_000 : undefined,

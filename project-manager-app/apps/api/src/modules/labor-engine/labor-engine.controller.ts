@@ -164,6 +164,7 @@ export class LaborEngineController {
       notes: typeof body["notes"] === "string" ? body["notes"] : undefined,
       checkIn: parseCheckIn(body),
       clientEventId: typeof body["clientEventId"] === "string" ? body["clientEventId"] : undefined,
+      geofenceEventId: typeof body["geofenceEventId"] === "string" ? body["geofenceEventId"].slice(0, 64) : undefined,
     });
     return ok(rid(req), data);
   }
