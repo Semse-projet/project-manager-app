@@ -28,6 +28,8 @@ export const startTimerSchema = z.object({
       method: checkInMethodSchema.optional(),
     })
     .optional(),
+  /** OPEN-18 AC-08: decisión AUTO_START_ALLOWED del servidor que autoriza un inicio `proximity_auto`. */
+  geofenceEventId: z.string().trim().min(1).max(64).optional(),
   clientEventId: z.string().min(1).optional(),
 });
 

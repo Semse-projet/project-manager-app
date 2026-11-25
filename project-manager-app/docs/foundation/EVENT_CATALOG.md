@@ -551,6 +551,18 @@ Crear eventos por cambios de dominio o de consecuencia operativa real.
 - `crew.member_removed`
 - `crew.archived`
 
+## Business OS — preferencia de ubicación (BO-09)
+
+- `location_preference.changed` — ya emitido por `GeofenceService.setPreference`; faltaba en el catálogo (registrado con OPEN-18).
+
+## Business OS — ubicación de obra y vínculos (OPEN-18)
+
+Spec: `docs/specs/core/worksite-location-binding.spec.md`. Ningún evento lleva coordenadas.
+
+- `worksite.location_set` — radio, procedencia y si quedó verificada.
+- `worksite_binding.created` — obra, tipo (`JOB`/`FREE_PROJECT`) y objetivo.
+- `worksite_binding.ended`
+
 ## Business OS — experiencia y atestaciones (BO-12)
 
 - `skill_experience.confirmed`

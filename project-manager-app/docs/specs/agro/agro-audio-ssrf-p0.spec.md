@@ -65,7 +65,7 @@ P3: Si el usuario proporciona text explícito, incluso cuando adjunta AUDIO, rec
 
 P4: Si un consumidor legacy instancia HttpUrlStorageReader y llama readBuffer, lanza AUDIO_SOURCE_NOT_VERIFIED sin conexión.
 
-P5: Fotos y visión optativa se mantienen intactas. Un usuario no autorizado sigue rechazado antes del análisis de evidencias.
+P5: Un usuario no autorizado sigue rechazado antes del análisis de evidencias. Enmienda #911 (2026-11-24): una foto que solo tiene `fileUrl` ya no se reenvía a vision-service. Ese servicio descarga `imageUrl`, así que reenviarla reabría el mismo SSRF que el ASR. La propuesta de texto sigue; `visionSignals` queda vacío hasta que exista un asset de storage autorizado. Las URLs de visualización siguen pudiendo persistirse; este slice no las descarga.
 
 ## 5. Contrato API/UI/agente
 

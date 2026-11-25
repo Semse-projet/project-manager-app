@@ -7,6 +7,10 @@ export type ProximitySite = {
   name: string;
   latitude: number;
   longitude: number;
+  /** OPEN-18: radius of the linked WORKSITE (falls back to the org radius). */
+  radiusMeters?: number;
+  /** OPEN-18: linked worksite — arrivals are decided by the server, never auto-started locally. */
+  bound?: boolean;
 };
 
 const SITES_KEY = "semse.proximity.sites";

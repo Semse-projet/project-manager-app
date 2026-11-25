@@ -148,6 +148,8 @@ export async function startLaborTimer(input: {
   checkIn?: { latitude: number; longitude: number; method?: "proximity_confirmed" | "proximity_auto" };
   /** Idempotency key (Time Tracker local queue event id) — lets a retried sync resolve to the same entry instead of creating a duplicate. */
   clientEventId?: string;
+  /** OPEN-18: decisión AUTO_START_ALLOWED del servidor que autoriza un inicio `proximity_auto`. */
+  geofenceEventId?: string;
 }): Promise<TimeEntryView> {
   return mutateLabor<TimeEntryView>("/api/semse/labor/timer/start", input);
 }
