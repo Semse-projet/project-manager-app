@@ -6,20 +6,23 @@
  * entorno `staging` del proyecto Railway «SEMSE AgentRun 1149 Isolated QA», servicio
  * `semse-api-qa`, mediante un preDeployCommand temporal que se retira después.
  *
+ * Org del piloto = la Org PRO PRINCIPAL de la cuenta PRO (su membresía ACTIVE más antigua, que es
+ * la que usa el login). El login no permite cambiar de Org, así que sembrar en otra Org dejaría las
+ * obras fuera de la sesión (AC-11). La cuenta WORKER se crea por INVITACIÓN (BO-03) desde esa Org,
+ * de modo que su única membresía —y su Org de sesión— es la del piloto (decisión del propietario).
+ *
  * Qué hace (datos sintéticos, ids fijos `pilot_seed_*`, idempotente):
- *  - Org profesional «Piloto FieldOps (sintético)» y Org cliente sintética, en el tenant de la
- *    cuenta PRO.
- *  - Memberships ACTIVE: cuenta PRO → PRO, cuenta WORKER → WORKER, en la Org del piloto.
+ *  - Org cliente sintética en el tenant de la cuenta PRO.
  *  - Dos Jobs con Project asignado a la Org del piloto (así el reloj los considera asignados):
  *    uno ligado a una obra VERIFICADA (pin manual) y otro a una obra SIN VERIFICAR (geocodificada).
  *  - Las dos obras con su ubicación y un vínculo ACTIVE Job→obra cada una.
  *
- * Qué NO hace: no crea usuarios ni contraseñas (las dos cuentas las registra el propietario),
- * no toca datos reales, no enciende flags, no lee ni imprime secretos. Nunca corre en producción.
+ * Qué NO hace: no crea usuarios, contraseñas, memberships ni invitaciones; no modifica la Org del
+ * PRO; no toca datos reales; no enciende flags; no lee ni imprime secretos. Nunca corre en producción.
  *
- * Modos (PILOT_SEED_MODE): `plan` (por defecto: valida y muestra lo que haría, sin escribir),
- * `apply` (escribe, idempotente) y `rollback` (borra solo filas `pilot_seed_*` y los
- * TimeEntry/GeofenceEvent sintéticos ligados a esos Jobs y obras).
+ * Modos (PILOT_SEED_MODE): `plan` (por defecto: valida la entrada y comprueba la base en SOLO
+ * LECTURA, sin escribir), `apply` (escribe, idempotente) y `rollback` (borra solo filas
+ * `pilot_seed_*` y los TimeEntry/GeofenceEvent sintéticos ligados a esos Jobs y obras).
  *
  * Entrada (variables de entorno del servicio, no secretas):
  *   PILOT_SEED_CONFIRM=staging-only            obligatorio para apply/rollback
@@ -37,7 +40,6 @@ export const EXPECTED = Object.freeze({
 });
 
 export const IDS = Object.freeze({
-  proOrg: "pilot_seed_org_pro",
   clientOrg: "pilot_seed_org_client",
   jobVerified: "pilot_seed_job_verified",
   jobUnverified: "pilot_seed_job_unverified",
@@ -52,7 +54,8 @@ export const IDS = Object.freeze({
 /** Comprueba que el proceso corre en el staging aislado autorizado. Devuelve los motivos de rechazo. */
 export function guardEnvironment(env) {
   const reasons = [];
-  if ((env.NODE_ENV ?? "").trim().toLowerCase() === "production") reasons.push("NODE_ENV=production");
+  // NODE_ENV no se comprueba: Dockerfile.api fija NODE_ENV=production también en staging (es el modo
+  // de ejecución de Node, no el entorno). La identidad del despliegue la dan las variables de Railway.
   if (env.RAILWAY_PROJECT_ID !== EXPECTED.projectId) reasons.push("RAILWAY_PROJECT_ID no es el del staging aislado autorizado");
   if (env.RAILWAY_PROJECT_NAME !== EXPECTED.projectName) reasons.push("RAILWAY_PROJECT_NAME no coincide");
   if (env.RAILWAY_ENVIRONMENT_NAME !== EXPECTED.environmentName) reasons.push("RAILWAY_ENVIRONMENT_NAME no es staging");
@@ -100,43 +103,58 @@ export function parseInput(env) {
 
 const mask = (email) => email.replace(/^(.).*(@.*)$/, "$1***$2");
 
-async function activeUser(prisma, email, label) {
-  const user = await prisma.user.findUnique({ where: { email }, select: { id: true, status: true } });
-  if (!user) throw new Error(`La cuenta ${label} (${mask(email)}) no existe en staging: regístrala antes de sembrar`);
-  if (user.status !== "active") throw new Error(`La cuenta ${label} (${mask(email)}) no está activa`);
-  return user;
-}
-
-async function resolveTenant(prisma, proUserId) {
-  const rows = await prisma.membership.findMany({
-    where: { userId: proUserId, status: "ACTIVE", orgId: { not: IDS.proOrg } },
-    select: { org: { select: { tenantId: true } } },
+/** Membresía principal = la ACTIVE más antigua, la misma que elige el login (auth.repository). */
+async function primaryMembership(db, userId) {
+  return db.membership.findFirst({
+    where: { userId, status: "ACTIVE" },
+    orderBy: { createdAt: "asc" },
+    select: { orgId: true, role: { select: { key: true } }, org: { select: { tenantId: true, type: true } } },
   });
-  const tenants = [...new Set(rows.map((r) => r.org.tenantId))];
-  if (tenants.length !== 1) throw new Error(`La cuenta PRO debe pertenecer a exactamente un tenant (encontrados: ${tenants.length})`);
-  return tenants[0];
 }
 
-async function role(tx, key) {
-  return tx.role.upsert({ where: { key }, update: {}, create: { key, name: key } });
+/**
+ * Comprobaciones en SOLO LECTURA. Devuelve { blocking, worker, pilot, existing }.
+ * - PRO: existe, activa, y su membresía principal es de rol PRO en una Org PRO → Org del piloto.
+ * - WORKER: si aún no existe, queda pendiente de la invitación (no bloquea la siembra). Si existe,
+ *   su membresía principal debe ser WORKER en la Org del piloto; si no, bloquea.
+ */
+export async function inspect(db, input) {
+  const blocking = [];
+  const pro = await db.user.findUnique({ where: { email: input.proEmail }, select: { id: true, status: true } });
+  let pilot = null;
+  if (!pro) blocking.push(`La cuenta PRO (${mask(input.proEmail)}) no existe en staging: regístrala antes de sembrar`);
+  else if (pro.status !== "active") blocking.push(`La cuenta PRO (${mask(input.proEmail)}) no está activa`);
+  else {
+    const m = await primaryMembership(db, pro.id);
+    if (!m) blocking.push("La cuenta PRO no tiene membresías activas");
+    else if (m.role.key !== "PRO" || m.org.type !== "PRO") blocking.push(`La Org de sesión de la cuenta PRO no es una Org PRO con rol PRO (rol ${m.role.key}, tipo ${m.org.type})`);
+    else pilot = { proUserId: pro.id, orgId: m.orgId, tenantId: m.org.tenantId };
+  }
+  let worker = "pending_invitation";
+  const w = await db.user.findUnique({ where: { email: input.workerEmail }, select: { id: true, status: true } });
+  if (w) {
+    const m = await primaryMembership(db, w.id);
+    if (w.status !== "active") blocking.push(`La cuenta WORKER (${mask(input.workerEmail)}) no está activa`);
+    else if (!pilot || !m || m.orgId !== pilot.orgId || m.role.key !== "WORKER") {
+      blocking.push(`La Org de sesión de la cuenta WORKER (${mask(input.workerEmail)}) no es WORKER en la Org del piloto: créala por invitación del PRO (BO-03), no por registro público`);
+    } else worker = "ready";
+  }
+  const existing = {
+    jobs: await db.job.count({ where: { id: { in: [IDS.jobVerified, IDS.jobUnverified] } } }),
+    worksites: await db.worksite.count({ where: { id: { in: [IDS.worksiteVerified, IDS.worksiteUnverified] } } }),
+  };
+  if (pilot) {
+    const foreign = await db.worksite.count({ where: { id: { in: [IDS.worksiteVerified, IDS.worksiteUnverified] }, orgId: { not: pilot.orgId } } });
+    if (foreign) blocking.push("Hay obras pilot_seed_* de otra Org: ejecuta rollback antes de sembrar con otra cuenta PRO");
+  }
+  return { blocking, worker, pilot, existing };
 }
 
-async function apply(prisma, input) {
-  const pro = await activeUser(prisma, input.proEmail, "PRO");
-  const worker = await activeUser(prisma, input.workerEmail, "WORKER");
-  const tenantId = await resolveTenant(prisma, pro.id);
+async function apply(prisma, input, pilot) {
+  const { tenantId, orgId, proUserId } = pilot;
   const now = new Date();
   await prisma.$transaction(async (tx) => {
-    const [proRole, workerRole] = [await role(tx, "PRO"), await role(tx, "WORKER")];
-    await tx.org.upsert({ where: { id: IDS.proOrg }, update: {}, create: { id: IDS.proOrg, tenantId, type: "PRO", name: "Piloto FieldOps (sintético)" } });
     await tx.org.upsert({ where: { id: IDS.clientOrg }, update: {}, create: { id: IDS.clientOrg, tenantId, type: "CLIENT", name: "Cliente piloto (sintético)" } });
-    for (const [userId, roleId] of [[pro.id, proRole.id], [worker.id, workerRole.id]]) {
-      await tx.membership.upsert({
-        where: { userId_orgId_roleId: { userId, orgId: IDS.proOrg, roleId } },
-        update: { status: "ACTIVE" },
-        create: { userId, orgId: IDS.proOrg, roleId, status: "ACTIVE" },
-      });
-    }
     const sites = [
       { job: IDS.jobVerified, project: IDS.projectVerified, ws: IDS.worksiteVerified, bind: IDS.bindingVerified,
         title: "Piloto — obra verificada (sintético)", wsName: "Obra piloto verificada", loc: input.verified, verifiedLocation: true },
@@ -145,23 +163,23 @@ async function apply(prisma, input) {
     ];
     for (const s of sites) {
       await tx.job.upsert({ where: { id: s.job }, update: {}, create: { id: s.job, tenantId, clientOrgId: IDS.clientOrg, title: s.title, scope: "Datos sintéticos del piloto FieldOps en staging", status: "IN_PROGRESS" } });
-      await tx.project.upsert({ where: { id: s.project }, update: {}, create: { id: s.project, tenantId, jobId: s.job, assignedProOrgId: IDS.proOrg } });
+      await tx.project.upsert({ where: { id: s.project }, update: {}, create: { id: s.project, tenantId, jobId: s.job, assignedProOrgId: orgId } });
       const location = {
         latitude: s.loc.latitude, longitude: s.loc.longitude, radiusMeters: s.loc.radiusMeters,
         locationSource: s.verifiedLocation ? "manual_pin" : "geocoded",
         locationVerifiedAt: s.verifiedLocation ? now : null,
-        locationVerifiedBy: s.verifiedLocation ? pro.id : null,
+        locationVerifiedBy: s.verifiedLocation ? proUserId : null,
       };
-      await tx.worksite.upsert({ where: { id: s.ws }, update: location, create: { id: s.ws, tenantId, orgId: IDS.proOrg, name: s.wsName, createdBy: pro.id, ...location } });
+      await tx.worksite.upsert({ where: { id: s.ws }, update: location, create: { id: s.ws, tenantId, orgId, name: s.wsName, createdBy: proUserId, ...location } });
       const activeTargetKey = `${tenantId}:JOB:${s.job}`;
       await tx.worksiteBinding.upsert({
         where: { id: s.bind },
         update: {},
-        create: { id: s.bind, tenantId, orgId: IDS.proOrg, worksiteId: s.ws, kind: "JOB", jobId: s.job, activeTargetKey, createdBy: pro.id },
+        create: { id: s.bind, tenantId, orgId, worksiteId: s.ws, kind: "JOB", jobId: s.job, activeTargetKey, createdBy: proUserId },
       });
     }
   }, { timeout: 30_000 });
-  return { tenantId, pro: mask(input.proEmail), worker: mask(input.workerEmail) };
+  return { tenantId, pilotOrgId: orgId, pro: mask(input.proEmail), worker: mask(input.workerEmail) };
 }
 
 async function rollback(prisma) {
@@ -175,8 +193,7 @@ async function rollback(prisma) {
     removed.worksites = (await tx.worksite.deleteMany({ where: { id: { in: worksites } } })).count;
     removed.projects = (await tx.project.deleteMany({ where: { id: { in: [IDS.projectVerified, IDS.projectUnverified] } } })).count;
     removed.jobs = (await tx.job.deleteMany({ where: { id: { in: jobs } } })).count;
-    removed.memberships = (await tx.membership.deleteMany({ where: { orgId: IDS.proOrg } })).count;
-    removed.orgs = (await tx.org.deleteMany({ where: { id: { in: [IDS.proOrg, IDS.clientOrg] } } })).count;
+    removed.orgs = (await tx.org.deleteMany({ where: { id: IDS.clientOrg } })).count;
     return removed;
   }, { timeout: 30_000 });
 }
@@ -192,16 +209,28 @@ export async function main(env = process.env) {
     console.error(`[pilot-seed] entrada inválida, no se escribe nada: ${input.errors.join("; ")}`);
     return 2;
   }
-  if (input.mode === "plan") {
-    console.log(JSON.stringify({ pilotSeed: "plan", ids: IDS, verified: input.verified, unverified: input.unverified,
-      pro: mask(input.proEmail), worker: mask(input.workerEmail) }));
-    return 0;
-  }
   const { PrismaClient } = (await import("@prisma/client")).default ?? (await import("@prisma/client"));
   const prisma = new PrismaClient();
   try {
-    const result = input.mode === "apply" ? await apply(prisma, input) : await rollback(prisma);
-    console.log(JSON.stringify({ pilotSeed: input.mode, ok: true, at: new Date().toISOString(), ...result }));
+    if (input.mode === "rollback") {
+      const removed = await rollback(prisma);
+      console.log(JSON.stringify({ pilotSeed: "rollback", ok: true, at: new Date().toISOString(), removed }));
+      return 0;
+    }
+    const check = await inspect(prisma, input);
+    const report = { ids: IDS, verified: input.verified, unverified: input.unverified, pro: mask(input.proEmail),
+      worker: mask(input.workerEmail), workerAccount: check.worker, pilotOrgId: check.pilot?.orgId ?? null, existing: check.existing };
+    if (check.blocking.length) {
+      console.error(`[pilot-seed] ${input.mode} bloqueado, no se escribe nada: ${check.blocking.join("; ")}`);
+      console.log(JSON.stringify({ pilotSeed: input.mode, ok: false, ...report }));
+      return 1;
+    }
+    if (input.mode === "plan") {
+      console.log(JSON.stringify({ pilotSeed: "plan", ok: true, readOnly: true, ...report }));
+      return 0;
+    }
+    const result = await apply(prisma, input, check.pilot);
+    console.log(JSON.stringify({ pilotSeed: "apply", ok: true, at: new Date().toISOString(), workerAccount: check.worker, ...result }));
     return 0;
   } catch (error) {
     console.error(`[pilot-seed] ${input.mode} falló, la transacción se revierte: ${error instanceof Error ? error.message : String(error)}`);
