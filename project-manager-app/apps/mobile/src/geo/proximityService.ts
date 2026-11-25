@@ -1,4 +1,6 @@
 import { startTimer } from "../api/labor";
+import { reportGeofenceArrival } from "../api/geofence";
+import { proximityActionForDecision } from "./geofenceDecision";
 import { presentProximityNotification, PROXIMITY_CATEGORY } from "../notifications/notifications";
 import { isCoolingDown, markCooldown } from "./cooldownStore";
 import { distanceMeters, isValidCoordinate } from "./distance";
@@ -12,7 +14,7 @@ function siteKey(site: ProximitySite): string {
  * Called on every background (or foreground) location update. Never throws —
  * a proximity miss/API failure should not crash the location task.
  */
-export async function evaluateLocation(point: { latitude: number; longitude: number }): Promise<void> {
+export async function evaluateLocation(point: { latitude: number; longitude: number; accuracy?: number | null }): Promise<void> {
   if (!isValidCoordinate(point.latitude, point.longitude)) return;
 
   const mode = await loadProximityMode();
@@ -22,7 +24,7 @@ export async function evaluateLocation(point: { latitude: number; longitude: num
   if (sites.length === 0) return;
 
   const { radiusMeters, cooldownMinutes } = await loadProximityConfig();
-  const nearby = sites.find((site) => distanceMeters(point, site) <= radiusMeters);
+  const nearby = sites.find((site) => distanceMeters(point, site) <= (site.radiusMeters ?? radiusMeters));
   if (!nearby) return;
 
   const key = siteKey(nearby);
@@ -30,13 +32,35 @@ export async function evaluateLocation(point: { latitude: number; longitude: num
   await markCooldown(key);
 
   try {
-    if (mode === "auto") {
+    // OPEN-18: on a linked worksite the server decides. The app only auto-starts with an
+    // AUTO_START_ALLOWED decision (and passes its id); a failed call never auto-starts.
+    let action: "auto" | "ask" | "none" | "legacy" = "legacy";
+    let geofenceEventId: string | undefined;
+    if (nearby.bound) {
+      try {
+        const decision = await reportGeofenceArrival({
+          eventId: `arrival-${key}-${Date.now()}`,
+          site: { kind: nearby.kind === "job" ? "JOB" : "FREE_PROJECT", id: nearby.id },
+          occurredAt: new Date().toISOString(),
+          accuracyMeters: typeof point.accuracy === "number" && Number.isFinite(point.accuracy) ? point.accuracy : undefined,
+        });
+        action = proximityActionForDecision(decision.decision);
+        geofenceEventId = decision.id;
+        if (action === "auto" && !geofenceEventId) action = "ask";
+      } catch {
+        action = "ask";
+      }
+      if (action === "none") return;
+    }
+
+    if (action === "auto" || (action === "legacy" && mode === "auto")) {
       await startTimer({
         purpose: nearby.kind === "job" ? "job_linked" : "payable",
         jobId: nearby.kind === "job" ? nearby.id : undefined,
         freeProjectId: nearby.kind === "free" ? nearby.id : undefined,
         checkIn: { latitude: point.latitude, longitude: point.longitude, method: "proximity_auto" },
         clientEventId: `proximity-auto-${key}-${Date.now()}`,
+        ...(geofenceEventId ? { geofenceEventId } : {}),
       });
       await presentProximityNotification({
         title: "Reloj iniciado",

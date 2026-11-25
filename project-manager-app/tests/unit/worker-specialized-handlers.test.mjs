@@ -178,6 +178,92 @@ test("pricing event run (job.created) resolves jobId from eventPayload", async (
   assert.ok(calls.every((call) => call.tenantId === "tnt_demo"), "every lookup must stay scoped to the run tenant");
 });
 
+test("#1161: claimed job context does not call projects or jobs and ignores a contradictory context job", async () => {
+  const calls = [];
+  const input = {
+    run: {
+      id: "run-fenced",
+      agentType: "pricing",
+      input: {
+        eventType: "job.created",
+        context: { jobId: "job-attacker", projectId: "proj-attacker" },
+        eventPayload: { jobId: "job-1" },
+        claimedJobContext: {
+          job: { id: "job-forged", title: "forged", scope: "forged scope that must not be priced", budgetMin: 1, budgetMax: 2 },
+          projectPresence: "absent",
+        },
+      },
+      claimedJobContext: {
+        job: {
+          id: "job-1",
+          title: "Kitchen electrical repair",
+          scope: "Replace panel breakers, inspect wiring, document before and after conditions, and prepare closeout notes for approval.",
+          category: "electrical",
+          status: "PUBLISHED",
+          urgency: "normal",
+          budgetMin: 1200,
+          budgetMax: 2400,
+        },
+        projectId: "",
+        projectPresence: "absent",
+      },
+    },
+    requestJson: async (path) => {
+      calls.push(path);
+      throw new Error(`AGENT_RUNNER must not call ${path}`);
+    },
+    tenantId: "tnt_demo",
+    logger,
+    workerId: "worker-test",
+  };
+  const result = await executeSpecializedWorkerRun(input);
+  assert.equal(calls.length, 0);
+  assert.equal(result.result.jobId, "job-1");
+  assert.equal(result.result.budgetMin, 1200);
+  assert.equal(result.result.title, "Kitchen electrical repair");
+  assert.equal(result.result.projectId, undefined);
+});
+
+test("#1161: risk uses the claimed job and does not treat an unloaded project as empty milestones", async () => {
+  const calls = [];
+  const result = await executeSpecializedWorkerRun({
+    run: {
+      id: "run-risk-fenced",
+      agentType: "risk",
+      input: {
+        eventType: "job.created",
+        eventPayload: { jobId: "job-1" },
+      },
+      claimedJobContext: {
+          job: {
+            id: "job-1",
+            title: "Kitchen electrical repair",
+            scope: "Replace panel breakers, inspect wiring, document before and after conditions, and prepare closeout notes for approval.",
+            category: "electrical",
+            status: "PUBLISHED",
+            urgency: "normal",
+            budgetMin: 1200,
+            budgetMax: 2400,
+          },
+          projectId: "proj-real",
+          projectPresence: "present",
+        },
+    },
+    requestJson: async (path) => {
+      calls.push(path);
+      throw new Error(`AGENT_RUNNER must not call ${path}`);
+    },
+    tenantId: "tnt_demo",
+    logger,
+    workerId: "worker-test",
+  });
+  assert.equal(calls.length, 0);
+  assert.equal(result.result.jobId, "job-1");
+  assert.equal(result.result.projectId, "proj-real");
+  assert.equal(result.result.flags.includes("project_without_milestones"), false);
+  assert.equal(result.result.flags.includes("missing_budget_anchor"), false);
+});
+
 test("risk event run (job.created) resolves jobId from eventPayload", async () => {
   const { input } = makeEventRun("risk", "job.created", { jobId: "job-1" });
   const result = await executeSpecializedWorkerRun(input);

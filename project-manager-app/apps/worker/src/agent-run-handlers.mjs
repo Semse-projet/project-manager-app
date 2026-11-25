@@ -69,7 +69,13 @@ function eventPayloadIdentifiers(input) {
 function extractContext(run) {
   const input = asObject(run?.input);
   // Precedencia: contexto explícito > campos de input > IDs del evento de dominio.
-  return { ...eventPayloadIdentifiers(input), ...input, ...asObject(input.context) };
+  // `claimedJobContext` solo lo puede instalar el núcleo del worker tras la
+  // lectura cercada. Un valor dentro de input/context no es una proyección.
+  const context = { ...eventPayloadIdentifiers(input), ...input, ...asObject(input.context) };
+  delete context.claimedJobContext;
+  delete context.claimToken;
+  if (run?.claimedJobContext) context.claimedJobContext = run.claimedJobContext;
+  return context;
 }
 
 async function safeRequestJson(requestJson, path, init, options, logger, label) {
@@ -101,7 +107,22 @@ function countEvidenceKinds(evidence) {
   return counts;
 }
 
+function claimedJobSnapshot(context) {
+  const snapshot = asObject(context.claimedJobContext);
+  const job = asObject(snapshot.job);
+  if (!asString(job.id)) return null;
+  return { snapshot, job };
+}
+
 async function resolveProjectAndJob(context, requestJson, tenantId) {
+  const trusted = claimedJobSnapshot(context);
+  if (trusted) {
+    return {
+      projectId: asString(trusted.snapshot.projectId),
+      jobId: asString(trusted.job.id),
+    };
+  }
+
   let projectId = asString(context.projectId);
   let jobId = asString(context.jobId);
 
@@ -131,6 +152,19 @@ async function resolveProjectAndJob(context, requestJson, tenantId) {
 }
 
 async function loadOperationalContext({ context, requestJson, tenantId, logger }) {
+  const trusted = claimedJobSnapshot(context);
+  if (trusted) {
+    return {
+      projectId: asString(trusted.snapshot.projectId),
+      jobId: asString(trusted.job.id),
+      job: trusted.job,
+      project: {},
+      milestones: [],
+      evidence: [],
+      claimedJobOnly: true,
+    };
+  }
+
   const { projectId, jobId } = await resolveProjectAndJob(context, requestJson, tenantId);
 
   const jobPromise = jobId
@@ -389,14 +423,28 @@ function estimatePricingFromScope(job) {
 
 async function handlePricing({ run, requestJson, tenantId, logger }) {
   const context = extractContext(run);
-  const { projectId, jobId } = await resolveProjectAndJob(context, requestJson, tenantId);
+  const trusted = claimedJobSnapshot(context);
+  let projectId;
+  let jobId;
+  let job;
+  if (trusted) {
+    projectId = asString(trusted.snapshot.projectId);
+    jobId = asString(trusted.job.id);
+    job = trusted.job;
+  } else {
+    const resolved = await resolveProjectAndJob(context, requestJson, tenantId);
+    projectId = resolved.projectId;
+    jobId = resolved.jobId;
+    if (!jobId) {
+      throw new Error("Pricing requires a jobId or a project linked to a job.");
+    }
+    const jobRes = await requestJson(`/v1/jobs/${encodeURIComponent(jobId)}`, { method: "GET" }, { tenantId });
+    job = asObject(jobRes?.data);
+  }
 
   if (!jobId) {
     throw new Error("Pricing requires a jobId or a project linked to a job.");
   }
-
-  const jobRes = await requestJson(`/v1/jobs/${encodeURIComponent(jobId)}`, { method: "GET" }, { tenantId });
-  const job = asObject(jobRes?.data);
   const estimate = estimatePricingFromScope(job);
 
   const result = {
@@ -675,8 +723,9 @@ async function handleRisk({ run, requestJson, tenantId, logger }) {
   const loaded = await loadOperationalContext({ context, requestJson, tenantId, logger });
   const eventType = asString(context.eventType) || asString(run.input?.eventType) || "manual";
 
+  const limited = loaded.claimedJobOnly === true;
   const [jobTrustRes, projectTrustRes, disputesRes] = await Promise.all([
-    loaded.jobId
+    !limited && loaded.jobId
       ? safeRequestJson(
           requestJson,
           `/v1/jobs/${encodeURIComponent(loaded.jobId)}/trust`,
@@ -686,7 +735,7 @@ async function handleRisk({ run, requestJson, tenantId, logger }) {
           "job trust context unavailable"
         )
       : Promise.resolve(null),
-    loaded.projectId
+    !limited && loaded.projectId
       ? safeRequestJson(
           requestJson,
           `/v1/projects/${encodeURIComponent(loaded.projectId)}/trust`,
@@ -696,7 +745,7 @@ async function handleRisk({ run, requestJson, tenantId, logger }) {
           "project trust context unavailable"
         )
       : Promise.resolve(null),
-    loaded.projectId
+    !limited && loaded.projectId
       ? safeRequestJson(
           requestJson,
           `/v1/disputes?projectId=${encodeURIComponent(loaded.projectId)}`,
@@ -743,7 +792,7 @@ async function handleRisk({ run, requestJson, tenantId, logger }) {
     riskScore += 0.18;
     flags.push("submitted_milestones_without_evidence");
   }
-  if (loaded.milestones.length === 0 && loaded.projectId) {
+  if (loaded.milestones.length === 0 && loaded.projectId && !loaded.claimedJobOnly) {
     riskScore += 0.10;
     flags.push("project_without_milestones");
   }

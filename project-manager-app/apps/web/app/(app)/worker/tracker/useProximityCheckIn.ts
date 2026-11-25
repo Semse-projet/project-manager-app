@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { JobRecordView } from "../../../semse-api";
 import type { FreeProjectView } from "../../labor-api";
+import type { ProximityAction } from "../../../../lib/geofence-decision";
 
 /** Fallback used until the org's configured value loads (or if it never does). */
 const DEFAULT_PROXIMITY_RADIUS_METERS = 150;
@@ -15,13 +16,20 @@ export type ProximitySite = {
   name: string;
   latitude: number;
   longitude: number;
+  /** OPEN-18: radio de la OBRA vinculada; si falta, se usa el radio de la Org. */
+  radiusMeters?: number;
 };
 
 export type ProximityCheckIn = {
   latitude: number;
   longitude: number;
   method: "proximity_confirmed" | "proximity_auto";
+  /** OPEN-18: decisión AUTO_START_ALLOWED del servidor que autoriza el inicio `proximity_auto`. */
+  geofenceEventId?: string;
 };
+
+/** OPEN-18: respuesta del servidor a una llegada (ver lib/geofence-decision.ts). */
+export type ArrivalOutcome = { action: ProximityAction; geofenceEventId?: string };
 
 type ProximityBannerState = {
   site: ProximitySite;
@@ -61,6 +69,13 @@ export function useProximityCheckIn(params: {
   mode: "ask" | "auto" | "off";
   jobs: JobRecordView[];
   freeProjects: FreeProjectView[];
+  /**
+   * OPEN-18 (W-07): obras vinculadas del servidor (`GET /v1/me/geofence-sites`). Si llega
+   * (no null), sustituye a los jobs/proyectos locales y cada llegada se evalúa en el
+   * servidor con `evaluateArrival`: el cliente solo auto-inicia si el servidor lo autoriza.
+   */
+  serverSites?: ProximitySite[] | null;
+  evaluateArrival?: (site: ProximitySite, here: { latitude: number; longitude: number; accuracyMeters?: number }) => Promise<ArrivalOutcome>;
   onStart: (site: ProximitySite, checkIn: ProximityCheckIn) => void;
   /** Org-configured overrides (from GET /v1/labor/proximity-config) — fall
    * back to the hardcoded defaults until that loads, or if it never does. */
@@ -73,10 +88,14 @@ export function useProximityCheckIn(params: {
   const cooldownRef = useRef<Map<string, number>>(new Map());
   const onStartRef = useRef(params.onStart);
   onStartRef.current = params.onStart;
+  const evaluateRef = useRef(params.evaluateArrival);
+  evaluateRef.current = params.evaluateArrival;
+  const serverAuthority = params.serverSites != null && !!params.evaluateArrival;
   const radiusMeters = params.radiusMeters ?? DEFAULT_PROXIMITY_RADIUS_METERS;
   const cooldownMs = params.cooldownMs ?? DEFAULT_COOLDOWN_MS;
 
   const sites = useMemo<ProximitySite[]>(() => {
+    if (params.serverSites != null) return params.serverSites;
     const jobSites: ProximitySite[] = params.jobs
       .filter((job): job is JobRecordView & { latitude: number; longitude: number } =>
         typeof job.latitude === "number" && typeof job.longitude === "number")
@@ -86,7 +105,7 @@ export function useProximityCheckIn(params: {
         typeof project.latitude === "number" && typeof project.longitude === "number")
       .map((project) => ({ kind: "free", id: project.id, name: project.name, latitude: project.latitude, longitude: project.longitude }));
     return [...jobSites, ...freeSites];
-  }, [params.jobs, params.freeProjects]);
+  }, [params.jobs, params.freeProjects, params.serverSites]);
 
   useEffect(() => {
     setLocationError(null);
@@ -107,11 +126,26 @@ export function useProximityCheckIn(params: {
         const nearby = sites.find((site) => {
           const cooledAt = cooldownRef.current.get(siteKey(site));
           if (cooledAt && Date.now() - cooledAt < cooldownMs) return false;
-          return distanceMeters(here, site) <= radiusMeters;
+          return distanceMeters(here, site) <= (site.radiusMeters ?? radiusMeters);
         });
         if (!nearby) return;
 
         cooldownRef.current.set(siteKey(nearby), Date.now());
+        if (serverAuthority && evaluateRef.current) {
+          // El servidor decide (precisión, enfriamiento, sesión activa, consentimiento, obra
+          // verificada). Si falla la llamada, nunca se auto-inicia: se ofrece la confirmación.
+          const accuracyMeters = Number.isFinite(position.coords.accuracy) ? position.coords.accuracy : undefined;
+          void evaluateRef.current(nearby, { ...here, accuracyMeters })
+            .catch((): ArrivalOutcome => ({ action: "ask" }))
+            .then((outcome) => {
+              if (outcome.action === "auto" && outcome.geofenceEventId) {
+                onStartRef.current(nearby, { ...here, method: "proximity_auto", geofenceEventId: outcome.geofenceEventId });
+              } else if (outcome.action === "ask" || outcome.action === "auto") {
+                setBanner({ site: nearby, ...here });
+              }
+            });
+          return;
+        }
         if (params.mode === "auto") {
           onStartRef.current(nearby, { ...here, method: "proximity_auto" });
           return;
@@ -132,7 +166,7 @@ export function useProximityCheckIn(params: {
       navigator.geolocation.clearWatch(watchId);
       setIsWatching(false);
     };
-  }, [params.enabled, params.mode, sites, radiusMeters, cooldownMs]);
+  }, [params.enabled, params.mode, sites, radiusMeters, cooldownMs, serverAuthority]);
 
   const acceptBanner = useCallback(() => {
     if (!banner) return;
