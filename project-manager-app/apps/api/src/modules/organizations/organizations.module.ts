@@ -12,11 +12,13 @@ import { OrganizationsRepository } from "./organizations.repository.js";
 import { OrganizationsService } from "./organizations.service.js";
 import { CrewTaskAllocationsController, CrewTasksController, MyTaskAllocationsController } from "./task-allocations.controller.js";
 import { TaskAllocationsService } from "./task-allocations.service.js";
+import { OrgWorksiteLocationController } from "./worksite-location.controller.js";
+import { WorksiteLocationService } from "./worksite-location.service.js";
 
 @Module({
   imports: [AuthModule],
-  controllers: [OrganizationsController, OrgInvitationsController, InvitationsController, OrgOffersController, MyOffersController, OrgCrewsController, MyCrewsController, CrewTaskAllocationsController, CrewTasksController, MyTaskAllocationsController],
-  providers: [OrganizationsRepository, OrganizationsService, InvitationsService, OffersService, CrewsService, TaskAllocationsService, EmailService],
+  controllers: [OrganizationsController, OrgInvitationsController, InvitationsController, OrgOffersController, MyOffersController, OrgCrewsController, MyCrewsController, CrewTaskAllocationsController, CrewTasksController, MyTaskAllocationsController, OrgWorksiteLocationController],
+  providers: [OrganizationsRepository, OrganizationsService, InvitationsService, OffersService, CrewsService, TaskAllocationsService, WorksiteLocationService, EmailService],
   exports: [OrganizationsRepository, OrganizationsService]
 })
 export class OrganizationsModule {}

@@ -1,5 +1,6 @@
 import { Body, Controller, Get, HttpCode, Post, Put, Req } from "@nestjs/common";
 import { Throttle } from "@nestjs/throttler";
+import { siteRefSchema } from "@semse/schemas";
 import { z } from "zod";
 import { ok } from "../../common/api-response.js";
 import { AuthenticatedAccess } from "../../common/permissions.decorator.js";
@@ -20,6 +21,8 @@ const eventSchema = z.object({
   eventId: z.string().trim().min(8).max(100),
   type: z.enum(["ARRIVAL", "LEAVE", "OFF_SITE_AT_SHIFT"]),
   worksiteId: z.string().trim().min(1).max(64).optional(),
+  // OPEN-18: job o proyecto libre detectado por el cliente; se ignora con el flag apagado.
+  site: siteRefSchema.optional(),
   occurredAt: z.coerce.date(),
   // Solo se acepta la precisión; el cuerpo NO admite coordenadas (el esquema las descarta).
   accuracyMeters: z.number().min(0).max(100_000).optional()
@@ -63,6 +66,15 @@ export class GeofenceController {
       { tenantId: actor.tenantId, orgId: actor.orgId, userId: actor.userId },
       parseWithSchema(eventSchema, body)
     );
+    return ok(resolveRequestId(req.headers ?? {}), data);
+  }
+
+  /** OPEN-18: obras detectables por la persona (ubicación y radio de la obra, no de la persona). */
+  @Get("geofence-sites")
+  @AuthenticatedAccess(SELF)
+  async sites(@Req() req: Req_) {
+    const actor = resolveRequestContext(req);
+    const data = await this.geofence.listSites({ tenantId: actor.tenantId, orgId: actor.orgId, userId: actor.userId });
     return ok(resolveRequestId(req.headers ?? {}), data);
   }
 

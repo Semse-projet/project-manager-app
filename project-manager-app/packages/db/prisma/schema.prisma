@@ -290,19 +290,56 @@ model OrgInvitation {
 }
 
 model Worksite {
-  id        String   @id @default(cuid())
-  tenantId  String
-  orgId     String
-  name      String
-  address   String?
-  status    String   @default("ACTIVE") // ACTIVE | ARCHIVED
-  createdBy String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  org       Org      @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  crews     Crew[]
+  id                 String            @id @default(cuid())
+  tenantId           String
+  orgId              String
+  name               String
+  address            String?
+  status             String            @default("ACTIVE") // ACTIVE | ARCHIVED
+  createdBy          String
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  /// OPEN-18 (docs/specs/core/worksite-location-binding.spec.md): ubicación de la obra.
+  /// Solo `manual_pin`/`onsite_capture` con locationVerifiedAt cuentan como verificadas.
+  latitude           Decimal?          @db.Decimal(10, 7)
+  longitude          Decimal?          @db.Decimal(10, 7)
+  radiusMeters       Int?
+  locationSource     String? // manual_pin | onsite_capture | geocoded
+  locationVerifiedAt DateTime?
+  locationVerifiedBy String?
+  org                Org               @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  crews              Crew[]
+  bindings           WorksiteBinding[]
 
   @@index([tenantId, orgId, status])
+}
+
+/// OPEN-18: vínculo de una obra con un Job o un FreeProject. Vive en el módulo dueño de
+/// las obras (no se escribe en Job/FreeProject). `activeTargetKey` = "<tenantId>:<kind>:<targetId>"
+/// mientras está ACTIVE y NULL al terminar: el índice único garantiza un solo vínculo
+/// ACTIVE por objetivo (Postgres admite varios NULL). Un CHECK en la migración exige que
+/// kind y objetivo coincidan.
+model WorksiteBinding {
+  id              String       @id @default(cuid())
+  tenantId        String
+  orgId           String
+  worksiteId      String
+  kind            String // JOB | FREE_PROJECT
+  jobId           String?
+  freeProjectId   String?
+  status          String       @default("ACTIVE") // ACTIVE | ENDED
+  activeTargetKey String?      @unique
+  createdBy       String
+  createdAt       DateTime     @default(now())
+  endedAt         DateTime?
+  endedBy         String?
+  worksite        Worksite     @relation(fields: [worksiteId], references: [id], onDelete: Cascade)
+  job             Job?         @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  freeProject     FreeProject? @relation(fields: [freeProjectId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, worksiteId, status])
+  @@index([tenantId, jobId])
+  @@index([tenantId, freeProjectId])
 }
 
 /// BO-11: reporte diario de una cuadrilla. El snapshot y su hash quedan congelados al revisarse.
@@ -880,6 +917,7 @@ model Job {
   tenant               Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   clientOrg            Org                   @relation(fields: [clientOrgId], references: [id], onDelete: Restrict)
   project              Project?
+  worksiteBindings     WorksiteBinding[]
   createdAt            DateTime              @default(now())
   updatedAt            DateTime              @updatedAt
   deletedAt            DateTime?
@@ -1914,8 +1952,9 @@ model FreeProject {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  timeEntries TimeEntry[]
+  tenant           Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  timeEntries      TimeEntry[]
+  worksiteBindings WorksiteBinding[]
 
   @@index([tenantId, createdBy, status])
   @@index([tenantId, status])
@@ -5811,20 +5850,24 @@ model LocationPreference {
 
 /// BO-09: decisión del servidor ante un evento de geocerca. NO guarda coordenadas (OPEN-10): solo el resultado y un rango de precisión.
 model GeofenceEvent {
-  id             String   @id @default(cuid())
-  tenantId       String
-  orgId          String
-  userId         String
-  eventId        String // clave de idempotencia que manda la app
-  type           String // ARRIVAL | LEAVE | OFF_SITE_AT_SHIFT
-  worksiteId     String?
-  decision       String // PROMPT | AUTO_START_ALLOWED | MANUAL_ONLY | LEAVE_PROMPT | EXCEPTION | IGNORE
-  reason         String
-  mode           String
-  policyVersion  Int
-  accuracyBucket String // GOOD | POOR | UNKNOWN
-  occurredAt     DateTime
-  createdAt      DateTime @default(now())
+  id                    String   @id @default(cuid())
+  tenantId              String
+  orgId                 String
+  userId                String
+  eventId               String // clave de idempotencia que manda la app
+  type                  String // ARRIVAL | LEAVE | OFF_SITE_AT_SHIFT
+  worksiteId            String?
+  decision              String // PROMPT | AUTO_START_ALLOWED | MANUAL_ONLY | LEAVE_PROMPT | EXCEPTION | IGNORE
+  reason                String
+  mode                  String
+  policyVersion         Int
+  accuracyBucket        String // GOOD | POOR | UNKNOWN
+  occurredAt            DateTime
+  createdAt             DateTime @default(now())
+  /// OPEN-18: vínculo resuelto por el servidor (site = JOB/FREE_PROJECT).
+  bindingId             String?
+  /// OPEN-18 AC-08: TimeEntry que consumió esta decisión AUTO_START_ALLOWED (una sola vez).
+  consumedByTimeEntryId String?  @unique
 
   @@unique([tenantId, userId, eventId])
   @@index([tenantId, userId, createdAt])
