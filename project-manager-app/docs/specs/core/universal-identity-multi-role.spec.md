@@ -13,7 +13,7 @@ merge_status: "MERGED"
 deploy_status: "DEPLOYED"
 activation_status: "INACTIVE"
 migration_status: "NOT_APPLICABLE"
-verification_scope: "partial:fase-1-2-merged-deployed:fase-3-4-implemented-locally-2026-08-13-not-yet-merged"
+verification_scope: "partial:fase-1-2 #539 8e0ad1e3 and fase-3 selector #568 500bebc7 are ancestors of main 594279af (2026-11-24 git check). Flag default off unless SEMSE_IDENTITY_CAPABILITY_UI_ENABLED=true or the tenant is in SEMSE_IDENTITY_CAPABILITY_UI_CANARY_TENANT_IDS. Deploy and canary were not re-verified; production_evidence below stays historical."
 feature_flags:
   - SEMSE_IDENTITY_CAPABILITY_UI_ENABLED
   - SEMSE_IDENTITY_CAPABILITY_UI_CANARY_TENANT_IDS
