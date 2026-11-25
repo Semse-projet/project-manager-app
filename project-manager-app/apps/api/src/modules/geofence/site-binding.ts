@@ -81,10 +81,15 @@ export async function hasLiveAutoConsent(prisma: SitePrisma, user: { tenantId: s
  * vínculo ACTIVE del tenant, obra ACTIVE, Membership WORKER ACTIVE de la persona en la Org
  * de la obra y, para JOB, que el trabajo esté asignado a la persona (misma regla que el
  * Time Tracker); para FREE_PROJECT, que la persona sea su creadora.
+ *
+ * Con `orgId` (la Org de la sesión), la obra debe pertenecer a esa Org (decisión del
+ * propietario del 2026-11-25, opción A): el Time Tracker valida la asignación contra la Org
+ * de la sesión, así que una obra de otra Org daría una decisión que el reloj rechazaría.
+ * Las obras de otra Org aparecen al cambiar de sesión a esa Org.
  */
 export async function resolveSiteForWorker(
   prisma: SitePrisma,
-  user: { tenantId: string; userId: string },
+  user: { tenantId: string; userId: string; orgId?: string },
   site: SiteRef
 ): Promise<ResolvedSite | null> {
   const binding = await prisma.worksiteBinding.findFirst({
@@ -93,6 +98,7 @@ export async function resolveSiteForWorker(
   });
   const worksite = binding?.worksite as ResolvedWorksite | undefined;
   if (!binding || !worksite || worksite.status !== "ACTIVE" || worksite.tenantId !== user.tenantId) return null;
+  if (user.orgId !== undefined && worksite.orgId !== user.orgId) return null;
 
   const memberships = await prisma.membership.findMany({
     where: { userId: user.userId, orgId: worksite.orgId, status: "ACTIVE", org: { tenantId: user.tenantId } },

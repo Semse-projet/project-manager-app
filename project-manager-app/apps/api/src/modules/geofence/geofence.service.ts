@@ -263,7 +263,9 @@ export class GeofenceService {
       where: { userId: user.userId, status: "ACTIVE", org: { tenantId: user.tenantId } },
       include: { role: true }
     });
-    const orgIds = [...new Set(memberships.filter((m) => m.role?.key === "WORKER").map((m) => m.orgId))];
+    // Solo la Org de la sesión (opción A del 2026-11-25): el Time Tracker valida contra ella.
+    const orgIds = [...new Set(memberships.filter((m) => m.role?.key === "WORKER").map((m) => m.orgId))]
+      .filter((orgId) => orgId === user.orgId);
     if (orgIds.length === 0) return [];
     // Los filtros de elegibilidad van en la consulta, ANTES del límite: obra ACTIVE con
     // coordenadas y objetivo usable por la persona (job asignado en esa Org / proyecto propio).
