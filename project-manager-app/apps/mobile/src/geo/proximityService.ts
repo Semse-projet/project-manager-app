@@ -47,11 +47,21 @@ export async function evaluateLocation(point: { latitude: number; longitude: num
   if (sites.length === 0) return;
 
   const { radiusMeters, cooldownMinutes } = await loadProximityConfig();
-  const nearby = sites.find((site) => distanceMeters(point, site) <= (site.radiusMeters ?? radiusMeters));
+  // First nearby site that is not cooling down. For linked worksites the short evaluation
+  // limit also applies here, so a site that just answered IGNORE does not hide the next
+  // overlapping site.
+  let nearby: ProximitySite | undefined;
+  for (const site of sites) {
+    if (distanceMeters(point, site) > (site.radiusMeters ?? radiusMeters)) continue;
+    const siteCooldownKey = siteKey(site);
+    if (await isCoolingDown(siteCooldownKey, cooldownMinutes)) continue;
+    if (site.bound && (await isCoolingDown(`eval:${siteCooldownKey}`, SERVER_EVALUATION_THROTTLE_MINUTES))) continue;
+    nearby = site;
+    break;
+  }
   if (!nearby) return;
 
   const key = siteKey(nearby);
-  if (await isCoolingDown(key, cooldownMinutes)) return;
 
   try {
     // OPEN-18: on a linked worksite the server decides. The app only auto-starts with an
@@ -59,9 +69,7 @@ export async function evaluateLocation(point: { latitude: number; longitude: num
     let action: "auto" | "ask" | "none" | "legacy" = "legacy";
     let geofenceEventId: string | undefined;
     if (nearby.bound) {
-      const evaluationKey = `eval:${key}`;
-      if (await isCoolingDown(evaluationKey, SERVER_EVALUATION_THROTTLE_MINUTES)) return;
-      await markCooldown(evaluationKey);
+      await markCooldown(`eval:${key}`);
       try {
         const decision = await reportGeofenceArrival({
           eventId: `arrival-${key}-${Date.now()}`,

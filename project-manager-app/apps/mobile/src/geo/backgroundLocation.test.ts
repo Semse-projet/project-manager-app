@@ -15,8 +15,10 @@ jest.mock("expo-location", () => ({
   stopLocationUpdatesAsync: jest.fn(),
 }));
 
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Location from "expo-location";
 import {
+  TRACKING_OPTIONS_VERSION,
   requestProximityPermissions,
   startProximityTracking,
   stopProximityTracking,
@@ -36,6 +38,7 @@ beforeEach(() => {
   hasStarted.mockReset();
   startUpdates.mockReset().mockResolvedValue(undefined);
   stopUpdates.mockReset().mockResolvedValue(undefined);
+  return AsyncStorage.clear();
 });
 
 describe("requestProximityPermissions", () => {
@@ -93,12 +96,25 @@ describe("startProximityTracking", () => {
     });
   });
 
-  it("is idempotent — does not start tracking again if already started", async () => {
+  it("is idempotent — does not start tracking again if already started with the current options", async () => {
     hasStarted.mockResolvedValue(true);
+    await AsyncStorage.setItem("semse.proximity.trackingOptionsVersion", String(TRACKING_OPTIONS_VERSION));
 
     await startProximityTracking();
 
+    expect(stopUpdates).not.toHaveBeenCalled();
     expect(startUpdates).not.toHaveBeenCalled();
+  });
+
+  it("restarts a task registered by an older build so the 40 m interval applies (OPEN-18 AC-14)", async () => {
+    hasStarted.mockResolvedValue(true); // started earlier with the old options, no version stored
+
+    await startProximityTracking();
+
+    expect(stopUpdates).toHaveBeenCalledWith(PROXIMITY_LOCATION_TASK);
+    expect(startUpdates).toHaveBeenCalledTimes(1);
+    expect((startUpdates.mock.calls[0] as [string, Record<string, unknown>])[1]).toMatchObject({ distanceInterval: 40 });
+    expect(await AsyncStorage.getItem("semse.proximity.trackingOptionsVersion")).toBe(String(TRACKING_OPTIONS_VERSION));
   });
 
   it("treats a hasStartedLocationUpdatesAsync rejection as not-started and starts tracking anyway", async () => {

@@ -55,7 +55,10 @@ last_verified: "2026-11-25"
 > **APPROVED por el propietario el 2026-11-20** («Apruebo OPEN-18»), incluidas las propuestas de Q1–Q3 (§11).
 > **v0.3 (2026-11-25):** el propietario aprueba la opción A para trabajadores de varias Org (AC-11) y los arreglos de
 > clientes AC-12…AC-14, que salen de la revisión automatizada de #1172.
-> **Estado de entrega:** servidor (#1168) y clientes (#1172) fusionados y desplegados. La migración aditiva está
+> **Estado de entrega.** Los campos `ci_status`, `merge_status`, `deploy_status` y `migration_status` del encabezado
+> describen v0.2: #1168 y #1172. **La versión candidata v0.3 (AC-11…AC-14, #1189) está sin fusionar ni desplegar**,
+> y su CI y sus revisiones se registran en ese PR.
+> Servidor (#1168) y clientes (#1172) fusionados y desplegados. La migración aditiva está
 > aplicada en producción y en el staging aislado. `SEMSE_WORKSITE_BINDING_ENABLED` está **apagado** en producción:
 > encenderlo exige una orden aparte del propietario, después de AC-12…AC-14 y del cierre de Gate 5.
 
@@ -143,7 +146,10 @@ OPS_ADMIN no cruza tenants (regla de ResourceScope). Un recurso de otro tenant u
 - **AC-14 (v0.3):** en obras vinculadas, el enfriamiento de avisos (20 min por defecto) solo empieza tras una acción
   visible (aviso o inicio). Un `IGNORE` no lo activa; un límite de 1 min por sitio evita informar la llegada en
   cada lectura del GPS. El intervalo de distancia del GPS en segundo plano es de 40 m, por debajo del radio mínimo
-  de 50 m.
+  de 50 m. Si el sistema conserva una tarea de ubicación registrada por una versión anterior de la app, se reinicia
+  una vez con las opciones actuales.
+- **AC-15 (v0.3):** una sesión **en pausa** también cuenta como sesión activa al evaluar la llegada, igual que en el
+  Time Tracker: la llegada se ignora y no se ofrece ni se auto-inicia un reloj que el servidor rechazaría.
 
 ## 5. Contratos (propuestos)
 

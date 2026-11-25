@@ -507,7 +507,28 @@ test("opción A positivo: con la sesión en la Org de la obra, la llegada se aut
   assert.equal(w.events.find((e) => e.id === r.id)?.consumedByTimeEntryId, entry.id);
 });
 
-test("opción A negativo: una decisión de la Org B no autoriza un inicio desde una sesión en la Org A → 409 y sin TimeEntry", async () => {
+test("opción A negativo: el job solo es fichable desde la Org B → desde una sesión en A el reloj responde 403 antes de mirar la decisión", async () => {
+  const w = world();
+  await twoOrgs(w);
+  const r = await w.geofence.evaluate(anaInB, ev({ site: { kind: "JOB", id: "jobB" } }));
+  assert.equal(r.decision, "AUTO_START_ALLOWED");
+  // Asignación real por Org: jobB solo está asignado a través de la Org B.
+  w.repo.isJobAssignedToWorker = async (_t: string, orgId: string, jobId: string) => !(jobId === "jobB" && orgId !== "orgB");
+  await assert.rejects(start(w, { orgId: "orgA", jobId: "jobB", geofenceEventId: r.id }), { status: 403 });
+  assert.equal(w.entries.length, 0);
+  assert.equal(w.events.find((e) => e.id === r.id)?.consumedByTimeEntryId ?? null, null);
+});
+
+test("una sesión en pausa cuenta como activa: la llegada se ignora y no ofrece un inicio imposible", async () => {
+  const w = world();
+  await boundVerifiedJob(w);
+  await autoConsent(w);
+  w.entries.push({ id: "te-paused", tenantId: "t1", createdBy: "ana", status: "paused" });
+  const r = await w.geofence.evaluate(ana, ev({ site: { kind: "JOB", id: "jobA" } }));
+  assert.equal(r.decision, "IGNORE");
+});
+
+test("opción A negativo (job fichable también desde A, p. ej. asignación individual): una decisión de la Org B no autoriza un inicio desde una sesión en la Org A → 409 y sin TimeEntry", async () => {
   const w = world();
   await twoOrgs(w);
   const r = await w.geofence.evaluate(anaInB, ev({ site: { kind: "JOB", id: "jobB" } }));

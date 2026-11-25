@@ -187,8 +187,10 @@ export class GeofenceService {
       }
     }
 
+    // Misma definición de «sesión activa» que el Time Tracker (getActiveTimeEntry): una sesión
+    // en pausa también impide iniciar otra, así que la llegada no debe ofrecer ni auto-iniciar.
     const active = await this.prisma.timeEntry.findFirst({
-      where: { tenantId: user.tenantId, createdBy: user.userId, status: "running" }
+      where: { tenantId: user.tenantId, createdBy: user.userId, status: { in: ["running", "paused"] } }
     });
 
     const now = Date.now();

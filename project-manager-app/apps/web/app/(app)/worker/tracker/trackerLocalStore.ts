@@ -204,6 +204,21 @@ export function markTrackerSynced(state: TrackerLocalState, syncedAt: string = n
   };
 }
 
+/**
+ * Descarta un inicio que el servidor rechazó (o un inicio automático que no se completó):
+ * quita solo ese evento y la sesión local temporal, y conserva intacto el resto de la cola
+ * (por ejemplo, una entrada manual guardada sin conexión).
+ */
+export function discardTrackerStartEvent(state: TrackerLocalState, eventId: string): TrackerLocalState {
+  const pendingEvents = state.pendingEvents.filter((event) => event.id !== eventId);
+  return {
+    ...state,
+    activeSession: null,
+    pendingEvents,
+    syncStatus: pendingEvents.length > 0 ? (state.syncStatus === "synced" ? "pending" : state.syncStatus) : "synced",
+  };
+}
+
 export function startTrackerLocalSession(
   state: TrackerLocalState,
   input: {

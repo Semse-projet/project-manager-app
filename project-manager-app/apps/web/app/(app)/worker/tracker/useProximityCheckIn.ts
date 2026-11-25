@@ -133,17 +133,22 @@ export function useProximityCheckIn(params: {
       (position) => {
         setLocationError(null);
         const here = { latitude: position.coords.latitude, longitude: position.coords.longitude };
+        // El límite de evaluación se aplica al ELEGIR el sitio: si un sitio respondió IGNORE
+        // hace poco, se considera el siguiente sitio cercano en lugar de bloquear la lectura.
         const nearby = sites.find((site) => {
-          const cooledAt = cooldownRef.current.get(siteKey(site));
+          const key = siteKey(site);
+          const cooledAt = cooldownRef.current.get(key);
           if (cooledAt && Date.now() - cooledAt < cooldownMs) return false;
+          if (serverAuthority) {
+            const lastEvaluated = evaluatedRef.current.get(key);
+            if (lastEvaluated && Date.now() - lastEvaluated < SERVER_EVALUATION_THROTTLE_MS) return false;
+          }
           return distanceMeters(here, site) <= (site.radiusMeters ?? radiusMeters);
         });
         if (!nearby) return;
 
         if (serverAuthority && evaluateRef.current) {
           const key = siteKey(nearby);
-          const lastEvaluated = evaluatedRef.current.get(key);
-          if (lastEvaluated && Date.now() - lastEvaluated < SERVER_EVALUATION_THROTTLE_MS) return;
           evaluatedRef.current.set(key, Date.now());
           // El servidor decide (precisión, enfriamiento, sesión activa, consentimiento, obra
           // verificada). Si falla la llamada, nunca se auto-inicia: se ofrece la confirmación.

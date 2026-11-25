@@ -46,6 +46,7 @@ import {
   markTrackerSynced,
   markTrackerSyncing,
   readTrackerLocalState,
+  discardTrackerStartEvent,
   startTrackerLocalSession,
   updateTrackerLocalSession,
   writeTrackerLocalState,
@@ -911,8 +912,8 @@ export default function WorkerTrackerPage() {
         setSyncNotice(friendlyConnectionMessage("No pudimos iniciar en SEMSE ahora"));
         return true;
       }
-      const cleanState = markTrackerSynced(localStart.state);
-      persistTrackerLocalState(cleanState);
+      // Solo se retira este inicio: el resto de la cola pendiente se conserva.
+      persistTrackerLocalState(discardTrackerStartEvent(localStart.state, localStart.event.id));
       setActiveEntry(null);
       setElapsed(0);
       if (!isAutoStart) setError(caught instanceof Error ? caught.message : "No se pudo iniciar la sesión.");

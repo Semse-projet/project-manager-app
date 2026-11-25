@@ -182,3 +182,15 @@ it("AC-08: AUTO_START_ALLOWED but the start is rejected (409) → asks for confi
     data: expect.objectContaining({ kind: "ask", siteId: "job-1" }),
   }));
 });
+
+it("overlapping linked sites: one that just answered IGNORE does not hide the next eligible site", async () => {
+  const SECOND: ProximitySite = { ...BOUND_JOB, id: "job-2", name: "Obra contigua" };
+  (loadProximityMode as jest.Mock).mockResolvedValue("ask");
+  (loadSites as jest.Mock).mockResolvedValue([BOUND_JOB, SECOND]);
+  // job-1 is inside its evaluation limit (it answered IGNORE a moment ago); job-2 is not.
+  (isCoolingDown as jest.Mock).mockImplementation(async (key: string) => key === "eval:job:job-1");
+  (reportGeofenceArrival as jest.Mock).mockResolvedValue({ id: "ev-3", decision: "PROMPT" });
+  await evaluateLocation(HERE);
+  expect(reportGeofenceArrival).toHaveBeenCalledWith(expect.objectContaining({ site: { kind: "JOB", id: "job-2" } }));
+  expect(presentProximityNotification).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ siteId: "job-2" }) }));
+});

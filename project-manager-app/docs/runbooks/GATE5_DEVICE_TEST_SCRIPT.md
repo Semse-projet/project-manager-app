@@ -36,7 +36,7 @@ Anota en cada fila: ✅ pasa / ❌ falla / ⚠️ parcial, más hora, versión d
 | 11 | Salida con el reloj activo *(fuera de W-07: no bloquea)* | Con el reloj en marcha, alejarse más allá del radio | **Nunca** termina el reloj sin preguntar. El móvil todavía no informa salidas, así que hoy lo esperado es que no pase nada; anotarlo como observación | ☐ | ☐ | ☐ |
 | 12 | Señal imprecisa | En interior o con mala señal, llegar en AUTO | Inicio manual (`MANUAL_ONLY` → pregunta), sin auto-inicio | ☐ | ☐ | ☐ |
 | 13 | Aislamiento | Con una cuenta de otra organización, llegar a la obra | Nada (decisión `IGNORE`); no ve la obra en sus sitios | ☐ | ☐ | ☐ |
-| 14 | Rechazo de un inicio automático (AC-12) | En AUTO, llegar a la obra verificada sin red y activar la red justo después, o revocar el consentimiento desde la web entre la llegada y el inicio | No queda ningún reloj iniciado como manual. Llega la pregunta «¿Iniciar el reloj?» y solo al aceptarla arranca como `proximity_confirmed` | ☐ | ☐ | ☐ |
+| 14 | Rechazo de un inicio automático (AC-12) | Con AUTO, llegar a la obra verificada y, **después** de que el historial muestre `AUTO_START_ALLOWED`, provocar el rechazo del inicio. Para eso, revocar el consentimiento desde la web (pasar a ASK) o cortar la red antes de que llegue «Reloj iniciado». La fila 9 cubre la llegada sin red, que pide confirmar antes del inicio | En el historial queda `AUTO_START_ALLOWED` sin consumir. No queda ningún reloj iniciado como manual. Llega la pregunta «¿Iniciar el reloj?» y solo al aceptarla arranca como `proximity_confirmed`. Si el momento no se puede reproducir en el dispositivo, anotarlo: la ruta del 409 está cubierta por tests unitarios | ☐ | ☐ | ☐ |
 
 ## 2. Evidencia que necesito por dispositivo
 
