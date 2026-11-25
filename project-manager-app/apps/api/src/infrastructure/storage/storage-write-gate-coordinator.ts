@@ -63,9 +63,9 @@ function validateKind(kind: string): asserts kind is StorageWriteKind {
  *
  * A killed process leaves an ACTIVE row which blocks later FROZEN; never use
  * lease timeouts as proof that the process cannot still publish. Production
- * mutation remains prohibited in the OPEN-only canary slice: production may
- * provision/observe an OPEN gate, while drain/freeze/thaw/recovery require a
- * separately reviewed production-control slice and full Evidence reconciliation.
+ * drain/freeze/thaw stays unavailable unless the separate production-control
+ * opt-in is armed. A freeze deadline does not release ACTIVE tickets or
+ * reopen admission.
  */
 @Injectable()
 export class StorageWriteGateCoordinator {

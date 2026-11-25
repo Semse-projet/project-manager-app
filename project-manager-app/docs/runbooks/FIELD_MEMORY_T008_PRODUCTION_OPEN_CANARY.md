@@ -20,9 +20,13 @@ Two independent variables are required:
   - `provision`: status/count plus idempotent creation of the durable
     `OPEN` gate row.
 
-This slice intentionally has **no production value that enables mutations**.
+Without `SEMSE_STORAGE_WRITE_GATE_PRODUCTION_CONTROL_MODE=mutate`, this
+canary still has **no production value that enables mutations**.
 `BEGIN_DRAIN`, `MARK_FROZEN`, `THAW`, coverage/window attestations and
-operation recovery remain rejected in production.
+operation recovery stay rejected. The separate opt-in, permission and
+freeze window are documented in
+`docs/runbooks/FIELD_MEMORY_T008_PRODUCTION_FREEZE_WINDOW.md` and are not
+part of this canary.
 
 Staging retains its existing full control plane with
 `SEMSE_STORAGE_WRITE_GATE_MODE=staging`.

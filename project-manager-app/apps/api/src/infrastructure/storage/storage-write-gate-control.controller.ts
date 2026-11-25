@@ -4,8 +4,13 @@ import { ok } from "../../common/api-response.js";
 import { RequirePermissions } from "../../common/permissions.decorator.js";
 import { resolveRequestContext } from "../../common/request-context.js";
 import { resolveRequestId } from "../../common/request-id.js";
-import { normalizeRoles } from "../../common/rbac.js";
-import { StorageWriteGateBlockedError } from "./storage-write-gate-state.js";
+import { hasPermission, normalizeRoles } from "../../common/rbac.js";
+import { isProductionStorage } from "./production-storage-guard.js";
+import {
+  STORAGE_WRITE_GATE_FREEZE_TTL_MAX_SECONDS,
+  STORAGE_WRITE_GATE_FREEZE_TTL_MIN_SECONDS,
+  StorageWriteGateBlockedError,
+} from "./storage-write-gate-state.js";
 import { StorageWriteGateControlService } from "./storage-write-gate-control.service.js";
 
 const metadataSchema = z.object({
@@ -20,6 +25,10 @@ const digestSchema = z.string().regex(/^[a-f0-9]{64}$/);
 const transitionSchema = metadataSchema.extend({
   expectedEpoch: epochSchema,
   action: z.enum(["BEGIN_DRAIN", "MARK_FROZEN", "THAW", "ABORT_DRAIN"]),
+  freezeTtlSeconds: z.number().int()
+    .min(STORAGE_WRITE_GATE_FREEZE_TTL_MIN_SECONDS)
+    .max(STORAGE_WRITE_GATE_FREEZE_TTL_MAX_SECONDS)
+    .optional(),
 }).strict();
 
 const coverageSchema = metadataSchema.extend({
@@ -45,6 +54,21 @@ function requireOpsAdmin(roles: string[]): void {
       requiredRole: "OPS_ADMIN",
     });
   }
+}
+
+/**
+ * Production mutate is denied unless this permission is present.
+ * Staging keeps the existing manage permission only.
+ */
+export function productionMutateAuthorized(roles: string[]): boolean {
+  if (!isProductionStorage(process.env)) return false;
+  if (!hasPermission(roles, "ops:storage-write-gate:production-mutate")) {
+    throw new ForbiddenException({
+      message: "Production storage write gate mutation requires ops:storage-write-gate:production-mutate",
+      requiredPermission: "ops:storage-write-gate:production-mutate",
+    });
+  }
+  return true;
 }
 
 function parse<T>(schema: z.ZodType<T>, body: unknown): T {
@@ -110,6 +134,7 @@ export class StorageWriteGateControlController {
     const actor = resolveRequestContext(req);
     requireOpsAdmin(actor.roles);
     const parsed = parse(transitionSchema, body);
+    const granted = productionMutateAuthorized(actor.roles);
     const data = await control(() => this.service.transition({
       actorUserId: actor.userId,
       ticket: parsed.ticket,
@@ -117,6 +142,8 @@ export class StorageWriteGateControlController {
       idempotencyKey: parsed.idempotencyKey,
       expectedEpoch: BigInt(parsed.expectedEpoch),
       action: parsed.action,
+      freezeTtlSeconds: parsed.freezeTtlSeconds,
+      productionMutateAuthorized: granted,
     }));
     return ok(resolveRequestId(req.headers ?? {}), data);
   }
@@ -130,6 +157,7 @@ export class StorageWriteGateControlController {
     const actor = resolveRequestContext(req);
     requireOpsAdmin(actor.roles);
     const parsed = parse(coverageSchema, body);
+    const granted = productionMutateAuthorized(actor.roles);
     const data = await control(() => this.service.attestCoverage({
       actorUserId: actor.userId,
       ticket: parsed.ticket,
@@ -137,6 +165,7 @@ export class StorageWriteGateControlController {
       idempotencyKey: parsed.idempotencyKey,
       expectedEpoch: BigInt(parsed.expectedEpoch),
       coverageDigest: parsed.coverageDigest,
+      productionMutateAuthorized: granted,
     }));
     return ok(resolveRequestId(req.headers ?? {}), data);
   }
@@ -150,6 +179,7 @@ export class StorageWriteGateControlController {
     const actor = resolveRequestContext(req);
     requireOpsAdmin(actor.roles);
     const parsed = parse(windowClosedSchema, body);
+    const granted = productionMutateAuthorized(actor.roles);
     const data = await control(() => this.service.attestWindowClosed({
       actorUserId: actor.userId,
       ticket: parsed.ticket,
@@ -157,6 +187,7 @@ export class StorageWriteGateControlController {
       idempotencyKey: parsed.idempotencyKey,
       expectedEpoch: BigInt(parsed.expectedEpoch),
       windowEvidenceDigest: parsed.windowEvidenceDigest,
+      productionMutateAuthorized: granted,
     }));
     return ok(resolveRequestId(req.headers ?? {}), data);
   }
@@ -174,6 +205,7 @@ export class StorageWriteGateControlController {
       throw new BadRequestException({message: "operationId must be a UUID"});
     }
     const parsed = parse(recoverySchema, body);
+    const granted = productionMutateAuthorized(actor.roles);
     const data = await control(() => this.service.recoverOperation({
       actorUserId: actor.userId,
       ticket: parsed.ticket,
@@ -183,6 +215,7 @@ export class StorageWriteGateControlController {
       operationId,
       writerInstanceId: parsed.writerInstanceId,
       terminationEvidenceDigest: parsed.terminationEvidenceDigest,
+      productionMutateAuthorized: granted,
     }));
     return ok(resolveRequestId(req.headers ?? {}), data);
   }

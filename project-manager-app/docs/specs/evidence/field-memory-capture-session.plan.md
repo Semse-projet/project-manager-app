@@ -162,7 +162,6 @@ Pendiente antes de merge/release: staging real con al menos dos procesos, invent
 
 **No equivalencias:** \`CI PASS\` ≠ deploy; \`Railway SUCCESS\` ≠ prueba de freeze; \`OFFSITE_RESTORE_PASS\` ≠ recuperación nativa ni CAP-1 VERIFIED.
 
-
 ### 12.8 Enmienda propuesta para T-008 OPEN-only productivo — REVIEW, NO APROBADA
 
 **Esta sección es una propuesta de cambio al contrato, no altera la autorización del CAP-0 original ni la restricción de staging de §12.6.** Hasta decisión explícita del propietario y revisor de seguridad independiente, PR #1014 debe permanecer en borrador y NO fusionarse, desplegarse ni activarse.
@@ -180,3 +179,15 @@ Invariantes obligatorias de la propuesta:
 7. No se autoriza tocar variables productivas ni operar endpoints desde este PR; se requiere verificación terminal de scope/rollback y revisión separada de despliegue.
 
 **Gates pendientes:** decisión del owner sobre esta enmienda, auditoría independiente de los dos hallazgos P1 de Codex, cobertura E2E contra PostgreSQL desechable con mismo path en dos ambientes, CI completo del head, y plan de despliegue revisado. De no aprobarse, el contrato vigente continúa prohibiendo el control plane en producción.
+
+### 12.9 Production-control slice (código, no activación)
+
+El párrafo 5 de §12.8 describe el canary sin `mutate`. Este slice añade un opt-in posterior, apagado por defecto.
+
+Permite drain/freeze/thaw en producción solo con estas condiciones a la vez:
+
+- `SEMSE_STORAGE_WRITE_GATE_PRODUCTION_CONTROL_MODE=mutate`
+- `SEMSE_STORAGE_WRITE_GATE_MODE=production`
+- permiso `ops:storage-write-gate:production-mutate`, exclusivo de `OPS_ADMIN`, además de `ops:storage-write-gate:manage` y del rol
+
+Sin la variable de control, el comportamiento queda el del canary OPEN-only: observe/provision y rechazo de mutate. El TTL de `MARK_FROZEN` (300–14400 s) es un plazo en `freezeExpiresAt`. Al vencer, las escrituras siguen fail-closed hasta un `THAW` explícito. Un `THAW` con el gate ya `OPEN` y el epoch vigente es un recibo idempotente y no incrementa el epoch. El rollback de enforcement es `SEMSE_STORAGE_WRITE_GATE_MODE=off`. Este slice no ejecuta la ventana en SEMSEproject ni marca T-008i.

@@ -268,6 +268,7 @@ export const rolePermissions: Record<string, string[]> = {
     "ops:alerts:ack",
     "ops:runbooks:execute",
     "ops:storage-write-gate:manage",
+    "ops:storage-write-gate:production-mutate",
     "ops:incidents:create",
     "domain-events:read",
     "domain-events:emit",

@@ -1,11 +1,13 @@
-import { Injectable } from "@nestjs/common";
+import { ForbiddenException, Injectable } from "@nestjs/common";
 import { createHash } from "node:crypto";
 import type { Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service.js";
 import { StorageWriteGateCoordinator } from "./storage-write-gate-coordinator.js";
+import { isProductionStorage } from "./production-storage-guard.js";
 import { assertStorageWriteGateControl, type StorageWriteGateControlLevel } from "./storage-write-gate-mode.js";
 import { resolveStorageWriteGateScope } from "./storage-write-gate-scope.js";
 import {
+  storageWriteGateBlocksNewWrites,
   StorageWriteGateBlockedError,
   type StorageWriteGateAction,
   type StorageWriteGatePhase,
@@ -67,6 +69,20 @@ export class StorageWriteGateControlService {
     assertStorageWriteGateControl(level, process.env);
   }
 
+  /**
+   * Environment arming is not permission. Production mutate also needs the
+   * dedicated OPS_ADMIN grant checked by the controller.
+   */
+  private assertMutateGrant(productionMutateAuthorized: boolean | undefined): void {
+    this.assertControlPlane("mutate");
+    if (isProductionStorage(process.env) && productionMutateAuthorized !== true) {
+      throw new ForbiddenException({
+        message: "Production storage write gate mutation requires ops:storage-write-gate:production-mutate",
+        requiredPermission: "ops:storage-write-gate:production-mutate",
+      });
+    }
+  }
+
   private get scope(): string {
     return resolveStorageWriteGateScope();
   }
@@ -113,6 +129,9 @@ export class StorageWriteGateControlService {
     }>;
     coverageDigestPresent?: boolean;
     recoveryWindowDigestPresent?: boolean;
+    freezeExpiresAt?: string | null;
+    freezeExpired?: boolean;
+    explicitThawRequired?: boolean;
   }> {
     this.assertControlPlane("observe");
     const rows = await this.prisma.$queryRaw<Array<{
@@ -120,8 +139,9 @@ export class StorageWriteGateControlService {
       epoch: bigint;
       coverageDigest: string | null;
       recoveryWindowDigest: string | null;
+      freezeExpiresAt: Date | null;
     }>>`
-      SELECT "phase", "epoch", "coverageDigest", "recoveryWindowDigest"
+      SELECT "phase", "epoch", "coverageDigest", "recoveryWindowDigest", "freezeExpiresAt"
       FROM "StorageWriteGate"
       WHERE "scope" = ${this.scope}
     `;
@@ -141,6 +161,8 @@ export class StorageWriteGateControlService {
       ORDER BY "admittedAt" ASC
     `;
     const gate = rows[0]!;
+    const freezeExpiresAt = gate.freezeExpiresAt ? new Date(gate.freezeExpiresAt) : null;
+    const admission = storageWriteGateBlocksNewWrites(gate.phase, freezeExpiresAt);
     return {
       provisioned: true,
       scopeDigest: this.scopeDigest(),
@@ -155,6 +177,9 @@ export class StorageWriteGateControlService {
       })),
       coverageDigestPresent: gate.coverageDigest !== null,
       recoveryWindowDigestPresent: gate.recoveryWindowDigest !== null,
+      freezeExpiresAt: freezeExpiresAt ? freezeExpiresAt.toISOString() : null,
+      freezeExpired: admission.freezeExpired,
+      explicitThawRequired: gate.phase === "FROZEN",
     };
   }
 
@@ -233,8 +258,10 @@ export class StorageWriteGateControlService {
   async transition(input: ControlMetadata & {
     expectedEpoch: bigint;
     action: StorageWriteGateAction;
+    freezeTtlSeconds?: number;
+    productionMutateAuthorized?: boolean;
   }): Promise<{phase: StorageWriteGatePhase; epoch: string}> {
-    this.assertControlPlane("mutate");
+    this.assertMutateGrant(input.productionMutateAuthorized);
     validateMetadata(input);
     const requestDigest = digestJson({
       action: input.action,
@@ -242,6 +269,7 @@ export class StorageWriteGateControlService {
       actorUserId: input.actorUserId,
       ticket: input.ticket,
       reason: input.reason,
+      freezeTtlSeconds: input.freezeTtlSeconds ?? null,
     });
     const result = await this.transitions.transition({
       scope: this.scope,
@@ -251,10 +279,12 @@ export class StorageWriteGateControlService {
         actorUserId: input.actorUserId,
         actorAuthorized: true,
         auditTicket: input.ticket,
+        productionMutateAuthorized: input.productionMutateAuthorized === true,
       },
       reason: input.reason,
       idempotencyKey: input.idempotencyKey,
       requestDigest,
+      freezeTtlSeconds: input.freezeTtlSeconds,
     });
     return {phase: result.phase, epoch: result.epoch.toString()};
   }
@@ -262,8 +292,9 @@ export class StorageWriteGateControlService {
   async attestCoverage(input: ControlMetadata & {
     expectedEpoch: bigint;
     coverageDigest: string;
+    productionMutateAuthorized?: boolean;
   }): Promise<{phase: StorageWriteGatePhase; epoch: string}> {
-    this.assertControlPlane("mutate");
+    this.assertMutateGrant(input.productionMutateAuthorized);
     validateMetadata(input);
     validateDigest(input.coverageDigest, "invalid_coverage_digest");
     const requestDigest = digestJson({
@@ -326,8 +357,9 @@ export class StorageWriteGateControlService {
   async attestWindowClosed(input: ControlMetadata & {
     expectedEpoch: bigint;
     windowEvidenceDigest: string;
+    productionMutateAuthorized?: boolean;
   }): Promise<{phase: StorageWriteGatePhase; epoch: string}> {
-    this.assertControlPlane("mutate");
+    this.assertMutateGrant(input.productionMutateAuthorized);
     validateMetadata(input);
     validateDigest(input.windowEvidenceDigest, "invalid_window_evidence_digest");
     const requestDigest = digestJson({
@@ -394,8 +426,9 @@ export class StorageWriteGateControlService {
     operationId: string;
     writerInstanceId: string;
     terminationEvidenceDigest: string;
+    productionMutateAuthorized?: boolean;
   }): Promise<{phase: StorageWriteGatePhase; epoch: string; state: "RECOVERED_FENCED"}> {
-    this.assertControlPlane("mutate");
+    this.assertMutateGrant(input.productionMutateAuthorized);
     validateMetadata(input);
     validateDigest(input.terminationEvidenceDigest, "invalid_termination_evidence_digest");
     if (!/^[0-9a-f-]{36}$/.test(input.operationId)) {

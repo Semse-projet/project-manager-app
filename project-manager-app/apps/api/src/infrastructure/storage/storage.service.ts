@@ -41,11 +41,26 @@ export type StorageHealthStatus = {
   detail: string;
 };
 
+function storageWriteGateClientMessage(reason: string): string {
+  switch (reason) {
+    case "not_open":
+      return "Storage writes are blocked because the write gate is draining or frozen. Retry later. Reads are unaffected.";
+    case "gate_not_provisioned":
+      return "Storage write gate is not provisioned. Writes are fail-closed until an OPEN gate exists.";
+    case "authority_unavailable":
+      return "Storage write gate authority is unavailable. Writes are fail-closed.";
+    default:
+      return "Storage write gate temporarily unavailable";
+  }
+}
+
 export class StorageWriteGateUnavailableException extends ServiceUnavailableException {
   readonly retryAfterSeconds = 5;
+  readonly reason: string;
 
-  constructor() {
-    super("Storage write gate temporarily unavailable");
+  constructor(reason = "temporarily_unavailable") {
+    super(storageWriteGateClientMessage(reason));
+    this.reason = reason;
   }
 }
 
@@ -88,7 +103,7 @@ export class StorageService {
     } catch (error) {
       if (error instanceof HttpException) throw error;
       if (error instanceof StorageWriteGateBlockedError) {
-        throw new StorageWriteGateUnavailableException();
+        throw new StorageWriteGateUnavailableException(error.reason);
       }
       // Backing-authority failures remain generic 503s; only an explicit gate
       // rejection carries Retry-After semantics.
@@ -321,6 +336,7 @@ export class StorageService {
    * small files already on disk (e.g. EXIF parsing, m2.2-dispute-docs
    * Bloque 2.2.A), not for serving large files (use createReadStream/
    * publicUrl for that). Throws NotFoundException if the key doesn't exist.
+   * Reads do not consult the write gate.
    */
   async readBuffer(key: string): Promise<Buffer> {
     await this.assertExists(key);

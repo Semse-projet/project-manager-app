@@ -5699,6 +5699,8 @@ model StorageWriteGate {
   epoch                BigInt                  @default(1)
   coverageDigest       String?
   recoveryWindowDigest String?
+  /// Deadline only. A past timestamp does not reopen writes; thaw is explicit.
+  freezeExpiresAt      DateTime?
   operatorTicket       String?
   updatedAt            DateTime                @default(now()) @updatedAt
   operations           StorageWriteOperation[]
