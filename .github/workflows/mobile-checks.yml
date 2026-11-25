@@ -69,7 +69,8 @@ jobs:
       # dependency change (#1179, #1181, #1182). It stays BLOCKING when the PR changes the
       # mobile dependencies (apps/mobile/package.json or the lockfile) and on manual runs
       # (workflow_dispatch, used to validate a release). Otherwise it reports drift as a
-      # visible warning. Expo Doctor, typecheck, unit tests and both JS bundles below stay
+      # visible warning. Expo Doctor (except its duplicate dependency-version check on the advisory
+      # path), typecheck, unit tests and both JS bundles below stay
       # blocking on every run.
       - name: Detect mobile dependency changes
         id: deps
@@ -78,7 +79,10 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
           git fetch --no-tags --depth=1 origin "$BASE_SHA"
-          if git diff --name-only "$BASE_SHA" HEAD -- apps/mobile/package.json pnpm-lock.yaml | grep -q .; then
+          # Fail closed: if the diff itself fails, the step fails (bash -e) instead of
+          # reporting "no change" and downgrading the check to advisory.
+          changed_files=$(git diff --name-only "$BASE_SHA" HEAD -- apps/mobile/package.json pnpm-lock.yaml)
+          if [ -n "$changed_files" ]; then
             echo "changed=true" >> "$GITHUB_OUTPUT"
           else
             echo "changed=false" >> "$GITHUB_OUTPUT"
@@ -106,8 +110,14 @@ jobs:
             } >> "$GITHUB_STEP_SUMMARY"
           fi
 
+      # Expo Doctor's InstalledDependencyVersionCheck re-runs `expo install --check`. Only when
+      # the advisory path above applies (PR without mobile dependency changes) is that one
+      # check skipped here, so the same drift is not reported twice and blocking; every other
+      # Doctor check stays blocking, and the full check runs on dependency PRs and manual runs.
       - name: Expo Doctor
         working-directory: project-manager-app/apps/mobile
+        env:
+          EXPO_DOCTOR_SKIP_DEPENDENCY_VERSION_CHECK: ${{ steps.deps.outputs.changed == 'false' && '1' || '0' }}
         run: npx --yes expo-doctor@1.21.8
 
       - name: Typecheck
