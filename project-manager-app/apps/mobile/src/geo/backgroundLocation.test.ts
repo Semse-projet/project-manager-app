@@ -82,7 +82,7 @@ describe("startProximityTracking", () => {
     expect(taskName).toBe(PROXIMITY_LOCATION_TASK);
     expect(options).toMatchObject({
       accuracy: Location.Accuracy.Balanced,
-      distanceInterval: 75,
+      distanceInterval: 40,
       deferredUpdatesInterval: 60_000,
       showsBackgroundLocationIndicator: true,
       pausesUpdatesAutomatically: false,

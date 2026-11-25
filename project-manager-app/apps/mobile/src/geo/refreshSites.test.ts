@@ -82,3 +82,19 @@ it("BO-09 en OFF: guarda off y detiene la ubicación en segundo plano", async ()
   expect(saveMode).toHaveBeenCalledWith("off");
   expect(stop).toHaveBeenCalled();
 });
+
+it("rollback: con el flag de vínculos apagado (404), la siguiente actualización sustituye las obras vinculadas en caché por los jobs locales", async () => {
+  readPref.mockResolvedValue({ kind: "ok", pref: { mode: "AUTO", effectiveMode: "AUTO", autoStartConsent: true, policyVersion: 1 } });
+  // 1) Flag encendido: el servidor devuelve una obra vinculada y se guarda marcada como `bound`.
+  geofenceSites.mockResolvedValueOnce([
+    { kind: "JOB", targetId: "job-1", worksiteId: "w1", worksiteName: "Obra Norte", latitude: 19.43, longitude: -99.13, radiusMeters: 150, verified: true },
+  ]);
+  jobs.mockResolvedValue([{ id: "job-1", title: "Trabajo 1", latitude: 19.5, longitude: -99.2 }]);
+  await refreshProximitySites();
+  expect(persistSites).toHaveBeenLastCalledWith([expect.objectContaining({ id: "job-1", bound: true, name: "Obra Norte" })]);
+  // 2) Rollback: el flag se apaga y geofence-sites responde 404 → vuelven las coordenadas del job, sin `bound`.
+  geofenceSites.mockResolvedValueOnce(null);
+  await refreshProximitySites();
+  const last = persistSites.mock.calls.at(-1)?.[0];
+  expect(last).toEqual([{ kind: "job", id: "job-1", name: "Trabajo 1", latitude: 19.5, longitude: -99.2 }]);
+});

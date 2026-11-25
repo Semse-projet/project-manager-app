@@ -43,12 +43,28 @@ export function classifyGeofenceSitesLoad<T>(
   return { status: "ready", sites: result.sites };
 }
 
-/** Sitios que la detección local puede usar. `null` conserva el modo anterior. */
-export function proximitySitesFromGeofenceLoad<TServer, TLegacy>(
-  load: GeofenceSitesLoad<TServer>,
-  legacy: TLegacy[],
-): TServer[] | TLegacy[] {
-  if (load.status === "disabled") return legacy;
-  if (load.status === "ready") return load.sites;
-  return [];
+/**
+ * Lo que el tracker web guarda como `geofenceSites`, a partir del resultado de
+ * `GET /v1/me/geofence-sites`:
+ * - `null` → 404: el flag está apagado y la detección usa los jobs y proyectos locales;
+ * - lista del servidor (aunque esté vacía) → el servidor manda;
+ * - `[]` → red, 5xx, 401: falla cerrado, sin coordenadas locales ni auto-inicio.
+ */
+export function trackerGeofenceSites<TServer, TSite>(
+  result: { ok: true; sites: TServer[] | null } | { ok: false },
+  toSite: (site: TServer) => TSite,
+): TSite[] | null {
+  const load = classifyGeofenceSitesLoad(result);
+  if (load.status === "disabled") return null;
+  if (load.status === "unavailable") return [];
+  return load.sites.map(toSite);
+}
+
+/**
+ * Un inicio automático solo vale con la decisión del servidor en ese momento: si no se
+ * completa, no se guarda para reintentarlo sin conexión (saldría como inicio manual, sin la
+ * autorización) y se pide confirmación. Los demás inicios sí se pueden reintentar.
+ */
+export function canRetryStartOffline(method: "proximity_confirmed" | "proximity_auto" | undefined): boolean {
+  return method !== "proximity_auto";
 }

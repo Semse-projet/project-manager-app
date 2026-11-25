@@ -6,8 +6,31 @@ import { isCoolingDown, markCooldown } from "./cooldownStore";
 import { distanceMeters, isValidCoordinate } from "./distance";
 import { loadProximityConfig, loadProximityMode, loadSites, type ProximitySite } from "./siteCache";
 
+/**
+ * OPEN-18: on a linked worksite the prompt cooldown only starts after a visible action
+ * (prompt or start). An IGNORE does not start it; this short limit only avoids reporting an
+ * arrival on every location update.
+ */
+export const SERVER_EVALUATION_THROTTLE_MINUTES = 1;
+
 function siteKey(site: ProximitySite): string {
   return `${site.kind}:${site.id}`;
+}
+
+async function askToStart(site: ProximitySite, point: { latitude: number; longitude: number }): Promise<void> {
+  await presentProximityNotification({
+    title: "¿Iniciar el reloj?",
+    body: `Estás en "${site.name}".`,
+    data: {
+      kind: "ask",
+      siteKind: site.kind,
+      siteId: site.id,
+      siteName: site.name,
+      latitude: point.latitude,
+      longitude: point.longitude,
+    },
+    categoryIdentifier: PROXIMITY_CATEGORY,
+  });
 }
 
 /**
@@ -29,7 +52,6 @@ export async function evaluateLocation(point: { latitude: number; longitude: num
 
   const key = siteKey(nearby);
   if (await isCoolingDown(key, cooldownMinutes)) return;
-  await markCooldown(key);
 
   try {
     // OPEN-18: on a linked worksite the server decides. The app only auto-starts with an
@@ -37,6 +59,9 @@ export async function evaluateLocation(point: { latitude: number; longitude: num
     let action: "auto" | "ask" | "none" | "legacy" = "legacy";
     let geofenceEventId: string | undefined;
     if (nearby.bound) {
+      const evaluationKey = `eval:${key}`;
+      if (await isCoolingDown(evaluationKey, SERVER_EVALUATION_THROTTLE_MINUTES)) return;
+      await markCooldown(evaluationKey);
       try {
         const decision = await reportGeofenceArrival({
           eventId: `arrival-${key}-${Date.now()}`,
@@ -50,37 +75,38 @@ export async function evaluateLocation(point: { latitude: number; longitude: num
       } catch {
         action = "ask";
       }
+      // IGNORE: no prompt, and no prompt cooldown either.
       if (action === "none") return;
     }
 
+    // A visible action follows: start the prompt cooldown.
+    await markCooldown(key);
+
     if (action === "auto" || (action === "legacy" && mode === "auto")) {
-      await startTimer({
-        purpose: nearby.kind === "job" ? "job_linked" : "payable",
-        jobId: nearby.kind === "job" ? nearby.id : undefined,
-        freeProjectId: nearby.kind === "free" ? nearby.id : undefined,
-        checkIn: { latitude: point.latitude, longitude: point.longitude, method: "proximity_auto" },
-        clientEventId: `proximity-auto-${key}-${Date.now()}`,
-        ...(geofenceEventId ? { geofenceEventId } : {}),
-      });
+      try {
+        await startTimer({
+          purpose: nearby.kind === "job" ? "job_linked" : "payable",
+          jobId: nearby.kind === "job" ? nearby.id : undefined,
+          freeProjectId: nearby.kind === "free" ? nearby.id : undefined,
+          checkIn: { latitude: point.latitude, longitude: point.longitude, method: "proximity_auto" },
+          clientEventId: `proximity-auto-${key}-${Date.now()}`,
+          ...(geofenceEventId ? { geofenceEventId } : {}),
+        });
+      } catch (startError) {
+        // AC-08: the server rejected the automatic start (409 auto_start_not_authorized:
+        // consent revoked, decision consumed or expired) or it could not be completed. Never
+        // retry it as an automatic start: ask, so only an explicit tap sends proximity_confirmed.
+        console.warn("[proximity] automatic start not completed; asking for confirmation", startError);
+        await askToStart(nearby, point);
+        return;
+      }
       await presentProximityNotification({
         title: "Reloj iniciado",
         body: `Detectamos que llegaste a "${nearby.name}" e iniciamos el reloj automáticamente.`,
         data: { kind: "auto-started" },
       });
     } else {
-      await presentProximityNotification({
-        title: "¿Iniciar el reloj?",
-        body: `Estás en "${nearby.name}".`,
-        data: {
-          kind: "ask",
-          siteKind: nearby.kind,
-          siteId: nearby.id,
-          siteName: nearby.name,
-          latitude: point.latitude,
-          longitude: point.longitude,
-        },
-        categoryIdentifier: PROXIMITY_CATEGORY,
-      });
+      await askToStart(nearby, point);
     }
   } catch (error) {
     console.warn("[proximity] failed to act on proximity match", error);

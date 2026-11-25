@@ -28,7 +28,7 @@ export async function startProximityTracking(): Promise<void> {
 
   await Location.startLocationUpdatesAsync(PROXIMITY_LOCATION_TASK, {
     accuracy: Location.Accuracy.Balanced,
-    distanceInterval: 75,
+    distanceInterval: 40,
     deferredUpdatesInterval: 60_000,
     showsBackgroundLocationIndicator: true,
     pausesUpdatesAutomatically: false,

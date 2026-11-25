@@ -5,16 +5,9 @@ import { ApiError, apiFetch } from "./client";
  * the person can detect, and server decisions for arrivals. Behind
  * SEMSE_WORKSITE_BINDING_ENABLED: 404 while it is off, so callers keep the legacy mode.
  */
-export type GeofenceSite = {
-  kind: "JOB" | "FREE_PROJECT";
-  targetId: string;
-  worksiteId: string;
-  worksiteName: string;
-  latitude: number;
-  longitude: number;
-  radiusMeters: number | null;
-  verified: boolean;
-};
+// Contrato único de `GET /v1/me/geofence-sites` (el mismo que usan la API y la web).
+import type { GeofenceSiteView } from "@semse/schemas";
+export type GeofenceSite = GeofenceSiteView;
 
 export type GeofenceDecisionView = {
   id?: string;
