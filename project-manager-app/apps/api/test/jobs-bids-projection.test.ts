@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   buildJobsBidsProjection,
+  diffJobReadthroughSamples,
   isJobsBidsProjectionEnabled,
   isJobsBidsProjectionPersistenceEnabled,
   isJobsBidsProjectionReadthroughEnabled,
@@ -150,5 +151,23 @@ test("feature flags require both global enablement and tenant allowlist, indepen
   assert.equal(
     isJobsBidsProjectionReadthroughEnabled({ SEMSE_JOBS_PROJECTION_READTHROUGH_ENABLED: "true" }),
     true,
+  );
+});
+
+test("read-through sample diff is empty only when id, title and status match", () => {
+  const direct = [
+    { id: "job_b", title: "Roof", status: "POSTED" },
+    { id: "job_a", title: "Kitchen", status: "ACCEPTED" },
+  ];
+  assert.deepEqual(diffJobReadthroughSamples(direct, [...direct].reverse()), []);
+  assert.deepEqual(
+    diffJobReadthroughSamples(
+      [{ id: "job_a", title: "Kitchen", status: "POSTED" }],
+      [{ id: "job_a", title: "Kitchen", status: "ACCEPTED" }, { id: "job_b", title: "Roof", status: "POSTED" }],
+    ),
+    [
+      { id: "job_a", kind: "field", field: "status", projection: "POSTED", direct: "ACCEPTED" },
+      { id: "job_b", kind: "missing_in_projection" },
+    ],
   );
 });

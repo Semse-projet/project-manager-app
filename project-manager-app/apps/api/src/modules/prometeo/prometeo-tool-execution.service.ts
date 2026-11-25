@@ -221,6 +221,8 @@ export class PrometeoToolExecutionService {
       });
     }
 
+    await this.refuseIfAdapterPending(descriptor, audit);
+
     const startedAt = nowIso();
     const started = await this.beginOrRefuse(audit, false);
     const startedMs = Date.now();
@@ -302,6 +304,8 @@ export class PrometeoToolExecutionService {
         missingPermissions: policy.missingPermissions,
       });
     }
+
+    await this.refuseIfAdapterPending(descriptor, audit);
 
     // 0.48: the proposer must be able to reach the resource BEFORE anything is
     // queued or executed — an approved effect may run as someone else.
@@ -613,6 +617,30 @@ export class PrometeoToolExecutionService {
       startedAt,
       completedAt,
     };
+  }
+
+  /**
+   * Spec F2 §6/§7: a catalog tool with `adapterPending` is not invocable.
+   * Policy still runs first. The refusal is 400 `ADAPTER_PENDING`, audited,
+   * and happens before any adapter call or `PrometeoProposedAction`.
+   */
+  private async refuseIfAdapterPending(
+    descriptor: PrometeoToolDescriptor,
+    audit: AuditCtx,
+  ): Promise<void> {
+    if (!descriptor.adapterPending) return;
+    const message = `${descriptor.namespace}.${descriptor.name} is not executable`;
+    await this.auditor.finish(audit, false, {
+      status: "blocked",
+      blockedReason: message,
+      errorCode: "ADAPTER_PENDING",
+    });
+    throw new BadRequestException({
+      message,
+      code: "ADAPTER_PENDING",
+      namespace: descriptor.namespace,
+      tool: descriptor.name,
+    });
   }
 
   /** Executes the real side-effect for a write tool. Mirrors executeReadTool's shape but for state-changing calls. */

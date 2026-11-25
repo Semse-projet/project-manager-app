@@ -74,6 +74,71 @@ export function isJobsBidsProjectionReadthroughEnabled(
   return environment.SEMSE_JOBS_PROJECTION_READTHROUGH_ENABLED === "true";
 }
 
+export type JobReadthroughSample = {
+  id: string;
+  title: string;
+  status: string;
+};
+
+export type JobReadthroughMismatch =
+  | { id: string; kind: "missing_in_projection" }
+  | { id: string; kind: "missing_in_direct" }
+  | {
+      id: string;
+      kind: "field";
+      field: "title" | "status";
+      projection: string;
+      direct: string;
+    };
+
+/**
+ * Sample comparison for the jobs/bids read-through canary.
+ * The runtime trusts a caught-up projection by row count; it does not
+ * compare field values on the request path. This helper is the check the
+ * owner runs (and CI locks) before `SEMSE_JOBS_PROJECTION_READTHROUGH_ENABLED`.
+ * Ids must be unique within each sample.
+ */
+export function diffJobReadthroughSamples(
+  projection: readonly JobReadthroughSample[],
+  direct: readonly JobReadthroughSample[],
+): JobReadthroughMismatch[] {
+  const projectionById = new Map(projection.map((row) => [row.id, row]));
+  const directById = new Map(direct.map((row) => [row.id, row]));
+  const ids = [...new Set([...projectionById.keys(), ...directById.keys()])].sort();
+  const mismatches: JobReadthroughMismatch[] = [];
+  for (const id of ids) {
+    const projected = projectionById.get(id);
+    const live = directById.get(id);
+    if (!projected) {
+      mismatches.push({ id, kind: "missing_in_projection" });
+      continue;
+    }
+    if (!live) {
+      mismatches.push({ id, kind: "missing_in_direct" });
+      continue;
+    }
+    if (projected.title !== live.title) {
+      mismatches.push({
+        id,
+        kind: "field",
+        field: "title",
+        projection: projected.title,
+        direct: live.title,
+      });
+    }
+    if (projected.status !== live.status) {
+      mismatches.push({
+        id,
+        kind: "field",
+        field: "status",
+        projection: projected.status,
+        direct: live.status,
+      });
+    }
+  }
+  return mismatches;
+}
+
 export function buildJobsBidsProjection(
   input: JobsBidsProjectionInput,
 ): JobsBidsProjectionSnapshot {

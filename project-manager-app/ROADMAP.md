@@ -88,6 +88,14 @@ El código F1-D/F1-E está mergeado/desplegado. Dispatcher y consumers están
 activos sólo para types/consumers allowlisted; no se declara el backbone
 globalmente cerrado.
 
+Verificación local 2026-11-24 (no cierra F1-F): el read-through de jobs/bids
+sigue implementado y apagado por `SEMSE_JOBS_PROJECTION_READTHROUGH_ENABLED`.
+Los tests de API cubren el fallback, el salto de la proyección para PRO/WORKER
+y la función de muestreo `diffJobReadthroughSamples`. El canary de producción y el SLO
+sostenido siguen en `docs/runbooks/F1F_EVENT_BACKBONE_CANARY.md` y
+`docs/runbooks/JOBS_BIDS_PROJECTION_CANARY.md`. Ese runbook de F1 ya no pide
+reemplazar el allowlist compartido.
+
 Gate de salida:
 
 - business write + outbox se confirman atomicamente;
@@ -278,7 +286,7 @@ Entregables:
 - [x] habilitar mutaciones de bajo riesgo gradualmente (6 write tools cableadas: `time_tracker.*`, `agro.create_task` — F2-C);
 - [x] gate hibrido de pagos (`payments.propose_release` -> `PaymentsService.release()` real via aprobacion `human_required` de un `OPS_ADMIN` — F2-D);
 - [x] completar adapters read declarados: 5 de las 6 tools `vision.*` cableadas a `VisionService` real (`analyze_image`, `compare_before_after`, `detect_material`, `classify_space`, `check_safety`); solo `analyze_video` sigue `adapter_pending` — necesita un pipeline temporal que no existe hoy, tratado como capacidad separada ("Video tool" en la matriz), no como deuda de gobernanza;
-- [ ] verification y compensacion explicita (hoy: estado terminal `BLOCKED`/`EXECUTED` + audit trail; no hay un paso de verification/compensacion separado — evaluar si aplica en un incremento futuro).
+- [ ] verification y compensacion explicita (hoy: estado terminal `BLOCKED`/`EXECUTED` + audit trail; no hay un paso de verification/compensacion separado — evaluar si aplica en un incremento futuro). Desde 2026-11-24 una tool `adapterPending` responde 400 `ADAPTER_PENDING` antes de ejecutar o encolar; `analyze_video` sigue fuera de este spec.
 
 Gate de salida:
 
@@ -360,6 +368,12 @@ Estado mergeado/desplegado al 2026-07-31:
 - adapters gobernados sin absorber autoridad económica ni de Railway;
 - migración aditiva aplicada desde cero sobre PostgreSQL efímero;
 - BFF/UI exception-first y SSE autenticado sin duplicación tenant→global.
+
+Verificación local 2026-11-24: el canary de `tenant_default` no se re-ejecutó
+contra Railway. `activation_status` sigue `INACTIVE`. Los pasos que faltan
+(404 de un tenant fuera de la allowlist, y ACK/RESOLVE/ESCALATE con efecto)
+están escritos en `docs/runbooks/MISSION_CONTROL_2.md`. No poner
+`SEMSE_MISSION_CONTROL_V2_ENABLED=true` para hacer el canary.
 
 ## F5 — Shared Economic Ledger
 
