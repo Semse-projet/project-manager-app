@@ -11,7 +11,8 @@
 - [x] Membresía revocada o vínculo terminado invalidan las decisiones pendientes (AC-10).
 - [x] Eventos registrados en `EVENT_CATALOG.md`.
 - [x] Migración aditiva, sin backfill; `TimeEntry` intacto; rollback documentado.
-- [ ] Clientes adaptados antes de encender el flag (W-07).
+- [x] Clientes adaptados en código (W-07): con `geofence-sites` disponible, el servidor decide cada llegada; si la llamada falla, nunca se auto-inicia.
+- [ ] Clientes verificados en staging y en dispositivos (W-09/W-10).
 - [ ] CI verde y revisión independiente.
 - [ ] Staging aislado con autorización (W-09).
 - [ ] Gate 5 en el Motorola y en ambos iPhone (W-10).

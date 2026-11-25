@@ -5,6 +5,7 @@ jest.mock("../api/labor", () => ({
 }));
 jest.mock("../api/profile", () => ({ fetchProfile: jest.fn() }));
 jest.mock("../api/locationPreference", () => ({ readLocationPreference: jest.fn() }));
+jest.mock("../api/geofence", () => ({ fetchGeofenceSites: jest.fn(async () => null) }));
 jest.mock("./siteCache", () => ({
   saveSites: jest.fn(async () => undefined),
   saveProximityMode: jest.fn(async () => undefined),
@@ -12,9 +13,11 @@ jest.mock("./siteCache", () => ({
 }));
 jest.mock("./backgroundLocation", () => ({ stopProximityTracking: jest.fn(async () => undefined) }));
 
+import { fetchJobs } from "../api/labor";
+import { fetchGeofenceSites } from "../api/geofence";
 import { fetchProfile } from "../api/profile";
 import { readLocationPreference } from "../api/locationPreference";
-import { saveProximityMode } from "./siteCache";
+import { saveProximityMode, saveSites } from "./siteCache";
 import { stopProximityTracking } from "./backgroundLocation";
 import { refreshProximitySites } from "./refreshSites";
 
@@ -22,10 +25,15 @@ const profile = fetchProfile as jest.Mock;
 const readPref = readLocationPreference as jest.Mock;
 const saveMode = saveProximityMode as jest.Mock;
 const stop = stopProximityTracking as jest.Mock;
+const jobs = fetchJobs as jest.Mock;
+const geofenceSites = fetchGeofenceSites as jest.Mock;
+const persistSites = saveSites as jest.Mock;
 
 beforeEach(() => {
   jest.clearAllMocks();
   profile.mockResolvedValue({ proximityCheckInMode: "auto" });
+  jobs.mockResolvedValue([]);
+  geofenceSites.mockResolvedValue(null);
 });
 
 it("BO-09 en error (503) con perfil anterior auto: guarda off y detiene la ubicación en segundo plano", async () => {
@@ -48,6 +56,24 @@ it("BO-09 en ASK sobre un auto guardado: el modo que lee la tarea pasa a ask", a
   await refreshProximitySites();
   expect(saveMode).toHaveBeenCalledWith("ask");
   expect(stop).not.toHaveBeenCalled();
+});
+
+it("geofence-sites en error no guarda coordenadas locales para un auto-inicio", async () => {
+  readPref.mockResolvedValue({ kind: "disabled" });
+  jobs.mockResolvedValue([{ id: "job_1", title: "Obra", latitude: 40, longitude: -3 }]);
+  geofenceSites.mockRejectedValue(new Error("503"));
+  await refreshProximitySites();
+  expect(persistSites).toHaveBeenCalledWith([]);
+});
+
+it("geofence-sites en 404 conserva los jobs locales", async () => {
+  readPref.mockResolvedValue({ kind: "disabled" });
+  jobs.mockResolvedValue([{ id: "job_1", title: "Obra", latitude: 40, longitude: -3 }]);
+  geofenceSites.mockResolvedValue(null);
+  await refreshProximitySites();
+  expect(persistSites).toHaveBeenCalledWith([
+    { kind: "job", id: "job_1", name: "Obra", latitude: 40, longitude: -3 },
+  ]);
 });
 
 it("BO-09 en OFF: guarda off y detiene la ubicación en segundo plano", async () => {
