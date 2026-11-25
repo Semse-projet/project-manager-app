@@ -180,13 +180,14 @@ export class AgroIntakeService {
   }
 
   /**
-   * P0 security containment: AgroEvidenceItem only stores an untrusted fileUrl,
-   * not a storage-backed asset receipt. Even an URL pointing to our own BFF
-   * does not prove tenant, farm or organization ownership.
+   * P0 security containment (#911): AgroEvidenceItem only stores an untrusted
+   * fileUrl, not a storage-backed asset receipt. Even an URL pointing to our
+   * own BFF does not prove tenant, farm or organization ownership.
    *
    * Until P1 adds a verified binding, never forward any such URL to an ASR
-   * provider: that would allow server-side requests to arbitrary destinations.
-   * Manual text remains supported. The original evidence is untouched.
+   * provider or to vision-service: both would let the server request an
+   * arbitrary destination. Manual text remains supported. Display URLs stay
+   * stored for the browser and are not retrieved here.
    */
   private async resolveText(
     inputText: string | undefined,
@@ -207,19 +208,18 @@ export class AgroIntakeService {
     return { text, transcribedFrom: [] };
   }
 
-  /** T-054: enriquecimiento best-effort — nunca bloquea la propuesta. */
+  /**
+   * Photo hints stay empty until a photo is bound to an authorized storage
+   * asset. `fileUrl` is not fetched and is not forwarded to vision-service,
+   * which would download it (issue #911). A missing hint never blocks intake.
+   */
   private async recognizePhotos(
     evidenceRows: EvidenceRow[],
   ): Promise<Array<{ evidenceId: string } & AgroVisionResult>> {
     if (!this.vision) return [];
-    const photoRows = evidenceRows.filter((e) => e.mediaType === "PHOTO" && e.fileUrl);
-    const results = await Promise.all(
-      photoRows.map(async (row) => {
-        const result = await this.vision!.recognize(row.fileUrl!);
-        return result ? { evidenceId: row.id, ...result } : null;
-      }),
-    );
-    return results.filter((r): r is { evidenceId: string } & AgroVisionResult => r !== null);
+    const unverifiedPhoto = evidenceRows.some((row) => row.mediaType === "PHOTO" && row.fileUrl);
+    if (unverifiedPhoto) return [];
+    return [];
   }
 }
 

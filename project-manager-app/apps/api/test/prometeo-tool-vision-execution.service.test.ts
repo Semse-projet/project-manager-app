@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { ForbiddenException } from "@nestjs/common";
+import { BadRequestException, ForbiddenException } from "@nestjs/common";
 import { PrometeoToolExecutionService } from "../dist/modules/prometeo/prometeo-tool-execution.service.js";
 
 function actor(overrides: Partial<{ roles: string[] }> = {}) {
@@ -175,13 +175,18 @@ test("vision.check_safety: calls VisionService.checkSafetyEnriched with imageUrl
   assert.deepEqual(calledWith, ["https://example.com/a.jpg", "roofing"]);
 });
 
-test("vision.analyze_video: still not wired — returns a blocked result, not a crash", async () => {
-  const result = await makeService({}).invokeReadTool(actor({ roles: ["PRO"] }) as never, "req_1", {
-    namespace: "vision",
-    name: "analyze_video",
-    input: { videoFileId: "vid_1" },
-  });
-
-  assert.equal(result.status, "blocked");
-  assert.match(String(result.errorMessage), /not wired for read execution/);
+test("vision.analyze_video: still not wired — 400 ADAPTER_PENDING, not a blocked 200", async () => {
+  await assert.rejects(
+    () => makeService({}).invokeReadTool(actor({ roles: ["PRO"] }) as never, "req_1", {
+      namespace: "vision",
+      name: "analyze_video",
+      input: { videoFileId: "vid_1" },
+    }),
+    (error: unknown) => {
+      assert.ok(error instanceof BadRequestException);
+      const body = error.getResponse() as { code?: string };
+      assert.equal(body.code, "ADAPTER_PENDING");
+      return true;
+    },
+  );
 });

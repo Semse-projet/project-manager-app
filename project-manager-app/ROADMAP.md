@@ -1,6 +1,6 @@
 # Roadmap maestro de SEMSEproject
 
-**Actualizado:** 2026-11-24 (corte de código `main` `594279afefad1fe760b94ec84c2cee382281ceb1`, PR #1169). Producción no re-verificada desde 2026-10-03.
+**Actualizado:** 2026-11-25. `main` y el SHA de producción `f863b00b549969039bffb38640fcf514e0fdd0d9`. #1168, #1172, #1185, #1186 y #1187 están mergeados y desplegados. F1, F2 y F4 están completos en código y no están verificados como fase en producción. Proyecto Railway `SEMSEproject`; servicios `semse-API`, `semse-web`, `semse-worker`, `semse-vision`.
 **Arquitectura:** [`docs/architecture/CURRENT_ARCHITECTURE.md`](docs/architecture/CURRENT_ARCHITECTURE.md)
 **Matriz:** [`docs/architecture/IMPLEMENTATION_STATUS_MATRIX.md`](docs/architecture/IMPLEMENTATION_STATUS_MATRIX.md)
 
@@ -14,10 +14,12 @@ actual sin reescritura ni renombramiento masivo.
 - Core, Connect, Payments, Trust, AI, Agro, BuildOps, Knowledge e Integrations
   tienen implementacion real en distintos grados.
 - Prometeo Runtime P2 está en el código. Su despliegue no se re-verificó en este corte.
-- `origin/main` es `594279af` (2026-11-24). `114cb9ca` (2026-07-30) es ancestro
-  y contiene F3 (`f1234291`); no es el SHA desplegado que esta pasada haya
-  vuelto a leer. La última lectura Railway citada por la arquitectura es del
-  2026-10-03 (`3d9743d4` en API/Web) y queda sin re-verificar desde esa fecha.
+- `origin/main` y el SHA de producción son `f863b00b` (2026-11-25). Incluye
+  #1168 (geocerca OPEN-18, servidor), #1172 (clientes web y móvil), #1185
+  (agro/visión), #1186 (contratos de cierre F1/F2/F4) y #1187 (contexto de
+  AgentRun). `114cb9ca` sigue siendo el ancestro de julio que contiene F3
+  (`f1234291`). La tabla Railway del 2026-10-03 (`3d9743d4`, proyecto
+  `SEMSEproject`) es histórica.
 - `apps/mobile` es una app Expo del monorepo (SDK 57, ver el programa de
   consolidación más abajo). No está retirada.
 - F1-D y el código de Product Intelligence, incluida la agregación PI-07, están
@@ -88,9 +90,17 @@ Estado del corte:
   contra PostgreSQL y Redis reales;
 - `Milestone.status`, `paymentReadiness` y Payments no son mutados.
 
-El código F1-D/F1-E está en `main`. El deploy y la allowlist de producción no
-se re-verificaron desde los cortes de julio y octubre de 2026. No se declara
-el backbone globalmente cerrado.
+El código F1-D/F1-E está en `main` y viaja en el SHA desplegado `f863b00b`.
+Eso no verifica la fase: la allowlist y el canary F1-F no se ejecutaron en
+producción. No se declara el backbone globalmente cerrado.
+
+Verificación local 2026-11-24 (no cierra F1-F): el read-through de jobs/bids
+sigue implementado y apagado por `SEMSE_JOBS_PROJECTION_READTHROUGH_ENABLED`.
+Los tests de API cubren el fallback, el salto de la proyección para PRO/WORKER
+y la función de muestreo `diffJobReadthroughSamples`. El canary de producción y el SLO
+sostenido siguen en `docs/runbooks/F1F_EVENT_BACKBONE_CANARY.md` y
+`docs/runbooks/JOBS_BIDS_PROJECTION_CANARY.md`. Ese runbook de F1 ya no pide
+reemplazar el allowlist compartido.
 
 Gate de salida:
 
@@ -276,7 +286,7 @@ Gates de salida que este corte no cerró:
   hallazgo de agosto que decía “Actions muerto desde 2026-08-19” no describe
   noviembre (ver matriz, hallazgo 9).
 
-## F2 — Prometeo Tool Registry gobernado (GOBERNANZA EN MAIN — PRs #369/#371/#372; adapters `vision.*` cableados 2026-07-20 salvo `analyze_video`)
+## F2 — Prometeo Tool Registry gobernado (código completo en `f863b00b`, fase no verificada en producción — PRs #369/#371/#372; adapters `vision.*` cableados 2026-07-20 salvo `analyze_video`; contrato `adapterPending` en #1186)
 
 Entregables:
 
@@ -287,7 +297,7 @@ Entregables:
 - [x] habilitar mutaciones de bajo riesgo gradualmente (6 write tools cableadas: `time_tracker.*`, `agro.create_task` — F2-C);
 - [x] gate hibrido de pagos (`payments.propose_release` -> `PaymentsService.release()` real via aprobacion `human_required` de un `OPS_ADMIN` — F2-D);
 - [x] completar adapters read declarados: 5 de las 6 tools `vision.*` cableadas a `VisionService` real (`analyze_image`, `compare_before_after`, `detect_material`, `classify_space`, `check_safety`); solo `analyze_video` sigue `adapter_pending` — necesita un pipeline temporal que no existe hoy, tratado como capacidad separada ("Video tool" en la matriz), no como deuda de gobernanza;
-- [ ] verification y compensacion explicita (hoy: estado terminal `BLOCKED`/`EXECUTED` + audit trail; no hay un paso de verification/compensacion separado — evaluar si aplica en un incremento futuro).
+- [ ] verification y compensacion explicita (hoy: estado terminal `BLOCKED`/`EXECUTED` + audit trail; no hay un paso de verification/compensacion separado — evaluar si aplica en un incremento futuro). Desde 2026-11-24 una tool `adapterPending` responde 400 `ADAPTER_PENDING` antes de ejecutar o encolar; `analyze_video` sigue fuera de este spec.
 
 Gate de salida:
 
@@ -342,11 +352,11 @@ infiere de ese canary.
 
 **Child SDD 2.0 `operations.mission-control-2` está `IMPLEMENTED` /
 `merge_status: MERGED` (PR #486, `afb2dccd`, 2026-07-31, ancestro de
-`main@594279af`). El código se enciende solo con
+`main@f863b00b`). El código está completo y desplegado con ese SHA. La fase
+no está verificada en producción. Se enciende solo con
 `SEMSE_MISSION_CONTROL_V2_ENABLED=true` o con el tenant en
 `SEMSE_MISSION_CONTROL_V2_CANARY_TENANT_IDS`. El spec sigue en
-`activation_status: INACTIVE`. La evidencia de deploy y la lectura canario
-del 2026-10-11 no se re-verificaron.**
+`activation_status: INACTIVE`.**
 
 Contrato ejecutable:
 
@@ -377,6 +387,12 @@ Estado mergeado/desplegado al 2026-07-31:
 - adapters gobernados sin absorber autoridad económica ni de Railway;
 - migración aditiva aplicada desde cero sobre PostgreSQL efímero;
 - BFF/UI exception-first y SSE autenticado sin duplicación tenant→global.
+
+Verificación local 2026-11-24: el canary de `tenant_default` no se re-ejecutó
+contra Railway. `activation_status` sigue `INACTIVE`. Los pasos que faltan
+(404 de un tenant fuera de la allowlist, y ACK/RESOLVE/ESCALATE con efecto)
+están escritos en `docs/runbooks/MISSION_CONTROL_2.md`. No poner
+`SEMSE_MISSION_CONTROL_V2_ENABLED=true` para hacer el canary.
 
 ## F5 — Shared Economic Ledger
 

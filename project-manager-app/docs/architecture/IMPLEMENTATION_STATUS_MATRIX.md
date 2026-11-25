@@ -1,7 +1,8 @@
 # Matriz de implementación de la arquitectura SEMSE
 
-**Corte de código:** 2026-11-24, `main` `594279afefad1fe760b94ec84c2cee382281ceb1` (PR #1169)
-**Producción:** no re-verificada desde 2026-10-03 (lectura de ese día más abajo). `114cb9ca` y `f1234291` son ancestros, no el HEAD.
+**Corte:** 2026-11-25. `main` y el SHA de producción `f863b00b549969039bffb38640fcf514e0fdd0d9`.
+**Mergeado y desplegado en ese SHA:** #1168, #1172, #1185, #1186 y #1187. F1, F2 y F4 están completos en código y **no** están verificados como fase en producción.
+**Railway:** proyecto `SEMSEproject`, environment `production`. Servicios `semse-API`, `semse-web`, `semse-worker`, `semse-vision`. Esta pasada no volvió a llamar a la API de Railway; el SHA de producción es el hecho de `main` al fusionar. La tabla del 2026-10-03 queda histórica.
 **Tracker:** [`../PRODUCTION_CONVERGENCE_TRACKER.md`](../PRODUCTION_CONVERGENCE_TRACKER.md) sigue abriendo en el snapshot del 2026-07-31 (`114cb9ca`). No se reescribió aquí y no es el SHA actual.
 **Backlog de activación:** PR abierto [#1142](https://github.com/Semse-projet/project-manager-app/pull/1142). No se copia su runbook a `main` en este cambio. Sus observaciones de Railway/Postgres quedan sin re-verificar desde 2026-11-12.
 
@@ -18,10 +19,10 @@ Para specs SDD 2.0 mandan las columnas separadas de
 
 ## Producción observada
 
-**No re-verificada desde 2026-10-03.** La tabla de ese día se conserva como
-última lectura en vivo (API de Railway, proyecto `SEMSEproject` / environment
-`production`). No describe el despliegue del 2026-11-24. El detalle está en
-el hallazgo 11.
+**Lectura en vivo del 2026-10-03, histórica.** Proyecto Railway
+`SEMSEproject`, environment `production`, servicios `semse-API`,
+`semse-web`, `semse-worker` y `semse-vision`. No es el SHA de hoy
+(`f863b00b`). El detalle de aquella lectura está en el hallazgo 11.
 
 | Superficie | Evidencia |
 |---|---|
@@ -49,25 +50,25 @@ trazabilidad):**
 | Capacidad | Estado real | Evidencia | Siguiente gate |
 |---|---|---|---|
 | Monorepo pnpm | IMPLEMENTADO | `pnpm-workspace.yaml`; runners Node portables para workspace, seeds y tests API | Mantener workspace verde |
-| Web/BFF | IMPLEMENTADO. Despliegue no re-verificado desde 2026-10-03 | Next.js en `main@594279af`. El SHA de Railway `114cb9ca` es el snapshot 2026-07-31 | SLO y journeys autenticados |
-| API NestJS/Prisma | IMPLEMENTADO. Despliegue no re-verificado desde 2026-10-03 | NestJS/Prisma en `main@594279af` | Trazas y migration gates |
-| Worker/BullMQ | IMPLEMENTADO. Despliegue no re-verificado desde 2026-10-03 | `apps/worker` en `main`. Schedulers (`LIVE_SESSION_SWEEP_ENABLED`, `PAYMENTS_RECONCILE_ENABLED`, `WEATHER_CHECK_ENABLED`, `LIEN_ALERTS_ENABLED`) solo arrancan si la variable es `true` | Releer Railway antes de dar un scheduler por activo. Consola común lag/retries/DLQ |
+| Web/BFF | IMPLEMENTADO. SHA de producción `f863b00b` | Next.js en ese SHA. Los deployment IDs del 2026-10-03 no se releyeron | SLO y journeys autenticados |
+| API NestJS/Prisma | IMPLEMENTADO. SHA de producción `f863b00b` | NestJS/Prisma en ese SHA, servicio `semse-API` | Trazas y migration gates |
+| Worker/BullMQ | IMPLEMENTADO. SHA de producción `f863b00b` | `apps/worker` en ese SHA, servicio `semse-worker`. Schedulers (`LIVE_SESSION_SWEEP_ENABLED`, `PAYMENTS_RECONCILE_ENABLED`, `WEATHER_CHECK_ENABLED`, `LIEN_ALERTS_ENABLED`) solo arrancan si la variable es `true` | Releer el valor de cada scheduler antes de darlo por activo. Consola común lag/retries/DLQ |
 | Cliente móvil (`apps/mobile`) | IMPLEMENTADO/PARCIAL, en `main` | Expo `~57.0.34`, React Native `0.86.3`, slug `semse-mobile`. #489 creó el `package.json`; #598 (`a42600ec`) está mergeado; #1162, #1166, #1167, #1181 y #1182 alinean el SDK, añaden `mobile-checks.yml` en la raíz del checkout y el perfil EAS pilot. #1169 añade la preferencia de ubicación en `apps/mobile/src/screens/SettingsScreen.tsx`. La gestión de cuadrillas de ese PR está en la web (`apps/web/components/crews/CrewsWorkspace.tsx`), no en una pantalla móvil de cuadrillas. Pantallas Worker, Client y Admin siguen en `apps/mobile/src/screens`. Spec `ui.mobile-product-consolidation`: `merge_status: MERGED`, `code_status: IN_PROGRESS`, gates de §12 sin re-ejecutar | Canary autenticado por rol en device y release de tienda, no re-verificados. La cuota EAS “resetea 2026-10-01” es una nota de 2026-09; no se consultó EAS |
 | Identidad/Tenant/RBAC | IMPLEMENTADO/PARCIAL | guards, permissions, policies | PrincipalContext/policy transversal |
 | Identidad universal multi-rol | ver fila F10 más abajo | `Membership(userId, orgId, roleId)` ya permite multi-rol a nivel de datos; UX/producto asume rol fijo | — |
 | Originador/Facilitador (referral) | ver fila F10 más abajo | — | — |
 | Orquestación externa (MCP) | No construida | `SPEC-INT-001` retirado. ADR-025 `ACCEPTED` el 2026-08-04, opción C: no construir el cliente MCP externo. Ver la fila F10 | No registrar tools externas |
 | Prometeo Runtime | IMPLEMENTADO/DESPLEGADO | missions, work plans, BFF | Verify/learn/budgets/compensación |
-| Tool Registry F2 | IMPLEMENTADO/PARCIAL | policy/audit/approval; adapters reales | video temporal + verification explícita |
-| Event Backbone F1 | PARCIAL/DESPLEGADO/CANARY ACOTADO | Evidence + outbox, dispatcher, worker, receipts/replay; F3 ejercitó switches/allowlists | Cierre F1-F transversal + adopción transaccional multi-dominio |
+| Tool Registry F2 | Código completo (#1186 en `f863b00b`). Fase no verificada en producción | policy/audit/approval; adapters reales; `adapterPending` responde 400 antes de ejecutar | `analyze_video` sigue fuera de spec (pipeline temporal); no hay campo de verification/compensación. No marcar F2 `VERIFIED` |
+| Event Backbone F1 | Código completo en `f863b00b`. Fase no verificada en producción | Evidence + outbox, dispatcher, worker, receipts/replay; read-through jobs/bids probado en tests y apagado por `SEMSE_JOBS_PROJECTION_READTHROUGH_ENABLED` | Cierre F1-F (SLO/canary real, `docs/runbooks/F1F_EVENT_BACKBONE_CANARY.md`) + read-through aún off |
 | Event Catalog | PARCIAL/ACTUALIZADO | envelope v2 + `project.lifecycle-source-changed.v1` / `project-lifecycle-projection.v1` | Mantener producer/consumer/deploy/activation por evento |
 | Communications | IMPLEMENTADO/PARCIAL | modelo canónico y delivery vertical | outbox/retry/circuit breaker durable |
 | Payment orchestration | IMPLEMENTADO/PARCIAL | escrow, Stripe, governance | reconciliación y lenguaje legal |
 | Shared Economic Ledger F5 | PENDIENTE | PaymentTxn no es double-entry | Child spec después de F4 |
 | Evidence provenance | PARCIAL | storage/checksum/metadata/review; m2.2-dispute-docs Bloque 2.2.A (EXIF timestamp+GPS de fotos, sin dependencia externa, fail-closed) mergeado a `main` — PR #592 merge `140c192c` (2026-08-27); CI real no corrió sobre el merge (ver Event Backbone/hallazgo de infra abajo) | subject/custody/retention comunes; daily logs/change-order trail/extended metrics/PDF export (Bloques 2.2.B-E) sin empezar |
 | Trust/Governance | IMPLEMENTADO/PARCIAL | ratings, risk, disputes, policies locales | policy rulebook/apelación común |
-| Mission Control F4 | MERGEADO en código. Activación no re-verificada desde 2026-10-11 | PR #486 `afb2dccd` (2026-07-31) es ancestro de `594279af`. Flag: `SEMSE_MISSION_CONTROL_V2_ENABLED=true` o tenant en `SEMSE_MISSION_CONTROL_V2_CANARY_TENANT_IDS`. Spec `activation_status: INACTIVE` | Releer el canary en Railway. El “falta merge” de documentos de julio ya no aplica |
-| Project Lifecycle Projection F3 | Código en `main`. Canary de producción no re-verificado desde 2026-07-31 | `f1234291` es ancestro. En código el cálculo exige `SEMSE_PROJECT_LIFECYCLE_PROJECTION_ENABLED=true` y allowlist. Los 5 `PUBLISHED` / mismatch 0 son la evidencia histórica del canary, no una lectura nueva | Releer flags y la tabla de snapshots antes de llamar al canary “activo” |
+| Mission Control F4 | Código completo en `f863b00b`. Fase no verificada en producción | Cola, catálogo, receipts, adapters, BFF/UI y SSE están en el código. PR #486 `afb2dccd` es ancestro. Flag: `SEMSE_MISSION_CONTROL_V2_ENABLED=true` o tenant en `SEMSE_MISSION_CONTROL_V2_CANARY_TENANT_IDS`. Spec `activation_status: INACTIVE` | Canary incompleto: faltan 404 fuera de allowlist y ACK/RESOLVE/ESCALATE con efecto; checklist en `docs/runbooks/MISSION_CONTROL_2.md`. No usar el flag global para el canary |
+| Project Lifecycle Projection F3 | Código en `f863b00b`. Canary de producción no re-verificado desde 2026-07-31 | `f1234291` es ancestro. En código el cálculo exige `SEMSE_PROJECT_LIFECYCLE_PROJECTION_ENABLED=true` y allowlist. Los 5 `PUBLISHED` / mismatch 0 son la evidencia histórica del canary, no una lectura nueva | Releer flags y la tabla de snapshots antes de llamar al canary “activo” |
 | Product Intelligence | IMPLEMENTADO/PARCIAL/DESPLEGADO | PI-00..PI-10 (PR #322, 2026-07-17); PI-11.2 auditoría de privacidad aprobada (PR #326, 2026-07-17, "variables activas, 3 servicios SUCCESS") — ambos ancestros confirmados de `origin/main` | Re-verificar flags/activación de forma independiente en esta pasada |
 | Workspace/Context Bridge | PARCIAL | runtime/context bridge | scope común y terminal registry |
 | SDD/Blueprint Engine | 219 `*.spec.md`. Strict local 0/0 el 2026-11-24 | `node ./scripts/spec-validate.mjs --strict` en este checkout. El 98/0/0 es 2026-07-31; el 128/0/0 es 2026-10-03 | El CI del PR puede diferir de esta corrida local |
@@ -182,7 +183,7 @@ Tiempo validator estricto:          ~2.1 s (antes ~106 s)
       pasada salvo donde ya cita evidencia 2026-08/09 de pasadas anteriores;
       tratarlas como `HISTORICAL` hasta su propio refresco.
 
-12. **Corte de código 2026-11-24 (`594279af`), sin lectura de producción.**
+12. **Corte de código 2026-11-24 (`594279af`), ampliado al fusionar `main` `f863b00b` el 2026-11-25.** #1168, #1172, #1185, #1186 y #1187 están en ese SHA y desplegados. F1, F2 y F4 siguen sin verificación de fase en producción.
     - `apps/mobile` existe (Expo `~57.0.34`). El párrafo que lo daba por
       retirado no aplica a este árbol. #598 está mergeado; el spec de
       consolidación pasa a `merge_status: MERGED` y deja los gates de

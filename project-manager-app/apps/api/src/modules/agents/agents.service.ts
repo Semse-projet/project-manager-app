@@ -497,6 +497,17 @@ export class AgentsService {
     return run;
   }
 
+  async readClaimedJobContext(input: {
+    tenantId: string;
+    orgId: string;
+    userId: string;
+    runId: string;
+    workerId: string;
+    expectedAttempts: number;
+  }) {
+    return this.agentsRepository.readClaimedJobContext(input);
+  }
+
   async heartbeat(input: {
     tenantId: string;
     orgId: string;

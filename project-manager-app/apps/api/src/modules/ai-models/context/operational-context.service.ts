@@ -432,6 +432,9 @@ export class OperationalContextService {
             where: {
               tenantId: input.tenantId,
               ...(visibility === "own-org" ? { clientOrgId: input.orgId } : {}),
+              // The direct query hides archived jobs. The projection row survives archive,
+              // so the read-through must apply the same filter or Prometeo would show them.
+              job: { deletedAt: null },
             },
             orderBy: { jobId: "desc" },
             take: 20,

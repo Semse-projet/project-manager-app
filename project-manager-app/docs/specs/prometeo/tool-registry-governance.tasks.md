@@ -94,3 +94,11 @@ existe para cerrar, pero la corrección de qué permiso real debe exigir
 - [x] cada ejecución deja `auditRef`/registro real, no una etiqueta;
 - [x] CI verde en el SHA de corte (`pnpm verify:workspace` + `spec:validate:strict`, ver T-050–T-052);
 - [ ] spec marcado `IMPLEMENTED`/`VERIFIED` solo con evidencia correspondiente — pendiente, ver nota en Fase 5.
+- [x] **T-057** (2026-11-24) Una tool con `adapterPending: true` responde
+      400 `ADAPTER_PENDING` después del policy y antes del adapter o de
+      crear `PrometeoProposedAction`, con fila de auditoría `blocked`.
+      `vision.analyze_video` sigue sin pipeline temporal: el spec §9 lo
+      deja fuera de este corte (capacidad de F7), así que no se cableó.
+      No se añadió un campo `verificationStatus` ni un paso de compensación:
+      el propio cierre de Fase 5 los dejó como incremento futuro, no como
+      tarea de este spec.

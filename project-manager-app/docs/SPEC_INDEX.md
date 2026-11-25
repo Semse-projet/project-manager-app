@@ -16,13 +16,18 @@
 4. [`SOURCE_OF_TRUTH.md`](SOURCE_OF_TRUTH.md)
 5. [`../ROADMAP.md`](../ROADMAP.md)
 
-## Corte de código 2026-11-24
+## Corte 2026-11-25
 
-`main` es `594279afefad1fe760b94ec84c2cee382281ceb1` (PR #1169). La matriz
-generada sale del frontmatter de cada spec (`pnpm spec:index`). Las columnas
-Deploy y Activation **no se re-verificaron contra Railway** en este corte:
-léelas como la última evidencia escrita en el spec (`Last Verified`), no como
-una observación de producción del 2026-11-24.
+`main` y el SHA de producción son `f863b00b549969039bffb38640fcf514e0fdd0d9`.
+#1168, #1172, #1185, #1186 y #1187 están mergeados y desplegados. F1, F2 y F4
+están completos en código y no están verificados como fase en producción
+(`docs/reportes/2026-11-24_f1-f2-f4-closure-verification.md`). Proyecto
+Railway `SEMSEproject`; servicios `semse-API`, `semse-web`, `semse-worker`,
+`semse-vision`.
+
+La matriz generada sale del frontmatter de cada spec (`pnpm spec:index`).
+Las columnas Deploy y Activation de cada fila siguen siendo esa metadata:
+no se reescribieron contra el SHA `f863b00b`.
 
 No se re-auditó fila por fila. Estas sí se contrastaron con git y con el
 código:
@@ -45,10 +50,12 @@ código:
   columna `CANARY` es la evidencia del spec del 2026-10-12, no re-verificada.
   En código el registro exige `SEMSE_ORIGINATOR_REGISTRATION_ENABLED=true` o
   `SEMSE_ORIGINATOR_CANARY_TENANT_IDS`.
-- `core.geofence-policy` y `core.crews-worksites` siguen `UNMERGED` /
-  `IN_PROGRESS` porque los specs no se declaran cerrados (Gate 5 y OPEN-18
-  en geocerca). Aun así hay código en `main` (#1019 y #1169) y, si la
-  variable no es `true`, el flag queda apagado.
+- `core.geofence-policy`, `core.crews-worksites` y
+  `core.worksite-location-binding` siguen `UNMERGED` / `IN_PROGRESS` en el
+  frontmatter. El código de OPEN-18 sí está en `f863b00b` (#1168 servidor,
+  #1172 web y móvil) y desplegado. El flag de geocerca sigue apagado si la
+  variable no es `true`. `SEMSE_WORKSITE_BINDING_ENABLED` es otro interruptor
+  del vínculo de obra.
 
 El inventario de “mergeado y no encendido” sigue en el PR abierto
 [#1142](https://github.com/Semse-projet/project-manager-app/pull/1142). No
@@ -159,6 +166,7 @@ retroactiva.
 | [core.skills](specs/core/skills.spec.md) | core | DRAFT | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-10-18 |
 | [core.task-allocations](specs/core/task-allocations.spec.md) | core | APPROVED | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-11-21 |
 | [core.universal-identity-multi-role](specs/core/universal-identity-multi-role.spec.md) | core | APPROVED | IN_PROGRESS | PASS | MERGED | DEPLOYED | INACTIVE | high | yes | 2026-08-13 |
+| [core.worksite-location-binding](specs/core/worksite-location-binding.spec.md) | core | APPROVED | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | yes | 2026-11-20 |
 | [semse-creator-platform](specs/creator/SEMSE_CREATOR_PLATFORM.spec.md) | creator | APPROVED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-17 |
 | [evidence.canonical-fase1](specs/evidence/evidence-canonical-fase1.spec.md) | evidence | IMPLEMENTED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-19 |
 | [evidence.field-memory-capture-session](specs/evidence/field-memory-capture-session.spec.md) | evidence | APPROVED | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-10-11 |

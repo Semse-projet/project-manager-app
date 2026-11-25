@@ -81,6 +81,8 @@ export type LocationPreference = {
 };
 export type GeofenceDecision = "PROMPT" | "AUTO_START_ALLOWED" | "MANUAL_ONLY" | "LEAVE_PROMPT" | "EXCEPTION" | "IGNORE";
 export type GeofenceEventView = {
+  /** Id de la decisión: se envía como `geofenceEventId` al iniciar un reloj `proximity_auto` (OPEN-18). */
+  id?: string;
   eventId: string;
   type: "ARRIVAL" | "LEAVE" | "OFF_SITE_AT_SHIFT";
   worksiteId: string | null;
@@ -103,3 +105,35 @@ export const saveLocationPreference = (input: { mode: LocationMode; autoStartCon
   });
 
 export const fetchMyGeofenceEvents = () => request<GeofenceEventView[]>("/api/semse/me/geofence-events");
+
+/* ─────────────────── Obras vinculadas detectables (OPEN-18) ─────────────────── */
+// Spec: docs/specs/core/worksite-location-binding.spec.md (W-07).
+
+export type GeofenceSiteView = {
+  kind: "JOB" | "FREE_PROJECT";
+  targetId: string;
+  worksiteId: string;
+  worksiteName: string;
+  latitude: number;
+  longitude: number;
+  radiusMeters: number | null;
+  verified: boolean;
+};
+
+/** null si el servidor no tiene activos los vínculos de obra (404): el cliente usa el modo anterior. */
+export async function fetchMyGeofenceSites(): Promise<GeofenceSiteView[] | null> {
+  try {
+    return await request<GeofenceSiteView[]>("/api/semse/me/geofence-sites");
+  } catch (caught) {
+    if (caught instanceof SurfaceApiError && caught.status === 404) return null;
+    throw caught;
+  }
+}
+
+/** Informa una llegada a una obra vinculada y devuelve la decisión del servidor (sin coordenadas). */
+export const reportGeofenceArrival = (input: {
+  eventId: string;
+  site: { kind: "JOB" | "FREE_PROJECT"; id: string };
+  occurredAt: string;
+  accuracyMeters?: number;
+}) => post<GeofenceEventView>("/api/semse/me/geofence-events", { type: "ARRIVAL", ...input });
