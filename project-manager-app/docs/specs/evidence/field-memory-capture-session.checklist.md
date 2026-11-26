@@ -86,15 +86,15 @@ Este checklist describe **criterios de aceptación**, no verificaciones ejecutad
 **No reportar VERIFIED:** tests de herramienta, preflight local/remoto, BitLocker o Railway SUCCESS no equivalen a congelación de bytes y DB ni a recuperación integral.
 
 
-## T-008 OPEN-only producción — enmienda SDD en REVIEW (2026-10-25)
+## T-008 OPEN-only producción — enmienda SDD aprobada por el propietario (2026-11-25)
 
-**Todos los puntos siguientes siguen sin aprobación de go-live.** Código propuesto y CI verde no sustituyen una decisión del propietario ni revisión independiente.
+**Go-live sigue sin aprobación.** Samuel aprobó el cambio de contrato de §12.8 y §12.9 el 2026-11-25. Esa aprobación no activa `SEMSE_STORAGE_WRITE_GATE_PRODUCTION_CONTROL_MODE=mutate` ni una ventana de freeze. Código y CI verde no sustituyen la revisión independiente ni la activación.
 
-- [ ] Aprobación expresa del propietario para ampliar §12.6 de solo staging a producción OPEN-only.
+- [x] Aprobación expresa del propietario para ampliar §12.6 de solo staging a producción OPEN-only, y para el opt-in de §12.9. Registrada el 2026-11-25 en el plan. No activa mutate ni freeze.
 - [ ] Revisión independiente de seguridad del P1 sobre colisión de scopes entre staging y producción, con dos ambientes y mismo root.
 - [ ] Scope productivo compuesto de RAILWAY_PROJECT_ID + RAILWAY_ENVIRONMENT_ID + SEMSE_STORAGE_ROOT; IDs ausentes o malformados bloquean runtime y control.
 - [ ] Controlar migración de scope de staging sin copiar ACTIVE, epoch o coverage desde filas legacy y sin encender un gate nuevo que ignore operaciones en curso.
-- [ ] Revisión independiente del P1 sobre contradicción del SDD; actualización de contrato marcada REVIEW hasta que el propietario apruebe.
+- [ ] Revisión independiente del P1 sobre contradicción del SDD. El contrato ya no está en REVIEW: el propietario lo aprobó el 2026-11-25. Esta casilla sigue abierta solo para esa revisión de seguridad.
 - [ ] Confirmar en DB efímera que el servicio staging no puede mutar el scope productivo por accidente.
 - [ ] Canary productivo solo después de esa aprobación y operador autenticado; ninguna transición DRAINING/FROZEN/THAW/RECOVER autoriza este slice.
 - [ ] Registrar CI exacto, revisión/merge SHA, deploy/health y activación como evidencias separadas, sin marcar CAP-1 ni fotos restauradas.

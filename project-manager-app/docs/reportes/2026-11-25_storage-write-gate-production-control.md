@@ -26,7 +26,7 @@ El control plane de T-008 (#954) ya permitía observar y aprovisionar `OPEN` en 
 - El hash de idempotencia omite `freezeTtlSeconds` cuando la petición no lo trae. Un recibo anterior al TTL se repite sin 409. Si la repetición añade TTL, sigue siendo conflicto.
 - El runbook ya no pide `THAW` con `MODE=off`. Esa llamada la rechaza la política. Para limpiar `FROZEN` hay que volver a `MODE=production` con el control en `mutate`, atestiguar la ventana y hacer `THAW`. Mientras tanto las escrituras responden 503. No se abrió una excepción de thaw con el runtime apagado: un freeze no debe poder registrarse mientras los writers lo ignoran, y thaw usa el mismo control.
 - `pnpm spec:preflight` terminó en 0.
-- §12.8 sigue REVIEW, NO APROBADA. §12.9 solo lleva la nota "Pending owner approval". No hay aprobador inventado.
+- Samuel aprobó §12.8 y §12.9 el 2026-11-25 con «Lo apruebo». El plan cita esa aprobación. No activa mutate ni la ventana de freeze.
 
 ## Siguientes pasos
 
