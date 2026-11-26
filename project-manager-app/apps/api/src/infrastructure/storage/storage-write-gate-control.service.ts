@@ -8,6 +8,7 @@ import { assertStorageWriteGateControl, type StorageWriteGateControlLevel } from
 import { resolveStorageWriteGateScope } from "./storage-write-gate-scope.js";
 import {
   storageWriteGateBlocksNewWrites,
+  storageWriteGateTransitionRequestDigest,
   StorageWriteGateBlockedError,
   type StorageWriteGateAction,
   type StorageWriteGatePhase,
@@ -263,13 +264,15 @@ export class StorageWriteGateControlService {
   }): Promise<{phase: StorageWriteGatePhase; epoch: string}> {
     this.assertMutateGrant(input.productionMutateAuthorized);
     validateMetadata(input);
-    const requestDigest = digestJson({
+    const requestDigest = storageWriteGateTransitionRequestDigest({
       action: input.action,
       expectedEpoch: input.expectedEpoch.toString(),
       actorUserId: input.actorUserId,
       ticket: input.ticket,
       reason: input.reason,
-      freezeTtlSeconds: input.freezeTtlSeconds ?? null,
+      ...(input.freezeTtlSeconds === undefined
+        ? {}
+        : {freezeTtlSeconds: input.freezeTtlSeconds}),
     });
     const result = await this.transitions.transition({
       scope: this.scope,

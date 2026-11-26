@@ -182,7 +182,9 @@ Invariantes obligatorias de la propuesta:
 
 ### 12.9 Production-control slice (código, no activación)
 
-El párrafo 5 de §12.8 describe el canary sin `mutate`. Este slice añade un opt-in posterior, apagado por defecto.
+> **Pending owner approval.** §12.8 sigue en REVIEW, NO APROBADA. Esta nota no la aprueba, no aprueba §12.9 y no nombra un aprobador. Samuel tiene que escribir él mismo la aprobación antes de tratar este slice como cambio de contrato autorizado.
+
+El párrafo 5 de §12.8 describe el canary sin `mutate`. Este slice describe un opt-in posterior, apagado por defecto, y no sustituye esa restricción.
 
 Permite drain/freeze/thaw en producción solo con estas condiciones a la vez:
 
@@ -190,4 +192,4 @@ Permite drain/freeze/thaw en producción solo con estas condiciones a la vez:
 - `SEMSE_STORAGE_WRITE_GATE_MODE=production`
 - permiso `ops:storage-write-gate:production-mutate`, exclusivo de `OPS_ADMIN`, además de `ops:storage-write-gate:manage` y del rol
 
-Sin la variable de control, el comportamiento queda el del canary OPEN-only: observe/provision y rechazo de mutate. El TTL de `MARK_FROZEN` (300–14400 s) es un plazo en `freezeExpiresAt`. Al vencer, las escrituras siguen fail-closed hasta un `THAW` explícito. Un `THAW` con el gate ya `OPEN` y el epoch vigente es un recibo idempotente y no incrementa el epoch. El rollback de enforcement es `SEMSE_STORAGE_WRITE_GATE_MODE=off`. Este slice no ejecuta la ventana en SEMSEproject ni marca T-008i.
+Sin la variable de control, el comportamiento queda el del canary OPEN-only: observe/provision y rechazo de mutate. El TTL de `MARK_FROZEN` (300–14400 s) es un plazo en `freezeExpiresAt`. Al vencer, las escrituras siguen fail-closed hasta un `THAW` explícito. Un `THAW` con el gate ya `OPEN` y el epoch vigente es un recibo idempotente y no incrementa el epoch. El rollback de enforcement es `SEMSE_STORAGE_WRITE_GATE_MODE=off`; ese modo no acepta `THAW`. Limpiar una fila `FROZEN` exige volver a `MODE=production` con el control en `mutate`, atestiguar la ventana y hacer `THAW`, con las escrituras en 503 hasta que el gate quede `OPEN`. Este slice no ejecuta la ventana en SEMSEproject ni marca T-008i. Ni §12.8 ni §12.9 están aprobados.

@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 /**
  * T-008: pure, deterministic state transition guards for the storage write gate.
  *
@@ -12,6 +14,33 @@ export type StorageWriteGateAction = "BEGIN_DRAIN" | "MARK_FROZEN" | "THAW" | "A
 /** Operator-chosen freeze window. Expiry never reopens writes. */
 export const STORAGE_WRITE_GATE_FREEZE_TTL_MIN_SECONDS = 300;
 export const STORAGE_WRITE_GATE_FREEZE_TTL_MAX_SECONDS = 14_400;
+
+/**
+ * Idempotency digest for a phase transition.
+ * Audits written before freeze TTL existed hash only the original fields.
+ * Omit freezeTtlSeconds unless the caller actually sent it, so those
+ * receipts still replay. A present TTL is part of the hash.
+ */
+export function storageWriteGateTransitionRequestDigest(input: {
+  action: string;
+  expectedEpoch: string;
+  actorUserId: string;
+  ticket: string;
+  reason: string;
+  freezeTtlSeconds?: number;
+}): string {
+  const payload: Record<string, string | number> = {
+    action: input.action,
+    expectedEpoch: input.expectedEpoch,
+    actorUserId: input.actorUserId,
+    ticket: input.ticket,
+    reason: input.reason,
+  };
+  if (input.freezeTtlSeconds !== undefined) {
+    payload.freezeTtlSeconds = input.freezeTtlSeconds;
+  }
+  return createHash("sha256").update(JSON.stringify(payload)).digest("hex");
+}
 
 export type StorageWriteGateSnapshot = Readonly<{
   phase: StorageWriteGatePhase;

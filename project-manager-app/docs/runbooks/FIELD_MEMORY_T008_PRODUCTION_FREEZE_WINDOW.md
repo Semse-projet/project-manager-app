@@ -97,10 +97,19 @@ No pulsar **Restore** en el volumen de semse-API en SEMSEproject. Railway reenga
 
 ## Rollback
 
-1. Poner `SEMSE_STORAGE_WRITE_GATE_MODE=off` en semse-API y redesplegar. Las escrituras dejan de consultar el gate de inmediato, aunque la fila siga en `FROZEN`.
-2. Quitar `SEMSE_STORAGE_WRITE_GATE_PRODUCTION_CONTROL_MODE` o dejarla en `observe`.
+El control plane rechaza `THAW` mientras `SEMSE_STORAGE_WRITE_GATE_MODE=off`, aunque `SEMSE_STORAGE_WRITE_GATE_PRODUCTION_CONTROL_MODE=mutate`. Mutar exige runtime `production`, para que un freeze no quede registrado mientras los writers lo ignoran. No hay una excepción de thaw en ese estado.
+
+1. Poner `SEMSE_STORAGE_WRITE_GATE_MODE=off` en semse-API y redesplegar. Las escrituras dejan de consultar el gate de inmediato, aunque la fila siga en `FROZEN` o `DRAINING`.
+2. Dejar `SEMSE_STORAGE_WRITE_GATE_PRODUCTION_CONTROL_MODE` en `observe`, o quitarla. No llamar a `THAW` en este paso: responde 503.
 3. No borrar la fila ni la auditoría.
-4. Antes de volver a `MODE=production`, hacer `THAW` (con el control en `mutate`) o confirmar por `status` que la fase es `OPEN` y que no hay `ACTIVE`. Si se enciende el runtime con la fila en `FROZEN`, las escrituras vuelven a quedar fail-closed.
+4. Para reactivar el enforcement hay que cerrar la fase antes de dar por terminado el cambio. Hacerlo en este orden, en un solo despliegue de semse-API:
+   1. Poner a la vez `SEMSE_STORAGE_WRITE_GATE_MODE=production` y `SEMSE_STORAGE_WRITE_GATE_PRODUCTION_CONTROL_MODE=mutate`.
+   2. Desde ese momento, y hasta el thaw, las escrituras nuevas responden 503. Es el fallo cerrado esperado, no un fallo de deploy.
+   3. `status`. Si la fase ya es `OPEN` y no hay `ACTIVE`, no hace falta thaw.
+   4. Si está `FROZEN` y no hay atestación de ventana, `window-closed` y después `THAW` con el epoch vigente. El recibo debe quedar en `OPEN`.
+   5. Si está `DRAINING`, terminar o recuperar los `ACTIVE` y hacer `ABORT_DRAIN` con la ventana atestada. No usar `THAW` en `DRAINING`.
+   6. Confirmar `OPEN`, cero `ACTIVE` y `freezeExpiresAt` vacío.
+   7. Volver el control a `observe` o quitar `mutate`.
 5. Comprobar `/v1/health` y un write sintético.
 
 ## Fuera de alcance

@@ -21,6 +21,13 @@ El control plane de T-008 (#954) ya permitía observar y aprovisionar `OPEN` en 
 - `verify-prisma-runtime-contract --db`: sin drift. ESLint de los archivos del gate: sin hallazgos. `nest build` del API: ok.
 - CI de GitHub de este PR: pendiente en el momento del reporte. No es evidencia de deploy ni de freeze en semse-API.
 
+## Revisión 2026-11-26
+
+- El hash de idempotencia omite `freezeTtlSeconds` cuando la petición no lo trae. Un recibo anterior al TTL se repite sin 409. Si la repetición añade TTL, sigue siendo conflicto.
+- El runbook ya no pide `THAW` con `MODE=off`. Esa llamada la rechaza la política. Para limpiar `FROZEN` hay que volver a `MODE=production` con el control en `mutate`, atestiguar la ventana y hacer `THAW`. Mientras tanto las escrituras responden 503. No se abrió una excepción de thaw con el runtime apagado: un freeze no debe poder registrarse mientras los writers lo ignoran, y thaw usa el mismo control.
+- `pnpm spec:preflight` terminó en 0.
+- §12.8 sigue REVIEW, NO APROBADA. §12.9 solo lleva la nota "Pending owner approval". No hay aprobador inventado.
+
 ## Siguientes pasos
 
 1. Revisión humana del PR en draft. No fusionar hasta CI verde: Railway despliega `main` sin esperar al CI.

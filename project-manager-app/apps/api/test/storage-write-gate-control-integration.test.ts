@@ -6,7 +6,7 @@
 import "reflect-metadata";
 import test from "node:test";
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { ServiceUnavailableException } from "@nestjs/common";
 import { PrismaClient } from "@prisma/client";
 import { StorageWriteGateControlService } from "../dist/infrastructure/storage/storage-write-gate-control.service.js";
@@ -375,6 +375,90 @@ dbTest("T-008 control plane: provision, drain, recovery fence, freeze and thaw a
     await db.storageWriteGateAudit.deleteMany({where:{scope}}).catch(()=>undefined);
     await db.storageWriteOperation.deleteMany({where:{scope}}).catch(()=>undefined);
     await db.storageWriteGate.deleteMany({where:{scope}}).catch(()=>undefined);
+    await db.$disconnect();
+    if (previous.mode === undefined) delete process.env.SEMSE_STORAGE_WRITE_GATE_MODE;
+    else process.env.SEMSE_STORAGE_WRITE_GATE_MODE = previous.mode;
+    if (previous.nodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = previous.nodeEnv;
+    if (previous.railwayEnv === undefined) delete process.env.RAILWAY_ENVIRONMENT;
+    else process.env.RAILWAY_ENVIRONMENT = previous.railwayEnv;
+    if (previous.railwayName === undefined) delete process.env.RAILWAY_ENVIRONMENT_NAME;
+    else process.env.RAILWAY_ENVIRONMENT_NAME = previous.railwayName;
+    if (previous.root === undefined) delete process.env.SEMSE_STORAGE_ROOT;
+    else process.env.SEMSE_STORAGE_ROOT = previous.root;
+  }
+});
+
+dbTest("a pre-TTL transition replays without a 409 when the retry omits TTL", async () => {
+  const db = new PrismaClient();
+  const token = randomUUID();
+  const root = "/tmp/semse-control-" + token;
+  const scope = "storage:" + root;
+  const previous = {
+    mode: process.env.SEMSE_STORAGE_WRITE_GATE_MODE,
+    nodeEnv: process.env.NODE_ENV,
+    railwayEnv: process.env.RAILWAY_ENVIRONMENT,
+    railwayName: process.env.RAILWAY_ENVIRONMENT_NAME,
+    root: process.env.SEMSE_STORAGE_ROOT,
+  };
+  process.env.SEMSE_STORAGE_WRITE_GATE_MODE = "staging";
+  process.env.NODE_ENV = "test";
+  delete process.env.RAILWAY_ENVIRONMENT;
+  delete process.env.RAILWAY_ENVIRONMENT_NAME;
+  process.env.SEMSE_STORAGE_ROOT = root;
+
+  const control = new StorageWriteGateControlService(
+    db as never,
+    new StorageWriteGateCoordinator(db as never),
+    new StorageWriteGateTransitionService(db as never),
+  );
+  const replay = meta(token, "hist");
+  const historical = createHash("sha256").update(JSON.stringify({
+    action: "BEGIN_DRAIN",
+    expectedEpoch: "1",
+    actorUserId: replay.actorUserId,
+    ticket: replay.ticket,
+    reason: replay.reason,
+  })).digest("hex");
+
+  try {
+    await control.provision(meta(token, "provision"));
+    await db.$executeRaw`
+      INSERT INTO "StorageWriteGateAudit"
+        ("id", "scope", "epochBefore", "epochAfter", "phaseBefore", "phaseAfter",
+         "action", "actorUserId", "ticket", "reason", "idempotencyKey",
+         "requestDigest", "occurredAt")
+      VALUES (
+        gen_random_uuid(), ${scope}, 1, 1, 'OPEN', 'DRAINING',
+        'BEGIN_DRAIN', ${replay.actorUserId}, ${replay.ticket}, ${replay.reason},
+        ${replay.idempotencyKey}, ${historical}, CURRENT_TIMESTAMP
+      )
+    `;
+
+    assert.deepEqual(await control.transition({
+      ...replay,
+      expectedEpoch: 1n,
+      action: "BEGIN_DRAIN",
+    }), {phase: "DRAINING", epoch: "1"});
+    assert.equal(
+      (await db.storageWriteGate.findUniqueOrThrow({where: {scope}})).phase,
+      "OPEN",
+      "replay must return the stored receipt and not apply the transition again",
+    );
+
+    await assert.rejects(
+      () => control.transition({
+        ...replay,
+        expectedEpoch: 1n,
+        action: "BEGIN_DRAIN",
+        freezeTtlSeconds: 300,
+      }),
+      rejectReason("idempotency_conflict"),
+    );
+  } finally {
+    await db.storageWriteGateAudit.deleteMany({where: {scope}}).catch(() => undefined);
+    await db.storageWriteOperation.deleteMany({where: {scope}}).catch(() => undefined);
+    await db.storageWriteGate.deleteMany({where: {scope}}).catch(() => undefined);
     await db.$disconnect();
     if (previous.mode === undefined) delete process.env.SEMSE_STORAGE_WRITE_GATE_MODE;
     else process.env.SEMSE_STORAGE_WRITE_GATE_MODE = previous.mode;
