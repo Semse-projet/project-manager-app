@@ -138,7 +138,7 @@ function world() {
   const repo: any = {
     sitePrisma: prisma,
     async findTimeEntryByClientEventId() { return null; },
-    async getActiveTimeEntry(tenantId: string, createdBy: string) { return entries.find((t) => t.tenantId === tenantId && t.createdBy === createdBy && t.status === "running") ?? null; },
+    async getActiveTimeEntry(tenantId: string, createdBy: string) { return entries.find((t) => t.tenantId === tenantId && t.createdBy === createdBy && (t.status === "running" || t.status === "paused")) ?? null; },
     async isJobAssignedToWorker(tenantId: string, _orgId: string, jobId: string, userId: string) { return jobs.some((j) => j.id === jobId && j.tenantId === tenantId && j.assignedTo.includes(userId)); },
     async isFreeProjectOwnedByWorker(tenantId: string, id: string, userId: string) { return freeProjects.some((f) => f.id === id && f.tenantId === tenantId && f.createdBy === userId); },
     jobCoordinates: null as null | { latitude: number; longitude: number },
@@ -526,6 +526,9 @@ test("una sesión en pausa cuenta como activa: la llegada se ignora y no ofrece 
   w.entries.push({ id: "te-paused", tenantId: "t1", createdBy: "ana", status: "paused" });
   const r = await w.geofence.evaluate(ana, ev({ site: { kind: "JOB", id: "jobA" } }));
   assert.equal(r.decision, "IGNORE");
+  // Misma regla en el reloj: la sesión en pausa impide iniciar otra (como getActiveTimeEntry real).
+  await assert.rejects(start(w, { orgId: "orgA", jobId: "jobA" }), { status: 400 });
+  assert.equal(w.entries.length, 1);
 });
 
 test("opción A negativo (job fichable también desde A, p. ej. asignación individual): una decisión de la Org B no autoriza un inicio desde una sesión en la Org A → 409 y sin TimeEntry", async () => {
