@@ -106,7 +106,11 @@ export class AuthController {
       properties: {
         email: { type: "string", format: "email" },
         password: { type: "string", format: "password", minLength: 15, maxLength: 128, writeOnly: true },
-        name: { type: "string", minLength: 1, maxLength: 80 },
+        name: {
+          type: "string",
+          pattern: "^\\s*\\S(?:[\\s\\S]{0,78}\\S)?\\s*$",
+          description: "Leading and trailing whitespace is trimmed; the trimmed name must contain 1 to 80 characters."
+        },
         role: { type: "string", enum: ["CLIENT", "PRO"], default: "CLIENT" }
       }
     }
