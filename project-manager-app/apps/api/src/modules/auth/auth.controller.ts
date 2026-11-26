@@ -1,4 +1,5 @@
 import { BadRequestException, Body, Controller, ForbiddenException, Get, Post, Req } from "@nestjs/common";
+import { ApiBody, ApiOperation } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
 import {
   authPasswordChangeSchema,
@@ -96,6 +97,20 @@ export class AuthController {
 
   @Post("register")
   @Public()
+  @ApiOperation({ security: [] })
+  @ApiBody({
+    required: true,
+    schema: {
+      type: "object",
+      required: ["email", "password", "name"],
+      properties: {
+        email: { type: "string", format: "email" },
+        password: { type: "string", format: "password", minLength: 15, maxLength: 128, writeOnly: true },
+        name: { type: "string", minLength: 1, maxLength: 80 },
+        role: { type: "string", enum: ["CLIENT", "PRO"], default: "CLIENT" }
+      }
+    }
+  })
   @Throttle({ default: { limit: 3, ttl: 60_000 } })
   async register(
     @Req() req: { headers?: Record<string, unknown> },
