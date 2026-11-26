@@ -112,14 +112,14 @@ test("proyección: PRO no la usa (solo guarda clientOrgId); CLIENT la filtra por
 
     const client = makeService();
     await client.service.buildContext({ ...base, role: "CLIENT", roles: ["CLIENT"] });
-    assert.deepEqual(client.projectionWheres, [{ tenantId: T, clientOrgId: "org_1" }]);
+    assert.deepEqual(client.projectionWheres, [{ tenantId: T, clientOrgId: "org_1", job: { deletedAt: null } }]);
 
     const admin = makeService();
     await admin.service.buildContext({ ...base, role: "OPS_ADMIN", roles: ["OPS_ADMIN"] });
-    assert.deepEqual(admin.projectionWheres, [{ tenantId: T }]);
+    assert.deepEqual(admin.projectionWheres, [{ tenantId: T, job: { deletedAt: null } }]);
 
     const guest = makeService();
     await guest.service.buildContext({ ...base, role: "GUEST", roles: ["GUEST"] });
-    assert.deepEqual(guest.projectionWheres, [{ tenantId: T, clientOrgId: "org_1" }]);
+    assert.deepEqual(guest.projectionWheres, [{ tenantId: T, clientOrgId: "org_1", job: { deletedAt: null } }]);
   });
 });
