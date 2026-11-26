@@ -38,10 +38,17 @@ test("public registration exposes a JSON body matching its runtime schema and ne
     assert.deepEqual(schema.properties?.password, {
       type: "string", format: "password", minLength: 15, maxLength: 128, writeOnly: true,
     });
-    assert.deepEqual(schema.properties?.name, { type: "string", minLength: 1, maxLength: 80 });
+    const nameSchema = schema.properties?.name;
+    assert.ok(nameSchema && !("$ref" in nameSchema));
+    assert.equal(nameSchema.type, "string");
+    assert.ok(nameSchema.pattern);
+    const namePattern = new RegExp(nameSchema.pattern);
     assert.deepEqual(schema.properties?.role, { type: "string", enum: ["CLIENT", "PRO"], default: "CLIENT" });
     const input = { email: "worker-test@example.invalid", password: "synthetic-only-12345", name: "Pilot Test" };
     assert.equal(authRegisterBodySchema.parse(input).role, "CLIENT");
+    for (const name of ["", "   ", "\t\n", "A", "  A  ", " Pilot Test ", "x".repeat(80), "x".repeat(81), "  " + "x".repeat(80) + "  "]) {
+      assert.equal(namePattern.test(name), authRegisterBodySchema.safeParse({ ...input, name }).success, JSON.stringify(name));
+    }
     assert.equal(authRegisterBodySchema.safeParse({ ...input, role: "PRO" }).success, true);
     assert.equal(authRegisterBodySchema.safeParse({ ...input, role: "WORKER" }).success, false);
     assert.equal(authRegisterBodySchema.safeParse({ ...input, password: "x".repeat(14) }).success, false);
