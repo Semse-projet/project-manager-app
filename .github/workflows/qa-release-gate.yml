@@ -16,6 +16,8 @@
 #   [gr:fail]       el CI falla a propósito
 #   [gr:sleep=N]    el CI espera N segundos antes de terminar
 #   [gr:no-token]   el release se ejecuta sin credencial (G-R04)
+#   [gr:bad-health] la guardia consulta una ruta inexistente: SHA servido
+#                   desconocido, simula el endpoint caído (G-R03 paso 3)
 # Nunca usa IDs ni credenciales de producción.
 name: QA release gate
 
@@ -105,8 +107,10 @@ jobs:
         id: guard
         run: |
           set -euo pipefail
+          hpath=/v1/health
+          if printf '%s' "$MSG" | grep -q '\[gr:bad-health\]'; then hpath=/v1/__gr_missing; echo "Escenario: endpoint de procedencia inaccesible"; fi
           json=$(node project-manager-app/scripts/verify-deploy-provenance.mjs \
-            --url="$QA_API_URL" --path=/v1/health --expect-sha="$DEPLOY_SHA" \
+            --url="$QA_API_URL" --path="$hpath" --expect-sha="$DEPLOY_SHA" \
             --allow-unknown-digest --retries=3 --interval=5 --timeout=5 || true)
           served=$(printf '%s' "$json" | jq -r '.observed.gitSha // "unknown"' 2>/dev/null || echo unknown)
           rc=0
