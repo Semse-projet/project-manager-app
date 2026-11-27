@@ -18,6 +18,13 @@ test("scanSql detecta sentencias destructivas", () => {
   assert.deepEqual(scanSql('ALTER TABLE "x" ALTER COLUMN "y" SET DATA TYPE INTEGER;'), ["alter_column_type"]);
   assert.deepEqual(scanSql('ALTER TABLE "x" RENAME COLUMN "a" TO "b";'), ["rename"]);
   assert.deepEqual(scanSql('UPDATE "x" SET "a" = 1;'), ["update_rows"]);
+  // Revisión de #1199: UPDATE con alias (con y sin AS) y con ONLY/esquema.
+  assert.deepEqual(scanSql('UPDATE "Evidence" AS evidence SET "tenantId" = NULL;'), ["update_rows"]);
+  assert.deepEqual(scanSql('UPDATE "Evidence" evidence SET "tenantId" = NULL;'), ["update_rows"]);
+  assert.deepEqual(scanSql('UPDATE ONLY public."Job" j SET "a" = 1;'), ["update_rows"]);
+  // Las cláusulas de clave foránea no cuentan como UPDATE de filas.
+  assert.deepEqual(scanSql('ALTER TABLE "a" ADD CONSTRAINT "f" FOREIGN KEY ("x") REFERENCES "b"("y") ON DELETE SET NULL ON UPDATE CASCADE;'), []);
+  assert.deepEqual(scanSql('ALTER TABLE "a" ADD CONSTRAINT "f" FOREIGN KEY ("x") REFERENCES "b"("y") ON UPDATE SET NULL;'), []);
   assert.deepEqual(scanSql('DELETE FROM "x";'), ["delete_rows"]);
   assert.deepEqual(scanSql('TRUNCATE "x";'), ["truncate"]);
 });

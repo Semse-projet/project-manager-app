@@ -147,7 +147,7 @@ jobs:
       # packages/db/prisma/destructive-migrations.approved.json con approvedBy
       # y backupRef (revisado en el mismo PR). Fail closed si no se puede evaluar.
       - name: Destructive migration preflight (fail closed)
-        if: steps.forward-guard.outputs.action == 'deploy'
+        if: steps.forward-guard.outputs.action == 'deploy' || steps.forward-guard.outputs.action == 'already_served'
         env:
           DEPLOY_SHA: ${{ steps.resolve-sha.outputs.deploy_sha }}
           SERVED_SHA: ${{ steps.forward-guard.outputs.served }}
@@ -163,8 +163,14 @@ jobs:
             exit 1
           fi
 
+      # La guardia anterior mira solo la API. Aquí, por servicio, se compara el
+      # SHA de su último deployment SUCCESS con el candidato: igual -> se omite;
+      # el candidato avanza -> se despliega; el servicio va por delante o no se
+      # puede probar el avance -> BLOCKED (nunca se hace retroceder un servicio).
+      # Así, si la API ya sirve el candidato pero otro servicio falló, repetir
+      # el release despliega solo los servicios rezagados.
       - name: Deploy exact commit to Railway (fresh build)
-        if: steps.forward-guard.outputs.action == 'deploy'
+        if: steps.forward-guard.outputs.action == 'deploy' || steps.forward-guard.outputs.action == 'already_served'
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
           ENV_ID: d682210a-956a-4508-9c5b-4ca5959278f9
@@ -172,11 +178,37 @@ jobs:
         run: |
           set -euo pipefail
           # semse-worker, semse-API, semse-web, semse-vision (proyecto SEMSEproject)
-          for svc in \
-            26cd1c52-1a07-4f05-8b21-9a225e601d7a \
-            2bd1bd3f-9aa1-4fc3-a714-4cf90c52c770 \
-            40ab1cd0-b0a6-4760-a43f-8742c1962ef7 \
-            63a901e8-189e-4748-97f7-b7e60e628ee2; do
+          services="26cd1c52-1a07-4f05-8b21-9a225e601d7a 2bd1bd3f-9aa1-4fc3-a714-4cf90c52c770 40ab1cd0-b0a6-4760-a43f-8742c1962ef7 63a901e8-189e-4748-97f7-b7e60e628ee2"
+          # Paso 1: se decide por servicio ANTES de mutar nada. Si uno bloquea,
+          # no se despliega ninguno (sin releases a medias por la guardia).
+          to_deploy=""
+          blocked=0
+          for svc in $services; do
+            qbody=$(jq -nc --arg s "$svc" --arg e "$ENV_ID" \
+              '{query:"query($s:String!,$e:String!){ deployments(first: 10, input:{serviceId:$s, environmentId:$e}) { edges { node { status meta } } } }", variables:{s:$s,e:$e}}')
+            svc_served=$(curl -sf -X POST https://backboard.railway.com/graphql/v2 \
+              -H "Authorization: Bearer $RAILWAY_TOKEN" -H "Content-Type: application/json" --data "$qbody" \
+              | jq -r '[.data.deployments.edges[].node | select(.status == "SUCCESS")] | first | .meta.commitHash // "unknown"' 2>/dev/null) \
+              || svc_served=unknown
+            [ -n "$svc_served" ] || svc_served=unknown
+            src=0
+            svc_decision=$(node project-manager-app/scripts/release-forward-guard.mjs \
+              --candidate="$DEPLOY_SHA" --served="$svc_served") || src=$?
+            svc_action=$(printf '%s' "$svc_decision" | jq -r .action 2>/dev/null) || svc_action=blocked
+            echo "- Servicio \`$svc\`: \`$svc_action\` (servido: \`$svc_served\`)" >> "$GITHUB_STEP_SUMMARY"
+            case "$svc_action" in
+              already_served)
+                echo "Servicio $svc ya sirve $DEPLOY_SHA; se omite" ;;
+              deploy)
+                to_deploy="$to_deploy $svc" ;;
+              *)
+                echo "::error title=Release BLOCKED::servicio $svc: $svc_action ($(printf '%s' "$svc_decision" | jq -r .reason 2>/dev/null)). No se hace retroceder un servicio."
+                blocked=1 ;;
+            esac
+          done
+          [ "$blocked" = "0" ] || exit 1
+          # Paso 2: solo los servicios rezagados reciben el commit exacto.
+          for svc in $to_deploy; do
             body=$(jq -nc --arg s "$svc" --arg e "$ENV_ID" --arg c "$DEPLOY_SHA" \
               '{query:"mutation($s:String!,$e:String!,$c:String!){ serviceInstanceDeployV2(serviceId:$s, environmentId:$e, commitSha:$c) }", variables:{s:$s,e:$e,c:$c}}')
             response=$(curl -sf -X POST https://backboard.railway.com/graphql/v2 \
@@ -190,7 +222,6 @@ jobs:
             [ -n "$dep" ] \
               || { echo "::error title=Release BLOCKED::Deploy failed for service $svc"; exit 1; }
             echo "Deployment $dep de $DEPLOY_SHA disparado para servicio $svc"
-            echo "Fresh build de $DEPLOY_SHA disparado para servicio $svc"
           done
 
   health-check:
@@ -357,10 +388,14 @@ jobs:
           # Solo se cede la verificación si producción ya sirve un SHA POSTERIOR
           # (prueba positiva de la guardia). Que main haya avanzado no basta:
           # antes esto daba PASS sin evidencia.
-          served=$(node project-manager-app/scripts/verify-deploy-provenance.mjs \
+          # El verificador sale con 1 cuando el SHA difiere (justo el caso que
+          # interesa aquí): se captura su salida aparte y se tolera ese código,
+          # para que pipefail no añada «unknown» al SHA observado.
+          vjson=$(node project-manager-app/scripts/verify-deploy-provenance.mjs \
             --url=https://project-manager-app-production-977f.up.railway.app --path=/v1/health \
-            --expect-sha="$EXPECTED_SHA" --allow-unknown-digest --retries=1 --timeout=5 2>/dev/null \
-            | jq -r '.observed.gitSha // "unknown"' 2>/dev/null || echo unknown)
+            --expect-sha="$EXPECTED_SHA" --allow-unknown-digest --retries=1 --timeout=5 2>/dev/null || true)
+          served=$(printf '%s' "$vjson" | jq -r '.observed.gitSha // "unknown"' 2>/dev/null) || served=unknown
+          [ -n "$served" ] || served=unknown
           action=$(node project-manager-app/scripts/release-forward-guard.mjs \
             --candidate="$EXPECTED_SHA" --served="$served" | jq -r .action || echo blocked)
           if [ "$action" = "superseded" ]; then
