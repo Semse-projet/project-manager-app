@@ -65,12 +65,20 @@ jobs:
           fi
           echo "CI de $FAILED_SHA terminó en '$CI_CONCLUSION'. Vigilando API y Web hasta 20 min."
           seen=""
-          for _ in $(seq 1 80); do
+          # Plazo de reloj (no número de rondas): una sonda que agota su timeout
+          # alarga cada ronda, y el resumen debe escribirse antes del límite del job.
+          deadline=$((SECONDS + 1200))
+          while [ "$SECONDS" -lt "$deadline" ]; do
             out=$(node project-manager-app/scripts/unvalidated-deploy-watch.mjs --sha="$FAILED_SHA" \
               --target="semse-API|https://project-manager-app-production-977f.up.railway.app|/v1/health" \
-              --target="semse-web|https://semse-web-production.up.railway.app|/api/semse/healthz")
+              --target="semse-web|https://semse-web-production.up.railway.app|/api/semse/healthz" || echo '{"hits":[]}')
             for label in $(printf '%s' "$out" | jq -r '.hits[]'); do
-              case " $seen " in *" $label "*) ;; *) seen="$seen $label";; esac
+              case " $seen " in *" $label "*) ;; *)
+                seen="$seen $label"
+                # Aviso inmediato en la primera coincidencia de cada servicio.
+                echo "::error title=Despliegue no validado::$label sirve $FAILED_SHA, cuyo CI terminó en '$CI_CONCLUSION' ($(date -u +%FT%TZ))."
+                ;;
+              esac
             done
             sleep 15
           done
@@ -78,7 +86,7 @@ jobs:
             echo "### Alarma de despliegue no validado"
             echo "- SHA: \`$FAILED_SHA\` (CI: $CI_CONCLUSION)"
             echo "- Servicios que lo sirvieron en la ventana: ${seen:-ninguno observado}"
-            echo "- Worker y Vision: **no observables** sin endpoint público (ver railway-deploy.yml)."
+            echo "- Worker y Vision: **no observables** por esta alarma (sin endpoint público). Con CI rojo, Railway Deploy no corre, así que no hay otra verificación automática de esos dos servicios: revisarlos a mano en Railway."
             echo "- La ventana vigilada (20 min) no prueba que no se sirva después."
           } >> "$GITHUB_STEP_SUMMARY"
           if [ -n "$seen" ]; then
@@ -118,7 +126,8 @@ jobs:
           set -euo pipefail
           [[ "$SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::SHA inválido"; exit 1; }
           early=""
-          for _ in $(seq 1 160); do
+          deadline=$((SECONDS + 2400))
+          while [ "$SECONDS" -lt "$deadline" ]; do
             read -r status conclusion < <(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}" \
               --jq '[.status, (.conclusion // "none")] | @tsv')
             if [ "$status" = "completed" ]; then
@@ -126,16 +135,16 @@ jobs:
             fi
             out=$(node project-manager-app/scripts/unvalidated-deploy-watch.mjs --sha="$SHA" \
               --target="semse-API|https://project-manager-app-production-977f.up.railway.app|/v1/health" \
-              --target="semse-web|https://semse-web-production.up.railway.app|/api/semse/healthz")
+              --target="semse-web|https://semse-web-production.up.railway.app|/api/semse/healthz" || echo '{"hits":[]}')
             for label in $(printf '%s' "$out" | jq -r '.hits[]'); do
-              case " $early " in *" $label "*) ;; *) early="$early $label"; echo "$(date -u +%FT%TZ) $label sirve $SHA con CI '$status'";; esac
+              case " $early " in *" $label "*) ;; *) early="$early $label"; echo "::error title=Servido antes de CI::$label sirve $SHA con CI '$status' ($(date -u +%FT%TZ))";; esac
             done
             sleep 15
           done
           {
             echo "### Servido antes de CI success"
             echo "- SHA: \`$SHA\` — servicios observados antes de CI success: ${early:-ninguno}"
-            echo "- Worker y Vision: **no observables** sin endpoint público."
+            echo "- Worker y Vision: **no observables** por esta alarma (sin endpoint público); revisarlos a mano en Railway."
           } >> "$GITHUB_STEP_SUMMARY"
           if [ -n "$early" ]; then
             echo "::error title=Servido antes de CI::${early# } sirvieron $SHA antes de que su CI terminara en success."

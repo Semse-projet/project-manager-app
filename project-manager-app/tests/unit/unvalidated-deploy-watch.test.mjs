@@ -54,3 +54,16 @@ test("objetivo caído cuenta como unknown, nunca como acierto ni como limpio con
   assert.deepEqual(r.hits, []);
   assert.equal(r.observations[0].gitSha, "unknown");
 });
+
+test("la alarma usa un plazo de reloj y avisa en la primera coincidencia", async () => {
+  // Revisión del PR #1196: con una sonda que agota su timeout, 80 rondas
+  // superaban el límite del job y el aviso se perdía.
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const wf = readFileSync(fileURLToPath(new URL("../../../.github/workflows/production-unvalidated-deploy-alarm.yml", import.meta.url)), "utf8");
+  assert.doesNotMatch(wf, /for _ in \$\(seq 1 /);
+  assert.match(wf, /deadline=\$\(\(SECONDS \+ 1200\)\)/);
+  assert.match(wf, /deadline=\$\(\(SECONDS \+ 2400\)\)/);
+  assert.match(wf, /::error title=Despliegue no validado::\$label sirve/);
+  assert.match(wf, /::error title=Servido antes de CI::\$label sirve/);
+});

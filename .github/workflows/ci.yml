@@ -7,14 +7,9 @@ on:
   workflow_dispatch:
 
 # Los PR solo ejecutan CI por pull_request (evita doble ejecución en push).
-# PR: un grupo por número de PR y se cancela el run anterior (ahorro, DEC-CI-001).
-# main (push/dispatch): un grupo POR SHA. Con un grupo por rama GitHub conserva
-# un único run pendiente y CANCELA el pendiente anterior aunque
-# cancel-in-progress sea false (incidente 9e2f87f1, 2026-11-26: 0 jobs).
-# Cada SHA de main debe tener su propio CI completo; la serialización de
-# despliegues NO vive aquí, sino en railway-deploy.yml (lock + guardia forward-only).
+# Nunca cancelar una validación de main: Railway despliega el SHA probado.
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || format('sha-{0}', github.sha) }}
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 defaults:
