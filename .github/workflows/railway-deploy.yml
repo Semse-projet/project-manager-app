@@ -2,15 +2,16 @@ name: Railway Deploy
 
 # Gate único de despliegue y procedencia de producción (consolida #1143 + #1145).
 #
-# PROPUESTA C3/T5 (incidente 9e2f87f1, 2026-11-26) — NO APLICADA:
+# C3/T5 (incidente 9e2f87f1, 2026-11-26):
 # - Sin RAILWAY_TOKEN válido el release es BLOCKED (antes continue-on-error).
 # - Guardia forward-only bajo el lock `railway-deploy`: un CI antiguo que termina
 #   tarde no despliega un SHA obsoleto (scripts/release-forward-guard.mjs).
 # - Worker y Vision se verifican SIEMPRE por la API de Railway; API y Web,
 #   además, en runtime. Un deployment SUCCESS no basta para API/Web.
-# - El lock tiene cancel-in-progress:false; GitHub puede sustituir un run
-#   PENDIENTE por otro más nuevo. Es aceptable aquí: el más nuevo incluye al
-#   anterior (historia lineal) y la guardia bloquea cualquier retroceso.
+# - El lock tiene cancel-in-progress:false; GitHub sustituye un run PENDIENTE
+#   por el último que llega, que con CI por SHA puede ser el de un commit MÁS
+#   ANTIGUO. Por eso, bajo el lock, se despliega el SHA más avanzado de main
+#   con CI verde que desciende del candidato, no solo el del evento.
 #
 # Realidad verificada 2026-11-12 (Railway, solo lectura): los 4 servicios tienen
 # `checkSuites: false` → la integración nativa GitHub→Railway despliega CADA
@@ -42,6 +43,10 @@ jobs:
   deploy:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    # contents: checkout de los scripts; actions: listar los CI verdes de main.
+    permissions:
+      contents: read
+      actions: read
     # workflow_run: CI success de un push/dispatch sobre main DEL MISMO repo.
     # Sin la comprobación de evento y repositorio, la CI de un PR desde un fork
     # cuya rama se llame "main" cumpliría head_branch == 'main' y este job
@@ -55,7 +60,7 @@ jobs:
       (github.event_name == 'workflow_dispatch' &&
        github.ref == 'refs/heads/main')
     outputs:
-      deploy_sha: ${{ steps.resolve-sha.outputs.deploy_sha }}
+      deploy_sha: ${{ steps.select-sha.outputs.deploy_sha }}
       # deploy | already_served | superseded (blocked hace fallar el job).
       release_action: ${{ steps.forward-guard.outputs.action }}
     steps:
@@ -103,10 +108,13 @@ jobs:
       # migration.sql del rango servido..candidato y, con persist-credentials
       # en false, la descarga diferida de blobs fallaría (y el preflight
       # bloquearía). El árbol de trabajo solo contiene los tres scripts.
+      # Los scripts que corren cerca del token salen del commit con CI verde
+      # (el candidato), nunca de la cabeza de main, que puede no tener CI.
+      # fetch-depth 0 trae todas las ramas: la historia de main sigue disponible.
       - name: Checkout release guard (sparse, read-only)
         uses: actions/checkout@v7
         with:
-          ref: main
+          ref: ${{ steps.resolve-sha.outputs.deploy_sha }}
           fetch-depth: 0
           sparse-checkout: |
             project-manager-app/scripts/verify-deploy-provenance.mjs
@@ -115,13 +123,44 @@ jobs:
           sparse-checkout-cone-mode: false
           persist-credentials: false
 
+      # Bajo el lock: GitHub conserva un solo run pendiente (el último en llegar),
+      # que puede ser de un commit más antiguo que otro ya validado. Se elige el
+      # SHA más avanzado que (1) tiene CI de push en main en success y (2)
+      # desciende del candidato (o es el candidato). En workflow_dispatch el
+      # candidato también debe tener CI verde: nunca se despliega sin CI.
+      - name: Select most advanced CI-green SHA
+        id: select-sha
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CANDIDATE: ${{ steps.resolve-sha.outputs.deploy_sha }}
+        run: |
+          set -euo pipefail
+          green=$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/ci.yml/runs?branch=main&event=push&status=success&per_page=50" \
+            --jq '.workflow_runs[].head_sha') || { echo "::error title=Release BLOCKED::no se pudo listar los CI verdes de main"; exit 1; }
+          if ! printf '%s\n' "$green" | grep -qx "$CANDIDATE"; then
+            echo "::error title=Release BLOCKED::$CANDIDATE no tiene un CI de main en success. No se despliega sin CI."
+            exit 1
+          fi
+          best="$CANDIDATE"
+          for sha in $green; do
+            [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || continue
+            [ "$sha" = "$best" ] && continue
+            # Solo descendientes del mejor actual (si falta el objeto, se ignora).
+            if git merge-base --is-ancestor "$best" "$sha" 2>/dev/null; then best="$sha"; fi
+          done
+          if [ "$best" != "$CANDIDATE" ]; then
+            echo "::notice title=Release::se despliega $best (CI verde, posterior a $CANDIDATE)"
+          fi
+          echo "deploy_sha=$best" >> "$GITHUB_OUTPUT"
+          echo "- SHA elegido: \`$best\` (evento: \`$CANDIDATE\`)" >> "$GITHUB_STEP_SUMMARY"
+
       # T5: bajo el lock de concurrencia `railway-deploy`, justo antes de
       # disparar, se revalida que el candidato avanza linealmente sobre lo que
       # sirve la API. Un CI antiguo que termina tarde queda en superseded.
       - name: Forward-only guard (stale SHA protection)
         id: forward-guard
         env:
-          DEPLOY_SHA: ${{ steps.resolve-sha.outputs.deploy_sha }}
+          DEPLOY_SHA: ${{ steps.select-sha.outputs.deploy_sha }}
         run: |
           set -euo pipefail
           json=$(node project-manager-app/scripts/verify-deploy-provenance.mjs \
@@ -146,22 +185,49 @@ jobs:
       # se borra, bloquea el release salvo que figure en
       # packages/db/prisma/destructive-migrations.approved.json con approvedBy
       # y backupRef (revisado en el mismo PR). Fail closed si no se puede evaluar.
+      # El SHA servido no acredita la base: un deployment de la API que falló
+      # al arrancar pudo aplicar sus migraciones (pre-migrate corre antes del
+      # servidor). Por eso también se revisa intento..candidato para cada
+      # deployment FAILED/CRASHED de la API posterior al activo.
       - name: Destructive migration preflight (fail closed)
         if: steps.forward-guard.outputs.action == 'deploy' || steps.forward-guard.outputs.action == 'already_served'
         env:
-          DEPLOY_SHA: ${{ steps.resolve-sha.outputs.deploy_sha }}
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          ENV_ID: d682210a-956a-4508-9c5b-4ca5959278f9
+          API_ID: 2bd1bd3f-9aa1-4fc3-a714-4cf90c52c770
+          DEPLOY_SHA: ${{ steps.select-sha.outputs.deploy_sha }}
           SERVED_SHA: ${{ steps.forward-guard.outputs.served }}
         run: |
           set -euo pipefail
+          qbody=$(jq -nc --arg s "$API_ID" --arg e "$ENV_ID" \
+            '{query:"query($s:String!,$e:String!){ deployments(first: 20, input:{serviceId:$s, environmentId:$e}) { edges { node { status meta } } } }", variables:{s:$s,e:$e}}')
+          resp=$(curl -sf -X POST https://backboard.railway.com/graphql/v2 \
+            -H "Authorization: Bearer $RAILWAY_TOKEN" -H "Content-Type: application/json" --data "$qbody") \
+            || { echo "::error title=Release BLOCKED::no se pudo leer el historial de deployments de la API"; exit 1; }
+          # Lista de más reciente a más antiguo: intentos fallidos hasta el SUCCESS activo.
+          attempts=$(printf '%s' "$resp" | jq -r '
+            [.data.deployments.edges[].node] as $n
+            | ([$n | to_entries[] | select(.value.status == "SUCCESS") | .key] | first // ($n | length)) as $cut
+            | $n[:$cut][] | select(.status == "FAILED" or .status == "CRASHED") | .meta.commitHash // empty' | sort -u) \
+            || { echo "::error title=Release BLOCKED::historial de deployments ilegible"; exit 1; }
+          bases="$SERVED_SHA"
+          for c in $attempts; do
+            [ "$c" = "$SERVED_SHA" ] || [ "$c" = "$DEPLOY_SHA" ] && continue
+            bases="$bases $c"
+          done
           rc=0
-          pre=$(node project-manager-app/scripts/migration-destructive-preflight.mjs \
-            --served="$SERVED_SHA" --candidate="$DEPLOY_SHA") || rc=$?
-          echo "$pre"
-          echo "- Preflight de migraciones: \`$(printf '%s' "$pre" | jq -r .action)\` ($(printf '%s' "$pre" | jq -r .reason))" >> "$GITHUB_STEP_SUMMARY"
-          if [ "$rc" != "0" ]; then
-            echo "::error title=Release BLOCKED::$(printf '%s' "$pre" | jq -r .reason)"
-            exit 1
-          fi
+          for base in $bases; do
+            brc=0
+            pre=$(node project-manager-app/scripts/migration-destructive-preflight.mjs \
+              --served="$base" --candidate="$DEPLOY_SHA") || brc=$?
+            echo "$base..$DEPLOY_SHA: $pre"
+            echo "- Preflight de migraciones \`$base..$DEPLOY_SHA\`: \`$(printf '%s' "$pre" | jq -r .action)\` ($(printf '%s' "$pre" | jq -r .reason))" >> "$GITHUB_STEP_SUMMARY"
+            if [ "$brc" != "0" ]; then
+              echo "::error title=Release BLOCKED::$base..$DEPLOY_SHA: $(printf '%s' "$pre" | jq -r .reason)"
+              rc=1
+            fi
+          done
+          exit "$rc"
 
       # La guardia anterior mira solo la API. Aquí, por servicio, se compara el
       # SHA de su último deployment SUCCESS con el candidato: igual -> se omite;
@@ -174,7 +240,7 @@ jobs:
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
           ENV_ID: d682210a-956a-4508-9c5b-4ca5959278f9
-          DEPLOY_SHA: ${{ steps.resolve-sha.outputs.deploy_sha }}
+          DEPLOY_SHA: ${{ steps.select-sha.outputs.deploy_sha }}
         run: |
           set -euo pipefail
           # semse-worker, semse-API, semse-web, semse-vision (proyecto SEMSEproject)
@@ -237,7 +303,9 @@ jobs:
       - name: Checkout provenance verifier (sparse, read-only)
         uses: actions/checkout@v7
         with:
-          ref: main
+          # El commit desplegado (CI verde), no la cabeza de main: el paso del
+          # Worker ejecuta un script con RAILWAY_TOKEN en el entorno.
+          ref: ${{ needs.deploy.outputs.deploy_sha }}
           fetch-depth: 0
           filter: blob:none
           sparse-checkout: |
@@ -411,7 +479,8 @@ jobs:
           {
             echo "### Alcance"
             echo "- API y Web: procedencia en runtime por endpoints públicos (bloqueante)."
-            echo "- Worker y Vision: deployment del SHA exacto en SUCCESS vía API de Railway (metadata, no runtime)."
+            echo "- Worker: deployment del SHA exacto en SUCCESS y, en runtime, su log de arranque (gitSha + deploymentId, bloqueante)."
+            echo "- Vision: deployment del SHA exacto en SUCCESS vía API de Railway (metadata, no runtime)."
             echo "- imageDigest: tolerado como desconocido; requiere excepción formal hasta inyectar un digest verificable."
             echo "- Mientras la vía nativa siga conectada (checkSuites:false), Railway puede servir main ANTES de este gate; ver la alarma."
           } >> "$GITHUB_STEP_SUMMARY"

@@ -46,7 +46,8 @@ test("el preflight de migraciones destructivas corre tras la guardia y antes del
   const build = deployJob.indexOf("Deploy exact commit to Railway");
   assert.ok(pre > guard && build > pre, "orden: guardia -> preflight -> build");
   assert.match(deployJob, /migration-destructive-preflight\.mjs/);
-  assert.match(deployJob, /--served="\$SERVED_SHA" --candidate="\$DEPLOY_SHA"/);
+  assert.match(deployJob, /--served="\$base" --candidate="\$DEPLOY_SHA"/);
+  assert.match(deployJob, /bases="\$SERVED_SHA"/);
   assert.doesNotMatch(deployJob, /filter: blob:none/);
 });
 
@@ -77,4 +78,37 @@ test("el fallback de superseded no mezcla «unknown» con el SHA observado (revi
   const gate = wf.slice(wf.indexOf("Runtime provenance gate"));
   assert.doesNotMatch(gate, /\| jq -r '\.observed\.gitSha \/\/ "unknown"' 2>\/dev\/null \|\| echo unknown\)/);
   assert.match(gate, /vjson=\$\(node project-manager-app\/scripts\/verify-deploy-provenance\.mjs[\s\S]*?\|\| true\)/);
+});
+
+test("bajo el lock se despliega el SHA más avanzado con CI verde, nunca uno sin CI (revisión de #1199)", () => {
+  const sel = deployJob.indexOf("Select most advanced CI-green SHA");
+  const checkout = deployJob.indexOf("Checkout release guard");
+  const guard = deployJob.indexOf("Forward-only guard");
+  assert.ok(sel > checkout && guard > sel, "orden: checkout -> selección -> guardia");
+  assert.match(deployJob, /actions\/workflows\/ci\.yml\/runs\?branch=main&event=push&status=success/);
+  assert.match(deployJob, /no tiene un CI de main en success\. No se despliega sin CI\./);
+  assert.match(deployJob, /git merge-base --is-ancestor "\$best" "\$sha"/);
+  // Todos los pasos posteriores usan el SHA elegido, no el del evento.
+  assert.doesNotMatch(deployJob, /DEPLOY_SHA: \$\{\{ steps\.resolve-sha/);
+  assert.match(deployJob, /deploy_sha: \$\{\{ steps\.select-sha\.outputs\.deploy_sha \}\}/);
+  // El job declara los permisos que necesita (checkout y listar runs).
+  assert.match(deployJob, /permissions:\n\s+contents: read\n\s+actions: read/);
+});
+
+test("los scripts que corren con el token salen del commit con CI verde (revisión de #1199)", () => {
+  const healthJob = wf.slice(wf.indexOf("\n  health-check:\n"));
+  assert.match(deployJob, /ref: \$\{\{ steps\.resolve-sha\.outputs\.deploy_sha \}\}/);
+  assert.match(healthJob, /ref: \$\{\{ needs\.deploy\.outputs\.deploy_sha \}\}/);
+  assert.doesNotMatch(wf, /\n\s+ref: main\n/);
+});
+
+test("el preflight revisa también los intentos fallidos de la API (revisión de #1199)", () => {
+  const pre = deployJob.slice(deployJob.indexOf("Destructive migration preflight"), deployJob.indexOf("La guardia anterior mira solo la API"));
+  assert.match(pre, /select\(\.status == "FAILED" or \.status == "CRASHED"\)/);
+  assert.match(pre, /no se pudo leer el historial de deployments de la API/);
+});
+
+test("el resumen describe la verificación en runtime del Worker", () => {
+  assert.match(wf, /Worker: deployment del SHA exacto en SUCCESS y, en runtime, su log de arranque/);
+  assert.doesNotMatch(wf, /Worker y Vision: deployment del SHA exacto en SUCCESS vía API de Railway \(metadata, no runtime\)/);
 });
