@@ -6,9 +6,11 @@
 
 /** Error carrying the HTTP status, so screens can tell "feature off" (404) from "forbidden" (403). */
 export class SurfaceApiError extends Error {
-  constructor(message: string, readonly status: number) {
+  readonly status: number;
+  constructor(message: string, status: number) {
     super(message);
     this.name = "SurfaceApiError";
+    this.status = status;
   }
 }
 
@@ -109,16 +111,9 @@ export const fetchMyGeofenceEvents = () => request<GeofenceEventView[]>("/api/se
 /* ─────────────────── Obras vinculadas detectables (OPEN-18) ─────────────────── */
 // Spec: docs/specs/core/worksite-location-binding.spec.md (W-07).
 
-export type GeofenceSiteView = {
-  kind: "JOB" | "FREE_PROJECT";
-  targetId: string;
-  worksiteId: string;
-  worksiteName: string;
-  latitude: number;
-  longitude: number;
-  radiusMeters: number | null;
-  verified: boolean;
-};
+// Contrato único de `GET /v1/me/geofence-sites` (el mismo que usan la API y el móvil).
+export type { GeofenceSiteView } from "@semse/schemas";
+import type { GeofenceSiteView } from "@semse/schemas";
 
 /** null si el servidor no tiene activos los vínculos de obra (404): el cliente usa el modo anterior. */
 export async function fetchMyGeofenceSites(): Promise<GeofenceSiteView[] | null> {

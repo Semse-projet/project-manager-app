@@ -9,6 +9,12 @@ import type { ProximityAction } from "../../../../lib/geofence-decision";
 const DEFAULT_PROXIMITY_RADIUS_METERS = 150;
 /** Don't re-prompt for the same site right after a dismiss/accept, or while lingering inside the radius. */
 const DEFAULT_COOLDOWN_MS = 20 * 60 * 1000;
+/**
+ * OPEN-18: con el servidor como autoridad, el enfriamiento de avisos solo empieza tras una
+ * acción visible (aviso o inicio). Un IGNORE no lo activa; este límite corto solo evita
+ * enviar una llegada en cada lectura del GPS.
+ */
+export const SERVER_EVALUATION_THROTTLE_MS = 60 * 1000;
 
 export type ProximitySite = {
   kind: "job" | "free";
@@ -86,6 +92,7 @@ export function useProximityCheckIn(params: {
   const [locationError, setLocationError] = useState<ProximityLocationError>(null);
   const [isWatching, setIsWatching] = useState(false);
   const cooldownRef = useRef<Map<string, number>>(new Map());
+  const evaluatedRef = useRef<Map<string, number>>(new Map());
   const onStartRef = useRef(params.onStart);
   onStartRef.current = params.onStart;
   const evaluateRef = useRef(params.evaluateArrival);
@@ -118,34 +125,49 @@ export function useProximityCheckIn(params: {
       return;
     }
     setIsWatching(true);
+    // Una respuesta del servidor que llega después de limpiar este efecto (salir del reloj,
+    // cambiar de pestaña, apagar la detección) se descarta: no puede iniciar ni avisar.
+    let active = true;
 
     const watchId = navigator.geolocation.watchPosition(
       (position) => {
         setLocationError(null);
         const here = { latitude: position.coords.latitude, longitude: position.coords.longitude };
+        // El límite de evaluación se aplica al ELEGIR el sitio: si un sitio respondió IGNORE
+        // hace poco, se considera el siguiente sitio cercano en lugar de bloquear la lectura.
         const nearby = sites.find((site) => {
-          const cooledAt = cooldownRef.current.get(siteKey(site));
+          const key = siteKey(site);
+          const cooledAt = cooldownRef.current.get(key);
           if (cooledAt && Date.now() - cooledAt < cooldownMs) return false;
+          if (serverAuthority) {
+            const lastEvaluated = evaluatedRef.current.get(key);
+            if (lastEvaluated && Date.now() - lastEvaluated < SERVER_EVALUATION_THROTTLE_MS) return false;
+          }
           return distanceMeters(here, site) <= (site.radiusMeters ?? radiusMeters);
         });
         if (!nearby) return;
 
-        cooldownRef.current.set(siteKey(nearby), Date.now());
         if (serverAuthority && evaluateRef.current) {
+          const key = siteKey(nearby);
+          evaluatedRef.current.set(key, Date.now());
           // El servidor decide (precisión, enfriamiento, sesión activa, consentimiento, obra
           // verificada). Si falla la llamada, nunca se auto-inicia: se ofrece la confirmación.
           const accuracyMeters = Number.isFinite(position.coords.accuracy) ? position.coords.accuracy : undefined;
           void evaluateRef.current(nearby, { ...here, accuracyMeters })
             .catch((): ArrivalOutcome => ({ action: "ask" }))
             .then((outcome) => {
+              if (!active) return;
+              if (outcome.action === "none") return; // IGNORE: sin aviso y sin enfriamiento
+              cooldownRef.current.set(key, Date.now());
               if (outcome.action === "auto" && outcome.geofenceEventId) {
                 onStartRef.current(nearby, { ...here, method: "proximity_auto", geofenceEventId: outcome.geofenceEventId });
-              } else if (outcome.action === "ask" || outcome.action === "auto") {
+              } else {
                 setBanner({ site: nearby, ...here });
               }
             });
           return;
         }
+        cooldownRef.current.set(siteKey(nearby), Date.now());
         if (params.mode === "auto") {
           onStartRef.current(nearby, { ...here, method: "proximity_auto" });
           return;
@@ -163,6 +185,7 @@ export function useProximityCheckIn(params: {
     );
 
     return () => {
+      active = false;
       navigator.geolocation.clearWatch(watchId);
       setIsWatching(false);
     };
@@ -179,5 +202,15 @@ export function useProximityCheckIn(params: {
     setBanner(null);
   }, [banner]);
 
-  return { banner, acceptBanner, dismissBanner, locationError, isWatching };
+  /**
+   * Muestra el aviso de confirmación para un sitio. Lo usa el tracker cuando un inicio
+   * automático no se completa (409 `auto_start_not_authorized`, sin conexión, 5xx): solo un
+   * toque explícito de la persona envía después `proximity_confirmed`.
+   */
+  const offerConfirmation = useCallback((site: ProximitySite, here: { latitude: number; longitude: number }) => {
+    cooldownRef.current.set(siteKey(site), Date.now());
+    setBanner({ site, latitude: here.latitude, longitude: here.longitude });
+  }, []);
+
+  return { banner, acceptBanner, dismissBanner, offerConfirmation, locationError, isWatching };
 }

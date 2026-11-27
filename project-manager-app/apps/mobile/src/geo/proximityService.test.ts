@@ -141,3 +141,56 @@ it("bound site uses the worksite radius, not the org radius", async () => {
   expect(presentProximityNotification).not.toHaveBeenCalled();
 });
 
+
+it("bound site + IGNORE does not start the prompt cooldown (only the short evaluation limit)", async () => {
+  (loadProximityMode as jest.Mock).mockResolvedValue("ask");
+  (loadSites as jest.Mock).mockResolvedValue([BOUND_JOB]);
+  (reportGeofenceArrival as jest.Mock).mockResolvedValue({ id: "ev-0", decision: "IGNORE" });
+  await evaluateLocation(HERE);
+  expect(markCooldown).toHaveBeenCalledWith("eval:job:job-1");
+  expect(markCooldown).not.toHaveBeenCalledWith("job:job-1");
+  expect(presentProximityNotification).not.toHaveBeenCalled();
+});
+
+it("bound site: a visible prompt does start the prompt cooldown", async () => {
+  (loadProximityMode as jest.Mock).mockResolvedValue("ask");
+  (loadSites as jest.Mock).mockResolvedValue([BOUND_JOB]);
+  (reportGeofenceArrival as jest.Mock).mockResolvedValue({ id: "ev-1", decision: "PROMPT" });
+  await evaluateLocation(HERE);
+  expect(markCooldown).toHaveBeenCalledWith("job:job-1");
+  expect(presentProximityNotification).toHaveBeenCalledWith(expect.objectContaining({ title: "¿Iniciar el reloj?" }));
+});
+
+it("bound site: within the evaluation limit the arrival is not reported again", async () => {
+  (loadProximityMode as jest.Mock).mockResolvedValue("ask");
+  (loadSites as jest.Mock).mockResolvedValue([BOUND_JOB]);
+  (isCoolingDown as jest.Mock).mockImplementation(async (key: string) => key.startsWith("eval:"));
+  await evaluateLocation(HERE);
+  expect(reportGeofenceArrival).not.toHaveBeenCalled();
+});
+
+it("AC-08: AUTO_START_ALLOWED but the start is rejected (409) → asks for confirmation, never retries as automatic", async () => {
+  (loadProximityMode as jest.Mock).mockResolvedValue("auto");
+  (loadSites as jest.Mock).mockResolvedValue([BOUND_JOB]);
+  (reportGeofenceArrival as jest.Mock).mockResolvedValue({ id: "ev-2", decision: "AUTO_START_ALLOWED" });
+  (startTimer as jest.Mock).mockRejectedValue(Object.assign(new Error("auto_start_not_authorized"), { status: 409 }));
+  await evaluateLocation(HERE);
+  expect(startTimer).toHaveBeenCalledTimes(1);
+  expect(presentProximityNotification).toHaveBeenCalledTimes(1);
+  expect(presentProximityNotification).toHaveBeenCalledWith(expect.objectContaining({
+    title: "¿Iniciar el reloj?",
+    data: expect.objectContaining({ kind: "ask", siteId: "job-1" }),
+  }));
+});
+
+it("overlapping linked sites: one that just answered IGNORE does not hide the next eligible site", async () => {
+  const SECOND: ProximitySite = { ...BOUND_JOB, id: "job-2", name: "Obra contigua" };
+  (loadProximityMode as jest.Mock).mockResolvedValue("ask");
+  (loadSites as jest.Mock).mockResolvedValue([BOUND_JOB, SECOND]);
+  // job-1 is inside its evaluation limit (it answered IGNORE a moment ago); job-2 is not.
+  (isCoolingDown as jest.Mock).mockImplementation(async (key: string) => key === "eval:job:job-1");
+  (reportGeofenceArrival as jest.Mock).mockResolvedValue({ id: "ev-3", decision: "PROMPT" });
+  await evaluateLocation(HERE);
+  expect(reportGeofenceArrival).toHaveBeenCalledWith(expect.objectContaining({ site: { kind: "JOB", id: "job-2" } }));
+  expect(presentProximityNotification).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ siteId: "job-2" }) }));
+});

@@ -307,7 +307,7 @@ export class LaborEngineService {
         // consentimiento, el inicio no pasa.
         revalidate: async (tx) => {
           const client = tx as unknown as SitePrisma;
-          const user = { tenantId: params.tenantId, userId: params.createdBy };
+          const user = { tenantId: params.tenantId, userId: params.createdBy, orgId: params.orgId };
           const again = await resolveSiteForWorker(client, user, target);
           if (!again || again.binding.id !== authorized.site.binding.id || !(await hasLiveAutoConsent(client, user))) {
             throw new ConflictException({
@@ -323,6 +323,7 @@ export class LaborEngineService {
 
   private async assertAutoStartDecision(params: {
     tenantId: string;
+    orgId: string;
     createdBy: string;
     jobId?: string;
     freeProjectId?: string;
@@ -353,7 +354,7 @@ export class LaborEngineService {
       : params.freeProjectId === target.id && !params.jobId;
     if (!target.id || !sameTarget) throw denied();
     // AC-10: membresía revocada, obra archivada o trabajo reasignado invalidan la decisión pendiente.
-    const site = await resolveSiteForWorker(this.repo.sitePrisma, { tenantId: params.tenantId, userId: params.createdBy }, {
+    const site = await resolveSiteForWorker(this.repo.sitePrisma, { tenantId: params.tenantId, userId: params.createdBy, orgId: params.orgId }, {
       kind: target.kind,
       id: target.id,
     });

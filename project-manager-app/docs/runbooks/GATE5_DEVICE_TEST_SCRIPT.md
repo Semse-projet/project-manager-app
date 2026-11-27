@@ -33,9 +33,10 @@ Anota en cada fila: ✅ pasa / ❌ falla / ⚠️ parcial, más hora, versión d
 | 8 | Modo OFF | Ajustes: OFF; llegar a la obra | Nada: ni notificación ni reloj; no se consulta la ubicación | ☐ | ☐ | ☐ |
 | 9 | Sin conexión | Modo avión y llegar a la obra en AUTO | **No** auto-inicia sin la decisión del servidor; ofrece confirmar. Al volver la red no aparecen dobles sesiones | ☐ | ☐ | ☐ |
 | 10 | Ahorro de batería | Activar ahorro de batería u optimización (Android) o modo de bajo consumo (iOS) y repetir la prueba 4 | Anotar si llega el evento y con cuánto retraso. Un fallo aquí se registra como limitación, no se oculta | ☐ | ☐ | ☐ |
-| 11 | Salida con el reloj activo | Con el reloj en marcha, alejarse más allá del radio | Pregunta terminar, pausar o continuar; **nunca** termina el reloj sin preguntar | ☐ | ☐ | ☐ |
+| 11 | Salida con el reloj activo *(fuera de W-07: no bloquea)* | Con el reloj en marcha, alejarse más allá del radio | **Nunca** termina el reloj sin preguntar. El móvil todavía no informa salidas, así que hoy lo esperado es que no pase nada; anotarlo como observación | ☐ | ☐ | ☐ |
 | 12 | Señal imprecisa | En interior o con mala señal, llegar en AUTO | Inicio manual (`MANUAL_ONLY` → pregunta), sin auto-inicio | ☐ | ☐ | ☐ |
 | 13 | Aislamiento | Con una cuenta de otra organización, llegar a la obra | Nada (decisión `IGNORE`); no ve la obra en sus sitios | ☐ | ☐ | ☐ |
+| 14 | Rechazo de un inicio automático (AC-12) | Con AUTO, llegar a la obra verificada y, **después** de que el historial muestre `AUTO_START_ALLOWED`, provocar un rechazo real del inicio revocando el consentimiento desde la web (pasar a ASK) antes de que llegue «Reloj iniciado», y registrar el 409 `auto_start_not_authorized`. Cortar la red **no** sirve aquí: el servidor puede haber guardado el fichaje antes del corte; la pérdida de respuesta se anota aparte como observación. La fila 9 cubre la llegada sin red, que pide confirmar antes del inicio | Se registra el 409 y en el historial queda `AUTO_START_ALLOWED` sin consumir. No queda ningún reloj iniciado como manual. Llega la pregunta «¿Iniciar el reloj?» y solo al aceptarla arranca como `proximity_confirmed`. Si el momento no se puede reproducir en el dispositivo, anotarlo: la ruta del 409 está cubierta por tests unitarios | ☐ | ☐ | ☐ |
 
 ## 2. Evidencia que necesito por dispositivo
 
@@ -45,6 +46,12 @@ Anota en cada fila: ✅ pasa / ❌ falla / ⚠️ parcial, más hora, versión d
 
 ## 3. Criterio de cierre
 
-Gate 5 queda **cerrado** solo si las filas 1–9, 11 y 12 pasan en los tres teléfonos. La fila 10 puede quedar como
-limitación documentada; la fila 13, con al menos un dispositivo. Cualquier ❌ en las filas 5, 6, 8 o 9 bloquea el
-cierre, porque son las barreras de seguridad del auto-inicio.
+Gate 5 queda **cerrado** solo si las filas 1–9, 12 y 14 pasan en los tres teléfonos. La fila 10 puede quedar como
+limitación documentada; la fila 13, con al menos un dispositivo. La fila 11 (salida) es una observación fuera de
+W-07 y no bloquea, salvo que el reloj termine sin preguntar, que sí bloquea. Cualquier ❌ en las filas 5, 6, 8, 9 o
+14 bloquea el cierre, porque son las barreras de seguridad del auto-inicio.
+
+**Misma cuenta WORKER en los tres teléfonos (decisión del 2026-11-25):** probar **un teléfono a la vez**. Antes de
+pasar al siguiente, detener cualquier reloj activo y comprobar en el historial «Ubicación y reloj» que no quedan
+sesiones abiertas. Con un reloj activo de otro teléfono, el servidor ignora las llegadas (`IGNORE`) y falsearía las
+filas 4–6. Cerrar Gate 5 **no** autoriza a encender ningún flag en producción.

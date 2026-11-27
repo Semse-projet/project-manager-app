@@ -5,6 +5,7 @@ import {
   TRACKER_LOCAL_STORE_KEY,
   createTrackerEventId,
   createTrackerLocalState,
+  discardTrackerStartEvent,
   enqueueTrackerEvent,
   markTrackerSyncFailed,
   markTrackerSynced,
@@ -118,4 +119,27 @@ test("tracker local store normalizes object-shaped persisted errors", () => {
   const restored = readTrackerLocalState(storage);
 
   assert.equal(restored.lastError, "Backend unavailable");
+});
+
+test("descartar un inicio rechazado quita solo ese evento y la sesión temporal; la cola pendiente sigue intacta", () => {
+  const queued = enqueueTrackerEvent(createTrackerLocalState(), {
+    id: "evt_manual",
+    type: "manual_session",
+    jobId: "job_1",
+    date: "2026-06-20",
+    startTime: "09:00",
+    endTime: "11:00",
+    notes: "Entrada manual sin conexión",
+    localTimestamp: "2026-06-20T16:00:00.000Z",
+  });
+  const started = startTrackerLocalSession(queued, { jobId: "job_2", now: new Date("2026-06-20T17:00:00.000Z") });
+  const discarded = discardTrackerStartEvent(started.state, started.event.id);
+  assert.equal(discarded.activeSession, null);
+  assert.deepEqual(discarded.pendingEvents.map((event) => event.id), ["evt_manual"]);
+  assert.equal(discarded.syncStatus, "pending");
+  const only = startTrackerLocalSession(createTrackerLocalState(), { jobId: "job_3" });
+  const alone = discardTrackerStartEvent(only.state, only.event.id);
+  assert.equal(alone.activeSession, null);
+  assert.deepEqual(alone.pendingEvents, []);
+  assert.equal(alone.syncStatus, "synced");
 });

@@ -46,6 +46,7 @@ import {
   markTrackerSynced,
   markTrackerSyncing,
   readTrackerLocalState,
+  discardTrackerStartEvent,
   startTrackerLocalSession,
   updateTrackerLocalSession,
   writeTrackerLocalState,
@@ -61,7 +62,7 @@ import { ReportesTab } from "./sections/ReportesTab";
 import { AsistenteTab } from "./sections/AsistenteTab";
 import { friendlyConnectionMessage, shouldPreserveLocalEvent } from "./sections/trackerUi";
 import { fetchLocationPreference, fetchMyGeofenceSites, reportGeofenceArrival, SurfaceApiError } from "../../../lib/module-surfaces-api";
-import { classifyGeofenceSitesLoad, clientSiteKind, proximityActionForDecision, serverSiteKind } from "../../../../lib/geofence-decision";
+import { canRetryStartOffline, clientSiteKind, proximityActionForDecision, serverSiteKind, trackerGeofenceSites } from "../../../../lib/geofence-decision";
 import { resolveProximityMode, type LocationPreferenceResult } from "../../../../lib/location-mode";
 
 // Auto-sync retry policy for the offline queue. Every attempt rewrites the
@@ -435,20 +436,15 @@ export default function WorkerTrackerPage() {
     const nextProximityMode = resolveProximityMode(nextLocationPreference, nextProfile ? nextProfile.proximityCheckInMode ?? "ask" : null);
     if (nextProximityMode) setProximityCheckInMode(nextProximityMode);
     if (nextProximityConfig) setProximityConfig(nextProximityConfig);
-    const geofenceLoad = classifyGeofenceSitesLoad(nextGeofenceSites);
     setGeofenceSites(
-      geofenceLoad.status === "disabled"
-        ? null
-        : geofenceLoad.status === "unavailable"
-          ? []
-          : geofenceLoad.sites.map((site) => ({
-              kind: clientSiteKind(site.kind),
-              id: site.targetId,
-              name: site.worksiteName,
-              latitude: site.latitude,
-              longitude: site.longitude,
-              radiusMeters: site.radiusMeters ?? undefined,
-            })),
+      trackerGeofenceSites(nextGeofenceSites, (site) => ({
+        kind: clientSiteKind(site.kind),
+        id: site.targetId,
+        name: site.worksiteName,
+        latitude: site.latitude,
+        longitude: site.longitude,
+        radiusMeters: site.radiusMeters ?? undefined,
+      })),
     );
 
     if (activeTimerResult.ok) {
@@ -871,15 +867,19 @@ export default function WorkerTrackerPage() {
     freeProjectId?: string;
     checkIn?: { latitude: number; longitude: number; method?: "proximity_confirmed" | "proximity_auto" };
     geofenceEventId?: string;
-  }) {
+  }): Promise<boolean> {
     const jobId = overrides ? overrides.jobId : (mode === "job" ? selectedJob : undefined);
     const freeProjectId = overrides ? overrides.freeProjectId : (mode === "free" ? selectedFreeProject : undefined);
     const purpose = overrides ? (jobId ? "job_linked" : "payable") as TrackerPurpose : MODE_META[mode].purpose;
-    if (!overrides && startDisabled) return;
+    if (!overrides && startDisabled) return false;
     if (activeEntry || trackerLocalState.activeSession) {
       setError("Ya hay una sesión activa. Pausa o detén la sesión actual antes de iniciar otra.");
-      return;
+      return false;
     }
+    // OPEN-18: un inicio automático solo vale con la decisión del servidor en el momento.
+    // Si no se completa (409, sin conexión, 5xx) no se guarda para reintentarlo: un reintento
+    // posterior no llevaría la autorización y saldría como inicio manual.
+    const isAutoStart = !canRetryStartOffline(overrides?.checkIn?.method);
     setSaving(true);
     setError(null);
     const localStart = startTrackerLocalSession(readTrackerLocalState(window.localStorage), {
@@ -906,16 +906,18 @@ export default function WorkerTrackerPage() {
       });
       setActiveEntry(entry);
       await refreshAfterMutation();
+      return true;
     } catch (caught) {
-      if (shouldPreserveLocalEvent(caught)) {
+      if (!isAutoStart && shouldPreserveLocalEvent(caught)) {
         setSyncNotice(friendlyConnectionMessage("No pudimos iniciar en SEMSE ahora"));
-      } else {
-        const cleanState = markTrackerSynced(localStart.state);
-        persistTrackerLocalState(cleanState);
-        setActiveEntry(null);
-        setElapsed(0);
-        setError(caught instanceof Error ? caught.message : "No se pudo iniciar la sesión.");
+        return true;
       }
+      // Solo se retira este inicio: el resto de la cola pendiente se conserva.
+      persistTrackerLocalState(discardTrackerStartEvent(localStart.state, localStart.event.id));
+      setActiveEntry(null);
+      setElapsed(0);
+      if (!isAutoStart) setError(caught instanceof Error ? caught.message : "No se pudo iniciar la sesión.");
+      return false;
     } finally {
       setSaving(false);
     }
@@ -934,13 +936,19 @@ export default function WorkerTrackerPage() {
       freeProjectId: site.kind === "free" ? site.id : undefined,
       checkIn: { latitude: checkIn.latitude, longitude: checkIn.longitude, method: checkIn.method },
       geofenceEventId: checkIn.geofenceEventId,
+    }).then((started) => {
+      if (checkIn.method !== "proximity_auto") return;
+      if (started) {
+        setSyncNotice(`Reloj iniciado automáticamente: estás cerca de "${site.name}". Detenlo desde el timer si fue un error.`);
+      } else {
+        // AC-08: el servidor no autorizó el inicio o no se pudo completar → se pide confirmación.
+        offerProximityConfirmationRef.current?.(site, { latitude: checkIn.latitude, longitude: checkIn.longitude });
+      }
     });
-    if (checkIn.method === "proximity_auto") {
-      setSyncNotice(`Reloj iniciado automáticamente: estás cerca de "${site.name}". Detenlo desde el timer si fue un error.`);
-    }
   }
+  const offerProximityConfirmationRef = useRef<((site: ProximitySite, here: { latitude: number; longitude: number }) => void) | null>(null);
 
-  const { banner: proximityBanner, acceptBanner: acceptProximityBanner, dismissBanner: dismissProximityBanner, locationError: proximityLocationError, isWatching: proximityIsWatching } = useProximityCheckIn({
+  const { banner: proximityBanner, acceptBanner: acceptProximityBanner, dismissBanner: dismissProximityBanner, offerConfirmation: offerProximityConfirmation, locationError: proximityLocationError, isWatching: proximityIsWatching } = useProximityCheckIn({
     enabled: tab === "timer" && !activeEntry && !trackerLocalState.activeSession,
     mode: proximityCheckInMode,
     jobs,
@@ -959,6 +967,7 @@ export default function WorkerTrackerPage() {
     radiusMeters: proximityConfig?.radiusMeters,
     cooldownMs: proximityConfig ? proximityConfig.cooldownMinutes * 60_000 : undefined,
   });
+  offerProximityConfirmationRef.current = offerProximityConfirmation;
 
   async function handlePause() {
     if (!activeEntry || saving) return;

@@ -138,7 +138,7 @@ function world() {
   const repo: any = {
     sitePrisma: prisma,
     async findTimeEntryByClientEventId() { return null; },
-    async getActiveTimeEntry(tenantId: string, createdBy: string) { return entries.find((t) => t.tenantId === tenantId && t.createdBy === createdBy && t.status === "running") ?? null; },
+    async getActiveTimeEntry(tenantId: string, createdBy: string) { return entries.find((t) => t.tenantId === tenantId && t.createdBy === createdBy && (t.status === "running" || t.status === "paused")) ?? null; },
     async isJobAssignedToWorker(tenantId: string, _orgId: string, jobId: string, userId: string) { return jobs.some((j) => j.id === jobId && j.tenantId === tenantId && j.assignedTo.includes(userId)); },
     async isFreeProjectOwnedByWorker(tenantId: string, id: string, userId: string) { return freeProjects.some((f) => f.id === id && f.tenantId === tenantId && f.createdBy === userId); },
     jobCoordinates: null as null | { latitude: number; longitude: number },
@@ -167,6 +167,7 @@ function world() {
     repo,
     memberships,
     worksites,
+    jobs,
     bindings,
     events,
     entries,
@@ -462,3 +463,80 @@ test("lista de sitios: el límite se aplica tras filtrar; un sitio válido antig
   assert.deepEqual(sites.map((s) => s.targetId), ["jobA"]);
 });
 
+
+// ---- Opción A (2026-11-25): obras solo de la Org de la sesión ----
+/** ana es WORKER en orgA y en orgB; jobB es de orgB (profesional asignada) y está asignado a ana. */
+async function twoOrgs(w: ReturnType<typeof world>) {
+  w.memberships.push(
+    { userId: "ana", orgId: "orgB", status: "ACTIVE", org: { tenantId: "t1" }, role: { key: "WORKER" } },
+    { userId: "bossB", orgId: "orgB", status: "ACTIVE", org: { tenantId: "t1" }, role: { key: "PRO" } }
+  );
+  w.worksites.push({ id: "wB", tenantId: "t1", orgId: "orgB", name: "Obra B", status: "ACTIVE", latitude: null, longitude: null, radiusMeters: null, locationSource: null, locationVerifiedAt: null });
+  w.jobs.push({ id: "jobB", tenantId: "t1", clientOrgId: "orgC", deletedAt: null, project: { assignedProOrgId: "orgB" }, assignedTo: ["ana"] });
+  const bossB = { tenantId: "t1", orgId: "orgB", userId: "bossB", roles: ["PRO"] };
+  await w.locations.setLocation(bossB, "orgB", "wB", "r", pin);
+  await w.locations.createBinding(bossB, "orgB", "wB", "r", { kind: "JOB", targetId: "jobB" });
+  await boundVerifiedJob(w);
+  await autoConsent(w);
+}
+const anaInB = { tenantId: "t1", orgId: "orgB", userId: "ana" };
+
+test("opción A: la lista de sitios solo trae obras de la Org de la sesión; al cambiar de sesión aparecen las de la otra", async () => {
+  const w = world();
+  await twoOrgs(w);
+  assert.deepEqual((await w.geofence.listSites(ana)).map((s) => s.targetId), ["jobA"]);
+  assert.deepEqual((await w.geofence.listSites(anaInB)).map((s) => s.targetId), ["jobB"]);
+});
+
+test("opción A negativo: una llegada a una obra de otra Org de la persona → IGNORE, sin oráculo", async () => {
+  const w = world();
+  await twoOrgs(w);
+  const r = await w.geofence.evaluate(ana, ev({ site: { kind: "JOB", id: "jobB" } }));
+  assert.equal(r.decision, "IGNORE");
+  assert.equal(r.worksiteId ?? null, null);
+  assert.equal(w.entries.length, 0);
+});
+
+test("opción A positivo: con la sesión en la Org de la obra, la llegada se autoriza y el reloj la consume", async () => {
+  const w = world();
+  await twoOrgs(w);
+  const r = await w.geofence.evaluate(anaInB, ev({ site: { kind: "JOB", id: "jobB" } }));
+  assert.equal(r.decision, "AUTO_START_ALLOWED");
+  assert.equal(w.events.find((e) => e.id === r.id)?.orgId, "orgB");
+  const entry: any = await start(w, { orgId: "orgB", jobId: "jobB", geofenceEventId: r.id });
+  assert.equal(w.events.find((e) => e.id === r.id)?.consumedByTimeEntryId, entry.id);
+});
+
+test("opción A negativo: el job solo es fichable desde la Org B → desde una sesión en A el reloj responde 403 antes de mirar la decisión", async () => {
+  const w = world();
+  await twoOrgs(w);
+  const r = await w.geofence.evaluate(anaInB, ev({ site: { kind: "JOB", id: "jobB" } }));
+  assert.equal(r.decision, "AUTO_START_ALLOWED");
+  // Asignación real por Org: jobB solo está asignado a través de la Org B.
+  w.repo.isJobAssignedToWorker = async (_t: string, orgId: string, jobId: string) => !(jobId === "jobB" && orgId !== "orgB");
+  await assert.rejects(start(w, { orgId: "orgA", jobId: "jobB", geofenceEventId: r.id }), { status: 403 });
+  assert.equal(w.entries.length, 0);
+  assert.equal(w.events.find((e) => e.id === r.id)?.consumedByTimeEntryId ?? null, null);
+});
+
+test("una sesión en pausa cuenta como activa: la llegada se ignora y no ofrece un inicio imposible", async () => {
+  const w = world();
+  await boundVerifiedJob(w);
+  await autoConsent(w);
+  w.entries.push({ id: "te-paused", tenantId: "t1", createdBy: "ana", status: "paused" });
+  const r = await w.geofence.evaluate(ana, ev({ site: { kind: "JOB", id: "jobA" } }));
+  assert.equal(r.decision, "IGNORE");
+  // Misma regla en el reloj: la sesión en pausa impide iniciar otra (como getActiveTimeEntry real).
+  await assert.rejects(start(w, { orgId: "orgA", jobId: "jobA" }), { status: 400 });
+  assert.equal(w.entries.length, 1);
+});
+
+test("opción A negativo (job fichable también desde A, p. ej. asignación individual): una decisión de la Org B no autoriza un inicio desde una sesión en la Org A → 409 y sin TimeEntry", async () => {
+  const w = world();
+  await twoOrgs(w);
+  const r = await w.geofence.evaluate(anaInB, ev({ site: { kind: "JOB", id: "jobB" } }));
+  assert.equal(r.decision, "AUTO_START_ALLOWED");
+  await assert.rejects(start(w, { orgId: "orgA", jobId: "jobB", geofenceEventId: r.id }), { status: 409 });
+  assert.equal(w.entries.length, 0);
+  assert.equal(w.events.find((e) => e.id === r.id)?.consumedByTimeEntryId ?? null, null);
+});
