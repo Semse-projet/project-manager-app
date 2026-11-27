@@ -99,3 +99,20 @@ test("CLI contra git real: aditiva ok, revert blocked, destructiva blocked, apro
   assert.equal(run(m2, m4).action, "ok");
   assert.equal(run("unknown", m4).action, "blocked");
 });
+
+test("un marcador de comentario dentro de un literal no oculta SQL destructivo (revisión de #1199)", () => {
+  const sql = [
+    `ALTER TABLE "Evidence" ADD COLUMN "source" TEXT DEFAULT '--';`,
+    `DROP TABLE "Job";`,
+    `COMMENT ON COLUMN "Evidence"."source" IS 'origin';`,
+  ].join("\n");
+  assert.deepEqual(scanSql(sql), ["drop_table"]);
+  // Un apóstrofo dentro de un comentario no abre un literal.
+  assert.deepEqual(scanSql("-- it's fine\nDROP TABLE \"x\";"), ["drop_table"]);
+  // Literales E'' con escapes, comentarios anidados e identificadores con --.
+  assert.deepEqual(scanSql("SELECT E'a\\'b -- DROP TABLE z'; DROP TABLE w;"), ["drop_table"]);
+  assert.deepEqual(scanSql("/* a /* nested */ DROP TABLE x; */ CREATE TABLE y();"), []);
+  assert.deepEqual(scanSql('ALTER TABLE "a--b" DROP COLUMN c;'), ["drop_column"]);
+  // El cuerpo de un bloque DO $$ ... $$ es código.
+  assert.deepEqual(scanSql('DO $$ BEGIN UPDATE "J" SET a = 1; END $$;'), ["update_rows"]);
+});
