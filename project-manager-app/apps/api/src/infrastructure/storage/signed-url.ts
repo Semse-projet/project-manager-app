@@ -16,16 +16,49 @@ export const DEFAULT_BROWSER_TTL_SECONDS = 900; // 15 min
 export const DEFAULT_VISION_TTL_SECONDS = 300; // 5 min
 export const MAX_TTL_SECONDS = 3600;
 
+export const MIN_SIGNING_SECRET_LENGTH = 16;
+
+/**
+ * Audit A1 (2026-11-25): fail closed. Unset or unrecognised values mean
+ * `enforce`; `off` and `shadow` must be chosen explicitly (rollback/observation).
+ */
 export function resolveSignedGetMode(env: NodeJS.ProcessEnv = process.env): UploadsSignedGetMode {
-  const raw = (env.UPLOADS_SIGNED_GET_MODE ?? "off").trim().toLowerCase();
-  return raw === "shadow" || raw === "enforce" ? raw : "off";
+  const raw = (env.UPLOADS_SIGNED_GET_MODE ?? "").trim().toLowerCase();
+  return raw === "off" || raw === "shadow" ? raw : "enforce";
+}
+
+function isProductionEnv(env: NodeJS.ProcessEnv): boolean {
+  return env.NODE_ENV === "production" ||
+    env.RAILWAY_ENVIRONMENT === "production" ||
+    env.RAILWAY_ENVIRONMENT_NAME === "production";
+}
+
+/**
+ * Boot-time check. In production, a signing mode (shadow/enforce, the default)
+ * without a usable UPLOADS_SIGNING_SECRET would hand out unsigned URLs that
+ * `enforce` then rejects, so refuse to start instead of failing per request.
+ * Returns a warning for non-production so local work stays possible.
+ */
+export function assertUploadsSigningConfiguration(env: NodeJS.ProcessEnv = process.env): { warning?: string } {
+  const mode = resolveSignedGetMode(env);
+  if (mode === "off") {
+    return isProductionEnv(env) ? { warning: "uploads_signed_get_mode_off" } : {};
+  }
+  const current = (env.UPLOADS_SIGNING_SECRET ?? "").trim();
+  if (current.length >= MIN_SIGNING_SECRET_LENGTH) return {};
+  if (isProductionEnv(env)) {
+    throw new Error(
+      `UPLOADS_SIGNED_GET_MODE=${mode} requires UPLOADS_SIGNING_SECRET (at least ${MIN_SIGNING_SECRET_LENGTH} characters)`,
+    );
+  }
+  return { warning: "uploads_signing_secret_missing" };
 }
 
 /** Secretos activos: el actual primero, el anterior (rotacion) despues. */
 export function resolveSigningSecrets(env: NodeJS.ProcessEnv = process.env): string[] {
   return [env.UPLOADS_SIGNING_SECRET, env.UPLOADS_SIGNING_SECRET_PREVIOUS]
     .map((s) => (s ?? "").trim())
-    .filter((s) => s.length >= 16);
+    .filter((s) => s.length >= MIN_SIGNING_SECRET_LENGTH);
 }
 
 export function resolveTtlSeconds(kind: "browser" | "vision", env: NodeJS.ProcessEnv = process.env): number {

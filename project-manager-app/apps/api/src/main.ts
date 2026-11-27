@@ -23,6 +23,7 @@ import { runWithObservabilityContext } from "./infrastructure/observability/requ
 import { SemseLoggerService } from "./infrastructure/observability/semse-logger.service.js";
 import { resolveRequestId, resolveTraceId } from "./common/request-id.js";
 import { HEADER_IDENTITY_OPT_IN_ENV, headerIdentityAllowed } from "./common/request-context.js";
+import { assertUploadsSigningConfiguration, resolveSignedGetMode } from "./infrastructure/storage/signed-url.js";
 
 type ObservableRequest = FastifyRequest & {
   requestId?: string;
@@ -32,6 +33,8 @@ type ObservableRequest = FastifyRequest & {
 };
 
 async function bootstrap(): Promise<void> {
+  // Audit A1: refuse to boot in production with signed reads on and no signing secret.
+  const uploadsSigning = assertUploadsSigningConfiguration();
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
     new FastifyAdapter({ logger: false }),
@@ -48,6 +51,10 @@ async function bootstrap(): Promise<void> {
     } else {
       logger.warn("auth_secret_missing_fail_closed", { nodeEnv: process.env.NODE_ENV, optIn: HEADER_IDENTITY_OPT_IN_ENV });
     }
+  }
+  if (uploadsSigning.warning) {
+    // Never log the secret itself.
+    logger.warn(uploadsSigning.warning, { mode: resolveSignedGetMode(), nodeEnv: process.env.NODE_ENV });
   }
   const port = Number(process.env.PORT ?? 4000);
   const host = process.env.HOST ?? "0.0.0.0";

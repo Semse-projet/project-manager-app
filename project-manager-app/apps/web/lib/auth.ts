@@ -5,6 +5,7 @@
 
 import { appRoleFromPathname, appRoleFromRoles, defaultDashboardForRole as resolveDashboardForRole, type AppRole } from "@semse/auth/rbac";
 import type { RequestIdentity } from "@semse/shared";
+import { devSessionAllowed, MIN_SESSION_SECRET_LENGTH, resolveWebSessionSecret } from "./dev-session.ts";
 
 export const SESSION_COOKIE = "semse_session";
 
@@ -12,7 +13,6 @@ export type SessionPayload = RequestIdentity & {
   exp: number; // Unix timestamp seconds
 };
 
-const DEV_SESSION_SECRET = "semse-dev-session-secret";
 const HMAC_ALGORITHM = { name: "HMAC", hash: "SHA-256" } as const;
 const textEncoder = new TextEncoder();
 const LEGACY_DEMO_USER_IDS = new Set([
@@ -22,34 +22,27 @@ const LEGACY_DEMO_USER_IDS = new Set([
 ]);
 
 function isDisabledDemoSession(payload: SessionPayload): boolean {
-  // Existing signed cookies for seeded demo identities also fail closed in production.
-  const legacyDemoEnabled = process.env.NODE_ENV !== "production";
+  // Seeded demo identities are only honoured with the explicit local opt-in.
+  const legacyDemoEnabled = devSessionAllowed();
   if (LEGACY_DEMO_USER_IDS.has(payload.userId) && !legacyDemoEnabled) {
     return true;
   }
 
   const agroDemoEnabled =
-    process.env.DEMO_MODE_ENABLED === "true" || process.env.NODE_ENV !== "production";
+    process.env.DEMO_MODE_ENABLED === "true" || devSessionAllowed();
   return payload.roles.includes("DEMO_AGRO") && !agroDemoEnabled;
 }
 
 function resolveSessionSecret(): string | null {
-  const explicit = process.env.SEMSE_WEB_SESSION_SECRET?.trim() || process.env.AUTH_SECRET?.trim();
-  if (explicit) {
-    return explicit;
-  }
-
-  if (process.env.NODE_ENV !== "production") {
-    return DEV_SESSION_SECRET;
-  }
-
-  return null;
+  return resolveWebSessionSecret();
 }
 
 function requireSessionSecret(): string {
   const secret = resolveSessionSecret();
   if (!secret) {
-    throw new Error("SEMSE_WEB_SESSION_SECRET or AUTH_SECRET is required for signed sessions");
+    throw new Error(
+      `SEMSE_WEB_SESSION_SECRET or AUTH_SECRET (at least ${MIN_SESSION_SECRET_LENGTH} characters) is required for signed sessions`
+    );
   }
   return secret;
 }

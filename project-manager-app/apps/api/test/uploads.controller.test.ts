@@ -45,6 +45,8 @@ test("putFile stores the real request body bytes via req.raw (Fastify shape)", a
     fs.mkdtemp(path.join(os.tmpdir(), "semse-uploads-test-")),
   );
   process.env.SEMSE_STORAGE_ROOT = root;
+  // Signed reads are enforced by default (audit A1): read back through the signed URL.
+  process.env.UPLOADS_SIGNING_SECRET = "uploads-test-signing-secret-0123";
   try {
     const controller = new UploadsController(new StorageService());
     const bytes = Buffer.from("regression-test-file-body");
@@ -63,7 +65,10 @@ test("putFile stores the real request body bytes via req.raw (Fastify shape)", a
 
     const headerCalls: Array<Record<string, string>> = [];
     const fakeRes = { headers: (h: Record<string, string>) => headerCalls.push(h) };
-    const file = await controller.getFile(key, { headers: {}, query: {} } as never, fakeRes as never);
+    const signed = new URL(result.url);
+    assert.ok(signed.searchParams.get("sig"), "publicUrl must be signed under the default enforce mode");
+    const query = { exp: signed.searchParams.get("exp"), sig: signed.searchParams.get("sig") };
+    const file = await controller.getFile(key, { headers: {}, query } as never, fakeRes as never);
     assert.equal(headerCalls.length, 1, "getFile must call reply.headers() (Fastify), not res.set() (Express)");
     assert.equal(headerCalls[0]["Content-Type"], "application/octet-stream");
 
@@ -72,8 +77,20 @@ test("putFile stores the real request body bytes via req.raw (Fastify shape)", a
     assert.equal(Buffer.concat(chunks).toString(), bytes.toString(), "downloaded bytes must match the uploaded bytes");
   } finally {
     delete process.env.SEMSE_STORAGE_ROOT;
+    delete process.env.UPLOADS_SIGNING_SECRET;
     await rm(root, { recursive: true, force: true });
   }
+});
+
+test("GET files/* without a signature is denied under the default mode", async () => {
+  delete process.env.UPLOADS_SIGNED_GET_MODE;
+  const storage = { getStream: async () => { throw new Error("MUST NEVER REACH STORAGE"); } };
+  const controller = new UploadsController(storage as never);
+  const fakeRes = { headers: () => undefined };
+  await assert.rejects(
+    controller.getFile("tenants/tenantA/public-intake/evidence/x.png", { headers: {}, query: {} } as never, fakeRes as never),
+    (error: { status?: number; getStatus?: () => number }) => (error.getStatus?.() ?? error.status) === 403,
+  );
 });
 
 test("PUT rejects cross-tenant and unscoped keys before storage can be modified", async () => {

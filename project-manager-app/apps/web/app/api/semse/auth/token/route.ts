@@ -10,6 +10,7 @@ import { resolveSafeRedirectPath } from "@/lib/safe-redirect";
 import { clientIpFromHeaders } from "../../_client-ip";
 import { demoPasswordMatches, resolveDemoLoginPassword } from "@/lib/demo-login";
 import { trustedClientHeaders } from "../../_server";
+import { devSessionAllowed } from "@/lib/dev-session";
 
 const TTL_SECONDS = 8 * 60 * 60;
 const LOGIN_RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
@@ -20,8 +21,9 @@ const LOGIN_RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
 const LOGIN_RATE_LIMIT_MAX_EMAIL = 10;
 const LOGIN_RATE_LIMIT_MAX_IP = 30;
 const GENERIC_LOGIN_ERROR = "No se pudo iniciar sesión con esas credenciales";
-// Production cannot manufacture a local demo session even if the API is unavailable.
-const DEMO_LOGIN_ENABLED = process.env.NODE_ENV !== "production";
+// A local demo session is only manufactured with NODE_ENV development/test AND
+// SEMSE_ALLOW_DEV_SESSION=true. Staging, previews and production fail closed.
+const DEMO_LOGIN_ENABLED = devSessionAllowed();
 
 const DEMO_ACCOUNTS: Record<string, Omit<SessionPayload, "exp">> = {
   "worker@demo.semse": {
