@@ -25,7 +25,6 @@ test("user directory is limited to the session organization and hides risk signa
   const queries: unknown[] = [];
   const repository = new UsersRepository(
     {
-      async user() { return null; },
       user: {
         async findMany(args: unknown) {
           queries.push(args);
