@@ -140,6 +140,7 @@ jobs:
           green=$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/ci.yml/runs?branch=main&status=success&per_page=100" \
             --jq ".workflow_runs[] | select((.event == \"push\" or .event == \"workflow_dispatch\") and .head_branch == \"main\" and .head_repository.full_name == \"${GITHUB_REPOSITORY}\") | .head_sha") \
             || { echo "::error title=Release BLOCKED::no se pudo listar los CI verdes de main"; exit 1; }
+          printf '%s\n' "$green" > "$RUNNER_TEMP/ci-green.txt"
           if ! printf '%s\n' "$green" | grep -qx "$CANDIDATE"; then
             echo "::error title=Release BLOCKED::$CANDIDATE no tiene un CI de main en success. No se despliega sin CI."
             exit 1
@@ -179,6 +180,13 @@ jobs:
           echo "- Guardia forward-only: \`$action\` (servido: \`$served\`, candidato: \`$DEPLOY_SHA\`)" >> "$GITHUB_STEP_SUMMARY"
           if [ "$action" = "blocked" ]; then
             echo "::error title=Release BLOCKED::$(printf '%s' "$decision" | jq -r .reason)"
+            exit 1
+          fi
+          # La ascendencia no acredita el SHA posterior: si lo sirvió la vía
+          # nativa con su CI en rojo o sin terminar, este run no puede cerrar
+          # en verde (dispararía el Production Health Gate sin evidencia).
+          if [ "$action" = "superseded" ] && ! grep -qx "$served" "$RUNNER_TEMP/ci-green.txt"; then
+            echo "::error title=Release BLOCKED::producción sirve $served, posterior a $DEPLOY_SHA, sin CI de main en success. No se acredita."
             exit 1
           fi
 
@@ -300,6 +308,7 @@ jobs:
     # Solo lectura: trae el verificador (C02) y consulta la cabeza de main.
     permissions:
       contents: read
+      actions: read
     steps:
       # Historia sin blobs para resolver el SHA esperado por watchPatterns; el
       # árbol de trabajo solo contiene el verificador.
@@ -432,6 +441,7 @@ jobs:
         if: steps.superseded.outputs.superseded != 'true'
         env:
           EXPECTED_SHA: ${{ steps.expected.outputs.sha }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -uo pipefail
           api_out=$(mktemp); web_out=$(mktemp)
@@ -470,8 +480,16 @@ jobs:
           action=$(node project-manager-app/scripts/release-forward-guard.mjs \
             --candidate="$EXPECTED_SHA" --served="$served" | jq -r .action || echo blocked)
           if [ "$action" = "superseded" ]; then
-            echo "::notice title=Health gate::producción ya sirve $served, posterior a $EXPECTED_SHA; lo acredita el run de ese SHA."
-            exit 0
+            # Igual que en el job deploy: el SHA posterior solo cuenta con su
+            # CI de main en success; la ascendencia por sí sola no acredita.
+            if gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/ci.yml/runs?branch=main&status=success&head_sha=$served&per_page=20" \
+                 --jq ".workflow_runs[] | select((.event == \"push\" or .event == \"workflow_dispatch\") and .head_branch == \"main\" and .head_repository.full_name == \"${GITHUB_REPOSITORY}\") | .head_sha" \
+                 2>/dev/null | grep -qx "$served"; then
+              echo "::notice title=Health gate::producción ya sirve $served, posterior a $EXPECTED_SHA, con CI verde; lo acredita el run de ese SHA."
+              exit 0
+            fi
+            echo "::error title=Procedencia en runtime::producción sirve $served, posterior a $EXPECTED_SHA, sin CI de main en success. No se acredita."
+            exit 1
           fi
           echo "::error title=Procedencia en runtime::producción no reporta gitSha === $EXPECTED_SHA o el health no respondió. No se acredita el despliegue."
           exit 1

@@ -115,3 +115,18 @@ test("el resumen describe la verificación en runtime del Worker", () => {
   assert.match(wf, /Worker: deployment del SHA exacto en SUCCESS y, en runtime, su log de arranque/);
   assert.doesNotMatch(wf, /Worker y Vision: deployment del SHA exacto en SUCCESS vía API de Railway \(metadata, no runtime\)/);
 });
+
+test("superseded solo acredita un SHA posterior con CI verde (revisión de #1199)", () => {
+  const guard = deployJob.slice(deployJob.indexOf("Forward-only guard"), deployJob.indexOf("Destructive migration preflight"));
+  assert.match(deployJob, /printf '%s\\n' "\$green" > "\$RUNNER_TEMP\/ci-green\.txt"/);
+  assert.match(guard, /\[ "\$action" = "superseded" \] && ! grep -qx "\$served" "\$RUNNER_TEMP\/ci-green\.txt"/);
+  assert.match(guard, /sin CI de main en success\. No se acredita\./);
+  const healthJob = wf.slice(wf.indexOf("\n  health-check:\n"));
+  assert.match(healthJob, /permissions:\n\s+contents: read\n\s+actions: read/);
+  const gate = healthJob.slice(healthJob.indexOf("Runtime provenance gate"));
+  assert.match(gate, /ci\.yml\/runs\?branch=main&status=success&head_sha=\$served/);
+  assert.match(gate, /GH_TOKEN: \$\{\{ github\.token \}\}/);
+  // Sin CI verde del SHA posterior, el gate falla en vez de ceder.
+  const sup = gate.slice(gate.indexOf('if [ "$action" = "superseded" ]; then'));
+  assert.ok(sup.indexOf("exit 1") < sup.indexOf("Procedencia en runtime::producción no reporta"), "falla antes del mensaje genérico");
+});

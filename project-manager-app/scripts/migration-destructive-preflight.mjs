@@ -47,7 +47,8 @@ const RULES = [
   { id: "delete_rows", re: /\bDELETE\s+FROM\b/i },
   // UPDATE [ONLY] tabla[.esquema] [[AS] alias] SET ... (el alias es opcional, con o sin AS)
   { id: "update_rows", re: /\bUPDATE\s+(ONLY\s+)?("[^"]+"|\w+)(\s*\.\s*("[^"]+"|\w+))?(\s+(AS\s+)?("[^"]+"|\w+))?\s+SET\b/i },
-  { id: "alter_column_type", re: /\bALTER\s+COLUMN\s+("[^"]+"|\w+)\s+(SET\s+DATA\s+)?TYPE\b/i },
+  // COLUMN es opcional en PostgreSQL: ALTER TABLE t ALTER "c" TYPE ... también cambia el tipo.
+  { id: "alter_column_type", re: /\bALTER\s+(COLUMN\s+)?("[^"]+"|\w+)\s+(SET\s+DATA\s+)?TYPE\b/i },
   { id: "rename", re: /\bRENAME\s+(COLUMN\b|TO\b|CONSTRAINT\b)/i },
 ];
 
