@@ -483,11 +483,11 @@ forbidden_behavior:
   nadie decide lo suyo; la corrección enviada no cambia `TimeEntry`). **K3, K4 y K6 siguen abiertos**
   (identidad y alcance del dueño, regla de aprobación, aprobación para pago y A-06). OPEN-SUP-04 sigue
   **parcialmente resuelto**.
-- **EF-SUP-01 — incorporación formal de §3.1 (pendiente de aprobación):** §3.1 se añadió en v0.3–v0.4,
+- **EF-SUP-01 — incorporación formal de §3.1 (aprobada el 2026-11-27, ver «Aprobación de v0.3–v0.5»):** §3.1 se añadió en v0.3–v0.4,
   después de la aprobación del 2026-11-20. Las reglas son decisiones del propietario, pero el registro de
   aprobación de abajo sigue describiendo OPEN-SUP-04 como abierto. **Propuesta:** que el propietario
   ratifique la incorporación de §3.1 a este contrato `APPROVED`. Mientras tanto, §3.1 consta como decisión
-  registrada y **no** como enmienda aprobada del contrato. **v0.5 (27-11-2026, PR en borrador):** alinea §3.1 con K3, K4 y K6. Sigue pendiente un registro de aprobación del propietario para v0.3–v0.5 antes de fusionar.
+  registrada y **no** como enmienda aprobada del contrato. **v0.5 (27-11-2026, PR en borrador):** alinea §3.1 con K3, K4 y K6. El propietario aprobó v0.3–v0.5 el 27-11-2026 (registro abajo).
 - **OPEN-SUP-05 — seguridad:** definir responsables y límites para
   revisar/cerrar incidentes; detener una situación peligrosa no depende
   de una autorización informática previa.
@@ -531,3 +531,8 @@ subtarea técnica). Son gates de implementación: no se escribe código de desig
 (`code_status: NOT_STARTED`). Nada de esto autoriza modelos, migraciones, endpoints, flags ni producción. Las
 decisiones S0b D-S0B-01…05 quedaron ratificadas en `core.task-allocations` (BO-10).
 
+## Aprobación de v0.3–v0.5 (propietario, 2026-11-27)
+
+El propietario aprueba el contenido añadido en v0.3–v0.5: §3.1 (autoridad sobre horas, OPEN-SUP-04 parte «horas»), las respuestas K1–K6 y la enmienda v0.5 que limita la aprobación final de horas al dueño designado de la empresa y la separa de la aprobación de pago. Aprobación dada por mensaje del propietario en la sesión de trabajo, 27-11-2026, 12:47 America/New_York (17:47 UTC).
+
+Alcance: aprueba el texto como contrato de dirección. **No** autoriza fusionar, ni código, modelos, migraciones, capabilities, endpoints, flags ni producción. Siguen abiertas OPEN-SUP-01 (fuente canónica del dueño) y OPEN-SUP-02…06; `code_status` sigue `NOT_STARTED`.
