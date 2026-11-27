@@ -1,0 +1,7 @@
+{
+  "20261127133500_qa_gr05_drop_probe_approved": {
+    "approvedBy": "Yoni (dueño), aprobado en el hilo del proyecto el 2026-11-27 13:32 UTC",
+    "backupRef": "postgres-qa, volumen agentrun-qa-pgdata, backup del 2026-11-27 13:03 UTC (07:03 CST)",
+    "reason": "Prueba G-R05 paso 4 en QA: borrar la tabla sintética qa_gr05_probe y comprobar la restauración. Solo QA."
+  }
+}
