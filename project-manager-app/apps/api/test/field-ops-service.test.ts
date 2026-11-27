@@ -76,7 +76,11 @@ function createMockFieldOpsService(overrides?: {
     },
     findUnitById: async (input: any) => {
       if (shouldThrow["findUnitById"]) throw shouldThrow["findUnitById"];
-      return units.find((u) => u.id === input.fieldUnitId) ?? null;
+      return units.find((u) => u.id === input.fieldUnitId) ?? {
+        id: input.fieldUnitId,
+        projectId: "proj_1",
+        tenantId: input.tenantId,
+      };
     },
     createUnit: async (input: any) => {
       if (shouldThrow["createUnit"]) throw shouldThrow["createUnit"];
@@ -201,6 +205,14 @@ function createMockFieldOpsService(overrides?: {
     },
 
     // Vendors & Compliance
+    findVendorById: async (input: any) => {
+      if (shouldThrow["findVendorById"]) throw shouldThrow["findVendorById"];
+      return vendors.find((v) => v.id === input.vendorId) ?? {
+        id: input.vendorId,
+        orgId: "org_1",
+        tenantId: input.tenantId,
+      };
+    },
     listVendors: async (input: any) => {
       if (shouldThrow["listVendors"]) throw shouldThrow["listVendors"];
       return vendors;
@@ -233,7 +245,12 @@ function createMockFieldOpsService(overrides?: {
     },
   };
 
-  return new FieldOpsService(mockRepo as any, mockAuditService as any);
+  const projectAccess = {
+    async assertProjectAccess() {
+      return undefined;
+    },
+  };
+  return new FieldOpsService(mockRepo as any, mockAuditService as any, projectAccess as any);
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -647,6 +664,8 @@ test("field-ops: upsertComplianceDoc accepts valid compliance statuses", async (
 
   const result = await service.upsertComplianceDoc({
     tenantId: "tenant_1",
+    orgId: "org_1",
+    roles: ["CLIENT"],
     vendorId: "vendor_1",
     type: "insurance",
     status: "APPROVED",
@@ -717,6 +736,8 @@ test("field-ops: vendor compliance tracking — create vendor → manage docs �
   // Step 1: Register vendor
   const vendor = await service.createVendor({
     tenantId: "tenant_1",
+    orgId: "org_1",
+    roles: ["CLIENT"],
     name: "Elite Electric",
     phone: "555-0123",
     email: "contact@elite.com",
@@ -726,6 +747,8 @@ test("field-ops: vendor compliance tracking — create vendor → manage docs �
   // Step 2: Track insurance compliance
   const insuranceDoc = await service.upsertComplianceDoc({
     tenantId: "tenant_1",
+    orgId: "org_1",
+    roles: ["PRO"],
     vendorId: vendor.id,
     type: "general_liability_insurance",
     status: "PENDING",
@@ -737,6 +760,8 @@ test("field-ops: vendor compliance tracking — create vendor → manage docs �
   // Step 3: Update to approved
   const approvedDoc = await service.upsertComplianceDoc({
     tenantId: "tenant_1",
+    orgId: "org_1",
+    roles: ["CLIENT"],
     vendorId: vendor.id,
     type: "general_liability_insurance",
     status: "APPROVED",

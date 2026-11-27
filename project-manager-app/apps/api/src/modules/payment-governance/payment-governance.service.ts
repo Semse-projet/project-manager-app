@@ -1,6 +1,6 @@
 import { Injectable, Logger, NotFoundException, ServiceUnavailableException } from "@nestjs/common";
 import { PaymentGovernanceRepository, type PaymentReleaseInput } from "./payment-governance.repository.js";
-import { PaymentGovernanceDiagnosticsService } from "./diagnostics.service.js";
+import { PaymentGovernanceDiagnosticsService, type DiagnosticsScope } from "./diagnostics.service.js";
 import { SseEventBusService } from "../../infrastructure/sse/sse-event-bus.service.js";
 import { assertMilestoneReadable, type MilestoneActor, type MilestoneOwnership } from "../milestones/milestones.policy.js";
 
@@ -302,7 +302,7 @@ export class PaymentGovernanceService {
     return (validCount / evidence.length) * 0.5 + avgScore * 0.5;
   }
 
-  async getDiagnostics(tenantId: string) {
-    return this.diagnostics.getDiagnostics(tenantId);
+  async getDiagnostics(tenantId: string, scope: DiagnosticsScope) {
+    return this.diagnostics.getDiagnostics(tenantId, scope);
   }
 }

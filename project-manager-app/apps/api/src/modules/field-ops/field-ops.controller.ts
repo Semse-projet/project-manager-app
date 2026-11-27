@@ -75,7 +75,14 @@ export class FieldOpsController {
     @Query("status") status?: string,
   ) {
     const actor = resolveRequestContext(req);
-    const data = await this.service.listUnits({ tenantId: actor.tenantId, projectId, status });
+    const data = await this.service.listUnits({
+      tenantId: actor.tenantId,
+      orgId: actor.orgId,
+      userId: actor.userId,
+      roles: actor.roles,
+      projectId,
+      status,
+    });
     return ok(resolveRequestId(req.headers ?? {}), data);
   }
 
@@ -86,7 +93,13 @@ export class FieldOpsController {
     @Param("unitId") fieldUnitId: string,
   ) {
     const actor = resolveRequestContext(req);
-    const data = await this.service.findUnit({ tenantId: actor.tenantId, fieldUnitId });
+    const data = await this.service.findUnit({
+      tenantId: actor.tenantId,
+      orgId: actor.orgId,
+      userId: actor.userId,
+      roles: actor.roles,
+      fieldUnitId,
+    });
     return ok(resolveRequestId(req.headers ?? {}), data);
   }
 
@@ -99,7 +112,13 @@ export class FieldOpsController {
     const parsed = createUnitSchema.safeParse(body);
     if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
     const actor = resolveRequestContext(req);
-    const data = await this.service.createUnit({ tenantId: actor.tenantId, ...parsed.data });
+    const data = await this.service.createUnit({
+      tenantId: actor.tenantId,
+      orgId: actor.orgId,
+      userId: actor.userId,
+      roles: actor.roles,
+      ...parsed.data,
+    });
     return ok(resolveRequestId(req.headers ?? {}), data);
   }
 
@@ -113,7 +132,14 @@ export class FieldOpsController {
     const parsed = updateUnitStatusSchema.safeParse(body);
     if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
     const actor = resolveRequestContext(req);
-    const data = await this.service.updateUnitStatus({ tenantId: actor.tenantId, fieldUnitId, status: parsed.data.status });
+    const data = await this.service.updateUnitStatus({
+      tenantId: actor.tenantId,
+      orgId: actor.orgId,
+      userId: actor.userId,
+      roles: actor.roles,
+      fieldUnitId,
+      status: parsed.data.status,
+    });
     return ok(resolveRequestId(req.headers ?? {}), data);
   }
 
@@ -128,7 +154,15 @@ export class FieldOpsController {
     @Query("dateTo") dateTo?: string,
   ) {
     const actor = resolveRequestContext(req);
-    const data = await this.service.listWorklogs({ tenantId: actor.tenantId, fieldUnitId, dateFrom, dateTo });
+    const data = await this.service.listWorklogs({
+      tenantId: actor.tenantId,
+      orgId: actor.orgId,
+      userId: actor.userId,
+      roles: actor.roles,
+      fieldUnitId,
+      dateFrom,
+      dateTo,
+    });
     return ok(resolveRequestId(req.headers ?? {}), data);
   }
 
@@ -143,6 +177,9 @@ export class FieldOpsController {
     const actor = resolveRequestContext(req);
     const data = await this.service.createWorklog({
       tenantId: actor.tenantId,
+      orgId: actor.orgId,
+      userId: actor.userId,
+      roles: actor.roles,
       createdBy: actor.userId,
       ...parsed.data,
     });
@@ -305,7 +342,12 @@ export class FieldOpsController {
   @RequirePermissions("field-ops:read")
   async listVendors(@Req() req: { headers?: Record<string, unknown> }) {
     const actor = resolveRequestContext(req);
-    const data = await this.service.listVendors({ tenantId: actor.tenantId });
+    const data = await this.service.listVendors({
+      tenantId: actor.tenantId,
+      orgId: actor.orgId,
+      userId: actor.userId,
+      roles: actor.roles,
+    });
     return ok(resolveRequestId(req.headers ?? {}), data);
   }
 
@@ -318,7 +360,13 @@ export class FieldOpsController {
     const parsed = createVendorSchema.safeParse(body);
     if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
     const actor = resolveRequestContext(req);
-    const data = await this.service.createVendor({ tenantId: actor.tenantId, ...parsed.data });
+    const data = await this.service.createVendor({
+      tenantId: actor.tenantId,
+      orgId: actor.orgId,
+      userId: actor.userId,
+      roles: actor.roles,
+      ...parsed.data,
+    });
     return ok(resolveRequestId(req.headers ?? {}), data);
   }
 
@@ -332,7 +380,14 @@ export class FieldOpsController {
     const parsed = upsertComplianceSchema.safeParse(body);
     if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
     const actor = resolveRequestContext(req);
-    const data = await this.service.upsertComplianceDoc({ tenantId: actor.tenantId, vendorId, ...parsed.data });
+    const data = await this.service.upsertComplianceDoc({
+      tenantId: actor.tenantId,
+      orgId: actor.orgId,
+      userId: actor.userId,
+      roles: actor.roles,
+      vendorId,
+      ...parsed.data,
+    });
     return ok(resolveRequestId(req.headers ?? {}), data);
   }
 }

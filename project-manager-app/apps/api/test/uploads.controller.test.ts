@@ -63,7 +63,17 @@ test("putFile stores the real request body bytes via req.raw (Fastify shape)", a
 
     const headerCalls: Array<Record<string, string>> = [];
     const fakeRes = { headers: (h: Record<string, string>) => headerCalls.push(h) };
-    const file = await controller.getFile(key, { headers: {}, query: {} } as never, fakeRes as never);
+    // Default signed-GET mode is enforce. The uploader's own session is a
+    // legitimate read; an anonymous GET of the same key is denied.
+    const file = await controller.getFile(key, {
+      headers: {
+        "x-user-id": "userA",
+        "x-tenant-id": "tenantA",
+        "x-org-id": "orgA",
+        "x-roles": "PRO",
+      },
+      query: {},
+    } as never, fakeRes as never);
     assert.equal(headerCalls.length, 1, "getFile must call reply.headers() (Fastify), not res.set() (Express)");
     assert.equal(headerCalls[0]["Content-Type"], "application/octet-stream");
 

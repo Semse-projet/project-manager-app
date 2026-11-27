@@ -26,6 +26,11 @@ export interface PaymentGovernanceDiagnostics {
   blockedMilestones: MilestoneBlockerDiagnostic[];
 }
 
+/** `tenant` is OPS_ADMIN only. `projects` is the caller's accessible project ids. */
+export type DiagnosticsScope =
+  | { kind: "tenant" }
+  | { kind: "projects"; projectIds: string[] };
+
 // ── Service ────────────────────────────────────────────────────────────────────
 
 @Injectable()
@@ -34,10 +39,15 @@ export class PaymentGovernanceDiagnosticsService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  async getDiagnostics(tenantId: string): Promise<PaymentGovernanceDiagnostics> {
+  async getDiagnostics(tenantId: string, scope: DiagnosticsScope): Promise<PaymentGovernanceDiagnostics> {
+    if (scope.kind === "projects" && scope.projectIds.length === 0) {
+      return this.emptyDiagnostics();
+    }
     try {
       const milestones = await this.prisma.milestone.findMany({
-        where: { project: { tenantId } },
+        where: scope.kind === "tenant"
+          ? { project: { tenantId } }
+          : { projectId: { in: scope.projectIds }, project: { tenantId } },
         select: {
           id: true,
           title: true,
@@ -156,7 +166,12 @@ export class PaymentGovernanceDiagnosticsService {
 
       if (project) {
         const signals = await this.prisma.operationalSignal.findMany({
-          where: { tenantId: project.tenantId, severity: "critical", status: "open" },
+          where: {
+            tenantId: project.tenantId,
+            severity: "critical",
+            status: "open",
+            OR: [{ milestoneId }, { buildOpsProjectId: projectId }],
+          },
           select: { type: true },
           take: 5,
         });
@@ -203,6 +218,17 @@ export class PaymentGovernanceDiagnosticsService {
       criticalOperationalSignals,
       auditReason,
       nextBestAction,
+    };
+  }
+
+  private emptyDiagnostics(): PaymentGovernanceDiagnostics {
+    return {
+      analyzedAt: new Date().toISOString(),
+      totalMilestones: 0,
+      blockedCount: 0,
+      readyCount: 0,
+      releasedCount: 0,
+      blockedMilestones: [],
     };
   }
 }

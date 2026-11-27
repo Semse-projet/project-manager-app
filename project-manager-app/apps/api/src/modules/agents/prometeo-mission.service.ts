@@ -5,13 +5,16 @@ import type {
   PrometeoMissionState,
   PrometeoProposedAction,
 } from "@semse/schemas";
+import type { ScopeActor } from "../../common/resource-scope.js";
 import { AgentWorkPlanService, type WorkPlanRecord } from "./agent-work-plan.service.js";
 import { PlanExecutionService } from "./plan-execution.service.js";
+import { ProjectAccessService } from "./project-access.service.js";
 
 type Actor = {
   tenantId: string;
   orgId: string;
   userId: string;
+  roles: string[];
 };
 
 type CreateStep = Parameters<AgentWorkPlanService["create"]>[0]["steps"][number];
@@ -28,16 +31,22 @@ function stepId(value: string): string {
 export class PrometeoMissionService {
   private readonly workPlans: AgentWorkPlanService;
   private readonly planExecution: PlanExecutionService;
+  private readonly projectAccess: ProjectAccessService;
 
   constructor(
     workPlans: AgentWorkPlanService,
     planExecution: PlanExecutionService,
+    projectAccess: ProjectAccessService,
   ) {
     this.workPlans = workPlans;
     this.planExecution = planExecution;
+    this.projectAccess = projectAccess;
   }
 
   async create(actor: Actor, input: PrometeoMissionCreateInput): Promise<PrometeoMissionState> {
+    if (input.projectId) {
+      await this.projectAccess.assertProjectAccess(this.scopeActor(actor), input.projectId);
+    }
     const needsApproval = input.proposedActions.some((action) => action.requiresApproval);
     const steps = this.buildSteps(input.proposedActions, needsApproval);
     const created = await this.workPlans.create({
@@ -98,12 +107,14 @@ export class PrometeoMissionService {
     return this.toMissionState(reconciled);
   }
 
-  async get(tenantId: string, missionId: string): Promise<PrometeoMissionState> {
-    const plan = await this.workPlans.findById(tenantId, missionId);
+  async get(actor: Actor, missionId: string): Promise<PrometeoMissionState> {
+    await this.assertMissionAccess(actor, missionId);
+    const plan = await this.workPlans.findById(actor.tenantId, missionId);
     return this.toMissionState(plan);
   }
 
   async approve(actor: Actor, missionId: string): Promise<PrometeoMissionState> {
+    await this.assertMissionAccess(actor, missionId);
     const approved = await this.workPlans.approve({
       tenantId: actor.tenantId,
       orgId: actor.orgId,
@@ -126,6 +137,7 @@ export class PrometeoMissionService {
   }
 
   async reject(actor: Actor, missionId: string): Promise<PrometeoMissionState> {
+    await this.assertMissionAccess(actor, missionId);
     const plan = await this.workPlans.reject({
       tenantId: actor.tenantId,
       planId: missionId,
@@ -135,6 +147,7 @@ export class PrometeoMissionService {
   }
 
   async cancel(actor: Actor, missionId: string): Promise<PrometeoMissionState> {
+    await this.assertMissionAccess(actor, missionId);
     const plan = await this.workPlans.cancel({
       tenantId: actor.tenantId,
       planId: missionId,
@@ -149,6 +162,7 @@ export class PrometeoMissionService {
     missionStepId: string,
     input: PrometeoMissionCheckpointInput,
   ): Promise<PrometeoMissionState> {
+    await this.assertMissionAccess(actor, missionId);
     const evidenceContext = { evidenceCount: input.evidenceCount };
     const common = {
       tenantId: actor.tenantId,
@@ -175,6 +189,28 @@ export class PrometeoMissionService {
         });
 
     return this.toMissionState(plan);
+  }
+
+  private scopeActor(actor: Actor): ScopeActor {
+    return {
+      tenantId: actor.tenantId,
+      orgId: actor.orgId,
+      userId: actor.userId,
+      roles: actor.roles ?? [],
+    };
+  }
+
+  /**
+   * Same participation rule as `/v1/agents/plans/*`: a mission is an AgentWorkPlan.
+   * Project plans follow the project's client/pro org; a plan with no project is
+   * visible only to its creator or OPS_ADMIN of the same tenant.
+   */
+  private async assertMissionAccess(actor: Actor, missionId: string): Promise<void> {
+    const plan = await this.workPlans.findById(actor.tenantId, missionId);
+    await this.projectAccess.assertPlanAccess(this.scopeActor(actor), {
+      projectId: plan.projectId,
+      createdBy: plan.createdBy,
+    });
   }
 
   private buildSteps(actions: PrometeoProposedAction[], needsApproval: boolean): CreateStep[] {

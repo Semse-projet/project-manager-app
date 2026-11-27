@@ -4,9 +4,10 @@ import { PaymentGovernanceService } from "./payment-governance.service.js";
 import { PaymentGovernanceRepository } from "./payment-governance.repository.js";
 import { PaymentGovernanceDiagnosticsService } from "./diagnostics.service.js";
 import { SseModule } from "../../infrastructure/sse/sse.module.js";
+import { ResourceScopeModule } from "../../common/resource-scope.module.js";
 
 @Module({
-  imports: [SseModule],
+  imports: [SseModule, ResourceScopeModule],
   controllers: [PaymentGovernanceController],
   providers: [
     PaymentGovernanceService,

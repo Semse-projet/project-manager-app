@@ -23,6 +23,7 @@ import { runWithObservabilityContext } from "./infrastructure/observability/requ
 import { SemseLoggerService } from "./infrastructure/observability/semse-logger.service.js";
 import { resolveRequestId, resolveTraceId } from "./common/request-id.js";
 import { HEADER_IDENTITY_OPT_IN_ENV, headerIdentityAllowed } from "./common/request-context.js";
+import { assertProductionUploadsSigningConfig } from "./infrastructure/storage/signed-url.js";
 
 type ObservableRequest = FastifyRequest & {
   requestId?: string;
@@ -32,6 +33,7 @@ type ObservableRequest = FastifyRequest & {
 };
 
 async function bootstrap(): Promise<void> {
+  assertProductionUploadsSigningConfig();
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
     new FastifyAdapter({ logger: false }),

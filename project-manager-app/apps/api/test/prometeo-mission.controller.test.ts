@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { ForbiddenException } from "@nestjs/common";
 import { REQUIRED_PERMISSIONS_KEY } from "../src/common/permissions.decorator.ts";
 import type { WorkPlanRecord } from "../src/modules/agents/agent-work-plan.service.ts";
 import { PrometeoMissionController } from "../dist/modules/agents/prometeo-mission.controller.js";
@@ -137,12 +138,28 @@ function createMissionRuntime() {
     },
   };
 
-  return new PrometeoMissionService(workPlans as never, planExecution as never);
+  const projectAccess = {
+    async assertProjectAccess(actor: { orgId: string; roles?: string[] }, projectId: string) {
+      if (actor.roles?.includes("OPS_ADMIN")) return;
+      if (actor.orgId === "org_1" && projectId === "project_1") return;
+      throw new ForbiddenException("Actor cannot access this project");
+    },
+    async assertPlanAccess(
+      actor: { orgId: string; userId?: string; roles?: string[] },
+      plan: { projectId?: string; createdBy: string },
+    ) {
+      if (plan.projectId) return this.assertProjectAccess(actor, plan.projectId);
+      if (actor.roles?.includes("OPS_ADMIN") || actor.userId === plan.createdBy) return;
+      throw new ForbiddenException("Actor cannot access this plan");
+    },
+  };
+
+  return new PrometeoMissionService(workPlans as never, planExecution as never, projectAccess as never);
 }
 
 test("prometeo mission runtime persists approvals and checkpoints through AgentWorkPlan", async () => {
   const runtime = createMissionRuntime();
-  const actor = { tenantId: "tenant_1", orgId: "org_1", userId: "usr_1" };
+  const actor = { tenantId: "tenant_1", orgId: "org_1", userId: "usr_1", roles: ["CLIENT"] };
   const created = await runtime.create(actor, {
     goal: "Preparar liberacion de pago",
     projectId: "project_1",
@@ -184,6 +201,46 @@ test("prometeo mission runtime persists approvals and checkpoints through AgentW
   });
   assert.equal(completed.steps.find((step) => step.id === actionStepId)?.status, "completed");
   assert.ok((completed.progress?.percent ?? 0) > 0);
+});
+
+test("prometeo mission denies a same-tenant caller from another organization", async () => {
+  const runtime = createMissionRuntime();
+  const owner = { tenantId: "tenant_1", orgId: "org_1", userId: "usr_1", roles: ["CLIENT"] };
+  const outsider = { tenantId: "tenant_1", orgId: "org_2", userId: "usr_2", roles: ["PRO"] };
+  const created = await runtime.create(owner, {
+    goal: "Preparar liberacion de pago",
+    projectId: "project_1",
+    threadId: "thread_1",
+    selectedEntities: [],
+    successCriteria: [],
+    context: { snapshot: "org-1-only" },
+    proposedActions: [],
+  });
+
+  await assert.rejects(() => runtime.get(outsider, created.id), ForbiddenException);
+  await assert.rejects(() => runtime.approve(outsider, created.id), ForbiddenException);
+  await assert.rejects(() => runtime.reject(outsider, created.id), ForbiddenException);
+  await assert.rejects(() => runtime.cancel(outsider, created.id), ForbiddenException);
+  await assert.rejects(
+    () => runtime.checkpoint(outsider, created.id, "verify", { action: "complete", evidenceCount: 0 }),
+    ForbiddenException,
+  );
+  await assert.rejects(
+    () => runtime.create(outsider, {
+      goal: "Escribir en el proyecto ajeno",
+      projectId: "project_1",
+      threadId: "thread_2",
+      selectedEntities: [],
+      successCriteria: [],
+      context: {},
+      proposedActions: [],
+    }),
+    ForbiddenException,
+  );
+
+  const sameOrg = await runtime.get(owner, created.id);
+  assert.equal(sameOrg.id, created.id);
+  assert.equal(sameOrg.goal, "Preparar liberacion de pago");
 });
 
 test("prometeo mission controller validates contracts and declares permissions", async () => {

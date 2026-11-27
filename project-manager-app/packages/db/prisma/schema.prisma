@@ -256,6 +256,7 @@ model Org {
   worksites                     Worksite[]
   crews                         Crew[]
   businessEngagements           BusinessEngagement[]
+  vendors                       Vendor[]
   createdAt                     DateTime                       @default(now())
   updatedAt                     DateTime                       @updatedAt
 
@@ -2163,6 +2164,9 @@ model FieldMilestone {
 model Vendor {
   id        String   @id @default(cuid())
   tenantId  String
+  /// Owning organization. Null only for rows created before org scoping; those
+  /// stay visible to OPS_ADMIN until an operator assigns them.
+  orgId     String?
   name      String
   phone     String?
   email     String?
@@ -2170,10 +2174,12 @@ model Vendor {
   createdAt DateTime @default(now())
 
   tenant     Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  org        Org?            @relation(fields: [orgId], references: [id], onDelete: SetNull)
   compliance ComplianceDoc[]
 
   @@unique([tenantId, name])
   @@index([tenantId])
+  @@index([tenantId, orgId])
 }
 
 /// Formal multi-step work plan created by the copilot during plan mode.

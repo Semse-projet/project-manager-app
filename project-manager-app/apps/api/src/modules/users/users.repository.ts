@@ -125,16 +125,19 @@ export class UsersRepository {
     tenantId: string;
     orgId: string;
     userId: string;
+    roles?: string[];
   }): Promise<UserRecord[]> {
     await this.actorContextService.ensureActorContext(input);
+    const ops = (input.roles ?? []).includes("OPS_ADMIN");
+    // A shared tenant is not a shared directory. Non-OPS callers only see
+    // members of the organization on their session. An empty org matches nothing.
+    if (!ops && input.orgId.trim().length === 0) return [];
     const users = (await this.prisma.user.findMany({
       where: {
         memberships: {
-          some: {
-            org: {
-              tenantId: input.tenantId
-            }
-          }
+          some: ops
+            ? { org: { tenantId: input.tenantId } }
+            : { orgId: input.orgId, org: { tenantId: input.tenantId } }
         }
       },
       orderBy: { createdAt: "desc" }

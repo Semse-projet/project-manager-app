@@ -201,13 +201,38 @@ export class DigitalTwinService {
     return row ? this.toRecord(row) : null;
   }
 
-  async listArchives(tenantId: string, limit = 20): Promise<DigitalTwinRecord[]> {
+  async listArchives(
+    tenantId: string,
+    limit = 20,
+    access?: { orgId: string; projectIds: string[] },
+  ): Promise<DigitalTwinRecord[]> {
+    const where = access ? this.archiveAccessWhere(tenantId, access) : { tenantId };
+    if (!where) return [];
     const rows = await this.prisma.projectArchive.findMany({
-      where: { tenantId },
+      where,
       orderBy: { archivedAt: "desc" },
       take: limit,
     });
     return rows.map((r: Record<string, unknown>) => this.toRecord(r));
+  }
+
+  /**
+   * OPS passes no access filter (whole tenant). Everyone else sees an archive
+   * only when their session org is a party on it, or the live project is one
+   * they can already read. An empty org matches nothing.
+   */
+  private archiveAccessWhere(
+    tenantId: string,
+    access: { orgId: string; projectIds: string[] },
+  ): { tenantId: string; OR: Array<Record<string, unknown>> } | null {
+    const orgId = access.orgId.trim();
+    const projectIds = access.projectIds.filter((id) => id.length > 0);
+    const or: Array<Record<string, unknown>> = [
+      ...(orgId ? [{ clientOrgId: orgId }, { contractorOrgId: orgId }] : []),
+      ...(projectIds.length > 0 ? [{ projectId: { in: projectIds } }] : []),
+    ];
+    if (or.length === 0) return null;
+    return { tenantId, OR: or };
   }
 
   private toRecord(row: Record<string, unknown>): DigitalTwinRecord {

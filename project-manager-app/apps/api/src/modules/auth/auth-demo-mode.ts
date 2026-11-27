@@ -28,9 +28,12 @@ const LEGACY_DEMO_USER_IDS = new Set(
   Object.values(LEGACY_DEMO_ACCOUNTS).map((account) => account.userId),
 );
 
-export function isLegacyDemoLoginEnabled(): boolean {
-  // Seeded demo identities must never authenticate in production, even when the demo flag is enabled.
-  return process.env.NODE_ENV !== "production";
+export function isLegacyDemoLoginEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  // Same opt-in as the web session helper: development/test AND an explicit flag.
+  // Unset NODE_ENV (staging, preview) cannot mint admin@demo.semse.
+  if ((env.SEMSE_ALLOW_DEV_SESSION ?? "").trim() !== "true") return false;
+  const nodeEnv = (env.NODE_ENV ?? "").trim().toLowerCase();
+  return nodeEnv === "development" || nodeEnv === "test";
 }
 
 export function isDisabledDemoIdentity(userId: string, roles: string[]): boolean {

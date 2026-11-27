@@ -17,8 +17,27 @@ export const DEFAULT_VISION_TTL_SECONDS = 300; // 5 min
 export const MAX_TTL_SECONDS = 3600;
 
 export function resolveSignedGetMode(env: NodeJS.ProcessEnv = process.env): UploadsSignedGetMode {
-  const raw = (env.UPLOADS_SIGNED_GET_MODE ?? "off").trim().toLowerCase();
-  return raw === "shadow" || raw === "enforce" ? raw : "off";
+  // Fail closed: an unset or unknown mode enforces signatures. `off` and `shadow`
+  // stay available only as an explicit operator choice (rollback / observation).
+  const raw = (env.UPLOADS_SIGNED_GET_MODE ?? "enforce").trim().toLowerCase();
+  if (raw === "off" || raw === "shadow" || raw === "enforce") return raw;
+  return "enforce";
+}
+
+/**
+ * Production must not boot into enforce/shadow without a usable signing secret.
+ * Explicit `UPLOADS_SIGNED_GET_MODE=off` remains an emergency rollback and does
+ * not require the secret. Non-production keeps booting so local tests can run.
+ */
+export function assertProductionUploadsSigningConfig(env: NodeJS.ProcessEnv = process.env): void {
+  if ((env.NODE_ENV ?? "").trim().toLowerCase() !== "production") return;
+  if (resolveSignedGetMode(env) === "off") return;
+  const secret = (env.UPLOADS_SIGNING_SECRET ?? "").trim();
+  if (secret.length < 16) {
+    throw new Error(
+      "UPLOADS_SIGNING_SECRET must be at least 16 characters in production unless UPLOADS_SIGNED_GET_MODE=off",
+    );
+  }
 }
 
 /** Secretos activos: el actual primero, el anterior (rotacion) despues. */

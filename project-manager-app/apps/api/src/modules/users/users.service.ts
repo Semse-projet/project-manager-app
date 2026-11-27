@@ -43,7 +43,15 @@ export class UsersService {
   ) {}
 
   async listUsers(actor: UserActor): Promise<UserRecord[]> {
-    return this.usersRepository.findUsersByTenant(actor);
+    const users = await this.usersRepository.findUsersByTenant(actor);
+    if (actor.roles.includes("OPS_ADMIN")) return users;
+    return users.map((user) => this.withoutRiskSignals(user));
+  }
+
+  /** riskLevel and flags are internal signals. Org members still see contact fields. */
+  private withoutRiskSignals(user: UserRecord): UserRecord {
+    const { riskLevel: _riskLevel, flags: _flags, ...rest } = user;
+    return rest as UserRecord;
   }
 
   async getUser(actor: UserActor, userId: string): Promise<UserRecord> {
