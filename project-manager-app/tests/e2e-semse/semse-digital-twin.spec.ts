@@ -5,7 +5,7 @@ import { mkdir } from "node:fs/promises";
 const MAP_PATH = "/semse-consciousness-map";
 const TEST_SESSION_SECRET = process.env.SEMSE_WEB_SESSION_SECRET?.trim()
   || process.env.AUTH_SECRET?.trim()
-  || "semse-dev-session-secret";
+  || "";
 const EVIDENCE_DIR = "artifacts/evidence/digital-twin";
 
 async function openReadyMap(page: Page) {
@@ -17,6 +17,9 @@ async function openReadyMap(page: Page) {
 }
 
 async function addAdminSession(page: Page, baseURL: string | undefined) {
+  if (TEST_SESSION_SECRET.length < 32) {
+    throw new Error("Set SEMSE_WEB_SESSION_SECRET or AUTH_SECRET to at least 32 characters before signing the e2e session cookie");
+  }
   const payload = Buffer.from(JSON.stringify({
     userId: "usr_digital_twin_e2e",
     tenantId: "tenant_digital_twin_e2e",

@@ -5,6 +5,8 @@ import { ok } from "../../common/api-response.js";
 import { resolveRequestContext } from "../../common/request-context.js";
 import { resolveRequestId } from "../../common/request-id.js";
 import { RequirePermissions } from "../../common/permissions.decorator.js";
+import { ResourceScopeResolver } from "../../common/resource-scope.resolver.js";
+import { isOpsAdmin } from "../../common/resource-scope.js";
 
 function actor(req: FastifyRequest) {
   return resolveRequestContext(req as Parameters<typeof resolveRequestContext>[0]);
@@ -16,7 +18,10 @@ function toEscrowActor(ctx: ReturnType<typeof actor>): EscrowActor {
 
 @Controller("v1/payments")
 export class PaymentGovernanceController {
-  constructor(private readonly service: PaymentGovernanceService) {}
+  constructor(
+    private readonly service: PaymentGovernanceService,
+    private readonly scopeResolver: ResourceScopeResolver,
+  ) {}
 
   @Post("release")
   @RequirePermissions("finance:write")
@@ -94,7 +99,13 @@ export class PaymentGovernanceController {
   async getDiagnostics(@Req() req: FastifyRequest) {
     const rid = resolveRequestId(req.headers ?? {});
     const ctx = actor(req);
-    const diagnostics = await this.service.getDiagnostics(ctx.tenantId);
+    const scope = isOpsAdmin(ctx)
+      ? { kind: "tenant" as const }
+      : {
+          kind: "projects" as const,
+          projectIds: await this.scopeResolver.listAccessibleProjectIds(ctx.tenantId, ctx.orgId, "read"),
+        };
+    const diagnostics = await this.service.getDiagnostics(ctx.tenantId, scope);
     return ok(rid, diagnostics);
   }
 }

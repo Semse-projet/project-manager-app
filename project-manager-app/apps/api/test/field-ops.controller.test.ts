@@ -117,7 +117,7 @@ function createService(input?: {
     upsertComplianceDoc: async () => null,
   };
   const audit = { append: async () => undefined };
-  const service = new FieldOpsService(repo as never, audit as never);
+  const service = new FieldOpsService(repo as never, audit as never, { assertProjectAccess: async () => undefined } as never);
   return { service, repo, getCreatedSession: () => createdSession };
 }
 

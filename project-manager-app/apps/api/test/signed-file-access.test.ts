@@ -14,6 +14,7 @@ import {
   signKey,
   tenantFromStorageKey,
   resolveSignedGetMode,
+  assertProductionUploadsSigningConfig,
 } from "../dist/infrastructure/storage/signed-url.js";
 
 const SECRET = "primary-secret-0123456789";
@@ -77,10 +78,35 @@ test("decideRead por modo", () => {
   assert.equal(decideRead({ mode: "shadow", key: KEY_A, signature: "invalid", session: null, publicPrefixes: pub }).allow, false);
 });
 
-test("resolveSignedGetMode: valores desconocidos caen a off", () => {
-  assert.equal(resolveSignedGetMode({} as never), "off");
+test("resolveSignedGetMode: el default y los valores desconocidos exigen firma", () => {
+  assert.equal(resolveSignedGetMode({} as never), "enforce");
   assert.equal(resolveSignedGetMode({ UPLOADS_SIGNED_GET_MODE: "ENFORCE" } as never), "enforce");
-  assert.equal(resolveSignedGetMode({ UPLOADS_SIGNED_GET_MODE: "bogus" } as never), "off");
+  assert.equal(resolveSignedGetMode({ UPLOADS_SIGNED_GET_MODE: "bogus" } as never), "enforce");
+  assert.equal(resolveSignedGetMode({ UPLOADS_SIGNED_GET_MODE: "off" } as never), "off");
+  assert.equal(resolveSignedGetMode({ UPLOADS_SIGNED_GET_MODE: "shadow" } as never), "shadow");
+});
+
+test("production refuses to boot into enforce without a signing secret", () => {
+  assert.throws(
+    () => assertProductionUploadsSigningConfig({ NODE_ENV: "production" } as never),
+    /UPLOADS_SIGNING_SECRET/,
+  );
+  assert.throws(
+    () => assertProductionUploadsSigningConfig({
+      NODE_ENV: "production",
+      UPLOADS_SIGNING_SECRET: "too-short",
+    } as never),
+    /UPLOADS_SIGNING_SECRET/,
+  );
+  assert.doesNotThrow(() => assertProductionUploadsSigningConfig({
+    NODE_ENV: "production",
+    UPLOADS_SIGNING_SECRET: "primary-secret-0123456789",
+  } as never));
+  assert.doesNotThrow(() => assertProductionUploadsSigningConfig({
+    NODE_ENV: "production",
+    UPLOADS_SIGNED_GET_MODE: "off",
+  } as never));
+  assert.doesNotThrow(() => assertProductionUploadsSigningConfig({ NODE_ENV: "test" } as never));
 });
 
 async function withEnv(env: Record<string, string | undefined>, fn: () => Promise<void>) {

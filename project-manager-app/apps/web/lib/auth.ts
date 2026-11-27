@@ -12,7 +12,10 @@ export type SessionPayload = RequestIdentity & {
   exp: number; // Unix timestamp seconds
 };
 
-const DEV_SESSION_SECRET = "semse-dev-session-secret";
+/** Explicit local opt-in. Never implied by a missing or non-production NODE_ENV. */
+export const DEV_SESSION_OPT_IN_ENV = "SEMSE_ALLOW_DEV_SESSION";
+export const MIN_SESSION_SECRET_LENGTH = 32;
+const DEV_SESSION_NODE_ENVS = new Set(["development", "test"]);
 const HMAC_ALGORITHM = { name: "HMAC", hash: "SHA-256" } as const;
 const textEncoder = new TextEncoder();
 const LEGACY_DEMO_USER_IDS = new Set([
@@ -21,10 +24,19 @@ const LEGACY_DEMO_USER_IDS = new Set([
   "usr_admin_001",
 ]);
 
+/**
+ * Demo login and legacy demo identities are on only for local work: NODE_ENV
+ * development/test AND SEMSE_ALLOW_DEV_SESSION=true. Staging, preview, and an
+ * unset NODE_ENV stay closed even if the flag is copied into the environment.
+ */
+export function devSessionOptIn(env: NodeJS.ProcessEnv = process.env): boolean {
+  if ((env[DEV_SESSION_OPT_IN_ENV] ?? "").trim() !== "true") return false;
+  const nodeEnv = (env.NODE_ENV ?? "").trim().toLowerCase();
+  return DEV_SESSION_NODE_ENVS.has(nodeEnv);
+}
+
 function isDisabledDemoSession(payload: SessionPayload): boolean {
-  // Existing signed cookies for seeded demo identities also fail closed in production.
-  const legacyDemoEnabled = process.env.NODE_ENV !== "production";
-  if (LEGACY_DEMO_USER_IDS.has(payload.userId) && !legacyDemoEnabled) {
+  if (LEGACY_DEMO_USER_IDS.has(payload.userId) && !devSessionOptIn()) {
     return true;
   }
 
@@ -35,15 +47,8 @@ function isDisabledDemoSession(payload: SessionPayload): boolean {
 
 function resolveSessionSecret(): string | null {
   const explicit = process.env.SEMSE_WEB_SESSION_SECRET?.trim() || process.env.AUTH_SECRET?.trim();
-  if (explicit) {
-    return explicit;
-  }
-
-  if (process.env.NODE_ENV !== "production") {
-    return DEV_SESSION_SECRET;
-  }
-
-  return null;
+  if (!explicit || explicit.length < MIN_SESSION_SECRET_LENGTH) return null;
+  return explicit;
 }
 
 function requireSessionSecret(): string {

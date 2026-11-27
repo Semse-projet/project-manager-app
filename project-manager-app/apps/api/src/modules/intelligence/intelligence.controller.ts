@@ -5,7 +5,7 @@ import { resolveRequestContext } from "../../common/request-context.js";
 import { resolveRequestId } from "../../common/request-id.js";
 import { RequirePermissions } from "../../common/permissions.decorator.js";
 import { ResourceScopeResolver } from "../../common/resource-scope.resolver.js";
-import { assertScopeAccess } from "../../common/resource-scope.js";
+import { assertScopeAccess, isOpsAdmin } from "../../common/resource-scope.js";
 import { Public } from "../../common/public.decorator.js";
 import { DigitalTwinService } from "./digital-twin.service.js";
 import { RiskScoringService } from "./risk-scoring.service.js";
@@ -76,7 +76,12 @@ export class IntelligenceController {
   async listArchives(@Req() req: FastifyRequest, @Query("limit") limit?: string) {
     const rid = resolveRequestId(req.headers ?? {});
     const ctx = actor(req);
-    return ok(rid, await this.twin.listArchives(ctx.tenantId, Math.max(1, parseNonNegativeInt(limit, 20))));
+    const take = Math.max(1, parseNonNegativeInt(limit, 20));
+    if (isOpsAdmin(ctx)) {
+      return ok(rid, await this.twin.listArchives(ctx.tenantId, take));
+    }
+    const projectIds = await this.scopeResolver.listAccessibleProjectIds(ctx.tenantId, ctx.orgId);
+    return ok(rid, await this.twin.listArchives(ctx.tenantId, take, { orgId: ctx.orgId, projectIds }));
   }
 
   // ── Risk Scoring ──────────────────────────────────────────────────────────────

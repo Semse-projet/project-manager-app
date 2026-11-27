@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import {
   encodeSession,
+  devSessionOptIn,
   SESSION_COOKIE,
   roleFromRoles,
   defaultDashboardForRole,
@@ -20,8 +21,10 @@ const LOGIN_RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
 const LOGIN_RATE_LIMIT_MAX_EMAIL = 10;
 const LOGIN_RATE_LIMIT_MAX_IP = 30;
 const GENERIC_LOGIN_ERROR = "No se pudo iniciar sesión con esas credenciales";
-// Production cannot manufacture a local demo session even if the API is unavailable.
-const DEMO_LOGIN_ENABLED = process.env.NODE_ENV !== "production";
+
+function demoLoginEnabled(): boolean {
+  return devSessionOptIn();
+}
 
 const DEMO_ACCOUNTS: Record<string, Omit<SessionPayload, "exp">> = {
   "worker@demo.semse": {
@@ -154,14 +157,14 @@ async function resolveSessionPayload(input: {
       });
     } catch (apiError) {
       // Fall through to demo mode if API auth lifecycle is not configured
-      if (!DEMO_LOGIN_ENABLED) throw apiError;
+      if (!demoLoginEnabled()) throw apiError;
       const isDemoAccount = input.email.toLowerCase().trim() in DEMO_ACCOUNTS;
       if (!isDemoAccount) throw apiError;
       // API is up but auth is not configured — use demo credentials for local dev
     }
   }
 
-  if (!DEMO_LOGIN_ENABLED) {
+  if (!demoLoginEnabled()) {
     throw new Error("SEMSE authentication backend is not configured");
   }
 

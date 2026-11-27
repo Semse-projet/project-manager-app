@@ -18,6 +18,12 @@ test("production identifies persisted legacy demo accounts as disabled", (t) => 
   process.env.SEMSE_DEMO_MODE = "true";
 
   assert.equal(isLegacyDemoLoginEnabled(), false);
+  assert.equal(isLegacyDemoLoginEnabled({ NODE_ENV: "development" }), false);
+  assert.equal(isLegacyDemoLoginEnabled({ NODE_ENV: undefined, SEMSE_ALLOW_DEV_SESSION: "true" }), false);
+  assert.equal(
+    isLegacyDemoLoginEnabled({ NODE_ENV: "development", SEMSE_ALLOW_DEV_SESSION: "true" }),
+    true,
+  );
   assert.ok("admin@demo.semse" in LEGACY_DEMO_ACCOUNTS);
   assert.equal(
     isDisabledDemoIdentity("usr_admin_001", ["OPS_ADMIN"]),

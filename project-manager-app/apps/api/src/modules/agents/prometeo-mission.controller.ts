@@ -28,7 +28,7 @@ export class PrometeoMissionController {
   @RequirePermissions("agents:run:create")
   async get(@Req() req: { headers?: Record<string, unknown> }, @Param("missionId") missionId: string) {
     const actor = resolveRequestContext(req);
-    const data = await this.missions.get(actor.tenantId, missionId);
+    const data = await this.missions.get(actor, missionId);
     return ok(resolveRequestId(req.headers ?? {}), data);
   }
 

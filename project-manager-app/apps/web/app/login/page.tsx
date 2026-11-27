@@ -8,11 +8,14 @@ import { flushProductEvents, trackProductEvent } from "@/lib/product-intelligenc
 import { LanguageProvider, useLanguage } from "@/lib/language-context";
 import { LanguageSwitch } from "../_auth/LanguageSwitch";
 
-// Never advertise demo identities on a production login screen.
-const DEMO_LOGIN_ENABLED = process.env.NODE_ENV !== "production";
+// Demo buttons are a local opt-in. NODE_ENV=development alone does not show them,
+// and a production build inlines NODE_ENV as "production", so the flag cannot
+// turn the buttons on in a production bundle.
+const DEMO_LOGIN_ENABLED =
+  process.env.NEXT_PUBLIC_SEMSE_ALLOW_DEV_SESSION === "true" &&
+  process.env.NODE_ENV === "development";
 
-// The public default demo password is only ever shown or pre-filled outside production.
-const SHOW_DEMO_PASSWORD = DEMO_LOGIN_ENABLED && process.env.NODE_ENV !== "production";
+const SHOW_DEMO_PASSWORD = DEMO_LOGIN_ENABLED;
 
 // The login API answers in Spanish; the page picks its own copy by status instead.
 type LoginErrorKey = "invalidCredentials" | "tooManyAttempts" | "genericError" | "networkError";

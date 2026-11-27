@@ -295,9 +295,10 @@ describe("PaymentGovernanceService", () => {
         blockedMilestones: [],
       } as any);
 
-      const diag = await service.getDiagnostics(tenantId);
+      const diag = await service.getDiagnostics(tenantId, { kind: "tenant" });
 
       expect(diag.totalMilestones).toBe(5);
+      expect(mockDiagnostics.getDiagnostics).toHaveBeenCalledWith(tenantId, { kind: "tenant" });
     });
   });
 });

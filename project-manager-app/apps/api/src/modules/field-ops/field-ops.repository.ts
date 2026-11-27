@@ -82,12 +82,24 @@ export class FieldOpsRepository {
 
   // ── FieldUnit ─────────────────────────────────────────────────────────────
 
-  async listUnits(input: { tenantId: string; projectId?: string; status?: string }) {
+  /** Client org or assigned pro org. An empty orgId is not a match. */
+  private participantProjectWhere(orgId: string): Prisma.ProjectWhereInput {
+    return {
+      OR: [
+        { assignedProOrgId: orgId },
+        { job: { clientOrgId: orgId } },
+      ],
+    };
+  }
+
+  async listUnits(input: { tenantId: string; projectId?: string; status?: string; orgId?: string }) {
+    if (input.orgId !== undefined && input.orgId.length === 0) return [];
     return this.client.fieldUnit.findMany({
       where: {
         tenantId: input.tenantId,
         ...(input.projectId ? { projectId: input.projectId } : {}),
         ...(input.status ? { status: input.status as Prisma.EnumFieldUnitStatusFilter["equals"] } : {}),
+        ...(input.orgId ? { project: this.participantProjectWhere(input.orgId) } : {}),
       },
       orderBy: { code: "asc" },
     });
@@ -140,11 +152,13 @@ export class FieldOpsRepository {
 
   // ── WorklogEntry ──────────────────────────────────────────────────────────
 
-  async listWorklogs(input: { tenantId: string; fieldUnitId?: string; dateFrom?: Date; dateTo?: Date }) {
+  async listWorklogs(input: { tenantId: string; fieldUnitId?: string; dateFrom?: Date; dateTo?: Date; orgId?: string }) {
+    if (input.orgId !== undefined && input.orgId.length === 0) return [];
     return this.client.worklogEntry.findMany({
       where: {
         tenantId: input.tenantId,
         ...(input.fieldUnitId ? { fieldUnitId: input.fieldUnitId } : {}),
+        ...(input.orgId ? { fieldUnit: { project: this.participantProjectWhere(input.orgId) } } : {}),
         ...(input.dateFrom || input.dateTo ? {
           date: {
             ...(input.dateFrom ? { gte: input.dateFrom } : {}),
@@ -449,16 +463,28 @@ export class FieldOpsRepository {
 
   // ── Vendor ────────────────────────────────────────────────────────────────
 
-  async listVendors(input: { tenantId: string }) {
+  async listVendors(input: { tenantId: string; orgId?: string }) {
+    if (input.orgId !== undefined && input.orgId.length === 0) return [];
     return this.client.vendor.findMany({
-      where: { tenantId: input.tenantId },
+      where: {
+        tenantId: input.tenantId,
+        ...(input.orgId ? { orgId: input.orgId } : {}),
+      },
       include: { compliance: true },
       orderBy: { name: "asc" },
     });
   }
 
+  async findVendorById(input: { tenantId: string; vendorId: string }) {
+    return this.client.vendor.findFirst({
+      where: { id: input.vendorId, tenantId: input.tenantId },
+      select: { id: true, orgId: true },
+    });
+  }
+
   async createVendor(input: {
     tenantId: string;
+    orgId?: string;
     name: string;
     phone?: string;
     email?: string;
@@ -467,6 +493,7 @@ export class FieldOpsRepository {
     return this.client.vendor.create({
       data: {
         tenantId: input.tenantId,
+        orgId: input.orgId,
         name: input.name,
         phone: input.phone,
         email: input.email,

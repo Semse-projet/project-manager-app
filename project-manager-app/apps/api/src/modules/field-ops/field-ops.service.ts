@@ -1,5 +1,7 @@
-import { BadRequestException, ConflictException, Injectable } from "@nestjs/common";
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import type { ScopeActor } from "../../common/resource-scope.js";
 import { AuditService } from "../../infrastructure/audit/audit.service.js";
+import { ProjectAccessService } from "../agents/project-access.service.js";
 import { FieldOpsRepository } from "./field-ops.repository.js";
 import type { JobRecordView, TrackerBootstrapView, TrackerSessionView, TrackerSnapshotView } from "@semse/schemas";
 import {
@@ -9,28 +11,75 @@ import {
   trimTrackerNotes
 } from "./tracker-session.js";
 
+type FieldActor = {
+  tenantId: string;
+  orgId?: string;
+  userId?: string;
+  roles?: string[];
+};
+
 @Injectable()
 export class FieldOpsService {
   private readonly repo: FieldOpsRepository;
   private readonly auditService: AuditService;
+  private readonly projectAccess: ProjectAccessService;
 
-  constructor(repo: FieldOpsRepository, auditService: AuditService) {
+  constructor(repo: FieldOpsRepository, auditService: AuditService, projectAccess: ProjectAccessService) {
     this.repo = repo;
     this.auditService = auditService;
+    this.projectAccess = projectAccess;
+  }
+
+  private scopeActor(input: FieldActor): ScopeActor {
+    return {
+      tenantId: input.tenantId,
+      orgId: input.orgId ?? "",
+      userId: input.userId,
+      roles: input.roles ?? [],
+    };
+  }
+
+  private isOps(input: FieldActor): boolean {
+    return (input.roles ?? []).includes("OPS_ADMIN");
+  }
+
+  /** OPS lists the tenant. Everyone else is limited to their session org (empty org matches nothing). */
+  private scopedOrg<T extends FieldActor>(input: T): T {
+    if (this.isOps(input)) {
+      const { orgId: _orgId, ...rest } = input;
+      return rest as T;
+    }
+    return { ...input, orgId: input.orgId ?? "" };
+  }
+
+  private assertProject(input: FieldActor, projectId: string) {
+    return this.projectAccess.assertProjectAccess(this.scopeActor(input), projectId);
+  }
+
+  private async projectIdForUnit(input: FieldActor & { fieldUnitId: string }): Promise<string> {
+    const unit = await this.repo.findUnitById({ tenantId: input.tenantId, fieldUnitId: input.fieldUnitId });
+    if (!unit) throw new NotFoundException(`FieldUnit ${input.fieldUnitId} not found`);
+    return unit.projectId;
   }
 
   // ── Units ─────────────────────────────────────────────────────────────────
 
-  listUnits(input: { tenantId: string; projectId?: string; status?: string }) {
-    return this.repo.listUnits(input);
+  listUnits(input: FieldActor & { projectId?: string; status?: string }) {
+    const scoped = this.scopedOrg(input);
+    if (input.projectId) {
+      return this.assertProject(input, input.projectId).then(() => this.repo.listUnits(scoped));
+    }
+    return this.repo.listUnits(scoped);
   }
 
-  findUnit(input: { tenantId: string; fieldUnitId: string }) {
-    return this.repo.findUnitById(input);
+  findUnit(input: FieldActor & { fieldUnitId: string }) {
+    return this.repo.findUnitById(input).then((unit) => {
+      if (!unit) throw new NotFoundException(`FieldUnit ${input.fieldUnitId} not found`);
+      return this.assertProject(input, unit.projectId).then(() => unit);
+    });
   }
 
-  createUnit(input: {
-    tenantId: string;
+  createUnit(input: FieldActor & {
     projectId: string;
     code: string;
     name?: string;
@@ -39,30 +88,35 @@ export class FieldOpsService {
     if (!input.code.trim()) {
       throw new BadRequestException("code is required");
     }
-    return this.repo.createUnit(input);
+    return this.assertProject(input, input.projectId).then(() => this.repo.createUnit(input));
   }
 
-  updateUnitStatus(input: { tenantId: string; fieldUnitId: string; status: string }) {
+  updateUnitStatus(input: FieldActor & { fieldUnitId: string; status: string }) {
     const VALID_STATUSES = ["PENDING", "IN_PROGRESS", "COMPLETE", "ON_HOLD", "CANCELLED"];
     if (!VALID_STATUSES.includes(input.status)) {
       throw new BadRequestException(`status must be one of: ${VALID_STATUSES.join(", ")}`);
     }
-    return this.repo.updateUnitStatus(input);
+    return this.projectIdForUnit(input).then((projectId) =>
+      this.assertProject(input, projectId).then(() => this.repo.updateUnitStatus(input)),
+    );
   }
 
   // ── Worklogs ─────────────────────────────────────────────────────────────
 
-  listWorklogs(input: { tenantId: string; fieldUnitId?: string; dateFrom?: string; dateTo?: string }) {
-    return this.repo.listWorklogs({
-      tenantId: input.tenantId,
+  listWorklogs(input: FieldActor & { fieldUnitId?: string; dateFrom?: string; dateTo?: string }) {
+    const query = {
+      ...this.scopedOrg(input),
       fieldUnitId: input.fieldUnitId,
       dateFrom: input.dateFrom ? new Date(input.dateFrom) : undefined,
-      dateTo:   input.dateTo   ? new Date(input.dateTo)   : undefined,
-    });
+      dateTo: input.dateTo ? new Date(input.dateTo) : undefined,
+    };
+    if (!input.fieldUnitId) return this.repo.listWorklogs(query);
+    return this.projectIdForUnit({ ...input, fieldUnitId: input.fieldUnitId }).then((projectId) =>
+      this.assertProject(input, projectId).then(() => this.repo.listWorklogs(query)),
+    );
   }
 
-  createWorklog(input: {
-    tenantId: string;
+  createWorklog(input: FieldActor & {
     fieldUnitId: string;
     date: string;
     doneToday: string;
@@ -74,10 +128,12 @@ export class FieldOpsService {
     if (!input.doneToday.trim()) throw new BadRequestException("doneToday is required");
     if (!input.pendingNext.trim()) throw new BadRequestException("pendingNext is required");
 
-    return this.repo.createWorklog({
-      ...input,
-      date: new Date(input.date),
-    });
+    return this.projectIdForUnit(input).then((projectId) =>
+      this.assertProject(input, projectId).then(() => this.repo.createWorklog({
+        ...input,
+        date: new Date(input.date),
+      })),
+    );
   }
 
   // ── Tracker Sessions ─────────────────────────────────────────────────────
@@ -508,23 +564,24 @@ export class FieldOpsService {
 
   // ── Vendors ───────────────────────────────────────────────────────────────
 
-  listVendors(input: { tenantId: string }) {
-    return this.repo.listVendors(input);
+  listVendors(input: FieldActor) {
+    return this.repo.listVendors(this.scopedOrg(input));
   }
 
-  createVendor(input: {
-    tenantId: string;
+  createVendor(input: FieldActor & {
     name: string;
     phone?: string;
     email?: string;
     notes?: string;
   }) {
     if (!input.name.trim()) throw new BadRequestException("name is required");
-    return this.repo.createVendor(input);
+    if (!this.isOps(input) && !(input.orgId && input.orgId.length > 0)) {
+      throw new ForbiddenException("Actor cannot create a vendor without an organization");
+    }
+    return this.repo.createVendor({ ...input, orgId: input.orgId });
   }
 
-  upsertComplianceDoc(input: {
-    tenantId: string;
+  upsertComplianceDoc(input: FieldActor & {
     vendorId: string;
     type: string;
     status: string;
@@ -536,9 +593,20 @@ export class FieldOpsService {
     if (!VALID_STATUSES.includes(input.status)) {
       throw new BadRequestException(`status must be one of: ${VALID_STATUSES.join(", ")}`);
     }
-    return this.repo.upsertComplianceDoc({
-      ...input,
-      expiresAt: input.expiresAt ? new Date(input.expiresAt) : undefined,
+    return this.repo.findVendorById({ tenantId: input.tenantId, vendorId: input.vendorId }).then((vendor) => {
+      if (!vendor) throw new NotFoundException(`Vendor ${input.vendorId} not found`);
+      const ops = this.isOps(input);
+      const sameOrg = typeof vendor.orgId === "string" && vendor.orgId.length > 0 && vendor.orgId === input.orgId;
+      if (!ops && !sameOrg) {
+        throw new ForbiddenException("Actor cannot access this vendor");
+      }
+      if (input.status === "APPROVED" && !ops && !(input.roles ?? []).includes("CLIENT")) {
+        throw new ForbiddenException("Only the client organization or operations can approve compliance documents");
+      }
+      return this.repo.upsertComplianceDoc({
+        ...input,
+        expiresAt: input.expiresAt ? new Date(input.expiresAt) : undefined,
+      });
     });
   }
 }

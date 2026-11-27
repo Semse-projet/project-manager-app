@@ -52,11 +52,13 @@ test("the web login route and the login page no longer hard-code or pre-fill the
   assert.ok(!route.includes('"demo1234"'), "token route must not compare against a literal demo password");
   assert.ok(route.includes("resolveDemoLoginPassword"), "token route must use the resolver");
   assert.ok(route.includes("demoPasswordMatches"), "token route must use the constant-time matcher");
-  assert.ok(route.includes('const DEMO_LOGIN_ENABLED = process.env.NODE_ENV !== "production"'), "BFF demo fallback must be production-disabled");
+  assert.ok(route.includes("devSessionOptIn"), "BFF demo fallback must require the explicit dev opt-in");
+  assert.ok(!route.includes('NODE_ENV !== "production"'), "demo login must not follow a non-production NODE_ENV");
 
   const page = read("apps/web/app/login/page.tsx");
-  assert.ok(page.includes('const DEMO_LOGIN_ENABLED = process.env.NODE_ENV !== "production"'));
-  assert.ok(page.includes('const SHOW_DEMO_PASSWORD = DEMO_LOGIN_ENABLED && process.env.NODE_ENV !== "production"'));
+  assert.ok(page.includes('process.env.NEXT_PUBLIC_SEMSE_ALLOW_DEV_SESSION === "true"'));
+  assert.ok(page.includes('process.env.NODE_ENV === "development"'));
+  assert.ok(page.includes("const SHOW_DEMO_PASSWORD = DEMO_LOGIN_ENABLED;"));
   assert.ok(page.includes('useState(SHOW_DEMO_PASSWORD ? "demo1234" : "")'), "password pre-fill must be gated");
   assert.ok(page.includes("{SHOW_DEMO_PASSWORD && ("), "the visible password hint must be gated");
 });
