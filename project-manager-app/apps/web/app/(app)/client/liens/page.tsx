@@ -1,0 +1,45 @@
+"use client";
+
+import { Suspense } from "react";
+import Link from "next/link";
+import { Scale } from "lucide-react";
+import { LienRightsWorkspace } from "../../../../components/liens/LienRightsWorkspace";
+import { Loading } from "../../../../components/module-surface/ui";
+
+// Spec: docs/specs/tools/fase-2/m2.1-lien-rights.spec.md (APPROVED).
+// Clients see the calendar, notices and pending waivers of their projects;
+// generate/send/sign are enforced server-side for the project's professional.
+export default function ClientLiensPage() {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 20, maxWidth: 1200 }}>
+      <header>
+        <Link href="/client/dashboard" style={{ color: "var(--muted)", fontSize: 12, fontWeight: 600, textDecoration: "none" }}>
+          ← Dashboard
+        </Link>
+        <div style={{ display: "flex", alignItems: "center", gap: 14, marginTop: 12 }}>
+          <div
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: 14,
+              display: "grid",
+              placeItems: "center",
+              background: "color-mix(in srgb, var(--violet) 14%, transparent)"
+            }}
+          >
+            <Scale size={20} style={{ color: "var(--violet)" }} aria-hidden />
+          </div>
+          <div>
+            <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: "var(--ink)" }}>Derechos de gravamen</h1>
+            <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--muted)" }}>
+              Plazos legales, avisos preliminares y waivers de tus proyectos de construcción.
+            </p>
+          </div>
+        </div>
+      </header>
+      <Suspense fallback={<Loading />}>
+        <LienRightsWorkspace mode="workspace" />
+      </Suspense>
+    </div>
+  );
+}

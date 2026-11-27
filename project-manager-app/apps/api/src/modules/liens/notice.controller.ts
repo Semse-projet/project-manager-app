@@ -5,10 +5,8 @@ import {
   Param,
   Body,
   Req,
-  UseGuards,
   Logger,
 } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
 import { AuthenticatedAccess } from '../../common/permissions.decorator.js';
 import { resolveRequestContext } from '../../common/request-context.js';
 import { NoticeGeneratorService } from './notice-generator.service.js';
@@ -25,7 +23,6 @@ import { LienAccessService } from './lien-access.service.js';
  * - GET /v1/projects/:projectId/liens/notices/:noticeId/preview
  */
 @Controller('v1/projects/:projectId/liens')
-@UseGuards(AuthGuard('jwt'))
 @AuthenticatedAccess('Legacy lien notice endpoints are JWT-protected and pending granular lien permissions.')
 export class NoticeController {
   private readonly logger = new Logger(NoticeController.name);
@@ -101,14 +98,12 @@ export class NoticeController {
     await this.access.assertProject(resolveRequestContext(req), projectId, 'read');
 
     try {
-      // getLienCalendars() already includes each calendar's non-DRAFT
-      // notices (see LiensService.getLienCalendars) — this endpoint used to
-      // discard that and return a hardcoded empty array instead (found
-      // 2026-08-27 while wiring this module into AppModule; every call to
-      // GET /notices always reported zero notices regardless of what was in
-      // the DB). Flatten what was already fetched instead of re-querying.
-      const calendars = await this.liensService.getLienCalendars(projectId);
-      const allNotices = calendars.flatMap((calendar: any) => calendar.notices ?? []);
+      // Every notice of the project, DRAFT included (2026-11-12). The
+      // previous version flattened getLienCalendars()'s include, which drops
+      // DRAFT notices: a generated draft that was not sent in the same
+      // session became unreachable — never listed, so never previewed nor
+      // sent (generate-notice skips recipients that already have a notice).
+      const allNotices = await this.liensService.getLienNotices(projectId);
 
       return {
         success: true,

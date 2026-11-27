@@ -138,6 +138,31 @@ export class LiensService {
    * Obtener waivers pendientes para un proyecto.
    * Usado por PaymentGovernanceService para gate release.
    */
+  /**
+   * Every notice of the project's calendars — DRAFT included — newest first,
+   * without the HTML body (served by the preview endpoint).
+   */
+  async getLienNotices(projectId: string): Promise<any[]> {
+    return await this.prisma.lienNotice.findMany({
+      where: { lienCalendar: { projectId } },
+      orderBy: { generatedAt: 'desc' },
+      select: {
+        id: true,
+        lienCalendarId: true,
+        noticeType: true,
+        recipientType: true,
+        generatedAt: true,
+        sentVia: true,
+        lobLetterTrackingId: true,
+        lobLetterUrl: true,
+        sentAt: true,
+        status: true,
+        deliveredAt: true,
+        createdAt: true,
+      },
+    });
+  }
+
   async getLienWaivers(projectId: string): Promise<any[]> {
     return await this.prisma.lienWaiver.findMany({
       where: {
