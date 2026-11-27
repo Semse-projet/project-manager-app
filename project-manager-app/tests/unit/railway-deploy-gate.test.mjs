@@ -32,3 +32,9 @@ test("Worker y Vision se verifican sin depender del resultado del token", () => 
 test("el gate no cede la verificación solo porque main avanzó", () => {
   assert.doesNotMatch(wf, /main avanzó a \$head_sha durante la espera/);
 });
+
+test("el deploy pide el commit exacto: serviceInstanceDeployV2(commitSha) sin latestCommit", () => {
+  // QA G-R02 (27-nov-2026): latestCommit:true + commitSha construyó otro commit.
+  assert.doesNotMatch(deployJob, /latestCommit/);
+  assert.match(deployJob, /serviceInstanceDeployV2\(serviceId:\$s, environmentId:\$e, commitSha:\$c\)/);
+});

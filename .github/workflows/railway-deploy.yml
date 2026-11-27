@@ -19,8 +19,10 @@ name: Railway Deploy
 # además fuerza un fresh build del SHA exacto. Un SHA cuyo CI falla lo vigila
 # `production-unvalidated-deploy-alarm.yml`.
 #
-# serviceInstanceDeploy(latestCommit: true, commitSha: SHA) dispara un fresh
-# build real (serviceInstanceDeployV2 redespliega la imagen en caché).
+# serviceInstanceDeployV2(commitSha: SHA), SIN latestCommit, construye el SHA
+# exacto. QA (G-R02, 27-nov-2026): serviceInstanceDeploy(latestCommit: true,
+# commitSha) construyó otro commit (60bcff1c) y respondió true; V2 con
+# commitSha hizo un build nuevo del SHA pedido.
 #
 # Rollback: re-ejecutar este workflow NO retrocede código; revertir el commit
 # en main (git revert) y dejar que CI + este gate verifiquen el revert.
@@ -148,15 +150,19 @@ jobs:
             2bd1bd3f-9aa1-4fc3-a714-4cf90c52c770 \
             40ab1cd0-b0a6-4760-a43f-8742c1962ef7 \
             63a901e8-189e-4748-97f7-b7e60e628ee2; do
+            body=$(jq -nc --arg s "$svc" --arg e "$ENV_ID" --arg c "$DEPLOY_SHA" \
+              '{query:"mutation($s:String!,$e:String!,$c:String!){ serviceInstanceDeployV2(serviceId:$s, environmentId:$e, commitSha:$c) }", variables:{s:$s,e:$e,c:$c}}')
             response=$(curl -sf -X POST https://backboard.railway.com/graphql/v2 \
               -H "Authorization: Bearer $RAILWAY_TOKEN" \
               -H "Content-Type: application/json" \
-              -d "{\"query\":\"mutation { serviceInstanceDeploy(serviceId: \\\"$svc\\\", environmentId: \\\"$ENV_ID\\\", latestCommit: true, commitSha: \\\"$DEPLOY_SHA\\\") }\"}")
-            echo "$response" | grep -q '"serviceInstanceDeploy":true' \
-              || { echo "::error title=Release BLOCKED::Deploy failed for service $svc"; exit 1; }
-            if echo "$response" | grep -q '"errors"'; then
+              --data "$body")
+            if echo "$response" | jq -e '.errors' >/dev/null 2>&1; then
               echo "::error title=Release BLOCKED::GraphQL errors for $svc"; exit 1
             fi
+            dep=$(echo "$response" | jq -r '.data.serviceInstanceDeployV2 // empty')
+            [ -n "$dep" ] \
+              || { echo "::error title=Release BLOCKED::Deploy failed for service $svc"; exit 1; }
+            echo "Deployment $dep de $DEPLOY_SHA disparado para servicio $svc"
             echo "Fresh build de $DEPLOY_SHA disparado para servicio $svc"
           done
 
@@ -200,7 +206,7 @@ jobs:
       # API/Web/Worker usan watchPatterns ["project-manager-app/**"]: un commit
       # que solo toca .github/ o la raíz NO se reconstruye por la vía nativa y
       # producción sigue sirviendo el último commit que tocó esa ruta. Con el
-      # token, serviceInstanceDeploy fuerza el build del SHA exacto.
+      # token, serviceInstanceDeployV2(commitSha) fuerza el build del SHA exacto.
       - name: Resolve SHA production must serve
         id: expected
         if: steps.superseded.outputs.superseded != 'true'
@@ -208,7 +214,7 @@ jobs:
           DEPLOY_SHA: ${{ needs.deploy.outputs.deploy_sha }}
         run: |
           set -euo pipefail
-          # serviceInstanceDeploy(commitSha) construye el SHA exacto aunque no
+          # serviceInstanceDeployV2(commitSha) construye el SHA exacto aunque no
           # toque project-manager-app/** (watchPatterns solo afecta a la vía nativa).
           expected="$DEPLOY_SHA"
           [[ "$expected" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::No se pudo resolver el SHA esperado"; exit 1; }
