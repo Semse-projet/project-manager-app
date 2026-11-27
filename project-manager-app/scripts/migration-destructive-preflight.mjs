@@ -49,7 +49,8 @@ const RULES = [
   { id: "update_rows", re: /\bUPDATE\s+(ONLY\s+)?("[^"]+"|\w+)(\s*\.\s*("[^"]+"|\w+))?(\s+(AS\s+)?("[^"]+"|\w+))?\s+SET\b/i },
   // COLUMN es opcional en PostgreSQL: ALTER TABLE t ALTER "c" TYPE ... también cambia el tipo.
   { id: "alter_column_type", re: /\bALTER\s+(COLUMN\s+)?("[^"]+"|\w+)\s+(SET\s+DATA\s+)?TYPE\b/i },
-  { id: "rename", re: /\bRENAME\s+(COLUMN\b|TO\b|CONSTRAINT\b)/i },
+  // COLUMN también es opcional: ALTER TABLE t RENAME "a" TO "b" renombra una columna.
+  { id: "rename", re: /\bRENAME\s+(COLUMN\b|TO\b|CONSTRAINT\b|("[^"]+"|\w+)\s+TO\b)/i },
 ];
 
 /**
