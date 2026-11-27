@@ -116,3 +116,16 @@ test("un marcador de comentario dentro de un literal no oculta SQL destructivo (
   // El cuerpo de un bloque DO $$ ... $$ es código.
   assert.deepEqual(scanSql('DO $$ BEGIN UPDATE "J" SET a = 1; END $$;'), ["update_rows"]);
 });
+
+test("DROP de columna sin la palabra COLUMN también cuenta (revisión de #1199)", () => {
+  assert.deepEqual(scanSql('ALTER TABLE "Evidence" DROP "tenantId";'), ["drop_column"]);
+  assert.deepEqual(scanSql('ALTER TABLE "Evidence" DROP IF EXISTS "tenantId";'), ["drop_column"]);
+  assert.deepEqual(scanSql('ALTER TABLE "E" ADD COLUMN "a" TEXT, DROP "b";'), ["drop_column"]);
+  assert.deepEqual(scanSql('ALTER TABLE "E" DROP COLUMN "b";'), ["drop_column"]);
+  // No pierden datos: restricciones y cambios de columna.
+  assert.deepEqual(scanSql('ALTER TABLE "E" DROP CONSTRAINT "E_pkey";'), []);
+  assert.deepEqual(scanSql('ALTER TABLE "E" DROP CONSTRAINT IF EXISTS "E_fk";'), []);
+  assert.deepEqual(scanSql('ALTER TABLE "E" ALTER COLUMN "a" DROP DEFAULT;'), []);
+  assert.deepEqual(scanSql('ALTER TABLE "E" ALTER COLUMN "a" DROP NOT NULL;'), []);
+  assert.deepEqual(scanSql('DROP INDEX "E_idx";'), []);
+});

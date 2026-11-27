@@ -125,7 +125,7 @@ jobs:
 
       # Bajo el lock: GitHub conserva un solo run pendiente (el último en llegar),
       # que puede ser de un commit más antiguo que otro ya validado. Se elige el
-      # SHA más avanzado que (1) tiene CI de push en main en success y (2)
+      # SHA más avanzado que (1) tiene CI de main (push o dispatch) en success y (2)
       # desciende del candidato (o es el candidato). En workflow_dispatch el
       # candidato también debe tener CI verde: nunca se despliega sin CI.
       - name: Select most advanced CI-green SHA
@@ -135,8 +135,11 @@ jobs:
           CANDIDATE: ${{ steps.resolve-sha.outputs.deploy_sha }}
         run: |
           set -euo pipefail
-          green=$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/ci.yml/runs?branch=main&event=push&status=success&per_page=50" \
-            --jq '.workflow_runs[].head_sha') || { echo "::error title=Release BLOCKED::no se pudo listar los CI verdes de main"; exit 1; }
+          # push o workflow_dispatch (vía de recuperación manual), siempre en
+          # main y del mismo repositorio (mismas condiciones que el job).
+          green=$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/ci.yml/runs?branch=main&status=success&per_page=100" \
+            --jq ".workflow_runs[] | select((.event == \"push\" or .event == \"workflow_dispatch\") and .head_branch == \"main\" and .head_repository.full_name == \"${GITHUB_REPOSITORY}\") | .head_sha") \
+            || { echo "::error title=Release BLOCKED::no se pudo listar los CI verdes de main"; exit 1; }
           if ! printf '%s\n' "$green" | grep -qx "$CANDIDATE"; then
             echo "::error title=Release BLOCKED::$CANDIDATE no tiene un CI de main en success. No se despliega sin CI."
             exit 1

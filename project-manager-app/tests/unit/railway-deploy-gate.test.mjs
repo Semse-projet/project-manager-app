@@ -85,7 +85,10 @@ test("bajo el lock se despliega el SHA más avanzado con CI verde, nunca uno sin
   const checkout = deployJob.indexOf("Checkout release guard");
   const guard = deployJob.indexOf("Forward-only guard");
   assert.ok(sel > checkout && guard > sel, "orden: checkout -> selección -> guardia");
-  assert.match(deployJob, /actions\/workflows\/ci\.yml\/runs\?branch=main&event=push&status=success/);
+  assert.match(deployJob, /actions\/workflows\/ci\.yml\/runs\?branch=main&status=success/);
+  // La recuperación por workflow_dispatch del CI también cuenta (revisión de #1199).
+  assert.match(deployJob, /\.event == \\"push\\" or \.event == \\"workflow_dispatch\\"/);
+  assert.match(deployJob, /\.head_repository\.full_name == \\"\$\{GITHUB_REPOSITORY\}\\"/);
   assert.match(deployJob, /no tiene un CI de main en success\. No se despliega sin CI\./);
   assert.match(deployJob, /git merge-base --is-ancestor "\$best" "\$sha"/);
   // Todos los pasos posteriores usan el SHA elegido, no el del evento.

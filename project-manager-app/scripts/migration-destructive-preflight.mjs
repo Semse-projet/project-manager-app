@@ -36,6 +36,10 @@ export const APPROVALS_PATH = "project-manager-app/packages/db/prisma/destructiv
 const RULES = [
   { id: "drop_table", re: /\bDROP\s+TABLE\b/i },
   { id: "drop_column", re: /\bDROP\s+COLUMN\b/i },
+  // ALTER TABLE ... DROP [COLUMN] [IF EXISTS] col: COLUMN es opcional en Postgres.
+  // No cuentan DROP CONSTRAINT ni los cambios de columna (DROP DEFAULT,
+  // DROP NOT NULL, DROP IDENTITY, DROP EXPRESSION).
+  { id: "drop_column", re: /\bALTER\s+TABLE\b[^;]*?\bDROP\s+(IF\s+EXISTS\s+)?(?!(CONSTRAINT|COLUMN|DEFAULT|NOT|IDENTITY|EXPRESSION)\b)("[^"]+"|\w+)/i },
   { id: "drop_schema", re: /\bDROP\s+SCHEMA\b/i },
   { id: "drop_type", re: /\bDROP\s+TYPE\b/i },
   { id: "drop_view", re: /\bDROP\s+(MATERIALIZED\s+)?VIEW\b/i },
@@ -111,7 +115,7 @@ export function stripSql(sql) {
 
 export function scanSql(sql) {
   const clean = stripSql(sql);
-  return RULES.filter((r) => r.re.test(clean)).map((r) => r.id);
+  return [...new Set(RULES.filter((r) => r.re.test(clean)).map((r) => r.id))];
 }
 
 /** Nombre de la carpeta de migración a partir de una ruta del diff, o null. */
