@@ -25,6 +25,9 @@ async function requestJson(path) {
       },
     };
   }
+  if (path === "/v1/projects?jobId=job-1") {
+    return { data: [{ id: "proj-1", jobId: "job-1" }] };
+  }
   if (path === "/v1/projects/proj-1") {
     return { data: { id: "proj-1", jobId: "job-1", title: "Kitchen repair" } };
   }
@@ -135,4 +138,173 @@ test("risk worker handler classifies low-risk job with sufficient context", asyn
   assert.equal(result.result.riskLevel, "low");
   assert.deepEqual(result.result.flags, []);
   assert.equal(result.requiresHumanReview, false);
+});
+
+// #1147 — Runs creados por AgentTriggerRouter (triggerType "event") no traen
+// `input.context`: los IDs viven en `input.eventPayload` (ver
+// apps/api/src/modules/domain-events/agent-trigger-router.service.ts). Estos
+// fixtures reproducen esa forma exacta del productor real.
+function makeEventRun(agentType, eventType, eventPayload, tenantId = "tnt_demo") {
+  const calls = [];
+  return {
+    calls,
+    input: {
+      run: {
+        id: `run-event-${agentType}`,
+        agentType,
+        triggerType: "event",
+        input: {
+          eventType,
+          eventMeta: { tenantId, correlationId: `job:job-1:created` },
+          eventPayload,
+        },
+      },
+      requestJson: async (path, init, options) => {
+        calls.push({ path, tenantId: options?.tenantId });
+        return requestJson(path, init, options);
+      },
+      tenantId,
+      logger,
+      workerId: "worker-test",
+    },
+  };
+}
+
+test("pricing event run (job.created) resolves jobId from eventPayload", async () => {
+  const { input, calls } = makeEventRun("pricing", "job.created", { jobId: "job-1", title: "Kitchen electrical repair" });
+  const result = await executeSpecializedWorkerRun(input);
+
+  assert.equal(result.result.jobId, "job-1");
+  assert.ok(calls.every((call) => call.tenantId === "tnt_demo"), "every lookup must stay scoped to the run tenant");
+});
+
+test("#1161: claimed job context does not call projects or jobs and ignores a contradictory context job", async () => {
+  const calls = [];
+  const input = {
+    run: {
+      id: "run-fenced",
+      agentType: "pricing",
+      input: {
+        eventType: "job.created",
+        context: { jobId: "job-attacker", projectId: "proj-attacker" },
+        eventPayload: { jobId: "job-1" },
+        claimedJobContext: {
+          job: { id: "job-forged", title: "forged", scope: "forged scope that must not be priced", budgetMin: 1, budgetMax: 2 },
+          projectPresence: "absent",
+        },
+      },
+      claimedJobContext: {
+        job: {
+          id: "job-1",
+          title: "Kitchen electrical repair",
+          scope: "Replace panel breakers, inspect wiring, document before and after conditions, and prepare closeout notes for approval.",
+          category: "electrical",
+          status: "PUBLISHED",
+          urgency: "normal",
+          budgetMin: 1200,
+          budgetMax: 2400,
+        },
+        projectId: "",
+        projectPresence: "absent",
+      },
+    },
+    requestJson: async (path) => {
+      calls.push(path);
+      throw new Error(`AGENT_RUNNER must not call ${path}`);
+    },
+    tenantId: "tnt_demo",
+    logger,
+    workerId: "worker-test",
+  };
+  const result = await executeSpecializedWorkerRun(input);
+  assert.equal(calls.length, 0);
+  assert.equal(result.result.jobId, "job-1");
+  assert.equal(result.result.budgetMin, 1200);
+  assert.equal(result.result.title, "Kitchen electrical repair");
+  assert.equal(result.result.projectId, undefined);
+});
+
+test("#1161: risk uses the claimed job and does not treat an unloaded project as empty milestones", async () => {
+  const calls = [];
+  const result = await executeSpecializedWorkerRun({
+    run: {
+      id: "run-risk-fenced",
+      agentType: "risk",
+      input: {
+        eventType: "job.created",
+        eventPayload: { jobId: "job-1" },
+      },
+      claimedJobContext: {
+          job: {
+            id: "job-1",
+            title: "Kitchen electrical repair",
+            scope: "Replace panel breakers, inspect wiring, document before and after conditions, and prepare closeout notes for approval.",
+            category: "electrical",
+            status: "PUBLISHED",
+            urgency: "normal",
+            budgetMin: 1200,
+            budgetMax: 2400,
+          },
+          projectId: "proj-real",
+          projectPresence: "present",
+        },
+    },
+    requestJson: async (path) => {
+      calls.push(path);
+      throw new Error(`AGENT_RUNNER must not call ${path}`);
+    },
+    tenantId: "tnt_demo",
+    logger,
+    workerId: "worker-test",
+  });
+  assert.equal(calls.length, 0);
+  assert.equal(result.result.jobId, "job-1");
+  assert.equal(result.result.projectId, "proj-real");
+  assert.equal(result.result.flags.includes("project_without_milestones"), false);
+  assert.equal(result.result.flags.includes("missing_budget_anchor"), false);
+});
+
+test("risk event run (job.created) resolves jobId from eventPayload", async () => {
+  const { input } = makeEventRun("risk", "job.created", { jobId: "job-1" });
+  const result = await executeSpecializedWorkerRun(input);
+
+  assert.equal(result.actionType, "classify");
+  assert.equal(result.result.jobId, "job-1");
+});
+
+test("explicit input.context takes precedence over eventPayload identifiers", async () => {
+  const { input } = makeEventRun("pricing", "job.created", { jobId: "job-from-event" });
+  input.run.input.context = { jobId: "job-1" };
+  const result = await executeSpecializedWorkerRun(input);
+
+  assert.equal(result.result.jobId, "job-1");
+});
+
+test("event run without identifiers still fails closed (no invented projectId/jobId)", async () => {
+  const { input, calls } = makeEventRun("pricing", "job.created", { title: "no ids here" });
+
+  await assert.rejects(
+    () => executeSpecializedWorkerRun(input),
+    /Delegated run requires at least projectId or jobId in its context\./,
+  );
+  assert.equal(calls.length, 0, "must not query projects/jobs to guess ownership");
+});
+
+test("manual run without context keeps failing deliberately (observability probe)", async () => {
+  await assert.rejects(
+    () => executeSpecializedWorkerRun({
+      run: { id: "run-probe", agentType: "pricing", triggerType: "manual", input: {} },
+      requestJson, tenantId: "tnt_demo", logger, workerId: "worker-test",
+    }),
+    /Delegated run requires at least projectId or jobId in its context\./,
+  );
+});
+
+test("non-string eventPayload identifiers are ignored", async () => {
+  const { input } = makeEventRun("pricing", "job.created", { jobId: { $ne: null } });
+
+  await assert.rejects(
+    () => executeSpecializedWorkerRun(input),
+    /Delegated run requires at least projectId or jobId/,
+  );
 });

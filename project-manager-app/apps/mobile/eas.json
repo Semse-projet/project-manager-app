@@ -7,19 +7,41 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
-      "android": { "buildType": "apk" },
-      "env": { "EXPO_PUBLIC_SEMSE_API_BASE_URL": "https://api.semseproject.com" }
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_SEMSE_API_BASE_URL": "https://api.semseproject.com"
+      }
     },
     "preview": {
       "distribution": "internal",
-      "android": { "buildType": "apk" },
-      "env": { "EXPO_PUBLIC_SEMSE_API_BASE_URL": "https://api.semseproject.com" }
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_SEMSE_API_BASE_URL": "https://api.semseproject.com"
+      }
+    },
+    "pilot": {
+      "distribution": "internal",
+      "environment": "preview",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_SEMSE_APP_ENV": "pilot"
+      }
     },
     "production": {
       "distribution": "store",
-      "android": { "buildType": "app-bundle" },
+      "android": {
+        "buildType": "app-bundle"
+      },
       "autoIncrement": true,
-      "env": { "EXPO_PUBLIC_SEMSE_API_BASE_URL": "https://api.semseproject.com" }
+      "env": {
+        "EXPO_PUBLIC_SEMSE_API_BASE_URL": "https://api.semseproject.com"
+      }
     }
   },
   "submit": {

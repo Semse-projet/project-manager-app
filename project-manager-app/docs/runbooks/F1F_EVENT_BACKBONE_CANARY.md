@@ -6,6 +6,17 @@ Ejecuta esto solo con acceso real a Railway (`railway login` ya hecho, proyecto
 No lo corras si F1-D/F1-E no están en el SHA desplegado — confirmar primero
 con `railway status` / `git log origin/main -1`.
 
+**Actualización 2026-11-24.** F1-F sigue abierto. El dispatch genérico, el
+slice Evidence y el canary de jobs/bids están en código; el cierre
+transversal (SLO sostenido, DLQ/replay observados y ausencia de efecto en
+pagos sobre la base real) no está verificado. **No reemplaces**
+`SEMSE_EVENT_TYPE_ALLOWLIST` ni `SEMSE_EVENT_CONSUMER_ALLOWLIST` por la lista
+de un solo slice: hoy esas variables son compartidas con F3
+(`project.lifecycle-source-changed.v1` / `project-lifecycle-projection.v1`) y
+con jobs/bids (`job.created.v1`, `job.status_changed.v1`, `bid.created.v1`,
+`bid.accepted.v1`, `bid.rejected.v1` / `jobs-bids-projection.v1`). Pisarlas
+apaga consumidores que ya están en canary.
+
 ## Antes de empezar
 
 - F1-A..F1-E ya están mergeados en `main` (confirmado 2026-07-19; ver
@@ -36,24 +47,36 @@ curl -s https://<api-host>/ready
 Ambos deben responder 200. Si alguno falla, **no continuar** a T-076 — el
 canary no debe activarse sobre un deploy inestable.
 
-## T-076 — Activar canary allowlist (solo `evidence.uploaded.v1`)
+## T-076 — Inspeccionar el canary sin reducir el allowlist compartido
+
+El slice original de F1 sigue siendo `evidence.uploaded.v1` →
+`evidence-readiness.v1`. Desde que F3 y jobs/bids entraron al mismo par de
+variables, el procedimiento ya no es asignar solo esos dos nombres.
 
 ```bash
-railway variables set SEMSE_EVENT_OUTBOX_DISPATCH_ENABLED=true
-railway variables set SEMSE_EVENT_CONSUMERS_ENABLED=true
-railway variables set SEMSE_EVENT_TYPE_ALLOWLIST=evidence.uploaded.v1
-railway variables set SEMSE_EVENT_CONSUMER_ALLOWLIST=evidence-readiness.v1
+railway variables --service api
+railway variables --service worker
 ```
 
-Esto aplica a los servicios `api` y `worker` (ambos leen las mismas env vars
-de dispatch/consumer — confirmar con `railway variables --service worker` que
-Railway propagó el cambio si son servicios separados). Esperar a que Railway
-termine el redeploy (`railway status` hasta ver el nuevo deployment activo)
-antes de generar tráfico real.
+Leer en ambas salidas `SEMSE_EVENT_OUTBOX_DISPATCH_ENABLED`,
+`SEMSE_EVENT_CONSUMERS_ENABLED`, `SEMSE_EVENT_TYPE_ALLOWLIST` y
+`SEMSE_EVENT_CONSUMER_ALLOWLIST`.
 
-**No** agregar ningún otro `eventType`/`consumerName` al allowlist en este
-paso — el spec limita el canary a un solo slice vertical
-(`evidence.uploaded.v1 -> evidence-readiness.v1`).
+Checklist de esta inspección (no es el cierre de F1-F):
+
+- [ ] API y Worker tienen el mismo `SEMSE_EVENT_TYPE_ALLOWLIST` y el mismo
+      `SEMSE_EVENT_CONSUMER_ALLOWLIST`.
+- [ ] Siguen presentes `evidence.uploaded.v1` y `evidence-readiness.v1`.
+- [ ] Siguen presentes los tipos/consumers de F3 y de `jobs-bids-projection.v1`
+      si ese canary sigue encendido (ver `JOBS_BIDS_PROJECTION_CANARY.md`).
+- [ ] `SEMSE_EVENT_OUTBOX_DISPATCH_ENABLED` y `SEMSE_EVENT_CONSUMERS_ENABLED`
+      están en `true` solo si el owner ya aceptó ese canary. Si están en
+      `false`, no los enciendas desde este runbook sin la ventana de
+      observación de T-077.
+
+No ejecutes `railway variables set` sobre esos allowlists con un valor que
+omita nombres ya activos. Un alta nueva se hace concatenando el valor actual
+más el nombre nuevo, en API y Worker, y esperando el redeploy de ambos.
 
 ## T-077 — Verificar SLO, duplicados, DLQ y ausencia de pagos
 

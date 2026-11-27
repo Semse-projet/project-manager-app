@@ -23,6 +23,12 @@ import { ProjectCopilotHarness } from "./harnesses/project-copilot.harness.js";
 import type { ProjectCopilotHarnessInput } from "./harnesses/project-copilot.types.js";
 import { PlanModeService } from "./plan-mode.service.js";
 
+const claimedJobContextSchema = z.object({
+  workerId: z.string().min(1),
+  expectedAttempts: z.number().int().positive(),
+  claimToken: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
+});
+
 const chatSchema = z.object({
   message:  z.string().min(1),
   agentId:  z.string().optional(),
@@ -352,10 +358,12 @@ export class AgentsController {
 
   @Get("runs/:runId/worker")
   @SkipThrottle()
-  @RequirePermissions("agents:run:worker")
+  // AGENT_RUNNER has only claim/execute; do not grant broad WORKER management.
+  @RequirePermissions("agents:run:claim")
   async workerDetail(@Req() req: { headers?: Record<string, unknown> }, @Param("runId") runId: string) {
     const actor = resolveRequestContext(req);
-    const run = await this.agentsService.detail({
+    assertAgentRunClaimAuthority(actor.roles);
+    const run = await this.agentsService.workerDetail({
       tenantId: actor.tenantId,
       orgId: actor.orgId,
       userId: actor.userId,
@@ -456,7 +464,7 @@ export class AgentsController {
   @RequirePermissions("agents:run:create")
   async runEvents(@Req() req: { headers?: Record<string, unknown> }, @Param("runId") runId: string) {
     const actor = resolveRequestContext(req);
-    const data = await this.agentsService.runEvents({ tenantId: actor.tenantId, runId });
+    const data = await this.agentsService.runEvents({ tenantId: actor.tenantId, orgId: actor.orgId, userId: actor.userId, runId });
     return ok(resolveRequestId(req.headers ?? {}), data);
   }
 
@@ -519,6 +527,7 @@ export class AgentsController {
       runId,
       workerId: parsed.workerId,
       expectedAttempts: parsed.expectedAttempts,
+      verifiedWorkerClaim: Boolean(parsed.workerId),
       requestId
     });
     return ok(requestId, run);
@@ -546,9 +555,43 @@ export class AgentsController {
       runId,
       workerId: parsed.data.workerId,
       expectedAttempts: parsed.data.expectedAttempts,
+      verifiedWorkerClaim: true,
       requestId
     });
     return ok(requestId, run);
+  }
+
+  @Post("runs/:runId/claimed-job-context")
+  @SkipThrottle()
+  @RequirePermissions("agents:run:execute")
+  async claimedJobContext(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Param("runId") runId: string,
+    @Body() body: unknown,
+  ) {
+    const parsed = claimedJobContextSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+    const actor = resolveRequestContext(req);
+    verifyAgentRunClaimToken({
+      tenantId: actor.tenantId,
+      orgId: actor.orgId,
+      userId: actor.userId,
+      runId,
+      workerId: parsed.data.workerId,
+      attempts: parsed.data.expectedAttempts,
+    }, parsed.data.claimToken);
+    const requestId = resolveRequestId(req.headers ?? {});
+    const data = await this.agentsService.readClaimedJobContext({
+      tenantId: actor.tenantId,
+      orgId: actor.orgId,
+      userId: actor.userId,
+      runId,
+      workerId: parsed.data.workerId,
+      expectedAttempts: parsed.data.expectedAttempts,
+    });
+    return ok(requestId, data);
   }
 
   @Post("runs/:runId/complete")
@@ -571,6 +614,7 @@ export class AgentsController {
       output: parsed.output,
       workerId: parsed.workerId,
       expectedAttempts: parsed.expectedAttempts,
+      verifiedWorkerClaim: Boolean(parsed.workerId),
       requestId
     });
     return ok(requestId, run);
@@ -596,6 +640,7 @@ export class AgentsController {
       error: parsed.error,
       workerId: parsed.workerId,
       expectedAttempts: parsed.expectedAttempts,
+      verifiedWorkerClaim: Boolean(parsed.workerId),
       requestId
     });
     return ok(requestId, run);

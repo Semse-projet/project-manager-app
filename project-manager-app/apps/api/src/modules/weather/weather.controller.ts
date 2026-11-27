@@ -1,5 +1,4 @@
-import { Controller, ForbiddenException, Get, NotFoundException, Post, Param, Req, UseGuards, Logger } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
+import { Controller, ForbiddenException, Get, NotFoundException, Post, Param, Req, Logger } from '@nestjs/common';
 import { RequirePermissions } from '../../common/permissions.decorator.js';
 import { resolveRequestContext } from '../../common/request-context.js';
 import { ResourceScopeResolver } from '../../common/resource-scope.resolver.js';
@@ -18,7 +17,6 @@ import { WeatherService } from './weather.service.js';
  * inventar nombres fuera de lo ya establecido en el código real).
  */
 @Controller()
-@UseGuards(AuthGuard('jwt'))
 export class WeatherController {
   private readonly logger = new Logger(WeatherController.name);
 

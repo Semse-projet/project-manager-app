@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { ActorContextService } from "../../infrastructure/persistence/actor-context.service.js";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
+import { entityIdMatchesExactCorrelation } from "./domain-event-correlation.js";
 
 export type DomainEventAuditRow = {
   id: string;
@@ -49,6 +50,7 @@ export class DomainEventsRepository {
     return this.prisma.auditLog.findMany({
       where: {
         tenantId: input.tenantId,
+        orgId: input.orgId,
         action: "domain.event.emit",
         entityType: "DomainEvent"
       },
@@ -60,16 +62,19 @@ export class DomainEventsRepository {
   async listDomainEventAuditRowsByCorrelationId(input: ActorInput & { correlationId: string }) {
     await this.actorContextService.ensureActorContext(input);
 
-    return this.prisma.auditLog.findMany({
-      where: {
-        tenantId: input.tenantId,
-        action: "domain.event.emit",
-        entityType: "DomainEvent",
-        entityId: { contains: input.correlationId }
-      },
-      orderBy: { occurredAt: "asc" },
-      take: 50
-    }) as Promise<DomainEventAuditRow[]>;
+    const rows = await this.prisma.$queryRaw<DomainEventAuditRow[]>`
+      SELECT id, "actorUserId", action, "entityType", "entityId", "afterJson", "occurredAt"
+      FROM "AuditLog"
+      WHERE "tenantId" = ${input.tenantId}
+        AND "orgId" = ${input.orgId}
+        AND action = 'domain.event.emit'
+        AND "entityType" = 'DomainEvent'
+        AND position(':' in "entityId") > 1
+        AND substring("entityId" from position(':' in "entityId") + 1) = ${input.correlationId}
+      ORDER BY "occurredAt" ASC
+      LIMIT 50
+    `;
+    return rows.filter((row) => entityIdMatchesExactCorrelation(row.entityId, input.correlationId));
   }
 
   async listAgentRunsByCorrelationId(input: ActorInput & { correlationId: string }) {
@@ -78,6 +83,7 @@ export class DomainEventsRepository {
     return this.prisma.agentRun.findMany({
       where: {
         tenantId: input.tenantId,
+        orgId: input.orgId,
         correlationId: input.correlationId
       },
       orderBy: { createdAt: "asc" }
@@ -90,6 +96,7 @@ export class DomainEventsRepository {
     return this.prisma.domainOutboxEvent.findMany({
       where: {
         tenantId: input.tenantId,
+        orgId: input.orgId,
         correlationId: input.correlationId,
       },
       select: {
@@ -133,15 +140,19 @@ export class DomainEventsRepository {
   }
 
   async listTimelineRows(input: ActorInput & { correlationId: string; runIds: string[] }) {
+    // Agent-run history is authorized by the org-scoped AgentRun IDs already
+    // resolved for this actor. Do not also filter these AuditLog rows by
+    // AuditLog.orgId: the finalization consumer still writes them without an
+    // organization, so an orgId predicate would hide legitimate history.
+    // A correlationId alone is not an authorization capability.
+    if (input.runIds.length === 0) return [];
     await this.actorContextService.ensureActorContext(input);
 
     return this.prisma.auditLog.findMany({
       where: {
         tenantId: input.tenantId,
-        OR: [
-          { entityId: { contains: input.correlationId } },
-          ...(input.runIds.length > 0 ? [{ entityId: { in: input.runIds } }] : [])
-        ]
+        entityType: "AgentRun",
+        entityId: { in: input.runIds }
       },
       orderBy: { occurredAt: "asc" },
       take: 200

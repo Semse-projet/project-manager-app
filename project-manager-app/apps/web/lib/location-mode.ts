@@ -14,3 +14,28 @@ export function proximityModeFromLocationPreference(pref: { effectiveMode: Bo09M
   if (pref.effectiveMode === "AUTO" && pref.autoStartConsent) return "auto";
   return "ask";
 }
+
+/**
+ * Outcome of reading the BO-09 preference: `ok` (200), `disabled` (404, policy
+ * flag off) or `error` (anything else: network, 5xx, 401…).
+ */
+export type LocationPreferenceResult =
+  | { kind: "ok"; pref: { effectiveMode: Bo09Mode; autoStartConsent: boolean } }
+  | { kind: "disabled" }
+  | { kind: "error" };
+
+/**
+ * Local proximity mode to apply. Only a 404 may fall back to the legacy profile
+ * mode; any other failure fails closed to "off", so an old "auto" can never
+ * start a timer while BO-09 might say OFF or ASK. Returns null when there is
+ * nothing to apply (404 and no legacy profile either).
+ * Mirror of apps/mobile/src/geo/locationMode.ts — keep both in sync.
+ */
+export function resolveProximityMode(
+  result: LocationPreferenceResult,
+  legacyMode: LegacyProximityMode | null,
+): LegacyProximityMode | null {
+  if (result.kind === "ok") return proximityModeFromLocationPreference(result.pref);
+  if (result.kind === "disabled") return legacyMode;
+  return "off";
+}

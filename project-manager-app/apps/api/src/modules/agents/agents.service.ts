@@ -222,7 +222,12 @@ export class AgentsService {
     return this.agentsRepository.findById(input);
   }
 
-  async runEvents(input: { tenantId: string; runId: string }) {
+  /** Only a role-verified service worker may see an org-foreign run in its tenant. */
+  async workerDetail(input: { tenantId: string; orgId: string; userId: string; runId: string }) {
+    return this.agentsRepository.findByIdForWorker(input);
+  }
+
+  async runEvents(input: { tenantId: string; orgId: string; userId: string; runId: string }) {
     return this.agentsRepository.getEvents(input);
   }
 
@@ -473,13 +478,14 @@ export class AgentsService {
     return { ...run, enqueued: enqueue.enqueued, ...(enqueue.reason ? { reason: enqueue.reason } : {}) };
   }
 
-  async start(input: { tenantId: string; orgId: string; userId: string; runId: string; requestId: string; workerId?: string; expectedAttempts?: number }) {
-    const run = await this.agentsRepository.start(input);
+  async start(input: { tenantId: string; orgId: string; userId: string; runId: string; requestId: string; workerId?: string; expectedAttempts?: number; verifiedWorkerClaim?: boolean }) {
+    const run = await this.agentsRepository.start({ ...input, workerAccess: input.verifiedWorkerClaim === true });
     if (isAgentRunReplay(run)) return run;
 
     await this.auditService.append({
       tenantId: input.tenantId,
-      orgId: input.orgId,
+      // The worker principal may belong to another org: use persisted run ownership.
+      orgId: run.orgId ?? input.orgId,
       actorUserId: input.userId,
       action: "agent.run.start",
       entityType: "AgentRun",
@@ -491,6 +497,17 @@ export class AgentsService {
     return run;
   }
 
+  async readClaimedJobContext(input: {
+    tenantId: string;
+    orgId: string;
+    userId: string;
+    runId: string;
+    workerId: string;
+    expectedAttempts: number;
+  }) {
+    return this.agentsRepository.readClaimedJobContext(input);
+  }
+
   async heartbeat(input: {
     tenantId: string;
     orgId: string;
@@ -499,12 +516,14 @@ export class AgentsService {
     workerId: string;
     expectedAttempts?: number;
     requestId: string;
+    verifiedWorkerClaim?: boolean;
   }) {
-    const run = await this.agentsRepository.heartbeat(input);
+    const run = await this.agentsRepository.heartbeat({ ...input, workerAccess: input.verifiedWorkerClaim === true });
 
     await this.auditService.append({
       tenantId: input.tenantId,
-      orgId: input.orgId,
+      // The worker principal may belong to another org: use persisted run ownership.
+      orgId: run.orgId ?? input.orgId,
       actorUserId: input.userId,
       action: "agent.run.heartbeat",
       entityType: "AgentRun",
@@ -525,15 +544,16 @@ export class AgentsService {
     workerId?: string;
     expectedAttempts?: number;
     requestId: string;
+    verifiedWorkerClaim?: boolean;
   }) {
-    const run = await this.agentsRepository.complete(input);
+    const run = await this.agentsRepository.complete({ ...input, workerAccess: input.verifiedWorkerClaim === true });
     // Effects are delivered by the transactional outbox in opt-in mode.
     if (isAgentRunReplay(run) || isAgentRunFinalizationOutboxEnabled()) return run;
 
     const approvals = Array.isArray(input.output?.approvals)
       ? await this.agentApprovalService.register({
           tenantId: input.tenantId,
-          orgId: input.orgId,
+          orgId: run.orgId ?? input.orgId,
           userId: input.userId,
           requestId: input.requestId,
           approvals: input.output.approvals as Parameters<AgentApprovalService["register"]>[0]["approvals"]
@@ -542,7 +562,8 @@ export class AgentsService {
 
     await this.auditService.append({
       tenantId: input.tenantId,
-      orgId: input.orgId,
+      // The worker principal may belong to another org: use persisted run ownership.
+      orgId: run.orgId ?? input.orgId,
       actorUserId: input.userId,
       action: "agent.run.complete",
       entityType: "AgentRun",
@@ -562,10 +583,12 @@ export class AgentsService {
       status: "completed"
     });
 
-    if (run.triggerType === "event" && run.input?.delegationId && typeof run.input.delegationId === "string") {
+    if (run.triggerType === "event" && run.input?.delegationId && typeof run.input.delegationId === "string" && run.orgId) {
       const delegation = await this.agentDelegationRepository.updateStatus(
         run.input.delegationId,
         input.tenantId,
+        run.orgId,
+        run.id,
         "completed",
         input.output
       );
@@ -585,13 +608,15 @@ export class AgentsService {
     workerId?: string;
     expectedAttempts?: number;
     requestId: string;
+    verifiedWorkerClaim?: boolean;
   }) {
-    const run = await this.agentsRepository.fail(input);
+    const run = await this.agentsRepository.fail({ ...input, workerAccess: input.verifiedWorkerClaim === true });
     if (isAgentRunReplay(run) || isAgentRunFinalizationOutboxEnabled()) return run;
 
     await this.auditService.append({
       tenantId: input.tenantId,
-      orgId: input.orgId,
+      // The worker principal may belong to another org: use persisted run ownership.
+      orgId: run.orgId ?? input.orgId,
       actorUserId: input.userId,
       action: "agent.run.fail",
       entityType: "AgentRun",
@@ -607,10 +632,12 @@ export class AgentsService {
       status: "failed"
     });
 
-    if (run.triggerType === "event" && run.input?.delegationId && typeof run.input.delegationId === "string") {
+    if (run.triggerType === "event" && run.input?.delegationId && typeof run.input.delegationId === "string" && run.orgId) {
       const delegation = await this.agentDelegationRepository.updateStatus(
         run.input.delegationId,
         input.tenantId,
+        run.orgId,
+        run.id,
         "failed",
         undefined,
         run.error ?? input.error
@@ -828,6 +855,7 @@ export class AgentsService {
     const key = buildIdempotencyKey([
       "agent.run.create",
       input.tenantId,
+      input.orgId,
       input.agentType,
       input.correlationId,
       input.idempotencyKey ?? ""
@@ -857,6 +885,12 @@ export class AgentsService {
   }): Promise<void> {
     const operatorContext = asOperatorContext(input.run.input?.operatorContext);
     if (!operatorContext?.workspaceId) {
+      return;
+    }
+    // Never publish worker-generated memory into a foreign org/workspace
+    // inferred from the run's JSON rather than its persisted owner.
+    if (!input.run.orgId || operatorContext.tenantId !== input.run.tenantId || operatorContext.orgId !== input.run.orgId) {
+      this.logger.warn("[agent.run.summary] skipped unverified workspace owner");
       return;
     }
 

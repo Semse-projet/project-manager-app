@@ -210,15 +210,25 @@ test("agro-intake T-054: text already provided → does not attempt transcriptio
   assert.deepEqual(p.transcribedFrom, []);
 });
 
-test("agro-intake T-054: photo evidence → vision candidates attached, best-effort", async () => {
-  const evidenceRows = [{ id: "ev_photo", mediaType: "PHOTO", fileUrl: "https://cdn.test/photo1.jpg" }];
-  const vision = { recognize: async (url: string) => (url === "https://cdn.test/photo1.jpg" ? { provider: "ollama", model: "qwen2.5vl:3b", candidates: [{ slug: "pig", label: "Pig", confidence: 0.8 }] } : null) };
-  const { svc } = setup({ evidenceRows, vision });
-
-  const p = await svc.propose("farm_1", "worker", { text: "Este cerdito tiene una herida en el cachete.", evidenceIds: ["ev_photo"] });
-  assert.equal(p.visionSignals.length, 1);
-  assert.equal(p.visionSignals[0].evidenceId, "ev_photo");
-  assert.equal(p.visionSignals[0].candidates[0].slug, "pig");
+test("agro #911: PHOTO fileUrl is never forwarded to vision, including hostile targets", async () => {
+  const urls = [
+    "https://cdn.test/photo1.jpg",
+    "http://127.0.0.1/latest/meta-data",
+    "http://169.254.169.254/latest/meta-data",
+    "http://10.0.0.5/admin",
+    "http://[::1]/secret",
+    "https://storage.googleapis.com/bucket/photo.jpg",
+    "https://semse.example/api/semse/uploads/files/a.jpg?sig=bad",
+  ];
+  for (const fileUrl of urls) {
+    let called = false;
+    const vision = { recognize: async () => { called = true; return { provider: "ollama", model: "qwen2.5vl:3b", candidates: [{ slug: "pig", label: "Pig", confidence: 0.8 }] }; } };
+    const { svc } = setup({ evidenceRows: [{ id: "ev_photo", mediaType: "PHOTO", fileUrl }], vision });
+    const p = await svc.propose("farm_1", "worker", { text: "Este cerdito tiene una herida en el cachete.", evidenceIds: ["ev_photo"] });
+    assert.equal(called, false, fileUrl);
+    assert.deepEqual(p.visionSignals, []);
+    assert.equal(p.intent, "INCIDENT");
+  }
 });
 
 test("agro-intake T-054: vision disabled/unavailable → empty signals, proposal still returned", async () => {

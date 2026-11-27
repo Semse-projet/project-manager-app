@@ -9,10 +9,11 @@ owner: "semse-core"
 risk: "high"
 code_status: "IN_PROGRESS"
 ci_status: "NOT_RUN"
-merge_status: "UNMERGED"
+merge_status: "MERGED"
 deploy_status: "NOT_DEPLOYED"
 activation_status: "INACTIVE"
 migration_status: "NOT_APPLICABLE"
+verification_scope: "git-only-2026-11-24: PR #598 merge a42600ec is an ancestor of main 594279af. Section 12 gates were not re-run. Store release and device canary were not re-verified."
 feature_flags: []
 production_evidence: []
 related_files:
@@ -29,7 +30,7 @@ related_endpoints:
   - GET /v1/auth/me
 related_events: []
 related_agents: []
-last_verified: "2026-09-06"
+last_verified: "2026-11-24"
 ---
 
 # Consolidación del producto SEMSE móvil

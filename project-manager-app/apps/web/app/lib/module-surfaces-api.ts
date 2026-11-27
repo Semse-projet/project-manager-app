@@ -1,7 +1,9 @@
 /**
  * Client-side wrappers for the liens, forge and satellites BFF routes
- * (apps/web/app/api/semse/{liens,forge,satellites,admin/liens}/**). Components
- * call these functions; they never build NestJS URLs themselves.
+ * (apps/web/app/api/semse/{liens,forge,satellites,admin/liens}/**) and for the
+ * crews/worksites (BO-07) and location-preference (BO-09) BFF routes
+ * (apps/web/app/api/semse/{organizations,me}/**). Components call these
+ * functions; they never build NestJS URLs themselves.
  *
  * Types mirror the API's real response shapes:
  * - liens: apps/api/src/modules/liens/*.controller.ts + LienCalendar/LienNotice/LienWaiver in schema.prisma
@@ -11,9 +13,11 @@
 
 /** Error carrying the HTTP status, so screens can tell "feature off" (404) from "forbidden" (403). */
 export class SurfaceApiError extends Error {
-  constructor(message: string, readonly status: number) {
+  readonly status: number;
+  constructor(message: string, status: number) {
     super(message);
     this.name = "SurfaceApiError";
+    this.status = status;
   }
 }
 
@@ -373,6 +377,8 @@ export type LocationPreference = {
 };
 export type GeofenceDecision = "PROMPT" | "AUTO_START_ALLOWED" | "MANUAL_ONLY" | "LEAVE_PROMPT" | "EXCEPTION" | "IGNORE";
 export type GeofenceEventView = {
+  /** Id de la decisión: se envía como `geofenceEventId` al iniciar un reloj `proximity_auto` (OPEN-18). */
+  id?: string;
   eventId: string;
   type: "ARRIVAL" | "LEAVE" | "OFF_SITE_AT_SHIFT";
   worksiteId: string | null;
@@ -395,3 +401,28 @@ export const saveLocationPreference = (input: { mode: LocationMode; autoStartCon
   });
 
 export const fetchMyGeofenceEvents = () => request<GeofenceEventView[]>("/api/semse/me/geofence-events");
+
+/* ─────────────────── Obras vinculadas detectables (OPEN-18) ─────────────────── */
+// Spec: docs/specs/core/worksite-location-binding.spec.md (W-07).
+
+// Contrato único de `GET /v1/me/geofence-sites` (el mismo que usan la API y el móvil).
+export type { GeofenceSiteView } from "@semse/schemas";
+import type { GeofenceSiteView } from "@semse/schemas";
+
+/** null si el servidor no tiene activos los vínculos de obra (404): el cliente usa el modo anterior. */
+export async function fetchMyGeofenceSites(): Promise<GeofenceSiteView[] | null> {
+  try {
+    return await request<GeofenceSiteView[]>("/api/semse/me/geofence-sites");
+  } catch (caught) {
+    if (caught instanceof SurfaceApiError && caught.status === 404) return null;
+    throw caught;
+  }
+}
+
+/** Informa una llegada a una obra vinculada y devuelve la decisión del servidor (sin coordenadas). */
+export const reportGeofenceArrival = (input: {
+  eventId: string;
+  site: { kind: "JOB" | "FREE_PROJECT"; id: string };
+  occurredAt: string;
+  accuracyMeters?: number;
+}) => post<GeofenceEventView>("/api/semse/me/geofence-events", { type: "ARRIVAL", ...input });
