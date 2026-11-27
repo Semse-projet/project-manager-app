@@ -131,6 +131,23 @@ jobs:
             exit 1
           fi
 
+      # C6 (G-R05 paso 3): misma lógica que el paso de producción.
+      - name: Destructive migration preflight (fail closed)
+        if: steps.guard.outputs.action == 'deploy'
+        env:
+          SERVED_SHA: ${{ steps.guard.outputs.served }}
+        run: |
+          set -euo pipefail
+          rc=0
+          pre=$(node project-manager-app/scripts/migration-destructive-preflight.mjs \
+            --served="$SERVED_SHA" --candidate="$DEPLOY_SHA") || rc=$?
+          echo "$pre"
+          echo "- Preflight de migraciones: \`$(printf '%s' "$pre" | jq -r .action)\` ($(printf '%s' "$pre" | jq -r .reason))" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$rc" != "0" ]; then
+            echo "::error title=Release BLOCKED::$(printf '%s' "$pre" | jq -r .reason)"
+            exit 1
+          fi
+
       - name: Deploy exact commit (API y Worker de QA)
         if: steps.guard.outputs.action == 'deploy'
         env:

@@ -38,3 +38,14 @@ test("el deploy pide el commit exacto: serviceInstanceDeployV2(commitSha) sin la
   assert.doesNotMatch(deployJob, /latestCommit/);
   assert.match(deployJob, /serviceInstanceDeployV2\(serviceId:\$s, environmentId:\$e, commitSha:\$c\)/);
 });
+
+test("el preflight de migraciones destructivas corre tras la guardia y antes del build", () => {
+  // QA G-R05 (27-nov-2026): revertir el código no revierte la base.
+  const guard = deployJob.indexOf("Forward-only guard");
+  const pre = deployJob.indexOf("Destructive migration preflight");
+  const build = deployJob.indexOf("Deploy exact commit to Railway");
+  assert.ok(pre > guard && build > pre, "orden: guardia -> preflight -> build");
+  assert.match(deployJob, /migration-destructive-preflight\.mjs/);
+  assert.match(deployJob, /--served="\$SERVED_SHA" --candidate="\$DEPLOY_SHA"/);
+  assert.doesNotMatch(deployJob, /filter: blob:none/);
+});
