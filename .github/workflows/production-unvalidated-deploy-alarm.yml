@@ -1,12 +1,18 @@
 name: Production Unvalidated Deploy Alarm
 
 # Railway despliega cada push a main SIN esperar a CI (checkSuites:false en los
-# 4 servicios, verificado 2026-11-12) y semse-API ejecuta pre-migrate antes de
-# cada deploy. Si el CI de un commit de main FALLA, `Railway Deploy` no corre
-# (exige CI success) y nada avisaría de que producción sirve código no
-# validado. Esta alarma, de solo lectura y sin secretos, vigila esa ventana y
-# FALLA si API o Web llegan a servir el SHA con CI rojo. No despliega, no hace
-# rollback y no toca Railway: la remediación (revert en main) es humana.
+# 4 servicios, revalidado 2026-11-26) y semse-API ejecuta pre-migrate antes de
+# cada deploy. Esta alarma, de solo lectura y sin secretos, es una defensa
+# SECUNDARIA: no despliega, no hace rollback y no toca Railway.
+#
+# PROPUESTA C4 (incidente 9e2f87f1, 2026-11-26) — NO APLICADA:
+# - `ci-not-green`: tras un CI de main no exitoso, vigila API y Web y reporta
+#   TODOS los servicios que sirven el SHA (antes salía en el primero).
+# - `served-before-ci`: desde que se solicita el CI de main, detecta si API o
+#   Web sirven el SHA ANTES de que su CI termine en success (antes no se
+#   detectaba: 0ae2c319 estuvo ~8 min en producción antes de su CI verde).
+# - Worker y Vision no tienen endpoint público de procedencia: el resumen los
+#   declara NO observables; su verificación vive en railway-deploy.yml.
 #
 # Va en un workflow aparte a propósito: si fuera un job de `Railway Deploy`,
 # una alarma verde dejaría ese workflow en success y dispararía
@@ -14,15 +20,16 @@ name: Production Unvalidated Deploy Alarm
 on:
   workflow_run:
     workflows: ["CI"]
-    types: [completed]
+    types: [requested, completed]
 
 permissions: {}
 
 jobs:
-  alarm:
+  ci-not-green:
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     if: >-
+      github.event.action == 'completed' &&
       github.event.workflow_run.conclusion != 'success' &&
       github.event.workflow_run.conclusion != 'skipped' &&
       github.event.workflow_run.head_branch == 'main' &&
@@ -32,51 +39,105 @@ jobs:
       contents: read
     steps:
       # Verificador desde la cabeza de main (no ejecuta código del SHA rojo).
-      - name: Checkout provenance verifier (sparse, read-only)
+      - name: Checkout watcher (sparse, read-only)
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
           filter: blob:none
-          sparse-checkout: project-manager-app/scripts/verify-deploy-provenance.mjs
+          sparse-checkout: |
+            project-manager-app/scripts/verify-deploy-provenance.mjs
+            project-manager-app/scripts/unvalidated-deploy-watch.mjs
           sparse-checkout-cone-mode: false
           persist-credentials: false
 
-      - name: Watch whether production serves the CI-failed SHA
+      - name: Watch whether production serves the CI-failed SHA (all targets)
         env:
           FAILED_SHA: ${{ github.event.workflow_run.head_sha }}
           CI_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
         run: |
           set -euo pipefail
           [[ "$FAILED_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::SHA inválido"; exit 1; }
-          # watchPatterns ["project-manager-app/**"]: si el commit no toca esa
-          # ruta, Railway no lo reconstruye y no hay nada que vigilar.
+          # Vision no declara watchPatterns (revalidado 2026-11-26): un commit
+          # fuera de project-manager-app/** puede desplegarse igualmente, así
+          # que ya no se sale antes por esa razón; solo se anota.
           if [ -z "$(git diff --name-only "${FAILED_SHA}^1" "$FAILED_SHA" -- project-manager-app/)" ]; then
-            echo "::notice title=Alarma::$FAILED_SHA no toca project-manager-app/**; Railway no lo despliega."
-            exit 0
+            echo "::notice title=Alarma::$FAILED_SHA no toca project-manager-app/**; API/Web/Worker no deberían reconstruirlo, Vision puede."
           fi
           echo "CI de $FAILED_SHA terminó en '$CI_CONCLUSION'. Vigilando API y Web hasta 20 min."
+          seen=""
           for _ in $(seq 1 80); do
-            for target in \
-              "semse-API|https://project-manager-app-production-977f.up.railway.app|/v1/health" \
-              "semse-web|https://semse-web-production.up.railway.app|/api/semse/healthz"; do
-              IFS='|' read -r label base path <<< "$target"
-              # El verificador sale con 1 cuando el SHA NO coincide (caso normal):
-              # se captura su JSON y solo se lee el gitSha observado.
-              json=$(node project-manager-app/scripts/verify-deploy-provenance.mjs \
-                --url="$base" --path="$path" --expect-sha="$FAILED_SHA" --allow-unknown-digest \
-                --retries=1 --timeout=5 || true)
-              served=$(printf '%s' "$json" | jq -r '.observed.gitSha // "unknown"' 2>/dev/null || echo "unknown")
-              if [ "$served" = "$FAILED_SHA" ]; then
-                {
-                  echo "### ⛔ Producción sirve un SHA con CI rojo"
-                  echo "- Servicio: $label"
-                  echo "- SHA: \`$FAILED_SHA\` (CI: $CI_CONCLUSION)"
-                  echo "- Remediación humana: revertir en main; revisar migraciones aplicadas por pre-migrate."
-                } >> "$GITHUB_STEP_SUMMARY"
-                echo "::error title=Despliegue no validado::$label sirve $FAILED_SHA, cuyo CI terminó en '$CI_CONCLUSION'."
-                exit 1
-              fi
+            out=$(node project-manager-app/scripts/unvalidated-deploy-watch.mjs --sha="$FAILED_SHA" \
+              --target="semse-API|https://project-manager-app-production-977f.up.railway.app|/v1/health" \
+              --target="semse-web|https://semse-web-production.up.railway.app|/api/semse/healthz")
+            for label in $(printf '%s' "$out" | jq -r '.hits[]'); do
+              case " $seen " in *" $label "*) ;; *) seen="$seen $label";; esac
             done
             sleep 15
           done
-          echo "Producción no llegó a servir $FAILED_SHA en 20 min (ventana vigilada; no prueba que no se sirva después)." | tee -a "$GITHUB_STEP_SUMMARY"
+          {
+            echo "### Alarma de despliegue no validado"
+            echo "- SHA: \`$FAILED_SHA\` (CI: $CI_CONCLUSION)"
+            echo "- Servicios que lo sirvieron en la ventana: ${seen:-ninguno observado}"
+            echo "- Worker y Vision: **no observables** sin endpoint público (ver railway-deploy.yml)."
+            echo "- La ventana vigilada (20 min) no prueba que no se sirva después."
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ -n "$seen" ]; then
+            echo "::error title=Despliegue no validado::${seen# } sirvieron $FAILED_SHA, cuyo CI terminó en '$CI_CONCLUSION'. Remediación humana: revertir en main; revisar migraciones aplicadas por pre-migrate."
+            exit 1
+          fi
+
+  served-before-ci:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    if: >-
+      github.event.action == 'requested' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Checkout watcher (sparse, read-only)
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: |
+            project-manager-app/scripts/verify-deploy-provenance.mjs
+            project-manager-app/scripts/unvalidated-deploy-watch.mjs
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
+      # Mientras el CI de este SHA no haya terminado en success, cualquier
+      # observación del SHA en API o Web es un despliegue adelantado a CI.
+      - name: Detect production serving the SHA before CI success
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          set -euo pipefail
+          [[ "$SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::SHA inválido"; exit 1; }
+          early=""
+          for _ in $(seq 1 160); do
+            read -r status conclusion < <(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}" \
+              --jq '[.status, (.conclusion // "none")] | @tsv')
+            if [ "$status" = "completed" ]; then
+              echo "CI de $SHA terminó: $conclusion."; break
+            fi
+            out=$(node project-manager-app/scripts/unvalidated-deploy-watch.mjs --sha="$SHA" \
+              --target="semse-API|https://project-manager-app-production-977f.up.railway.app|/v1/health" \
+              --target="semse-web|https://semse-web-production.up.railway.app|/api/semse/healthz")
+            for label in $(printf '%s' "$out" | jq -r '.hits[]'); do
+              case " $early " in *" $label "*) ;; *) early="$early $label"; echo "$(date -u +%FT%TZ) $label sirve $SHA con CI '$status'";; esac
+            done
+            sleep 15
+          done
+          {
+            echo "### Servido antes de CI success"
+            echo "- SHA: \`$SHA\` — servicios observados antes de CI success: ${early:-ninguno}"
+            echo "- Worker y Vision: **no observables** sin endpoint público."
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ -n "$early" ]; then
+            echo "::error title=Servido antes de CI::${early# } sirvieron $SHA antes de que su CI terminara en success."
+            exit 1
+          fi
