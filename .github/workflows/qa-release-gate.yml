@@ -1,0 +1,187 @@
+# QA release gate: arnés de prueba de la opción B (G-R02 a G-R04, G-R06).
+#
+# Reproduce en QA aislado (proyecto "SEMSE AgentRun 1149 Isolated QA",
+# entorno staging) la vía única de release propuesta en ADR-PROV-001:
+#   CI por SHA (C2) -> release serializado -> credencial obligatoria ->
+#   guardia forward-only (C3) -> serviceInstanceDeploy(commitSha) ->
+#   verificación por servicio (Railway + runtime).
+#
+# Diferencia con producción (documentada en la evidencia): workflow_run solo
+# se dispara con workflows de la rama por defecto, así que en QA el release
+# es un job `needs: ci` del mismo workflow con concurrencia propia, en lugar
+# de un workflow_run aparte. La lógica (guardia, credencial, verificación)
+# es la misma.
+#
+# Solo corre con commits cuyo mensaje contiene "[gr]". Marcadores:
+#   [gr:fail]       el CI falla a propósito
+#   [gr:sleep=N]    el CI espera N segundos antes de terminar
+#   [gr:no-token]   el release se ejecuta sin credencial (G-R04)
+# Nunca usa IDs ni credenciales de producción.
+name: QA release gate
+
+on:
+  push:
+    branches: [qa/release-gate]
+
+permissions:
+  contents: read
+
+# C2: un grupo por SHA, nunca se cancela un run de otro SHA.
+concurrency:
+  group: qa-ci-sha-${{ github.sha }}
+  cancel-in-progress: false
+
+env:
+  RAILWAY_API: https://backboard.railway.com/graphql/v2
+  QA_PROJECT_ID: dc1754a3-5563-4274-a81d-5be976911064
+  QA_ENVIRONMENT_ID: 159babb8-2eef-4971-87ad-1a7594ca022f
+  QA_API_SERVICE_ID: 3fe904d1-0810-4024-84bb-f0b4180dace4
+  QA_WORKER_SERVICE_ID: 1f91503b-f7d0-435e-b831-9be4996aac47
+  QA_API_URL: https://semse-api-qa-staging.up.railway.app
+
+jobs:
+  ci:
+    if: contains(github.event.head_commit.message, '[gr]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Scenario
+        env:
+          MSG: ${{ github.event.head_commit.message }}
+        run: |
+          set -euo pipefail
+          echo "SHA: $GITHUB_SHA"
+          sleep_s=$(printf '%s' "$MSG" | grep -oE '\[gr:sleep=[0-9]+\]' | grep -oE '[0-9]+' || true)
+          if [ -n "${sleep_s:-}" ]; then echo "Esperando ${sleep_s}s"; sleep "$sleep_s"; fi
+          if printf '%s' "$MSG" | grep -q '\[gr:fail\]'; then
+            echo "::error title=QA CI::fallo intencionado ([gr:fail])"
+            exit 1
+          fi
+          echo "CI de QA en verde para $GITHUB_SHA"
+
+  release:
+    needs: ci
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: qa-release-gate
+    # Un único release activo. GitHub puede sustituir un release pendiente.
+    concurrency:
+      group: qa-railway-deploy
+      cancel-in-progress: false
+    env:
+      DEPLOY_SHA: ${{ github.sha }}
+      MSG: ${{ github.event.head_commit.message }}
+    steps:
+      - name: Checkout (historia completa para la guardia)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Require Railway credential (fail closed)
+        env:
+          RAILWAY_QA_TOKEN: ${{ secrets.RAILWAY_QA_TOKEN }}
+        run: |
+          set -euo pipefail
+          tok="$RAILWAY_QA_TOKEN"
+          if printf '%s' "$MSG" | grep -q '\[gr:no-token\]'; then tok=""; echo "Escenario sin credencial"; fi
+          if [ -z "$tok" ]; then
+            echo "::error title=Release BLOCKED::credencial ausente. No se despliega."
+            exit 1
+          fi
+          code=$(curl -sS -o cred.json -w '%{http_code}' "$RAILWAY_API" \
+            -H "Project-Access-Token: $tok" -H "Content-Type: application/json" \
+            --data '{"query":"query { projectToken { projectId environmentId } }"}' || echo 000)
+          if [ "$code" != "200" ] || jq -e '.errors' cred.json >/dev/null 2>&1; then
+            echo "::error title=Release BLOCKED::la credencial no autentica (HTTP $code)."
+            exit 1
+          fi
+          [ "$(jq -r .data.projectToken.projectId cred.json)" = "$QA_PROJECT_ID" ] \
+            && [ "$(jq -r .data.projectToken.environmentId cred.json)" = "$QA_ENVIRONMENT_ID" ] \
+            || { echo "::error title=Release BLOCKED::la credencial no es de QA staging."; exit 1; }
+          echo "Credencial válida y acotada a QA staging."
+
+      - name: Forward-only guard
+        id: guard
+        run: |
+          set -euo pipefail
+          json=$(node project-manager-app/scripts/verify-deploy-provenance.mjs \
+            --url="$QA_API_URL" --path=/v1/health --expect-sha="$DEPLOY_SHA" \
+            --allow-unknown-digest --retries=3 --interval=5 --timeout=5 || true)
+          served=$(printf '%s' "$json" | jq -r '.observed.gitSha // "unknown"' 2>/dev/null || echo unknown)
+          rc=0
+          decision=$(node project-manager-app/scripts/release-forward-guard.mjs \
+            --candidate="$DEPLOY_SHA" --served="$served") || rc=$?
+          echo "$decision"
+          action=$(printf '%s' "$decision" | jq -r .action)
+          echo "action=$action" >> "$GITHUB_OUTPUT"
+          echo "served=$served" >> "$GITHUB_OUTPUT"
+          {
+            echo "## QA release gate"
+            echo "- Candidato: \`$DEPLOY_SHA\`"
+            echo "- Servido antes (API QA): \`$served\`"
+            echo "- Guardia: \`$action\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$action" = "blocked" ]; then
+            echo "::error title=Release BLOCKED::$(printf '%s' "$decision" | jq -r .reason)"
+            exit 1
+          fi
+
+      - name: Deploy exact commit (API y Worker de QA)
+        if: steps.guard.outputs.action == 'deploy'
+        env:
+          RAILWAY_QA_TOKEN: ${{ secrets.RAILWAY_QA_TOKEN }}
+        run: |
+          set -euo pipefail
+          for svc in "$QA_API_SERVICE_ID" "$QA_WORKER_SERVICE_ID"; do
+            body=$(jq -nc --arg s "$svc" --arg e "$QA_ENVIRONMENT_ID" --arg c "$DEPLOY_SHA" \
+              '{query:"mutation($s:String!,$e:String!,$c:String!){ serviceInstanceDeploy(serviceId:$s, environmentId:$e, latestCommit:true, commitSha:$c) }", variables:{s:$s,e:$e,c:$c}}')
+            resp=$(curl -sS "$RAILWAY_API" -H "Project-Access-Token: $RAILWAY_QA_TOKEN" \
+              -H "Content-Type: application/json" --data "$body")
+            if ! printf '%s' "$resp" | jq -e '.data.serviceInstanceDeploy == true' >/dev/null; then
+              echo "::error title=Release FAILED::serviceInstanceDeploy rechazado para $svc"
+              printf '%s' "$resp" | jq -c '.errors // empty | map(.message)' || true
+              exit 1
+            fi
+            echo "Deploy de $DEPLOY_SHA disparado en $svc"
+          done
+
+      - name: Verify per service (Railway metadata + runtime)
+        if: steps.guard.outputs.action == 'deploy' || steps.guard.outputs.action == 'already_served'
+        env:
+          RAILWAY_QA_TOKEN: ${{ secrets.RAILWAY_QA_TOKEN }}
+        run: |
+          set -euo pipefail
+          verify_svc() {
+            local svc="$1" name="$2"
+            for i in $(seq 1 60); do
+              body=$(jq -nc --arg s "$svc" --arg e "$QA_ENVIRONMENT_ID" \
+                '{query:"query($s:String!,$e:String!){ deployments(first: 10, input:{serviceId:$s, environmentId:$e}) { edges { node { id status meta } } } }", variables:{s:$s,e:$e}}')
+              resp=$(curl -sS "$RAILWAY_API" -H "Project-Access-Token: $RAILWAY_QA_TOKEN" \
+                -H "Content-Type: application/json" --data "$body")
+              row=$(printf '%s' "$resp" | jq -c --arg c "$DEPLOY_SHA" \
+                '[.data.deployments.edges[].node | select(.meta.commitHash == $c)] | first // empty')
+              [ -n "$row" ] || row='{}'
+              st=$(printf '%s' "$row" | jq -r '.status // "none"')
+              id=$(printf '%s' "$row" | jq -r '.id // "none"')
+              echo "[$i] $name: deployment=$id status=$st"
+              case "$st" in
+                SUCCESS) echo "- $name: \`$id\` SUCCESS (metadata de Railway)" >> "$GITHUB_STEP_SUMMARY"; return 0 ;;
+                FAILED|CRASHED|REMOVED|SKIPPED) echo "::error title=Release FAILED::$name $id $st"; return 1 ;;
+              esac
+              sleep 15
+            done
+            echo "::error title=Release FAILED::$name sin SUCCESS para $DEPLOY_SHA en 15 min"; return 1
+          }
+          verify_svc "$QA_API_SERVICE_ID" "semse-api-qa"
+          verify_svc "$QA_WORKER_SERVICE_ID" "semse-worker-qa (no runtime)"
+          node project-manager-app/scripts/verify-deploy-provenance.mjs \
+            --url="$QA_API_URL" --path=/v1/health --expect-sha="$DEPLOY_SHA" \
+            --allow-unknown-digest --retries=20 --interval=15 --timeout=5 --markdown >> "$GITHUB_STEP_SUMMARY" \
+            || { echo "::error title=Release FAILED::la API de QA no sirve $DEPLOY_SHA en runtime"; exit 1; }
+          echo "- Resultado: **VERIFIED** para \`$DEPLOY_SHA\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Superseded summary
+        if: steps.guard.outputs.action == 'superseded'
+        run: |
+          echo "- Resultado: **SUPERSEDED**. QA ya sirve \`${{ steps.guard.outputs.served }}\`, posterior al candidato. No se despliega." >> "$GITHUB_STEP_SUMMARY"
