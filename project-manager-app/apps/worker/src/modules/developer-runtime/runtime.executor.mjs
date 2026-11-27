@@ -7,6 +7,7 @@ import {
   resolveDeveloperRuntimeCommandTemplate,
 } from "@semse/shared";
 import { buildValidationArtifacts, buildValidationResults } from "./validation.executor.mjs";
+import { assertWorkerDoesNotWriteEvidenceVolume } from "./evidence-volume-guard.mjs";
 
 const MAX_CHUNK_BYTES = 4096;
 const PROGRESS_INTERVAL_MS = 1500;
@@ -359,6 +360,7 @@ async function executeWriteFile({ rootPath, mission, step }) {
   }
 
   const filePath = ensureRepoScopedPath(rootPath, operation.path);
+  assertWorkerDoesNotWriteEvidenceVolume(filePath);
   const relPath = repoRelativePath(operation.path);
   const dirPath = path.dirname(filePath);
   await fs.mkdir(dirPath, { recursive: true });
@@ -397,6 +399,7 @@ async function executePatchFile({ rootPath, mission, step }) {
   }
 
   const filePath = ensureRepoScopedPath(rootPath, operation.path);
+  assertWorkerDoesNotWriteEvidenceVolume(filePath);
   const relPath = repoRelativePath(operation.path);
   const original = await fs.readFile(filePath, "utf8");
   if (!original.includes(operation.find)) {

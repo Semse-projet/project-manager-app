@@ -1,9 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import {
   assertStorageWriteAdmission,
   assertStorageWritePublication,
+  resolveFreezeExpiresAt,
   resolveStorageWriteGateTransition,
+  storageWriteGateBlocksNewWrites,
+  storageWriteGateTransitionRequestDigest,
   StorageWriteGateBlockedError,
 } from '../../apps/api/src/infrastructure/storage/storage-write-gate-state.ts';
 
@@ -60,6 +64,52 @@ test('thaw or abort drain requires explicit closed recovery window', () => {
   assert.equal(resolveStorageWriteGateTransition(state('FROZEN'), req('THAW', {recoveryWindowClosed: true})), 'OPEN');
   assert.equal(resolveStorageWriteGateTransition(state('DRAINING'), req('ABORT_DRAIN', {recoveryWindowClosed: true})), 'OPEN');
   blocked(() => resolveStorageWriteGateTransition(state('OPEN'), req('THAW', {recoveryWindowClosed: true})), 'transition_conflict');
+});
+
+test('a pre-TTL transition digest replays when the retry omits TTL', () => {
+  const historicalFields = {
+    action: 'BEGIN_DRAIN',
+    expectedEpoch: '1',
+    actorUserId: 'synthetic-ops-admin',
+    ticket: 't008-historical-drain',
+    reason: 'synthetic staging control-plane acceptance',
+  };
+  const historical = createHash('sha256').update(JSON.stringify(historicalFields)).digest('hex');
+  assert.equal(storageWriteGateTransitionRequestDigest(historicalFields), historical);
+  assert.equal(storageWriteGateTransitionRequestDigest({
+    ...historicalFields,
+    freezeTtlSeconds: undefined,
+  }), historical);
+  const withTtl = storageWriteGateTransitionRequestDigest({
+    ...historicalFields,
+    freezeTtlSeconds: 300,
+  });
+  assert.notEqual(withTtl, historical);
+  assert.equal(withTtl, createHash('sha256').update(JSON.stringify({
+    ...historicalFields,
+    freezeTtlSeconds: 300,
+  })).digest('hex'));
+});
+
+test('freeze TTL is required in production mutate and never reopens writes', () => {
+  const now = new Date('2026-11-25T12:00:00.000Z');
+  blocked(() => resolveFreezeExpiresAt('MARK_FROZEN', undefined, true, now), 'freeze_ttl_required');
+  blocked(() => resolveFreezeExpiresAt('MARK_FROZEN', 60, true, now), 'invalid_freeze_ttl');
+  blocked(() => resolveFreezeExpiresAt('MARK_FROZEN', 14401, true, now), 'invalid_freeze_ttl');
+  assert.equal(resolveFreezeExpiresAt('BEGIN_DRAIN', undefined, true, now), null);
+  assert.equal(resolveFreezeExpiresAt('MARK_FROZEN', undefined, false, now), null);
+  const expires = resolveFreezeExpiresAt('MARK_FROZEN', 300, true, now);
+  assert.equal(expires.toISOString(), '2026-11-25T12:05:00.000Z');
+
+  const future = storageWriteGateBlocksNewWrites('FROZEN', expires, now);
+  assert.equal(future.blocked, true);
+  assert.equal(future.freezeExpired, false);
+  const overdue = storageWriteGateBlocksNewWrites('FROZEN', expires, new Date('2026-11-25T12:05:00.000Z'));
+  assert.equal(overdue.blocked, true);
+  assert.equal(overdue.freezeExpired, true);
+  const open = storageWriteGateBlocksNewWrites('OPEN', expires, new Date('2026-11-25T13:00:00.000Z'));
+  assert.equal(open.blocked, false);
+  assert.equal(open.freezeExpired, false);
 });
 
 test('downstream dependency errors cannot silently authorize a transition', () => {

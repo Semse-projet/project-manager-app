@@ -53,4 +53,19 @@ test("T-008 control plane remains additive, staged and explicit", () => {
   assert.match(migration, /RECOVERED_FENCED/);
   assert.match(migration, /StorageWriteGateAudit_scope_idempotency_uniq/);
   assert.doesNotMatch(migration, /INSERT INTO "StorageWriteGate"/, "migration never provisions OPEN");
+  const ttl = read("../../packages/db/prisma/migrations/20261125140000_storage_write_gate_freeze_ttl/migration.sql");
+  const schema = read("../../packages/db/prisma/schema.prisma");
+  assert.match(ttl, /ADD COLUMN IF NOT EXISTS "freezeExpiresAt"/);
+  assert.doesNotMatch(ttl, /INSERT INTO|DELETE FROM|TRUNCATE|UPDATE "StorageWriteGate"/);
+  assert.match(schema, /freezeExpiresAt/);
+});
+
+test("reads stay outside the write gate and a frozen writer error stays retryable", () => {
+  const storage = read("../../apps/api/src/infrastructure/storage/storage.service.ts");
+  const readBuffer = storage.slice(storage.indexOf("async readBuffer"), storage.indexOf("async stat"));
+  const stat = storage.slice(storage.indexOf("async stat"), storage.indexOf("async delete"));
+  assert.doesNotMatch(readBuffer, /configuredBoundary|withWriteGateMutation/);
+  assert.doesNotMatch(stat, /configuredBoundary|withWriteGateMutation/);
+  assert.match(storage, /Reads are unaffected/);
+  assert.match(storage, /retryAfterSeconds = 5/);
 });

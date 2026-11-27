@@ -5,6 +5,7 @@ import { ServiceUnavailableException } from "@nestjs/common";
 import { resolveStorageWriteGateScope } from "../dist/infrastructure/storage/storage-write-gate-scope.js";
 import {
   assertStorageWriteGateControl,
+  storageWriteGateProductionMutateArmed,
   storageWriteGateRuntimeEnabled,
 } from "../dist/infrastructure/storage/storage-write-gate-mode.js";
 
@@ -89,6 +90,51 @@ test("production observe/provision can be prepared while runtime remains off", (
     () => assertStorageWriteGateControl("mutate", provision),
     ServiceUnavailableException,
   );
+});
+
+test("production mutate stays closed unless the separate control mode is mutate", () => {
+  const dormant = {
+    ...prod,
+    SEMSE_STORAGE_WRITE_GATE_MODE: "production",
+  };
+  assert.equal(storageWriteGateProductionMutateArmed(dormant), false);
+  assert.throws(
+    () => assertStorageWriteGateControl("mutate", dormant),
+    ServiceUnavailableException,
+  );
+
+  const observe = {
+    ...dormant,
+    SEMSE_STORAGE_WRITE_GATE_PRODUCTION_CONTROL_MODE: "observe",
+  };
+  assert.equal(storageWriteGateProductionMutateArmed(observe), false);
+  assert.throws(
+    () => assertStorageWriteGateControl("mutate", observe),
+    ServiceUnavailableException,
+  );
+
+  const armedWithoutRuntime = {
+    ...prod,
+    SEMSE_STORAGE_WRITE_GATE_MODE: "off",
+    SEMSE_STORAGE_WRITE_GATE_PRODUCTION_CONTROL_MODE: "mutate",
+  };
+  assert.equal(storageWriteGateProductionMutateArmed(armedWithoutRuntime), false);
+  assert.throws(
+    () => assertStorageWriteGateControl("mutate", armedWithoutRuntime),
+    ServiceUnavailableException,
+  );
+  assert.doesNotThrow(() => assertStorageWriteGateControl("observe", armedWithoutRuntime));
+  assert.doesNotThrow(() => assertStorageWriteGateControl("provision", armedWithoutRuntime));
+
+  const armed = {
+    ...prod,
+    SEMSE_STORAGE_WRITE_GATE_MODE: "production",
+    SEMSE_STORAGE_WRITE_GATE_PRODUCTION_CONTROL_MODE: "mutate",
+  };
+  assert.equal(storageWriteGateProductionMutateArmed(armed), true);
+  assert.doesNotThrow(() => assertStorageWriteGateControl("observe", armed));
+  assert.doesNotThrow(() => assertStorageWriteGateControl("provision", armed));
+  assert.doesNotThrow(() => assertStorageWriteGateControl("mutate", armed));
 });
 
 test("production transition authority remains unavailable even with runtime enabled", () => {

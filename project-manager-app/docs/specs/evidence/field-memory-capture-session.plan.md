@@ -162,10 +162,11 @@ Pendiente antes de merge/release: staging real con al menos dos procesos, invent
 
 **No equivalencias:** \`CI PASS\` ≠ deploy; \`Railway SUCCESS\` ≠ prueba de freeze; \`OFFSITE_RESTORE_PASS\` ≠ recuperación nativa ni CAP-1 VERIFIED.
 
+### 12.8 Enmienda propuesta para T-008 OPEN-only productivo — APROBADA POR EL PROPIETARIO
 
-### 12.8 Enmienda propuesta para T-008 OPEN-only productivo — REVIEW, NO APROBADA
+**Aprobación del propietario (2026-11-25):** Yo, Samuel, apruebo el cambio de contrato de §12.8 y §12.9. Esta aprobación no activa `SEMSE_STORAGE_WRITE_GATE_PRODUCTION_CONTROL_MODE=mutate`, no abre una ventana de freeze en SEMSEproject y no autoriza Restore ni wipe del volumen de semse-API.
 
-**Esta sección es una propuesta de cambio al contrato, no altera la autorización del CAP-0 original ni la restricción de staging de §12.6.** Hasta decisión explícita del propietario y revisor de seguridad independiente, PR #1014 debe permanecer en borrador y NO fusionarse, desplegarse ni activarse.
+**Esta sección es un cambio de contrato aprobado por el propietario el 2026-11-25.** No altera la autorización del CAP-0 original ni activa el runtime. PR #1014 no se fusiona, no se despliega y no se activa por esta frase.
 
 Propósito: observar y provisionar de forma idempotente SOLO un gate durable OPEN productivo, sin conceder autoridad para BEGIN_DRAIN, MARK_FROZEN, THAW, recovery ni atestación de FROZEN. El entorno sigue ofreciendo cero modos de transición productiva.
 
@@ -179,4 +180,18 @@ Invariantes obligatorias de la propuesta:
 6. No usar CI, health o restore sintético como prueba de congelación real del volumen. No tratar un canary OPEN como respaldo VERIFIED ni como permiso para CAP-1 o 3D.
 7. No se autoriza tocar variables productivas ni operar endpoints desde este PR; se requiere verificación terminal de scope/rollback y revisión separada de despliegue.
 
-**Gates pendientes:** decisión del owner sobre esta enmienda, auditoría independiente de los dos hallazgos P1 de Codex, cobertura E2E contra PostgreSQL desechable con mismo path en dos ambientes, CI completo del head, y plan de despliegue revisado. De no aprobarse, el contrato vigente continúa prohibiendo el control plane en producción.
+**Gates pendientes:** el propietario decidió esta enmienda el 2026-11-25. Siguen abiertos la auditoría independiente de los dos hallazgos P1 de Codex, la cobertura E2E contra PostgreSQL desechable con mismo path en dos ambientes, el CI del head de despliegue y el plan de despliegue revisado. La aprobación no enciende el control plane en producción.
+
+### 12.9 Production-control slice (código, no activación)
+
+> **Aprobación del propietario registrada.** Samuel aprobó §12.8 y §12.9 el 2026-11-25. El texto está al inicio de §12.8. Esta nota no activa `SEMSE_STORAGE_WRITE_GATE_PRODUCTION_CONTROL_MODE=mutate` ni una ventana de freeze.
+
+El párrafo 5 de §12.8 describe el canary sin `mutate`. Este slice describe un opt-in posterior, apagado por defecto, y no sustituye esa restricción.
+
+Permite drain/freeze/thaw en producción solo con estas condiciones a la vez:
+
+- `SEMSE_STORAGE_WRITE_GATE_PRODUCTION_CONTROL_MODE=mutate`
+- `SEMSE_STORAGE_WRITE_GATE_MODE=production`
+- permiso `ops:storage-write-gate:production-mutate`, exclusivo de `OPS_ADMIN`, además de `ops:storage-write-gate:manage` y del rol
+
+Sin la variable de control, el comportamiento queda el del canary OPEN-only: observe/provision y rechazo de mutate. El TTL de `MARK_FROZEN` (300–14400 s) es un plazo en `freezeExpiresAt`. Al vencer, las escrituras siguen fail-closed hasta un `THAW` explícito. Un `THAW` con el gate ya `OPEN` y el epoch vigente es un recibo idempotente y no incrementa el epoch. El rollback de enforcement es `SEMSE_STORAGE_WRITE_GATE_MODE=off`; ese modo no acepta `THAW`. Limpiar una fila `FROZEN` exige volver a `MODE=production` con el control en `mutate`, atestiguar la ventana y hacer `THAW`, con las escrituras en 503 hasta que el gate quede `OPEN`. Este slice no ejecuta la ventana en SEMSEproject ni marca T-008i. El contrato de §12.8 y §12.9 está aprobado desde el 2026-11-25; la activación no.

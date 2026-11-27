@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 /**
  * T-008: pure, deterministic state transition guards for the storage write gate.
  *
@@ -8,6 +10,37 @@
  */
 export type StorageWriteGatePhase = "OPEN" | "DRAINING" | "FROZEN";
 export type StorageWriteGateAction = "BEGIN_DRAIN" | "MARK_FROZEN" | "THAW" | "ABORT_DRAIN";
+
+/** Operator-chosen freeze window. Expiry never reopens writes. */
+export const STORAGE_WRITE_GATE_FREEZE_TTL_MIN_SECONDS = 300;
+export const STORAGE_WRITE_GATE_FREEZE_TTL_MAX_SECONDS = 14_400;
+
+/**
+ * Idempotency digest for a phase transition.
+ * Audits written before freeze TTL existed hash only the original fields.
+ * Omit freezeTtlSeconds unless the caller actually sent it, so those
+ * receipts still replay. A present TTL is part of the hash.
+ */
+export function storageWriteGateTransitionRequestDigest(input: {
+  action: string;
+  expectedEpoch: string;
+  actorUserId: string;
+  ticket: string;
+  reason: string;
+  freezeTtlSeconds?: number;
+}): string {
+  const payload: Record<string, string | number> = {
+    action: input.action,
+    expectedEpoch: input.expectedEpoch,
+    actorUserId: input.actorUserId,
+    ticket: input.ticket,
+    reason: input.reason,
+  };
+  if (input.freezeTtlSeconds !== undefined) {
+    payload.freezeTtlSeconds = input.freezeTtlSeconds;
+  }
+  return createHash("sha256").update(JSON.stringify(payload)).digest("hex");
+}
 
 export type StorageWriteGateSnapshot = Readonly<{
   phase: StorageWriteGatePhase;
@@ -37,6 +70,44 @@ export class StorageWriteGateBlockedError extends Error {
 
 function deny(reason: string): never {
   throw new StorageWriteGateBlockedError(reason);
+}
+
+/**
+ * Deadline stored on MARK_FROZEN. Production mutate requires a bounded TTL.
+ * A past deadline does not change phase; thaw stays an explicit audited action.
+ */
+export function resolveFreezeExpiresAt(
+  action: StorageWriteGateAction,
+  ttlSeconds: number | undefined,
+  productionMutate: boolean,
+  now: Date = new Date(),
+): Date | null {
+  if (action !== "MARK_FROZEN") return null;
+  if (ttlSeconds === undefined) {
+    if (productionMutate) deny("freeze_ttl_required");
+    return null;
+  }
+  if (!Number.isSafeInteger(ttlSeconds) ||
+      ttlSeconds < STORAGE_WRITE_GATE_FREEZE_TTL_MIN_SECONDS ||
+      ttlSeconds > STORAGE_WRITE_GATE_FREEZE_TTL_MAX_SECONDS) {
+    deny("invalid_freeze_ttl");
+  }
+  return new Date(now.getTime() + ttlSeconds * 1000);
+}
+
+/**
+ * New admissions stay blocked for every non-OPEN phase, including a freeze
+ * whose TTL has already elapsed. Callers must thaw explicitly.
+ */
+export function storageWriteGateBlocksNewWrites(
+  phase: StorageWriteGatePhase,
+  freezeExpiresAt: Date | null,
+  now: Date = new Date(),
+): {blocked: boolean; freezeExpired: boolean} {
+  const freezeExpired = phase === "FROZEN"
+    && freezeExpiresAt !== null
+    && freezeExpiresAt.getTime() <= now.getTime();
+  return {blocked: phase !== "OPEN", freezeExpired};
 }
 
 function validateSnapshot(snapshot: StorageWriteGateSnapshot): void {

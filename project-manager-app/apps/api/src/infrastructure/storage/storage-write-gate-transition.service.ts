@@ -1,19 +1,22 @@
 import { Injectable, ServiceUnavailableException } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service.js";
 import {
+  resolveFreezeExpiresAt,
   resolveStorageWriteGateTransition,
   StorageWriteGateBlockedError,
   type StorageWriteGateAction,
   type StorageWriteGatePhase,
 } from "./storage-write-gate-state.js";
 import { isProductionStorage } from "./production-storage-guard.js";
+import { storageWriteGateProductionMutateArmed } from "./storage-write-gate-mode.js";
 
 /**
  * T-008: transactional phase transitions under the same PostgreSQL row lock
  * used by writer admission. The staging control plane supplies authenticated
- * operator metadata. Defense in depth: this lower-level mutator also rejects
- * direct production execution, even if a future internal caller bypasses the
- * higher-level control service.
+ * operator metadata. Defense in depth: this lower-level mutator rejects
+ * production execution unless the separate production-control opt-in is armed
+ * and the caller presents the permission grant checked at the HTTP boundary.
+ * A freeze TTL is a deadline only; it never reopens the gate.
  */
 export type StorageTransitionAuthority = Readonly<{
   actorUserId: string;
@@ -21,6 +24,11 @@ export type StorageTransitionAuthority = Readonly<{
   auditTicket: string;
   /** Legacy/internal compatibility only; never trusted as thaw authority. */
   recoveryWindowClosed?: boolean;
+  /**
+   * True only after the control plane verified
+   * ops:storage-write-gate:production-mutate. Ignored outside production.
+   */
+  productionMutateAuthorized?: boolean;
 }>;
 
 type AuditReplayRow = {
@@ -72,12 +80,23 @@ export class StorageWriteGateTransitionService {
     reason?: string;
     idempotencyKey?: string;
     requestDigest?: string;
+    freezeTtlSeconds?: number;
   }): Promise<{phase: StorageWriteGatePhase; epoch: bigint}> {
-    if (isProductionStorage(process.env)) {
-      throw new ServiceUnavailableException(
-        "Production storage write gate transitions are not enabled in this slice",
-      );
+    const production = isProductionStorage(process.env);
+    if (production) {
+      const armed = storageWriteGateProductionMutateArmed(process.env)
+        && input.authority.productionMutateAuthorized === true;
+      if (!armed) {
+        throw new ServiceUnavailableException(
+          "Production storage write gate transitions are not enabled in this slice",
+        );
+      }
     }
+    const freezeExpiresAt = resolveFreezeExpiresAt(
+      input.action,
+      input.freezeTtlSeconds,
+      production,
+    );
     if (!/^[A-Za-z0-9][A-Za-z0-9._:/-]{5,190}$/.test(input.scope)) {
       throw new StorageWriteGateBlockedError("invalid_scope");
     }
@@ -129,6 +148,25 @@ export class StorageWriteGateTransitionService {
         throw new StorageWriteGateBlockedError("stale_epoch");
       }
 
+      // A repeated thaw against an already OPEN gate is a receipt, not a
+      // second epoch bump. The same idempotency key is handled above.
+      if (input.action === "THAW" && gate.phase === "OPEN") {
+        await tx.$executeRaw`
+          INSERT INTO "StorageWriteGateAudit"
+            ("id", "scope", "epochBefore", "epochAfter", "phaseBefore", "phaseAfter",
+             "action", "actorUserId", "ticket", "reason", "idempotencyKey",
+             "requestDigest", "occurredAt")
+          VALUES (
+            gen_random_uuid(), ${input.scope}, ${gate.epoch}, ${gate.epoch},
+            'OPEN', 'OPEN', 'THAW',
+            ${input.authority.actorUserId}, ${ticket},
+            ${input.reason ?? null}, ${input.idempotencyKey ?? null},
+            ${input.requestDigest ?? null}, CURRENT_TIMESTAMP
+          )
+        `;
+        return {phase: "OPEN", epoch: gate.epoch};
+      }
+
       const counts = await tx.$queryRaw<Array<{active: bigint}>>`
         SELECT count(*)::bigint AS "active"
         FROM "StorageWriteOperation"
@@ -172,6 +210,7 @@ export class StorageWriteGateTransitionService {
             "epoch" = ${nextEpoch},
             "coverageDigest" = ${nextCoverageDigest},
             "recoveryWindowDigest" = ${nextRecoveryWindowDigest},
+            "freezeExpiresAt" = ${freezeExpiresAt},
             "operatorTicket" = ${ticket},
             "updatedAt" = CURRENT_TIMESTAMP
         WHERE "scope" = ${input.scope} AND "epoch" = ${gate.epoch}

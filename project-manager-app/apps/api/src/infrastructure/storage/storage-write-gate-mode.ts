@@ -51,17 +51,33 @@ export function storageWriteGateRuntimeEnabled(
 }
 
 /**
+ * Production drain/freeze/thaw is a separate opt-in from runtime enforcement.
+ * Absent, empty, observe and provision keep the OPEN-only canary. `mutate`
+ * still requires SEMSE_STORAGE_WRITE_GATE_MODE=production so a freeze cannot
+ * be recorded while writers are ignoring the gate.
+ */
+export function storageWriteGateProductionMutateArmed(
+  env: GateModeEnv = process.env,
+): boolean {
+  return isProductionStorage(env)
+    && runtimeMode(env) === "production"
+    && productionControlMode(env) === "mutate";
+}
+
+/**
  * Control-plane exposure policy.
  *
  * Staging keeps the full control plane.
- * Production is deliberately canary-only in this slice:
+ * Production defaults to the OPEN-only canary:
  *   - observe: status/count only
  *   - provision: status/count + idempotent OPEN provision
- *   - mutate: NEVER allowed in production here
+ *   - mutate: only when SEMSE_STORAGE_WRITE_GATE_PRODUCTION_CONTROL_MODE=mutate
+ *     AND the runtime mode is production. The HTTP layer still requires the
+ *     dedicated OPS_ADMIN permission. Without the control variable, mutate
+ *     stays rejected.
  *
- * This permits provisioning the durable OPEN row before runtime enforcement is
- * enabled, avoiding a fail-closed outage window. Drain/freeze/thaw/recovery
- * remain unavailable until a separately reviewed production-control slice.
+ * Provisioning the durable OPEN row before runtime enforcement avoids a
+ * fail-closed outage window. Expiry of a freeze does not reopen writes.
  */
 export function assertStorageWriteGateControl(
   level: StorageWriteGateControlLevel,
@@ -87,6 +103,14 @@ export function assertStorageWriteGateControl(
   // Do not expose control on a scope derived from a filesystem path alone.
   resolveStorageWriteGateScope(env);
   const control = productionControlMode(env);
+  if (control === "mutate") {
+    if (level === "mutate" && mode !== "production") {
+      throw new ServiceUnavailableException(
+        "Production storage write gate mutations require runtime mode production",
+      );
+    }
+    return;
+  }
   if (level === "observe" && (control === "observe" || control === "provision")) {
     return;
   }

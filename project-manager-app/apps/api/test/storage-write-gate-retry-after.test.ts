@@ -53,6 +53,16 @@ test("storage gate rejection emits HTTP 503 with Retry-After", () => {
   });
 });
 
+test("frozen writes name the gate and stay retryable", () => {
+  const error = new StorageWriteGateUnavailableException("not_open");
+  assert.equal(error.reason, "not_open");
+  assert.equal(error.retryAfterSeconds, 5);
+  assert.equal(error.getStatus(), 503);
+  const body = error.getResponse() as {message?: string};
+  assert.match(String(body.message), /draining or frozen/);
+  assert.match(String(body.message), /Reads are unaffected/);
+});
+
 function assertRequestId(body: unknown): string {
   assert.equal(typeof body, "object");
   assert.ok(body !== null && "requestId" in body);

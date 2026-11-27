@@ -52,6 +52,8 @@ const guardContracts = [
     /mode === "production"/,
     /level === "observe"/,
     /level === "provision"/,
+    /control === "mutate"/,
+    /storageWriteGateProductionMutateArmed/,
     /Production storage write gate control is not armed/,
   ]],
   ["infrastructure/storage/storage.service.ts", [

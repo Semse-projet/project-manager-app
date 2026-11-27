@@ -39,7 +39,10 @@ test("control plane is wired with production OPEN-canary but production mutation
   assert.match(mode, /level === "observe"/);
   assert.match(mode, /level === "provision"/);
   assert.match(mode, /Production storage write gate control is not armed/);
-  assert.match(control, /assertControlPlane\("mutate"\)/);
+  assert.match(mode, /storageWriteGateProductionMutateArmed/);
+  assert.match(mode, /control === "mutate"/);
+  assert.match(control, /assertMutateGrant/);
+  assert.match(control, /ops:storage-write-gate:production-mutate/);
 });
 
 test("reopening fences stale tickets and invalidates writer coverage", () => {
@@ -53,4 +56,7 @@ test("reopening fences stale tickets and invalidates writer coverage", () => {
   assert.match(source, /recoveryWindowClosed: gate\.recoveryWindowDigest !== null/);
   assert.match(source, /"coverageDigest" = \$\{nextCoverageDigest\}/);
   assert.match(source, /"recoveryWindowDigest" = \$\{nextRecoveryWindowDigest\}/);
+  assert.match(source, /productionMutateAuthorized/);
+  assert.match(source, /"freezeExpiresAt"/);
+  assert.match(source, /input.action === "THAW" && gate.phase === "OPEN"/);
 });
