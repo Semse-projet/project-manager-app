@@ -3,7 +3,7 @@ id: "labor.weekly-reconciliation"
 title: "Conciliación semanal del Time Tracker"
 domain: "labor"
 sdd_version: "2.0"
-version: "0.20"
+version: "0.23"
 status: "DRAFT"
 owner: "semse-core"
 risk: "critical"
@@ -45,10 +45,10 @@ related_tests: []
 related_endpoints: []
 related_events: []
 related_agents: []
-last_verified: "2026-11-23"
+last_verified: "2026-11-26"
 ---
 
-# Conciliación semanal · borrador para revisión (v0.20 DRAFT)
+# Conciliación semanal · borrador para revisión (v0.23 DRAFT · PROPUESTA DOCUMENTAL)
 
 > **DRAFT / NO IMPLEMENTAR.** Esta SDD no autoriza código, migraciones, grants, membresías, flags, pruebas funcionales, CI, despliegue ni activación. B4-11/B4-12 siguen abiertos. Plan 3 sigue abierto.
 
@@ -71,6 +71,9 @@ last_verified: "2026-11-23"
 | v0.18 | misma ruta, commit `127e0cff…` | Registró las decisiones de producto **G45-R1 y G45-R2** (§10.17.13, R-C317-25 y R-C317-26). Espejo Drive SHA-256 `e30b9b54…2d2d`. |
 | v0.19 | misma ruta y rama, commit `dd0f5f4…`; merge de `main@dbf64b7d959135a536bfa7c5a0dd4e266cef3ea7` en la rama (commit `f7e1740…`) | Esta revisión: enlaza la decisión **OPEN-SUP-04 (horas)** de `core.crew-supervisor-delegations` §3.1 (2026-11-23) y registra sus conflictos con C3-04 y con la decisión del 17-11 (§10.17.14). SHA-256 local del espejo `461bf1b3…562f`; la copia en Drive se comprobó **sólo por tamaño**, no por SHA. |
 | **v0.20** | misma ruta y rama, base `main@dcf1e12771669630078658531c99a27b832b3d19` | Esta revisión: registra las respuestas del propietario a K1–K6 (§10.17.14): **K1, K2 y K5 decididos** manteniendo la decisión del 17-11 y C3-04; **K3, K4 y K6 abiertos**. Sigue `DRAFT` y **no** está en `main`. |
+| **v0.21** | Actualización documental del borrador en Biblioteca y su espejo de Plan 9 | Registra B y T3 firmadas el 23-11-2026 en Plan 4 v86 §44.29. Añade el contrato lógico de titularidad histórica y los criterios de evidencia del ítem 52 en §10.20. Estado `DRAFT`. |
+| **v0.22 (propuesta)** | Propuesta local de Claude, 26-11-2026, `/mnt/project-files/reconciliacion-2026-11-26/sdd/`. Base textual: v0.21 (SHA-256 `a7f4cc9e…e224`, copia de la carpeta Plan 9 con nombre «v0.20»). **No está en el repositorio ni en Drive.** | Registra las decisiones de producto K3, K4 y K6 del 26-11-2026 (§10.17.15). Aplica como propuesta la enmienda D4 del Plan 9 (§10.9, §10.18 y §10.19.1). Señala la discrepancia de §10.20.1 con D4-08. Fechas en America/New_York (UTC), según D6. Estado `DRAFT`. |
+| **v0.23 (propuesta)** | Propuesta local de Claude (T08), 26-11-2026, 22:45 America/New_York (03:45 UTC del 27-11), `/mnt/project-files/reconciliacion-2026-11-26/T08/sdd/`. Base textual: v0.22 (SHA-256 `0ee6b194…ffad`), que **sí** está en Drive, carpeta Plan 9 (`1h9gZz0HvElkHR3g1rVlOypzUSd646ovE`). No está en el repositorio. | Corrige la ubicación de la regla 3 (rama, no `main`), resuelve documentalmente D4-08 en §10.20.1, añade §10.17.16 (aprobador único y conflicto de interés) y §10.21 (contrato G01 revisado). Estado `DRAFT`. |
 
 Según `docs/SOURCE_OF_TRUTH.md`, la SDD canónica es la del repositorio (`docs/specs/` + `docs/SPEC_INDEX.md`). Library y Drive son espejos; si contradicen al repositorio prevalece el repositorio. Library **no fue accesible** desde esta sesión: las versiones Library citadas (Plan 3 v70, Plan 9 v27, Plan 4 v38, Plan 6 v24, SDD v22) son referencias heredadas no revalidadas aquí.
 
@@ -359,7 +362,7 @@ Esta sección termina el contrato lógico que puede fijarse con la evidencia de 
 | Lectura propia | Permitir únicamente filas del actor que correspondan a su identidad canónica y tenant activos, y sólo los campos que su contrato de trabajador permita. |
 | Lectura delegada/org | Permitir filas sólo tras comprobar la autoridad efectiva aplicable al recurso, organización, actor, acción y campos. La membresía activa puede ser una condición, pero no sustituye el grant/delegación específica. Revalidar autoridad en cada página. |
 | Revocación | Una revocación o expiración antes de una página posterior detiene la lectura, aunque un cursor previo fuera válido. No completar el recorrido usando una autorización cacheada o congelada en el cursor. |
-| Otra organización/tenant | No devolver filas ni metadatos. Aplicar la semántica ResourceScope ya aprobada: recurso ausente o tenant ajeno sigue el patrón de no revelar existencia; organización ajena dentro del mismo tenant usa la respuesta definida para el scope participante. No crear una nueva regla de 403/404 en esta SDD; el mapeo exacto queda sujeto al owner de ResourceScope. |
+| Otra organización/tenant | **[v0.22, enmienda D4 propuesta; pendiente de los owners de Plan 4/API y de ResourceScope]** No devolver filas, cuerpo ni metadatos para un recurso inexistente o fuera del scope de conciliación. Usar 404 indistinguible incluso para otra organización del mismo tenant, conforme a D4-08. En un recurso dentro del scope visible pero con acción no autorizada, responder 403. Sin autenticación válida, responder 401. La respuesta no expone tenant, organización, nombre, conteos, estado u otros metadatos del recurso. Esta regla es local a Conciliación y no modifica ResourceScope común de otros módulos (hoy `apps/api/src/common/resource-scope.ts`, blob `464d4128…`, responde 403 a otra organización del mismo tenant). *Texto de v0.21 sustituido:* «Aplicar la semántica ResourceScope ya aprobada […] el mapeo exacto queda sujeto al owner de ResourceScope». |
 | Corte consistente | Todas las páginas representan un único corte lógico. La implementación aprobada debe usar snapshot/versionado consistente o invalidar el cursor y exigir reiniciar cuando no pueda preservar ese corte. Una fila nueva, editada, cerrada, borrada lógicamente o cuyo scope cambie no puede causar pérdida o duplicación silenciosa. `updatedAt` por sí solo no es revisión monotónica. |
 | Orden y cursor | Orden total determinista por clave temporal canónica más ID estable como desempate. Cursor opaco e íntegro, ligado a principal, tenant, organización, scope de recursos, política/versión de autorización, periodo, zona horaria, filtros, orden y corte. Cambio de cualquier componente invalida el cursor sin revelar filas ajenas. No se fija aquí el mecanismo criptográfico. |
 | Límite de página | El servidor valida y acota el tamaño con un máximo configurado y aprobado por el owner; se rechazan valores inválidos. La consulta debe poder terminar en una marca inequívoca de fin. El valor numérico y la política de límite se deciden con el owner técnico antes de implementar. |
@@ -921,7 +924,7 @@ Texto completo de ambas solicitudes: `SEMSE_Plan3_Solicitudes_Confirmacion_Owner
 
 ### 10.17.14 Autoridad sobre horas — OPEN-SUP-04 (horas) y su relación con Plan 3 (2026-11-23, v0.19–v0.20)
 
-**Fuente:** decisión del responsable del producto del 2026-11-23, registrada en `core.crew-supervisor-delegations` §3.1 (spec `APPROVED`; código `NOT_STARTED`). Se resume aquí porque afecta a la revisión y a la corrección de horas de la conciliación. **No** cambia el estado `DRAFT` de esta SDD ni autoriza implementación.
+**Fuente:** decisión del responsable del producto del 2026-11-23, registrada en `core.crew-supervisor-delegations` §3.1 (spec `APPROVED`; código `NOT_STARTED`). **[v0.23] Corrección de ubicación:** esa §3.1 existe solo en la rama `claude/plan3-conciliacion-gates-32rob6` (spec v0.4, commits `dd0f5f4` y `6d91226` del 23-11), no en `main`. En `main` @ `0ae2c319` la spec es v0.2 (blob `2a756eb4…`) y no tiene §3.1. Se resume aquí porque afecta a la revisión y a la corrección de horas de la conciliación. **No** cambia el estado `DRAFT` de esta SDD ni autoriza implementación.
 
 1. **Trabajador:** puede consultar sus registros y **proponer** correcciones a sus propias horas. Una propuesta **no cambia el registro oficial** hasta que la revise alguien con autoridad.
 2. **Supervisor (con delegación vigente):** puede **corregir y enviar** registros dentro de los trabajos o del alcance que tiene asignados. Cada cambio deja constancia de quién lo hizo y cuándo. **No** puede dar la aprobación final para pago por el mero hecho de ser supervisor.
@@ -962,6 +965,46 @@ Para la conciliación, las reglas vigentes de Plan 3 siguen siendo la referencia
 
 **Revalidación de `main` (2026-11-23):** `origin/main` avanzó a `dcf1e12771669630078658531c99a27b832b3d19` (#1154). Sólo toca `AgentRun` (añade `orgId` nullable y un índice) y sus consumidores; no cambia Labor, `TimeEntry`, `rbac.ts`, autenticación ni las specs `core.crew-supervisor-delegations` y `core.labor-policy`.
 
+### 10.17.15 Respuestas del dueño a K3, K4 y K6 — 26-11-2026 (v0.22, propuesta)
+
+**Fuente:** decisiones de producto tomadas por el dueño el 26-11-2026 en la revisión consolidada de los Planes 0–13, a las 14:29, 14:46 y 14:50 America/New_York (19:29, 19:46 y 19:50 UTC). Son **decisiones de producto**. No cambian el estado `DRAFT`, no aprueban esta SDD, no conceden permisos y no autorizan código, migraciones ni pagos. La puerta global del Plan 13 sigue cerrada.
+
+| ID | Estado | Decisión | Efecto en esta SDD |
+|---|---|---|---|
+| K3 | **Decidido (producto)** | Cada empresa designa a una persona como dueña. `org:labor:manage` no basta para ser dueño. OPS_ADMIN solo interviene con auditoría. | El actor de la aprobación final de horas es el **dueño designado de la empresa**. Sigue bloqueado técnicamente: no existe fuente canónica (`Org` no tiene `ownerUserId`; `Membership` solo tiene `roleId` y `status`; schema blob `65adcc99…`) ni capability. Hace falta una spec de identidad del dueño (OPEN-SUP-01) antes de implementar. |
+| K4 | **Decidido (producto)** | La aprobación final la da **solo** el dueño designado de la empresa. Es una sola firma. El dueño del trabajo no aprueba. | Se elimina «o del trabajo» del actor de la aprobación final. C3-17 sigue sin decidir quién aprueba: solo fija la base de facturación por vencimiento (R-C317-09/17/23). |
+| K6 | **Decidido (producto)** | La aprobación del dueño cierra las horas como aprobadas, pero **no** las deja listas para pago. No hay estado «aprobado para pago». Payments define el paso a pago (A-06). Labor no ejecuta ni envía pagos. | La fila «Aprobación final para pago» de §10.17.14 se lee como **«Aprobación final de horas»**. Ninguna transición de esta SDD crea un estado de pago ni dispara Payments. El valor `approved` de `TimeEntry.status` sigue sin uso en el código; esta SDD no lo activa. |
+
+**Lectura corregida de la tabla «Tres estados» de §10.17.14:**
+
+| Estado | Quién | Efecto |
+|---|---|---|
+| Propuesta | trabajador, sobre sus horas | no cambia el registro oficial (K1, K2) |
+| Corrección enviada | supervisor con delegación vigente, dentro de su alcance | queda pendiente de decisión del responsable; no cambia `TimeEntry` (K1) |
+| Aprobación final de horas | **solo el dueño designado de la empresa** (K3, K4) | cierra las horas como aprobadas; **no** es aprobación de pago ni la crea (K6) |
+
+**Conflicto que queda registrado:** `core.crew-supervisor-delegations` §3.1, regla 3 (spec `APPROVED`; el texto de §3.1 está solo en la rama del Plan 3, v0.4, no en `main`; corrección de v0.23), dice «dueño de la empresa o del trabajo […] para que avancen al proceso de pago». Contradice K4 y K6. Hace falta una enmienda de esa spec por su propio flujo SDD. Mientras tanto, esta SDD aplica K4 y K6, que son posteriores.
+
+**Gates que siguen abiertos:** G46 (capability y fuente de delegación), OPEN-SUP-01 (fuente de dueño), B4-01 (autoridad de dueño, Plan 4), A-06 (Payment Governance) y la revisión independiente de seguridad.
+
+### 10.17.16 Aprobador único y conflicto de interés — K4 frente a K5 y D4-04 (v0.23, propuesta)
+
+**Fuente:** T08.3 (`/mnt/project-files/reconciliacion-2026-11-26/T08/T08_3_Matriz_Autoridad_y_Conflicto_de_Interes.md`). Propuesta de análisis, **no** decisión. No autoriza autoaprobaciones ni cambia el estado `DRAFT`.
+
+K4 deja una sola persona que aprueba (el dueño designado). K5 y D4-04 impiden decidir lo propio como titular, capturista o proponente. Con esas reglas, las horas del propio dueño y los casos que el dueño capturó o propuso **no tienen aprobador**. Esta SDD no lo resuelve con una excepción: queda como decisión del dueño.
+
+| Caso | Regla de esta SDD hasta la decisión | Alternativas para el dueño (T08.3 §4) |
+|---|---|---|
+| Dueño que también trabaja | **Decidido (producto, 26-11-2026, 23:17 America/New_York, 04:17 UTC del 27-11): C1-B.** Sus horas quedan registradas y visibles como «sin aprobación de terceros»; no reciben aprobación final | — |
+| Empresa unipersonal | **Decidido (producto, 27-11-2026, 09:49 America/New_York (14:49 UTC)): C2-A + C2-C.** Declaración del titular por defecto, nunca como aprobación; si el trabajo se cobra por horas a un cliente, el cliente puede confirmar las horas de ese trabajo, viendo solo ese trabajo | Pendiente: nombre del estado y D-14 (cambio de precio cerrado a horas) |
+| Dueño capturista o proponente de una corrección ajena | **Decidido (producto, 27-11-2026, 09:57 America/New_York (14:57 UTC)): C3-A.** La corrección solo se aplica si el trabajador titular la acepta; si la rechaza, queda en desacuerdo y `TimeEntry` no cambia | Pendiente: resolución del desacuerdo y su FSM |
+| Revocación o cambio del dueño | Aprobaciones previas válidas con referencia a la autoridad; CAS en curso; nunca cero dueños | — |
+| OPS_ADMIN | **Decidido (producto, 27-11-2026, 10:28 America/New_York (15:28 UTC)): D-05.** Lectura con motivo y plazo, contención y recuperación supervisada del dueño, siempre con dos personas y auditoría. Nunca aprobación final ni decisión de correcciones | Pendiente: revisión de Seguridad del procedimiento de recuperación |
+
+**Hallazgo H16 (código, sin corrección):** `labor-policy.service.ts` impide revisar la corrección que uno mismo pidió, pero no la que recae sobre las horas propias si la pidió otra persona. Incumple K5 y D4-04 en el caso «titular». Se traslada a Plan 4 y a `core.labor-policy`.
+
+**Pruebas previstas:** T-K5-01 (dueño decide una corrección sobre sus horas pedida por otro: denegado), T-K5-02 (dueño decide una corrección que él propuso: denegado), T-K4-02 (representante intenta la aprobación final: denegado), T-K4-03 (aprobación tras revocar el grant del dueño: rechazada por CAS). Todas **NO EJECUTADAS**.
+
 ## 10.18 Matriz de pruebas previstas (ninguna ejecutada)
 
 | ID | Caso | Tipo | Positivo / negativo esperado | Estado |
@@ -969,8 +1012,13 @@ Para la conciliación, las reglas vigentes de Plan 3 siguen siendo la referencia
 | T-R01 | Lector propio | HTTP autenticado | ve sólo filas propias y campos permitidos | NO EJECUTADA |
 | T-R02 | Lector autorizado (grant/delegación vigente) | HTTP | sólo filas/campos del scope delegado | NO EJECUTADA |
 | T-R03 | Revocación entre páginas | HTTP multi-página | página siguiente denegada; sin datos | NO EJECUTADA |
-| T-R04 | Otra organización mismo tenant | HTTP | semántica ResourceScope (403 recurso visible / sin filas) | NO EJECUTADA |
-| T-R05 | Otro tenant | HTTP | 404/sin revelar existencia | NO EJECUTADA |
+| T-R04 | **[v0.22, D4]** ID inexistente frente a ID de otra organización del mismo tenant | HTTP autenticado | Ambos 404 indistinguibles; mismo esquema y campos; sin metadatos | NO EJECUTADA |
+| T-R05 | **[v0.22, D4]** ID de otro tenant | HTTP autenticado | 404; no revela existencia | NO EJECUTADA |
+| T-R06-P4 | **[v0.22, D4]** Recurso en scope visible, acción sin grant | HTTP autenticado | 403; sin efecto ni datos no permitidos | NO EJECUTADA |
+| T-K3-01 | **[v0.22, K3]** Miembro CLIENT con `org:labor:manage` que no es el dueño designado intenta la aprobación final de horas | HTTP autenticado | Denegado; sin cambio de estado; auditoría de DENY | NO EJECUTADA (bloqueada: fuente de dueño inexistente) |
+| T-K3-02 | **[v0.22, K3]** OPS_ADMIN interviene sobre una aprobación de horas | HTTP autenticado | Solo con motivo y evento de auditoría; sin motivo, denegado | NO EJECUTADA (bloqueada) |
+| T-K4-01 | **[v0.22, K4]** Dueño del trabajo (cliente del Job), sin ser dueño de la empresa, intenta aprobar | HTTP autenticado | Denegado | NO EJECUTADA (bloqueada) |
+| T-K6-01 | **[v0.22, K6]** Tras la aprobación final de horas | integración | No se crea estado de pago, transacción, escrow ni evento de Payments | NO EJECUTADA (bloqueada) |
 | T-R06 | Timestamps repetidos | contrato | orden total por clave temporal + ID; sin duplicados ni pérdidas | NO EJECUTADA |
 | T-R07 | Paginación concurrente (create/edit/close/delete lógico) | integración BD aislada | mismo corte o invalidación explícita | NO EJECUTADA |
 | T-R08 | Cursor manipulado / de otro actor / otra org / filtros cambiados / vencido | HTTP | error tipado sin datos ajenos | NO EJECUTADA |
@@ -1040,6 +1088,57 @@ Para la conciliación, las reglas vigentes de Plan 3 siguen siendo la referencia
 | Perfil horario (C3-10/C3-12) | entradas versionadas | §10.14 | pendiente sin perfil | T-P01/P02 | Bloqueado: sin TZ/asignación |
 | **C3-17 aprobada por el dueño 2026-11-21** (ajuste por vencimiento al tiempo del pagador) | R-C317-01…08 | §10.17 | ver §10.17.5 | T-V01…T-V09 | Decisión de producto **aprobada**; detalles P-C317-01…09 **requieren decisión**; implementación bloqueada por G04/G07/G10/G12; pruebas NO EJECUTADAS |
 | Responsable del piloto: Yoni Castellanos (declarado por usuario 18-nov) | verificar designación y autoridad | §8 / Plan 4 | ninguna decisión sin autoridad verificada | T-R02 | Requiere evidencia; no se atribuyen permisos |
+| Plan 4 v86 §44.29. Producto firma B y Owner de SDD firma T3 | Acreditar la titularidad del detalle de C3–C5 independientemente de la asignación | §10.20 | DD propio con autorización vigente. AC excluye C3–C5 si O2 falla | Plan 4 §44.23, opción B e ítem 52 | Decisiones registradas. Pruebas y evidencia del candidato pendientes |
+
+### 10.19.1 Trazabilidad D4-01…D4-08 (v0.22, enmienda D4 propuesta)
+
+Fuente: enmienda D4 del Plan 9 (22-11-2026, SHA-256 `ee0afaee…b2ba`), estado PROPUESTA. Se incorpora aquí como texto de revisión y no como requisito aprobado.
+
+| Requisito Plan 4 | Contrato | Pruebas previstas (correspondencia propuesta por Claude; confirmar con Plan 4) |
+|---|---|---|
+| D4-01 autenticación | Actor, tenant y organización verificados; sin autenticación, 401 | T-P4-01, T-W02 |
+| D4-02 trabajador | Solo filas propias y campos autorizados | T-R01, T-P4-02 |
+| D4-03 supervisor | Delegación efectiva y vigente; lectura y recomendación dentro del scope; nunca decisión final | T-R02, T-R03, T-P4-03 |
+| D4-04 conflicto | Nadie decide un caso propio como titular, afectado, declarante, capturista o proponente | T-P4-04 |
+| D4-05 cliente | Solo el agregado de Job compartido explícitamente y revocable | T-P4-05 |
+| D4-06 soporte | Excluido en el primer slice | T-P4-06 |
+| D4-07 exportación | Excluida salvo permiso explícito, mismo scope y campos, límites y auditoría | T-P4-07 |
+| D4-08 IDs | 404 uniforme si no existe o está fuera de scope; 401 sin autenticación; 403 solo si el recurso es visible y la acción se deniega | T-R04, T-R05, T-R06-P4 |
+
+Todas las pruebas siguen NO EJECUTADAS. Los identificadores T-P4-01…09 son los de Plan 4 y no se duplican aquí sin revisión del owner.
+
+## 10.20 Detalle individual de jornadas históricas · Opción B y fuente T3
+
+**Decisiones de diseño firmadas el 23-11-2026.** Samuelcastella aprobó B como Producto y T3 como Owner de SDD. El acta de Plan 4 v86 §44.29 y su ítem 52 (§44.30) son las referencias de alcance y evidencia. Esta incorporación pertenece al borrador v0.21. [Plan 4](https://chatgpt.com/library?file_id=libfile_d57be44617e48191a9e8d981c1f12b36&account_id=personal)
+
+### 10.20.1 Atribución, agregado y detalle
+
+| Dimensión | Contrato lógico |
+|---|---|
+| Atribución histórica | T3 conserva el vínculo entre la referencia canónica de la jornada y la persona titular, con vigencia, procedencia y trazabilidad de cambios. El vínculo se acredita con evidencia elegible. `createdBy` conserva la autoría de captura y carece de valor como sustituto de titularidad. |
+| Autoconsulta agregada (AC) | Mantiene O1 y O2 a la fecha de la jornada, además de la atribución y la autorización aplicables. Una jornada de C3–C5 queda fuera de los totales cuando falla O2. |
+| Detalle individual por ID (DD) | Puede incluir la jornada excluida de AC si el actor autenticado coincide con el titular acreditado para la jornada, tiene permiso vigente al consultar y cumple `ResourceScope` para la acción y el recurso. Aplicar sólo la proyección autorizada. B4-03 resuelve la ruta física. |
+| Datos faltantes o contradictorios | La falta de vínculo genera `titular_ausente`. Un conflicto entre evidencias de atribución aplicables genera `titular_inconsistente`. En ambos casos, denegar el acceso protegido y sanear la auditoría. C2 y C8 deben admitir un creador diferente del titular si la atribución es válida. |
+| Autorización y privacidad | Aplicar Plan 4 §31.3. Los motivos `sin_permiso_vigente` y `sin_titularidad` son internos y nunca se devuelven. **[v0.23] Respuestas del DD de Conciliación, según D4-08 (propuesta, pendiente del owner de Plan 4/API):** sin autenticación, 401; jornada inexistente, de otro tenant o de otra organización del mismo tenant fuera del scope, **404 indistinguible** (mismo esquema y sin metadatos); jornada visible dentro del scope con acción no autorizada, 403. Es una regla **local** de Conciliación y no modifica `apps/api/src/common/resource-scope.ts` (blob `464d4128…`), que sigue devolviendo 403 entre organizaciones del mismo tenant para los módulos que lo usan. Precedente en Labor: `labor-policy.service.ts` (`requireManage`, blob `31063cfa…`) ya devuelve 404 a quien no es miembro de la organización, y `core.crew-supervisor-delegations` §3 (APPROVED) dice «cruces entre orgs/tenants devuelven 404 neutro». `ResourceScope` común no se usa en `labor-engine`. Sustituye la nota de discrepancia de v0.22. |
+
+### 10.20.2 Persistencia y evidencia del ítem 52
+
+- Diseñar el registro T3 con referencia a jornada y titular, intervalo de vigencia, procedencia de la evidencia y auditoría de cambios. La especificación de implementación debe fijar precedencia, tratamiento de solapamientos, integridad referencial y orígenes elegibles por tenant y organización.
+- Diseñar la migración y la asignación retroactiva de titularidad (backfill) a partir de evidencias elegibles. En el entorno aislado autorizado, demostrar con datos sintéticos que las jornadas sin evidencia suficiente quedan sin atribuir. El recibo del candidato debe incluir el SHA completo, modelo y migración aplicados, resultado del backfill y trazabilidad de actor, fecha, fuente y motivo.
+- Para C3–C5, enlazar las variantes de B de Plan 4 §44.23, incluidos `TIT-Cx-OK`, `TIT-Cx-INCONS` y la comprobación de vínculo ausente. Verificar la exclusión de AC, el permiso vigente de DD, la frontera de organización y tenant, la revocación y la proyección. Incorporar C2 y C8 para acreditar la separación entre capturista y titular. Las 21 variantes de B siguen previstas y pendientes de ejecución.
+- Antes de iniciar Fase 3, Plan 10 vincula la evidencia al SHA candidato y al entorno autorizado. B4-05 y el ítem 52 permanecen pendientes de evidencia. La autorización de ejecución corresponde a Plan 13, cuya puerta sigue cerrada.
+
+## 10.21 Contrato G01 revisado: corte temporal y manifiesto verificable (v0.23, propuesta)
+
+**Fuente:** T08.1 y T08.2 (`/mnt/project-files/reconciliacion-2026-11-26/T08/T08_1-2_Contrato_G01_revisado.md`), que revisan T04 §2.5 y §2.6. Propuesta; G01 sigue **bloqueado**.
+
+- **Corte temporal:** se retira `updatedAt <= asOf`, porque una fila editada después del corte desaparece de la lectura (`TimeEntry` se sobrescribe en el sitio, sin versión ni historial). Mecanismo objetivo: revisiones inmutables de `TimeEntry` escritas en la misma transacción que cada cambio, con un contador `version`, más un corte que guarda solo `(timeEntryId, version)`. Mientras no existan revisiones, solo se admite una generación en el servidor dentro de una transacción `REPEATABLE READ` acotada; cualquier recorrido paginado sin revisiones cierra con `complete: false`.
+- **Manifiesto:** serialización JCS (RFC 8785), JSON Lines, fechas UTC con milisegundos, duración canónica `workedSeconds`, perfil de campos autorizados, `schemaVersion`, `rowCount`, totales por estado, `rowsDigest`, `contentSha256` y `revisionSetDigest`. **Decidido (producto):** D-07 (27-11-2026, 12:36 America/New_York (17:36 UTC)), el corte caduca en minutos (valor exacto en esta SDD antes de `REVIEW`), con `CUT_EXPIRED` y `complete: false`; D-08 (27-11-2026, 12:39 America/New_York (17:39 UTC)), sello HMAC del servidor en el primer slice y firma asimétrica cuando se entregue a terceros.
+- **Duración (H17):** una corrección aprobada recalcula `durationMinutes` pero no `accumulatedSeconds`. **Decidido (producto, 27-11-2026, 12:04 America/New_York (17:04 UTC)): D-13**, `workedSeconds` se recalcula desde inicio, fin y descanso; `accumulatedSeconds` queda como dato del cronómetro, sin valor canónico. Mientras el código no lo aplique, las filas con discrepancia se marcan `durationMismatch`.
+- **Perfil del primer slice:** excluye `hourlyRate`, `currency`, `location`, coordenadas, `editReason` y `clientEventId`. **Decidido (producto, 27-11-2026, 10:44 America/New_York (15:44 UTC)): D-11** incluye `notes`, condicionado a la revisión de privacidad (Plan 4 D4-07, Plan 8).
+- **Pruebas previstas:** G01-P05…P09 y G01-N12…N13 (matriz de T08). Todas **NO EJECUTADAS**.
+
+Esta sección no crea modelos, migraciones ni rutas. Las revisiones y su backfill necesitan plan de migración (Plan 2 y Plan 12).
 
 ## Documentos SDD hermanos (v0.14)
 
@@ -1057,3 +1156,15 @@ Para la conciliación, las reglas vigentes de Plan 3 siguen siendo la referencia
 ## Estado de salida de v0.20
 
 `DRAFT`. C3-17 queda aprobada como decisión de producto; eso no cambia el estado de la SDD ni cierra gates técnicos. No hay implementación, migración, prueba funcional ni CI de esta revisión. Validadores documentales ejecutados localmente (ver `docs/reportes/2026-11-21_plan3-conciliacion-gates.md`). B4-11/B4-12 abiertos. **PLAN 3 AÚN ABIERTO.**
+
+## Estado de salida de v0.21
+
+`DRAFT`. §10.20 incorpora las decisiones B y T3. B4-03, B4-05 y el ítem 52 siguen pendientes. El estado de código, migración, validación funcional, CI, merge, despliegue y activación conserva los valores del encabezado.
+
+## Estado de salida de v0.22 (propuesta)
+
+`DRAFT`. Propuesta documental, **no publicada** en el repositorio. (Corrección de v0.23: desde el 26-11 tiene copia en Drive, carpeta Plan 9, lo que no equivale a aprobación.) Añade §10.17.15 (K3, K4 y K6 decididas como producto), la enmienda D4 propuesta en §10.9, §10.18 y §10.19.1, y la nota de discrepancia de §10.20.1. Conserva sin cambios las decisiones B y T3 de §10.20. El estado de código, migración, validación funcional, CI, merge, despliegue y activación conserva los valores del encabezado. Para publicarla hace falta: revisión del dueño de esta propuesta, revisión de los owners de Plan 4/API y de ResourceScope sobre D4-08, y autorización para escribir en la rama `claude/plan3-conciliacion-gates-32rob6` o en un PR nuevo.
+
+## Estado de salida de v0.23 (propuesta)
+
+`DRAFT`. Propuesta documental de T08, publicada el 27-11-2026 en Drive y en un PR en borrador sin fusionar (autorización del dueño del 27-11, 12:42 America/New_York). Las decisiones de producto registradas aquí no aprueban esta SDD. Corrige la ubicación de la regla 3 de `core.crew-supervisor-delegations` §3.1 (solo en la rama del Plan 3), sustituye la nota de discrepancia de §10.20.1 por la regla D4-08 local de Conciliación, y añade §10.17.16 y §10.21. Conserva sin cambios las decisiones B y T3. No hay implementación, migración, prueba ni CI. Para publicarla hace falta la revisión del dueño, la decisión del owner de Plan 4/API sobre D4-08, las decisiones del dueño de T08 (D-01…D-13) y autorización para escribir en una rama con PR en borrador. Después, `pnpm spec:validate:strict`.
