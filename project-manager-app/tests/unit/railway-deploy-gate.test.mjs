@@ -49,3 +49,10 @@ test("el preflight de migraciones destructivas corre tras la guardia y antes del
   assert.match(deployJob, /--served="\$SERVED_SHA" --candidate="\$DEPLOY_SHA"/);
   assert.doesNotMatch(deployJob, /filter: blob:none/);
 });
+
+test("el Worker se verifica en runtime por su log de arranque", () => {
+  // QA G-R06 (27-nov-2026): el log startup del Worker informa gitSha y deploymentId.
+  assert.match(wf, /Worker runtime provenance \(startup log, blocking\)/);
+  assert.match(wf, /verify-worker-startup-log\.mjs --expect-sha="\$DEPLOY_SHA" --deployment-id="\$wdep"/);
+  assert.match(wf, /@label:startup/);
+});

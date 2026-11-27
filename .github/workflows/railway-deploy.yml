@@ -212,6 +212,7 @@ jobs:
           sparse-checkout: |
             project-manager-app/scripts/verify-deploy-provenance.mjs
             project-manager-app/scripts/release-forward-guard.mjs
+            project-manager-app/scripts/verify-worker-startup-log.mjs
           sparse-checkout-cone-mode: false
           persist-credentials: false
 
@@ -284,6 +285,42 @@ jobs:
             done
             [ -n "$ok" ] || { echo "servicio $svc: el deployment de $DEPLOY_SHA no llegó a SUCCESS a tiempo ❌"; exit 1; }
           done
+
+      # C7 (G-R06): el Worker no tiene HTTP. Su procedencia en runtime sale del
+      # log de arranque (label startup, apps/worker/src/main.mjs) del deployment
+      # exacto de DEPLOY_SHA. Bloqueante: sin ese log, o con otro SHA, falla.
+      # Vision sigue verificándose solo por metadata de Railway (no runtime).
+      - name: Worker runtime provenance (startup log, blocking)
+        if: steps.superseded.outputs.superseded != 'true'
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          ENV_ID: d682210a-956a-4508-9c5b-4ca5959278f9
+          WORKER_ID: 26cd1c52-1a07-4f05-8b21-9a225e601d7a
+          DEPLOY_SHA: ${{ needs.deploy.outputs.deploy_sha }}
+        run: |
+          set -euo pipefail
+          api=https://backboard.railway.com/graphql/v2
+          body=$(jq -nc --arg s "$WORKER_ID" --arg e "$ENV_ID" \
+            '{query:"query($s:String!,$e:String!){ deployments(first: 10, input:{serviceId:$s, environmentId:$e}) { edges { node { id status meta } } } }", variables:{s:$s,e:$e}}')
+          wdep=$(curl -sS "$api" -H "Authorization: Bearer $RAILWAY_TOKEN" -H "Content-Type: application/json" --data "$body" \
+            | jq -r --arg c "$DEPLOY_SHA" '[.data.deployments.edges[].node | select(.meta.commitHash == $c and .status == "SUCCESS")] | first | .id // empty')
+          [ -n "$wdep" ] || { echo "::error title=Health gate::sin deployment SUCCESS del Worker para $DEPLOY_SHA"; exit 1; }
+          for i in $(seq 1 20); do
+            lbody=$(jq -nc --arg d "$wdep" '{query:"query($d:String!){ deploymentLogs(deploymentId:$d, filter:\"@label:startup\", limit:20) { timestamp attributes { key value } } }", variables:{d:$d}}')
+            rc=0
+            wv=$(curl -sS "$api" -H "Authorization: Bearer $RAILWAY_TOKEN" -H "Content-Type: application/json" --data "$lbody" \
+              | node project-manager-app/scripts/verify-worker-startup-log.mjs --expect-sha="$DEPLOY_SHA" --deployment-id="$wdep") || rc=$?
+            echo "[$i] $wv"
+            verdict=$(printf '%s' "$wv" | jq -r .verdict 2>/dev/null || echo INVALID)
+            if [ "$verdict" = "VERIFIED" ]; then
+              echo "- Worker: \`$wdep\` VERIFIED en runtime (log de arranque)" >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            [ "$verdict" = "MISMATCH" ] && break
+            sleep 15
+          done
+          echo "::error title=Health gate::el Worker no informa $DEPLOY_SHA en su log de arranque ($wdep)"
+          exit 1
 
       # C02 — procedencia en RUNTIME, BLOQUEANTE y sin token. /v1/health y
       # /api/semse/healthz deben responder 2xx con gitSha === SHA esperado
