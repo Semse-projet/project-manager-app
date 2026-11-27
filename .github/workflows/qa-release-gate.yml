@@ -133,17 +133,22 @@ jobs:
           RAILWAY_QA_TOKEN: ${{ secrets.RAILWAY_QA_TOKEN }}
         run: |
           set -euo pipefail
+          # serviceInstanceDeployV2 con commitSha y SIN latestCommit. La 1.ª
+          # ejecución de G-R02 (27-nov) mostró que serviceInstanceDeploy con
+          # latestCommit:true + commitSha desplegó otro commit (60bcff1c, main).
           for svc in "$QA_API_SERVICE_ID" "$QA_WORKER_SERVICE_ID"; do
             body=$(jq -nc --arg s "$svc" --arg e "$QA_ENVIRONMENT_ID" --arg c "$DEPLOY_SHA" \
-              '{query:"mutation($s:String!,$e:String!,$c:String!){ serviceInstanceDeploy(serviceId:$s, environmentId:$e, latestCommit:true, commitSha:$c) }", variables:{s:$s,e:$e,c:$c}}')
+              '{query:"mutation($s:String!,$e:String!,$c:String!){ serviceInstanceDeployV2(serviceId:$s, environmentId:$e, commitSha:$c) }", variables:{s:$s,e:$e,c:$c}}')
             resp=$(curl -sS "$RAILWAY_API" -H "Project-Access-Token: $RAILWAY_QA_TOKEN" \
               -H "Content-Type: application/json" --data "$body")
-            if ! printf '%s' "$resp" | jq -e '.data.serviceInstanceDeploy == true' >/dev/null; then
-              echo "::error title=Release FAILED::serviceInstanceDeploy rechazado para $svc"
+            dep=$(printf '%s' "$resp" | jq -r '.data.serviceInstanceDeployV2 // empty')
+            if [ -z "$dep" ]; then
+              echo "::error title=Release FAILED::serviceInstanceDeployV2 rechazado para $svc"
               printf '%s' "$resp" | jq -c '.errors // empty | map(.message)' || true
               exit 1
             fi
-            echo "Deploy de $DEPLOY_SHA disparado en $svc"
+            echo "Deploy de $DEPLOY_SHA disparado en $svc: deployment $dep"
+            echo "- Disparado \`$dep\` en \`$svc\`" >> "$GITHUB_STEP_SUMMARY"
           done
 
       - name: Verify per service (Railway metadata + runtime)
