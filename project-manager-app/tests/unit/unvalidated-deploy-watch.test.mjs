@@ -67,3 +67,16 @@ test("la alarma usa un plazo de reloj y avisa en la primera coincidencia", async
   assert.match(wf, /::error title=Despliegue no validado::\$label sirve/);
   assert.match(wf, /::error title=Servido antes de CI::\$label sirve/);
 });
+
+test("served-before-ci revalida el CI después de observar el SHA", async () => {
+  // Revisión del PR #1196: un estado leído antes de las sondas podía estar viejo
+  // y producir una falsa alarma si el CI terminaba entretanto.
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const wf = readFileSync(fileURLToPath(new URL("../../../.github/workflows/production-unvalidated-deploy-alarm.yml", import.meta.url)), "utf8");
+  const job = wf.slice(wf.indexOf("served-before-ci:"));
+  const probe = job.indexOf("unvalidated-deploy-watch.mjs --sha=");
+  const recheck = job.indexOf("read -r status2");
+  assert.ok(probe > 0 && recheck > probe, "el CI se vuelve a consultar después de la sonda");
+  assert.match(job, /if \[ "\$status2" != "completed" \]; then/);
+});

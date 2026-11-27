@@ -136,9 +136,19 @@ jobs:
             out=$(node project-manager-app/scripts/unvalidated-deploy-watch.mjs --sha="$SHA" \
               --target="semse-API|https://project-manager-app-production-977f.up.railway.app|/v1/health" \
               --target="semse-web|https://semse-web-production.up.railway.app|/api/semse/healthz" || echo '{"hits":[]}')
-            for label in $(printf '%s' "$out" | jq -r '.hits[]'); do
-              case " $early " in *" $label "*) ;; *) early="$early $label"; echo "::error title=Servido antes de CI::$label sirve $SHA con CI '$status' ($(date -u +%FT%TZ))";; esac
-            done
+            hits=$(printf '%s' "$out" | jq -r '.hits[]')
+            if [ -n "$hits" ]; then
+              # El estado leído antes de las sondas puede estar viejo: si el CI
+              # terminó mientras tanto, la coincidencia no prueba nada. Solo
+              # cuenta si el CI sigue sin terminar DESPUÉS de observar el SHA.
+              read -r status2 _ < <(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}" \
+                --jq '[.status, (.conclusion // "none")] | @tsv')
+              if [ "$status2" != "completed" ]; then
+                for label in $hits; do
+                  case " $early " in *" $label "*) ;; *) early="$early $label"; echo "::error title=Servido antes de CI::$label sirve $SHA con CI '$status2' ($(date -u +%FT%TZ))";; esac
+                done
+              fi
+            fi
             sleep 15
           done
           {
