@@ -36,27 +36,86 @@ export const APPROVALS_PATH = "project-manager-app/packages/db/prisma/destructiv
 const RULES = [
   { id: "drop_table", re: /\bDROP\s+TABLE\b/i },
   { id: "drop_column", re: /\bDROP\s+COLUMN\b/i },
+  // ALTER TABLE ... DROP [COLUMN] [IF EXISTS] col: COLUMN es opcional en Postgres.
+  // No cuentan DROP CONSTRAINT ni los cambios de columna (DROP DEFAULT,
+  // DROP NOT NULL, DROP IDENTITY, DROP EXPRESSION).
+  { id: "drop_column", re: /\bALTER\s+TABLE\b[^;]*?\bDROP\s+(IF\s+EXISTS\s+)?(?!(CONSTRAINT|COLUMN|DEFAULT|NOT|IDENTITY|EXPRESSION)\b)("[^"]+"|\w+)/i },
   { id: "drop_schema", re: /\bDROP\s+SCHEMA\b/i },
   { id: "drop_type", re: /\bDROP\s+TYPE\b/i },
   { id: "drop_view", re: /\bDROP\s+(MATERIALIZED\s+)?VIEW\b/i },
   { id: "truncate", re: /\bTRUNCATE\b/i },
   { id: "delete_rows", re: /\bDELETE\s+FROM\b/i },
-  { id: "update_rows", re: /\bUPDATE\s+("[^"]+"|\w+)(\s*\.\s*("[^"]+"|\w+))?\s+SET\b/i },
+  // UPDATE [ONLY] tabla[.esquema] [[AS] alias] SET ... (el alias es opcional, con o sin AS)
+  { id: "update_rows", re: /\bUPDATE\s+(ONLY\s+)?("[^"]+"|\w+)(\s*\.\s*("[^"]+"|\w+))?(\s+(AS\s+)?("[^"]+"|\w+))?\s+SET\b/i },
   { id: "alter_column_type", re: /\bALTER\s+COLUMN\s+("[^"]+"|\w+)\s+(SET\s+DATA\s+)?TYPE\b/i },
   { id: "rename", re: /\bRENAME\s+(COLUMN\b|TO\b|CONSTRAINT\b)/i },
 ];
 
-/** Quita comentarios SQL (-- y /* *\/) y literales de texto para evitar falsos positivos. */
+/**
+ * Quita comentarios SQL (-- y /* *\/, anidados como en Postgres) y vacía los
+ * literales de texto ('...', E'...') en una sola pasada, para que un marcador
+ * de comentario dentro de un literal (p. ej. DEFAULT '--') no oculte SQL
+ * ejecutable, ni un apóstrofo dentro de un comentario abra un literal falso.
+ * Los identificadores entre comillas dobles se conservan tal cual. El cuerpo
+ * de los bloques $$ ... $$ se trata como código (un DO $$ UPDATE ... $$ cuenta).
+ */
 export function stripSql(sql) {
-  return String(sql)
-    .replace(/\/\*[\s\S]*?\*\//g, " ")
-    .replace(/--[^\n]*/g, " ")
-    .replace(/'(?:[^']|'')*'/g, "''");
+  const src = String(sql);
+  let out = "";
+  let i = 0;
+  const n = src.length;
+  while (i < n) {
+    const ch = src[i];
+    const next = src[i + 1];
+    if (ch === "-" && next === "-") {
+      while (i < n && src[i] !== "\n") i++;
+      out += " ";
+      continue;
+    }
+    if (ch === "/" && next === "*") {
+      let depth = 1;
+      i += 2;
+      while (i < n && depth > 0) {
+        if (src[i] === "/" && src[i + 1] === "*") { depth++; i += 2; continue; }
+        if (src[i] === "*" && src[i + 1] === "/") { depth--; i += 2; continue; }
+        i++;
+      }
+      out += " ";
+      continue;
+    }
+    if (ch === '"') {
+      let j = i + 1;
+      while (j < n) {
+        if (src[j] === '"' && src[j + 1] === '"') { j += 2; continue; }
+        if (src[j] === '"') { j++; break; }
+        j++;
+      }
+      out += src.slice(i, j);
+      i = j;
+      continue;
+    }
+    if (ch === "'") {
+      const escapes = /[eE]/.test(src[i - 1] ?? "") && !/[\w$]/.test(src[i - 2] ?? "");
+      let j = i + 1;
+      while (j < n) {
+        if (escapes && src[j] === "\\") { j += 2; continue; }
+        if (src[j] === "'" && src[j + 1] === "'") { j += 2; continue; }
+        if (src[j] === "'") { j++; break; }
+        j++;
+      }
+      out += "''";
+      i = j;
+      continue;
+    }
+    out += ch;
+    i++;
+  }
+  return out;
 }
 
 export function scanSql(sql) {
   const clean = stripSql(sql);
-  return RULES.filter((r) => r.re.test(clean)).map((r) => r.id);
+  return [...new Set(RULES.filter((r) => r.re.test(clean)).map((r) => r.id))];
 }
 
 /** Nombre de la carpeta de migración a partir de una ruta del diff, o null. */

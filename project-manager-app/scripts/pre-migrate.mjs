@@ -363,6 +363,14 @@ try {
   process.exit(1);
 }
 
+// SOLO QA (rama qa/release-gate, G-R08): simula un arranque fallido DESPUÉS de
+// aplicar migraciones, para probar que el preflight revisa los intentos fallidos.
+if (existsSync(join(ROOT, "packages/db/prisma/GR08_CRASH"))) {
+  console.error("[pre-migrate] G-R08: arranque fallido simulado tras migrate deploy (QA)");
+  prisma.$disconnect().catch(() => {});
+  process.exit(1);
+}
+
 // Identidad de servicio del worker (runbook WORKER_SERVICE_IDENTITY_MEMBERSHIP): apagado salvo que
 // SEMSE_WORKER_SERVICE_MEMBERSHIP_MODE sea dry-run o apply. Nunca bloquea el arranque.
 try {

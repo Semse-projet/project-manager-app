@@ -18,6 +18,12 @@
 #   [gr:no-token]   el release se ejecuta sin credencial (G-R04)
 #   [gr:bad-health] la guardia consulta una ruta inexistente: SHA servido
 #                   desconocido, simula el endpoint caído (G-R03 paso 3)
+#   [gr:api-only]   en el primer intento solo se despliega la API (release a
+#                   medias); un re-run debe desplegar solo el Worker (G-R08)
+#
+# G-R08 (revisión de #1199): el release replica los pasos del job deploy de
+# producción tras la revisión: selección del SHA verde más avanzado bajo el
+# lock, guardia, preflight con intentos fallidos y decisión por servicio.
 # Nunca usa IDs ni credenciales de producción.
 name: QA release gate
 
@@ -27,6 +33,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 # C2: un grupo por SHA, nunca se cancela un run de otro SHA.
 concurrency:
@@ -103,8 +110,46 @@ jobs:
             || { echo "::error title=Release BLOCKED::la credencial no es de QA staging."; exit 1; }
           echo "Credencial válida y acotada a QA staging."
 
+      # Bajo el lock: el run pendiente puede ser de un commit más antiguo que
+      # otro ya validado. Se despliega el SHA más avanzado con CI verde que
+      # desciende del candidato. En QA el CI es el job `ci` de este workflow
+      # (en producción, el workflow CI): se lee la conclusión de ese job.
+      - name: Select most advanced CI-green SHA
+        id: select
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CANDIDATE: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          runs=$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/qa-release-gate.yml/runs?branch=qa/release-gate&event=push&per_page=30" \
+            --jq '.workflow_runs[] | select(.head_repository.full_name == "'"$GITHUB_REPOSITORY"'") | "\(.id) \(.head_sha)"') \
+            || { echo "::error title=Release BLOCKED::no se pudo listar los runs"; exit 1; }
+          green=""
+          while read -r rid sha; do
+            [ -n "$rid" ] || continue
+            c=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/$rid/jobs?filter=latest" --jq '[.jobs[] | select(.name == "ci")] | first | .conclusion // "none"' || echo none)
+            [ "$c" = "success" ] && green="$green $sha"
+          done <<< "$runs"
+          if ! printf '%s\n' $green | grep -qx "$CANDIDATE"; then
+            echo "::error title=Release BLOCKED::$CANDIDATE no tiene CI en success. No se despliega sin CI."
+            exit 1
+          fi
+          best="$CANDIDATE"
+          for sha in $green; do
+            [ "$sha" = "$best" ] && continue
+            if git merge-base --is-ancestor "$best" "$sha" 2>/dev/null; then best="$sha"; fi
+          done
+          [ "$best" = "$CANDIDATE" ] || echo "::notice title=Release::se despliega $best (CI verde, posterior a $CANDIDATE)"
+          echo "deploy_sha=$best" >> "$GITHUB_OUTPUT"
+          {
+            echo "## QA release gate (G-R08)"
+            echo "- Evento: \`$CANDIDATE\`; SHA elegido: \`$best\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Forward-only guard
         id: guard
+        env:
+          DEPLOY_SHA: ${{ steps.select.outputs.deploy_sha }}
         run: |
           set -euo pipefail
           hpath=/v1/health
@@ -112,7 +157,8 @@ jobs:
           json=$(node project-manager-app/scripts/verify-deploy-provenance.mjs \
             --url="$QA_API_URL" --path="$hpath" --expect-sha="$DEPLOY_SHA" \
             --allow-unknown-digest --retries=3 --interval=5 --timeout=5 || true)
-          served=$(printf '%s' "$json" | jq -r '.observed.gitSha // "unknown"' 2>/dev/null || echo unknown)
+          served=$(printf '%s' "$json" | jq -r '.observed.gitSha // "unknown"' 2>/dev/null) || served=unknown
+          [ -n "$served" ] || served=unknown
           rc=0
           decision=$(node project-manager-app/scripts/release-forward-guard.mjs \
             --candidate="$DEPLOY_SHA" --served="$served") || rc=$?
@@ -121,43 +167,89 @@ jobs:
           echo "action=$action" >> "$GITHUB_OUTPUT"
           echo "served=$served" >> "$GITHUB_OUTPUT"
           {
-            echo "## QA release gate"
-            echo "- Candidato: \`$DEPLOY_SHA\`"
             echo "- Servido antes (API QA): \`$served\`"
-            echo "- Guardia: \`$action\`"
+            echo "- Guardia (API): \`$action\`"
           } >> "$GITHUB_STEP_SUMMARY"
           if [ "$action" = "blocked" ]; then
             echo "::error title=Release BLOCKED::$(printf '%s' "$decision" | jq -r .reason)"
             exit 1
           fi
 
-      # C6 (G-R05 paso 3): misma lógica que el paso de producción.
+      # C6: misma lógica que producción, incluidos los intentos FAILED/CRASHED
+      # de la API posteriores al deployment activo.
       - name: Destructive migration preflight (fail closed)
-        if: steps.guard.outputs.action == 'deploy'
+        if: steps.guard.outputs.action == 'deploy' || steps.guard.outputs.action == 'already_served'
         env:
+          RAILWAY_QA_TOKEN: ${{ secrets.RAILWAY_QA_TOKEN }}
+          DEPLOY_SHA: ${{ steps.select.outputs.deploy_sha }}
           SERVED_SHA: ${{ steps.guard.outputs.served }}
         run: |
           set -euo pipefail
+          qbody=$(jq -nc --arg s "$QA_API_SERVICE_ID" --arg e "$QA_ENVIRONMENT_ID" \
+            '{query:"query($s:String!,$e:String!){ deployments(first: 20, input:{serviceId:$s, environmentId:$e}) { edges { node { status meta } } } }", variables:{s:$s,e:$e}}')
+          resp=$(curl -sf -X POST "$RAILWAY_API" \
+            -H "Project-Access-Token: $RAILWAY_QA_TOKEN" -H "Content-Type: application/json" --data "$qbody") \
+            || { echo "::error title=Release BLOCKED::no se pudo leer el historial de deployments de la API"; exit 1; }
+          attempts=$(printf '%s' "$resp" | jq -r '
+            [.data.deployments.edges[].node] as $n
+            | ([$n | to_entries[] | select(.value.status == "SUCCESS") | .key] | first // ($n | length)) as $cut
+            | $n[:$cut][] | select(.status == "FAILED" or .status == "CRASHED") | .meta.commitHash // empty' | sort -u) \
+            || { echo "::error title=Release BLOCKED::historial de deployments ilegible"; exit 1; }
+          bases="$SERVED_SHA"
+          for c in $attempts; do
+            [ "$c" = "$SERVED_SHA" ] || [ "$c" = "$DEPLOY_SHA" ] && continue
+            bases="$bases $c"
+          done
           rc=0
-          pre=$(node project-manager-app/scripts/migration-destructive-preflight.mjs \
-            --served="$SERVED_SHA" --candidate="$DEPLOY_SHA") || rc=$?
-          echo "$pre"
-          echo "- Preflight de migraciones: \`$(printf '%s' "$pre" | jq -r .action)\` ($(printf '%s' "$pre" | jq -r .reason))" >> "$GITHUB_STEP_SUMMARY"
-          if [ "$rc" != "0" ]; then
-            echo "::error title=Release BLOCKED::$(printf '%s' "$pre" | jq -r .reason)"
-            exit 1
-          fi
+          for base in $bases; do
+            brc=0
+            pre=$(node project-manager-app/scripts/migration-destructive-preflight.mjs \
+              --served="$base" --candidate="$DEPLOY_SHA") || brc=$?
+            echo "$base..$DEPLOY_SHA: $pre"
+            echo "- Preflight \`$base..$DEPLOY_SHA\`: \`$(printf '%s' "$pre" | jq -r .action)\` ($(printf '%s' "$pre" | jq -r .reason))" >> "$GITHUB_STEP_SUMMARY"
+            if [ "$brc" != "0" ]; then
+              echo "::error title=Release BLOCKED::$base..$DEPLOY_SHA: $(printf '%s' "$pre" | jq -r .reason)"
+              rc=1
+            fi
+          done
+          exit "$rc"
 
+      # Por servicio, contra su último deployment SUCCESS, y antes de mutar nada.
       - name: Deploy exact commit (API y Worker de QA)
-        if: steps.guard.outputs.action == 'deploy'
+        if: steps.guard.outputs.action == 'deploy' || steps.guard.outputs.action == 'already_served'
         env:
           RAILWAY_QA_TOKEN: ${{ secrets.RAILWAY_QA_TOKEN }}
+          DEPLOY_SHA: ${{ steps.select.outputs.deploy_sha }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
         run: |
           set -euo pipefail
-          # serviceInstanceDeployV2 con commitSha y SIN latestCommit. La 1.ª
-          # ejecución de G-R02 (27-nov) mostró que serviceInstanceDeploy con
-          # latestCommit:true + commitSha desplegó otro commit (60bcff1c, main).
+          to_deploy=""
+          blocked=0
           for svc in "$QA_API_SERVICE_ID" "$QA_WORKER_SERVICE_ID"; do
+            qbody=$(jq -nc --arg s "$svc" --arg e "$QA_ENVIRONMENT_ID" \
+              '{query:"query($s:String!,$e:String!){ deployments(first: 10, input:{serviceId:$s, environmentId:$e}) { edges { node { status meta } } } }", variables:{s:$s,e:$e}}')
+            svc_served=$(curl -sf -X POST "$RAILWAY_API" \
+              -H "Project-Access-Token: $RAILWAY_QA_TOKEN" -H "Content-Type: application/json" --data "$qbody" \
+              | jq -r '[.data.deployments.edges[].node | select(.status == "SUCCESS")] | first | .meta.commitHash // "unknown"' 2>/dev/null) \
+              || svc_served=unknown
+            [ -n "$svc_served" ] || svc_served=unknown
+            src=0
+            svc_decision=$(node project-manager-app/scripts/release-forward-guard.mjs \
+              --candidate="$DEPLOY_SHA" --served="$svc_served") || src=$?
+            svc_action=$(printf '%s' "$svc_decision" | jq -r .action 2>/dev/null) || svc_action=blocked
+            echo "- Servicio \`$svc\`: \`$svc_action\` (servido: \`$svc_served\`)" >> "$GITHUB_STEP_SUMMARY"
+            case "$svc_action" in
+              already_served) echo "Servicio $svc ya sirve $DEPLOY_SHA; se omite" ;;
+              deploy) to_deploy="$to_deploy $svc" ;;
+              *) echo "::error title=Release BLOCKED::servicio $svc: $svc_action ($(printf '%s' "$svc_decision" | jq -r .reason 2>/dev/null))"; blocked=1 ;;
+            esac
+          done
+          [ "$blocked" = "0" ] || exit 1
+          if printf '%s' "$MSG" | grep -q '\[gr:api-only\]' && [ "$RUN_ATTEMPT" = "1" ]; then
+            echo "Escenario [gr:api-only], intento 1: solo la API (release a medias)"
+            to_deploy=$(printf '%s\n' $to_deploy | grep -x "$QA_API_SERVICE_ID" || true)
+          fi
+          for svc in $to_deploy; do
             body=$(jq -nc --arg s "$svc" --arg e "$QA_ENVIRONMENT_ID" --arg c "$DEPLOY_SHA" \
               '{query:"mutation($s:String!,$e:String!,$c:String!){ serviceInstanceDeployV2(serviceId:$s, environmentId:$e, commitSha:$c) }", variables:{s:$s,e:$e,c:$c}}')
             resp=$(curl -sS "$RAILWAY_API" -H "Project-Access-Token: $RAILWAY_QA_TOKEN" \
@@ -171,11 +263,16 @@ jobs:
             echo "Deploy de $DEPLOY_SHA disparado en $svc: deployment $dep"
             echo "- Disparado \`$dep\` en \`$svc\`" >> "$GITHUB_STEP_SUMMARY"
           done
+          if printf '%s' "$MSG" | grep -q '\[gr:api-only\]' && [ "$RUN_ATTEMPT" = "1" ]; then
+            echo "::error title=Release FAILED::release a medias simulado ([gr:api-only]); repetir el job"
+            exit 1
+          fi
 
       - name: Verify per service (Railway metadata + runtime)
         if: steps.guard.outputs.action == 'deploy' || steps.guard.outputs.action == 'already_served'
         env:
           RAILWAY_QA_TOKEN: ${{ secrets.RAILWAY_QA_TOKEN }}
+          DEPLOY_SHA: ${{ steps.select.outputs.deploy_sha }}
         run: |
           set -euo pipefail
           verify_svc() {

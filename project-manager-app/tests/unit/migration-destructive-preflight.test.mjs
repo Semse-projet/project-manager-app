@@ -18,6 +18,13 @@ test("scanSql detecta sentencias destructivas", () => {
   assert.deepEqual(scanSql('ALTER TABLE "x" ALTER COLUMN "y" SET DATA TYPE INTEGER;'), ["alter_column_type"]);
   assert.deepEqual(scanSql('ALTER TABLE "x" RENAME COLUMN "a" TO "b";'), ["rename"]);
   assert.deepEqual(scanSql('UPDATE "x" SET "a" = 1;'), ["update_rows"]);
+  // Revisión de #1199: UPDATE con alias (con y sin AS) y con ONLY/esquema.
+  assert.deepEqual(scanSql('UPDATE "Evidence" AS evidence SET "tenantId" = NULL;'), ["update_rows"]);
+  assert.deepEqual(scanSql('UPDATE "Evidence" evidence SET "tenantId" = NULL;'), ["update_rows"]);
+  assert.deepEqual(scanSql('UPDATE ONLY public."Job" j SET "a" = 1;'), ["update_rows"]);
+  // Las cláusulas de clave foránea no cuentan como UPDATE de filas.
+  assert.deepEqual(scanSql('ALTER TABLE "a" ADD CONSTRAINT "f" FOREIGN KEY ("x") REFERENCES "b"("y") ON DELETE SET NULL ON UPDATE CASCADE;'), []);
+  assert.deepEqual(scanSql('ALTER TABLE "a" ADD CONSTRAINT "f" FOREIGN KEY ("x") REFERENCES "b"("y") ON UPDATE SET NULL;'), []);
   assert.deepEqual(scanSql('DELETE FROM "x";'), ["delete_rows"]);
   assert.deepEqual(scanSql('TRUNCATE "x";'), ["truncate"]);
 });
@@ -91,4 +98,34 @@ test("CLI contra git real: aditiva ok, revert blocked, destructiva blocked, apro
   assert.equal(run(m2, m3).action, "blocked");
   assert.equal(run(m2, m4).action, "ok");
   assert.equal(run("unknown", m4).action, "blocked");
+});
+
+test("un marcador de comentario dentro de un literal no oculta SQL destructivo (revisión de #1199)", () => {
+  const sql = [
+    `ALTER TABLE "Evidence" ADD COLUMN "source" TEXT DEFAULT '--';`,
+    `DROP TABLE "Job";`,
+    `COMMENT ON COLUMN "Evidence"."source" IS 'origin';`,
+  ].join("\n");
+  assert.deepEqual(scanSql(sql), ["drop_table"]);
+  // Un apóstrofo dentro de un comentario no abre un literal.
+  assert.deepEqual(scanSql("-- it's fine\nDROP TABLE \"x\";"), ["drop_table"]);
+  // Literales E'' con escapes, comentarios anidados e identificadores con --.
+  assert.deepEqual(scanSql("SELECT E'a\\'b -- DROP TABLE z'; DROP TABLE w;"), ["drop_table"]);
+  assert.deepEqual(scanSql("/* a /* nested */ DROP TABLE x; */ CREATE TABLE y();"), []);
+  assert.deepEqual(scanSql('ALTER TABLE "a--b" DROP COLUMN c;'), ["drop_column"]);
+  // El cuerpo de un bloque DO $$ ... $$ es código.
+  assert.deepEqual(scanSql('DO $$ BEGIN UPDATE "J" SET a = 1; END $$;'), ["update_rows"]);
+});
+
+test("DROP de columna sin la palabra COLUMN también cuenta (revisión de #1199)", () => {
+  assert.deepEqual(scanSql('ALTER TABLE "Evidence" DROP "tenantId";'), ["drop_column"]);
+  assert.deepEqual(scanSql('ALTER TABLE "Evidence" DROP IF EXISTS "tenantId";'), ["drop_column"]);
+  assert.deepEqual(scanSql('ALTER TABLE "E" ADD COLUMN "a" TEXT, DROP "b";'), ["drop_column"]);
+  assert.deepEqual(scanSql('ALTER TABLE "E" DROP COLUMN "b";'), ["drop_column"]);
+  // No pierden datos: restricciones y cambios de columna.
+  assert.deepEqual(scanSql('ALTER TABLE "E" DROP CONSTRAINT "E_pkey";'), []);
+  assert.deepEqual(scanSql('ALTER TABLE "E" DROP CONSTRAINT IF EXISTS "E_fk";'), []);
+  assert.deepEqual(scanSql('ALTER TABLE "E" ALTER COLUMN "a" DROP DEFAULT;'), []);
+  assert.deepEqual(scanSql('ALTER TABLE "E" ALTER COLUMN "a" DROP NOT NULL;'), []);
+  assert.deepEqual(scanSql('DROP INDEX "E_idx";'), []);
 });
