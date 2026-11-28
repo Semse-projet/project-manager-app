@@ -190,7 +190,10 @@ export default function LaborPolicyPage() {
     });
   }
 
-  const latest = policies.reduce<LaborPolicyView | null>((best, policy) => (!best || policy.version > best.version ? policy : best), null);
+  // Versions increase per scope (org-wide vs. each worksite), so only compare the org-wide ones.
+  const latest = policies
+    .filter((policy) => policy.worksiteId === null)
+    .reduce<LaborPolicyView | null>((best, policy) => (!best || policy.version > best.version ? policy : best), null);
 
   return (
     <PageStack maxWidth={900}>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AlertTriangle, Check, ClipboardCheck, Eye, FileText, History, Inbox, RefreshCw, Send, Undo2, Users } from "lucide-react";
 import { useLanguage } from "../../lib/language-context";
 import {
@@ -127,6 +127,7 @@ export function DailyReportPanel({ mode }: { mode: "supervisor" | "manager" }) {
   const [reviewNote, setReviewNote] = useState("");
   const [notice, setNotice] = useState<Notice>(null);
   const [busy, setBusy] = useState(false);
+  const detailRef = useRef<HTMLDivElement>(null);
 
   const describe = useCallback(
     (error: unknown) => (error instanceof SemseApiError && error.status === 404 ? c.unavailable : String((error as Error).message)),
@@ -182,6 +183,7 @@ export function DailyReportPanel({ mode }: { mode: "supervisor" | "manager" }) {
   async function open(reportDate: string) {
     try {
       setSelected(await fetchDailyReport(crewId, reportDate));
+      requestAnimationFrame(() => detailRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
     } catch (error) {
       setNotice({ tone: "error", text: describe(error) });
     }
@@ -249,6 +251,7 @@ export function DailyReportPanel({ mode }: { mode: "supervisor" | "manager" }) {
             </div>
           </Panel>
 
+          <div ref={detailRef} style={{ scrollMarginTop: 72 }} />
           {selected?.snapshot ? (
             <Panel
               title={selected.reportDate}
