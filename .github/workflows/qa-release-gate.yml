@@ -130,6 +130,7 @@ jobs:
             c=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/$rid/jobs?filter=latest" --jq '[.jobs[] | select(.name == "ci")] | first | .conclusion // "none"' || echo none)
             [ "$c" = "success" ] && green="$green $sha"
           done <<< "$runs"
+          printf '%s\n' $green > "$RUNNER_TEMP/ci-green.txt"
           if ! printf '%s\n' $green | grep -qx "$CANDIDATE"; then
             echo "::error title=Release BLOCKED::$CANDIDATE no tiene CI en success. No se despliega sin CI."
             exit 1
@@ -172,6 +173,10 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
           if [ "$action" = "blocked" ]; then
             echo "::error title=Release BLOCKED::$(printf '%s' "$decision" | jq -r .reason)"
+            exit 1
+          fi
+          if [ "$action" = "superseded" ] && ! grep -qx "$served" "$RUNNER_TEMP/ci-green.txt"; then
+            echo "::error title=Release BLOCKED::QA sirve $served, posterior a $DEPLOY_SHA, sin CI en success. No se acredita."
             exit 1
           fi
 

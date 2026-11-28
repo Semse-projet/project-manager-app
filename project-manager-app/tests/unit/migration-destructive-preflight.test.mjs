@@ -17,6 +17,13 @@ test("scanSql detecta sentencias destructivas", () => {
   assert.deepEqual(scanSql('ALTER TABLE "x" DROP COLUMN "y";'), ["drop_column"]);
   assert.deepEqual(scanSql('ALTER TABLE "x" ALTER COLUMN "y" SET DATA TYPE INTEGER;'), ["alter_column_type"]);
   assert.deepEqual(scanSql('ALTER TABLE "x" RENAME COLUMN "a" TO "b";'), ["rename"]);
+  // Revisión de #1199: COLUMN es opcional en RENAME ... TO.
+  assert.deepEqual(scanSql('ALTER TABLE "Evidence" RENAME "tenantId" TO "formerTenantId";'), ["rename"]);
+  assert.deepEqual(scanSql('ALTER TABLE e RENAME a TO b;'), ["rename"]);
+  // Revisión de #1199: COLUMN es opcional en ALTER ... TYPE.
+  assert.deepEqual(scanSql('ALTER TABLE "Evidence" ALTER "size" TYPE INTEGER USING 0;'), ["alter_column_type"]);
+  assert.deepEqual(scanSql('ALTER TABLE x ALTER y SET DATA TYPE text;'), ["alter_column_type"]);
+  assert.deepEqual(scanSql('ALTER TYPE "Role" ADD VALUE \'ADMIN\';'), []);
   assert.deepEqual(scanSql('UPDATE "x" SET "a" = 1;'), ["update_rows"]);
   // Revisión de #1199: UPDATE con alias (con y sin AS) y con ONLY/esquema.
   assert.deepEqual(scanSql('UPDATE "Evidence" AS evidence SET "tenantId" = NULL;'), ["update_rows"]);
