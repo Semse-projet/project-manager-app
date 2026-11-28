@@ -426,7 +426,7 @@ forbidden_behavior:
 - [ ] **OPEN-SUP-04 (horas):** responsable decide una corrección o una propuesta ajena → registro de la decisión; **no** crea aprobación para pago (K6). Responsable sobre su propia corrección → denegado (K5).
 - [ ] **OPEN-SUP-04 (horas):** supervisor sobre sus propias horas → sólo propuesta como trabajador; corregir y enviar, revisar o decidir la suya → denegado (K5).
 - [ ] **OPEN-SUP-04 (horas):** solo consulta → lectura permitida en el alcance; proponer, editar o aprobar → denegado.
-- [ ] **OPEN-SUP-04 (horas):** aprobación final para pago por el dueño → **sin prueba definible** hasta resolver K3, K4 y K6; ningún camino ejecuta ni envía pagos.
+- [ ] **OPEN-SUP-04 (horas):** aprobación final de horas solo por el dueño designado de la empresa (K3, K4); cualquier otro actor → denegado; tras aprobar no se crea estado ni evento de pago (K6). Bloqueada hasta que exista la fuente de dueño (OPEN-SUP-01).
 
 ## 10. Mapa de implementación, si se aprueba
 
@@ -484,10 +484,9 @@ forbidden_behavior:
   (identidad y alcance del dueño, regla de aprobación, aprobación para pago y A-06). OPEN-SUP-04 sigue
   **parcialmente resuelto**.
 - **EF-SUP-01 — incorporación formal de §3.1 (aprobada el 2026-11-27, ver «Aprobación de v0.3–v0.5»):** §3.1 se añadió en v0.3–v0.4,
-  después de la aprobación del 2026-11-20. Las reglas son decisiones del propietario, pero el registro de
-  aprobación de abajo sigue describiendo OPEN-SUP-04 como abierto. **Propuesta:** que el propietario
-  ratifique la incorporación de §3.1 a este contrato `APPROVED`. Mientras tanto, §3.1 consta como decisión
-  registrada y **no** como enmienda aprobada del contrato. **v0.5 (27-11-2026, PR en borrador):** alinea §3.1 con K3, K4 y K6. El propietario aprobó v0.3–v0.5 el 27-11-2026 (registro abajo).
+  después de la aprobación del 2026-11-20. v0.5 la alinea con K3, K4 y K6. El propietario aprobó la
+  incorporación de §3.1 y las versiones v0.3–v0.5 el 27-11-2026 (registro abajo), así que §3.1 es parte
+  aprobada de este contrato. Esa aprobación no autoriza merge, código ni activación.
 - **OPEN-SUP-05 — seguridad:** definir responsables y límites para
   revisar/cerrar incidentes; detener una situación peligrosa no depende
   de una autorización informática previa.
