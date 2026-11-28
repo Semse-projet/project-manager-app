@@ -252,7 +252,7 @@ export class UploadsController {
   /**
    * Serve a stored file by key.
    * C19/C10: la lectura exige URL firmada vigente o sesion del tenant dueño de
-   * la clave (UPLOADS_SIGNED_GET_MODE=off|shadow|enforce; ver signed-url.ts y
+   * la clave (UPLOADS_SIGNED_GET_MODE=off|shadow|enforce, enforce por defecto; ver signed-url.ts y
    * docs/specs/platform/signed-file-access.spec.md). `@Public()` solo evita el
    * guard global: la autorizacion se decide aqui, ANTES de tocar el storage,
    * para que un 403 no revele si la clave existe.

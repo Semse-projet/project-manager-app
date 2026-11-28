@@ -14,14 +14,23 @@ const testDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(testDir, "../..");
 const read = (relativePath: string) => fs.readFileSync(path.join(repoRoot, relativePath), "utf8");
 
-test("outside production the demo password defaults to the public local value", () => {
-  assert.equal(resolveDemoLoginPassword({ NODE_ENV: "development" }), LOCAL_DEV_DEMO_PASSWORD);
-  assert.equal(resolveDemoLoginPassword({ NODE_ENV: "test" }), LOCAL_DEV_DEMO_PASSWORD);
-  assert.equal(resolveDemoLoginPassword({}), LOCAL_DEV_DEMO_PASSWORD);
+const DEV = { NODE_ENV: "development", SEMSE_ALLOW_DEV_SESSION: "true" };
+
+test("with the explicit local opt-in the demo password defaults to the public local value", () => {
+  assert.equal(resolveDemoLoginPassword(DEV), LOCAL_DEV_DEMO_PASSWORD);
+  assert.equal(resolveDemoLoginPassword({ NODE_ENV: "test", SEMSE_ALLOW_DEV_SESSION: "true" }), LOCAL_DEV_DEMO_PASSWORD);
 });
 
-test("outside production an explicit SEMSE_DEMO_PASSWORD wins over the default", () => {
-  assert.equal(resolveDemoLoginPassword({ NODE_ENV: "development", SEMSE_DEMO_PASSWORD: "  local-secret  " }), "local-secret");
+test("without the opt-in, or outside development/test, demo login is closed (audit A3)", () => {
+  assert.equal(resolveDemoLoginPassword({}), null, "unset NODE_ENV must fail closed");
+  assert.equal(resolveDemoLoginPassword({ NODE_ENV: "development" }), null, "development alone is not enough");
+  assert.equal(resolveDemoLoginPassword({ NODE_ENV: "development", SEMSE_ALLOW_DEV_SESSION: "1" }), null);
+  assert.equal(resolveDemoLoginPassword({ NODE_ENV: "staging", SEMSE_ALLOW_DEV_SESSION: "true" }), null);
+  assert.equal(resolveDemoLoginPassword({ SEMSE_ALLOW_DEV_SESSION: "true" }), null);
+});
+
+test("with the opt-in an explicit SEMSE_DEMO_PASSWORD wins over the default", () => {
+  assert.equal(resolveDemoLoginPassword({ ...DEV, SEMSE_DEMO_PASSWORD: "  local-secret  " }), "local-secret");
 });
 
 test("production never accepts the public default password, even with demo mode on", () => {
@@ -29,6 +38,7 @@ test("production never accepts the public default password, even with demo mode 
   assert.equal(resolveDemoLoginPassword({ NODE_ENV: "production", SEMSE_DEMO_MODE: "true" }), null);
   assert.equal(resolveDemoLoginPassword({ NODE_ENV: "production", SEMSE_DEMO_PASSWORD: LOCAL_DEV_DEMO_PASSWORD }), null);
   assert.equal(resolveDemoLoginPassword({ NODE_ENV: "production", SEMSE_DEMO_PASSWORD: "   " }), null);
+  assert.equal(resolveDemoLoginPassword({ NODE_ENV: "production", SEMSE_ALLOW_DEV_SESSION: "true" }), null);
 });
 
 test("production forbids demo credentials even with an explicit long secret", () => {
@@ -36,7 +46,7 @@ test("production forbids demo credentials even with an explicit long secret", ()
   const longEnough = "y".repeat(MIN_PRODUCTION_DEMO_PASSWORD_LENGTH);
   assert.equal(resolveDemoLoginPassword({ NODE_ENV: "production", SEMSE_DEMO_PASSWORD: tooShort }), null);
   assert.equal(resolveDemoLoginPassword({ NODE_ENV: "production", SEMSE_DEMO_PASSWORD: longEnough }), null);
-  assert.equal(resolveDemoLoginPassword({ NODE_ENV: "development", SEMSE_DEMO_PASSWORD: longEnough }), longEnough);
+  assert.equal(resolveDemoLoginPassword({ ...DEV, SEMSE_DEMO_PASSWORD: longEnough }), longEnough);
 });
 
 test("demoPasswordMatches compares exactly and treats a closed demo login as no match", () => {
@@ -52,7 +62,7 @@ test("the web login route and the login page no longer hard-code or pre-fill the
   assert.ok(!route.includes('"demo1234"'), "token route must not compare against a literal demo password");
   assert.ok(route.includes("resolveDemoLoginPassword"), "token route must use the resolver");
   assert.ok(route.includes("demoPasswordMatches"), "token route must use the constant-time matcher");
-  assert.ok(route.includes('const DEMO_LOGIN_ENABLED = process.env.NODE_ENV !== "production"'), "BFF demo fallback must be production-disabled");
+  assert.ok(route.includes("const DEMO_LOGIN_ENABLED = devSessionAllowed();"), "BFF demo fallback must require the explicit local opt-in");
 
   const page = read("apps/web/app/login/page.tsx");
   assert.ok(page.includes('const DEMO_LOGIN_ENABLED = process.env.NODE_ENV !== "production"'));

@@ -3,9 +3,10 @@ import { createHmac } from "node:crypto";
 import { mkdir } from "node:fs/promises";
 
 const MAP_PATH = "/semse-consciousness-map";
+// No built-in fallback (audit A3): the web server rejects any other secret.
 const TEST_SESSION_SECRET = process.env.SEMSE_WEB_SESSION_SECRET?.trim()
   || process.env.AUTH_SECRET?.trim()
-  || "semse-dev-session-secret";
+  || "";
 const EVIDENCE_DIR = "artifacts/evidence/digital-twin";
 
 async function openReadyMap(page: Page) {

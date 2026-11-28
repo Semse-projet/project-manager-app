@@ -61,7 +61,7 @@ sig            = HMAC-SHA256(encodedPayload, secret) → base64url  (Web Crypto 
 
 **TTL**: 8 horas (configurable en `apps/web/app/api/semse/auth/token/route.ts`)
 
-**Secret**: `SEMSE_WEB_SESSION_SECRET` → fallback `AUTH_SECRET` → fallback `semse-dev-session-secret` (dev only)
+**Secret**: `SEMSE_WEB_SESSION_SECRET` → fallback `AUTH_SECRET` (mínimo 32 caracteres). Sin secreto válido no hay sesiones, tampoco en desarrollo (auditoría A3, 2026-11-25). Los logins demo locales exigen `NODE_ENV=development|test` **y** `SEMSE_ALLOW_DEV_SESSION=true`.
 
 **Comparación**: `crypto.subtle.verify` — constant-time ✓
 

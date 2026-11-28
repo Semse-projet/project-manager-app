@@ -14,6 +14,7 @@ import {
   signKey,
   tenantFromStorageKey,
   resolveSignedGetMode,
+  assertUploadsSigningConfiguration,
 } from "../dist/infrastructure/storage/signed-url.js";
 
 const SECRET = "primary-secret-0123456789";
@@ -77,10 +78,26 @@ test("decideRead por modo", () => {
   assert.equal(decideRead({ mode: "shadow", key: KEY_A, signature: "invalid", session: null, publicPrefixes: pub }).allow, false);
 });
 
-test("resolveSignedGetMode: valores desconocidos caen a off", () => {
-  assert.equal(resolveSignedGetMode({} as never), "off");
+test("resolveSignedGetMode: sin valor o desconocido -> enforce (falla cerrado); off/shadow solo explicitos", () => {
+  assert.equal(resolveSignedGetMode({} as never), "enforce");
+  assert.equal(resolveSignedGetMode({ UPLOADS_SIGNED_GET_MODE: "" } as never), "enforce");
   assert.equal(resolveSignedGetMode({ UPLOADS_SIGNED_GET_MODE: "ENFORCE" } as never), "enforce");
-  assert.equal(resolveSignedGetMode({ UPLOADS_SIGNED_GET_MODE: "bogus" } as never), "off");
+  assert.equal(resolveSignedGetMode({ UPLOADS_SIGNED_GET_MODE: "bogus" } as never), "enforce");
+  assert.equal(resolveSignedGetMode({ UPLOADS_SIGNED_GET_MODE: " Off " } as never), "off");
+  assert.equal(resolveSignedGetMode({ UPLOADS_SIGNED_GET_MODE: "shadow" } as never), "shadow");
+});
+
+test("assertUploadsSigningConfiguration: produccion sin secreto no arranca; local solo avisa", () => {
+  const prod = { NODE_ENV: "production" } as never;
+  assert.throws(() => assertUploadsSigningConfiguration(prod), /UPLOADS_SIGNING_SECRET/);
+  assert.throws(() => assertUploadsSigningConfiguration({ NODE_ENV: "production", UPLOADS_SIGNING_SECRET: "short" } as never), /UPLOADS_SIGNING_SECRET/);
+  assert.throws(() => assertUploadsSigningConfiguration({ RAILWAY_ENVIRONMENT_NAME: "production", UPLOADS_SIGNED_GET_MODE: "shadow" } as never), /UPLOADS_SIGNING_SECRET/);
+  // _PREVIOUS solo sirve durante la rotacion: no sustituye al secreto actual
+  assert.throws(() => assertUploadsSigningConfiguration({ NODE_ENV: "production", UPLOADS_SIGNING_SECRET_PREVIOUS: SECRET } as never), /UPLOADS_SIGNING_SECRET/);
+  assert.deepEqual(assertUploadsSigningConfiguration({ NODE_ENV: "production", UPLOADS_SIGNING_SECRET: SECRET } as never), {});
+  assert.deepEqual(assertUploadsSigningConfiguration({ NODE_ENV: "production", UPLOADS_SIGNED_GET_MODE: "off" } as never), { warning: "uploads_signed_get_mode_off" });
+  assert.deepEqual(assertUploadsSigningConfiguration({ NODE_ENV: "development" } as never), { warning: "uploads_signing_secret_missing" });
+  assert.deepEqual(assertUploadsSigningConfiguration({ NODE_ENV: "test", UPLOADS_SIGNED_GET_MODE: "off" } as never), {});
 });
 
 async function withEnv(env: Record<string, string | undefined>, fn: () => Promise<void>) {
