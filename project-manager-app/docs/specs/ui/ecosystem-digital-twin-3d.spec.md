@@ -9,13 +9,16 @@ owner: "semse-core"
 risk: "medium"
 code_status: "COMPLETE"
 ci_status: "PASS"
-merge_status: "UNMERGED"
-deploy_status: "NOT_DEPLOYED"
+merge_status: "MERGED"
+deploy_status: "DEPLOYED"
 activation_status: "INACTIVE"
 migration_status: "NOT_APPLICABLE"
-verification_scope: "local:13-directed-unit-pass;8-e2e-pass-with-controlled-403;web-build-typecheck-eslint-pass;v7-visual-and-static-builder-typecheck-build-smoke-pass;node22-ci-local-equivalent-and-spec-preflight-pass;remote-quality-gates-unit-codeql-e2e-pass;remote-pr973-qa-not-applicable-skipped;no-production-validation"
+verification_scope: "local:13-directed-unit-pass;8-e2e-pass-with-controlled-403;web-build-typecheck-eslint-pass;v7-visual-and-static-builder-typecheck-build-smoke-pass;node22-ci-local-equivalent-and-spec-preflight-pass;remote-quality-gates-unit-codeql-e2e-pass;remote-pr973-qa-not-applicable-skipped;merged-pr1157-2026-11-19;railway-deploy-and-health-gate-smoke-pass-2026-11-19;activation-pending-ui.digital-twin-activation"
 feature_flags: []
-production_evidence: []
+production_evidence:
+  - github:pr:1157:merge:4f0e2e8568eac7a52c45ca4dacff03179a7779f1
+  - github:actions:run:44440170241:railway-deploy:success:sha:4f0e2e8568eac7a52c45ca4dacff03179a7779f1:deploy-and-health-check
+  - github:actions:run:44440228638:production-health-gate:success:sha:4f0e2e8568eac7a52c45ca4dacff03179a7779f1:smoke
 related_files:
   - apps/web/components/semse/digital-twin/SemseDigitalTwin.tsx
   - apps/web/components/semse/digital-twin/SemseDigitalTwin3D.tsx
@@ -51,7 +54,7 @@ related_endpoints:
   - "GET /v1/ops/consciousness/index"
 related_events: []
 related_agents: []
-last_verified: "2026-11-15"
+last_verified: "2026-11-19"
 date: "2026-11-15"
 author: "Kimi"
 spec_index: "docs/SPEC_INDEX.md"
@@ -371,9 +374,16 @@ Tres búsquedas/fuentes primarias:
   `pr973-authenticated-qa` quedó `skipped` por ser exclusivo del PR #973.
   La causa `TS5097` del incremento se corrigió habilitando `allowImportingTsExtensions`;
   no se desactivó ningún gate.
-- [ ] PR fusionado y SHA: pendiente.
-- [ ] Deployment `DEPLOYED`: pendiente.
-- [ ] Activación/canary: `INACTIVE`, pendiente de gate separado.
-- [x] `production_evidence` permanece vacío; `last_verified` registra sólo la
-  verificación local de 2026-11-15, no producción.
+- [x] PR **#1157** fusionado el 2026-11-19: merge commit
+  `4f0e2e8568eac7a52c45ca4dacff03179a7779f1` (método `merge`, `expectedHeadSha`
+  `1f575cfda618e269c99642e88e4180c24a827d9f` verificado).
+- [x] Deployment `DEPLOYED` el 2026-11-19: run Railway Deploy `44440170241`
+  (jobs `deploy` y `health-check` success) y run Production Health Gate
+  `44440228638` (job `smoke` success) sobre el merge commit. Automatización
+  propia del repositorio; sin intervención manual en Railway.
+- [ ] Activación/canary: `INACTIVE`. La activación queda especificada en
+  `ui.digital-twin-activation` (`docs/specs/ui/digital-twin-activation.spec.md`),
+  en `REVIEW` pendiente de aprobación del owner.
+- [x] `production_evidence` actualizado el 2026-11-19 con el merge #1157 y los
+  runs de deploy/smoke; `last_verified` pasa a 2026-11-19.
 - [x] No promover a `VERIFIED` sólo por build, tests locales o versión guardada.
