@@ -283,7 +283,8 @@ retroactiva.
 | [ui-client-flows](specs/ui/client-flows.spec.md) | ui | DEPRECATED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-06-09 |
 | [ui.demo-sandbox](specs/ui/demo-sandbox.spec.md) | ui | IMPLEMENTED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-12 |
 | [ui.design-system-remediation](specs/ui/design-system-remediation.spec.md) | ui | REVIEW | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | no | 2026-10-04 |
-| [ui.ecosystem-digital-twin-3d](specs/ui/ecosystem-digital-twin-3d.spec.md) | ui | APPROVED | COMPLETE | PASS | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | yes | 2026-11-15 |
+| [ui.digital-twin-activation](specs/ui/digital-twin-activation.spec.md) | ui | REVIEW | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | no | NOT_VERIFIED |
+| [ui.ecosystem-digital-twin-3d](specs/ui/ecosystem-digital-twin-3d.spec.md) | ui | APPROVED | COMPLETE | PASS | MERGED | DEPLOYED | INACTIVE | medium | yes | 2026-11-19 |
 | [ui-smart-intake-flow](specs/ui/intake-flow.spec.md) | ui | VERIFIED | legacy | legacy | legacy | legacy | legacy | medium | yes | 2026-06-09 |
 | [ui.landing-personas](specs/ui/landing-personas.spec.md) | ui | IMPLEMENTED | legacy | legacy | legacy | legacy | legacy | low | yes | 2026-07-12 |
 | [ui.localization-architecture](specs/ui/localization-architecture.spec.md) | ui | REVIEW | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-10-27 |
