@@ -11,13 +11,30 @@ export const dynamic = "force-dynamic";
 
 const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://app.semseproject.com";
 
-export const metadata: Metadata = {
-  metadataBase: new URL(appUrl),
-  title: {
-    default: "SEMSE Project — Profesionales verificados y pagos seguros",
-    template: "%s · SEMSE",
+// Título y descripción por defecto en el idioma con el que se sirve la página
+// (#1148). Las páginas solo en español (grupo (public)) fijan los suyos.
+const DEFAULT_COPY = {
+  es: {
+    title: "SEMSE Project — Profesionales verificados y pagos seguros",
+    description: "Conecta con profesionales verificados para construcción, remodelación y mantenimiento. Gestiona proyectos con IA, protege pagos por hitos y documenta cada avance.",
   },
-  description: "Conecta con profesionales verificados para construcción, remodelación y mantenimiento. Gestiona proyectos con IA, protege pagos por hitos y documenta cada avance.",
+  en: {
+    title: "SEMSE Project — Verified professionals and secure payments",
+    description: "Connect with verified professionals for construction, remodeling and maintenance. Manage projects with AI, protect milestone payments and document every step.",
+  },
+} as const;
+
+async function requestLanguage() {
+  return parseLanguagePreference((await cookies()).get(LANGUAGE_STORAGE_KEY)?.value) ?? DEFAULT_LANGUAGE;
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  const copy = DEFAULT_COPY[await requestLanguage()];
+  return { ...baseMetadata, title: { default: copy.title, template: "%s · SEMSE" }, description: copy.description };
+}
+
+const baseMetadata: Metadata = {
+  metadataBase: new URL(appUrl),
   keywords: ["construcción", "remodelación", "mantenimiento", "profesionales verificados", "pagos seguros", "SEMSE"],
   openGraph: {
     type: "website",
@@ -63,7 +80,7 @@ export const viewport: Viewport = {
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   // Already force-dynamic, so reading the cookie costs no static rendering.
-  const language = parseLanguagePreference((await cookies()).get(LANGUAGE_STORAGE_KEY)?.value) ?? DEFAULT_LANGUAGE;
+  const language = await requestLanguage();
   return (
     <html lang={language} className={`scroll-smooth ${GeistSans.variable} ${GeistMono.variable}`}>
       <body

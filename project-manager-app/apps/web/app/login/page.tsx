@@ -352,7 +352,6 @@ function LoginForm() {
                   background: "var(--raised, #111827)",
                   color: "var(--ink, #f1f5f9)",
                   fontSize: "14px",
-                  outline: "none",
                   boxSizing: "border-box",
                 }}
               />
@@ -386,7 +385,6 @@ function LoginForm() {
                   background: "var(--raised, #111827)",
                   color: "var(--ink, #f1f5f9)",
                   fontSize: "14px",
-                  outline: "none",
                   boxSizing: "border-box",
                 }}
               />
