@@ -30,7 +30,8 @@ date: "2026-10-22"
 - [x] DOC-05a a DOC-09a — recopilar opciones y propuesta técnica de OPEN-SUP-02…06.
 - [ ] DOC-05 — **ratificar** OPEN-SUP-02 elegibilidad/engagement.
 - [ ] DOC-06 — **ratificar** OPEN-SUP-03 suplencia.
-- [ ] DOC-07 — **ratificar** OPEN-SUP-04 grados de autonomía.
+- [~] DOC-07 — **ratificar** OPEN-SUP-04 grados de autonomía. **[2026-11-23]** Parte «horas» decidida (spec §3.1); K1, K2 y K5 decididos por el propietario; **faltan K3, K4 y K6**; «materiales» y «reasignación fuera de crew» siguen abiertos.
+- [ ] DOC-07b — ratificar EF-SUP-01 (incorporación formal de §3.1 al contrato `APPROVED`).
 - [ ] DOC-08 — **ratificar** OPEN-SUP-05 safety / no confundir con OSHA competente.
 - [ ] DOC-09 — **ratificar** OPEN-SUP-06 transición legacy segura.
 - [ ] DOC-10 — revisión independiente, `APPROVED`, index, análisis.

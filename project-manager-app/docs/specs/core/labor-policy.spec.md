@@ -36,6 +36,8 @@ last_verified: "2026-10-18"
 
 Fuente: plan Astra `03_producto/08_TIME_TRACKER_GEO_NOTIFICACIONES.md` y `04_ejecucion/16_DECISIONES_PENDIENTES.md`. Depende de BO-07 (obras) y del Labor Engine existente (`TimeEntry`, `/v1/labor`), que sigue siendo la fuente única de horas.
 
+> **Referencia cruzada (2026-11-23).** La decisión OPEN-SUP-04 (horas) de `core.crew-supervisor-delegations` §3.1 afecta a este flujo: la propuesta del trabajador no cambia el registro hasta su revisión (coherente con este contrato), el supervisor puede enviar correcciones dentro de su alcance que quedan **pendientes de decisión** sin cambiar `TimeEntry` (K1), y el responsable decide, nunca sobre lo suyo (K2, K5), lo que coincide con la prohibición de auto-revisión de este contrato. La aprobación final para pago está **bloqueada** (K3, K4, K6). Esta spec **no** se modifica por ello. Hoy la revisión exige `org:labor:manage` (CLIENT y OPS_ADMIN), que no equivale a «dueño» ni a «responsable» (K3), y no existe delegación de supervisor. Ver `core.crew-supervisor-delegations` §3.1 antes de cambiar este contrato.
+
 ## Decisiones del propietario (2026-10-18)
 | ID | Decisión | Efecto |
 |---|---|---|
