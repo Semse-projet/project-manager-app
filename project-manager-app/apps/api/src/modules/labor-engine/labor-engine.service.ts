@@ -7,6 +7,14 @@ import {
 import { geocodeAddressSafe } from "../../integrations/google-maps.js";
 import { distanceMeters, isValidCoordinate } from "../../integrations/geo-distance.js";
 import { AdminService } from "../admin/admin.service.js";
+import { AUTO_START_VALIDITY_MS } from "../geofence/geofence.policy.js";
+import {
+  hasLiveAutoConsent,
+  isWorksiteBindingEnabled,
+  resolveSiteForWorker,
+  type ResolvedSite,
+  type SitePrisma,
+} from "../geofence/site-binding.js";
 
 // Calendario lunes-domingo / día 1-fin de mes. Usado a propósito por los KPIs
 // que se etiquetan como "Esta semana"/"Este mes"/"Semana actual" y por la
@@ -244,6 +252,8 @@ export class LaborEngineService {
     contextEntityType?: string;
     contextEntityId?: string;
     clientEventId?: string;
+    /** OPEN-18 AC-08: decisión AUTO_START_ALLOWED del servidor que autoriza un inicio `proximity_auto`. */
+    geofenceEventId?: string;
   }) {
     // Idempotent replay: if this exact client event already produced a TimeEntry
     // (e.g. the tracker's offline sync retried a "start" whose response was lost,
@@ -260,7 +270,7 @@ export class LaborEngineService {
     }
     await this.assertOwnership(params);
     const checkInFields = await this.resolveCheckIn(params.tenantId, params.jobId, params.freeProjectId, params.checkIn);
-    return this.repo.startRealtimeEntry({
+    const entry = {
       tenantId: params.tenantId,
       orgId: params.orgId,
       createdBy: params.createdBy,
@@ -272,7 +282,88 @@ export class LaborEngineService {
       contextEntityId: params.contextEntityId,
       clientEventId: params.clientEventId,
       ...checkInFields,
+    };
+    // OPEN-18 AC-08: con el flag encendido, un inicio etiquetado `proximity_auto` solo vale si
+    // el servidor lo autorizó (decisión vigente, no consumida, del mismo sitio) y se consume
+    // una sola vez en la misma transacción. Sin la decisión → 409: el cliente debe pedir
+    // confirmación (`proximity_confirmed`). Los inicios manuales o confirmados no cambian (AC-09).
+    if (isWorksiteBindingEnabled() && params.checkIn?.method === "proximity_auto") {
+      const authorized = await this.assertAutoStartDecision(params);
+      // La distancia del fichaje se mide contra la OBRA autorizada, no contra las coordenadas
+      // (quizá geocodificadas y distintas) del Job o proyecto: evita alertas de ausencia falsas.
+      const ws = authorized.site.worksite;
+      const checkIn = params.checkIn;
+      if (ws.latitude != null && ws.longitude != null && isValidCoordinate(checkIn.latitude, checkIn.longitude)) {
+        entry.checkInDistanceMeters = Math.round(
+          distanceMeters(checkIn, { latitude: Number(ws.latitude), longitude: Number(ws.longitude) }),
+        );
+      }
+      const target = authorized.target;
+      return this.repo.startRealtimeEntryConsumingDecision(entry, {
+        geofenceEventId: authorized.decisionId,
+        notBefore: new Date(Date.now() - AUTO_START_VALIDITY_MS),
+        // AC-10 dentro de la transacción: si entre la validación previa y la reclamación se
+        // revoca la membresía, se termina el vínculo, se reasigna el job o se retira el
+        // consentimiento, el inicio no pasa.
+        revalidate: async (tx) => {
+          const client = tx as unknown as SitePrisma;
+          const user = { tenantId: params.tenantId, userId: params.createdBy, orgId: params.orgId };
+          const again = await resolveSiteForWorker(client, user, target);
+          if (!again || again.binding.id !== authorized.site.binding.id || !(await hasLiveAutoConsent(client, user))) {
+            throw new ConflictException({
+              code: "auto_start_not_authorized",
+              message: "El auto-inicio ya no está autorizado; confirma el inicio.",
+            });
+          }
+        },
+      });
+    }
+    return this.repo.startRealtimeEntry(entry);
+  }
+
+  private async assertAutoStartDecision(params: {
+    tenantId: string;
+    orgId: string;
+    createdBy: string;
+    jobId?: string;
+    freeProjectId?: string;
+    geofenceEventId?: string;
+  }): Promise<{ decisionId: string; target: { kind: "JOB" | "FREE_PROJECT"; id: string }; site: ResolvedSite }> {
+    const denied = () => new ConflictException({
+      code: "auto_start_not_authorized",
+      message: "El auto-inicio no está autorizado; confirma el inicio.",
     });
+    if (!params.geofenceEventId) throw denied();
+    const decision = await this.repo.findGeofenceDecision(params.tenantId, params.createdBy, params.geofenceEventId);
+    if (
+      !decision ||
+      decision.decision !== "AUTO_START_ALLOWED" ||
+      decision.consumedByTimeEntryId ||
+      !decision.bindingId ||
+      Date.now() - decision.createdAt.getTime() > AUTO_START_VALIDITY_MS
+    ) {
+      throw denied();
+    }
+    const binding = await this.repo.findActiveBinding(params.tenantId, decision.bindingId);
+    if (!binding) throw denied();
+    const target = binding.kind === "JOB"
+      ? { kind: "JOB" as const, id: binding.jobId }
+      : { kind: "FREE_PROJECT" as const, id: binding.freeProjectId };
+    const sameTarget = target.kind === "JOB"
+      ? params.jobId === target.id && !params.freeProjectId
+      : params.freeProjectId === target.id && !params.jobId;
+    if (!target.id || !sameTarget) throw denied();
+    // AC-10: membresía revocada, obra archivada o trabajo reasignado invalidan la decisión pendiente.
+    const site = await resolveSiteForWorker(this.repo.sitePrisma, { tenantId: params.tenantId, userId: params.createdBy, orgId: params.orgId }, {
+      kind: target.kind,
+      id: target.id,
+    });
+    if (!site || site.binding.id !== binding.id) throw denied();
+    // El consentimiento de AUTO debe seguir vigente: salir de AUTO invalida decisiones pendientes.
+    if (!(await hasLiveAutoConsent(this.repo.sitePrisma, { tenantId: params.tenantId, userId: params.createdBy }))) {
+      throw denied();
+    }
+    return { decisionId: decision.id, target: { kind: target.kind, id: target.id }, site };
   }
 
   /** Never blocks the timer/entry on distance — GPS is unreliable indoors. Only records

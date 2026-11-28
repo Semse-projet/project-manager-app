@@ -23,6 +23,12 @@ import { ProjectCopilotHarness } from "./harnesses/project-copilot.harness.js";
 import type { ProjectCopilotHarnessInput } from "./harnesses/project-copilot.types.js";
 import { PlanModeService } from "./plan-mode.service.js";
 
+const claimedJobContextSchema = z.object({
+  workerId: z.string().min(1),
+  expectedAttempts: z.number().int().positive(),
+  claimToken: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
+});
+
 const chatSchema = z.object({
   message:  z.string().min(1),
   agentId:  z.string().optional(),
@@ -553,6 +559,39 @@ export class AgentsController {
       requestId
     });
     return ok(requestId, run);
+  }
+
+  @Post("runs/:runId/claimed-job-context")
+  @SkipThrottle()
+  @RequirePermissions("agents:run:execute")
+  async claimedJobContext(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Param("runId") runId: string,
+    @Body() body: unknown,
+  ) {
+    const parsed = claimedJobContextSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+    const actor = resolveRequestContext(req);
+    verifyAgentRunClaimToken({
+      tenantId: actor.tenantId,
+      orgId: actor.orgId,
+      userId: actor.userId,
+      runId,
+      workerId: parsed.data.workerId,
+      attempts: parsed.data.expectedAttempts,
+    }, parsed.data.claimToken);
+    const requestId = resolveRequestId(req.headers ?? {});
+    const data = await this.agentsService.readClaimedJobContext({
+      tenantId: actor.tenantId,
+      orgId: actor.orgId,
+      userId: actor.userId,
+      runId,
+      workerId: parsed.data.workerId,
+      expectedAttempts: parsed.data.expectedAttempts,
+    });
+    return ok(requestId, data);
   }
 
   @Post("runs/:runId/complete")

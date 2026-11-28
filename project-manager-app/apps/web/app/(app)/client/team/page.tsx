@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { Inbox, Mail, RotateCw, Send, Users, X } from "lucide-react";
 import { useLanguage } from "../../../../lib/language-context";
 import {
   cancelOrgInvitation,
@@ -11,6 +12,23 @@ import {
   SemseApiError,
   type OrgInvitationView
 } from "../../../semse-api";
+import {
+  Banner,
+  Button,
+  Empty,
+  List,
+  ListRow,
+  PageHeader,
+  PageStack,
+  Panel,
+  Pill,
+  SecretValue,
+  touchInputStyle,
+  type Notice,
+  type Tone
+} from "../../../../components/module-surface/ui";
+
+const STATUS_TONE: Record<string, Tone> = { PENDING: "warn", ACCEPTED: "ok", CANCELED: "muted", EXPIRED: "muted" };
 
 const COPY = {
   es: {
@@ -24,6 +42,10 @@ const COPY = {
     unavailable: "Las invitaciones aún no están habilitadas para tu empresa.",
     noOrg: "No hay una empresa asociada a tu cuenta.",
     link: "Enlace de invitación (se muestra una sola vez)",
+    linkHelp: "Cópialo y envíalo a la persona si no recibe el correo.",
+    newInvite: "Invitar a un trabajador",
+    list: "Invitaciones",
+    noneHint: "Cuando invites a alguien, verás aquí si aceptó.",
     status: { PENDING: "Pendiente", ACCEPTED: "Aceptada", CANCELED: "Cancelada", EXPIRED: "Vencida" } as Record<string, string>
   },
   en: {
@@ -37,6 +59,10 @@ const COPY = {
     unavailable: "Invitations are not enabled for your company yet.",
     noOrg: "No company is associated with your account.",
     link: "Invitation link (shown only once)",
+    linkHelp: "Copy it and send it to the person if the email does not arrive.",
+    newInvite: "Invite a worker",
+    list: "Invitations",
+    noneHint: "When you invite someone, you will see here whether they accepted.",
     status: { PENDING: "Pending", ACCEPTED: "Accepted", CANCELED: "Canceled", EXPIRED: "Expired" } as Record<string, string>
   }
 } as const;
@@ -48,7 +74,7 @@ export default function TeamInvitationsPage() {
   const [rows, setRows] = useState<OrgInvitationView[]>([]);
   const [email, setEmail] = useState("");
   const [link, setLink] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
+  const [notice, setNotice] = useState<Notice>(null);
   const [busy, setBusy] = useState(false);
 
   const inviteLink = (token: string) => `${window.location.origin}/invitations/accept?token=${encodeURIComponent(token)}`;
@@ -61,9 +87,9 @@ export default function TeamInvitationsPage() {
     async (id: string) => {
       try {
         setRows(await fetchOrgInvitations(id));
-        setMessage(null);
+        setNotice(null);
       } catch (error) {
-        setMessage(describe(error));
+        setNotice({ tone: "error", text: describe(error) });
       }
     },
     [describe]
@@ -76,9 +102,9 @@ export default function TeamInvitationsPage() {
         const id = typeof orgs[0]?.id === "string" ? (orgs[0].id as string) : null;
         setOrgId(id);
         if (id) await load(id);
-        else setMessage(c.noOrg);
+        else setNotice({ tone: "warn", text: c.noOrg });
       } catch (error) {
-        setMessage(describe(error));
+        setNotice({ tone: "error", text: describe(error) });
       }
     })();
   }, [load, describe, c.noOrg]);
@@ -90,79 +116,91 @@ export default function TeamInvitationsPage() {
       await action();
       await load(orgId);
     } catch (error) {
-      setMessage(describe(error));
+      setNotice({ tone: "error", text: describe(error) });
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <main style={{ maxWidth: 720, margin: "0 auto", padding: 16, display: "grid", gap: 16 }}>
-      <h1>{c.title}</h1>
-      <p>{c.intro}</p>
-      {message ? <p role="status">{message}</p> : null}
-      <form
-        onSubmit={(event) => {
-          event.preventDefault();
-          void run(async () => {
-            const created = await createOrgInvitation(orgId as string, email.trim());
-            setLink(created.token ? inviteLink(created.token) : null);
-            setEmail("");
-          });
-        }}
-        style={{ display: "flex", gap: 8, flexWrap: "wrap" }}
-      >
-        <input
-          type="email"
-          required
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-          placeholder={c.email}
-          aria-label={c.email}
-          style={{ flex: "1 1 240px", minHeight: 44, padding: "0 12px" }}
-        />
-        <button type="submit" disabled={busy || !orgId} style={{ minHeight: 44, padding: "0 16px" }}>
-          {c.invite}
-        </button>
-      </form>
-      {link ? (
-        <p>
-          <strong>{c.link}:</strong> <code style={{ wordBreak: "break-all" }}>{link}</code>
-        </p>
+    <PageStack maxWidth={820}>
+      <PageHeader icon={Users} title={c.title} description={c.intro} />
+      {notice ? (
+        <Banner tone={notice.tone} onDismiss={() => setNotice(null)}>
+          {notice.text}
+        </Banner>
       ) : null}
-      {rows.length === 0 ? (
-        <p>{c.none}</p>
-      ) : (
-        <ul style={{ listStyle: "none", padding: 0, display: "grid", gap: 8 }}>
-          {rows.map((row) => (
-            <li key={row.invitationId} style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-              <span style={{ flex: "1 1 200px" }}>{row.recipientMasked}</span>
-              <span>{c.status[row.status] ?? row.status}</span>
-              {row.status === "PENDING" ? (
-                <>
-                  <button
-                    disabled={busy}
-                    onClick={() =>
-                      void run(async () => {
-                        const sent = await resendOrgInvitation(orgId as string, row.invitationId);
-                        setLink(sent.token ? inviteLink(sent.token) : null);
-                      })
-                    }
-                  >
-                    {c.resend}
-                  </button>
-                  <button
-                    disabled={busy}
-                    onClick={() => void run(async () => void (await cancelOrgInvitation(orgId as string, row.invitationId)))}
-                  >
-                    {c.cancel}
-                  </button>
-                </>
-              ) : null}
-            </li>
-          ))}
-        </ul>
-      )}
-    </main>
+      <Panel title={c.newInvite} icon={Mail}>
+        <div style={{ display: "grid", gap: 14 }}>
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              void run(async () => {
+                const created = await createOrgInvitation(orgId as string, email.trim());
+                setLink(created.token ? inviteLink(created.token) : null);
+                setEmail("");
+              });
+            }}
+            style={{ display: "flex", gap: 8, flexWrap: "wrap" }}
+          >
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              placeholder={c.email}
+              aria-label={c.email}
+              style={{ ...touchInputStyle, flex: "1 1 240px", width: "auto" }}
+            />
+            <Button type="submit" variant="primary" size="touch" icon={Send} disabled={busy || !orgId}>
+              {c.invite}
+            </Button>
+          </form>
+          {link ? <SecretValue label={c.link} value={link} help={c.linkHelp} /> : null}
+        </div>
+      </Panel>
+      <Panel title={c.list} icon={Users} padded={rows.length === 0}>
+        {rows.length === 0 ? (
+          <Empty icon={Inbox} title={c.none} description={c.noneHint} />
+        ) : (
+          <List>
+            {rows.map((row, index) => (
+              <ListRow key={row.invitationId} first={index === 0}>
+                <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                  <span style={{ flex: "1 1 200px", fontSize: 14, fontWeight: 600, color: "var(--ink)" }}>{row.recipientMasked}</span>
+                  <Pill tone={STATUS_TONE[row.status] ?? "muted"}>{c.status[row.status] ?? row.status}</Pill>
+                  {row.status === "PENDING" ? (
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      <Button
+                        size="touch"
+                        icon={RotateCw}
+                        disabled={busy}
+                        onClick={() =>
+                          void run(async () => {
+                            const sent = await resendOrgInvitation(orgId as string, row.invitationId);
+                            setLink(sent.token ? inviteLink(sent.token) : null);
+                          })
+                        }
+                      >
+                        {c.resend}
+                      </Button>
+                      <Button
+                        variant="danger"
+                        size="touch"
+                        icon={X}
+                        disabled={busy}
+                        onClick={() => void run(async () => void (await cancelOrgInvitation(orgId as string, row.invitationId)))}
+                      >
+                        {c.cancel}
+                      </Button>
+                    </div>
+                  ) : null}
+                </div>
+              </ListRow>
+            ))}
+          </List>
+        )}
+      </Panel>
+    </PageStack>
   );
 }

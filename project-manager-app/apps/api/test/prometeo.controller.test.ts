@@ -271,14 +271,20 @@ test("prometeo tool execution runs only read adapters and blocks pending video p
 
   const jobs = await service.invokeReadTool(actor, "req_tool_1", { namespace: "time_tracker", name: "list_jobs", input: {} });
   const animal = await service.invokeReadTool(actor, "req_tool_2", { namespace: "agro", name: "get_animal", input: { animalId: "animal_1" } });
-  const blockedVideo = await service.invokeReadTool(actor, "req_tool_3", { namespace: "vision", name: "analyze_video", input: { videoFileId: "vid_1" } });
+  await assert.rejects(
+    () => service.invokeReadTool(actor, "req_tool_3", { namespace: "vision", name: "analyze_video", input: { videoFileId: "vid_1" } }),
+    (error: unknown) => {
+      assert.equal((error as { getStatus?: () => number }).getStatus?.(), 400);
+      const body = (error as { getResponse: () => { code?: string } }).getResponse();
+      assert.equal(body.code, "ADAPTER_PENDING");
+      return true;
+    },
+  );
 
   assert.equal(jobs.status, "succeeded");
   assert.deepEqual((jobs.output as { data?: unknown }).data, [{ id: "job_1", title: "Drywall" }]);
   assert.equal(animal.status, "succeeded");
   assert.ok(calls.some((call) => call.method === "getFarm" && call.farmId === "farm_1" && call.ownerId === "usr_1"));
-  assert.equal(blockedVideo.status, "blocked");
-  assert.match(blockedVideo.errorMessage ?? "", /not wired for read execution/);
 
   await assert.rejects(
     () => service.invokeReadTool(actor, "req_tool_4", { namespace: "time_tracker", name: "start", input: { jobId: "job_1" } }),

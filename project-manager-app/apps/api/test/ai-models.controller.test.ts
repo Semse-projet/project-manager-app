@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { BadRequestException } from "@nestjs/common";
 import { AiModelsController } from "../dist/modules/ai-models/ai-models.controller.js";
 
 function actorHeaders() {
@@ -12,7 +13,13 @@ function actorHeaders() {
   };
 }
 
-function createController() {
+function createController(options?: {
+  invokeReadTool?: (
+    actor: Record<string, unknown>,
+    requestId: string,
+    invocation: Record<string, unknown>,
+  ) => Promise<unknown>;
+}) {
   const calls = {
     interactions: [] as Array<Record<string, unknown>>,
     synthetic: [] as Array<Record<string, unknown>>,
@@ -152,6 +159,7 @@ function createController() {
       skillMatcher as never,
       {
         async invokeReadTool(actor: Record<string, unknown>, requestId: string, invocation: Record<string, unknown>) {
+          if (options?.invokeReadTool) return options.invokeReadTool(actor, requestId, invocation);
           calls.toolExecutions.push({ actor, requestId, invocation });
           return {
             id: "exec_chat_1",
@@ -278,6 +286,33 @@ test("ai-models controller accepts requestedAction without text and keeps read a
   assert.equal(result.data.mission.status, "completed");
   assert.equal(calls.toolExecutions.length, 1);
   assert.equal(calls.interactions.length, 1);
+});
+
+test("chat maps an adapter-pending read tool to a blocked result and waiting_input", async () => {
+  const { controller } = createController({
+    invokeReadTool: async () => {
+      throw new BadRequestException({
+        message: "vision.analyze_video is not executable",
+        code: "ADAPTER_PENDING",
+        namespace: "vision",
+        tool: "analyze_video",
+      });
+    },
+  });
+
+  const result = await controller.prometeoChat(
+    { headers: actorHeaders() } as never,
+    {
+      requestedAction: "vision.analyze_video",
+      requestedActionInput: { videoFileId: "vid_1" },
+      agentId: "assistant",
+    },
+  );
+
+  assert.equal(result.data.executionResults[0]?.status, "blocked");
+  assert.match(result.data.executionResults[0]?.errorMessage ?? "", /not executable/);
+  assert.equal(result.data.mission.status, "waiting_input");
+  assert.equal(result.data.mission.steps.find((step: { id?: string }) => step.id === "execute")?.status, "blocked");
 });
 
 test("ai-models controller does not execute write requestedAction from chat", async () => {

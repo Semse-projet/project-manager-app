@@ -1,8 +1,22 @@
 "use client";
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { Award, KeyRound, Search, ShieldCheck } from "lucide-react";
 import { useLanguage } from "../../../../lib/language-context";
 import { fetchOrganizations, redeemSkillAttestation, SemseApiError, type SkillSummaryView } from "../../../semse-api";
+import {
+  Banner,
+  Button,
+  Field,
+  List,
+  ListRow,
+  PageHeader,
+  PageStack,
+  Panel,
+  Pill,
+  touchInputStyle,
+  type Notice
+} from "../../../../components/module-surface/ui";
 
 const COPY = {
   es: {
@@ -16,7 +30,9 @@ const COPY = {
     unavailable: "Esta función aún no está habilitada.",
     forbidden: "Tu cuenta no puede canjear códigos.",
     tasks: "tareas confirmadas",
-    generated: "Generado"
+    generated: "Generado",
+    redeemPanel: "Canjear un código",
+    summaryPanel: "Resumen de experiencia"
   },
   en: {
     title: "Shared experience",
@@ -29,7 +45,9 @@ const COPY = {
     unavailable: "This feature is not enabled yet.",
     forbidden: "Your account cannot redeem codes.",
     tasks: "confirmed tasks",
-    generated: "Generated"
+    generated: "Generated",
+    redeemPanel: "Redeem a code",
+    summaryPanel: "Experience summary"
   }
 } as const;
 
@@ -39,7 +57,7 @@ export default function SkillAttestationsPage() {
   const [orgId, setOrgId] = useState<string | null>(null);
   const [token, setToken] = useState("");
   const [summary, setSummary] = useState<SkillSummaryView | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
+  const [notice, setNotice] = useState<Notice>(null);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -48,9 +66,9 @@ export default function SkillAttestationsPage() {
         const orgs = await fetchOrganizations();
         const id = typeof orgs[0]?.id === "string" ? (orgs[0].id as string) : null;
         setOrgId(id);
-        if (!id) setMessage(c.noOrg);
+        if (!id) setNotice({ tone: "warn", text: c.noOrg });
       } catch {
-        setMessage(c.unavailable);
+        setNotice({ tone: "warn", text: c.unavailable });
       }
     })();
   }, [c.noOrg, c.unavailable]);
@@ -71,43 +89,65 @@ export default function SkillAttestationsPage() {
     setSummary(null);
     try {
       setSummary(await redeemSkillAttestation(orgId, token.trim()));
-      setMessage(null);
+      setNotice(null);
     } catch (error) {
-      setMessage(describe(error));
+      setNotice({ tone: "error", text: describe(error) });
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <main style={{ maxWidth: 640, margin: "0 auto", padding: 16, display: "grid", gap: 16 }}>
-      <h1>{c.title}</h1>
-      <p>{c.intro}</p>
-      {message ? <p role="status">{message}</p> : null}
-      <form onSubmit={(event) => void redeem(event)} style={{ display: "grid", gap: 8 }}>
-        <label>
-          {c.code}
-          <input required minLength={16} value={token} onChange={(event) => setToken(event.target.value)} style={{ width: "100%", minHeight: 44 }} />
-        </label>
-        <button type="submit" disabled={busy || !orgId || token.trim().length < 16} style={{ minHeight: 44 }}>
-          {c.redeem}
-        </button>
-      </form>
-      {summary ? (
-        <section style={{ display: "grid", gap: 8 }}>
-          <ul style={{ listStyle: "none", padding: 0, display: "grid", gap: 6 }}>
-            {summary.trades.map((trade) => (
-              <li key={trade.trade}>
-                <strong>{trade.trade}</strong> · {trade.confirmedCount} {c.tasks} · {trade.since} → {trade.until}
-              </li>
-            ))}
-          </ul>
-          <small>{summary.disclaimer}</small>
-          <small>
-            {c.generated}: {new Date(summary.generatedAt).toLocaleString()}
-          </small>
-        </section>
+    <PageStack maxWidth={760}>
+      <PageHeader icon={ShieldCheck} tone="ok" title={c.title} description={c.intro} />
+      {notice ? (
+        <Banner tone={notice.tone} onDismiss={() => setNotice(null)}>
+          {notice.text}
+        </Banner>
       ) : null}
-    </main>
+      <Panel title={c.redeemPanel} icon={KeyRound}>
+        <form onSubmit={(event) => void redeem(event)} style={{ display: "grid", gap: 14 }}>
+          <Field label={c.code}>
+            <input
+              required
+              minLength={16}
+              value={token}
+              onChange={(event) => setToken(event.target.value)}
+              style={{ ...touchInputStyle, fontFamily: "var(--font-mono)" }}
+              autoComplete="off"
+              spellCheck={false}
+            />
+          </Field>
+          <Button type="submit" variant="primary" size="touch" icon={Search} busy={busy} disabled={!orgId || token.trim().length < 16} fullWidth>
+            {c.redeem}
+          </Button>
+        </form>
+      </Panel>
+      {summary ? (
+        <Panel title={c.summaryPanel} icon={Award} padded={false}>
+          <List>
+            {summary.trades.map((trade, index) => (
+              <ListRow key={trade.trade} first={index === 0}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                  <strong style={{ flex: "1 1 160px", fontSize: 14, color: "var(--ink)", textTransform: "capitalize" }}>{trade.trade}</strong>
+                  <Pill tone="ok">
+                    {trade.confirmedCount} {c.tasks}
+                  </Pill>
+                </div>
+                <span style={{ fontSize: 12, color: "var(--muted)" }}>
+                  {trade.since} → {trade.until}
+                </span>
+              </ListRow>
+            ))}
+          </List>
+          <div style={{ padding: "12px 16px", borderTop: "1px solid var(--border)", display: "grid", gap: 4, background: "var(--raised)" }}>
+            <span style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.5 }}>{summary.disclaimer}</span>
+            <span style={{ fontSize: 11, color: "var(--faint)" }}>
+              {c.generated}: {new Date(summary.generatedAt).toLocaleString()}
+            </span>
+          </div>
+        </Panel>
+      ) : null}
+    </PageStack>
   );
 }

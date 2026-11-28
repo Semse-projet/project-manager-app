@@ -62,6 +62,15 @@ type PrometeoChatEnvelope = PrometeoResponse & {
   errorMessage?: string;
 };
 
+function adapterPendingRefusalMessage(error: unknown): string | null {
+  if (!(error instanceof BadRequestException)) return null;
+  const body = error.getResponse();
+  if (typeof body !== "object" || body === null) return null;
+  if ((body as { code?: unknown }).code !== "ADAPTER_PENDING") return null;
+  const message = (body as { message?: unknown }).message;
+  return typeof message === "string" ? message : "Tool is not executable";
+}
+
 @Controller("v1/ai-models")
 export class AiModelsController {
   constructor(
@@ -582,8 +591,23 @@ export class AiModelsController {
       });
       return [result];
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Prometeo tool execution failed";
+      const pendingMessage = adapterPendingRefusalMessage(error);
       const now = new Date().toISOString();
+      if (pendingMessage) {
+        // Invoke already audited the 400. Chat keeps the prior blocked/waiting_input
+        // mission instead of treating a declared adapter gap as an execution failure.
+        return [{
+          id: `exec_${randomUUID()}`,
+          namespace,
+          tool: name,
+          status: "blocked",
+          errorMessage: pendingMessage,
+          auditRef: `prometeo-tool:${requestId}:adapter-pending`,
+          startedAt: now,
+          completedAt: now,
+        }];
+      }
+      const message = error instanceof Error ? error.message : "Prometeo tool execution failed";
       return [{
         id: `exec_${randomUUID()}`,
         namespace,

@@ -14,6 +14,7 @@ import { HealthService } from "../../health/health.service.js";
 import { PrismaService } from "../../../infrastructure/prisma/prisma.service.js";
 import { SseEventBusService } from "../../../infrastructure/sse/sse-event-bus.service.js";
 import { OutboxOpsService } from "../../domain-events/outbox-ops.service.js";
+import { userFacingOutboxOrgWhere } from "../../domain-events/outbox-org-visibility.js";
 import { OperationalSignalsService } from "../../operational-intelligence/operational-signals.service.js";
 import { LoopsService } from "../loops.service.js";
 import { SystemObserverService } from "../observer.service.js";
@@ -205,7 +206,7 @@ export class MissionControlService {
 
     const chunks = await Promise.all([
       load("signal", () => this.loadSignalExceptions(actor.tenantId)),
-      load("event", () => this.loadEventExceptions(actor.tenantId)),
+      load("event", () => this.loadEventExceptions(actor.tenantId, actor.orgId)),
       load("agent_run", () => this.loadAgentRunExceptions(actor.tenantId, actor.orgId)),
       load("approval", () => this.loadApprovalExceptions(actor.tenantId)),
       load("loop", () => this.loadLoopExceptions()),
@@ -956,13 +957,19 @@ export class MissionControlService {
     }));
   }
 
-  private async loadEventExceptions(tenantId: string): Promise<MissionControlExceptionItem[]> {
+  private async loadEventExceptions(tenantId: string, orgId: string): Promise<MissionControlExceptionItem[]> {
+    const orgScope = await userFacingOutboxOrgWhere(this.prisma, tenantId, orgId);
     const rows = await this.prisma.domainOutboxEvent.findMany({
       where: {
         tenantId,
-        OR: [
-          { status: { in: ["FAILED", "DEAD_LETTER"] } },
-          { consumptions: { some: { status: { in: ["FAILED", "DEAD_LETTER"] } } } },
+        AND: [
+          orgScope,
+          {
+            OR: [
+              { status: { in: ["FAILED", "DEAD_LETTER"] } },
+              { consumptions: { some: { status: { in: ["FAILED", "DEAD_LETTER"] } } } },
+            ],
+          },
         ],
       },
       include: {

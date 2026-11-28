@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { ForbiddenException, ConflictException, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, ConflictException, NotFoundException } from "@nestjs/common";
 import { PrometeoToolExecutionService } from "../dist/modules/prometeo/prometeo-tool-execution.service.js";
 
 function actor(overrides: Partial<{ userId: string; roles: string[] }> = {}) {
@@ -93,6 +93,35 @@ test("T-030: invokeWriteTool denies with 403 when the actor lacks the tool's dec
   assert.equal(governance.recorded.length, 1);
   assert.equal(governance.recorded[0]?.status, "blocked");
   assert.equal(governance.created.length, 0);
+});
+
+test("F2 adapter_pending: policy deny stays 403, and a permitted pending write is 400 before any proposed action", async () => {
+  const governance = makeFakeGovernance();
+  const service = makeService({ toolGovernance: governance });
+  const invocation = {
+    namespace: "business_os",
+    name: "assign_task",
+    input: { crewId: "crew_1", taskId: "task_1", userIds: ["usr_2"] },
+  };
+
+  await assert.rejects(
+    () => service.invokeWriteTool(actor({ roles: ["WORKER"] }) as never, "req_denied", invocation),
+    ForbiddenException,
+  );
+
+  await assert.rejects(
+    () => service.invokeWriteTool(actor({ roles: ["CLIENT"] }) as never, "req_pending", invocation),
+    (error: unknown) => {
+      assert.ok(error instanceof BadRequestException);
+      assert.equal((error.getResponse() as { code?: string }).code, "ADAPTER_PENDING");
+      return true;
+    },
+  );
+
+  assert.equal(governance.created.length, 0);
+  assert.equal(governance.recorded.length, 2);
+  assert.equal(governance.recorded[1]?.status, "blocked");
+  assert.match(String(governance.recorded[1]?.blockedReason), /not executable/);
 });
 
 test("T-030b: invokeWriteTool creates a queued PrometeoProposedAction (does not execute yet) for a confirm-policy tool", async () => {

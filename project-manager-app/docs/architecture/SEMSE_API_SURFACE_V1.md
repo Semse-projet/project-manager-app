@@ -79,10 +79,10 @@ de Production Health las verifica junto con las nueve páginas `/modules/*`.
 ## Domain Events
 - `GET /v1/domain-events/manual-catalog`
 - `GET /v1/domain-events`
-- `GET /v1/domain-events/outbox` (F1-E; `domain-events:read`; filtros `status?/eventType?/correlationId?/limit?/cursor?`; tenant-scoped; nunca expone `payloadJson`; devuelve `items`, `nextCursor`, `counts` por status y `oldestPendingAgeMs`)
-- `GET /v1/domain-events/:eventId/deliveries` (F1-E; `domain-events:read`; detalle de outbox + recibos de consumer tenant-scoped; 404 si el evento no existe en el tenant del actor)
-- `POST /v1/domain-events/:eventId/replay` (F1-E; `domain-events:replay` + rol `OPS_ADMIN`; body `{ consumerName?: string, reason: string }`; solo replay de estado terminal `DEAD_LETTER` — outbox o consumer según `consumerName`; incrementa `replayCount`, emite `ops.event_replay_requested.v1` como AuditLog auditado y re-encola en BullMQ con generación nueva cuando el replay es por consumer; 400 reason vacío, 404 fuera de tenant, 409 si el estado no es replayable)
-- `GET /v1/domain-events/:correlationId` (incluye ahora `outbox` + `receipts` del correlationId, tenant-scoped)
+- `GET /v1/domain-events/outbox` (F1-E; `domain-events:read`; filtros `status?/eventType?/correlationId?/limit?/cursor?`; alcance de tenant **y** organización autenticada; las entregas con `orgId=system` solo se incluyen si están atadas a un proyecto del llamador; nunca expone `payloadJson`; devuelve `items`, `nextCursor`, `counts` por status y `oldestPendingAgeMs`)
+- `GET /v1/domain-events/:eventId/deliveries` (F1-E; `domain-events:read`; detalle de outbox + recibos de consumer con alcance de tenant y organización; 404 si el evento no existe en el tenant del actor o pertenece a otra organización del mismo tenant — salvo entregas `system` atadas a un proyecto del llamador)
+- `POST /v1/domain-events/:eventId/replay` (F1-E; `domain-events:replay` + rol `OPS_ADMIN`; body `{ consumerName?: string, reason: string }`; solo replay de estado terminal `DEAD_LETTER` — outbox o consumer según `consumerName`; incrementa `replayCount`, emite `ops.event_replay_requested.v1` como AuditLog auditado y re-encola en BullMQ con generación nueva cuando el replay es por consumer; 400 reason vacío, 404 fuera de tenant o de la organización autenticada (incluye reintento cruzado entre organizaciones del mismo tenant), 409 si el estado no es replayable)
+- `GET /v1/domain-events/:correlationId` (incluye ahora `outbox` + `receipts` del correlationId, con alcance de tenant y organización; la traza exige igualdad exacta de la correlación tras el primer `:` de `entityId`)
 - `POST /v1/domain-events/emit`
 - `POST /v1/domain-events/:eventId/process` (interno; service identity con rol `EVENT_CONSUMER` + `domain-events:consume`; body estricto `{ workerId }`; recupera el evento canónico por `eventId`; enruta `project.lifecycle-source-changed.v1` a `project-lifecycle-projection.v1` y `evidence.uploaded.v1` a `evidence-readiness.v1` según allowlists)
 
@@ -143,7 +143,7 @@ de Production Health las verifica junto con las nueve páginas `/modules/*`.
 - `POST /v1/admin/payments/release-reconcile/check` (interno: lo dispara el worker con `PAYMENTS_RECONCILE_ENABLED`; `ops:dashboard:write`; solo lectura sobre dinero, alerta + auditoría append-only; ADR-041 2b)
 - `GET /v1/admin/ai-pricing/prices` (`ops:dashboard:read`; catálogo GLOBAL de precios de modelos de IA, C39) y `POST /v1/admin/ai-pricing/prices` (`ops:dashboard:write` + rol `OPS_ADMIN`; alta de una vigencia con fuente oficial `sourceUrl`/`sourceCheckedAt`, entradas inmutables, auditada; sin efecto sobre costos hasta `AI_PRICING_CATALOG_MODE=shadow|on`)
 - `GET /v1/ops/mission-control/summary` (legacy-compatible aggregate)
-- `GET /v1/ops/mission-control/exceptions` (F4; `ops:dashboard:read`; normalized, paginated and tenant-scoped read model with partial-source errors)
+- `GET /v1/ops/mission-control/exceptions` (F4; `ops:dashboard:read`; normalized, paginated read model with partial-source errors; las excepciones de origen `event` siguen la misma política de organización que `GET /v1/domain-events/outbox` y solo ofrecen `REPLAY` para entregas que la sesión puede operar)
 - `GET /v1/ops/mission-control/runbooks` (F4; approved code-versioned catalog)
 - `POST /v1/ops/mission-control/actions` (F4; `ops:dashboard:write` + `OPS_ADMIN`; reason, allowlisted runbook, idempotency key, lease, durable receipt and owning-domain adapter)
 - `POST /v1/ops/approvals/:approvalId/decision`
@@ -163,6 +163,7 @@ de Production Health las verifica junto con las nueve páginas `/modules/*`.
 - `GET /v1/agents/runs/:runId`
 - `POST /v1/agents/runs/:runId/retry`
 - `POST /v1/agents/runs/:runId/start`
+- `POST /v1/agents/runs/:runId/claimed-job-context` (`agents:run:execute` + claim token; proyección mínima del Job del evento `job.created`, sin `jobs:read` ni `projects:read`)
 - `POST /v1/agents/runs/:runId/heartbeat`
 - `POST /v1/agents/runs/:runId/complete`
 - `POST /v1/agents/runs/:runId/fail`
@@ -254,3 +255,27 @@ usuario (`createdBy`) en su tenant; ajeno o inexistente responde igual.
 - **Estado de entrega:** sujeto a CI, revisión, merge y smoke de PR #937; no
   afirmar producción por documentación.
 
+
+## Obras y cuadrillas — BO-07 (spec `core.crews-worksites` v0.3; flag `SEMSE_CREWS_ENABLED`, apagado → 404)
+
+Gestión: exige `org:crews:manage` y Membership ACTIVE del actor en esa Org y tenant. Otra Org → 404, sin permiso → 403.
+
+- `POST /v1/organizations/:orgId/worksites` · `GET /v1/organizations/:orgId/worksites`
+- `POST /v1/organizations/:orgId/crews` · `GET /v1/organizations/:orgId/crews` — el listado incluye los miembros ACTIVE, solo `userId` y `addedAt` (AC-10).
+- `GET /v1/organizations/:orgId/workers` — WORKER ACTIVE de la Org elegibles para cuadrillas, solo `userId` y `since` (AC-11).
+- `POST /v1/organizations/:orgId/crews/:crewId/members` · `POST .../members/remove` · `POST .../archive`
+- `GET /v1/crews/mine` · `GET /v1/crews/:crewId/roster` — lectura propia y roster solo para el supervisor vigente; revalidan la Membership en cada lectura.
+- Los listados devuelven como máximo 200 registros activos, sin paginación.
+- **Estado de entrega:** el flag está apagado en producción; no afirmar activación por documentación.
+
+## Preferencia de ubicación — BO-09 (spec `core.geofence-policy` v0.3; flag `SEMSE_GEOFENCE_POLICY_ENABLED`, apagado → 404)
+
+- `GET /v1/me/location-preference` · `PUT /v1/me/location-preference` — modo ASK/AUTO/OFF; AUTO exige consentimiento separado y vigente, y salir de AUTO lo revoca.
+- `POST /v1/me/geofence-events` · `GET /v1/me/geofence-events` — decisiones de llegada o salida, sin guardar coordenadas.
+- Clientes: solo un 404 permite volver al modo anterior del perfil. Cualquier otro error de lectura deja la detección en OFF.
+- **Estado de entrega:** el flag está apagado en producción.
+- `GET /v1/me/geofence-sites` (OPEN-18, flag `SEMSE_WORKSITE_BINDING_ENABLED`, apagado → 404): obras vinculadas
+  **solo de la Org de la sesión** (AC-11), con la ubicación y el radio de la obra, nunca de la persona.
+- `POST /v1/me/geofence-events` con `site`: una obra de otra Org → `IGNORE`. `POST /v1/labor/timer/start` con
+  `proximity_auto` exige `geofenceEventId` vigente; si no, 409 `auto_start_not_authorized`, y el cliente pide
+  confirmación sin reintentar el inicio automático (AC-12).

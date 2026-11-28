@@ -5,6 +5,13 @@ import { type AgentRunRecord } from "../../common/domain-store.js";
 import { ActorContextService } from "../../infrastructure/persistence/actor-context.service.js";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { createAgentRunFinalizationEvent, isAgentRunFinalizationOutboxEnabled } from "./agent-run-finalization.policy.js";
+import {
+  claimedJobWhere,
+  claimedProjectWhere,
+  decideClaimedJobRead,
+  projectClaimedJob,
+  type ClaimedJobProjection,
+} from "./claimed-job-context.js";
 
 const { Prisma } = prismaClientPackage as typeof import("@prisma/client");
 
@@ -80,6 +87,67 @@ export class AgentsRepository {
     }
 
     return this.toRecord(run);
+  }
+
+  /**
+   * Minimal Job projection for the worker that currently holds this run.
+   * Does not grant projects:read or jobs:read. A missing row, a stale lease,
+   * another org, or a job id that is not the persisted event all look the same.
+   */
+  async readClaimedJobContext(input: {
+    tenantId: string;
+    orgId: string;
+    userId: string;
+    runId: string;
+    workerId: string;
+    expectedAttempts: number;
+  }): Promise<ClaimedJobProjection> {
+    await this.actorContextService.ensureActorContext(input);
+    return this.prisma.$transaction(async (tx) => {
+      const db = tx as PrismaService;
+      const rows = await db.$queryRaw<Array<{
+        status: string;
+        workerId: string | null;
+        attempts: number;
+        orgId: string | null;
+        tenantId: string;
+        inputJson: unknown;
+      }>>`
+        SELECT status, "workerId", attempts, "orgId", "tenantId", "inputJson"
+        FROM "AgentRun"
+        WHERE id = ${input.runId} AND "tenantId" = ${input.tenantId}
+        FOR SHARE
+      `;
+      const decision = decideClaimedJobRead({
+        run: rows[0] ?? null,
+        workerId: input.workerId,
+        expectedAttempts: input.expectedAttempts,
+      });
+      if (!decision.ok) {
+        throw new NotFoundException(`Agent run '${input.runId}' not found`);
+      }
+      const job = await db.job.findFirst({
+        where: claimedJobWhere(decision),
+        select: {
+          id: true,
+          title: true,
+          scope: true,
+          category: true,
+          status: true,
+          urgency: true,
+          budgetMin: true,
+          budgetMax: true,
+        },
+      });
+      if (!job) {
+        throw new NotFoundException(`Agent run '${input.runId}' not found`);
+      }
+      const project = await db.project.findFirst({
+        where: claimedProjectWhere(decision),
+        select: { id: true },
+      });
+      return projectClaimedJob(job, project?.id ?? null);
+    });
   }
 
   /** Internal tenant-scoped read, only after AGENT_RUNNER role verification. */

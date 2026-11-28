@@ -270,7 +270,11 @@ date: "2026-08-26"
 - [ ] [T-085] Validar checklist de cierre heredado/adaptado/nuevo del
       runbook (SLO de F1, blast radius, mismatch)
 - [ ] [T-086] Activar `SEMSE_JOBS_PROJECTION_READTHROUGH_ENABLED` para el
-      mismo tenant, con monitoreo de 5xx en `/prometeo/chat`
+      mismo tenant, con monitoreo de 5xx en `/prometeo/chat`. El código y
+      los tests del read-through (incluido PRO/WORKER en query directa y
+      `diffJobReadthroughSamples`) están en el repo; la activación sigue
+      este runbook y exige cero filas en el SQL de muestreo antes del
+      `variables set`. No marcar este ítem sin esa evidencia.
 - [ ] [T-087] Promover a `ACTIVE` (global) o revertir/pausar según SLO
 - [ ] [T-088] Registrar `production_evidence`, `last_verified` y
       `status: VERIFIED` — sin inventar IDs, solo con evidencia real

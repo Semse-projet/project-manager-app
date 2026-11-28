@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { Clock, History, Inbox, Send } from "lucide-react";
 import { useLanguage } from "../../../../lib/language-context";
 import { fetchLaborEntries, type TimeEntryView } from "../../labor-api";
 import {
@@ -9,6 +10,21 @@ import {
   SemseApiError,
   type LaborCorrectionView
 } from "../../../semse-api";
+import {
+  Banner,
+  Button,
+  Empty,
+  Field,
+  List,
+  ListRow,
+  PageHeader,
+  PageStack,
+  Panel,
+  Pill,
+  touchInputStyle,
+  type Notice,
+  type Tone
+} from "../../../../components/module-surface/ui";
 
 const COPY = {
   es: {
@@ -25,7 +41,12 @@ const COPY = {
     mine: "Mis solicitudes",
     none: "No tienes solicitudes.",
     unavailable: "Las correcciones de horas aún no están habilitadas.",
-    status: { PENDING: "Pendiente", APPROVED: "Aprobada", REJECTED: "Rechazada", CANCELED: "Cancelada" } as Record<string, string>
+    status: { PENDING: "Pendiente", APPROVED: "Aprobada", REJECTED: "Rechazada", CANCELED: "Cancelada" } as Record<string, string>,
+    form: "Nueva solicitud",
+    back: "Mi tiempo",
+    breakLabel: "Descanso",
+    endLabel: "Fin",
+    noneHint: "Cuando pidas una corrección, aquí verás si fue aprobada."
   },
   en: {
     title: "Correct my hours",
@@ -41,9 +62,16 @@ const COPY = {
     mine: "My requests",
     none: "You have no requests.",
     unavailable: "Hour corrections are not enabled yet.",
-    status: { PENDING: "Pending", APPROVED: "Approved", REJECTED: "Rejected", CANCELED: "Canceled" } as Record<string, string>
+    status: { PENDING: "Pending", APPROVED: "Approved", REJECTED: "Rejected", CANCELED: "Canceled" } as Record<string, string>,
+    form: "New request",
+    back: "My time",
+    breakLabel: "Break",
+    endLabel: "End",
+    noneHint: "Once you request a correction, you will see here whether it was approved."
   }
 } as const;
+
+const STATUS_TONE: Record<string, Tone> = { PENDING: "warn", APPROVED: "ok", REJECTED: "error", CANCELED: "muted" };
 
 function describeEntry(entry: TimeEntryView): string {
   const start = new Date(entry.startedAt);
@@ -60,7 +88,7 @@ export default function CorrectHoursPage() {
   const [endedAt, setEndedAt] = useState("");
   const [breakMinutes, setBreakMinutes] = useState("");
   const [reason, setReason] = useState("");
-  const [message, setMessage] = useState<string | null>(null);
+  const [notice, setNotice] = useState<Notice>(null);
   const [busy, setBusy] = useState(false);
 
   const describe = useCallback(
@@ -71,9 +99,9 @@ export default function CorrectHoursPage() {
   const load = useCallback(async () => {
     try {
       setRequests(await fetchMyLaborCorrections());
-      setMessage(null);
+      setNotice(null);
     } catch (error) {
-      setMessage(describe(error));
+      setNotice({ tone: "error", text: describe(error) });
     }
   }, [describe]);
 
@@ -98,70 +126,80 @@ export default function CorrectHoursPage() {
       setEndedAt("");
       setBreakMinutes("");
       await load();
-      setMessage(c.sent);
+      setNotice({ tone: "ok", text: c.sent });
     } catch (error) {
-      setMessage(describe(error));
+      setNotice({ tone: "error", text: describe(error) });
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <main style={{ maxWidth: 640, margin: "0 auto", padding: 16, display: "grid", gap: 16 }}>
-      <h1>{c.title}</h1>
-      <p>{c.intro}</p>
-      {message ? <p role="status">{message}</p> : null}
-      <form onSubmit={(event) => void submit(event)} style={{ display: "grid", gap: 8 }}>
-        <label>
-          {c.entry}
-          <select required value={entryId} onChange={(event) => setEntryId(event.target.value)} style={{ width: "100%", minHeight: 44 }}>
-            <option value="">{c.pick}</option>
-            {entries.map((entry) => (
-              <option key={entry.id} value={entry.id}>
-                {describeEntry(entry)}
-              </option>
+    <PageStack maxWidth={760}>
+      <PageHeader icon={Clock} title={c.title} description={c.intro} back={{ href: "/worker/tracker", label: c.back }} />
+      {notice ? (
+        <Banner tone={notice.tone} onDismiss={() => setNotice(null)}>
+          {notice.text}
+        </Banner>
+      ) : null}
+      <Panel title={c.form} icon={Send}>
+        <form onSubmit={(event) => void submit(event)} style={{ display: "grid", gap: 14 }}>
+          <Field label={c.entry}>
+            <select required value={entryId} onChange={(event) => setEntryId(event.target.value)} style={touchInputStyle}>
+              <option value="">{c.pick}</option>
+              {entries.map((entry) => (
+                <option key={entry.id} value={entry.id}>
+                  {describeEntry(entry)}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <div style={{ display: "grid", gap: 14, gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>
+            <Field label={c.newEnd}>
+              <input type="datetime-local" value={endedAt} onChange={(event) => setEndedAt(event.target.value)} style={touchInputStyle} />
+            </Field>
+            <Field label={c.breakMinutes}>
+              <input
+                type="number"
+                min={0}
+                max={1440}
+                value={breakMinutes}
+                onChange={(event) => setBreakMinutes(event.target.value)}
+                style={touchInputStyle}
+              />
+            </Field>
+          </div>
+          <Field label={c.reason}>
+            <input required minLength={5} maxLength={500} value={reason} onChange={(event) => setReason(event.target.value)} style={touchInputStyle} />
+          </Field>
+          <Button type="submit" variant="primary" size="touch" icon={Send} busy={busy} disabled={!entryId} fullWidth>
+            {c.send}
+          </Button>
+        </form>
+      </Panel>
+      <Panel title={c.mine} icon={History} padded={requests.length === 0}>
+        {requests.length === 0 ? (
+          <Empty icon={Inbox} title={c.none} description={c.noneHint} />
+        ) : (
+          <List>
+            {requests.map((request, index) => (
+              <ListRow key={request.correctionId} first={index === 0}>
+                <div style={{ display: "flex", alignItems: "flex-start", gap: 10, flexWrap: "wrap" }}>
+                  <span style={{ flex: "1 1 220px", fontSize: 14, fontWeight: 600, color: "var(--ink)" }}>{request.reason}</span>
+                  <Pill tone={STATUS_TONE[request.status] ?? "muted"}>{c.status[request.status] ?? request.status}</Pill>
+                </div>
+                <span style={{ fontSize: 12, color: "var(--muted)" }}>
+                  {c.breakLabel}: {request.original.breakMinutes} → {request.proposed.breakMinutes} min
+                  {request.proposed.endedAt ? ` · ${c.endLabel}: ${new Date(request.proposed.endedAt).toLocaleString()}` : ""}
+                </span>
+                {request.reviewNote ? (
+                  <span style={{ fontSize: 12, color: "var(--faint)", fontStyle: "italic" }}>“{request.reviewNote}”</span>
+                ) : null}
+              </ListRow>
             ))}
-          </select>
-        </label>
-        <label>
-          {c.newEnd}
-          <input type="datetime-local" value={endedAt} onChange={(event) => setEndedAt(event.target.value)} style={{ width: "100%", minHeight: 44 }} />
-        </label>
-        <label>
-          {c.breakMinutes}
-          <input
-            type="number"
-            min={0}
-            max={1440}
-            value={breakMinutes}
-            onChange={(event) => setBreakMinutes(event.target.value)}
-            style={{ width: "100%", minHeight: 44 }}
-          />
-        </label>
-        <label>
-          {c.reason}
-          <input required minLength={5} maxLength={500} value={reason} onChange={(event) => setReason(event.target.value)} style={{ width: "100%", minHeight: 44 }} />
-        </label>
-        <button type="submit" disabled={busy || !entryId} style={{ minHeight: 44 }}>
-          {c.send}
-        </button>
-      </form>
-      <h2>{c.mine}</h2>
-      {requests.length === 0 ? (
-        <p>{c.none}</p>
-      ) : (
-        <ul style={{ listStyle: "none", padding: 0, display: "grid", gap: 8 }}>
-          {requests.map((request) => (
-            <li key={request.correctionId} style={{ display: "grid", gap: 2 }}>
-              <span>{request.reason}</span>
-              <span>
-                {request.original.breakMinutes} → {request.proposed.breakMinutes} min · {c.status[request.status] ?? request.status}
-              </span>
-              {request.reviewNote ? <span>{request.reviewNote}</span> : null}
-            </li>
-          ))}
-        </ul>
-      )}
-    </main>
+          </List>
+        )}
+      </Panel>
+    </PageStack>
   );
 }
