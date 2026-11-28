@@ -1,0 +1,283 @@
+// Pruebas sintéticas de las herramientas de Plan 2. Ningún dato real: fixtures
+// generados en un directorio temporal que sólo este test crea y borra.
+import { createHash } from 'node:crypto';
+import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import { after, before, describe, it } from 'node:test';
+import assert from 'node:assert/strict';
+
+import { applyTransform, parseCsv, verifyPackage } from '../../scripts/plan2/verify-preservation-package.mjs';
+import { diffCollections } from '../../scripts/plan2/diff-site-collections.mjs';
+import { isInsideCheckout, runStaticEvidence } from '../../scripts/plan2/static-evidence.mjs';
+
+const sha = (s) => createHash('sha256').update(s).digest('hex');
+
+describe('plan2 verify-preservation-package (sintético)', () => {
+  let dir;
+  const entries = [
+    { id: 'e1', purpose: 'payable', durationSeconds: 3600 },
+    { id: 'e2', purpose: 'payable', durationSeconds: 1800 },
+    { id: 'e3', purpose: 'personal', durationSeconds: 600 },
+    { id: 's1', purpose: 'synthetic', durationSeconds: 9999 },
+  ];
+  const backup = JSON.stringify({ entries });
+  const exportA = JSON.stringify({ entries, exportedAt: 'A' });
+  const exportB = JSON.stringify({ entries, exportedAt: 'B' });
+  const csv = 'id,duration\r\n"e1",3600\r\ne2,1812\r\ne3,600\r\n';
+
+  before(async () => {
+    dir = await mkdtemp(path.join(os.tmpdir(), 'plan2-verify-'));
+    await writeFile(path.join(dir, 'backup.json'), backup);
+    await writeFile(path.join(dir, 'a.json'), exportA);
+    await writeFile(path.join(dir, 'b.json'), exportB);
+    await writeFile(path.join(dir, 'rows.csv'), csv);
+  });
+  after(async () => { await rm(dir, { recursive: true, force: true }); });
+
+  const manifest = (over = {}) => ({
+    files: [
+      { role: 'backup_json', path: 'backup.json', expectedSha256: sha(backup) },
+      { role: 'export_a', path: 'a.json' },
+      { role: 'export_b', path: 'b.json' },
+      { role: 'csv', path: 'rows.csv' },
+    ],
+    mustRemainDistinct: [['export_a', 'export_b']],
+    records: { jsonRole: 'backup_json', recordsPath: 'entries', idField: 'id', durationField: 'durationSeconds', durationUnit: 'seconds', purposeField: 'purpose', laborPurpose: 'payable', syntheticMarker: { field: 'purpose', value: 'synthetic' } },
+    csv: { role: 'csv', idColumn: 'id', durationColumn: 'duration', durationUnit: 'seconds', toleranceSeconds: 24 },
+    expect: { laborRecords: 2, syntheticRecords: 1, comparedIds: 3, uiTotalSeconds: 5520 },
+    ...over,
+  });
+
+  it('PASS con hash correcto, exportaciones distintas, tolerancia de precisión y sintético excluido', async () => {
+    const before = await stat(path.join(dir, 'backup.json'));
+    const r = await verifyPackage(manifest(), { baseDir: dir });
+    assert.equal(r.status, 'PASS', JSON.stringify(r.findings));
+    assert.equal(r.summary.syntheticRecords, 1);
+    assert.equal(r.summary.laborSeconds, 5400, 'el sintético y el personal no se suman como trabajo');
+    assert.equal(r.summary.uiMinusLaborSeconds, 120, 'la diferencia se informa');
+    assert.ok(r.findings.some((f) => f.code === 'UI_TOTAL_DIFFERS' && f.level === 'WARN'), 'sin atribuir causa');
+    assert.equal(r.csvComparison.withinTolerance, 1);
+    assert.equal(r.csvComparison.compared, 3);
+    const afterStat = await stat(path.join(dir, 'backup.json'));
+    assert.equal(afterStat.mtimeMs, before.mtimeMs, 'original intacto');
+    assert.equal(await readFile(path.join(dir, 'backup.json'), 'utf8'), backup);
+  });
+
+  it('informa sumas alternativas sin atribuir causa', async () => {
+    const rows = [
+      { id: 'p1', purpose: 'payable', accumulatedSeconds: 119, durationMinutes: 1 },
+      { id: 'p2', purpose: 'payable', accumulatedSeconds: 121, durationMinutes: 2 },
+      { id: 'p3', purpose: 'payable', accumulatedSeconds: 30, durationMinutes: null },
+    ];
+    const body = JSON.stringify(rows);
+    await writeFile(path.join(dir, 'alt.json'), body);
+    const r = await verifyPackage({
+      files: [{ role: 'j', path: 'alt.json', expectedSha256: sha(body) }],
+      records: {
+        jsonRole: 'j', idField: 'id', durationField: 'accumulatedSeconds', durationUnit: 'seconds', purposeField: 'purpose', laborPurpose: 'payable',
+        alternativeDurations: [{ label: 'UI: durationMinutes·60 o accumulatedSeconds', field: 'durationMinutes', unit: 'minutes', fallbackField: 'accumulatedSeconds', fallbackUnit: 'seconds' }],
+      },
+      expect: { uiTotalSeconds: 210 },
+    }, { baseDir: dir });
+    assert.equal(r.summary.laborSeconds, 270);
+    assert.deepEqual(r.summary.alternativeSums, [{ label: 'UI: durationMinutes·60 o accumulatedSeconds', transform: null, seconds: 210, minusPrimarySeconds: -60, uiMinusThisSeconds: 0 }]);
+    assert.ok(r.findings.some((f) => f.code === 'UI_TOTAL_DIFFERS'), 'la diferencia frente a la suma primaria sigue informada');
+  });
+
+  it('applyTransform aplica redondeos por fila sin alterar la entrada', () => {
+    assert.equal(applyTransform(119, 'floorMinute'), 60);
+    assert.equal(applyTransform(90, 'roundMinute'), 120);
+    assert.equal(applyTransform(3600 * 1.234, 'roundHours2'), 3600 * 1.23);
+    assert.throws(() => applyTransform(1, 'otra'));
+  });
+
+  it('FAIL ante hash alterado', async () => {
+    const m = manifest();
+    m.files[0].expectedSha256 = '0'.repeat(64);
+    const r = await verifyPackage(m, { baseDir: dir });
+    assert.equal(r.status, 'FAIL');
+    assert.ok(r.findings.some((f) => f.code === 'HASH_MISMATCH'));
+  });
+
+  it('FAIL si dos exportaciones declaradas distintas son idénticas', async () => {
+    const m = manifest();
+    m.files[2].path = 'a.json';
+    const r = await verifyPackage(m, { baseDir: dir });
+    assert.ok(r.findings.some((f) => f.code === 'EXPORTS_NOT_DISTINCT'));
+  });
+
+  it('FAIL si la diferencia CSV supera la tolerancia', async () => {
+    const r = await verifyPackage(manifest({ csv: { role: 'csv', idColumn: 'id', durationColumn: 'duration', durationUnit: 'seconds', toleranceSeconds: 0 } }), { baseDir: dir });
+    assert.ok(r.findings.some((f) => f.code === 'CSV_JSON_MISMATCH'));
+    assert.deepEqual(r.csvComparison.mismatched.map((x) => [x.id, x.deltaSeconds]), [['e2', 12]]);
+  });
+
+  it('FAIL si el CSV repite un ID; comparedIds cuenta IDs distintos', async () => {
+    const body = JSON.stringify({ entries: [{ id: 'a', s: 60 }, { id: 'b', s: 60 }] });
+    await writeFile(path.join(dir, 'dup.json'), body);
+    await writeFile(path.join(dir, 'dup.csv'), 'id,s\na,60\na,60\n');
+    const r = await verifyPackage({
+      files: [{ role: 'j', path: 'dup.json' }, { role: 'c', path: 'dup.csv' }],
+      records: { jsonRole: 'j', recordsPath: 'entries', idField: 'id', durationField: 's', durationUnit: 'seconds' },
+      csv: { role: 'c', idColumn: 'id', durationColumn: 's', durationUnit: 'seconds' },
+      expect: { comparedIds: 2 },
+    }, { baseDir: dir });
+    assert.equal(r.status, 'FAIL');
+    assert.ok(r.findings.some((f) => f.code === 'DUPLICATE_IDS_IN_CSV'));
+    assert.ok(r.findings.some((f) => f.code === 'COMPARED_COUNT_MISMATCH'));
+    assert.equal(r.csvComparison.distinctComparedIds, 1);
+  });
+
+  it('FAIL si una duración laboral no es numérica (no se suma como cero)', async () => {
+    const body = JSON.stringify([{ id: 'a', purpose: 'payable', s: 60 }, { id: 'b', purpose: 'payable', s: 'corrupt' }]);
+    await writeFile(path.join(dir, 'bad.json'), body);
+    const r = await verifyPackage({
+      files: [{ role: 'j', path: 'bad.json' }],
+      records: { jsonRole: 'j', idField: 'id', durationField: 's', durationUnit: 'seconds', purposeField: 'purpose', laborPurpose: 'payable' },
+      expect: { laborRecords: 2 },
+    }, { baseDir: dir });
+    assert.equal(r.status, 'FAIL');
+    assert.ok(r.findings.some((f) => f.code === 'INVALID_DURATION'));
+    assert.equal(r.summary.invalidDurations, 1);
+  });
+
+  it('FAIL si el JSON repite un ID (cotejo ambiguo)', async () => {
+    await writeFile(path.join(dir, 'amb.json'), JSON.stringify({ entries: [{ id: 'a', s: 60 }, { id: 'a', s: 120 }] }));
+    await writeFile(path.join(dir, 'amb.csv'), 'id,s\na,120\n');
+    const r = await verifyPackage({
+      files: [{ role: 'j', path: 'amb.json' }, { role: 'c', path: 'amb.csv' }],
+      records: { jsonRole: 'j', recordsPath: 'entries', idField: 'id', durationField: 's', durationUnit: 'seconds' },
+      csv: { role: 'c', idColumn: 'id', durationColumn: 's', durationUnit: 'seconds' },
+      expect: { comparedIds: 1 },
+    }, { baseDir: dir });
+    assert.equal(r.status, 'FAIL');
+    assert.ok(r.findings.some((f) => f.code === 'AMBIGUOUS_JSON_IDS'));
+    assert.equal(r.csvComparison.distinctComparedIds, 0);
+  });
+
+  it('FAIL si faltan IDs o están vacíos: no cuentan como cotejados', async () => {
+    await writeFile(path.join(dir, 'noid.json'), JSON.stringify({ entries: [{ id: '', s: 60 }, { s: 30 }, { id: 'b', s: 90 }] }));
+    await writeFile(path.join(dir, 'noid.csv'), 'id,s\n,60\n  ,30\nb,90\n');
+    const r = await verifyPackage({
+      files: [{ role: 'j', path: 'noid.json' }, { role: 'c', path: 'noid.csv' }],
+      records: { jsonRole: 'j', recordsPath: 'entries', idField: 'id', durationField: 's', durationUnit: 'seconds' },
+      csv: { role: 'c', idColumn: 'id', durationColumn: 's', durationUnit: 'seconds' },
+      expect: { comparedIds: 1 },
+    }, { baseDir: dir });
+    assert.equal(r.status, 'FAIL');
+    assert.ok(r.findings.some((f) => f.code === 'MISSING_IDS_IN_JSON'));
+    assert.ok(r.findings.some((f) => f.code === 'MISSING_IDS_IN_CSV'));
+    assert.equal(r.summary.missingIds, 2);
+    assert.equal(r.csvComparison.missingCsvIds, 2);
+    assert.equal(r.csvComparison.distinctComparedIds, 1);
+    assert.equal(r.csvComparison.duplicateCsvIds, 0);
+  });
+
+  it('parseCsv rechaza una última celda con comillas sin cerrar', () => {
+    assert.throws(() => parseCsv('id,s\na,"60'), /comillas sin cerrar/);
+  });
+
+  it('parseCsv maneja comillas, comas y CRLF', () => {
+    const { header, records } = parseCsv('﻿a,b\r\n"x, ""y""",2\n');
+    assert.deepEqual(header, ['a', 'b']);
+    assert.deepEqual(records, [{ a: 'x, "y"', b: '2' }]);
+  });
+});
+
+describe('plan2 diff-site-collections (sintético)', () => {
+  it('conserva ambas versiones de cada colisión y no las resuelve', () => {
+    const v4 = { Excepciones: [{ id: 'x1', estado: 'abierta' }, { id: 'x2', estado: 'cerrada' }], Horas: [{ id: 'h1', s: 1 }] };
+    const v6 = { collections: { Excepciones: [{ id: 'x1', estado: 'cerrada' }, { id: 'x3', estado: 'abierta' }], Horas: [{ id: 'h1', s: 1 }] } };
+    const r = diffCollections(v4, v6, { counts: ['Excepciones:estado=abierta'] });
+    const exc = r.collections.find((c) => c.name === 'Excepciones');
+    assert.equal(exc.collisions.length, 1);
+    assert.deepEqual(exc.collisions[0].changedFields, ['estado']);
+    assert.deepEqual(exc.onlyInA, ['x2']);
+    assert.deepEqual(exc.onlyInB, ['x3']);
+    assert.equal(r.bodies[0].versionA[0].estado, 'abierta');
+    assert.equal(r.bodies[0].versionB[0].estado, 'cerrada');
+    assert.equal(r.collections.find((c) => c.name === 'Horas').identical, 1);
+    assert.deepEqual(r.counts.map((c) => [c.matchesA, c.matchesB]), [[1, 1]]);
+    assert.ok(r.unresolvedCollisions > 0);
+  });
+
+  it('clasifica coincidencias, candidatos (re-clave), conflictos y huérfanos sin emparejar', () => {
+    const v4 = { C: [{ id: 'same', v: 1 }, { id: 'old', v: 7 }, { id: 'gone', v: 9 }, { id: 'chg', v: 1 }] };
+    const v6 = { C: [{ id: 'same', v: 1 }, { id: 'new', v: 7 }, { id: 'fresh', v: 3 }, { id: 'chg', v: 2 }] };
+    const c = diffCollections(v4, v6).collections[0];
+    assert.deepEqual(c.classification, { coincidencias: 1, candidatos: 1, conflictos: 1, huerfanosA: 1, huerfanosB: 1, sinClave: 0 });
+    assert.deepEqual(c.candidates, [{ keyA: 'old', keysB: ['new'] }]);
+  });
+
+  it('formato data (semse-hours-site-v1): detecta cambios sólo en source/synthetic y en colecciones-mapa', () => {
+    const base = { format: 'semse-hours-site-v1', exportedAt: 'T1', data: {
+      entries: [{ id: 'e1', horas: 1, source: 'manual', synthetic: false }],
+      proposals: [{ id: 'p1', entryId: 'e1', horas: 1 }],
+      assignments: { w1: { org: 'o1' } },
+      reviews: {},
+    } };
+    const other = { format: 'semse-hours-site-v1', exportedAt: 'T2', data: {
+      entries: [{ id: 'e1', horas: 1, source: 'import', synthetic: true }],
+      proposals: [{ id: 'p1', entryId: 'e1', horas: 2 }],
+      assignments: { w1: { org: 'o2' } },
+      reviews: {},
+    } };
+    const r = diffCollections(base, other);
+    const by = Object.fromEntries(r.collections.map((c) => [c.name, c]));
+    assert.deepEqual(by.entries.collisions[0].changedFields, ['source', 'synthetic']);
+    assert.equal(by.proposals.classification.conflictos, 1, 'proposals con mismo ID y contenido distinto es conflicto, no omisión');
+    assert.equal(by.assignments.classification.conflictos, 1, 'mapa con valor distinto se conserva como conflicto');
+    assert.equal(r.collections.some((c) => c.name === 'format' || c.name === 'exportedAt'), false);
+    const same = diffCollections(base, { ...base, exportedAt: 'T3' });
+    assert.equal(same.unresolvedCollisions, 0, 'reexport que sólo cambia exportedAt no genera conflictos');
+  });
+
+  it('--count sobre colecciones-mapa lee el registro original', () => {
+    const r = diffCollections({ data: { reviews: { r1: { status: 'open' } } } }, { data: { reviews: { r1: { status: 'open' }, r2: { status: 'closed' } } } }, { counts: ['reviews:status=open'] });
+    assert.deepEqual(r.counts.map((c) => [c.matchesA, c.matchesB]), [[1, 1]]);
+  });
+
+  it('clave duplicada en un solo lado: un conflicto con sus cuerpos, ni huérfano ni candidato', () => {
+    const r = diffCollections({ C: [{ id: 'x', v: 1 }, { id: 'x', v: 2 }] }, { C: [] });
+    const c = r.collections[0];
+    assert.deepEqual(c.classification, { coincidencias: 0, candidatos: 0, conflictos: 1, huerfanosA: 0, huerfanosB: 0, sinClave: 0 });
+    assert.equal(r.bodies.length, 1);
+    assert.equal(r.bodies[0].versionA.length, 2);
+    assert.deepEqual(r.bodies[0].versionB, []);
+    const both = diffCollections({ C: [{ id: 'x', v: 1 }, { id: 'x', v: 2 }] }, { C: [{ id: 'x', v: 1 }] });
+    assert.equal(both.collections[0].classification.conflictos, 1, 'la clave duplicada compartida se cuenta una sola vez');
+  });
+
+  it('sin colecciones no se declara ausencia de colisiones; huérfanos requieren decisión', () => {
+    assert.equal(diffCollections({ error: 'x' }, { error: 'y' }).collectionsFound, 0);
+    const one = diffCollections({ data: { entries: [], reviews: {} } }, { error: 'export failed' });
+    assert.equal(one.collectionsFoundA, 2);
+    assert.equal(one.collectionsFoundB, 0, 'un snapshot sin colecciones no queda cubierto por las del otro');
+    const r = diffCollections({ C: [{ id: 'a', v: 1 }] }, { C: [{ id: 'b', v: 2 }] });
+    assert.equal(r.unresolvedCollisions, 0);
+    assert.equal(r.orphansRequiringDecision, 2);
+  });
+
+  it('claves duplicadas y registros sin clave cuentan como no resueltos', () => {
+    const r = diffCollections({ C: [{ id: 'a' }, { id: 'a', v: 2 }, { v: 3 }] }, { C: [{ id: 'a' }] });
+    assert.ok(r.unresolvedCollisions >= 2);
+  });
+});
+
+describe('plan2 static-evidence (repositorio)', () => {
+  it('ejecuta todos los controles y devuelve un estado por control', async () => {
+    const root = path.resolve(import.meta.dirname, '..', '..');
+    const r = await runStaticEvidence(root);
+    assert.ok(r.results.length >= 10);
+    for (const res of r.results) assert.ok(['HOLDS', 'DOES_NOT_HOLD', 'FILE_MISSING', 'SECTION_MISSING'].includes(res.status), res.id);
+  });
+  it('lee un commit fijo y rechaza --out dentro del checkout', async () => {
+    const root = path.resolve(import.meta.dirname, '..', '..');
+    const r = await runStaticEvidence(root, 'HEAD');
+    assert.match(r.head, /^[0-9a-f]{40}$/);
+    assert.match(r.source, /commit/);
+    assert.equal(await isInsideCheckout(root, path.join(root, 'docs', 'x.json')), true);
+    assert.equal(await isInsideCheckout(root, path.join(os.tmpdir(), 'x.json')), false);
+  });
+});
