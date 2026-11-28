@@ -86,7 +86,9 @@ function makeWorld() {
   ];
   const memberships: Row[] = [{ userId: "ana", orgId: "orgA", status: "ACTIVE", org: { tenantId: "t1" } }];
   let seq = 0;
-  const match = (row: Row, where: Row): boolean => Object.entries(where).every(([k, v]) => row[k] === v);
+  // Igualdad simple más `{ in: [...] }`, como lo usa Prisma para el estado de la sesión activa.
+  const match = (row: Row, where: Row): boolean => Object.entries(where).every(([k, v]) =>
+    v && typeof v === "object" && Array.isArray((v as { in?: unknown[] }).in) ? (v as { in: unknown[] }).in.includes(row[k]) : row[k] === v);
   const table = (rows: Row[], defaults: () => Row) => ({
     async findFirst({ where }: any) { return rows.find((r) => match(r, where)) ?? null; },
     async findMany({ where }: any) { return rows.filter((r) => match(r, where)); },
@@ -205,6 +207,13 @@ test("AC-08 enfriamiento: otra llegada a la misma obra seguida se ignora", async
 test("AC-09 con sesión activa no hay doble inicio; la salida con sesión activa pregunta", async () => {
   const w = makeWorld();
   w.entries.push({ tenantId: "t1", createdBy: "ana", status: "running" });
+  assert.equal((await w.service.evaluate(ana, ev())).decision, "IGNORE");
+  assert.equal((await w.service.evaluate(ana, ev({ type: "LEAVE" }))).decision, "LEAVE_PROMPT");
+});
+
+test("AC-09 una sesión en pausa también cuenta como activa (misma regla que el Time Tracker)", async () => {
+  const w = makeWorld();
+  w.entries.push({ tenantId: "t1", createdBy: "ana", status: "paused" });
   assert.equal((await w.service.evaluate(ana, ev())).decision, "IGNORE");
   assert.equal((await w.service.evaluate(ana, ev({ type: "LEAVE" }))).decision, "LEAVE_PROMPT");
 });

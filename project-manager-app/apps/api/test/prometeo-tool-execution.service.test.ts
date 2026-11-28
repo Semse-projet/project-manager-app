@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { ForbiddenException } from "@nestjs/common";
+import { BadRequestException, ForbiddenException } from "@nestjs/common";
 import { PrometeoToolExecutionService } from "../dist/modules/prometeo/prometeo-tool-execution.service.js";
 
 function actor(overrides: Partial<{ roles: string[] }> = {}) {
@@ -119,13 +119,13 @@ test("T-023b: invokeReadTool records a succeeded audit entry for a wired, author
   assert.equal(recorded[0]?.status, "succeeded");
 });
 
-test("T-023c: invokeReadTool records a blocked audit entry for a registered-but-unwired tool", async () => {
+test("T-023c: vision.analyze_video stays unwired and is refused with 400 before any adapter call", async () => {
   const recorded: Array<Record<string, unknown>> = [];
-  const vision = {
-    // analyze_video has no case in executeReadTool's switch — it's still adapterPending
-    // (no temporal pipeline exists). The other 5 vision:run read tools were wired up
-    // in the vision:run adapters increment; this is the only one left.
-  };
+  const vision = new Proxy({}, {
+    get() {
+      throw new Error("vision adapter must not be called for analyze_video");
+    },
+  });
   const service = new PrometeoToolExecutionService(
     {} as never,
     {} as never,
@@ -137,13 +137,22 @@ test("T-023c: invokeReadTool records a blocked audit entry for a registered-but-
     { recordInvocation: async (input: Record<string, unknown>) => { recorded.push(input); } } as never,
   );
 
-  const result = await service.invokeReadTool(actor({ roles: ["OPS_ADMIN"] }) as never, "req_1", {
-    namespace: "vision",
-    name: "analyze_video",
-    input: { videoFileId: "vid_1" },
-  });
-
-  assert.equal(result.status, "blocked");
+  await assert.rejects(
+    () => service.invokeReadTool(actor({ roles: ["OPS_ADMIN"] }) as never, "req_1", {
+      namespace: "vision",
+      name: "analyze_video",
+      input: { videoFileId: "vid_1" },
+    }),
+    (error: unknown) => {
+      assert.ok(error instanceof BadRequestException);
+      assert.equal(error.getStatus(), 400);
+      const body = error.getResponse() as { code?: string; tool?: string };
+      assert.equal(body.code, "ADAPTER_PENDING");
+      assert.equal(body.tool, "analyze_video");
+      return true;
+    },
+  );
   assert.equal(recorded.length, 1);
   assert.equal(recorded[0]?.status, "blocked");
+  assert.match(String(recorded[0]?.blockedReason), /not executable/);
 });

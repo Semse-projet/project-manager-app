@@ -13,6 +13,8 @@ import {
   type UserProfileView,
 } from "../../../semse-api";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
+import Link from "next/link";
+import { LocationPreferencePanel } from "../../../../components/location/LocationPreferencePanel";
 
 // ── Option maps ───────────────────────────────────────────────────────────────
 
@@ -147,6 +149,9 @@ export default function WorkerSettingsPage() {
   const [unified,    setUnified]    = useState(false);
   const [expert,     setExpert]     = useState(false);
   const [proximityMode, setProximityMode] = useState<ProximityCheckInMode>("ask");
+  // OPEN-17: when the BO-09 location preference is enabled it replaces the
+  // legacy profile proximityCheckInMode (the panel reports 404 → legacy).
+  const [bo09Location, setBo09Location] = useState(true);
 
   useEffect(() => {
     setLoading(true);
@@ -175,7 +180,7 @@ export default function WorkerSettingsPage() {
         assistantVerbosity: verbosity,
         unifiedMode: unified,
         expertMode: expert,
-        proximityCheckInMode: proximityMode,
+        ...(bo09Location ? {} : { proximityCheckInMode: proximityMode }),
       });
       setProfile(updated);
       setSaved(true);
@@ -269,13 +274,27 @@ export default function WorkerSettingsPage() {
       {/* Proximity check-in */}
       <HtmlInCanvasPanel style={card} minHeight={60}>
         <Section icon={<MapPin size={14} color="#ef4444" />} title="Check-in automático por ubicación">
-          <p style={{ fontSize: 12, color: "var(--muted)", margin: "0 0 12px", lineHeight: 1.5 }}>
-            Si activas esta opción, el navegador te pedirá permiso de ubicación para detectar
-            cuándo llegas a un job o proyecto libre. Solo se usa mientras tienes el Time Tracker
-            abierto — nunca en segundo plano ni fuera de esta pantalla — y solo para
-            iniciar/sugerir el reloj, no para rastrear tu recorrido.
-          </p>
-          <OptionCard<ProximityCheckInMode> options={PROXIMITY_OPTIONS} value={proximityMode} onChange={setProximityMode} />
+          {bo09Location ? (
+            <>
+              <p style={{ fontSize: 12, color: "var(--muted)", margin: "0 0 12px", lineHeight: 1.5 }}>
+                Este ajuste se guarda al instante y aplica al Time Tracker y a la app móvil.{" "}
+                <Link href="/worker/location" style={{ color: "var(--brand)", fontWeight: 600 }}>
+                  Ver mis eventos y decisiones
+                </Link>
+              </p>
+              <LocationPreferencePanel onUnavailable={() => setBo09Location(false)} />
+            </>
+          ) : (
+            <>
+              <p style={{ fontSize: 12, color: "var(--muted)", margin: "0 0 12px", lineHeight: 1.5 }}>
+                Si activas esta opción, el navegador te pedirá permiso de ubicación para detectar
+                cuándo llegas a un job o proyecto libre. Solo se usa mientras tienes el Time Tracker
+                abierto — nunca en segundo plano ni fuera de esta pantalla — y solo para
+                iniciar/sugerir el reloj, no para rastrear tu recorrido.
+              </p>
+              <OptionCard<ProximityCheckInMode> options={PROXIMITY_OPTIONS} value={proximityMode} onChange={setProximityMode} />
+            </>
+          )}
         </Section>
       </HtmlInCanvasPanel>
 

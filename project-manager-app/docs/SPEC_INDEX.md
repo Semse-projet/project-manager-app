@@ -16,6 +16,52 @@
 4. [`SOURCE_OF_TRUTH.md`](SOURCE_OF_TRUTH.md)
 5. [`../ROADMAP.md`](../ROADMAP.md)
 
+## Corte 2026-11-25
+
+`main` y el SHA de producción son `f863b00b549969039bffb38640fcf514e0fdd0d9`.
+#1168, #1172, #1185, #1186 y #1187 están mergeados y desplegados. F1, F2 y F4
+están completos en código y no están verificados como fase en producción
+(`docs/reportes/2026-11-24_f1-f2-f4-closure-verification.md`). Proyecto
+Railway `SEMSEproject`; servicios `semse-API`, `semse-web`, `semse-worker`,
+`semse-vision`.
+
+La matriz generada sale del frontmatter de cada spec (`pnpm spec:index`).
+Las columnas Deploy y Activation de cada fila siguen siendo esa metadata:
+no se reescribieron contra el SHA `f863b00b`.
+
+No se re-auditó fila por fila. Estas sí se contrastaron con git y con el
+código:
+
+- `ui.mobile-product-consolidation`: `merge_status` pasa a `MERGED` porque
+  #598 (`a42600ec`) es ancestro de `main`. `code_status` sigue `IN_PROGRESS`:
+  los gates de dispositivo y tienda no se re-ejecutaron. `deploy_status`
+  sigue `NOT_DEPLOYED` porque no se confirmó un release, no porque la app
+  falte en el monorepo.
+- `operations.mission-control-2`: ya estaba `MERGED`. El código se enciende
+  con `SEMSE_MISSION_CONTROL_V2_ENABLED=true` o la lista canario. `INACTIVE`
+  coincide con el default del código cuando la variable no está. La evidencia
+  de canary del 2026-10-11 dentro del spec no se releyó.
+- `core.universal-identity-multi-role`: #539 y #568 son ancestros. El
+  `verification_scope` que decía “fase 3 sin mergear” estaba vencido. El
+  selector web sigue detrás de `SEMSE_IDENTITY_CAPABILITY_UI_ENABLED` o su
+  lista canario. `DEPLOYED` en la fila es evidencia vieja del spec, no
+  re-verificada desde 2026-08-13.
+- `core.originador-referral-program`: #569 (`41eca604`) está en `main`. La
+  columna `CANARY` es la evidencia del spec del 2026-10-12, no re-verificada.
+  En código el registro exige `SEMSE_ORIGINATOR_REGISTRATION_ENABLED=true` o
+  `SEMSE_ORIGINATOR_CANARY_TENANT_IDS`.
+- `core.geofence-policy`, `core.crews-worksites` y
+  `core.worksite-location-binding` siguen `UNMERGED` / `IN_PROGRESS` en el
+  frontmatter. El código de OPEN-18 sí está en `f863b00b` (#1168 servidor,
+  #1172 web y móvil) y desplegado. El flag de geocerca sigue apagado si la
+  variable no es `true`. `SEMSE_WORKSITE_BINDING_ENABLED` es otro interruptor
+  del vínculo de obra.
+
+El inventario de “mergeado y no encendido” sigue en el PR abierto
+[#1142](https://github.com/Semse-projet/project-manager-app/pull/1142). No
+está en `main`. Sus lecturas de Railway no se re-verificaron desde
+2026-11-12.
+
 ## Estados
 
 | Estado | Uso |
@@ -96,9 +142,9 @@ retroactiva.
 | [core.business-offers](specs/core/business-offers.spec.md) | core | APPROVED | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | yes | 2026-10-20 |
 | [core.communications-canonical-model](specs/core/communications-canonical-model.spec.md) | core | APPROVED | legacy | legacy | legacy | legacy | legacy | medium | no | 2026-07-19 |
 | [core.crew-supervisor-delegations](specs/core/crew-supervisor-delegations.spec.md) | core | APPROVED | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | no | 2026-11-27 |
-| [core.crews-worksites](specs/core/crews-worksites.spec.md) | core | APPROVED | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-11-21 |
+| [core.crews-worksites](specs/core/crews-worksites.spec.md) | core | APPROVED | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-11-22 |
 | [core.daily-reports](specs/core/daily-reports.spec.md) | core | DRAFT | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-10-18 |
-| [core.geofence-policy](specs/core/geofence-policy.spec.md) | core | DRAFT | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | yes | 2026-10-20 |
+| [core.geofence-policy](specs/core/geofence-policy.spec.md) | core | APPROVED | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | yes | 2026-11-12 |
 | [core.header-identity-fail-closed](specs/core/header-identity-fail-closed.spec.md) | core | VERIFIED | COMPLETE | PASS | MERGED | DEPLOYED | ACTIVE | high | yes | 2026-11-08 |
 | [core.identity-attestation](specs/core/identity-attestation.spec.md) | core | IMPLEMENTED | COMPLETE | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-08-29 |
 | [core.knowledge-contributor-asr-openai-whisper](specs/core/knowledge-contributor-asr-openai-whisper.spec.md) | core | APPROVED | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-09-24 |
@@ -120,6 +166,7 @@ retroactiva.
 | [core.skills](specs/core/skills.spec.md) | core | DRAFT | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-10-18 |
 | [core.task-allocations](specs/core/task-allocations.spec.md) | core | APPROVED | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-11-21 |
 | [core.universal-identity-multi-role](specs/core/universal-identity-multi-role.spec.md) | core | APPROVED | IN_PROGRESS | PASS | MERGED | DEPLOYED | INACTIVE | high | yes | 2026-08-13 |
+| [core.worksite-location-binding](specs/core/worksite-location-binding.spec.md) | core | APPROVED | IN_PROGRESS | PASS | MERGED | DEPLOYED | INACTIVE | critical | yes | 2026-11-25 |
 | [semse-creator-platform](specs/creator/SEMSE_CREATOR_PLATFORM.spec.md) | creator | APPROVED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-17 |
 | [evidence.canonical-fase1](specs/evidence/evidence-canonical-fase1.spec.md) | evidence | IMPLEMENTED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-19 |
 | [evidence.field-memory-capture-session](specs/evidence/field-memory-capture-session.spec.md) | evidence | APPROVED | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-10-11 |
@@ -165,6 +212,7 @@ retroactiva.
 | [platform.library-hub-override-compatibility](specs/platform/library-hub-override-compatibility.spec.md) | platform | REVIEW | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | yes | NOT_VERIFIED |
 | [platform.product-intelligence](specs/platform/product-intelligence.spec.md) | platform | APPROVED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-08-27 |
 | [platform.production-convergence-f3-f9](specs/platform/production-convergence-program.spec.md) | platform | APPROVED | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | yes | 2026-07-31 |
+| [platform.release-provenance](specs/platform/release-provenance.spec.md) | platform | APPROVED | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-11-27 |
 | [platform.resource-scope](specs/platform/resource-scope.spec.md) | platform | APPROVED | IN_PROGRESS | PASS | MERGED | DEPLOYED | INACTIVE | high | yes | 2026-10-05 |
 | [platform.semse-library-hub-f1-inventory](specs/platform/semse-library-hub-f1-inventory.spec.md) | platform | APPROVED | COMPLETE | PASS | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | yes | 2026-10-26 |
 | [platform.semse-library-hub](specs/platform/semse-library-hub.spec.md) | platform | DRAFT | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | no | NOT_VERIFIED |
@@ -249,7 +297,7 @@ retroactiva.
 | [ui.mobile-admin-trust](specs/ui/mobile-admin-trust.spec.md) | ui | IMPLEMENTED | COMPLETE | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | low | yes | 2026-08-26 |
 | [ui.mobile-admin-users](specs/ui/mobile-admin-users.spec.md) | ui | IMPLEMENTED | COMPLETE | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | yes | 2026-08-26 |
 | [ui.mobile-client-tab](specs/ui/mobile-client-tab.spec.md) | ui | IMPLEMENTED | COMPLETE | PASS | MERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-08-05 |
-| [ui.mobile-product-consolidation](specs/ui/mobile-product-consolidation.spec.md) | ui | APPROVED | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-09-06 |
+| [ui.mobile-product-consolidation](specs/ui/mobile-product-consolidation.spec.md) | ui | APPROVED | IN_PROGRESS | NOT_RUN | MERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-11-24 |
 | [ui.pro-flows-remediation](specs/ui/pro-flows-remediation.spec.md) | ui | APPROVED | legacy | legacy | legacy | legacy | legacy | critical | no | 2026-08-14 |
 | [ui-pro-flows](specs/ui/pro-flows.spec.md) | ui | DEPRECATED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-06-09 |
 | [ui.prometeo-mascot-3d](specs/ui/prometeo-mascot-3d.spec.md) | ui | APPROVED | COMPLETE | PASS | MERGED | DEPLOYED | ACTIVE | medium | yes | 2026-10-05 |

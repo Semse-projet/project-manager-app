@@ -130,6 +130,7 @@ test("jobs read-through uses the projection once it has caught up with the direc
       findMany: async (args: { where: Record<string, unknown> }) => {
         assert.equal(args.where.tenantId, "tenant_1");
         assert.equal(args.where.clientOrgId, "org_1");
+        assert.deepEqual(args.where.job, { deletedAt: null });
         return [
           { snapshotJson: { job: { id: "job_1", title: "From projection", status: "ACCEPTED" } } },
         ];
@@ -143,6 +144,37 @@ test("jobs read-through uses the projection once it has caught up with the direc
     const service = new OperationalContextService(prisma as never);
     const ctx = await service.buildContext(baseInput);
     assert.deepEqual(ctx.jobs.recent, [{ id: "job_1", title: "From projection", status: "ACCEPTED" }]);
+  } finally {
+    delete process.env.SEMSE_JOBS_PROJECTION_ENABLED;
+    delete process.env.SEMSE_JOBS_PROJECTION_CANARY_TENANT_IDS;
+    delete process.env.SEMSE_JOBS_PROJECTION_READTHROUGH_ENABLED;
+  }
+});
+
+test("jobs read-through does not consult the projection for PRO or WORKER even when the flags are on", async () => {
+  let projectionReads = 0;
+  const { prisma } = makePrisma({
+    job: {
+      findMany: async () => [{ id: "job_1", title: "From direct query", status: "POSTED" }],
+      count: async () => 1,
+    },
+    jobsBidsProjection: {
+      findMany: async () => {
+        projectionReads += 1;
+        return [{ snapshotJson: { job: { id: "job_1", title: "From projection", status: "ACCEPTED" } } }];
+      },
+    },
+  });
+  process.env.SEMSE_JOBS_PROJECTION_ENABLED = "true";
+  process.env.SEMSE_JOBS_PROJECTION_CANARY_TENANT_IDS = "tenant_1";
+  process.env.SEMSE_JOBS_PROJECTION_READTHROUGH_ENABLED = "true";
+  try {
+    const service = new OperationalContextService(prisma as never);
+    const pro = await service.buildContext({ ...baseInput, role: "PRO" });
+    const worker = await service.buildContext({ ...baseInput, userId: "user_worker", role: "WORKER" });
+    assert.equal(projectionReads, 0);
+    assert.deepEqual(pro.jobs.recent, [{ id: "job_1", title: "From direct query", status: "POSTED" }]);
+    assert.deepEqual(worker.jobs.recent, [{ id: "job_1", title: "From direct query", status: "POSTED" }]);
   } finally {
     delete process.env.SEMSE_JOBS_PROJECTION_ENABLED;
     delete process.env.SEMSE_JOBS_PROJECTION_CANARY_TENANT_IDS;

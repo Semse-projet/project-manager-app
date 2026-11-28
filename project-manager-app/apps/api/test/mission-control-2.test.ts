@@ -445,3 +445,52 @@ test("F4 service: inside the allowlist a non-operator is rejected by role (403),
     ForbiddenException,
   );
 });
+
+
+test("F4 / #1156: event exceptions only offer REPLAY for deliveries the session org can operate", async () => {
+  const seen: { where?: unknown }[] = [];
+  const prisma = {
+    project: {
+      async findMany() {
+        return [{ id: "proj_owned" }];
+      },
+    },
+    domainOutboxEvent: {
+      async findMany(args: { where?: unknown }) {
+        seen.push({ where: args.where });
+        return [
+          {
+            eventId: "evt_owned_system",
+            eventType: "project.lifecycle-source-changed.v1",
+            status: "DEAD_LETTER",
+            lastError: "projection failed",
+            correlationId: "expense:exp_1:approved",
+            recordedAt: new Date("2026-11-22T00:00:00.000Z"),
+            consumptions: [],
+          },
+        ];
+      },
+    },
+  };
+  const service = makeMissionControlService(prisma);
+  const result = await withCanaryEnabled(() =>
+    service.listExceptions(actionActor, { source: "event", limit: 50 }),
+  );
+  const where = seen[0]?.where as { tenantId?: string; AND?: unknown[] };
+  assert.equal(where.tenantId, actionActor.tenantId);
+  const and = where.AND as Array<Record<string, unknown>>;
+  assert.ok(Array.isArray(and) && and.length === 2, "org scope and failure status are combined");
+  assert.deepEqual(and[0], {
+    OR: [
+      { orgId: actionActor.orgId },
+      { orgId: "system", entityType: "Project", entityId: { in: ["proj_owned"] } },
+    ],
+  });
+  assert.deepEqual(
+    result.items.map((item: { targetId: string; availableActions: string[] }) => ({
+      targetId: item.targetId,
+      availableActions: item.availableActions,
+    })),
+    [{ targetId: "evt_owned_system", availableActions: ["REPLAY", "ESCALATE"] }],
+  );
+});

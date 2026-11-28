@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { BadgeCheck, Briefcase, Inbox, ListChecks, Send, XCircle } from "lucide-react";
 import { useLanguage } from "../../../../lib/language-context";
 import {
   confirmOrgOffer,
@@ -12,6 +13,25 @@ import {
   SemseApiError,
   type BusinessOfferView
 } from "../../../semse-api";
+import {
+  Banner,
+  Button,
+  ConsentCheck,
+  Empty,
+  Field,
+  List,
+  ListRow,
+  PageHeader,
+  PageStack,
+  Panel,
+  Pill,
+  shortId,
+  touchInputStyle,
+  type Notice,
+  type Tone
+} from "../../../../components/module-surface/ui";
+
+const STATUS_TONE: Record<string, Tone> = { SENT: "warn", ACCEPTED: "brand", DECLINED: "error", EXPIRED: "muted", REVOKED: "muted" };
 
 const COPY = {
   es: {
@@ -28,6 +48,11 @@ const COPY = {
     legal: "Confirmo que revisé las obligaciones legales aplicables",
     unavailable: "Las ofertas aún no están habilitadas para tu empresa.",
     noOrg: "No hay una empresa asociada a tu cuenta.",
+    newOffer: "Nueva oferta",
+    sent: "Ofertas enviadas",
+    pickPerson: "Elige una persona",
+    noneHint: "Las ofertas que envíes aparecerán aquí con su estado.",
+    legalHint: "Necesario para confirmar un engagement aceptado.",
     status: { SENT: "Enviada", ACCEPTED: "Aceptada", DECLINED: "Rechazada", EXPIRED: "Vencida", REVOKED: "Revocada" } as Record<string, string>
   },
   en: {
@@ -44,6 +69,11 @@ const COPY = {
     legal: "I confirm I reviewed the applicable legal obligations",
     unavailable: "Offers are not enabled for your company yet.",
     noOrg: "No company is associated with your account.",
+    newOffer: "New offer",
+    sent: "Sent offers",
+    pickPerson: "Pick a person",
+    noneHint: "The offers you send show up here with their status.",
+    legalHint: "Required to confirm an accepted engagement.",
     status: { SENT: "Sent", ACCEPTED: "Accepted", DECLINED: "Declined", EXPIRED: "Expired", REVOKED: "Revoked" } as Record<string, string>
   }
 } as const;
@@ -58,7 +88,7 @@ export default function OffersManagerPage() {
   const [position, setPosition] = useState("");
   const [compensation, setCompensation] = useState("");
   const [legalOk, setLegalOk] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
+  const [notice, setNotice] = useState<Notice>(null);
   const [busy, setBusy] = useState(false);
 
   const describe = useCallback(
@@ -70,9 +100,9 @@ export default function OffersManagerPage() {
     async (id: string) => {
       try {
         setOffers(await fetchOrgOffers(id));
-        setMessage(null);
+        setNotice(null);
       } catch (error) {
-        setMessage(describe(error));
+        setNotice({ tone: "error", text: describe(error) });
       }
     },
     [describe]
@@ -85,7 +115,7 @@ export default function OffersManagerPage() {
         const id = typeof orgs[0]?.id === "string" ? (orgs[0].id as string) : null;
         setOrgId(id);
         if (!id) {
-          setMessage(c.noOrg);
+          setNotice({ tone: "warn", text: c.noOrg });
           return;
         }
         const members = await fetchOrganizationMembers(id).catch(() => []);
@@ -96,7 +126,7 @@ export default function OffersManagerPage() {
         );
         await load(id);
       } catch (error) {
-        setMessage(describe(error));
+        setNotice({ tone: "error", text: describe(error) });
       }
     })();
   }, [load, describe, c.noOrg]);
@@ -108,86 +138,112 @@ export default function OffersManagerPage() {
       await action();
       await load(orgId);
     } catch (error) {
-      setMessage(describe(error));
+      setNotice({ tone: "error", text: describe(error) });
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <main style={{ maxWidth: 760, margin: "0 auto", padding: 16, display: "grid", gap: 16 }}>
-      <h1>{c.title}</h1>
-      <p>{c.intro}</p>
-      {message ? <p role="status">{message}</p> : null}
-      <form
-        onSubmit={(event) => {
-          event.preventDefault();
-          void run(async () => {
-            await createOrgOffer(orgId as string, {
-              recipientUserId: person,
-              positionTitle: position.trim(),
-              ...(compensation.trim() ? { compensationNote: compensation.trim() } : {})
+    <PageStack maxWidth={900}>
+      <PageHeader icon={Briefcase} title={c.title} description={c.intro} />
+      {notice ? (
+        <Banner tone={notice.tone} onDismiss={() => setNotice(null)}>
+          {notice.text}
+        </Banner>
+      ) : null}
+      <Panel title={c.newOffer} icon={Send}>
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            void run(async () => {
+              await createOrgOffer(orgId as string, {
+                recipientUserId: person,
+                positionTitle: position.trim(),
+                ...(compensation.trim() ? { compensationNote: compensation.trim() } : {})
+              });
+              setPosition("");
+              setCompensation("");
             });
-            setPosition("");
-            setCompensation("");
-          });
-        }}
-        style={{ display: "grid", gap: 8 }}
-      >
-        <label>
-          {c.person}
-          <select required value={person} onChange={(e) => setPerson(e.target.value)} style={{ width: "100%", minHeight: 44 }}>
-            <option value="" />
-            {people.map((id) => (
-              <option key={id} value={id}>
-                {id}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          {c.position}
-          <input required minLength={2} value={position} onChange={(e) => setPosition(e.target.value)} style={{ width: "100%", minHeight: 44 }} />
-        </label>
-        <label>
-          {c.compensation}
-          <input value={compensation} onChange={(e) => setCompensation(e.target.value)} maxLength={500} style={{ width: "100%", minHeight: 44 }} />
-        </label>
-        <button type="submit" disabled={busy || !orgId} style={{ minHeight: 44 }}>
-          {c.send}
-        </button>
-      </form>
-      <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
-        <input type="checkbox" checked={legalOk} onChange={(e) => setLegalOk(e.target.checked)} />
-        {c.legal}
-      </label>
-      {offers.length === 0 ? (
-        <p>{c.none}</p>
-      ) : (
-        <ul style={{ listStyle: "none", padding: 0, display: "grid", gap: 8 }}>
-          {offers.map((offer) => (
-            <li key={offer.offerId} style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-              <span style={{ flex: "1 1 220px" }}>
-                {offer.positionTitle} · {offer.recipientUserId}
-              </span>
-              <span>{c.status[offer.status] ?? offer.status}</span>
-              {offer.status === "SENT" ? (
-                <button disabled={busy} onClick={() => void run(async () => void (await revokeOrgOffer(orgId as string, offer.offerId)))}>
-                  {c.revoke}
-                </button>
-              ) : null}
-              {offer.status === "ACCEPTED" ? (
-                <button
-                  disabled={busy || !legalOk}
-                  onClick={() => void run(async () => void (await confirmOrgOffer(orgId as string, offer.offerId)))}
-                >
-                  {c.confirm}
-                </button>
-              ) : null}
-            </li>
-          ))}
-        </ul>
-      )}
-    </main>
+          }}
+          style={{ display: "grid", gap: 14 }}
+        >
+          <div style={{ display: "grid", gap: 14, gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
+            <Field label={c.person}>
+              <select required value={person} onChange={(e) => setPerson(e.target.value)} style={touchInputStyle}>
+                <option value="">{c.pickPerson}</option>
+                {people.map((id) => (
+                  <option key={id} value={id}>
+                    {id}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label={c.position}>
+              <input required minLength={2} value={position} onChange={(e) => setPosition(e.target.value)} style={touchInputStyle} />
+            </Field>
+          </div>
+          <Field label={c.compensation}>
+            <input value={compensation} onChange={(e) => setCompensation(e.target.value)} maxLength={500} style={touchInputStyle} />
+          </Field>
+          <div>
+            <Button type="submit" variant="primary" size="touch" icon={Send} disabled={busy || !orgId}>
+              {c.send}
+            </Button>
+          </div>
+        </form>
+      </Panel>
+      <Panel title={c.sent} icon={ListChecks} padded={offers.length === 0}>
+        {offers.length === 0 ? (
+          <Empty icon={Inbox} title={c.none} description={c.noneHint} />
+        ) : (
+          <>
+            <div style={{ padding: "14px 16px 0", display: "grid", gap: 4 }}>
+              <ConsentCheck checked={legalOk} onChange={setLegalOk}>
+                {c.legal}
+              </ConsentCheck>
+              <span style={{ fontSize: 11, color: "var(--faint)" }}>{c.legalHint}</span>
+            </div>
+            <List>
+              {offers.map((offer, index) => (
+                <ListRow key={offer.offerId} first={index === 0}>
+                  <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                    <span style={{ flex: "1 1 220px", minWidth: 0 }}>
+                      <strong style={{ display: "block", fontSize: 14, color: "var(--ink)" }}>{offer.positionTitle}</strong>
+                      <span style={{ fontSize: 12, color: "var(--muted)" }} title={offer.recipientUserId}>
+                        {shortId(offer.recipientUserId, 14)}
+                      </span>
+                    </span>
+                    <Pill tone={STATUS_TONE[offer.status] ?? "muted"}>{c.status[offer.status] ?? offer.status}</Pill>
+                    {offer.status === "SENT" ? (
+                      <Button
+                        variant="danger"
+                        size="touch"
+                        icon={XCircle}
+                        disabled={busy}
+                        onClick={() => void run(async () => void (await revokeOrgOffer(orgId as string, offer.offerId)))}
+                      >
+                        {c.revoke}
+                      </Button>
+                    ) : null}
+                    {offer.status === "ACCEPTED" ? (
+                      <Button
+                        variant="primary"
+                        size="touch"
+                        icon={BadgeCheck}
+                        disabled={busy || !legalOk}
+                        onClick={() => void run(async () => void (await confirmOrgOffer(orgId as string, offer.offerId)))}
+                      >
+                        {c.confirm}
+                      </Button>
+                    ) : null}
+                  </div>
+                </ListRow>
+              ))}
+            </List>
+          </>
+        )}
+      </Panel>
+    </PageStack>
   );
 }

@@ -107,10 +107,79 @@ deployment authority.
 
 ## Production canary
 
+Do not set `SEMSE_MISSION_CONTROL_V2_ENABLED=true`. That flag turns Mission
+Control on for every tenant. The canary is the allowlist only.
+
+Observed on 2026-10-11 with an `OPS_ADMIN` session on `tenant_default`
+(recorded on the spec, not re-checked in the 2026-11-24 code pass):
+
+- `GET /v1/ops/mission-control/runbooks` and `.../exceptions` returned 200
+  with the feature enabled for that tenant while `SEMSE_MISSION_CONTROL_V2_ENABLED`
+  was unset.
+- `RETRY` dry-run on a failed AgentRun returned `NO_OP`, and the same
+  idempotency key returned `duplicate: true`.
+- A missing target returned a failed receipt without disclosing another tenant.
+
+Still open, and the reason `activation_status` stays `INACTIVE`:
+
+- [ ] a session whose tenant is **not** in
+      `SEMSE_MISSION_CONTROL_V2_CANARY_TENANT_IDS` receives 404
+      `MISSION_CONTROL_V2_DISABLED` on runbooks, exceptions and actions,
+      and the response body does not include another tenant's data;
+- [ ] one effectful signal `ACKNOWLEDGE` and `RESOLVE`, one `ESCALATE` of
+      `signal:<id>`, and one `RESOLVE` of `incident:<id>` in `tenant_default`,
+      with the duplicate-key and AuditLog checks below.
+
+Local tests already lock the code path (`apps/api/test/mission-control-2.test.ts`:
+default-off policy, 404 before Prisma for a tenant outside the allowlist,
+idempotent receipt, dry-run `NO_OP`). They are not production evidence.
+
+Use the API origin currently serving `app.semseproject.com`. Substitute the
+token. Do not print the token into tickets or this file.
+
+```bash
+# Outside the allowlist. Expect HTTP 404 and code MISSION_CONTROL_V2_DISABLED.
+curl -sS -D - -o /tmp/mc-runbooks.json \
+  -H "Authorization: Bearer $OPS_TOKEN_OTHER_TENANT" \
+  "https://<api-host>/v1/ops/mission-control/runbooks"
+```
+
+```bash
+# Canary tenant, dry-run first. reason length 10–500, idempotencyKey length 8–128.
+# dryRun is part of the intent hash. Changing it with the same key returns 409
+# MISSION_CONTROL_IDEMPOTENCY_CONFLICT. Use a new key for the real action,
+# then repeat that exact real body to prove duplicate: true.
+curl -sS -H "Authorization: Bearer $OPS_TOKEN" -H "Content-Type: application/json" \
+  -d '{"action":"ACKNOWLEDGE","targetType":"OperationalSignal","targetId":"<signal-id>","reason":"Canary acknowledge after operator review.","runbookId":"signal-triage-v1","idempotencyKey":"mc-f4-ack-dry","dryRun":true}' \
+  "https://<api-host>/v1/ops/mission-control/actions"
+```
+
+After that receipt is `NO_OP`, send the same JSON with `"dryRun": false` and
+`"idempotencyKey": "mc-f4-ack-real"`. Send that second body again and require
+the same `receipt.id` and `duplicate: true`.
+
+`ACKNOWLEDGE`, `RESOLVE`, and `DISMISS` on the signal use
+`targetType: OperationalSignal` and `targetId` equal to the signal id.
+`ESCALATE` is not implemented on that target. Escalate with:
+
+```json
+{"action":"ESCALATE","targetType":"MissionControlException","targetId":"signal:<signal-id>","reason":"Canary escalation after operator review.","runbookId":"signal-triage-v1","idempotencyKey":"mc-f4-esc-real","dryRun":false}
+```
+
+Close the incident that response creates with a new key, runbook
+`incident-coordination-v1`, `targetType: MissionControlException`, and
+`targetId: incident:<incident-id>`. `RESOLVE` on `signal:<id>` is rejected.
+Confirm one `AuditLog` row per action (`ops.mission-control.action`),
+including dry-run and no-op. Delete or resolve only the synthetic signal you
+created. Do not replay domain events or retry AgentRuns except as dry-run
+unless that target is already part of an incident you own.
+
 1. Confirm API/Web health separately from feature activation.
-2. Confirm flags are default-off with an exact `tenant_default` allowlist.
-3. As `OPS_ADMIN`, list runbooks and exceptions.
-4. Verify an authenticated foreign-tenant target returns 404 without details.
+2. Confirm `SEMSE_MISSION_CONTROL_V2_ENABLED` is unset or `false`, and
+   `SEMSE_MISSION_CONTROL_V2_CANARY_TENANT_IDS` is exactly the intended tenant.
+3. As `OPS_ADMIN` of that tenant, list runbooks and exceptions (200).
+4. Verify an authenticated foreign-tenant session returns 404
+   `MISSION_CONTROL_V2_DISABLED` without details.
 5. Dry-run one available action from each high-impact adapter.
 6. On an identified synthetic OperationalSignal, execute acknowledge with a
    new key, repeat the same key, then resolve with a second key.
@@ -118,6 +187,9 @@ deployment authority.
 8. Confirm receipts, AuditLog, tenant SSE, no global tenant payload, and no
    duplicate domain effect.
 9. Review 5xx, failed receipts, duplicate/no-op and stale leases.
+
+Only after 4–8 pass with recorded ids may the spec move to `VERIFIED`.
+This runbook does not do that.
 
 ## Rollback
 

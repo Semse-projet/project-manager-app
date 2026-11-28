@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Location from "expo-location";
 import { PROXIMITY_LOCATION_TASK } from "./backgroundLocationTask";
 
@@ -22,13 +23,25 @@ export async function requestProximityPermissions(): Promise<PermissionResult> {
   return { granted: true };
 }
 
+/**
+ * Version of the options below. The OS keeps a registered task (and its options) across app
+ * updates, so a task started by an older build would keep its old distanceInterval (75 m).
+ * When the stored version differs, the task is restarted once with the current options.
+ */
+export const TRACKING_OPTIONS_VERSION = 2; // 2: distanceInterval 40 m (OPEN-18 AC-14)
+const TRACKING_OPTIONS_VERSION_KEY = "semse.proximity.trackingOptionsVersion";
+
 export async function startProximityTracking(): Promise<void> {
   const alreadyStarted = await Location.hasStartedLocationUpdatesAsync(PROXIMITY_LOCATION_TASK).catch(() => false);
-  if (alreadyStarted) return;
+  if (alreadyStarted) {
+    const stored = await AsyncStorage.getItem(TRACKING_OPTIONS_VERSION_KEY).catch(() => null);
+    if (stored === String(TRACKING_OPTIONS_VERSION)) return;
+    await Location.stopLocationUpdatesAsync(PROXIMITY_LOCATION_TASK);
+  }
 
   await Location.startLocationUpdatesAsync(PROXIMITY_LOCATION_TASK, {
     accuracy: Location.Accuracy.Balanced,
-    distanceInterval: 75,
+    distanceInterval: 40,
     deferredUpdatesInterval: 60_000,
     showsBackgroundLocationIndicator: true,
     pausesUpdatesAutomatically: false,
@@ -37,6 +50,7 @@ export async function startProximityTracking(): Promise<void> {
       notificationBody: "Para avisarte cuando llegues a un job o proyecto libre.",
     },
   });
+  await AsyncStorage.setItem(TRACKING_OPTIONS_VERSION_KEY, String(TRACKING_OPTIONS_VERSION)).catch(() => undefined);
 }
 
 export async function stopProximityTracking(): Promise<void> {

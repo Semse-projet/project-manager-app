@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
@@ -13,6 +14,7 @@ import {
   type OutboxListItem,
   type OutboxStatusName,
 } from "./outbox.repository.js";
+import { isUsableOutboxOrgId } from "./outbox-org-visibility.js";
 
 export const OPS_EVENT_REPLAY_REQUESTED_TYPE = "ops.event_replay_requested.v1";
 
@@ -30,6 +32,14 @@ type ActorInput = {
   userId: string;
   requestId: string;
 };
+
+function requireOrgScope(actor: ActorInput): void {
+  if (typeof actor.tenantId !== "string" || !actor.tenantId.trim()
+      || !isUsableOutboxOrgId(actor.orgId ?? "")) {
+    throw new ForbiddenException("outbox operations require an authenticated tenant and organization");
+  }
+}
+
 
 function decodeCursor(cursor: string | undefined): { recordedAt: Date; eventId: string } | undefined {
   if (!cursor) {
@@ -105,6 +115,7 @@ export class OutboxOpsService {
     limit?: number;
     cursor?: string;
   }) {
+    requireOrgScope(input.actor);
     if (input.status && !VALID_STATUSES.has(input.status as OutboxStatusName)) {
       throw new BadRequestException({ message: "Invalid status filter", status: input.status });
     }
@@ -114,14 +125,15 @@ export class OutboxOpsService {
     const [{ items, nextCursor }, counts, oldestPendingAgeMs] = await Promise.all([
       this.outboxRepository.list({
         tenantId: input.actor.tenantId,
+        orgId: input.actor.orgId,
         status: input.status as OutboxStatusName | undefined,
         eventType: input.eventType,
         correlationId: input.correlationId,
         limit,
         cursor,
       }),
-      this.outboxRepository.countsByStatus(input.actor.tenantId),
-      this.outboxRepository.oldestPendingAgeMs(input.actor.tenantId),
+      this.outboxRepository.countsByStatus(input.actor.tenantId, input.actor.orgId),
+      this.outboxRepository.oldestPendingAgeMs(input.actor.tenantId, new Date(), input.actor.orgId),
     ]);
 
     return {
@@ -133,9 +145,11 @@ export class OutboxOpsService {
   }
 
   async getDeliveryDetail(input: { actor: ActorInput; eventId: string }) {
+    requireOrgScope(input.actor);
     const detail = await this.outboxRepository.findDeliveryDetail({
       eventId: input.eventId,
       tenantId: input.actor.tenantId,
+      orgId: input.actor.orgId,
     });
     if (!detail) {
       throw new NotFoundException({ message: "Domain event not found", eventId: input.eventId });
@@ -149,6 +163,7 @@ export class OutboxOpsService {
     consumerName?: string;
     reason: string;
   }) {
+    requireOrgScope(input.actor);
     const reason = input.reason.trim();
     if (!reason) {
       throw new BadRequestException({ message: "reason is required" });
@@ -157,6 +172,7 @@ export class OutboxOpsService {
     const result = await this.outboxRepository.replay({
       eventId: input.eventId,
       tenantId: input.actor.tenantId,
+      orgId: input.actor.orgId,
       consumerName: input.consumerName,
     });
 
