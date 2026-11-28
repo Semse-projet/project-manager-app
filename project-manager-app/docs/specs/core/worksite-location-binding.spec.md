@@ -18,6 +18,7 @@ feature_flags:
 production_evidence:
   - "2026-11-25: #1168 fusionado (main@bc127c90); migración 20261120120000_worksite_location_binding aplicada por pre-migrate en semse-API (deploy 744e05fa); health gitSha bc127c90, flag apagado"
   - "2026-11-25: #1172 (clientes W-07) fusionado (main@384859ff); 4 servicios SUCCESS; health gitSha 384859ff; flag apagado"
+  - "2026-11-27: #1189 (v0.3, AC-11…AC-15) fusionado (main@60bcff1c, árbol idéntico a la candidata 572c9344); CI, API Integration, API Smoke y Operación Asistida en verde; Railway Deploy y Production Health Gate OK; health gitSha 60bcff1c; sin migración; SEMSE_WORKSITE_BINDING_ENABLED y SEMSE_GEOFENCE_POLICY_ENABLED sin definir en semse-API y semse-web"
 related_files:
   - "apps/api/src/modules/geofence/site-binding.ts"
   - "apps/api/src/modules/geofence/geofence.policy.ts"
@@ -48,7 +49,7 @@ related_events:
   - "worksite_binding.created"
   - "worksite_binding.ended"
 related_agents: []
-last_verified: "2026-11-25"
+last_verified: "2026-11-27"
 ---
 # OPEN-18 — Ubicación verificable de obra y vínculo Job/proyecto libre
 
@@ -56,8 +57,9 @@ last_verified: "2026-11-25"
 > **v0.3 (2026-11-25):** el propietario aprueba la opción A para trabajadores de varias Org (AC-11) y los arreglos de
 > clientes AC-12…AC-14, que salen de la revisión automatizada de #1172.
 > **Estado de entrega.** Los campos `ci_status`, `merge_status`, `deploy_status` y `migration_status` del encabezado
-> describen v0.2: #1168 y #1172. **La versión candidata v0.3 (AC-11…AC-14, #1189) está sin fusionar ni desplegar**,
-> y su CI y sus revisiones se registran en ese PR.
+> cubren v0.2 (#1168, #1172) y v0.3 (#1189, main@60bcff1c, desplegado el 2026-11-27). `activation_status` sigue
+> `INACTIVE`: el flag está apagado y Gate 5 (dispositivos reales) sigue abierto. Fusionar y desplegar no implica
+> activación.
 > Servidor (#1168) y clientes (#1172) fusionados y desplegados. La migración aditiva está
 > aplicada en producción y en el staging aislado. `SEMSE_WORKSITE_BINDING_ENABLED` está **apagado** en producción:
 > encenderlo exige una orden aparte del propietario, después de AC-12…AC-14 y del cierre de Gate 5.
