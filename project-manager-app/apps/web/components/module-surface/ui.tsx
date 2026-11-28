@@ -3,6 +3,7 @@
 import type { CSSProperties, ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import { Loader2 } from "lucide-react";
+import Link from "next/link";
 
 /**
  * Small, token-only UI kit for the crews / location module surfaces.
@@ -126,7 +127,9 @@ export function Button({
   busy = false,
   disabled = false,
   type = "button",
-  title
+  title,
+  size = "md",
+  fullWidth = false
 }: {
   children: ReactNode;
   onClick?: () => void;
@@ -136,6 +139,9 @@ export function Button({
   disabled?: boolean;
   type?: "button" | "submit";
   title?: string;
+  /** `touch` keeps the 44px minimum target the field-worker screens need on phones. */
+  size?: "md" | "touch";
+  fullWidth?: boolean;
 }) {
   const palette: Record<ButtonVariant, CSSProperties> = {
     primary: { background: "var(--brand-fill)", color: "#fff", border: "1px solid var(--brand-fill)" },
@@ -155,10 +161,12 @@ export function Button({
         alignItems: "center",
         justifyContent: "center",
         gap: 6,
-        padding: "7px 12px",
+        padding: size === "touch" ? "10px 16px" : "7px 12px",
+        minHeight: size === "touch" ? 44 : undefined,
+        width: fullWidth ? "100%" : undefined,
         borderRadius: 10,
         fontSize: 13,
-        fontWeight: 600,
+        fontWeight: size === "touch" ? 700 : 600,
         cursor: isDisabled ? "not-allowed" : "pointer",
         opacity: isDisabled ? 0.6 : 1,
         whiteSpace: "nowrap",
@@ -180,6 +188,14 @@ export const inputStyle: CSSProperties = {
   color: "var(--ink)",
   fontSize: 13,
   boxSizing: "border-box"
+};
+
+/** Same as `inputStyle`, sized for touch (44px) on the field-worker screens. */
+export const touchInputStyle: CSSProperties = {
+  ...inputStyle,
+  minHeight: 44,
+  padding: "10px 12px",
+  fontSize: 14
 };
 
 export function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
@@ -333,3 +349,166 @@ export function daysUntil(value?: string | null): number | null {
 export function shortId(id: string, size = 8): string {
   return id.length > size ? `${id.slice(0, size)}…` : id;
 }
+
+/**
+ * Standard page header of the module screens: optional back link, a tinted
+ * icon tile, the title, a one-line description and right-aligned actions.
+ * Same visual as the hand-written headers in worker/location and worker/crews.
+ */
+export function PageHeader({
+  icon: Icon,
+  tone = "brand",
+  title,
+  description,
+  back,
+  actions
+}: {
+  icon: LucideIcon;
+  tone?: Tone;
+  title: ReactNode;
+  description?: ReactNode;
+  back?: { href: string; label: string };
+  actions?: ReactNode;
+}) {
+  return (
+    <header>
+      {back ? (
+        <Link href={back.href} style={{ color: "var(--muted)", fontSize: 12, fontWeight: 600, textDecoration: "none" }}>
+          ← {back.label}
+        </Link>
+      ) : null}
+      <div style={{ display: "flex", alignItems: "center", gap: 14, marginTop: back ? 12 : 0, flexWrap: "wrap" }}>
+        <div
+          style={{
+            width: 44,
+            height: 44,
+            borderRadius: 14,
+            display: "grid",
+            placeItems: "center",
+            flexShrink: 0,
+            background: toneFill(tone, 14)
+          }}
+        >
+          <Icon size={20} style={{ color: toneColor(tone) }} aria-hidden />
+        </div>
+        <div style={{ flex: "1 1 240px", minWidth: 0 }}>
+          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: "var(--ink)" }}>{title}</h1>
+          {description ? (
+            <p style={{ margin: "4px 0 0", fontSize: 13, lineHeight: 1.5, color: "var(--muted)" }}>{description}</p>
+          ) : null}
+        </div>
+        {actions ? <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>{actions}</div> : null}
+      </div>
+    </header>
+  );
+}
+
+/** Column wrapper every module screen uses: vertical rhythm + max width. */
+export function PageStack({ children, maxWidth = 900 }: { children: ReactNode; maxWidth?: number }) {
+  return <div style={{ display: "flex", flexDirection: "column", gap: 20, maxWidth, width: "100%" }}>{children}</div>;
+}
+
+/** Selectable chip for checkbox groups (weekdays, trades, crew members). Keeps the native checkbox for a11y. */
+export function CheckChip({ checked, onChange, children, disabled }: { checked: boolean; onChange: () => void; children: ReactNode; disabled?: boolean }) {
+  return (
+    <label
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 8,
+        minHeight: 44,
+        padding: "0 14px",
+        borderRadius: 12,
+        fontSize: 13,
+        fontWeight: 600,
+        cursor: disabled ? "not-allowed" : "pointer",
+        color: checked ? "var(--brand)" : "var(--ink)",
+        background: checked ? toneFill("brand", 12) : "var(--bg)",
+        border: `1px solid ${checked ? toneFill("brand", 45) : "var(--border)"}`,
+        opacity: disabled ? 0.6 : 1
+      }}
+    >
+      <input type="checkbox" checked={checked} onChange={onChange} disabled={disabled} style={{ accentColor: "var(--brand)", width: 16, height: 16 }} />
+      {children}
+    </label>
+  );
+}
+
+/** Consent / acknowledgement checkbox with wrapped text. */
+export function ConsentCheck({ checked, onChange, children }: { checked: boolean; onChange: (value: boolean) => void; children: ReactNode }) {
+  return (
+    <label
+      style={{
+        display: "flex",
+        alignItems: "flex-start",
+        gap: 10,
+        padding: "12px 14px",
+        borderRadius: 12,
+        fontSize: 13,
+        lineHeight: 1.5,
+        color: "var(--ink)",
+        cursor: "pointer",
+        background: checked ? toneFill("ok", 8) : "var(--raised)",
+        border: `1px solid ${checked ? toneFill("ok", 35) : "var(--border)"}`
+      }}
+    >
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(event) => onChange(event.target.checked)}
+        style={{ accentColor: "var(--ok)", width: 18, height: 18, marginTop: 1, flexShrink: 0 }}
+      />
+      <span>{children}</span>
+    </label>
+  );
+}
+
+/** One row of a list inside a `<Panel padded={false}>`; rows are separated by the panel border token. */
+export function ListRow({ children, first }: { children: ReactNode; first?: boolean }) {
+  return (
+    <li style={{ listStyle: "none", padding: "14px 16px", borderTop: first ? "none" : "1px solid var(--border)", display: "grid", gap: 8 }}>
+      {children}
+    </li>
+  );
+}
+
+export function List({ children }: { children: ReactNode }) {
+  return <ul style={{ margin: 0, padding: 0 }}>{children}</ul>;
+}
+
+/** Monospace, copyable secret shown once (invite links, share codes). */
+export function SecretValue({ label, value, help }: { label: string; value: string; help?: string }) {
+  return (
+    <div
+      style={{
+        display: "grid",
+        gap: 8,
+        padding: 14,
+        borderRadius: 12,
+        background: toneFill("ok", 8),
+        border: `1px solid ${toneFill("ok", 35)}`
+      }}
+    >
+      <span style={{ fontSize: 12, fontWeight: 700, color: "var(--ok)" }}>{label}</span>
+      <code
+        style={{
+          display: "block",
+          padding: "10px 12px",
+          borderRadius: 10,
+          background: "var(--bg)",
+          border: "1px solid var(--border)",
+          color: "var(--ink)",
+          fontFamily: "var(--font-mono)",
+          fontSize: 13,
+          wordBreak: "break-all",
+          userSelect: "all"
+        }}
+      >
+        {value}
+      </code>
+      {help ? <span style={{ fontSize: 12, color: "var(--muted)" }}>{help}</span> : null}
+    </div>
+  );
+}
+
+export type Notice = { tone: Tone; text: string } | null;

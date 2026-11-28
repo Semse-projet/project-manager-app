@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { CalendarClock, Check, Clock, History, Inbox, ListChecks, X } from "lucide-react";
 import { useLanguage } from "../../../../lib/language-context";
 import {
   createLaborPolicy,
@@ -12,6 +13,23 @@ import {
   type LaborCorrectionView,
   type LaborPolicyView
 } from "../../../semse-api";
+import {
+  Banner,
+  Button,
+  CheckChip,
+  Empty,
+  Field,
+  List,
+  ListRow,
+  PageHeader,
+  PageStack,
+  Panel,
+  Pill,
+  Stat,
+  StatGrid,
+  touchInputStyle,
+  type Notice
+} from "../../../../components/module-surface/ui";
 
 const COPY = {
   es: {
@@ -36,7 +54,14 @@ const COPY = {
     reject: "Rechazar",
     note: "Nota (opcional)",
     weekday: ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"],
-    saved: "Política publicada."
+    saved: "Política publicada.",
+    statPending: "Correcciones pendientes",
+    statVersions: "Versiones publicadas",
+    statCurrent: "Horario vigente",
+    noneHint: "Publica tu primera política con el formulario de arriba.",
+    noQueueHint: "Cuando un trabajador pida corregir sus horas, aparecerá aquí.",
+    breakShort: "Descanso",
+    proposedEnd: "Nuevo fin"
   },
   en: {
     title: "Schedule and corrections",
@@ -59,7 +84,14 @@ const COPY = {
     reject: "Reject",
     note: "Note (optional)",
     weekday: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
-    saved: "Policy published."
+    saved: "Policy published.",
+    statPending: "Pending corrections",
+    statVersions: "Published versions",
+    statCurrent: "Current schedule",
+    noneHint: "Publish your first policy with the form above.",
+    noQueueHint: "When a worker asks to correct their hours, it will show up here.",
+    breakShort: "Break",
+    proposedEnd: "New end"
   }
 } as const;
 
@@ -87,7 +119,7 @@ export default function LaborPolicyPage() {
   const [breakMinutes, setBreakMinutes] = useState("60");
   const [overtimeHours, setOvertimeHours] = useState("");
   const [notes, setNotes] = useState<Record<string, string>>({});
-  const [message, setMessage] = useState<string | null>(null);
+  const [notice, setNotice] = useState<Notice>(null);
   const [busy, setBusy] = useState(false);
 
   const describe = useCallback(
@@ -100,9 +132,9 @@ export default function LaborPolicyPage() {
       try {
         setPolicies(await fetchLaborPolicies(id));
         setQueue(await fetchOrgLaborCorrections(id, "PENDING"));
-        setMessage(null);
+        setNotice(null);
       } catch (error) {
-        setMessage(describe(error));
+        setNotice({ tone: "error", text: describe(error) });
       }
     },
     [describe]
@@ -115,12 +147,12 @@ export default function LaborPolicyPage() {
         const id = typeof orgs[0]?.id === "string" ? (orgs[0].id as string) : null;
         setOrgId(id);
         if (!id) {
-          setMessage(c.noOrg);
+          setNotice({ tone: "warn", text: c.noOrg });
           return;
         }
         await load(id);
       } catch (error) {
-        setMessage(describe(error));
+        setNotice({ tone: "error", text: describe(error) });
       }
     })();
   }, [load, describe, c.noOrg]);
@@ -132,7 +164,7 @@ export default function LaborPolicyPage() {
       await action();
       await load(orgId);
     } catch (error) {
-      setMessage(describe(error));
+      setNotice({ tone: "error", text: describe(error) });
     } finally {
       setBusy(false);
     }
@@ -154,103 +186,136 @@ export default function LaborPolicyPage() {
         ...(overtimeHours !== "" ? { overtimeAfterMinutesPerDay: Math.round(Number(overtimeHours) * 60) } : {})
       });
       setName("");
-      setMessage(c.saved);
+      setNotice({ tone: "ok", text: c.saved });
     });
   }
 
+  // Versions increase per scope (org-wide vs. each worksite), so only compare the org-wide ones.
+  const latest = policies
+    .filter((policy) => policy.worksiteId === null)
+    .reduce<LaborPolicyView | null>((best, policy) => (!best || policy.version > best.version ? policy : best), null);
+
   return (
-    <main style={{ maxWidth: 760, margin: "0 auto", padding: 16, display: "grid", gap: 16 }}>
-      <h1>{c.title}</h1>
-      <p>{c.intro}</p>
-      {message ? <p role="status">{message}</p> : null}
-      <h2>{c.policy}</h2>
-      <form onSubmit={publish} style={{ display: "grid", gap: 8 }}>
-        <label>
-          {c.name}
-          <input required minLength={2} maxLength={120} value={name} onChange={(event) => setName(event.target.value)} style={{ width: "100%", minHeight: 44 }} />
-        </label>
-        <fieldset style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <legend>{c.days}</legend>
-          {c.weekday.map((label, day) => (
-            <label key={label} style={{ display: "flex", gap: 4, alignItems: "center", minHeight: 44 }}>
-              <input type="checkbox" checked={weekdays.includes(day)} onChange={() => toggleDay(day)} />
-              {label}
-            </label>
-          ))}
-        </fieldset>
-        <label>
-          {c.start}
-          <input type="time" required value={start} onChange={(event) => setStart(event.target.value)} style={{ width: "100%", minHeight: 44 }} />
-        </label>
-        <label>
-          {c.end}
-          <input type="time" required value={end} onChange={(event) => setEnd(event.target.value)} style={{ width: "100%", minHeight: 44 }} />
-        </label>
-        <label>
-          {c.breakMinutes}
-          <input type="number" min={0} max={480} value={breakMinutes} onChange={(event) => setBreakMinutes(event.target.value)} style={{ width: "100%", minHeight: 44 }} />
-        </label>
-        <label>
-          {c.overtime}
-          <input type="number" min={1} max={24} step="0.5" value={overtimeHours} onChange={(event) => setOvertimeHours(event.target.value)} style={{ width: "100%", minHeight: 44 }} />
-        </label>
-        <button type="submit" disabled={busy || !orgId || weekdays.length === 0} style={{ minHeight: 44 }}>
-          {c.save}
-        </button>
-      </form>
-      <h2>{c.versions}</h2>
-      {policies.length === 0 ? (
-        <p>{c.none}</p>
-      ) : (
-        <ul style={{ listStyle: "none", padding: 0, display: "grid", gap: 6 }}>
-          {policies.map((policy) => (
-            <li key={policy.policyId}>
-              v{policy.version} · {policy.name} · {fromMinutes(policy.scheduledStartMinute)}–{fromMinutes(policy.scheduledEndMinute)} ·{" "}
-              {policy.weekdays.map((d) => c.weekday[d]).join(" ")} · {policy.status}
-            </li>
-          ))}
-        </ul>
-      )}
-      <h2>{c.queue}</h2>
-      {queue.length === 0 ? (
-        <p>{c.noQueue}</p>
-      ) : (
-        <ul style={{ listStyle: "none", padding: 0, display: "grid", gap: 12 }}>
-          {queue.map((item) => (
-            <li key={item.correctionId} style={{ display: "grid", gap: 6 }}>
-              <span>{item.reason}</span>
-              <span>
-                {item.original.breakMinutes} → {item.proposed.breakMinutes} min
-                {item.proposed.endedAt ? ` · → ${new Date(item.proposed.endedAt).toLocaleString()}` : ""}
-              </span>
-              <input
-                aria-label={c.note}
-                placeholder={c.note}
-                maxLength={500}
-                value={notes[item.correctionId] ?? ""}
-                onChange={(event) => setNotes((current) => ({ ...current, [item.correctionId]: event.target.value }))}
-                style={{ width: "100%", minHeight: 44 }}
-              />
-              <span style={{ display: "flex", gap: 8 }}>
-                <button
-                  disabled={busy}
-                  style={{ minHeight: 44 }}
-                  onClick={() => void run(async () => void (await reviewLaborCorrection(orgId as string, item.correctionId, "approve", notes[item.correctionId]?.trim() || undefined)))}
-                >
-                  {c.approve}
-                </button>
-                <button
-                  disabled={busy}
-                  style={{ minHeight: 44 }}
-                  onClick={() => void run(async () => void (await reviewLaborCorrection(orgId as string, item.correctionId, "reject", notes[item.correctionId]?.trim() || undefined)))}
-                >
-                  {c.reject}
-                </button>
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </main>
+    <PageStack maxWidth={900}>
+      <PageHeader icon={CalendarClock} title={c.title} description={c.intro} />
+      {notice ? (
+        <Banner tone={notice.tone} onDismiss={() => setNotice(null)}>
+          {notice.text}
+        </Banner>
+      ) : null}
+      <StatGrid>
+        <Stat label={c.statPending} value={queue.length} tone={queue.length > 0 ? "warn" : "muted"} />
+        <Stat label={c.statVersions} value={policies.length} tone="brand" />
+        <Stat
+          label={c.statCurrent}
+          value={latest ? `${fromMinutes(latest.scheduledStartMinute)}–${fromMinutes(latest.scheduledEndMinute)}` : "—"}
+          hint={latest ? latest.name : undefined}
+        />
+      </StatGrid>
+
+      <Panel title={c.queue} icon={ListChecks} padded={queue.length === 0}>
+        {queue.length === 0 ? (
+          <Empty icon={Inbox} title={c.noQueue} description={c.noQueueHint} />
+        ) : (
+          <List>
+            {queue.map((item, index) => (
+              <ListRow key={item.correctionId} first={index === 0}>
+                <span style={{ fontSize: 14, fontWeight: 600, color: "var(--ink)" }}>{item.reason}</span>
+                <span style={{ fontSize: 12, color: "var(--muted)" }}>
+                  {c.breakShort}: {item.original.breakMinutes} → {item.proposed.breakMinutes} min
+                  {item.proposed.endedAt ? ` · ${c.proposedEnd}: ${new Date(item.proposed.endedAt).toLocaleString()}` : ""}
+                </span>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <input
+                    aria-label={c.note}
+                    placeholder={c.note}
+                    maxLength={500}
+                    value={notes[item.correctionId] ?? ""}
+                    onChange={(event) => setNotes((current) => ({ ...current, [item.correctionId]: event.target.value }))}
+                    style={{ ...touchInputStyle, flex: "1 1 220px", width: "auto" }}
+                  />
+                  <Button
+                    variant="primary"
+                    size="touch"
+                    icon={Check}
+                    disabled={busy}
+                    onClick={() => void run(async () => void (await reviewLaborCorrection(orgId as string, item.correctionId, "approve", notes[item.correctionId]?.trim() || undefined)))}
+                  >
+                    {c.approve}
+                  </Button>
+                  <Button
+                    variant="danger"
+                    size="touch"
+                    icon={X}
+                    disabled={busy}
+                    onClick={() => void run(async () => void (await reviewLaborCorrection(orgId as string, item.correctionId, "reject", notes[item.correctionId]?.trim() || undefined)))}
+                  >
+                    {c.reject}
+                  </Button>
+                </div>
+              </ListRow>
+            ))}
+          </List>
+        )}
+      </Panel>
+
+      <Panel title={c.policy} icon={Clock}>
+        <form onSubmit={publish} style={{ display: "grid", gap: 14 }}>
+          <Field label={c.name}>
+            <input required minLength={2} maxLength={120} value={name} onChange={(event) => setName(event.target.value)} style={touchInputStyle} />
+          </Field>
+          <fieldset style={{ border: "none", margin: 0, padding: 0 }}>
+            <legend style={{ fontSize: 12, fontWeight: 700, color: "var(--muted)", marginBottom: 8 }}>{c.days}</legend>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {c.weekday.map((label, day) => (
+                <CheckChip key={label} checked={weekdays.includes(day)} onChange={() => toggleDay(day)}>
+                  {label}
+                </CheckChip>
+              ))}
+            </div>
+          </fieldset>
+          <div style={{ display: "grid", gap: 14, gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
+            <Field label={c.start}>
+              <input type="time" required value={start} onChange={(event) => setStart(event.target.value)} style={touchInputStyle} />
+            </Field>
+            <Field label={c.end}>
+              <input type="time" required value={end} onChange={(event) => setEnd(event.target.value)} style={touchInputStyle} />
+            </Field>
+            <Field label={c.breakMinutes}>
+              <input type="number" min={0} max={480} value={breakMinutes} onChange={(event) => setBreakMinutes(event.target.value)} style={touchInputStyle} />
+            </Field>
+          </div>
+          <Field label={c.overtime}>
+            <input type="number" min={1} max={24} step="0.5" value={overtimeHours} onChange={(event) => setOvertimeHours(event.target.value)} style={touchInputStyle} />
+          </Field>
+          <div>
+            <Button type="submit" variant="primary" size="touch" icon={Check} disabled={busy || !orgId || weekdays.length === 0}>
+              {c.save}
+            </Button>
+          </div>
+        </form>
+      </Panel>
+
+      <Panel title={c.versions} icon={History} padded={policies.length === 0}>
+        {policies.length === 0 ? (
+          <Empty icon={CalendarClock} title={c.none} description={c.noneHint} />
+        ) : (
+          <List>
+            {policies.map((policy, index) => (
+              <ListRow key={policy.policyId} first={index === 0}>
+                <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                  <Pill tone="brand">v{policy.version}</Pill>
+                  <strong style={{ flex: "1 1 160px", fontSize: 14, color: "var(--ink)" }}>{policy.name}</strong>
+                  <Pill tone={policy.status === "ACTIVE" ? "ok" : "muted"}>{policy.status}</Pill>
+                </div>
+                <span style={{ fontSize: 12, color: "var(--muted)" }}>
+                  {fromMinutes(policy.scheduledStartMinute)}–{fromMinutes(policy.scheduledEndMinute)} · {policy.weekdays.map((d) => c.weekday[d]).join(" ")}
+                </span>
+              </ListRow>
+            ))}
+          </List>
+        )}
+      </Panel>
+    </PageStack>
   );
 }
