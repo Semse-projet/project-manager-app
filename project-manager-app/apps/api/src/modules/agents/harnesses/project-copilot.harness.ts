@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { BadRequestException, Injectable, Logger, Inject, forwardRef } from "@nestjs/common";
+import { BadRequestException, Injectable, Logger, Inject, Optional, forwardRef } from "@nestjs/common";
 import { BrowserAgentService } from "../../browser-agent/browser-agent.service.js";
 import type { AgentApprovalRequest } from "@semse/agents";
 import { getActionPolicy } from "@semse/agents";
@@ -10,7 +10,8 @@ import { ProjectAccessService } from "../project-access.service.js";
 import { isOpsAdmin } from "../../../common/resource-scope.js";
 import { AgentPolicyService } from "../agent-policy.service.js";
 import { PlanExecutionService } from "../plan-execution.service.js";
-import { resolveAuditLifecycleMode } from "../../prometeo/tool-governance/tool-call-audit.js";
+import { ToolCallAuditor, errorCodeOf, resolveAuditLifecycleMode, type AuditCtx } from "../../prometeo/tool-governance/tool-call-audit.js";
+import { ToolGovernanceRepository } from "../../prometeo/tool-governance/tool-governance.repository.js";
 import { PlanModeService } from "../plan-mode.service.js";
 import type { CopilotProposedPlan } from "../plan-mode.types.js";
 import { PLAN_TOOL_NAME, getExposedCopilotTools, isExecutableActionType, toolCallToProposedPlan, toolCallsToActions } from "./copilot-tools.js";
@@ -89,6 +90,9 @@ export class ActionNotExecutableError extends Error {
   }
 }
 
+/** Copilot actions that only read; everything else is audited as a write/critical effect (fail-closed in `enforce`). */
+const COPILOT_READ_ACTIONS: ReadonlySet<string> = new Set(["SEARCH_PATTERNS", "READ_FILE", "LIST_DIRECTORY"]);
+
 @Injectable()
 export class ProjectCopilotHarness {
   private readonly logger = new Logger(ProjectCopilotHarness.name);
@@ -118,7 +122,14 @@ export class ProjectCopilotHarness {
     @Inject(forwardRef(() => BrowserAgentService))
     private readonly browserAgentService: BrowserAgentService,
     private readonly projectAccess: ProjectAccessService,
-  ) {}
+    // 0.42 / H05: the copilot's executed actions go through the same tool-call auditor as Prometeo tools
+    // (source "project_copilot"). Optional: without it (or with PROMETEO_TOOL_AUDIT_LIFECYCLE=off) nothing changes.
+    @Optional() toolGovernance?: ToolGovernanceRepository,
+  ) {
+    this.auditor = new ToolCallAuditor(toolGovernance);
+  }
+
+  private readonly auditor: ToolCallAuditor;
 
   // ── Public entry point ────────────────────────────────────────────────────
 
@@ -939,7 +950,7 @@ export class ProjectCopilotHarness {
     actor: AgentActor,
     requestId: string,
     approval: { id: string; contextSummary?: string; correlationId: string; runId?: string },
-    opts: { alreadyClaimed?: boolean } = {}
+    opts: { alreadyClaimed?: boolean; executionId?: string } = {}
   ): Promise<{ executed: boolean; summary: string; error?: string }> {
     const context = this.parseContextSummary(approval.contextSummary);
     if (!context) {
@@ -952,11 +963,14 @@ export class ProjectCopilotHarness {
     // H05 (entrega B): la ejecución se reclama con una transición condicional (NOT_STARTED → EXECUTING) y se cierra con
     // su resultado, así una caída entre aprobar y ejecutar deja un estado explícito. Solo con el ciclo de vida activo.
     const trackExecution = resolveAuditLifecycleMode() !== "off";
+    // Same id for the approval's execution claim and the tool-call audit row (spec §3.3: AgentApproval.executionId ↔ §3.1).
+    // A caller that already claimed (manual retry) passes the id it claimed with.
+    const executionId = opts.executionId ?? `exec_${crypto.randomUUID()}`;
     if (trackExecution && !opts.alreadyClaimed) {
       const claimed = await this.agentApprovalService.claimExecution({
         tenantId: actor.tenantId,
         approvalId: approval.id,
-        executionId: `exec_${crypto.randomUUID()}`,
+        executionId,
         from: ["NOT_STARTED"],
       });
       if (!claimed) {
@@ -977,7 +991,7 @@ export class ProjectCopilotHarness {
         actionType,
         payload,
         linkedPlanId && linkedStepId ? { planId: linkedPlanId, stepId: linkedStepId } : undefined,
-        { approvalId: approval.id },
+        { approvalId: approval.id, executionId },
       );
 
       await this.audit(runtime, "project.copilot.action.post_approval_executed", {
@@ -1038,7 +1052,55 @@ export class ProjectCopilotHarness {
 
   // ── Execution handlers ────────────────────────────────────────────────────
 
+  /**
+   * 0.42 / H05 pendiente: every executed copilot action leaves a tool-call audit row (source "project_copilot") with the
+   * D5 parent run, the project, the approval and — after an approval — the same executionId the approval was claimed
+   * with. Only with PROMETEO_TOOL_AUDIT_LIFECYCLE=shadow|enforce; with `off` nothing is written (legacy: null), as before.
+   * In `enforce`, a write/critical action whose start row cannot be persisted does not run (decision D1).
+   */
   private async executeApprovedAction(
+    runtime: ProjectCopilotHarnessRuntime,
+    actionType: string,
+    payload: Record<string, unknown>,
+    linkedStep?: { planId: string; stepId: string },
+    origin?: { approvalId?: string; executionId?: string }
+  ): Promise<string> {
+    const auditCtx: AuditCtx = {
+      executionId: origin?.executionId ?? `exec_${crypto.randomUUID()}`,
+      tenantId: runtime.actor.tenantId,
+      actorId: runtime.actor.userId,
+      namespace: "project_copilot",
+      name: actionType,
+      mode: COPILOT_READ_ACTIONS.has(actionType) ? "read" : "write",
+      requestId: runtime.requestId,
+      source: "project_copilot",
+      projectId: runtime.projectId,
+      runId: runtime.parentRunId,
+      agentId: "project-copilot",
+      approvalId: origin?.approvalId,
+      input: payload,
+    };
+    const started = await this.auditor.begin(auditCtx, { critical: auditCtx.mode !== "read" });
+    const startedMs = Date.now();
+    try {
+      const summary = await this.runApprovedAction(runtime, actionType, payload, linkedStep, origin);
+      await this.auditor.finish(auditCtx, started, { status: "succeeded", output: { summary }, legacy: null }, startedMs);
+      return summary;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      await this.auditor.finish(
+        auditCtx,
+        started,
+        err instanceof ActionNotExecutableError
+          ? { status: "blocked", blockedReason: message, legacy: null }
+          : { status: "failed", errorCode: errorCodeOf(err), output: { error: message }, legacy: null },
+        startedMs,
+      );
+      throw err;
+    }
+  }
+
+  private async runApprovedAction(
     runtime: ProjectCopilotHarnessRuntime,
     actionType: string,
     payload: Record<string, unknown>,
