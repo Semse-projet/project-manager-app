@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { Award, History, KeyRound, Share2, Star } from "lucide-react";
 import { useLanguage } from "../../../../lib/language-context";
 import {
   createSkillAttestation,
@@ -11,6 +12,25 @@ import {
   type SkillAttestationListItem,
   type SkillSummaryView
 } from "../../../semse-api";
+import {
+  Banner,
+  Button,
+  CheckChip,
+  ConsentCheck,
+  Empty,
+  Field,
+  List,
+  ListRow,
+  PageHeader,
+  PageStack,
+  Panel,
+  Pill,
+  SecretValue,
+  Stat,
+  StatGrid,
+  touchInputStyle,
+  type Notice
+} from "../../../../components/module-surface/ui";
 
 const COPY = {
   es: {
@@ -33,7 +53,12 @@ const COPY = {
     noneShared: "No has compartido ningún resumen.",
     revoke: "Revocar",
     status: { ACTIVE: "Vigente", REVOKED: "Revocado" } as Record<string, string>,
-    expires: "vence"
+    expires: "vence",
+    tradesStat: "Oficios",
+    tasksStat: "Tareas confirmadas",
+    activeStat: "Códigos vigentes",
+    noneHint: "Cuando un responsable confirme una tarea que entregaste, aparecerá aquí.",
+    noneSharedHint: "Los códigos que generes aparecerán aquí y podrás revocarlos cuando quieras."
   },
   en: {
     title: "My trades",
@@ -55,7 +80,12 @@ const COPY = {
     noneShared: "You have not shared any summary.",
     revoke: "Revoke",
     status: { ACTIVE: "Active", REVOKED: "Revoked" } as Record<string, string>,
-    expires: "expires"
+    expires: "expires",
+    tradesStat: "Trades",
+    tasksStat: "Confirmed tasks",
+    activeStat: "Active codes",
+    noneHint: "When a manager confirms a task you delivered, it will show up here.",
+    noneSharedHint: "The codes you generate show up here and you can revoke them anytime."
   }
 } as const;
 
@@ -68,7 +98,7 @@ export default function MySkillsPage() {
   const [days, setDays] = useState("30");
   const [consent, setConsent] = useState(false);
   const [code, setCode] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
+  const [notice, setNotice] = useState<Notice>(null);
   const [busy, setBusy] = useState(false);
 
   const describe = useCallback(
@@ -80,9 +110,9 @@ export default function MySkillsPage() {
     try {
       setSkills(await fetchMySkills());
       setShared(await fetchMySkillAttestations());
-      setMessage(null);
+      setNotice(null);
     } catch (error) {
-      setMessage(describe(error));
+      setNotice({ tone: "error", text: describe(error) });
     }
   }, [describe]);
 
@@ -108,7 +138,7 @@ export default function MySkillsPage() {
       setConsent(false);
       await load();
     } catch (error) {
-      setMessage(describe(error));
+      setNotice({ tone: "error", text: describe(error) });
     } finally {
       setBusy(false);
     }
@@ -120,82 +150,102 @@ export default function MySkillsPage() {
       await revokeSkillAttestation(id);
       await load();
     } catch (error) {
-      setMessage(describe(error));
+      setNotice({ tone: "error", text: describe(error) });
     } finally {
       setBusy(false);
     }
   }
 
   const trades = skills?.trades ?? [];
+  const totalTasks = trades.reduce((sum, trade) => sum + trade.confirmedCount, 0);
+  const activeShared = shared.filter((item) => item.status === "ACTIVE").length;
 
   return (
-    <main style={{ maxWidth: 640, margin: "0 auto", padding: 16, display: "grid", gap: 16 }}>
-      <h1>{c.title}</h1>
-      <p>{c.intro}</p>
-      {message ? <p role="status">{message}</p> : null}
-      {trades.length === 0 ? (
-        <p>{c.none}</p>
-      ) : (
-        <ul style={{ listStyle: "none", padding: 0, display: "grid", gap: 8 }}>
-          {trades.map((trade) => (
-            <li key={trade.trade}>
-              <strong>{trade.trade}</strong> · {trade.confirmedCount} {c.tasks} · {trade.since} → {trade.until}
-            </li>
-          ))}
-        </ul>
-      )}
-      {trades.length > 0 ? (
-        <form onSubmit={(event) => void create(event)} style={{ display: "grid", gap: 8 }}>
-          <h2>{c.share}</h2>
-          <p>{c.shareIntro}</p>
-          <fieldset style={{ display: "grid", gap: 4 }}>
-            <legend>{c.pick}</legend>
-            {trades.map((trade) => (
-              <label key={trade.trade} style={{ display: "flex", gap: 8, alignItems: "center", minHeight: 44 }}>
-                <input type="checkbox" checked={picked.includes(trade.trade)} onChange={() => toggle(trade.trade)} />
-                {trade.trade}
-              </label>
+    <PageStack maxWidth={820}>
+      <PageHeader icon={Star} tone="warn" title={c.title} description={c.intro} />
+      {notice ? (
+        <Banner tone={notice.tone} onDismiss={() => setNotice(null)}>
+          {notice.text}
+        </Banner>
+      ) : null}
+      <StatGrid>
+        <Stat label={c.tradesStat} value={trades.length} tone="warn" />
+        <Stat label={c.tasksStat} value={totalTasks} tone="ok" />
+        <Stat label={c.activeStat} value={activeShared} tone="brand" />
+      </StatGrid>
+      <Panel title={c.title} icon={Award} padded={trades.length === 0}>
+        {trades.length === 0 ? (
+          <Empty icon={Award} title={c.none} description={c.noneHint} />
+        ) : (
+          <List>
+            {trades.map((trade, index) => (
+              <ListRow key={trade.trade} first={index === 0}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                  <strong style={{ flex: "1 1 160px", fontSize: 14, color: "var(--ink)", textTransform: "capitalize" }}>{trade.trade}</strong>
+                  <Pill tone="ok">
+                    {trade.confirmedCount} {c.tasks}
+                  </Pill>
+                </div>
+                <span style={{ fontSize: 12, color: "var(--muted)" }}>
+                  {trade.since} → {trade.until}
+                </span>
+              </ListRow>
             ))}
-          </fieldset>
-          <label>
-            {c.days}
-            <input type="number" min={1} max={90} value={days} onChange={(event) => setDays(event.target.value)} style={{ width: "100%", minHeight: 44 }} />
-          </label>
-          <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} />
-            {c.consent}
-          </label>
-          <button type="submit" disabled={busy || !consent} style={{ minHeight: 44 }}>
-            {c.create}
-          </button>
-        </form>
+          </List>
+        )}
+      </Panel>
+      {trades.length > 0 ? (
+        <Panel title={c.share} icon={Share2}>
+          <form onSubmit={(event) => void create(event)} style={{ display: "grid", gap: 14 }}>
+            <p style={{ margin: 0, fontSize: 13, lineHeight: 1.5, color: "var(--muted)" }}>{c.shareIntro}</p>
+            <fieldset style={{ border: "none", margin: 0, padding: 0, display: "grid", gap: 8 }}>
+              <legend style={{ fontSize: 12, fontWeight: 700, color: "var(--muted)", marginBottom: 8 }}>{c.pick}</legend>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {trades.map((trade) => (
+                  <CheckChip key={trade.trade} checked={picked.includes(trade.trade)} onChange={() => toggle(trade.trade)}>
+                    {trade.trade}
+                  </CheckChip>
+                ))}
+              </div>
+            </fieldset>
+            <div style={{ maxWidth: 220 }}>
+              <Field label={c.days}>
+                <input type="number" min={1} max={90} value={days} onChange={(event) => setDays(event.target.value)} style={touchInputStyle} />
+              </Field>
+            </div>
+            <ConsentCheck checked={consent} onChange={setConsent}>
+              {c.consent}
+            </ConsentCheck>
+            <Button type="submit" variant="primary" size="touch" icon={KeyRound} busy={busy} disabled={!consent} fullWidth>
+              {c.create}
+            </Button>
+            {code ? <SecretValue label={c.codeTitle} value={code} help={c.codeHelp} /> : null}
+          </form>
+        </Panel>
       ) : null}
-      {code ? (
-        <section style={{ display: "grid", gap: 4 }}>
-          <h2>{c.codeTitle}</h2>
-          <code style={{ wordBreak: "break-all" }}>{code}</code>
-          <small>{c.codeHelp}</small>
-        </section>
-      ) : null}
-      <h2>{c.mine}</h2>
-      {shared.length === 0 ? (
-        <p>{c.noneShared}</p>
-      ) : (
-        <ul style={{ listStyle: "none", padding: 0, display: "grid", gap: 8 }}>
-          {shared.map((item) => (
-            <li key={item.attestationId} style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-              <span style={{ flex: "1 1 200px" }}>
-                {c.status[item.status] ?? item.status} · {c.expires} {new Date(item.expiresAt).toLocaleDateString()}
-              </span>
-              {item.status === "ACTIVE" ? (
-                <button disabled={busy} style={{ minHeight: 44 }} onClick={() => void revoke(item.attestationId)}>
-                  {c.revoke}
-                </button>
-              ) : null}
-            </li>
-          ))}
-        </ul>
-      )}
-    </main>
+      <Panel title={c.mine} icon={History} padded={shared.length === 0}>
+        {shared.length === 0 ? (
+          <Empty icon={Share2} title={c.noneShared} description={c.noneSharedHint} />
+        ) : (
+          <List>
+            {shared.map((item, index) => (
+              <ListRow key={item.attestationId} first={index === 0}>
+                <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                  <Pill tone={item.status === "ACTIVE" ? "ok" : "muted"}>{c.status[item.status] ?? item.status}</Pill>
+                  <span style={{ flex: "1 1 160px", fontSize: 13, color: "var(--muted)" }}>
+                    {c.expires} {new Date(item.expiresAt).toLocaleDateString()}
+                  </span>
+                  {item.status === "ACTIVE" ? (
+                    <Button variant="danger" size="touch" disabled={busy} onClick={() => void revoke(item.attestationId)}>
+                      {c.revoke}
+                    </Button>
+                  ) : null}
+                </div>
+              </ListRow>
+            ))}
+          </List>
+        )}
+      </Panel>
+    </PageStack>
   );
 }

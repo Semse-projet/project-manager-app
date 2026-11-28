@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { Ban, Check, CheckSquare, Inbox, Play, Send } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { useLanguage } from "../../../../lib/language-context";
 import {
   fetchMyTaskAllocations,
@@ -8,6 +10,20 @@ import {
   updateTaskAllocationStatus,
   type TaskAllocationView
 } from "../../../semse-api";
+import {
+  Banner,
+  Button,
+  Empty,
+  PageHeader,
+  PageStack,
+  Panel,
+  Pill,
+  Stat,
+  StatGrid,
+  touchInputStyle,
+  type Notice,
+  type Tone
+} from "../../../../components/module-surface/ui";
 
 type NextStatus = "ACKNOWLEDGED" | "IN_PROGRESS" | "BLOCKED" | "SUBMITTED";
 
@@ -22,6 +38,11 @@ const COPY = {
     untitled: "Tarea sin título",
     actions: { ACKNOWLEDGED: "Enterado", IN_PROGRESS: "Empezar", BLOCKED: "Bloquear", SUBMITTED: "Enviar" } as Record<NextStatus, string>,
     resume: "Reanudar",
+    noneHint: "Cuando tu supervisor te asigne una tarea, aparecerá aquí.",
+    pending: "Por empezar",
+    active: "En curso",
+    blocked: "Bloqueadas",
+    blockNeedsNote: "Escribe el motivo antes de bloquear la tarea.",
     status: {
       ASSIGNED: "Asignada",
       ACKNOWLEDGED: "Enterado",
@@ -40,6 +61,11 @@ const COPY = {
     untitled: "Untitled task",
     actions: { ACKNOWLEDGED: "Got it", IN_PROGRESS: "Start", BLOCKED: "Block", SUBMITTED: "Submit" } as Record<NextStatus, string>,
     resume: "Resume",
+    noneHint: "When your supervisor assigns you a task, it will show up here.",
+    pending: "To start",
+    active: "In progress",
+    blocked: "Blocked",
+    blockNeedsNote: "Write the reason before blocking the task.",
     status: {
       ASSIGNED: "Assigned",
       ACKNOWLEDGED: "Acknowledged",
@@ -59,12 +85,21 @@ const NEXT: Record<string, NextStatus[]> = {
   SUBMITTED: []
 };
 
+const STATUS_TONE: Record<string, Tone> = { ASSIGNED: "brand", ACKNOWLEDGED: "signal", IN_PROGRESS: "warn", BLOCKED: "error", SUBMITTED: "ok" };
+
+const ACTION_STYLE: Record<NextStatus, { icon: LucideIcon; variant: "primary" | "secondary" | "danger" }> = {
+  ACKNOWLEDGED: { icon: Check, variant: "secondary" },
+  IN_PROGRESS: { icon: Play, variant: "primary" },
+  BLOCKED: { icon: Ban, variant: "danger" },
+  SUBMITTED: { icon: Send, variant: "primary" }
+};
+
 export default function MyAssignmentsPage() {
   const { language } = useLanguage();
   const c = COPY[language];
   const [items, setItems] = useState<TaskAllocationView[]>([]);
   const [notes, setNotes] = useState<Record<string, string>>({});
-  const [message, setMessage] = useState<string | null>(null);
+  const [notice, setNotice] = useState<Notice>(null);
   const [busy, setBusy] = useState(false);
 
   const describe = useCallback(
@@ -75,9 +110,9 @@ export default function MyAssignmentsPage() {
   const load = useCallback(async () => {
     try {
       setItems(await fetchMyTaskAllocations());
-      setMessage(null);
+      setNotice(null);
     } catch (error) {
-      setMessage(describe(error));
+      setNotice({ tone: "error", text: describe(error) });
     }
   }, [describe]);
 
@@ -88,7 +123,7 @@ export default function MyAssignmentsPage() {
   async function move(item: TaskAllocationView, next: NextStatus) {
     const note = (notes[item.allocationId] ?? "").trim();
     if (next === "BLOCKED" && !note) {
-      setMessage(c.note);
+      setNotice({ tone: "warn", text: c.blockNeedsNote });
       return;
     }
     setBusy(true);
@@ -97,50 +132,95 @@ export default function MyAssignmentsPage() {
       setNotes((current) => ({ ...current, [item.allocationId]: "" }));
       await load();
     } catch (error) {
-      setMessage(describe(error));
+      setNotice({ tone: "error", text: describe(error) });
     } finally {
       setBusy(false);
     }
   }
 
+  const count = (statuses: string[]) => items.filter((item) => statuses.includes(item.status)).length;
+
   return (
-    <main style={{ maxWidth: 640, margin: "0 auto", padding: 16, display: "grid", gap: 16 }}>
-      <h1>{c.title}</h1>
-      <p>{c.intro}</p>
-      {message ? <p role="status">{message}</p> : null}
+    <PageStack maxWidth={820}>
+      <PageHeader icon={CheckSquare} title={c.title} description={c.intro} />
+      {notice ? (
+        <Banner tone={notice.tone} onDismiss={() => setNotice(null)}>
+          {notice.text}
+        </Banner>
+      ) : null}
+      {items.length > 0 ? (
+        <StatGrid>
+          <Stat label={c.pending} value={count(["ASSIGNED", "ACKNOWLEDGED"])} tone="brand" />
+          <Stat label={c.active} value={count(["IN_PROGRESS"])} tone="warn" />
+          <Stat label={c.blocked} value={count(["BLOCKED"])} tone="error" />
+        </StatGrid>
+      ) : null}
       {items.length === 0 ? (
-        <p>{c.none}</p>
+        <Panel>
+          <Empty icon={Inbox} title={c.none} description={c.noneHint} />
+        </Panel>
       ) : (
-        <ul style={{ listStyle: "none", padding: 0, display: "grid", gap: 12 }}>
-          {items.map((item) => (
-            <li key={item.allocationId} style={{ display: "grid", gap: 6 }}>
-              <strong>{item.taskTitle ?? c.untitled}</strong>
-              {item.assignReason ? <span>{item.assignReason}</span> : null}
-              <span>{c.status[item.status] ?? item.status}</span>
-              {item.statusNote ? <span>{item.statusNote}</span> : null}
-              {(NEXT[item.status] ?? []).length > 0 ? (
-                <>
-                  <input
-                    aria-label={c.note}
-                    placeholder={c.note}
-                    maxLength={500}
-                    value={notes[item.allocationId] ?? ""}
-                    onChange={(event) => setNotes((current) => ({ ...current, [item.allocationId]: event.target.value }))}
-                    style={{ width: "100%", minHeight: 44 }}
-                  />
-                  <span style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    {(NEXT[item.status] ?? []).map((next) => (
-                      <button key={next} disabled={busy} style={{ minHeight: 44 }} onClick={() => void move(item, next)}>
-                        {item.status === "BLOCKED" && next === "IN_PROGRESS" ? c.resume : c.actions[next]}
-                      </button>
-                    ))}
-                  </span>
-                </>
-              ) : null}
-            </li>
-          ))}
-        </ul>
+        <div style={{ display: "grid", gap: 12 }}>
+          {items.map((item) => {
+            const nextSteps = NEXT[item.status] ?? [];
+            return (
+              <Panel key={item.allocationId}>
+                <div style={{ display: "grid", gap: 10 }}>
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: 10, flexWrap: "wrap" }}>
+                    <strong style={{ flex: "1 1 200px", fontSize: 15, color: "var(--ink)" }}>{item.taskTitle ?? c.untitled}</strong>
+                    <Pill tone={STATUS_TONE[item.status] ?? "muted"}>{c.status[item.status] ?? item.status}</Pill>
+                  </div>
+                  {item.assignReason ? (
+                    <div style={{ fontSize: 13, color: "var(--muted)" }}>
+                      <span style={{ fontWeight: 700 }}>{c.reason}:</span> {item.assignReason}
+                    </div>
+                  ) : null}
+                  {item.statusNote ? (
+                    <div
+                      style={{
+                        fontSize: 13,
+                        color: "var(--ink)",
+                        padding: "8px 12px",
+                        borderRadius: 10,
+                        background: "var(--raised)",
+                        border: "1px solid var(--border)"
+                      }}
+                    >
+                      {item.statusNote}
+                    </div>
+                  ) : null}
+                  {nextSteps.length > 0 ? (
+                    <>
+                      <input
+                        aria-label={c.note}
+                        placeholder={c.note}
+                        maxLength={500}
+                        value={notes[item.allocationId] ?? ""}
+                        onChange={(event) => setNotes((current) => ({ ...current, [item.allocationId]: event.target.value }))}
+                        style={touchInputStyle}
+                      />
+                      <div style={{ display: "grid", gap: 8, gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))" }}>
+                        {nextSteps.map((next) => (
+                          <Button
+                            key={next}
+                            variant={ACTION_STYLE[next].variant}
+                            icon={ACTION_STYLE[next].icon}
+                            size="touch"
+                            disabled={busy}
+                            onClick={() => void move(item, next)}
+                          >
+                            {item.status === "BLOCKED" && next === "IN_PROGRESS" ? c.resume : c.actions[next]}
+                          </Button>
+                        ))}
+                      </div>
+                    </>
+                  ) : null}
+                </div>
+              </Panel>
+            );
+          })}
+        </div>
       )}
-    </main>
+    </PageStack>
   );
 }
