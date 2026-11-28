@@ -3,7 +3,7 @@ id: "core.crew-supervisor-delegations"
 title: "Designaciones temporales y autoridad verificable de supervisores de cuadrilla"
 domain: "core"
 sdd_version: "2.0"
-version: "0.4"
+version: "0.5"
 status: "APPROVED"
 owner: "semse-core"
 risk: "high"
@@ -20,7 +20,7 @@ related_tests: []
 related_endpoints: []
 related_events: []
 related_agents: []
-last_verified: "2026-11-23"
+last_verified: "2026-11-27"
 ---
 
 # SDD 2.0 — Autoridad verificable de supervisores de cuadrilla
@@ -172,8 +172,8 @@ facultad automática de nombrar por el solo hecho de ser operador de SEMSE.
 **Fuente:** decisión del responsable del producto comunicada en la sesión de trabajo del 2026-11-23. Resuelve la parte **«horas»** de OPEN-SUP-04. Las partes «materiales» y «reasignación fuera de crew» **siguen abiertas**. Es una decisión documentada: **no** implementa permisos, no habilita nada en producción, no ejecuta pagos y no cambia `code_status: NOT_STARTED`.
 
 1. **Trabajador:** puede consultar sus registros y **proponer** correcciones a sus propias horas. Una propuesta **no cambia el registro oficial** hasta que la revise alguien con autoridad.
-2. **Supervisor (con delegación vigente):** puede **corregir y enviar** registros dentro de los trabajos o del alcance que tiene asignados. Cada cambio deja constancia de quién lo hizo y cuándo. **No** puede dar la aprobación final para pago por el mero hecho de ser supervisor.
-3. **Dueño de la empresa o del trabajo:** puede **aprobar** las horas de su ámbito para que avancen al proceso de pago. Aprobar horas **no ejecuta ni envía** un pago automáticamente.
+2. **Supervisor (con delegación vigente):** puede **corregir y enviar** registros dentro de los trabajos o del alcance que tiene asignados. Cada cambio deja constancia de quién lo hizo y cuándo. **No** da la aprobación final de horas.
+3. **Dueño designado de la empresa:** es el único que da la **aprobación final de las horas** de su organización (K3, K4). Esa aprobación **no** deja las horas listas para pago, no crea un estado de pago y no ejecuta ni envía pagos; el paso a pago lo define Payments (K6, A-06). El dueño del trabajo (cliente del Job) no aprueba horas. Nadie aprueba horas propias ni un caso que capturó o propuso (K5, D4-04).
 4. **Solo consulta:** permite ver registros dentro del alcance autorizado, sin proponer, editar ni aprobar.
 5. **Alcance:** cada usuario se limita a los registros y trabajos que le corresponden; una delegación de supervisor **no concede autoridad fuera de su alcance asignado**.
 
@@ -184,18 +184,18 @@ facultad automática de nombrar por el solo hecho de ser operador de SEMSE.
 | K1 | **Decidido** | El supervisor **no** cambia el `TimeEntry` oficial al enviar una corrección. Se **mantienen** la decisión de Plan 3 del 17-11 y C3-04: el supervisor verifica y recomienda; el responsable decide. La corrección enviada queda **pendiente de decisión**. No se enmiendan esas reglas ni se cambia el comportamiento del registro oficial sin una aprobación explícita posterior. |
 | K2 | **Decidido** | Ante una propuesta del trabajador, el supervisor puede **revisar y recomendar**; el **responsable decide**. El supervisor no tiene aprobación final por defecto. |
 | K5 | **Decidido** | Nadie revisa ni decide su propia corrección. Si un supervisor corrige sus propias horas, sólo puede presentar una **propuesta como trabajador**; otra persona autorizada la revisa y el responsable la decide. |
-| K3 | **Abierto** | `org:labor:manage` **no** equivale a ser dueño: hoy lo tienen miembros CLIENT u OPS_ADMIN. No se implementa autoridad de dueño ni aprobación de pago hasta definir la identidad del dueño, su alcance y los permisos correspondientes. |
-| K4 | **Abierto** | No hay decisión sobre cuándo decide el dueño de la empresa, cuándo el dueño del trabajo, ni si se requieren ambos. No se infiere una regla de aprobación única ni doble. C3-17 **no** resuelve quién aprueba las horas. |
-| K6 | **Abierto** | No existe un estado «aprobado para pago» y A-06 no está resuelto. No se agrega ese estado ni se convierte una corrección aceptada en autorización de pago. Payments debe definir primero la gobernanza y el contrato de transición. No se ejecutan ni envían pagos. |
+| K3 | **Decidido** (26-11-2026, 14:29 America/New_York, 19:29 UTC) | Cada empresa designa a una persona dueña; `org:labor:manage` no basta; OPS_ADMIN solo interviene con auditoría. Fuente canónica: grant de autoridad por empresa (D-01, 27-11). Sigue bloqueado técnicamente por OPEN-SUP-01 hasta que exista esa fuente. |
+| K4 | **Decidido** (26-11-2026, 14:46 America/New_York, 19:46 UTC) | Una sola firma, la del dueño designado de la empresa. El dueño del trabajo no aprueba. C3-17 **no** resuelve quién aprueba las horas. |
+| K6 | **Decidido** (26-11-2026, 14:50 America/New_York, 19:50 UTC) | No hay estado «aprobado para pago»; la aprobación de horas no es aprobación de pago; Payments define ese paso (A-06). No se ejecutan ni envían pagos. |
 
 **Quién es «el responsable»:** es el responsable del proyecto que designa el patrón o administrador (Plan 3, decisión del 17-11). Identificar al responsable real del piloto y verificar sus capacidades efectivas sigue pendiente («Aplicación pendiente» de esa decisión). Hoy, la decisión de correcciones BO-08 exige `org:labor:manage`, que es más amplio que «responsable» o «dueño» (K3).
 
-| Actor | Consultar | Proponer corrección | Corregir y enviar | Aprobación final para pago | Límite |
+| Actor | Consultar | Proponer corrección | Corregir y enviar | Aprobación final de horas | Límite |
 |---|---|---|---|---|---|
 | Trabajador | sus registros | sí, sólo sus horas; no cambia el registro oficial; el supervisor revisa y recomienda, el responsable decide (K2) | no | no | sus propios registros |
 | Supervisor con delegación vigente | dentro del alcance asignado | sólo sobre **sus propias** horas, como trabajador; no la revisa ni la decide él (K5) | sí, dentro del alcance asignado y **nunca sobre sus propias horas**, con autor e instante; queda **pendiente de decisión** y **no cambia** `TimeEntry` (K1) | **no** | la delegación no amplía el alcance |
 | Responsable designado (Plan 3, 17-11) | su proyecto | no fijado | no fijado | **decide** correcciones y propuestas, salvo las suyas (K5). Decidir **no** es aprobación para pago (K6) | identidad y capacidades efectivas pendientes de verificar (K3) |
-| Dueño de la empresa o del trabajo | su ámbito | no fijado por la decisión | no fijado por la decisión | **bloqueado:** no se implementa hasta resolver K3, K4 y K6; nunca ejecuta ni envía pago | su ámbito (definición pendiente, K4) |
+| Dueño designado de la empresa | su organización | no fijado por la decisión | no fijado por la decisión | **sí**, salvo horas propias o casos en que capturó o propuso (K5); **bloqueado técnicamente hasta OPEN-SUP-01**; nunca ejecuta ni envía pago | su organización |
 | Solo consulta | dentro del alcance autorizado | no | no | no | alcance autorizado |
 
 **Estados que no se confunden** (propuesta, corrección enviada y aprobación final siguen separados; la decisión del responsable es una etapa distinta de las tres):
@@ -205,9 +205,11 @@ facultad automática de nombrar por el solo hecho de ser operador de SEMSE.
 | **Propuesta** | trabajador, sobre sus horas | no cambia el registro oficial |
 | **Corrección enviada** | supervisor, dentro de su alcance y no sobre sus propias horas | queda registrada con autor e instante y **pendiente de decisión** del responsable; **no cambia** el `TimeEntry` oficial (K1) |
 | **Decisión del responsable** | responsable designado, distinto de quien propuso o corrigió (K5) | concluye la corrección o la propuesta; **no** equivale a aprobación para pago ni la crea (K6). Su efecto sobre `TimeEntry` sigue el flujo canónico de horas (BO-08), sin cambios en esta decisión |
-| **Aprobación final para pago** | dueño de la empresa o del trabajo, en su ámbito | **bloqueada:** no existe el estado ni la capability; depende de K3, K4 y K6 (A-06). Nunca ejecuta ni envía pagos |
+| **Aprobación final de horas** | solo el dueño designado de la empresa | no es aprobación de pago ni la crea (K6); **bloqueada técnicamente hasta OPEN-SUP-01**. Nunca ejecuta ni envía pagos |
 
-**Permisos candidatos (nombres pendientes del catálogo; ninguno existe en el código):** `crew:time:read` (consulta de horas del alcance), `crew:time:correct` (enviar una corrección **pendiente de decisión** dentro del alcance; no escribe `TimeEntry`, K1). La propuesta del trabajador reutilizaría el flujo de solicitud propia de BO-08. **No** se define ninguna capability de aprobación para pago mientras K3, K4 y K6 sigan abiertos. El nombre definitivo se aprueba con el catálogo de §2 («Catálogo final pendiente de aprobación»).
+**Aprobador único y conflicto de interés:** no hay autoaprobación ni intervención de OPS_ADMIN para resolverlo. Decisiones de producto del 26–27-11-2026 (spec `labor.weekly-reconciliation` §10.17.16): las horas del dueño que también trabaja quedan «sin aprobación de terceros» (D-03); en una empresa unipersonal, el titular firma una declaración, nunca una aprobación, y si el trabajo se cobra por horas el cliente puede confirmar las de ese trabajo (D-04); una corrección que propuso o capturó el dueño solo se aplica si el trabajador la acepta (D-09). Estas decisiones no crean capabilities ni estados por sí mismas.
+
+**Permisos candidatos (nombres pendientes del catálogo; ninguno existe en el código):** `crew:time:read` (consulta de horas del alcance), `crew:time:correct` (enviar una corrección **pendiente de decisión** dentro del alcance; no escribe `TimeEntry`, K1). La propuesta del trabajador reutilizaría el flujo de solicitud propia de BO-08. **No** se define ninguna capability de aprobación para pago (K6). La capability de aprobación final de horas espera al catálogo y a OPEN-SUP-01. El nombre definitivo se aprueba con el catálogo de §2 («Catálogo final pendiente de aprobación»).
 
 **Coherencia con esta spec:** coincide con «Fuera de alcance: aprobar nómina» (§2), con el actor «WORKER con delegación ACTIVE — solo crew/obra designada» (§3) y con «nadie aprueba su propio trabajo» (§3, P4). **Sustituye**, para horas, la propuesta no ratificada del reporte `2026-10-22_p02-p06-supervisor-decision-proposals.md` («Corregir/aprobar horas ajenas: solicitud, no aprobación implícita»).
 
@@ -424,7 +426,7 @@ forbidden_behavior:
 - [ ] **OPEN-SUP-04 (horas):** responsable decide una corrección o una propuesta ajena → registro de la decisión; **no** crea aprobación para pago (K6). Responsable sobre su propia corrección → denegado (K5).
 - [ ] **OPEN-SUP-04 (horas):** supervisor sobre sus propias horas → sólo propuesta como trabajador; corregir y enviar, revisar o decidir la suya → denegado (K5).
 - [ ] **OPEN-SUP-04 (horas):** solo consulta → lectura permitida en el alcance; proponer, editar o aprobar → denegado.
-- [ ] **OPEN-SUP-04 (horas):** aprobación final para pago por el dueño → **sin prueba definible** hasta resolver K3, K4 y K6; ningún camino ejecuta ni envía pagos.
+- [ ] **OPEN-SUP-04 (horas):** aprobación final de horas solo por el dueño designado de la empresa (K3, K4); cualquier otro actor → denegado; tras aprobar no se crea estado ni evento de pago (K6). Bloqueada hasta que exista la fuente de dueño (OPEN-SUP-01).
 
 ## 10. Mapa de implementación, si se aprueba
 
@@ -481,11 +483,10 @@ forbidden_behavior:
   nadie decide lo suyo; la corrección enviada no cambia `TimeEntry`). **K3, K4 y K6 siguen abiertos**
   (identidad y alcance del dueño, regla de aprobación, aprobación para pago y A-06). OPEN-SUP-04 sigue
   **parcialmente resuelto**.
-- **EF-SUP-01 — incorporación formal de §3.1 (pendiente de aprobación):** §3.1 se añadió en v0.3–v0.4,
-  después de la aprobación del 2026-11-20. Las reglas son decisiones del propietario, pero el registro de
-  aprobación de abajo sigue describiendo OPEN-SUP-04 como abierto. **Propuesta:** que el propietario
-  ratifique la incorporación de §3.1 a este contrato `APPROVED`. Mientras tanto, §3.1 consta como decisión
-  registrada y **no** como enmienda aprobada del contrato.
+- **EF-SUP-01 — incorporación formal de §3.1 (aprobada el 2026-11-27, ver «Aprobación de v0.3–v0.5»):** §3.1 se añadió en v0.3–v0.4,
+  después de la aprobación del 2026-11-20. v0.5 la alinea con K3, K4 y K6. El propietario aprobó la
+  incorporación de §3.1 y las versiones v0.3–v0.5 el 27-11-2026 (registro abajo), así que §3.1 es parte
+  aprobada de este contrato. Esa aprobación no autoriza merge, código ni activación.
 - **OPEN-SUP-05 — seguridad:** definir responsables y límites para
   revisar/cerrar incidentes; detener una situación peligrosa no depende
   de una autorización informática previa.
@@ -529,3 +530,8 @@ subtarea técnica). Son gates de implementación: no se escribe código de desig
 (`code_status: NOT_STARTED`). Nada de esto autoriza modelos, migraciones, endpoints, flags ni producción. Las
 decisiones S0b D-S0B-01…05 quedaron ratificadas en `core.task-allocations` (BO-10).
 
+## Aprobación de v0.3–v0.5 (propietario, 2026-11-27)
+
+El propietario aprueba el contenido añadido en v0.3–v0.5: §3.1 (autoridad sobre horas, OPEN-SUP-04 parte «horas»), las respuestas K1–K6 y la enmienda v0.5 que limita la aprobación final de horas al dueño designado de la empresa y la separa de la aprobación de pago. Aprobación dada por mensaje del propietario en la sesión de trabajo, 27-11-2026, 12:47 America/New_York (17:47 UTC).
+
+Alcance: aprueba el texto como contrato de dirección. **No** autoriza fusionar, ni código, modelos, migraciones, capabilities, endpoints, flags ni producción. Siguen abiertas OPEN-SUP-01 (fuente canónica del dueño) y OPEN-SUP-02…06; `code_status` sigue `NOT_STARTED`.
