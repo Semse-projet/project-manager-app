@@ -170,8 +170,9 @@ export default function TeamInvitationsPage() {
                   <span style={{ flex: "1 1 200px", fontSize: 14, fontWeight: 600, color: "var(--ink)" }}>{row.recipientMasked}</span>
                   <Pill tone={STATUS_TONE[row.status] ?? "muted"}>{c.status[row.status] ?? row.status}</Pill>
                   {row.status === "PENDING" ? (
-                    <div style={{ display: "flex", gap: 8 }}>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                       <Button
+                        size="touch"
                         icon={RotateCw}
                         disabled={busy}
                         onClick={() =>
@@ -185,6 +186,7 @@ export default function TeamInvitationsPage() {
                       </Button>
                       <Button
                         variant="danger"
+                        size="touch"
                         icon={X}
                         disabled={busy}
                         onClick={() => void run(async () => void (await cancelOrgInvitation(orgId as string, row.invitationId)))}

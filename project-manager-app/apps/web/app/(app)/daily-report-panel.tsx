@@ -292,13 +292,14 @@ export function DailyReportPanel({ mode }: { mode: "supervisor" | "manager" }) {
                   {selected.snapshot.tasksCompleted.length === 0 ? (
                     <span style={{ fontSize: 13, color: "var(--faint)" }}>—</span>
                   ) : (
-                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 6 }}>
                       {selected.snapshot.tasksCompleted.map((task) => (
-                        <Pill key={task.taskId} tone="ok" icon={Check}>
+                        <li key={task.taskId} style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 13, color: "var(--ink)", overflowWrap: "anywhere" }}>
+                          <Check size={14} style={{ color: "var(--ok)", flexShrink: 0, marginTop: 2 }} aria-hidden />
                           {task.title}
-                        </Pill>
+                        </li>
                       ))}
-                    </div>
+                    </ul>
                   )}
                 </section>
 

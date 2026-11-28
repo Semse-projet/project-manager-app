@@ -25,8 +25,6 @@ import {
   PageStack,
   Panel,
   Pill,
-  Stat,
-  StatGrid,
   shortId,
   touchInputStyle,
   type Notice,
@@ -53,8 +51,6 @@ const COPY = {
     newOffer: "Nueva oferta",
     sent: "Ofertas enviadas",
     pickPerson: "Elige una persona",
-    statSent: "Esperando respuesta",
-    statAccepted: "Por confirmar",
     noneHint: "Las ofertas que envíes aparecerán aquí con su estado.",
     legalHint: "Necesario para confirmar un engagement aceptado.",
     status: { SENT: "Enviada", ACCEPTED: "Aceptada", DECLINED: "Rechazada", EXPIRED: "Vencida", REVOKED: "Revocada" } as Record<string, string>
@@ -76,8 +72,6 @@ const COPY = {
     newOffer: "New offer",
     sent: "Sent offers",
     pickPerson: "Pick a person",
-    statSent: "Awaiting answer",
-    statAccepted: "To confirm",
     noneHint: "The offers you send show up here with their status.",
     legalHint: "Required to confirm an accepted engagement.",
     status: { SENT: "Sent", ACCEPTED: "Accepted", DECLINED: "Declined", EXPIRED: "Expired", REVOKED: "Revoked" } as Record<string, string>
@@ -158,10 +152,6 @@ export default function OffersManagerPage() {
           {notice.text}
         </Banner>
       ) : null}
-      <StatGrid>
-        <Stat label={c.statSent} value={offers.filter((offer) => offer.status === "SENT").length} tone="warn" />
-        <Stat label={c.statAccepted} value={offers.filter((offer) => offer.status === "ACCEPTED").length} tone="brand" />
-      </StatGrid>
       <Panel title={c.newOffer} icon={Send}>
         <form
           onSubmit={(event) => {
@@ -228,6 +218,7 @@ export default function OffersManagerPage() {
                     {offer.status === "SENT" ? (
                       <Button
                         variant="danger"
+                        size="touch"
                         icon={XCircle}
                         disabled={busy}
                         onClick={() => void run(async () => void (await revokeOrgOffer(orgId as string, offer.offerId)))}
@@ -238,6 +229,7 @@ export default function OffersManagerPage() {
                     {offer.status === "ACCEPTED" ? (
                       <Button
                         variant="primary"
+                        size="touch"
                         icon={BadgeCheck}
                         disabled={busy || !legalOk}
                         onClick={() => void run(async () => void (await confirmOrgOffer(orgId as string, offer.offerId)))}

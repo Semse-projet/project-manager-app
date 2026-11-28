@@ -40,7 +40,7 @@ const COPY = {
     resume: "Reanudar",
     noneHint: "Cuando tu supervisor te asigne una tarea, aparecerá aquí.",
     pending: "Por empezar",
-    active: "En curso",
+    active: "Activas",
     blocked: "Bloqueadas",
     blockNeedsNote: "Escribe el motivo antes de bloquear la tarea.",
     status: {
@@ -63,7 +63,7 @@ const COPY = {
     resume: "Resume",
     noneHint: "When your supervisor assigns you a task, it will show up here.",
     pending: "To start",
-    active: "In progress",
+    active: "Active",
     blocked: "Blocked",
     blockNeedsNote: "Write the reason before blocking the task.",
     status: {

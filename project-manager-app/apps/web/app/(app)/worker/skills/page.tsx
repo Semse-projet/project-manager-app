@@ -158,7 +158,8 @@ export default function MySkillsPage() {
 
   const trades = skills?.trades ?? [];
   const totalTasks = trades.reduce((sum, trade) => sum + trade.confirmedCount, 0);
-  const activeShared = shared.filter((item) => item.status === "ACTIVE").length;
+  const isLive = (item: SkillAttestationListItem) => item.status === "ACTIVE" && new Date(item.expiresAt).getTime() > Date.now();
+  const activeShared = shared.filter(isLive).length;
 
   return (
     <PageStack maxWidth={820}>
@@ -231,7 +232,7 @@ export default function MySkillsPage() {
             {shared.map((item, index) => (
               <ListRow key={item.attestationId} first={index === 0}>
                 <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-                  <Pill tone={item.status === "ACTIVE" ? "ok" : "muted"}>{c.status[item.status] ?? item.status}</Pill>
+                  <Pill tone={isLive(item) ? "ok" : "muted"}>{c.status[item.status] ?? item.status}</Pill>
                   <span style={{ flex: "1 1 160px", fontSize: 13, color: "var(--muted)" }}>
                     {c.expires} {new Date(item.expiresAt).toLocaleDateString()}
                   </span>

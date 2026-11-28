@@ -338,7 +338,7 @@ export default function MyCrewPage() {
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                     {members.map((userId) => (
                       <CheckChip key={userId} checked={picked.includes(userId)} onChange={() => toggle(userId)}>
-                        <span title={userId}>{shortId(userId, 12)}</span>
+                        <span style={{ overflowWrap: "anywhere" }}>{userId}</span>
                       </CheckChip>
                     ))}
                   </div>
